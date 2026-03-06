@@ -1,6 +1,8 @@
 {{define "device.html"}}
 {{template "header" .}}
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
 <div class="page-header">
   <div>
     <a href="/" class="back-link">← All Devices</a>
@@ -31,6 +33,95 @@
     <div class="stat-sub">{{formatTime .Device.CreatedAt}}</div>
   </div>
 </div>
+
+{{if .Checkins}}
+<div class="card chart-card">
+  <div class="card-header">
+    <h3>Battery History</h3>
+    <span class="muted small">Last {{len .Checkins}} checkins</span>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="batteryChart"></canvas>
+  </div>
+</div>
+
+<script>
+(function () {
+  const labels  = [{{range reverseCheckins .Checkins}}"{{shortTime .CreatedAt}}",{{end}}];
+  const values  = [{{range reverseCheckins .Checkins}}{{.BatteryPct}},{{end}}];
+
+  const ctx = document.getElementById("batteryChart").getContext("2d");
+
+  new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label: "Battery %",
+        data: values,
+        tension: 0.3,
+        fill: true,
+        pointRadius: values.length > 60 ? 0 : 3,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+        segment: {
+          borderColor: ctx => segColor(ctx.p1.parsed.y),
+        },
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart;
+          const {ctx: c, chartArea} = chart;
+          if (!chartArea) return "transparent";
+          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0,   "rgba(52,199,123,0.18)");
+          gradient.addColorStop(0.5, "rgba(240,168,50,0.10)");
+          gradient.addColorStop(1,   "rgba(240,82,82,0.05)");
+          return gradient;
+        },
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: item => ` Battery: ${item.parsed.y}%`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: "#7a7f9a",
+            maxTicksLimit: 12,
+            maxRotation: 0,
+          },
+          grid: { color: "rgba(46,51,71,0.8)" },
+        },
+        y: {
+          min: 0,
+          max: 100,
+          ticks: {
+            color: "#7a7f9a",
+            callback: v => v + "%",
+            stepSize: 20,
+          },
+          grid: { color: "rgba(46,51,71,0.8)" },
+        },
+      },
+    },
+  });
+
+  function segColor(v) {
+    if (v < 20) return "#f05252";
+    if (v < 50) return "#f0a832";
+    return "#34c77b";
+  }
+})();
+</script>
+{{end}}
 
 <div class="card">
   <div class="card-header">

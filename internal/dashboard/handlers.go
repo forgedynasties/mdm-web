@@ -57,6 +57,17 @@ func NewHandler(d *db.DB, sessionSecret, user, password string) *Handler {
 		"batteryWidth": func(pct int) string {
 			return fmt.Sprintf("%d%%", pct)
 		},
+		"shortTime": func(t time.Time) string {
+			return t.UTC().Format("01/02 15:04")
+		},
+		"reverseCheckins": func(checkins []db.Checkin) []db.Checkin {
+			n := len(checkins)
+			out := make([]db.Checkin, n)
+			for i, c := range checkins {
+				out[n-1-i] = c
+			}
+			return out
+		},
 	}
 
 	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob("templates/*.html"))
