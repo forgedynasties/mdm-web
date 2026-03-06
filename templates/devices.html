@@ -29,11 +29,57 @@
       {{end}}
     {{else}}
       <tr>
-        <td colspan="6" class="empty">No devices have checked in yet.</td>
+        <td colspan="6" class="empty">
+          {{if .Query}}No devices match "{{.Query}}".{{else}}No devices have checked in yet.{{end}}
+        </td>
       </tr>
     {{end}}
   </tbody>
 </table>
+
+{{if gt .TotalPages 1}}
+<div class="pagination">
+  {{if gt .Page 1}}
+    <a class="page-btn"
+       hx-get="/?page={{sub .Page 1}}&q={{.Query}}"
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-push-url="true">← Prev</a>
+  {{else}}
+    <span class="page-btn disabled">← Prev</span>
+  {{end}}
+
+  <div class="page-numbers">
+    {{range iter 1 .TotalPages}}
+      {{if eq . $.Page}}
+        <span class="page-num active">{{.}}</span>
+      {{else}}
+        <a class="page-num"
+           hx-get="/?page={{.}}&q={{$.Query}}"
+           hx-target="#device-table-container"
+           hx-swap="innerHTML"
+           hx-push-url="true">{{.}}</a>
+      {{end}}
+    {{end}}
+  </div>
+
+  {{if lt .Page .TotalPages}}
+    <a class="page-btn"
+       hx-get="/?page={{add .Page 1}}&q={{.Query}}"
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-push-url="true">Next →</a>
+  {{else}}
+    <span class="page-btn disabled">Next →</span>
+  {{end}}
+</div>
+{{end}}
+
+<div class="table-footer">
+  Showing {{len .Devices}} of {{.Total}} device{{if ne .Total 1}}s{{end}}
+  {{if .Query}}matching "{{.Query}}"{{end}}
+  — page {{.Page}} of {{.TotalPages}}
+</div>
 {{end}}
 
 
@@ -43,14 +89,30 @@
 <div class="page-header">
   <div>
     <h2 class="page-title">Devices</h2>
-    <p class="page-subtitle">{{.Count}} device{{if ne .Count 1}}s{{end}} registered</p>
+    <p class="page-subtitle">{{.Total}} device{{if ne .Total 1}}s{{end}} registered</p>
   </div>
   <span class="refresh-badge" id="refresh-indicator">Auto-refresh every 60s</span>
 </div>
 
+<div class="search-bar">
+  <input
+    type="search"
+    name="q"
+    value="{{.Query}}"
+    placeholder="Search by serial number or build ID…"
+    hx-get="/"
+    hx-trigger="keyup changed delay:350ms, search"
+    hx-target="#device-table-container"
+    hx-swap="innerHTML"
+    hx-push-url="true"
+    hx-indicator="#refresh-indicator"
+    class="search-input"
+  >
+</div>
+
 <div class="card"
      id="device-table-container"
-     hx-get="/"
+     hx-get="/?page={{.Page}}&q={{.Query}}"
      hx-trigger="every 60s"
      hx-target="#device-table-container"
      hx-swap="innerHTML"

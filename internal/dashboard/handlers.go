@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/sessions"
@@ -65,6 +66,15 @@ func NewHandler(d *db.DB, sessionSecret, user, password string) *Handler {
 			out := make([]db.Checkin, n)
 			for i, c := range checkins {
 				out[n-1-i] = c
+			}
+			return out
+		},
+		"add":  func(a, b int) int { return a + b },
+		"sub":  func(a, b int) int { return a - b },
+		"iter": func(start, end int) []int {
+			var out []int
+			for i := start; i <= end; i++ {
+				out = append(out, i)
 			}
 			return out
 		},
@@ -135,25 +145,46 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
+const pageSize = 25
+
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
-	devices, err := h.db.ListDevices(r.Context())
+	q    := r.URL.Query().Get("q")
+	page := 1
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
+		page = p
+	}
+	offset := (page - 1) * pageSize
+
+	devices, err := h.db.ListDevices(r.Context(), q, offset, pageSize)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	total, err := h.db.CountDevices(r.Context(), q)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 
-	data := map[string]any{
-		"Title":   "Devices",
-		"Devices": devices,
-		"Count":   len(devices),
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
 	}
 
-	// HTMX partial refresh — return only the table body
+	data := map[string]any{
+		"Title":      "Devices",
+		"Devices":    devices,
+		"Total":      total,
+		"Page":       page,
+		"TotalPages": totalPages,
+		"Query":      q,
+		"PageSize":   pageSize,
+	}
+
 	if r.Header.Get("HX-Request") == "true" {
 		h.tmpl.ExecuteTemplate(w, "device-table", data)
 		return
 	}
-
 	h.tmpl.ExecuteTemplate(w, "devices.html", data)
 }
 

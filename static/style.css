@@ -330,6 +330,78 @@ a:hover { color: var(--accent-h); }
   color: var(--danger);
 }
 
+/* ── Search ──────────────────────────────────────── */
+.search-bar {
+  margin-bottom: 14px;
+}
+
+.search-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  padding: 10px 14px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--muted); }
+
+/* ── Pagination ──────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.page-numbers {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.page-btn,
+.page-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  color: var(--text);
+  background: transparent;
+  transition: border-color 0.15s, background 0.15s;
+  text-decoration: none;
+}
+.page-btn:hover,
+.page-num:hover   { border-color: var(--accent); color: var(--accent-h); }
+.page-num.active  { background: var(--accent); border-color: var(--accent); color: #fff; }
+.page-btn.disabled,
+.page-btn.disabled:hover {
+  color: var(--muted);
+  cursor: default;
+  border-color: var(--border);
+}
+
+.table-footer {
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  text-align: right;
+}
+
 /* ── Chart ───────────────────────────────────────── */
 .chart-card { margin-bottom: 20px; }
 

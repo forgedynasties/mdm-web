@@ -45,7 +45,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListDevices(w http.ResponseWriter, r *http.Request) {
-	devices, err := h.db.ListDevices(r.Context())
+	devices, err := h.db.ListDevices(r.Context(), "", 0, 10000)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return

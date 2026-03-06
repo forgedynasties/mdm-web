@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -88,8 +89,8 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	return tx.Commit(ctx)
 }
 
-func (d *DB) ListDevices(ctx context.Context) ([]Device, error) {
-	rows, err := d.pool.Query(ctx, `
+func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int) ([]Device, error) {
+	const base = `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
 			COALESCE(c.battery_pct, 0) AS battery_pct
@@ -99,9 +100,20 @@ func (d *DB) ListDevices(ctx context.Context) ([]Device, error) {
 			WHERE device_id = d.id
 			ORDER BY created_at DESC
 			LIMIT 1
-		) c ON true
+		) c ON true`
+
+	var rows pgx.Rows
+	var err error
+	if search != "" {
+		rows, err = d.pool.Query(ctx, base+`
+		WHERE d.serial_number ILIKE $1 OR d.build_id ILIKE $1
 		ORDER BY d.last_seen_at DESC
-	`)
+		LIMIT $2 OFFSET $3`, "%"+search+"%", limit, offset)
+	} else {
+		rows, err = d.pool.Query(ctx, base+`
+		ORDER BY d.last_seen_at DESC
+		LIMIT $1 OFFSET $2`, limit, offset)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -116,6 +128,19 @@ func (d *DB) ListDevices(ctx context.Context) ([]Device, error) {
 		devices = append(devices, dev)
 	}
 	return devices, rows.Err()
+}
+
+func (d *DB) CountDevices(ctx context.Context, search string) (int, error) {
+	var count int
+	if search != "" {
+		err := d.pool.QueryRow(ctx, `
+			SELECT COUNT(*) FROM devices
+			WHERE serial_number ILIKE $1 OR build_id ILIKE $1`,
+			"%"+search+"%").Scan(&count)
+		return count, err
+	}
+	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM devices`).Scan(&count)
+	return count, err
 }
 
 func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
