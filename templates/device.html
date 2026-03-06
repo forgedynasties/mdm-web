@@ -1,0 +1,74 @@
+{{define "device.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <a href="/" class="back-link">← All Devices</a>
+    <h2 class="page-title mono">{{.Device.SerialNumber}}</h2>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Battery</div>
+    <div class="stat-value {{batteryClass .Device.BatteryPct}}">{{.Device.BatteryPct}}%</div>
+    <div class="battery-wrap large">
+      <div class="battery-bar {{batteryClass .Device.BatteryPct}}" style="width:{{batteryWidth .Device.BatteryPct}}"></div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Build ID</div>
+    <div class="stat-value mono small">{{.Device.BuildID}}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Last Seen</div>
+    <div class="stat-value">{{timeSince .Device.LastSeenAt}}</div>
+    <div class="stat-sub">{{formatTime .Device.LastSeenAt}}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">First Seen</div>
+    <div class="stat-value">{{timeSince .Device.CreatedAt}}</div>
+    <div class="stat-sub">{{formatTime .Device.CreatedAt}}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Checkin History</h3>
+    <span class="muted small">Last {{len .Checkins}} entries</span>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Battery</th>
+        <th>Build ID</th>
+        <th>Extra Data</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Checkins}}
+        {{range .Checkins}}
+        <tr>
+          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td>
+            <div class="battery-wrap">
+              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+              <span class="battery-label">{{.BatteryPct}}%</span>
+            </div>
+          </td>
+          <td class="mono small">{{.BuildID}}</td>
+          <td class="mono small muted extra-cell">{{.Extra}}</td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="4" class="empty">No checkins recorded.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+{{template "footer" .}}
+{{end}}

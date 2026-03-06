@@ -1,0 +1,33 @@
+{{define "login.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — MDM</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-body">
+  <div class="login-card">
+    <h1 class="login-title">MDM Dashboard</h1>
+    <p class="login-subtitle">Sign in to continue</p>
+
+    {{if .Error}}
+    <div class="alert alert-error">{{.Error}}</div>
+    {{end}}
+
+    <form action="/login" method="POST" class="login-form">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" name="username" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-primary">Sign In</button>
+    </form>
+  </div>
+</body>
+</html>
+{{end}}

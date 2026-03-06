@@ -1,0 +1,117 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"time"
+
+	"mdm/internal/api"
+	"mdm/internal/dashboard"
+	"mdm/internal/db"
+	"mdm/internal/middleware"
+)
+
+func main() {
+	ctx := context.Background()
+
+	port          := getEnv("PORT", "8080")
+	dbHost        := getEnv("DB_HOST", "localhost")
+	dbPort        := getEnv("DB_PORT", "5432")
+	dbUser        := getEnv("DB_USER", "mdm")
+	dbPass        := getEnv("DB_PASSWORD", "mdm")
+	dbName        := getEnv("DB_NAME", "mdm")
+	apiKey        := mustEnv("DEVICE_API_KEY")
+	dashUser      := getEnv("DASHBOARD_USER", "admin")
+	dashPass      := mustEnv("DASHBOARD_PASSWORD")
+	sessionSecret := getEnv("SESSION_SECRET", apiKey)
+
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		dbHost, dbPort, dbUser, dbPass, dbName)
+
+	var database *db.DB
+	var lastErr error
+	for i := 0; i < 10; i++ {
+		var newErr error
+		database, newErr = db.New(ctx, connStr)
+		if newErr != nil {
+			lastErr = newErr
+			log.Printf("DB not ready (attempt %d/10): %v — retrying in 2s...", i+1, newErr)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		if pingErr := database.Ping(ctx); pingErr != nil {
+			lastErr = pingErr
+			log.Printf("DB not ready (attempt %d/10): %v — retrying in 2s...", i+1, pingErr)
+			time.Sleep(2 * time.Second)
+			continue
+		}
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		log.Fatalf("failed to connect to database: %v", lastErr)
+	}
+	defer database.Close()
+	log.Println("Connected to database")
+
+	if err := database.RunMigrations(ctx); err != nil {
+		log.Fatalf("migration failed: %v", err)
+	}
+	log.Println("Migrations applied")
+
+	mux := http.NewServeMux()
+
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := database.Ping(r.Context()); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte(`{"status":"error","db":"unreachable"}`))
+			return
+		}
+		w.Write([]byte(`{"status":"ok","db":"ok"}`))
+	})
+
+	apiHandler := api.NewHandler(database)
+	mux.Handle("POST /api/v1/checkin",
+		middleware.APIKeyAuth(apiKey, http.HandlerFunc(apiHandler.Checkin)))
+	mux.Handle("GET /api/v1/devices",
+		middleware.APIKeyAuth(apiKey, http.HandlerFunc(apiHandler.ListDevices)))
+	mux.Handle("GET /api/v1/devices/{serial}",
+		middleware.APIKeyAuth(apiKey, http.HandlerFunc(apiHandler.GetDevice)))
+
+	dash := dashboard.NewHandler(database, sessionSecret, dashUser, dashPass)
+	dash.RegisterRoutes(mux)
+
+	server := &http.Server{
+		Addr:         ":" + port,
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	log.Printf("Server listening on :%s", port)
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("server error: %v", err)
+	}
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
+}
+
+func mustEnv(key string) string {
+	v := os.Getenv(key)
+	if v == "" {
+		log.Fatalf("required environment variable %s is not set", key)
+	}
+	return v
+}

@@ -1,0 +1,20 @@
+package middleware
+
+import (
+	"crypto/subtle"
+	"net/http"
+)
+
+func APIKeyAuth(apiKey string, next http.Handler) http.Handler {
+	key := []byte(apiKey)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		provided := []byte(r.Header.Get("X-API-Key"))
+		if subtle.ConstantTimeCompare(provided, key) != 1 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"error":"invalid api key"}`))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}

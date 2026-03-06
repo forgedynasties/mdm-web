@@ -1,0 +1,25 @@
+{{define "header"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}} — MDM</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://unpkg.com/htmx.org@2.0.4" crossorigin="anonymous"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <a href="/" class="navbar-brand">MDM Dashboard</a>
+    <form action="/logout" method="POST">
+      <button type="submit" class="btn-logout">Logout</button>
+    </form>
+  </nav>
+  <main class="container">
+{{end}}
+
+{{define "footer"}}
+  </main>
+</body>
+</html>
+{{end}}

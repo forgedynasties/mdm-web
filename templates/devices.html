@@ -1,0 +1,62 @@
+{{define "device-table"}}
+<table class="table">
+  <thead>
+    <tr>
+      <th>Serial Number</th>
+      <th>Build ID</th>
+      <th>Battery</th>
+      <th>Last Seen</th>
+      <th>First Seen</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {{if .Devices}}
+      {{range .Devices}}
+      <tr>
+        <td class="mono">{{.SerialNumber}}</td>
+        <td class="mono small">{{.BuildID}}</td>
+        <td>
+          <div class="battery-wrap">
+            <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+            <span class="battery-label">{{.BatteryPct}}%</span>
+          </div>
+        </td>
+        <td class="muted">{{timeSince .LastSeenAt}}</td>
+        <td class="muted small">{{formatTime .CreatedAt}}</td>
+        <td><a href="/devices/{{.SerialNumber}}" class="link-detail">View</a></td>
+      </tr>
+      {{end}}
+    {{else}}
+      <tr>
+        <td colspan="6" class="empty">No devices have checked in yet.</td>
+      </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
+
+
+{{define "devices.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title">Devices</h2>
+    <p class="page-subtitle">{{.Count}} device{{if ne .Count 1}}s{{end}} registered</p>
+  </div>
+  <span class="refresh-badge" id="refresh-indicator">Auto-refresh every 60s</span>
+</div>
+
+<div class="card"
+     id="device-table-container"
+     hx-get="/"
+     hx-trigger="every 60s"
+     hx-target="#device-table-container"
+     hx-swap="innerHTML"
+     hx-indicator="#refresh-indicator">
+  {{template "device-table" .}}
+</div>
+
+{{template "footer" .}}
+{{end}}
