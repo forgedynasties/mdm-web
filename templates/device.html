@@ -81,7 +81,7 @@
     },
     options: {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { display: false },
@@ -95,10 +95,12 @@
         x: {
           ticks: {
             color: "#7a7f9a",
-            maxTicksLimit: 12,
+            maxTicksLimit: 6,
             maxRotation: 0,
+            minRotation: 0,
+            autoSkip: true,
           },
-          grid: { color: "rgba(46,51,71,0.8)" },
+          grid: { display: false },
         },
         y: {
           min: 0,

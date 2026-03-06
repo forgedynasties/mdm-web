@@ -94,6 +94,31 @@
   <span class="refresh-badge" id="refresh-indicator">Auto-refresh every 60s</span>
 </div>
 
+{{with .Summary}}
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="summary-value">{{.Total}}</div>
+    <div class="summary-label">Total Devices</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-value ok">{{.RecentlyActive}}</div>
+    <div class="summary-label">Active (last 3 min)</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-value {{if gt .LowBattery 0}}danger{{end}}">{{.LowBattery}}</div>
+    <div class="summary-label">Low Battery (&lt;20%)</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-value {{batteryClass .AvgBattery}}">{{.AvgBattery}}%</div>
+    <div class="summary-label">Avg Battery</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-value">{{.UniqueBuilds}}</div>
+    <div class="summary-label">Unique Builds</div>
+  </div>
+</div>
+{{end}}
+
 <div class="search-bar">
   <input
     type="search"

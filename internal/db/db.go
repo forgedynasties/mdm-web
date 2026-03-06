@@ -20,6 +20,14 @@ type Device struct {
 	CreatedAt    time.Time `json:"created_at"`
 }
 
+type Summary struct {
+	Total        int
+	RecentlyActive int // checked in within last 3 minutes
+	LowBattery   int  // battery < 20%
+	AvgBattery   int
+	UniqueBuilds int
+}
+
 type Checkin struct {
 	ID         uuid.UUID       `json:"id"`
 	DeviceID   uuid.UUID       `json:"device_id"`
@@ -87,6 +95,27 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	}
 
 	return tx.Commit(ctx)
+}
+
+func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
+	var s Summary
+	err := d.pool.QueryRow(ctx, `
+		WITH latest AS (
+			SELECT DISTINCT ON (device_id)
+				device_id, battery_pct
+			FROM checkins
+			ORDER BY device_id, created_at DESC
+		)
+		SELECT
+			COUNT(d.id),
+			COUNT(*) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes'),
+			COUNT(*) FILTER (WHERE l.battery_pct < 20),
+			COALESCE(ROUND(AVG(l.battery_pct)), 0),
+			COUNT(DISTINCT d.build_id)
+		FROM devices d
+		LEFT JOIN latest l ON l.device_id = d.id
+	`).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.AvgBattery, &s.UniqueBuilds)
+	return s, err
 }
 
 func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int) ([]Device, error) {

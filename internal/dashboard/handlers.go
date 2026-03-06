@@ -59,7 +59,7 @@ func NewHandler(d *db.DB, sessionSecret, user, password string) *Handler {
 			return fmt.Sprintf("%d%%", pct)
 		},
 		"shortTime": func(t time.Time) string {
-			return t.UTC().Format("01/02 15:04")
+			return t.UTC().Format("15:04")
 		},
 		"reverseCheckins": func(checkins []db.Checkin) []db.Checkin {
 			n := len(checkins)
@@ -165,6 +165,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	summary, err := h.db.GetSummary(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
 
 	totalPages := (total + pageSize - 1) / pageSize
 	if totalPages < 1 {
@@ -179,6 +184,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"TotalPages": totalPages,
 		"Query":      q,
 		"PageSize":   pageSize,
+		"Summary":    summary,
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
