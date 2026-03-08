@@ -77,12 +77,27 @@ func main() {
 	})
 
 	apiHandler := api.NewHandler(database)
-	mux.Handle("POST /api/v1/checkin",
-		middleware.APIKeyAuth(apiKey, http.HandlerFunc(apiHandler.Checkin)))
-	mux.Handle("GET /api/v1/devices",
-		middleware.APIKeyAuth(apiKey, http.HandlerFunc(apiHandler.ListDevices)))
-	mux.Handle("GET /api/v1/devices/{serial}",
-		middleware.APIKeyAuth(apiKey, http.HandlerFunc(apiHandler.GetDevice)))
+
+	auth := func(h http.Handler) http.Handler { return middleware.APIKeyAuth(apiKey, h) }
+
+	// Device
+	mux.Handle("POST /api/v1/checkin",               auth(http.HandlerFunc(apiHandler.Checkin)))
+	mux.Handle("GET /api/v1/devices",                auth(http.HandlerFunc(apiHandler.ListDevices)))
+	mux.Handle("GET /api/v1/devices/{serial}",       auth(http.HandlerFunc(apiHandler.GetDevice)))
+
+	// Groups
+	mux.Handle("GET /api/v1/groups",                 auth(http.HandlerFunc(apiHandler.ListGroups)))
+	mux.Handle("POST /api/v1/groups",                auth(http.HandlerFunc(apiHandler.CreateGroup)))
+	mux.Handle("GET /api/v1/groups/{id}",            auth(http.HandlerFunc(apiHandler.GetGroup)))
+	mux.Handle("DELETE /api/v1/groups/{id}",         auth(http.HandlerFunc(apiHandler.DeleteGroup)))
+	mux.Handle("POST /api/v1/groups/{id}/devices",   auth(http.HandlerFunc(apiHandler.AddDeviceToGroup)))
+	mux.Handle("DELETE /api/v1/groups/{id}/devices/{serial}", auth(http.HandlerFunc(apiHandler.RemoveDeviceFromGroup)))
+
+	// Commands
+	mux.Handle("GET /api/v1/commands",               auth(http.HandlerFunc(apiHandler.ListCommands)))
+	mux.Handle("POST /api/v1/commands",              auth(http.HandlerFunc(apiHandler.CreateCommand)))
+	mux.Handle("GET /api/v1/commands/{id}",          auth(http.HandlerFunc(apiHandler.GetCommandStatus)))
+	mux.Handle("POST /api/v1/commands/{id}/ack",     auth(http.HandlerFunc(apiHandler.AckCommand)))
 
 	dash := dashboard.NewHandler(database, sessionSecret, dashUser, dashPass)
 	dash.RegisterRoutes(mux)

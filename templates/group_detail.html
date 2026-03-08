@@ -1,0 +1,64 @@
+{{define "group_detail.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <a href="/groups" class="back-link">← Groups</a>
+    <h2 class="page-title">{{.Group.Name}}</h2>
+    <p class="page-subtitle">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}}</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Add Device</h3></div>
+  <form action="/groups/{{.Group.ID}}/devices" method="POST" class="inline-form">
+    <input type="text" name="serial_number" placeholder="Serial number" class="form-input" required>
+    <button type="submit" class="btn-primary">Add</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Members</h3>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Serial Number</th>
+        <th>Build ID</th>
+        <th>Battery</th>
+        <th>Last Seen</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Devices}}
+        {{range .Devices}}
+        <tr>
+          <td class="mono">{{.SerialNumber}}</td>
+          <td class="mono small">{{.BuildID}}</td>
+          <td>
+            <div class="battery-wrap">
+              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+              <span class="battery-label">{{.BatteryPct}}%</span>
+            </div>
+          </td>
+          <td class="muted">{{timeSince .LastSeenAt}}</td>
+          <td>
+            <form action="/groups/{{$.Group.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline">
+              <button type="submit" class="btn-danger-sm">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="5" class="empty">No devices in this group yet.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+{{template "footer" .}}
+{{end}}

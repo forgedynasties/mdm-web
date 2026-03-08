@@ -1,0 +1,94 @@
+{{define "commands.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title">Commands</h2>
+    <p class="page-subtitle">Send APK install instructions to devices</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>New Command</h3></div>
+  <form action="/commands" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">APK URL</label>
+      <input type="url" name="apk_url" placeholder="https://example.com/app.apk" class="form-input" required>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Target</label>
+      <div class="radio-group">
+        <label class="radio-label">
+          <input type="radio" name="target_type" value="all" checked onchange="updateTargetUI(this.value)"> All devices
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="target_type" value="groups" onchange="updateTargetUI(this.value)"> Specific groups
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="target_type" value="devices" onchange="updateTargetUI(this.value)"> Specific devices
+        </label>
+      </div>
+    </div>
+
+    <div id="target-groups" class="form-row" style="display:none;">
+      <label class="form-label">Groups</label>
+      <div class="checkbox-group">
+        {{range .Groups}}
+        <label class="checkbox-label">
+          <input type="checkbox" name="target_groups" value="{{.ID}}"> {{.Name}} ({{.DeviceCount}} devices)
+        </label>
+        {{else}}
+        <span class="muted small">No groups created yet.</span>
+        {{end}}
+      </div>
+    </div>
+
+    <div id="target-devices" class="form-row" style="display:none;">
+      <label class="form-label">Serial numbers</label>
+      <textarea name="target_serials" class="form-textarea" placeholder="One serial number per line&#10;DEVICE001&#10;DEVICE002"></textarea>
+    </div>
+
+    <button type="submit" class="btn-primary">Send Command</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3>History</h3></div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>APK URL</th>
+        <th>Target</th>
+        <th>Sent</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Commands}}
+        {{range .Commands}}
+        <tr>
+          <td class="mono small">{{.ApkURL}}</td>
+          <td class="muted">{{.TargetType}}</td>
+          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td><a href="/commands/{{.ID}}" class="link-detail">Status</a></td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="4" class="empty">No commands sent yet.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<script>
+function updateTargetUI(val) {
+  document.getElementById('target-groups').style.display  = val === 'groups'  ? '' : 'none';
+  document.getElementById('target-devices').style.display = val === 'devices' ? '' : 'none';
+}
+</script>
+
+{{template "footer" .}}
+{{end}}

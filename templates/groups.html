@@ -1,0 +1,54 @@
+{{define "groups.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title">Groups</h2>
+    <p class="page-subtitle">{{len .Groups}} group{{if ne (len .Groups) 1}}s{{end}}</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>New Group</h3></div>
+  <form action="/groups" method="POST" class="inline-form">
+    <input type="text" name="name" placeholder="Group name" class="form-input" required>
+    <button type="submit" class="btn-primary">Create</button>
+  </form>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Devices</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Groups}}
+        {{range .Groups}}
+        <tr>
+          <td><a href="/groups/{{.ID}}" class="link-detail">{{.Name}}</a></td>
+          <td class="muted">{{.DeviceCount}}</td>
+          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td>
+            <form action="/groups/{{.ID}}/delete" method="POST" style="display:inline"
+                  onsubmit="return confirm('Delete group {{.Name}}?')">
+              <button type="submit" class="btn-danger-sm">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="4" class="empty">No groups yet.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+{{template "footer" .}}
+{{end}}

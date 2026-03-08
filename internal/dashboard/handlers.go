@@ -6,8 +6,10 @@ import (
 	"html/template"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	"mdm/internal/db"
 )
@@ -68,6 +70,16 @@ func NewHandler(d *db.DB, sessionSecret, user, password string) *Handler {
 				out[n-1-i] = c
 			}
 			return out
+		},
+		"statusClass": func(s string) string {
+			switch s {
+			case "installed":
+				return "ok"
+			case "failed":
+				return "danger"
+			default:
+				return "muted"
+			}
 		},
 		"add":  func(a, b int) int { return a + b },
 		"sub":  func(a, b int) int { return a - b },
@@ -148,7 +160,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 const pageSize = 25
 
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
-	q    := r.URL.Query().Get("q")
+	q := r.URL.Query().Get("q")
 	page := 1
 	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
 		page = p
@@ -215,10 +227,198 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ── Groups ────────────────────────────────────────────────────────────────────
+
+func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
+	groups, err := h.db.ListGroups(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "groups.html", map[string]any{
+		"Title":  "Groups",
+		"Groups": groups,
+	})
+}
+
+func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	g, err := h.db.GetGroup(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+	devices, err := h.db.ListGroupDevices(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "group_detail.html", map[string]any{
+		"Title":   g.Name,
+		"Group":   g,
+		"Devices": devices,
+	})
+}
+
+func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Redirect(w, r, "/groups", http.StatusFound)
+		return
+	}
+	if _, err := h.db.CreateGroup(r.Context(), name); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/groups", http.StatusFound)
+}
+
+func (h *Handler) GroupDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteGroup(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/groups", http.StatusFound)
+}
+
+func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	serial := strings.TrimSpace(r.FormValue("serial_number"))
+	if serial == "" {
+		http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+		return
+	}
+	if err := h.db.AddDeviceToGroup(r.Context(), serial, id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+}
+
+func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	serial := r.PathValue("serial")
+	if err := h.db.RemoveDeviceFromGroup(r.Context(), serial, id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+}
+
+// ── Commands ──────────────────────────────────────────────────────────────────
+
+func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
+	cmds, err := h.db.ListCommands(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	groups, err := h.db.ListGroups(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "commands.html", map[string]any{
+		"Title":    "Commands",
+		"Commands": cmds,
+		"Groups":   groups,
+	})
+}
+
+func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+	cmd, err := h.db.GetCommand(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
+	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "command_detail.html", map[string]any{
+		"Title":      "Command " + id.String()[:8],
+		"Command":    cmd,
+		"Deliveries": deliveries,
+	})
+}
+
+func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	targetType := r.FormValue("target_type")
+	if apkURL == "" || (targetType != "all" && targetType != "devices" && targetType != "groups") {
+		http.Redirect(w, r, "/commands", http.StatusFound)
+		return
+	}
+
+	var targetIDs []uuid.UUID
+	switch targetType {
+	case "devices":
+		serials := db.ParseSerials(r.FormValue("target_serials"))
+		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		targetIDs = ids
+	case "groups":
+		for _, gid := range r.Form["target_groups"] {
+			id, err := uuid.Parse(gid)
+			if err != nil {
+				continue
+			}
+			targetIDs = append(targetIDs, id)
+		}
+	}
+
+	if _, err := h.db.CreateCommand(r.Context(), apkURL, targetType, targetIDs); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/commands", http.StatusFound)
+}
+
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /login", h.LoginPage)
 	mux.HandleFunc("POST /login", h.LoginSubmit)
 	mux.HandleFunc("POST /logout", h.Logout)
+
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
+
+	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
+	mux.HandleFunc("POST /groups", h.requireAuth(h.GroupCreate))
+	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
+	mux.HandleFunc("POST /groups/{id}/delete", h.requireAuth(h.GroupDelete))
+	mux.HandleFunc("POST /groups/{id}/devices", h.requireAuth(h.GroupAddDevice))
+	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAuth(h.GroupRemoveDevice))
+
+	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
+	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
+	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 }
