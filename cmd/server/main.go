@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"mdm/internal/api"
+	"mdm/internal/config"
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
 	"mdm/internal/middleware"
@@ -27,6 +28,7 @@ func main() {
 	dashUser      := getEnv("DASHBOARD_USER", "admin")
 	dashPass      := mustEnv("DASHBOARD_PASSWORD")
 	sessionSecret := getEnv("SESSION_SECRET", apiKey)
+	configPath    := getEnv("CONFIG_PATH", "config/display.json")
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPass, dbName)
@@ -99,7 +101,12 @@ func main() {
 	mux.Handle("GET /api/v1/commands/{id}",          auth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 	mux.Handle("POST /api/v1/commands/{id}/ack",     auth(http.HandlerFunc(apiHandler.AckCommand)))
 
-	dash := dashboard.NewHandler(database, sessionSecret, dashUser, dashPass)
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+
+	dash := dashboard.NewHandler(database, sessionSecret, dashUser, dashPass, cfg)
 	dash.RegisterRoutes(mux)
 
 	server := &http.Server{

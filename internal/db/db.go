@@ -504,6 +504,52 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 	return err
 }
 
+type DeviceCommand struct {
+	ID         uuid.UUID `json:"id"`
+	ApkURL     string    `json:"apk_url"`
+	TargetType string    `json:"target_type"`
+	CreatedAt  time.Time `json:"created_at"`
+	Status     string    `json:"status"`
+	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+// GetDeviceCommands returns all commands targeting a device with their status.
+func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]DeviceCommand, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT c.id, c.apk_url, c.target_type, c.created_at,
+		       COALESCE(cs.status, 'pending') AS status,
+		       COALESCE(cs.updated_at, c.created_at) AS updated_at
+		FROM commands c
+		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
+		WHERE (
+			c.target_type = 'all'
+			OR (c.target_type = 'devices' AND EXISTS (
+				SELECT 1 FROM command_targets ct WHERE ct.command_id = c.id AND ct.target_id = $1
+			))
+			OR (c.target_type = 'groups' AND EXISTS (
+				SELECT 1 FROM command_targets ct
+				JOIN device_groups dg ON dg.group_id = ct.target_id
+				WHERE ct.command_id = c.id AND dg.device_id = $1
+			))
+		)
+		ORDER BY c.created_at DESC
+	`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []DeviceCommand
+	for rows.Next() {
+		var dc DeviceCommand
+		if err := rows.Scan(&dc.ID, &dc.ApkURL, &dc.TargetType, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, dc)
+	}
+	return out, rows.Err()
+}
+
 // GetCommandDeliveries returns per-device status for a command.
 func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]CommandDelivery, error) {
 	rows, err := d.pool.Query(ctx, `

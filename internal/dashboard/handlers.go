@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
+	"mdm/internal/config"
 	"mdm/internal/db"
 )
 
@@ -20,9 +22,10 @@ type Handler struct {
 	tmpl     *template.Template
 	user     string
 	password string
+	cfg      *config.Config
 }
 
-func NewHandler(d *db.DB, sessionSecret, user, password string) *Handler {
+func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Config) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -81,6 +84,23 @@ func NewHandler(d *db.DB, sessionSecret, user, password string) *Handler {
 				return "muted"
 			}
 		},
+		"rawJSON": func(b []byte) string { return string(b) },
+		"extraField": func(raw []byte, key string) string {
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return ""
+			}
+			v, ok := m[key]
+			if !ok {
+				return "—"
+			}
+			// strip quotes for plain strings
+			var s string
+			if err := json.Unmarshal(v, &s); err == nil {
+				return s
+			}
+			return string(v)
+		},
 		"add":  func(a, b int) int { return a + b },
 		"sub":  func(a, b int) int { return a - b },
 		"iter": func(start, end int) []int {
@@ -100,6 +120,7 @@ func NewHandler(d *db.DB, sessionSecret, user, password string) *Handler {
 		tmpl:     tmpl,
 		user:     user,
 		password: password,
+		cfg:      cfg,
 	}
 }
 
@@ -220,10 +241,18 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
 	h.tmpl.ExecuteTemplate(w, "device.html", map[string]any{
-		"Title":    device.SerialNumber,
-		"Device":   device,
-		"Checkins": checkins,
+		"Title":        device.SerialNumber,
+		"Device":       device,
+		"Checkins":     checkins,
+		"Commands":     commands,
+		"ExtraColumns": h.cfg.Columns(),
 	})
 }
 
@@ -403,6 +432,53 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/commands", http.StatusFound)
 }
 
+// ── Settings ──────────────────────────────────────────────────────────────────
+
+func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
+	h.tmpl.ExecuteTemplate(w, "settings.html", map[string]any{
+		"Title":        "Settings",
+		"ExtraColumns": h.cfg.Columns(),
+	})
+}
+
+func (h *Handler) SettingsAddColumn(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	key := strings.TrimSpace(r.FormValue("key"))
+	label := strings.TrimSpace(r.FormValue("label"))
+	if key == "" || label == "" {
+		http.Redirect(w, r, "/settings", http.StatusFound)
+		return
+	}
+	h.cfg.Add(config.ExtraColumn{Key: key, Label: label})
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsRemoveColumn(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
+	h.cfg.Remove(key)
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	r.ParseForm()
+	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if apkURL == "" {
+		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if _, err := h.db.CreateCommand(r.Context(), apkURL, "devices", []uuid.UUID{device.ID}); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+}
+
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /login", h.LoginPage)
 	mux.HandleFunc("POST /login", h.LoginSubmit)
@@ -410,6 +486,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
+	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
 	mux.HandleFunc("POST /groups", h.requireAuth(h.GroupCreate))
@@ -421,4 +498,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
+
+	mux.HandleFunc("GET /settings", h.requireAuth(h.SettingsPage))
+	mux.HandleFunc("POST /settings/columns/add", h.requireAuth(h.SettingsAddColumn))
+	mux.HandleFunc("POST /settings/columns/{key}/remove", h.requireAuth(h.SettingsRemoveColumn))
 }

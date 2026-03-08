@@ -1,0 +1,6 @@
+{
+  "extra_columns": [
+    {"key": "wifi", "label": "WiFi SSID"},
+    {"key": "ip",   "label": "IP Address"}
+  ]
+}

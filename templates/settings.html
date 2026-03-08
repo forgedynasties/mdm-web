@@ -1,0 +1,60 @@
+{{define "settings.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title">Settings</h2>
+    <p class="page-subtitle">Configure which extra fields appear as columns in the checkin table</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Extra Columns</h3></div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Key</th>
+        <th>Label</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .ExtraColumns}}
+        {{range .ExtraColumns}}
+        <tr>
+          <td class="mono small">{{.Key}}</td>
+          <td>{{.Label}}</td>
+          <td>
+            <form action="/settings/columns/{{.Key}}/remove" method="POST" style="display:inline;">
+              <button type="submit" class="btn-danger-sm">Remove</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="3" class="empty">No extra columns configured.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3>Add Column</h3></div>
+  <form action="/settings/columns/add" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">JSON Key</label>
+      <input type="text" name="key" placeholder="wifi" class="form-input" required>
+      <span class="muted small">The key name inside the <code>extra</code> JSON object sent by devices</span>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Column Label</label>
+      <input type="text" name="label" placeholder="WiFi SSID" class="form-input" required>
+    </div>
+    <button type="submit" class="btn-primary">Add Column</button>
+  </form>
+</div>
+
+{{template "footer" .}}
+{{end}}
