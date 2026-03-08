@@ -386,6 +386,229 @@ When a field is important enough to query/index directly:
 
 ---
 
+## Android Client Implementation Guide
+
+This section covers how to implement the MDM polling agent on an AOSP device.
+
+---
+
+### Overview
+
+The device runs a background service that wakes up every 60 seconds, collects telemetry,
+and POSTs to `/api/v1/checkin`. On AOSP this is typically a system app installed in
+`/system/priv-app/` so it can survive reboots and cannot be uninstalled by the user.
+
+---
+
+### Required Data Fields
+
+| Field           | Android API                                      | Example value                          |
+|-----------------|--------------------------------------------------|----------------------------------------|
+| `serial_number` | `Build.getSerial()` (requires READ_PRIVILEGED_PHONE_STATE) | `"CE061715U9"`             |
+| `build_id`      | `Build.DISPLAY`                                  | `"aosp-eng 13 TP1A.220624.014"`        |
+| `battery_pct`   | `BatteryManager.EXTRA_LEVEL` intent              | `87`                                   |
+
+Optional fields to pass in `extra`:
+
+| Key               | Android API                                           |
+|-------------------|-------------------------------------------------------|
+| `ip_address`      | `WifiManager.getConnectionInfo().getIpAddress()`      |
+| `wifi_ssid`       | `WifiManager.getConnectionInfo().getSSID()`           |
+| `storage_free_gb` | `StatFs(Environment.getDataDirectory())`              |
+| `uptime_seconds`  | `SystemClock.elapsedRealtime() / 1000`                |
+
+---
+
+### Polling Service (conceptual)
+
+```java
+// Runs inside a foreground Service or JobScheduler job
+public void doCheckin() {
+    String serial    = Build.getSerial();
+    String buildId   = Build.DISPLAY;
+    int    battery   = getBatteryLevel();          // see below
+    String ipAddress = getWifiIpAddress();
+
+    JSONObject body = new JSONObject();
+    body.put("serial_number", serial);
+    body.put("build_id",      buildId);
+    body.put("battery_pct",   battery);
+
+    JSONObject extra = new JSONObject();
+    extra.put("ip_address", ipAddress);
+    body.put("extra", extra);
+
+    URL url = new URL("http://mdm.internal:8080/api/v1/checkin");
+    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    conn.setRequestMethod("POST");
+    conn.setRequestProperty("Content-Type", "application/json");
+    conn.setRequestProperty("X-API-Key", BuildConfig.MDM_API_KEY);
+    conn.setDoOutput(true);
+    conn.setConnectTimeout(10_000);
+    conn.setReadTimeout(10_000);
+
+    try (OutputStream os = conn.getOutputStream()) {
+        os.write(body.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    int responseCode = conn.getResponseCode(); // expect 200
+}
+```
+
+#### Getting battery level
+
+```java
+private int getBatteryLevel() {
+    IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+    Intent batteryStatus = context.registerReceiver(null, ifilter);
+    int level = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+    int scale = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+    return (int) ((level / (float) scale) * 100);
+}
+```
+
+---
+
+### Scheduling the Poll
+
+Use `AlarmManager` with `setExactAndAllowWhileIdle` for reliable 60-second intervals on
+AOSP system apps (JobScheduler minimum is 15 min for regular apps):
+
+```java
+AlarmManager am = (AlarmManager) getSystemService(ALARM_SERVICE);
+PendingIntent pi = PendingIntent.getBroadcast(this, 0,
+    new Intent(this, CheckinReceiver.class),
+    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+am.setExactAndAllowWhileIdle(
+    AlarmManager.ELAPSED_REALTIME_WAKEUP,
+    SystemClock.elapsedRealtime() + 60_000,
+    pi
+);
+```
+
+Re-schedule inside `CheckinReceiver.onReceive()` to create a repeating chain.
+Trigger the first alarm from a `BOOT_COMPLETED` receiver so polling survives reboots.
+
+---
+
+### curl Commands for Testing and Debugging
+
+Use these on a host machine or directly from an `adb shell` on the device to validate
+connectivity to the MDM server before writing Android code.
+
+#### Basic connectivity check
+
+```bash
+curl -v http://localhost:8080/health
+# Expected: {"status":"ok","db":"ok"}
+```
+
+#### Single device checkin (minimal payload)
+
+```bash
+curl -X POST http://localhost:8080/api/v1/checkin \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-key-here" \
+  -d '{
+    "serial_number": "CE061715U9",
+    "build_id": "aosp-eng 13 TP1A.220624.014",
+    "battery_pct": 87
+  }'
+```
+
+#### Checkin with full extra payload
+
+```bash
+curl -X POST http://localhost:8080/api/v1/checkin \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-secret-key-here" \
+  -d '{
+    "serial_number": "CE061715U9",
+    "build_id": "aosp-eng 13 TP1A.220624.014",
+    "battery_pct": 72,
+    "extra": {
+      "ip_address": "192.168.1.101",
+      "wifi_ssid": "Corp-WiFi",
+      "storage_free_gb": 14.2,
+      "uptime_seconds": 86400
+    }
+  }'
+```
+
+#### Poll loop — simulate the 60-second cycle from adb shell
+
+Run this directly on the device via `adb shell`:
+
+```bash
+SERIAL=$(getprop ro.serialno)
+BUILD=$(getprop ro.build.display.id)
+API_KEY="your-secret-key-here"
+SERVER="http://10.0.2.2:8080"   # 10.0.2.2 = host machine from Android emulator
+
+while true; do
+  BATTERY=$(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 100)
+  curl -s -X POST "$SERVER/api/v1/checkin" \
+    -H "Content-Type: application/json" \
+    -H "X-API-Key: $API_KEY" \
+    -d "{
+      \"serial_number\": \"$SERIAL\",
+      \"build_id\": \"$BUILD\",
+      \"battery_pct\": $BATTERY
+    }" && echo "[$(date)] checkin OK"
+  sleep 60
+done
+```
+
+#### Verify the device appeared on the server
+
+```bash
+curl http://localhost:8080/api/v1/devices/CE061715U9 \
+  -H "X-API-Key: your-secret-key-here" | python3 -m json.tool
+```
+
+#### Confirm auth rejection with a wrong key
+
+```bash
+curl -i -X POST http://localhost:8080/api/v1/checkin \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: wrong-key" \
+  -d '{"serial_number":"CE061715U9","build_id":"test","battery_pct":50}'
+# Expected HTTP/1.1 401 Unauthorized
+```
+
+#### Watch live checkins on the server side
+
+Pair any of the curl loops above with this on the server host:
+
+```bash
+docker compose logs -f server | grep checkin
+```
+
+---
+
+### Embedding the API Key
+
+The API key is hardcoded directly in the client source for now:
+
+```java
+private static final String MDM_API_KEY = "your-secret-key-here";
+```
+
+---
+
+### Retry and Error Handling
+
+| Scenario                   | Recommended behaviour                                        |
+|----------------------------|--------------------------------------------------------------|
+| Network unavailable        | Skip checkin, reschedule normally (don't drain battery retrying) |
+| HTTP 5xx from server       | Retry once after 10 s, then skip until next 60 s cycle       |
+| HTTP 401 Unauthorized      | Log error, do not retry (key is wrong — needs OTA fix)       |
+| Timeout (>10 s)            | Cancel request, skip cycle                                   |
+| Server unreachable >5 min  | Optionally surface a notification if the device is admin-managed |
+
+---
+
 ## Load Estimate
 
 | Metric              | Value                         |
