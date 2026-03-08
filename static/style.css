@@ -621,6 +621,50 @@ a:hover { color: var(--accent-h); }
 .status-badge.danger { color: var(--danger); }
 .status-badge.muted  { color: var(--muted); }
 
+/* ── App selector ────────────────────────────────── */
+.app-select-wrap {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.app-select-wrap select { flex: 1; }
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--accent);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.btn-outline:hover { border-color: var(--accent); color: var(--accent-h); }
+
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+.btn-link:hover { color: var(--accent-h); }
+
+.app-empty-hint {
+  color: var(--muted);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.bold { font-weight: 600; }
+
 /* ── Modal ───────────────────────────────────────── */
 .modal-backdrop {
   display: none;

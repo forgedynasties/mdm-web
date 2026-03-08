@@ -247,12 +247,19 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	apps, err := h.db.ListApps(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
 	h.tmpl.ExecuteTemplate(w, "device.html", map[string]any{
 		"Title":        device.SerialNumber,
 		"Device":       device,
 		"Checkins":     checkins,
 		"Commands":     commands,
 		"ExtraColumns": h.cfg.Columns(),
+		"Apps":         apps,
 	})
 }
 
@@ -366,10 +373,16 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	apps, err := h.db.ListApps(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
 	h.tmpl.ExecuteTemplate(w, "commands.html", map[string]any{
 		"Title":    "Commands",
 		"Commands": cmds,
 		"Groups":   groups,
+		"Apps":     apps,
 	})
 }
 
@@ -430,6 +443,65 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/commands", http.StatusFound)
+}
+
+// ── Setup ─────────────────────────────────────────────────────────────────────
+
+func (h *Handler) SetupPage(w http.ResponseWriter, r *http.Request) {
+	apps, err := h.db.ListApps(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "setup.html", map[string]any{
+		"Title": "Setup",
+		"Apps":  apps,
+	})
+}
+
+func (h *Handler) SetupCreateApp(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	name   := strings.TrimSpace(r.FormValue("name"))
+	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if name == "" || apkURL == "" {
+		http.Redirect(w, r, "/setup", http.StatusFound)
+		return
+	}
+	if _, err := h.db.CreateApp(r.Context(), name, apkURL); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/setup", http.StatusFound)
+}
+
+func (h *Handler) SetupCreateAppJSON(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	name   := strings.TrimSpace(r.FormValue("name"))
+	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if name == "" || apkURL == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	app, err := h.db.CreateApp(r.Context(), name, apkURL)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(app)
+}
+
+func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid app ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteApp(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/setup", http.StatusFound)
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -502,4 +574,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /settings", h.requireAuth(h.SettingsPage))
 	mux.HandleFunc("POST /settings/columns/add", h.requireAuth(h.SettingsAddColumn))
 	mux.HandleFunc("POST /settings/columns/{key}/remove", h.requireAuth(h.SettingsRemoveColumn))
+
+	mux.HandleFunc("GET /setup", h.requireAuth(h.SetupPage))
+	mux.HandleFunc("POST /setup/apps", h.requireAuth(h.SetupCreateApp))
+	mux.HandleFunc("POST /setup/apps/create", h.requireAuth(h.SetupCreateAppJSON))
+	mux.HandleFunc("POST /setup/apps/{id}/delete", h.requireAuth(h.SetupDeleteApp))
 }

@@ -129,8 +129,23 @@
   <div class="card-header"><h3>Send Command</h3></div>
   <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="command-form">
     <div class="form-row">
-      <label class="form-label">APK URL</label>
-      <input type="url" name="apk_url" placeholder="https://example.com/app.apk" class="form-input" required>
+      <label class="form-label">App</label>
+      {{if .Apps}}
+        <div class="app-select-wrap">
+          <select name="apk_url" class="form-input" required>
+            <option value="" disabled selected>Select an app…</option>
+            {{range .Apps}}
+            <option value="{{.ApkURL}}">{{.Name}}</option>
+            {{end}}
+          </select>
+          <button type="button" class="btn-outline" onclick="openAppModal()">+ New App</button>
+        </div>
+      {{else}}
+        <div class="app-empty-hint">
+          No apps in library. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>
+          <input type="hidden" name="apk_url" id="cmd-apk-url" required>
+        </div>
+      {{end}}
     </div>
     <button type="submit" class="btn-primary">Send</button>
   </form>
@@ -260,6 +275,78 @@ function closeModal(e) {
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.getElementById('checkin-modal').classList.remove('modal-open');
 });
+</script>
+
+<!-- Add new app modal -->
+<div id="app-modal" class="modal-backdrop" onclick="closeAppModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Add New App</span>
+      <button class="modal-close" onclick="closeAppModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row" style="margin-bottom:12px;">
+        <label class="form-label">App Name</label>
+        <input type="text" id="new-app-name" class="form-input" placeholder="My App">
+      </div>
+      <div class="form-row" style="margin-bottom:16px;">
+        <label class="form-label">APK URL</label>
+        <input type="url" id="new-app-url" class="form-input" placeholder="https://example.com/app.apk">
+      </div>
+      <div id="app-modal-error" class="alert alert-error" style="display:none;"></div>
+      <button type="button" class="btn-primary" onclick="saveNewApp()">Save App</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openAppModal() {
+  document.getElementById('new-app-name').value = '';
+  document.getElementById('new-app-url').value  = '';
+  document.getElementById('app-modal-error').style.display = 'none';
+  document.getElementById('app-modal').classList.add('modal-open');
+  document.getElementById('new-app-name').focus();
+}
+
+function closeAppModal(e) {
+  if (!e || e.target === document.getElementById('app-modal')) {
+    document.getElementById('app-modal').classList.remove('modal-open');
+  }
+}
+
+async function saveNewApp() {
+  const name   = document.getElementById('new-app-name').value.trim();
+  const apkURL = document.getElementById('new-app-url').value.trim();
+  const errEl  = document.getElementById('app-modal-error');
+
+  if (!name || !apkURL) {
+    errEl.textContent = 'Both fields are required.';
+    errEl.style.display = '';
+    return;
+  }
+
+  const body = new URLSearchParams({ name, apk_url: apkURL });
+  const res  = await fetch('/setup/apps/create', { method: 'POST', body });
+
+  if (!res.ok) {
+    errEl.textContent = 'Failed to save app. Try again.';
+    errEl.style.display = '';
+    return;
+  }
+
+  const app = await res.json();
+
+  document.querySelectorAll('select[name="apk_url"]').forEach(sel => {
+    const opt = new Option(app.name, app.apk_url, true, true);
+    sel.add(opt);
+    sel.value = app.apk_url;
+  });
+
+  const hidden = document.getElementById('cmd-apk-url');
+  if (hidden) hidden.value = app.apk_url;
+
+  closeAppModal();
+}
 </script>
 
 {{template "footer" .}}

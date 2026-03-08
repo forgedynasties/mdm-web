@@ -575,6 +575,46 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]C
 	return out, rows.Err()
 }
 
+// ── Apps ──────────────────────────────────────────────────────────────────────
+
+type App struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	ApkURL    string    `json:"apk_url"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (d *DB) ListApps(ctx context.Context) ([]App, error) {
+	rows, err := d.pool.Query(ctx, `SELECT id, name, apk_url, created_at FROM apps ORDER BY name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []App
+	for rows.Next() {
+		var a App
+		if err := rows.Scan(&a.ID, &a.Name, &a.ApkURL, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) CreateApp(ctx context.Context, name, apkURL string) (*App, error) {
+	var a App
+	err := d.pool.QueryRow(ctx,
+		`INSERT INTO apps (name, apk_url) VALUES ($1, $2) RETURNING id, name, apk_url, created_at`,
+		name, apkURL,
+	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.CreatedAt)
+	return &a, err
+}
+
+func (d *DB) DeleteApp(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM apps WHERE id = $1`, id)
+	return err
+}
+
 // ParseSerials splits a newline/comma separated string into a trimmed slice.
 func ParseSerials(raw string) []string {
 	raw = strings.ReplaceAll(raw, ",", "\n")
@@ -639,6 +679,13 @@ CREATE TABLE IF NOT EXISTS command_status (
 	status     TEXT NOT NULL DEFAULT 'delivered',
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	PRIMARY KEY (command_id, device_id)
+);
+
+CREATE TABLE IF NOT EXISTS apps (
+	id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	name       TEXT NOT NULL,
+	apk_url    TEXT NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_checkins_device_id  ON checkins(device_id);

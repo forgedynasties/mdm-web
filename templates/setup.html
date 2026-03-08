@@ -1,0 +1,61 @@
+{{define "setup.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title">Setup</h2>
+    <p class="page-subtitle">Manage your app library</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>App Library</h3></div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>APK URL</th>
+        <th>Added</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Apps}}
+        {{range .Apps}}
+        <tr>
+          <td class="bold">{{.Name}}</td>
+          <td class="mono small muted extra-cell">{{.ApkURL}}</td>
+          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td>
+            <form action="/setup/apps/{{.ID}}/delete" method="POST" style="display:inline;">
+              <button type="submit" class="btn-danger-sm">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="4" class="empty">No apps added yet.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3>Add App</h3></div>
+  <form action="/setup/apps" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">App Name</label>
+      <input type="text" name="name" placeholder="My App" class="form-input" required>
+    </div>
+    <div class="form-row">
+      <label class="form-label">APK URL</label>
+      <input type="url" name="apk_url" placeholder="https://example.com/app.apk" class="form-input" required>
+    </div>
+    <button type="submit" class="btn-primary">Add App</button>
+  </form>
+</div>
+
+{{template "footer" .}}
+{{end}}
