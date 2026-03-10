@@ -1,0 +1,47 @@
+{{define "packages.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <h2 class="page-title">Package Inventory</h2>
+  <span class="muted small">{{len .Packages}} packages shown (max 200)</span>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <form method="GET" action="/packages" style="display:flex;gap:8px;padding:16px 0 0;">
+    <input type="text" name="q" value="{{.Query}}" class="form-input" placeholder="Search package name…" style="flex:1;" autofocus>
+    <button type="submit" class="btn-primary">Search</button>
+    {{if .Query}}<a href="/packages" class="btn-outline">Clear</a>{{end}}
+  </form>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Package Name</th>
+        <th>Versions Installed</th>
+        <th style="text-align:right;">Device Count</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Packages}}
+        {{range .Packages}}
+        <tr>
+          <td class="mono small">{{.PackageName}}</td>
+          <td class="small muted">{{.Versions}}</td>
+          <td class="small" style="text-align:right;">{{.DeviceCount}}</td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="3" class="empty">
+            {{if .Query}}No packages match "{{.Query}}".{{else}}No package data received yet. Devices must include <code>packages</code> in their checkin payload.{{end}}
+          </td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+{{template "footer" .}}
+{{end}}

@@ -803,6 +803,118 @@ func (d *DB) GetLogcatEntriesForDevice(ctx context.Context, deviceID uuid.UUID, 
 	return out, rows.Err()
 }
 
+// ── Device Packages ───────────────────────────────────────────────────────────
+
+type DevicePackage struct {
+	PackageName string    `json:"package_name"`
+	VersionName string    `json:"version_name"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type FleetPackage struct {
+	PackageName string `json:"package_name"`
+	DeviceCount int    `json:"device_count"`
+	Versions    string `json:"versions"`
+}
+
+// UpsertDevicePackages replaces all packages for a device atomically.
+func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packages []DevicePackage) error {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, `DELETE FROM device_packages WHERE device_id = $1`, deviceID); err != nil {
+		return err
+	}
+
+	if len(packages) > 0 {
+		names := make([]string, len(packages))
+		versions := make([]string, len(packages))
+		for i, p := range packages {
+			names[i] = p.PackageName
+			versions[i] = p.VersionName
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO device_packages (device_id, package_name, version_name)
+			SELECT $1, unnest($2::text[]), unnest($3::text[])
+		`, deviceID, names, versions); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]DevicePackage, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT package_name, version_name, updated_at
+		FROM device_packages
+		WHERE device_id = $1
+		ORDER BY package_name
+	`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []DevicePackage
+	for rows.Next() {
+		var p DevicePackage
+		if err := rows.Scan(&p.PackageName, &p.VersionName, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPackage, error) {
+	var q string
+	var rows pgx.Rows
+	var err error
+	if query != "" {
+		q = "%" + query + "%"
+		rows, err = d.pool.Query(ctx, `
+			SELECT
+				dp.package_name,
+				COUNT(DISTINCT dp.device_id) AS device_count,
+				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
+			FROM device_packages dp
+			WHERE dp.package_name ILIKE $1
+			GROUP BY dp.package_name
+			ORDER BY device_count DESC, dp.package_name
+			LIMIT 200
+		`, q)
+	} else {
+		rows, err = d.pool.Query(ctx, `
+			SELECT
+				dp.package_name,
+				COUNT(DISTINCT dp.device_id) AS device_count,
+				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
+			FROM device_packages dp
+			GROUP BY dp.package_name
+			ORDER BY device_count DESC, dp.package_name
+			LIMIT 200
+		`)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []FleetPackage
+	for rows.Next() {
+		var p FleetPackage
+		if err := rows.Scan(&p.PackageName, &p.DeviceCount, &p.Versions); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // ParseSerials splits a newline/comma separated string into a trimmed slice.
 func ParseSerials(raw string) []string {
 	raw = strings.ReplaceAll(raw, ",", "\n")
@@ -931,4 +1043,15 @@ CREATE TABLE IF NOT EXISTS command_results (
 );
 
 CREATE INDEX IF NOT EXISTS idx_command_results_command_id ON command_results(command_id);
+
+CREATE TABLE IF NOT EXISTS device_packages (
+	device_id    UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	package_name TEXT NOT NULL,
+	version_name TEXT NOT NULL DEFAULT '',
+	updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	PRIMARY KEY (device_id, package_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_device_packages_device_id   ON device_packages(device_id);
+CREATE INDEX IF NOT EXISTS idx_device_packages_package_name ON device_packages(package_name);
 `

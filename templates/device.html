@@ -8,7 +8,10 @@
     <a href="/" class="back-link">← All Devices</a>
     <h2 class="page-title mono">{{.Device.SerialNumber}}</h2>
   </div>
-  <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline">Logcat</a>
+  <div style="display:flex;gap:8px;">
+    <a href="/devices/{{.Device.SerialNumber}}/packages" class="btn-outline">Packages</a>
+    <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline">Logcat</a>
+  </div>
 </div>
 
 <div class="stats-grid">

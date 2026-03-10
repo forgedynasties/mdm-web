@@ -725,6 +725,41 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
+// ── Packages ──────────────────────────────────────────────────────────────────
+
+func (h *Handler) FleetPackages(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	pkgs, err := h.db.SearchFleetPackages(r.Context(), q)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "packages.html", map[string]any{
+		"Title":    "Package Inventory",
+		"Packages": pkgs,
+		"Query":    q,
+	})
+}
+
+func (h *Handler) DevicePackages(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	pkgs, err := h.db.GetDevicePackages(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "device_packages.html", map[string]any{
+		"Title":    serial + " — Packages",
+		"Device":   device,
+		"Packages": pkgs,
+	})
+}
+
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /login", h.LoginPage)
 	mux.HandleFunc("POST /login", h.LoginSubmit)
@@ -733,6 +768,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
+	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))
 	mux.HandleFunc("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
@@ -756,4 +792,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /setup/apps", h.requireAuth(h.SetupCreateApp))
 	mux.HandleFunc("POST /setup/apps/create", h.requireAuth(h.SetupCreateAppJSON))
 	mux.HandleFunc("POST /setup/apps/{id}/delete", h.requireAuth(h.SetupDeleteApp))
+
+	mux.HandleFunc("GET /packages", h.requireAuth(h.FleetPackages))
 }

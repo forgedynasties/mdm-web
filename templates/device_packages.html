@@ -1,0 +1,62 @@
+{{define "device_packages.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
+    <h2 class="page-title">Installed Packages</h2>
+  </div>
+  <span class="muted small">{{len .Packages}} packages</span>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div style="padding:16px 0 0;">
+    <input type="text" id="pkg-filter" class="form-input" placeholder="Filter packages…" oninput="filterPackages(this.value)" autofocus>
+  </div>
+</div>
+
+<div class="card">
+  <table class="table" id="pkg-table">
+    <thead>
+      <tr>
+        <th>Package Name</th>
+        <th>Version</th>
+        <th>Last Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Packages}}
+        {{range .Packages}}
+        <tr>
+          <td class="mono small">{{.PackageName}}</td>
+          <td class="small">{{if .VersionName}}{{.VersionName}}{{else}}<span class="muted">—</span>{{end}}</td>
+          <td class="muted small">{{formatTime .UpdatedAt}}</td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr id="empty-row">
+          <td colspan="3" class="empty">No package data for this device. The device client must include <code>packages</code> in its checkin payload.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+  <div id="no-match" class="empty" style="display:none;padding:16px;">No packages match your filter.</div>
+</div>
+
+<script>
+function filterPackages(q) {
+  q = q.toLowerCase();
+  const rows = document.querySelectorAll('#pkg-table tbody tr:not(#empty-row)');
+  let visible = 0;
+  rows.forEach(row => {
+    const name = row.cells[0] ? row.cells[0].textContent.toLowerCase() : '';
+    const show = name.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('no-match').style.display = (rows.length > 0 && visible === 0) ? '' : 'none';
+}
+</script>
+
+{{template "footer" .}}
+{{end}}

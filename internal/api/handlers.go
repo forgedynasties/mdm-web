@@ -1,7 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -22,9 +25,17 @@ type checkinRequest struct {
 	BuildID      string          `json:"build_id"`
 	BatteryPct   int             `json:"battery_pct"`
 	Extra        json.RawMessage `json:"extra,omitempty"`
+	InstalledApps []struct {
+		Package     string `json:"package"`
+		VersionName string `json:"version_name"`
+	} `json:"installed_apps,omitempty"`
 }
 
 func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+	log.Printf("[checkin] raw body: %s", body)
+	r.Body = io.NopCloser(bytes.NewReader(body))
+
 	var req checkinRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
@@ -43,6 +54,17 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
+	}
+
+	log.Printf("[checkin] serial=%s packages_count=%d", req.SerialNumber, len(req.InstalledApps))
+	if len(req.InstalledApps) > 0 {
+		pkgs := make([]db.DevicePackage, len(req.InstalledApps))
+		for i, p := range req.InstalledApps {
+			pkgs[i] = db.DevicePackage{PackageName: p.Package, VersionName: p.VersionName}
+		}
+		if err := h.db.UpsertDevicePackages(r.Context(), deviceID, pkgs); err != nil {
+			log.Printf("[checkin] UpsertDevicePackages error: %v", err)
+		}
 	}
 
 	cmds, err := h.db.GetPendingCommandsForDevice(r.Context(), deviceID)
