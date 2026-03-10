@@ -72,10 +72,67 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		cmdList = []cmdResponse{}
 	}
 
+	logcatReqs, err := h.db.GetPendingLogcatRequestsForDevice(r.Context(), deviceID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	if len(logcatReqs) > 0 {
+		var lids []uuid.UUID
+		for _, lr := range logcatReqs {
+			lids = append(lids, lr.ID)
+		}
+		_ = h.db.MarkLogcatRequestsDelivered(r.Context(), lids)
+	}
+
+	type logcatReqResponse struct {
+		ID    uuid.UUID `json:"id"`
+		Level string    `json:"level"`
+		Lines int       `json:"lines"`
+		Tag   string    `json:"tag"`
+	}
+	var lrList []logcatReqResponse
+	for _, lr := range logcatReqs {
+		lrList = append(lrList, logcatReqResponse{ID: lr.ID, Level: lr.Level, Lines: lr.Lines, Tag: lr.Tag})
+	}
+	if lrList == nil {
+		lrList = []logcatReqResponse{}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":   "ok",
-		"commands": cmdList,
+		"status":          "ok",
+		"commands":        cmdList,
+		"logcat_requests": lrList,
 	})
+}
+
+func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		SerialNumber string    `json:"serial_number"`
+		RequestID    uuid.UUID `json:"request_id"`
+		Content      string    `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+		return
+	}
+	if body.SerialNumber == "" || body.RequestID == uuid.Nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and request_id are required"})
+		return
+	}
+
+	device, err := h.db.GetDevice(r.Context(), body.SerialNumber)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+
+	if _, err := h.db.SaveLogcatResult(r.Context(), body.RequestID, device.ID, body.Content); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (h *Handler) ListDevices(w http.ResponseWriter, r *http.Request) {

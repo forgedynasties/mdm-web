@@ -594,6 +594,11 @@ a:hover { color: var(--accent-h); }
   white-space: nowrap;
 }
 .btn-primary:hover { background: var(--accent-h); }
+.btn-primary:disabled {
+  background: var(--surface2);
+  color: var(--muted);
+  cursor: not-allowed;
+}
 
 .btn-danger-sm {
   background: none;
@@ -620,6 +625,34 @@ a:hover { color: var(--accent-h); }
 .status-badge.ok     { color: var(--ok); }
 .status-badge.danger { color: var(--danger); }
 .status-badge.muted  { color: var(--muted); }
+
+/* ── Segmented control ───────────────────────────── */
+.seg-control {
+  display: inline-flex;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px;
+  gap: 2px;
+}
+
+.seg-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 6px 16px;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.seg-btn:hover { color: var(--text); }
+.seg-btn.active {
+  background: var(--accent);
+  color: #fff;
+}
 
 /* ── App selector ────────────────────────────────── */
 .app-select-wrap {
@@ -756,6 +789,69 @@ a:hover { color: var(--accent-h); }
 }
 
 .row-clickable { cursor: pointer; }
+
+/* ── Pagination ──────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 0 6px;
+  border-top: 1px solid var(--border);
+}
+.page-btn {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 13px;
+  text-decoration: none;
+  background: var(--surface);
+  transition: background 0.15s, border-color 0.15s;
+}
+.page-btn:not(.disabled):hover {
+  background: var(--surface-alt, #1e2130);
+  border-color: var(--accent);
+}
+.page-btn.disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
+}
+.page-info {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── Logcat ──────────────────────────────────────── */
+.logcat-wrap {
+  padding: 0;
+  overflow: hidden;
+  border-top: 1px solid var(--border);
+}
+.logcat-terminal {
+  background: #080b10;
+  color: #c8d0e0;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 16px;
+  margin: 0;
+  max-height: 500px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.logcat-waiting {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+.logcat-level-E { background: rgba(240,82,82,0.15); color: #f05252; border-color: rgba(240,82,82,0.3); }
+.logcat-level-W { background: rgba(240,168,50,0.15); color: #f0a832; border-color: rgba(240,168,50,0.3); }
+.logcat-level-I { background: rgba(91,110,245,0.15); color: #5b6ef5; border-color: rgba(91,110,245,0.3); }
+.logcat-level-D { background: rgba(52,199,123,0.15); color: #34c77b; border-color: rgba(52,199,123,0.3); }
+.logcat-level-V { background: rgba(122,127,154,0.15); color: #7a7f9a; border-color: rgba(122,127,154,0.3); }
 
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 900px) {

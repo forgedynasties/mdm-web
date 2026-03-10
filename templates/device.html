@@ -8,6 +8,7 @@
     <a href="/" class="back-link">← All Devices</a>
     <h2 class="page-title mono">{{.Device.SerialNumber}}</h2>
   </div>
+  <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline">Logcat</a>
 </div>
 
 <div class="stats-grid">
@@ -34,11 +35,11 @@
   </div>
 </div>
 
-{{if .Checkins}}
+{{if .ChartCheckins}}
 <div class="card chart-card">
   <div class="card-header">
     <h3>Battery History</h3>
-    <span class="muted small">Last {{len .Checkins}} checkins</span>
+    <span class="muted small">Last {{len .ChartCheckins}} checkins</span>
   </div>
   <div class="chart-wrap">
     <canvas id="batteryChart"></canvas>
@@ -47,8 +48,8 @@
 
 <script>
 (function () {
-  const labels  = [{{range reverseCheckins .Checkins}}"{{shortTime .CreatedAt}}",{{end}}];
-  const values  = [{{range reverseCheckins .Checkins}}{{.BatteryPct}},{{end}}];
+  const labels  = [{{range reverseCheckins .ChartCheckins}}"{{shortTime .CreatedAt}}",{{end}}];
+  const values  = [{{range reverseCheckins .ChartCheckins}}{{.BatteryPct}},{{end}}];
 
   const ctx = document.getElementById("batteryChart").getContext("2d");
 
@@ -189,7 +190,7 @@
 <div class="card">
   <div class="card-header">
     <h3>Checkin History</h3>
-    <span class="muted small">Last {{len .Checkins}} entries</span>
+    <span class="muted small">{{.CheckinTotal}} total</span>
   </div>
   <table class="table">
     <thead>
@@ -225,6 +226,21 @@
       {{end}}
     </tbody>
   </table>
+  {{if gt .CheckinPages 1}}
+  <div class="pagination">
+    {{if gt .CheckinPage 1}}
+      <a href="?page={{sub .CheckinPage 1}}" class="page-btn">← Prev</a>
+    {{else}}
+      <span class="page-btn disabled">← Prev</span>
+    {{end}}
+    <span class="page-info">Page {{.CheckinPage}} of {{.CheckinPages}}</span>
+    {{if lt .CheckinPage .CheckinPages}}
+      <a href="?page={{add .CheckinPage 1}}" class="page-btn">Next →</a>
+    {{else}}
+      <span class="page-btn disabled">Next →</span>
+    {{end}}
+  </div>
+  {{end}}
 </div>
 
 <!-- Checkin detail modal -->

@@ -1,0 +1,89 @@
+{{define "logcat.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
+    <h2 class="page-title">Logcat</h2>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Request Logs</h3></div>
+  <form action="/devices/{{.Device.SerialNumber}}/logcat" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">Level</label>
+      <select name="level" class="form-input" style="width:auto;">
+        <option value="E">E — Error only</option>
+        <option value="W" selected>W — Warning+</option>
+        <option value="I">I — Info+</option>
+        <option value="D">D — Debug+</option>
+        <option value="V">V — Verbose (all)</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Lines</label>
+      <input type="number" name="lines" class="form-input" value="500" min="50" max="5000" style="width:100px;">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Tag filter <span class="muted small">(optional)</span></label>
+      <input type="text" name="tag" class="form-input" placeholder="e.g. MyApp" style="width:200px;">
+    </div>
+    <button type="submit" class="btn-primary">Request Logs</button>
+  </form>
+</div>
+
+<div id="logcat-entries"
+  {{if .HasPending}}
+  hx-get="/devices/{{.Device.SerialNumber}}/logcat/entries"
+  hx-trigger="every 10s"
+  hx-swap="outerHTML"
+  {{end}}>
+  {{template "logcat-entries" .}}
+</div>
+
+{{template "footer" .}}
+{{end}}
+
+{{define "logcat-entries"}}
+<div id="logcat-entries"
+  {{if .HasPending}}
+  hx-get="/devices/{{.Device.SerialNumber}}/logcat/entries"
+  hx-trigger="every 10s"
+  hx-swap="outerHTML"
+  {{end}}>
+
+  {{if not .Entries}}
+  <div class="card">
+    <div class="empty" style="padding:24px;">No logcat requests yet. Use the form above to request logs from this device.</div>
+  </div>
+  {{else}}
+  {{range .Entries}}
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-header">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="mono small">{{formatTime .Request.CreatedAt}}</span>
+        <span class="status-badge logcat-level-{{.Request.Level}}">{{.Request.Level}}</span>
+        <span class="muted small">{{.Request.Lines}} lines</span>
+        {{if .Request.Tag}}<span class="muted small">tag: <span class="mono">{{.Request.Tag}}</span></span>{{end}}
+      </div>
+      <span class="status-badge {{logcatStatusClass .Request.Status}}">{{.Request.Status}}</span>
+    </div>
+    {{if .Result}}
+    <div class="logcat-wrap">
+      <pre class="logcat-terminal">{{.Result.Content}}</pre>
+    </div>
+    {{else if eq .Request.Status "pending"}}
+    <div class="logcat-waiting">
+      <span class="muted small">Waiting for device to check in...</span>
+    </div>
+    {{else if eq .Request.Status "delivered"}}
+    <div class="logcat-waiting">
+      <span class="muted small">Command delivered — waiting for device to upload logs...</span>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+  {{end}}
+</div>
+{{end}}

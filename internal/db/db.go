@@ -247,6 +247,42 @@ func (d *DB) GetCheckins(ctx context.Context, deviceID uuid.UUID, limit int) ([]
 	return checkins, rows.Err()
 }
 
+func (d *DB) GetCheckinsCount(ctx context.Context, deviceID uuid.UUID) (int, error) {
+	var count int
+	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM checkins WHERE device_id = $1`, deviceID).Scan(&count)
+	return count, err
+}
+
+func (d *DB) GetCheckinsPaged(ctx context.Context, deviceID uuid.UUID, limit, offset int) ([]Checkin, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, device_id, battery_pct, build_id, extra, created_at
+		FROM checkins
+		WHERE device_id = $1
+		ORDER BY created_at DESC
+		LIMIT $2 OFFSET $3
+	`, deviceID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checkins []Checkin
+	for rows.Next() {
+		var c Checkin
+		var extra []byte
+		if err := rows.Scan(&c.ID, &c.DeviceID, &c.BatteryPct, &c.BuildID, &extra, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		if len(extra) > 0 {
+			c.Extra = json.RawMessage(extra)
+		} else {
+			c.Extra = json.RawMessage("{}")
+		}
+		checkins = append(checkins, c)
+	}
+	return checkins, rows.Err()
+}
+
 // ── Groups ────────────────────────────────────────────────────────────────────
 
 func (d *DB) CreateGroup(ctx context.Context, name string) (*Group, error) {
@@ -615,6 +651,147 @@ func (d *DB) DeleteApp(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// ── Logcat ────────────────────────────────────────────────────────────────────
+
+type LogcatRequest struct {
+	ID        uuid.UUID `json:"id"`
+	DeviceID  uuid.UUID `json:"device_id"`
+	Level     string    `json:"level"`
+	Lines     int       `json:"lines"`
+	Tag       string    `json:"tag"`
+	Status    string    `json:"status"` // pending | delivered | fulfilled
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type LogcatResult struct {
+	ID        uuid.UUID `json:"id"`
+	RequestID uuid.UUID `json:"request_id"`
+	DeviceID  uuid.UUID `json:"device_id"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type LogcatEntry struct {
+	Request LogcatRequest
+	Result  *LogcatResult
+}
+
+func (d *DB) CreateLogcatRequest(ctx context.Context, deviceID uuid.UUID, level string, lines int, tag string) (*LogcatRequest, error) {
+	var r LogcatRequest
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO logcat_requests (device_id, level, lines, tag)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, device_id, level, lines, tag, status, created_at, updated_at
+	`, deviceID, level, lines, tag).Scan(&r.ID, &r.DeviceID, &r.Level, &r.Lines, &r.Tag, &r.Status, &r.CreatedAt, &r.UpdatedAt)
+	return &r, err
+}
+
+// GetPendingLogcatRequestsForDevice returns undelivered logcat requests for a device (oldest first).
+func (d *DB) GetPendingLogcatRequestsForDevice(ctx context.Context, deviceID uuid.UUID) ([]LogcatRequest, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, device_id, level, lines, tag, status, created_at, updated_at
+		FROM logcat_requests
+		WHERE device_id = $1 AND status = 'pending'
+		ORDER BY created_at ASC
+	`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []LogcatRequest
+	for rows.Next() {
+		var r LogcatRequest
+		if err := rows.Scan(&r.ID, &r.DeviceID, &r.Level, &r.Lines, &r.Tag, &r.Status, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) MarkLogcatRequestsDelivered(ctx context.Context, ids []uuid.UUID) error {
+	for _, id := range ids {
+		if _, err := d.pool.Exec(ctx, `
+			UPDATE logcat_requests SET status = 'delivered', updated_at = NOW()
+			WHERE id = $1 AND status = 'pending'
+		`, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *DB) SaveLogcatResult(ctx context.Context, requestID, deviceID uuid.UUID, content string) (*LogcatResult, error) {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback(ctx)
+
+	var result LogcatResult
+	err = tx.QueryRow(ctx, `
+		INSERT INTO logcat_results (request_id, device_id, content)
+		VALUES ($1, $2, $3)
+		RETURNING id, request_id, device_id, content, created_at
+	`, requestID, deviceID, content).Scan(&result.ID, &result.RequestID, &result.DeviceID, &result.Content, &result.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE logcat_requests SET status = 'fulfilled', updated_at = NOW() WHERE id = $1
+	`, requestID); err != nil {
+		return nil, err
+	}
+
+	return &result, tx.Commit(ctx)
+}
+
+func (d *DB) GetLogcatEntriesForDevice(ctx context.Context, deviceID uuid.UUID, limit int) ([]LogcatEntry, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT
+			lr.id, lr.device_id, lr.level, lr.lines, lr.tag, lr.status, lr.created_at, lr.updated_at,
+			lres.id, lres.content, lres.created_at
+		FROM logcat_requests lr
+		LEFT JOIN logcat_results lres ON lres.request_id = lr.id
+		WHERE lr.device_id = $1
+		ORDER BY lr.created_at DESC
+		LIMIT $2
+	`, deviceID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []LogcatEntry
+	for rows.Next() {
+		var e LogcatEntry
+		var resID *uuid.UUID
+		var resContent *string
+		var resCreatedAt *time.Time
+		if err := rows.Scan(
+			&e.Request.ID, &e.Request.DeviceID, &e.Request.Level, &e.Request.Lines,
+			&e.Request.Tag, &e.Request.Status, &e.Request.CreatedAt, &e.Request.UpdatedAt,
+			&resID, &resContent, &resCreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		if resID != nil {
+			e.Result = &LogcatResult{
+				ID:        *resID,
+				RequestID: e.Request.ID,
+				DeviceID:  deviceID,
+				Content:   *resContent,
+				CreatedAt: *resCreatedAt,
+			}
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
 // ParseSerials splits a newline/comma separated string into a trimmed slice.
 func ParseSerials(raw string) []string {
 	raw = strings.ReplaceAll(raw, ",", "\n")
@@ -691,4 +868,26 @@ CREATE TABLE IF NOT EXISTS apps (
 CREATE INDEX IF NOT EXISTS idx_checkins_device_id  ON checkins(device_id);
 CREATE INDEX IF NOT EXISTS idx_checkins_created_at ON checkins(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen   ON devices(last_seen_at DESC);
+
+CREATE TABLE IF NOT EXISTS logcat_requests (
+	id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	device_id  UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	level      TEXT NOT NULL DEFAULT 'W',
+	lines      INT  NOT NULL DEFAULT 500,
+	tag        TEXT NOT NULL DEFAULT '',
+	status     TEXT NOT NULL DEFAULT 'pending',
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS logcat_results (
+	id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	request_id UUID NOT NULL REFERENCES logcat_requests(id) ON DELETE CASCADE,
+	device_id  UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	content    TEXT NOT NULL,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_logcat_requests_device_id ON logcat_requests(device_id);
+CREATE INDEX IF NOT EXISTS idx_logcat_results_request_id ON logcat_results(request_id);
 `

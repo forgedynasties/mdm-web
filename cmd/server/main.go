@@ -101,6 +101,9 @@ func main() {
 	mux.Handle("GET /api/v1/commands/{id}",          auth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 	mux.Handle("POST /api/v1/commands/{id}/ack",     auth(http.HandlerFunc(apiHandler.AckCommand)))
 
+	// Logcat
+	mux.Handle("POST /api/v1/logcat",                auth(http.HandlerFunc(apiHandler.SubmitLogcat)))
+
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)

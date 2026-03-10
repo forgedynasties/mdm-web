@@ -33,17 +33,12 @@
 
     <div class="form-row">
       <label class="form-label">Target</label>
-      <div class="radio-group">
-        <label class="radio-label">
-          <input type="radio" name="target_type" value="all" checked onchange="updateTargetUI(this.value)"> All devices
-        </label>
-        <label class="radio-label">
-          <input type="radio" name="target_type" value="groups" onchange="updateTargetUI(this.value)"> Specific groups
-        </label>
-        <label class="radio-label">
-          <input type="radio" name="target_type" value="devices" onchange="updateTargetUI(this.value)"> Specific devices
-        </label>
+      <div class="seg-control">
+        <button type="button" class="seg-btn active" onclick="selectTarget('all', this)">All Devices</button>
+        <button type="button" class="seg-btn"        onclick="selectTarget('groups', this)">Groups</button>
+        <button type="button" class="seg-btn"        onclick="selectTarget('devices', this)">Specific Devices</button>
       </div>
+      <input type="hidden" name="target_type" id="target-type-input" value="all">
     </div>
 
     <div id="target-groups" class="form-row" style="display:none;">
@@ -64,7 +59,7 @@
       <textarea name="target_serials" class="form-textarea" placeholder="One serial number per line&#10;DEVICE001&#10;DEVICE002"></textarea>
     </div>
 
-    <button type="submit" class="btn-primary">Send Command</button>
+    <button type="submit" id="send-btn" class="btn-primary" disabled>Send Command</button>
   </form>
 </div>
 
@@ -121,9 +116,23 @@
 </div>
 
 <script>
-function updateTargetUI(val) {
+function checkSendReady() {
+  const sel = document.querySelector('select[name="apk_url"]');
+  const hasApp = sel ? sel.value !== '' : !!document.getElementById('cmd-apk-url')?.value;
+  document.getElementById('send-btn').disabled = !hasApp;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.querySelector('select[name="apk_url"]');
+  if (sel) sel.addEventListener('change', checkSendReady);
+});
+
+function selectTarget(val, btn) {
+  document.getElementById('target-type-input').value = val;
   document.getElementById('target-groups').style.display  = val === 'groups'  ? '' : 'none';
   document.getElementById('target-devices').style.display = val === 'devices' ? '' : 'none';
+  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 }
 
 function openAppModal() {
@@ -177,6 +186,7 @@ async function saveNewApp() {
   const hidden = document.getElementById('cmd-apk-url');
   if (hidden) hidden.value = app.apk_url;
 
+  checkSendReady();
   closeAppModal();
 }
 </script>

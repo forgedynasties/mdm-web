@@ -84,6 +84,16 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 				return "muted"
 			}
 		},
+		"logcatStatusClass": func(s string) string {
+			switch s {
+			case "fulfilled":
+				return "ok"
+			case "delivered":
+				return "warn"
+			default:
+				return "muted"
+			}
+		},
 		"rawJSON": func(b []byte) string { return string(b) },
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
@@ -235,7 +245,36 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checkins, err := h.db.GetCheckins(r.Context(), device.ID, 100)
+	const pageSize = 25
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if n, err := strconv.Atoi(p); err == nil && n > 0 {
+			page = n
+		}
+	}
+	offset := (page - 1) * pageSize
+
+	total, err := h.db.GetCheckinsCount(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+		offset = (page - 1) * pageSize
+	}
+
+	checkins, err := h.db.GetCheckinsPaged(r.Context(), device.ID, pageSize, offset)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	chartCheckins, err := h.db.GetCheckins(r.Context(), device.ID, 100)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -254,12 +293,16 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.tmpl.ExecuteTemplate(w, "device.html", map[string]any{
-		"Title":        device.SerialNumber,
-		"Device":       device,
-		"Checkins":     checkins,
-		"Commands":     commands,
-		"ExtraColumns": h.cfg.Columns(),
-		"Apps":         apps,
+		"Title":         device.SerialNumber,
+		"Device":        device,
+		"Checkins":      checkins,
+		"ChartCheckins": chartCheckins,
+		"Commands":      commands,
+		"ExtraColumns":  h.cfg.Columns(),
+		"Apps":          apps,
+		"CheckinPage":   page,
+		"CheckinPages":  totalPages,
+		"CheckinTotal":  total,
 	})
 }
 
@@ -531,6 +574,92 @@ func (h *Handler) SettingsRemoveColumn(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
+func (h *Handler) LogcatPage(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	entries, err := h.db.GetLogcatEntriesForDevice(r.Context(), device.ID, 20)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	hasPending := false
+	for _, e := range entries {
+		if e.Request.Status == "pending" || e.Request.Status == "delivered" {
+			hasPending = true
+			break
+		}
+	}
+
+	h.tmpl.ExecuteTemplate(w, "logcat.html", map[string]any{
+		"Title":      device.SerialNumber + " — Logcat",
+		"Device":     device,
+		"Entries":    entries,
+		"HasPending": hasPending,
+	})
+}
+
+func (h *Handler) LogcatRefresh(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	entries, err := h.db.GetLogcatEntriesForDevice(r.Context(), device.ID, 20)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	hasPending := false
+	for _, e := range entries {
+		if e.Request.Status == "pending" || e.Request.Status == "delivered" {
+			hasPending = true
+			break
+		}
+	}
+
+	h.tmpl.ExecuteTemplate(w, "logcat-entries", map[string]any{
+		"Device":     device,
+		"Entries":    entries,
+		"HasPending": hasPending,
+	})
+}
+
+func (h *Handler) LogcatRequestCreate(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	r.ParseForm()
+	level := r.FormValue("level")
+	if level != "V" && level != "D" && level != "I" && level != "W" && level != "E" {
+		level = "W"
+	}
+	lines := 500
+	if n, err := strconv.Atoi(r.FormValue("lines")); err == nil && n > 0 && n <= 5000 {
+		lines = n
+	}
+	tag := strings.TrimSpace(r.FormValue("tag"))
+
+	if _, err := h.db.CreateLogcatRequest(r.Context(), device.ID, level, lines, tag); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/devices/"+serial+"/logcat", http.StatusFound)
+}
+
 func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	r.ParseForm()
@@ -559,6 +688,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
+	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
+	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))
+	mux.HandleFunc("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
 
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
 	mux.HandleFunc("POST /groups", h.requireAuth(h.GroupCreate))
