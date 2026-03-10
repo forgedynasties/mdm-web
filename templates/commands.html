@@ -4,31 +4,60 @@
 <div class="page-header">
   <div>
     <h2 class="page-title">Commands</h2>
-    <p class="page-subtitle">Send APK install instructions to devices</p>
+    <p class="page-subtitle">Send commands to devices</p>
   </div>
 </div>
 
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>New Command</h3></div>
-  <form action="/commands" method="POST" class="command-form">
+  <form action="/commands" method="POST" class="command-form" id="cmd-form">
+
     <div class="form-row">
-      <label class="form-label">App</label>
-      {{if .Apps}}
-        <div class="app-select-wrap">
-          <select name="apk_url" class="form-input" required>
-            <option value="" disabled selected>Select an app…</option>
-            {{range .Apps}}
-            <option value="{{.ApkURL}}">{{.Name}}</option>
-            {{end}}
-          </select>
-          <button type="button" class="btn-outline" onclick="openAppModal()">+ New App</button>
-        </div>
-      {{else}}
-        <div class="app-empty-hint">
-          No apps in library. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>
-          <input type="hidden" name="apk_url" id="cmd-apk-url" required>
-        </div>
-      {{end}}
+      <label class="form-label">Type</label>
+      <div class="seg-control">
+        <button type="button" class="seg-btn active" onclick="selectType('install_apk', this)">Install APK</button>
+        <button type="button" class="seg-btn"        onclick="selectType('shell', this)">Shell</button>
+        <button type="button" class="seg-btn"        onclick="selectType('screenshot', this)">Screenshot</button>
+        <button type="button" class="seg-btn"        onclick="selectType('reboot', this)">Reboot</button>
+      </div>
+      <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
+    </div>
+
+    <div id="apk-fields">
+      <div class="form-row">
+        <label class="form-label">App</label>
+        {{if .Apps}}
+          <div class="app-select-wrap">
+            <select name="apk_url" class="form-input" id="apk-select">
+              <option value="" disabled selected>Select an app…</option>
+              {{range .Apps}}
+              <option value="{{.ApkURL}}">{{.Name}}</option>
+              {{end}}
+            </select>
+            <button type="button" class="btn-outline" onclick="openAppModal()">+ New App</button>
+          </div>
+        {{else}}
+          <div class="app-empty-hint">
+            No apps in library. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>
+            <input type="hidden" name="apk_url" id="cmd-apk-url">
+          </div>
+        {{end}}
+      </div>
+    </div>
+
+    <div id="shell-fields" style="display:none;">
+      <div class="form-row">
+        <label class="form-label">Command</label>
+        <input type="text" name="shell_cmd" class="form-input mono" placeholder="e.g. df -h /data" style="font-family:var(--mono);">
+      </div>
+    </div>
+
+    <div id="screenshot-hint" class="form-row" style="display:none;">
+      <span class="muted small">Device will capture a screenshot and upload it on next checkin.</span>
+    </div>
+
+    <div id="reboot-hint" class="form-row" style="display:none;">
+      <span class="muted small" style="color:var(--warn);">Device will reboot on next checkin.</span>
     </div>
 
     <div class="form-row">
@@ -59,7 +88,7 @@
       <textarea name="target_serials" class="form-textarea" placeholder="One serial number per line&#10;DEVICE001&#10;DEVICE002"></textarea>
     </div>
 
-    <button type="submit" id="send-btn" class="btn-primary" disabled>Send Command</button>
+    <button type="submit" id="send-btn" class="btn-primary">Send Command</button>
   </form>
 </div>
 
@@ -68,7 +97,8 @@
   <table class="table">
     <thead>
       <tr>
-        <th>APK URL</th>
+        <th>Type</th>
+        <th>Details</th>
         <th>Target</th>
         <th>Sent</th>
         <th></th>
@@ -78,7 +108,8 @@
       {{if .Commands}}
         {{range .Commands}}
         <tr>
-          <td class="mono small">{{.ApkURL}}</td>
+          <td><span class="status-badge muted">{{cmdLabel .Type}}</span></td>
+          <td class="mono small muted">{{if .ApkURL}}{{.ApkURL}}{{else}}—{{end}}</td>
           <td class="muted">{{.TargetType}}</td>
           <td class="muted small">{{formatTime .CreatedAt}}</td>
           <td><a href="/commands/{{.ID}}" class="link-detail">Status</a></td>
@@ -86,7 +117,7 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="4" class="empty">No commands sent yet.</td>
+          <td colspan="5" class="empty">No commands sent yet.</td>
         </tr>
       {{end}}
     </tbody>
@@ -116,22 +147,28 @@
 </div>
 
 <script>
-function checkSendReady() {
-  const sel = document.querySelector('select[name="apk_url"]');
-  const hasApp = sel ? sel.value !== '' : !!document.getElementById('cmd-apk-url')?.value;
-  document.getElementById('send-btn').disabled = !hasApp;
-}
+function selectType(val, btn) {
+  document.getElementById('cmd-type-input').value = val;
+  document.querySelectorAll('.seg-control:first-of-type .seg-btn').forEach(b => b.classList.remove('active'));
+  // find the seg-control containing this btn and update only those buttons
+  btn.closest('.seg-control').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
 
-document.addEventListener('DOMContentLoaded', () => {
-  const sel = document.querySelector('select[name="apk_url"]');
-  if (sel) sel.addEventListener('change', checkSendReady);
-});
+  document.getElementById('apk-fields').style.display      = val === 'install_apk' ? '' : 'none';
+  document.getElementById('shell-fields').style.display     = val === 'shell'       ? '' : 'none';
+  document.getElementById('screenshot-hint').style.display  = val === 'screenshot'  ? '' : 'none';
+  document.getElementById('reboot-hint').style.display      = val === 'reboot'      ? '' : 'none';
+
+  // disable the apk_url select/input when not install_apk so it doesn't block submission
+  const apkSel = document.getElementById('apk-select');
+  if (apkSel) apkSel.disabled = (val !== 'install_apk');
+}
 
 function selectTarget(val, btn) {
   document.getElementById('target-type-input').value = val;
   document.getElementById('target-groups').style.display  = val === 'groups'  ? '' : 'none';
   document.getElementById('target-devices').style.display = val === 'devices' ? '' : 'none';
-  document.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.closest('.seg-control').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }
 
@@ -157,36 +194,26 @@ async function saveNewApp() {
   const name   = document.getElementById('new-app-name').value.trim();
   const apkURL = document.getElementById('new-app-url').value.trim();
   const errEl  = document.getElementById('app-modal-error');
-
   if (!name || !apkURL) {
     errEl.textContent = 'Both fields are required.';
     errEl.style.display = '';
     return;
   }
-
   const body = new URLSearchParams({ name, apk_url: apkURL });
   const res  = await fetch('/setup/apps/create', { method: 'POST', body });
-
   if (!res.ok) {
     errEl.textContent = 'Failed to save app. Try again.';
     errEl.style.display = '';
     return;
   }
-
   const app = await res.json();
-
-  // Add to every app <select> on the page and select it
   document.querySelectorAll('select[name="apk_url"]').forEach(sel => {
     const opt = new Option(app.name, app.apk_url, true, true);
     sel.add(opt);
     sel.value = app.apk_url;
   });
-
-  // If no-apps fallback is showing, fill hidden input
   const hidden = document.getElementById('cmd-apk-url');
   if (hidden) hidden.value = app.apk_url;
-
-  checkSendReady();
   closeAppModal();
 }
 </script>

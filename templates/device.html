@@ -127,29 +127,62 @@
 {{end}}
 
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Send Command</h3></div>
-  <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="command-form">
-    <div class="form-row">
-      <label class="form-label">App</label>
-      {{if .Apps}}
-        <div class="app-select-wrap">
-          <select name="apk_url" class="form-input" required>
-            <option value="" disabled selected>Select an app…</option>
-            {{range .Apps}}
-            <option value="{{.ApkURL}}">{{.Name}}</option>
-            {{end}}
-          </select>
-          <button type="button" class="btn-outline" onclick="openAppModal()">+ New App</button>
-        </div>
-      {{else}}
-        <div class="app-empty-hint">
-          No apps in library. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>
-          <input type="hidden" name="apk_url" id="cmd-apk-url" required>
-        </div>
-      {{end}}
+  <div class="card-header"><h3>Actions</h3></div>
+  <div class="actions-grid">
+
+    <div class="action-card">
+      <div class="action-label">Install APK</div>
+      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="command-form" style="margin-top:8px;">
+        <input type="hidden" name="type" value="install_apk">
+        {{if .Apps}}
+          <div class="app-select-wrap">
+            <select name="apk_url" class="form-input" required>
+              <option value="" disabled selected>Select an app…</option>
+              {{range .Apps}}
+              <option value="{{.ApkURL}}">{{.Name}}</option>
+              {{end}}
+            </select>
+            <button type="button" class="btn-outline" onclick="openAppModal()">+ New App</button>
+          </div>
+        {{else}}
+          <div class="app-empty-hint">
+            No apps. <button type="button" class="btn-link" onclick="openAppModal()">Add one</button>
+            <input type="hidden" name="apk_url" id="cmd-apk-url">
+          </div>
+        {{end}}
+        <button type="submit" class="btn-primary" style="margin-top:8px;">Install</button>
+      </form>
     </div>
-    <button type="submit" class="btn-primary">Send</button>
-  </form>
+
+    <div class="action-card">
+      <div class="action-label">Shell Command</div>
+      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" style="margin-top:8px;">
+        <input type="hidden" name="type" value="shell">
+        <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. df -h /data" style="font-family:var(--mono);margin-bottom:8px;" required>
+        <button type="submit" class="btn-outline">Run</button>
+      </form>
+    </div>
+
+    <div class="action-card">
+      <div class="action-label">Screenshot</div>
+      <p class="muted small" style="margin:6px 0 10px;">Captures screen on next checkin.</p>
+      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST">
+        <input type="hidden" name="type" value="screenshot">
+        <button type="submit" class="btn-outline">Take Screenshot</button>
+      </form>
+    </div>
+
+    <div class="action-card">
+      <div class="action-label" style="color:var(--warn);">Reboot</div>
+      <p class="muted small" style="margin:6px 0 10px;">Device will reboot on next checkin.</p>
+      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST"
+            onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')">
+        <input type="hidden" name="type" value="reboot">
+        <button type="submit" class="btn-danger">Reboot</button>
+      </form>
+    </div>
+
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:16px;">
@@ -160,7 +193,7 @@
   <table class="table">
     <thead>
       <tr>
-        <th>APK URL</th>
+        <th>Type / APK</th>
         <th>Target</th>
         <th>Sent</th>
         <th>Status</th>
@@ -171,7 +204,7 @@
       {{if .Commands}}
         {{range .Commands}}
         <tr>
-          <td class="mono small">{{.ApkURL}}</td>
+          <td class="mono small">{{if .ApkURL}}{{.ApkURL}}{{else}}{{cmdLabel .Type}}{{end}}</td>
           <td class="muted small">{{.TargetType}}</td>
           <td class="muted small">{{formatTime .CreatedAt}}</td>
           <td><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></td>

@@ -76,12 +76,26 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 		},
 		"statusClass": func(s string) string {
 			switch s {
-			case "installed":
+			case "installed", "completed":
 				return "ok"
 			case "failed":
 				return "danger"
 			default:
 				return "muted"
+			}
+		},
+		"cmdLabel": func(cmdType string) string {
+			switch cmdType {
+			case "install_apk":
+				return "Install APK"
+			case "shell":
+				return "Shell"
+			case "screenshot":
+				return "Screenshot"
+			case "reboot":
+				return "Reboot"
+			default:
+				return cmdType
 			}
 		},
 		"logcatStatusClass": func(s string) string {
@@ -454,12 +468,23 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	cmdType := r.FormValue("type")
+	if cmdType == "" {
+		cmdType = "install_apk"
+	}
 	targetType := r.FormValue("target_type")
-	if apkURL == "" || (targetType != "all" && targetType != "devices" && targetType != "groups") {
+	if targetType != "all" && targetType != "devices" && targetType != "groups" {
 		http.Redirect(w, r, "/commands", http.StatusFound)
 		return
 	}
+
+	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if cmdType == "install_apk" && apkURL == "" {
+		http.Redirect(w, r, "/commands", http.StatusFound)
+		return
+	}
+
+	payload := buildPayload(cmdType, r)
 
 	var targetIDs []uuid.UUID
 	switch targetType {
@@ -481,11 +506,22 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, err := h.db.CreateCommand(r.Context(), apkURL, targetType, targetIDs); err != nil {
+	if _, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, targetType, targetIDs); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	http.Redirect(w, r, "/commands", http.StatusFound)
+}
+
+func buildPayload(cmdType string, r *http.Request) json.RawMessage {
+	switch cmdType {
+	case "shell":
+		cmd := strings.TrimSpace(r.FormValue("shell_cmd"))
+		b, _ := json.Marshal(map[string]string{"cmd": cmd})
+		return json.RawMessage(b)
+	default:
+		return json.RawMessage("{}")
+	}
 }
 
 // ── Setup ─────────────────────────────────────────────────────────────────────
@@ -663,17 +699,26 @@ func (h *Handler) LogcatRequestCreate(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	r.ParseForm()
-	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
-	if apkURL == "" {
-		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
-		return
+	cmdType := r.FormValue("type")
+	if cmdType == "" {
+		cmdType = "install_apk"
 	}
+
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	if _, err := h.db.CreateCommand(r.Context(), apkURL, "devices", []uuid.UUID{device.ID}); err != nil {
+
+	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if cmdType == "install_apk" && apkURL == "" {
+		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+		return
+	}
+
+	payload := buildPayload(cmdType, r)
+
+	if _, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID}); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

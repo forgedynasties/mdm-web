@@ -46,17 +46,19 @@ type Group struct {
 }
 
 type Command struct {
-	ID         uuid.UUID `json:"id"`
-	Type       string    `json:"type"`
-	ApkURL     string    `json:"apk_url"`
-	TargetType string    `json:"target_type"` // all | devices | groups
-	CreatedAt  time.Time `json:"created_at"`
+	ID         uuid.UUID       `json:"id"`
+	Type       string          `json:"type"`
+	ApkURL     string          `json:"apk_url"`
+	Payload    json.RawMessage `json:"payload"`
+	TargetType string          `json:"target_type"`
+	CreatedAt  time.Time       `json:"created_at"`
 }
 
 type CommandDelivery struct {
 	SerialNumber string    `json:"serial_number"`
-	Status       string    `json:"status"` // delivered | installed | failed
+	Status       string    `json:"status"`
 	UpdatedAt    time.Time `json:"updated_at"`
+	Output       string    `json:"output"`
 }
 
 type DB struct {
@@ -412,7 +414,7 @@ func (d *DB) GetDeviceIDsBySerials(ctx context.Context, serials []string) ([]uui
 
 // CreateCommand creates a command. For target_type "devices", targetIDs are device UUIDs.
 // For "groups", they are group UUIDs. For "all", targetIDs is empty.
-func (d *DB) CreateCommand(ctx context.Context, apkURL, targetType string, targetIDs []uuid.UUID) (*Command, error) {
+func (d *DB) CreateCommand(ctx context.Context, cmdType, apkURL string, payload json.RawMessage, targetType string, targetIDs []uuid.UUID) (*Command, error) {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -420,11 +422,14 @@ func (d *DB) CreateCommand(ctx context.Context, apkURL, targetType string, targe
 	defer tx.Rollback(ctx)
 
 	var cmd Command
+	if len(payload) == 0 {
+		payload = json.RawMessage("{}")
+	}
 	err = tx.QueryRow(ctx, `
-		INSERT INTO commands (type, apk_url, target_type)
-		VALUES ('install_apk', $1, $2)
-		RETURNING id, type, apk_url, target_type, created_at
-	`, apkURL, targetType).Scan(&cmd.ID, &cmd.Type, &cmd.ApkURL, &cmd.TargetType, &cmd.CreatedAt)
+		INSERT INTO commands (type, apk_url, payload, target_type)
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, type, apk_url, payload, target_type, created_at
+	`, cmdType, apkURL, payload, targetType).Scan(&cmd.ID, &cmd.Type, &cmd.ApkURL, &cmd.Payload, &cmd.TargetType, &cmd.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -442,7 +447,7 @@ func (d *DB) CreateCommand(ctx context.Context, apkURL, targetType string, targe
 
 func (d *DB) ListCommands(ctx context.Context) ([]Command, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, type, apk_url, target_type, created_at
+		SELECT id, type, apk_url, payload, target_type, created_at
 		FROM commands
 		ORDER BY created_at DESC
 	`)
@@ -454,7 +459,7 @@ func (d *DB) ListCommands(ctx context.Context) ([]Command, error) {
 	var cmds []Command
 	for rows.Next() {
 		var c Command
-		if err := rows.Scan(&c.ID, &c.Type, &c.ApkURL, &c.TargetType, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Type, &c.ApkURL, &c.Payload, &c.TargetType, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		cmds = append(cmds, c)
@@ -465,9 +470,9 @@ func (d *DB) ListCommands(ctx context.Context) ([]Command, error) {
 func (d *DB) GetCommand(ctx context.Context, id uuid.UUID) (*Command, error) {
 	var c Command
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, type, apk_url, target_type, created_at
+		SELECT id, type, apk_url, payload, target_type, created_at
 		FROM commands WHERE id = $1
-	`, id).Scan(&c.ID, &c.Type, &c.ApkURL, &c.TargetType, &c.CreatedAt)
+	`, id).Scan(&c.ID, &c.Type, &c.ApkURL, &c.Payload, &c.TargetType, &c.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -477,7 +482,7 @@ func (d *DB) GetCommand(ctx context.Context, id uuid.UUID) (*Command, error) {
 // GetPendingCommandsForDevice returns commands not yet delivered/acked for this device.
 func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID) ([]Command, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT c.id, c.type, c.apk_url, c.target_type, c.created_at
+		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at
 		FROM commands c
 		WHERE (
 			c.target_type = 'all'
@@ -506,7 +511,7 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 	var cmds []Command
 	for rows.Next() {
 		var c Command
-		if err := rows.Scan(&c.ID, &c.Type, &c.ApkURL, &c.TargetType, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Type, &c.ApkURL, &c.Payload, &c.TargetType, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		cmds = append(cmds, c)
@@ -541,22 +546,27 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 }
 
 type DeviceCommand struct {
-	ID         uuid.UUID `json:"id"`
-	ApkURL     string    `json:"apk_url"`
-	TargetType string    `json:"target_type"`
-	CreatedAt  time.Time `json:"created_at"`
-	Status     string    `json:"status"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID         uuid.UUID       `json:"id"`
+	Type       string          `json:"type"`
+	ApkURL     string          `json:"apk_url"`
+	Payload    json.RawMessage `json:"payload"`
+	TargetType string          `json:"target_type"`
+	CreatedAt  time.Time       `json:"created_at"`
+	Status     string          `json:"status"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+	Output     string          `json:"output"`
 }
 
 // GetDeviceCommands returns all commands targeting a device with their status.
 func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]DeviceCommand, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT c.id, c.apk_url, c.target_type, c.created_at,
+		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at,
 		       COALESCE(cs.status, 'pending') AS status,
-		       COALESCE(cs.updated_at, c.created_at) AS updated_at
+		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
+		       COALESCE(cr.output, '') AS output
 		FROM commands c
 		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
+		LEFT JOIN command_results cr ON cr.command_id = c.id AND cr.device_id = $1
 		WHERE (
 			c.target_type = 'all'
 			OR (c.target_type = 'devices' AND EXISTS (
@@ -578,7 +588,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]Devic
 	var out []DeviceCommand
 	for rows.Next() {
 		var dc DeviceCommand
-		if err := rows.Scan(&dc.ID, &dc.ApkURL, &dc.TargetType, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt); err != nil {
+		if err := rows.Scan(&dc.ID, &dc.Type, &dc.ApkURL, &dc.Payload, &dc.TargetType, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt, &dc.Output); err != nil {
 			return nil, err
 		}
 		out = append(out, dc)
@@ -589,9 +599,10 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]Devic
 // GetCommandDeliveries returns per-device status for a command.
 func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]CommandDelivery, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT d.serial_number, cs.status, cs.updated_at
+		SELECT d.serial_number, cs.status, cs.updated_at, COALESCE(cr.output, '') AS output
 		FROM command_status cs
 		JOIN devices d ON d.id = cs.device_id
+		LEFT JOIN command_results cr ON cr.command_id = cs.command_id AND cr.device_id = cs.device_id
 		WHERE cs.command_id = $1
 		ORDER BY cs.updated_at DESC
 	`, commandID)
@@ -603,7 +614,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]C
 	var out []CommandDelivery
 	for rows.Next() {
 		var cd CommandDelivery
-		if err := rows.Scan(&cd.SerialNumber, &cd.Status, &cd.UpdatedAt); err != nil {
+		if err := rows.Scan(&cd.SerialNumber, &cd.Status, &cd.UpdatedAt, &cd.Output); err != nil {
 			return nil, err
 		}
 		out = append(out, cd)
@@ -806,6 +817,23 @@ func ParseSerials(raw string) []string {
 	return out
 }
 
+type CommandResult struct {
+	ID        uuid.UUID `json:"id"`
+	CommandID uuid.UUID `json:"command_id"`
+	DeviceID  uuid.UUID `json:"device_id"`
+	Output    string    `json:"output"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (d *DB) SaveCommandResult(ctx context.Context, commandID, deviceID uuid.UUID, output string) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO command_results (command_id, device_id, output)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (command_id, device_id) DO UPDATE SET output = EXCLUDED.output
+	`, commandID, deviceID, output)
+	return err
+}
+
 const migrationSQL = `
 CREATE TABLE IF NOT EXISTS devices (
 	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -890,4 +918,17 @@ CREATE TABLE IF NOT EXISTS logcat_results (
 
 CREATE INDEX IF NOT EXISTS idx_logcat_requests_device_id ON logcat_requests(device_id);
 CREATE INDEX IF NOT EXISTS idx_logcat_results_request_id ON logcat_results(request_id);
+
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS payload JSONB NOT NULL DEFAULT '{}';
+
+CREATE TABLE IF NOT EXISTS command_results (
+	id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	command_id UUID NOT NULL REFERENCES commands(id) ON DELETE CASCADE,
+	device_id  UUID NOT NULL REFERENCES devices(id)  ON DELETE CASCADE,
+	output     TEXT NOT NULL DEFAULT '',
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	UNIQUE(command_id, device_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_command_results_command_id ON command_results(command_id);
 `

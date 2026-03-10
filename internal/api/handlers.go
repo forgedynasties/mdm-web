@@ -60,13 +60,14 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	type cmdResponse struct {
-		ID     uuid.UUID `json:"id"`
-		Type   string    `json:"type"`
-		ApkURL string    `json:"apk_url"`
+		ID      uuid.UUID       `json:"id"`
+		Type    string          `json:"type"`
+		ApkURL  string          `json:"apk_url"`
+		Payload json.RawMessage `json:"payload"`
 	}
 	var cmdList []cmdResponse
 	for _, c := range cmds {
-		cmdList = append(cmdList, cmdResponse{ID: c.ID, Type: c.Type, ApkURL: c.ApkURL})
+		cmdList = append(cmdList, cmdResponse{ID: c.ID, Type: c.Type, ApkURL: c.ApkURL, Payload: c.Payload})
 	}
 	if cmdList == nil {
 		cmdList = []cmdResponse{}
@@ -259,16 +260,26 @@ func (h *Handler) RemoveDeviceFromGroup(w http.ResponseWriter, r *http.Request) 
 
 func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		ApkURL     string   `json:"apk_url"`
-		TargetType string   `json:"target_type"` // all | devices | groups
-		Targets    []string `json:"targets"`     // serial numbers for devices; group UUIDs for groups
+		Type       string          `json:"type"`
+		ApkURL     string          `json:"apk_url"`
+		Payload    json.RawMessage `json:"payload"`
+		TargetType string          `json:"target_type"`
+		Targets    []string        `json:"targets"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
 		return
 	}
-	if body.ApkURL == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "apk_url is required"})
+	if body.Type == "" {
+		body.Type = "install_apk"
+	}
+	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true}
+	if !validTypes[body.Type] {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid type"})
+		return
+	}
+	if body.Type == "install_apk" && body.ApkURL == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "apk_url is required for install_apk"})
 		return
 	}
 	if body.TargetType != "all" && body.TargetType != "devices" && body.TargetType != "groups" {
@@ -296,7 +307,7 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cmd, err := h.db.CreateCommand(r.Context(), body.ApkURL, body.TargetType, targetIDs)
+	cmd, err := h.db.CreateCommand(r.Context(), body.Type, body.ApkURL, body.Payload, body.TargetType, targetIDs)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -340,14 +351,15 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		SerialNumber string `json:"serial_number"`
-		Status       string `json:"status"` // installed | failed
+		Status       string `json:"status"` // installed | failed | completed
+		Output       string `json:"output"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SerialNumber == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number is required"})
 		return
 	}
-	if body.Status != "installed" && body.Status != "failed" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be installed or failed"})
+	if body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be installed, failed, or completed"})
 		return
 	}
 
@@ -359,6 +371,9 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.AckCommand(r.Context(), cmdID, device.ID, body.Status); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
+	}
+	if body.Output != "" {
+		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

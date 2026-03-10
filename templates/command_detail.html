@@ -11,7 +11,7 @@
 <div class="stats-grid" style="margin-bottom:16px;">
   <div class="stat-card">
     <div class="stat-label">Type</div>
-    <div class="stat-value small mono">{{.Command.Type}}</div>
+    <div class="stat-value small mono">{{cmdLabel .Command.Type}}</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">Target</div>
@@ -24,10 +24,12 @@
   </div>
 </div>
 
+{{if .Command.ApkURL}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>APK URL</h3></div>
   <div style="padding:12px 16px;"><span class="mono small">{{.Command.ApkURL}}</span></div>
 </div>
+{{end}}
 
 <div class="card">
   <div class="card-header">
@@ -40,6 +42,8 @@
         <th>Serial Number</th>
         <th>Status</th>
         <th>Updated</th>
+        {{if eq .Command.Type "shell"}}<th>Output</th>{{end}}
+        {{if eq .Command.Type "screenshot"}}<th>Screenshot</th>{{end}}
       </tr>
     </thead>
     <tbody>
@@ -49,11 +53,30 @@
           <td class="mono">{{.SerialNumber}}</td>
           <td><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></td>
           <td class="muted small">{{formatTime .UpdatedAt}}</td>
+          {{if eq $.Command.Type "shell"}}
+          <td>
+            {{if .Output}}
+            <details>
+              <summary class="link-detail" style="cursor:pointer;">View output</summary>
+              <pre class="logcat-terminal" style="margin-top:8px;max-height:300px;">{{.Output}}</pre>
+            </details>
+            {{else}}<span class="muted small">—</span>{{end}}
+          </td>
+          {{end}}
+          {{if eq $.Command.Type "screenshot"}}
+          <td>
+            {{if .Output}}
+            <a href="data:image/png;base64,{{.Output}}" target="_blank">
+              <img src="data:image/png;base64,{{.Output}}" class="screenshot-thumb" alt="screenshot">
+            </a>
+            {{else}}<span class="muted small">—</span>{{end}}
+          </td>
+          {{end}}
         </tr>
         {{end}}
       {{else}}
         <tr>
-          <td colspan="3" class="empty">No devices have received this command yet.</td>
+          <td colspan="4" class="empty">No devices have received this command yet.</td>
         </tr>
       {{end}}
     </tbody>

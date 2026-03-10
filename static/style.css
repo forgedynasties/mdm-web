@@ -853,6 +853,48 @@ a:hover { color: var(--accent-h); }
 .logcat-level-D { background: rgba(52,199,123,0.15); color: #34c77b; border-color: rgba(52,199,123,0.3); }
 .logcat-level-V { background: rgba(122,127,154,0.15); color: #7a7f9a; border-color: rgba(122,127,154,0.3); }
 
+/* ── Actions Grid ────────────────────────────────── */
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  padding: 16px;
+}
+.action-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.action-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+.btn-danger {
+  background: rgba(240,82,82,0.15);
+  color: var(--danger);
+  border: 1px solid rgba(240,82,82,0.35);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--font);
+  transition: background 0.15s;
+}
+.btn-danger:hover {
+  background: rgba(240,82,82,0.25);
+}
+
+/* ── Screenshot ──────────────────────────────────── */
+.screenshot-thumb {
+  max-width: 160px;
+  max-height: 90px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  display: block;
+}
+
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 900px) {
   .summary-grid { grid-template-columns: repeat(3, 1fr); }
