@@ -445,6 +445,11 @@ func (d *DB) CreateCommand(ctx context.Context, cmdType, apkURL string, payload 
 	return &cmd, tx.Commit(ctx)
 }
 
+func (d *DB) DeleteCommand(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM commands WHERE id = $1`, id)
+	return err
+}
+
 func (d *DB) ListCommands(ctx context.Context) ([]Command, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, type, apk_url, payload, target_type, created_at
@@ -499,7 +504,7 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		AND NOT EXISTS (
 			SELECT 1 FROM command_status cs
 			WHERE cs.command_id = c.id AND cs.device_id = $1
-			AND cs.status IN ('delivered', 'installed', 'failed')
+			AND cs.status IN ('delivered', 'installed', 'failed', 'completed')
 		)
 		ORDER BY c.created_at ASC
 	`, deviceID)

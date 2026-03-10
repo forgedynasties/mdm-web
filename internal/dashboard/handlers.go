@@ -443,6 +443,41 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+	cmd, err := h.db.GetCommand(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
+	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "command-deliveries", map[string]any{
+		"Command":    cmd,
+		"Deliveries": deliveries,
+	})
+}
+
+func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteCommand(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/commands", http.StatusFound)
+}
+
 func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -783,6 +818,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
+	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
+	mux.HandleFunc("POST /commands/{id}/delete", h.requireAuth(h.CommandDelete))
 
 	mux.HandleFunc("GET /settings", h.requireAuth(h.SettingsPage))
 	mux.HandleFunc("POST /settings/columns/add", h.requireAuth(h.SettingsAddColumn))

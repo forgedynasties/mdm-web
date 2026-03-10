@@ -74,11 +74,20 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(cmds) > 0 {
-		var ids []uuid.UUID
+		var deliverIDs, completeIDs []uuid.UUID
 		for _, c := range cmds {
-			ids = append(ids, c.ID)
+			if c.Type == "reboot" {
+				completeIDs = append(completeIDs, c.ID)
+			} else {
+				deliverIDs = append(deliverIDs, c.ID)
+			}
 		}
-		_ = h.db.MarkCommandsDelivered(r.Context(), deviceID, ids)
+		if len(deliverIDs) > 0 {
+			_ = h.db.MarkCommandsDelivered(r.Context(), deviceID, deliverIDs)
+		}
+		for _, id := range completeIDs {
+			_ = h.db.AckCommand(r.Context(), id, deviceID, "completed")
+		}
 	}
 
 	type cmdResponse struct {

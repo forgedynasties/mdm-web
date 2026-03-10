@@ -112,7 +112,12 @@
           <td class="mono small muted">{{if .ApkURL}}{{.ApkURL}}{{else}}—{{end}}</td>
           <td class="muted">{{.TargetType}}</td>
           <td class="muted small">{{formatTime .CreatedAt}}</td>
-          <td><a href="/commands/{{.ID}}" class="link-detail">Status</a></td>
+          <td style="display:flex;gap:8px;align-items:center;">
+            <a href="/commands/{{.ID}}" class="link-detail">Status</a>
+            <form action="/commands/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
+              <button type="submit" class="btn-link" style="color:var(--danger);">Delete</button>
+            </form>
+          </td>
         </tr>
         {{end}}
       {{else}}
