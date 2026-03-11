@@ -185,6 +185,15 @@
       </form>
     </div>
 
+    <div class="action-card">
+      <div class="action-label">Poll Interval</div>
+      <p class="muted small" style="margin:6px 0 10px;">Current: <strong>{{.Device.PollIntervalMs}}ms</strong> ({{div .Device.PollIntervalMs 1000}}s). Returned on next checkin.</p>
+      <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" style="display:flex;gap:8px;align-items:center;">
+        <input type="number" name="poll_interval_ms" class="form-input" value="{{.Device.PollIntervalMs}}" min="5000" step="1000" style="width:120px;" required>
+        <button type="submit" class="btn-outline">Set</button>
+      </form>
+    </div>
+
   </div>
 </div>
 

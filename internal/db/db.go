@@ -13,12 +13,13 @@ import (
 )
 
 type Device struct {
-	ID           uuid.UUID `json:"id"`
-	SerialNumber string    `json:"serial_number"`
-	BuildID      string    `json:"build_id"`
-	BatteryPct   int       `json:"battery_pct"`
-	LastSeenAt   time.Time `json:"last_seen_at"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID             uuid.UUID `json:"id"`
+	SerialNumber   string    `json:"serial_number"`
+	BuildID        string    `json:"build_id"`
+	BatteryPct     int       `json:"battery_pct"`
+	LastSeenAt     time.Time `json:"last_seen_at"`
+	CreatedAt      time.Time `json:"created_at"`
+	PollIntervalMs int       `json:"poll_interval_ms"`
 }
 
 type Summary struct {
@@ -87,29 +88,30 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 }
 
 // UpsertCheckin upserts the device record, inserts a checkin row, and returns
-// the device UUID so the caller can query pending commands.
-func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct int, extra json.RawMessage) (uuid.UUID, error) {
+// the device UUID and poll interval so the caller can query pending commands.
+func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct int, extra json.RawMessage) (uuid.UUID, int, error) {
 	if len(extra) == 0 {
 		extra = json.RawMessage("{}")
 	}
 
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, 0, err
 	}
 	defer tx.Rollback(ctx)
 
 	var deviceID uuid.UUID
+	var pollIntervalMs int
 	err = tx.QueryRow(ctx, `
 		INSERT INTO devices (serial_number, build_id, last_seen_at)
 		VALUES ($1, $2, NOW())
 		ON CONFLICT (serial_number) DO UPDATE
 			SET build_id     = EXCLUDED.build_id,
 			    last_seen_at = NOW()
-		RETURNING id
-	`, serial, buildID).Scan(&deviceID)
+		RETURNING id, poll_interval_ms
+	`, serial, buildID).Scan(&deviceID, &pollIntervalMs)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, 0, err
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -117,10 +119,10 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		VALUES ($1, $2, $3, $4)
 	`, deviceID, batteryPct, buildID, extra)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, 0, err
 	}
 
-	return deviceID, tx.Commit(ctx)
+	return deviceID, pollIntervalMs, tx.Commit(ctx)
 }
 
 func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
@@ -148,7 +150,8 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int) 
 	const base = `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
-			COALESCE(c.battery_pct, 0) AS battery_pct
+			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.poll_interval_ms
 		FROM devices d
 		LEFT JOIN LATERAL (
 			SELECT battery_pct FROM checkins
@@ -177,7 +180,7 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int) 
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -203,7 +206,8 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 	err := d.pool.QueryRow(ctx, `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
-			COALESCE(c.battery_pct, 0) AS battery_pct
+			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.poll_interval_ms
 		FROM devices d
 		LEFT JOIN LATERAL (
 			SELECT battery_pct FROM checkins
@@ -212,11 +216,18 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			LIMIT 1
 		) c ON true
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
 	return &dev, nil
+}
+
+func (d *DB) SetDevicePollInterval(ctx context.Context, serial string, intervalMs int) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE devices SET poll_interval_ms = $2 WHERE serial_number = $1
+	`, serial, intervalMs)
+	return err
 }
 
 func (d *DB) GetCheckins(ctx context.Context, deviceID uuid.UUID, limit int) ([]Checkin, error) {
@@ -362,7 +373,8 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
-			COALESCE(c.battery_pct, 0) AS battery_pct
+			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.poll_interval_ms
 		FROM devices d
 		JOIN device_groups dg ON dg.device_id = d.id
 		LEFT JOIN LATERAL (
@@ -382,7 +394,7 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -1059,4 +1071,6 @@ CREATE TABLE IF NOT EXISTS device_packages (
 
 CREATE INDEX IF NOT EXISTS idx_device_packages_device_id   ON device_packages(device_id);
 CREATE INDEX IF NOT EXISTS idx_device_packages_package_name ON device_packages(package_name);
+
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS poll_interval_ms INTEGER NOT NULL DEFAULT 30000;
 `

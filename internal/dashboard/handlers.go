@@ -127,6 +127,7 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 		},
 		"add":  func(a, b int) int { return a + b },
 		"sub":  func(a, b int) int { return a - b },
+		"div":  func(a, b int) int { return a / b },
 		"iter": func(start, end int) []int {
 			var out []int
 			for i := start; i <= end; i++ {
@@ -760,6 +761,21 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
+func (h *Handler) DeviceSetPollInterval(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	r.ParseForm()
+	ms, err := strconv.Atoi(r.FormValue("poll_interval_ms"))
+	if err != nil || ms < 5000 {
+		http.Error(w, "poll_interval_ms must be >= 5000", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetDevicePollInterval(r.Context(), serial, ms); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+}
+
 // ── Packages ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) FleetPackages(w http.ResponseWriter, r *http.Request) {
@@ -803,6 +819,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
+	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAuth(h.DeviceSetPollInterval))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))

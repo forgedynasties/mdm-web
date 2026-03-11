@@ -50,7 +50,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deviceID, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
+	deviceID, pollIntervalMs, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -132,9 +132,10 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":          "ok",
-		"commands":        cmdList,
-		"logcat_requests": lrList,
+		"status":           "ok",
+		"poll_interval_ms": pollIntervalMs,
+		"commands":         cmdList,
+		"logcat_requests":  lrList,
 	})
 }
 
