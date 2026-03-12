@@ -125,9 +125,10 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 			}
 			return string(v)
 		},
-		"add":  func(a, b int) int { return a + b },
-		"sub":  func(a, b int) int { return a - b },
-		"div":  func(a, b int) int { return a / b },
+		"add":    func(a, b int) int { return a + b },
+		"sub":    func(a, b int) int { return a - b },
+		"div":    func(a, b int) int { return a / b },
+		"hasBit": func(mask, bit int) bool { return mask&bit != 0 },
 		"iter": func(start, end int) []int {
 			var out []int
 			for i := start; i <= end; i++ {
@@ -307,17 +308,32 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	installedPkgs, err := h.db.GetDevicePackages(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	kioskCfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
 	h.tmpl.ExecuteTemplate(w, "device.html", map[string]any{
-		"Title":         device.SerialNumber,
-		"Device":        device,
-		"Checkins":      checkins,
-		"ChartCheckins": chartCheckins,
-		"Commands":      commands,
-		"ExtraColumns":  h.cfg.Columns(),
-		"Apps":          apps,
-		"CheckinPage":   page,
-		"CheckinPages":  totalPages,
-		"CheckinTotal":  total,
+		"Title":             device.SerialNumber,
+		"Device":            device,
+		"Checkins":          checkins,
+		"ChartCheckins":     chartCheckins,
+		"Commands":          commands,
+		"ExtraColumns":      h.cfg.Columns(),
+		"Apps":              apps,
+		"CheckinPage":       page,
+		"CheckinPages":      totalPages,
+		"CheckinTotal":      total,
+		"InstalledPackages": installedPkgs,
+		"KioskConfig":       kioskCfg,
+		"KioskFeatures":     KioskFeatureDefs,
 	})
 }
 
@@ -776,6 +792,52 @@ func (h *Handler) DeviceSetPollInterval(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
+// KioskFeatureDef describes a single Android LOCK_TASK_FEATURE_* flag.
+type KioskFeatureDef struct {
+	Bit   int
+	Name  string
+	Label string
+}
+
+// KioskFeatureDefs lists all supported lock-task feature flags in presentation order.
+// Bit values match android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_*.
+var KioskFeatureDefs = []KioskFeatureDef{
+	{1, "SYSTEM_INFO", "Show system info in status bar (battery, WiFi)"},
+	{2, "NOTIFICATIONS", "Allow notifications"},
+	{4, "HOME", "Allow Home button"},
+	{8, "RECENTS", "Allow Recent Apps button"},
+	{16, "GLOBAL_ACTIONS", "Allow power menu"},
+	{32, "KEYGUARD", "Allow lock screen (Keyguard)"},
+}
+
+func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	r.ParseForm()
+
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	enabled := r.FormValue("kiosk_enabled") == "1"
+	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
+
+	// Build features bitmask from checked boxes.
+	features := 0
+	for _, f := range KioskFeatureDefs {
+		if r.FormValue(fmt.Sprintf("feature_%d", f.Bit)) == "1" {
+			features |= f.Bit
+		}
+	}
+
+	if err := h.db.SetKioskConfig(r.Context(), device.ID, enabled, pkg, features); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+}
+
 // ── Packages ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) FleetPackages(w http.ResponseWriter, r *http.Request) {
@@ -820,6 +882,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAuth(h.DeviceSetPollInterval))
+	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAuth(h.DeviceKioskUpdate))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))

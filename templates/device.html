@@ -36,6 +36,15 @@
     <div class="stat-value">{{timeSince .Device.CreatedAt}}</div>
     <div class="stat-sub">{{formatTime .Device.CreatedAt}}</div>
   </div>
+  <div class="stat-card">
+    <div class="stat-label">Kiosk</div>
+    {{if .Device.KioskEnabled}}
+      <div class="stat-value ok">Active</div>
+      <div class="stat-sub mono small">{{.Device.KioskPackage}}</div>
+    {{else}}
+      <div class="stat-value muted">Off</div>
+    {{end}}
+  </div>
 </div>
 
 {{if .ChartCheckins}}
@@ -195,6 +204,75 @@
     </div>
 
   </div>
+</div>
+
+<!-- Kiosk Management -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Kiosk Mode</h3>
+    {{if .Device.KioskEnabled}}
+      <span class="status-badge ok">Active — {{.Device.KioskPackage}}</span>
+    {{else}}
+      <span class="status-badge muted">Disabled</span>
+    {{end}}
+  </div>
+
+  <form action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" style="padding:16px;">
+
+    <div class="form-row" style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+      <label class="form-label" style="margin:0;">Enable Kiosk</label>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" name="kiosk_enabled" value="1" {{if .KioskConfig.KioskEnabled}}checked{{end}}
+               onchange="document.getElementById('kiosk-fields').style.display=this.checked?'block':'none'">
+        <span class="small">Lock device to a single app on next checkin</span>
+      </label>
+    </div>
+
+    <div id="kiosk-fields" style="display:{{if .KioskConfig.KioskEnabled}}block{{else}}none{{end}}">
+
+      <div class="form-row" style="margin-bottom:16px;">
+        <label class="form-label">Pinned App</label>
+        {{if .InstalledPackages}}
+          <select name="kiosk_package" class="form-input" style="max-width:420px;">
+            <option value="">— select a package —</option>
+            {{range .InstalledPackages}}
+              <option value="{{.PackageName}}" {{if eq .PackageName $.KioskConfig.KioskPackage}}selected{{end}}>
+                {{.PackageName}}{{if .VersionName}} ({{.VersionName}}){{end}}
+              </option>
+            {{end}}
+          </select>
+        {{else}}
+          <p class="muted small">No installed packages on record. Send a checkin with <code>installed_apps</code> first.</p>
+          <input type="text" name="kiosk_package" class="form-input" style="max-width:420px;"
+                 value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
+        {{end}}
+      </div>
+
+      <div class="form-row" style="margin-bottom:16px;">
+        <label class="form-label">Lock Task Features</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+          {{range .KioskFeatures}}
+          <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
+            <input type="checkbox" name="feature_{{.Bit}}" value="1"
+                   {{if hasBit $.KioskConfig.KioskFeatures .Bit}}checked{{end}}
+                   style="margin-top:2px;">
+            <span>
+              <span class="mono small" style="color:var(--accent);">{{.Name}}</span>
+              <span class="muted small"> — {{.Label}}</span>
+            </span>
+          </label>
+          {{end}}
+        </div>
+        <p class="muted small" style="margin-top:8px;">Checked = <em>allowed</em>. Unchecked = blocked. Applied via <code>setLockTaskFeatures()</code>.</p>
+      </div>
+
+    </div>
+
+    <button type="submit" class="btn-primary">Save Kiosk Config</button>
+    {{if .KioskConfig.KioskEnabled}}
+      <span class="muted small" style="margin-left:12px;">To exit kiosk: uncheck Enable and save — device will exit on next checkin.</span>
+    {{end}}
+  </form>
 </div>
 
 <div class="card" style="margin-bottom:16px;">

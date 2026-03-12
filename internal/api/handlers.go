@@ -131,9 +131,20 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		lrList = []logcatReqResponse{}
 	}
 
+	deviceCfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), deviceID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":           "ok",
 		"poll_interval_ms": pollIntervalMs,
+		"config": map[string]any{
+			"kiosk_enabled":  deviceCfg.KioskEnabled,
+			"kiosk_package":  deviceCfg.KioskPackage,
+			"kiosk_features": deviceCfg.KioskFeatures,
+		},
 		"commands":         cmdList,
 		"logcat_requests":  lrList,
 	})

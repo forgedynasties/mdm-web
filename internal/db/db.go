@@ -20,6 +20,20 @@ type Device struct {
 	LastSeenAt     time.Time `json:"last_seen_at"`
 	CreatedAt      time.Time `json:"created_at"`
 	PollIntervalMs int       `json:"poll_interval_ms"`
+	KioskEnabled   bool      `json:"kiosk_enabled"`
+	KioskPackage   string    `json:"kiosk_package"`
+}
+
+// DefaultKioskFeatures shows system info (battery/wifi) but blocks home, recents,
+// notifications, global actions and keyguard — matching Android LOCK_TASK_FEATURE_SYSTEM_INFO.
+const DefaultKioskFeatures = 1
+
+type DeviceConfig struct {
+	DeviceID      uuid.UUID `json:"device_id"`
+	KioskEnabled  bool      `json:"kiosk_enabled"`
+	KioskPackage  string    `json:"kiosk_package"`
+	KioskFeatures int       `json:"kiosk_features"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 type Summary struct {
@@ -28,6 +42,7 @@ type Summary struct {
 	LowBattery     int // battery < 20%
 	AvgBattery     int
 	UniqueBuilds   int
+	KioskCount     int // devices currently in kiosk mode
 }
 
 type Checkin struct {
@@ -139,10 +154,12 @@ func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
 			COUNT(*) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes'),
 			COUNT(*) FILTER (WHERE l.battery_pct < 20),
 			COALESCE(ROUND(AVG(l.battery_pct)), 0),
-			COUNT(DISTINCT d.build_id)
+			COUNT(DISTINCT d.build_id),
+			COUNT(*) FILTER (WHERE dc.kiosk_enabled = true)
 		FROM devices d
 		LEFT JOIN latest l ON l.device_id = d.id
-	`).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.AvgBattery, &s.UniqueBuilds)
+		LEFT JOIN device_config dc ON dc.device_id = d.id
+	`).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.AvgBattery, &s.UniqueBuilds, &s.KioskCount)
 	return s, err
 }
 
@@ -151,14 +168,17 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int) 
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
 			COALESCE(c.battery_pct, 0) AS battery_pct,
-			d.poll_interval_ms
+			d.poll_interval_ms,
+			COALESCE(dc.kiosk_enabled, false),
+			COALESCE(dc.kiosk_package, '')
 		FROM devices d
 		LEFT JOIN LATERAL (
 			SELECT battery_pct FROM checkins
 			WHERE device_id = d.id
 			ORDER BY created_at DESC
 			LIMIT 1
-		) c ON true`
+		) c ON true
+		LEFT JOIN device_config dc ON dc.device_id = d.id`
 
 	var rows pgx.Rows
 	var err error
@@ -180,7 +200,7 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int) 
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -207,7 +227,9 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
 			COALESCE(c.battery_pct, 0) AS battery_pct,
-			d.poll_interval_ms
+			d.poll_interval_ms,
+			COALESCE(dc.kiosk_enabled, false),
+			COALESCE(dc.kiosk_package, '')
 		FROM devices d
 		LEFT JOIN LATERAL (
 			SELECT battery_pct FROM checkins
@@ -215,8 +237,9 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			ORDER BY created_at DESC
 			LIMIT 1
 		) c ON true
+		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -374,7 +397,9 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
 			COALESCE(c.battery_pct, 0) AS battery_pct,
-			d.poll_interval_ms
+			d.poll_interval_ms,
+			COALESCE(dc.kiosk_enabled, false),
+			COALESCE(dc.kiosk_package, '')
 		FROM devices d
 		JOIN device_groups dg ON dg.device_id = d.id
 		LEFT JOIN LATERAL (
@@ -383,6 +408,7 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 			ORDER BY created_at DESC
 			LIMIT 1
 		) c ON true
+		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE dg.group_id = $1
 		ORDER BY d.serial_number
 	`, groupID)
@@ -394,7 +420,7 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -932,6 +958,41 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 	return out, rows.Err()
 }
 
+// ── Device Config / Kiosk ─────────────────────────────────────────────────────
+
+func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*DeviceConfig, error) {
+	// Ensure a row exists, then read it.
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO device_config (device_id) VALUES ($1)
+		ON CONFLICT (device_id) DO NOTHING
+	`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	var cfg DeviceConfig
+	err = d.pool.QueryRow(ctx, `
+		SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features, updated_at
+		FROM device_config WHERE device_id = $1
+	`, deviceID).Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures, &cfg.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+func (d *DB) SetKioskConfig(ctx context.Context, deviceID uuid.UUID, enabled bool, pkg string, features int) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO device_config (device_id, kiosk_enabled, kiosk_package, kiosk_features, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (device_id) DO UPDATE
+			SET kiosk_enabled  = EXCLUDED.kiosk_enabled,
+			    kiosk_package  = EXCLUDED.kiosk_package,
+			    kiosk_features = EXCLUDED.kiosk_features,
+			    updated_at     = NOW()
+	`, deviceID, enabled, pkg, features)
+	return err
+}
+
 // ParseSerials splits a newline/comma separated string into a trimmed slice.
 func ParseSerials(raw string) []string {
 	raw = strings.ReplaceAll(raw, ",", "\n")
@@ -1073,4 +1134,12 @@ CREATE INDEX IF NOT EXISTS idx_device_packages_device_id   ON device_packages(de
 CREATE INDEX IF NOT EXISTS idx_device_packages_package_name ON device_packages(package_name);
 
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS poll_interval_ms INTEGER NOT NULL DEFAULT 30000;
+
+CREATE TABLE IF NOT EXISTS device_config (
+	device_id      UUID    PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+	kiosk_enabled  BOOLEAN NOT NULL DEFAULT false,
+	kiosk_package  TEXT    NOT NULL DEFAULT '',
+	kiosk_features INTEGER NOT NULL DEFAULT 1,
+	updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `
