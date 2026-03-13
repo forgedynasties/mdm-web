@@ -913,6 +913,7 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO device_packages (device_id, package_name, version_name)
 			SELECT $1, unnest($2::text[]), unnest($3::text[])
+			ON CONFLICT (device_id, package_name) DO NOTHING
 		`, deviceID, names, versions); err != nil {
 			return err
 		}
