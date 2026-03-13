@@ -47,11 +47,10 @@
   </div>
 </div>
 
-{{if .ChartCheckins}}
 <div class="card chart-card">
   <div class="card-header">
     <h3>Battery History</h3>
-    <span class="muted small">Last {{len .ChartCheckins}} checkins</span>
+    <span class="muted small">Today &mdash; {{len .ChartCheckins}} checkins</span>
   </div>
   <div class="chart-wrap">
     <canvas id="batteryChart"></canvas>
@@ -60,21 +59,19 @@
 
 <script>
 (function () {
-  const labels  = [{{range reverseCheckins .ChartCheckins}}"{{shortTime .CreatedAt}}",{{end}}];
-  const values  = [{{range reverseCheckins .ChartCheckins}}{{.BatteryPct}},{{end}}];
+  const points = [{{range reverseCheckins .ChartCheckins}}{x: {{minuteOfDay .CreatedAt}}, y: {{.BatteryPct}}},{{end}}];
 
   const ctx = document.getElementById("batteryChart").getContext("2d");
 
   new Chart(ctx, {
     type: "line",
     data: {
-      labels,
       datasets: [{
         label: "Battery %",
-        data: values,
+        data: points,
         tension: 0.3,
         fill: true,
-        pointRadius: values.length > 60 ? 0 : 3,
+        pointRadius: points.length > 60 ? 0 : 3,
         pointHoverRadius: 5,
         borderWidth: 2,
         segment: {
@@ -100,18 +97,31 @@
         legend: { display: false },
         tooltip: {
           callbacks: {
+            title: items => {
+              const mins = items[0].parsed.x;
+              const h = Math.floor(mins / 60);
+              const m = mins % 60;
+              return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+            },
             label: item => ` Battery: ${item.parsed.y}%`,
           },
         },
       },
       scales: {
         x: {
+          type: "linear",
+          min: 0,
+          max: 1440,
           ticks: {
             color: "#7a7f9a",
-            maxTicksLimit: 6,
+            stepSize: 120,
             maxRotation: 0,
             minRotation: 0,
-            autoSkip: true,
+            callback: v => {
+              const h = Math.floor(v / 60);
+              const m = v % 60;
+              return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
+            },
           },
           grid: { display: false },
         },
@@ -136,7 +146,6 @@
   }
 })();
 </script>
-{{end}}
 
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Actions</h3></div>

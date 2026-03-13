@@ -66,6 +66,10 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 		"shortTime": func(t time.Time) string {
 			return t.UTC().Format("15:04")
 		},
+		"minuteOfDay": func(t time.Time) int {
+			u := t.UTC()
+			return u.Hour()*60 + u.Minute()
+		},
 		"reverseCheckins": func(checkins []db.Checkin) []db.Checkin {
 			n := len(checkins)
 			out := make([]db.Checkin, n)
@@ -290,7 +294,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chartCheckins, err := h.db.GetCheckins(r.Context(), device.ID, 100)
+	chartCheckins, err := h.db.GetCheckinsForDay(r.Context(), device.ID, time.Now().UTC())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return

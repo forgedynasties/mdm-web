@@ -204,7 +204,7 @@ X-API-Key: your-secret-key-here
 
 **Basic checkin:**
 ```bash
-curl -X POST http://localhost:8080/api/v1/checkin \
+curl -X POST http://10.32.0.215:8080/api/v1/checkin \
   -H "Content-Type: application/json" \
   -H "X-API-Key: your-secret-key-here" \
   -d '{
