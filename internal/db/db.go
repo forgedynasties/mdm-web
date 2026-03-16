@@ -163,7 +163,7 @@ func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
 	return s, err
 }
 
-func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int) ([]Device, error) {
+func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, asc bool) ([]Device, error) {
 	const base = `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
@@ -180,16 +180,21 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int) 
 		) c ON true
 		LEFT JOIN device_config dc ON dc.device_id = d.id`
 
+	order := "DESC"
+	if asc {
+		order = "ASC"
+	}
+
 	var rows pgx.Rows
 	var err error
 	if search != "" {
 		rows, err = d.pool.Query(ctx, base+`
 		WHERE d.serial_number ILIKE $1 OR d.build_id ILIKE $1
-		ORDER BY d.last_seen_at DESC
+		ORDER BY d.last_seen_at `+order+`
 		LIMIT $2 OFFSET $3`, "%"+search+"%", limit, offset)
 	} else {
 		rows, err = d.pool.Query(ctx, base+`
-		ORDER BY d.last_seen_at DESC
+		ORDER BY d.last_seen_at `+order+`
 		LIMIT $1 OFFSET $2`, limit, offset)
 	}
 	if err != nil {

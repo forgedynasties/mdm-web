@@ -212,13 +212,14 @@ const pageSize = 25
 
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
+	asc := r.URL.Query().Get("asc") == "1"
 	page := 1
 	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
 		page = p
 	}
 	offset := (page - 1) * pageSize
 
-	devices, err := h.db.ListDevices(r.Context(), q, offset, pageSize)
+	devices, err := h.db.ListDevices(r.Context(), q, offset, pageSize, asc)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -248,6 +249,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Query":      q,
 		"PageSize":   pageSize,
 		"Summary":    summary,
+		"Asc":        asc,
 	}
 
 	if r.Header.Get("HX-Request") == "true" {

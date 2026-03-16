@@ -49,7 +49,7 @@
 <div class="pagination">
   {{if gt .Page 1}}
     <a class="page-btn"
-       hx-get="/?page={{sub .Page 1}}&q={{.Query}}"
+       hx-get="/?page={{sub .Page 1}}&q={{.Query}}&asc={{if .Asc}}1{{else}}0{{end}}"
        hx-target="#device-table-container"
        hx-swap="innerHTML"
        hx-push-url="true">← Prev</a>
@@ -63,7 +63,7 @@
         <span class="page-num active">{{.}}</span>
       {{else}}
         <a class="page-num"
-           hx-get="/?page={{.}}&q={{$.Query}}"
+           hx-get="/?page={{.}}&q={{$.Query}}&asc={{if $.Asc}}1{{else}}0{{end}}"
            hx-target="#device-table-container"
            hx-swap="innerHTML"
            hx-push-url="true">{{.}}</a>
@@ -73,7 +73,7 @@
 
   {{if lt .Page .TotalPages}}
     <a class="page-btn"
-       hx-get="/?page={{add .Page 1}}&q={{.Query}}"
+       hx-get="/?page={{add .Page 1}}&q={{.Query}}&asc={{if .Asc}}1{{else}}0{{end}}"
        hx-target="#device-table-container"
        hx-swap="innerHTML"
        hx-push-url="true">Next →</a>
@@ -131,7 +131,7 @@
 </div>
 {{end}}
 
-<div class="search-bar">
+<div class="search-bar" style="display:flex;gap:8px;align-items:center;">
   <input
     type="search"
     name="q"
@@ -145,11 +145,26 @@
     hx-indicator="#refresh-indicator"
     class="search-input"
   >
+  {{if .Asc}}
+    <a class="btn-outline"
+       hx-get="/?page=1&q={{.Query}}&asc=0"
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-push-url="true"
+       style="white-space:nowrap;">↑ Oldest first</a>
+  {{else}}
+    <a class="btn-outline"
+       hx-get="/?page=1&q={{.Query}}&asc=1"
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-push-url="true"
+       style="white-space:nowrap;">↓ Newest first</a>
+  {{end}}
 </div>
 
 <div class="card"
      id="device-table-container"
-     hx-get="/?page={{.Page}}&q={{.Query}}"
+     hx-get="/?page={{.Page}}&q={{.Query}}&asc={{if .Asc}}1{{else}}0{{end}}"
      hx-trigger="every 60s"
      hx-target="#device-table-container"
      hx-swap="innerHTML"
