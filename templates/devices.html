@@ -1,23 +1,27 @@
 {{define "device-table"}}
-<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">
-  <a class="btn-outline{{if eq .Sort ""}} active{{end}}"
-     hx-get="/?page=1&q={{.Query}}&sort="
-     hx-target="#device-table-container"
-     hx-swap="innerHTML"
-     hx-push-url="true"
-     style="white-space:nowrap;">↓ Last Seen</a>
-  <a class="btn-outline{{if eq .Sort "serial"}} active{{end}}"
-     hx-get="/?page=1&q={{.Query}}&sort=serial"
-     hx-target="#device-table-container"
-     hx-swap="innerHTML"
-     hx-push-url="true"
-     style="white-space:nowrap;">A→Z Serial</a>
-  <a class="btn-outline{{if eq .Sort "battery"}} active{{end}}"
-     hx-get="/?page=1&q={{.Query}}&sort=battery"
-     hx-target="#device-table-container"
-     hx-swap="innerHTML"
-     hx-push-url="true"
-     style="white-space:nowrap;">↑ Battery</a>
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+  {{if eq .Sort "serial"}}
+    <a class="btn-outline"
+       hx-get="/?page=1&q={{.Query}}&sort=battery"
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-push-url="true"
+       style="white-space:nowrap;">A→Z Serial</a>
+  {{else if eq .Sort "battery"}}
+    <a class="btn-outline"
+       hx-get="/?page=1&q={{.Query}}&sort="
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-push-url="true"
+       style="white-space:nowrap;">↑ Battery</a>
+  {{else}}
+    <a class="btn-outline"
+       hx-get="/?page=1&q={{.Query}}&sort=serial"
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-push-url="true"
+       style="white-space:nowrap;">↓ Last Seen</a>
+  {{end}}
 </div>
 
 <table class="table">
