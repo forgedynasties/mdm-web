@@ -50,7 +50,15 @@
 <div class="card chart-card">
   <div class="card-header">
     <h3>Battery History</h3>
-    <span class="muted small">Today &mdash; {{len .ChartCheckins}} checkins</span>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="chart-info" class="muted small"></span>
+      <div class="dur-btns">
+        <button class="dur-btn" data-ms="3600000">1h</button>
+        <button class="dur-btn active" data-ms="21600000">6h</button>
+        <button class="dur-btn" data-ms="43200000">12h</button>
+        <button class="dur-btn" data-ms="86400000">24h</button>
+      </div>
+    </div>
   </div>
   <div class="chart-wrap">
     <canvas id="batteryChart"></canvas>
@@ -59,19 +67,50 @@
 
 <script>
 (function () {
-  const points = [{{range reverseCheckins .ChartCheckins}}{x: {{minuteOfDay .CreatedAt}}, y: {{.BatteryPct}}},{{end}}];
+  const allPoints = [{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}},{{end}}];
+
+  let currentDuration = 6 * 3600 * 1000;
+  let batteryChart;
+
+  function fmtTime(ms) {
+    return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+  }
+
+  function segColor(v) {
+    if (v < 20) return "#f05252";
+    if (v < 50) return "#f0a832";
+    return "#34c77b";
+  }
+
+  function updateChart() {
+    const now = Date.now();
+    const minX = now - currentDuration;
+    const pts = allPoints.filter(p => p.x >= minX);
+
+    const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h"};
+    document.getElementById("chart-info").textContent =
+      "Last " + (labels[currentDuration] || "") + " \u2014 " + pts.length + " checkins";
+
+    if (batteryChart) {
+      batteryChart.data.datasets[0].data = pts;
+      batteryChart.data.datasets[0].pointRadius = pts.length > 60 ? 0 : 3;
+      batteryChart.options.scales.x.min = minX;
+      batteryChart.options.scales.x.max = now;
+      batteryChart.update();
+    }
+  }
 
   const ctx = document.getElementById("batteryChart").getContext("2d");
 
-  new Chart(ctx, {
+  batteryChart = new Chart(ctx, {
     type: "line",
     data: {
       datasets: [{
         label: "Battery %",
-        data: points,
+        data: [],
         tension: 0.3,
         fill: true,
-        pointRadius: points.length > 60 ? 0 : 3,
+        pointRadius: 3,
         pointHoverRadius: 5,
         borderWidth: 2,
         segment: {
@@ -97,12 +136,7 @@
         legend: { display: false },
         tooltip: {
           callbacks: {
-            title: items => {
-              const mins = items[0].parsed.x;
-              const h = Math.floor(mins / 60);
-              const m = mins % 60;
-              return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
-            },
+            title: items => fmtTime(items[0].parsed.x),
             label: item => ` Battery: ${item.parsed.y}%`,
           },
         },
@@ -110,18 +144,12 @@
       scales: {
         x: {
           type: "linear",
-          min: 0,
-          max: 1440,
           ticks: {
             color: "#7a7f9a",
-            stepSize: 120,
+            maxTicksLimit: 8,
             maxRotation: 0,
             minRotation: 0,
-            callback: v => {
-              const h = Math.floor(v / 60);
-              const m = v % 60;
-              return String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0");
-            },
+            callback: v => fmtTime(v),
           },
           grid: { display: false },
         },
@@ -139,11 +167,16 @@
     },
   });
 
-  function segColor(v) {
-    if (v < 20) return "#f05252";
-    if (v < 50) return "#f0a832";
-    return "#34c77b";
-  }
+  document.querySelectorAll(".dur-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentDuration = +btn.dataset.ms;
+      updateChart();
+    });
+  });
+
+  updateChart();
 })();
 </script>
 

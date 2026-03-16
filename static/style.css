@@ -677,6 +677,20 @@ a:hover { color: var(--accent-h); }
 }
 .btn-outline:hover { border-color: var(--accent); color: var(--accent-h); }
 
+.dur-btns { display: flex; gap: 2px; }
+.dur-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.dur-btn:hover { border-color: var(--accent); color: var(--accent); }
+.dur-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
 .btn-link {
   background: none;
   border: none;

@@ -314,6 +314,35 @@ func (d *DB) GetCheckinsForDay(ctx context.Context, deviceID uuid.UUID, day time
 	return checkins, rows.Err()
 }
 
+func (d *DB) GetCheckinsForDuration(ctx context.Context, deviceID uuid.UUID, since time.Time) ([]Checkin, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, device_id, battery_pct, build_id, extra, created_at
+		FROM checkins
+		WHERE device_id = $1 AND created_at >= $2
+		ORDER BY created_at DESC
+	`, deviceID, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var checkins []Checkin
+	for rows.Next() {
+		var c Checkin
+		var extra []byte
+		if err := rows.Scan(&c.ID, &c.DeviceID, &c.BatteryPct, &c.BuildID, &extra, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		if len(extra) > 0 {
+			c.Extra = json.RawMessage(extra)
+		} else {
+			c.Extra = json.RawMessage("{}")
+		}
+		checkins = append(checkins, c)
+	}
+	return checkins, rows.Err()
+}
+
 func (d *DB) GetCheckinsCount(ctx context.Context, deviceID uuid.UUID) (int, error) {
 	var count int
 	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM checkins WHERE device_id = $1`, deviceID).Scan(&count)
