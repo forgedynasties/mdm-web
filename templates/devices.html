@@ -1,4 +1,22 @@
 {{define "device-table"}}
+<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+  {{if .Asc}}
+    <a class="btn-outline"
+       hx-get="/?page=1&q={{.Query}}&asc=0"
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-push-url="true"
+       style="white-space:nowrap;">A→Z Serial</a>
+  {{else}}
+    <a class="btn-outline"
+       hx-get="/?page=1&q={{.Query}}&asc=1"
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-push-url="true"
+       style="white-space:nowrap;">↓ Last Seen</a>
+  {{end}}
+</div>
+
 <table class="table">
   <thead>
     <tr>
@@ -131,7 +149,7 @@
 </div>
 {{end}}
 
-<div class="search-bar" style="display:flex;gap:8px;align-items:center;">
+<div class="search-bar">
   <input
     type="search"
     name="q"
@@ -143,32 +161,19 @@
     hx-swap="innerHTML"
     hx-push-url="true"
     hx-indicator="#refresh-indicator"
+    hx-vals='js:{asc: new URLSearchParams(location.search).get("asc") || "0"}'
     class="search-input"
   >
-  {{if .Asc}}
-    <a class="btn-outline"
-       hx-get="/?page=1&q={{.Query}}&asc=0"
-       hx-target="#device-table-container"
-       hx-swap="innerHTML"
-       hx-push-url="true"
-       style="white-space:nowrap;">A→Z Serial</a>
-  {{else}}
-    <a class="btn-outline"
-       hx-get="/?page=1&q={{.Query}}&asc=1"
-       hx-target="#device-table-container"
-       hx-swap="innerHTML"
-       hx-push-url="true"
-       style="white-space:nowrap;">↓ Last Seen</a>
-  {{end}}
 </div>
 
 <div class="card"
      id="device-table-container"
-     hx-get="/?page={{.Page}}&q={{.Query}}&asc={{if .Asc}}1{{else}}0{{end}}"
+     hx-get="/"
      hx-trigger="every 60s"
      hx-target="#device-table-container"
      hx-swap="innerHTML"
-     hx-indicator="#refresh-indicator">
+     hx-indicator="#refresh-indicator"
+     hx-vals='js:{page: new URLSearchParams(location.search).get("page") || "1", q: new URLSearchParams(location.search).get("q") || "", asc: new URLSearchParams(location.search).get("asc") || "0"}'>
   {{template "device-table" .}}
 </div>
 
