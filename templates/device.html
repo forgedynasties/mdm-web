@@ -82,10 +82,16 @@
     return "#34c77b";
   }
 
+  function dedupe(pts) {
+    return pts.filter((p, i) =>
+      i === 0 || i === pts.length - 1 || p.y !== pts[i - 1].y
+    );
+  }
+
   function updateChart() {
     const now = Date.now();
     const minX = now - currentDuration;
-    const pts = allPoints.filter(p => p.x >= minX);
+    const pts = dedupe(allPoints.filter(p => p.x >= minX));
 
     const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h"};
     document.getElementById("chart-info").textContent =
