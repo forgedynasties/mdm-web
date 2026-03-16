@@ -1,20 +1,23 @@
 {{define "device-table"}}
-<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
-  {{if .Asc}}
-    <a class="btn-outline"
-       hx-get="/?page=1&q={{.Query}}&asc=0"
-       hx-target="#device-table-container"
-       hx-swap="innerHTML"
-       hx-push-url="true"
-       style="white-space:nowrap;">A→Z Serial</a>
-  {{else}}
-    <a class="btn-outline"
-       hx-get="/?page=1&q={{.Query}}&asc=1"
-       hx-target="#device-table-container"
-       hx-swap="innerHTML"
-       hx-push-url="true"
-       style="white-space:nowrap;">↓ Last Seen</a>
-  {{end}}
+<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px;">
+  <a class="btn-outline{{if eq .Sort ""}} active{{end}}"
+     hx-get="/?page=1&q={{.Query}}&sort="
+     hx-target="#device-table-container"
+     hx-swap="innerHTML"
+     hx-push-url="true"
+     style="white-space:nowrap;">↓ Last Seen</a>
+  <a class="btn-outline{{if eq .Sort "serial"}} active{{end}}"
+     hx-get="/?page=1&q={{.Query}}&sort=serial"
+     hx-target="#device-table-container"
+     hx-swap="innerHTML"
+     hx-push-url="true"
+     style="white-space:nowrap;">A→Z Serial</a>
+  <a class="btn-outline{{if eq .Sort "battery"}} active{{end}}"
+     hx-get="/?page=1&q={{.Query}}&sort=battery"
+     hx-target="#device-table-container"
+     hx-swap="innerHTML"
+     hx-push-url="true"
+     style="white-space:nowrap;">↑ Battery</a>
 </div>
 
 <table class="table">
@@ -67,7 +70,7 @@
 <div class="pagination">
   {{if gt .Page 1}}
     <a class="page-btn"
-       hx-get="/?page={{sub .Page 1}}&q={{.Query}}&asc={{if .Asc}}1{{else}}0{{end}}"
+       hx-get="/?page={{sub .Page 1}}&q={{.Query}}&sort={{.Sort}}"
        hx-target="#device-table-container"
        hx-swap="innerHTML"
        hx-push-url="true">← Prev</a>
@@ -81,7 +84,7 @@
         <span class="page-num active">{{.}}</span>
       {{else}}
         <a class="page-num"
-           hx-get="/?page={{.}}&q={{$.Query}}&asc={{if $.Asc}}1{{else}}0{{end}}"
+           hx-get="/?page={{.}}&q={{$.Query}}&sort={{$.Sort}}"
            hx-target="#device-table-container"
            hx-swap="innerHTML"
            hx-push-url="true">{{.}}</a>
@@ -91,7 +94,7 @@
 
   {{if lt .Page .TotalPages}}
     <a class="page-btn"
-       hx-get="/?page={{add .Page 1}}&q={{.Query}}&asc={{if .Asc}}1{{else}}0{{end}}"
+       hx-get="/?page={{add .Page 1}}&q={{.Query}}&sort={{.Sort}}"
        hx-target="#device-table-container"
        hx-swap="innerHTML"
        hx-push-url="true">Next →</a>
@@ -161,7 +164,7 @@
     hx-swap="innerHTML"
     hx-push-url="true"
     hx-indicator="#refresh-indicator"
-    hx-vals='js:{asc: new URLSearchParams(location.search).get("asc") || "0"}'
+    hx-vals='js:{sort: new URLSearchParams(location.search).get("sort") || ""}'
     class="search-input"
   >
 </div>
@@ -173,7 +176,7 @@
      hx-target="#device-table-container"
      hx-swap="innerHTML"
      hx-indicator="#refresh-indicator"
-     hx-vals='js:{page: new URLSearchParams(location.search).get("page") || "1", q: new URLSearchParams(location.search).get("q") || "", asc: new URLSearchParams(location.search).get("asc") || "0"}'>
+     hx-vals='js:{page: new URLSearchParams(location.search).get("page") || "1", q: new URLSearchParams(location.search).get("q") || "", sort: new URLSearchParams(location.search).get("sort") || ""}'>
   {{template "device-table" .}}
 </div>
 

@@ -163,7 +163,7 @@ func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
 	return s, err
 }
 
-func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, asc bool) ([]Device, error) {
+func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, sort string) ([]Device, error) {
 	const base = `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
@@ -181,8 +181,11 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, 
 		LEFT JOIN device_config dc ON dc.device_id = d.id`
 
 	orderClause := "d.last_seen_at DESC"
-	if asc {
+	switch sort {
+	case "serial":
 		orderClause = "d.serial_number ASC"
+	case "battery":
+		orderClause = "COALESCE(c.battery_pct, 0) ASC"
 	}
 
 	var rows pgx.Rows
