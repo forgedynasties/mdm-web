@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"crypto/subtle"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -361,6 +362,66 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"InstalledPackages": installedPkgs,
 		"KioskConfig":       kioskCfg,
 	})
+}
+
+func wlcStatusFromExtra(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	v, ok := m["wlc_status"]
+	if !ok {
+		return ""
+	}
+	var n int
+	if err := json.Unmarshal(v, &n); err != nil {
+		return ""
+	}
+	if n != 0 {
+		return "charging"
+	}
+	return "not_charging"
+}
+
+func (h *Handler) DeviceBatteryCSV(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	hours := 48
+	if h := r.URL.Query().Get("hours"); h != "" {
+		if n, err := strconv.Atoi(h); err == nil && n > 0 && n <= 168 {
+			hours = n
+		}
+	}
+
+	checkins, err := h.db.GetCheckinsForDuration(r.Context(), device.ID, time.Now().UTC().Add(-time.Duration(hours)*time.Hour))
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	filename := fmt.Sprintf("%s_battery_%dh.csv", serial, hours)
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+
+	cw := csv.NewWriter(w)
+	cw.Write([]string{"timestamp", "battery_pct", "wlc_status"})
+	for i := len(checkins) - 1; i >= 0; i-- {
+		c := checkins[i]
+		cw.Write([]string{
+			c.CreatedAt.Format(time.RFC3339),
+			strconv.Itoa(c.BatteryPct),
+			wlcStatusFromExtra(c.Extra),
+		})
+	}
+	cw.Flush()
 }
 
 func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {
@@ -958,6 +1019,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))
+	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.DeviceBatteryCSV))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	mux.HandleFunc("GET /devices/{serial}/checkins-live", h.requireAuth(h.DeviceCheckinsPartial))
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))

@@ -179,6 +179,7 @@
         <button class="dur-btn" data-ms="86400000">24h</button>
         <button class="dur-btn" data-ms="172800000">48h</button>
       </div>
+      <a id="csv-export" href="/devices/{{.Device.SerialNumber}}/battery.csv?hours=6" class="btn-outline" style="font-size:12px;padding:4px 10px;">Export CSV</a>
     </div>
   </div>
   <div class="chart-wrap">
@@ -310,6 +311,9 @@
       document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentDuration = +btn.dataset.ms;
+      var hours = Math.round(currentDuration / 3600000);
+      document.getElementById("csv-export").href =
+        "/devices/{{.Device.SerialNumber}}/battery.csv?hours=" + hours;
       updateChart();
     });
   });
