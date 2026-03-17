@@ -168,8 +168,8 @@
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="chart-info" class="muted small"></span>
       <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:#7a7f9a;">
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#34c77b;border-radius:2px;display:inline-block;"></span> Charging</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#f05252;border-radius:2px;display:inline-block;"></span> Not Charging</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#34c77b;border-radius:2px;display:inline-block;"></span> Wireless Charging On</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#f05252;border-radius:2px;display:inline-block;"></span> Wireless Charging Off</span>
       </div>
       <div class="dur-btns">
         <button class="dur-btn" data-ms="3600000">1h</button>
@@ -271,7 +271,7 @@
               const raw = item.raw || {};
               const wlc = raw.wlc;
               if (wlc === undefined) return ` Battery: ${item.parsed.y}%`;
-              return ` Battery: ${item.parsed.y}%` + (wlc ? ' ⚡ Charging' : ' — Not Charging');
+              return ` Battery: ${item.parsed.y}%` + (wlc ? ' ⚡ Wireless Charging On' : ' — Wireless Charging Off');
             },
           },
         },
