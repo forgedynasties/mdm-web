@@ -168,8 +168,8 @@
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="chart-info" class="muted small"></span>
       <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:#7a7f9a;">
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#34c77b;border-radius:2px;display:inline-block;"></span> Wireless Charging On</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#f05252;border-radius:2px;display:inline-block;"></span> Wireless Charging Off</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#e84393;border-radius:2px;display:inline-block;"></span> Wireless Charging On</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#6c5ce7;border-radius:2px;display:inline-block;"></span> Wireless Charging Off</span>
         <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:0;border-top:2px dashed #7a7f9a;display:inline-block;"></span> Draining</span>
       </div>
       <div class="dur-btns">
@@ -201,7 +201,7 @@
   function segColor(ctx) {
     const raw = ctx.p1 && ctx.p1.raw;
     if (!raw || raw.wlc === undefined) return "#7a7f9a";
-    return raw.wlc ? "#34c77b" : "#f05252";
+    return raw.wlc ? "#e84393" : "#6c5ce7";
   }
 
   function dedupe(pts) {
@@ -243,7 +243,7 @@
         pointBackgroundColor: ctx => {
           const raw = ctx.dataset.data[ctx.dataIndex];
           if (!raw || raw.wlc === undefined) return "#7a7f9a";
-          return raw.wlc ? "#34c77b" : "#f05252";
+          return raw.wlc ? "#e84393" : "#6c5ce7";
         },
         borderWidth: 2,
         segment: {
