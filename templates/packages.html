@@ -18,6 +18,7 @@
   <table class="table">
     <thead>
       <tr>
+        <th>App Name</th>
         <th>Package Name</th>
         <th>Versions Installed</th>
         <th style="text-align:right;">Device Count</th>
@@ -27,6 +28,7 @@
       {{if .Packages}}
         {{range .Packages}}
         <tr>
+          <td class="small">{{if .AppName}}{{.AppName}}{{else}}<span class="muted">—</span>{{end}}</td>
           <td class="mono small">{{.PackageName}}</td>
           <td class="small muted">{{.Versions}}</td>
           <td class="small" style="text-align:right;">{{.DeviceCount}}</td>
@@ -34,7 +36,7 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="3" class="empty">
+          <td colspan="4" class="empty">
             {{if .Query}}No packages match "{{.Query}}".{{else}}No package data received yet. Devices must include <code>packages</code> in their checkin payload.{{end}}
           </td>
         </tr>

@@ -285,7 +285,7 @@
             <option value="">— select a package —</option>
             {{range .InstalledPackages}}
               <option value="{{.PackageName}}" {{if eq .PackageName $.KioskConfig.KioskPackage}}selected{{end}}>
-                {{.PackageName}}{{if .VersionName}} ({{.VersionName}}){{end}}
+                {{if .AppName}}{{.AppName}} — {{end}}{{.PackageName}}{{if .VersionName}} ({{.VersionName}}){{end}}
               </option>
             {{end}}
           </select>

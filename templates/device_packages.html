@@ -19,6 +19,7 @@
   <table class="table" id="pkg-table">
     <thead>
       <tr>
+        <th>App Name</th>
         <th>Package Name</th>
         <th>Version</th>
         <th>Last Updated</th>
@@ -28,6 +29,7 @@
       {{if .Packages}}
         {{range .Packages}}
         <tr>
+          <td class="small">{{if .AppName}}{{.AppName}}{{else}}<span class="muted">—</span>{{end}}</td>
           <td class="mono small">{{.PackageName}}</td>
           <td class="small">{{if .VersionName}}{{.VersionName}}{{else}}<span class="muted">—</span>{{end}}</td>
           <td class="muted small">{{formatTime .UpdatedAt}}</td>
@@ -35,7 +37,7 @@
         {{end}}
       {{else}}
         <tr id="empty-row">
-          <td colspan="3" class="empty">No package data for this device. The device client must include <code>packages</code> in its checkin payload.</td>
+          <td colspan="4" class="empty">No package data for this device. The device client must include <code>packages</code> in its checkin payload.</td>
         </tr>
       {{end}}
     </tbody>
@@ -49,8 +51,9 @@ function filterPackages(q) {
   const rows = document.querySelectorAll('#pkg-table tbody tr:not(#empty-row)');
   let visible = 0;
   rows.forEach(row => {
-    const name = row.cells[0] ? row.cells[0].textContent.toLowerCase() : '';
-    const show = name.includes(q);
+    const appName = row.cells[0] ? row.cells[0].textContent.toLowerCase() : '';
+    const name = row.cells[1] ? row.cells[1].textContent.toLowerCase() : '';
+    const show = appName.includes(q) || name.includes(q);
     row.style.display = show ? '' : 'none';
     if (show) visible++;
   });
