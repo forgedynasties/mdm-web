@@ -59,9 +59,14 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[checkin] serial=%s packages_count=%d", req.SerialNumber, len(req.InstalledApps))
 	if len(req.InstalledApps) > 0 {
-		pkgs := make([]db.DevicePackage, len(req.InstalledApps))
-		for i, p := range req.InstalledApps {
-			pkgs[i] = db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName}
+		seen := make(map[string]struct{})
+		var pkgs []db.DevicePackage
+		for _, p := range req.InstalledApps {
+			if _, dup := seen[p.Package]; dup {
+				continue
+			}
+			seen[p.Package] = struct{}{}
+			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName})
 		}
 		if err := h.db.UpsertDevicePackages(r.Context(), deviceID, pkgs); err != nil {
 			log.Printf("[checkin] UpsertDevicePackages error: %v", err)
