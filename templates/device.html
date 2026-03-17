@@ -177,6 +177,7 @@
         <button class="dur-btn active" data-ms="21600000">6h</button>
         <button class="dur-btn" data-ms="43200000">12h</button>
         <button class="dur-btn" data-ms="86400000">24h</button>
+        <button class="dur-btn" data-ms="172800000">48h</button>
       </div>
     </div>
   </div>
@@ -213,7 +214,7 @@
     const minX = now - currentDuration;
     const pts = dedupe(allPoints.filter(p => p.x >= minX));
 
-    const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h"};
+    const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
     document.getElementById("chart-info").textContent =
       "Last " + (labels[currentDuration] || "") + " \u2014 " + pts.length + " checkins";
 
