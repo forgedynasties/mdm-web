@@ -425,24 +425,6 @@
         {{end}}
       </div>
 
-      <div class="form-row" style="margin-bottom:16px;">
-        <label class="form-label">Lock Task Features</label>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
-          {{range .KioskFeatures}}
-          <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;">
-            <input type="checkbox" name="feature_{{.Bit}}" value="1"
-                   {{if hasBit $.KioskConfig.KioskFeatures .Bit}}checked{{end}}
-                   style="margin-top:2px;">
-            <span>
-              <span class="mono small" style="color:var(--accent);">{{.Name}}</span>
-              <span class="muted small"> — {{.Label}}</span>
-            </span>
-          </label>
-          {{end}}
-        </div>
-        <p class="muted small" style="margin-top:8px;">Checked = <em>allowed</em>. Unchecked = blocked. Applied via <code>setLockTaskFeatures()</code>.</p>
-      </div>
-
     </div>
 
     <button type="submit" class="btn-primary">Save Kiosk Config</button>

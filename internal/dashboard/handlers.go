@@ -360,7 +360,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"CheckinTotal":      total,
 		"InstalledPackages": installedPkgs,
 		"KioskConfig":       kioskCfg,
-		"KioskFeatures":     KioskFeatureDefs,
 	})
 }
 
@@ -896,24 +895,6 @@ func (h *Handler) DeviceSetPollInterval(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
-// KioskFeatureDef describes a single Android LOCK_TASK_FEATURE_* flag.
-type KioskFeatureDef struct {
-	Bit   int
-	Name  string
-	Label string
-}
-
-// KioskFeatureDefs lists all supported lock-task feature flags in presentation order.
-// Bit values match android.app.admin.DevicePolicyManager.LOCK_TASK_FEATURE_*.
-var KioskFeatureDefs = []KioskFeatureDef{
-	{1, "SYSTEM_INFO", "Show system info in status bar (battery, WiFi)"},
-	{2, "NOTIFICATIONS", "Allow notifications"},
-	{4, "HOME", "Allow Home button"},
-	{8, "RECENTS", "Allow Recent Apps button"},
-	{16, "GLOBAL_ACTIONS", "Allow power menu"},
-	{32, "KEYGUARD", "Allow lock screen (Keyguard)"},
-}
-
 func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	r.ParseForm()
@@ -927,15 +908,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	enabled := r.FormValue("kiosk_enabled") == "1"
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 
-	// Build features bitmask from checked boxes.
-	features := 0
-	for _, f := range KioskFeatureDefs {
-		if r.FormValue(fmt.Sprintf("feature_%d", f.Bit)) == "1" {
-			features |= f.Bit
-		}
-	}
-
-	if err := h.db.SetKioskConfig(r.Context(), device.ID, enabled, pkg, features); err != nil {
+	if err := h.db.SetKioskConfig(r.Context(), device.ID, enabled, pkg, 0); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
