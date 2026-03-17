@@ -113,6 +113,27 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 			}
 		},
 		"rawJSON": func(b []byte) string { return string(b) },
+		"wlcStatus": func(raw json.RawMessage) template.JS {
+			if len(raw) == 0 {
+				return "undefined"
+			}
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return "undefined"
+			}
+			v, ok := m["wlc_status"]
+			if !ok {
+				return "undefined"
+			}
+			var n int
+			if err := json.Unmarshal(v, &n); err != nil {
+				return "undefined"
+			}
+			if n != 0 {
+				return "1"
+			}
+			return "0"
+		},
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
 			if err := json.Unmarshal(raw, &m); err != nil {

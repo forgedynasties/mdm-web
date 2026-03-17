@@ -52,6 +52,10 @@
     <h3>Battery History</h3>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="chart-info" class="muted small"></span>
+      <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:#7a7f9a;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#34c77b;border-radius:2px;display:inline-block;"></span> Charging</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#f05252;border-radius:2px;display:inline-block;"></span> Not Charging</span>
+      </div>
       <div class="dur-btns">
         <button class="dur-btn" data-ms="3600000">1h</button>
         <button class="dur-btn active" data-ms="21600000">6h</button>
@@ -67,7 +71,7 @@
 
 <script>
 (function () {
-  const allPoints = [{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}},{{end}}];
+  const allPoints = [{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}];
 
   let currentDuration = 6 * 3600 * 1000;
   let batteryChart;
@@ -76,10 +80,10 @@
     return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
   }
 
-  function segColor(v) {
-    if (v < 20) return "#f05252";
-    if (v < 50) return "#f0a832";
-    return "#34c77b";
+  function segColor(ctx) {
+    const raw = ctx.p1 && ctx.p1.raw;
+    if (!raw || raw.wlc === undefined) return "#7a7f9a";
+    return raw.wlc ? "#34c77b" : "#f05252";
   }
 
   function dedupe(pts) {
@@ -118,18 +122,23 @@
         fill: true,
         pointRadius: 3,
         pointHoverRadius: 5,
+        pointBackgroundColor: ctx => {
+          const raw = ctx.dataset.data[ctx.dataIndex];
+          if (!raw || raw.wlc === undefined) return "#7a7f9a";
+          return raw.wlc ? "#34c77b" : "#f05252";
+        },
         borderWidth: 2,
         segment: {
-          borderColor: ctx => segColor(ctx.p1.parsed.y),
+          borderColor: ctx => segColor(ctx),
         },
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
           if (!chartArea) return "transparent";
           const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0,   "rgba(52,199,123,0.18)");
-          gradient.addColorStop(0.5, "rgba(240,168,50,0.10)");
-          gradient.addColorStop(1,   "rgba(240,82,82,0.05)");
+          gradient.addColorStop(0,   "rgba(99,135,210,0.18)");
+          gradient.addColorStop(0.5, "rgba(99,135,210,0.08)");
+          gradient.addColorStop(1,   "rgba(99,135,210,0.02)");
           return gradient;
         },
       }],
@@ -143,7 +152,12 @@
         tooltip: {
           callbacks: {
             title: items => fmtTime(items[0].parsed.x),
-            label: item => ` Battery: ${item.parsed.y}%`,
+            label: item => {
+              const raw = item.raw || {};
+              const wlc = raw.wlc;
+              if (wlc === undefined) return ` Battery: ${item.parsed.y}%`;
+              return ` Battery: ${item.parsed.y}%` + (wlc ? ' ⚡ Charging' : ' — Not Charging');
+            },
           },
         },
       },
