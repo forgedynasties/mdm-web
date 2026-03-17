@@ -40,7 +40,6 @@ type Summary struct {
 	Total          int
 	RecentlyActive int // checked in within last 3 minutes
 	LowBattery     int // battery < 20%
-	AvgBattery     int
 	UniqueBuilds   int
 	KioskCount     int // devices currently in kiosk mode
 }
@@ -153,13 +152,12 @@ func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
 			COUNT(d.id),
 			COUNT(*) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes'),
 			COUNT(*) FILTER (WHERE l.battery_pct < 20),
-			COALESCE(ROUND(AVG(l.battery_pct)), 0),
 			COUNT(DISTINCT d.build_id),
 			COUNT(*) FILTER (WHERE dc.kiosk_enabled = true)
 		FROM devices d
 		LEFT JOIN latest l ON l.device_id = d.id
 		LEFT JOIN device_config dc ON dc.device_id = d.id
-	`).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.AvgBattery, &s.UniqueBuilds, &s.KioskCount)
+	`).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.UniqueBuilds, &s.KioskCount)
 	return s, err
 }
 
