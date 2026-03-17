@@ -143,6 +143,9 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("[checkin] %s → kiosk_enabled=%v kiosk_package=%q kiosk_features=%d commands=%d",
+		req.SerialNumber, deviceCfg.KioskEnabled, deviceCfg.KioskPackage, deviceCfg.KioskFeatures, len(cmdList))
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":           "ok",
 		"poll_interval_ms": pollIntervalMs,
