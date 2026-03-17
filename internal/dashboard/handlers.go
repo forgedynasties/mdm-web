@@ -364,6 +364,83 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "device-stats", map[string]any{
+		"Device": device,
+	})
+}
+
+func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "device-commands", map[string]any{
+		"Device":   device,
+		"Commands": commands,
+	})
+}
+
+func (h *Handler) DeviceCheckinsPartial(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	const pageSize = 25
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if n, err := strconv.Atoi(p); err == nil && n > 0 {
+			page = n
+		}
+	}
+	offset := (page - 1) * pageSize
+
+	total, err := h.db.GetCheckinsCount(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+		offset = (page - 1) * pageSize
+	}
+
+	checkins, err := h.db.GetCheckinsPaged(r.Context(), device.ID, pageSize, offset)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	h.tmpl.ExecuteTemplate(w, "device-checkins", map[string]any{
+		"Device":       device,
+		"Checkins":     checkins,
+		"ExtraColumns": h.cfg.Columns(),
+		"CheckinPage":  page,
+		"CheckinPages": totalPages,
+		"CheckinTotal": total,
+	})
+}
+
 // ── Groups ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
@@ -907,6 +984,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
+	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))
+	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
+	mux.HandleFunc("GET /devices/{serial}/checkins-live", h.requireAuth(h.DeviceCheckinsPartial))
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAuth(h.DeviceSetPollInterval))
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAuth(h.DeviceKioskUpdate))

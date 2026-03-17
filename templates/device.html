@@ -1,20 +1,9 @@
-{{define "device.html"}}
-{{template "header" .}}
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-
-<div class="page-header">
-  <div>
-    <a href="/" class="back-link">← All Devices</a>
-    <h2 class="page-title mono">{{.Device.SerialNumber}}</h2>
-  </div>
-  <div style="display:flex;gap:8px;">
-    <a href="/devices/{{.Device.SerialNumber}}/packages" class="btn-outline">Packages</a>
-    <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline">Logcat</a>
-  </div>
-</div>
-
-<div class="stats-grid">
+{{define "device-stats"}}
+<div class="stats-grid"
+  id="device-stats"
+  hx-get="/devices/{{.Device.SerialNumber}}/stats"
+  hx-trigger="every 30s"
+  hx-swap="outerHTML">
   <div class="stat-card">
     <div class="stat-label">Battery</div>
     <div class="stat-value {{batteryClass .Device.BatteryPct}}">{{.Device.BatteryPct}}%</div>
@@ -46,6 +35,132 @@
     {{end}}
   </div>
 </div>
+{{end}}
+
+{{define "device-commands"}}
+{{$hasPending := false}}
+{{range .Commands}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{end}}{{end}}
+<div class="card" style="margin-bottom:16px;"
+  id="device-commands"
+  {{if $hasPending}}
+  hx-get="/devices/{{.Device.SerialNumber}}/commands-status"
+  hx-trigger="every 5s"
+  hx-swap="outerHTML"
+  {{end}}>
+  <div class="card-header">
+    <h3>Commands</h3>
+    <span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Type / APK</th>
+        <th>Target</th>
+        <th>Sent</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Commands}}
+        {{range .Commands}}
+        <tr>
+          <td class="mono small">{{if .ApkURL}}{{.ApkURL}}{{else}}{{cmdLabel .Type}}{{end}}</td>
+          <td class="muted small">{{.TargetType}}</td>
+          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></td>
+          <td><a href="/commands/{{.ID}}" class="link-detail">Detail</a></td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="5" class="empty">No commands sent to this device.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}
+
+{{define "device-checkins"}}
+<div class="card"
+  id="device-checkins"
+  hx-get="/devices/{{.Device.SerialNumber}}/checkins-live?page={{.CheckinPage}}"
+  hx-trigger="every 30s"
+  hx-swap="outerHTML">
+  <div class="card-header">
+    <h3>Checkin History</h3>
+    <span class="muted small">{{.CheckinTotal}} total</span>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Battery</th>
+        <th>Build ID</th>
+        {{range .ExtraColumns}}<th>{{.Label}}</th>{{end}}
+        <th>Extra Data</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Checkins}}
+        {{range .Checkins}}
+        {{$extra := .Extra}}
+        <tr class="row-clickable" onclick="showCheckin(this)" data-time="{{formatTime .CreatedAt}}" data-battery="{{.BatteryPct}}" data-build="{{.BuildID}}" data-extra="{{rawJSON .Extra}}">
+          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td>
+            <div class="battery-wrap">
+              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+              <span class="battery-label">{{.BatteryPct}}%</span>
+            </div>
+          </td>
+          <td class="mono small">{{.BuildID}}</td>
+          {{range $.ExtraColumns}}<td class="small">{{extraField $extra .Key}}</td>{{end}}
+          <td class="mono small muted extra-cell">{{rawJSON .Extra}}</td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="4" class="empty">No checkins recorded.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{if gt .CheckinPages 1}}
+  <div class="pagination">
+    {{if gt .CheckinPage 1}}
+      <a href="?page={{sub .CheckinPage 1}}" class="page-btn">← Prev</a>
+    {{else}}
+      <span class="page-btn disabled">← Prev</span>
+    {{end}}
+    <span class="page-info">Page {{.CheckinPage}} of {{.CheckinPages}}</span>
+    {{if lt .CheckinPage .CheckinPages}}
+      <a href="?page={{add .CheckinPage 1}}" class="page-btn">Next →</a>
+    {{else}}
+      <span class="page-btn disabled">Next →</span>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "device.html"}}
+{{template "header" .}}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+<div class="page-header">
+  <div>
+    <a href="/" class="back-link">← All Devices</a>
+    <h2 class="page-title mono">{{.Device.SerialNumber}}</h2>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="/devices/{{.Device.SerialNumber}}/packages" class="btn-outline">Packages</a>
+    <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline">Logcat</a>
+  </div>
+</div>
+
+{{template "device-stats" .}}
 
 <div class="card chart-card">
   <div class="card-header">
@@ -337,96 +452,9 @@
   </form>
 </div>
 
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Commands</h3>
-    <span class="muted small">{{len .Commands}} total</span>
-  </div>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Type / APK</th>
-        <th>Target</th>
-        <th>Sent</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {{if .Commands}}
-        {{range .Commands}}
-        <tr>
-          <td class="mono small">{{if .ApkURL}}{{.ApkURL}}{{else}}{{cmdLabel .Type}}{{end}}</td>
-          <td class="muted small">{{.TargetType}}</td>
-          <td class="muted small">{{formatTime .CreatedAt}}</td>
-          <td><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></td>
-          <td><a href="/commands/{{.ID}}" class="link-detail">Detail</a></td>
-        </tr>
-        {{end}}
-      {{else}}
-        <tr>
-          <td colspan="5" class="empty">No commands sent to this device.</td>
-        </tr>
-      {{end}}
-    </tbody>
-  </table>
-</div>
+{{template "device-commands" .}}
 
-<div class="card">
-  <div class="card-header">
-    <h3>Checkin History</h3>
-    <span class="muted small">{{.CheckinTotal}} total</span>
-  </div>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Time</th>
-        <th>Battery</th>
-        <th>Build ID</th>
-        {{range .ExtraColumns}}<th>{{.Label}}</th>{{end}}
-        <th>Extra Data</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{if .Checkins}}
-        {{range .Checkins}}
-        {{$extra := .Extra}}
-        <tr class="row-clickable" onclick="showCheckin(this)" data-time="{{formatTime .CreatedAt}}" data-battery="{{.BatteryPct}}" data-build="{{.BuildID}}" data-extra="{{rawJSON .Extra}}">
-          <td class="muted small">{{formatTime .CreatedAt}}</td>
-          <td>
-            <div class="battery-wrap">
-              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
-              <span class="battery-label">{{.BatteryPct}}%</span>
-            </div>
-          </td>
-          <td class="mono small">{{.BuildID}}</td>
-          {{range $.ExtraColumns}}<td class="small">{{extraField $extra .Key}}</td>{{end}}
-          <td class="mono small muted extra-cell">{{rawJSON .Extra}}</td>
-        </tr>
-        {{end}}
-      {{else}}
-        <tr>
-          <td colspan="4" class="empty">No checkins recorded.</td>
-        </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{if gt .CheckinPages 1}}
-  <div class="pagination">
-    {{if gt .CheckinPage 1}}
-      <a href="?page={{sub .CheckinPage 1}}" class="page-btn">← Prev</a>
-    {{else}}
-      <span class="page-btn disabled">← Prev</span>
-    {{end}}
-    <span class="page-info">Page {{.CheckinPage}} of {{.CheckinPages}}</span>
-    {{if lt .CheckinPage .CheckinPages}}
-      <a href="?page={{add .CheckinPage 1}}" class="page-btn">Next →</a>
-    {{else}}
-      <span class="page-btn disabled">Next →</span>
-    {{end}}
-  </div>
-  {{end}}
-</div>
+{{template "device-checkins" .}}
 
 <!-- Checkin detail modal -->
 <div id="checkin-modal" class="modal-backdrop" onclick="closeModal(event)">
