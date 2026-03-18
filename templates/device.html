@@ -26,6 +26,29 @@
     <div class="stat-sub">{{formatTime .Device.CreatedAt}}</div>
   </div>
   <div class="stat-card">
+    <div class="stat-label">RAM Usage</div>
+    {{$ram := ramUsage .Device.LatestExtra}}
+    {{if $ram}}
+      {{$pct := ramPct $ram}}
+      <div class="stat-value {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</div>
+      <div class="battery-wrap large">
+        <div class="battery-bar {{if ge $pct 80}}battery-low{{else if ge $pct 60}}battery-mid{{else}}battery-ok{{end}}" style="width:{{$pct}}%"></div>
+      </div>
+      <div class="stat-sub">{{index $ram "used"}}MB / {{index $ram "total"}}MB</div>
+    {{else}}
+      <div class="stat-value muted">—</div>
+    {{end}}
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Device Time</div>
+    {{$dtime := deviceTime .Device.LatestExtra}}
+    {{if $dtime}}
+      <div class="stat-value">{{$dtime}}</div>
+    {{else}}
+      <div class="stat-value muted">—</div>
+    {{end}}
+  </div>
+  <div class="stat-card">
     <div class="stat-label">Kiosk</div>
     {{if .Device.KioskEnabled}}
       <div class="stat-value ok">Active</div>

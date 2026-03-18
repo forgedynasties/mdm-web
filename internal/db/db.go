@@ -13,15 +13,16 @@ import (
 )
 
 type Device struct {
-	ID             uuid.UUID `json:"id"`
-	SerialNumber   string    `json:"serial_number"`
-	BuildID        string    `json:"build_id"`
-	BatteryPct     int       `json:"battery_pct"`
-	LastSeenAt     time.Time `json:"last_seen_at"`
-	CreatedAt      time.Time `json:"created_at"`
-	PollIntervalMs int       `json:"poll_interval_ms"`
-	KioskEnabled   bool      `json:"kiosk_enabled"`
-	KioskPackage   string    `json:"kiosk_package"`
+	ID             uuid.UUID       `json:"id"`
+	SerialNumber   string          `json:"serial_number"`
+	BuildID        string          `json:"build_id"`
+	BatteryPct     int             `json:"battery_pct"`
+	LastSeenAt     time.Time       `json:"last_seen_at"`
+	CreatedAt      time.Time       `json:"created_at"`
+	PollIntervalMs int             `json:"poll_interval_ms"`
+	KioskEnabled   bool            `json:"kiosk_enabled"`
+	KioskPackage   string          `json:"kiosk_package"`
+	LatestExtra    json.RawMessage `json:"latest_extra,omitempty"`
 }
 
 // DefaultKioskFeatures shows system info (battery/wifi) but blocks home, recents,
@@ -168,10 +169,11 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, 
 			COALESCE(c.battery_pct, 0) AS battery_pct,
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
-			COALESCE(dc.kiosk_package, '')
+			COALESCE(dc.kiosk_package, ''),
+			COALESCE(c.extra, '{}'::jsonb) AS latest_extra
 		FROM devices d
 		LEFT JOIN LATERAL (
-			SELECT battery_pct FROM checkins
+			SELECT battery_pct, extra FROM checkins
 			WHERE device_id = d.id
 			ORDER BY created_at DESC
 			LIMIT 1
@@ -206,7 +208,7 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, 
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -235,17 +237,18 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			COALESCE(c.battery_pct, 0) AS battery_pct,
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
-			COALESCE(dc.kiosk_package, '')
+			COALESCE(dc.kiosk_package, ''),
+			COALESCE(c.extra, '{}'::jsonb) AS latest_extra
 		FROM devices d
 		LEFT JOIN LATERAL (
-			SELECT battery_pct FROM checkins
+			SELECT battery_pct, extra FROM checkins
 			WHERE device_id = d.id
 			ORDER BY created_at DESC
 			LIMIT 1
 		) c ON true
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}

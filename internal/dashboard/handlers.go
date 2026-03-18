@@ -114,6 +114,70 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 			}
 		},
 		"rawJSON": func(b []byte) string { return string(b) },
+		"ramUsage": func(raw json.RawMessage) map[string]int {
+			if len(raw) == 0 {
+				return nil
+			}
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return nil
+			}
+			v, ok := m["ram_usage_mb"]
+			if !ok {
+				return nil
+			}
+			var ram map[string]int
+			if err := json.Unmarshal(v, &ram); err != nil {
+				return nil
+			}
+			return ram
+		},
+		"deviceTime": func(raw json.RawMessage) string {
+			if len(raw) == 0 {
+				return ""
+			}
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return ""
+			}
+			v, ok := m["timezone"]
+			if !ok {
+				return ""
+			}
+			var tz string
+			if err := json.Unmarshal(v, &tz); err != nil {
+				return ""
+			}
+			// Map timezone string to offset
+			var loc *time.Location
+			switch strings.ToUpper(tz) {
+			case "GMT", "UTC", "GMT+0", "GMT-0":
+				loc = time.UTC
+			default:
+				// Try parsing as "GMT+N" or "GMT-N"
+				if strings.HasPrefix(strings.ToUpper(tz), "GMT") {
+					offset := strings.TrimPrefix(strings.ToUpper(tz), "GMT")
+					if h, err := strconv.Atoi(offset); err == nil {
+						loc = time.FixedZone(tz, h*3600)
+					}
+				}
+			}
+			if loc == nil {
+				loc = time.UTC
+			}
+			return time.Now().In(loc).Format("15:04:05") + " (" + tz + ")"
+		},
+		"ramPct": func(ram map[string]int) int {
+			total, ok := ram["total"]
+			if !ok || total == 0 {
+				return 0
+			}
+			used, ok := ram["used"]
+			if !ok {
+				return 0
+			}
+			return used * 100 / total
+		},
 		"wlcStatus": func(raw json.RawMessage) template.JS {
 			if len(raw) == 0 {
 				return "undefined"

@@ -30,6 +30,7 @@
       <th>Serial Number</th>
       <th>Build ID</th>
       <th>Battery</th>
+      <th>RAM</th>
       <th>Last Seen</th>
       <th>First Seen</th>
       <th>Kiosk</th>
@@ -48,6 +49,18 @@
             <span class="battery-label">{{.BatteryPct}}%</span>
           </div>
         </td>
+        <td>
+          {{$ram := ramUsage .LatestExtra}}
+          {{if $ram}}
+            {{$pct := ramPct $ram}}
+            <div class="battery-wrap">
+              <div class="battery-bar {{if ge $pct 80}}battery-low{{else if ge $pct 60}}battery-mid{{else}}battery-ok{{end}}" style="width:{{$pct}}%"></div>
+              <span class="battery-label">{{index $ram "used"}}/{{index $ram "total"}}MB</span>
+            </div>
+          {{else}}
+            <span class="muted small">—</span>
+          {{end}}
+        </td>
         <td class="muted">{{timeSince .LastSeenAt}}</td>
         <td class="muted small">{{formatTime .CreatedAt}}</td>
         <td>
@@ -62,7 +75,7 @@
       {{end}}
     {{else}}
       <tr>
-        <td colspan="7" class="empty">
+        <td colspan="8" class="empty">
           {{if .Query}}No devices match "{{.Query}}".{{else}}No devices have checked in yet.{{end}}
         </td>
       </tr>
