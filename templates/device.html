@@ -31,10 +31,16 @@
     {{if $ram}}
       {{$pct := ramPct $ram}}
       <div class="stat-value {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</div>
-      <div class="battery-wrap large">
-        <div class="battery-bar {{if ge $pct 80}}battery-low{{else if ge $pct 60}}battery-mid{{else}}battery-ok{{end}}" style="width:{{$pct}}%"></div>
-      </div>
       <div class="stat-sub">{{index $ram "used"}}MB / {{index $ram "total"}}MB</div>
+    {{else}}
+      <div class="stat-value muted">—</div>
+    {{end}}
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Temperature</div>
+    {{$temp := batteryTemp .Device.LatestExtra}}
+    {{if ne $temp ""}}
+      <div class="stat-value {{tempClass .Device.LatestExtra}}">{{$temp}}</div>
     {{else}}
       <div class="stat-value muted">—</div>
     {{end}}

@@ -167,6 +167,53 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 			}
 			return time.Now().In(loc).Format("15:04:05") + " (" + tz + ")"
 		},
+		"batteryTemp": func(raw json.RawMessage) string {
+			if len(raw) == 0 {
+				return ""
+			}
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return ""
+			}
+			v, ok := m["battery_temp_c"]
+			if !ok {
+				return ""
+			}
+			var temp float64
+			if err := json.Unmarshal(v, &temp); err != nil {
+				return ""
+			}
+			return fmt.Sprintf("%.1f°C", temp)
+		},
+		"tempClass": func(raw json.RawMessage) string {
+			if len(raw) == 0 {
+				return ""
+			}
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return ""
+			}
+			v, ok := m["battery_temp_c"]
+			if !ok {
+				return ""
+			}
+			var temp float64
+			if err := json.Unmarshal(v, &temp); err != nil {
+				return ""
+			}
+			switch {
+			case temp >= 60:
+				return "danger"
+			case temp >= 45:
+				return "warn"
+			case temp <= -10:
+				return "danger"
+			case temp <= 0:
+				return "warn"
+			default:
+				return "ok"
+			}
+		},
 		"ramPct": func(ram map[string]int) int {
 			total, ok := ram["total"]
 			if !ok || total == 0 {
