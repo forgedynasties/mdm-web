@@ -470,6 +470,32 @@
   </form>
 </div>
 
+<!-- OTA Update -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>OTA Update</h3>
+    {{if .Device.OtaPackageBuildID}}
+      <span class="status-badge ok">{{.Device.OtaPackageBuildID}}</span>
+    {{else}}
+      <span class="muted small">Inherits from group</span>
+    {{end}}
+  </div>
+  <form action="/devices/{{.Device.SerialNumber}}/ota" method="POST" style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+    <div>
+      <select name="ota_package_id" class="form-input" style="max-width:420px;">
+        <option value="0"{{if not .Device.OtaPackageID}} selected{{end}}>— Inherit from group —</option>
+        {{range .OTAPackages}}
+        <option value="{{.ID}}"{{if eq .ID $.Device.OtaPackageID}} selected{{end}}>{{.BuildID}} — {{formatTime .ReleaseDate}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div>
+      <button type="submit" class="btn-primary">Save OTA Setting</button>
+      <span class="muted small" style="margin-left:12px;">Overrides the group setting for this device only.</span>
+    </div>
+  </form>
+</div>
+
 {{template "device-commands" .}}
 
 {{template "device-checkins" .}}

@@ -99,6 +99,8 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 				return "Screenshot"
 			case "reboot":
 				return "Reboot"
+			case "ota":
+				return "OTA Update"
 			default:
 				return cmdType
 			}
@@ -459,6 +461,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	otaPkgs, err := h.db.ListOTAPackages(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
 	h.tmpl.ExecuteTemplate(w, "device.html", map[string]any{
 		"Title":             device.SerialNumber,
 		"Device":            device,
@@ -472,6 +480,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"CheckinTotal":      total,
 		"InstalledPackages": installedPkgs,
 		"KioskConfig":       kioskCfg,
+		"OTAPackages":       otaPkgs,
 	})
 }
 
@@ -642,11 +651,32 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	pkgs, err := h.db.ListOTAPackages(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
 	h.tmpl.ExecuteTemplate(w, "group_detail.html", map[string]any{
-		"Title":   g.Name,
-		"Group":   g,
-		"Devices": devices,
+		"Title":       g.Name,
+		"Group":       g,
+		"Devices":     devices,
+		"OTAPackages": pkgs,
 	})
+}
+
+func (h *Handler) GroupSetOTA(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	pkgID, _ := strconv.Atoi(r.FormValue("ota_package_id")) // 0 = clear
+	if err := h.db.SetGroupOTAPackage(r.Context(), id, pkgID); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/groups/"+id.String(), http.StatusSeeOther)
 }
 
 func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
@@ -707,6 +737,87 @@ func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+}
+
+func (h *Handler) DeviceSetOTA(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	r.ParseForm()
+	pkgID, _ := strconv.Atoi(r.FormValue("ota_package_id")) // 0 = clear
+	if err := h.db.SetDeviceOTAPackage(r.Context(), serial, pkgID); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
+}
+
+// ── OTA Updates ───────────────────────────────────────────────────────────────
+
+func (h *Handler) Updates(w http.ResponseWriter, r *http.Request) {
+	pkgs, err := h.db.ListOTAPackages(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "updates.html", map[string]any{
+		"Title":    "Updates",
+		"Packages": pkgs,
+	})
+}
+
+func (h *Handler) UpdateCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	buildID := strings.TrimSpace(r.FormValue("build_id"))
+	updateURL := strings.TrimSpace(r.FormValue("update_url"))
+	headersRaw := r.FormValue("payload_headers")
+	releaseDateStr := r.FormValue("release_date")
+
+	if buildID == "" || updateURL == "" {
+		http.Error(w, "build_id and update_url are required", http.StatusBadRequest)
+		return
+	}
+	offset, err := strconv.ParseInt(r.FormValue("payload_offset"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid payload_offset", http.StatusBadRequest)
+		return
+	}
+	size, err := strconv.ParseInt(r.FormValue("payload_size"), 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid payload_size", http.StatusBadRequest)
+		return
+	}
+
+	var headers []string
+	for _, line := range strings.Split(strings.ReplaceAll(headersRaw, "\r\n", "\n"), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			headers = append(headers, line)
+		}
+	}
+
+	releaseDate := time.Now().UTC()
+	if releaseDateStr != "" {
+		if t, err := time.Parse("2006-01-02T15:04", releaseDateStr); err == nil {
+			releaseDate = t.UTC()
+		}
+	}
+
+	if _, err := h.db.CreateOTAPackage(r.Context(), buildID, updateURL, offset, size, headers, releaseDate); err != nil {
+		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+}
+
+func (h *Handler) UpdateDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteOTAPackage(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/updates", http.StatusSeeOther)
 }
 
 // ── Commands ──────────────────────────────────────────────────────────────────
@@ -1136,6 +1247,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAuth(h.DeviceSetPollInterval))
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAuth(h.DeviceKioskUpdate))
+	mux.HandleFunc("POST /devices/{serial}/ota", h.requireAuth(h.DeviceSetOTA))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))
@@ -1147,6 +1259,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /groups/{id}/delete", h.requireAuth(h.GroupDelete))
 	mux.HandleFunc("POST /groups/{id}/devices", h.requireAuth(h.GroupAddDevice))
 	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAuth(h.GroupRemoveDevice))
+	mux.HandleFunc("POST /groups/{id}/ota", h.requireAuth(h.GroupSetOTA))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
@@ -1164,4 +1277,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /setup/apps/{id}/delete", h.requireAuth(h.SetupDeleteApp))
 
 	mux.HandleFunc("GET /packages", h.requireAuth(h.FleetPackages))
+
+	mux.HandleFunc("GET /updates", h.requireAuth(h.Updates))
+	mux.HandleFunc("POST /updates", h.requireAuth(h.UpdateCreate))
+	mux.HandleFunc("POST /updates/{id}/delete", h.requireAuth(h.UpdateDelete))
 }

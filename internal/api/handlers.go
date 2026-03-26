@@ -73,6 +73,27 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// OTA check: inject an OTA command if the device needs an update and doesn't already have one pending
+	if hasPending, err := h.db.HasPendingOTACommand(r.Context(), deviceID); err != nil {
+		log.Printf("[checkin] HasPendingOTACommand error: %v", err)
+	} else if !hasPending {
+		if pkg, err := h.db.ResolveOTAPackageForDevice(r.Context(), deviceID); err != nil {
+			log.Printf("[checkin] ResolveOTAPackageForDevice error: %v", err)
+		} else if pkg != nil && pkg.BuildID != req.BuildID {
+			payload, _ := json.Marshal(map[string]any{
+				"package_id":      pkg.ID,
+				"build_id":        pkg.BuildID,
+				"update_url":      pkg.UpdateURL,
+				"payload_offset":  pkg.PayloadOffset,
+				"payload_size":    pkg.PayloadSize,
+				"payload_headers": pkg.PayloadHeaders,
+			})
+			if _, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
+				log.Printf("[checkin] create OTA command error: %v", err)
+			}
+		}
+	}
+
 	cmds, err := h.db.GetPendingCommandsForDevice(r.Context(), deviceID)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
@@ -325,7 +346,7 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Type == "" {
 		body.Type = "install_apk"
 	}
-	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true}
+	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true}
 	if !validTypes[body.Type] {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid type"})
 		return
@@ -427,6 +448,50 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Output != "" {
 		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
 	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		SerialNumber string    `json:"serial_number"`
+		CommandID    uuid.UUID `json:"command_id"`
+		Status       string    `json:"status"`    // downloaded | installed | error
+		ErrorCode    string    `json:"error_code"` // optional, set when status=error
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SerialNumber == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and command_id are required"})
+		return
+	}
+	if body.Status != "downloaded" && body.Status != "installed" && body.Status != "error" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be downloaded, installed, or error"})
+		return
+	}
+
+	device, err := h.db.GetDevice(r.Context(), body.SerialNumber)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+
+	ackStatus := body.Status
+	if body.Status == "error" {
+		ackStatus = "failed"
+	}
+	if err := h.db.AckCommand(r.Context(), body.CommandID, device.ID, ackStatus); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	if body.ErrorCode != "" {
+		_ = h.db.SaveCommandResult(r.Context(), body.CommandID, device.ID, body.ErrorCode)
+	}
+
+	// On installed: schedule a reboot so the update takes effect
+	if body.Status == "installed" {
+		if _, err := h.db.CreateCommand(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}); err != nil {
+			log.Printf("[ota_status] create reboot command error: %v", err)
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

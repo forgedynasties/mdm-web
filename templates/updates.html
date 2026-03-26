@@ -1,0 +1,88 @@
+{{define "updates.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title">OTA Updates</h2>
+    <p class="page-subtitle">{{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}}</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Build ID</th>
+        <th>Release Date</th>
+        <th>URL</th>
+        <th>Offset</th>
+        <th>Size</th>
+        <th>Headers</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Packages}}
+        {{range .Packages}}
+        <tr>
+          <td class="mono bold">{{.BuildID}}</td>
+          <td class="muted small">{{formatTime .ReleaseDate}}</td>
+          <td class="mono small muted extra-cell">{{.UpdateURL}}</td>
+          <td class="mono small muted">{{.PayloadOffset}}</td>
+          <td class="mono small muted">{{.PayloadSize}}</td>
+          <td class="muted small">{{len .PayloadHeaders}} headers</td>
+          <td>
+            <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline"
+                  onsubmit="return confirm('Delete package {{.BuildID}}?')">
+              <button type="submit" class="btn-danger-sm">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="7" class="empty">No OTA packages yet.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3>Add OTA Package</h3></div>
+  <form action="/updates" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">Build ID</label>
+      <input type="text" name="build_id" placeholder="v2.0" class="form-input" required>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Update URL</label>
+      <input type="url" name="update_url" placeholder="https://cdn.example.com/ota.zip" class="form-input" required>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Release Date</label>
+      <input type="datetime-local" name="release_date" class="form-input">
+      <div class="form-hint">Defaults to now if left empty. Used to order packages.</div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Payload Offset</label>
+      <input type="number" name="payload_offset" placeholder="0" class="form-input" required>
+      <div class="form-hint">Byte offset of payload.bin inside the ZIP (from ota-gen.py)</div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Payload Size</label>
+      <input type="number" name="payload_size" placeholder="0" class="form-input" required>
+      <div class="form-hint">Size of payload.bin in bytes</div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Payload Headers</label>
+      <textarea name="payload_headers" rows="4" class="form-input"
+        placeholder="FILE_HASH=abc123&#10;FILE_SIZE=567890&#10;METADATA_HASH=def456&#10;METADATA_SIZE=789"></textarea>
+      <div class="form-hint">One KEY=VALUE per line (from payload_properties.txt)</div>
+    </div>
+    <button type="submit" class="btn-primary">Add Package</button>
+  </form>
+</div>
+
+{{template "footer" .}}
+{{end}}

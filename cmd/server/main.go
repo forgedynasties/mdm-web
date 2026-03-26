@@ -104,6 +104,9 @@ func main() {
 	// Logcat
 	mux.Handle("POST /api/v1/logcat",                auth(http.HandlerFunc(apiHandler.SubmitLogcat)))
 
+	// OTA
+	mux.Handle("POST /api/v1/ota/status",            auth(http.HandlerFunc(apiHandler.OtaStatus)))
+
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
