@@ -1408,11 +1408,18 @@ func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
 	})
 	browserConn.SetReadDeadline(time.Now().Add(pongWait))
 
-	// Keepalive: ping the browser every 45 s so the WS stays alive when idle.
+	// Keepalive: ping the browser every 45 s. If the device is offline, close
+	// the browser WS so it auto-reconnects and gets a fresh shell once the
+	// device comes back.
 	go func() {
 		ticker := time.NewTicker(pingPeriod)
 		defer ticker.Stop()
 		for range ticker.C {
+			if !h.hub.IsConnected(device.ID) {
+				log.Printf("[shell] device offline, closing browser WS serial=%s session=%s", serial, sessionID)
+				browserConn.Close()
+				return
+			}
 			browserConn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := browserConn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				log.Printf("[shell] keepalive ping failed serial=%s session=%s err=%v", serial, sessionID, err)
