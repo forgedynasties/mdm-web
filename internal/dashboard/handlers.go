@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/csv"
 	"encoding/json"
@@ -15,10 +16,12 @@ import (
 	"github.com/gorilla/sessions"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/ws"
 )
 
 type Handler struct {
 	db       *db.DB
+	hub      *ws.Hub
 	store    *sessions.CookieStore
 	tmpl     *template.Template
 	user     string
@@ -26,7 +29,7 @@ type Handler struct {
 	cfg      *config.Config
 }
 
-func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Config) *Handler {
+func NewHandler(d *db.DB, hub *ws.Hub, sessionSecret, user, password string, cfg *config.Config) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -281,6 +284,7 @@ func NewHandler(d *db.DB, sessionSecret, user, password string, cfg *config.Conf
 
 	return &Handler{
 		db:       d,
+		hub:      hub,
 		store:    store,
 		tmpl:     tmpl,
 		user:     user,
@@ -944,10 +948,12 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, targetType, targetIDs); err != nil {
+	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, targetType, targetIDs)
+	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.pushCommand(r.Context(), cmd, targetType, targetIDs)
 	http.Redirect(w, r, "/commands", http.StatusFound)
 }
 
@@ -1126,10 +1132,12 @@ func (h *Handler) LogcatRequestCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	tag := strings.TrimSpace(r.FormValue("tag"))
 
-	if _, err := h.db.CreateLogcatRequest(r.Context(), device.ID, level, lines, tag); err != nil {
+	req, err := h.db.CreateLogcatRequest(r.Context(), device.ID, level, lines, tag)
+	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.pushLogcatRequest(r.Context(), req)
 
 	http.Redirect(w, r, "/devices/"+serial+"/logcat", http.StatusFound)
 }
@@ -1156,10 +1164,12 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 
 	payload := buildPayload(cmdType, r)
 
-	if _, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID}); err != nil {
+	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID})
+	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
@@ -1281,4 +1291,52 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /updates", h.requireAuth(h.Updates))
 	mux.HandleFunc("POST /updates", h.requireAuth(h.UpdateCreate))
 	mux.HandleFunc("POST /updates/{id}/delete", h.requireAuth(h.UpdateDelete))
+}
+
+// ── WS push helpers ───────────────────────────────────────────────────────────
+
+func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType string, targetIDs []uuid.UUID) {
+	msg, _ := json.Marshal(map[string]any{
+		"type":         "command",
+		"id":           cmd.ID,
+		"command_type": cmd.Type,
+		"apk_url":      cmd.ApkURL,
+		"payload":      cmd.Payload,
+	})
+
+	switch targetType {
+	case "all":
+		h.hub.Broadcast(msg)
+		return
+	case "groups":
+		ids, err := h.db.GetDeviceIDsByGroupIDs(ctx, targetIDs)
+		if err != nil {
+			return
+		}
+		targetIDs = ids
+	}
+
+	for _, deviceID := range targetIDs {
+		if !h.hub.Push(deviceID, msg) {
+			continue
+		}
+		if cmd.Type == "reboot" {
+			_ = h.db.AckCommand(ctx, cmd.ID, deviceID, "completed")
+		} else {
+			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
+		}
+	}
+}
+
+func (h *Handler) pushLogcatRequest(ctx context.Context, req *db.LogcatRequest) {
+	msg, _ := json.Marshal(map[string]any{
+		"type":  "logcat_request",
+		"id":    req.ID,
+		"level": req.Level,
+		"lines": req.Lines,
+		"tag":   req.Tag,
+	})
+	if h.hub.Push(req.DeviceID, msg) {
+		_ = h.db.MarkLogcatRequestsDelivered(ctx, []uuid.UUID{req.ID})
+	}
 }

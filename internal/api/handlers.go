@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"log"
@@ -10,21 +11,129 @@ import (
 
 	"github.com/google/uuid"
 	"mdm/internal/db"
+	"mdm/internal/ws"
 )
 
 type Handler struct {
-	db *db.DB
+	db  *db.DB
+	hub *ws.Hub
 }
 
-func NewHandler(d *db.DB) *Handler {
-	return &Handler{db: d}
+func NewHandler(d *db.DB, hub *ws.Hub) *Handler {
+	return &Handler{db: d, hub: hub}
 }
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+
+// Connect upgrades the connection to WebSocket for a device identified by
+// ?serial=<serial_number>. On connect, any pending commands and logcat requests
+// are flushed immediately. Going forward, commands and logcat requests are
+// pushed as they are created.
+func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
+	serial := strings.TrimSpace(r.URL.Query().Get("serial"))
+	if serial == "" {
+		http.Error(w, "serial query parameter required", http.StatusBadRequest)
+		return
+	}
+
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+
+	client, err := h.hub.Upgrade(w, r, device.ID)
+	if err != nil {
+		log.Printf("[ws] upgrade error for %s: %v", serial, err)
+		return
+	}
+
+	// Flush any commands that were queued while the device was offline.
+	h.flushPendingCommands(r.Context(), device.ID)
+	h.flushPendingLogcatRequests(r.Context(), device.ID)
+
+	go client.WritePump()
+	client.ReadPump() // blocks until connection closes
+}
+
+// flushPendingCommands pushes all pending commands to the device over WS and
+// marks them delivered (or completed for reboot).
+func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) {
+	cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID)
+	if err != nil {
+		log.Printf("[ws] GetPendingCommandsForDevice error: %v", err)
+		return
+	}
+	for _, cmd := range cmds {
+		msg := marshalCommand(cmd.ID, cmd.Type, cmd.ApkURL, cmd.Payload)
+		if !h.hub.Push(deviceID, msg) {
+			continue
+		}
+		if cmd.Type == "reboot" {
+			_ = h.db.AckCommand(ctx, cmd.ID, deviceID, "completed")
+		} else {
+			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
+		}
+	}
+}
+
+// flushPendingLogcatRequests pushes pending logcat requests to the device over WS.
+func (h *Handler) flushPendingLogcatRequests(ctx context.Context, deviceID uuid.UUID) {
+	reqs, err := h.db.GetPendingLogcatRequestsForDevice(ctx, deviceID)
+	if err != nil {
+		log.Printf("[ws] GetPendingLogcatRequestsForDevice error: %v", err)
+		return
+	}
+	var delivered []uuid.UUID
+	for _, req := range reqs {
+		msg := marshalLogcatRequest(req.ID, req.Level, req.Lines, req.Tag)
+		if h.hub.Push(deviceID, msg) {
+			delivered = append(delivered, req.ID)
+		}
+	}
+	if len(delivered) > 0 {
+		_ = h.db.MarkLogcatRequestsDelivered(ctx, delivered)
+	}
+}
+
+// pushCommand pushes a newly created command to all targeted online devices
+// and marks delivery status.
+func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType string, targetIDs []uuid.UUID) {
+	msg := marshalCommand(cmd.ID, cmd.Type, cmd.ApkURL, cmd.Payload)
+
+	switch targetType {
+	case "all":
+		h.hub.Broadcast(msg)
+		// Cannot track per-device delivery for "all"; devices get it on next connect if offline.
+		return
+	case "groups":
+		ids, err := h.db.GetDeviceIDsByGroupIDs(ctx, targetIDs)
+		if err != nil {
+			log.Printf("[ws] GetDeviceIDsByGroupIDs error: %v", err)
+			return
+		}
+		targetIDs = ids
+	}
+
+	for _, deviceID := range targetIDs {
+		if !h.hub.Push(deviceID, msg) {
+			continue
+		}
+		if cmd.Type == "reboot" {
+			_ = h.db.AckCommand(ctx, cmd.ID, deviceID, "completed")
+		} else {
+			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
+		}
+	}
+}
+
+// ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
 type checkinRequest struct {
-	SerialNumber string          `json:"serial_number"`
-	BuildID      string          `json:"build_id"`
-	BatteryPct   int             `json:"battery_pct"`
-	Extra        json.RawMessage `json:"extra,omitempty"`
+	SerialNumber  string          `json:"serial_number"`
+	BuildID       string          `json:"build_id"`
+	BatteryPct    int             `json:"battery_pct"`
+	Extra         json.RawMessage `json:"extra,omitempty"`
 	InstalledApps []struct {
 		Package     string `json:"package"`
 		Name        string `json:"name"`
@@ -51,7 +160,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	deviceID, pollIntervalMs, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
+	deviceID, _, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -73,7 +182,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// OTA check: inject an OTA command if the device needs an update and doesn't already have one pending
+	// OTA check: inject an OTA command if the device needs an update and push it via WS.
 	if hasPending, err := h.db.HasPendingOTACommand(r.Context(), deviceID); err != nil {
 		log.Printf("[checkin] HasPendingOTACommand error: %v", err)
 	} else if !hasPending {
@@ -88,74 +197,12 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 				"payload_size":    pkg.PayloadSize,
 				"payload_headers": pkg.PayloadHeaders,
 			})
-			if _, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
+			if cmd, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
 				log.Printf("[checkin] create OTA command error: %v", err)
-			}
-		}
-	}
-
-	cmds, err := h.db.GetPendingCommandsForDevice(r.Context(), deviceID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		return
-	}
-
-	if len(cmds) > 0 {
-		var deliverIDs, completeIDs []uuid.UUID
-		for _, c := range cmds {
-			if c.Type == "reboot" {
-				completeIDs = append(completeIDs, c.ID)
 			} else {
-				deliverIDs = append(deliverIDs, c.ID)
+				h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
 			}
 		}
-		if len(deliverIDs) > 0 {
-			_ = h.db.MarkCommandsDelivered(r.Context(), deviceID, deliverIDs)
-		}
-		for _, id := range completeIDs {
-			_ = h.db.AckCommand(r.Context(), id, deviceID, "completed")
-		}
-	}
-
-	type cmdResponse struct {
-		ID      uuid.UUID       `json:"id"`
-		Type    string          `json:"type"`
-		ApkURL  string          `json:"apk_url"`
-		Payload json.RawMessage `json:"payload"`
-	}
-	var cmdList []cmdResponse
-	for _, c := range cmds {
-		cmdList = append(cmdList, cmdResponse{ID: c.ID, Type: c.Type, ApkURL: c.ApkURL, Payload: c.Payload})
-	}
-	if cmdList == nil {
-		cmdList = []cmdResponse{}
-	}
-
-	logcatReqs, err := h.db.GetPendingLogcatRequestsForDevice(r.Context(), deviceID)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
-		return
-	}
-	if len(logcatReqs) > 0 {
-		var lids []uuid.UUID
-		for _, lr := range logcatReqs {
-			lids = append(lids, lr.ID)
-		}
-		_ = h.db.MarkLogcatRequestsDelivered(r.Context(), lids)
-	}
-
-	type logcatReqResponse struct {
-		ID    uuid.UUID `json:"id"`
-		Level string    `json:"level"`
-		Lines int       `json:"lines"`
-		Tag   string    `json:"tag"`
-	}
-	var lrList []logcatReqResponse
-	for _, lr := range logcatReqs {
-		lrList = append(lrList, logcatReqResponse{ID: lr.ID, Level: lr.Level, Lines: lr.Lines, Tag: lr.Tag})
-	}
-	if lrList == nil {
-		lrList = []logcatReqResponse{}
 	}
 
 	deviceCfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), deviceID)
@@ -164,21 +211,20 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[checkin] %s → kiosk_enabled=%v kiosk_package=%q kiosk_features=%d commands=%d",
-		req.SerialNumber, deviceCfg.KioskEnabled, deviceCfg.KioskPackage, deviceCfg.KioskFeatures, len(cmdList))
+	log.Printf("[checkin] %s → kiosk_enabled=%v kiosk_package=%q kiosk_features=%d",
+		req.SerialNumber, deviceCfg.KioskEnabled, deviceCfg.KioskPackage, deviceCfg.KioskFeatures)
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status":           "ok",
-		"poll_interval_ms": pollIntervalMs,
+		"status": "ok",
 		"config": map[string]any{
 			"kiosk_enabled":  deviceCfg.KioskEnabled,
 			"kiosk_package":  deviceCfg.KioskPackage,
 			"kiosk_features": deviceCfg.KioskFeatures,
 		},
-		"commands":         cmdList,
-		"logcat_requests":  lrList,
 	})
 }
+
+// ── Logcat ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 	var body struct {
@@ -208,6 +254,8 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
+
+// ── Devices ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListDevices(w http.ResponseWriter, r *http.Request) {
 	devices, err := h.db.ListDevices(r.Context(), "", 0, 10000, "")
@@ -385,6 +433,9 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
+
+	h.pushCommand(r.Context(), cmd, body.TargetType, targetIDs)
+
 	writeJSON(w, http.StatusCreated, cmd)
 }
 
@@ -455,7 +506,7 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		SerialNumber string    `json:"serial_number"`
 		CommandID    uuid.UUID `json:"command_id"`
-		Status       string    `json:"status"`    // downloaded | installed | error
+		Status       string    `json:"status"`     // downloaded | installed | error
 		ErrorCode    string    `json:"error_code"` // optional, set when status=error
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SerialNumber == "" {
@@ -485,14 +536,40 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 		_ = h.db.SaveCommandResult(r.Context(), body.CommandID, device.ID, body.ErrorCode)
 	}
 
-	// On installed: schedule a reboot so the update takes effect
+	// On installed: push a reboot command immediately via WS.
 	if body.Status == "installed" {
-		if _, err := h.db.CreateCommand(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}); err != nil {
+		if cmd, err := h.db.CreateCommand(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}); err != nil {
 			log.Printf("[ota_status] create reboot command error: %v", err)
+		} else {
+			h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
 		}
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+func marshalCommand(id uuid.UUID, cmdType, apkURL string, payload json.RawMessage) []byte {
+	msg, _ := json.Marshal(map[string]any{
+		"type":         "command",
+		"id":           id,
+		"command_type": cmdType,
+		"apk_url":      apkURL,
+		"payload":      payload,
+	})
+	return msg
+}
+
+func marshalLogcatRequest(id uuid.UUID, level string, lines int, tag string) []byte {
+	msg, _ := json.Marshal(map[string]any{
+		"type":  "logcat_request",
+		"id":    id,
+		"level": level,
+		"lines": lines,
+		"tag":   tag,
+	})
+	return msg
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

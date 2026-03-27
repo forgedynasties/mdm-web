@@ -1126,6 +1126,26 @@ func (d *DB) SaveCommandResult(ctx context.Context, commandID, deviceID uuid.UUI
 	return err
 }
 
+// GetDeviceIDsByGroupIDs returns the distinct device IDs that belong to any of the given groups.
+func (d *DB) GetDeviceIDsByGroupIDs(ctx context.Context, groupIDs []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT device_id FROM device_groups WHERE group_id = ANY($1)
+	`, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 const migrationSQL = `
 CREATE TABLE IF NOT EXISTS devices (
 	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -13,6 +13,7 @@ import (
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
 	"mdm/internal/middleware"
+	"mdm/internal/ws"
 )
 
 func main() {
@@ -64,6 +65,8 @@ func main() {
 	}
 	log.Println("Migrations applied")
 
+	hub := ws.NewHub()
+
 	mux := http.NewServeMux()
 
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
@@ -78,9 +81,12 @@ func main() {
 		w.Write([]byte(`{"status":"ok","db":"ok"}`))
 	})
 
-	apiHandler := api.NewHandler(database)
+	apiHandler := api.NewHandler(database, hub)
 
 	auth := func(h http.Handler) http.Handler { return middleware.APIKeyAuth(apiKey, h) }
+
+	// WebSocket — device connects here for server-push command delivery
+	mux.Handle("GET /api/v1/ws", auth(http.HandlerFunc(apiHandler.Connect)))
 
 	// Device
 	mux.Handle("POST /api/v1/checkin",               auth(http.HandlerFunc(apiHandler.Checkin)))
@@ -112,15 +118,13 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	dash := dashboard.NewHandler(database, sessionSecret, dashUser, dashPass, cfg)
+	dash := dashboard.NewHandler(database, hub, sessionSecret, dashUser, dashPass, cfg)
 	dash.RegisterRoutes(mux)
 
 	server := &http.Server{
-		Addr:         ":" + port,
-		Handler:      mux,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:        ":" + port,
+		Handler:     mux,
+		IdleTimeout: 120 * time.Second,
 	}
 
 	log.Printf("Server listening on :%s", port)
