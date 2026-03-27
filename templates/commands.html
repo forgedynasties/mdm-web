@@ -16,7 +16,6 @@
       <label class="form-label">Type</label>
       <div class="seg-control">
         <button type="button" class="seg-btn active" onclick="selectType('install_apk', this)">Install APK</button>
-        <button type="button" class="seg-btn"        onclick="selectType('shell', this)">Shell</button>
         <button type="button" class="seg-btn"        onclick="selectType('screenshot', this)">Screenshot</button>
         <button type="button" class="seg-btn"        onclick="selectType('reboot', this)">Reboot</button>
       </div>
@@ -45,12 +44,6 @@
       </div>
     </div>
 
-    <div id="shell-fields" style="display:none;">
-      <div class="form-row">
-        <label class="form-label">Command</label>
-        <input type="text" name="shell_cmd" class="form-input mono" placeholder="e.g. df -h /data" style="font-family:var(--mono);">
-      </div>
-    </div>
 
     <div id="screenshot-hint" class="form-row" style="display:none;">
       <span class="muted small">Device will capture a screenshot and upload it on next checkin.</span>
@@ -160,7 +153,6 @@ function selectType(val, btn) {
   btn.classList.add('active');
 
   document.getElementById('apk-fields').style.display      = val === 'install_apk' ? '' : 'none';
-  document.getElementById('shell-fields').style.display     = val === 'shell'       ? '' : 'none';
   document.getElementById('screenshot-hint').style.display  = val === 'screenshot'  ? '' : 'none';
   document.getElementById('reboot-hint').style.display      = val === 'reboot'      ? '' : 'none';
 
