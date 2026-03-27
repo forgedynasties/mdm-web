@@ -34,12 +34,23 @@
           <td><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></td>
           <td class="muted small">{{formatTime .UpdatedAt}}</td>
           {{if eq $cmd.Type "shell"}}
-          <td>
+          <td style="min-width:320px;">
             {{if .Output}}
-            <details>
-              <summary class="link-detail" style="cursor:pointer;">View output</summary>
-              <pre class="logcat-terminal" style="margin-top:8px;max-height:300px;">{{.Output}}</pre>
-            </details>
+            <pre class="logcat-terminal" style="max-height:300px;margin:0;">{{.Output}}</pre>
+            {{else if or (eq .Status "delivered") (eq .Status "pending")}}
+            <pre id="out-{{.SerialNumber}}" class="logcat-terminal" style="max-height:300px;margin:0;"></pre>
+            <script>
+            (function(){
+              const el = document.getElementById('out-{{.SerialNumber}}');
+              const es = new EventSource('/commands/{{$cmd.ID}}/output/{{.SerialNumber}}/stream');
+              es.onmessage = function(e) {
+                el.textContent += JSON.parse(e.data);
+                el.scrollTop = el.scrollHeight;
+              };
+              es.addEventListener('done', function() { es.close(); });
+              es.onerror = function() { es.close(); };
+            })();
+            </script>
             {{else}}<span class="muted small">—</span>{{end}}
           </td>
           {{end}}

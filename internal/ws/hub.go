@@ -24,8 +24,15 @@ var upgrader = websocket.Upgrader{
 
 // Hub maintains the set of active WebSocket clients keyed by device ID.
 type Hub struct {
-	mu      sync.RWMutex
-	clients map[uuid.UUID]*Client
+	mu        sync.RWMutex
+	clients   map[uuid.UUID]*Client
+	onMessage func(deviceID uuid.UUID, msg []byte)
+}
+
+// SetOnMessage registers a function that is called for every message received
+// from any device. Safe to call before any connections are established.
+func (h *Hub) SetOnMessage(fn func(deviceID uuid.UUID, msg []byte)) {
+	h.onMessage = fn
 }
 
 // Client represents a single device WebSocket connection.
@@ -139,22 +146,26 @@ func (c *Client) WritePump() {
 	}
 }
 
-// ReadPump reads from the WebSocket to process pongs and detect disconnection.
+// ReadPump reads from the WebSocket, dispatching messages and detecting disconnection.
 // Must be called in its own goroutine. Unregisters the client on return.
 func (c *Client) ReadPump() {
 	defer func() {
 		c.hub.Unregister(c)
 		c.conn.Close()
 	}()
-	c.conn.SetReadLimit(4096)
+	c.conn.SetReadLimit(512 * 1024) // 512 KB — large enough for shell/screenshot output
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
 	for {
-		if _, _, err := c.conn.ReadMessage(); err != nil {
+		_, msg, err := c.conn.ReadMessage()
+		if err != nil {
 			break
+		}
+		if len(msg) > 0 && c.hub.onMessage != nil {
+			c.hub.onMessage(c.DeviceID, msg)
 		}
 	}
 }

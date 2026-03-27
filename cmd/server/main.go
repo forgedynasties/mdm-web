@@ -13,6 +13,7 @@ import (
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
 	"mdm/internal/middleware"
+	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
 
@@ -66,6 +67,8 @@ func main() {
 	log.Println("Migrations applied")
 
 	hub := ws.NewHub()
+	shellMgr := shell.NewManager()
+	hub.SetOnMessage(shellMgr.HandleDeviceMessage)
 
 	mux := http.NewServeMux()
 
@@ -118,7 +121,7 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	dash := dashboard.NewHandler(database, hub, sessionSecret, dashUser, dashPass, cfg)
+	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg)
 	dash.RegisterRoutes(mux)
 
 	server := &http.Server{

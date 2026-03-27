@@ -1,0 +1,127 @@
+{{define "shell.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}} — MDM</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
+  <style>
+    body { display: flex; flex-direction: column; height: 100vh; margin: 0; }
+    .shell-nav {
+      display: flex; align-items: center; gap: 12px;
+      padding: 8px 16px; background: var(--surface);
+      border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .shell-status {
+      margin-left: auto; font-size: 12px; padding: 2px 8px;
+      border-radius: 4px; font-family: var(--mono);
+    }
+    .shell-status.connected    { background: rgba(0,200,80,0.15); color: #00c850; }
+    .shell-status.disconnected { background: rgba(220,50,50,0.15); color: #dc3232; }
+    .shell-status.connecting   { background: rgba(120,120,120,0.15); color: #888; }
+    #terminal-wrap {
+      flex: 1; overflow: hidden; padding: 8px;
+      background: #1a1a2e;
+    }
+    #terminal { height: 100%; }
+  </style>
+</head>
+<body>
+  <div class="shell-nav">
+    <a href="/devices/{{.Serial}}" class="back-link" style="margin:0;">← {{.Serial}}</a>
+    <span class="mono small" style="color:var(--muted);">Interactive Shell</span>
+    <span id="status" class="shell-status connecting">connecting…</span>
+  </div>
+  <div id="terminal-wrap">
+    <div id="terminal"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+  <script>
+  (function () {
+    const serial = {{.Serial | printf "%q"}};
+    const statusEl = document.getElementById('status');
+
+    const term = new Terminal({
+      cursorBlink: true,
+      fontSize: 13,
+      fontFamily: '"Cascadia Code", "Fira Code", monospace',
+      theme: {
+        background: '#1a1a2e',
+        foreground: '#e0e0f0',
+        cursor:     '#e0e0f0',
+        black:      '#1a1a2e',
+        brightBlack:'#4a4a6e',
+      },
+    });
+
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(document.getElementById('terminal'));
+    fitAddon.fit();
+
+    function setStatus(state, text) {
+      statusEl.className = 'shell-status ' + state;
+      statusEl.textContent = text;
+    }
+
+    let ws;
+    let reconnectDelay = 1000;
+
+    function connect() {
+      setStatus('connecting', 'connecting…');
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${proto}//${location.host}/ws/shell/${serial}`);
+
+      ws.onopen = () => {
+        setStatus('connected', 'connected');
+        reconnectDelay = 1000;
+        sendResize();
+      };
+
+      ws.onmessage = (e) => {
+        const frame = JSON.parse(e.data);
+        if (frame.type === 'shell_output') {
+          term.write(frame.data);
+        } else if (frame.type === 'shell_exit') {
+          term.write('\r\n\x1b[33m[shell exited]\x1b[0m\r\n');
+          setStatus('disconnected', 'shell exited');
+        }
+      };
+
+      ws.onclose = () => {
+        setStatus('disconnected', 'disconnected — reconnecting in ' + (reconnectDelay / 1000) + 's');
+        term.write('\r\n\x1b[31m[disconnected]\x1b[0m\r\n');
+        setTimeout(connect, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+      };
+
+      ws.onerror = () => ws.close();
+    }
+
+    function sendResize() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'shell_resize', cols: term.cols, rows: term.rows }));
+      }
+    }
+
+    term.onData((data) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'shell_stdin', data }));
+      }
+    });
+
+    window.addEventListener('resize', () => {
+      fitAddon.fit();
+      sendResize();
+    });
+
+    connect();
+  })();
+  </script>
+</body>
+</html>
+{{end}}

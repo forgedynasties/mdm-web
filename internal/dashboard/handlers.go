@@ -14,14 +14,23 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
+	"github.com/gorilla/websocket"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
+
+var browserUpgrader = websocket.Upgrader{
+	ReadBufferSize:  4096,
+	WriteBufferSize: 4096,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
 
 type Handler struct {
 	db       *db.DB
 	hub      *ws.Hub
+	shell    *shell.Manager
 	store    *sessions.CookieStore
 	tmpl     *template.Template
 	user     string
@@ -29,7 +38,7 @@ type Handler struct {
 	cfg      *config.Config
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, sessionSecret, user, password string, cfg *config.Config) *Handler {
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, user, password string, cfg *config.Config) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -285,6 +294,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, sessionSecret, user, password string, cfg
 	return &Handler{
 		db:       d,
 		hub:      hub,
+		shell:    shellMgr,
 		store:    store,
 		tmpl:     tmpl,
 		user:     user,
@@ -1291,6 +1301,167 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /updates", h.requireAuth(h.Updates))
 	mux.HandleFunc("POST /updates", h.requireAuth(h.UpdateCreate))
 	mux.HandleFunc("POST /updates/{id}/delete", h.requireAuth(h.UpdateDelete))
+
+	// Shell
+	mux.HandleFunc("GET /devices/{serial}/shell", h.requireAuth(h.ShellPage))
+	mux.HandleFunc("GET /ws/shell/{serial}", h.requireAuth(h.ShellWS))
+
+	// Command output SSE
+	mux.HandleFunc("GET /commands/{id}/output/{serial}/stream", h.requireAuth(h.CommandOutputStream))
+}
+
+// ── Shell ─────────────────────────────────────────────────────────────────────
+
+// ShellPage renders the xterm.js terminal page for a device.
+func (h *Handler) ShellPage(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	if _, err := h.db.GetDevice(r.Context(), serial); err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "shell.html", map[string]any{
+		"Title":  serial + " — Shell",
+		"Serial": serial,
+	})
+}
+
+// ShellWS bridges a browser WebSocket to a device shell session.
+//
+// Protocol (browser → server JSON):
+//
+//	{"type":"shell_stdin",  "data":"<raw keystroke bytes>"}
+//	{"type":"shell_resize", "cols":<int>, "rows":<int>}
+//
+// Protocol (server → browser JSON):
+//
+//	{"type":"shell_output", "data":"<raw output bytes>"}
+//	{"type":"shell_exit",   "exit_code":<int>}
+func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	browserConn, err := browserUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer browserConn.Close()
+
+	sessionID, outCh := h.shell.RegisterSession()
+	defer h.shell.UnregisterSession(sessionID)
+
+	// Tell the device to open a shell for this session.
+	startMsg, _ := json.Marshal(map[string]any{
+		"type":       "shell_start",
+		"session_id": sessionID,
+	})
+	h.hub.Push(device.ID, startMsg)
+
+	// Forward device output → browser.
+	go func() {
+		for data := range outCh {
+			msg, _ := json.Marshal(map[string]any{
+				"type": "shell_output",
+				"data": string(data),
+			})
+			if err := browserConn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				return
+			}
+		}
+		// Channel closed = device shell exited or device disconnected.
+		exitMsg, _ := json.Marshal(map[string]any{"type": "shell_exit", "exit_code": 0})
+		browserConn.WriteMessage(websocket.TextMessage, exitMsg)
+		browserConn.Close()
+	}()
+
+	// Forward browser input → device.
+	for {
+		_, raw, err := browserConn.ReadMessage()
+		if err != nil {
+			break
+		}
+		var frame struct {
+			Type string `json:"type"`
+			Data string `json:"data"`
+			Cols int    `json:"cols"`
+			Rows int    `json:"rows"`
+		}
+		if err := json.Unmarshal(raw, &frame); err != nil {
+			continue
+		}
+		switch frame.Type {
+		case "shell_stdin":
+			msg, _ := json.Marshal(map[string]any{
+				"type":       "shell_stdin",
+				"session_id": sessionID,
+				"data":       frame.Data,
+			})
+			h.hub.Push(device.ID, msg)
+		case "shell_resize":
+			msg, _ := json.Marshal(map[string]any{
+				"type":       "shell_resize",
+				"session_id": sessionID,
+				"cols":       frame.Cols,
+				"rows":       frame.Rows,
+			})
+			h.hub.Push(device.ID, msg)
+		}
+	}
+
+	// Browser disconnected — close the shell on the device.
+	closeMsg, _ := json.Marshal(map[string]any{
+		"type":       "shell_close",
+		"session_id": sessionID,
+	})
+	h.hub.Push(device.ID, closeMsg)
+}
+
+// CommandOutputStream is an SSE endpoint that streams live output for a
+// specific (command, device) pair as the device sends it.
+func (h *Handler) CommandOutputStream(w http.ResponseWriter, r *http.Request) {
+	cmdID, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "invalid command id", http.StatusBadRequest)
+		return
+	}
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no") // disable nginx buffering
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	ch, unsub := h.shell.SubscribeCommandOutput(cmdID, device.ID)
+	defer unsub()
+
+	for {
+		select {
+		case chunk, open := <-ch:
+			if !open {
+				fmt.Fprintf(w, "event: done\ndata: {}\n\n")
+				flusher.Flush()
+				return
+			}
+			data, _ := json.Marshal(chunk)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		case <-r.Context().Done():
+			return
+		}
+	}
 }
 
 // ── WS push helpers ───────────────────────────────────────────────────────────
