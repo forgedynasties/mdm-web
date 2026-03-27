@@ -1180,6 +1180,11 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"id": cmd.ID.String()})
+		return
+	}
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 

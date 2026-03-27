@@ -380,14 +380,67 @@
       </form>
     </div>
 
-    <div class="action-card">
+    <div class="action-card" id="shell-card">
       <div class="action-label">Shell Command</div>
-      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" style="margin-top:8px;">
-        <input type="hidden" name="type" value="shell">
-        <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. df -h /data" style="font-family:var(--mono);margin-bottom:8px;" required>
-        <button type="submit" class="btn-outline">Run</button>
+      <form id="shell-form" style="margin-top:8px;display:flex;gap:6px;align-items:center;">
+        <input type="text" id="shell-cmd-input" class="form-input" placeholder="e.g. df -h /data" style="font-family:var(--mono);flex:1;" required>
+        <button type="submit" id="shell-run-btn" class="btn-outline">Run</button>
       </form>
+      <pre id="shell-output" class="logcat-terminal" style="max-height:260px;margin-top:8px;display:none;white-space:pre-wrap;word-break:break-all;"></pre>
     </div>
+
+    <script>
+    (function () {
+      const serial = {{.Device.SerialNumber | printf "%q"}};
+      const form   = document.getElementById('shell-form');
+      const input  = document.getElementById('shell-cmd-input');
+      const btn    = document.getElementById('shell-run-btn');
+      const out    = document.getElementById('shell-output');
+      let es = null;
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const cmd = input.value.trim();
+        if (!cmd) return;
+
+        if (es) { es.close(); es = null; }
+        out.textContent = '';
+        out.style.display = '';
+        btn.disabled = true;
+        btn.textContent = 'Running…';
+
+        let cmdId;
+        try {
+          const res = await fetch('/devices/' + serial + '/commands', {
+            method: 'POST',
+            headers: { 'Accept': 'application/json',
+                       'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ type: 'shell', shell_cmd: cmd }),
+          });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          ({ id: cmdId } = await res.json());
+        } catch (err) {
+          out.textContent = 'Error sending command: ' + err.message;
+          btn.disabled = false;
+          btn.textContent = 'Run';
+          return;
+        }
+
+        es = new EventSource('/commands/' + cmdId + '/output/' + serial + '/stream');
+        es.onmessage = (ev) => {
+          out.textContent += JSON.parse(ev.data);
+          out.scrollTop = out.scrollHeight;
+        };
+        const finish = () => {
+          if (es) { es.close(); es = null; }
+          btn.disabled = false;
+          btn.textContent = 'Run';
+        };
+        es.addEventListener('done', finish);
+        es.onerror = finish;
+      });
+    })();
+    </script>
 
     <div class="action-card">
       <div class="action-label">Screenshot</div>
