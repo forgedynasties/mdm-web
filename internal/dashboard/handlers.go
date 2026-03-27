@@ -1391,12 +1391,15 @@ func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
 	sessionID, outCh := h.shell.RegisterSession()
 	defer h.shell.UnregisterSession(sessionID)
 
+	log.Printf("[shell] browser connected serial=%s session=%s", serial, sessionID)
+
 	// Tell the device to open a shell for this session.
 	startMsg, _ := json.Marshal(map[string]any{
 		"type":       "shell_start",
 		"session_id": sessionID,
 	})
-	h.hub.Push(device.ID, startMsg)
+	delivered := h.hub.Push(device.ID, startMsg)
+	log.Printf("[shell] shell_start sent to device serial=%s delivered=%v", serial, delivered)
 
 	browserConn.SetPongHandler(func(string) error {
 		browserConn.SetReadDeadline(time.Now().Add(pongWait))
@@ -1411,6 +1414,7 @@ func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
 		for range ticker.C {
 			browserConn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := browserConn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				log.Printf("[shell] keepalive ping failed serial=%s session=%s err=%v", serial, sessionID, err)
 				return
 			}
 		}
@@ -1425,10 +1429,12 @@ func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
 			})
 			browserConn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := browserConn.WriteMessage(websocket.TextMessage, msg); err != nil {
+				log.Printf("[shell] output→browser write failed serial=%s session=%s err=%v", serial, sessionID, err)
 				return
 			}
 		}
-		// Channel closed = device shell exited or device disconnected.
+		// Channel closed = device shell exited.
+		log.Printf("[shell] outCh closed, sending shell_exit serial=%s session=%s", serial, sessionID)
 		exitMsg, _ := json.Marshal(map[string]any{"type": "shell_exit", "exit_code": 0})
 		browserConn.SetWriteDeadline(time.Now().Add(writeWait))
 		browserConn.WriteMessage(websocket.TextMessage, exitMsg)
@@ -1440,6 +1446,7 @@ func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
 		browserConn.SetReadDeadline(time.Now().Add(pongWait))
 		_, raw, err := browserConn.ReadMessage()
 		if err != nil {
+			log.Printf("[shell] browser read error serial=%s session=%s err=%v", serial, sessionID, err)
 			break
 		}
 		var frame struct {
@@ -1469,6 +1476,8 @@ func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
 			h.hub.Push(device.ID, msg)
 		}
 	}
+
+	log.Printf("[shell] browser disconnected serial=%s session=%s", serial, sessionID)
 
 	// Browser disconnected — close the shell on the device.
 	closeMsg, _ := json.Marshal(map[string]any{
