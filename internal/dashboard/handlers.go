@@ -21,6 +21,12 @@ import (
 	"mdm/internal/ws"
 )
 
+const (
+	writeWait  = 10 * time.Second
+	pongWait   = 60 * time.Second
+	pingPeriod = 45 * time.Second
+)
+
 var browserUpgrader = websocket.Upgrader{
 	ReadBufferSize:  4096,
 	WriteBufferSize: 4096,
@@ -1392,6 +1398,24 @@ func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
 	})
 	h.hub.Push(device.ID, startMsg)
 
+	browserConn.SetPongHandler(func(string) error {
+		browserConn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+	browserConn.SetReadDeadline(time.Now().Add(pongWait))
+
+	// Keepalive: ping the browser every 45 s so the WS stays alive when idle.
+	go func() {
+		ticker := time.NewTicker(pingPeriod)
+		defer ticker.Stop()
+		for range ticker.C {
+			browserConn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := browserConn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		}
+	}()
+
 	// Forward device output → browser.
 	go func() {
 		for data := range outCh {
@@ -1399,18 +1423,21 @@ func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
 				"type": "shell_output",
 				"data": string(data),
 			})
+			browserConn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := browserConn.WriteMessage(websocket.TextMessage, msg); err != nil {
 				return
 			}
 		}
 		// Channel closed = device shell exited or device disconnected.
 		exitMsg, _ := json.Marshal(map[string]any{"type": "shell_exit", "exit_code": 0})
+		browserConn.SetWriteDeadline(time.Now().Add(writeWait))
 		browserConn.WriteMessage(websocket.TextMessage, exitMsg)
 		browserConn.Close()
 	}()
 
 	// Forward browser input → device.
 	for {
+		browserConn.SetReadDeadline(time.Now().Add(pongWait))
 		_, raw, err := browserConn.ReadMessage()
 		if err != nil {
 			break
