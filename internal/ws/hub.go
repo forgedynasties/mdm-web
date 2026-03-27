@@ -83,6 +83,25 @@ func (h *Hub) Push(deviceID uuid.UUID, msg []byte) bool {
 	}
 }
 
+// IsConnected reports whether the device currently has an active WebSocket connection.
+func (h *Hub) IsConnected(deviceID uuid.UUID) bool {
+	h.mu.RLock()
+	_, ok := h.clients[deviceID]
+	h.mu.RUnlock()
+	return ok
+}
+
+// ConnectedIDs returns the set of device IDs with active connections.
+func (h *Hub) ConnectedIDs() map[uuid.UUID]struct{} {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	ids := make(map[uuid.UUID]struct{}, len(h.clients))
+	for id := range h.clients {
+		ids[id] = struct{}{}
+	}
+	return ids
+}
+
 // PushToDevices sends msg to each device in the list.
 func (h *Hub) PushToDevices(deviceIDs []uuid.UUID, msg []byte) {
 	for _, id := range deviceIDs {

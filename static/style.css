@@ -626,6 +626,32 @@ a:hover { color: var(--accent-h); }
 .status-badge.danger { color: var(--danger); }
 .status-badge.muted  { color: var(--muted); }
 
+/* ── WebSocket online dot ────────────────────────── */
+.ws-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  margin-right: 5px;
+  flex-shrink: 0;
+}
+.ws-dot.online { background: var(--ok); box-shadow: 0 0 5px var(--ok); }
+
+.ws-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  border: 1px solid currentColor;
+}
+.ws-badge.online  { color: var(--ok); }
+.ws-badge.offline { color: var(--muted); }
+
 /* ── Segmented control ───────────────────────────── */
 .seg-control {
   display: inline-flex;

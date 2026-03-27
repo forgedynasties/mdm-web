@@ -389,6 +389,12 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		totalPages = 1
 	}
 
+	connected := h.hub.ConnectedIDs()
+	online := make(map[uuid.UUID]bool, len(connected))
+	for id := range connected {
+		online[id] = true
+	}
+
 	data := map[string]any{
 		"Title":      "Devices",
 		"Devices":    devices,
@@ -399,6 +405,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"PageSize":   pageSize,
 		"Summary":    summary,
 		"Sort":       sort,
+		"Online":     online,
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -484,6 +491,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	h.tmpl.ExecuteTemplate(w, "device.html", map[string]any{
 		"Title":             device.SerialNumber,
 		"Device":            device,
+		"Online":            h.hub.IsConnected(device.ID),
 		"Checkins":          checkins,
 		"ChartCheckins":     chartCheckins,
 		"Commands":          commands,
@@ -496,6 +504,24 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"KioskConfig":       kioskCfg,
 		"OTAPackages":       otaPkgs,
 	})
+}
+
+// DeviceOnlineStatus returns a tiny HTML fragment used by htmx to poll the
+// WebSocket connection state on the device detail page.
+func (h *Handler) DeviceOnlineStatus(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	online := h.hub.IsConnected(device.ID)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if online {
+		fmt.Fprint(w, `<span id="ws-badge" class="ws-badge online" hx-get="/devices/`+serial+`/ws-status" hx-trigger="every 5s" hx-swap="outerHTML" title="WebSocket connected"><span class="ws-dot"></span>online</span>`)
+	} else {
+		fmt.Fprint(w, `<span id="ws-badge" class="ws-badge offline" hx-get="/devices/`+serial+`/ws-status" hx-trigger="every 5s" hx-swap="outerHTML" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>`)
+	}
 }
 
 func wlcStatusFromExtra(raw json.RawMessage) string {
@@ -1265,6 +1291,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
+	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.DeviceOnlineStatus))
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))
 	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.DeviceBatteryCSV))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))

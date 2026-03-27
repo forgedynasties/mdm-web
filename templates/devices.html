@@ -42,7 +42,9 @@
     {{if .Devices}}
       {{range .Devices}}
       <tr>
-        <td class="mono">{{.SerialNumber}}</td>
+        <td class="mono" style="white-space:nowrap;">
+          <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}WebSocket connected{{else}}offline{{end}}"></span>{{.SerialNumber}}
+        </td>
         <td class="mono small">{{.BuildID}}</td>
         <td>
           <div class="battery-wrap">

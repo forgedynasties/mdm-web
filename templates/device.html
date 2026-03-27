@@ -181,7 +181,14 @@
 <div class="page-header">
   <div>
     <a href="/" class="back-link">← All Devices</a>
-    <h2 class="page-title mono">{{.Device.SerialNumber}}</h2>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <h2 class="page-title mono" style="margin:0;">{{.Device.SerialNumber}}</h2>
+      {{if .Online}}
+        <span id="ws-badge" class="ws-badge online" hx-get="/devices/{{.Device.SerialNumber}}/ws-status" hx-trigger="every 5s" hx-swap="outerHTML" title="WebSocket connected"><span class="ws-dot"></span>online</span>
+      {{else}}
+        <span id="ws-badge" class="ws-badge offline" hx-get="/devices/{{.Device.SerialNumber}}/ws-status" hx-trigger="every 5s" hx-swap="outerHTML" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>
+      {{end}}
+    </div>
   </div>
   <div style="display:flex;gap:8px;">
     <a href="/devices/{{.Device.SerialNumber}}/packages" class="btn-outline">Packages</a>
