@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,24 +14,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
-	"github.com/gorilla/websocket"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
 
-const (
-	writeWait  = 10 * time.Second
-	pongWait   = 60 * time.Second
-	pingPeriod = 45 * time.Second
-)
-
-var browserUpgrader = websocket.Upgrader{
-	ReadBufferSize:  4096,
-	WriteBufferSize: 4096,
-	CheckOrigin:     func(r *http.Request) bool { return true },
-}
 
 type Handler struct {
 	db       *db.DB
@@ -1341,158 +1328,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /updates", h.requireAuth(h.UpdateCreate))
 	mux.HandleFunc("POST /updates/{id}/delete", h.requireAuth(h.UpdateDelete))
 
-	// Shell
-	mux.HandleFunc("GET /devices/{serial}/shell", h.requireAuth(h.ShellPage))
-	mux.HandleFunc("GET /ws/shell/{serial}", h.requireAuth(h.ShellWS))
-
 	// Command output SSE
 	mux.HandleFunc("GET /commands/{id}/output/{serial}/stream", h.requireAuth(h.CommandOutputStream))
-}
-
-// ── Shell ─────────────────────────────────────────────────────────────────────
-
-// ShellPage renders the xterm.js terminal page for a device.
-func (h *Handler) ShellPage(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	if _, err := h.db.GetDevice(r.Context(), serial); err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	h.tmpl.ExecuteTemplate(w, "shell.html", map[string]any{
-		"Title":  serial + " — Shell",
-		"Serial": serial,
-	})
-}
-
-// ShellWS bridges a browser WebSocket to a device shell session.
-//
-// Protocol (browser → server JSON):
-//
-//	{"type":"shell_stdin",  "data":"<raw keystroke bytes>"}
-//	{"type":"shell_resize", "cols":<int>, "rows":<int>}
-//
-// Protocol (server → browser JSON):
-//
-//	{"type":"shell_output", "data":"<raw output bytes>"}
-//	{"type":"shell_exit",   "exit_code":<int>}
-func (h *Handler) ShellWS(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-
-	browserConn, err := browserUpgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
-	}
-	defer browserConn.Close()
-
-	sessionID, outCh := h.shell.RegisterSession()
-	defer h.shell.UnregisterSession(sessionID)
-
-	log.Printf("[shell] browser connected serial=%s session=%s", serial, sessionID)
-
-	// Tell the device to open a shell for this session.
-	startMsg, _ := json.Marshal(map[string]any{
-		"type":       "shell_start",
-		"session_id": sessionID,
-	})
-	delivered := h.hub.Push(device.ID, startMsg)
-	log.Printf("[shell] shell_start sent to device serial=%s delivered=%v", serial, delivered)
-
-	browserConn.SetPongHandler(func(string) error {
-		browserConn.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
-	})
-	browserConn.SetReadDeadline(time.Now().Add(pongWait))
-
-	// Keepalive: ping the browser every 45 s. If the device is offline, close
-	// the browser WS so it auto-reconnects and gets a fresh shell once the
-	// device comes back.
-	go func() {
-		ticker := time.NewTicker(pingPeriod)
-		defer ticker.Stop()
-		for range ticker.C {
-			if !h.hub.IsConnected(device.ID) {
-				log.Printf("[shell] device offline, closing browser WS serial=%s session=%s", serial, sessionID)
-				browserConn.Close()
-				return
-			}
-			browserConn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := browserConn.WriteMessage(websocket.PingMessage, nil); err != nil {
-				log.Printf("[shell] keepalive ping failed serial=%s session=%s err=%v", serial, sessionID, err)
-				return
-			}
-		}
-	}()
-
-	// Forward device output → browser.
-	go func() {
-		for data := range outCh {
-			msg, _ := json.Marshal(map[string]any{
-				"type": "shell_output",
-				"data": string(data),
-			})
-			browserConn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := browserConn.WriteMessage(websocket.TextMessage, msg); err != nil {
-				log.Printf("[shell] output→browser write failed serial=%s session=%s err=%v", serial, sessionID, err)
-				return
-			}
-		}
-		// Channel closed = device shell exited.
-		log.Printf("[shell] outCh closed, sending shell_exit serial=%s session=%s", serial, sessionID)
-		exitMsg, _ := json.Marshal(map[string]any{"type": "shell_exit", "exit_code": 0})
-		browserConn.SetWriteDeadline(time.Now().Add(writeWait))
-		browserConn.WriteMessage(websocket.TextMessage, exitMsg)
-		browserConn.Close()
-	}()
-
-	// Forward browser input → device.
-	for {
-		browserConn.SetReadDeadline(time.Now().Add(pongWait))
-		_, raw, err := browserConn.ReadMessage()
-		if err != nil {
-			log.Printf("[shell] browser read error serial=%s session=%s err=%v", serial, sessionID, err)
-			break
-		}
-		var frame struct {
-			Type string `json:"type"`
-			Data string `json:"data"`
-			Cols int    `json:"cols"`
-			Rows int    `json:"rows"`
-		}
-		if err := json.Unmarshal(raw, &frame); err != nil {
-			continue
-		}
-		switch frame.Type {
-		case "shell_stdin":
-			msg, _ := json.Marshal(map[string]any{
-				"type":       "shell_stdin",
-				"session_id": sessionID,
-				"data":       frame.Data,
-			})
-			h.hub.Push(device.ID, msg)
-		case "shell_resize":
-			msg, _ := json.Marshal(map[string]any{
-				"type":       "shell_resize",
-				"session_id": sessionID,
-				"cols":       frame.Cols,
-				"rows":       frame.Rows,
-			})
-			h.hub.Push(device.ID, msg)
-		}
-	}
-
-	log.Printf("[shell] browser disconnected serial=%s session=%s", serial, sessionID)
-
-	// Browser disconnected — close the shell on the device.
-	closeMsg, _ := json.Marshal(map[string]any{
-		"type":       "shell_close",
-		"session_id": sessionID,
-	})
-	h.hub.Push(device.ID, closeMsg)
 }
 
 // CommandOutputStream is an SSE endpoint that streams live output for a

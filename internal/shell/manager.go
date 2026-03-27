@@ -4,8 +4,6 @@
 //
 //	{"type":"command_output","command_id":"<uuid>","chunk":"<base64>"}
 //	{"type":"command_done",  "command_id":"<uuid>","exit_code":<int>}
-//	{"type":"shell_output",  "session_id":"<uuid>","data":"<base64>"}
-//	{"type":"shell_exit",    "session_id":"<uuid>","exit_code":<int>}
 package shell
 
 import (
@@ -31,10 +29,6 @@ type outputStream struct {
 
 // Manager routes messages from devices to browser connections.
 type Manager struct {
-	// shell sessions: session_id → channel carrying raw output bytes for the browser
-	sessionMu sync.RWMutex
-	sessions  map[uuid.UUID]chan []byte
-
 	// command output streams keyed by (commandID, deviceID)
 	outMu   sync.Mutex
 	outputs map[outputKey]*outputStream
@@ -42,8 +36,7 @@ type Manager struct {
 
 func NewManager() *Manager {
 	return &Manager{
-		sessions: make(map[uuid.UUID]chan []byte),
-		outputs:  make(map[outputKey]*outputStream),
+		outputs: make(map[outputKey]*outputStream),
 	}
 }
 
@@ -52,10 +45,7 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 	var frame struct {
 		Type      string    `json:"type"`
 		CommandID uuid.UUID `json:"command_id"`
-		SessionID uuid.UUID `json:"session_id"`
 		Chunk     string    `json:"chunk"`
-		Data      string    `json:"data"`
-		ExitCode  int       `json:"exit_code"`
 	}
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return
@@ -65,10 +55,6 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 		m.appendCommandOutput(outputKey{frame.CommandID, deviceID}, frame.Chunk)
 	case "command_done":
 		m.closeCommandOutput(outputKey{frame.CommandID, deviceID})
-	case "shell_output":
-		m.forwardShellOutput(frame.SessionID, []byte(frame.Data))
-	case "shell_exit":
-		m.closeShellSession(frame.SessionID)
 	}
 }
 
@@ -151,43 +137,3 @@ func (m *Manager) ensureStream(key outputKey) *outputStream {
 	return s
 }
 
-// ── Shell sessions ────────────────────────────────────────────────────────────
-
-// RegisterSession creates a new shell session and returns its ID and the
-// channel on which the device's output will be sent to the browser.
-func (m *Manager) RegisterSession() (uuid.UUID, <-chan []byte) {
-	id := uuid.New()
-	ch := make(chan []byte, 512)
-	m.sessionMu.Lock()
-	m.sessions[id] = ch
-	m.sessionMu.Unlock()
-	return id, ch
-}
-
-// UnregisterSession removes a session and closes its output channel.
-func (m *Manager) UnregisterSession(id uuid.UUID) {
-	m.sessionMu.Lock()
-	if ch, ok := m.sessions[id]; ok {
-		delete(m.sessions, id)
-		close(ch)
-	}
-	m.sessionMu.Unlock()
-}
-
-func (m *Manager) forwardShellOutput(sessionID uuid.UUID, data []byte) {
-	m.sessionMu.RLock()
-	ch, ok := m.sessions[sessionID]
-	m.sessionMu.RUnlock()
-	if !ok {
-		return
-	}
-	select {
-	case ch <- data:
-	default:
-		log.Printf("[shell] shell output buffer full for session %s", sessionID)
-	}
-}
-
-func (m *Manager) closeShellSession(sessionID uuid.UUID) {
-	m.UnregisterSession(sessionID)
-}
