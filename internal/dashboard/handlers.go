@@ -482,6 +482,17 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Find the latest OTA command for this device
+	var latestOTA *db.DeviceCommand
+	for i := range commands {
+		if commands[i].Type == "ota" {
+			latestOTA = &commands[i]
+			break
+		}
+	}
+
+	otaProgress := h.shell.GetOTAProgress(device.ID)
+
 	h.tmpl.ExecuteTemplate(w, "device.html", map[string]any{
 		"Title":             device.SerialNumber,
 		"Device":            device,
@@ -497,6 +508,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"InstalledPackages": installedPkgs,
 		"KioskConfig":       kioskCfg,
 		"OTAPackages":       otaPkgs,
+		"OTACommand":        latestOTA,
+		"OTAProgress":       otaProgress,
 	})
 }
 
@@ -782,6 +795,38 @@ func (h *Handler) DeviceSetOTA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
+}
+
+func (h *Handler) DeviceOTAStatusPartial(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	// Find the latest OTA command
+	var latestOTA *db.DeviceCommand
+	for i := range commands {
+		if commands[i].Type == "ota" {
+			latestOTA = &commands[i]
+			break // already sorted by created_at DESC
+		}
+	}
+
+	progress := h.shell.GetOTAProgress(device.ID)
+
+	h.tmpl.ExecuteTemplate(w, "ota-status", map[string]any{
+		"Device":     device,
+		"OTACommand": latestOTA,
+		"OTAProgress": progress,
+	})
 }
 
 func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
@@ -1304,6 +1349,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAuth(h.DeviceKioskUpdate))
 	mux.HandleFunc("POST /devices/{serial}/ota", h.requireAuth(h.DeviceSetOTA))
 	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAuth(h.DeviceHide))
+	mux.HandleFunc("GET /devices/{serial}/ota-status", h.requireAuth(h.DeviceOTAStatusPartial))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))
