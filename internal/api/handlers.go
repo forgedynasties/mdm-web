@@ -11,16 +11,18 @@ import (
 
 	"github.com/google/uuid"
 	"mdm/internal/db"
+	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
 
 type Handler struct {
-	db  *db.DB
-	hub *ws.Hub
+	db    *db.DB
+	hub   *ws.Hub
+	shell *shell.Manager
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub) *Handler {
-	return &Handler{db: d, hub: hub}
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager) *Handler {
+	return &Handler{db: d, hub: hub, shell: shellMgr}
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -534,6 +536,11 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.ErrorCode != "" {
 		_ = h.db.SaveCommandResult(r.Context(), body.CommandID, device.ID, body.ErrorCode)
+	}
+
+	// Clear in-memory OTA progress on terminal statuses.
+	if body.Status == "installed" || body.Status == "error" {
+		h.shell.ClearOTAProgress(device.ID)
 	}
 
 	// On installed: push a reboot command immediately via WS.

@@ -84,7 +84,7 @@ func main() {
 		w.Write([]byte(`{"status":"ok","db":"ok"}`))
 	})
 
-	apiHandler := api.NewHandler(database, hub)
+	apiHandler := api.NewHandler(database, hub, shellMgr)
 
 	auth := func(h http.Handler) http.Handler { return middleware.APIKeyAuth(apiKey, h) }
 

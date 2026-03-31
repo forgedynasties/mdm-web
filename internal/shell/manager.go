@@ -27,16 +27,28 @@ type outputStream struct {
 	closed bool
 }
 
+// OTAProgress holds the latest OTA download progress for a device.
+type OTAProgress struct {
+	CommandID uuid.UUID `json:"command_id"`
+	Phase     string    `json:"phase"`   // downloading, verifying, finalizing
+	Percent   int       `json:"percent"` // 0-100
+}
+
 // Manager routes messages from devices to browser connections.
 type Manager struct {
 	// command output streams keyed by (commandID, deviceID)
 	outMu   sync.Mutex
 	outputs map[outputKey]*outputStream
+
+	// OTA progress per device
+	otaMu    sync.Mutex
+	otaState map[uuid.UUID]*OTAProgress
 }
 
 func NewManager() *Manager {
 	return &Manager{
-		outputs: make(map[outputKey]*outputStream),
+		outputs:  make(map[outputKey]*outputStream),
+		otaState: make(map[uuid.UUID]*OTAProgress),
 	}
 }
 
@@ -46,6 +58,8 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 		Type      string    `json:"type"`
 		CommandID uuid.UUID `json:"command_id"`
 		Chunk     string    `json:"chunk"`
+		Phase     string    `json:"phase"`
+		Percent   int       `json:"percent"`
 	}
 	if err := json.Unmarshal(raw, &frame); err != nil {
 		return
@@ -55,6 +69,8 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 		m.appendCommandOutput(outputKey{frame.CommandID, deviceID}, frame.Chunk)
 	case "command_done":
 		m.closeCommandOutput(outputKey{frame.CommandID, deviceID})
+	case "ota_progress":
+		m.updateOTAProgress(deviceID, frame.CommandID, frame.Phase, frame.Percent)
 	}
 }
 
@@ -135,5 +151,32 @@ func (m *Manager) ensureStream(key outputKey) *outputStream {
 		m.outputs[key] = s
 	}
 	return s
+}
+
+// ── OTA progress ─────────────────────────────────────────────────────────────
+
+func (m *Manager) updateOTAProgress(deviceID, commandID uuid.UUID, phase string, percent int) {
+	m.otaMu.Lock()
+	m.otaState[deviceID] = &OTAProgress{
+		CommandID: commandID,
+		Phase:     phase,
+		Percent:   percent,
+	}
+	m.otaMu.Unlock()
+	log.Printf("[ota] device %s: %s %d%%", deviceID, phase, percent)
+}
+
+// GetOTAProgress returns the latest OTA progress for a device, or nil if none.
+func (m *Manager) GetOTAProgress(deviceID uuid.UUID) *OTAProgress {
+	m.otaMu.Lock()
+	defer m.otaMu.Unlock()
+	return m.otaState[deviceID]
+}
+
+// ClearOTAProgress removes stored OTA progress for a device (call on completion/error).
+func (m *Manager) ClearOTAProgress(deviceID uuid.UUID) {
+	m.otaMu.Lock()
+	delete(m.otaState, deviceID)
+	m.otaMu.Unlock()
 }
 
