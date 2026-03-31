@@ -784,6 +784,15 @@ func (h *Handler) DeviceSetOTA(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
 }
 
+func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	if err := h.db.HideDevice(r.Context(), serial); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 // ── OTA Updates ───────────────────────────────────────────────────────────────
 
 func (h *Handler) Updates(w http.ResponseWriter, r *http.Request) {
@@ -1294,6 +1303,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAuth(h.DeviceSetPollInterval))
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAuth(h.DeviceKioskUpdate))
 	mux.HandleFunc("POST /devices/{serial}/ota", h.requireAuth(h.DeviceSetOTA))
+	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAuth(h.DeviceHide))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))

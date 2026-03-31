@@ -26,6 +26,7 @@ type Device struct {
 	LatestExtra       json.RawMessage `json:"latest_extra,omitempty"`
 	OtaPackageID      int             `json:"ota_package_id"`       // 0 = not set (device-level only)
 	OtaPackageBuildID string          `json:"ota_package_build_id"` // "" = not set
+	Hidden            bool            `json:"hidden"`
 }
 
 // DefaultKioskFeatures shows system info (battery/wifi) but blocks home, recents,
@@ -138,7 +139,8 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		VALUES ($1, $2, NOW())
 		ON CONFLICT (serial_number) DO UPDATE
 			SET build_id     = EXCLUDED.build_id,
-			    last_seen_at = NOW()
+			    last_seen_at = NOW(),
+			    hidden       = false
 		RETURNING id, poll_interval_ms
 	`, serial, buildID).Scan(&deviceID, &pollIntervalMs)
 	if err != nil {
@@ -174,6 +176,7 @@ func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
 		FROM devices d
 		LEFT JOIN latest l ON l.device_id = d.id
 		LEFT JOIN device_config dc ON dc.device_id = d.id
+		WHERE NOT d.hidden
 	`).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.UniqueBuilds, &s.KioskCount)
 	return s, err
 }
@@ -211,11 +214,12 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, 
 	var err error
 	if search != "" {
 		rows, err = d.pool.Query(ctx, base+`
-		WHERE d.serial_number ILIKE $1 OR d.build_id ILIKE $1
+		WHERE NOT d.hidden AND (d.serial_number ILIKE $1 OR d.build_id ILIKE $1)
 		ORDER BY `+orderClause+`
 		LIMIT $2 OFFSET $3`, "%"+search+"%", limit, offset)
 	} else {
 		rows, err = d.pool.Query(ctx, base+`
+		WHERE NOT d.hidden
 		ORDER BY `+orderClause+`
 		LIMIT $1 OFFSET $2`, limit, offset)
 	}
@@ -240,11 +244,11 @@ func (d *DB) CountDevices(ctx context.Context, search string) (int, error) {
 	if search != "" {
 		err := d.pool.QueryRow(ctx, `
 			SELECT COUNT(*) FROM devices
-			WHERE serial_number ILIKE $1 OR build_id ILIKE $1`,
+			WHERE NOT hidden AND (serial_number ILIKE $1 OR build_id ILIKE $1)`,
 			"%"+search+"%").Scan(&count)
 		return count, err
 	}
-	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM devices`).Scan(&count)
+	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM devices WHERE NOT hidden`).Scan(&count)
 	return count, err
 }
 
@@ -275,6 +279,13 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
 	return &dev, nil
+}
+
+// HideDevice marks a device as hidden. It stays in the DB but is excluded from
+// listings and summaries. The flag is cleared automatically on the next check-in.
+func (d *DB) HideDevice(ctx context.Context, serial string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = true WHERE serial_number = $1`, serial)
+	return err
 }
 
 func (d *DB) SetDevicePollInterval(ctx context.Context, serial string, intervalMs int) error {
@@ -1281,6 +1292,8 @@ CREATE TABLE IF NOT EXISTS ota_packages (
 
 ALTER TABLE groups  ADD COLUMN IF NOT EXISTS ota_package_id INTEGER REFERENCES ota_packages(id) ON DELETE SET NULL;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS ota_package_id INTEGER REFERENCES ota_packages(id) ON DELETE SET NULL;
+
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT false;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

@@ -78,7 +78,13 @@
             <span class="muted small">—</span>
           {{end}}
         </td>
-        <td><a href="/devices/{{.SerialNumber}}" class="link-detail">View</a></td>
+        <td style="white-space:nowrap;">
+          <a href="/devices/{{.SerialNumber}}" class="link-detail">View</a>
+          <form action="/devices/{{.SerialNumber}}/hide" method="POST" style="display:inline;margin-left:6px;"
+                onsubmit="return confirm('Hide {{.SerialNumber}}? It will reappear on next check-in.')">
+            <button type="submit" class="btn-danger-sm" title="Hide device">×</button>
+          </form>
+        </td>
       </tr>
       {{end}}
     {{else}}
