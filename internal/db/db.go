@@ -1395,6 +1395,10 @@ func (d *DB) ResolveOTAPackageForDevice(ctx context.Context, deviceID uuid.UUID)
 
 // HasPendingOTACommand returns true if the device already has an OTA command
 // that hasn't been completed or failed yet.
+// HasPendingOTACommand returns true if the device already has an OTA command
+// that is in-progress (pending/delivered/downloaded) OR that failed within the
+// last hour. This prevents the server from re-sending OTA commands on every
+// check-in after a failure.
 func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool, error) {
 	var exists bool
 	err := d.pool.QueryRow(ctx, `
@@ -1403,7 +1407,11 @@ func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool
 			JOIN command_targets ct ON ct.command_id = c.id AND ct.target_id = $1
 			LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
 			WHERE c.type = 'ota'
-			AND (cs.status IS NULL OR cs.status NOT IN ('installed', 'failed', 'completed'))
+			AND (
+				cs.status IS NULL
+				OR cs.status NOT IN ('installed', 'failed', 'completed')
+				OR (cs.status = 'failed' AND cs.updated_at > NOW() - INTERVAL '1 hour')
+			)
 		)
 	`, deviceID).Scan(&exists)
 	return exists, err
