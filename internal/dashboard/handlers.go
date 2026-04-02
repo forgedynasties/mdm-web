@@ -446,7 +446,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chartCheckins, err := h.db.GetCheckinsForDuration(r.Context(), device.ID, time.Now().UTC().Add(-48*time.Hour))
+	chartCheckins, err := h.db.GetCheckinsForDuration(r.Context(), device.ID, device.LastSeenAt.Add(-48*time.Hour))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
