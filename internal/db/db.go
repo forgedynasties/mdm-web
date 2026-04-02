@@ -288,6 +288,11 @@ func (d *DB) HideDevice(ctx context.Context, serial string) error {
 	return err
 }
 
+func (d *DB) BulkHideDevices(ctx context.Context, serials []string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET hidden = true WHERE serial_number = ANY($1)`, serials)
+	return err
+}
+
 func (d *DB) SetDevicePollInterval(ctx context.Context, serial string, intervalMs int) error {
 	_, err := d.pool.Exec(ctx, `
 		UPDATE devices SET poll_interval_ms = $2 WHERE serial_number = $1

@@ -213,6 +213,29 @@ async function saveNewApp() {
   if (hidden) hidden.value = app.apk_url;
   closeAppModal();
 }
+
+// Auto-fill serials from query param (bulk action from devices page)
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var serials = params.get('serials');
+  if (serials) {
+    var ta = document.querySelector('textarea[name="target_serials"]');
+    if (ta) ta.value = serials.split(',').join('\n');
+    // Switch to "Specific Devices" target
+    document.getElementById('target-type-input').value = 'devices';
+    document.getElementById('target-devices').style.display = '';
+    var btns = document.querySelectorAll('#target-type-input').closest ? null : null;
+    // activate the correct seg-btn
+    document.querySelectorAll('.seg-control').forEach(function(sc) {
+      sc.querySelectorAll('.seg-btn').forEach(function(b) {
+        if (b.textContent.trim() === 'Specific Devices') {
+          sc.querySelectorAll('.seg-btn').forEach(function(x) { x.classList.remove('active'); });
+          b.classList.add('active');
+        }
+      });
+    });
+  }
+})();
 </script>
 
 {{template "footer" .}}

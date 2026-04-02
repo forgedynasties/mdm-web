@@ -1,5 +1,15 @@
 {{define "device-table"}}
-<div style="display:flex;justify-content:flex-end;padding:12px 16px 4px;">
+<div class="table-toolbar">
+  <div class="bulk-bar" id="bulk-bar" style="display:none;">
+    <span class="bulk-count" id="bulk-count">0 selected</span>
+    <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
+          onsubmit="return confirm('Hide selected devices? They will reappear on next check-in.')">
+      <button type="submit" class="btn-danger-sm">Hide Selected</button>
+    </form>
+    <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
+    <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
+  </div>
+  <div style="flex:1;"></div>
   {{if eq .Sort "serial"}}
     <a class="btn-outline"
        hx-get="/?page=1&q={{.Query}}&sort=battery"
@@ -27,6 +37,7 @@
 <table class="table">
   <thead>
     <tr>
+      <th style="width:36px;"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th>
       <th>Serial Number</th>
       <th>Build ID</th>
       <th>Battery</th>
@@ -42,6 +53,7 @@
     {{if .Devices}}
       {{range .Devices}}
       <tr>
+        <td><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" onchange="updateBulkBar()"></td>
         <td class="mono" style="white-space:nowrap;">
           <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}WebSocket connected{{else}}offline{{end}}"></span>{{.SerialNumber}}
         </td>
@@ -91,13 +103,76 @@
       {{end}}
     {{else}}
       <tr>
-        <td colspan="9" class="empty">
+        <td colspan="10" class="empty">
           {{if .Query}}No devices match "{{.Query}}".{{else}}No devices have checked in yet.{{end}}
         </td>
       </tr>
     {{end}}
   </tbody>
 </table>
+
+<script>
+function getSelectedSerials() {
+  return Array.from(document.querySelectorAll('.device-cb:checked')).map(cb => cb.value);
+}
+
+function updateBulkBar() {
+  var serials = getSelectedSerials();
+  var bar = document.getElementById('bulk-bar');
+  var count = document.getElementById('bulk-count');
+  var allCb = document.getElementById('select-all');
+  var allBoxes = document.querySelectorAll('.device-cb');
+
+  bar.style.display = serials.length > 0 ? 'flex' : 'none';
+  count.textContent = serials.length + ' selected';
+
+  // sync bulk-hide form hidden inputs
+  var form = document.getElementById('bulk-hide-form');
+  form.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
+  serials.forEach(function(s) {
+    var inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'serials'; inp.value = s;
+    form.appendChild(inp);
+  });
+
+  // update select-all state
+  if (allBoxes.length > 0 && serials.length === allBoxes.length) {
+    allCb.checked = true; allCb.indeterminate = false;
+  } else if (serials.length > 0) {
+    allCb.checked = false; allCb.indeterminate = true;
+  } else {
+    allCb.checked = false; allCb.indeterminate = false;
+  }
+}
+
+function toggleSelectAll(cb) {
+  document.querySelectorAll('.device-cb').forEach(function(box) { box.checked = cb.checked; });
+  updateBulkBar();
+}
+
+function bulkSendCommand() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  window.location.href = '/commands?serials=' + encodeURIComponent(serials.join(','));
+}
+
+function bulkReboot() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  if (!confirm('Reboot ' + serials.length + ' device(s)? They will reboot on next checkin.')) return;
+  // POST to /commands with type=reboot targeting selected serials
+  var form = document.createElement('form');
+  form.method = 'POST'; form.action = '/commands';
+  var fields = {type: 'reboot', target_type: 'devices', target_serials: serials.join(','), apk_url: ''};
+  for (var key in fields) {
+    var inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = key; inp.value = fields[key];
+    form.appendChild(inp);
+  }
+  document.body.appendChild(form);
+  form.submit();
+}
+</script>
 
 {{if gt .TotalPages 1}}
 <div class="pagination">

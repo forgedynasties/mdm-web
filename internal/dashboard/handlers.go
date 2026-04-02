@@ -838,6 +838,20 @@ func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	serials := r.Form["serials"]
+	if len(serials) == 0 {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	if err := h.db.BulkHideDevices(r.Context(), serials); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 // ── OTA Updates ───────────────────────────────────────────────────────────────
 
 func (h *Handler) Updates(w http.ResponseWriter, r *http.Request) {
@@ -1349,6 +1363,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAuth(h.DeviceKioskUpdate))
 	mux.HandleFunc("POST /devices/{serial}/ota", h.requireAuth(h.DeviceSetOTA))
 	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAuth(h.DeviceHide))
+	mux.HandleFunc("POST /devices/bulk-hide", h.requireAuth(h.BulkHideDevices))
 	mux.HandleFunc("GET /devices/{serial}/ota-status", h.requireAuth(h.DeviceOTAStatusPartial))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
