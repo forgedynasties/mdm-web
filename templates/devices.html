@@ -1,5 +1,5 @@
 {{define "device-table"}}
-<div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+<div style="display:flex;justify-content:flex-end;padding:12px 16px 4px;">
   {{if eq .Sort "serial"}}
     <a class="btn-outline"
        hx-get="/?page=1&q={{.Query}}&sort=battery"
