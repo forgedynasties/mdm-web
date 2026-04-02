@@ -532,8 +532,43 @@ a:hover { color: var(--accent-h); }
   user-select: none;
 }
 
-.radio-label input[type="radio"],
-.checkbox-label input[type="checkbox"] {
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface2);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s;
+  position: relative;
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -55%) rotate(45deg);
+  width: 4px;
+  height: 7px;
+  border: 2px solid #fff;
+  border-top: none;
+  border-left: none;
+}
+
+input[type="checkbox"]:hover {
+  border-color: var(--accent);
+}
+
+.radio-label input[type="radio"] {
   appearance: none;
   -webkit-appearance: none;
   width: 16px;
@@ -547,12 +582,7 @@ a:hover { color: var(--accent-h); }
   position: relative;
 }
 
-.checkbox-label input[type="checkbox"] {
-  border-radius: 4px;
-}
-
-.radio-label input[type="radio"]:checked,
-.checkbox-label input[type="checkbox"]:checked {
+.radio-label input[type="radio"]:checked {
   border-color: var(--accent);
   background: var(--accent);
 }
@@ -569,21 +599,7 @@ a:hover { color: var(--accent-h); }
   background: #fff;
 }
 
-.checkbox-label input[type="checkbox"]:checked::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -55%) rotate(45deg);
-  width: 4px;
-  height: 7px;
-  border: 2px solid #fff;
-  border-top: none;
-  border-left: none;
-}
-
-.radio-label input[type="radio"]:hover,
-.checkbox-label input[type="checkbox"]:hover {
+.radio-label input[type="radio"]:hover {
   border-color: var(--accent);
 }
 
@@ -950,7 +966,7 @@ a:hover { color: var(--accent-h); }
   padding: 12px 16px 4px;
 }
 
-.bulk-bar {
+.bulk-actions {
   display: flex;
   align-items: center;
   gap: 10px;

@@ -1,6 +1,9 @@
 {{define "device-table"}}
 <div class="table-toolbar">
-  <div class="bulk-bar" id="bulk-bar" style="display:none;">
+  <label class="checkbox-label" style="gap:8px;font-size:13px;color:var(--muted);">
+    <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"> Select All
+  </label>
+  <div class="bulk-actions" id="bulk-bar" style="display:none;">
     <span class="bulk-count" id="bulk-count">0 selected</span>
     <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
           onsubmit="return confirm('Hide selected devices? They will reappear on next check-in.')">
@@ -37,7 +40,7 @@
 <table class="table">
   <thead>
     <tr>
-      <th style="width:36px;"><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></th>
+      <th style="width:36px;"></th>
       <th>Serial Number</th>
       <th>Build ID</th>
       <th>Battery</th>
