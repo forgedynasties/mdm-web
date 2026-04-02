@@ -293,8 +293,8 @@
   }
 
   function updateChart() {
-    const now = Date.now();
-    const minX = now - currentDuration;
+    const lastX = allPoints.length > 0 ? allPoints[allPoints.length - 1].x : Date.now();
+    const minX = lastX - currentDuration;
     const pts = dedupe(allPoints.filter(p => p.x >= minX));
 
     const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
@@ -305,7 +305,7 @@
       batteryChart.data.datasets[0].data = pts;
       batteryChart.data.datasets[0].pointRadius = pts.length > 60 ? 0 : 3;
       batteryChart.options.scales.x.min = minX;
-      batteryChart.options.scales.x.max = now;
+      batteryChart.options.scales.x.max = lastX;
       batteryChart.update();
     }
   }
