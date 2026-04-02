@@ -8,7 +8,9 @@
     <div class="stat-label">Battery</div>
     <div class="stat-value {{batteryClass .Device.BatteryPct}}">{{.Device.BatteryPct}}%</div>
     <div class="battery-wrap large">
-      <div class="battery-bar {{batteryClass .Device.BatteryPct}}" style="width:{{batteryWidth .Device.BatteryPct}}"></div>
+      <div class="battery-track">
+        <div class="battery-bar {{batteryClass .Device.BatteryPct}}" style="width:{{batteryWidth .Device.BatteryPct}}"></div>
+      </div>
     </div>
   </div>
   <div class="stat-card">
@@ -139,7 +141,9 @@
           <td class="muted small">{{formatTime .CreatedAt}}</td>
           <td>
             <div class="battery-wrap">
-              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+              <div class="battery-track">
+                <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+              </div>
               <span class="battery-label">{{.BatteryPct}}%</span>
             </div>
           </td>

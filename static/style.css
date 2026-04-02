@@ -212,12 +212,18 @@ a:hover { color: var(--accent-h); }
   margin-top: 6px;
 }
 
-.battery-bar {
+.battery-track {
+  flex: 1;
+  min-width: 0;
   height: 6px;
   border-radius: 3px;
+  background: var(--surface2);
+}
+
+.battery-bar {
+  height: 100%;
+  border-radius: 3px;
   min-width: 2px;
-  max-width: 100%;
-  flex-shrink: 0;
 }
 .battery-bar.battery-low  { background: var(--danger); }
 .battery-bar.battery-mid  { background: var(--warn); }
@@ -227,6 +233,7 @@ a:hover { color: var(--accent-h); }
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* ── Helpers ─────────────────────────────────────── */

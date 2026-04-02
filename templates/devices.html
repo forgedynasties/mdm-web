@@ -48,7 +48,9 @@
         <td class="mono small">{{.BuildID}}</td>
         <td>
           <div class="battery-wrap">
-            <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+            <div class="battery-track">
+              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+            </div>
             <span class="battery-label">{{.BatteryPct}}%</span>
           </div>
         </td>
