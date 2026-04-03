@@ -81,10 +81,11 @@ type OTAPackage struct {
 }
 
 type Update struct {
-	ID             int        `json:"id"`
-	OtaPackageID   int        `json:"ota_package_id"`
-	RebootBehavior string     `json:"reboot_behavior"` // "immediate", "scheduled", "manual"
-	CreatedAt      time.Time  `json:"created_at"`
+	ID             int         `json:"id"`
+	OtaPackageID   int         `json:"ota_package_id"`
+	RebootBehavior string      `json:"reboot_behavior"`  // "immediate", "scheduled", "manual"
+	ScheduledTime  *time.Time  `json:"scheduled_time"`   // when reboot_behavior is "scheduled"
+	CreatedAt      time.Time   `json:"created_at"`
 	OtaPackage     *OTAPackage `json:"ota_package,omitempty"` // joined
 }
 
@@ -1320,6 +1321,7 @@ CREATE TABLE IF NOT EXISTS updates (
 	id              SERIAL      PRIMARY KEY,
 	ota_package_id  INTEGER     NOT NULL REFERENCES ota_packages(id) ON DELETE CASCADE,
 	reboot_behavior TEXT        NOT NULL DEFAULT 'immediate',
+	scheduled_time  TIMESTAMPTZ,
 	created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -1374,20 +1376,20 @@ func (d *DB) DeleteOTAPackage(ctx context.Context, id int) error {
 
 // ── Updates ──────────────────────────────────────────────────────────────────
 
-func (d *DB) CreateUpdate(ctx context.Context, otaPackageID int, rebootBehavior string) (*Update, error) {
+func (d *DB) CreateUpdate(ctx context.Context, otaPackageID int, rebootBehavior string, scheduledTime *time.Time) (*Update, error) {
 	var u Update
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO updates (ota_package_id, reboot_behavior)
-		VALUES ($1, $2)
-		RETURNING id, ota_package_id, reboot_behavior, created_at
-	`, otaPackageID, rebootBehavior).
-		Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.CreatedAt)
+		INSERT INTO updates (ota_package_id, reboot_behavior, scheduled_time)
+		VALUES ($1, $2, $3)
+		RETURNING id, ota_package_id, reboot_behavior, scheduled_time, created_at
+	`, otaPackageID, rebootBehavior, scheduledTime).
+		Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.CreatedAt)
 	return &u, err
 }
 
 func (d *DB) ListUpdates(ctx context.Context) ([]Update, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.created_at,
+		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.created_at,
 		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
 		FROM updates u
 		JOIN ota_packages p ON p.id = u.ota_package_id
@@ -1402,7 +1404,7 @@ func (d *DB) ListUpdates(ctx context.Context) ([]Update, error) {
 	for rows.Next() {
 		var u Update
 		var p OTAPackage
-		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.CreatedAt,
+		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.CreatedAt,
 			&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt); err != nil {
 			return nil, err
 		}
@@ -1443,7 +1445,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 	scanUpdate := func(row pgx.Row) (*Update, error) {
 		var u Update
 		var p OTAPackage
-		err := row.Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.CreatedAt,
+		err := row.Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.CreatedAt,
 			&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt)
 		if err != nil {
 			return nil, err
@@ -1454,7 +1456,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 
 	// Device-level first
 	u, err := scanUpdate(d.pool.QueryRow(ctx, `
-		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.created_at,
+		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.created_at,
 		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
 		FROM updates u
 		JOIN ota_packages p ON p.id = u.ota_package_id
@@ -1470,7 +1472,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 
 	// Group-level fallback
 	u, err = scanUpdate(d.pool.QueryRow(ctx, `
-		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.created_at,
+		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.created_at,
 		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
 		FROM updates u
 		JOIN ota_packages p ON p.id = u.ota_package_id

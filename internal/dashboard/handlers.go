@@ -122,6 +122,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			}
 		},
 		"rawJSON": func(b []byte) string { return string(b) },
+		"deref": func(t *time.Time) time.Time {
+			if t == nil {
+				return time.Time{}
+			}
+			return *t
+		},
 		"ramUsage": func(raw json.RawMessage) map[string]int {
 			if len(raw) == 0 {
 				return nil
@@ -948,7 +954,16 @@ func (h *Handler) UpdateCreate(w http.ResponseWriter, r *http.Request) {
 	if rebootBehavior == "" {
 		rebootBehavior = "immediate"
 	}
-	if _, err := h.db.CreateUpdate(r.Context(), pkgID, rebootBehavior); err != nil {
+	var scheduledTime *time.Time
+	if rebootBehavior == "scheduled" {
+		if s := r.FormValue("scheduled_time"); s != "" {
+			if t, err := time.Parse("2006-01-02T15:04", s); err == nil {
+				utc := t.UTC()
+				scheduledTime = &utc
+			}
+		}
+	}
+	if _, err := h.db.CreateUpdate(r.Context(), pkgID, rebootBehavior, scheduledTime); err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

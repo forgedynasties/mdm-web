@@ -18,6 +18,7 @@
         <th>OTA Package</th>
         <th>Type</th>
         <th>Reboot Behavior</th>
+        <th>Scheduled</th>
         <th>Created</th>
         <th></th>
       </tr>
@@ -30,6 +31,7 @@
           <td class="mono small">{{if .OtaPackage}}{{.OtaPackage.TargetBuildID}}{{if eq .OtaPackage.Type "incremental"}} (from {{.OtaPackage.SourceBuildID}}){{end}}{{else}}—{{end}}</td>
           <td class="small">{{if .OtaPackage}}{{.OtaPackage.Type}}{{else}}—{{end}}</td>
           <td class="mono small">{{.RebootBehavior}}</td>
+          <td class="muted small">{{if .ScheduledTime}}{{formatTime (deref .ScheduledTime)}}{{else}}—{{end}}</td>
           <td class="muted small">{{formatTime .CreatedAt}}</td>
           <td>
             <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline"
@@ -41,7 +43,7 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="6" class="empty">No updates yet. Create one below.</td>
+          <td colspan="7" class="empty">No updates yet. Create one below.</td>
         </tr>
       {{end}}
     </tbody>
@@ -62,11 +64,16 @@
     </div>
     <div class="form-row">
       <label class="form-label">Reboot Behavior</label>
-      <select name="reboot_behavior" class="form-input">
+      <select name="reboot_behavior" id="reboot-behavior" class="form-input" onchange="toggleScheduledTime()">
         <option value="immediate">Immediate</option>
         <option value="scheduled">Scheduled</option>
         <option value="manual">Manual</option>
       </select>
+    </div>
+    <div class="form-row" id="scheduled-time-row" style="display:none;">
+      <label class="form-label">Scheduled Time</label>
+      <input type="datetime-local" name="scheduled_time" id="scheduled-time" class="form-input">
+      <div class="form-hint">The device will download the update immediately but reboot at this time.</div>
     </div>
     <button type="submit" class="btn-primary">Create Update</button>
   </form>
@@ -176,6 +183,18 @@
 </div>
 
 <script>
+function toggleScheduledTime() {
+  var row = document.getElementById('scheduled-time-row');
+  var input = document.getElementById('scheduled-time');
+  if (document.getElementById('reboot-behavior').value === 'scheduled') {
+    row.style.display = '';
+    input.required = true;
+  } else {
+    row.style.display = 'none';
+    input.required = false;
+  }
+}
+
 function toggleSourceBuild() {
   var row = document.getElementById('source-build-row');
   var input = document.getElementById('ota-source-build-id');

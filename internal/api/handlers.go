@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"mdm/internal/db"
@@ -201,7 +202,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 				applicable = pkg.TargetBuildID != req.BuildID
 			}
 			if applicable {
-				payload, _ := json.Marshal(map[string]any{
+				p := map[string]any{
 					"package_id":      pkg.ID,
 					"build_id":        pkg.TargetBuildID,
 					"update_url":      pkg.UpdateURL,
@@ -209,7 +210,11 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 					"payload_size":    pkg.PayloadSize,
 					"payload_headers": pkg.PayloadHeaders,
 					"reboot_behavior": upd.RebootBehavior,
-				})
+				}
+				if upd.ScheduledTime != nil {
+					p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
+				}
+				payload, _ := json.Marshal(p)
 				if cmd, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
 					log.Printf("[checkin] create OTA command error: %v", err)
 				} else {
