@@ -188,21 +188,33 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	if hasPending, err := h.db.HasPendingOTACommand(r.Context(), deviceID); err != nil {
 		log.Printf("[checkin] HasPendingOTACommand error: %v", err)
 	} else if !hasPending {
-		if pkg, err := h.db.ResolveOTAPackageForDevice(r.Context(), deviceID); err != nil {
-			log.Printf("[checkin] ResolveOTAPackageForDevice error: %v", err)
-		} else if pkg != nil && pkg.BuildID != req.BuildID {
-			payload, _ := json.Marshal(map[string]any{
-				"package_id":      pkg.ID,
-				"build_id":        pkg.BuildID,
-				"update_url":      pkg.UpdateURL,
-				"payload_offset":  pkg.PayloadOffset,
-				"payload_size":    pkg.PayloadSize,
-				"payload_headers": pkg.PayloadHeaders,
-			})
-			if cmd, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
-				log.Printf("[checkin] create OTA command error: %v", err)
+		if upd, err := h.db.ResolveUpdateForDevice(r.Context(), deviceID); err != nil {
+			log.Printf("[checkin] ResolveUpdateForDevice error: %v", err)
+		} else if upd != nil && upd.OtaPackage != nil {
+			pkg := upd.OtaPackage
+			applicable := false
+			if pkg.Type == "incremental" {
+				// Incremental: only apply if device's current build matches source
+				applicable = pkg.SourceBuildID == req.BuildID
 			} else {
-				h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
+				// Full: apply if device is not already on target build
+				applicable = pkg.TargetBuildID != req.BuildID
+			}
+			if applicable {
+				payload, _ := json.Marshal(map[string]any{
+					"package_id":      pkg.ID,
+					"build_id":        pkg.TargetBuildID,
+					"update_url":      pkg.UpdateURL,
+					"payload_offset":  pkg.PayloadOffset,
+					"payload_size":    pkg.PayloadSize,
+					"payload_headers": pkg.PayloadHeaders,
+					"reboot_behavior": upd.RebootBehavior,
+				})
+				if cmd, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
+					log.Printf("[checkin] create OTA command error: %v", err)
+				} else {
+					h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
+				}
 			}
 		}
 	}

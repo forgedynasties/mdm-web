@@ -14,19 +14,19 @@ import (
 )
 
 type Device struct {
-	ID                uuid.UUID       `json:"id"`
-	SerialNumber      string          `json:"serial_number"`
-	BuildID           string          `json:"build_id"`
-	BatteryPct        int             `json:"battery_pct"`
-	LastSeenAt        time.Time       `json:"last_seen_at"`
-	CreatedAt         time.Time       `json:"created_at"`
-	PollIntervalMs    int             `json:"poll_interval_ms"`
-	KioskEnabled      bool            `json:"kiosk_enabled"`
-	KioskPackage      string          `json:"kiosk_package"`
-	LatestExtra       json.RawMessage `json:"latest_extra,omitempty"`
-	OtaPackageID      int             `json:"ota_package_id"`       // 0 = not set (device-level only)
-	OtaPackageBuildID string          `json:"ota_package_build_id"` // "" = not set
-	Hidden            bool            `json:"hidden"`
+	ID             uuid.UUID       `json:"id"`
+	SerialNumber   string          `json:"serial_number"`
+	BuildID        string          `json:"build_id"`
+	BatteryPct     int             `json:"battery_pct"`
+	LastSeenAt     time.Time       `json:"last_seen_at"`
+	CreatedAt      time.Time       `json:"created_at"`
+	PollIntervalMs int             `json:"poll_interval_ms"`
+	KioskEnabled   bool            `json:"kiosk_enabled"`
+	KioskPackage   string          `json:"kiosk_package"`
+	LatestExtra    json.RawMessage `json:"latest_extra,omitempty"`
+	UpdateID       int             `json:"update_id"`        // 0 = not set (device-level only)
+	UpdateLabel    string          `json:"update_label"`     // "" = not set
+	Hidden         bool            `json:"hidden"`
 }
 
 // DefaultKioskFeatures shows system info (battery/wifi) but blocks home, recents,
@@ -59,23 +59,33 @@ type Checkin struct {
 }
 
 type Group struct {
-	ID                uuid.UUID `json:"id"`
-	Name              string    `json:"name"`
-	DeviceCount       int       `json:"device_count"`
-	CreatedAt         time.Time `json:"created_at"`
-	OtaPackageID      int       `json:"ota_package_id"`       // 0 = not set
-	OtaPackageBuildID string    `json:"ota_package_build_id"` // "" = not set
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	DeviceCount int       `json:"device_count"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdateID    int       `json:"update_id"`    // 0 = not set
+	UpdateLabel string    `json:"update_label"` // "" = not set
 }
 
 type OTAPackage struct {
 	ID             int       `json:"id"`
-	BuildID        string    `json:"build_id"`
+	Type           string    `json:"type"`            // "full" or "incremental"
+	TargetBuildID  string    `json:"target_build_id"` // build ID after update
+	SourceBuildID  string    `json:"source_build_id"` // build ID before update (incremental only)
 	ReleaseDate    time.Time `json:"release_date"`
 	UpdateURL      string    `json:"update_url"`
 	PayloadOffset  int64     `json:"payload_offset"`
 	PayloadSize    int64     `json:"payload_size"`
 	PayloadHeaders []string  `json:"payload_headers"`
 	CreatedAt      time.Time `json:"created_at"`
+}
+
+type Update struct {
+	ID             int        `json:"id"`
+	OtaPackageID   int        `json:"ota_package_id"`
+	RebootBehavior string     `json:"reboot_behavior"` // "immediate", "scheduled", "manual"
+	CreatedAt      time.Time  `json:"created_at"`
+	OtaPackage     *OTAPackage `json:"ota_package,omitempty"` // joined
 }
 
 type Command struct {
@@ -190,8 +200,8 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, 
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
 			COALESCE(c.extra, '{}'::jsonb) AS latest_extra,
-			COALESCE(d.ota_package_id, 0) AS ota_package_id,
-			COALESCE(p.build_id, '') AS ota_package_build_id
+			COALESCE(d.update_id, 0) AS update_id,
+			COALESCE(p.target_build_id, '') AS update_label
 		FROM devices d
 		LEFT JOIN LATERAL (
 			SELECT battery_pct, extra FROM checkins
@@ -200,7 +210,8 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, 
 			LIMIT 1
 		) c ON true
 		LEFT JOIN device_config dc ON dc.device_id = d.id
-		LEFT JOIN ota_packages p ON p.id = d.ota_package_id`
+		LEFT JOIN updates u ON u.id = d.update_id
+		LEFT JOIN ota_packages p ON p.id = u.ota_package_id`
 
 	orderClause := "d.last_seen_at DESC"
 	switch sort {
@@ -231,7 +242,7 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, 
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.OtaPackageID, &dev.OtaPackageBuildID); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.UpdateID, &dev.UpdateLabel); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -262,8 +273,8 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
 			COALESCE(c.extra, '{}'::jsonb) AS latest_extra,
-			COALESCE(d.ota_package_id, 0) AS ota_package_id,
-			COALESCE(p.build_id, '') AS ota_package_build_id
+			COALESCE(d.update_id, 0) AS update_id,
+			COALESCE(p.target_build_id, '') AS update_label
 		FROM devices d
 		LEFT JOIN LATERAL (
 			SELECT battery_pct, extra FROM checkins
@@ -272,9 +283,10 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			LIMIT 1
 		) c ON true
 		LEFT JOIN device_config dc ON dc.device_id = d.id
-		LEFT JOIN ota_packages p ON p.id = d.ota_package_id
+		LEFT JOIN updates u ON u.id = d.update_id
+		LEFT JOIN ota_packages p ON p.id = u.ota_package_id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.OtaPackageID, &dev.OtaPackageBuildID)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.UpdateID, &dev.UpdateLabel)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -440,11 +452,12 @@ func (d *DB) CreateGroup(ctx context.Context, name string) (*Group, error) {
 func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count,
-		       COALESCE(g.ota_package_id, 0), COALESCE(p.build_id, '')
+		       COALESCE(g.update_id, 0), COALESCE(p.target_build_id, '')
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
-		LEFT JOIN ota_packages p ON p.id = g.ota_package_id
-		GROUP BY g.id, g.name, g.created_at, g.ota_package_id, p.build_id
+		LEFT JOIN updates u ON u.id = g.update_id
+		LEFT JOIN ota_packages p ON p.id = u.ota_package_id
+		GROUP BY g.id, g.name, g.created_at, g.update_id, p.target_build_id
 		ORDER BY g.name
 	`)
 	if err != nil {
@@ -455,7 +468,7 @@ func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	var groups []Group
 	for rows.Next() {
 		var g Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount, &g.OtaPackageID, &g.OtaPackageBuildID); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount, &g.UpdateID, &g.UpdateLabel); err != nil {
 			return nil, err
 		}
 		groups = append(groups, g)
@@ -467,13 +480,14 @@ func (d *DB) GetGroup(ctx context.Context, id uuid.UUID) (*Group, error) {
 	var g Group
 	err := d.pool.QueryRow(ctx, `
 		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count,
-		       COALESCE(g.ota_package_id, 0), COALESCE(p.build_id, '')
+		       COALESCE(g.update_id, 0), COALESCE(p.target_build_id, '')
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
-		LEFT JOIN ota_packages p ON p.id = g.ota_package_id
+		LEFT JOIN updates u ON u.id = g.update_id
+		LEFT JOIN ota_packages p ON p.id = u.ota_package_id
 		WHERE g.id = $1
-		GROUP BY g.id, g.name, g.created_at, g.ota_package_id, p.build_id
-	`, id).Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount, &g.OtaPackageID, &g.OtaPackageBuildID)
+		GROUP BY g.id, g.name, g.created_at, g.update_id, p.target_build_id
+	`, id).Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount, &g.UpdateID, &g.UpdateLabel)
 	if err != nil {
 		return nil, err
 	}
@@ -1295,28 +1309,45 @@ CREATE TABLE IF NOT EXISTS ota_packages (
 	created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'full';
+ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS target_build_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS source_build_id TEXT NOT NULL DEFAULT '';
+
+-- Migrate existing build_id to target_build_id
+UPDATE ota_packages SET target_build_id = build_id WHERE target_build_id = '';
+
+CREATE TABLE IF NOT EXISTS updates (
+	id              SERIAL      PRIMARY KEY,
+	ota_package_id  INTEGER     NOT NULL REFERENCES ota_packages(id) ON DELETE CASCADE,
+	reboot_behavior TEXT        NOT NULL DEFAULT 'immediate',
+	created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 ALTER TABLE groups  ADD COLUMN IF NOT EXISTS ota_package_id INTEGER REFERENCES ota_packages(id) ON DELETE SET NULL;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS ota_package_id INTEGER REFERENCES ota_packages(id) ON DELETE SET NULL;
+
+ALTER TABLE groups  ADD COLUMN IF NOT EXISTS update_id INTEGER REFERENCES updates(id) ON DELETE SET NULL;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS update_id INTEGER REFERENCES updates(id) ON DELETE SET NULL;
 
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT false;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
 
-func (d *DB) CreateOTAPackage(ctx context.Context, buildID, updateURL string, payloadOffset, payloadSize int64, headers []string, releaseDate time.Time) (*OTAPackage, error) {
+func (d *DB) CreateOTAPackage(ctx context.Context, typ, targetBuildID, sourceBuildID, updateURL string, payloadOffset, payloadSize int64, headers []string, releaseDate time.Time) (*OTAPackage, error) {
 	var p OTAPackage
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO ota_packages (build_id, update_url, payload_offset, payload_size, payload_headers, release_date)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, build_id, release_date, update_url, payload_offset, payload_size, payload_headers, created_at
-	`, buildID, updateURL, payloadOffset, payloadSize, headers, releaseDate).
-		Scan(&p.ID, &p.BuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt)
+		INSERT INTO ota_packages (type, target_build_id, source_build_id, build_id, update_url, payload_offset, payload_size, payload_headers, release_date)
+		VALUES ($1, $2, $3, $2, $4, $5, $6, $7, $8)
+		RETURNING id, type, target_build_id, source_build_id, release_date, update_url, payload_offset, payload_size, payload_headers, created_at
+	`, typ, targetBuildID, sourceBuildID, updateURL, payloadOffset, payloadSize, headers, releaseDate).
+		Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt)
 	return &p, err
 }
 
 func (d *DB) ListOTAPackages(ctx context.Context) ([]OTAPackage, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, build_id, release_date, update_url, payload_offset, payload_size, payload_headers, created_at
+		SELECT id, type, target_build_id, source_build_id, release_date, update_url, payload_offset, payload_size, payload_headers, created_at
 		FROM ota_packages
 		ORDER BY release_date DESC
 	`)
@@ -1328,7 +1359,7 @@ func (d *DB) ListOTAPackages(ctx context.Context) ([]OTAPackage, error) {
 	var out []OTAPackage
 	for rows.Next() {
 		var p OTAPackage
-		if err := rows.Scan(&p.ID, &p.BuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -1341,56 +1372,116 @@ func (d *DB) DeleteOTAPackage(ctx context.Context, id int) error {
 	return err
 }
 
-// SetGroupOTAPackage assigns (or clears, if pkgID==0) the OTA package for a group.
-func (d *DB) SetGroupOTAPackage(ctx context.Context, groupID uuid.UUID, pkgID int) error {
-	var val interface{}
-	if pkgID != 0 {
-		val = pkgID
-	}
-	_, err := d.pool.Exec(ctx, `UPDATE groups SET ota_package_id = $2 WHERE id = $1`, groupID, val)
-	return err
-}
+// ── Updates ──────────────────────────────────────────────────────────────────
 
-// SetDeviceOTAPackage assigns (or clears, if pkgID==0) the OTA package for a device.
-func (d *DB) SetDeviceOTAPackage(ctx context.Context, serial string, pkgID int) error {
-	var val interface{}
-	if pkgID != 0 {
-		val = pkgID
-	}
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET ota_package_id = $2 WHERE serial_number = $1`, serial, val)
-	return err
-}
-
-// ResolveOTAPackageForDevice returns the OTA package for a device, preferring
-// a device-level assignment over a group-level one. Returns nil if none is set.
-func (d *DB) ResolveOTAPackageForDevice(ctx context.Context, deviceID uuid.UUID) (*OTAPackage, error) {
-	// Device-level first
-	var p OTAPackage
+func (d *DB) CreateUpdate(ctx context.Context, otaPackageID int, rebootBehavior string) (*Update, error) {
+	var u Update
 	err := d.pool.QueryRow(ctx, `
-		SELECT p.id, p.build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
-		FROM ota_packages p
-		JOIN devices d ON d.ota_package_id = p.id
+		INSERT INTO updates (ota_package_id, reboot_behavior)
+		VALUES ($1, $2)
+		RETURNING id, ota_package_id, reboot_behavior, created_at
+	`, otaPackageID, rebootBehavior).
+		Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.CreatedAt)
+	return &u, err
+}
+
+func (d *DB) ListUpdates(ctx context.Context) ([]Update, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.created_at,
+		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
+		FROM updates u
+		JOIN ota_packages p ON p.id = u.ota_package_id
+		ORDER BY u.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []Update
+	for rows.Next() {
+		var u Update
+		var p OTAPackage
+		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.CreatedAt,
+			&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		u.OtaPackage = &p
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) DeleteUpdate(ctx context.Context, id int) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM updates WHERE id = $1`, id)
+	return err
+}
+
+// SetGroupUpdate assigns (or clears, if updateID==0) the update for a group.
+func (d *DB) SetGroupUpdate(ctx context.Context, groupID uuid.UUID, updateID int) error {
+	var val interface{}
+	if updateID != 0 {
+		val = updateID
+	}
+	_, err := d.pool.Exec(ctx, `UPDATE groups SET update_id = $2 WHERE id = $1`, groupID, val)
+	return err
+}
+
+// SetDeviceUpdate assigns (or clears, if updateID==0) the update for a device.
+func (d *DB) SetDeviceUpdate(ctx context.Context, serial string, updateID int) error {
+	var val interface{}
+	if updateID != 0 {
+		val = updateID
+	}
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET update_id = $2 WHERE serial_number = $1`, serial, val)
+	return err
+}
+
+// ResolveUpdateForDevice returns the Update (with joined OTAPackage) for a device,
+// preferring a device-level assignment over a group-level one. Returns nil if none is set.
+func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*Update, error) {
+	scanUpdate := func(row pgx.Row) (*Update, error) {
+		var u Update
+		var p OTAPackage
+		err := row.Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.CreatedAt,
+			&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		u.OtaPackage = &p
+		return &u, nil
+	}
+
+	// Device-level first
+	u, err := scanUpdate(d.pool.QueryRow(ctx, `
+		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.created_at,
+		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
+		FROM updates u
+		JOIN ota_packages p ON p.id = u.ota_package_id
+		JOIN devices d ON d.update_id = u.id
 		WHERE d.id = $1
-	`, deviceID).Scan(&p.ID, &p.BuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt)
+	`, deviceID))
 	if err == nil {
-		return &p, nil
+		return u, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
 
 	// Group-level fallback
-	err = d.pool.QueryRow(ctx, `
-		SELECT p.id, p.build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
-		FROM ota_packages p
-		JOIN groups g ON g.ota_package_id = p.id
+	u, err = scanUpdate(d.pool.QueryRow(ctx, `
+		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.created_at,
+		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
+		FROM updates u
+		JOIN ota_packages p ON p.id = u.ota_package_id
+		JOIN groups g ON g.update_id = u.id
 		JOIN device_groups dg ON dg.group_id = g.id
 		WHERE dg.device_id = $1
 		ORDER BY g.created_at ASC
 		LIMIT 1
-	`, deviceID).Scan(&p.ID, &p.BuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt)
+	`, deviceID))
 	if err == nil {
-		return &p, nil
+		return u, nil
 	}
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil

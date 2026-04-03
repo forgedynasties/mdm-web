@@ -4,15 +4,83 @@
 <div class="page-header">
   <div>
     <h2 class="page-title">OTA Updates</h2>
-    <p class="page-subtitle">{{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}}</p>
+    <p class="page-subtitle">{{len .Updates}} update{{if ne (len .Updates) 1}}s{{end}} &middot; {{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}}</p>
   </div>
 </div>
 
+<!-- Updates -->
 <div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Updates</h3></div>
   <table class="table">
     <thead>
       <tr>
-        <th>Build ID</th>
+        <th>ID</th>
+        <th>OTA Package</th>
+        <th>Type</th>
+        <th>Reboot Behavior</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Updates}}
+        {{range .Updates}}
+        <tr>
+          <td class="mono bold">{{.ID}}</td>
+          <td class="mono small">{{if .OtaPackage}}{{.OtaPackage.TargetBuildID}}{{if eq .OtaPackage.Type "incremental"}} (from {{.OtaPackage.SourceBuildID}}){{end}}{{else}}—{{end}}</td>
+          <td class="small">{{if .OtaPackage}}{{.OtaPackage.Type}}{{else}}—{{end}}</td>
+          <td class="mono small">{{.RebootBehavior}}</td>
+          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td>
+            <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline"
+                  onsubmit="return confirm('Delete update #{{.ID}}?')">
+              <button type="submit" class="btn-danger-sm">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="6" class="empty">No updates yet. Create one below.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="margin-bottom:24px;">
+  <div class="card-header"><h3>Create Update</h3></div>
+  <form action="/updates" method="POST" class="command-form" style="padding:16px;">
+    <div class="form-row">
+      <label class="form-label">OTA Package</label>
+      <select name="ota_package_id" class="form-input" required>
+        <option value="">— Select a package —</option>
+        {{range .Packages}}
+        <option value="{{.ID}}">{{.TargetBuildID}} ({{.Type}}){{if eq .Type "incremental"}} from {{.SourceBuildID}}{{end}} — {{formatTime .ReleaseDate}}</option>
+        {{end}}
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Reboot Behavior</label>
+      <select name="reboot_behavior" class="form-input">
+        <option value="immediate">Immediate</option>
+        <option value="scheduled">Scheduled</option>
+        <option value="manual">Manual</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-primary">Create Update</button>
+  </form>
+</div>
+
+<!-- OTA Packages -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>OTA Packages</h3></div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Target Build</th>
+        <th>Source Build</th>
         <th>Release Date</th>
         <th>URL</th>
         <th>Offset</th>
@@ -25,15 +93,17 @@
       {{if .Packages}}
         {{range .Packages}}
         <tr>
-          <td class="mono bold">{{.BuildID}}</td>
+          <td class="small">{{.Type}}</td>
+          <td class="mono bold">{{.TargetBuildID}}</td>
+          <td class="mono small muted">{{if eq .Type "incremental"}}{{.SourceBuildID}}{{else}}—{{end}}</td>
           <td class="muted small">{{formatTime .ReleaseDate}}</td>
           <td class="mono small muted extra-cell">{{.UpdateURL}}</td>
           <td class="mono small muted">{{.PayloadOffset}}</td>
           <td class="mono small muted">{{.PayloadSize}}</td>
           <td class="muted small">{{len .PayloadHeaders}} headers</td>
           <td>
-            <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline"
-                  onsubmit="return confirm('Delete package {{.BuildID}}?')">
+            <form action="/updates/packages/{{.ID}}/delete" method="POST" style="display:inline"
+                  onsubmit="return confirm('Delete package {{.TargetBuildID}}?')">
               <button type="submit" class="btn-danger-sm">Delete</button>
             </form>
           </td>
@@ -41,7 +111,7 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="7" class="empty">No OTA packages yet.</td>
+          <td colspan="9" class="empty">No OTA packages yet.</td>
         </tr>
       {{end}}
     </tbody>
@@ -54,14 +124,27 @@
   <div class="form-row" style="margin:12px 0;">
     <label class="form-label">Import from JSON</label>
     <textarea id="ota-json-input" rows="3" class="form-input"
-      placeholder='Paste JSON: {"latest_build_id":"...","update_url":"...","payload_offset":...,"payload_size":...,"payload_headers":[...]}'></textarea>
+      placeholder='Paste JSON: {"type":"full","target_build_id":"...","update_url":"...","payload_offset":...,"payload_size":...,"payload_headers":[...]}'></textarea>
     <div class="form-hint">Paste the JSON output from ota-gen and fields will auto-fill below.</div>
   </div>
 
-  <form action="/updates" method="POST" class="command-form" id="ota-form">
+  <form action="/updates/packages" method="POST" class="command-form" id="ota-form">
     <div class="form-row">
-      <label class="form-label">Build ID</label>
-      <input type="text" name="build_id" id="ota-build-id" placeholder="v2.0" class="form-input" required>
+      <label class="form-label">Type</label>
+      <select name="type" id="ota-type" class="form-input" onchange="toggleSourceBuild()">
+        <option value="full">Full</option>
+        <option value="incremental">Incremental</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Target Build ID</label>
+      <input type="text" name="target_build_id" id="ota-target-build-id" placeholder="v2.0" class="form-input" required>
+      <div class="form-hint">The build ID the device will have after the update.</div>
+    </div>
+    <div class="form-row" id="source-build-row">
+      <label class="form-label">Source Build ID</label>
+      <input type="text" name="source_build_id" id="ota-source-build-id" placeholder="v1.0" class="form-input">
+      <div class="form-hint">Required for incremental updates. The build ID the device must have before the update.</div>
     </div>
     <div class="form-row">
       <label class="form-label">Update URL</label>
@@ -93,19 +176,37 @@
 </div>
 
 <script>
+function toggleSourceBuild() {
+  var row = document.getElementById('source-build-row');
+  var input = document.getElementById('ota-source-build-id');
+  if (document.getElementById('ota-type').value === 'incremental') {
+    row.style.display = '';
+    input.required = true;
+  } else {
+    row.style.display = 'none';
+    input.required = false;
+    input.value = '';
+  }
+}
+toggleSourceBuild();
+
 document.getElementById('ota-json-input').addEventListener('input', function() {
   var raw = this.value.trim();
   if (!raw) return;
   try {
     var j = JSON.parse(raw);
-    if (j.latest_build_id) document.getElementById('ota-build-id').value = j.latest_build_id;
-    if (j.build_id)        document.getElementById('ota-build-id').value = j.build_id;
+    if (j.type) document.getElementById('ota-type').value = j.type;
+    if (j.target_build_id) document.getElementById('ota-target-build-id').value = j.target_build_id;
+    if (j.latest_build_id) document.getElementById('ota-target-build-id').value = j.latest_build_id;
+    if (j.build_id)        document.getElementById('ota-target-build-id').value = j.build_id;
+    if (j.source_build_id) document.getElementById('ota-source-build-id').value = j.source_build_id;
     if (j.update_url)      document.getElementById('ota-update-url').value = j.update_url;
     if (j.payload_offset != null) document.getElementById('ota-offset').value = j.payload_offset;
     if (j.payload_size != null)   document.getElementById('ota-size').value = j.payload_size;
     if (Array.isArray(j.payload_headers)) {
       document.getElementById('ota-headers').value = j.payload_headers.join('\n');
     }
+    toggleSourceBuild();
     this.style.borderColor = '#4caf50';
   } catch(e) {
     this.style.borderColor = '#f44336';

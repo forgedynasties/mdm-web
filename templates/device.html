@@ -518,18 +518,18 @@
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>OTA Update</h3>
-    {{if .Device.OtaPackageBuildID}}
-      <span class="status-badge ok">{{.Device.OtaPackageBuildID}}</span>
+    {{if .Device.UpdateLabel}}
+      <span class="status-badge ok">{{.Device.UpdateLabel}}</span>
     {{else}}
       <span class="muted small">Inherits from group</span>
     {{end}}
   </div>
   <form action="/devices/{{.Device.SerialNumber}}/ota" method="POST" style="padding:16px;display:flex;flex-direction:column;gap:12px;">
     <div>
-      <select name="ota_package_id" class="form-input" style="max-width:420px;">
-        <option value="0"{{if not .Device.OtaPackageID}} selected{{end}}>— Inherit from group —</option>
-        {{range .OTAPackages}}
-        <option value="{{.ID}}"{{if eq .ID $.Device.OtaPackageID}} selected{{end}}>{{.BuildID}} — {{formatTime .ReleaseDate}}</option>
+      <select name="update_id" class="form-input" style="max-width:420px;">
+        <option value="0"{{if not .Device.UpdateID}} selected{{end}}>— Inherit from group —</option>
+        {{range .Updates}}
+        <option value="{{.ID}}"{{if eq .ID $.Device.UpdateID}} selected{{end}}>{{if .OtaPackage}}{{.OtaPackage.TargetBuildID}} ({{.OtaPackage.Type}}){{end}} — {{.RebootBehavior}}</option>
         {{end}}
       </select>
     </div>
