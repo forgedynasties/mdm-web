@@ -90,9 +90,6 @@
         <th>Source Build</th>
         <th>Release Date</th>
         <th>URL</th>
-        <th>Offset</th>
-        <th>Size</th>
-        <th>Headers</th>
         <th></th>
       </tr>
     </thead>
@@ -105,9 +102,6 @@
           <td class="mono small muted">{{if eq .Type "incremental"}}{{.SourceBuildID}}{{else}}—{{end}}</td>
           <td class="muted small">{{formatTime .ReleaseDate}}</td>
           <td class="mono small muted extra-cell">{{.UpdateURL}}</td>
-          <td class="mono small muted">{{.PayloadOffset}}</td>
-          <td class="mono small muted">{{.PayloadSize}}</td>
-          <td class="muted small">{{len .PayloadHeaders}} headers</td>
           <td>
             <form action="/updates/packages/{{.ID}}/delete" method="POST" style="display:inline"
                   onsubmit="return confirm('Delete package {{.TargetBuildID}}?')">
@@ -118,7 +112,7 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="9" class="empty">No OTA packages yet.</td>
+          <td colspan="6" class="empty">No OTA packages yet.</td>
         </tr>
       {{end}}
     </tbody>
@@ -127,14 +121,6 @@
 
 <div class="card">
   <div class="card-header"><h3>Add OTA Package</h3></div>
-
-  <div class="form-row" style="margin:12px 0;">
-    <label class="form-label">Import from JSON</label>
-    <textarea id="ota-json-input" rows="3" class="form-input"
-      placeholder='Paste JSON: {"type":"full","target_build_id":"...","update_url":"...","payload_offset":...,"payload_size":...,"payload_headers":[...]}'></textarea>
-    <div class="form-hint">Paste the JSON output from ota-gen and fields will auto-fill below.</div>
-  </div>
-
   <form action="/updates/packages" method="POST" class="command-form" id="ota-form">
     <div class="form-row">
       <label class="form-label">Type</label>
@@ -156,27 +142,12 @@
     <div class="form-row">
       <label class="form-label">Update URL</label>
       <input type="url" name="update_url" id="ota-update-url" placeholder="https://cdn.example.com/ota.zip" class="form-input" required>
+      <div class="form-hint">Link to the OTA zip. The device will download and parse it.</div>
     </div>
     <div class="form-row">
       <label class="form-label">Release Date</label>
       <input type="datetime-local" name="release_date" class="form-input">
-      <div class="form-hint">Defaults to now if left empty. Used to order packages.</div>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Payload Offset</label>
-      <input type="number" name="payload_offset" id="ota-offset" placeholder="0" class="form-input" required>
-      <div class="form-hint">Byte offset of payload.bin inside the ZIP (from ota-gen.py)</div>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Payload Size</label>
-      <input type="number" name="payload_size" id="ota-size" placeholder="0" class="form-input" required>
-      <div class="form-hint">Size of payload.bin in bytes</div>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Payload Headers</label>
-      <textarea name="payload_headers" id="ota-headers" rows="4" class="form-input"
-        placeholder="FILE_HASH=abc123&#10;FILE_SIZE=567890&#10;METADATA_HASH=def456&#10;METADATA_SIZE=789"></textarea>
-      <div class="form-hint">One KEY=VALUE per line (from payload_properties.txt)</div>
+      <div class="form-hint">Defaults to now if left empty.</div>
     </div>
     <button type="submit" class="btn-primary">Add Package</button>
   </form>
@@ -208,29 +179,6 @@ function toggleSourceBuild() {
   }
 }
 toggleSourceBuild();
-
-document.getElementById('ota-json-input').addEventListener('input', function() {
-  var raw = this.value.trim();
-  if (!raw) return;
-  try {
-    var j = JSON.parse(raw);
-    if (j.type) document.getElementById('ota-type').value = j.type;
-    if (j.target_build_id) document.getElementById('ota-target-build-id').value = j.target_build_id;
-    if (j.latest_build_id) document.getElementById('ota-target-build-id').value = j.latest_build_id;
-    if (j.build_id)        document.getElementById('ota-target-build-id').value = j.build_id;
-    if (j.source_build_id) document.getElementById('ota-source-build-id').value = j.source_build_id;
-    if (j.update_url)      document.getElementById('ota-update-url').value = j.update_url;
-    if (j.payload_offset != null) document.getElementById('ota-offset').value = j.payload_offset;
-    if (j.payload_size != null)   document.getElementById('ota-size').value = j.payload_size;
-    if (Array.isArray(j.payload_headers)) {
-      document.getElementById('ota-headers').value = j.payload_headers.join('\n');
-    }
-    toggleSourceBuild();
-    this.style.borderColor = '#4caf50';
-  } catch(e) {
-    this.style.borderColor = '#f44336';
-  }
-});
 </script>
 
 {{template "footer" .}}

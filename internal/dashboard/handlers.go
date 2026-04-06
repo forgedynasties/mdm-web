@@ -1132,7 +1132,6 @@ func (h *Handler) PackageCreate(w http.ResponseWriter, r *http.Request) {
 	targetBuildID := strings.TrimSpace(r.FormValue("target_build_id"))
 	sourceBuildID := strings.TrimSpace(r.FormValue("source_build_id"))
 	updateURL := strings.TrimSpace(r.FormValue("update_url"))
-	headersRaw := r.FormValue("payload_headers")
 	releaseDateStr := r.FormValue("release_date")
 
 	if targetBuildID == "" || updateURL == "" {
@@ -1143,23 +1142,6 @@ func (h *Handler) PackageCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "source_build_id is required for incremental packages", http.StatusBadRequest)
 		return
 	}
-	offset, err := strconv.ParseInt(r.FormValue("payload_offset"), 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid payload_offset", http.StatusBadRequest)
-		return
-	}
-	size, err := strconv.ParseInt(r.FormValue("payload_size"), 10, 64)
-	if err != nil {
-		http.Error(w, "Invalid payload_size", http.StatusBadRequest)
-		return
-	}
-
-	var headers []string
-	for _, line := range strings.Split(strings.ReplaceAll(headersRaw, "\r\n", "\n"), "\n") {
-		if line = strings.TrimSpace(line); line != "" {
-			headers = append(headers, line)
-		}
-	}
 
 	releaseDate := time.Now().UTC()
 	if releaseDateStr != "" {
@@ -1168,7 +1150,7 @@ func (h *Handler) PackageCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, err := h.db.CreateOTAPackage(r.Context(), typ, targetBuildID, sourceBuildID, updateURL, offset, size, headers, releaseDate); err != nil {
+	if _, err := h.db.CreateOTAPackage(r.Context(), typ, targetBuildID, sourceBuildID, updateURL, releaseDate); err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

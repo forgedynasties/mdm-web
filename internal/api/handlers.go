@@ -206,9 +206,6 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 					"package_id":      pkg.ID,
 					"build_id":        pkg.TargetBuildID,
 					"update_url":      pkg.UpdateURL,
-					"payload_offset":  pkg.PayloadOffset,
-					"payload_size":    pkg.PayloadSize,
-					"payload_headers": pkg.PayloadHeaders,
 					"reboot_behavior": upd.RebootBehavior,
 				}
 				if upd.ScheduledTime != nil {

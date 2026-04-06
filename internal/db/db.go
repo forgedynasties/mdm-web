@@ -68,16 +68,13 @@ type Group struct {
 }
 
 type OTAPackage struct {
-	ID             int       `json:"id"`
-	Type           string    `json:"type"`            // "full" or "incremental"
-	TargetBuildID  string    `json:"target_build_id"` // build ID after update
-	SourceBuildID  string    `json:"source_build_id"` // build ID before update (incremental only)
-	ReleaseDate    time.Time `json:"release_date"`
-	UpdateURL      string    `json:"update_url"`
-	PayloadOffset  int64     `json:"payload_offset"`
-	PayloadSize    int64     `json:"payload_size"`
-	PayloadHeaders []string  `json:"payload_headers"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID            int       `json:"id"`
+	Type          string    `json:"type"`            // "full" or "incremental"
+	TargetBuildID string    `json:"target_build_id"` // build ID after update
+	SourceBuildID string    `json:"source_build_id"` // build ID before update (incremental only)
+	ReleaseDate   time.Time `json:"release_date"`
+	UpdateURL     string    `json:"update_url"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type Update struct {
@@ -1523,20 +1520,20 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT fal
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
 
-func (d *DB) CreateOTAPackage(ctx context.Context, typ, targetBuildID, sourceBuildID, updateURL string, payloadOffset, payloadSize int64, headers []string, releaseDate time.Time) (*OTAPackage, error) {
+func (d *DB) CreateOTAPackage(ctx context.Context, typ, targetBuildID, sourceBuildID, updateURL string, releaseDate time.Time) (*OTAPackage, error) {
 	var p OTAPackage
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO ota_packages (type, target_build_id, source_build_id, build_id, update_url, payload_offset, payload_size, payload_headers, release_date)
-		VALUES ($1, $2, $3, $2, $4, $5, $6, $7, $8)
-		RETURNING id, type, target_build_id, source_build_id, release_date, update_url, payload_offset, payload_size, payload_headers, created_at
-	`, typ, targetBuildID, sourceBuildID, updateURL, payloadOffset, payloadSize, headers, releaseDate).
-		Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt)
+		INSERT INTO ota_packages (type, target_build_id, source_build_id, build_id, update_url, release_date)
+		VALUES ($1, $2, $3, $2, $4, $5)
+		RETURNING id, type, target_build_id, source_build_id, release_date, update_url, created_at
+	`, typ, targetBuildID, sourceBuildID, updateURL, releaseDate).
+		Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.CreatedAt)
 	return &p, err
 }
 
 func (d *DB) ListOTAPackages(ctx context.Context) ([]OTAPackage, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, type, target_build_id, source_build_id, release_date, update_url, payload_offset, payload_size, payload_headers, created_at
+		SELECT id, type, target_build_id, source_build_id, release_date, update_url, created_at
 		FROM ota_packages
 		ORDER BY release_date DESC
 	`)
@@ -1548,7 +1545,7 @@ func (d *DB) ListOTAPackages(ctx context.Context) ([]OTAPackage, error) {
 	var out []OTAPackage
 	for rows.Next() {
 		var p OTAPackage
-		if err := rows.Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -1577,7 +1574,7 @@ func (d *DB) CreateUpdate(ctx context.Context, otaPackageID int, rebootBehavior 
 func (d *DB) ListUpdates(ctx context.Context) ([]Update, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.created_at,
-		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
+		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.created_at
 		FROM updates u
 		JOIN ota_packages p ON p.id = u.ota_package_id
 		ORDER BY u.created_at DESC
@@ -1592,7 +1589,7 @@ func (d *DB) ListUpdates(ctx context.Context) ([]Update, error) {
 		var u Update
 		var p OTAPackage
 		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.CreatedAt,
-			&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt); err != nil {
+			&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.CreatedAt); err != nil {
 			return nil, err
 		}
 		u.OtaPackage = &p
@@ -1633,7 +1630,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 		var u Update
 		var p OTAPackage
 		err := row.Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.CreatedAt,
-			&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.PayloadOffset, &p.PayloadSize, &p.PayloadHeaders, &p.CreatedAt)
+			&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.CreatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -1644,7 +1641,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 	// Device-level first
 	u, err := scanUpdate(d.pool.QueryRow(ctx, `
 		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.created_at,
-		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
+		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.created_at
 		FROM updates u
 		JOIN ota_packages p ON p.id = u.ota_package_id
 		JOIN devices d ON d.update_id = u.id
@@ -1660,7 +1657,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 	// Group-level fallback
 	u, err = scanUpdate(d.pool.QueryRow(ctx, `
 		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.created_at,
-		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.payload_offset, p.payload_size, p.payload_headers, p.created_at
+		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.created_at
 		FROM updates u
 		JOIN ota_packages p ON p.id = u.ota_package_id
 		JOIN groups g ON g.update_id = u.id
