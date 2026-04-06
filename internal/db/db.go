@@ -1491,6 +1491,9 @@ ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS source_build_id TEXT NOT NULL 
 -- Migrate existing build_id to target_build_id
 UPDATE ota_packages SET target_build_id = build_id WHERE target_build_id = '';
 
+-- Allow multiple packages with the same build_id
+ALTER TABLE ota_packages DROP CONSTRAINT IF EXISTS ota_packages_build_id_key;
+
 CREATE TABLE IF NOT EXISTS updates (
 	id              SERIAL      PRIMARY KEY,
 	ota_package_id  INTEGER     NOT NULL REFERENCES ota_packages(id) ON DELETE CASCADE,
