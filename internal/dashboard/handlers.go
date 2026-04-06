@@ -239,6 +239,47 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			}
 			return used * 100 / total
 		},
+		"extraTempC": func(raw json.RawMessage) template.JS {
+			if len(raw) == 0 {
+				return "null"
+			}
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return "null"
+			}
+			v, ok := m["battery_temp_c"]
+			if !ok {
+				return "null"
+			}
+			var temp float64
+			if err := json.Unmarshal(v, &temp); err != nil {
+				return "null"
+			}
+			return template.JS(fmt.Sprintf("%.1f", temp))
+		},
+		"extraRamPct": func(raw json.RawMessage) template.JS {
+			if len(raw) == 0 {
+				return "null"
+			}
+			var m map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &m); err != nil {
+				return "null"
+			}
+			v, ok := m["ram_usage_mb"]
+			if !ok {
+				return "null"
+			}
+			var ram map[string]int
+			if err := json.Unmarshal(v, &ram); err != nil {
+				return "null"
+			}
+			total := ram["total"]
+			if total == 0 {
+				return "null"
+			}
+			pct := float64(ram["used"]) * 100 / float64(total)
+			return template.JS(fmt.Sprintf("%.1f", pct))
+		},
 		"wlcStatus": func(raw json.RawMessage) template.JS {
 			if len(raw) == 0 {
 				return "undefined"

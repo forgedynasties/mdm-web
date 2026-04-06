@@ -208,14 +208,9 @@
 
 <div class="card chart-card">
   <div class="card-header">
-    <h3>Battery History</h3>
+    <h3>Device Graphs</h3>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="chart-info" class="muted small"></span>
-      <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:#7a7f9a;">
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#e84393;border-radius:2px;display:inline-block;"></span> Wireless Charging On</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#6c5ce7;border-radius:2px;display:inline-block;"></span> Wireless Charging Off</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:0;border-top:2px dashed #7a7f9a;display:inline-block;"></span> Draining</span>
-      </div>
       <div class="dur-btns">
         <button class="dur-btn" data-ms="3600000">1h</button>
         <button class="dur-btn active" data-ms="21600000">6h</button>
@@ -226,17 +221,34 @@
       <a id="csv-export" href="/devices/{{.Device.SerialNumber}}/battery.csv?hours=6" class="btn-outline" style="font-size:12px;padding:4px 10px;">Export CSV</a>
     </div>
   </div>
+  <div style="padding:0 16px;">
+    <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:#7a7f9a;margin-bottom:4px;">
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#e84393;border-radius:2px;display:inline-block;"></span> Wireless Charging On</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#6c5ce7;border-radius:2px;display:inline-block;"></span> Wireless Charging Off</span>
+      <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:0;border-top:2px dashed #7a7f9a;display:inline-block;"></span> Draining</span>
+    </div>
+  </div>
   <div class="chart-wrap">
     <canvas id="batteryChart"></canvas>
+  </div>
+  <div style="padding:0 16px;"><h4 style="margin:8px 0 4px;font-size:13px;color:var(--muted);">Temperature</h4></div>
+  <div class="chart-wrap">
+    <canvas id="tempChart"></canvas>
+  </div>
+  <div style="padding:0 16px;"><h4 style="margin:8px 0 4px;font-size:13px;color:var(--muted);">RAM Usage</h4></div>
+  <div class="chart-wrap">
+    <canvas id="ramChart"></canvas>
   </div>
 </div>
 
 <script>
 (function () {
-  const allPoints = [{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}];
+  const allBattery = [{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}];
+  const allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
+  const allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
 
   let currentDuration = 6 * 3600 * 1000;
-  let batteryChart;
+  let batteryChart, tempChart, ramChart;
 
   function fmtTime(ms) {
     return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
@@ -254,27 +266,55 @@
     );
   }
 
-  function updateChart() {
-    const lastX = allPoints.length > 0 ? allPoints[allPoints.length - 1].x : Date.now();
+  function filterWindow(all) {
+    const lastX = all.length > 0 ? all[all.length - 1].x : Date.now();
     const minX = lastX - currentDuration;
-    const pts = dedupe(allPoints.filter(p => p.x >= minX));
+    return { pts: dedupe(all.filter(p => p.x >= minX)), minX, lastX };
+  }
 
+  function applyData(chart, all) {
+    const { pts, minX, lastX } = filterWindow(all);
+    chart.data.datasets[0].data = pts;
+    chart.data.datasets[0].pointRadius = pts.length > 60 ? 0 : 3;
+    chart.options.scales.x.min = minX;
+    chart.options.scales.x.max = lastX;
+    chart.update();
+  }
+
+  function updateCharts() {
+    const { pts } = filterWindow(allBattery);
     const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
     document.getElementById("chart-info").textContent =
       "Last " + (labels[currentDuration] || "") + " \u2014 " + pts.length + " checkins";
 
-    if (batteryChart) {
-      batteryChart.data.datasets[0].data = pts;
-      batteryChart.data.datasets[0].pointRadius = pts.length > 60 ? 0 : 3;
-      batteryChart.options.scales.x.min = minX;
-      batteryChart.options.scales.x.max = lastX;
-      batteryChart.update();
-    }
+    if (batteryChart) applyData(batteryChart, allBattery);
+    if (tempChart) applyData(tempChart, allTemp);
+    if (ramChart) applyData(ramChart, allRam);
   }
 
-  const ctx = document.getElementById("batteryChart").getContext("2d");
+  function makeGradient(color) {
+    return (ctx) => {
+      const chart = ctx.chart;
+      const {ctx: c, chartArea} = chart;
+      if (!chartArea) return "transparent";
+      const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+      gradient.addColorStop(0,   color.replace(")", ",0.18)").replace("rgb", "rgba"));
+      gradient.addColorStop(0.5, color.replace(")", ",0.08)").replace("rgb", "rgba"));
+      gradient.addColorStop(1,   color.replace(")", ",0.02)").replace("rgb", "rgba"));
+      return gradient;
+    };
+  }
 
-  batteryChart = new Chart(ctx, {
+  function sharedXScale() {
+    return {
+      type: "linear",
+      ticks: { color: "#7a7f9a", maxTicksLimit: 8, maxRotation: 0, minRotation: 0, callback: v => fmtTime(v) },
+      grid: { display: false },
+    };
+  }
+
+  // Battery chart
+  batteryChart = new Chart(document.getElementById("batteryChart").getContext("2d"), {
     type: "line",
     data: {
       datasets: [{
@@ -307,9 +347,7 @@
       }],
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      clip: false,
+      responsive: true, maintainAspectRatio: false, clip: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { display: false },
@@ -326,27 +364,98 @@
         },
       },
       scales: {
-        x: {
-          type: "linear",
-          ticks: {
-            color: "#7a7f9a",
-            maxTicksLimit: 8,
-            maxRotation: 0,
-            minRotation: 0,
-            callback: v => fmtTime(v),
-          },
-          grid: { display: false },
+        x: sharedXScale(),
+        y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
+      },
+    },
+  });
+
+  // Temperature chart
+  tempChart = new Chart(document.getElementById("tempChart").getContext("2d"), {
+    type: "line",
+    data: {
+      datasets: [{
+        label: "Temperature",
+        data: [],
+        cubicInterpolationMode: 'monotone',
+        fill: true,
+        borderColor: "#ff9800",
+        pointBackgroundColor: "#ff9800",
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart;
+          const {ctx: c, chartArea} = chart;
+          if (!chartArea) return "transparent";
+          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0,   "rgba(255,152,0,0.18)");
+          gradient.addColorStop(0.5, "rgba(255,152,0,0.08)");
+          gradient.addColorStop(1,   "rgba(255,152,0,0.02)");
+          return gradient;
         },
-        y: {
-          min: 0,
-          max: 100,
-          ticks: {
-            color: "#7a7f9a",
-            callback: v => v + "%",
-            stepSize: 20,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, clip: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => fmtTime(items[0].parsed.x),
+            label: item => ` ${item.parsed.y.toFixed(1)}°C`,
           },
-          grid: { color: "rgba(46,51,71,0.8)" },
         },
+      },
+      scales: {
+        x: sharedXScale(),
+        y: { ticks: { color: "#7a7f9a", callback: v => v + "°C" }, grid: { color: "rgba(46,51,71,0.8)" } },
+      },
+    },
+  });
+
+  // RAM chart
+  ramChart = new Chart(document.getElementById("ramChart").getContext("2d"), {
+    type: "line",
+    data: {
+      datasets: [{
+        label: "RAM %",
+        data: [],
+        cubicInterpolationMode: 'monotone',
+        fill: true,
+        borderColor: "#4caf50",
+        pointBackgroundColor: "#4caf50",
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+        backgroundColor: (ctx) => {
+          const chart = ctx.chart;
+          const {ctx: c, chartArea} = chart;
+          if (!chartArea) return "transparent";
+          const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+          gradient.addColorStop(0,   "rgba(76,175,80,0.18)");
+          gradient.addColorStop(0.5, "rgba(76,175,80,0.08)");
+          gradient.addColorStop(1,   "rgba(76,175,80,0.02)");
+          return gradient;
+        },
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, clip: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: items => fmtTime(items[0].parsed.x),
+            label: item => ` RAM: ${item.parsed.y.toFixed(1)}%`,
+          },
+        },
+      },
+      scales: {
+        x: sharedXScale(),
+        y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
   });
@@ -359,11 +468,11 @@
       var hours = Math.round(currentDuration / 3600000);
       document.getElementById("csv-export").href =
         "/devices/{{.Device.SerialNumber}}/battery.csv?hours=" + hours;
-      updateChart();
+      updateCharts();
     });
   });
 
-  updateChart();
+  updateCharts();
 })();
 </script>
 
