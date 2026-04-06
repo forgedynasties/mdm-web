@@ -15,28 +15,13 @@
   </div>
   <div style="flex:1;"></div>
   {{if eq .Sort "serial"}}
-    <a class="btn-outline"
-       hx-get="/"
-       hx-vals='js:getFilterParams({page:"1",sort:"battery"})'
-       hx-target="#device-table-container"
-       hx-swap="innerHTML"
-       hx-push-url="true"
+    <a class="btn-outline sort-btn" data-sort="battery"
        style="white-space:nowrap;">A-Z Serial</a>
   {{else if eq .Sort "battery"}}
-    <a class="btn-outline"
-       hx-get="/"
-       hx-vals='js:getFilterParams({page:"1",sort:""})'
-       hx-target="#device-table-container"
-       hx-swap="innerHTML"
-       hx-push-url="true"
+    <a class="btn-outline sort-btn" data-sort=""
        style="white-space:nowrap;">^ Battery</a>
   {{else}}
-    <a class="btn-outline"
-       hx-get="/"
-       hx-vals='js:getFilterParams({page:"1",sort:"serial"})'
-       hx-target="#device-table-container"
-       hx-swap="innerHTML"
-       hx-push-url="true"
+    <a class="btn-outline sort-btn" data-sort="serial"
        style="white-space:nowrap;">v Last Seen</a>
   {{end}}
 </div>
@@ -118,8 +103,138 @@
   </tbody>
 </table>
 
+{{if gt .TotalPages 1}}
+<div class="pagination">
+  {{if gt .Page 1}}
+    <a class="page-btn page-nav" data-page="{{sub .Page 1}}">&#8592; Prev</a>
+  {{else}}
+    <span class="page-btn disabled">&#8592; Prev</span>
+  {{end}}
+
+  <div class="page-numbers">
+    {{range iter 1 .TotalPages}}
+      {{if eq . $.Page}}
+        <span class="page-num active">{{.}}</span>
+      {{else}}
+        <a class="page-num page-nav" data-page="{{.}}">{{.}}</a>
+      {{end}}
+    {{end}}
+  </div>
+
+  {{if lt .Page .TotalPages}}
+    <a class="page-btn page-nav" data-page="{{add .Page 1}}">Next &#8594;</a>
+  {{else}}
+    <span class="page-btn disabled">Next &#8594;</span>
+  {{end}}
+</div>
+{{end}}
+
+<div class="table-footer">
+  Showing {{len .Devices}} of {{.Total}} device{{if ne .Total 1}}s{{end}}
+  {{if .Query}}matching "{{.Query}}"{{end}}
+  — page {{.Page}} of {{.TotalPages}}
+</div>
+
 <script>
-function getFilterParams(overrides) {
+// Bind sort button
+document.querySelectorAll('.sort-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    navigateDevices({page: '1', sort: btn.dataset.sort});
+  });
+});
+
+// Bind pagination
+document.querySelectorAll('.page-nav').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    navigateDevices({page: btn.dataset.page});
+  });
+});
+</script>
+{{end}}
+
+
+{{define "devices.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title">Devices</h2>
+    <p class="page-subtitle">{{.Total}} device{{if ne .Total 1}}s{{end}} registered</p>
+  </div>
+  <span class="refresh-badge" id="refresh-indicator">Auto-refresh every 60s</span>
+</div>
+
+{{with .Summary}}
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="summary-value">{{.Total}}</div>
+    <div class="summary-label">Total Devices</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-value ok">{{.RecentlyActive}}</div>
+    <div class="summary-label">Active (last 3 min)</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-value {{if gt .LowBattery 0}}danger{{end}}">{{.LowBattery}}</div>
+    <div class="summary-label">Low Battery (&lt;20%)</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-value">{{.UniqueBuilds}}</div>
+    <div class="summary-label">Unique Builds</div>
+  </div>
+  <div class="summary-card">
+    <div class="summary-value {{if gt .KioskCount 0}}ok{{end}}">{{.KioskCount}}</div>
+    <div class="summary-label">In Kiosk Mode</div>
+  </div>
+</div>
+{{end}}
+
+<div class="search-bar">
+  <input
+    type="search"
+    id="search-input"
+    name="q"
+    value="{{.Query}}"
+    placeholder="Search by serial number or build ID..."
+    class="search-input"
+  >
+</div>
+
+<div class="filter-bar">
+  <select id="filter-group" class="filter-select" onchange="applyFilters()">
+    <option value="">All Groups</option>
+    {{range .Groups}}
+      <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
+    {{end}}
+  </select>
+
+  <select id="filter-status" class="filter-select" onchange="applyFilters()">
+    <option value="">All Status</option>
+    <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
+    <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
+  </select>
+
+  <select id="filter-build" class="filter-select" onchange="applyFilters()">
+    <option value="">All Builds</option>
+    {{range .Builds}}
+      <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
+    {{end}}
+  </select>
+
+  <select id="filter-battery" class="filter-select" onchange="applyFilters()">
+    <option value="">All Battery</option>
+    <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical (&lt;20%)</option>
+    <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low (20-49%)</option>
+    <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Good (50%+)</option>
+  </select>
+
+  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery}}
+    <button class="btn-outline" onclick="clearFilters()" style="padding:6px 12px;font-size:12px;">Clear</button>
+  {{end}}
+</div>
+
+<script>
+function getFilterVals(overrides) {
   var p = new URLSearchParams(location.search);
   var vals = {
     q: p.get('q') || '',
@@ -130,14 +245,54 @@ function getFilterParams(overrides) {
     build: p.get('build') || '',
     battery: p.get('battery') || ''
   };
+  // Always read current dropdown values
+  var fg = document.getElementById('filter-group');
+  var fs = document.getElementById('filter-status');
+  var fb = document.getElementById('filter-build');
+  var fbt = document.getElementById('filter-battery');
+  var sq = document.getElementById('search-input');
+  if (fg) vals.group = fg.value;
+  if (fs) vals.status = fs.value;
+  if (fb) vals.build = fb.value;
+  if (fbt) vals.battery = fbt.value;
+  if (sq) vals.q = sq.value;
   if (overrides) {
     for (var k in overrides) vals[k] = overrides[k];
   }
   return vals;
 }
 
+function navigateDevices(overrides) {
+  var vals = getFilterVals(overrides);
+  var url = '/?' + new URLSearchParams(vals).toString();
+  htmx.ajax('GET', url, '#device-table-container').then(function() {
+    history.pushState(null, '', url);
+  });
+}
+
+function applyFilters() {
+  navigateDevices({page: '1'});
+}
+
+function clearFilters() {
+  document.getElementById('filter-group').value = '';
+  document.getElementById('filter-status').value = '';
+  document.getElementById('filter-build').value = '';
+  document.getElementById('filter-battery').value = '';
+  applyFilters();
+}
+
+// Search with debounce
+var searchTimer;
+document.getElementById('search-input').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(function() {
+    navigateDevices({page: '1'});
+  }, 350);
+});
+
 function getSelectedSerials() {
-  return Array.from(document.querySelectorAll('.device-cb:checked')).map(cb => cb.value);
+  return Array.from(document.querySelectorAll('.device-cb:checked')).map(function(cb) { return cb.value; });
 }
 
 function updateBulkBar() {
@@ -201,183 +356,6 @@ function bulkExport() {
 }
 </script>
 
-{{if gt .TotalPages 1}}
-<div class="pagination">
-  {{if gt .Page 1}}
-    <a class="page-btn"
-       hx-get="/"
-       hx-vals='js:getFilterParams({page:"{{sub .Page 1}}"})'
-       hx-target="#device-table-container"
-       hx-swap="innerHTML"
-       hx-push-url="true">&#8592; Prev</a>
-  {{else}}
-    <span class="page-btn disabled">&#8592; Prev</span>
-  {{end}}
-
-  <div class="page-numbers">
-    {{range iter 1 .TotalPages}}
-      {{if eq . $.Page}}
-        <span class="page-num active">{{.}}</span>
-      {{else}}
-        <a class="page-num"
-           hx-get="/"
-           hx-vals='js:getFilterParams({page:"{{.}}"})'
-           hx-target="#device-table-container"
-           hx-swap="innerHTML"
-           hx-push-url="true">{{.}}</a>
-      {{end}}
-    {{end}}
-  </div>
-
-  {{if lt .Page .TotalPages}}
-    <a class="page-btn"
-       hx-get="/"
-       hx-vals='js:getFilterParams({page:"{{add .Page 1}}"})'
-       hx-target="#device-table-container"
-       hx-swap="innerHTML"
-       hx-push-url="true">Next &#8594;</a>
-  {{else}}
-    <span class="page-btn disabled">Next &#8594;</span>
-  {{end}}
-</div>
-{{end}}
-
-<div class="table-footer">
-  Showing {{len .Devices}} of {{.Total}} device{{if ne .Total 1}}s{{end}}
-  {{if .Query}}matching "{{.Query}}"{{end}}
-  — page {{.Page}} of {{.TotalPages}}
-</div>
-{{end}}
-
-
-{{define "devices.html"}}
-{{template "header" .}}
-
-<div class="page-header">
-  <div>
-    <h2 class="page-title">Devices</h2>
-    <p class="page-subtitle">{{.Total}} device{{if ne .Total 1}}s{{end}} registered</p>
-  </div>
-  <span class="refresh-badge" id="refresh-indicator">Auto-refresh every 60s</span>
-</div>
-
-{{with .Summary}}
-<div class="summary-grid">
-  <div class="summary-card">
-    <div class="summary-value">{{.Total}}</div>
-    <div class="summary-label">Total Devices</div>
-  </div>
-  <div class="summary-card">
-    <div class="summary-value ok">{{.RecentlyActive}}</div>
-    <div class="summary-label">Active (last 3 min)</div>
-  </div>
-  <div class="summary-card">
-    <div class="summary-value {{if gt .LowBattery 0}}danger{{end}}">{{.LowBattery}}</div>
-    <div class="summary-label">Low Battery (&lt;20%)</div>
-  </div>
-  <div class="summary-card">
-    <div class="summary-value">{{.UniqueBuilds}}</div>
-    <div class="summary-label">Unique Builds</div>
-  </div>
-  <div class="summary-card">
-    <div class="summary-value {{if gt .KioskCount 0}}ok{{end}}">{{.KioskCount}}</div>
-    <div class="summary-label">In Kiosk Mode</div>
-  </div>
-</div>
-{{end}}
-
-<div class="search-bar">
-  <input
-    type="search"
-    name="q"
-    value="{{.Query}}"
-    placeholder="Search by serial number or build ID..."
-    hx-get="/"
-    hx-trigger="keyup changed delay:350ms, search"
-    hx-target="#device-table-container"
-    hx-swap="innerHTML"
-    hx-push-url="true"
-    hx-indicator="#refresh-indicator"
-    hx-vals='js:getFilterParams({page:"1"})'
-    class="search-input"
-  >
-</div>
-
-<div class="filter-bar">
-  <select id="filter-group" class="filter-select" onchange="applyFilters()">
-    <option value="">All Groups</option>
-    {{range .Groups}}
-      <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
-    {{end}}
-  </select>
-
-  <select id="filter-status" class="filter-select" onchange="applyFilters()">
-    <option value="">All Status</option>
-    <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
-    <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
-  </select>
-
-  <select id="filter-build" class="filter-select" onchange="applyFilters()">
-    <option value="">All Builds</option>
-    {{range .Builds}}
-      <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
-    {{end}}
-  </select>
-
-  <select id="filter-battery" class="filter-select" onchange="applyFilters()">
-    <option value="">All Battery</option>
-    <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical (&lt;20%)</option>
-    <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low (20-49%)</option>
-    <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Good (50%+)</option>
-  </select>
-
-  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery}}
-    <button class="btn-outline" onclick="clearFilters()" style="padding:6px 12px;font-size:12px;">Clear</button>
-  {{end}}
-</div>
-
-<script>
-function getFilterParams(overrides) {
-  var p = new URLSearchParams(location.search);
-  var vals = {
-    q: p.get('q') || '',
-    sort: p.get('sort') || '',
-    page: p.get('page') || '1',
-    group: p.get('group') || '',
-    status: p.get('status') || '',
-    build: p.get('build') || '',
-    battery: p.get('battery') || ''
-  };
-  // Read from dropdowns if they exist (they exist on full page, not on htmx partial)
-  var fg = document.getElementById('filter-group');
-  var fs = document.getElementById('filter-status');
-  var fb = document.getElementById('filter-build');
-  var fbt = document.getElementById('filter-battery');
-  if (fg) vals.group = fg.value;
-  if (fs) vals.status = fs.value;
-  if (fb) vals.build = fb.value;
-  if (fbt) vals.battery = fbt.value;
-  if (overrides) {
-    for (var k in overrides) vals[k] = overrides[k];
-  }
-  return vals;
-}
-
-function applyFilters() {
-  var params = getFilterParams({page: '1'});
-  var q = new URLSearchParams(params).toString();
-  htmx.ajax('GET', '/?' + q, {target: '#device-table-container', swap: 'innerHTML', pushUrl: true});
-}
-
-function clearFilters() {
-  document.getElementById('filter-group').value = '';
-  document.getElementById('filter-status').value = '';
-  document.getElementById('filter-build').value = '';
-  document.getElementById('filter-battery').value = '';
-  applyFilters();
-}
-</script>
-
 <div class="card"
      id="device-table-container"
      hx-get="/"
@@ -385,7 +363,7 @@ function clearFilters() {
      hx-target="#device-table-container"
      hx-swap="innerHTML"
      hx-indicator="#refresh-indicator"
-     hx-vals='js:getFilterParams()'>
+     hx-vals='js:getFilterVals()'>
   {{template "device-table" .}}
 </div>
 
