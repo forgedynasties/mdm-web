@@ -66,14 +66,14 @@
         Reduce data volume by picking one row per interval per device. "All" exports every checkin.
       </p>
       <div class="dur-btns">
-        <button type="button" class="dur-btn active" onclick="setInterval(this, 0)">All</button>
-        <button type="button" class="dur-btn" onclick="setInterval(this, 60)">1 min</button>
-        <button type="button" class="dur-btn" onclick="setInterval(this, 300)">5 min</button>
-        <button type="button" class="dur-btn" onclick="setInterval(this, 900)">15 min</button>
-        <button type="button" class="dur-btn" onclick="setInterval(this, 1800)">30 min</button>
-        <button type="button" class="dur-btn" onclick="setInterval(this, 3600)">1 hr</button>
-        <button type="button" class="dur-btn" onclick="setInterval(this, 21600)">6 hr</button>
-        <button type="button" class="dur-btn" onclick="setInterval(this, 86400)">1 day</button>
+        <button type="button" class="dur-btn active" onclick="setSampleInterval(this, 0)">All</button>
+        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 60)">1 min</button>
+        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 300)">5 min</button>
+        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 900)">15 min</button>
+        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 1800)">30 min</button>
+        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 3600)">1 hr</button>
+        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 21600)">6 hr</button>
+        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 86400)">1 day</button>
       </div>
       <input type="hidden" name="interval" id="export-interval" value="0">
     </div>
@@ -128,7 +128,7 @@ function toLocalISO(d) {
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
 
-function setInterval(btn, sec) {
+function setSampleInterval(btn, sec) {
   document.getElementById('export-interval').value = sec;
   btn.closest('.dur-btns').querySelectorAll('.dur-btn').forEach(function(b) { b.classList.remove('active'); });
   btn.classList.add('active');
