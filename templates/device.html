@@ -347,7 +347,6 @@
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      layout: { padding: { top: 8 } },
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { display: false },
@@ -377,10 +376,10 @@
         },
         y: {
           min: 0,
-          max: 100,
+          max: 105,
           ticks: {
             color: "#7a7f9a",
-            callback: v => v + "%",
+            callback: v => v <= 100 ? v + "%" : "",
             stepSize: 20,
           },
           grid: { color: "rgba(46,51,71,0.8)" },
