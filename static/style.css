@@ -1128,6 +1128,15 @@ input[type="checkbox"]:hover {
   gap: 8px;
 }
 
+/* ── OTA Progress ────────────────────────────────── */
+.ota-progress-panel {
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin: 0 16px 12px;
+}
+
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 900px) {
   .summary-grid { grid-template-columns: repeat(3, 1fr); }
