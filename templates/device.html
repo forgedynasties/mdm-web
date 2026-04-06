@@ -347,6 +347,7 @@
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      clip: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
         legend: { display: false },
@@ -377,7 +378,6 @@
         y: {
           min: 0,
           max: 100,
-          grace: '5%',
           ticks: {
             color: "#7a7f9a",
             callback: v => v + "%",
