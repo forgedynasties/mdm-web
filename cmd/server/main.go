@@ -84,7 +84,12 @@ func main() {
 		w.Write([]byte(`{"status":"ok","db":"ok"}`))
 	})
 
-	apiHandler := api.NewHandler(database, hub, shellMgr)
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		log.Fatalf("failed to load config: %v", err)
+	}
+
+	apiHandler := api.NewHandler(database, hub, shellMgr, cfg)
 
 	auth := func(h http.Handler) http.Handler { return middleware.APIKeyAuth(apiKey, h) }
 
@@ -115,11 +120,6 @@ func main() {
 
 	// OTA
 	mux.Handle("POST /api/v1/ota/status",            auth(http.HandlerFunc(apiHandler.OtaStatus)))
-
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		log.Fatalf("failed to load config: %v", err)
-	}
 
 	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg)
 	dash.RegisterRoutes(mux)

@@ -1449,9 +1449,15 @@ func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	h.tmpl.ExecuteTemplate(w, "settings.html", map[string]any{
-		"Title":        "Settings",
-		"ExtraColumns": h.cfg.Columns(),
+		"Title":          "Settings",
+		"ExtraColumns":   h.cfg.Columns(),
+		"LegacyCheckin":  h.cfg.LegacyCheckin(),
 	})
+}
+
+func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Request) {
+	h.cfg.SetLegacyCheckin(!h.cfg.LegacyCheckin())
+	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
 func (h *Handler) SettingsAddColumn(w http.ResponseWriter, r *http.Request) {
@@ -1706,6 +1712,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /settings", h.requireAuth(h.SettingsPage))
 	mux.HandleFunc("POST /settings/columns/add", h.requireAuth(h.SettingsAddColumn))
 	mux.HandleFunc("POST /settings/columns/{key}/remove", h.requireAuth(h.SettingsRemoveColumn))
+	mux.HandleFunc("POST /settings/legacy-checkin/toggle", h.requireAuth(h.SettingsToggleLegacyCheckin))
 
 	mux.HandleFunc("GET /setup", h.requireAuth(h.SetupPage))
 	mux.HandleFunc("POST /setup/apps", h.requireAuth(h.SetupCreateApp))

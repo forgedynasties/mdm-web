@@ -9,6 +9,21 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Compatibility</h3></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <strong>Legacy Checkin Commands</strong>
+      <div class="muted small">Include pending commands in checkin response for devices that poll via HTTP instead of WebSocket.</div>
+    </div>
+    <form action="/settings/legacy-checkin/toggle" method="POST">
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">
+        {{if .LegacyCheckin}}Disable{{else}}Enable{{end}}
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Extra Columns</h3></div>
   <table class="table">
     <thead>

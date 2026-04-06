@@ -12,7 +12,8 @@ type ExtraColumn struct {
 }
 
 type Config struct {
-	ExtraColumns []ExtraColumn `json:"extra_columns"`
+	ExtraColumns    []ExtraColumn `json:"extra_columns"`
+	LegacyCheckinOn bool          `json:"legacy_checkin"`
 
 	mu   sync.RWMutex
 	path string
@@ -45,6 +46,20 @@ func (c *Config) Columns() []ExtraColumn {
 func (c *Config) Add(col ExtraColumn) error {
 	c.mu.Lock()
 	c.ExtraColumns = append(c.ExtraColumns, col)
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) LegacyCheckin() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.LegacyCheckinOn
+}
+
+func (c *Config) SetLegacyCheckin(v bool) error {
+	c.mu.Lock()
+	c.LegacyCheckinOn = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)

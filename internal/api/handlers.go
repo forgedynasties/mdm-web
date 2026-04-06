@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
@@ -20,10 +21,11 @@ type Handler struct {
 	db    *db.DB
 	hub   *ws.Hub
 	shell *shell.Manager
+	cfg   *config.Config
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr}
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config) *Handler {
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg}
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -234,8 +236,30 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[checkin] %s → kiosk_enabled=%v kiosk_package=%q kiosk_features=%d",
 		req.SerialNumber, deviceCfg.KioskEnabled, deviceCfg.KioskPackage, deviceCfg.KioskFeatures)
 
+	// Include pending commands in checkin response for backwards compatibility
+	// with older clients that poll via checkin instead of WebSocket.
+	var cmdList []map[string]any
+	if h.cfg.LegacyCheckin() && !h.hub.IsConnected(deviceID) {
+		if cmds, err := h.db.GetPendingCommandsForDevice(r.Context(), deviceID); err == nil {
+			for _, cmd := range cmds {
+				cmdList = append(cmdList, map[string]any{
+					"id":      cmd.ID,
+					"type":    cmd.Type,
+					"apk_url": cmd.ApkURL,
+					"payload": cmd.Payload,
+				})
+				if cmd.Type == "reboot" {
+					_ = h.db.AckCommand(r.Context(), cmd.ID, deviceID, "completed")
+				} else {
+					_ = h.db.MarkCommandsDelivered(r.Context(), deviceID, []uuid.UUID{cmd.ID})
+				}
+			}
+		}
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"status": "ok",
+		"status":   "ok",
+		"commands": cmdList,
 		"config": map[string]any{
 			"kiosk_enabled":  deviceCfg.KioskEnabled,
 			"kiosk_package":  deviceCfg.KioskPackage,
