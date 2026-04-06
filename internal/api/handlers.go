@@ -185,37 +185,41 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// OTA check: inject an OTA command if the device needs an update and push it via WS.
-	if hasPending, err := h.db.HasPendingOTACommand(r.Context(), deviceID); err != nil {
-		log.Printf("[checkin] HasPendingOTACommand error: %v", err)
-	} else if !hasPending {
-		if upd, err := h.db.ResolveUpdateForDevice(r.Context(), deviceID); err != nil {
-			log.Printf("[checkin] ResolveUpdateForDevice error: %v", err)
-		} else if upd != nil && upd.OtaPackage != nil {
-			pkg := upd.OtaPackage
-			applicable := false
-			if pkg.Type == "incremental" {
-				// Incremental: only apply if device's current build matches source
-				applicable = pkg.SourceBuildID == req.BuildID
-			} else {
-				// Full: apply if device is not already on target build
-				applicable = pkg.TargetBuildID != req.BuildID
-			}
-			if applicable {
-				p := map[string]any{
-					"package_id":      pkg.ID,
-					"build_id":        pkg.TargetBuildID,
-					"update_url":      pkg.UpdateURL,
-					"reboot_behavior": upd.RebootBehavior,
+	// OTA check: resolve update from update_devices table.
+	if upd, err := h.db.ResolveUpdateForDevice(r.Context(), deviceID); err != nil {
+		log.Printf("[checkin] ResolveUpdateForDevice error: %v", err)
+	} else if upd != nil && upd.OtaPackage != nil {
+		pkg := upd.OtaPackage
+		// If the device is already on the target build, mark as installed
+		if pkg.TargetBuildID == req.BuildID {
+			_ = h.db.SetUpdateDeviceStatus(r.Context(), upd.ID, deviceID, "installed")
+			_ = h.db.CheckAndCompleteUpdate(r.Context(), upd.ID)
+		} else {
+			// Check if an OTA command is already in flight
+			if hasPending, err := h.db.HasPendingOTACommand(r.Context(), deviceID); err != nil {
+				log.Printf("[checkin] HasPendingOTACommand error: %v", err)
+			} else if !hasPending {
+				applicable := true
+				if pkg.Type == "incremental" {
+					applicable = pkg.SourceBuildID == req.BuildID
 				}
-				if upd.ScheduledTime != nil {
-					p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
-				}
-				payload, _ := json.Marshal(p)
-				if cmd, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
-					log.Printf("[checkin] create OTA command error: %v", err)
-				} else {
-					h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
+				if applicable {
+					p := map[string]any{
+						"package_id":      pkg.ID,
+						"build_id":        pkg.TargetBuildID,
+						"update_url":      pkg.UpdateURL,
+						"reboot_behavior": upd.RebootBehavior,
+					}
+					if upd.ScheduledTime != nil {
+						p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
+					}
+					payload, _ := json.Marshal(p)
+					if cmd, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
+						log.Printf("[checkin] create OTA command error: %v", err)
+					} else {
+						_ = h.db.SetUpdateDeviceStatus(r.Context(), upd.ID, deviceID, "downloading")
+						h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
+					}
 				}
 			}
 		}

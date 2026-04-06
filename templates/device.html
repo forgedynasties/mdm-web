@@ -177,43 +177,6 @@
 </div>
 {{end}}
 
-{{define "ota-status"}}
-{{if and .OTACommand (or .OTAProgress (eq .OTACommand.Status "delivered") (eq .OTACommand.Status "downloaded"))}}
-{{/* ── Active OTA in progress ── */}}
-<div id="ota-status-panel"
-  hx-get="/devices/{{.Device.SerialNumber}}/ota-status"
-  hx-trigger="every 3s"
-  hx-swap="outerHTML">
-  <div class="ota-progress-panel">
-    {{if .OTAProgress}}
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <span class="small bold" style="text-transform:capitalize;">{{.OTAProgress.Phase}}</span>
-      <span class="mono small bold">{{.OTAProgress.Percent}}%</span>
-    </div>
-    <div style="background:#333;border-radius:4px;height:8px;overflow:hidden;">
-      <div style="background:{{if eq .OTAProgress.Phase "downloading"}}#2196f3{{else if eq .OTAProgress.Phase "verifying"}}#ff9800{{else}}#4caf50{{end}};height:100%;width:{{.OTAProgress.Percent}}%;transition:width 0.5s ease;"></div>
-    </div>
-    {{else}}
-    <div class="muted small">Waiting for device to start update...</div>
-    {{end}}
-  </div>
-</div>
-{{else if and .OTACommand (eq .OTACommand.Status "failed")}}
-{{/* ── Failed — show error, then form below ── */}}
-<div id="ota-status-panel">
-  <div style="padding:0 16px 12px;">
-    <div class="alert alert-error" style="margin:0;">
-      {{if .OTACommand.Output}}{{.OTACommand.Output}}{{else}}Update failed.{{end}}
-      <span class="muted small" style="margin-left:8px;">{{timeSince .OTACommand.CreatedAt}}</span>
-    </div>
-  </div>
-</div>
-{{else}}
-{{/* ── Default / completed / installed — just the form ── */}}
-<div id="ota-status-panel"></div>
-{{end}}
-{{end}}
-
 {{define "device.html"}}
 {{template "header" .}}
 
@@ -511,26 +474,6 @@
     {{if .KioskConfig.KioskEnabled}}
       <span class="muted small" style="margin-left:12px;">To exit kiosk: uncheck Enable and save — device will exit on next checkin.</span>
     {{end}}
-  </form>
-</div>
-
-<!-- OTA Update -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Apply OTA</h3>
-    {{if .Device.UpdateLabel}}
-      <span class="status-badge ok">{{.Device.UpdateLabel}}</span>
-    {{end}}
-  </div>
-  {{template "ota-status" .}}
-  <form action="/devices/{{.Device.SerialNumber}}/ota" method="POST" style="padding:16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-    <select name="update_id" class="form-input" style="flex:1;min-width:200px;max-width:420px;">
-      <option value="0"{{if not .Device.UpdateID}} selected{{end}}>— None —</option>
-      {{range .Updates}}
-      <option value="{{.ID}}"{{if eq .ID $.Device.UpdateID}} selected{{end}}>{{if .OtaPackage}}{{.OtaPackage.TargetBuildID}} ({{.OtaPackage.Type}}){{end}} — {{.RebootBehavior}}</option>
-      {{end}}
-    </select>
-    <button type="submit" class="btn-primary">Apply</button>
   </form>
 </div>
 

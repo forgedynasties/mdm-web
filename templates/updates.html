@@ -17,8 +17,9 @@
         <th>ID</th>
         <th>OTA Package</th>
         <th>Type</th>
-        <th>Reboot Behavior</th>
-        <th>Scheduled</th>
+        <th>Reboot</th>
+        <th>Status</th>
+        <th>Targets</th>
         <th>Created</th>
         <th></th>
       </tr>
@@ -27,13 +28,21 @@
       {{if .Updates}}
         {{range .Updates}}
         <tr>
-          <td class="mono bold">{{.ID}}</td>
+          <td class="mono bold"><a href="/updates/{{.ID}}" style="color:var(--accent);text-decoration:none;">#{{.ID}}</a></td>
           <td class="mono small">{{if .OtaPackage}}{{.OtaPackage.TargetBuildID}}{{if eq .OtaPackage.Type "incremental"}} (from {{.OtaPackage.SourceBuildID}}){{end}}{{else}}—{{end}}</td>
           <td class="small">{{if .OtaPackage}}{{.OtaPackage.Type}}{{else}}—{{end}}</td>
           <td class="mono small">{{.RebootBehavior}}</td>
-          <td class="muted small">{{if .ScheduledTime}}{{formatTime (deref .ScheduledTime)}}{{else}}—{{end}}</td>
+          <td>
+            <span class="status-badge {{if eq .Status "complete"}}ok{{else if eq .Status "active"}}warn{{else}}muted{{end}}">{{.Status}}</span>
+          </td>
+          <td class="mono small">
+            {{$installed := 0}}{{$total := len .Targets}}
+            {{range .Targets}}{{if eq .Status "installed"}}{{$installed = add $installed 1}}{{end}}{{end}}
+            {{if gt $total 0}}{{$installed}}/{{$total}}{{else}}—{{end}}
+          </td>
           <td class="muted small">{{formatTime .CreatedAt}}</td>
           <td>
+            <a href="/updates/{{.ID}}" class="btn-primary" style="text-decoration:none;font-size:12px;padding:4px 10px;">Manage</a>
             <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline"
                   onsubmit="return confirm('Delete update #{{.ID}}?')">
               <button type="submit" class="btn-danger-sm">Delete</button>
@@ -43,7 +52,7 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="7" class="empty">No updates yet. Create one below.</td>
+          <td colspan="8" class="empty">No updates yet. Create one below.</td>
         </tr>
       {{end}}
     </tbody>

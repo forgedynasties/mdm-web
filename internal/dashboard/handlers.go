@@ -510,23 +510,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updates, err := h.db.ListUpdates(r.Context())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	// Find the latest OTA command for this device
-	var latestOTA *db.DeviceCommand
-	for i := range commands {
-		if commands[i].Type == "ota" {
-			latestOTA = &commands[i]
-			break
-		}
-	}
-
-	otaProgress := h.shell.GetOTAProgress(device.ID)
-
 	h.tmpl.ExecuteTemplate(w, "device.html", map[string]any{
 		"Title":             device.SerialNumber,
 		"Device":            device,
@@ -541,9 +524,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"CheckinTotal":      total,
 		"InstalledPackages": installedPkgs,
 		"KioskConfig":       kioskCfg,
-		"Updates":           updates,
-		"OTACommand":        latestOTA,
-		"OTAProgress":       otaProgress,
 	})
 }
 
@@ -949,33 +929,13 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	updates, err := h.db.ListUpdates(r.Context())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
 	h.tmpl.ExecuteTemplate(w, "group_detail.html", map[string]any{
 		"Title":   g.Name,
 		"Group":   g,
 		"Devices": devices,
-		"Updates": updates,
 	})
 }
 
-func (h *Handler) GroupSetOTA(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid group ID", http.StatusBadRequest)
-		return
-	}
-	r.ParseForm()
-	updateID, _ := strconv.Atoi(r.FormValue("update_id")) // 0 = clear
-	if err := h.db.SetGroupUpdate(r.Context(), id, updateID); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/groups/"+id.String(), http.StatusSeeOther)
-}
 
 func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
@@ -1037,48 +997,7 @@ func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
 }
 
-func (h *Handler) DeviceSetOTA(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	r.ParseForm()
-	updateID, _ := strconv.Atoi(r.FormValue("update_id")) // 0 = clear
-	if err := h.db.SetDeviceUpdate(r.Context(), serial, updateID); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
-}
 
-func (h *Handler) DeviceOTAStatusPartial(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-
-	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	// Find the latest OTA command
-	var latestOTA *db.DeviceCommand
-	for i := range commands {
-		if commands[i].Type == "ota" {
-			latestOTA = &commands[i]
-			break // already sorted by created_at DESC
-		}
-	}
-
-	progress := h.shell.GetOTAProgress(device.ID)
-
-	h.tmpl.ExecuteTemplate(w, "ota-status", map[string]any{
-		"Device":     device,
-		"OTACommand": latestOTA,
-		"OTAProgress": progress,
-	})
-}
 
 func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -1116,11 +1035,113 @@ func (h *Handler) Updates(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Load targets for each update
+	for i := range updates {
+		targets, err := h.db.GetUpdateTargets(r.Context(), updates[i].ID)
+		if err == nil {
+			updates[i].Targets = targets
+		}
+	}
 	h.tmpl.ExecuteTemplate(w, "updates.html", map[string]any{
 		"Title":    "Updates",
 		"Packages": pkgs,
 		"Updates":  updates,
 	})
+}
+
+func (h *Handler) UpdateDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Update not found", http.StatusNotFound)
+		return
+	}
+	targets, _ := h.db.GetUpdateTargets(r.Context(), id)
+	upd.Targets = targets
+
+	// Load devices and groups for the send form
+	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "")
+	groups, _ := h.db.ListGroups(r.Context())
+
+	h.tmpl.ExecuteTemplate(w, "update_detail.html", map[string]any{
+		"Title":   fmt.Sprintf("Update #%d", id),
+		"Update":  upd,
+		"Devices": devices,
+		"Groups":  groups,
+	})
+}
+
+func (h *Handler) UpdateSend(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+
+	var deviceIDs []uuid.UUID
+
+	// Collect device IDs from serial numbers
+	serials := r.Form["serials"]
+	if len(serials) > 0 {
+		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		deviceIDs = append(deviceIDs, ids...)
+	}
+
+	// Collect device IDs from groups
+	groupIDStrs := r.Form["group_ids"]
+	if len(groupIDStrs) > 0 {
+		var groupIDs []uuid.UUID
+		for _, s := range groupIDStrs {
+			if gid, err := uuid.Parse(s); err == nil {
+				groupIDs = append(groupIDs, gid)
+			}
+		}
+		if len(groupIDs) > 0 {
+			ids, err := h.db.GetDeviceIDsByGroupIDs(r.Context(), groupIDs)
+			if err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+			deviceIDs = append(deviceIDs, ids...)
+		}
+	}
+
+	// Deduplicate
+	seen := make(map[uuid.UUID]bool)
+	var unique []uuid.UUID
+	for _, did := range deviceIDs {
+		if !seen[did] {
+			seen[did] = true
+			unique = append(unique, did)
+		}
+	}
+
+	// Filter out devices with active updates
+	var eligible []uuid.UUID
+	for _, did := range unique {
+		has, err := h.db.DeviceHasActiveUpdate(r.Context(), did)
+		if err != nil || !has {
+			eligible = append(eligible, did)
+		}
+	}
+
+	if len(eligible) > 0 {
+		if err := h.db.SendUpdateToDevices(r.Context(), id, eligible); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
 }
 
 func (h *Handler) PackageCreate(w http.ResponseWriter, r *http.Request) {
@@ -1649,12 +1670,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAuth(h.DeviceSetPollInterval))
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAuth(h.DeviceKioskUpdate))
-	mux.HandleFunc("POST /devices/{serial}/ota", h.requireAuth(h.DeviceSetOTA))
 	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAuth(h.DeviceHide))
 	mux.HandleFunc("POST /devices/bulk-hide", h.requireAuth(h.BulkHideDevices))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	mux.HandleFunc("POST /export/csv", h.requireAuth(h.ExportCSV))
-	mux.HandleFunc("GET /devices/{serial}/ota-status", h.requireAuth(h.DeviceOTAStatusPartial))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))
@@ -1666,7 +1685,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /groups/{id}/delete", h.requireAuth(h.GroupDelete))
 	mux.HandleFunc("POST /groups/{id}/devices", h.requireAuth(h.GroupAddDevice))
 	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAuth(h.GroupRemoveDevice))
-	mux.HandleFunc("POST /groups/{id}/ota", h.requireAuth(h.GroupSetOTA))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
@@ -1689,6 +1707,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /updates/packages", h.requireAuth(h.PackageCreate))
 	mux.HandleFunc("POST /updates/packages/{id}/delete", h.requireAuth(h.PackageDelete))
 	mux.HandleFunc("POST /updates", h.requireAuth(h.UpdateCreate))
+	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.UpdateDetail))
+	mux.HandleFunc("POST /updates/{id}/send", h.requireAuth(h.UpdateSend))
 	mux.HandleFunc("POST /updates/{id}/delete", h.requireAuth(h.UpdateDelete))
 
 	// Command output SSE

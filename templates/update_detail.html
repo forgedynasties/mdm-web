@@ -1,0 +1,96 @@
+{{define "update_detail.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <a href="/updates" class="back-link">← Updates</a>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <h2 class="page-title">Update #{{.Update.ID}}</h2>
+      <span class="status-badge {{if eq .Update.Status "complete"}}ok{{else if eq .Update.Status "active"}}warn{{else}}muted{{end}}">{{.Update.Status}}</span>
+    </div>
+    <p class="page-subtitle">
+      {{if .Update.OtaPackage}}{{.Update.OtaPackage.TargetBuildID}} ({{.Update.OtaPackage.Type}}){{end}}
+      &middot; {{.Update.RebootBehavior}}
+      {{if .Update.ScheduledTime}}&middot; scheduled {{formatTime (deref .Update.ScheduledTime)}}{{end}}
+    </p>
+  </div>
+  <form action="/updates/{{.Update.ID}}/delete" method="POST"
+        onsubmit="return confirm('Delete this update and all its targets?')">
+    <button type="submit" class="btn-danger-sm">Delete Update</button>
+  </form>
+</div>
+
+<!-- Targets -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Targets</h3>
+    <span class="muted small">
+      {{$installed := 0}}{{$total := len .Update.Targets}}
+      {{range .Update.Targets}}{{if eq .Status "installed"}}{{$installed = add $installed 1}}{{end}}{{end}}
+      {{$installed}}/{{$total}} installed
+    </span>
+  </div>
+  {{if .Update.Targets}}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Device</th>
+        <th>Current Build</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Update.Targets}}
+      <tr>
+        <td class="mono"><a href="/devices/{{.SerialNumber}}" style="color:var(--accent);text-decoration:none;">{{.SerialNumber}}</a></td>
+        <td class="mono small">{{.BuildID}}</td>
+        <td>
+          <span class="status-badge {{if eq .Status "installed"}}ok{{else if eq .Status "downloading"}}warn{{else if eq .Status "installing"}}warn{{else}}muted{{end}}">{{.Status}}</span>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty" style="padding:24px;">No devices targeted yet. Use the form below to send this update.</div>
+  {{end}}
+</div>
+
+<!-- Send to devices/groups -->
+{{if ne .Update.Status "complete"}}
+<div class="card">
+  <div class="card-header"><h3>Send Update</h3></div>
+  <form action="/updates/{{.Update.ID}}/send" method="POST" style="padding:16px;">
+    {{if .Update.OtaPackage}}{{if eq .Update.OtaPackage.Type "incremental"}}
+    <div class="alert alert-info" style="margin-top:0;">
+      Incremental update — only devices on build <strong>{{.Update.OtaPackage.SourceBuildID}}</strong> will receive it. Others will be skipped automatically.
+    </div>
+    {{end}}{{end}}
+
+    <div class="form-row">
+      <label class="form-label">Devices</label>
+      <select name="serials" multiple class="form-input" style="min-height:120px;">
+        {{range .Devices}}
+        <option value="{{.SerialNumber}}">{{.SerialNumber}} ({{.BuildID}})</option>
+        {{end}}
+      </select>
+      <div class="form-hint">Hold Ctrl/Cmd to select multiple. Devices with active updates are automatically skipped.</div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Groups</label>
+      <select name="group_ids" multiple class="form-input" style="min-height:80px;">
+        {{range .Groups}}
+        <option value="{{.ID}}">{{.Name}} ({{.DeviceCount}} devices)</option>
+        {{end}}
+      </select>
+      <div class="form-hint">All devices in selected groups will be added as targets.</div>
+    </div>
+
+    <button type="submit" class="btn-primary">Send Update</button>
+  </form>
+</div>
+{{end}}
+
+{{template "footer" .}}
+{{end}}

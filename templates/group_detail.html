@@ -62,30 +62,5 @@
   </table>
 </div>
 
-<div class="card" style="margin-top:16px;">
-  <div class="card-header">
-    <h3>OTA Update</h3>
-    {{if .Group.UpdateLabel}}
-      <span class="status-badge ok">{{.Group.UpdateLabel}}</span>
-    {{else}}
-      <span class="muted small">Not set</span>
-    {{end}}
-  </div>
-  <form action="/groups/{{.Group.ID}}/ota" method="POST" style="padding:16px;display:flex;flex-direction:column;gap:12px;">
-    <div>
-      <select name="update_id" class="form-input" style="max-width:420px;">
-        <option value="0"{{if not .Group.UpdateID}} selected{{end}}>— None (disable OTA for this group) —</option>
-        {{range .Updates}}
-        <option value="{{.ID}}"{{if eq .ID $.Group.UpdateID}} selected{{end}}>{{if .OtaPackage}}{{.OtaPackage.TargetBuildID}} ({{.OtaPackage.Type}}){{end}} — {{.RebootBehavior}}</option>
-        {{end}}
-      </select>
-    </div>
-    <div>
-      <button type="submit" class="btn-primary">Save OTA Setting</button>
-      <span class="muted small" style="margin-left:12px;">Applies to all devices in this group. Per-device settings override this.</span>
-    </div>
-  </form>
-</div>
-
 {{template "footer" .}}
 {{end}}

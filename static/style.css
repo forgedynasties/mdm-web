@@ -336,6 +336,15 @@ a:hover { color: var(--accent-h); }
   border: 1px solid rgba(240, 82, 82, 0.3);
   color: var(--danger);
 }
+.alert-info {
+  background: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  color: #90caf9;
+}
+
+.ota-incompatible {
+  color: #666;
+}
 
 /* ── Summary bar ─────────────────────────────────── */
 .summary-grid {
