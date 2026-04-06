@@ -67,9 +67,11 @@
           {{if gt $total 0}}<span class="mono small muted">{{$installed}}/{{$total}} installed</span>{{end}}
           <span class="muted small">{{formatTime .CreatedAt}}</span>
         </div>
-        <div style="display:flex;gap:6px;align-items:center;">
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
           {{if ne .Status "complete"}}
-          <button type="button" class="btn-primary" style="font-size:12px;padding:4px 10px;" onclick="toggleSendPanel({{.ID}})">Send</button>
+          <button type="button" class="btn-primary" style="font-size:12px;padding:4px 10px;width:50px;text-align:center;" onclick="toggleSendPanel({{.ID}})">Send</button>
+          {{else}}
+          <span style="width:50px;"></span>
           {{end}}
           <a href="/updates/{{.ID}}" class="btn-primary" style="text-decoration:none;font-size:12px;padding:4px 10px;background:var(--surface);color:var(--fg);border:1px solid var(--border);">Details</a>
           <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline"
