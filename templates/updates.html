@@ -11,52 +11,69 @@
 <!-- Updates -->
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Updates</h3></div>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>OTA Package</th>
-        <th>Type</th>
-        <th>Reboot</th>
-        <th>Status</th>
-        <th>Targets</th>
-        <th>Created</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {{if .Updates}}
-        {{range .Updates}}
-        <tr>
-          <td class="mono bold"><a href="/updates/{{.ID}}" style="color:var(--accent);text-decoration:none;">#{{.ID}}</a></td>
-          <td class="mono small">{{if .OtaPackage}}{{.OtaPackage.TargetBuildID}}{{if eq .OtaPackage.Type "incremental"}} (from {{.OtaPackage.SourceBuildID}}){{end}}{{else}}—{{end}}</td>
-          <td class="small">{{if .OtaPackage}}{{.OtaPackage.Type}}{{else}}—{{end}}</td>
-          <td class="mono small">{{.RebootBehavior}}</td>
-          <td>
-            <span class="status-badge {{if eq .Status "complete"}}ok{{else if eq .Status "active"}}warn{{else}}muted{{end}}">{{.Status}}</span>
-          </td>
-          <td class="mono small">
-            {{$installed := 0}}{{$total := len .Targets}}
-            {{range .Targets}}{{if eq .Status "installed"}}{{$installed = add $installed 1}}{{end}}{{end}}
-            {{if gt $total 0}}{{$installed}}/{{$total}}{{else}}—{{end}}
-          </td>
-          <td class="muted small">{{formatTime .CreatedAt}}</td>
-          <td>
-            <a href="/updates/{{.ID}}" class="btn-primary" style="text-decoration:none;font-size:12px;padding:4px 10px;">Manage</a>
-            <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline"
-                  onsubmit="return confirm('Delete update #{{.ID}}?')">
-              <button type="submit" class="btn-danger-sm">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {{end}}
-      {{else}}
-        <tr>
-          <td colspan="8" class="empty">No updates yet. Create one below.</td>
-        </tr>
-      {{end}}
-    </tbody>
-  </table>
+  {{if .Updates}}
+    {{range .Updates}}
+    <div class="update-row" style="border-bottom:1px solid var(--border);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <span class="mono bold">#{{.ID}}</span>
+          <span class="mono small">{{if .OtaPackage}}{{.OtaPackage.TargetBuildID}}{{if eq .OtaPackage.Type "incremental"}} ← {{.OtaPackage.SourceBuildID}}{{end}}{{end}}</span>
+          <span class="small muted">{{if .OtaPackage}}{{.OtaPackage.Type}}{{end}}</span>
+          <span class="mono small muted">{{.RebootBehavior}}</span>
+          <span class="status-badge {{if eq .Status "complete"}}ok{{else if eq .Status "active"}}warn{{else}}muted{{end}}">{{.Status}}</span>
+          {{$installed := 0}}{{$total := len .Targets}}
+          {{range .Targets}}{{if eq .Status "installed"}}{{$installed = add $installed 1}}{{end}}{{end}}
+          {{if gt $total 0}}<span class="mono small muted">{{$installed}}/{{$total}} installed</span>{{end}}
+          <span class="muted small">{{formatTime .CreatedAt}}</span>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          {{if ne .Status "complete"}}
+          <button type="button" class="btn-primary" style="font-size:12px;padding:4px 10px;" onclick="toggleSendPanel({{.ID}})">Send</button>
+          {{end}}
+          <a href="/updates/{{.ID}}" class="btn-primary" style="text-decoration:none;font-size:12px;padding:4px 10px;background:var(--surface);color:var(--fg);border:1px solid var(--border);">Details</a>
+          <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline"
+                onsubmit="return confirm('Delete update #{{.ID}}?')">
+            <button type="submit" class="btn-danger-sm">Delete</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Inline send panel (hidden by default) -->
+      <div id="send-panel-{{.ID}}" style="display:none;padding:0 16px 16px;border-top:1px solid var(--border);background:var(--bg);">
+        {{if .OtaPackage}}{{if eq .OtaPackage.Type "incremental"}}
+        <div class="alert alert-info" style="margin:12px 0 8px;">
+          Incremental update — only devices on build <strong>{{.OtaPackage.SourceBuildID}}</strong> will receive it. Others are skipped.
+        </div>
+        {{end}}{{end}}
+        <form action="/updates/{{.ID}}/send" method="POST" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;padding-top:12px;">
+          <div style="flex:1;min-width:200px;">
+            <label class="form-label">Devices</label>
+            <select name="serials" multiple class="form-input" style="min-height:100px;">
+              {{range $.Devices}}
+              <option value="{{.SerialNumber}}">{{.SerialNumber}} ({{.BuildID}})</option>
+              {{end}}
+            </select>
+            <div class="form-hint">Ctrl/Cmd+click to multi-select</div>
+          </div>
+          <div style="flex:1;min-width:200px;">
+            <label class="form-label">Groups</label>
+            <select name="group_ids" multiple class="form-input" style="min-height:100px;">
+              {{range $.Groups}}
+              <option value="{{.ID}}">{{.Name}} ({{.DeviceCount}} devices)</option>
+              {{end}}
+            </select>
+            <div class="form-hint">Expands to member devices</div>
+          </div>
+          <div style="align-self:flex-end;">
+            <button type="submit" class="btn-primary">Send Update</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    {{end}}
+  {{else}}
+    <div class="empty" style="padding:24px;">No updates yet. Create one below.</div>
+  {{end}}
 </div>
 
 <div class="card" style="margin-bottom:24px;">
@@ -163,6 +180,11 @@
 </div>
 
 <script>
+function toggleSendPanel(id) {
+  var panel = document.getElementById('send-panel-' + id);
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
 function toggleScheduledTime() {
   var row = document.getElementById('scheduled-time-row');
   var input = document.getElementById('scheduled-time');

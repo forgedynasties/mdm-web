@@ -1035,17 +1035,20 @@ func (h *Handler) Updates(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// Load targets for each update
 	for i := range updates {
 		targets, err := h.db.GetUpdateTargets(r.Context(), updates[i].ID)
 		if err == nil {
 			updates[i].Targets = targets
 		}
 	}
+	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "")
+	groups, _ := h.db.ListGroups(r.Context())
 	h.tmpl.ExecuteTemplate(w, "updates.html", map[string]any{
 		"Title":    "Updates",
 		"Packages": pkgs,
 		"Updates":  updates,
+		"Devices":  devices,
+		"Groups":   groups,
 	})
 }
 
