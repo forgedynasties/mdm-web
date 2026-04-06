@@ -376,10 +376,11 @@
         },
         y: {
           min: 0,
-          max: 105,
+          max: 100,
+          grace: '5%',
           ticks: {
             color: "#7a7f9a",
-            callback: v => v <= 100 ? v + "%" : "",
+            callback: v => v + "%",
             stepSize: 20,
           },
           grid: { color: "rgba(46,51,71,0.8)" },
