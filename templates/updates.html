@@ -1,3 +1,44 @@
+{{define "send-picker"}}
+{{/* Reusable send picker. Expects: $.Devices, $.Groups, update ID passed via wrapping form action */}}
+<div class="send-picker">
+  <div class="send-tabs">
+    <button type="button" class="send-tab active" onclick="switchSendTab(this,'devices')">Devices</button>
+    <button type="button" class="send-tab" onclick="switchSendTab(this,'groups')">Groups</button>
+  </div>
+  <div class="send-tab-panel" data-tab="devices">
+    <input type="text" class="form-input send-search" placeholder="Search serials..." oninput="filterSendList(this)">
+    <div class="send-list-actions">
+      <label class="send-check-all"><input type="checkbox" onchange="toggleAll(this,'serials')"> Select all</label>
+      <span class="muted small send-count"></span>
+    </div>
+    <div class="send-list">
+      {{range $.Devices}}
+      <label class="send-item" data-search="{{.SerialNumber}}">
+        <input type="checkbox" name="serials" value="{{.SerialNumber}}">
+        <span class="mono small">{{.SerialNumber}}</span>
+        <span class="muted small">{{.BuildID}}</span>
+      </label>
+      {{else}}
+      <div class="muted small" style="padding:8px 0;">No devices</div>
+      {{end}}
+    </div>
+  </div>
+  <div class="send-tab-panel" data-tab="groups" style="display:none;">
+    <div class="send-list">
+      {{range $.Groups}}
+      <label class="send-item">
+        <input type="checkbox" name="group_ids" value="{{.ID}}">
+        <span>{{.Name}}</span>
+        <span class="muted small">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
+      </label>
+      {{else}}
+      <div class="muted small" style="padding:8px 0;">No groups</div>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{end}}
+
 {{define "updates.html"}}
 {{template "header" .}}
 
@@ -39,34 +80,15 @@
       </div>
 
       <!-- Inline send panel -->
-      <div id="send-panel-{{.ID}}" style="display:none;padding:0 16px 16px;border-top:1px solid var(--border);background:var(--bg);">
+      <div id="send-panel-{{.ID}}" style="display:none;border-top:1px solid var(--border);background:var(--bg);padding:12px 16px 16px;">
         {{if .OtaPackage}}{{if eq .OtaPackage.Type "incremental"}}
-        <div class="alert alert-info" style="margin:12px 0 8px;">
+        <div class="alert alert-info" style="margin:0 0 12px;">
           Incremental update — only devices on build <strong>{{.OtaPackage.SourceBuildID}}</strong> will receive it. Others are skipped.
         </div>
         {{end}}{{end}}
-        <form action="/updates/{{.ID}}/send" method="POST" style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;padding-top:12px;">
-          <div style="flex:1;min-width:200px;">
-            <label class="form-label">Devices</label>
-            <select name="serials" multiple class="form-input" style="min-height:100px;">
-              {{range $.Devices}}
-              <option value="{{.SerialNumber}}">{{.SerialNumber}} ({{.BuildID}})</option>
-              {{end}}
-            </select>
-            <div class="form-hint">Ctrl/Cmd+click to multi-select</div>
-          </div>
-          <div style="flex:1;min-width:200px;">
-            <label class="form-label">Groups</label>
-            <select name="group_ids" multiple class="form-input" style="min-height:100px;">
-              {{range $.Groups}}
-              <option value="{{.ID}}">{{.Name}} ({{.DeviceCount}} devices)</option>
-              {{end}}
-            </select>
-            <div class="form-hint">Expands to member devices</div>
-          </div>
-          <div style="align-self:flex-end;">
-            <button type="submit" class="btn-primary">Send Update</button>
-          </div>
+        <form action="/updates/{{.ID}}/send" method="POST">
+          {{template "send-picker" $}}
+          <button type="submit" class="btn-primary" style="margin-top:12px;">Send Update</button>
         </form>
       </div>
     </div>
@@ -123,6 +145,39 @@
 function toggleSendPanel(id) {
   var panel = document.getElementById('send-panel-' + id);
   panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+function switchSendTab(btn, tab) {
+  var picker = btn.closest('.send-picker');
+  picker.querySelectorAll('.send-tab').forEach(function(t) { t.classList.remove('active'); });
+  btn.classList.add('active');
+  picker.querySelectorAll('.send-tab-panel').forEach(function(p) {
+    p.style.display = p.dataset.tab === tab ? '' : 'none';
+  });
+}
+
+function filterSendList(input) {
+  var q = input.value.toLowerCase();
+  var panel = input.closest('.send-tab-panel');
+  var items = panel.querySelectorAll('.send-item');
+  var visible = 0;
+  items.forEach(function(item) {
+    var match = !q || item.dataset.search.toLowerCase().indexOf(q) !== -1;
+    item.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  var countEl = panel.querySelector('.send-count');
+  if (countEl) countEl.textContent = q ? visible + ' match' + (visible !== 1 ? 'es' : '') : '';
+}
+
+function toggleAll(master, name) {
+  var panel = master.closest('.send-tab-panel');
+  var boxes = panel.querySelectorAll('input[name="' + name + '"]');
+  boxes.forEach(function(cb) {
+    if (cb.closest('.send-item').style.display !== 'none') {
+      cb.checked = master.checked;
+    }
+  });
 }
 
 function toggleScheduledTime() {

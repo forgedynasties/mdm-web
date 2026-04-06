@@ -60,37 +60,54 @@
 {{if ne .Update.Status "complete"}}
 <div class="card">
   <div class="card-header"><h3>Send Update</h3></div>
-  <form action="/updates/{{.Update.ID}}/send" method="POST" style="padding:16px;">
+  <div style="padding:16px;">
     {{if .Update.OtaPackage}}{{if eq .Update.OtaPackage.Type "incremental"}}
     <div class="alert alert-info" style="margin-top:0;">
-      Incremental update — only devices on build <strong>{{.Update.OtaPackage.SourceBuildID}}</strong> will receive it. Others will be skipped automatically.
+      Incremental update — only devices on build <strong>{{.Update.OtaPackage.SourceBuildID}}</strong> will receive it. Others are skipped.
     </div>
     {{end}}{{end}}
-
-    <div class="form-row">
-      <label class="form-label">Devices</label>
-      <select name="serials" multiple class="form-input" style="min-height:120px;">
-        {{range .Devices}}
-        <option value="{{.SerialNumber}}">{{.SerialNumber}} ({{.BuildID}})</option>
-        {{end}}
-      </select>
-      <div class="form-hint">Hold Ctrl/Cmd to select multiple. Devices with active updates are automatically skipped.</div>
-    </div>
-
-    <div class="form-row">
-      <label class="form-label">Groups</label>
-      <select name="group_ids" multiple class="form-input" style="min-height:80px;">
-        {{range .Groups}}
-        <option value="{{.ID}}">{{.Name}} ({{.DeviceCount}} devices)</option>
-        {{end}}
-      </select>
-      <div class="form-hint">All devices in selected groups will be added as targets.</div>
-    </div>
-
-    <button type="submit" class="btn-primary">Send Update</button>
-  </form>
+    <form action="/updates/{{.Update.ID}}/send" method="POST">
+      {{template "send-picker" .}}
+      <button type="submit" class="btn-primary" style="margin-top:12px;">Send Update</button>
+    </form>
+  </div>
 </div>
 {{end}}
+
+<script>
+function switchSendTab(btn, tab) {
+  var picker = btn.closest('.send-picker');
+  picker.querySelectorAll('.send-tab').forEach(function(t) { t.classList.remove('active'); });
+  btn.classList.add('active');
+  picker.querySelectorAll('.send-tab-panel').forEach(function(p) {
+    p.style.display = p.dataset.tab === tab ? '' : 'none';
+  });
+}
+
+function filterSendList(input) {
+  var q = input.value.toLowerCase();
+  var panel = input.closest('.send-tab-panel');
+  var items = panel.querySelectorAll('.send-item');
+  var visible = 0;
+  items.forEach(function(item) {
+    var match = !q || item.dataset.search.toLowerCase().indexOf(q) !== -1;
+    item.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  var countEl = panel.querySelector('.send-count');
+  if (countEl) countEl.textContent = q ? visible + ' match' + (visible !== 1 ? 'es' : '') : '';
+}
+
+function toggleAll(master, name) {
+  var panel = master.closest('.send-tab-panel');
+  var boxes = panel.querySelectorAll('input[name="' + name + '"]');
+  boxes.forEach(function(cb) {
+    if (cb.closest('.send-item').style.display !== 'none') {
+      cb.checked = master.checked;
+    }
+  });
+}
+</script>
 
 {{template "footer" .}}
 {{end}}
