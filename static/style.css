@@ -706,11 +706,12 @@ input[type="checkbox"]:hover {
 /* ── App selector ────────────────────────────────── */
 .app-select-wrap {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
-.app-select-wrap select { flex: 1; }
+.app-select-wrap select { flex: 1; min-width: 0; }
 
 .btn-outline {
   background: transparent;
