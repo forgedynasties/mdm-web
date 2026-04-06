@@ -201,41 +201,58 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 </div>
 
 <div class="filter-bar">
-  <select id="filter-group" class="filter-select" onchange="applyFilters()">
-    <option value="">All Groups</option>
-    {{range .Groups}}
-      <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
-    {{end}}
-  </select>
+  <div class="filter-group">
+    <label class="filter-label">Group</label>
+    <select id="filter-group" class="filter-select {{if .FilterGroup}}active{{end}}" onchange="applyFilters()">
+      <option value="">All</option>
+      {{range .Groups}}
+        <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
+      {{end}}
+    </select>
+  </div>
 
-  <select id="filter-status" class="filter-select" onchange="applyFilters()">
-    <option value="">All Status</option>
-    <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
-    <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
-  </select>
+  <div class="filter-group">
+    <label class="filter-label">Status</label>
+    <select id="filter-status" class="filter-select {{if .FilterStatus}}active{{end}}" onchange="applyFilters()">
+      <option value="">All</option>
+      <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
+      <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
+    </select>
+  </div>
 
-  <select id="filter-build" class="filter-select" onchange="applyFilters()">
-    <option value="">All Builds</option>
-    {{range .Builds}}
-      <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
-    {{end}}
-  </select>
+  <div class="filter-group">
+    <label class="filter-label">Build</label>
+    <select id="filter-build" class="filter-select {{if .FilterBuild}}active{{end}}" onchange="applyFilters()">
+      <option value="">All</option>
+      {{range .Builds}}
+        <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
+      {{end}}
+    </select>
+  </div>
 
-  <select id="filter-battery" class="filter-select" onchange="applyFilters()">
-    <option value="">All Battery</option>
-    <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical (&lt;20%)</option>
-    <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low (20-49%)</option>
-    <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Good (50%+)</option>
-  </select>
+  <div class="filter-group">
+    <label class="filter-label">Battery</label>
+    <select id="filter-battery" class="filter-select {{if .FilterBattery}}active{{end}}" onchange="applyFilters()">
+      <option value="">All</option>
+      <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical (&lt;20%)</option>
+      <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low (20-49%)</option>
+      <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Good (50%+)</option>
+    </select>
+  </div>
 
-  <select id="filter-hidden" class="filter-select" onchange="applyFilters()">
-    <option value="">Active Only</option>
-    <option value="include" {{if eq .FilterHidden "include"}}selected{{end}}>Include Hidden</option>
-    <option value="only" {{if eq .FilterHidden "only"}}selected{{end}}>Hidden Only</option>
-  </select>
+  <div class="filter-group">
+    <label class="filter-label">Visibility</label>
+    <select id="filter-hidden" class="filter-select {{if .FilterHidden}}active{{end}}" onchange="applyFilters()">
+      <option value="">Active Only</option>
+      <option value="include" {{if eq .FilterHidden "include"}}selected{{end}}>Include Hidden</option>
+      <option value="only" {{if eq .FilterHidden "only"}}selected{{end}}>Hidden Only</option>
+    </select>
+  </div>
 
   {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery .FilterHidden}}
-    <button class="btn-outline" onclick="clearFilters()" style="padding:6px 12px;font-size:12px;">Clear</button>
+    <div class="filter-group" style="align-self:flex-end;">
+      <button class="filter-clear" onclick="clearFilters()">Clear All</button>
+    </div>
   {{end}}
 </div>
 
