@@ -98,11 +98,29 @@ type Command struct {
 	CreatedAt  time.Time       `json:"created_at"`
 }
 
+type ExportRow struct {
+	SerialNumber string          `json:"serial_number"`
+	BatteryPct   int             `json:"battery_pct"`
+	BuildID      string          `json:"build_id"`
+	Extra        json.RawMessage `json:"extra"`
+	Timestamp    time.Time       `json:"timestamp"`
+	LastSeenAt   time.Time       `json:"last_seen_at"`
+}
+
 type CommandDelivery struct {
 	SerialNumber string    `json:"serial_number"`
 	Status       string    `json:"status"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	Output       string    `json:"output"`
+}
+
+// DeviceFilter holds optional filter parameters for device listing.
+type DeviceFilter struct {
+	Search  string    // search by serial/build (ILIKE)
+	GroupID uuid.UUID // filter by group membership (uuid.Nil = no filter)
+	Online  string    // "online", "offline", or "" (no filter)
+	BuildID string    // exact build_id match, or "" (no filter)
+	Battery string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
 }
 
 type DB struct {
@@ -192,9 +210,68 @@ func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
 	return s, err
 }
 
-func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, sort string) ([]Device, error) {
-	const base = `
-		SELECT
+func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int, sort string) ([]Device, error) {
+	query, args := d.buildDeviceQuery(f, sort, true, limit, offset)
+
+	rows, err := d.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []Device
+	for rows.Next() {
+		var dev Device
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.UpdateID, &dev.UpdateLabel); err != nil {
+			return nil, err
+		}
+		devices = append(devices, dev)
+	}
+	return devices, rows.Err()
+}
+
+func (d *DB) CountDevices(ctx context.Context, f DeviceFilter) (int, error) {
+	query, args := d.buildDeviceQuery(f, "", false, 0, 0)
+
+	var count int
+	err := d.pool.QueryRow(ctx, query, args...).Scan(&count)
+	return count, err
+}
+
+func (d *DB) buildDeviceQuery(f DeviceFilter, sort string, selectRows bool, limit, offset int) (string, []interface{}) {
+	var args []interface{}
+	argN := 1
+
+	var joins []string
+	var wheres []string
+	wheres = append(wheres, "NOT d.hidden")
+
+	if f.Search != "" {
+		wheres = append(wheres, fmt.Sprintf("(d.serial_number ILIKE $%d OR d.build_id ILIKE $%d)", argN, argN))
+		args = append(args, "%"+f.Search+"%")
+		argN++
+	}
+
+	if f.GroupID != uuid.Nil {
+		joins = append(joins, fmt.Sprintf("JOIN device_groups dg ON dg.device_id = d.id AND dg.group_id = $%d", argN))
+		args = append(args, f.GroupID)
+		argN++
+	}
+
+	if f.Online == "online" {
+		wheres = append(wheres, "d.last_seen_at > NOW() - INTERVAL '3 minutes'")
+	} else if f.Online == "offline" {
+		wheres = append(wheres, "d.last_seen_at <= NOW() - INTERVAL '3 minutes'")
+	}
+
+	if f.BuildID != "" {
+		wheres = append(wheres, fmt.Sprintf("d.build_id = $%d", argN))
+		args = append(args, f.BuildID)
+		argN++
+	}
+
+	if selectRows {
+		base := `SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
 			COALESCE(c.battery_pct, 0) AS battery_pct,
 			d.poll_interval_ms,
@@ -214,54 +291,154 @@ func (d *DB) ListDevices(ctx context.Context, search string, offset, limit int, 
 		LEFT JOIN updates u ON u.id = d.update_id
 		LEFT JOIN ota_packages p ON p.id = u.ota_package_id`
 
-	orderClause := "d.last_seen_at DESC"
-	switch sort {
-	case "serial":
-		orderClause = "d.serial_number ASC"
-	case "battery":
-		orderClause = "COALESCE(c.battery_pct, 0) ASC"
+		for _, j := range joins {
+			base += "\n" + j
+		}
+
+		base += "\nWHERE " + strings.Join(wheres, " AND ")
+
+		// battery filter needs the lateral join, so it goes in HAVING-style via a wrapping CTE
+		// or we simply add it to WHERE referencing c.battery_pct
+		switch f.Battery {
+		case "low":
+			base += " AND COALESCE(c.battery_pct, 0) < 20"
+		case "mid":
+			base += " AND COALESCE(c.battery_pct, 0) BETWEEN 20 AND 49"
+		case "ok":
+			base += " AND COALESCE(c.battery_pct, 0) >= 50"
+		}
+
+		orderClause := "d.last_seen_at DESC"
+		switch sort {
+		case "serial":
+			orderClause = "d.serial_number ASC"
+		case "battery":
+			orderClause = "COALESCE(c.battery_pct, 0) ASC"
+		}
+		base += "\nORDER BY " + orderClause
+
+		base += fmt.Sprintf("\nLIMIT $%d OFFSET $%d", argN, argN+1)
+		args = append(args, limit, offset)
+
+		return base, args
 	}
 
-	var rows pgx.Rows
-	var err error
-	if search != "" {
-		rows, err = d.pool.Query(ctx, base+`
-		WHERE NOT d.hidden AND (d.serial_number ILIKE $1 OR d.build_id ILIKE $1)
-		ORDER BY `+orderClause+`
-		LIMIT $2 OFFSET $3`, "%"+search+"%", limit, offset)
-	} else {
-		rows, err = d.pool.Query(ctx, base+`
-		WHERE NOT d.hidden
-		ORDER BY `+orderClause+`
-		LIMIT $1 OFFSET $2`, limit, offset)
+	// COUNT query
+	base := "SELECT COUNT(*) FROM devices d"
+	// For battery filter we need the lateral join even in count
+	needLateral := f.Battery != ""
+	if needLateral {
+		base += `
+		LEFT JOIN LATERAL (
+			SELECT battery_pct FROM checkins
+			WHERE device_id = d.id
+			ORDER BY created_at DESC
+			LIMIT 1
+		) c ON true`
 	}
+	for _, j := range joins {
+		base += "\n" + j
+	}
+	base += "\nWHERE " + strings.Join(wheres, " AND ")
+	switch f.Battery {
+	case "low":
+		base += " AND COALESCE(c.battery_pct, 0) < 20"
+	case "mid":
+		base += " AND COALESCE(c.battery_pct, 0) BETWEEN 20 AND 49"
+	case "ok":
+		base += " AND COALESCE(c.battery_pct, 0) >= 50"
+	}
+
+	return base, args
+}
+
+// GetDistinctBuildIDs returns all distinct non-empty build IDs for non-hidden devices.
+func (d *DB) GetDistinctBuildIDs(ctx context.Context) ([]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT build_id FROM devices
+		WHERE NOT hidden AND build_id != ''
+		ORDER BY build_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var builds []string
+	for rows.Next() {
+		var b string
+		if err := rows.Scan(&b); err != nil {
+			return nil, err
+		}
+		builds = append(builds, b)
+	}
+	return builds, rows.Err()
+}
+
+// ExportCheckins returns checkin data for multiple devices within a time range,
+// sampled at the given interval in seconds (0 = all rows).
+func (d *DB) ExportCheckins(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int) ([]ExportRow, error) {
+	var query string
+	var args []interface{}
+
+	if intervalSec > 0 {
+		// Use ROW_NUMBER to pick one row per device per interval bucket
+		query = `
+		WITH numbered AS (
+			SELECT
+				d.serial_number,
+				c.battery_pct,
+				c.build_id,
+				c.extra,
+				c.created_at,
+				d.last_seen_at,
+				ROW_NUMBER() OVER (
+					PARTITION BY c.device_id,
+						floor(EXTRACT(EPOCH FROM c.created_at) / $4)
+					ORDER BY c.created_at
+				) AS rn
+			FROM checkins c
+			JOIN devices d ON d.id = c.device_id
+			WHERE c.device_id = ANY($1)
+			  AND c.created_at >= $2
+			  AND c.created_at <= $3
+		)
+		SELECT serial_number, battery_pct, build_id, extra, created_at, last_seen_at
+		FROM numbered WHERE rn = 1
+		ORDER BY serial_number, created_at`
+		args = []interface{}{deviceIDs, start, end, intervalSec}
+	} else {
+		query = `
+		SELECT d.serial_number, c.battery_pct, c.build_id, c.extra, c.created_at, d.last_seen_at
+		FROM checkins c
+		JOIN devices d ON d.id = c.device_id
+		WHERE c.device_id = ANY($1)
+		  AND c.created_at >= $2
+		  AND c.created_at <= $3
+		ORDER BY d.serial_number, c.created_at`
+		args = []interface{}{deviceIDs, start, end}
+	}
+
+	rows, err := d.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var devices []Device
+	var out []ExportRow
 	for rows.Next() {
-		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.UpdateID, &dev.UpdateLabel); err != nil {
+		var r ExportRow
+		var extra []byte
+		if err := rows.Scan(&r.SerialNumber, &r.BatteryPct, &r.BuildID, &extra, &r.Timestamp, &r.LastSeenAt); err != nil {
 			return nil, err
 		}
-		devices = append(devices, dev)
+		if len(extra) > 0 {
+			r.Extra = json.RawMessage(extra)
+		} else {
+			r.Extra = json.RawMessage("{}")
+		}
+		out = append(out, r)
 	}
-	return devices, rows.Err()
-}
-
-func (d *DB) CountDevices(ctx context.Context, search string) (int, error) {
-	var count int
-	if search != "" {
-		err := d.pool.QueryRow(ctx, `
-			SELECT COUNT(*) FROM devices
-			WHERE NOT hidden AND (serial_number ILIKE $1 OR build_id ILIKE $1)`,
-			"%"+search+"%").Scan(&count)
-		return count, err
-	}
-	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM devices WHERE NOT hidden`).Scan(&count)
-	return count, err
+	return out, rows.Err()
 }
 
 func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {

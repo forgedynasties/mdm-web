@@ -11,29 +11,33 @@
     </form>
     <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
     <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
+    <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
   </div>
   <div style="flex:1;"></div>
   {{if eq .Sort "serial"}}
     <a class="btn-outline"
-       hx-get="/?page=1&q={{.Query}}&sort=battery"
+       hx-get="/"
+       hx-vals='js:getFilterParams({page:"1",sort:"battery"})'
        hx-target="#device-table-container"
        hx-swap="innerHTML"
        hx-push-url="true"
-       style="white-space:nowrap;">A→Z Serial</a>
+       style="white-space:nowrap;">A-Z Serial</a>
   {{else if eq .Sort "battery"}}
     <a class="btn-outline"
-       hx-get="/?page=1&q={{.Query}}&sort="
+       hx-get="/"
+       hx-vals='js:getFilterParams({page:"1",sort:""})'
        hx-target="#device-table-container"
        hx-swap="innerHTML"
        hx-push-url="true"
-       style="white-space:nowrap;">↑ Battery</a>
+       style="white-space:nowrap;">^ Battery</a>
   {{else}}
     <a class="btn-outline"
-       hx-get="/?page=1&q={{.Query}}&sort=serial"
+       hx-get="/"
+       hx-vals='js:getFilterParams({page:"1",sort:"serial"})'
        hx-target="#device-table-container"
        hx-swap="innerHTML"
        hx-push-url="true"
-       style="white-space:nowrap;">↓ Last Seen</a>
+       style="white-space:nowrap;">v Last Seen</a>
   {{end}}
 </div>
 
@@ -99,7 +103,7 @@
           <a href="/devices/{{.SerialNumber}}" class="link-detail">View</a>
           <form action="/devices/{{.SerialNumber}}/hide" method="POST" style="display:inline;margin-left:6px;"
                 onsubmit="return confirm('Hide {{.SerialNumber}}? It will reappear on next check-in.')">
-            <button type="submit" class="btn-danger-sm" title="Hide device">×</button>
+            <button type="submit" class="btn-danger-sm" title="Hide device">x</button>
           </form>
         </td>
       </tr>
@@ -115,6 +119,23 @@
 </table>
 
 <script>
+function getFilterParams(overrides) {
+  var p = new URLSearchParams(location.search);
+  var vals = {
+    q: p.get('q') || '',
+    sort: p.get('sort') || '',
+    page: p.get('page') || '1',
+    group: p.get('group') || '',
+    status: p.get('status') || '',
+    build: p.get('build') || '',
+    battery: p.get('battery') || ''
+  };
+  if (overrides) {
+    for (var k in overrides) vals[k] = overrides[k];
+  }
+  return vals;
+}
+
 function getSelectedSerials() {
   return Array.from(document.querySelectorAll('.device-cb:checked')).map(cb => cb.value);
 }
@@ -129,7 +150,6 @@ function updateBulkBar() {
   bar.style.display = serials.length > 0 ? 'flex' : 'none';
   count.textContent = serials.length + ' selected';
 
-  // sync bulk-hide form hidden inputs
   var form = document.getElementById('bulk-hide-form');
   form.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
   serials.forEach(function(s) {
@@ -138,7 +158,6 @@ function updateBulkBar() {
     form.appendChild(inp);
   });
 
-  // update select-all state
   if (allBoxes.length > 0 && serials.length === allBoxes.length) {
     allCb.checked = true; allCb.indeterminate = false;
   } else if (serials.length > 0) {
@@ -163,7 +182,6 @@ function bulkReboot() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
   if (!confirm('Reboot ' + serials.length + ' device(s)? They will reboot on next checkin.')) return;
-  // POST to /commands with type=reboot targeting selected serials
   var form = document.createElement('form');
   form.method = 'POST'; form.action = '/commands';
   var fields = {type: 'reboot', target_type: 'devices', target_serials: serials.join(','), apk_url: ''};
@@ -175,18 +193,25 @@ function bulkReboot() {
   document.body.appendChild(form);
   form.submit();
 }
+
+function bulkExport() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  window.location.href = '/export?serials=' + encodeURIComponent(serials.join(','));
+}
 </script>
 
 {{if gt .TotalPages 1}}
 <div class="pagination">
   {{if gt .Page 1}}
     <a class="page-btn"
-       hx-get="/?page={{sub .Page 1}}&q={{.Query}}&sort={{.Sort}}"
+       hx-get="/"
+       hx-vals='js:getFilterParams({page:"{{sub .Page 1}}"})'
        hx-target="#device-table-container"
        hx-swap="innerHTML"
-       hx-push-url="true">← Prev</a>
+       hx-push-url="true">&#8592; Prev</a>
   {{else}}
-    <span class="page-btn disabled">← Prev</span>
+    <span class="page-btn disabled">&#8592; Prev</span>
   {{end}}
 
   <div class="page-numbers">
@@ -195,7 +220,8 @@ function bulkReboot() {
         <span class="page-num active">{{.}}</span>
       {{else}}
         <a class="page-num"
-           hx-get="/?page={{.}}&q={{$.Query}}&sort={{$.Sort}}"
+           hx-get="/"
+           hx-vals='js:getFilterParams({page:"{{.}}"})'
            hx-target="#device-table-container"
            hx-swap="innerHTML"
            hx-push-url="true">{{.}}</a>
@@ -205,12 +231,13 @@ function bulkReboot() {
 
   {{if lt .Page .TotalPages}}
     <a class="page-btn"
-       hx-get="/?page={{add .Page 1}}&q={{.Query}}&sort={{.Sort}}"
+       hx-get="/"
+       hx-vals='js:getFilterParams({page:"{{add .Page 1}}"})'
        hx-target="#device-table-container"
        hx-swap="innerHTML"
-       hx-push-url="true">Next →</a>
+       hx-push-url="true">Next &#8594;</a>
   {{else}}
-    <span class="page-btn disabled">Next →</span>
+    <span class="page-btn disabled">Next &#8594;</span>
   {{end}}
 </div>
 {{end}}
@@ -264,17 +291,92 @@ function bulkReboot() {
     type="search"
     name="q"
     value="{{.Query}}"
-    placeholder="Search by serial number or build ID…"
+    placeholder="Search by serial number or build ID..."
     hx-get="/"
     hx-trigger="keyup changed delay:350ms, search"
     hx-target="#device-table-container"
     hx-swap="innerHTML"
     hx-push-url="true"
     hx-indicator="#refresh-indicator"
-    hx-vals='js:{sort: new URLSearchParams(location.search).get("sort") || ""}'
+    hx-vals='js:getFilterParams({page:"1"})'
     class="search-input"
   >
 </div>
+
+<div class="filter-bar">
+  <select id="filter-group" class="filter-select" onchange="applyFilters()">
+    <option value="">All Groups</option>
+    {{range .Groups}}
+      <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
+    {{end}}
+  </select>
+
+  <select id="filter-status" class="filter-select" onchange="applyFilters()">
+    <option value="">All Status</option>
+    <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
+    <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
+  </select>
+
+  <select id="filter-build" class="filter-select" onchange="applyFilters()">
+    <option value="">All Builds</option>
+    {{range .Builds}}
+      <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
+    {{end}}
+  </select>
+
+  <select id="filter-battery" class="filter-select" onchange="applyFilters()">
+    <option value="">All Battery</option>
+    <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical (&lt;20%)</option>
+    <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low (20-49%)</option>
+    <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Good (50%+)</option>
+  </select>
+
+  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery}}
+    <button class="btn-outline" onclick="clearFilters()" style="padding:6px 12px;font-size:12px;">Clear</button>
+  {{end}}
+</div>
+
+<script>
+function getFilterParams(overrides) {
+  var p = new URLSearchParams(location.search);
+  var vals = {
+    q: p.get('q') || '',
+    sort: p.get('sort') || '',
+    page: p.get('page') || '1',
+    group: p.get('group') || '',
+    status: p.get('status') || '',
+    build: p.get('build') || '',
+    battery: p.get('battery') || ''
+  };
+  // Read from dropdowns if they exist (they exist on full page, not on htmx partial)
+  var fg = document.getElementById('filter-group');
+  var fs = document.getElementById('filter-status');
+  var fb = document.getElementById('filter-build');
+  var fbt = document.getElementById('filter-battery');
+  if (fg) vals.group = fg.value;
+  if (fs) vals.status = fs.value;
+  if (fb) vals.build = fb.value;
+  if (fbt) vals.battery = fbt.value;
+  if (overrides) {
+    for (var k in overrides) vals[k] = overrides[k];
+  }
+  return vals;
+}
+
+function applyFilters() {
+  var params = getFilterParams({page: '1'});
+  var q = new URLSearchParams(params).toString();
+  htmx.ajax('GET', '/?' + q, {target: '#device-table-container', swap: 'innerHTML', pushUrl: true});
+}
+
+function clearFilters() {
+  document.getElementById('filter-group').value = '';
+  document.getElementById('filter-status').value = '';
+  document.getElementById('filter-build').value = '';
+  document.getElementById('filter-battery').value = '';
+  applyFilters();
+}
+</script>
 
 <div class="card"
      id="device-table-container"
@@ -283,7 +385,7 @@ function bulkReboot() {
      hx-target="#device-table-container"
      hx-swap="innerHTML"
      hx-indicator="#refresh-indicator"
-     hx-vals='js:{page: new URLSearchParams(location.search).get("page") || "1", q: new URLSearchParams(location.search).get("q") || "", sort: new URLSearchParams(location.search).get("sort") || ""}'>
+     hx-vals='js:getFilterParams()'>
   {{template "device-table" .}}
 </div>
 

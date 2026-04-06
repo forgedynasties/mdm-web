@@ -1,0 +1,146 @@
+{{define "export.html"}}
+{{template "header" .}}
+
+<a href="/" class="back-link">&#8592; Back to Devices</a>
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title">Export Data</h2>
+    <p class="page-subtitle">{{len .Serials}} device{{if ne (len .Serials) 1}}s{{end}} selected</p>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Selected Devices</h3>
+  </div>
+  <div style="padding:12px 20px;">
+    <div class="export-serials">
+      {{range .Serials}}
+        <span class="status-badge muted">{{.}}</span>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+<form action="/export/csv" method="POST" class="export-form">
+  {{range .Serials}}
+    <input type="hidden" name="serials" value="{{.}}">
+  {{end}}
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header">
+      <h3>Time Range</h3>
+    </div>
+    <div style="padding:16px 20px;">
+      <div class="export-time-row">
+        <div class="form-row">
+          <label class="form-label">Start</label>
+          <input type="datetime-local" name="start" class="form-input" id="export-start">
+        </div>
+        <div class="form-row">
+          <label class="form-label">End</label>
+          <input type="datetime-local" name="end" class="form-input" id="export-end">
+        </div>
+      </div>
+      <div style="margin-top:10px;">
+        <span class="form-label" style="margin-right:8px;">Quick:</span>
+        <div class="dur-btns" style="display:inline-flex;">
+          <button type="button" class="dur-btn" onclick="setRange(1)">1h</button>
+          <button type="button" class="dur-btn" onclick="setRange(6)">6h</button>
+          <button type="button" class="dur-btn" onclick="setRange(24)">24h</button>
+          <button type="button" class="dur-btn active" onclick="setRange(48)">48h</button>
+          <button type="button" class="dur-btn" onclick="setRange(168)">7d</button>
+          <button type="button" class="dur-btn" onclick="setRange(720)">30d</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header">
+      <h3>Sampling Interval</h3>
+    </div>
+    <div style="padding:16px 20px;">
+      <p class="muted small" style="margin-bottom:10px;">
+        Reduce data volume by picking one row per interval per device. "All" exports every checkin.
+      </p>
+      <div class="dur-btns">
+        <button type="button" class="dur-btn active" onclick="setInterval(this, 0)">All</button>
+        <button type="button" class="dur-btn" onclick="setInterval(this, 60)">1 min</button>
+        <button type="button" class="dur-btn" onclick="setInterval(this, 300)">5 min</button>
+        <button type="button" class="dur-btn" onclick="setInterval(this, 900)">15 min</button>
+        <button type="button" class="dur-btn" onclick="setInterval(this, 1800)">30 min</button>
+        <button type="button" class="dur-btn" onclick="setInterval(this, 3600)">1 hr</button>
+        <button type="button" class="dur-btn" onclick="setInterval(this, 21600)">6 hr</button>
+        <button type="button" class="dur-btn" onclick="setInterval(this, 86400)">1 day</button>
+      </div>
+      <input type="hidden" name="interval" id="export-interval" value="0">
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header">
+      <h3>Columns</h3>
+    </div>
+    <div style="padding:16px 20px;">
+      <div class="export-columns">
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_pct" checked> Battery %</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_temp_c" checked> Battery Temp</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="build_id" checked> Build ID</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="wifi" checked> WiFi SSID</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="ip_address" checked> IP Address</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_used_mb" checked> RAM Used (MB)</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_total_mb" checked> RAM Total (MB)</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="storage_free_gb" checked> Storage Free (GB)</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="uptime_seconds" checked> Uptime (sec)</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="wlc_status" checked> WLC Status</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="timezone" checked> Timezone</label>
+        <label class="checkbox-label"><input type="checkbox" name="columns" value="last_seen" checked> Last Seen</label>
+      </div>
+      <div style="margin-top:10px;">
+        <button type="button" class="btn-outline" onclick="toggleAllCols(true)" style="padding:4px 10px;font-size:12px;">Select All</button>
+        <button type="button" class="btn-outline" onclick="toggleAllCols(false)" style="padding:4px 10px;font-size:12px;">Deselect All</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <button type="submit" class="btn-primary">Download CSV</button>
+  </div>
+</form>
+
+<script>
+function setRange(hours) {
+  var now = new Date();
+  var start = new Date(now.getTime() - hours * 3600 * 1000);
+  document.getElementById('export-start').value = toLocalISO(start);
+  document.getElementById('export-end').value = toLocalISO(now);
+  // Update active state
+  document.querySelectorAll('.dur-btns')[0].querySelectorAll('.dur-btn').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  event.target.classList.add('active');
+}
+
+function toLocalISO(d) {
+  var pad = function(n) { return n < 10 ? '0' + n : n; };
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function setInterval(btn, sec) {
+  document.getElementById('export-interval').value = sec;
+  btn.closest('.dur-btns').querySelectorAll('.dur-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+}
+
+function toggleAllCols(checked) {
+  document.querySelectorAll('.export-columns input[type="checkbox"]').forEach(function(cb) { cb.checked = checked; });
+}
+
+// Default: last 48 hours
+setRange(48);
+</script>
+
+{{template "footer" .}}
+{{end}}

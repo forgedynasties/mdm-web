@@ -368,12 +368,28 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	}
 	offset := (page - 1) * pageSize
 
-	devices, err := h.db.ListDevices(r.Context(), q, offset, pageSize, sort)
+	// Build filter
+	var groupID uuid.UUID
+	if gid := r.URL.Query().Get("group"); gid != "" {
+		if parsed, err := uuid.Parse(gid); err == nil {
+			groupID = parsed
+		}
+	}
+
+	filter := db.DeviceFilter{
+		Search:  q,
+		GroupID: groupID,
+		Online:  r.URL.Query().Get("status"),
+		BuildID: r.URL.Query().Get("build"),
+		Battery: r.URL.Query().Get("battery"),
+	}
+
+	devices, err := h.db.ListDevices(r.Context(), filter, offset, pageSize, sort)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	total, err := h.db.CountDevices(r.Context(), q)
+	total, err := h.db.CountDevices(r.Context(), filter)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -383,6 +399,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+
+	// Load filter options
+	groups, _ := h.db.ListGroups(r.Context())
+	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 
 	totalPages := (total + pageSize - 1) / pageSize
 	if totalPages < 1 {
@@ -396,16 +416,22 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]any{
-		"Title":      "Devices",
-		"Devices":    devices,
-		"Total":      total,
-		"Page":       page,
-		"TotalPages": totalPages,
-		"Query":      q,
-		"PageSize":   pageSize,
-		"Summary":    summary,
-		"Sort":       sort,
-		"Online":     online,
+		"Title":         "Devices",
+		"Devices":       devices,
+		"Total":         total,
+		"Page":          page,
+		"TotalPages":    totalPages,
+		"Query":         q,
+		"PageSize":      pageSize,
+		"Summary":       summary,
+		"Sort":          sort,
+		"Online":        online,
+		"Groups":        groups,
+		"Builds":        builds,
+		"FilterGroup":   r.URL.Query().Get("group"),
+		"FilterStatus":  r.URL.Query().Get("status"),
+		"FilterBuild":   r.URL.Query().Get("build"),
+		"FilterBattery": r.URL.Query().Get("battery"),
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -593,6 +619,221 @@ func (h *Handler) DeviceBatteryCSV(w http.ResponseWriter, r *http.Request) {
 			strconv.Itoa(c.BatteryPct),
 			wlcStatusFromExtra(c.Extra),
 		})
+	}
+	cw.Flush()
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
+	serials := r.URL.Query().Get("serials")
+	if serials == "" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	serialList := strings.Split(serials, ",")
+
+	h.tmpl.ExecuteTemplate(w, "export.html", map[string]any{
+		"Title":   "Export Data",
+		"Serials": serialList,
+	})
+}
+
+func extraString(raw json.RawMessage, key string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	v, ok := m[key]
+	if !ok {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(v, &s); err != nil {
+		// try number
+		return strings.Trim(string(v), "\"")
+	}
+	return s
+}
+
+func extraFloat(raw json.RawMessage, key string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	v, ok := m[key]
+	if !ok {
+		return ""
+	}
+	var f float64
+	if err := json.Unmarshal(v, &f); err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%.1f", f)
+}
+
+func extraInt(raw json.RawMessage, key string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	v, ok := m[key]
+	if !ok {
+		return ""
+	}
+	var n int
+	if err := json.Unmarshal(v, &n); err != nil {
+		return ""
+	}
+	return strconv.Itoa(n)
+}
+
+func extraRamField(raw json.RawMessage, field string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	v, ok := m["ram_usage_mb"]
+	if !ok {
+		return ""
+	}
+	var ram map[string]int
+	if err := json.Unmarshal(v, &ram); err != nil {
+		return ""
+	}
+	val, ok := ram[field]
+	if !ok {
+		return ""
+	}
+	return strconv.Itoa(val)
+}
+
+func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	serials := r.Form["serials"]
+	if len(serials) == 0 {
+		http.Error(w, "No devices selected", http.StatusBadRequest)
+		return
+	}
+
+	// Parse time range
+	startStr := r.FormValue("start")
+	endStr := r.FormValue("end")
+	if startStr == "" || endStr == "" {
+		http.Error(w, "Start and end time required", http.StatusBadRequest)
+		return
+	}
+	start, err := time.Parse("2006-01-02T15:04", startStr)
+	if err != nil {
+		http.Error(w, "Invalid start time", http.StatusBadRequest)
+		return
+	}
+	end, err := time.Parse("2006-01-02T15:04", endStr)
+	if err != nil {
+		http.Error(w, "Invalid end time", http.StatusBadRequest)
+		return
+	}
+
+	// Sampling interval
+	intervalSec := 0
+	if v := r.FormValue("interval"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			intervalSec = n
+		}
+	}
+
+	// Columns to include
+	columns := r.Form["columns"]
+	if len(columns) == 0 {
+		columns = []string{"battery_pct", "build_id", "last_seen"}
+	}
+
+	// Resolve serials to device IDs
+	deviceIDs, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
+	if err != nil || len(deviceIDs) == 0 {
+		http.Error(w, "No matching devices", http.StatusBadRequest)
+		return
+	}
+
+	rows, err := h.db.ExportCheckins(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec)
+	if err != nil {
+		http.Error(w, "Export error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	filename := "mdm_export.csv"
+	if len(serials) == 1 {
+		filename = serials[0] + "_export.csv"
+	}
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+
+	cw := csv.NewWriter(w)
+
+	// Build header
+	header := []string{"serial_number", "timestamp"}
+	colSet := make(map[string]bool, len(columns))
+	for _, c := range columns {
+		colSet[c] = true
+	}
+	colOrder := []string{"battery_pct", "battery_temp_c", "build_id", "wifi", "ip_address",
+		"ram_used_mb", "ram_total_mb", "storage_free_gb", "uptime_seconds", "wlc_status", "timezone", "last_seen"}
+	for _, c := range colOrder {
+		if colSet[c] {
+			header = append(header, c)
+		}
+	}
+	cw.Write(header)
+
+	for _, row := range rows {
+		rec := []string{
+			row.SerialNumber,
+			row.Timestamp.Format(time.RFC3339),
+		}
+		for _, c := range colOrder {
+			if !colSet[c] {
+				continue
+			}
+			switch c {
+			case "battery_pct":
+				rec = append(rec, strconv.Itoa(row.BatteryPct))
+			case "battery_temp_c":
+				rec = append(rec, extraFloat(row.Extra, "battery_temp_c"))
+			case "build_id":
+				rec = append(rec, row.BuildID)
+			case "wifi":
+				rec = append(rec, extraString(row.Extra, "wifi"))
+			case "ip_address":
+				rec = append(rec, extraString(row.Extra, "ip_address"))
+			case "ram_used_mb":
+				rec = append(rec, extraRamField(row.Extra, "used"))
+			case "ram_total_mb":
+				rec = append(rec, extraRamField(row.Extra, "total"))
+			case "storage_free_gb":
+				rec = append(rec, extraFloat(row.Extra, "storage_free_gb"))
+			case "uptime_seconds":
+				rec = append(rec, extraInt(row.Extra, "uptime_seconds"))
+			case "wlc_status":
+				rec = append(rec, extraInt(row.Extra, "wlc_status"))
+			case "timezone":
+				rec = append(rec, extraString(row.Extra, "timezone"))
+			case "last_seen":
+				rec = append(rec, row.LastSeenAt.Format(time.RFC3339))
+			}
+		}
+		cw.Write(rec)
 	}
 	cw.Flush()
 }
@@ -1425,6 +1666,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/ota", h.requireAuth(h.DeviceSetOTA))
 	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAuth(h.DeviceHide))
 	mux.HandleFunc("POST /devices/bulk-hide", h.requireAuth(h.BulkHideDevices))
+	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
+	mux.HandleFunc("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/ota-status", h.requireAuth(h.DeviceOTAStatusPartial))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
