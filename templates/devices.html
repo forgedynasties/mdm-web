@@ -13,29 +13,27 @@
     <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
     <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
   </div>
-  <div style="flex:1;"></div>
-  {{if eq .Sort "serial"}}
-    <a class="btn-outline sort-btn" data-sort="battery"
-       style="white-space:nowrap;">A-Z Serial</a>
-  {{else if eq .Sort "battery"}}
-    <a class="btn-outline sort-btn" data-sort=""
-       style="white-space:nowrap;">^ Battery</a>
-  {{else}}
-    <a class="btn-outline sort-btn" data-sort="serial"
-       style="white-space:nowrap;">v Last Seen</a>
-  {{end}}
 </div>
 
 <table class="table">
   <thead>
     <tr>
       <th style="width:36px;"></th>
-      <th>Serial Number</th>
+      <th class="sortable-th {{if eq .Sort "serial"}}sorted{{end}}" data-sort-key="serial">
+        Serial Number
+        {{if eq .Sort "serial"}}<span class="sort-arrow">&#9650;</span>{{end}}
+      </th>
       <th>Build ID</th>
-      <th>Battery</th>
+      <th class="sortable-th {{if eq .Sort "battery"}}sorted{{end}}" data-sort-key="battery">
+        Battery
+        {{if eq .Sort "battery"}}<span class="sort-arrow">&#9650;</span>{{end}}
+      </th>
       <th>RAM</th>
       <th>Temp</th>
-      <th>Last Seen</th>
+      <th class="sortable-th {{if not .Sort}}sorted{{end}}" data-sort-key="">
+        Last Seen
+        {{if not .Sort}}<span class="sort-arrow">&#9660;</span>{{end}}
+      </th>
       <th>First Seen</th>
       <th>Kiosk</th>
       <th></th>
@@ -136,10 +134,22 @@
 </div>
 
 <script>
-// Bind sort button
-document.querySelectorAll('.sort-btn').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    navigateDevices({page: '1', sort: btn.dataset.sort});
+// Bind sortable column headers
+document.querySelectorAll('.sortable-th').forEach(function(th) {
+  th.addEventListener('click', function() {
+    var key = th.dataset.sortKey;
+    // If already sorted by this column, cycle to next sort
+    var p = new URLSearchParams(location.search);
+    var cur = p.get('sort') || '';
+    if (key === '') {
+      // "Last Seen" is the default (sort=""), clicking when already active does nothing
+      navigateDevices({page: '1', sort: ''});
+    } else if (cur === key) {
+      // Already sorted by this, go back to default
+      navigateDevices({page: '1', sort: ''});
+    } else {
+      navigateDevices({page: '1', sort: key});
+    }
   });
 });
 
@@ -189,70 +199,66 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 </div>
 {{end}}
 
-<div class="search-bar">
-  <input
-    type="search"
-    id="search-input"
-    name="q"
-    value="{{.Query}}"
-    placeholder="Search by serial number or build ID..."
-    class="search-input"
-  >
-</div>
-
 <div class="filter-bar">
-  <div class="filter-group">
-    <label class="filter-label">Group</label>
-    <select id="filter-group" class="filter-select {{if .FilterGroup}}active{{end}}" onchange="applyFilters()">
-      <option value="">All</option>
-      {{range .Groups}}
-        <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
-      {{end}}
-    </select>
+  {{/* ── Search ── */}}
+  <div class="filter-search">
+    <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+      <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+    </svg>
+    <input
+      type="search"
+      id="search-input"
+      name="q"
+      value="{{.Query}}"
+      placeholder="Search serial, build..."
+      class="filter-search-input"
+    >
   </div>
 
-  <div class="filter-group">
-    <label class="filter-label">Status</label>
-    <select id="filter-status" class="filter-select {{if .FilterStatus}}active{{end}}" onchange="applyFilters()">
-      <option value="">All</option>
-      <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
-      <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
-    </select>
+  <div class="filter-divider"></div>
+
+  {{/* ── Status & Group ── */}}
+  <select id="filter-status" class="filter-select {{if .FilterStatus}}active{{end}}" onchange="applyFilters()">
+    <option value="">Status</option>
+    <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
+    <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
+  </select>
+
+  <select id="filter-group" class="filter-select {{if .FilterGroup}}active{{end}}" onchange="applyFilters()">
+    <option value="">Group</option>
+    {{range .Groups}}
+      <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
+    {{end}}
+  </select>
+
+  <select id="filter-build" class="filter-select {{if .FilterBuild}}active{{end}}" onchange="applyFilters()">
+    <option value="">Build</option>
+    {{range .Builds}}
+      <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
+    {{end}}
+  </select>
+
+  <div class="filter-divider"></div>
+
+  {{/* ── Alerts / Health ── */}}
+  <select id="filter-battery" class="filter-select {{if .FilterBattery}}active{{end}}" onchange="applyFilters()">
+    <option value="">Battery</option>
+    <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical &lt;20%</option>
+    <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low 20-49%</option>
+    <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Healthy 50%+</option>
+  </select>
+
+  <div style="flex:1;"></div>
+
+  {{/* ── Visibility toggle ── */}}
+  <div class="filter-pills">
+    <button type="button" class="filter-pill {{if not .FilterHidden}}active{{end}}" onclick="setHidden('')">Active</button>
+    <button type="button" class="filter-pill {{if eq .FilterHidden "include"}}active{{end}}" onclick="setHidden('include')">All</button>
+    <button type="button" class="filter-pill {{if eq .FilterHidden "only"}}active{{end}}" onclick="setHidden('only')">Hidden</button>
   </div>
 
-  <div class="filter-group">
-    <label class="filter-label">Build</label>
-    <select id="filter-build" class="filter-select {{if .FilterBuild}}active{{end}}" onchange="applyFilters()">
-      <option value="">All</option>
-      {{range .Builds}}
-        <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
-      {{end}}
-    </select>
-  </div>
-
-  <div class="filter-group">
-    <label class="filter-label">Battery</label>
-    <select id="filter-battery" class="filter-select {{if .FilterBattery}}active{{end}}" onchange="applyFilters()">
-      <option value="">All</option>
-      <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical (&lt;20%)</option>
-      <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low (20-49%)</option>
-      <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Good (50%+)</option>
-    </select>
-  </div>
-
-  <div class="filter-group">
-    <label class="filter-label">Visibility</label>
-    <select id="filter-hidden" class="filter-select {{if .FilterHidden}}active{{end}}" onchange="applyFilters()">
-      <option value="">Active Only</option>
-      <option value="include" {{if eq .FilterHidden "include"}}selected{{end}}>Include Hidden</option>
-      <option value="only" {{if eq .FilterHidden "only"}}selected{{end}}>Hidden Only</option>
-    </select>
-  </div>
-
-  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery .FilterHidden}}
-    <div class="filter-group" style="align-self:flex-end;">
-      <button class="filter-clear" onclick="clearFilters()">Clear All</button>
-    </div>
+  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery .FilterHidden .Query}}
+    <button class="filter-clear" onclick="clearFilters()">Clear</button>
   {{end}}
 </div>
 
@@ -269,18 +275,15 @@ function getFilterVals(overrides) {
     battery: p.get('battery') || '',
     hidden: p.get('hidden') || ''
   };
-  // Always read current dropdown values
   var fg = document.getElementById('filter-group');
   var fs = document.getElementById('filter-status');
   var fb = document.getElementById('filter-build');
   var fbt = document.getElementById('filter-battery');
-  var fh = document.getElementById('filter-hidden');
   var sq = document.getElementById('search-input');
   if (fg) vals.group = fg.value;
   if (fs) vals.status = fs.value;
   if (fb) vals.build = fb.value;
   if (fbt) vals.battery = fbt.value;
-  if (fh) vals.hidden = fh.value;
   if (sq) vals.q = sq.value;
   if (overrides) {
     for (var k in overrides) vals[k] = overrides[k];
@@ -300,13 +303,22 @@ function applyFilters() {
   navigateDevices({page: '1'});
 }
 
+function setHidden(val) {
+  navigateDevices({page: '1', hidden: val});
+  // Update pill active state immediately
+  document.querySelectorAll('.filter-pill').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+}
+
 function clearFilters() {
   document.getElementById('filter-group').value = '';
   document.getElementById('filter-status').value = '';
   document.getElementById('filter-build').value = '';
   document.getElementById('filter-battery').value = '';
-  document.getElementById('filter-hidden').value = '';
-  applyFilters();
+  document.getElementById('search-input').value = '';
+  navigateDevices({page: '1', q: '', group: '', status: '', build: '', battery: '', hidden: ''});
+  document.querySelectorAll('.filter-pill').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelector('.filter-pill').classList.add('active');
 }
 
 // Search with debounce

@@ -983,62 +983,127 @@ input[type="checkbox"]:hover {
 /* ── Filter bar ─────────────────────────────────── */
 .filter-bar {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 14px;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 12px 16px;
+  padding: 8px 12px;
 }
 
-.filter-group {
+.filter-search {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
 }
 
-.filter-label {
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.7px;
+.filter-search-icon {
+  position: absolute;
+  left: 10px;
   color: var(--muted);
+  pointer-events: none;
 }
 
-.filter-select {
+.filter-search-input {
   background: var(--surface2);
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text);
-  padding: 6px 10px;
+  padding: 6px 10px 6px 30px;
   font-size: 13px;
   outline: none;
-  cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
-  min-width: 130px;
+  width: 200px;
+  transition: border-color 0.15s, width 0.2s;
 }
-.filter-select:focus { border-color: var(--accent); }
-.filter-select.active {
+.filter-search-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  width: 260px;
+}
+.filter-search-input::placeholder { color: var(--muted); }
+
+.filter-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+.filter-select {
+  background: var(--surface2);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.filter-select:hover { color: var(--text); border-color: var(--border); }
+.filter-select:focus { border-color: var(--accent); color: var(--text); }
+.filter-select.active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: rgba(91, 110, 245, 0.08);
 }
 .filter-select option { background: var(--surface2); color: var(--text); }
 
-.filter-clear {
-  background: transparent;
+.filter-pills {
+  display: inline-flex;
+  background: var(--surface2);
   border: 1px solid var(--border);
-  color: var(--muted);
-  padding: 6px 12px;
   border-radius: 6px;
+  padding: 2px;
+  gap: 1px;
+}
+
+.filter-pill {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 4px 12px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition: background 0.15s, color 0.15s;
   white-space: nowrap;
 }
-.filter-clear:hover { color: var(--danger); border-color: var(--danger); }
+.filter-pill:hover { color: var(--text); }
+.filter-pill.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.filter-clear {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+.filter-clear:hover { color: var(--danger); }
+
+/* ── Sortable column headers ────────────────────── */
+.sortable-th {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s;
+}
+.sortable-th:hover { color: var(--text); }
+.sortable-th.sorted { color: var(--accent); }
+.sort-arrow {
+  font-size: 9px;
+  margin-left: 3px;
+  vertical-align: middle;
+}
 
 /* ── Export page ────────────────────────────────── */
 .export-serials {
