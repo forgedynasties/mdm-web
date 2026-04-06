@@ -4,7 +4,7 @@
 <div class="page-header">
   <div>
     <h2 class="page-title">OTA Updates</h2>
-    <p class="page-subtitle">{{len .Updates}} update{{if ne (len .Updates) 1}}s{{end}} &middot; {{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}}</p>
+    <p class="page-subtitle">{{len .Updates}} update{{if ne (len .Updates) 1}}s{{end}}</p>
   </div>
 </div>
 
@@ -38,7 +38,7 @@
         </div>
       </div>
 
-      <!-- Inline send panel (hidden by default) -->
+      <!-- Inline send panel -->
       <div id="send-panel-{{.ID}}" style="display:none;padding:0 16px 16px;border-top:1px solid var(--border);background:var(--bg);">
         {{if .OtaPackage}}{{if eq .OtaPackage.Type "incremental"}}
         <div class="alert alert-info" style="margin:12px 0 8px;">
@@ -76,17 +76,31 @@
   {{end}}
 </div>
 
-<div class="card" style="margin-bottom:24px;">
+<!-- Create Update -->
+<div class="card">
   <div class="card-header"><h3>Create Update</h3></div>
   <form action="/updates" method="POST" class="command-form" style="padding:16px;">
     <div class="form-row">
-      <label class="form-label">OTA Package</label>
-      <select name="ota_package_id" class="form-input" required>
-        <option value="">— Select a package —</option>
-        {{range .Packages}}
-        <option value="{{.ID}}">{{.TargetBuildID}} ({{.Type}}){{if eq .Type "incremental"}} from {{.SourceBuildID}}{{end}} — {{formatTime .ReleaseDate}}</option>
-        {{end}}
+      <label class="form-label">Type</label>
+      <select name="type" id="ota-type" class="form-input" onchange="toggleSourceBuild()">
+        <option value="full">Full</option>
+        <option value="incremental">Incremental</option>
       </select>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Target Build ID</label>
+      <input type="text" name="target_build_id" placeholder="v2.0" class="form-input" required>
+      <div class="form-hint">The build ID the device will have after the update.</div>
+    </div>
+    <div class="form-row" id="source-build-row">
+      <label class="form-label">Source Build ID</label>
+      <input type="text" name="source_build_id" id="ota-source-build-id" placeholder="v1.0" class="form-input">
+      <div class="form-hint">Required for incremental updates. The build the device must be on.</div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Update URL</label>
+      <input type="url" name="update_url" placeholder="https://cdn.example.com/ota.zip" class="form-input" required>
+      <div class="form-hint">Link to the OTA zip. The device will download and parse it.</div>
     </div>
     <div class="form-row">
       <label class="form-label">Reboot Behavior</label>
@@ -99,83 +113,9 @@
     <div class="form-row" id="scheduled-time-row" style="display:none;">
       <label class="form-label">Scheduled Time</label>
       <input type="datetime-local" name="scheduled_time" id="scheduled-time" class="form-input">
-      <div class="form-hint">The device will download the update immediately but reboot at this time.</div>
+      <div class="form-hint">The device will download immediately but reboot at this time.</div>
     </div>
     <button type="submit" class="btn-primary">Create Update</button>
-  </form>
-</div>
-
-<!-- OTA Packages -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>OTA Packages</h3></div>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Type</th>
-        <th>Target Build</th>
-        <th>Source Build</th>
-        <th>Release Date</th>
-        <th>URL</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {{if .Packages}}
-        {{range .Packages}}
-        <tr>
-          <td class="small">{{.Type}}</td>
-          <td class="mono bold">{{.TargetBuildID}}</td>
-          <td class="mono small muted">{{if eq .Type "incremental"}}{{.SourceBuildID}}{{else}}—{{end}}</td>
-          <td class="muted small">{{formatTime .ReleaseDate}}</td>
-          <td class="mono small muted extra-cell">{{.UpdateURL}}</td>
-          <td>
-            <form action="/updates/packages/{{.ID}}/delete" method="POST" style="display:inline"
-                  onsubmit="return confirm('Delete package {{.TargetBuildID}}?')">
-              <button type="submit" class="btn-danger-sm">Delete</button>
-            </form>
-          </td>
-        </tr>
-        {{end}}
-      {{else}}
-        <tr>
-          <td colspan="6" class="empty">No OTA packages yet.</td>
-        </tr>
-      {{end}}
-    </tbody>
-  </table>
-</div>
-
-<div class="card">
-  <div class="card-header"><h3>Add OTA Package</h3></div>
-  <form action="/updates/packages" method="POST" class="command-form" id="ota-form">
-    <div class="form-row">
-      <label class="form-label">Type</label>
-      <select name="type" id="ota-type" class="form-input" onchange="toggleSourceBuild()">
-        <option value="full">Full</option>
-        <option value="incremental">Incremental</option>
-      </select>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Target Build ID</label>
-      <input type="text" name="target_build_id" id="ota-target-build-id" placeholder="v2.0" class="form-input" required>
-      <div class="form-hint">The build ID the device will have after the update.</div>
-    </div>
-    <div class="form-row" id="source-build-row">
-      <label class="form-label">Source Build ID</label>
-      <input type="text" name="source_build_id" id="ota-source-build-id" placeholder="v1.0" class="form-input">
-      <div class="form-hint">Required for incremental updates. The build ID the device must have before the update.</div>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Update URL</label>
-      <input type="url" name="update_url" id="ota-update-url" placeholder="https://cdn.example.com/ota.zip" class="form-input" required>
-      <div class="form-hint">Link to the OTA zip. The device will download and parse it.</div>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Release Date</label>
-      <input type="datetime-local" name="release_date" class="form-input">
-      <div class="form-hint">Defaults to now if left empty.</div>
-    </div>
-    <button type="submit" class="btn-primary">Add Package</button>
   </form>
 </div>
 
