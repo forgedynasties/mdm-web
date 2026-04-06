@@ -382,6 +382,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		Online:  r.URL.Query().Get("status"),
 		BuildID: r.URL.Query().Get("build"),
 		Battery: r.URL.Query().Get("battery"),
+		Hidden:  r.URL.Query().Get("hidden"),
 	}
 
 	devices, err := h.db.ListDevices(r.Context(), filter, offset, pageSize, sort)
@@ -432,6 +433,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterStatus":  r.URL.Query().Get("status"),
 		"FilterBuild":   r.URL.Query().Get("build"),
 		"FilterBattery": r.URL.Query().Get("battery"),
+		"FilterHidden":  r.URL.Query().Get("hidden"),
 	}
 
 	if r.Header.Get("HX-Request") == "true" {

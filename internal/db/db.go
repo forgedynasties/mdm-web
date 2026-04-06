@@ -121,6 +121,7 @@ type DeviceFilter struct {
 	Online  string    // "online", "offline", or "" (no filter)
 	BuildID string    // exact build_id match, or "" (no filter)
 	Battery string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
+	Hidden  string    // "include" (show all), "only" (hidden only), or "" (active only)
 }
 
 type DB struct {
@@ -243,8 +244,15 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort string, selectRows bool, limi
 	argN := 1
 
 	var joins []string
-	var wheres []string
-	wheres = append(wheres, "NOT d.hidden")
+	wheres := []string{"true"}
+	switch f.Hidden {
+	case "include":
+		// no filter on hidden
+	case "only":
+		wheres = append(wheres, "d.hidden")
+	default:
+		wheres = append(wheres, "NOT d.hidden")
+	}
 
 	if f.Search != "" {
 		wheres = append(wheres, fmt.Sprintf("(d.serial_number ILIKE $%d OR d.build_id ILIKE $%d)", argN, argN))

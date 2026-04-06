@@ -228,7 +228,13 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Good (50%+)</option>
   </select>
 
-  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery}}
+  <select id="filter-hidden" class="filter-select" onchange="applyFilters()">
+    <option value="">Active Only</option>
+    <option value="include" {{if eq .FilterHidden "include"}}selected{{end}}>Include Hidden</option>
+    <option value="only" {{if eq .FilterHidden "only"}}selected{{end}}>Hidden Only</option>
+  </select>
+
+  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery .FilterHidden}}
     <button class="btn-outline" onclick="clearFilters()" style="padding:6px 12px;font-size:12px;">Clear</button>
   {{end}}
 </div>
@@ -243,18 +249,21 @@ function getFilterVals(overrides) {
     group: p.get('group') || '',
     status: p.get('status') || '',
     build: p.get('build') || '',
-    battery: p.get('battery') || ''
+    battery: p.get('battery') || '',
+    hidden: p.get('hidden') || ''
   };
   // Always read current dropdown values
   var fg = document.getElementById('filter-group');
   var fs = document.getElementById('filter-status');
   var fb = document.getElementById('filter-build');
   var fbt = document.getElementById('filter-battery');
+  var fh = document.getElementById('filter-hidden');
   var sq = document.getElementById('search-input');
   if (fg) vals.group = fg.value;
   if (fs) vals.status = fs.value;
   if (fb) vals.build = fb.value;
   if (fbt) vals.battery = fbt.value;
+  if (fh) vals.hidden = fh.value;
   if (sq) vals.q = sq.value;
   if (overrides) {
     for (var k in overrides) vals[k] = overrides[k];
@@ -279,6 +288,7 @@ function clearFilters() {
   document.getElementById('filter-status').value = '';
   document.getElementById('filter-build').value = '';
   document.getElementById('filter-battery').value = '';
+  document.getElementById('filter-hidden').value = '';
   applyFilters();
 }
 
