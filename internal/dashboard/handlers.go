@@ -656,6 +656,8 @@ func extraString(raw json.RawMessage, key string) string {
 		// try number
 		return strings.Trim(string(v), "\"")
 	}
+	// Android getSSID() wraps SSID in quotes — strip them
+	s = strings.Trim(s, "\"")
 	return s
 }
 
