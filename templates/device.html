@@ -524,6 +524,16 @@
     </div>
 
     <div class="action-card">
+      <div class="action-label">Shell Command</div>
+      <p class="muted small" style="margin:6px 0 10px;">Run a shell command on this device (legacy only).</p>
+      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST">
+        <input type="hidden" name="type" value="shell">
+        <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required style="margin-bottom:8px;">
+        <button type="submit" class="btn-outline">Run</button>
+      </form>
+    </div>
+
+    <div class="action-card">
       <div class="action-label">Poll Interval</div>
       <p class="muted small" style="margin:6px 0 10px;">Current: <strong>{{.Device.PollIntervalMs}}ms</strong> ({{div .Device.PollIntervalMs 1000}}s). Returned on next checkin.</p>
       <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" style="display:flex;gap:8px;align-items:center;">

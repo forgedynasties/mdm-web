@@ -111,6 +111,18 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 				return cmdType
 			}
 		},
+		"cmdDetail": func(cmd db.Command) string {
+			if cmd.ApkURL != "" {
+				return cmd.ApkURL
+			}
+			if cmd.Type == "shell" && len(cmd.Payload) > 0 {
+				var p struct{ Cmd string `json:"cmd"` }
+				if json.Unmarshal(cmd.Payload, &p) == nil && p.Cmd != "" {
+					return p.Cmd
+				}
+			}
+			return "—"
+		},
 		"logcatStatusClass": func(s string) string {
 			switch s {
 			case "fulfilled":
@@ -1038,7 +1050,34 @@ func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
 }
 
+func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	cmdType := r.FormValue("type")
+	if cmdType == "" {
+		cmdType = "install_apk"
+	}
 
+	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if cmdType == "install_apk" && apkURL == "" {
+		http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+		return
+	}
+
+	payload := buildPayload(cmdType, r)
+
+	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "groups", []uuid.UUID{id})
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.pushCommand(r.Context(), cmd, "groups", []uuid.UUID{id})
+	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
+}
 
 func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -1702,6 +1741,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /groups/{id}/delete", h.requireAuth(h.GroupDelete))
 	mux.HandleFunc("POST /groups/{id}/devices", h.requireAuth(h.GroupAddDevice))
 	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAuth(h.GroupRemoveDevice))
+	mux.HandleFunc("POST /groups/{id}/commands", h.requireAuth(h.GroupCommandCreate))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
