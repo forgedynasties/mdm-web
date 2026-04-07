@@ -554,13 +554,30 @@ func (d *DB) GetCheckinsForDay(ctx context.Context, deviceID uuid.UUID, day time
 	return checkins, rows.Err()
 }
 
+// GetCheckinsForDuration returns checkins downsampled to ~maxPoints so graph
+// rendering stays fast regardless of how often the device checks in.
 func (d *DB) GetCheckinsForDuration(ctx context.Context, deviceID uuid.UUID, since time.Time) ([]Checkin, error) {
+	const maxPoints = 500
+
+	// Determine bucket interval from the time range so we get ≤ maxPoints.
+	span := time.Since(since)
+	bucket := span / maxPoints
+	if bucket < time.Second {
+		bucket = time.Second
+	}
+	bucketSec := int(bucket.Seconds())
+
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, device_id, battery_pct, build_id, extra, created_at
-		FROM checkins
-		WHERE device_id = $1 AND created_at >= $2
-		ORDER BY created_at DESC
-	`, deviceID, since)
+		SELECT DISTINCT ON (bucket)
+			id, device_id, battery_pct, build_id, extra, created_at
+		FROM (
+			SELECT *,
+				(EXTRACT(EPOCH FROM created_at)::bigint / $3) AS bucket
+			FROM checkins
+			WHERE device_id = $1 AND created_at >= $2
+		) sub
+		ORDER BY bucket, created_at DESC
+	`, deviceID, since, bucketSec)
 	if err != nil {
 		return nil, err
 	}
