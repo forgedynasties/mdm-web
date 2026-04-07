@@ -24,6 +24,21 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Poll Interval</h3></div>
+  <div style="padding:16px;">
+    <div style="margin-bottom:10px;">
+      <strong>Set Poll Interval for All Devices</strong>
+      <div class="muted small">Changes the checkin interval for every device. Takes effect on their next checkin.</div>
+    </div>
+    <form action="/settings/poll-interval" method="POST" style="display:flex;gap:8px;align-items:center;">
+      <input type="number" name="poll_interval_ms" class="form-input" value="30000" min="5000" step="1000" style="width:140px;" required>
+      <span class="muted small">ms</span>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Apply to All</button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Extra Columns</h3></div>
   <table class="table">
     <thead>

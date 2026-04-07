@@ -493,6 +493,11 @@ func (d *DB) SetDevicePollInterval(ctx context.Context, serial string, intervalM
 	return err
 }
 
+func (d *DB) SetAllDevicesPollInterval(ctx context.Context, intervalMs int) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET poll_interval_ms = $1`, intervalMs)
+	return err
+}
+
 func (d *DB) GetCheckins(ctx context.Context, deviceID uuid.UUID, limit int) ([]Checkin, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, device_id, battery_pct, build_id, extra, created_at

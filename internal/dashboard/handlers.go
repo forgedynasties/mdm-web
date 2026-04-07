@@ -1499,6 +1499,20 @@ func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Req
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
+func (h *Handler) SettingsSetAllPollInterval(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	ms, err := strconv.Atoi(r.FormValue("poll_interval_ms"))
+	if err != nil || ms < 5000 {
+		http.Error(w, "poll_interval_ms must be >= 5000", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetAllDevicesPollInterval(r.Context(), ms); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
 func (h *Handler) SettingsAddColumn(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	key := strings.TrimSpace(r.FormValue("key"))
@@ -1753,6 +1767,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/columns/add", h.requireAuth(h.SettingsAddColumn))
 	mux.HandleFunc("POST /settings/columns/{key}/remove", h.requireAuth(h.SettingsRemoveColumn))
 	mux.HandleFunc("POST /settings/legacy-checkin/toggle", h.requireAuth(h.SettingsToggleLegacyCheckin))
+	mux.HandleFunc("POST /settings/poll-interval", h.requireAuth(h.SettingsSetAllPollInterval))
 
 	mux.HandleFunc("GET /setup", h.requireAuth(h.SetupPage))
 	mux.HandleFunc("POST /setup/apps", h.requireAuth(h.SetupCreateApp))
