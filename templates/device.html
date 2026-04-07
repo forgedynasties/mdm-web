@@ -526,9 +526,9 @@
     <div class="action-card">
       <div class="action-label">Shell Command</div>
       <p class="muted small" style="margin:6px 0 10px;">Run a shell command on this device (legacy only).</p>
-      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST">
+      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" style="display:flex;gap:8px;align-items:center;">
         <input type="hidden" name="type" value="shell">
-        <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required style="margin-bottom:8px;">
+        <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required style="flex:1;min-width:0;">
         <button type="submit" class="btn-outline">Run</button>
       </form>
     </div>
