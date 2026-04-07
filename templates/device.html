@@ -260,16 +260,32 @@
     return raw.wlc ? "#e84393" : "#6c5ce7";
   }
 
-  function dedupe(pts) {
-    return pts.filter((p, i) =>
-      i === 0 || i === pts.length - 1 || p.y !== pts[i - 1].y
-    );
+  function downsample(pts, max) {
+    if (pts.length <= max) return pts;
+    // Keep first and last, pick evenly spaced points in between
+    const out = [pts[0]];
+    const step = (pts.length - 1) / (max - 1);
+    for (let i = 1; i < max - 1; i++) {
+      out.push(pts[Math.round(i * step)]);
+    }
+    out.push(pts[pts.length - 1]);
+    return out;
+  }
+
+  // Fewer points for wider windows: 1h=300, 6h=250, 12h=200, 24h=150, 48h=120
+  function maxForDuration(ms) {
+    if (ms <= 3600000) return 300;
+    if (ms <= 21600000) return 250;
+    if (ms <= 43200000) return 200;
+    if (ms <= 86400000) return 150;
+    return 120;
   }
 
   function filterWindow(all) {
     const lastX = all.length > 0 ? all[all.length - 1].x : Date.now();
     const minX = lastX - currentDuration;
-    return { pts: dedupe(all.filter(p => p.x >= minX)), minX, lastX };
+    const filtered = all.filter(p => p.x >= minX);
+    return { pts: downsample(filtered, maxForDuration(currentDuration)), minX, lastX };
   }
 
   function applyData(chart, all) {
