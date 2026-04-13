@@ -355,32 +355,24 @@
     return best;
   }
 
-  function sharedTooltipOpts(labelFn) {
-    return {
-      enabled: false,
-      external: function(context) {
-        const chart = context.chart;
-        let el = document.getElementById('ct-' + chart.canvas.id);
-        if (!el) {
-          el = document.createElement('div');
-          el.id = 'ct-' + chart.canvas.id;
-          el.style.cssText = 'position:absolute;pointer-events:none;background:rgba(30,33,50,0.92);color:#dfe6e9;padding:6px 10px;border-radius:6px;font-size:12px;white-space:nowrap;z-index:99;transition:opacity 0.1s;';
-          chart.canvas.parentElement.style.position = 'relative';
-          chart.canvas.parentElement.appendChild(el);
-        }
-        if (chart._crosshairX == null) { el.style.opacity = '0'; return; }
-        const pt = nearestByPixel(chart);
-        if (!pt) { el.style.opacity = '0'; return; }
-        el.innerHTML = '<div style="color:#7a7f9a;margin-bottom:2px">' + fmtTime(pt.x) + '</div>' + labelFn(pt);
-        el.style.opacity = '1';
-        const ca = chart.chartArea;
-        let left = chart._crosshairX + 12;
-        if (left + el.offsetWidth > ca.right) left = chart._crosshairX - el.offsetWidth - 12;
-        el.style.left = left + 'px';
-        el.style.top = (ca.top + 8) + 'px';
-      },
-    };
-  }
+  // Static label plugin — shows nearest checkin info pinned top-right
+  const staticLabelPlugin = {
+    id: 'staticLabel',
+    afterDraw(chart) {
+      const pt = nearestByPixel(chart);
+      if (!pt || !chart._labelFn) return;
+      const ctx = chart.ctx;
+      const ca = chart.chartArea;
+      const text = fmtTime(pt.x) + '  ' + chart._labelFn(pt);
+      ctx.save();
+      ctx.font = '12px system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = '#dfe6e9';
+      ctx.fillText(text, ca.right - 4, ca.top + 4);
+      ctx.restore();
+    },
+  };
 
   // Battery chart
   batteryChart = new Chart(document.getElementById("batteryChart").getContext("2d"), {
@@ -416,19 +408,20 @@
       interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
         legend: { display: false },
-        tooltip: sharedTooltipOpts(pt => {
-          const line = 'Battery: ' + pt.y + '%';
-          if (pt.wlc === undefined) return line;
-          return line + (pt.wlc ? ' ⚡ WLC On' : ' — WLC Off');
-        }),
+        tooltip: { enabled: false },
       },
       scales: {
         x: sharedXScale(),
         y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
-    plugins: [crosshairPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin],
   });
+  batteryChart._labelFn = pt => {
+    const line = 'Battery: ' + pt.y + '%';
+    if (pt.wlc === undefined) return line;
+    return line + (pt.wlc ? ' ⚡ WLC On' : ' — WLC Off');
+  };
 
   // Temperature chart
   tempChart = new Chart(document.getElementById("tempChart").getContext("2d"), {
@@ -462,15 +455,16 @@
       interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
         legend: { display: false },
-        tooltip: sharedTooltipOpts(pt => pt.y.toFixed(1) + '°C'),
+        tooltip: { enabled: false },
       },
       scales: {
         x: sharedXScale(),
         y: { ticks: { color: "#7a7f9a", callback: v => v + "°C" }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
-    plugins: [crosshairPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin],
   });
+  tempChart._labelFn = pt => pt.y.toFixed(1) + '°C';
 
   // RAM chart
   ramChart = new Chart(document.getElementById("ramChart").getContext("2d"), {
@@ -504,15 +498,16 @@
       interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
         legend: { display: false },
-        tooltip: sharedTooltipOpts(pt => 'RAM: ' + pt.y.toFixed(1) + '%'),
+        tooltip: { enabled: false },
       },
       scales: {
         x: sharedXScale(),
         y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
-    plugins: [crosshairPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin],
   });
+  ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
 
   document.querySelectorAll(".dur-btn").forEach(btn => {
     btn.addEventListener("click", () => {
