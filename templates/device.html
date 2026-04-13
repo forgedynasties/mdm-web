@@ -275,7 +275,6 @@
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
     chart.data.datasets[0].data = pts;
-    chart.data.datasets[0].pointRadius = 0;
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
     chart.update();
@@ -322,9 +321,10 @@
         data: [],
         cubicInterpolationMode: 'monotone',
         fill: true,
-        pointRadius: 3,
+        pointRadius: 0,
         pointHoverRadius: 5,
-        pointBackgroundColor: ctx => {
+        pointHitRadius: 20,
+        pointHoverBackgroundColor: ctx => {
           const raw = ctx.dataset.data[ctx.dataIndex];
           if (!raw || raw.wlc === undefined) return "#7a7f9a";
           return raw.wlc ? "#e84393" : "#6c5ce7";
@@ -348,7 +348,7 @@
     },
     options: {
       responsive: true, maintainAspectRatio: false, clip: false,
-      interaction: { mode: "index", intersect: false },
+      interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -381,8 +381,9 @@
         fill: true,
         borderColor: "#ff9800",
         pointBackgroundColor: "#ff9800",
-        pointRadius: 3,
+        pointRadius: 0,
         pointHoverRadius: 5,
+        pointHitRadius: 20,
         borderWidth: 2,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
@@ -398,7 +399,7 @@
     },
     options: {
       responsive: true, maintainAspectRatio: false, clip: false,
-      interaction: { mode: "index", intersect: false },
+      interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -426,8 +427,9 @@
         fill: true,
         borderColor: "#4caf50",
         pointBackgroundColor: "#4caf50",
-        pointRadius: 3,
+        pointRadius: 0,
         pointHoverRadius: 5,
+        pointHitRadius: 20,
         borderWidth: 2,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
@@ -443,7 +445,7 @@
     },
     options: {
       responsive: true, maintainAspectRatio: false, clip: false,
-      interaction: { mode: "index", intersect: false },
+      interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
         legend: { display: false },
         tooltip: {
