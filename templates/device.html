@@ -312,6 +312,76 @@
     };
   }
 
+  // Crosshair plugin — draws vertical line at cursor, no snap
+  const crosshairPlugin = {
+    id: 'crosshair',
+    afterEvent(chart, args) {
+      const evt = args.event;
+      if (evt.type === 'mousemove' && chart.chartArea) {
+        const x = evt.x;
+        const ca = chart.chartArea;
+        chart._crosshairX = (x >= ca.left && x <= ca.right) ? x : null;
+      } else if (evt.type === 'mouseout') {
+        chart._crosshairX = null;
+      }
+    },
+    afterDraw(chart) {
+      if (chart._crosshairX == null) return;
+      const ctx = chart.ctx;
+      const ca = chart.chartArea;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(chart._crosshairX, ca.top);
+      ctx.lineTo(chart._crosshairX, ca.bottom);
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(122,127,154,0.5)';
+      ctx.stroke();
+      ctx.restore();
+    },
+  };
+
+  // Find nearest data point by x pixel position
+  function nearestByPixel(chart) {
+    if (chart._crosshairX == null) return null;
+    const data = chart.data.datasets[0].data;
+    if (!data.length) return null;
+    const xScale = chart.scales.x;
+    const cursorVal = xScale.getValueForPixel(chart._crosshairX);
+    let best = null, bestDist = Infinity;
+    for (let i = 0; i < data.length; i++) {
+      const d = Math.abs(data[i].x - cursorVal);
+      if (d < bestDist) { bestDist = d; best = data[i]; }
+    }
+    return best;
+  }
+
+  function sharedTooltipOpts(labelFn) {
+    return {
+      enabled: false,
+      external: function(context) {
+        const chart = context.chart;
+        let el = document.getElementById('ct-' + chart.canvas.id);
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'ct-' + chart.canvas.id;
+          el.style.cssText = 'position:absolute;pointer-events:none;background:rgba(30,33,50,0.92);color:#dfe6e9;padding:6px 10px;border-radius:6px;font-size:12px;white-space:nowrap;z-index:99;transition:opacity 0.1s;';
+          chart.canvas.parentElement.style.position = 'relative';
+          chart.canvas.parentElement.appendChild(el);
+        }
+        if (chart._crosshairX == null) { el.style.opacity = '0'; return; }
+        const pt = nearestByPixel(chart);
+        if (!pt) { el.style.opacity = '0'; return; }
+        el.innerHTML = '<div style="color:#7a7f9a;margin-bottom:2px">' + fmtTime(pt.x) + '</div>' + labelFn(pt);
+        el.style.opacity = '1';
+        const ca = chart.chartArea;
+        let left = chart._crosshairX + 12;
+        if (left + el.offsetWidth > ca.right) left = chart._crosshairX - el.offsetWidth - 12;
+        el.style.left = left + 'px';
+        el.style.top = (ca.top + 8) + 'px';
+      },
+    };
+  }
+
   // Battery chart
   batteryChart = new Chart(document.getElementById("batteryChart").getContext("2d"), {
     type: "line",
@@ -322,13 +392,7 @@
         cubicInterpolationMode: 'monotone',
         fill: true,
         pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHitRadius: 20,
-        pointHoverBackgroundColor: ctx => {
-          const raw = ctx.dataset.data[ctx.dataIndex];
-          if (!raw || raw.wlc === undefined) return "#7a7f9a";
-          return raw.wlc ? "#e84393" : "#6c5ce7";
-        },
+        pointHoverRadius: 0,
         borderWidth: 2,
         segment: {
           borderColor: ctx => segColor(ctx),
@@ -348,26 +412,22 @@
     },
     options: {
       responsive: true, maintainAspectRatio: false, clip: false,
+      events: ['mousemove', 'mouseout'],
       interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: items => fmtTime(items[0].parsed.x),
-            label: item => {
-              const raw = item.raw || {};
-              const wlc = raw.wlc;
-              if (wlc === undefined) return ` Battery: ${item.parsed.y}%`;
-              return ` Battery: ${item.parsed.y}%` + (wlc ? ' ⚡ Wireless Charging On' : ' — Wireless Charging Off');
-            },
-          },
-        },
+        tooltip: sharedTooltipOpts(pt => {
+          const line = 'Battery: ' + pt.y + '%';
+          if (pt.wlc === undefined) return line;
+          return line + (pt.wlc ? ' ⚡ WLC On' : ' — WLC Off');
+        }),
       },
       scales: {
         x: sharedXScale(),
         y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
+    plugins: [crosshairPlugin],
   });
 
   // Temperature chart
@@ -382,8 +442,7 @@
         borderColor: "#ff9800",
         pointBackgroundColor: "#ff9800",
         pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHitRadius: 20,
+        pointHoverRadius: 0,
         borderWidth: 2,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
@@ -399,21 +458,18 @@
     },
     options: {
       responsive: true, maintainAspectRatio: false, clip: false,
+      events: ['mousemove', 'mouseout'],
       interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: items => fmtTime(items[0].parsed.x),
-            label: item => ` ${item.parsed.y.toFixed(1)}°C`,
-          },
-        },
+        tooltip: sharedTooltipOpts(pt => pt.y.toFixed(1) + '°C'),
       },
       scales: {
         x: sharedXScale(),
         y: { ticks: { color: "#7a7f9a", callback: v => v + "°C" }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
+    plugins: [crosshairPlugin],
   });
 
   // RAM chart
@@ -428,8 +484,7 @@
         borderColor: "#4caf50",
         pointBackgroundColor: "#4caf50",
         pointRadius: 0,
-        pointHoverRadius: 5,
-        pointHitRadius: 20,
+        pointHoverRadius: 0,
         borderWidth: 2,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
@@ -445,21 +500,18 @@
     },
     options: {
       responsive: true, maintainAspectRatio: false, clip: false,
+      events: ['mousemove', 'mouseout'],
       interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: items => fmtTime(items[0].parsed.x),
-            label: item => ` RAM: ${item.parsed.y.toFixed(1)}%`,
-          },
-        },
+        tooltip: sharedTooltipOpts(pt => 'RAM: ' + pt.y.toFixed(1) + '%'),
       },
       scales: {
         x: sharedXScale(),
         y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
+    plugins: [crosshairPlugin],
   });
 
   document.querySelectorAll(".dur-btn").forEach(btn => {
