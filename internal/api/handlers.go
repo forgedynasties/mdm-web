@@ -61,8 +61,10 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	client.ReadPump() // blocks until connection closes
 }
 
-// flushPendingCommands pushes all pending commands to the device over WS and
-// marks them delivered (or completed for reboot).
+// flushPendingCommands pushes pending commands to the device over WS and
+// marks them delivered (or completed for reboot). Stops after a reboot
+// command so that later commands remain pending and are flushed after the
+// device reconnects post-reboot.
 func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) {
 	cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID)
 	if err != nil {
@@ -76,9 +78,9 @@ func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) 
 		}
 		if cmd.Type == "reboot" {
 			_ = h.db.AckCommand(ctx, cmd.ID, deviceID, "completed")
-		} else {
-			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
+			break // stop here; remaining cmds flush after reconnect
 		}
+		_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
 	}
 }
 
@@ -250,9 +252,9 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 				})
 				if cmd.Type == "reboot" {
 					_ = h.db.AckCommand(r.Context(), cmd.ID, deviceID, "completed")
-				} else {
-					_ = h.db.MarkCommandsDelivered(r.Context(), deviceID, []uuid.UUID{cmd.ID})
+					break // stop here; remaining cmds delivered on next checkin post-reboot
 				}
+				_ = h.db.MarkCommandsDelivered(r.Context(), deviceID, []uuid.UUID{cmd.ID})
 			}
 		}
 	}
