@@ -275,7 +275,7 @@
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
     chart.data.datasets[0].data = pts;
-    chart.data.datasets[0].pointRadius = pts.length > 60 ? 0 : 3;
+    chart.data.datasets[0].pointRadius = 0;
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
     chart.update();
