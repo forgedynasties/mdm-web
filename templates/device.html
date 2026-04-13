@@ -262,7 +262,7 @@
 
   function dedupe(pts) {
     return pts.filter((p, i) =>
-      i === 0 || i === pts.length - 1 || p.y !== pts[i - 1].y
+      i === 0 || i === pts.length - 1 || p.y !== pts[i - 1].y || p.wlc !== pts[i - 1].wlc
     );
   }
 
