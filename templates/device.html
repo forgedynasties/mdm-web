@@ -217,6 +217,13 @@
         <button class="dur-btn" data-ms="43200000">12h</button>
         <button class="dur-btn" data-ms="86400000">24h</button>
         <button class="dur-btn" data-ms="172800000">48h</button>
+        <button class="dur-btn" id="custom-range-btn">Custom</button>
+      </div>
+      <div id="custom-range-inputs" class="custom-range-inputs" style="display:none;">
+        <input type="datetime-local" id="range-start" class="range-input">
+        <span class="muted small">to</span>
+        <input type="datetime-local" id="range-end" class="range-input">
+        <button class="btn-outline" id="apply-range-btn" style="font-size:11px;padding:2px 8px;">Apply</button>
       </div>
       <a id="csv-export" href="/devices/{{.Device.SerialNumber}}/battery.csv?hours=6" class="btn-outline" style="font-size:12px;padding:4px 10px;">Export CSV</a>
     </div>
@@ -248,6 +255,7 @@
   const allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
 
   let currentDuration = 6 * 3600 * 1000;
+  let customMin = null, customMax = null;
   let batteryChart, tempChart, ramChart;
 
   function fmtTime(ms) {
@@ -261,6 +269,9 @@
   }
 
   function filterWindow(all) {
+    if (customMin !== null && customMax !== null) {
+      return { pts: all.filter(p => p.x >= customMin && p.x <= customMax), minX: customMin, lastX: customMax };
+    }
     const lastX = all.length > 0 ? all[all.length - 1].x : Date.now();
     const minX = lastX - currentDuration;
     return { pts: all.filter(p => p.x >= minX), minX, lastX };
@@ -274,11 +285,20 @@
     chart.update();
   }
 
+  function fmtDate(ms) {
+    return new Date(ms).toLocaleDateString([], {month: "short", day: "numeric"}) + " " + fmtTime(ms);
+  }
+
   function updateCharts() {
     const { pts } = filterWindow(allBattery);
     const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
-    document.getElementById("chart-info").textContent =
-      "Last " + (labels[currentDuration] || "") + " \u2014 " + pts.length + " checkins";
+    if (customMin !== null && customMax !== null) {
+      document.getElementById("chart-info").textContent =
+        fmtDate(customMin) + " \u2013 " + fmtDate(customMax) + " \u2014 " + pts.length + " checkins";
+    } else {
+      document.getElementById("chart-info").textContent =
+        "Last " + (labels[currentDuration] || "") + " \u2014 " + pts.length + " checkins";
+    }
 
     if (batteryChart) applyData(batteryChart, allBattery);
     if (tempChart) applyData(tempChart, allTemp);
@@ -503,8 +523,11 @@
   });
   ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
 
-  document.querySelectorAll(".dur-btn").forEach(btn => {
+  document.querySelectorAll(".dur-btn:not(#custom-range-btn)").forEach(btn => {
     btn.addEventListener("click", () => {
+      customMin = null;
+      customMax = null;
+      document.getElementById("custom-range-inputs").style.display = "none";
       document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentDuration = +btn.dataset.ms;
@@ -514,6 +537,42 @@
       updateCharts();
     });
   });
+
+  document.getElementById("custom-range-btn").addEventListener("click", () => {
+    var inputs = document.getElementById("custom-range-inputs");
+    var visible = inputs.style.display !== "none";
+    inputs.style.display = visible ? "none" : "flex";
+    if (!visible) {
+      // Pre-fill with current window
+      var now = new Date();
+      var start = new Date(now.getTime() - currentDuration);
+      document.getElementById("range-start").value = toLocalISO(start);
+      document.getElementById("range-end").value = toLocalISO(now);
+    }
+  });
+
+  document.getElementById("apply-range-btn").addEventListener("click", () => {
+    var s = document.getElementById("range-start").value;
+    var e = document.getElementById("range-end").value;
+    if (!s || !e) return;
+    customMin = new Date(s).getTime();
+    customMax = new Date(e).getTime();
+    if (customMin >= customMax) return;
+    document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById("custom-range-btn").classList.add("active");
+    var startISO = new Date(customMin).toISOString();
+    var endISO = new Date(customMax).toISOString();
+    document.getElementById("csv-export").href =
+      "/devices/{{.Device.SerialNumber}}/battery.csv?start=" + encodeURIComponent(startISO) + "&end=" + encodeURIComponent(endISO);
+    updateCharts();
+  });
+
+  function toLocalISO(d) {
+    var y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,"0"),
+        day = String(d.getDate()).padStart(2,"0"), h = String(d.getHours()).padStart(2,"0"),
+        min = String(d.getMinutes()).padStart(2,"0");
+    return y+"-"+m+"-"+day+"T"+h+":"+min;
+  }
 
   updateCharts();
 })();

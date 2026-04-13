@@ -750,6 +750,21 @@ input[type="checkbox"]:hover {
 .dur-btn:hover { border-color: var(--accent); color: var(--accent); }
 .dur-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+.custom-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.range-input {
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.range-input::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+
 .btn-link {
   background: none;
   border: none;
