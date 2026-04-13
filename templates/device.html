@@ -260,16 +260,10 @@
     return raw.wlc ? "#e84393" : "#6c5ce7";
   }
 
-  function dedupe(pts) {
-    return pts.filter((p, i) =>
-      i === 0 || i === pts.length - 1 || p.y !== pts[i - 1].y || p.wlc !== pts[i - 1].wlc
-    );
-  }
-
   function filterWindow(all) {
     const lastX = all.length > 0 ? all[all.length - 1].x : Date.now();
     const minX = lastX - currentDuration;
-    return { pts: dedupe(all.filter(p => p.x >= minX)), minX, lastX };
+    return { pts: all.filter(p => p.x >= minX), minX, lastX };
   }
 
   function applyData(chart, all) {
