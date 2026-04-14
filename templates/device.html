@@ -225,6 +225,7 @@
         <input type="datetime-local" id="range-end" class="range-input">
         <button class="btn-outline" id="apply-range-btn" style="font-size:11px;padding:2px 8px;">Apply</button>
       </div>
+      <button type="button" id="toggle-markers-btn" class="btn-outline" style="font-size:12px;padding:4px 10px;">Hide Markers</button>
       <a id="csv-export" href="/devices/{{.Device.SerialNumber}}/battery.csv?hours=6" class="btn-outline" style="font-size:12px;padding:4px 10px;">Export CSV</a>
     </div>
   </div>
@@ -255,10 +256,12 @@
   const allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
   const allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
   const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
+  const markerStorageKey = 'mdm-chart-markers:{{.Device.SerialNumber}}';
 
   let currentDuration = 6 * 3600 * 1000;
   let customMin = null, customMax = null;
   let batteryChart, tempChart, ramChart;
+  let showMarkers = localStorage.getItem(markerStorageKey) !== 'hidden';
 
   function fmtTime(ms) {
     return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
@@ -305,6 +308,14 @@
     if (batteryChart) applyData(batteryChart, allBattery);
     if (tempChart) applyData(tempChart, allTemp);
     if (ramChart) applyData(ramChart, allRam);
+    syncMarkerToggle();
+  }
+
+  function syncMarkerToggle() {
+    var btn = document.getElementById('toggle-markers-btn');
+    if (!btn) return;
+    btn.textContent = showMarkers ? 'Hide Markers' : 'Show Markers';
+    btn.setAttribute('aria-pressed', showMarkers ? 'true' : 'false');
   }
 
   function makeGradient(color) {
@@ -393,6 +404,7 @@
   const commandMarkerPlugin = {
     id: 'commandMarkers',
     afterDraw(chart) {
+      if (!showMarkers) return;
       if (!chart._commandMarkers || !chart._commandMarkers.length) return;
       const xScale = chart.scales.x;
       const ca = chart.chartArea;
@@ -571,6 +583,15 @@
   ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
   ramChart._commandMarkers = commandMarkers;
 
+  document.getElementById("toggle-markers-btn").addEventListener("click", function () {
+    showMarkers = !showMarkers;
+    localStorage.setItem(markerStorageKey, showMarkers ? 'visible' : 'hidden');
+    syncMarkerToggle();
+    batteryChart.update();
+    tempChart.update();
+    ramChart.update();
+  });
+
   document.querySelectorAll(".dur-btn:not(#custom-range-btn)").forEach(btn => {
     btn.addEventListener("click", () => {
       customMin = null;
@@ -623,6 +644,7 @@
   }
 
   updateCharts();
+  syncMarkerToggle();
 })();
 </script>
 
