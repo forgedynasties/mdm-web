@@ -717,6 +717,10 @@ input[type="checkbox"]:hover {
   cursor: pointer;
   transition: background 0.15s;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .btn-primary:hover { background: var(--accent-h); }
 .btn-primary:disabled {
@@ -734,6 +738,10 @@ input[type="checkbox"]:hover {
   font-size: 12px;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .btn-danger-sm:hover { color: var(--danger); border-color: var(--danger); }
 
@@ -826,8 +834,27 @@ input[type="checkbox"]:hover {
   cursor: pointer;
   white-space: nowrap;
   transition: border-color 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 .btn-outline:hover { border-color: var(--accent); color: var(--accent-h); }
+
+.btn-primary .ui-icon,
+.btn-outline .ui-icon,
+.btn-danger-sm .ui-icon {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+}
+
+.btn-primary .ui-icon svg,
+.btn-outline .ui-icon svg,
+.btn-danger-sm .ui-icon svg {
+  width: 14px;
+  height: 14px;
+}
 
 .dur-btns { display: flex; gap: 2px; }
 .dur-btn {

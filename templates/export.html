@@ -5,7 +5,7 @@
 
 <div class="page-header">
   <div>
-    <h2 class="page-title">Export Data</h2>
+    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Export Data</h2>
     <p class="page-subtitle">{{len .Serials}} device{{if ne (len .Serials) 1}}s{{end}} selected</p>
   </div>
 </div>
@@ -99,14 +99,14 @@
         <label class="checkbox-label"><input type="checkbox" name="columns" value="last_seen" checked> Last Seen</label>
       </div>
       <div style="margin-top:10px;">
-        <button type="button" class="btn-outline" onclick="toggleAllCols(true)" style="padding:4px 10px;font-size:12px;">Select All</button>
-        <button type="button" class="btn-outline" onclick="toggleAllCols(false)" style="padding:4px 10px;font-size:12px;">Deselect All</button>
+        <button type="button" class="btn-outline" onclick="toggleAllCols(true)" style="padding:4px 10px;font-size:12px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>Select All</button>
+        <button type="button" class="btn-outline" onclick="toggleAllCols(false)" style="padding:4px 10px;font-size:12px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></span>Deselect All</button>
       </div>
     </div>
   </div>
 
   <div style="margin-top:20px;">
-    <button type="submit" class="btn-primary">Download CSV</button>
+    <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Download CSV</button>
   </div>
 </form>
 
