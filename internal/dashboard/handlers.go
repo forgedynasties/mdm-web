@@ -1883,8 +1883,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /setup/apps/create", h.requireAuth(h.SetupCreateAppJSON))
 	mux.HandleFunc("POST /setup/apps/{id}/delete", h.requireAuth(h.SetupDeleteApp))
 
-	mux.HandleFunc("GET /packages", h.requireAuth(h.FleetPackages))
-
 	mux.HandleFunc("GET /updates", h.requireAuth(h.Updates))
 	mux.HandleFunc("POST /updates", h.requireAuth(h.UpdateCreate))
 	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.UpdateDetail))
