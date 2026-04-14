@@ -343,6 +343,77 @@
     };
   }
 
+  function getVisibleMarkers(chart) {
+    if (!chart._commandMarkers || !chart._commandMarkers.length) return [];
+    const xScale = chart.scales.x;
+    return chart._commandMarkers
+      .filter(function (marker) {
+        return marker.x >= xScale.min && marker.x <= xScale.max;
+      })
+      .map(function (marker) {
+        return {
+          x: marker.x,
+          px: xScale.getPixelForValue(marker.x),
+          label: marker.label,
+          status: marker.status,
+        };
+      });
+  }
+
+  function clusterMarkers(chart) {
+    const visible = getVisibleMarkers(chart);
+    if (!visible.length) return [];
+
+    const clusters = [];
+    const thresholdPx = 28;
+    visible.forEach(function (marker) {
+      const current = clusters[clusters.length - 1];
+      if (!current || Math.abs(marker.px - current.lastPx) > thresholdPx) {
+        clusters.push({
+          markers: [marker],
+          lastPx: marker.px,
+        });
+        return;
+      }
+      current.markers.push(marker);
+      current.lastPx = marker.px;
+    });
+
+    return clusters.map(function (cluster) {
+      const sumPx = cluster.markers.reduce(function (sum, marker) { return sum + marker.px; }, 0);
+      return {
+        markers: cluster.markers,
+        px: sumPx / cluster.markers.length,
+      };
+    });
+  }
+
+  function markerClusterText(cluster) {
+    const labels = cluster.markers.map(function (marker) { return marker.label; });
+    const unique = Array.from(new Set(labels));
+    return unique.join(', ');
+  }
+
+  function markerHoverText(chart) {
+    if (!showMarkers || chart._crosshairX == null) return '';
+    const clusters = clusterMarkers(chart);
+    if (!clusters.length) return '';
+
+    let closest = null;
+    let closestDist = Infinity;
+    clusters.forEach(function (cluster) {
+      const dist = Math.abs(cluster.px - chart._crosshairX);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = cluster;
+      }
+    });
+    if (!closest || closestDist > 24) return '';
+
+    const prefix = closest.markers.length === 1 ? 'Command' : (closest.markers.length + ' commands');
+    return prefix + ': ' + markerClusterText(closest);
+  }
+
   // Crosshair plugin — draws vertical line at cursor, no snap
   const crosshairPlugin = {
     id: 'crosshair',
@@ -391,11 +462,19 @@
     id: 'staticLabel',
     afterEvent(chart) {
       const pt = nearestByPixel(chart);
+      const markerText = markerHoverText(chart);
       if (!pt || !chart._labelFn) {
-        if (chart._crosshairX == null) setHoverInfo("");
+        if (chart._crosshairX == null) {
+          setHoverInfo("");
+        } else if (markerText) {
+          setHoverInfo(markerText);
+        }
         return;
       }
-      setHoverInfo(fmtDate(pt.x) + "  |  " + chart._labelFn(pt));
+
+      var text = fmtDate(pt.x) + "  |  " + chart._labelFn(pt);
+      if (markerText) text += "  |  " + markerText;
+      setHoverInfo(text);
     },
   };
 
@@ -404,39 +483,41 @@
     afterDraw(chart) {
       if (!showMarkers) return;
       if (!chart._commandMarkers || !chart._commandMarkers.length) return;
-      const xScale = chart.scales.x;
       const ca = chart.chartArea;
-      const visible = chart._commandMarkers.filter(function (marker) {
-        return marker.x >= xScale.min && marker.x <= xScale.max;
-      }).slice(-8);
+      const visible = getVisibleMarkers(chart);
       if (!visible.length) return;
+      const clusters = clusterMarkers(chart);
 
       const ctx = chart.ctx;
       ctx.save();
       ctx.setLineDash([4, 4]);
-      visible.forEach(function (marker, idx) {
-        var x = xScale.getPixelForValue(marker.x);
-        var y = ca.top + 4 + ((idx % 2) * 16);
+      visible.forEach(function (marker) {
+        var x = marker.px;
         ctx.strokeStyle = 'rgba(255,255,255,0.22)';
         ctx.beginPath();
         ctx.moveTo(x, ca.top + 22);
         ctx.lineTo(x, ca.bottom);
         ctx.stroke();
+      });
 
-        var text = marker.label;
-        ctx.setLineDash([]);
-        ctx.font = '11px system-ui, sans-serif';
-        var width = ctx.measureText(text).width + 10;
+      ctx.setLineDash([]);
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      clusters.forEach(function (cluster, idx) {
+        var count = String(cluster.markers.length);
+        var badgeWidth = Math.max(18, ctx.measureText(count).width + 10);
+        var badgeHeight = 14;
+        var x = Math.max(ca.left + (badgeWidth / 2), Math.min(ca.right - (badgeWidth / 2), cluster.px));
+        var y = ca.top + 5 + ((idx % 2) * 16);
+        var boxX = x - (badgeWidth / 2);
+
         ctx.fillStyle = 'rgba(8,11,16,0.92)';
-        ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-        var boxX = Math.max(ca.left, x - width / 2);
-        ctx.fillRect(boxX, y, width, 14);
-        ctx.strokeRect(boxX, y, width, 14);
-        ctx.fillStyle = '#dfe6e9';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(text, x, y + 7);
-        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = cluster.markers.length > 1 ? 'rgba(91,110,245,0.55)' : 'rgba(255,255,255,0.18)';
+        ctx.fillRect(boxX, y, badgeWidth, badgeHeight);
+        ctx.strokeRect(boxX, y, badgeWidth, badgeHeight);
+        ctx.fillStyle = cluster.markers.length > 1 ? '#9eb0ff' : '#dfe6e9';
+        ctx.fillText(count, x, y + (badgeHeight / 2));
       });
       ctx.restore();
     },
