@@ -1269,6 +1269,9 @@ func (h *Handler) UpdateSend(w http.ResponseWriter, r *http.Request) {
 			eligible = append(eligible, did)
 		}
 	}
+	if limit, err := strconv.Atoi(strings.TrimSpace(r.FormValue("limit"))); err == nil && limit > 0 && len(eligible) > limit {
+		eligible = eligible[:limit]
+	}
 
 	if len(eligible) > 0 {
 		if err := h.db.SendUpdateToDevices(r.Context(), id, eligible); err != nil {

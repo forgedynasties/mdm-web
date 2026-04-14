@@ -10,6 +10,7 @@
   <script src="https://unpkg.com/htmx.org@2.0.4" crossorigin="anonymous"></script>
 </head>
 <body>
+  <div id="htmx-progress"></div>
   <nav class="navbar">
     <a href="/" class="navbar-brand">TSAI Fleet</a>
     <div class="navbar-links">
@@ -30,6 +31,83 @@
 
 {{define "footer"}}
   </main>
+  <script>
+  (function () {
+    var progress = document.getElementById('htmx-progress');
+
+    function beginProgress() {
+      if (!progress) return;
+      document.body.classList.add('htmx-requesting-progress');
+      progress.style.width = '70%';
+    }
+
+    function endProgress() {
+      if (!progress) return;
+      progress.style.width = '100%';
+      setTimeout(function () {
+        document.body.classList.remove('htmx-requesting-progress');
+        progress.style.width = '0';
+      }, 180);
+    }
+
+    function markSubmitting(form) {
+      if (!form || form.dataset.submitting === 'true') return;
+      form.dataset.submitting = 'true';
+      form.classList.add('form-submitting');
+      form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
+        btn.disabled = true;
+        btn.classList.add('btn-submitting');
+        if (btn.tagName === 'INPUT') {
+          btn.dataset.originalValue = btn.value;
+          btn.value = 'Working...';
+        }
+      });
+    }
+
+    function ensurePollStamp(card) {
+      if (!card || !card.matches('.card[hx-trigger*="every"]')) return;
+      var header = card.querySelector('.card-header');
+      if (!header) return;
+      var stamp = header.querySelector('.poll-stamp');
+      if (!stamp) {
+        stamp = document.createElement('span');
+        stamp.className = 'poll-stamp';
+        header.appendChild(stamp);
+      }
+      stamp.textContent = 'Synced ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function syncPollStamps(root) {
+      if (!root) return;
+      if (root.matches && root.matches('.card[hx-trigger*="every"]')) {
+        ensurePollStamp(root);
+      }
+      if (root.querySelectorAll) {
+        root.querySelectorAll('.card[hx-trigger*="every"]').forEach(ensurePollStamp);
+      }
+    }
+
+    document.addEventListener('submit', function (evt) {
+      var form = evt.target;
+      if (!form || form.tagName !== 'FORM' || evt.defaultPrevented) return;
+      if ((form.method || 'GET').toUpperCase() !== 'POST') return;
+      if (form.dataset.noSpinner === 'true') return;
+      markSubmitting(form);
+    });
+
+    document.body.addEventListener('htmx:beforeRequest', beginProgress);
+    document.body.addEventListener('htmx:afterRequest', endProgress);
+    document.body.addEventListener('htmx:responseError', endProgress);
+    document.body.addEventListener('htmx:sendError', endProgress);
+    document.body.addEventListener('htmx:afterSwap', function (evt) {
+      if (evt.detail && evt.detail.target) {
+        syncPollStamps(evt.detail.target);
+      }
+    });
+
+    syncPollStamps(document);
+  })();
+  </script>
 </body>
 </html>
 {{end}}

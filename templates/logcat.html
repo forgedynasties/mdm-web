@@ -6,6 +6,12 @@
     <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
     <h2 class="page-title">Logcat</h2>
   </div>
+  <div class="logcat-toolbar">
+    <span id="logcat-poll-state" class="muted small"></span>
+    <div class="logcat-pause">
+      <button type="button" id="logcat-pause-btn" class="btn-outline" onclick="toggleLogcatPolling()">Pause</button>
+    </div>
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:16px;">
@@ -33,20 +39,64 @@
   </form>
 </div>
 
-<div id="logcat-entries"
-  {{if .HasPending}}
-  hx-get="/devices/{{.Device.SerialNumber}}/logcat/entries"
-  hx-trigger="every 10s"
-  hx-swap="outerHTML"
-  {{end}}>
-  {{template "logcat-entries" .}}
-</div>
+{{template "logcat-entries" .}}
+
+<script>
+function logcatPauseKey() {
+  return 'logcat-pause:{{.Device.SerialNumber}}';
+}
+
+function syncLogcatPolling() {
+  var panel = document.getElementById('logcat-entries');
+  var btn = document.getElementById('logcat-pause-btn');
+  var state = document.getElementById('logcat-poll-state');
+  if (!panel || !btn || !state) return;
+
+  var canPoll = panel.dataset.canPoll === 'true';
+  var paused = localStorage.getItem(logcatPauseKey()) === '1';
+
+  if (!canPoll) {
+    panel.removeAttribute('hx-trigger');
+    btn.disabled = true;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.textContent = 'Pause';
+    state.textContent = 'No pending logcat polling';
+  } else if (paused) {
+    panel.removeAttribute('hx-trigger');
+    btn.disabled = false;
+    btn.setAttribute('aria-pressed', 'true');
+    btn.textContent = 'Play';
+    state.textContent = 'Polling paused';
+  } else {
+    panel.setAttribute('hx-trigger', panel.dataset.pollTrigger || 'every 10s');
+    btn.disabled = false;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.textContent = 'Pause';
+    state.textContent = 'Polling every 10s';
+  }
+
+  if (window.htmx) htmx.process(panel);
+}
+
+function toggleLogcatPolling() {
+  var paused = localStorage.getItem(logcatPauseKey()) === '1';
+  localStorage.setItem(logcatPauseKey(), paused ? '0' : '1');
+  syncLogcatPolling();
+}
+
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+  if (evt.detail.target.id === 'logcat-entries') syncLogcatPolling();
+});
+syncLogcatPolling();
+</script>
 
 {{template "footer" .}}
 {{end}}
 
 {{define "logcat-entries"}}
 <div id="logcat-entries"
+  data-poll-trigger="every 10s"
+  data-can-poll="{{if .HasPending}}true{{else}}false{{end}}"
   {{if .HasPending}}
   hx-get="/devices/{{.Device.SerialNumber}}/logcat/entries"
   hx-trigger="every 10s"

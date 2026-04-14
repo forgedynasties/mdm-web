@@ -463,6 +463,30 @@ a:hover { color: var(--accent-h); }
   position: relative;
   height: 300px;
 }
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: #7a7f9a;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.chart-legend-line {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.chart-legend-line.command-marker {
+  height: 0;
+  border-top: 2px dashed rgba(255,255,255,0.55);
+}
 
 /* ── Forms (groups / commands) ───────────────────── */
 .inline-form {
@@ -491,6 +515,9 @@ a:hover { color: var(--accent-h); }
   flex-direction: column;
   gap: 16px;
   padding: 16px;
+}
+.form-submitting {
+  opacity: 0.92;
 }
 
 .form-row {
@@ -940,6 +967,11 @@ input[type="checkbox"]:hover {
 .logcat-level-I { background: rgba(91,110,245,0.15); color: #5b6ef5; border-color: rgba(91,110,245,0.3); }
 .logcat-level-D { background: rgba(52,199,123,0.15); color: #34c77b; border-color: rgba(52,199,123,0.3); }
 .logcat-level-V { background: rgba(122,127,154,0.15); color: #7a7f9a; border-color: rgba(122,127,154,0.3); }
+.logcat-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
 /* ── Actions Grid ────────────────────────────────── */
 .actions-grid {
@@ -1252,11 +1284,24 @@ input[type="checkbox"]:hover {
 
 /* ── HTMX Progress Bar ────────────────────────── */
 #htmx-progress { position: fixed; top: 0; left: 0; height: 2px; background: var(--accent); z-index: 999; width: 0; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
-.htmx-request #htmx-progress { opacity: 1; animation: htmx-progress-grow 2s ease-out forwards; }
+.htmx-requesting-progress #htmx-progress { opacity: 1; animation: htmx-progress-grow 2s ease-out forwards; }
 @keyframes htmx-progress-grow { from { width: 0; } to { width: 90%; } }
 
 /* ── Form Submit Feedback ─────────────────────── */
-.btn-submitting { opacity: 0.6; pointer-events: none; }
+.btn-submitting { opacity: 0.72; pointer-events: none; position: relative; }
+.btn-submitting::after {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 8px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes btn-spin { to { transform: rotate(360deg); } }
 
 /* ── Logcat Line Colors ───────────────────────── */
 .logcat-terminal .log-E { color: #f05252; }
@@ -1268,11 +1313,28 @@ input[type="checkbox"]:hover {
 /* ── Logcat Pause Button ──────────────────────── */
 .logcat-pause { display: flex; align-items: center; gap: 6px; }
 .logcat-pause .btn-outline { font-size: 12px; padding: 3px 10px; }
+.logcat-pause .btn-outline[aria-pressed="true"] {
+  border-color: var(--warn);
+  color: var(--warn);
+}
 
 /* ── Double-Lock Modal ────────────────────────── */
 .confirm-input { font-size: 18px; text-align: center; letter-spacing: 2px; width: 120px; }
 .confirm-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
 .confirm-count { font-size: 24px; font-weight: 700; color: var(--danger); }
+.confirm-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--text);
+}
+.poll-stamp {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.7;
+}
 
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 900px) {

@@ -229,10 +229,11 @@
     </div>
   </div>
   <div style="padding:0 16px;">
-    <div style="display:flex;align-items:center;gap:12px;font-size:12px;color:#7a7f9a;margin-bottom:4px;">
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#e84393;border-radius:2px;display:inline-block;"></span> Wireless Charging On</span>
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:3px;background:#6c5ce7;border-radius:2px;display:inline-block;"></span> Wireless Charging Off</span>
-      <span style="display:flex;align-items:center;gap:4px;"><span style="width:18px;height:0;border-top:2px dashed #7a7f9a;display:inline-block;"></span> Draining</span>
+    <div class="chart-legend">
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> Wireless Charging On</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Wireless Charging Off</span>
+      <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
+      <span class="chart-legend-item"><span class="chart-legend-line command-marker"></span> Command Sent</span>
     </div>
   </div>
   <div class="chart-wrap">
@@ -253,6 +254,7 @@
   const allBattery = [{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}];
   const allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
   const allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
+  const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
 
   let currentDuration = 6 * 3600 * 1000;
   let customMin = null, customMax = null;
@@ -388,6 +390,48 @@
     },
   };
 
+  const commandMarkerPlugin = {
+    id: 'commandMarkers',
+    afterDraw(chart) {
+      if (!chart._commandMarkers || !chart._commandMarkers.length) return;
+      const xScale = chart.scales.x;
+      const ca = chart.chartArea;
+      const visible = chart._commandMarkers.filter(function (marker) {
+        return marker.x >= xScale.min && marker.x <= xScale.max;
+      }).slice(-8);
+      if (!visible.length) return;
+
+      const ctx = chart.ctx;
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      visible.forEach(function (marker, idx) {
+        var x = xScale.getPixelForValue(marker.x);
+        var y = ca.top + 4 + ((idx % 2) * 16);
+        ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+        ctx.beginPath();
+        ctx.moveTo(x, ca.top + 22);
+        ctx.lineTo(x, ca.bottom);
+        ctx.stroke();
+
+        var text = marker.label;
+        ctx.setLineDash([]);
+        ctx.font = '11px system-ui, sans-serif';
+        var width = ctx.measureText(text).width + 10;
+        ctx.fillStyle = 'rgba(8,11,16,0.92)';
+        ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+        var boxX = Math.max(ca.left, x - width / 2);
+        ctx.fillRect(boxX, y, width, 14);
+        ctx.strokeRect(boxX, y, width, 14);
+        ctx.fillStyle = '#dfe6e9';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(text, x, y + 7);
+        ctx.setLineDash([4, 4]);
+      });
+      ctx.restore();
+    },
+  };
+
   // Battery chart
   batteryChart = new Chart(document.getElementById("batteryChart").getContext("2d"), {
     type: "line",
@@ -430,13 +474,14 @@
         y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
-    plugins: [crosshairPlugin, staticLabelPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
     if (pt.wlc === undefined) return line;
     return line + (pt.wlc ? ' ⚡ WLC On' : ' — WLC Off');
   };
+  batteryChart._commandMarkers = commandMarkers;
 
   // Temperature chart
   tempChart = new Chart(document.getElementById("tempChart").getContext("2d"), {
@@ -477,9 +522,10 @@
         y: { ticks: { color: "#7a7f9a", callback: v => v + "°C" }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
-    plugins: [crosshairPlugin, staticLabelPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
   });
   tempChart._labelFn = pt => pt.y.toFixed(1) + '°C';
+  tempChart._commandMarkers = commandMarkers;
 
   // RAM chart
   ramChart = new Chart(document.getElementById("ramChart").getContext("2d"), {
@@ -520,9 +566,10 @@
         y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
       },
     },
-    plugins: [crosshairPlugin, staticLabelPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
   });
   ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
+  ramChart._commandMarkers = commandMarkers;
 
   document.querySelectorAll(".dur-btn:not(#custom-range-btn)").forEach(btn => {
     btn.addEventListener("click", () => {

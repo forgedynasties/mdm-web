@@ -6,7 +6,7 @@
   <div class="bulk-actions" id="bulk-bar" style="display:none;">
     <span class="bulk-count" id="bulk-count">0 selected</span>
     <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
-          onsubmit="return confirm('Hide selected devices? They will reappear on next check-in.')">
+          onsubmit="return confirmBulkHide(event)">
       <button type="submit" class="btn-danger-sm">Hide Selected</button>
     </form>
     <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
@@ -381,17 +381,22 @@ function bulkSendCommand() {
 function bulkReboot() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
-  if (!confirm('Reboot ' + serials.length + ' device(s)? They will reboot on next checkin.')) return;
-  var form = document.createElement('form');
-  form.method = 'POST'; form.action = '/commands';
-  var fields = {type: 'reboot', target_type: 'devices', target_serials: serials.join(','), apk_url: ''};
-  for (var key in fields) {
-    var inp = document.createElement('input');
-    inp.type = 'hidden'; inp.name = key; inp.value = fields[key];
-    form.appendChild(inp);
-  }
-  document.body.appendChild(form);
-  form.submit();
+  confirmMassAction({
+    action: 'reboot',
+    count: serials.length,
+    onConfirm: function() {
+      var form = document.createElement('form');
+      form.method = 'POST'; form.action = '/commands';
+      var fields = {type: 'reboot', target_type: 'devices', target_serials: serials.join(','), apk_url: ''};
+      for (var key in fields) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = key; inp.value = fields[key];
+        form.appendChild(inp);
+      }
+      document.body.appendChild(form);
+      form.submit();
+    }
+  });
 }
 
 function bulkExport() {
@@ -418,6 +423,53 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
     evt.detail.target.classList.add('compact');
   }
 });
+
+var pendingMassAction = null;
+
+function confirmBulkHide(event) {
+  event.preventDefault();
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return false;
+  confirmMassAction({
+    action: 'hide',
+    count: serials.length,
+    onConfirm: function() {
+      document.getElementById('bulk-hide-form').submit();
+    }
+  });
+  return false;
+}
+
+function confirmMassAction(opts) {
+  pendingMassAction = opts;
+  document.getElementById('confirm-count').textContent = opts.count;
+  document.getElementById('confirm-action-name').textContent = opts.action;
+  document.getElementById('confirm-understand').checked = false;
+  document.getElementById('confirm-input').value = '';
+  document.getElementById('confirm-modal').classList.add('modal-open');
+  document.getElementById('confirm-input').focus();
+}
+
+function closeConfirmModal(event) {
+  if (!event || event.target === document.getElementById('confirm-modal')) {
+    document.getElementById('confirm-modal').classList.remove('modal-open');
+    pendingMassAction = null;
+  }
+}
+
+function submitConfirmedMassAction() {
+  if (!pendingMassAction) return;
+  var checked = document.getElementById('confirm-understand').checked;
+  var typed = document.getElementById('confirm-input').value.trim();
+  if (!checked || typed !== String(pendingMassAction.count)) return;
+  var action = pendingMassAction;
+  closeConfirmModal();
+  action.onConfirm();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeConfirmModal();
+});
 </script>
 
 <div class="card"
@@ -429,6 +481,29 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
      hx-indicator="#refresh-indicator"
      hx-vals='js:getFilterVals()'>
   {{template "device-table" .}}
+</div>
+
+<div id="confirm-modal" class="modal-backdrop" onclick="closeConfirmModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Confirm Bulk Action</span>
+      <button class="modal-close" type="button" onclick="closeConfirmModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="confirm-count" id="confirm-count">0</div>
+      <div class="muted small">devices will be affected by this <span id="confirm-action-name">action</span>.</div>
+      <label class="confirm-check" style="margin-top:12px;">
+        <input type="checkbox" id="confirm-understand">
+        <span>I understand this cannot be undone from the bulk toolbar.</span>
+      </label>
+      <div class="form-row" style="margin-top:12px;">
+        <label class="form-label">Type the device count to continue</label>
+        <input type="text" id="confirm-input" class="form-input confirm-input" inputmode="numeric" autocomplete="off">
+        <div class="confirm-hint">Enter the exact number shown above.</div>
+      </div>
+      <button type="button" class="btn-danger" style="margin-top:12px;" onclick="submitConfirmedMassAction()">Confirm</button>
+    </div>
+  </div>
 </div>
 
 {{template "footer" .}}

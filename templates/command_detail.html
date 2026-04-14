@@ -36,7 +36,7 @@
           {{if eq $cmd.Type "shell"}}
           <td style="min-width:320px;">
             {{if .Output}}
-            <pre class="logcat-terminal" style="max-height:300px;margin:0;">{{.Output}}</pre>
+            <pre class="logcat-terminal" style="max-height:300px;margin:0;">{{colorizeLogcat .Output}}</pre>
             {{else if or (eq .Status "delivered") (eq .Status "pending")}}
             <pre id="out-{{.SerialNumber}}" class="logcat-terminal" style="max-height:300px;margin:0;"></pre>
             <script>
