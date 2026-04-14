@@ -258,7 +258,8 @@
   let currentDuration = 6 * 3600 * 1000;
   let customMin = null, customMax = null;
   let batteryChart, tempChart, ramChart;
-  let showMarkers = localStorage.getItem(markerStorageKey) !== 'hidden';
+  let storedMarkerPref = localStorage.getItem(markerStorageKey);
+  let showMarkers = storedMarkerPref === null ? false : storedMarkerPref === 'visible';
 
   function fmtTime(ms) {
     return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
