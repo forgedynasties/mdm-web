@@ -23,18 +23,30 @@
         Serial Number
         {{if eq .Sort "serial"}}<span class="sort-arrow">&#9650;</span>{{end}}
       </th>
-      <th>Build ID</th>
+      <th class="sortable-th {{if eq .Sort "build"}}sorted{{end}}" data-sort-key="build">
+        Build ID
+        {{if eq .Sort "build"}}<span class="sort-arrow">&#9650;</span>{{end}}
+      </th>
       <th class="sortable-th {{if eq .Sort "battery"}}sorted{{end}}" data-sort-key="battery">
         Battery
         {{if eq .Sort "battery"}}<span class="sort-arrow">&#9650;</span>{{end}}
       </th>
-      <th>RAM</th>
-      <th>Temp</th>
-      <th class="sortable-th {{if not .Sort}}sorted{{end}}" data-sort-key="">
-        Last Seen
-        {{if not .Sort}}<span class="sort-arrow">&#9660;</span>{{end}}
+      <th class="sortable-th {{if eq .Sort "ram"}}sorted{{end}}" data-sort-key="ram">
+        RAM
+        {{if eq .Sort "ram"}}<span class="sort-arrow">&#9650;</span>{{end}}
       </th>
-      <th>First Seen</th>
+      <th class="sortable-th {{if eq .Sort "temp"}}sorted{{end}}" data-sort-key="temp">
+        Temp
+        {{if eq .Sort "temp"}}<span class="sort-arrow">&#9650;</span>{{end}}
+      </th>
+      <th class="sortable-th {{if or (not .Sort) (eq .Sort "last_seen")}}sorted{{end}}" data-sort-key="last_seen">
+        Last Seen
+        {{if or (not .Sort) (eq .Sort "last_seen")}}<span class="sort-arrow">&#9660;</span>{{end}}
+      </th>
+      <th class="sortable-th {{if eq .Sort "created_at"}}sorted{{end}}" data-sort-key="created_at">
+        First Seen
+        {{if eq .Sort "created_at"}}<span class="sort-arrow">&#9660;</span>{{end}}
+      </th>
       <th>Kiosk</th>
       <th></th>
     </tr>
@@ -142,18 +154,7 @@
 document.querySelectorAll('.sortable-th').forEach(function(th) {
   th.addEventListener('click', function() {
     var key = th.dataset.sortKey;
-    // If already sorted by this column, cycle to next sort
-    var p = new URLSearchParams(location.search);
-    var cur = p.get('sort') || '';
-    if (key === '') {
-      // "Last Seen" is the default (sort=""), clicking when already active does nothing
-      navigateDevices({page: '1', sort: ''});
-    } else if (cur === key) {
-      // Already sorted by this, go back to default
-      navigateDevices({page: '1', sort: ''});
-    } else {
-      navigateDevices({page: '1', sort: key});
-    }
+    navigateDevices({page: '1', sort: key});
   });
 });
 

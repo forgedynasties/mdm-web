@@ -319,8 +319,21 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort string, selectRows bool, limi
 		switch sort {
 		case "serial":
 			orderClause = "d.serial_number ASC"
+		case "build":
+			orderClause = "d.build_id ASC"
 		case "battery":
 			orderClause = "COALESCE(c.battery_pct, 0) ASC"
+		case "ram":
+			orderClause = `COALESCE(
+				((c.extra->'ram_usage_mb'->>'used')::int * 100) / NULLIF((c.extra->'ram_usage_mb'->>'total')::int, 0),
+				0
+			) ASC`
+		case "temp":
+			orderClause = "COALESCE((c.extra->>'battery_temp_c')::numeric, 0) ASC"
+		case "created_at":
+			orderClause = "d.created_at DESC"
+		case "last_seen":
+			orderClause = "d.last_seen_at DESC"
 		}
 		base += "\nORDER BY " + orderClause
 
