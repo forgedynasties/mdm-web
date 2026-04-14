@@ -275,6 +275,9 @@ a:hover { color: var(--accent-h); }
 .mono  { font-family: var(--mono); }
 .small { font-size: 12px; }
 .muted { color: var(--muted); }
+.ok { color: var(--ok); }
+.warn { color: var(--warn); }
+.danger { color: var(--danger); }
 
 .empty {
   text-align: center;
