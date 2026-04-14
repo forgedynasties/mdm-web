@@ -253,7 +253,7 @@
   const allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
   const allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
   const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
-  const markerStorageKey = 'mdm-chart-markers:{{.Device.SerialNumber}}';
+  const markerStorageKey = 'mdm-chart-markers:v2:{{.Device.SerialNumber}}';
 
   let currentDuration = 6 * 3600 * 1000;
   let customMin = null, customMax = null;
