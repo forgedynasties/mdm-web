@@ -64,8 +64,29 @@ a:hover { color: var(--accent-h); }
   padding: 6px 12px;
   border-radius: var(--radius);
   transition: color 0.15s, background 0.15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 .nav-link:hover { color: var(--text); background: var(--surface2); }
+.ui-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: currentColor;
+  flex: 0 0 16px;
+}
+.ui-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
 .btn-logout {
   background: transparent;
@@ -97,6 +118,20 @@ a:hover { color: var(--accent-h); }
   font-size: 22px;
   font-weight: 700;
   color: var(--text);
+}
+.page-title.icon-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.page-title.icon-title .ui-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--accent);
+}
+.page-title.icon-title .ui-icon svg {
+  width: 20px;
+  height: 20px;
 }
 
 .page-subtitle {
@@ -360,6 +395,25 @@ a:hover { color: var(--accent-h); }
   border-radius: var(--radius);
   padding: 16px 18px;
   text-align: center;
+  position: relative;
+}
+.summary-icon {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  opacity: 0.9;
+}
+.summary-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .summary-value {

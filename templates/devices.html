@@ -186,7 +186,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 
 <div class="page-header">
   <div>
-    <h2 class="page-title">Devices</h2>
+    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Devices</h2>
     <p class="page-subtitle">{{.Total}} device{{if ne .Total 1}}s{{end}} registered</p>
   </div>
   <span class="refresh-badge" id="refresh-indicator">Auto-refresh every 60s</span>
@@ -195,22 +195,27 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 {{with .Summary}}
 <div class="summary-grid">
   <div class="summary-card">
+    <span class="summary-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
     <div class="summary-value">{{.Total}}</div>
     <div class="summary-label">Total Devices</div>
   </div>
   <div class="summary-card">
+    <span class="summary-icon"><svg viewBox="0 0 24 24"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="8"/></svg></span>
     <div class="summary-value ok">{{.RecentlyActive}}</div>
     <div class="summary-label">Active (last 3 min)</div>
   </div>
   <div class="summary-card">
+    <span class="summary-icon"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="16" height="8" rx="2"/><path d="M21 10v4"/><path d="M7 12h4"/></svg></span>
     <div class="summary-value {{if gt .LowBattery 0}}danger{{end}}">{{.LowBattery}}</div>
     <div class="summary-label">Low Battery (&lt;20%)</div>
   </div>
   <div class="summary-card">
+    <span class="summary-icon"><svg viewBox="0 0 24 24"><path d="M6 18V8"/><path d="M12 18V5"/><path d="M18 18v-3"/></svg></span>
     <div class="summary-value">{{.UniqueBuilds}}</div>
     <div class="summary-label">Unique Builds</div>
   </div>
   <div class="summary-card">
+    <span class="summary-icon"><svg viewBox="0 0 24 24"><path d="M8 11V7a4 4 0 1 1 8 0v4"/><rect x="5" y="11" width="14" height="9" rx="2"/></svg></span>
     <div class="summary-value {{if gt .KioskCount 0}}ok{{end}}">{{.KioskCount}}</div>
     <div class="summary-label">In Kiosk Mode</div>
   </div>
