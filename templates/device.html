@@ -675,7 +675,7 @@
       <div class="form-row" style="margin-bottom:16px;">
         <label class="form-label">Pinned App</label>
         {{if .InstalledPackages}}
-          <select name="kiosk_package" class="form-input" style="max-width:420px;">
+          <select name="kiosk_package" class="form-input" style="max-width:420px;" required>
             <option value="">— select a package —</option>
             {{range .InstalledPackages}}
               <option value="{{.PackageName}}" {{if eq .PackageName $.KioskConfig.KioskPackage}}selected{{end}}>
@@ -686,7 +686,7 @@
         {{else}}
           <p class="muted small">No installed packages on record. Send a checkin with <code>installed_apps</code> first.</p>
           <input type="text" name="kiosk_package" class="form-input" style="max-width:420px;"
-                 value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
+                 value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app" required>
         {{end}}
       </div>
 

@@ -1669,6 +1669,11 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	enabled := r.FormValue("kiosk_enabled") == "1"
 	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
 
+	if enabled && pkg == "" {
+		http.Error(w, "Kiosk package is required when enabling kiosk mode", http.StatusBadRequest)
+		return
+	}
+
 	if err := h.db.SetKioskConfig(r.Context(), device.ID, enabled, pkg, 0); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
