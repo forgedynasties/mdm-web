@@ -1071,8 +1071,18 @@ func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/groups", http.StatusFound)
 		return
 	}
-	if _, err := h.db.CreateGroup(r.Context(), name); err != nil {
+	group, err := h.db.CreateGroup(r.Context(), name)
+	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	serials := r.Form["serials"]
+	if len(serials) > 0 {
+		if err := h.db.AddDevicesToGroup(r.Context(), serials, group.ID); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/groups/"+group.ID.String(), http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, "/groups", http.StatusFound)
@@ -1108,6 +1118,37 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+}
+
+func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		query = strings.TrimSpace(r.URL.Query().Get("serial_number"))
+	}
+	if query == "" {
+		h.tmpl.ExecuteTemplate(w, "group-device-search-results", map[string]any{
+			"Query":   "",
+			"Devices": []db.Device{},
+			"GroupID": id,
+		})
+		return
+	}
+
+	devices, err := h.db.SearchDevicesBySerial(r.Context(), query, 8)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "group-device-search-results", map[string]any{
+		"Query":   query,
+		"Devices": devices,
+		"GroupID": id,
+	})
 }
 
 func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
@@ -1820,6 +1861,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
 	mux.HandleFunc("POST /groups", h.requireAuth(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
+	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("POST /groups/{id}/delete", h.requireAuth(h.GroupDelete))
 	mux.HandleFunc("POST /groups/{id}/devices", h.requireAuth(h.GroupAddDevice))
 	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAuth(h.GroupRemoveDevice))

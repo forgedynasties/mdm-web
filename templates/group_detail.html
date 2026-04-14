@@ -11,19 +11,20 @@
 
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Add Device</h3></div>
-  <form action="/groups/{{.Group.ID}}/devices" method="POST" class="inline-form">
-    <input type="text" name="serial_number" placeholder="Serial number" class="form-input" required>
+  <form action="/groups/{{.Group.ID}}/devices" method="POST" class="inline-form" style="align-items:flex-start;flex-direction:column;">
+    <input type="text"
+           name="serial_number"
+           id="group-serial-input"
+           placeholder="Serial number"
+           class="form-input"
+           required
+           autocomplete="off"
+           hx-get="/groups/{{.Group.ID}}/device-search"
+           hx-trigger="input changed delay:200ms, search"
+           hx-target="#group-device-search-results"
+           hx-include="#group-serial-input">
+    <div id="group-device-search-results" style="width:100%;"></div>
     <button type="submit" class="btn-primary">Add</button>
-  </form>
-</div>
-
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Shell Command</h3></div>
-  <p class="muted small" style="padding:0 16px;margin:8px 0;">Run a shell command on all devices in this group (legacy only).</p>
-  <form action="/groups/{{.Group.ID}}/commands" method="POST" class="inline-form">
-    <input type="hidden" name="type" value="shell">
-    <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required style="flex:1;">
-    <button type="submit" class="btn-primary">Run</button>
   </form>
 </div>
 
@@ -73,4 +74,36 @@
 </div>
 
 {{template "footer" .}}
+{{end}}
+
+{{define "group-device-search-results"}}
+{{if .Query}}
+  {{if .Devices}}
+  <div class="lookup-results">
+    <div class="lookup-title">Matches for "{{.Query}}"</div>
+    {{range .Devices}}
+    <div class="lookup-row">
+      <div>
+        <div class="mono">{{.SerialNumber}}</div>
+        <div class="muted small">Build {{.BuildID}} · {{timeSince .LastSeenAt}}</div>
+      </div>
+      <button type="button" class="btn-outline" onclick="pickGroupSerial('{{.SerialNumber}}')">Use</button>
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="lookup-results lookup-empty">
+    <div class="lookup-title">No device found</div>
+    <div class="muted small">No serial matched "{{.Query}}".</div>
+  </div>
+  {{end}}
+{{end}}
+<script>
+function pickGroupSerial(serial) {
+  var input = document.getElementById('group-serial-input');
+  if (!input) return;
+  input.value = serial;
+  input.focus();
+}
+</script>
 {{end}}

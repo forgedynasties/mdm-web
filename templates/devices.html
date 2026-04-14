@@ -9,6 +9,7 @@
           onsubmit="return confirmBulkHide(event)">
       <button type="submit" class="btn-danger-sm">Hide Selected</button>
     </form>
+    <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;">Create Group</button>
     <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
     <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
     <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
@@ -418,6 +419,30 @@ function bulkExport() {
   window.location.href = '/export?serials=' + encodeURIComponent(serials.join(','));
 }
 
+function openBulkGroupModal() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var form = document.getElementById('bulk-group-form');
+  form.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
+  serials.forEach(function(s) {
+    var inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'serials';
+    inp.value = s;
+    form.appendChild(inp);
+  });
+  document.getElementById('bulk-group-name').value = '';
+  document.getElementById('bulk-group-count').textContent = serials.length;
+  document.getElementById('bulk-group-modal').classList.add('modal-open');
+  document.getElementById('bulk-group-name').focus();
+}
+
+function closeBulkGroupModal(event) {
+  if (!event || event.target === document.getElementById('bulk-group-modal')) {
+    document.getElementById('bulk-group-modal').classList.remove('modal-open');
+  }
+}
+
 // Density toggle
 function toggleDensity() {
   var el = document.getElementById('device-table-container');
@@ -515,6 +540,25 @@ document.addEventListener('keydown', function(e) {
         <div class="confirm-hint">Enter the exact number shown above.</div>
       </div>
       <button type="button" class="btn-danger" style="margin-top:12px;" onclick="submitConfirmedMassAction()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div id="bulk-group-modal" class="modal-backdrop" onclick="closeBulkGroupModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Create Group</span>
+      <button class="modal-close" type="button" onclick="closeBulkGroupModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted small"><span id="bulk-group-count">0</span> selected devices will be added to this group.</div>
+      <form action="/groups" method="POST" id="bulk-group-form" class="command-form" style="padding:0;margin-top:12px;">
+        <div class="form-row">
+          <label class="form-label">Group Name</label>
+          <input type="text" name="name" id="bulk-group-name" class="form-input" placeholder="Field Team A" required>
+        </div>
+        <button type="submit" class="btn-primary">Create Group</button>
+      </form>
     </div>
   </div>
 </div>

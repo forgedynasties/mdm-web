@@ -1035,6 +1035,34 @@ input[type="checkbox"]:hover {
   color: var(--accent);
   white-space: nowrap;
 }
+.lookup-results {
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+  overflow: hidden;
+}
+.lookup-title {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.lookup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+.lookup-row:first-of-type {
+  border-top: 0;
+}
+.lookup-empty .lookup-title {
+  border-bottom: 0;
+}
 
 /* ── Filter bar ─────────────────────────────────── */
 .filter-bar {

@@ -729,6 +729,18 @@ func (d *DB) AddDeviceToGroup(ctx context.Context, serial string, groupID uuid.U
 	return err
 }
 
+func (d *DB) AddDevicesToGroup(ctx context.Context, serials []string, groupID uuid.UUID) error {
+	if len(serials) == 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO device_groups (device_id, group_id)
+		SELECT id, $2 FROM devices WHERE serial_number = ANY($1)
+		ON CONFLICT DO NOTHING
+	`, serials, groupID)
+	return err
+}
+
 func (d *DB) RemoveDeviceFromGroup(ctx context.Context, serial string, groupID uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `
 		DELETE FROM device_groups
@@ -767,6 +779,45 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 	for rows.Next() {
 		var dev Device
 		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage); err != nil {
+			return nil, err
+		}
+		devices = append(devices, dev)
+	}
+	return devices, rows.Err()
+}
+
+func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int) ([]Device, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT
+			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
+			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.poll_interval_ms,
+			COALESCE(dc.kiosk_enabled, false),
+			COALESCE(dc.kiosk_package, ''),
+			COALESCE(c.extra, '{}'::jsonb) AS latest_extra
+		FROM devices d
+		LEFT JOIN LATERAL (
+			SELECT battery_pct, extra FROM checkins
+			WHERE device_id = d.id
+			ORDER BY created_at DESC
+			LIMIT 1
+		) c ON true
+		LEFT JOIN device_config dc ON dc.device_id = d.id
+		WHERE d.serial_number ILIKE $1
+		ORDER BY
+			CASE WHEN lower(d.serial_number) = lower($2) THEN 0 ELSE 1 END,
+			d.serial_number
+		LIMIT $3
+	`, "%"+query+"%", query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []Device
+	for rows.Next() {
+		var dev Device
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
