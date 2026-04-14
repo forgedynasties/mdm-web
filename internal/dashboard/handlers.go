@@ -1217,6 +1217,36 @@ func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	serials := r.Form["serials"]
+	if len(serials) == 0 {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+
+	enabled := r.FormValue("kiosk_enabled") == "1"
+	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
+	if enabled && pkg == "" {
+		http.Error(w, "Kiosk package is required when enabling kiosk mode", http.StatusBadRequest)
+		return
+	}
+	if !enabled {
+		pkg = ""
+	}
+
+	deviceIDs, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := h.db.SetKioskConfigForDevices(r.Context(), deviceIDs, enabled, pkg, 0); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 // ── OTA Updates ───────────────────────────────────────────────────────────────
 
 func (h *Handler) Updates(w http.ResponseWriter, r *http.Request) {
@@ -1851,6 +1881,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAuth(h.DeviceKioskUpdate))
 	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAuth(h.DeviceHide))
 	mux.HandleFunc("POST /devices/bulk-hide", h.requireAuth(h.BulkHideDevices))
+	mux.HandleFunc("POST /devices/bulk-kiosk", h.requireAuth(h.BulkKioskUpdate))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	mux.HandleFunc("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))

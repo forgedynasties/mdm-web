@@ -1397,6 +1397,24 @@ func (d *DB) SetKioskConfig(ctx context.Context, deviceID uuid.UUID, enabled boo
 	return err
 }
 
+func (d *DB) SetKioskConfigForDevices(ctx context.Context, deviceIDs []uuid.UUID, enabled bool, pkg string, features int) error {
+	if len(deviceIDs) == 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO device_config (device_id, kiosk_enabled, kiosk_package, kiosk_features, updated_at)
+		SELECT d.id, $2, $3, $4, NOW()
+		FROM devices d
+		WHERE d.id = ANY($1)
+		ON CONFLICT (device_id) DO UPDATE
+			SET kiosk_enabled  = EXCLUDED.kiosk_enabled,
+			    kiosk_package  = EXCLUDED.kiosk_package,
+			    kiosk_features = EXCLUDED.kiosk_features,
+			    updated_at     = NOW()
+	`, deviceIDs, enabled, pkg, features)
+	return err
+}
+
 // ParseSerials splits a newline/comma separated string into a trimmed slice.
 func ParseSerials(raw string) []string {
 	raw = strings.ReplaceAll(raw, ",", "\n")

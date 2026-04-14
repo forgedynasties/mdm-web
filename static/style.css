@@ -1063,6 +1063,27 @@ input[type="checkbox"]:hover {
 .lookup-empty .lookup-title {
   border-bottom: 0;
 }
+.kiosk-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface2);
+}
+.kiosk-summary-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.kiosk-summary-value {
+  font-size: 14px;
+  color: var(--text);
+}
 
 /* ── Filter bar ─────────────────────────────────── */
 .filter-bar {

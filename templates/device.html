@@ -722,29 +722,29 @@
   <div class="card-header">
     <h3>Kiosk Mode</h3>
     {{if .Device.KioskEnabled}}
-      <span class="status-badge ok">Active — {{.Device.KioskPackage}}</span>
+      <span class="status-badge ok">Active</span>
     {{else}}
       <span class="status-badge muted">Disabled</span>
     {{end}}
   </div>
-
-  <form action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" style="padding:16px;">
-
-    <div class="form-row" style="margin-bottom:16px;display:flex;align-items:center;gap:12px;">
-      <label class="form-label" style="margin:0;">Enable Kiosk</label>
-      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-        <input type="checkbox" name="kiosk_enabled" value="1" {{if .KioskConfig.KioskEnabled}}checked{{end}}
-               onchange="document.getElementById('kiosk-fields').style.display=this.checked?'block':'none'">
-        <span class="small">Lock device to a single app on next checkin</span>
-      </label>
+  <form action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" class="command-form">
+    <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-input" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">
+    <div class="kiosk-summary">
+      <div>
+        <div class="kiosk-summary-label">Current State</div>
+        <div class="kiosk-summary-value">{{if .KioskConfig.KioskEnabled}}Pinned to {{.KioskConfig.KioskPackage}}{{else}}Device is free to leave the app{{end}}</div>
+      </div>
+      <div class="seg-control kiosk-mode-control">
+        <button type="button" class="seg-btn {{if .KioskConfig.KioskEnabled}}active{{end}}" data-mode="enable" onclick="setKioskMode('enable')">Enable</button>
+        <button type="button" class="seg-btn {{if not .KioskConfig.KioskEnabled}}active{{end}}" data-mode="disable" onclick="setKioskMode('disable')">Disable</button>
+      </div>
     </div>
 
-    <div id="kiosk-fields" style="display:{{if .KioskConfig.KioskEnabled}}block{{else}}none{{end}}">
-
-      <div class="form-row" style="margin-bottom:16px;">
+    <div id="kiosk-package-row" style="display:{{if .KioskConfig.KioskEnabled}}block{{else}}none{{end}}">
+      <div class="form-row">
         <label class="form-label">Pinned App</label>
         {{if .InstalledPackages}}
-          <select name="kiosk_package" class="form-input" style="max-width:420px;" required>
+          <select name="kiosk_package" id="kiosk-package-input" class="form-input" style="max-width:520px;" {{if .KioskConfig.KioskEnabled}}required{{end}}>
             <option value="">— select a package —</option>
             {{range .InstalledPackages}}
               <option value="{{.PackageName}}" {{if eq .PackageName $.KioskConfig.KioskPackage}}selected{{end}}>
@@ -752,19 +752,19 @@
               </option>
             {{end}}
           </select>
+          <div class="form-hint">Choose the app that should remain pinned on the device.</div>
         {{else}}
-          <p class="muted small">No installed packages on record. Send a checkin with <code>installed_apps</code> first.</p>
-          <input type="text" name="kiosk_package" class="form-input" style="max-width:420px;"
-                 value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app" required>
+          <p class="muted small">No installed packages on record. Send a checkin with <code>installed_apps</code> first, or enter the package manually.</p>
+          <input type="text" name="kiosk_package" id="kiosk-package-input" class="form-input" style="max-width:520px;"
+                 value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app" {{if .KioskConfig.KioskEnabled}}required{{end}}>
         {{end}}
       </div>
-
     </div>
 
-    <button type="submit" class="btn-primary">Save Kiosk Config</button>
-    {{if .KioskConfig.KioskEnabled}}
-      <span class="muted small" style="margin-left:12px;">To exit kiosk: uncheck Enable and save — device will exit on next checkin.</span>
-    {{end}}
+    <div class="muted small">{{if .KioskConfig.KioskEnabled}}Saving with Disable selected will let the device exit kiosk on next checkin.{{else}}Saving with Enable selected will lock the device into the chosen app on next checkin.{{end}}</div>
+    <div>
+      <button type="submit" class="btn-primary">Save Kiosk Config</button>
+    </div>
   </form>
 </div>
 
@@ -801,6 +801,17 @@
 </div>
 
 <script>
+function setKioskMode(mode) {
+  var enable = mode === 'enable';
+  document.getElementById('kiosk-enabled-input').value = enable ? '1' : '0';
+  document.getElementById('kiosk-package-row').style.display = enable ? 'block' : 'none';
+  var pkg = document.getElementById('kiosk-package-input');
+  if (pkg) pkg.required = enable;
+  document.querySelectorAll('.kiosk-mode-control .seg-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+}
+
 function showCheckin(row) {
   var checkinTime = new Date(row.dataset.time);
   document.getElementById('modal-time').textContent    = isNaN(checkinTime.getTime()) ? row.dataset.time : checkinTime.toLocaleString();

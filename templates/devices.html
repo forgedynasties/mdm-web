@@ -9,6 +9,7 @@
           onsubmit="return confirmBulkHide(event)">
       <button type="submit" class="btn-danger-sm">Hide Selected</button>
     </form>
+    <button type="button" class="btn-outline" onclick="openBulkKioskModal()" style="padding:3px 10px;font-size:12px;">Kiosk</button>
     <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;">Create Group</button>
     <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
     <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
@@ -437,10 +438,45 @@ function openBulkGroupModal() {
   document.getElementById('bulk-group-name').focus();
 }
 
+function openBulkKioskModal() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var form = document.getElementById('bulk-kiosk-form');
+  form.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
+  serials.forEach(function(s) {
+    var inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'serials';
+    inp.value = s;
+    form.appendChild(inp);
+  });
+  document.getElementById('bulk-kiosk-count').textContent = serials.length;
+  document.getElementById('bulk-kiosk-package').value = '';
+  setBulkKioskMode('enable');
+  document.getElementById('bulk-kiosk-modal').classList.add('modal-open');
+  document.getElementById('bulk-kiosk-package').focus();
+}
+
 function closeBulkGroupModal(event) {
   if (!event || event.target === document.getElementById('bulk-group-modal')) {
     document.getElementById('bulk-group-modal').classList.remove('modal-open');
   }
+}
+
+function closeBulkKioskModal(event) {
+  if (!event || event.target === document.getElementById('bulk-kiosk-modal')) {
+    document.getElementById('bulk-kiosk-modal').classList.remove('modal-open');
+  }
+}
+
+function setBulkKioskMode(mode) {
+  var enable = mode === 'enable';
+  document.getElementById('bulk-kiosk-enabled').value = enable ? '1' : '0';
+  document.getElementById('bulk-kiosk-package-row').style.display = enable ? '' : 'none';
+  document.getElementById('bulk-kiosk-package').required = enable;
+  document.querySelectorAll('.bulk-kiosk-mode .seg-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
 }
 
 // Density toggle
@@ -507,6 +543,8 @@ function submitConfirmedMassAction() {
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeConfirmModal();
+  if (e.key === 'Escape') closeBulkGroupModal();
+  if (e.key === 'Escape') closeBulkKioskModal();
 });
 </script>
 
@@ -558,6 +596,34 @@ document.addEventListener('keydown', function(e) {
           <input type="text" name="name" id="bulk-group-name" class="form-input" placeholder="Field Team A" required>
         </div>
         <button type="submit" class="btn-primary">Create Group</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="bulk-kiosk-modal" class="modal-backdrop" onclick="closeBulkKioskModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Bulk Kiosk Mode</span>
+      <button class="modal-close" type="button" onclick="closeBulkKioskModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted small"><span id="bulk-kiosk-count">0</span> selected devices will receive this kiosk config on next checkin.</div>
+      <form action="/devices/bulk-kiosk" method="POST" id="bulk-kiosk-form" class="command-form" style="padding:0;margin-top:12px;">
+        <input type="hidden" name="kiosk_enabled" id="bulk-kiosk-enabled" value="1">
+        <div class="form-row">
+          <label class="form-label">Mode</label>
+          <div class="seg-control bulk-kiosk-mode">
+            <button type="button" class="seg-btn active" data-mode="enable" onclick="setBulkKioskMode('enable')">Enable</button>
+            <button type="button" class="seg-btn" data-mode="disable" onclick="setBulkKioskMode('disable')">Disable</button>
+          </div>
+        </div>
+        <div class="form-row" id="bulk-kiosk-package-row">
+          <label class="form-label">Pinned Package</label>
+          <input type="text" name="kiosk_package" id="bulk-kiosk-package" class="form-input" placeholder="com.example.app" required>
+          <div class="form-hint">Use the Android package name to pin across the selected devices.</div>
+        </div>
+        <button type="submit" class="btn-primary">Apply Kiosk Config</button>
       </form>
     </div>
   </div>
