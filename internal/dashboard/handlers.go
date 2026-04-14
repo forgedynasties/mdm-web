@@ -6,8 +6,10 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"html"
 	"html/template"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -20,7 +22,6 @@ import (
 	"mdm/internal/ws"
 )
 
-
 type Handler struct {
 	db       *db.DB
 	hub      *ws.Hub
@@ -30,6 +31,88 @@ type Handler struct {
 	user     string
 	password string
 	cfg      *config.Config
+}
+
+var logcatSeverityRe = regexp.MustCompile(`\b([EWIDV])\/|\s([EWIDV])\s`)
+
+func extractBatteryTempC(raw json.RawMessage) (float64, bool) {
+	if len(raw) == 0 {
+		return 0, false
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return 0, false
+	}
+	v, ok := m["battery_temp_c"]
+	if !ok {
+		return 0, false
+	}
+	var temp float64
+	if err := json.Unmarshal(v, &temp); err != nil {
+		return 0, false
+	}
+	return temp, true
+}
+
+func deviceRowClasses(dev db.Device, now time.Time) string {
+	var classes []string
+
+	staleAfter := 3 * time.Minute
+	if dev.PollIntervalMs > 0 {
+		poll := time.Duration(dev.PollIntervalMs) * time.Millisecond
+		if poll > 0 {
+			staleAfter = poll * 2
+			if staleAfter < 3*time.Minute {
+				staleAfter = 3 * time.Minute
+			}
+		}
+	}
+	if !dev.LastSeenAt.IsZero() && now.Sub(dev.LastSeenAt) > staleAfter {
+		classes = append(classes, "row-stale")
+	}
+	if dev.BatteryPct < 20 {
+		classes = append(classes, "row-alert-battery")
+	}
+	if temp, ok := extractBatteryTempC(dev.LatestExtra); ok && (temp >= 45 || temp <= 0) {
+		classes = append(classes, "row-alert-temp")
+	}
+
+	return strings.Join(classes, " ")
+}
+
+func colorizeLogcatText(content string) template.HTML {
+	if content == "" {
+		return ""
+	}
+
+	lines := strings.Split(content, "\n")
+	var out strings.Builder
+	for i, line := range lines {
+		className := ""
+		if match := logcatSeverityRe.FindStringSubmatch(line); match != nil {
+			severity := match[1]
+			if severity == "" {
+				severity = match[2]
+			}
+			className = "log-" + severity
+		}
+
+		escaped := html.EscapeString(line)
+		if className != "" {
+			out.WriteString(`<span class="`)
+			out.WriteString(className)
+			out.WriteString(`">`)
+			out.WriteString(escaped)
+			out.WriteString(`</span>`)
+		} else {
+			out.WriteString(escaped)
+		}
+		if i < len(lines)-1 {
+			out.WriteByte('\n')
+		}
+	}
+
+	return template.HTML(out.String())
 }
 
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, user, password string, cfg *config.Config) *Handler {
@@ -53,6 +136,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 		},
 		"formatTime": func(t time.Time) string {
 			return t.UTC().Format("2006-01-02 15:04:05 UTC")
+		},
+		"nowUTC": func() time.Time {
+			return time.Now().UTC()
 		},
 		"timeSince": func(t time.Time) string {
 			d := time.Since(t)
@@ -194,37 +280,15 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			return time.Now().In(loc).Format("15:04:05") + " (" + tz + ")"
 		},
 		"batteryTemp": func(raw json.RawMessage) string {
-			if len(raw) == 0 {
-				return ""
-			}
-			var m map[string]json.RawMessage
-			if err := json.Unmarshal(raw, &m); err != nil {
-				return ""
-			}
-			v, ok := m["battery_temp_c"]
+			temp, ok := extractBatteryTempC(raw)
 			if !ok {
-				return ""
-			}
-			var temp float64
-			if err := json.Unmarshal(v, &temp); err != nil {
 				return ""
 			}
 			return fmt.Sprintf("%.1f°C", temp)
 		},
 		"tempClass": func(raw json.RawMessage) string {
-			if len(raw) == 0 {
-				return ""
-			}
-			var m map[string]json.RawMessage
-			if err := json.Unmarshal(raw, &m); err != nil {
-				return ""
-			}
-			v, ok := m["battery_temp_c"]
+			temp, ok := extractBatteryTempC(raw)
 			if !ok {
-				return ""
-			}
-			var temp float64
-			if err := json.Unmarshal(v, &temp); err != nil {
 				return ""
 			}
 			switch {
@@ -252,22 +316,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			return used * 100 / total
 		},
 		"extraTempC": func(raw json.RawMessage) template.JS {
-			if len(raw) == 0 {
-				return "null"
-			}
-			var m map[string]json.RawMessage
-			if err := json.Unmarshal(raw, &m); err != nil {
-				return "null"
-			}
-			v, ok := m["battery_temp_c"]
+			temp, ok := extractBatteryTempC(raw)
 			if !ok {
 				return "null"
 			}
-			var temp float64
-			if err := json.Unmarshal(v, &temp); err != nil {
-				return "null"
-			}
 			return template.JS(fmt.Sprintf("%.1f", temp))
+		},
+		"rowClasses": func(dev db.Device, now time.Time) string {
+			return deviceRowClasses(dev, now)
+		},
+		"colorizeLogcat": func(content string) template.HTML {
+			return colorizeLogcatText(content)
 		},
 		"extraRamPct": func(raw json.RawMessage) template.JS {
 			if len(raw) == 0 {

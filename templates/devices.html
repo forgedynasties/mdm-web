@@ -41,8 +41,9 @@
   </thead>
   <tbody>
     {{if .Devices}}
+      {{$now := nowUTC}}
       {{range .Devices}}
-      <tr>
+      <tr class="{{rowClasses . $now}}">
         <td><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" onchange="updateBulkBar()"></td>
         <td class="mono" style="white-space:nowrap;">
           <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}WebSocket connected{{else}}offline{{end}}"></span>{{.SerialNumber}}
@@ -73,7 +74,10 @@
             <span class="muted small">—</span>
           {{end}}
         </td>
-        <td class="muted">{{timeSince .LastSeenAt}}</td>
+        <td class="muted">
+          {{timeSince .LastSeenAt}}
+          {{if gt .PollIntervalMs 0}}<span class="last-synced" title="{{formatTime .LastSeenAt}}">synced {{shortTime .LastSeenAt}}</span>{{end}}
+        </td>
         <td class="muted small">{{formatTime .CreatedAt}}</td>
         <td>
           {{if .KioskEnabled}}
@@ -257,6 +261,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     <button type="button" class="filter-pill {{if eq .FilterHidden "only"}}active{{end}}" onclick="setHidden('only')">Hidden</button>
   </div>
 
+  <button type="button" class="filter-pill density-toggle" id="density-toggle" onclick="toggleDensity()" title="Toggle compact view">⊟</button>
+
   {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery .FilterHidden .Query}}
     <button class="filter-clear" onclick="clearFilters()">Clear</button>
   {{end}}
@@ -393,6 +399,25 @@ function bulkExport() {
   if (serials.length === 0) return;
   window.location.href = '/export?serials=' + encodeURIComponent(serials.join(','));
 }
+
+// Density toggle
+function toggleDensity() {
+  var el = document.getElementById('device-table-container');
+  var compact = el.classList.toggle('compact');
+  localStorage.setItem('mdm-density', compact ? 'compact' : 'comfortable');
+  document.getElementById('density-toggle').textContent = compact ? '⊞' : '⊟';
+}
+(function() {
+  if (localStorage.getItem('mdm-density') === 'compact') {
+    document.getElementById('device-table-container').classList.add('compact');
+    document.getElementById('density-toggle').textContent = '⊞';
+  }
+})();
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+  if (evt.detail.target.id === 'device-table-container' && localStorage.getItem('mdm-density') === 'compact') {
+    evt.detail.target.classList.add('compact');
+  }
+});
 </script>
 
 <div class="card"

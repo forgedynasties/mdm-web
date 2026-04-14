@@ -71,7 +71,7 @@
     </div>
     {{if .Result}}
     <div class="logcat-wrap">
-      <pre class="logcat-terminal">{{.Result.Content}}</pre>
+      <pre class="logcat-terminal">{{colorizeLogcat .Result.Content}}</pre>
     </div>
     {{else if eq .Request.Status "pending"}}
     <div class="logcat-waiting">
