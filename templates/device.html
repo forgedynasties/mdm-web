@@ -730,70 +730,129 @@
 
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Actions</h3></div>
-  <div class="actions-grid">
+  <div class="device-actions">
+    <div class="device-actions-header">
+      <div>
+        <div class="device-actions-title">Control this device with one focused step at a time</div>
+        <div class="device-actions-subtitle">Pick an action below, fill only the fields you need, and send it without hunting across multiple mini-forms.</div>
+      </div>
+      <span class="status-badge muted">Target: {{.Device.SerialNumber}}</span>
+    </div>
 
-    <div class="action-card">
-      <div class="action-label">Install APK</div>
-      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="command-form" style="margin-top:8px;">
-        <input type="hidden" name="type" value="install_apk">
-        {{if .Apps}}
-          <div class="app-select-wrap">
-            <select name="apk_url" class="form-input" required>
-              <option value="" disabled selected>Select an app…</option>
-              {{range .Apps}}
-              <option value="{{.ApkURL}}">{{.Name}}</option>
-              {{end}}
-            </select>
-            <button type="button" class="btn-outline" onclick="openAppModal()">+ New App</button>
-          </div>
-        {{else}}
-          <div class="app-empty-hint">
-            No apps. <button type="button" class="btn-link" onclick="openAppModal()">Add one</button>
+    <div class="device-action-picker">
+      <button type="button" class="device-action-tile active" data-device-action="install" onclick="selectDeviceAction('install', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
+        <div class="device-action-tile-title">Install App</div>
+        <div class="device-action-tile-copy">Choose an APK from the repository and queue it for the next check-in.</div>
+      </button>
+      <button type="button" class="device-action-tile" data-device-action="screenshot" onclick="selectDeviceAction('screenshot', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
+        <div class="device-action-tile-title">Capture Screenshot</div>
+        <div class="device-action-tile-copy">Request a fresh screenshot and review it from the command status screen.</div>
+      </button>
+      <button type="button" class="device-action-tile" data-device-action="shell" onclick="selectDeviceAction('shell', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
+        <div class="device-action-tile-title">Run Shell Command</div>
+        <div class="device-action-tile-copy">Send a one-off shell command to older devices that still use check-in responses.</div>
+      </button>
+      <button type="button" class="device-action-tile" data-device-action="poll" onclick="selectDeviceAction('poll', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>
+        <div class="device-action-tile-title">Set Poll Interval</div>
+        <div class="device-action-tile-copy">Adjust how often the device checks in for updates and queued work.</div>
+      </button>
+    </div>
+
+    <div class="device-action-panel">
+      <div class="device-action-panel-head">
+        <div>
+          <div class="device-action-panel-title" id="device-action-title">Install App</div>
+          <div class="device-action-panel-copy" id="device-action-copy">Choose an app from your repository and send it to this device.</div>
+        </div>
+        <span class="device-action-meta" id="device-action-meta">Common task</span>
+      </div>
+
+      <div id="device-action-install" class="device-action-body">
+        <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
+          <input type="hidden" name="type" value="install_apk">
+          {{if .Apps}}
+            <div class="form-row">
+              <label class="form-label">Repository App</label>
+              <div class="device-action-inline">
+                <select name="apk_url" class="form-input" required>
+                  <option value="" disabled selected>Select an app…</option>
+                  {{range .Apps}}
+                  <option value="{{.ApkURL}}">{{.Name}}</option>
+                  {{end}}
+                </select>
+                <button type="button" class="btn-outline" onclick="openAppModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New App</button>
+              </div>
+            </div>
+          {{else}}
+            <div class="device-action-note">No apps are in the repository yet. Add one first, then come right back to install it on this device.
+              <button type="button" class="btn-link" onclick="openAppModal()" style="margin-left:6px;">Add app now</button>
+            </div>
             <input type="hidden" name="apk_url" id="cmd-apk-url">
+          {{end}}
+          <div class="device-action-note">The install request is queued immediately and delivered on the device's next check-in.</div>
+          <div>
+            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>Install App</button>
           </div>
-        {{end}}
-        <button type="submit" class="btn-primary" style="margin-top:8px;">Install</button>
-      </form>
+        </form>
+      </div>
+
+      <div id="device-action-screenshot" class="device-action-body" style="display:none;">
+        <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
+          <input type="hidden" name="type" value="screenshot">
+          <div class="device-action-note">The device captures the screen on its next check-in. After sending, you'll land on the command detail page to follow progress.</div>
+          <div>
+            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>Request Screenshot</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="device-action-shell" class="device-action-body" style="display:none;">
+        <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
+          <input type="hidden" name="type" value="shell">
+          <div class="form-row">
+            <label class="form-label">Shell Command</label>
+            <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required>
+            <span class="muted small">Best for quick diagnostics on legacy devices. Output is easier to inspect from the command detail page.</span>
+          </div>
+          <div class="device-action-note warn">This command runs through the legacy check-in path, so timing depends on when the device checks in next.</div>
+          <div>
+            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Run Command</button>
+          </div>
+        </form>
+      </div>
+
+      <div id="device-action-poll" class="device-action-body" style="display:none;">
+        <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" class="device-action-form">
+          <div class="form-row">
+            <label class="form-label">Poll Interval (ms)</label>
+            <div class="device-action-inline">
+              <input type="number" name="poll_interval_ms" class="form-input" value="{{.Device.PollIntervalMs}}" min="5000" step="1000" style="max-width:180px;" required>
+              <span class="device-action-meta">Current: {{div .Device.PollIntervalMs 1000}}s</span>
+            </div>
+            <span class="muted small">The updated interval is returned to the device on the next successful check-in.</span>
+          </div>
+          <div>
+            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>Save Poll Interval</button>
+          </div>
+        </form>
+      </div>
     </div>
 
-    <div class="action-card">
-      <div class="action-label">Screenshot</div>
-      <p class="muted small" style="margin:6px 0 10px;">Captures screen on next checkin.</p>
-      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST">
-        <input type="hidden" name="type" value="screenshot">
-        <button type="submit" class="btn-outline">Take Screenshot</button>
-      </form>
-    </div>
-
-    <div class="action-card">
-      <div class="action-label" style="color:var(--warn);">Reboot</div>
-      <p class="muted small" style="margin:6px 0 10px;">Device will reboot on next checkin.</p>
+    <div class="danger-zone">
+      <div>
+        <div class="danger-zone-title">Danger Zone</div>
+        <div class="danger-zone-copy">Queue a reboot only when you’re sure. The device will restart on its next check-in and any unsaved work on the device may be interrupted.</div>
+      </div>
       <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST"
             onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')">
         <input type="hidden" name="type" value="reboot">
-        <button type="submit" class="btn-danger">Reboot</button>
+        <button type="submit" class="btn-danger">Reboot Device</button>
       </form>
     </div>
-
-    <div class="action-card">
-      <div class="action-label">Shell Command</div>
-      <p class="muted small" style="margin:6px 0 10px;">Run a shell command on this device (legacy only).</p>
-      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" style="display:flex;gap:8px;align-items:center;">
-        <input type="hidden" name="type" value="shell">
-        <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required style="flex:1;min-width:0;">
-        <button type="submit" class="btn-outline">Run</button>
-      </form>
-    </div>
-
-    <div class="action-card">
-      <div class="action-label">Poll Interval</div>
-      <p class="muted small" style="margin:6px 0 10px;">Current: <strong>{{.Device.PollIntervalMs}}ms</strong> ({{div .Device.PollIntervalMs 1000}}s). Returned on next checkin.</p>
-      <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" style="display:flex;gap:8px;align-items:center;">
-        <input type="number" name="poll_interval_ms" class="form-input" value="{{.Device.PollIntervalMs}}" min="5000" step="1000" style="width:120px;" required>
-        <button type="submit" class="btn-outline">Set</button>
-      </form>
-    </div>
-
   </div>
 </div>
 
@@ -890,6 +949,46 @@ function setKioskMode(mode) {
   document.querySelectorAll('.kiosk-mode-control .seg-btn').forEach(function(btn) {
     btn.classList.toggle('active', btn.dataset.mode === mode);
   });
+}
+
+var deviceActionConfig = {
+  install: {
+    title: 'Install App',
+    copy: 'Choose an app from your repository and queue it for the next check-in.',
+    meta: 'Common task'
+  },
+  screenshot: {
+    title: 'Capture Screenshot',
+    copy: 'Request a fresh screenshot and follow delivery from the command detail page.',
+    meta: 'Heads to status page'
+  },
+  shell: {
+    title: 'Run Shell Command',
+    copy: 'Send a one-off shell command to a legacy device and inspect output afterward.',
+    meta: 'Legacy only'
+  },
+  poll: {
+    title: 'Set Poll Interval',
+    copy: 'Tune how often this device checks in for commands and telemetry.',
+    meta: 'Device setting'
+  }
+};
+
+function selectDeviceAction(key, btn) {
+  document.querySelectorAll('.device-action-tile').forEach(function(tile) {
+    tile.classList.toggle('active', tile.dataset.deviceAction === key);
+  });
+  document.querySelectorAll('.device-action-body').forEach(function(panel) {
+    panel.style.display = panel.id === 'device-action-' + key ? '' : 'none';
+  });
+  var cfg = deviceActionConfig[key];
+  if (!cfg) return;
+  var title = document.getElementById('device-action-title');
+  var copy = document.getElementById('device-action-copy');
+  var meta = document.getElementById('device-action-meta');
+  if (title) title.textContent = cfg.title;
+  if (copy) copy.textContent = cfg.copy;
+  if (meta) meta.textContent = cfg.meta;
 }
 
 function showCheckin(row) {
