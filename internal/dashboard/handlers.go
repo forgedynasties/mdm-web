@@ -487,6 +487,7 @@ const pageSize = 25
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	sort := r.URL.Query().Get("sort")
+	dir := r.URL.Query().Get("dir")
 	page := 1
 	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
 		page = p
@@ -510,7 +511,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		Hidden:  r.URL.Query().Get("hidden"),
 	}
 
-	devices, err := h.db.ListDevices(r.Context(), filter, offset, pageSize, sort)
+	devices, err := h.db.ListDevices(r.Context(), filter, offset, pageSize, sort, dir)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -551,6 +552,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"PageSize":      pageSize,
 		"Summary":       summary,
 		"Sort":          sort,
+		"SortDir":       dir,
 		"Online":        online,
 		"Groups":        groups,
 		"Builds":        builds,

@@ -214,8 +214,8 @@ func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
 	return s, err
 }
 
-func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int, sort string) ([]Device, error) {
-	query, args := d.buildDeviceQuery(f, sort, true, limit, offset)
+func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int, sort, dir string) ([]Device, error) {
+	query, args := d.buildDeviceQuery(f, sort, dir, true, limit, offset)
 
 	rows, err := d.pool.Query(ctx, query, args...)
 	if err != nil {
@@ -235,14 +235,14 @@ func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int,
 }
 
 func (d *DB) CountDevices(ctx context.Context, f DeviceFilter) (int, error) {
-	query, args := d.buildDeviceQuery(f, "", false, 0, 0)
+	query, args := d.buildDeviceQuery(f, "", "", false, 0, 0)
 
 	var count int
 	err := d.pool.QueryRow(ctx, query, args...).Scan(&count)
 	return count, err
 }
 
-func (d *DB) buildDeviceQuery(f DeviceFilter, sort string, selectRows bool, limit, offset int) (string, []interface{}) {
+func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool, limit, offset int) (string, []interface{}) {
 	var args []interface{}
 	argN := 1
 
@@ -315,25 +315,58 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort string, selectRows bool, limi
 			base += " AND COALESCE(c.battery_pct, 0) >= 50"
 		}
 
+		if dir != "asc" && dir != "desc" {
+			dir = ""
+		}
+
 		orderClause := "d.last_seen_at DESC"
 		switch sort {
 		case "serial":
-			orderClause = "d.serial_number ASC"
+			if dir == "desc" {
+				orderClause = "d.serial_number DESC"
+			} else {
+				orderClause = "d.serial_number ASC"
+			}
 		case "build":
-			orderClause = "d.build_id ASC"
+			if dir == "desc" {
+				orderClause = "d.build_id DESC"
+			} else {
+				orderClause = "d.build_id ASC"
+			}
 		case "battery":
-			orderClause = "COALESCE(c.battery_pct, 0) ASC"
+			if dir == "desc" {
+				orderClause = "COALESCE(c.battery_pct, 0) DESC"
+			} else {
+				orderClause = "COALESCE(c.battery_pct, 0) ASC"
+			}
 		case "ram":
 			orderClause = `COALESCE(
 				((c.extra->'ram_usage_mb'->>'used')::int * 100) / NULLIF((c.extra->'ram_usage_mb'->>'total')::int, 0),
 				0
-			) ASC`
+			) `
+			if dir == "desc" {
+				orderClause += "DESC"
+			} else {
+				orderClause += "ASC"
+			}
 		case "temp":
-			orderClause = "COALESCE((c.extra->>'battery_temp_c')::numeric, 0) ASC"
+			if dir == "desc" {
+				orderClause = "COALESCE((c.extra->>'battery_temp_c')::numeric, 0) DESC"
+			} else {
+				orderClause = "COALESCE((c.extra->>'battery_temp_c')::numeric, 0) ASC"
+			}
 		case "created_at":
-			orderClause = "d.created_at DESC"
+			if dir == "asc" {
+				orderClause = "d.created_at ASC"
+			} else {
+				orderClause = "d.created_at DESC"
+			}
 		case "last_seen":
-			orderClause = "d.last_seen_at DESC"
+			if dir == "asc" {
+				orderClause = "d.last_seen_at ASC"
+			} else {
+				orderClause = "d.last_seen_at DESC"
+			}
 		}
 		base += "\nORDER BY " + orderClause
 
