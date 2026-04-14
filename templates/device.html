@@ -211,6 +211,7 @@
     <h3>Device Graphs</h3>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="chart-info" class="muted small"></span>
+      <span id="chart-hover-info" class="chart-hover-info">Hover a point to inspect values</span>
       <div class="dur-btns">
         <button class="dur-btn" data-ms="3600000">1h</button>
         <button class="dur-btn active" data-ms="21600000">6h</button>
@@ -311,6 +312,12 @@
     syncMarkerToggle();
   }
 
+  function setHoverInfo(text) {
+    var el = document.getElementById("chart-hover-info");
+    if (!el) return;
+    el.textContent = text || "Hover a point to inspect values";
+  }
+
   function syncMarkerToggle() {
     var btn = document.getElementById('toggle-markers-btn');
     if (!btn) return;
@@ -382,22 +389,16 @@
     return best;
   }
 
-  // Static label plugin — shows nearest checkin info pinned top-right
+  // Hover label plugin — writes nearest point info into the header instead of painting over the chart
   const staticLabelPlugin = {
     id: 'staticLabel',
-    afterDraw(chart) {
+    afterEvent(chart) {
       const pt = nearestByPixel(chart);
-      if (!pt || !chart._labelFn) return;
-      const ctx = chart.ctx;
-      const ca = chart.chartArea;
-      const text = fmtTime(pt.x) + '  ' + chart._labelFn(pt);
-      ctx.save();
-      ctx.font = '12px system-ui, sans-serif';
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'top';
-      ctx.fillStyle = '#dfe6e9';
-      ctx.fillText(text, ca.right - 4, ca.top + 4);
-      ctx.restore();
+      if (!pt || !chart._labelFn) {
+        if (chart._crosshairX == null) setHoverInfo("");
+        return;
+      }
+      setHoverInfo(fmtDate(pt.x) + "  |  " + chart._labelFn(pt));
     },
   };
 

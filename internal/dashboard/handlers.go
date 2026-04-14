@@ -1582,7 +1582,7 @@ func (h *Handler) SetupPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.tmpl.ExecuteTemplate(w, "setup.html", map[string]any{
-		"Title": "Setup",
+		"Title": "App Repository",
 		"Apps":  apps,
 	})
 }
@@ -1784,6 +1784,10 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Accept") == "application/json" {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"id": cmd.ID.String()})
+		return
+	}
+	if cmdType == "screenshot" || cmdType == "shell" {
+		http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)

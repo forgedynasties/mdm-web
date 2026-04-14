@@ -477,6 +477,18 @@ a:hover { color: var(--accent-h); }
   align-items: center;
   gap: 4px;
 }
+.chart-hover-info {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+}
 .chart-legend-line {
   width: 18px;
   height: 3px;
