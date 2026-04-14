@@ -304,7 +304,7 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 // ── Devices ───────────────────────────────────────────────────────────────────
 
 func (h *Handler) ListDevices(w http.ResponseWriter, r *http.Request) {
-	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "")
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return

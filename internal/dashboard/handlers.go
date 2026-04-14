@@ -1190,7 +1190,7 @@ func (h *Handler) Updates(w http.ResponseWriter, r *http.Request) {
 			updates[i].Targets = targets
 		}
 	}
-	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "")
+	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
 	h.tmpl.ExecuteTemplate(w, "updates.html", map[string]any{
 		"Title":   "Updates",
@@ -1215,7 +1215,7 @@ func (h *Handler) UpdateDetail(w http.ResponseWriter, r *http.Request) {
 	upd.Targets = targets
 
 	// Load devices and groups for the send form
-	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "")
+	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
 
 	h.tmpl.ExecuteTemplate(w, "update_detail.html", map[string]any{
