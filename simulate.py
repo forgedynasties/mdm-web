@@ -1,54 +1,29 @@
 #!/usr/bin/env python3
 """
-MDM Device Simulator
-Simulates N devices continuously polling the MDM server with random behaviour.
+Dummy device simulator for the local MDM server.
 
-Usage:
+This script sends check-in requests to ``http://localhost:8080/api/v1/checkin``
+by default and simulates a fleet of Android-like devices with changing battery,
+network, and app state.
+
+Examples:
     python3 simulate.py
-
-Environment variables:
-    MDM_URL        Server base URL  (default: http://localhost:8080)
-    MDM_API_KEY    Shared API key   (default: reads from .env in same dir)
-    DEVICE_COUNT   Number of devices to simulate (default: 50)
-    POLL_INTERVAL  Seconds between polls (default: 60)
+    python3 simulate.py --count 10 --interval 15
+    python3 simulate.py --once --count 5
+    python3 simulate.py --api-key your-secret-key
 """
 
+import argparse
+import json
+import os
+import random
+import signal
 import threading
 import time
-import random
-import json
-import urllib.request
 import urllib.error
-import os
-import sys
+import urllib.request
 from datetime import datetime
 
-# ── Config ────────────────────────────────────────────────────────────────────
-
-def load_env_file():
-    """Read key=value pairs from .env in the same directory as this script."""
-    env_path = os.path.join(os.path.dirname(__file__), ".env")
-    values = {}
-    try:
-        with open(env_path) as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                key, _, val = line.partition("=")
-                values[key.strip()] = val.strip().strip('"').strip("'")
-    except FileNotFoundError:
-        pass
-    return values
-
-_env = load_env_file()
-
-API_URL       = os.environ.get("MDM_URL",       _env.get("MDM_URL", "http://localhost:8080")).rstrip("/")
-API_KEY       = os.environ.get("MDM_API_KEY",   _env.get("DEVICE_API_KEY", "changeme"))
-DEVICE_COUNT  = int(os.environ.get("DEVICE_COUNT",  "50"))
-POLL_INTERVAL = int(os.environ.get("POLL_INTERVAL", "60"))
-
-# ── Simulated data pools ──────────────────────────────────────────────────────
 
 BUILD_IDS = [
     "aosp-eng 13 TP1A.220624.014",
@@ -58,169 +33,323 @@ BUILD_IDS = [
     "aosp-user 13 TP1A.220624.014",
 ]
 
-WIFI_SSIDS    = ["Corp-WiFi", "MDM-Network", "Office-5G", "Warehouse-AP", "Floor3-WiFi"]
-IP_PREFIXES   = ["10.0.1", "10.0.2", "192.168.10", "192.168.11"]
+WIFI_SSIDS = [
+    "Corp-WiFi",
+    "Warehouse-AP",
+    "Office-5G",
+    "MDM-Lab",
+    "Staging-Network",
+]
 
-# ── Terminal colours ──────────────────────────────────────────────────────────
+IP_PREFIXES = ["10.0.1", "10.0.2", "192.168.10", "192.168.11"]
 
-BOLD  = "\033[1m"
-DIM   = "\033[2m"
-RED   = "\033[91m"
-YELL  = "\033[93m"
-GREEN = "\033[92m"
-BLUE  = "\033[94m"
-CYAN  = "\033[96m"
-GREY  = "\033[90m"
+APP_CATALOG = [
+    ("com.android.settings", "Settings", "14"),
+    ("com.android.chrome", "Chrome", "124.0.6367.82"),
+    ("com.google.android.youtube", "YouTube", "19.12.36"),
+    ("com.spotify.music", "Spotify", "8.9.30"),
+    ("com.whatsapp", "WhatsApp", "2.24.8.76"),
+    ("com.example.kiosk", "AIO Kiosk", "1.7.3"),
+    ("com.example.agent", "AIO Device Agent", "2.3.1"),
+    ("com.microsoft.teams", "Teams", "1416/1.0.0.2024093903"),
+]
+
+
 RESET = "\033[0m"
+GREY = "\033[90m"
+RED = "\033[91m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+CYAN = "\033[96m"
+BOLD = "\033[1m"
 
-# ── Shared state ──────────────────────────────────────────────────────────────
 
 print_lock = threading.Lock()
-stats      = {"ok": 0, "err": 0}
 stats_lock = threading.Lock()
+stats = {"ok": 0, "err": 0}
+stop_event = threading.Event()
 
-def ts():
+
+def load_env_file():
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    values = {}
+    try:
+        with open(env_path, "r", encoding="utf-8") as handle:
+            for raw_line in handle:
+                line = raw_line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                values[key.strip()] = value.strip().strip('"').strip("'")
+    except FileNotFoundError:
+        pass
+    return values
+
+
+def parse_args():
+    env = load_env_file()
+    default_url = os.environ.get("MDM_URL", env.get("MDM_URL", "http://localhost:8080"))
+    default_key = os.environ.get("MDM_API_KEY", env.get("DEVICE_API_KEY", "changeme"))
+
+    parser = argparse.ArgumentParser(description="Simulate dummy devices against the MDM server")
+    parser.add_argument("--url", default=default_url, help="Base server URL")
+    parser.add_argument("--api-key", default=default_key, help="Value for X-API-Key")
+    parser.add_argument("--count", type=int, default=int(os.environ.get("DEVICE_COUNT", "20")), help="Number of devices")
+    parser.add_argument("--interval", type=float, default=float(os.environ.get("POLL_INTERVAL", "30")), help="Seconds between polls")
+    parser.add_argument("--timeout", type=float, default=10.0, help="HTTP timeout in seconds")
+    parser.add_argument("--prefix", default="SIM", help="Serial prefix for generated devices")
+    parser.add_argument("--start-index", type=int, default=1, help="Starting device index")
+    parser.add_argument("--once", action="store_true", help="Send a single check-in per device and exit")
+    parser.add_argument("--no-color", action="store_true", help="Disable ANSI colors")
+    return parser.parse_args()
+
+
+class Device:
+    def __init__(self, serial):
+        self.serial = serial
+        self.build_id = random.choice(BUILD_IDS)
+        self.battery = random.randint(35, 100)
+        self.charging = random.choice([True, False])
+        self.ip_address = self._make_ip()
+        self.wifi_ssid = random.choice(WIFI_SSIDS)
+        self.signal_strength = -1 * random.randint(42, 78)
+        self.temperature_c = random.randint(24, 37)
+        self.ram_total_mb = random.choice([2048, 3072, 4096, 6144, 8192])
+        self.ram_used_mb = random.randint(int(self.ram_total_mb * 0.25), int(self.ram_total_mb * 0.78))
+        self.storage_free_gb = round(random.uniform(8.0, 64.0), 1)
+        self.installed_apps = self._make_apps()
+
+    def _make_ip(self):
+        return f"{random.choice(IP_PREFIXES)}.{random.randint(2, 254)}"
+
+    def _make_apps(self):
+        picked = random.sample(APP_CATALOG, k=random.randint(3, 6))
+        return [
+            {
+                "package": package,
+                "name": name,
+                "version_name": version,
+            }
+            for package, name, version in picked
+        ]
+
+    def maybe_drift(self):
+        if self.charging:
+            self.battery = min(100, self.battery + random.randint(1, 4))
+            if self.battery == 100 or random.random() < 0.10:
+                self.charging = False
+        else:
+            self.battery = max(1, self.battery - random.randint(0, 3))
+            if self.battery < 15 or random.random() < 0.05:
+                self.charging = True
+
+        if random.random() < 0.03:
+            next_build = random.choice(BUILD_IDS)
+            if next_build != self.build_id:
+                self.build_id = next_build
+
+        if random.random() < 0.06:
+            self.ip_address = self._make_ip()
+            self.wifi_ssid = random.choice(WIFI_SSIDS)
+            self.signal_strength = -1 * random.randint(42, 78)
+
+        if random.random() < 0.04:
+            self.temperature_c = max(20, min(45, self.temperature_c + random.randint(-2, 3)))
+
+        if random.random() < 0.10:
+            drift = random.randint(-180, 220)
+            floor = int(self.ram_total_mb * 0.18)
+            ceiling = int(self.ram_total_mb * 0.92)
+            self.ram_used_mb = max(floor, min(ceiling, self.ram_used_mb + drift))
+
+        if random.random() < 0.02:
+            self.storage_free_gb = round(max(1.0, self.storage_free_gb - random.uniform(0.2, 1.0)), 1)
+
+    def payload(self):
+        ram_free_mb = max(0, self.ram_total_mb - self.ram_used_mb)
+        return {
+            "serial_number": self.serial,
+            "build_id": self.build_id,
+            "battery_pct": self.battery,
+            "extra": {
+                "ip_address": self.ip_address,
+                "wifi_ssid": self.wifi_ssid,
+                "wifi": self.wifi_ssid,
+                "signal_strength": self.signal_strength,
+                "battery_temp_c": self.temperature_c,
+                "temperature_c": self.temperature_c,
+                "ram_usage_mb": {
+                    "total": self.ram_total_mb,
+                    "used": self.ram_used_mb,
+                    "free": ram_free_mb,
+                },
+                "ram_total_mb": self.ram_total_mb,
+                "ram_used_mb": self.ram_used_mb,
+                "ram_free_mb": ram_free_mb,
+                "storage_free_gb": self.storage_free_gb,
+                "charging": self.charging,
+                "simulated": True,
+            },
+            "installed_apps": self.installed_apps,
+        }
+
+
+def now():
     return datetime.now().strftime("%H:%M:%S")
 
-def log(serial, msg, colour=RESET):
-    with print_lock:
-        print(f"{GREY}{ts()}{RESET}  {colour}{serial:<12}{RESET}  {msg}")
 
-def battery_colour(pct):
-    if pct < 20:   return RED
-    if pct < 50:   return YELL
+def color(enabled, value):
+    return value if enabled else ""
+
+
+def battery_color(enabled, pct):
+    if not enabled:
+        return ""
+    if pct < 20:
+        return RED
+    if pct < 50:
+        return YELLOW
     return GREEN
 
-# ── API call ──────────────────────────────────────────────────────────────────
 
-def checkin(serial, build_id, battery_pct, extra):
-    payload = json.dumps({
-        "serial_number": serial,
-        "build_id":      build_id,
-        "battery_pct":   battery_pct,
-        "extra":         extra,
-    }).encode()
+def log(args, serial, message, tone=""):
+    with print_lock:
+        print(
+            f"{color(not args.no_color, GREY)}{now()}{color(not args.no_color, RESET)}  "
+            f"{color(not args.no_color, tone)}{serial:<14}{color(not args.no_color, RESET)}  "
+            f"{message}"
+        )
 
-    req = urllib.request.Request(
-        f"{API_URL}/api/v1/checkin",
+
+def send_checkin(args, device):
+    payload = json.dumps(device.payload()).encode("utf-8")
+    request = urllib.request.Request(
+        f"{args.url.rstrip('/')}/api/v1/checkin",
         data=payload,
-        headers={"Content-Type": "application/json", "X-API-Key": API_KEY},
+        headers={
+            "Content-Type": "application/json",
+            "X-API-Key": args.api_key,
+        },
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=10) as r:
-        return r.status
 
-# ── Device simulation ─────────────────────────────────────────────────────────
+    with urllib.request.urlopen(request, timeout=args.timeout) as response:
+        body = response.read().decode("utf-8")
+        data = json.loads(body) if body else {}
+        return response.status, data
 
-def run_device(device_id):
-    serial    = f"SIM-{device_id:04d}"
-    build_id  = random.choice(BUILD_IDS)
-    battery   = random.randint(25, 100)
-    charging  = random.choice([True, False])
-    ip        = f"{random.choice(IP_PREFIXES)}.{random.randint(2, 254)}"
-    ssid      = random.choice(WIFI_SSIDS)
 
-    # Stagger startup over one full interval so requests don't all fire at once
-    time.sleep(random.uniform(0, POLL_INTERVAL))
-    log(serial, f"online  build={build_id[:28]}  battery={battery}%", CYAN)
+def worker(args, device):
+    if not args.once:
+        time.sleep(random.uniform(0, max(args.interval, 1.0)))
 
-    while True:
-        # ── 5 % chance of a missed poll (device offline / busy) ──
-        if random.random() < 0.05:
-            log(serial, "skipped poll  (simulated offline)", GREY)
-            time.sleep(POLL_INTERVAL + random.uniform(0, 30))
+    while not stop_event.is_set():
+        if random.random() < 0.04 and not args.once:
+            log(args, device.serial, "skipped poll (simulated offline)", GREY)
+            if stop_event.wait(args.interval + random.uniform(0, 5)):
+                return
             continue
 
-        # ── Battery behaviour ──
-        if charging:
-            battery = min(100, battery + random.randint(1, 5))
-            if battery == 100 or random.random() < 0.08:
-                charging = False
-        else:
-            battery = max(0, battery - random.randint(0, 3))
-            if battery <= 12 or random.random() < 0.04:
-                charging = True
-
-        # ── 1 % chance of OTA build update ──
-        if random.random() < 0.01:
-            candidate = random.choice(BUILD_IDS)
-            if candidate != build_id:
-                build_id = candidate
-                log(serial, f"{BLUE}OTA update → {build_id}{RESET}", BLUE)
-
-        # ── Occasional IP roam ──
-        if random.random() < 0.03:
-            ip   = f"{random.choice(IP_PREFIXES)}.{random.randint(2, 254)}"
-            ssid = random.choice(WIFI_SSIDS)
-
-        extra = {"ip_address": ip, "wifi_ssid": ssid}
+        device.maybe_drift()
 
         try:
-            status   = checkin(serial, build_id, battery, extra)
-            bc       = battery_colour(battery)
-            icon     = "↑chrg" if charging else "↓drn "
-            log(serial,
-                f"battery={bc}{battery:3d}%{RESET} {icon}  "
-                f"build={build_id[:22]}  "
-                f"{GREEN}HTTP {status}{RESET}",
-                bc)
+            status, response = send_checkin(args, device)
+            commands = response.get("commands") or []
+            config = response.get("config") or {}
+            bc = battery_color(not args.no_color, device.battery)
+            charging_flag = "charging" if device.charging else "battery"
+            summary = (
+                f"HTTP {status}  "
+                f"bat={bc}{device.battery:3d}%{color(not args.no_color, RESET)} {charging_flag}  "
+                f"temp={device.temperature_c}C  "
+                f"ram={device.ram_used_mb}/{device.ram_total_mb}MB  "
+                f"wifi={device.wifi_ssid}  apps={len(device.installed_apps)}"
+            )
+            if commands:
+                summary += f"  commands={len(commands)}"
+            if config:
+                summary += f"  kiosk={config.get('kiosk_enabled', False)}"
+            log(args, device.serial, summary, CYAN)
             with stats_lock:
                 stats["ok"] += 1
-
-        except urllib.error.HTTPError as e:
-            log(serial, f"{RED}HTTP {e.code} {e.reason}{RESET}", RED)
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            log(args, device.serial, f"HTTP {exc.code} {exc.reason}  {body}", RED)
+            with stats_lock:
+                stats["err"] += 1
+        except Exception as exc:
+            log(args, device.serial, f"error: {exc}", RED)
             with stats_lock:
                 stats["err"] += 1
 
-        except Exception as e:
-            log(serial, f"{RED}error: {e}{RESET}", RED)
-            with stats_lock:
-                stats["err"] += 1
+        if args.once:
+            return
 
-        # Jitter ±10 s around the poll interval
-        time.sleep(max(10, POLL_INTERVAL + random.uniform(-10, 10)))
+        sleep_for = max(1.0, args.interval + random.uniform(-5, 5))
+        if stop_event.wait(sleep_for):
+            return
 
-# ── Stats printer ─────────────────────────────────────────────────────────────
 
-def print_stats():
-    while True:
-        time.sleep(60)
+def stats_printer(args):
+    while not stop_event.wait(30):
         with stats_lock:
-            ok  = stats["ok"]
+            ok = stats["ok"]
             err = stats["err"]
         total = ok + err
-        rate  = (ok / total * 100) if total else 0
+        rate = 0.0 if total == 0 else (ok / total) * 100.0
         with print_lock:
             print(
-                f"\n{BOLD}{'─'*60}\n"
-                f"  Stats  total={total}  ok={ok}  err={err}  "
-                f"success={rate:.1f}%\n"
-                f"{'─'*60}{RESET}\n"
+                f"{color(not args.no_color, BOLD)}"
+                f"\n{'-' * 64}\n"
+                f"requests={total}  ok={ok}  err={err}  success={rate:.1f}%\n"
+                f"{'-' * 64}"
+                f"{color(not args.no_color, RESET)}\n"
             )
 
-# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
-    print(f"\n{BOLD}MDM Device Simulator{RESET}")
-    print(f"  URL      : {API_URL}")
-    print(f"  API key  : {API_KEY[:8]}{'*' * (len(API_KEY) - 8)}")
-    print(f"  Devices  : {DEVICE_COUNT}")
-    print(f"  Interval : {POLL_INTERVAL}s  (±10s jitter)")
-    print(f"  Stagger  : devices spread over first {POLL_INTERVAL}s\n")
+    args = parse_args()
 
-    threading.Thread(target=print_stats, daemon=True).start()
+    if args.count < 1:
+        raise SystemExit("--count must be at least 1")
 
-    for i in range(1, DEVICE_COUNT + 1):
-        threading.Thread(target=run_device, args=(i,), daemon=True).start()
+    devices = [
+        Device(f"{args.prefix}-{index:04d}")
+        for index in range(args.start_index, args.start_index + args.count)
+    ]
 
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        with stats_lock:
-            ok, err = stats["ok"], stats["err"]
-        print(f"\n{YELL}Stopped.{RESET}  ok={ok}  err={err}")
-        sys.exit(0)
+    def handle_signal(_signum, _frame):
+        stop_event.set()
+
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    print(f"{color(not args.no_color, BOLD)}Dummy Device Simulator{color(not args.no_color, RESET)}")
+    print(f"URL       : {args.url.rstrip('/')}")
+    print(f"Devices   : {args.count}")
+    print(f"Interval  : {args.interval}s")
+    print(f"Once      : {args.once}")
+    print(f"API key   : {args.api_key[:8]}{'*' * max(0, len(args.api_key) - 8)}")
+    print("")
+
+    if not args.once:
+        threading.Thread(target=stats_printer, args=(args,), daemon=True).start()
+
+    threads = []
+    for device in devices:
+        thread = threading.Thread(target=worker, args=(args, device), daemon=True)
+        thread.start()
+        threads.append(thread)
+
+    for thread in threads:
+        thread.join()
+
+    with stats_lock:
+        ok = stats["ok"]
+        err = stats["err"]
+    print(f"\nFinished. ok={ok} err={err}")
+
 
 if __name__ == "__main__":
     main()
