@@ -6,17 +6,19 @@
     <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>Groups</h2>
     <p class="page-subtitle">{{len .Groups}} group{{if ne (len .Groups) 1}}s{{end}}</p>
   </div>
-</div>
-
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>New Group</h3></div>
-  <form action="/groups" method="POST" class="inline-form">
-    <input type="text" name="name" placeholder="Group name" class="form-input" required>
-    <button type="submit" class="btn-primary">Create</button>
-  </form>
+  <button type="button" class="btn-outline" onclick="openGroupModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Group</button>
 </div>
 
 <div class="card">
+  {{if not .Groups}}
+  <div class="empty-state">
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No groups yet</div>
+      <div class="empty-state-text">Create a group to target commands, exports, and kiosk changes faster.</div>
+    </div>
+    <button type="button" class="btn-primary" onclick="openGroupModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
+  </div>
+  {{else}}
   <table class="table">
     <thead>
       <tr>
@@ -48,7 +50,47 @@
       {{end}}
     </tbody>
   </table>
+  {{end}}
 </div>
+
+<div id="group-modal" class="modal-backdrop" onclick="closeGroupModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Create Group</span>
+      <button class="modal-close" type="button" onclick="closeGroupModal()">&times;</button>
+    </div>
+    <form action="/groups" method="POST" class="modal-body">
+      <div class="form-row">
+        <label class="form-label">Group Name</label>
+        <input type="text" name="name" id="group-name-input" placeholder="Warehouse tablets" class="form-input" required>
+        <span class="muted small">Use a name that makes bulk actions obvious at a glance.</span>
+      </div>
+      <div>
+        <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openGroupModal() {
+  var modal = document.getElementById('group-modal');
+  if (!modal) return;
+  modal.classList.add('modal-open');
+  var input = document.getElementById('group-name-input');
+  if (input) setTimeout(function() { input.focus(); }, 0);
+}
+
+function closeGroupModal(e) {
+  var modal = document.getElementById('group-modal');
+  if (!modal) return;
+  if (!e || e.target === modal) modal.classList.remove('modal-open');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeGroupModal();
+});
+</script>
 
 {{template "footer" .}}
 {{end}}

@@ -6,10 +6,27 @@
     <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M7 4v6"/><path d="M17 4v6"/><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M8 12h8"/><path d="M8 16h5"/></svg></span>App Repository</h2>
     <p class="page-subtitle">Manage your app library</p>
   </div>
+  <button type="button" class="btn-outline" onclick="openRepositoryAppModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add App</button>
 </div>
 
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>App Library</h3></div>
+  <div class="card-header">
+    <h3>App Library</h3>
+    <div class="card-header-actions">
+      <button type="button" class="btn-outline btn-plus" onclick="openRepositoryAppModal()" title="Add app">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+      </button>
+    </div>
+  </div>
+  {{if not .Apps}}
+  <div class="empty-state">
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No apps in the repository yet</div>
+      <div class="empty-state-text">Save APK links here so installs from device and command pages stay fast and consistent.</div>
+    </div>
+    <button type="button" class="btn-primary" onclick="openRepositoryAppModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add App</button>
+  </div>
+  {{else}}
   <table class="table">
     <thead>
       <tr>
@@ -40,22 +57,50 @@
       {{end}}
     </tbody>
   </table>
+  {{end}}
 </div>
 
-<div class="card">
-  <div class="card-header"><h3>Add App</h3></div>
-  <form action="/setup/apps" method="POST" class="command-form">
-    <div class="form-row">
-      <label class="form-label">App Name</label>
-      <input type="text" name="name" placeholder="My App" class="form-input" required>
+<div id="repository-app-modal" class="modal-backdrop" onclick="closeRepositoryAppModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Add App</span>
+      <button class="modal-close" type="button" onclick="closeRepositoryAppModal()">&times;</button>
     </div>
-    <div class="form-row">
-      <label class="form-label">APK URL</label>
-      <input type="url" name="apk_url" placeholder="https://example.com/app.apk" class="form-input" required>
-    </div>
-    <button type="submit" class="btn-primary">Add App</button>
-  </form>
+    <form action="/setup/apps" method="POST" class="modal-body">
+      <div class="form-row">
+        <label class="form-label">App Name</label>
+        <input type="text" name="name" id="repository-app-name" placeholder="My App" class="form-input" required>
+      </div>
+      <div class="form-row">
+        <label class="form-label">APK URL</label>
+        <input type="url" name="apk_url" placeholder="https://example.com/app.apk" class="form-input" required>
+      </div>
+      <div>
+        <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add App</button>
+      </div>
+    </form>
+  </div>
 </div>
+
+<script>
+function openRepositoryAppModal() {
+  var modal = document.getElementById('repository-app-modal');
+  if (!modal) return;
+  modal.classList.add('modal-open');
+  var input = document.getElementById('repository-app-name');
+  if (input) setTimeout(function() { input.focus(); }, 0);
+}
+
+function closeRepositoryAppModal(e) {
+  var modal = document.getElementById('repository-app-modal');
+  if (!modal) return;
+  if (!e || e.target === modal) modal.classList.remove('modal-open');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeRepositoryAppModal();
+});
+</script>
 
 {{template "footer" .}}
 {{end}}

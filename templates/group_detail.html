@@ -7,31 +7,27 @@
     <h2 class="page-title">{{.Group.Name}}</h2>
     <p class="page-subtitle">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}}</p>
   </div>
-</div>
-
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Add Device</h3></div>
-  <form action="/groups/{{.Group.ID}}/devices" method="POST" class="inline-form" style="align-items:flex-start;flex-direction:column;">
-    <input type="text"
-           name="serial_number"
-           id="group-serial-input"
-           placeholder="Serial number"
-           class="form-input"
-           required
-           autocomplete="off"
-           hx-get="/groups/{{.Group.ID}}/device-search"
-           hx-trigger="input changed delay:200ms, search"
-           hx-target="#group-device-search-results"
-           hx-include="#group-serial-input">
-    <div id="group-device-search-results" style="width:100%;"></div>
-    <button type="submit" class="btn-primary">Add</button>
-  </form>
+  <button type="button" class="btn-outline" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>
 </div>
 
 <div class="card">
   <div class="card-header">
     <h3>Members</h3>
+    <div class="card-header-actions">
+      <button type="button" class="btn-outline btn-plus" onclick="openAddDeviceModal()" title="Add device">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+      </button>
+    </div>
   </div>
+  {{if not .Devices}}
+  <div class="empty-state">
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No devices in this group yet</div>
+      <div class="empty-state-text">Add one or more devices so this group can be used for commands and rollout targeting.</div>
+    </div>
+    <button type="button" class="btn-primary" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>
+  </div>
+  {{else}}
   <table class="table">
     <thead>
       <tr>
@@ -71,6 +67,37 @@
       {{end}}
     </tbody>
   </table>
+  {{end}}
+</div>
+
+<div id="group-device-modal" class="modal-backdrop" onclick="closeAddDeviceModal(event)">
+  <div class="modal-box modal-wide">
+    <div class="modal-header">
+      <span class="modal-title">Add Device to {{.Group.Name}}</span>
+      <button class="modal-close" type="button" onclick="closeAddDeviceModal()">&times;</button>
+    </div>
+    <form action="/groups/{{.Group.ID}}/devices" method="POST" class="modal-body">
+      <div class="form-row">
+        <label class="form-label">Serial Number</label>
+        <input type="text"
+               name="serial_number"
+               id="group-serial-input"
+               placeholder="Search by serial number"
+               class="form-input"
+               required
+               autocomplete="off"
+               hx-get="/groups/{{.Group.ID}}/device-search"
+               hx-trigger="input changed delay:200ms, search"
+               hx-target="#group-device-search-results"
+               hx-include="#group-serial-input">
+        <span class="muted small">Type part of a serial and pick a match, or enter it directly.</span>
+      </div>
+      <div id="group-device-search-results" style="width:100%;"></div>
+      <div>
+        <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>
+      </div>
+    </form>
+  </div>
 </div>
 
 {{template "footer" .}}
@@ -79,7 +106,7 @@
 {{define "group-device-search-results"}}
 {{if .Query}}
   {{if .Devices}}
-  <div class="lookup-results">
+  <div class="lookup-results compact">
     <div class="lookup-title">Matches for "{{.Query}}"</div>
     {{range .Devices}}
     <div class="lookup-row">
@@ -92,7 +119,7 @@
     {{end}}
   </div>
   {{else}}
-  <div class="lookup-results lookup-empty">
+  <div class="lookup-results lookup-empty compact">
     <div class="lookup-title">No device found</div>
     <div class="muted small">No serial matched "{{.Query}}".</div>
   </div>
@@ -105,5 +132,23 @@ function pickGroupSerial(serial) {
   input.value = serial;
   input.focus();
 }
+
+function openAddDeviceModal() {
+  var modal = document.getElementById('group-device-modal');
+  if (!modal) return;
+  modal.classList.add('modal-open');
+  var input = document.getElementById('group-serial-input');
+  if (input) setTimeout(function() { input.focus(); }, 0);
+}
+
+function closeAddDeviceModal(e) {
+  var modal = document.getElementById('group-device-modal');
+  if (!modal) return;
+  if (!e || e.target === modal) modal.classList.remove('modal-open');
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeAddDeviceModal();
+});
 </script>
 {{end}}
