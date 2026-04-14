@@ -197,10 +197,6 @@
   <div style="display:flex;gap:8px;">
     <a href="/devices/{{.Device.SerialNumber}}/packages" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>Packages</a>
     <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg></span>Logcat</a>
-    <form action="/devices/{{.Device.SerialNumber}}/hide" method="POST" style="margin:0;"
-          onsubmit="return confirm('Hide this device? It will reappear on next check-in.')">
-      <button type="submit" class="btn-danger-sm"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 10.7a2 2 0 0 0 2.8 2.8"/><path d="M9.9 4.2A10.9 10.9 0 0 1 12 4c5 0 9.3 3.1 11 8-0.5 1.5-1.4 2.9-2.5 4"/><path d="M6.2 6.3C4.5 7.7 3.2 9.7 2 12c1.7 4.9 6 8 10 8 1.6 0 3.2-.4 4.6-1.1"/></svg></span>Hide</button>
-    </form>
   </div>
 </div>
 
