@@ -65,7 +65,7 @@
           {{$installed := 0}}{{$total := len .Targets}}
           {{range .Targets}}{{if eq .Status "installed"}}{{$installed = add $installed 1}}{{end}}{{end}}
           {{if gt $total 0}}<span class="mono small muted">{{$installed}}/{{$total}} installed</span>{{end}}
-          <span class="muted small">{{formatTime .CreatedAt}}</span>
+          <span class="muted small">{{localTime .CreatedAt}}</span>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
           {{if ne .Status "complete"}}

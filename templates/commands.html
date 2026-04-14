@@ -111,7 +111,7 @@
           <td><span class="status-badge muted">{{cmdLabel .Type}}</span></td>
           <td class="mono small muted">{{cmdDetail .}}</td>
           <td class="muted">{{.TargetType}}</td>
-          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td class="muted small">{{localTime .CreatedAt}}</td>
           <td style="display:flex;gap:8px;align-items:center;">
             <a href="/commands/{{.ID}}" class="link-detail">Status</a>
             <form action="/commands/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">

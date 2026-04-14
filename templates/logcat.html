@@ -112,7 +112,7 @@ syncLogcatPolling();
   <div class="card" style="margin-bottom:12px;">
     <div class="card-header">
       <div style="display:flex;align-items:center;gap:12px;">
-        <span class="mono small">{{formatTime .Request.CreatedAt}}</span>
+        <span class="mono small">{{localTime .Request.CreatedAt}}</span>
         <span class="status-badge logcat-level-{{.Request.Level}}">{{.Request.Level}}</span>
         <span class="muted small">{{.Request.Lines}} lines</span>
         {{if .Request.Tag}}<span class="muted small">tag: <span class="mono">{{.Request.Tag}}</span></span>{{end}}

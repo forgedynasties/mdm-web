@@ -25,7 +25,7 @@
         <tr>
           <td class="bold">{{.Name}}</td>
           <td class="mono small muted extra-cell">{{.ApkURL}}</td>
-          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td class="muted small">{{localTime .CreatedAt}}</td>
           <td>
             <form action="/setup/apps/{{.ID}}/delete" method="POST" style="display:inline;">
               <button type="submit" class="btn-danger-sm">Delete</button>

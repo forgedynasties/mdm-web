@@ -11,7 +11,7 @@
     <p class="page-subtitle">
       {{if .Update.OtaPackage}}{{.Update.OtaPackage.TargetBuildID}} ({{.Update.OtaPackage.Type}}){{end}}
       &middot; {{.Update.RebootBehavior}}
-      {{if .Update.ScheduledTime}}&middot; scheduled {{formatTime (deref .Update.ScheduledTime)}}{{end}}
+      {{if .Update.ScheduledTime}}&middot; scheduled {{localTime (deref .Update.ScheduledTime)}}{{end}}
     </p>
   </div>
   <form action="/updates/{{.Update.ID}}/delete" method="POST"

@@ -77,6 +77,37 @@
       stamp.textContent = 'Synced ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    function formatLocalTime(el) {
+      var raw = el.dataset.utc;
+      if (!raw) return;
+      var date = new Date(raw);
+      if (isNaN(date.getTime())) return;
+      var format = el.dataset.format || 'full';
+      if (format === 'short') {
+        el.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else {
+        el.textContent = date.toLocaleString([], {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+      }
+      el.title = date.toLocaleString();
+    }
+
+    function localizeTimes(root) {
+      if (!root) return;
+      if (root.matches && root.matches('.js-local-time')) {
+        formatLocalTime(root);
+      }
+      if (root.querySelectorAll) {
+        root.querySelectorAll('.js-local-time').forEach(formatLocalTime);
+      }
+    }
+
     function syncPollStamps(root) {
       if (!root) return;
       if (root.matches && root.matches('.card[hx-trigger*="every"]')) {
@@ -102,10 +133,12 @@
     document.body.addEventListener('htmx:afterSwap', function (evt) {
       if (evt.detail && evt.detail.target) {
         syncPollStamps(evt.detail.target);
+        localizeTimes(evt.detail.target);
       }
     });
 
     syncPollStamps(document);
+    localizeTimes(document);
   })();
   </script>
 </body>

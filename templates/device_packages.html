@@ -32,7 +32,7 @@
           <td class="small">{{if .AppName}}{{.AppName}}{{else}}<span class="muted">—</span>{{end}}</td>
           <td class="mono small">{{.PackageName}}</td>
           <td class="small">{{if .VersionName}}{{.VersionName}}{{else}}<span class="muted">—</span>{{end}}</td>
-          <td class="muted small">{{formatTime .UpdatedAt}}</td>
+          <td class="muted small">{{localTime .UpdatedAt}}</td>
         </tr>
         {{end}}
       {{else}}

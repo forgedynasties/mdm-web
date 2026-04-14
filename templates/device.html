@@ -20,12 +20,12 @@
   <div class="stat-card">
     <div class="stat-label">Last Seen</div>
     <div class="stat-value">{{timeSince .Device.LastSeenAt}}</div>
-    <div class="stat-sub">{{formatTime .Device.LastSeenAt}}</div>
+    <div class="stat-sub">{{localTime .Device.LastSeenAt}}</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">First Seen</div>
     <div class="stat-value">{{timeSince .Device.CreatedAt}}</div>
-    <div class="stat-sub">{{formatTime .Device.CreatedAt}}</div>
+    <div class="stat-sub">{{localTime .Device.CreatedAt}}</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">RAM Usage</div>
@@ -98,7 +98,7 @@
         <tr>
           <td class="mono small">{{if .ApkURL}}{{.ApkURL}}{{else}}{{cmdLabel .Type}}{{end}}</td>
           <td class="muted small">{{.TargetType}}</td>
-          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td class="muted small">{{localTime .CreatedAt}}</td>
           <td><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></td>
           <td><a href="/commands/{{.ID}}" class="link-detail">Detail</a></td>
         </tr>
@@ -137,8 +137,8 @@
       {{if .Checkins}}
         {{range .Checkins}}
         {{$extra := .Extra}}
-        <tr class="row-clickable" onclick="showCheckin(this)" data-time="{{formatTime .CreatedAt}}" data-battery="{{.BatteryPct}}" data-build="{{.BuildID}}" data-extra="{{rawJSON .Extra}}">
-          <td class="muted small">{{formatTime .CreatedAt}}</td>
+        <tr class="row-clickable" onclick="showCheckin(this)" data-time="{{timeISO .CreatedAt}}" data-battery="{{.BatteryPct}}" data-build="{{.BuildID}}" data-extra="{{rawJSON .Extra}}">
+          <td class="muted small">{{localTime .CreatedAt}}</td>
           <td>
             <div class="battery-wrap">
               <div class="battery-track">
@@ -802,7 +802,8 @@
 
 <script>
 function showCheckin(row) {
-  document.getElementById('modal-time').textContent    = row.dataset.time;
+  var checkinTime = new Date(row.dataset.time);
+  document.getElementById('modal-time').textContent    = isNaN(checkinTime.getTime()) ? row.dataset.time : checkinTime.toLocaleString();
   document.getElementById('modal-battery').textContent = row.dataset.battery + '%';
   document.getElementById('modal-build').textContent   = row.dataset.build;
   try {

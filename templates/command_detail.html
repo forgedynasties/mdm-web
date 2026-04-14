@@ -32,7 +32,7 @@
         <tr>
           <td class="mono">{{.SerialNumber}}</td>
           <td><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></td>
-          <td class="muted small">{{formatTime .UpdatedAt}}</td>
+          <td class="muted small">{{localTime .UpdatedAt}}</td>
           {{if eq $cmd.Type "shell"}}
           <td style="min-width:320px;">
             {{if .Output}}
@@ -100,7 +100,7 @@
   <div class="stat-card">
     <div class="stat-label">Sent</div>
     <div class="stat-value small">{{timeSince .Command.CreatedAt}}</div>
-    <div class="stat-sub">{{formatTime .Command.CreatedAt}}</div>
+    <div class="stat-sub">{{localTime .Command.CreatedAt}}</div>
   </div>
 </div>
 

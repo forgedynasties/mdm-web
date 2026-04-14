@@ -32,7 +32,7 @@
         <tr>
           <td><a href="/groups/{{.ID}}" class="link-detail">{{.Name}}</a></td>
           <td class="muted">{{.DeviceCount}}</td>
-          <td class="muted small">{{formatTime .CreatedAt}}</td>
+          <td class="muted small">{{localTime .CreatedAt}}</td>
           <td>
             <form action="/groups/{{.ID}}/delete" method="POST" style="display:inline"
                   onsubmit="return confirm('Delete group {{.Name}}?')">

@@ -137,6 +137,19 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 		"formatTime": func(t time.Time) string {
 			return t.UTC().Format("2006-01-02 15:04:05 UTC")
 		},
+		"timeISO": func(t time.Time) string {
+			return t.UTC().Format(time.RFC3339)
+		},
+		"localTime": func(t time.Time) template.HTML {
+			iso := t.UTC().Format(time.RFC3339)
+			fallback := t.UTC().Format("2006-01-02 15:04:05 UTC")
+			return template.HTML(`<span class="js-local-time" data-utc="` + iso + `" data-format="full">` + fallback + `</span>`)
+		},
+		"localShortTime": func(t time.Time) template.HTML {
+			iso := t.UTC().Format(time.RFC3339)
+			fallback := t.UTC().Format("15:04")
+			return template.HTML(`<span class="js-local-time" data-utc="` + iso + `" data-format="short">` + fallback + `</span>`)
+		},
 		"nowUTC": func() time.Time {
 			return time.Now().UTC()
 		},

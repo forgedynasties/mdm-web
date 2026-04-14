@@ -88,9 +88,9 @@
         </td>
         <td class="muted">
           {{timeSince .LastSeenAt}}
-          {{if gt .PollIntervalMs 0}}<span class="last-synced" title="{{formatTime .LastSeenAt}}">synced {{shortTime .LastSeenAt}}</span>{{end}}
+          {{if gt .PollIntervalMs 0}}<span class="last-synced">synced {{localShortTime .LastSeenAt}}</span>{{end}}
         </td>
-        <td class="muted small">{{formatTime .CreatedAt}}</td>
+        <td class="muted small">{{localTime .CreatedAt}}</td>
         <td>
           {{if .KioskEnabled}}
             <span class="status-badge ok" title="{{.KioskPackage}}">Kiosk</span>
