@@ -1,0 +1,7 @@
+client-app/
+__pycache__/
+*.patch
+*.log
+static/vendor/
+docker/
+server

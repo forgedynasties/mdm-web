@@ -1535,6 +1535,15 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 
 	var targetIDs []uuid.UUID
 	switch targetType {
+	case "all":
+		// Snapshot: resolve all current device IDs so future devices are unaffected.
+		ids, err := h.db.GetAllDeviceIDs(r.Context())
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		targetType = "devices"
+		targetIDs = ids
 	case "devices":
 		serials := db.ParseSerials(r.FormValue("target_serials"))
 		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)

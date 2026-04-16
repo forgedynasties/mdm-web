@@ -93,8 +93,25 @@
 </div>
 
 <div class="card">
-  <div class="card-header"><h3>History</h3></div>
-  <table class="table">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+    <h3>History</h3>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <select id="filter-type" class="form-input" style="width:auto;padding:4px 8px;font-size:0.85rem;" onchange="filterCommands()">
+        <option value="">All Types</option>
+        <option value="install_apk">Install APK</option>
+        <option value="shell">Shell</option>
+        <option value="screenshot">Screenshot</option>
+        <option value="reboot">Reboot</option>
+      </select>
+      <select id="filter-target" class="form-input" style="width:auto;padding:4px 8px;font-size:0.85rem;" onchange="filterCommands()">
+        <option value="">All Targets</option>
+        <option value="all">All Devices</option>
+        <option value="devices">Devices</option>
+        <option value="groups">Groups</option>
+      </select>
+    </div>
+  </div>
+  <table class="table" id="cmd-history-table">
     <thead>
       <tr>
         <th>Type</th>
@@ -107,7 +124,7 @@
     <tbody>
       {{if .Commands}}
         {{range .Commands}}
-        <tr>
+        <tr data-cmd-type="{{.Type}}" data-cmd-target="{{.TargetType}}">
           <td><span class="status-badge muted">{{cmdLabel .Type}}</span></td>
           <td class="mono small muted">{{cmdDetail .}}</td>
           <td class="muted">{{.TargetType}}</td>
@@ -152,6 +169,16 @@
 </div>
 
 <script>
+function filterCommands() {
+  var ft = document.getElementById('filter-type').value;
+  var fg = document.getElementById('filter-target').value;
+  var rows = document.querySelectorAll('#cmd-history-table tbody tr[data-cmd-type]');
+  rows.forEach(function(r) {
+    var show = (!ft || r.dataset.cmdType === ft) && (!fg || r.dataset.cmdTarget === fg);
+    r.style.display = show ? '' : 'none';
+  });
+}
+
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
   document.querySelectorAll('.seg-control:first-of-type .seg-btn').forEach(b => b.classList.remove('active'));

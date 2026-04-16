@@ -847,6 +847,24 @@ func (d *DB) GetDeviceIDsBySerials(ctx context.Context, serials []string) ([]uui
 	return ids, rows.Err()
 }
 
+// GetAllDeviceIDs returns the IDs of every registered device.
+func (d *DB) GetAllDeviceIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `SELECT id FROM devices`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 // CreateCommand creates a command. For target_type "devices", targetIDs are device UUIDs.
