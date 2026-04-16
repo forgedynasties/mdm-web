@@ -264,9 +264,10 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		"status":   "ok",
 		"commands": cmdList,
 		"config": map[string]any{
-			"kiosk_enabled":  deviceCfg.KioskEnabled,
-			"kiosk_package":  deviceCfg.KioskPackage,
-			"kiosk_features": deviceCfg.KioskFeatures,
+			"kiosk_enabled":            deviceCfg.KioskEnabled,
+			"kiosk_package":            deviceCfg.KioskPackage,
+			"kiosk_features":           deviceCfg.KioskFeatures,
+			"checkin_interval_seconds": h.cfg.CheckinInterval(),
 		},
 	})
 }

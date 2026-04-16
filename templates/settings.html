@@ -24,6 +24,18 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Checkin Interval</h3></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:8px;">How often devices check in with the server (seconds). Applies to all devices, including ones added later.</div>
+    <form action="/settings/checkin-interval" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="interval" value="{{.CheckinInterval}}" min="10" step="1" class="form-input" style="width:100px;">
+      <span class="muted small">seconds</span>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Extra Columns</h3></div>
   <table class="table">
     <thead>

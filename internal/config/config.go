@@ -12,8 +12,9 @@ type ExtraColumn struct {
 }
 
 type Config struct {
-	ExtraColumns    []ExtraColumn `json:"extra_columns"`
-	LegacyCheckinOn bool          `json:"legacy_checkin"`
+	ExtraColumns       []ExtraColumn `json:"extra_columns"`
+	LegacyCheckinOn    bool          `json:"legacy_checkin"`
+	CheckinIntervalSec int           `json:"checkin_interval_sec"`
 
 	mu   sync.RWMutex
 	path string
@@ -60,6 +61,23 @@ func (c *Config) LegacyCheckin() bool {
 func (c *Config) SetLegacyCheckin(v bool) error {
 	c.mu.Lock()
 	c.LegacyCheckinOn = v
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) CheckinInterval() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.CheckinIntervalSec <= 0 {
+		return 60
+	}
+	return c.CheckinIntervalSec
+}
+
+func (c *Config) SetCheckinInterval(sec int) error {
+	c.mu.Lock()
+	c.CheckinIntervalSec = sec
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)

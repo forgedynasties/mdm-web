@@ -1645,14 +1645,27 @@ func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	h.tmpl.ExecuteTemplate(w, "settings.html", map[string]any{
-		"Title":          "Settings",
-		"ExtraColumns":   h.cfg.Columns(),
-		"LegacyCheckin":  h.cfg.LegacyCheckin(),
+		"Title":           "Settings",
+		"ExtraColumns":    h.cfg.Columns(),
+		"LegacyCheckin":   h.cfg.LegacyCheckin(),
+		"CheckinInterval": h.cfg.CheckinInterval(),
 	})
 }
 
 func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetLegacyCheckin(!h.cfg.LegacyCheckin())
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsSetCheckinInterval(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	sec := 60
+	if v := r.FormValue("interval"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 10 {
+			sec = n
+		}
+	}
+	h.cfg.SetCheckinInterval(sec)
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -1921,6 +1934,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/columns/add", h.requireAuth(h.SettingsAddColumn))
 	mux.HandleFunc("POST /settings/columns/{key}/remove", h.requireAuth(h.SettingsRemoveColumn))
 	mux.HandleFunc("POST /settings/legacy-checkin/toggle", h.requireAuth(h.SettingsToggleLegacyCheckin))
+	mux.HandleFunc("POST /settings/checkin-interval", h.requireAuth(h.SettingsSetCheckinInterval))
 
 	mux.HandleFunc("GET /setup", h.requireAuth(h.SetupPage))
 	mux.HandleFunc("POST /setup/apps", h.requireAuth(h.SetupCreateApp))
