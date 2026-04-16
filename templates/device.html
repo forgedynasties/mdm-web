@@ -78,10 +78,14 @@
   hx-trigger="every 5s"
   hx-swap="outerHTML"
   {{end}}>
-  <div class="card-header">
-    <h3>Commands</h3>
-    <span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span>
+  <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="collapse-arrow">▶</span>
+      <h3>Commands</h3>
+      <span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span>
+    </div>
   </div>
+  <div class="collapsible-body" style="display:none;">
   <table class="table">
     <thead>
       <tr>
@@ -110,6 +114,7 @@
       {{end}}
     </tbody>
   </table>
+  </div>
 </div>
 {{end}}
 
@@ -119,10 +124,14 @@
   hx-get="/devices/{{.Device.SerialNumber}}/checkins-live?page={{.CheckinPage}}"
   hx-trigger="every 30s"
   hx-swap="outerHTML">
-  <div class="card-header">
-    <h3>Checkin History</h3>
-    <span class="muted small">{{.CheckinTotal}} total</span>
+  <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="collapse-arrow">▶</span>
+      <h3>Checkin History</h3>
+      <span class="muted small">{{.CheckinTotal}} total</span>
+    </div>
   </div>
+  <div class="collapsible-body" style="display:none;">
   <table class="table">
     <thead>
       <tr>
@@ -174,6 +183,7 @@
     {{end}}
   </div>
   {{end}}
+  </div>
 </div>
 {{end}}
 
@@ -940,6 +950,18 @@
 </div>
 
 <script>
+function toggleSection(header) {
+  var body = header.nextElementSibling;
+  var arrow = header.querySelector('.collapse-arrow');
+  if (body.style.display === 'none') {
+    body.style.display = '';
+    arrow.textContent = '▼';
+  } else {
+    body.style.display = 'none';
+    arrow.textContent = '▶';
+  }
+}
+
 function setKioskMode(mode) {
   var enable = mode === 'enable';
   document.getElementById('kiosk-enabled-input').value = enable ? '1' : '0';
