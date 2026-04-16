@@ -731,6 +731,22 @@ input[type="checkbox"]:hover {
   gap: 8px;
 }
 .btn-primary:hover { background: var(--accent-h); }
+.btn-send {
+  padding: 10px 28px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 8px rgba(91,110,245,0.35);
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+.btn-send:hover {
+  box-shadow: 0 4px 14px rgba(91,110,245,0.45);
+  transform: translateY(-1px);
+}
+.btn-send:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(91,110,245,0.3);
+}
 .btn-primary:disabled {
   background: var(--surface2);
   color: var(--muted);
