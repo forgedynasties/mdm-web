@@ -26,10 +26,11 @@ func main() {
 	dbUser        := getEnv("DB_USER", "mdm")
 	dbPass        := getEnv("DB_PASSWORD", "mdm")
 	dbName        := getEnv("DB_NAME", "mdm")
-	apiKey        := mustEnv("DEVICE_API_KEY")
+	deviceAPIKey  := mustEnv("DEVICE_API_KEY")
+	adminAPIKey   := mustEnv("ADMIN_API_KEY")
 	dashUser      := getEnv("DASHBOARD_USER", "admin")
 	dashPass      := mustEnv("DASHBOARD_PASSWORD")
-	sessionSecret := getEnv("SESSION_SECRET", apiKey)
+	sessionSecret := getEnv("SESSION_SECRET", deviceAPIKey)
 	configPath    := getEnv("CONFIG_PATH", "config/display.json")
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
@@ -91,35 +92,34 @@ func main() {
 
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg)
 
-	auth := func(h http.Handler) http.Handler { return middleware.APIKeyAuth(apiKey, h) }
+	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAPIKeyAuth(deviceAPIKey, h) }
+	adminAuth := func(h http.Handler) http.Handler { return middleware.AdminAPIKeyAuth(adminAPIKey, h) }
 
 	// WebSocket — device connects here for server-push command delivery
-	mux.Handle("GET /api/v1/ws", auth(http.HandlerFunc(apiHandler.Connect)))
+	mux.Handle("GET /api/v1/ws", deviceAuth(http.HandlerFunc(apiHandler.Connect)))
 
-	// Device
-	mux.Handle("POST /api/v1/checkin",               auth(http.HandlerFunc(apiHandler.Checkin)))
-	mux.Handle("GET /api/v1/devices",                auth(http.HandlerFunc(apiHandler.ListDevices)))
-	mux.Handle("GET /api/v1/devices/{serial}",       auth(http.HandlerFunc(apiHandler.GetDevice)))
+	// Device-authenticated endpoints
+	mux.Handle("POST /api/v1/checkin",               deviceAuth(http.HandlerFunc(apiHandler.Checkin)))
+	mux.Handle("POST /api/v1/commands/{id}/ack",     deviceAuth(http.HandlerFunc(apiHandler.AckCommand)))
+	mux.Handle("POST /api/v1/logcat",                deviceAuth(http.HandlerFunc(apiHandler.SubmitLogcat)))
+	mux.Handle("POST /api/v1/ota/status",            deviceAuth(http.HandlerFunc(apiHandler.OtaStatus)))
+
+	// Admin-authenticated API endpoints
+	mux.Handle("GET /api/v1/devices",                adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
+	mux.Handle("GET /api/v1/devices/{serial}",       adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
 
 	// Groups
-	mux.Handle("GET /api/v1/groups",                 auth(http.HandlerFunc(apiHandler.ListGroups)))
-	mux.Handle("POST /api/v1/groups",                auth(http.HandlerFunc(apiHandler.CreateGroup)))
-	mux.Handle("GET /api/v1/groups/{id}",            auth(http.HandlerFunc(apiHandler.GetGroup)))
-	mux.Handle("DELETE /api/v1/groups/{id}",         auth(http.HandlerFunc(apiHandler.DeleteGroup)))
-	mux.Handle("POST /api/v1/groups/{id}/devices",   auth(http.HandlerFunc(apiHandler.AddDeviceToGroup)))
-	mux.Handle("DELETE /api/v1/groups/{id}/devices/{serial}", auth(http.HandlerFunc(apiHandler.RemoveDeviceFromGroup)))
+	mux.Handle("GET /api/v1/groups",                 adminAuth(http.HandlerFunc(apiHandler.ListGroups)))
+	mux.Handle("POST /api/v1/groups",                adminAuth(http.HandlerFunc(apiHandler.CreateGroup)))
+	mux.Handle("GET /api/v1/groups/{id}",            adminAuth(http.HandlerFunc(apiHandler.GetGroup)))
+	mux.Handle("DELETE /api/v1/groups/{id}",         adminAuth(http.HandlerFunc(apiHandler.DeleteGroup)))
+	mux.Handle("POST /api/v1/groups/{id}/devices",   adminAuth(http.HandlerFunc(apiHandler.AddDeviceToGroup)))
+	mux.Handle("DELETE /api/v1/groups/{id}/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.RemoveDeviceFromGroup)))
 
 	// Commands
-	mux.Handle("GET /api/v1/commands",               auth(http.HandlerFunc(apiHandler.ListCommands)))
-	mux.Handle("POST /api/v1/commands",              auth(http.HandlerFunc(apiHandler.CreateCommand)))
-	mux.Handle("GET /api/v1/commands/{id}",          auth(http.HandlerFunc(apiHandler.GetCommandStatus)))
-	mux.Handle("POST /api/v1/commands/{id}/ack",     auth(http.HandlerFunc(apiHandler.AckCommand)))
-
-	// Logcat
-	mux.Handle("POST /api/v1/logcat",                auth(http.HandlerFunc(apiHandler.SubmitLogcat)))
-
-	// OTA
-	mux.Handle("POST /api/v1/ota/status",            auth(http.HandlerFunc(apiHandler.OtaStatus)))
+	mux.Handle("GET /api/v1/commands",               adminAuth(http.HandlerFunc(apiHandler.ListCommands)))
+	mux.Handle("POST /api/v1/commands",              adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
+	mux.Handle("GET /api/v1/commands/{id}",          adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 
 	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg)
 	dash.RegisterRoutes(mux)

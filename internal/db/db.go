@@ -131,6 +131,8 @@ type DB struct {
 	pool *pgxpool.Pool
 }
 
+var ErrCommandNotTargeted = errors.New("command does not target device")
+
 func New(ctx context.Context, connStr string) (*DB, error) {
 	pool, err := pgxpool.New(ctx, connStr)
 	if err != nil {
@@ -974,9 +976,41 @@ func (d *DB) MarkCommandsDelivered(ctx context.Context, deviceID uuid.UUID, comm
 	return nil
 }
 
+func (d *DB) commandTargetsDevice(ctx context.Context, commandID, deviceID uuid.UUID) (bool, error) {
+	var exists bool
+	err := d.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM commands c
+			WHERE c.id = $1
+			AND (
+				c.target_type = 'all'
+				OR (c.target_type = 'devices' AND EXISTS (
+					SELECT 1 FROM command_targets ct
+					WHERE ct.command_id = c.id AND ct.target_id = $2
+				))
+				OR (c.target_type = 'groups' AND EXISTS (
+					SELECT 1 FROM command_targets ct
+					JOIN device_groups dg ON dg.group_id = ct.target_id
+					WHERE ct.command_id = c.id AND dg.device_id = $2
+				))
+			)
+		)
+	`, commandID, deviceID).Scan(&exists)
+	return exists, err
+}
+
 // AckCommand lets a device report installed or failed for a command.
 func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, status string) error {
-	_, err := d.pool.Exec(ctx, `
+	targeted, err := d.commandTargetsDevice(ctx, commandID, deviceID)
+	if err != nil {
+		return err
+	}
+	if !targeted {
+		return ErrCommandNotTargeted
+	}
+
+	_, err = d.pool.Exec(ctx, `
 		INSERT INTO command_status (command_id, device_id, status, updated_at)
 		VALUES ($1, $2, $3, NOW())
 		ON CONFLICT (command_id, device_id) DO UPDATE

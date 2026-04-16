@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
@@ -539,6 +540,10 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.db.AckCommand(r.Context(), cmdID, device.ID, body.Status); err != nil {
+		if errors.Is(err, db.ErrCommandNotTargeted) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "command does not target device"})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
@@ -575,6 +580,10 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 		ackStatus = "failed"
 	}
 	if err := h.db.AckCommand(r.Context(), body.CommandID, device.ID, ackStatus); err != nil {
+		if errors.Is(err, db.ErrCommandNotTargeted) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "command does not target device"})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}

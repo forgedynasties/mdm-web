@@ -1,2 +1,5 @@
 .env
 client-app
+__pycache__/
+*.py
+*.md

@@ -18,7 +18,7 @@ Go 1.23 · PostgreSQL 17 · HTMX · Docker
 
 ```bash
 cp .env.example .env
-# Edit .env — set DEVICE_API_KEY and DASHBOARD_PASSWORD at minimum
+# Edit .env — set DEVICE_API_KEY, ADMIN_API_KEY, and DASHBOARD_PASSWORD at minimum
 
 docker compose up -d --build
 ```
@@ -36,6 +36,7 @@ Dashboard: `http://localhost:8080`
 | `DB_PASSWORD` | Database password | — |
 | `DB_NAME` | Database name | `mdm` |
 | `DEVICE_API_KEY` | API key for device checkins | — |
+| `ADMIN_API_KEY` | API key for admin REST endpoints | — |
 | `DASHBOARD_USER` | Dashboard login username | `admin` |
 | `DASHBOARD_PASSWORD` | Dashboard login password | — |
 | `SESSION_SECRET` | Cookie signing secret | falls back to `DEVICE_API_KEY` |
@@ -43,17 +44,19 @@ Dashboard: `http://localhost:8080`
 
 ## API
 
-All device endpoints require `X-API-Key` header.
+Device-originated endpoints require the device `X-API-Key` (`DEVICE_API_KEY`).
+Admin REST endpoints require the admin `X-API-Key` (`ADMIN_API_KEY`).
 
 | Method | Endpoint | Description |
 |---|---|---|
 | `POST` | `/api/v1/checkin` | Device checkin (battery, build, apps, extras) |
+| `POST` | `/api/v1/commands/{id}/ack` | Device acknowledges command result |
+| `POST` | `/api/v1/logcat` | Device submits captured logcat |
+| `POST` | `/api/v1/ota/status` | Device reports OTA progress |
 | `GET` | `/api/v1/devices` | List all devices |
 | `GET` | `/api/v1/devices/{serial}` | Device detail + recent checkins |
 | `POST` | `/api/v1/commands` | Queue a command |
 | `GET` | `/api/v1/commands` | List commands |
-| `POST` | `/api/v1/commands/{id}/ack` | Acknowledge command |
-| `POST` | `/api/v1/logcat` | Submit captured logcat |
 | `GET` | `/api/v1/groups` | List groups |
 | `POST` | `/api/v1/groups` | Create group |
 | `GET` | `/health` | Health check |
