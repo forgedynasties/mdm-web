@@ -3,3 +3,4 @@ client-app
 __pycache__/
 *.py
 *.md
+*.claude

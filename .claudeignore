@@ -5,3 +5,5 @@ __pycache__/
 static/vendor/
 docker/
 server
+client-app
+.claudeignore
