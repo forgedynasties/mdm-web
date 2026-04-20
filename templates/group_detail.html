@@ -7,17 +7,12 @@
     <h2 class="page-title">{{.Group.Name}}</h2>
     <p class="page-subtitle">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}}</p>
   </div>
-  <button type="button" class="btn-outline" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>
+  <button type="button" class="btn-primary" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>
 </div>
 
 <div class="card">
   <div class="card-header">
     <h3>Members</h3>
-    <div class="card-header-actions">
-      <button type="button" class="btn-outline btn-plus" onclick="openAddDeviceModal()" title="Add device">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
-      </button>
-    </div>
   </div>
   {{if not .Devices}}
   <div class="empty-state">
@@ -100,6 +95,33 @@
   </div>
 </div>
 
+<script>
+function openAddDeviceModal() {
+  var modal = document.getElementById('group-device-modal');
+  if (!modal) return;
+  modal.classList.add('modal-open');
+  var input = document.getElementById('group-serial-input');
+  if (input) setTimeout(function() { input.focus(); }, 0);
+}
+
+function closeAddDeviceModal(e) {
+  var modal = document.getElementById('group-device-modal');
+  if (!modal) return;
+  if (!e || e.target === modal) modal.classList.remove('modal-open');
+}
+
+function pickGroupSerial(serial) {
+  var input = document.getElementById('group-serial-input');
+  if (!input) return;
+  input.value = serial;
+  input.focus();
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeAddDeviceModal();
+});
+</script>
+
 {{template "footer" .}}
 {{end}}
 
@@ -125,30 +147,4 @@
   </div>
   {{end}}
 {{end}}
-<script>
-function pickGroupSerial(serial) {
-  var input = document.getElementById('group-serial-input');
-  if (!input) return;
-  input.value = serial;
-  input.focus();
-}
-
-function openAddDeviceModal() {
-  var modal = document.getElementById('group-device-modal');
-  if (!modal) return;
-  modal.classList.add('modal-open');
-  var input = document.getElementById('group-serial-input');
-  if (input) setTimeout(function() { input.focus(); }, 0);
-}
-
-function closeAddDeviceModal(e) {
-  var modal = document.getElementById('group-device-modal');
-  if (!modal) return;
-  if (!e || e.target === modal) modal.classList.remove('modal-open');
-}
-
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeAddDeviceModal();
-});
-</script>
 {{end}}
