@@ -540,9 +540,11 @@ a:hover { color: var(--accent-h); }
   gap: 4px;
 }
 .chart-hover-info {
-  display: inline-flex;
-  align-items: center;
+  display: inline-block;
+  line-height: 20px;
   min-height: 28px;
+  width: 320px;
+  max-width: 100%;
   padding: 4px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
@@ -550,6 +552,10 @@ a:hover { color: var(--accent-h); }
   color: var(--text);
   font-size: 12px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 .chart-legend-line {
   width: 18px;
