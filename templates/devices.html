@@ -189,7 +189,12 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Devices</h2>
     <p class="page-subtitle">{{.Total}} device{{if ne .Total 1}}s{{end}} registered</p>
   </div>
-  <span class="refresh-badge" id="refresh-indicator">Auto-refresh every 60s</span>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
+    <button type="button" class="btn-outline" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list">
+      <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Refresh
+    </button>
+  </div>
 </div>
 
 {{with .Summary}}
@@ -556,13 +561,30 @@ document.addEventListener('keydown', function(e) {
 <div class="card"
      id="device-table-container"
      hx-get="/"
-     hx-trigger="every 60s"
+     hx-trigger="refresh-devices from:body"
      hx-target="#device-table-container"
      hx-swap="innerHTML"
      hx-indicator="#refresh-indicator"
      hx-vals='js:getFilterVals()'>
   {{template "device-table" .}}
 </div>
+
+<script>
+  // Lightweight manual refresh: fire the table update on demand
+  // and when the tab returns to the foreground after more than 2 minutes.
+  (function () {
+    var lastRefresh = Date.now();
+    function fire() {
+      lastRefresh = Date.now();
+      document.body.dispatchEvent(new CustomEvent('refresh-devices'));
+    }
+    window.mdmRefreshDevices = fire;
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) return;
+      if (Date.now() - lastRefresh > 120000) fire();
+    });
+  })();
+</script>
 
 <div id="confirm-modal" class="modal-backdrop" onclick="closeConfirmModal(event)">
   <div class="modal-box">

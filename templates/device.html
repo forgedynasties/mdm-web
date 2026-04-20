@@ -2,7 +2,7 @@
 <div class="stats-grid"
   id="device-stats"
   hx-get="/devices/{{.Device.SerialNumber}}/stats"
-  hx-trigger="every 30s"
+  hx-trigger="every 60s"
   hx-swap="outerHTML">
   <div class="stat-card">
     <div class="stat-label">Battery</div>
@@ -75,7 +75,7 @@
   id="device-commands"
   {{if $hasPending}}
   hx-get="/devices/{{.Device.SerialNumber}}/commands-status"
-  hx-trigger="every 5s"
+  hx-trigger="every 10s"
   hx-swap="outerHTML"
   {{end}}>
   <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
@@ -122,7 +122,7 @@
 <div class="card"
   id="device-checkins"
   hx-get="/devices/{{.Device.SerialNumber}}/checkins-live?page={{.CheckinPage}}"
-  hx-trigger="every 30s"
+  hx-trigger="every 120s"
   hx-swap="outerHTML">
   <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
     <div style="display:flex;align-items:center;gap:8px;">
@@ -198,10 +198,34 @@
     <div style="display:flex;align-items:center;gap:10px;">
       <h2 class="page-title mono" style="margin:0;">{{.Device.SerialNumber}}</h2>
       {{if .Online}}
-        <span id="ws-badge" class="ws-badge online" hx-get="/devices/{{.Device.SerialNumber}}/ws-status" hx-trigger="every 5s" hx-swap="outerHTML" title="WebSocket connected"><span class="ws-dot"></span>online</span>
+        <span id="ws-badge" class="ws-badge online" title="WebSocket connected"><span class="ws-dot"></span>online</span>
       {{else}}
-        <span id="ws-badge" class="ws-badge offline" hx-get="/devices/{{.Device.SerialNumber}}/ws-status" hx-trigger="every 5s" hx-swap="outerHTML" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>
+        <span id="ws-badge" class="ws-badge offline" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>
       {{end}}
+      <script>
+      (function() {
+        var serial = {{.Device.SerialNumber}};
+        var badge = document.getElementById('ws-badge');
+        if (!badge || !window.EventSource) return;
+        var es = new EventSource('/devices/' + encodeURIComponent(serial) + '/presence-stream');
+        es.addEventListener('presence', function(e) {
+          var b = document.getElementById('ws-badge');
+          if (!b) return;
+          if (e.data === 'online') {
+            b.classList.remove('offline');
+            b.classList.add('online');
+            b.setAttribute('title', 'WebSocket connected');
+            b.innerHTML = '<span class="ws-dot"></span>online';
+          } else {
+            b.classList.remove('online');
+            b.classList.add('offline');
+            b.setAttribute('title', 'No WebSocket connection');
+            b.innerHTML = '<span class="ws-dot"></span>offline';
+          }
+        });
+        window.addEventListener('beforeunload', function() { es.close(); });
+      })();
+      </script>
     </div>
   </div>
   <div style="display:flex;gap:8px;">
@@ -956,6 +980,10 @@ function toggleSection(header) {
   if (body.style.display === 'none') {
     body.style.display = '';
     arrow.textContent = '▼';
+    var card = header.closest('.card');
+    if (card && window.htmx && card.hasAttribute('hx-trigger')) {
+      window.htmx.trigger(card, 'load');
+    }
   } else {
     body.style.display = 'none';
     arrow.textContent = '▶';

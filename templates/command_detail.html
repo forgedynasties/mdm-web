@@ -9,7 +9,7 @@
   id="deliveries-card"
   {{if $hasPending}}
   hx-get="/commands/{{$cmd.ID}}/status"
-  hx-trigger="every 4s"
+  hx-trigger="every 10s"
   hx-swap="outerHTML"
   {{end}}>
   <div class="card-header">

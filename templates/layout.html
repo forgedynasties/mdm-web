@@ -148,6 +148,64 @@
       markSubmitting(form);
     });
 
+    // Poll gating: drop polling requests when tab hidden or when the card's
+    // collapsible body is collapsed. Manual / form requests are unaffected.
+    function isPollRequest(evt) {
+      var cfg = evt.detail && evt.detail.requestConfig;
+      if (!cfg) return false;
+      var tev = cfg.triggeringEvent;
+      // htmx fires an interval-based request without a triggering DOM event.
+      if (tev) return false;
+      var elt = cfg.elt;
+      if (!elt || !elt.getAttribute) return false;
+      var trig = elt.getAttribute('hx-trigger') || '';
+      return trig.indexOf('every') !== -1;
+    }
+
+    function shouldSkipPoll(elt) {
+      if (document.hidden) return true;
+      var body = elt.querySelector && elt.querySelector(':scope > .collapsible-body');
+      if (body && body.style.display === 'none') return true;
+      return false;
+    }
+
+    document.body.addEventListener('htmx:beforeRequest', function (evt) {
+      if (!isPollRequest(evt)) return;
+      if (shouldSkipPoll(evt.detail.requestConfig.elt)) {
+        evt.preventDefault();
+      }
+    });
+
+    // Phase jitter: add a 0–4s random offset before each polling element
+    // starts its interval, so multiple tabs/clients don't fire in lockstep.
+    function jitterPollingElements(root) {
+      if (!window.htmx) return;
+      var scope = root && root.querySelectorAll ? root : document;
+      scope.querySelectorAll('[hx-trigger*="every"]').forEach(function (el) {
+        if (el.dataset.pollJittered === 'true') return;
+        el.dataset.pollJittered = 'true';
+        var orig = el.getAttribute('hx-trigger');
+        el.setAttribute('hx-trigger', 'manual');
+        window.htmx.process(el);
+        setTimeout(function () {
+          el.setAttribute('hx-trigger', orig);
+          window.htmx.process(el);
+        }, Math.floor(Math.random() * 4000));
+      });
+    }
+
+    // Fire an immediate refresh for every polling element whose card is visible.
+    function refreshVisiblePollers() {
+      document.querySelectorAll('[hx-trigger*="every"]').forEach(function (el) {
+        if (shouldSkipPoll(el)) return;
+        if (window.htmx) window.htmx.trigger(el, 'load');
+      });
+    }
+
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) refreshVisiblePollers();
+    });
+
     document.body.addEventListener('htmx:beforeRequest', beginProgress);
     document.body.addEventListener('htmx:afterRequest', endProgress);
     document.body.addEventListener('htmx:responseError', endProgress);
@@ -167,6 +225,14 @@
     resetSubmitting(document);
     syncPollStamps(document);
     localizeTimes(document);
+    if (window.htmx) {
+      jitterPollingElements(document);
+    } else {
+      window.addEventListener('load', function () { jitterPollingElements(document); });
+    }
+    document.body.addEventListener('htmx:afterSettle', function (evt) {
+      if (evt.detail && evt.detail.target) jitterPollingElements(evt.detail.target);
+    });
   })();
   </script>
 </body>

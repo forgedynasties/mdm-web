@@ -68,11 +68,11 @@ function syncLogcatPolling() {
     btn.textContent = 'Play';
     state.textContent = 'Polling paused';
   } else {
-    panel.setAttribute('hx-trigger', panel.dataset.pollTrigger || 'every 10s');
+    panel.setAttribute('hx-trigger', panel.dataset.pollTrigger || 'every 15s');
     btn.disabled = false;
     btn.setAttribute('aria-pressed', 'false');
     btn.textContent = 'Pause';
-    state.textContent = 'Polling every 10s';
+    state.textContent = 'Polling every 15s';
   }
 
   if (window.htmx) htmx.process(panel);
@@ -95,11 +95,11 @@ syncLogcatPolling();
 
 {{define "logcat-entries"}}
 <div id="logcat-entries"
-  data-poll-trigger="every 10s"
+  data-poll-trigger="every 15s"
   data-can-poll="{{if .HasPending}}true{{else}}false{{end}}"
   {{if .HasPending}}
   hx-get="/devices/{{.Device.SerialNumber}}/logcat/entries"
-  hx-trigger="every 10s"
+  hx-trigger="every 15s"
   hx-swap="outerHTML"
   {{end}}>
 

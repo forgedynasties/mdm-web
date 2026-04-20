@@ -1,9 +1,12 @@
 package dashboard
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha1"
 	"crypto/subtle"
 	"encoding/csv"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -21,6 +24,27 @@ import (
 	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
+
+// renderCachedHTML renders a template into a buffer, computes its ETag, and
+// writes 304 when the client already has the same version. Used by polling
+// partials to short-circuit unchanged responses.
+func (h *Handler) renderCachedHTML(w http.ResponseWriter, r *http.Request, name string, data any) {
+	var buf bytes.Buffer
+	if err := h.tmpl.ExecuteTemplate(&buf, name, data); err != nil {
+		http.Error(w, "render error", http.StatusInternalServerError)
+		return
+	}
+	sum := sha1.Sum(buf.Bytes())
+	etag := `"` + hex.EncodeToString(sum[:]) + `"`
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Cache-Control", "private, no-cache")
+	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
+		w.WriteHeader(http.StatusNotModified)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(buf.Bytes())
+}
 
 type Handler struct {
 	db       *db.DB
@@ -654,8 +678,8 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// DeviceOnlineStatus returns a tiny HTML fragment used by htmx to poll the
-// WebSocket connection state on the device detail page.
+// DeviceOnlineStatus returns a tiny HTML fragment with the current connection state.
+// Kept for initial page render; live updates come from DevicePresenceStream.
 func (h *Handler) DeviceOnlineStatus(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -666,9 +690,67 @@ func (h *Handler) DeviceOnlineStatus(w http.ResponseWriter, r *http.Request) {
 	online := h.hub.IsConnected(device.ID)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if online {
-		fmt.Fprint(w, `<span id="ws-badge" class="ws-badge online" hx-get="/devices/`+serial+`/ws-status" hx-trigger="every 5s" hx-swap="outerHTML" title="WebSocket connected"><span class="ws-dot"></span>online</span>`)
+		fmt.Fprint(w, `<span id="ws-badge" class="ws-badge online" title="WebSocket connected"><span class="ws-dot"></span>online</span>`)
 	} else {
-		fmt.Fprint(w, `<span id="ws-badge" class="ws-badge offline" hx-get="/devices/`+serial+`/ws-status" hx-trigger="every 5s" hx-swap="outerHTML" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>`)
+		fmt.Fprint(w, `<span id="ws-badge" class="ws-badge offline" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>`)
+	}
+}
+
+// DevicePresenceStream streams SSE events for a single device's connection state.
+// Emits an initial snapshot, then pushes "online"/"offline" on change.
+func (h *Handler) DevicePresenceStream(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	writeEvent := func(online bool) {
+		state := "offline"
+		if online {
+			state = "online"
+		}
+		fmt.Fprintf(w, "event: presence\ndata: %s\n\n", state)
+		flusher.Flush()
+	}
+
+	writeEvent(h.hub.IsConnected(device.ID))
+
+	sub := h.hub.SubscribePresence()
+	defer h.hub.UnsubscribePresence(sub)
+
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case ev, ok := <-sub:
+			if !ok {
+				return
+			}
+			if ev.DeviceID != device.ID {
+				continue
+			}
+			writeEvent(ev.Online)
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": ping\n\n")
+			flusher.Flush()
+		}
 	}
 }
 
@@ -956,7 +1038,7 @@ func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "device-stats", map[string]any{
+	h.renderCachedHTML(w, r, "device-stats", map[string]any{
 		"Device": device,
 	})
 }
@@ -973,7 +1055,7 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "device-commands", map[string]any{
+	h.renderCachedHTML(w, r, "device-commands", map[string]any{
 		"Device":   device,
 		"Commands": commands,
 	})
@@ -1016,7 +1098,7 @@ func (h *Handler) DeviceCheckinsPartial(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.tmpl.ExecuteTemplate(w, "device-checkins", map[string]any{
+	h.renderCachedHTML(w, r, "device-checkins", map[string]any{
 		"Device":       device,
 		"Checkins":     checkins,
 		"ExtraColumns": h.cfg.Columns(),
@@ -1471,7 +1553,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "command-deliveries", map[string]any{
+	h.renderCachedHTML(w, r, "command-deliveries", map[string]any{
 		"Command":    cmd,
 		"Deliveries": deliveries,
 	})
@@ -1898,6 +1980,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.DeviceOnlineStatus))
+	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(h.DevicePresenceStream))
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))
 	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.DeviceBatteryCSV))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))

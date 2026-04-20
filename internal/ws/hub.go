@@ -22,11 +22,19 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
+// PresenceEvent is emitted when a device connects or disconnects.
+type PresenceEvent struct {
+	DeviceID uuid.UUID
+	Online   bool
+}
+
 // Hub maintains the set of active WebSocket clients keyed by device ID.
 type Hub struct {
-	mu        sync.RWMutex
-	clients   map[uuid.UUID]*Client
-	onMessage func(deviceID uuid.UUID, msg []byte)
+	mu          sync.RWMutex
+	clients     map[uuid.UUID]*Client
+	onMessage   func(deviceID uuid.UUID, msg []byte)
+	subMu       sync.RWMutex
+	subscribers map[chan PresenceEvent]struct{}
 }
 
 // SetOnMessage registers a function that is called for every message received
@@ -44,7 +52,41 @@ type Client struct {
 }
 
 func NewHub() *Hub {
-	return &Hub{clients: make(map[uuid.UUID]*Client)}
+	return &Hub{
+		clients:     make(map[uuid.UUID]*Client),
+		subscribers: make(map[chan PresenceEvent]struct{}),
+	}
+}
+
+// SubscribePresence returns a channel that receives presence events for all devices.
+// Callers must invoke UnsubscribePresence to release resources.
+func (h *Hub) SubscribePresence() chan PresenceEvent {
+	ch := make(chan PresenceEvent, 32)
+	h.subMu.Lock()
+	h.subscribers[ch] = struct{}{}
+	h.subMu.Unlock()
+	return ch
+}
+
+// UnsubscribePresence closes the channel and removes it from the subscriber set.
+func (h *Hub) UnsubscribePresence(ch chan PresenceEvent) {
+	h.subMu.Lock()
+	if _, ok := h.subscribers[ch]; ok {
+		delete(h.subscribers, ch)
+		close(ch)
+	}
+	h.subMu.Unlock()
+}
+
+func (h *Hub) publishPresence(ev PresenceEvent) {
+	h.subMu.RLock()
+	defer h.subMu.RUnlock()
+	for ch := range h.subscribers {
+		select {
+		case ch <- ev:
+		default:
+		}
+	}
 }
 
 func (h *Hub) register(c *Client) {
@@ -55,15 +97,21 @@ func (h *Hub) register(c *Client) {
 	h.clients[c.DeviceID] = c
 	h.mu.Unlock()
 	log.Printf("[ws] connected: %s", c.DeviceID)
+	h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: true})
 }
 
 func (h *Hub) Unregister(c *Client) {
 	h.mu.Lock()
+	removed := false
 	if cur, ok := h.clients[c.DeviceID]; ok && cur == c {
 		delete(h.clients, c.DeviceID)
+		removed = true
 	}
 	h.mu.Unlock()
 	log.Printf("[ws] disconnected: %s", c.DeviceID)
+	if removed {
+		h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: false})
+	}
 }
 
 // Push sends msg to a specific device. Returns true if the device is connected.
