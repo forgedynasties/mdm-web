@@ -518,12 +518,30 @@ a:hover { color: var(--accent-h); }
 }
 
 /* ── Chart ───────────────────────────────────────── */
-.chart-card { margin-bottom: 20px; }
+.chart-card {
+  margin-bottom: 20px;
+  position: relative;
+  overflow: visible; /* allow sticky hover pill to escape the card's clipping */
+}
+
+/* Pill sits at bottom-left of the card, clear of header buttons */
+.chart-hover-rail {
+  position: absolute;
+  bottom: 12px;
+  left: 16px;
+  right: 0;
+  width: auto;
+  pointer-events: none;
+  z-index: 5;
+  display: flex;
+  justify-content: flex-start;
+  align-items: flex-end;
+}
 
 .chart-wrap {
   padding: 20px 20px 16px;
   position: relative;
-  height: 300px;
+  height: 180px;
 }
 .chart-legend {
   display: flex;
@@ -540,22 +558,111 @@ a:hover { color: var(--accent-h); }
   gap: 4px;
 }
 .chart-hover-info {
-  display: inline-block;
-  line-height: 20px;
-  min-height: 28px;
-  width: 320px;
-  max-width: 100%;
-  padding: 4px 10px;
+  --hover-accent: #6387d2;
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: min(460px, calc(100vw - 64px));
+  padding: 8px 16px 8px 12px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface2);
   color: var(--text);
-  font-size: 12px;
+  font-size: 12.5px;
+  line-height: 18px;
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.chart-hover-info:not(.is-idle) {
+  border-color: color-mix(in srgb, var(--hover-accent) 55%, transparent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+.chart-hover-info[data-accent="battery"] { --hover-accent: #6387d2; }
+.chart-hover-info[data-accent="temp"] { --hover-accent: #ff9800; }
+.chart-hover-info[data-accent="ram"] { --hover-accent: #4caf50; }
+
+.chart-hover-info .hover-indicator {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--hover-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hover-accent) 22%, transparent),
+    0 0 12px color-mix(in srgb, var(--hover-accent) 65%, transparent);
+  animation: hoverPulse 1.8s ease-in-out infinite;
+}
+.chart-hover-info.is-idle .hover-indicator {
+  background: var(--muted);
+  box-shadow: 0 0 0 3px rgba(122, 127, 154, 0.12);
+  animation: none;
+}
+.chart-hover-info .hover-body {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
-  box-sizing: border-box;
-  flex-shrink: 0;
+}
+.chart-hover-info .hover-time {
+  font-variant-numeric: tabular-nums;
+  font-size: 11.5px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+.chart-hover-info .hover-sep {
+  flex: 0 0 1px;
+  width: 1px;
+  height: 14px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.chart-hover-info .hover-primary {
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.chart-hover-info .hover-extra {
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--hover-accent) 75%, var(--text));
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--hover-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--hover-accent) 28%, transparent);
+}
+.chart-hover-info .hover-extra:empty {
+  display: none;
+}
+.chart-hover-info.is-idle .hover-time,
+.chart-hover-info.is-idle .hover-sep {
+  display: none;
+}
+.chart-hover-info.is-idle .hover-primary {
+  color: var(--muted);
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: 0.02em;
+}
+
+@keyframes hoverPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--hover-accent) 22%, transparent),
+      0 0 10px color-mix(in srgb, var(--hover-accent) 55%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--hover-accent) 10%, transparent),
+      0 0 18px color-mix(in srgb, var(--hover-accent) 75%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chart-hover-info .hover-indicator { animation: none; }
 }
 .chart-legend-line {
   width: 18px;

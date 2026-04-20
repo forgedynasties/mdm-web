@@ -237,11 +237,21 @@
 {{template "device-stats" .}}
 
 <div class="card chart-card">
+  <div class="chart-hover-rail" aria-hidden="false">
+    <div id="chart-hover-info" class="chart-hover-info is-idle" aria-live="polite">
+      <span class="hover-indicator" aria-hidden="true"></span>
+      <span class="hover-body">
+        <span class="hover-time" id="hover-time">—</span>
+        <span class="hover-sep" aria-hidden="true"></span>
+        <span class="hover-primary" id="hover-primary">Hover a point to inspect values</span>
+        <span class="hover-extra" id="hover-extra"></span>
+      </span>
+    </div>
+  </div>
   <div class="card-header">
     <h3>Device Graphs</h3>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="chart-info" class="muted small"></span>
-      <span id="chart-hover-info" class="chart-hover-info">Hover a point to inspect values</span>
       <div class="dur-btns">
         <button class="dur-btn" data-ms="3600000">1h</button>
         <button class="dur-btn active" data-ms="21600000">6h</button>
@@ -343,10 +353,25 @@
     syncMarkerToggle();
   }
 
-  function setHoverInfo(text) {
+  function setHoverInfo(data) {
     var el = document.getElementById("chart-hover-info");
     if (!el) return;
-    el.textContent = text || "Hover a point to inspect values";
+    var time = document.getElementById("hover-time");
+    var primary = document.getElementById("hover-primary");
+    var extra = document.getElementById("hover-extra");
+    if (!data) {
+      el.classList.add("is-idle");
+      el.removeAttribute("data-accent");
+      if (time) time.textContent = "—";
+      if (primary) primary.textContent = "Hover a point to inspect values";
+      if (extra) extra.textContent = "";
+      return;
+    }
+    el.classList.remove("is-idle");
+    if (data.accent) el.setAttribute("data-accent", data.accent);
+    if (time) time.textContent = data.time || "";
+    if (primary) primary.textContent = data.primary || "";
+    if (extra) extra.textContent = data.extra || "";
   }
 
   function syncMarkerToggle() {
@@ -492,7 +517,7 @@
     return best;
   }
 
-  // Hover label plugin — writes nearest point info into the header instead of painting over the chart
+  // Hover label plugin — writes nearest point info into the pill instead of painting over the chart
   const staticLabelPlugin = {
     id: 'staticLabel',
     afterEvent(chart) {
@@ -500,16 +525,19 @@
       const markerText = markerHoverText(chart);
       if (!pt || !chart._labelFn) {
         if (chart._crosshairX == null) {
-          setHoverInfo("");
+          setHoverInfo(null);
         } else if (markerText) {
-          setHoverInfo(markerText);
+          setHoverInfo({ primary: markerText, accent: chart._accent || 'battery' });
         }
         return;
       }
 
-      var text = fmtDate(pt.x) + "  |  " + chart._labelFn(pt);
-      if (markerText) text += "  |  " + markerText;
-      setHoverInfo(text);
+      setHoverInfo({
+        time: fmtDate(pt.x),
+        primary: chart._labelFn(pt),
+        extra: markerText,
+        accent: chart._accent || 'battery',
+      });
     },
   };
 
@@ -608,6 +636,7 @@
     return line + (pt.wlc ? ' ⚡ WLC On' : ' — WLC Off');
   };
   batteryChart._commandMarkers = commandMarkers;
+  batteryChart._accent = 'battery';
 
   // Temperature chart
   tempChart = new Chart(document.getElementById("tempChart").getContext("2d"), {
@@ -650,8 +679,9 @@
     },
     plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
   });
-  tempChart._labelFn = pt => pt.y.toFixed(1) + '°C';
+  tempChart._labelFn = pt => 'Temp: ' + pt.y.toFixed(1) + '°C';
   tempChart._commandMarkers = commandMarkers;
+  tempChart._accent = 'temp';
 
   // RAM chart
   ramChart = new Chart(document.getElementById("ramChart").getContext("2d"), {
@@ -696,6 +726,7 @@
   });
   ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
   ramChart._commandMarkers = commandMarkers;
+  ramChart._accent = 'ram';
 
   document.getElementById("toggle-markers-btn").addEventListener("click", function () {
     showMarkers = !showMarkers;
