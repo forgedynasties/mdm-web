@@ -207,7 +207,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   <div class="summary-card">
     <span class="summary-icon"><svg viewBox="0 0 24 24"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="8"/></svg></span>
     <div class="summary-value ok">{{.RecentlyActive}}</div>
-    <div class="summary-label">Active (last 3 min)</div>
+    <div class="summary-label">Active (last {{$.ActiveThresholdLabel}})</div>
   </div>
   <div class="summary-card">
     <span class="summary-icon"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="16" height="8" rx="2"/><path d="M21 10v4"/><path d="M7 12h4"/></svg></span>

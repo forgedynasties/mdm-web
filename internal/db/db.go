@@ -119,12 +119,13 @@ type CommandDelivery struct {
 
 // DeviceFilter holds optional filter parameters for device listing.
 type DeviceFilter struct {
-	Search  string    // search by serial/build (ILIKE)
-	GroupID uuid.UUID // filter by group membership (uuid.Nil = no filter)
-	Online  string    // "online", "offline", or "" (no filter)
-	BuildID string    // exact build_id match, or "" (no filter)
-	Battery string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
-	Hidden  string    // "include" (show all), "only" (hidden only), or "" (active only)
+	Search               string    // search by serial/build (ILIKE)
+	GroupID              uuid.UUID // filter by group membership (uuid.Nil = no filter)
+	Online               string    // "online", "offline", or "" (no filter)
+	BuildID              string    // exact build_id match, or "" (no filter)
+	Battery              string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
+	Hidden               string    // "include" (show all), "only" (hidden only), or "" (active only)
+	ActiveThresholdSecs  int       // seconds before a device is considered offline (0 = default 180)
 }
 
 type DB struct {
@@ -193,7 +194,10 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	return deviceID, pollIntervalMs, tx.Commit(ctx)
 }
 
-func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
+func (d *DB) GetSummary(ctx context.Context, activeSecs int) (Summary, error) {
+	if activeSecs <= 0 {
+		activeSecs = 180
+	}
 	var s Summary
 	err := d.pool.QueryRow(ctx, `
 		WITH latest AS (
@@ -204,7 +208,7 @@ func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
 		)
 		SELECT
 			COUNT(d.id),
-			COUNT(*) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes'),
+			COUNT(*) FILTER (WHERE d.last_seen_at > NOW() - ($1 * INTERVAL '1 second')),
 			COUNT(*) FILTER (WHERE l.battery_pct < 20),
 			COUNT(DISTINCT d.build_id),
 			COUNT(*) FILTER (WHERE dc.kiosk_enabled = true)
@@ -212,7 +216,7 @@ func (d *DB) GetSummary(ctx context.Context) (Summary, error) {
 		LEFT JOIN latest l ON l.device_id = d.id
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE NOT d.hidden
-	`).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.UniqueBuilds, &s.KioskCount)
+	`, activeSecs).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.UniqueBuilds, &s.KioskCount)
 	return s, err
 }
 
@@ -271,10 +275,18 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		argN++
 	}
 
-	if f.Online == "online" {
-		wheres = append(wheres, "d.last_seen_at > NOW() - INTERVAL '3 minutes'")
-	} else if f.Online == "offline" {
-		wheres = append(wheres, "d.last_seen_at <= NOW() - INTERVAL '3 minutes'")
+	if f.Online == "online" || f.Online == "offline" {
+		threshold := f.ActiveThresholdSecs
+		if threshold <= 0 {
+			threshold = 180
+		}
+		args = append(args, threshold)
+		if f.Online == "online" {
+			wheres = append(wheres, fmt.Sprintf("d.last_seen_at > NOW() - ($%d * INTERVAL '1 second')", argN))
+		} else {
+			wheres = append(wheres, fmt.Sprintf("d.last_seen_at <= NOW() - ($%d * INTERVAL '1 second')", argN))
+		}
+		argN++
 	}
 
 	if f.BuildID != "" {

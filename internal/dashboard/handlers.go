@@ -526,13 +526,16 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	activeThreshold := h.cfg.CheckinInterval() * 3
+	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
 	filter := db.DeviceFilter{
-		Search:  q,
-		GroupID: groupID,
-		Online:  r.URL.Query().Get("status"),
-		BuildID: r.URL.Query().Get("build"),
-		Battery: r.URL.Query().Get("battery"),
-		Hidden:  r.URL.Query().Get("hidden"),
+		Search:              q,
+		GroupID:             groupID,
+		Online:              r.URL.Query().Get("status"),
+		BuildID:             r.URL.Query().Get("build"),
+		Battery:             r.URL.Query().Get("battery"),
+		Hidden:              r.URL.Query().Get("hidden"),
+		ActiveThresholdSecs: activeThreshold,
 	}
 
 	devices, err := h.db.ListDevices(r.Context(), filter, offset, pageSize, sort, dir)
@@ -545,7 +548,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	summary, err := h.db.GetSummary(r.Context())
+	summary, err := h.db.GetSummary(r.Context(), activeThreshold)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -567,24 +570,26 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]any{
-		"Title":         "Devices",
-		"Devices":       devices,
-		"Total":         total,
-		"Page":          page,
-		"TotalPages":    totalPages,
-		"Query":         q,
-		"PageSize":      pageSize,
-		"Summary":       summary,
-		"Sort":          sort,
-		"SortDir":       dir,
-		"Online":        online,
-		"Groups":        groups,
-		"Builds":        builds,
-		"FilterGroup":   r.URL.Query().Get("group"),
-		"FilterStatus":  r.URL.Query().Get("status"),
-		"FilterBuild":   r.URL.Query().Get("build"),
-		"FilterBattery": r.URL.Query().Get("battery"),
-		"FilterHidden":  r.URL.Query().Get("hidden"),
+		"Title":               "Devices",
+		"Devices":             devices,
+		"Total":               total,
+		"Page":                page,
+		"TotalPages":          totalPages,
+		"Query":               q,
+		"PageSize":            pageSize,
+		"Summary":             summary,
+		"Sort":                sort,
+		"SortDir":             dir,
+		"Online":              online,
+		"Groups":              groups,
+		"Builds":              builds,
+		"FilterGroup":         r.URL.Query().Get("group"),
+		"FilterStatus":        r.URL.Query().Get("status"),
+		"FilterBuild":         r.URL.Query().Get("build"),
+		"FilterBattery":       r.URL.Query().Get("battery"),
+		"FilterHidden":        r.URL.Query().Get("hidden"),
+		"ActiveThresholdSecs":  activeThreshold,
+		"ActiveThresholdLabel": activeThresholdLabel,
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
