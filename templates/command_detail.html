@@ -22,7 +22,7 @@
         <th>Serial Number</th>
         <th>Status</th>
         <th>Updated</th>
-        {{if eq $cmd.Type "shell"}}<th>Output</th>{{end}}
+        {{if eq $cmd.Type "shell"}}<th>Output</th><th></th>{{end}}
         {{if eq $cmd.Type "screenshot"}}<th>Screenshot</th>{{end}}
       </tr>
     </thead>
@@ -52,6 +52,11 @@
             })();
             </script>
             {{else}}<span class="muted small">—</span>{{end}}
+          </td>
+          <td>
+            <form action="/commands/{{$cmd.ID}}/resend/{{.SerialNumber}}" method="POST" style="display:inline;">
+              <button type="submit" class="btn-outline" style="padding:3px 10px;font-size:12px;">Resend</button>
+            </form>
           </td>
           {{end}}
           {{if eq $cmd.Type "screenshot"}}

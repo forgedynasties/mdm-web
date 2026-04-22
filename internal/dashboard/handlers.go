@@ -1574,6 +1574,36 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/commands", http.StatusFound)
 }
 
+func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+	serial := r.PathValue("serial")
+	if serial == "" {
+		http.Error(w, "Serial required", http.StatusBadRequest)
+		return
+	}
+	cmd, err := h.db.GetCommand(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
+	deviceIDs, err := h.db.GetDeviceIDsBySerials(r.Context(), []string{serial})
+	if err != nil || len(deviceIDs) == 0 {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	newCmd, err := h.db.CreateCommand(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, "devices", deviceIDs)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.pushCommand(r.Context(), newCmd, "devices", deviceIDs)
+	http.Redirect(w, r, "/commands/"+newCmd.ID.String(), http.StatusFound)
+}
+
 func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -2014,6 +2044,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("POST /commands/{id}/delete", h.requireAuth(h.CommandDelete))
+	mux.HandleFunc("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
 
 	mux.HandleFunc("GET /settings", h.requireAuth(h.SettingsPage))
 	mux.HandleFunc("POST /settings/columns/add", h.requireAuth(h.SettingsAddColumn))
