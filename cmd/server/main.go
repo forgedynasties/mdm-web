@@ -73,11 +73,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	staticFS := http.StripPrefix("/static/", http.FileServer(http.Dir("static")))
-	mux.Handle("GET /static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
-		staticFS.ServeHTTP(w, r)
-	}))
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

@@ -1,9 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -148,6 +150,10 @@ type checkinRequest struct {
 }
 
 func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
+	body, _ := io.ReadAll(r.Body)
+	log.Printf("[checkin] raw body: %s", body)
+	r.Body = io.NopCloser(bytes.NewReader(body))
+
 	var req checkinRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
@@ -183,8 +189,6 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 			log.Printf("[checkin] UpsertDevicePackages error: %v", err)
 		}
 	}
-
-	h.hub.PublishDeviceUpdate(deviceID)
 
 	// OTA check: resolve update from update_devices table.
 	if upd, err := h.db.ResolveUpdateForDevice(r.Context(), deviceID); err != nil {
@@ -295,8 +299,6 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
-
-	h.hub.PublishDeviceUpdate(device.ID)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
@@ -549,7 +551,6 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Output != "" {
 		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
 	}
-	h.hub.PublishDeviceUpdate(device.ID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -604,8 +605,6 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 			h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
 		}
 	}
-
-	h.hub.PublishDeviceUpdate(device.ID)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

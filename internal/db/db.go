@@ -1595,10 +1595,8 @@ CREATE TABLE IF NOT EXISTS apps (
 );
 
 CREATE INDEX IF NOT EXISTS idx_checkins_device_id  ON checkins(device_id);
-CREATE INDEX IF NOT EXISTS idx_checkins_device_created_at ON checkins(device_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_checkins_created_at ON checkins(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen   ON devices(last_seen_at DESC);
-CREATE INDEX IF NOT EXISTS idx_device_groups_group_id_device_id ON device_groups(group_id, device_id);
 
 CREATE TABLE IF NOT EXISTS logcat_requests (
 	id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
