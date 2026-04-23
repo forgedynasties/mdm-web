@@ -215,15 +215,6 @@
 <div class="card chart-card">
   <div class="card-header">
     <h3>Device Graphs</h3>
-    <div id="chart-hover-info" class="chart-hover-info is-idle" aria-live="polite" style="flex:1;margin:0 16px;max-width:400px;">
-      <span class="hover-indicator" aria-hidden="true"></span>
-      <span class="hover-body">
-        <span class="hover-time" id="hover-time">—</span>
-        <span class="hover-sep" aria-hidden="true"></span>
-        <span class="hover-primary" id="hover-primary">Hover a point to inspect values</span>
-        <span class="hover-extra" id="hover-extra"></span>
-      </span>
-    </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="chart-info" class="muted small"></span>
       <div class="dur-btns">
@@ -293,6 +284,10 @@
       </div>
     </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="unifiedChart"></canvas></div>
+  </div>
+
+  <div id="chart-footer" style="border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;font-variant-numeric:tabular-nums;">
+    <span id="chart-footer-text">—</span>
   </div>
 </div>
 
@@ -383,26 +378,32 @@
     syncMarkerToggle();
   }
 
-  function setHoverInfo(data) {
-    var el = document.getElementById("chart-hover-info");
-    if (!el) return;
-    var time = document.getElementById("hover-time");
-    var primary = document.getElementById("hover-primary");
-    var extra = document.getElementById("hover-extra");
-    if (!data) {
-      el.classList.add("is-idle");
-      el.removeAttribute("data-accent");
-      if (time) time.textContent = "—";
-      if (primary) primary.textContent = "Hover a point to inspect values";
-      if (extra) extra.textContent = "";
-      return;
+  function nearestInArray(arr, ms) {
+    if (!arr || !arr.length) return null;
+    let best = null, bestDist = Infinity;
+    for (let i = 0; i < arr.length; i++) {
+      const d = Math.abs(arr[i].x - ms);
+      if (d < bestDist) { bestDist = d; best = arr[i]; }
     }
-    el.classList.remove("is-idle");
-    if (data.accent) el.setAttribute("data-accent", data.accent);
-    if (time) time.textContent = data.time || "";
-    if (primary) primary.textContent = data.primary || "";
-    if (extra) extra.textContent = data.extra || "";
+    return best;
   }
+
+  function updateFooter(ms, markerText) {
+    const el = document.getElementById('chart-footer-text');
+    if (!el) return;
+    if (ms == null) { el.textContent = '—'; return; }
+    const bPt = nearestInArray(allBattery, ms);
+    const tPt = nearestInArray(allTemp, ms);
+    const rPt = nearestInArray(allRam, ms);
+    const parts = [fmtDate(ms)];
+    if (bPt != null) parts.push('Battery: ' + bPt.y + '%');
+    if (tPt != null) parts.push('Temp: ' + tPt.y.toFixed(1) + '°C');
+    if (rPt != null) parts.push('RAM: ' + rPt.y.toFixed(1) + '%');
+    if (markerText) parts.push(markerText);
+    el.textContent = parts.join('  ·  ');
+  }
+
+  function setHoverInfo(data) { /* replaced by updateFooter */ }
 
   function syncMarkerToggle() {
     var btn = document.getElementById('toggle-markers-btn');
@@ -548,48 +549,13 @@
     return best;
   }
 
-  // Hover label plugin — writes nearest point info into the pill instead of painting over the chart
   const staticLabelPlugin = {
     id: 'staticLabel',
     afterEvent(chart) {
-      // Unified chart: show all three values at once
-      if (chart._isUnified) {
-        if (chart._crosshairX == null) { setHoverInfo(null); return; }
-        const bPt = nearestByPixel(chart, 0);
-        const tPt = nearestByPixel(chart, 1);
-        const rPt = nearestByPixel(chart, 2);
-        const parts = [];
-        if (bPt) parts.push('Bat: ' + bPt.y + '%');
-        if (tPt) parts.push('Temp: ' + tPt.y.toFixed(1) + '°C');
-        if (rPt) parts.push('RAM: ' + rPt.y.toFixed(1) + '%');
-        const timeMs = (bPt || tPt || rPt || {}).x;
-        const markerText = markerHoverText(chart);
-        setHoverInfo({
-          time: timeMs ? fmtDate(timeMs) : '',
-          primary: parts.join('  ·  ') || '—',
-          extra: markerText,
-          accent: 'battery',
-        });
-        return;
-      }
-
-      const pt = nearestByPixel(chart);
-      const markerText = markerHoverText(chart);
-      if (!pt || !chart._labelFn) {
-        if (chart._crosshairX == null) {
-          setHoverInfo(null);
-        } else if (markerText) {
-          setHoverInfo({ primary: markerText, accent: chart._accent || 'battery' });
-        }
-        return;
-      }
-
-      setHoverInfo({
-        time: fmtDate(pt.x),
-        primary: chart._labelFn(pt),
-        extra: markerText,
-        accent: chart._accent || 'battery',
-      });
+      if (chart._crosshairX == null) { updateFooter(null); return; }
+      const xScale = chart.scales.x;
+      const ms = xScale.getValueForPixel(chart._crosshairX);
+      updateFooter(ms, markerHoverText(chart));
     },
   };
 
