@@ -422,6 +422,25 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			}
 			return string(v)
 		},
+		"deployStatusClass": func(s string) string {
+			switch s {
+			case "complete", "installed":
+				return "ok"
+			case "active":
+				return "warn"
+			case "failed":
+				return "danger"
+			default:
+				return "muted"
+			}
+		},
+		"truncate": func(s string, n int) string {
+			runes := []rune(s)
+			if len(runes) <= n {
+				return s
+			}
+			return string(runes[:n]) + "…"
+		},
 		"add":    func(a, b int) int { return a + b },
 		"sub":    func(a, b int) int { return a - b },
 		"div":    func(a, b int) int { return a / b },
@@ -1331,129 +1350,21 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-// ── OTA Updates ───────────────────────────────────────────────────────────────
+// ── OTA Packages & Deployments ────────────────────────────────────────────────
 
-func (h *Handler) Updates(w http.ResponseWriter, r *http.Request) {
-	updates, err := h.db.ListUpdates(r.Context())
+func (h *Handler) OTAPackages(w http.ResponseWriter, r *http.Request) {
+	pkgs, err := h.db.ListOTAPackages(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	for i := range updates {
-		targets, err := h.db.GetUpdateTargets(r.Context(), updates[i].ID)
-		if err == nil {
-			updates[i].Targets = targets
-		}
-	}
-	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
-	groups, _ := h.db.ListGroups(r.Context())
 	h.tmpl.ExecuteTemplate(w, "updates.html", map[string]any{
-		"Title":   "Updates",
-		"Updates": updates,
-		"Devices": devices,
-		"Groups":  groups,
+		"Title":    "OTA Packages",
+		"Packages": pkgs,
 	})
 }
 
-func (h *Handler) UpdateDetail(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	upd, err := h.db.GetUpdate(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Update not found", http.StatusNotFound)
-		return
-	}
-	targets, _ := h.db.GetUpdateTargets(r.Context(), id)
-	upd.Targets = targets
-
-	// Load devices and groups for the send form
-	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
-	groups, _ := h.db.ListGroups(r.Context())
-
-	h.tmpl.ExecuteTemplate(w, "update_detail.html", map[string]any{
-		"Title":   fmt.Sprintf("Update #%d", id),
-		"Update":  upd,
-		"Devices": devices,
-		"Groups":  groups,
-	})
-}
-
-func (h *Handler) UpdateSend(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	r.ParseForm()
-
-	var deviceIDs []uuid.UUID
-
-	// Collect device IDs from serial numbers
-	serials := r.Form["serials"]
-	if len(serials) > 0 {
-		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		deviceIDs = append(deviceIDs, ids...)
-	}
-
-	// Collect device IDs from groups
-	groupIDStrs := r.Form["group_ids"]
-	if len(groupIDStrs) > 0 {
-		var groupIDs []uuid.UUID
-		for _, s := range groupIDStrs {
-			if gid, err := uuid.Parse(s); err == nil {
-				groupIDs = append(groupIDs, gid)
-			}
-		}
-		if len(groupIDs) > 0 {
-			ids, err := h.db.GetDeviceIDsByGroupIDs(r.Context(), groupIDs)
-			if err != nil {
-				http.Error(w, "Internal error", http.StatusInternalServerError)
-				return
-			}
-			deviceIDs = append(deviceIDs, ids...)
-		}
-	}
-
-	// Deduplicate
-	seen := make(map[uuid.UUID]bool)
-	var unique []uuid.UUID
-	for _, did := range deviceIDs {
-		if !seen[did] {
-			seen[did] = true
-			unique = append(unique, did)
-		}
-	}
-
-	// Filter out devices with active updates
-	var eligible []uuid.UUID
-	for _, did := range unique {
-		has, err := h.db.DeviceHasActiveUpdate(r.Context(), did)
-		if err != nil || !has {
-			eligible = append(eligible, did)
-		}
-	}
-	if limit, err := strconv.Atoi(strings.TrimSpace(r.FormValue("limit"))); err == nil && limit > 0 && len(eligible) > limit {
-		eligible = eligible[:limit]
-	}
-
-	if len(eligible) > 0 {
-		if err := h.db.SendUpdateToDevices(r.Context(), id, eligible); err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-	}
-
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
-}
-
-func (h *Handler) UpdateCreate(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) OTAPackageCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 
 	typ := r.FormValue("type")
@@ -1463,6 +1374,7 @@ func (h *Handler) UpdateCreate(w http.ResponseWriter, r *http.Request) {
 	targetBuildID := strings.TrimSpace(r.FormValue("target_build_id"))
 	sourceBuildID := strings.TrimSpace(r.FormValue("source_build_id"))
 	updateURL := strings.TrimSpace(r.FormValue("update_url"))
+	changelog := strings.TrimSpace(r.FormValue("changelog"))
 
 	if targetBuildID == "" || updateURL == "" {
 		http.Error(w, "target_build_id and update_url are required", http.StatusBadRequest)
@@ -1473,11 +1385,80 @@ func (h *Handler) UpdateCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg, err := h.db.CreateOTAPackage(r.Context(), typ, targetBuildID, sourceBuildID, updateURL, time.Now().UTC())
+	pkg, err := h.db.CreateOTAPackage(r.Context(), typ, targetBuildID, sourceBuildID, updateURL, changelog, time.Now().UTC())
 	if err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", pkg.ID), http.StatusSeeOther)
+}
+
+func (h *Handler) OTAPackageDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	pkg, err := h.db.GetOTAPackage(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Package not found", http.StatusNotFound)
+		return
+	}
+	deployments, _ := h.db.ListDeploymentsByPackage(r.Context(), id)
+	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
+	groups, _ := h.db.ListGroups(r.Context())
+
+	h.tmpl.ExecuteTemplate(w, "update_detail.html", map[string]any{
+		"Title":       fmt.Sprintf("OTA Package #%d", id),
+		"Package":     pkg,
+		"Deployments": deployments,
+		"Devices":     devices,
+		"Groups":      groups,
+	})
+}
+
+func (h *Handler) OTAPackageYank(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	pkg, err := h.db.GetOTAPackage(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Package not found", http.StatusNotFound)
+		return
+	}
+	newStatus := "yanked"
+	if pkg.Status == "yanked" {
+		newStatus = "active"
+	}
+	if err := h.db.SetOTAPackageStatus(r.Context(), id, newStatus); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+}
+
+func (h *Handler) OTAPackageDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteOTAPackage(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+}
+
+func (h *Handler) OTAPackageDeploy(w http.ResponseWriter, r *http.Request) {
+	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
 
 	rebootBehavior := r.FormValue("reboot_behavior")
 	if rebootBehavior == "" {
@@ -1493,24 +1474,115 @@ func (h *Handler) UpdateCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if _, err := h.db.CreateUpdate(r.Context(), pkg.ID, rebootBehavior, scheduledTime); err != nil {
+	deployment, err := h.db.CreateUpdate(r.Context(), pkgID, rebootBehavior, scheduledTime)
+	if err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+
+	eligible, err := h.resolveEligibleDevices(r)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if len(eligible) > 0 {
+		if err := h.db.SendUpdateToDevices(r.Context(), deployment.ID, eligible); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", pkgID, deployment.ID), http.StatusSeeOther)
 }
 
-func (h *Handler) UpdateDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
+func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
+	pkgID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
-	if err := h.db.DeleteUpdate(r.Context(), id); err != nil {
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), did)
+	if err != nil || upd.OtaPackageID != pkgID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	targets, _ := h.db.GetUpdateTargets(r.Context(), did)
+	upd.Targets = targets
+
+	h.tmpl.ExecuteTemplate(w, "deployment_detail.html", map[string]any{
+		"Title":      fmt.Sprintf("Deployment #%d", did),
+		"Deployment": upd,
+		"Package":    upd.OtaPackage,
+	})
+}
+
+func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
+	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteUpdate(r.Context(), did); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", pkgID), http.StatusSeeOther)
+}
+
+func (h *Handler) resolveEligibleDevices(r *http.Request) ([]uuid.UUID, error) {
+	var deviceIDs []uuid.UUID
+
+	serials := r.Form["serials"]
+	if len(serials) > 0 {
+		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
+		if err != nil {
+			return nil, err
+		}
+		deviceIDs = append(deviceIDs, ids...)
+	}
+
+	for _, s := range r.Form["group_ids"] {
+		if gid, err := uuid.Parse(s); err == nil {
+			ids, err := h.db.GetDeviceIDsByGroupIDs(r.Context(), []uuid.UUID{gid})
+			if err != nil {
+				return nil, err
+			}
+			deviceIDs = append(deviceIDs, ids...)
+		}
+	}
+
+	seen := make(map[uuid.UUID]bool)
+	var unique []uuid.UUID
+	for _, did := range deviceIDs {
+		if !seen[did] {
+			seen[did] = true
+			unique = append(unique, did)
+		}
+	}
+
+	var eligible []uuid.UUID
+	for _, did := range unique {
+		has, err := h.db.DeviceHasActiveUpdate(r.Context(), did)
+		if err != nil || !has {
+			eligible = append(eligible, did)
+		}
+	}
+
+	if limit, err := strconv.Atoi(strings.TrimSpace(r.FormValue("limit"))); err == nil && limit > 0 && len(eligible) > limit {
+		eligible = eligible[:limit]
+	}
+
+	return eligible, nil
 }
 
 // ── Commands ──────────────────────────────────────────────────────────────────
@@ -2057,11 +2129,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /setup/apps/create", h.requireAuth(h.SetupCreateAppJSON))
 	mux.HandleFunc("POST /setup/apps/{id}/delete", h.requireAuth(h.SetupDeleteApp))
 
-	mux.HandleFunc("GET /updates", h.requireAuth(h.Updates))
-	mux.HandleFunc("POST /updates", h.requireAuth(h.UpdateCreate))
-	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.UpdateDetail))
-	mux.HandleFunc("POST /updates/{id}/send", h.requireAuth(h.UpdateSend))
-	mux.HandleFunc("POST /updates/{id}/delete", h.requireAuth(h.UpdateDelete))
+	mux.HandleFunc("GET /updates", h.requireAuth(h.OTAPackages))
+	mux.HandleFunc("POST /updates", h.requireAuth(h.OTAPackageCreate))
+	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.OTAPackageDetail))
+	mux.HandleFunc("POST /updates/{id}/yank", h.requireAuth(h.OTAPackageYank))
+	mux.HandleFunc("POST /updates/{id}/delete", h.requireAuth(h.OTAPackageDelete))
+	mux.HandleFunc("POST /updates/{id}/deploy", h.requireAuth(h.OTAPackageDeploy))
+	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
+	mux.HandleFunc("POST /updates/{id}/deployments/{did}/delete", h.requireAuth(h.DeploymentDelete))
 
 	// Command output SSE
 	mux.HandleFunc("GET /commands/{id}/output/{serial}/stream", h.requireAuth(h.CommandOutputStream))

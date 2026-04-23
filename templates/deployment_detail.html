@@ -1,0 +1,72 @@
+{{define "deployment_detail.html"}}
+{{template "header" .}}
+
+{{$dep := .Deployment}}
+{{$pkg := .Package}}
+
+<div class="page-header">
+  <div>
+    <a href="/updates/{{$pkg.ID}}" class="back-link">← {{$pkg.TargetBuildID}}</a>
+    <h2 class="page-title">Deployment #{{$dep.ID}}</h2>
+  </div>
+  <form action="/updates/{{$pkg.ID}}/deployments/{{$dep.ID}}/delete" method="POST"
+        onsubmit="return confirm('Delete this deployment record? This will not undo any updates already applied.')">
+    <button type="submit" class="btn-danger">Delete</button>
+  </form>
+</div>
+
+<div class="stats-grid" style="margin-bottom:16px;">
+  <div class="stat-card">
+    <div class="stat-label">Package</div>
+    <div class="stat-value small mono">{{$pkg.TargetBuildID}}</div>
+    <div class="stat-sub">
+      {{if eq $pkg.Type "incremental"}}incremental from {{$pkg.SourceBuildID}}{{else}}full{{end}}
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Status</div>
+    <div class="stat-value"><span class="status-badge {{deployStatusClass $dep.Status}}">{{$dep.Status}}</span></div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Reboot</div>
+    <div class="stat-value small">{{$dep.RebootBehavior}}</div>
+    {{if $dep.ScheduledTime}}<div class="stat-sub">{{localTime (deref $dep.ScheduledTime)}}</div>{{end}}
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Created</div>
+    <div class="stat-value small">{{timeSince $dep.CreatedAt}}</div>
+    <div class="stat-sub">{{localTime $dep.CreatedAt}}</div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>Device Status</h3>
+    <span class="muted small">{{len $dep.Targets}} device{{if ne (len $dep.Targets) 1}}s{{end}}</span>
+  </div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Serial Number</th>
+        <th>Current Build</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if $dep.Targets}}
+        {{range $dep.Targets}}
+        <tr>
+          <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
+          <td class="mono small">{{.BuildID}}</td>
+          <td><span class="status-badge {{deployStatusClass .Status}}">{{.Status}}</span></td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr><td colspan="3" class="empty">No devices targeted yet.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+{{template "footer" .}}
+{{end}}

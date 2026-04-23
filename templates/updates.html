@@ -1,217 +1,144 @@
-{{define "send-picker"}}
-{{/* Reusable send picker. Expects: $.Devices, $.Groups, update ID passed via wrapping form action */}}
-<div class="send-picker">
-  <div class="send-tabs">
-    <button type="button" class="send-tab active" onclick="switchSendTab(this,'devices')">Devices</button>
-    <button type="button" class="send-tab" onclick="switchSendTab(this,'groups')">Groups</button>
-  </div>
-  <div class="send-tab-panel" data-tab="devices">
-    <input type="text" class="form-input send-search" placeholder="Search serials..." oninput="filterSendList(this)">
-    <div class="send-list-actions">
-      <label class="send-check-all"><input type="checkbox" onchange="toggleAll(this,'serials')"> Select all</label>
-      <span class="muted small send-count"></span>
-    </div>
-    <div class="send-list">
-      {{range $.Devices}}
-      <label class="send-item" data-search="{{.SerialNumber}}">
-        <input type="checkbox" name="serials" value="{{.SerialNumber}}">
-        <span class="mono small">{{.SerialNumber}}</span>
-        <span class="muted small">{{.BuildID}}</span>
-      </label>
-      {{else}}
-      <div class="muted small" style="padding:8px 0;">No devices</div>
-      {{end}}
-    </div>
-  </div>
-  <div class="send-tab-panel" data-tab="groups" style="display:none;">
-    <div class="send-list">
-      {{range $.Groups}}
-      <label class="send-item">
-        <input type="checkbox" name="group_ids" value="{{.ID}}">
-        <span>{{.Name}}</span>
-        <span class="muted small">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
-      </label>
-      {{else}}
-      <div class="muted small" style="padding:8px 0;">No groups</div>
-      {{end}}
-    </div>
-  </div>
-</div>
-{{end}}
-
 {{define "updates.html"}}
 {{template "header" .}}
 
 <div class="page-header">
   <div>
-    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>OTA Updates</h2>
-    <p class="page-subtitle">{{len .Updates}} update{{if ne (len .Updates) 1}}s{{end}}</p>
+    <h2 class="page-title icon-title">
+      <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>
+      OTA Packages
+    </h2>
+    <p class="page-subtitle">{{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}} in repository</p>
+  </div>
+  <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
+    + New Package
+  </button>
+</div>
+
+{{if .Packages}}
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Target Build</th>
+        <th>Source Build</th>
+        <th>Changelog</th>
+        <th>URL</th>
+        <th>Status</th>
+        <th>Deployments</th>
+        <th>Added</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Packages}}
+      <tr {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
+        <td>
+          {{if eq .Type "incremental"}}
+            <span class="status-badge warn">incremental</span>
+          {{else}}
+            <span class="status-badge muted">full</span>
+          {{end}}
+        </td>
+        <td class="mono small">{{.TargetBuildID}}</td>
+        <td class="mono small">
+          {{if .SourceBuildID}}{{.SourceBuildID}}{{else}}<span class="muted">—</span>{{end}}
+        </td>
+        <td style="max-width:240px;">
+          {{if .Changelog}}
+            <span title="{{.Changelog}}" style="cursor:default;">{{truncate .Changelog 60}}</span>
+          {{else}}
+            <span class="muted small">—</span>
+          {{end}}
+        </td>
+        <td class="mono small" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <a href="{{.UpdateURL}}" target="_blank" rel="noopener" class="link-detail" style="font-size:11px;">{{truncate .UpdateURL 40}}</a>
+        </td>
+        <td>
+          {{if eq .Status "yanked"}}
+            <span class="status-badge danger">yanked</span>
+          {{else}}
+            <span class="status-badge ok">active</span>
+          {{end}}
+        </td>
+        <td class="muted small">{{.DeploymentCount}}</td>
+        <td class="muted small">{{localTime .CreatedAt}}</td>
+        <td style="white-space:nowrap;">
+          <a href="/updates/{{.ID}}" class="link-detail">View</a>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="card">
+  <div class="empty-state">
+    <div class="empty-state-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></div>
+    <div class="empty-state-text">No OTA packages yet. Add one to start managing device firmware updates.</div>
+    <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
+      + New Package
+    </button>
+  </div>
+</div>
+{{end}}
+
+<!-- Create Package Modal -->
+<div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
+  <div class="modal-box" style="max-width:540px;">
+    <div class="modal-header">
+      <span class="modal-title">New OTA Package</span>
+      <button class="modal-close" type="button" onclick="document.getElementById('create-pkg-modal').classList.remove('modal-open')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form action="/updates" method="POST" class="command-form" style="padding:0;">
+        <div class="form-row">
+          <label class="form-label">Type</label>
+          <div class="seg-control">
+            <button type="button" class="seg-btn active" data-mode="full"        onclick="setPkgType('full')">Full</button>
+            <button type="button" class="seg-btn"        data-mode="incremental" onclick="setPkgType('incremental')">Incremental</button>
+          </div>
+          <input type="hidden" name="type" id="pkg-type-input" value="full">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Target Build ID</label>
+          <input type="text" name="target_build_id" class="form-input" placeholder="e.g. 2024.05.01-release" required>
+          <div class="form-hint">The build the device will be on after the update.</div>
+        </div>
+        <div class="form-row" id="source-build-row" style="display:none;">
+          <label class="form-label">Source Build ID</label>
+          <input type="text" name="source_build_id" id="pkg-source-build" class="form-input" placeholder="e.g. 2024.04.01-release">
+          <div class="form-hint">Only devices currently on this build will receive the update.</div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Package URL</label>
+          <input type="url" name="update_url" class="form-input" placeholder="https://..." required>
+          <div class="form-hint">External URL where the OTA zip is hosted.</div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Changelog</label>
+          <textarea name="changelog" class="form-textarea" rows="4" placeholder="What changed in this release…" style="resize:vertical;"></textarea>
+        </div>
+        <button type="submit" class="btn-primary">Create Package</button>
+      </form>
+    </div>
   </div>
 </div>
 
-<!-- Updates -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Updates</h3></div>
-  {{if .Updates}}
-    {{range .Updates}}
-    <div class="update-row" style="border-bottom:1px solid var(--border);">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;">
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-          <span class="mono bold">#{{.ID}}</span>
-          <span class="mono small">{{if .OtaPackage}}{{.OtaPackage.TargetBuildID}}{{if eq .OtaPackage.Type "incremental"}} ← {{.OtaPackage.SourceBuildID}}{{end}}{{end}}</span>
-          <span class="small muted">{{if .OtaPackage}}{{.OtaPackage.Type}}{{end}}</span>
-          <span class="mono small muted">{{.RebootBehavior}}</span>
-          <span class="status-badge {{if eq .Status "complete"}}ok{{else if eq .Status "active"}}warn{{else}}muted{{end}}">{{.Status}}</span>
-          {{$installed := 0}}{{$total := len .Targets}}
-          {{range .Targets}}{{if eq .Status "installed"}}{{$installed = add $installed 1}}{{end}}{{end}}
-          {{if gt $total 0}}<span class="mono small muted">{{$installed}}/{{$total}} installed</span>{{end}}
-          <span class="muted small">{{localTime .CreatedAt}}</span>
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
-          {{if ne .Status "complete"}}
-          <button type="button" class="btn-primary" style="font-size:12px;padding:4px 10px;width:50px;text-align:center;" onclick="toggleSendPanel({{.ID}})">Send</button>
-          {{else}}
-          <span style="width:50px;"></span>
-          {{end}}
-          <a href="/updates/{{.ID}}" class="btn-primary" style="text-decoration:none;font-size:12px;padding:4px 10px;background:var(--surface);color:var(--fg);border:1px solid var(--border);">Details</a>
-          <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline"
-                onsubmit="return confirm('Delete update #{{.ID}}?')">
-            <button type="submit" class="btn-danger-sm">Delete</button>
-          </form>
-        </div>
-      </div>
-
-      <!-- Inline send panel -->
-      <div id="send-panel-{{.ID}}" style="display:none;border-top:1px solid var(--border);background:var(--bg);padding:12px 16px 16px;">
-        {{if .OtaPackage}}{{if eq .OtaPackage.Type "incremental"}}
-        <div class="alert alert-info" style="margin:0 0 12px;">
-          Incremental update — only devices on build <strong>{{.OtaPackage.SourceBuildID}}</strong> will receive it. Others are skipped.
-        </div>
-        {{end}}{{end}}
-        <form action="/updates/{{.ID}}/send" method="POST">
-          <div class="form-row" style="max-width:180px;">
-            <label class="form-label">Stage Limit</label>
-            <input type="number" name="limit" class="form-input" min="1" placeholder="All eligible">
-            <div class="form-hint">Optional. Only queue the first N eligible devices.</div>
-          </div>
-          {{template "send-picker" $}}
-          <button type="submit" class="btn-primary" style="margin-top:12px;">Send Update</button>
-        </form>
-      </div>
-    </div>
-    {{end}}
-  {{else}}
-    <div class="empty" style="padding:24px;">No updates yet. Create one below.</div>
-  {{end}}
-</div>
-
-<!-- Create Update -->
-<div class="card">
-  <div class="card-header"><h3>Create Update</h3></div>
-  <form action="/updates" method="POST" class="command-form" style="padding:16px;">
-    <div class="form-row">
-      <label class="form-label">Type</label>
-      <select name="type" id="ota-type" class="form-input" onchange="toggleSourceBuild()">
-        <option value="full">Full</option>
-        <option value="incremental">Incremental</option>
-      </select>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Target Build ID</label>
-      <input type="text" name="target_build_id" placeholder="v2.0" class="form-input" required>
-      <div class="form-hint">The build ID the device will have after the update.</div>
-    </div>
-    <div class="form-row" id="source-build-row">
-      <label class="form-label">Source Build ID</label>
-      <input type="text" name="source_build_id" id="ota-source-build-id" placeholder="v1.0" class="form-input">
-      <div class="form-hint">Required for incremental updates. The build the device must be on.</div>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Update URL</label>
-      <input type="url" name="update_url" placeholder="https://cdn.example.com/ota.zip" class="form-input" required>
-      <div class="form-hint">Link to the OTA zip. The device will download and parse it.</div>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Reboot Behavior</label>
-      <select name="reboot_behavior" id="reboot-behavior" class="form-input" onchange="toggleScheduledTime()">
-        <option value="immediate">Immediate</option>
-        <option value="scheduled">Scheduled</option>
-        <option value="manual">Manual</option>
-      </select>
-    </div>
-    <div class="form-row" id="scheduled-time-row" style="display:none;">
-      <label class="form-label">Scheduled Time</label>
-      <input type="datetime-local" name="scheduled_time" id="scheduled-time" class="form-input">
-      <div class="form-hint">The device will download immediately but reboot at this time.</div>
-    </div>
-    <button type="submit" class="btn-primary">Create Update</button>
-  </form>
-</div>
-
 <script>
-function toggleSendPanel(id) {
-  var panel = document.getElementById('send-panel-' + id);
-  panel.style.display = panel.style.display === 'none' ? '' : 'none';
-}
-
-function switchSendTab(btn, tab) {
-  var picker = btn.closest('.send-picker');
-  picker.querySelectorAll('.send-tab').forEach(function(t) { t.classList.remove('active'); });
-  btn.classList.add('active');
-  picker.querySelectorAll('.send-tab-panel').forEach(function(p) {
-    p.style.display = p.dataset.tab === tab ? '' : 'none';
+function setPkgType(mode) {
+  document.getElementById('pkg-type-input').value = mode;
+  var srcRow = document.getElementById('source-build-row');
+  var srcInput = document.getElementById('pkg-source-build');
+  srcRow.style.display = mode === 'incremental' ? '' : 'none';
+  srcInput.required = mode === 'incremental';
+  document.querySelectorAll('#create-pkg-modal .seg-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.mode === mode);
   });
 }
-
-function filterSendList(input) {
-  var q = input.value.toLowerCase();
-  var panel = input.closest('.send-tab-panel');
-  var items = panel.querySelectorAll('.send-item');
-  var visible = 0;
-  items.forEach(function(item) {
-    var match = !q || item.dataset.search.toLowerCase().indexOf(q) !== -1;
-    item.style.display = match ? '' : 'none';
-    if (match) visible++;
-  });
-  var countEl = panel.querySelector('.send-count');
-  if (countEl) countEl.textContent = q ? visible + ' match' + (visible !== 1 ? 'es' : '') : '';
-}
-
-function toggleAll(master, name) {
-  var panel = master.closest('.send-tab-panel');
-  var boxes = panel.querySelectorAll('input[name="' + name + '"]');
-  boxes.forEach(function(cb) {
-    if (cb.closest('.send-item').style.display !== 'none') {
-      cb.checked = master.checked;
-    }
-  });
-}
-
-function toggleScheduledTime() {
-  var row = document.getElementById('scheduled-time-row');
-  var input = document.getElementById('scheduled-time');
-  if (document.getElementById('reboot-behavior').value === 'scheduled') {
-    row.style.display = '';
-    input.required = true;
-  } else {
-    row.style.display = 'none';
-    input.required = false;
-  }
-}
-
-function toggleSourceBuild() {
-  var row = document.getElementById('source-build-row');
-  var input = document.getElementById('ota-source-build-id');
-  if (document.getElementById('ota-type').value === 'incremental') {
-    row.style.display = '';
-    input.required = true;
-  } else {
-    row.style.display = 'none';
-    input.required = false;
-    input.value = '';
-  }
-}
-toggleSourceBuild();
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') document.getElementById('create-pkg-modal').classList.remove('modal-open');
+});
 </script>
 
 {{template "footer" .}}

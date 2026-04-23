@@ -1,115 +1,262 @@
 {{define "update_detail.html"}}
 {{template "header" .}}
 
+{{$pkg := .Package}}
+
 <div class="page-header">
   <div>
-    <a href="/updates" class="back-link">← Updates</a>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <h2 class="page-title">Update #{{.Update.ID}}</h2>
-      <span class="status-badge {{if eq .Update.Status "complete"}}ok{{else if eq .Update.Status "active"}}warn{{else}}muted{{end}}">{{.Update.Status}}</span>
-    </div>
-    <p class="page-subtitle">
-      {{if .Update.OtaPackage}}{{.Update.OtaPackage.TargetBuildID}} ({{.Update.OtaPackage.Type}}){{end}}
-      &middot; {{.Update.RebootBehavior}}
-      {{if .Update.ScheduledTime}}&middot; scheduled {{localTime (deref .Update.ScheduledTime)}}{{end}}
-    </p>
+    <a href="/updates" class="back-link">← OTA Packages</a>
+    <h2 class="page-title">
+      {{if eq $pkg.Type "incremental"}}
+        <span class="status-badge warn" style="font-size:12px;vertical-align:middle;">incremental</span>
+      {{else}}
+        <span class="status-badge muted" style="font-size:12px;vertical-align:middle;">full</span>
+      {{end}}
+      → {{$pkg.TargetBuildID}}
+    </h2>
   </div>
-  <form action="/updates/{{.Update.ID}}/delete" method="POST"
-        onsubmit="return confirm('Delete this update and all its targets?')">
-    <button type="submit" class="btn-danger-sm">Delete Update</button>
-  </form>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <form action="/updates/{{$pkg.ID}}/yank" method="POST" style="display:inline;">
+      {{if eq $pkg.Status "yanked"}}
+        <button type="submit" class="btn-outline" style="padding:5px 12px;font-size:13px;">Restore</button>
+      {{else}}
+        <button type="submit" class="btn-outline" style="padding:5px 12px;font-size:13px;"
+                onclick="return confirm('Yank this package? Active deployments will stop delivering it to new devices.')">
+          Yank
+        </button>
+      {{end}}
+    </form>
+    <form action="/updates/{{$pkg.ID}}/delete" method="POST" style="display:inline;"
+          onsubmit="return confirm('Delete this package and all its deployments?')">
+      <button type="submit" class="btn-danger">Delete Package</button>
+    </form>
+  </div>
 </div>
 
-<!-- Targets -->
+{{if eq $pkg.Status "yanked"}}
+<div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg,#2a2010);border:1px solid var(--warn,#f59e0b);color:var(--warn,#f59e0b);font-size:13px;">
+  This package is yanked. It will not be delivered to any devices. Restore it to resume deployments.
+</div>
+{{end}}
+
+<!-- Package info -->
+<div class="stats-grid" style="margin-bottom:16px;">
+  <div class="stat-card">
+    <div class="stat-label">Target Build</div>
+    <div class="stat-value small mono">{{$pkg.TargetBuildID}}</div>
+  </div>
+  {{if $pkg.SourceBuildID}}
+  <div class="stat-card">
+    <div class="stat-label">Source Build</div>
+    <div class="stat-value small mono">{{$pkg.SourceBuildID}}</div>
+  </div>
+  {{end}}
+  <div class="stat-card">
+    <div class="stat-label">Deployments</div>
+    <div class="stat-value">{{$pkg.DeploymentCount}}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Added</div>
+    <div class="stat-value small">{{timeSince $pkg.CreatedAt}}</div>
+    <div class="stat-sub">{{localTime $pkg.CreatedAt}}</div>
+  </div>
+</div>
+
+{{if $pkg.UpdateURL}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Package URL</h3></div>
+  <div style="padding:12px 16px;">
+    <a href="{{$pkg.UpdateURL}}" target="_blank" rel="noopener" class="mono small link-detail">{{$pkg.UpdateURL}}</a>
+  </div>
+</div>
+{{end}}
+
+{{if $pkg.Changelog}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Changelog</h3></div>
+  <div style="padding:12px 16px;white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$pkg.Changelog}}</div>
+</div>
+{{end}}
+
+<!-- Deploy form -->
+{{if ne $pkg.Status "yanked"}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
-    <h3>Targets</h3>
-    <span class="muted small">
-      {{$installed := 0}}{{$total := len .Update.Targets}}
-      {{range .Update.Targets}}{{if eq .Status "installed"}}{{$installed = add $installed 1}}{{end}}{{end}}
-      {{$installed}}/{{$total}} installed
-    </span>
+    <h3>New Deployment</h3>
+    <span class="muted small">Push this package to devices</span>
   </div>
-  {{if .Update.Targets}}
+  <form action="/updates/{{$pkg.ID}}/deploy" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">Reboot After Install</label>
+      <div class="seg-control" id="reboot-seg">
+        <button type="button" class="seg-btn active" data-mode="immediate" onclick="setReboot('immediate')">Immediate</button>
+        <button type="button" class="seg-btn"        data-mode="scheduled" onclick="setReboot('scheduled')">Scheduled</button>
+        <button type="button" class="seg-btn"        data-mode="manual"    onclick="setReboot('manual')">Manual</button>
+      </div>
+      <input type="hidden" name="reboot_behavior" id="reboot-input" value="immediate">
+    </div>
+    <div class="form-row" id="scheduled-time-row" style="display:none;">
+      <label class="form-label">Scheduled Time</label>
+      <input type="datetime-local" name="scheduled_time" class="form-input" style="max-width:260px;">
+    </div>
+
+    {{/* Device / Group picker */}}
+    <div class="form-row">
+      <label class="form-label">Targets</label>
+      <div class="seg-control" id="target-seg">
+        <button type="button" class="seg-btn active" data-tab="devices" onclick="setTargetTab('devices')">Devices</button>
+        <button type="button" class="seg-btn"        data-tab="groups"  onclick="setTargetTab('groups')">Groups</button>
+      </div>
+    </div>
+
+    <div id="tab-devices" class="send-tab-panel">
+      <div class="form-row" style="margin-top:0;">
+        <input type="search" class="form-input" placeholder="Filter devices…" oninput="filterSendList(this)" style="margin-bottom:8px;">
+        <span class="send-count muted small"></span>
+        <label class="checkbox-label" style="margin-bottom:6px;font-size:12px;color:var(--muted);">
+          <input type="checkbox" onchange="toggleAll(this,'serials')"> Select all visible
+        </label>
+        <div style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 0;">
+          {{range .Devices}}
+          <label class="send-item checkbox-label" data-search="{{.SerialNumber}} {{.BuildID}}"
+                 style="display:flex;padding:6px 12px;gap:8px;cursor:pointer;">
+            <input type="checkbox" name="serials" value="{{.SerialNumber}}">
+            <span class="mono small">{{.SerialNumber}}</span>
+            <span class="muted small" style="margin-left:auto;">{{.BuildID}}</span>
+          </label>
+          {{else}}
+          <div class="empty" style="padding:12px;">No devices registered.</div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-groups" class="send-tab-panel" style="display:none;">
+      <div class="form-row" style="margin-top:0;">
+        <input type="search" class="form-input" placeholder="Filter groups…" oninput="filterSendList(this)" style="margin-bottom:8px;">
+        <span class="send-count muted small"></span>
+        <label class="checkbox-label" style="margin-bottom:6px;font-size:12px;color:var(--muted);">
+          <input type="checkbox" onchange="toggleAll(this,'group_ids')"> Select all visible
+        </label>
+        <div style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 0;">
+          {{range .Groups}}
+          <label class="send-item checkbox-label" data-search="{{.Name}}"
+                 style="display:flex;padding:6px 12px;gap:8px;cursor:pointer;">
+            <input type="checkbox" name="group_ids" value="{{.ID}}">
+            <span class="small">{{.Name}}</span>
+            <span class="muted small" style="margin-left:auto;">{{.DeviceCount}} devices</span>
+          </label>
+          {{else}}
+          <div class="empty" style="padding:12px;">No groups yet.</div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Stage Limit <span class="muted small">(optional)</span></label>
+      <input type="number" name="limit" class="form-input" min="1" style="max-width:120px;" placeholder="e.g. 10">
+      <div class="form-hint">Cap how many devices receive this deployment. Useful for staged rollouts.</div>
+    </div>
+
+    {{if eq $pkg.Type "incremental"}}
+    <div class="muted small" style="margin-bottom:12px;">
+      &#9432; Incremental — only devices currently on <span class="mono">{{$pkg.SourceBuildID}}</span> will apply this update.
+    </div>
+    {{end}}
+
+    <button type="submit" class="btn-primary">Deploy</button>
+  </form>
+</div>
+{{end}}
+
+<!-- Deployments list -->
+<div class="card">
+  <div class="card-header">
+    <h3>Deployments</h3>
+    <span class="muted small">{{len .Deployments}} total</span>
+  </div>
+  {{if .Deployments}}
   <table class="table">
     <thead>
       <tr>
-        <th>Device</th>
-        <th>Current Build</th>
+        <th>#</th>
         <th>Status</th>
+        <th>Reboot</th>
+        <th>Devices</th>
+        <th>Installed</th>
+        <th>Created</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
-      {{range .Update.Targets}}
+      {{range .Deployments}}
       <tr>
-        <td class="mono"><a href="/devices/{{.SerialNumber}}" style="color:var(--accent);text-decoration:none;">{{.SerialNumber}}</a></td>
-        <td class="mono small">{{.BuildID}}</td>
+        <td class="mono small">{{.ID}}</td>
+        <td><span class="status-badge {{deployStatusClass .Status}}">{{.Status}}</span></td>
+        <td class="muted small">{{.RebootBehavior}}</td>
+        <td class="muted small">{{.DeviceTotal}}</td>
         <td>
-          <span class="status-badge {{if eq .Status "installed"}}ok{{else if eq .Status "downloading"}}warn{{else if eq .Status "installing"}}warn{{else}}muted{{end}}">{{.Status}}</span>
+          {{if gt .DeviceTotal 0}}
+            <span class="{{if eq .DeviceInstalled .DeviceTotal}}ok{{else}}muted{{end}} small">
+              {{.DeviceInstalled}} / {{.DeviceTotal}}
+            </span>
+          {{else}}
+            <span class="muted small">—</span>
+          {{end}}
+        </td>
+        <td class="muted small">{{timeSince .CreatedAt}}</td>
+        <td style="white-space:nowrap;">
+          <a href="/updates/{{$pkg.ID}}/deployments/{{.ID}}" class="link-detail">View</a>
         </td>
       </tr>
       {{end}}
     </tbody>
   </table>
   {{else}}
-  <div class="empty" style="padding:24px;">No devices targeted yet. Use the form below to send this update.</div>
+  <div class="empty" style="padding:24px;">No deployments yet.</div>
   {{end}}
 </div>
 
-<!-- Send to devices/groups -->
-{{if ne .Update.Status "complete"}}
-<div class="card">
-  <div class="card-header"><h3>Send Update</h3></div>
-  <div style="padding:16px;">
-    {{if .Update.OtaPackage}}{{if eq .Update.OtaPackage.Type "incremental"}}
-    <div class="alert alert-info" style="margin-top:0;">
-      Incremental update — only devices on build <strong>{{.Update.OtaPackage.SourceBuildID}}</strong> will receive it. Others are skipped.
-    </div>
-    {{end}}{{end}}
-    <form action="/updates/{{.Update.ID}}/send" method="POST">
-      <div class="form-row" style="max-width:180px;margin-bottom:12px;">
-        <label class="form-label">Stage Limit</label>
-        <input type="number" name="limit" class="form-input" min="1" placeholder="All eligible">
-        <div class="form-hint">Optional. Only queue the first N eligible devices.</div>
-      </div>
-      {{template "send-picker" .}}
-      <button type="submit" class="btn-primary" style="margin-top:12px;">Send Update</button>
-    </form>
-  </div>
-</div>
-{{end}}
-
 <script>
-function switchSendTab(btn, tab) {
-  var picker = btn.closest('.send-picker');
-  picker.querySelectorAll('.send-tab').forEach(function(t) { t.classList.remove('active'); });
-  btn.classList.add('active');
-  picker.querySelectorAll('.send-tab-panel').forEach(function(p) {
-    p.style.display = p.dataset.tab === tab ? '' : 'none';
+function setReboot(mode) {
+  document.getElementById('reboot-input').value = mode;
+  document.getElementById('scheduled-time-row').style.display = mode === 'scheduled' ? '' : 'none';
+  document.querySelectorAll('#reboot-seg .seg-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
+
+function setTargetTab(tab) {
+  document.getElementById('tab-devices').style.display = tab === 'devices' ? '' : 'none';
+  document.getElementById('tab-groups').style.display  = tab === 'groups'  ? '' : 'none';
+  document.querySelectorAll('#target-seg .seg-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === tab);
   });
 }
 
 function filterSendList(input) {
   var q = input.value.toLowerCase();
-  var panel = input.closest('.send-tab-panel');
-  var items = panel.querySelectorAll('.send-item');
+  var panel = input.closest('.form-row').nextElementSibling || input.closest('.send-tab-panel');
+  // Walk up to the panel
+  var el = input;
+  while (el && !el.classList.contains('send-tab-panel')) el = el.parentElement;
+  if (!el) return;
+  var items = el.querySelectorAll('.send-item');
   var visible = 0;
   items.forEach(function(item) {
     var match = !q || item.dataset.search.toLowerCase().indexOf(q) !== -1;
     item.style.display = match ? '' : 'none';
     if (match) visible++;
   });
-  var countEl = panel.querySelector('.send-count');
+  var countEl = el.querySelector('.send-count');
   if (countEl) countEl.textContent = q ? visible + ' match' + (visible !== 1 ? 'es' : '') : '';
 }
 
 function toggleAll(master, name) {
   var panel = master.closest('.send-tab-panel');
-  var boxes = panel.querySelectorAll('input[name="' + name + '"]');
-  boxes.forEach(function(cb) {
-    if (cb.closest('.send-item').style.display !== 'none') {
-      cb.checked = master.checked;
-    }
+  panel.querySelectorAll('input[name="' + name + '"]').forEach(function(cb) {
+    if (cb.closest('.send-item').style.display !== 'none') cb.checked = master.checked;
   });
 }
 </script>
