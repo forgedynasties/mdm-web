@@ -245,10 +245,18 @@
     </div>
   </div>
   <div class="chart-tabs">
-    <button class="chart-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">Battery</button>
-    <button class="chart-tab"        data-chart-tab="temp"    onclick="setChartTab('temp')">Temperature</button>
-    <button class="chart-tab"        data-chart-tab="ram"     onclick="setChartTab('ram')">RAM</button>
-    <button class="chart-tab"        data-chart-tab="all"     onclick="setChartTab('all')">All</button>
+    <button class="chart-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><rect x="2" y="8" width="16" height="8" rx="2"/><path d="M20 11v2"/><path d="M6 12h4"/></svg>Battery
+    </button>
+    <button class="chart-tab" data-chart-tab="temp" onclick="setChartTab('temp')">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/></svg>Temp
+    </button>
+    <button class="chart-tab" data-chart-tab="ram" onclick="setChartTab('ram')">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 6V4M12 6V4M16 6V4M8 18v2M12 18v2M16 18v2"/></svg>RAM
+    </button>
+    <button class="chart-tab" data-chart-tab="all" onclick="setChartTab('all')">
+      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:5px;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>All
+    </button>
   </div>
 
   <!-- Battery -->
@@ -261,17 +269,17 @@
         <span class="chart-legend-item"><span class="chart-legend-line command-marker"></span> Command</span>
       </div>
     </div>
-    <div class="chart-wrap"><canvas id="batteryChart"></canvas></div>
+    <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
   </div>
 
   <!-- Temp -->
   <div id="chart-panel-temp" style="display:none;">
-    <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
+    <div class="chart-wrap chart-wrap--tall"><canvas id="tempChart"></canvas></div>
   </div>
 
   <!-- RAM -->
   <div id="chart-panel-ram" style="display:none;">
-    <div class="chart-wrap"><canvas id="ramChart"></canvas></div>
+    <div class="chart-wrap chart-wrap--tall"><canvas id="ramChart"></canvas></div>
   </div>
 
   <!-- All (unified) -->
@@ -1093,6 +1101,7 @@
       badge.innerHTML = '<span class="ws-dot"></span>' + (online ? 'online' : 'offline');
       badge.setAttribute('title', online ? 'WebSocket connected' : 'No WebSocket connection');
     });
+    window.addEventListener('beforeunload', function () { es.close(); });
   })();
 
 function toggleSection(header) {
