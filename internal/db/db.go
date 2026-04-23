@@ -956,6 +956,24 @@ func (d *DB) GetCommand(ctx context.Context, id uuid.UUID) (*Command, error) {
 	return &c, nil
 }
 
+// GetCommandTargetIDs returns the target UUIDs stored in command_targets for a command.
+func (d *DB) GetCommandTargetIDs(ctx context.Context, commandID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `SELECT target_id FROM command_targets WHERE command_id = $1`, commandID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // GetPendingCommandsForDevice returns commands not yet delivered/acked for this device.
 func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID) ([]Command, error) {
 	rows, err := d.pool.Query(ctx, `

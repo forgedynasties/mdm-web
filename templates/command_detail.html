@@ -88,9 +88,14 @@
     <a href="/commands" class="back-link">← Commands</a>
     <h2 class="page-title">Command Detail</h2>
   </div>
-  <form action="/commands/{{.Command.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
-    <button type="submit" class="btn-danger">Delete Command</button>
-  </form>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <form action="/commands/{{.Command.ID}}/resend" method="POST">
+      <button type="submit" class="btn-outline">Resend to All Targets</button>
+    </form>
+    <form action="/commands/{{.Command.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
+      <button type="submit" class="btn-danger">Delete Command</button>
+    </form>
+  </div>
 </div>
 
 <div class="stats-grid" style="margin-bottom:16px;">

@@ -1788,6 +1788,31 @@ func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/commands/"+newCmd.ID.String(), http.StatusFound)
 }
 
+func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+	cmd, err := h.db.GetCommand(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
+	targetIDs, err := h.db.GetCommandTargetIDs(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	newCmd, err := h.db.CreateCommand(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, cmd.TargetType, targetIDs)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.pushCommand(r.Context(), newCmd, cmd.TargetType, targetIDs)
+	http.Redirect(w, r, "/commands/"+newCmd.ID.String(), http.StatusFound)
+}
+
 func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -1866,7 +1891,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushCommand(r.Context(), cmd, targetType, targetIDs)
-	http.Redirect(w, r, "/commands", http.StatusFound)
+	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
 }
 
 func buildPayload(cmdType string, r *http.Request) json.RawMessage {
@@ -2230,6 +2255,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("POST /commands/{id}/delete", h.requireAuth(h.CommandDelete))
+	mux.HandleFunc("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
 	mux.HandleFunc("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
 
 	mux.HandleFunc("GET /settings", h.requireAuth(h.SettingsPage))
