@@ -347,7 +347,7 @@
     return { pts: all.filter(p => p.x >= minX), minX, lastX };
   }
 
-  function setChartTab(tab) {
+  window.setChartTab = function setChartTab(tab) {
     activeTab = tab;
     localStorage.setItem(tabStorageKey, tab);
     ['battery','temp','ram','all'].forEach(function(t) {
@@ -356,7 +356,7 @@
       if (btn) btn.classList.toggle('active', t === tab);
     });
     if (tab === 'all' && unifiedChart) applyUnifiedData();
-  }
+  };
 
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
@@ -797,12 +797,16 @@
   ramChart._accent = 'ram';
 
   // ── Unified chart ────────────────────────────────────────────────────────
-  const sharedXCfg = () => ({
-    type: 'time', time: { tooltips: 'HH:mm', displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'MMM d' } },
+  // Reuse the same linear ms-timestamp x-axis the individual charts use
+  const unifiedXCfg = {
+    type: 'linear',
     grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
-    ticks: { color: '#7a7f9a', maxTicksLimit: 8, font: { size: 11 } },
+    ticks: {
+      color: '#7a7f9a', maxTicksLimit: 8, font: { size: 11 },
+      callback: v => fmtDate(v),
+    },
     border: { display: false },
-  });
+  };
 
   unifiedChart = new Chart(document.getElementById('unifiedChart').getContext('2d'), {
     type: 'line',
@@ -836,7 +840,7 @@
         decimation: { enabled: true, algorithm: 'lttb', samples: 250 },
       },
       scales: {
-        x: sharedXCfg(),
+        x: unifiedXCfg,
         yPct: {
           position: 'left', min: 0, max: 100,
           grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },

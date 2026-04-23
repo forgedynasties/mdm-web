@@ -525,10 +525,10 @@ a:hover { color: var(--accent-h); }
 .chart-wrap {
   padding: 20px 20px 16px;
   position: relative;
-  height: 180px;
+  height: 230px;
 }
 .chart-wrap--tall {
-  height: 240px;
+  height: 300px;
 }
 .chart-tabs {
   display: flex;
