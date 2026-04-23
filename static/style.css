@@ -527,6 +527,29 @@ a:hover { color: var(--accent-h); }
   position: relative;
   height: 180px;
 }
+.chart-wrap--tall {
+  height: 240px;
+}
+.chart-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 16px 0;
+  border-bottom: 1px solid var(--border);
+}
+.chart-tab {
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+.chart-tab:hover { color: var(--text); }
+.chart-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 .chart-legend {
   display: flex;
   align-items: center;

@@ -268,24 +268,47 @@
       <a id="csv-export" href="/devices/{{.Device.SerialNumber}}/battery.csv?hours=6" class="btn-outline" style="font-size:12px;padding:4px 10px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Export CSV</a>
     </div>
   </div>
-  <div style="padding:0 16px;">
-    <div class="chart-legend">
-      <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> Wireless Charging On</span>
-      <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Wireless Charging Off</span>
-      <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
-      <span class="chart-legend-item"><span class="chart-legend-line command-marker"></span> Command Sent</span>
+  <div class="chart-tabs">
+    <button class="chart-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">Battery</button>
+    <button class="chart-tab"        data-chart-tab="temp"    onclick="setChartTab('temp')">Temperature</button>
+    <button class="chart-tab"        data-chart-tab="ram"     onclick="setChartTab('ram')">RAM</button>
+    <button class="chart-tab"        data-chart-tab="all"     onclick="setChartTab('all')">All</button>
+  </div>
+
+  <!-- Battery -->
+  <div id="chart-panel-battery">
+    <div style="padding:8px 16px 0;">
+      <div class="chart-legend">
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
+        <span class="chart-legend-item"><span class="chart-legend-line command-marker"></span> Command</span>
+      </div>
     </div>
+    <div class="chart-wrap"><canvas id="batteryChart"></canvas></div>
   </div>
-  <div class="chart-wrap">
-    <canvas id="batteryChart"></canvas>
+
+  <!-- Temp -->
+  <div id="chart-panel-temp" style="display:none;">
+    <div class="chart-wrap"><canvas id="tempChart"></canvas></div>
   </div>
-  <div style="padding:0 16px;"><h4 style="margin:8px 0 4px;font-size:13px;color:var(--muted);">Temperature</h4></div>
-  <div class="chart-wrap">
-    <canvas id="tempChart"></canvas>
+
+  <!-- RAM -->
+  <div id="chart-panel-ram" style="display:none;">
+    <div class="chart-wrap"><canvas id="ramChart"></canvas></div>
   </div>
-  <div style="padding:0 16px;"><h4 style="margin:8px 0 4px;font-size:13px;color:var(--muted);">RAM Usage</h4></div>
-  <div class="chart-wrap">
-    <canvas id="ramChart"></canvas>
+
+  <!-- All (unified) -->
+  <div id="chart-panel-all" style="display:none;">
+    <div style="padding:8px 16px 0;">
+      <div class="chart-legend">
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6387d2;"></span> Battery %</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#ff9800;"></span> Temp °C</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#4caf50;"></span> RAM %</span>
+        <span class="chart-legend-item"><span class="chart-legend-line command-marker"></span> Command</span>
+      </div>
+    </div>
+    <div class="chart-wrap chart-wrap--tall"><canvas id="unifiedChart"></canvas></div>
   </div>
 </div>
 
@@ -299,9 +322,11 @@
 
   let currentDuration = 6 * 3600 * 1000;
   let customMin = null, customMax = null;
-  let batteryChart, tempChart, ramChart;
+  let batteryChart, tempChart, ramChart, unifiedChart;
   let storedMarkerPref = localStorage.getItem(markerStorageKey);
   let showMarkers = storedMarkerPref === null ? false : storedMarkerPref === 'visible';
+  const tabStorageKey = 'mdm-chart-tab:{{.Device.SerialNumber}}';
+  let activeTab = localStorage.getItem(tabStorageKey) || 'battery';
 
   function fmtTime(ms) {
     return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
@@ -322,6 +347,17 @@
     return { pts: all.filter(p => p.x >= minX), minX, lastX };
   }
 
+  function setChartTab(tab) {
+    activeTab = tab;
+    localStorage.setItem(tabStorageKey, tab);
+    ['battery','temp','ram','all'].forEach(function(t) {
+      document.getElementById('chart-panel-' + t).style.display = t === tab ? '' : 'none';
+      var btn = document.querySelector('[data-chart-tab="' + t + '"]');
+      if (btn) btn.classList.toggle('active', t === tab);
+    });
+    if (tab === 'all' && unifiedChart) applyUnifiedData();
+  }
+
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
     chart.data.datasets[0].data = pts;
@@ -332,6 +368,17 @@
 
   function fmtDate(ms) {
     return new Date(ms).toLocaleDateString([], {month: "short", day: "numeric"}) + " " + fmtTime(ms);
+  }
+
+  function applyUnifiedData() {
+    if (!unifiedChart) return;
+    const { pts: bPts, minX, lastX } = filterWindow(allBattery);
+    unifiedChart.data.datasets[0].data = bPts;
+    unifiedChart.data.datasets[1].data = filterWindow(allTemp).pts;
+    unifiedChart.data.datasets[2].data = filterWindow(allRam).pts;
+    unifiedChart.options.scales.x.min = minX;
+    unifiedChart.options.scales.x.max = lastX;
+    unifiedChart.update('none');
   }
 
   function updateCharts() {
@@ -348,6 +395,7 @@
     if (batteryChart) applyData(batteryChart, allBattery);
     if (tempChart) applyData(tempChart, allTemp);
     if (ramChart) applyData(ramChart, allRam);
+    applyUnifiedData();
     syncMarkerToggle();
   }
 
@@ -501,9 +549,10 @@
   };
 
   // Find nearest data point by x pixel position
-  function nearestByPixel(chart) {
+  function nearestByPixel(chart, datasetIndex) {
     if (chart._crosshairX == null) return null;
-    const data = chart.data.datasets[0].data;
+    const idx = datasetIndex || 0;
+    const data = chart.data.datasets[idx] ? chart.data.datasets[idx].data : [];
     if (!data.length) return null;
     const xScale = chart.scales.x;
     const cursorVal = xScale.getValueForPixel(chart._crosshairX);
@@ -519,6 +568,27 @@
   const staticLabelPlugin = {
     id: 'staticLabel',
     afterEvent(chart) {
+      // Unified chart: show all three values at once
+      if (chart._isUnified) {
+        if (chart._crosshairX == null) { setHoverInfo(null); return; }
+        const bPt = nearestByPixel(chart, 0);
+        const tPt = nearestByPixel(chart, 1);
+        const rPt = nearestByPixel(chart, 2);
+        const parts = [];
+        if (bPt) parts.push('Bat: ' + bPt.y + '%');
+        if (tPt) parts.push('Temp: ' + tPt.y.toFixed(1) + '°C');
+        if (rPt) parts.push('RAM: ' + rPt.y.toFixed(1) + '%');
+        const timeMs = (bPt || tPt || rPt || {}).x;
+        const markerText = markerHoverText(chart);
+        setHoverInfo({
+          time: timeMs ? fmtDate(timeMs) : '',
+          primary: parts.join('  ·  ') || '—',
+          extra: markerText,
+          accent: 'battery',
+        });
+        return;
+      }
+
       const pt = nearestByPixel(chart);
       const markerText = markerHoverText(chart);
       if (!pt || !chart._labelFn) {
@@ -614,7 +684,7 @@
       }],
     },
     options: {
-      responsive: true, maintainAspectRatio: false, clip: false,
+      animation: false, responsive: true, maintainAspectRatio: false, clip: false,
       events: ['mousemove', 'mouseout'],
       interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
@@ -663,7 +733,7 @@
       }],
     },
     options: {
-      responsive: true, maintainAspectRatio: false, clip: false,
+      animation: false, responsive: true, maintainAspectRatio: false, clip: false,
       events: ['mousemove', 'mouseout'],
       interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
@@ -708,7 +778,7 @@
       }],
     },
     options: {
-      responsive: true, maintainAspectRatio: false, clip: false,
+      animation: false, responsive: true, maintainAspectRatio: false, clip: false,
       events: ['mousemove', 'mouseout'],
       interaction: { mode: "nearest", intersect: false, axis: "x" },
       plugins: {
@@ -726,6 +796,67 @@
   ramChart._commandMarkers = commandMarkers;
   ramChart._accent = 'ram';
 
+  // ── Unified chart ────────────────────────────────────────────────────────
+  const sharedXCfg = () => ({
+    type: 'time', time: { tooltips: 'HH:mm', displayFormats: { minute: 'HH:mm', hour: 'HH:mm', day: 'MMM d' } },
+    grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+    ticks: { color: '#7a7f9a', maxTicksLimit: 8, font: { size: 11 } },
+    border: { display: false },
+  });
+
+  unifiedChart = new Chart(document.getElementById('unifiedChart').getContext('2d'), {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'Battery %', data: [], yAxisID: 'yPct',
+          borderColor: '#6387d2', backgroundColor: 'rgba(99,135,210,0.12)',
+          borderWidth: 1.5, pointRadius: 0, spanGaps: true, tension: 0,
+          fill: false,
+        },
+        {
+          label: 'Temp °C', data: [], yAxisID: 'yTemp',
+          borderColor: '#ff9800', backgroundColor: 'transparent',
+          borderWidth: 1.5, pointRadius: 0, spanGaps: true, tension: 0,
+        },
+        {
+          label: 'RAM %', data: [], yAxisID: 'yPct',
+          borderColor: '#4caf50', backgroundColor: 'transparent',
+          borderWidth: 1.5, pointRadius: 0, spanGaps: true, tension: 0,
+          borderDash: [4, 3],
+        },
+      ],
+    },
+    options: {
+      animation: false, responsive: true, maintainAspectRatio: false, clip: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { enabled: false },
+        decimation: { enabled: true, algorithm: 'lttb', samples: 250 },
+      },
+      scales: {
+        x: sharedXCfg(),
+        yPct: {
+          position: 'left', min: 0, max: 100,
+          grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+          ticks: { color: '#7a7f9a', font: { size: 11 }, callback: v => v + '%', maxTicksLimit: 5 },
+          border: { display: false },
+        },
+        yTemp: {
+          position: 'right',
+          grid: { drawOnChartArea: false },
+          ticks: { color: '#ff9800', font: { size: 11 }, callback: v => v + '°', maxTicksLimit: 5 },
+          border: { display: false },
+        },
+      },
+    },
+    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
+  });
+  unifiedChart._isUnified = true;
+  unifiedChart._commandMarkers = commandMarkers;
+  unifiedChart._accent = 'battery';
+
   document.getElementById("toggle-markers-btn").addEventListener("click", function () {
     showMarkers = !showMarkers;
     localStorage.setItem(markerStorageKey, showMarkers ? 'visible' : 'hidden');
@@ -733,6 +864,7 @@
     batteryChart.update();
     tempChart.update();
     ramChart.update();
+    unifiedChart.update();
   });
 
   document.querySelectorAll(".dur-btn:not(#custom-range-btn)").forEach(btn => {
@@ -788,6 +920,7 @@
 
   updateCharts();
   syncMarkerToggle();
+  setChartTab(activeTab);
 })();
 </script>
 
