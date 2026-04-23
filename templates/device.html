@@ -237,8 +237,9 @@
 {{template "device-stats" .}}
 
 <div class="card chart-card">
-  <div class="chart-hover-rail" aria-hidden="false">
-    <div id="chart-hover-info" class="chart-hover-info is-idle" aria-live="polite">
+  <div class="card-header">
+    <h3>Device Graphs</h3>
+    <div id="chart-hover-info" class="chart-hover-info is-idle" aria-live="polite" style="flex:1;margin:0 16px;max-width:400px;">
       <span class="hover-indicator" aria-hidden="true"></span>
       <span class="hover-body">
         <span class="hover-time" id="hover-time">—</span>
@@ -247,9 +248,6 @@
         <span class="hover-extra" id="hover-extra"></span>
       </span>
     </div>
-  </div>
-  <div class="card-header">
-    <h3>Device Graphs</h3>
     <div style="display:flex;align-items:center;gap:10px;">
       <span id="chart-info" class="muted small"></span>
       <div class="dur-btns">

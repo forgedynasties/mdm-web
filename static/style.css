@@ -520,22 +520,6 @@ a:hover { color: var(--accent-h); }
 /* ── Chart ───────────────────────────────────────── */
 .chart-card {
   margin-bottom: 20px;
-  position: relative;
-  overflow: visible; /* allow sticky hover pill to escape the card's clipping */
-}
-
-/* Pill sits at bottom-left of the card, clear of header buttons */
-.chart-hover-rail {
-  position: absolute;
-  bottom: 12px;
-  left: 16px;
-  right: 0;
-  width: auto;
-  pointer-events: none;
-  z-index: 5;
-  display: flex;
-  justify-content: flex-start;
-  align-items: flex-end;
 }
 
 .chart-wrap {
@@ -559,14 +543,13 @@ a:hover { color: var(--accent-h); }
 }
 .chart-hover-info {
   --hover-accent: #6387d2;
-  position: relative;
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 1 1 0;
   align-items: center;
   gap: 12px;
-  width: max-content;
-  max-width: min(460px, calc(100vw - 64px));
-  padding: 8px 16px 8px 12px;
+  min-width: 0;
+  max-width: 400px;
+  padding: 5px 14px 5px 10px;
   border: 1px solid var(--border);
   border-radius: 999px;
   background: var(--surface2);
@@ -576,9 +559,8 @@ a:hover { color: var(--accent-h); }
   letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   pointer-events: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color 160ms ease;
 }
 .chart-hover-info:not(.is-idle) {
   border-color: color-mix(in srgb, var(--hover-accent) 55%, transparent);
