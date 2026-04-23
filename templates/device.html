@@ -2,7 +2,7 @@
 <div class="stats-grid"
   id="device-stats"
   hx-get="/devices/{{.Device.SerialNumber}}/stats"
-  hx-trigger="every 60s"
+  hx-trigger="device-updated from:body, every 180s"
   hx-swap="outerHTML">
   <div class="stat-card">
     <div class="stat-label">Battery</div>
@@ -75,7 +75,7 @@
   id="device-commands"
   {{if $hasPending}}
   hx-get="/devices/{{.Device.SerialNumber}}/commands-status"
-  hx-trigger="every 10s"
+  hx-trigger="device-updated from:body, every 60s"
   hx-swap="outerHTML"
   {{end}}>
   <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
@@ -122,7 +122,7 @@
 <div class="card"
   id="device-checkins"
   hx-get="/devices/{{.Device.SerialNumber}}/checkins-live?page={{.CheckinPage}}"
-  hx-trigger="every 120s"
+  hx-trigger="device-updated from:body, every 300s"
   hx-swap="outerHTML">
   <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
     <div style="display:flex;align-items:center;gap:8px;">
@@ -202,30 +202,6 @@
       {{else}}
         <span id="ws-badge" class="ws-badge offline" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>
       {{end}}
-      <script>
-      (function() {
-        var serial = {{.Device.SerialNumber}};
-        var badge = document.getElementById('ws-badge');
-        if (!badge || !window.EventSource) return;
-        var es = new EventSource('/devices/' + encodeURIComponent(serial) + '/presence-stream');
-        es.addEventListener('presence', function(e) {
-          var b = document.getElementById('ws-badge');
-          if (!b) return;
-          if (e.data === 'online') {
-            b.classList.remove('offline');
-            b.classList.add('online');
-            b.setAttribute('title', 'WebSocket connected');
-            b.innerHTML = '<span class="ws-dot"></span>online';
-          } else {
-            b.classList.remove('online');
-            b.classList.add('offline');
-            b.setAttribute('title', 'No WebSocket connection');
-            b.innerHTML = '<span class="ws-dot"></span>offline';
-          }
-        });
-        window.addEventListener('beforeunload', function() { es.close(); });
-      })();
-      </script>
     </div>
   </div>
   <div style="display:flex;gap:8px;">
@@ -1102,6 +1078,23 @@
 </div>
 
 <script>
+  (function () {
+    var serial = {{printf "%q" .Device.SerialNumber}};
+    if (!serial || !window.EventSource) return;
+    var es = new EventSource('/devices/' + encodeURIComponent(serial) + '/events');
+    es.addEventListener('device', function () {
+      document.body.dispatchEvent(new CustomEvent('device-updated'));
+    });
+    es.addEventListener('presence', function (event) {
+      var badge = document.getElementById('ws-badge');
+      if (!badge) return;
+      var online = event.data === 'online';
+      badge.className = 'ws-badge ' + (online ? 'online' : 'offline');
+      badge.innerHTML = '<span class="ws-dot"></span>' + (online ? 'online' : 'offline');
+      badge.setAttribute('title', online ? 'WebSocket connected' : 'No WebSocket connection');
+    });
+  })();
+
 function toggleSection(header) {
   var body = header.nextElementSibling;
   var arrow = header.querySelector('.collapse-arrow');
