@@ -28,6 +28,11 @@ type PresenceEvent struct {
 	Online   bool
 }
 
+// DeviceUpdateEvent is emitted when dashboard-visible device data changes.
+type DeviceUpdateEvent struct {
+	DeviceID uuid.UUID
+}
+
 // Hub maintains the set of active WebSocket clients keyed by device ID.
 type Hub struct {
 	mu          sync.RWMutex
@@ -35,6 +40,8 @@ type Hub struct {
 	onMessage   func(deviceID uuid.UUID, msg []byte)
 	subMu       sync.RWMutex
 	subscribers map[chan PresenceEvent]struct{}
+	updateMu    sync.RWMutex
+	updates     map[chan DeviceUpdateEvent]struct{}
 }
 
 // SetOnMessage registers a function that is called for every message received
@@ -55,6 +62,7 @@ func NewHub() *Hub {
 	return &Hub{
 		clients:     make(map[uuid.UUID]*Client),
 		subscribers: make(map[chan PresenceEvent]struct{}),
+		updates:     make(map[chan DeviceUpdateEvent]struct{}),
 	}
 }
 
@@ -78,10 +86,43 @@ func (h *Hub) UnsubscribePresence(ch chan PresenceEvent) {
 	h.subMu.Unlock()
 }
 
+// SubscribeDeviceUpdates returns a channel that receives device update events.
+// Callers must invoke UnsubscribeDeviceUpdates to release resources.
+func (h *Hub) SubscribeDeviceUpdates() chan DeviceUpdateEvent {
+	ch := make(chan DeviceUpdateEvent, 64)
+	h.updateMu.Lock()
+	h.updates[ch] = struct{}{}
+	h.updateMu.Unlock()
+	return ch
+}
+
+// UnsubscribeDeviceUpdates closes the channel and removes it from the subscriber set.
+func (h *Hub) UnsubscribeDeviceUpdates(ch chan DeviceUpdateEvent) {
+	h.updateMu.Lock()
+	if _, ok := h.updates[ch]; ok {
+		delete(h.updates, ch)
+		close(ch)
+	}
+	h.updateMu.Unlock()
+}
+
 func (h *Hub) publishPresence(ev PresenceEvent) {
 	h.subMu.RLock()
 	defer h.subMu.RUnlock()
 	for ch := range h.subscribers {
+		select {
+		case ch <- ev:
+		default:
+		}
+	}
+}
+
+// PublishDeviceUpdate notifies dashboard subscribers that a device changed.
+func (h *Hub) PublishDeviceUpdate(deviceID uuid.UUID) {
+	ev := DeviceUpdateEvent{DeviceID: deviceID}
+	h.updateMu.RLock()
+	defer h.updateMu.RUnlock()
+	for ch := range h.updates {
 		select {
 		case ch <- ev:
 		default:

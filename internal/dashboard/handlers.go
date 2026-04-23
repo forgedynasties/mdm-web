@@ -775,6 +775,118 @@ func (h *Handler) DevicePresenceStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// FleetEvents streams lightweight SSE notifications for fleet-wide dashboard refreshes.
+func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	fmt.Fprint(w, "event: fleet\ndata: ready\n\n")
+	flusher.Flush()
+
+	presenceSub := h.hub.SubscribePresence()
+	defer h.hub.UnsubscribePresence(presenceSub)
+	updateSub := h.hub.SubscribeDeviceUpdates()
+	defer h.hub.UnsubscribeDeviceUpdates(updateSub)
+
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": keep-alive\n\n")
+			flusher.Flush()
+		case <-presenceSub:
+			fmt.Fprint(w, "event: fleet\ndata: refresh\n\n")
+			flusher.Flush()
+		case <-updateSub:
+			fmt.Fprint(w, "event: fleet\ndata: refresh\n\n")
+			flusher.Flush()
+		}
+	}
+}
+
+// DeviceEvents streams SSE notifications for a single device detail page.
+func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	writePresence := func(online bool) {
+		state := "offline"
+		if online {
+			state = "online"
+		}
+		fmt.Fprintf(w, "event: presence\ndata: %s\n\n", state)
+		flusher.Flush()
+	}
+	writeRefresh := func() {
+		fmt.Fprint(w, "event: device\ndata: refresh\n\n")
+		flusher.Flush()
+	}
+
+	writePresence(h.hub.IsConnected(device.ID))
+	writeRefresh()
+
+	presenceSub := h.hub.SubscribePresence()
+	defer h.hub.UnsubscribePresence(presenceSub)
+	updateSub := h.hub.SubscribeDeviceUpdates()
+	defer h.hub.UnsubscribeDeviceUpdates(updateSub)
+
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": keep-alive\n\n")
+			flusher.Flush()
+		case ev, ok := <-presenceSub:
+			if !ok {
+				return
+			}
+			if ev.DeviceID == device.ID {
+				writePresence(ev.Online)
+			}
+		case ev, ok := <-updateSub:
+			if !ok {
+				return
+			}
+			if ev.DeviceID == device.ID {
+				writeRefresh()
+			}
+		}
+	}
+}
+
 func wlcStatusFromExtra(raw json.RawMessage) string {
 	if len(raw) == 0 {
 		return ""
@@ -2082,7 +2194,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /logout", h.Logout)
 
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
+	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
+	mux.HandleFunc("GET /devices/{serial}/events", h.requireAuth(h.DeviceEvents))
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.DeviceOnlineStatus))
 	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(h.DevicePresenceStream))
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))

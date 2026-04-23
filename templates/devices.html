@@ -574,15 +574,29 @@ document.addEventListener('keydown', function(e) {
   // and when the tab returns to the foreground after more than 2 minutes.
   (function () {
     var lastRefresh = Date.now();
+    var pending = null;
     function fire() {
       lastRefresh = Date.now();
       document.body.dispatchEvent(new CustomEvent('refresh-devices'));
+    }
+    function schedule() {
+      if (pending) return;
+      pending = setTimeout(function () {
+        pending = null;
+        fire();
+      }, 300);
     }
     window.mdmRefreshDevices = fire;
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) return;
       if (Date.now() - lastRefresh > 120000) fire();
     });
+    if (window.EventSource) {
+      var es = new EventSource('/events/devices');
+      es.addEventListener('fleet', function () {
+        schedule();
+      });
+    }
   })();
 </script>
 
