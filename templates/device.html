@@ -1095,6 +1095,8 @@
       var d = {};
       try { d = JSON.parse(e.data); } catch (_) {}
 
+      console.log('[mdm] device event', d, 'mdmChart:', !!window.mdmChart);
+
       // dispatch for HTMX stats/commands/checkins re-fetch
       document.body.dispatchEvent(new CustomEvent('device-updated'));
 
@@ -1106,6 +1108,7 @@
           window.mdmChart.allTemp.push({x: d.ts_ms, y: d.temp_c});
         if (d.ram_pct !== null && d.ram_pct !== undefined)
           window.mdmChart.allRam.push({x: d.ts_ms, y: d.ram_pct});
+        console.log('[mdm] pushing to chart, allBattery length:', window.mdmChart.allBattery.length);
         window.mdmChart.updateCharts();
       }
 
