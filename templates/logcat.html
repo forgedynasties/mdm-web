@@ -56,19 +56,19 @@ function syncLogcatPolling() {
   var paused = localStorage.getItem(logcatPauseKey()) === '1';
 
   if (!canPoll) {
-    panel.removeAttribute('hx-trigger');
+    panel.setAttribute('hx-trigger', 'logcat-refresh');
     btn.disabled = true;
     btn.setAttribute('aria-pressed', 'false');
     btn.textContent = 'Pause';
     state.textContent = 'No pending logcat polling';
   } else if (paused) {
-    panel.removeAttribute('hx-trigger');
+    panel.setAttribute('hx-trigger', 'logcat-refresh');
     btn.disabled = false;
     btn.setAttribute('aria-pressed', 'true');
     btn.textContent = 'Play';
     state.textContent = 'Polling paused';
   } else {
-    panel.setAttribute('hx-trigger', panel.dataset.pollTrigger || 'every 15s');
+    panel.setAttribute('hx-trigger', 'logcat-refresh, ' + (panel.dataset.pollTrigger || 'every 15s'));
     btn.disabled = false;
     btn.setAttribute('aria-pressed', 'false');
     btn.textContent = 'Pause';
@@ -88,6 +88,16 @@ document.body.addEventListener('htmx:afterSwap', function(evt) {
   if (evt.detail.target.id === 'logcat-entries') syncLogcatPolling();
 });
 syncLogcatPolling();
+
+(function () {
+  if (!window.EventSource) return;
+  var es = new EventSource('/devices/{{.Device.SerialNumber}}/logcat/events');
+  es.addEventListener('logcat-update', function () {
+    var panel = document.getElementById('logcat-entries');
+    if (panel) htmx.trigger(panel, 'logcat-refresh');
+  });
+  window.addEventListener('beforeunload', function () { es.close(); });
+})();
 </script>
 
 {{template "footer" .}}
@@ -97,11 +107,9 @@ syncLogcatPolling();
 <div id="logcat-entries"
   data-poll-trigger="every 15s"
   data-can-poll="{{if .HasPending}}true{{else}}false{{end}}"
-  {{if .HasPending}}
   hx-get="/devices/{{.Device.SerialNumber}}/logcat/entries"
-  hx-trigger="every 15s"
-  hx-swap="outerHTML"
-  {{end}}>
+  hx-trigger="logcat-refresh{{if .HasPending}}, every 15s{{end}}"
+  hx-swap="outerHTML">
 
   {{if not .Entries}}
   <div class="card">

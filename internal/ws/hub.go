@@ -38,17 +38,24 @@ type CommandUpdateEvent struct {
 	CommandID uuid.UUID
 }
 
+// LogcatUpdateEvent is emitted when a logcat result is received for a device.
+type LogcatUpdateEvent struct {
+	DeviceID uuid.UUID
+}
+
 // Hub maintains the set of active WebSocket clients keyed by device ID.
 type Hub struct {
-	mu          sync.RWMutex
-	clients     map[uuid.UUID]*Client
-	onMessage   func(deviceID uuid.UUID, msg []byte)
-	subMu       sync.RWMutex
-	subscribers map[chan PresenceEvent]struct{}
-	updateMu    sync.RWMutex
-	updates     map[chan DeviceUpdateEvent]struct{}
-	cmdMu       sync.RWMutex
-	cmdUpdates  map[chan CommandUpdateEvent]struct{}
+	mu             sync.RWMutex
+	clients        map[uuid.UUID]*Client
+	onMessage      func(deviceID uuid.UUID, msg []byte)
+	subMu          sync.RWMutex
+	subscribers    map[chan PresenceEvent]struct{}
+	updateMu       sync.RWMutex
+	updates        map[chan DeviceUpdateEvent]struct{}
+	cmdMu          sync.RWMutex
+	cmdUpdates     map[chan CommandUpdateEvent]struct{}
+	logcatMu       sync.RWMutex
+	logcatUpdates  map[chan LogcatUpdateEvent]struct{}
 }
 
 // SetOnMessage registers a function that is called for every message received
@@ -67,10 +74,11 @@ type Client struct {
 
 func NewHub() *Hub {
 	return &Hub{
-		clients:     make(map[uuid.UUID]*Client),
-		subscribers: make(map[chan PresenceEvent]struct{}),
-		updates:     make(map[chan DeviceUpdateEvent]struct{}),
-		cmdUpdates:  make(map[chan CommandUpdateEvent]struct{}),
+		clients:       make(map[uuid.UUID]*Client),
+		subscribers:   make(map[chan PresenceEvent]struct{}),
+		updates:       make(map[chan DeviceUpdateEvent]struct{}),
+		cmdUpdates:    make(map[chan CommandUpdateEvent]struct{}),
+		logcatUpdates: make(map[chan LogcatUpdateEvent]struct{}),
 	}
 }
 
@@ -99,6 +107,38 @@ func (h *Hub) PublishCommandUpdate(commandID uuid.UUID) {
 	h.cmdMu.RLock()
 	defer h.cmdMu.RUnlock()
 	for ch := range h.cmdUpdates {
+		select {
+		case ch <- ev:
+		default:
+		}
+	}
+}
+
+// SubscribeLogcatUpdates returns a channel that receives logcat update events.
+func (h *Hub) SubscribeLogcatUpdates() chan LogcatUpdateEvent {
+	ch := make(chan LogcatUpdateEvent, 32)
+	h.logcatMu.Lock()
+	h.logcatUpdates[ch] = struct{}{}
+	h.logcatMu.Unlock()
+	return ch
+}
+
+// UnsubscribeLogcatUpdates closes the channel and removes it from the subscriber set.
+func (h *Hub) UnsubscribeLogcatUpdates(ch chan LogcatUpdateEvent) {
+	h.logcatMu.Lock()
+	if _, ok := h.logcatUpdates[ch]; ok {
+		delete(h.logcatUpdates, ch)
+		close(ch)
+	}
+	h.logcatMu.Unlock()
+}
+
+// PublishLogcatUpdate notifies subscribers that a logcat result arrived for a device.
+func (h *Hub) PublishLogcatUpdate(deviceID uuid.UUID) {
+	ev := LogcatUpdateEvent{DeviceID: deviceID}
+	h.logcatMu.RLock()
+	defer h.logcatMu.RUnlock()
+	for ch := range h.logcatUpdates {
 		select {
 		case ch <- ev:
 		default:

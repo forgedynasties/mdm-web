@@ -297,6 +297,7 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.hub.PublishDeviceUpdate(device.ID)
+	h.hub.PublishLogcatUpdate(device.ID)
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

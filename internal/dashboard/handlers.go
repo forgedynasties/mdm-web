@@ -2203,6 +2203,55 @@ func (h *Handler) SettingsRemoveColumn(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
+// LogcatEvents streams SSE notifications for the logcat page of a device.
+func (h *Handler) LogcatEvents(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	fmt.Fprint(w, ": connected\n\n")
+	flusher.Flush()
+
+	sub := h.hub.SubscribeLogcatUpdates()
+	defer h.hub.UnsubscribeLogcatUpdates(sub)
+
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": keep-alive\n\n")
+			flusher.Flush()
+		case ev, ok := <-sub:
+			if !ok {
+				return
+			}
+			if ev.DeviceID == device.ID {
+				fmt.Fprint(w, "event: logcat-update\ndata: refresh\n\n")
+				flusher.Flush()
+			}
+		}
+	}
+}
+
 func (h *Handler) LogcatPage(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -2432,6 +2481,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))
+	mux.HandleFunc("GET /devices/{serial}/logcat/events", h.requireAuth(h.LogcatEvents))
 	mux.HandleFunc("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
 
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
