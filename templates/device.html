@@ -51,9 +51,9 @@
     <div class="stat-label">Device Time</div>
     {{$dtime := deviceTime .Device.LatestExtra}}
     {{if $dtime}}
-      <div class="stat-value">{{$dtime}}</div>
+      <div class="stat-value" id="device-time-value">{{$dtime}}</div>
     {{else}}
-      <div class="stat-value muted">—</div>
+      <div class="stat-value muted" id="device-time-value">—</div>
     {{end}}
   </div>
   <div class="stat-card">
@@ -875,6 +875,7 @@
   updateCharts();
   syncMarkerToggle();
   setChartTab(activeTab);
+  window.mdmChart = { allBattery, allTemp, allRam, updateCharts };
 })();
 </script>
 
@@ -1056,9 +1057,62 @@
     var serial = {{printf "%q" .Device.SerialNumber}};
     if (!serial || !window.EventSource) return;
     var es = new EventSource('/devices/' + encodeURIComponent(serial) + '/events');
-    es.addEventListener('device', function () {
+    var clockTz = null;   // timezone string e.g. "GMT+5"
+    var clockTimer = null;
+
+    function tzOffsetSeconds(tz) {
+      if (!tz) return null;
+      var upper = tz.toUpperCase();
+      if (upper === 'GMT' || upper === 'UTC') return 0;
+      var m = upper.match(/^GMT([+-])(\d+)$/);
+      if (!m) return null;
+      return (m[1] === '+' ? 1 : -1) * parseInt(m[2], 10) * 3600;
+    }
+
+    function tickClock() {
+      var el = document.getElementById('device-time-value');
+      if (!el || clockTz === null) return;
+      var offsetSec = tzOffsetSeconds(clockTz);
+      if (offsetSec === null) return;
+      var utcMs = Date.now();
+      var deviceMs = utcMs + offsetSec * 1000;
+      var d2 = new Date(deviceMs);
+      var h = String(d2.getUTCHours()).padStart(2, '0');
+      var m = String(d2.getUTCMinutes()).padStart(2, '0');
+      var s = String(d2.getUTCSeconds()).padStart(2, '0');
+      el.textContent = h + ':' + m + ':' + s + ' (' + clockTz + ')';
+      el.classList.remove('muted');
+    }
+
+    function startClock(tz) {
+      clockTz = tz;
+      if (clockTimer) clearInterval(clockTimer);
+      tickClock();
+      clockTimer = setInterval(tickClock, 1000);
+    }
+
+    es.addEventListener('device', function (e) {
+      var d = {};
+      try { d = JSON.parse(e.data); } catch (_) {}
+
+      // dispatch for HTMX stats/commands/checkins re-fetch
       document.body.dispatchEvent(new CustomEvent('device-updated'));
+
+      // push new point into charts
+      if (d.ts_ms && window.mdmChart) {
+        var wlc = d.wlc !== undefined && d.wlc !== null ? d.wlc : undefined;
+        window.mdmChart.allBattery.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});
+        if (d.temp_c !== null && d.temp_c !== undefined)
+          window.mdmChart.allTemp.push({x: d.ts_ms, y: d.temp_c});
+        if (d.ram_pct !== null && d.ram_pct !== undefined)
+          window.mdmChart.allRam.push({x: d.ts_ms, y: d.ram_pct});
+        window.mdmChart.updateCharts();
+      }
+
+      // live clock
+      if (d.timezone) startClock(d.timezone);
     });
+
     es.addEventListener('presence', function (event) {
       var badge = document.getElementById('ws-badge');
       if (!badge) return;
@@ -1067,7 +1121,10 @@
       badge.innerHTML = '<span class="ws-dot"></span>' + (online ? 'online' : 'offline');
       badge.setAttribute('title', online ? 'WebSocket connected' : 'No WebSocket connection');
     });
-    window.addEventListener('beforeunload', function () { es.close(); });
+    window.addEventListener('beforeunload', function () {
+      es.close();
+      if (clockTimer) clearInterval(clockTimer);
+    });
   })();
 
 function toggleSection(header) {

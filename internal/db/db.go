@@ -585,6 +585,19 @@ func (d *DB) SetDevicePollInterval(ctx context.Context, serial string, intervalM
 	return err
 }
 
+func (d *DB) GetLatestCheckin(ctx context.Context, deviceID uuid.UUID) (*Checkin, error) {
+	var c Checkin
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, device_id, battery_pct, build_id, extra, created_at
+		FROM checkins WHERE device_id = $1
+		ORDER BY created_at DESC LIMIT 1
+	`, deviceID).Scan(&c.ID, &c.DeviceID, &c.BatteryPct, &c.BuildID, &c.Extra, &c.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
+}
+
 func (d *DB) GetCheckins(ctx context.Context, deviceID uuid.UUID, limit int) ([]Checkin, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT id, device_id, battery_pct, build_id, extra, created_at

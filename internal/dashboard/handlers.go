@@ -918,6 +918,50 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type deviceEventPayload struct {
+	TsMs       int64   `json:"ts_ms"`
+	BatteryPct int     `json:"battery_pct"`
+	Wlc        *int    `json:"wlc"`      // nil = no data
+	TempC      *float64 `json:"temp_c"`  // nil = no data
+	RamPct     *float64 `json:"ram_pct"` // nil = no data
+	Timezone   string  `json:"timezone"`
+}
+
+func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
+	p := deviceEventPayload{
+		TsMs:       c.CreatedAt.UnixMilli(),
+		BatteryPct: c.BatteryPct,
+	}
+	if len(c.Extra) > 0 {
+		var extra map[string]json.RawMessage
+		if json.Unmarshal(c.Extra, &extra) == nil {
+			if v, ok := extra["wlc_status"]; ok {
+				var n int
+				if json.Unmarshal(v, &n) == nil {
+					p.Wlc = &n
+				}
+			}
+			if v, ok := extra["ram_usage_mb"]; ok {
+				var ram map[string]int
+				if json.Unmarshal(v, &ram) == nil && ram["total"] > 0 {
+					pct := float64(ram["used"]) * 100 / float64(ram["total"])
+					p.RamPct = &pct
+				}
+			}
+			if v, ok := extra["timezone"]; ok {
+				var tz string
+				if json.Unmarshal(v, &tz) == nil {
+					p.Timezone = tz
+				}
+			}
+		}
+	}
+	if temp, ok := extractBatteryTempC(c.Extra); ok {
+		p.TempC = &temp
+	}
+	return p
+}
+
 // DeviceEvents streams SSE notifications for a single device detail page.
 func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -946,13 +990,20 @@ func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "event: presence\ndata: %s\n\n", state)
 		flusher.Flush()
 	}
-	writeRefresh := func() {
-		fmt.Fprint(w, "event: device\ndata: refresh\n\n")
+	writeDeviceUpdate := func() {
+		c, err := h.db.GetLatestCheckin(r.Context(), device.ID)
+		if err != nil {
+			fmt.Fprint(w, "event: device\ndata: {}\n\n")
+			flusher.Flush()
+			return
+		}
+		b, _ := json.Marshal(buildDeviceEventPayload(c))
+		fmt.Fprintf(w, "event: device\ndata: %s\n\n", b)
 		flusher.Flush()
 	}
 
 	writePresence(h.hub.IsConnected(device.ID))
-	writeRefresh()
+	writeDeviceUpdate()
 
 	presenceSub := h.hub.SubscribePresence()
 	defer h.hub.UnsubscribePresence(presenceSub)
@@ -982,7 +1033,7 @@ func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if ev.DeviceID == device.ID {
-				writeRefresh()
+				writeDeviceUpdate()
 			}
 		}
 	}
