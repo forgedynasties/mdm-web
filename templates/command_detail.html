@@ -9,12 +9,12 @@
   id="deliveries-card"
   {{if $hasPending}}
   hx-get="/commands/{{$cmd.ID}}/status"
-  hx-trigger="every 10s"
+  hx-trigger="command-updated from:body"
   hx-swap="outerHTML"
   {{end}}>
   <div class="card-header">
     <h3>Delivery Status</h3>
-    <span class="muted small">{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{if $hasPending}} · refreshing…{{end}}</span>
+    <span class="muted small">{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{if $hasPending}} · waiting…{{end}}</span>
   </div>
   <table class="table">
     <thead>
@@ -122,6 +122,17 @@
 {{end}}
 
 {{template "command-deliveries" .}}
+
+<script>
+(function () {
+  if (!window.EventSource) return;
+  var es = new EventSource('/commands/{{.Command.ID}}/events');
+  es.addEventListener('command-update', function () {
+    document.body.dispatchEvent(new CustomEvent('command-updated'));
+  });
+  window.addEventListener('beforeunload', function () { es.close(); });
+})();
+</script>
 
 {{template "footer" .}}
 {{end}}

@@ -955,6 +955,54 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 	return p
 }
 
+// CommandEvents streams SSE notifications for a command detail page.
+func (h *Handler) CommandEvents(w http.ResponseWriter, r *http.Request) {
+	cmdID, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "invalid command id", http.StatusBadRequest)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	fmt.Fprint(w, ": connected\n\n")
+	flusher.Flush()
+
+	sub := h.hub.SubscribeCommandUpdates()
+	defer h.hub.UnsubscribeCommandUpdates(sub)
+
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": keep-alive\n\n")
+			flusher.Flush()
+		case ev, ok := <-sub:
+			if !ok {
+				return
+			}
+			if ev.CommandID == cmdID {
+				fmt.Fprint(w, "event: command-update\ndata: refresh\n\n")
+				flusher.Flush()
+			}
+		}
+	}
+}
+
 // DeviceEvents streams SSE notifications for a single device detail page.
 func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -2399,6 +2447,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
+	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
 	mux.HandleFunc("POST /commands/{id}/delete", h.requireAuth(h.CommandDelete))
 	mux.HandleFunc("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
 	mux.HandleFunc("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))

@@ -550,6 +550,7 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
 	}
 	h.hub.PublishDeviceUpdate(device.ID)
+	h.hub.PublishCommandUpdate(cmdID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

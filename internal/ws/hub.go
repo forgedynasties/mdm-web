@@ -33,6 +33,11 @@ type DeviceUpdateEvent struct {
 	DeviceID uuid.UUID
 }
 
+// CommandUpdateEvent is emitted when a command delivery status changes.
+type CommandUpdateEvent struct {
+	CommandID uuid.UUID
+}
+
 // Hub maintains the set of active WebSocket clients keyed by device ID.
 type Hub struct {
 	mu          sync.RWMutex
@@ -42,6 +47,8 @@ type Hub struct {
 	subscribers map[chan PresenceEvent]struct{}
 	updateMu    sync.RWMutex
 	updates     map[chan DeviceUpdateEvent]struct{}
+	cmdMu       sync.RWMutex
+	cmdUpdates  map[chan CommandUpdateEvent]struct{}
 }
 
 // SetOnMessage registers a function that is called for every message received
@@ -63,6 +70,39 @@ func NewHub() *Hub {
 		clients:     make(map[uuid.UUID]*Client),
 		subscribers: make(map[chan PresenceEvent]struct{}),
 		updates:     make(map[chan DeviceUpdateEvent]struct{}),
+		cmdUpdates:  make(map[chan CommandUpdateEvent]struct{}),
+	}
+}
+
+// SubscribeCommandUpdates returns a channel that receives command update events.
+func (h *Hub) SubscribeCommandUpdates() chan CommandUpdateEvent {
+	ch := make(chan CommandUpdateEvent, 32)
+	h.cmdMu.Lock()
+	h.cmdUpdates[ch] = struct{}{}
+	h.cmdMu.Unlock()
+	return ch
+}
+
+// UnsubscribeCommandUpdates closes the channel and removes it from the subscriber set.
+func (h *Hub) UnsubscribeCommandUpdates(ch chan CommandUpdateEvent) {
+	h.cmdMu.Lock()
+	if _, ok := h.cmdUpdates[ch]; ok {
+		delete(h.cmdUpdates, ch)
+		close(ch)
+	}
+	h.cmdMu.Unlock()
+}
+
+// PublishCommandUpdate notifies subscribers that a command delivery changed.
+func (h *Hub) PublishCommandUpdate(commandID uuid.UUID) {
+	ev := CommandUpdateEvent{CommandID: commandID}
+	h.cmdMu.RLock()
+	defer h.cmdMu.RUnlock()
+	for ch := range h.cmdUpdates {
+		select {
+		case ch <- ev:
+		default:
+		}
 	}
 }
 
