@@ -1054,7 +1054,7 @@
 
 <script>
   (function () {
-    var serial = {{printf "%q" .Device.SerialNumber}};
+    var serial = '{{.Device.SerialNumber}}';
     if (!serial || !window.EventSource) return;
     var es = new EventSource('/devices/' + encodeURIComponent(serial) + '/events');
     var clockTz = null;   // timezone string e.g. "GMT+5"
