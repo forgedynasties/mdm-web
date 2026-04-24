@@ -91,6 +91,98 @@ func deviceRowClasses(dev db.Device) string {
 	return strings.Join(classes, " ")
 }
 
+// DeviceRowJSON holds the pre-computed, JSON-serialisable data for one fleet table row.
+type DeviceRowJSON struct {
+	Serial       string `json:"serial"`
+	BuildID      string `json:"build_id"`
+	Online       bool   `json:"online"`
+	BatteryPct   int    `json:"battery_pct"`
+	BatteryClass string `json:"battery_class"`
+	BatteryWidth string `json:"battery_width"`
+	RamPct       int    `json:"ram_pct"`     // 0 = no data
+	HasRam       bool   `json:"has_ram"`
+	TempStr      string `json:"temp_str"`    // "" = no data
+	TempClass    string `json:"temp_class"`
+	LastSeenISO  string `json:"last_seen_iso"` // RFC3339, empty if zero
+	TimeSince    string `json:"time_since"`
+	PollInterval int    `json:"poll_interval_ms"`
+	KioskEnabled bool   `json:"kiosk_enabled"`
+	KioskPackage string `json:"kiosk_package"`
+	RowClasses   string `json:"row_classes"`
+}
+
+func deviceToRowJSON(dev db.Device, online bool) DeviceRowJSON {
+	r := DeviceRowJSON{
+		Serial:       dev.SerialNumber,
+		BuildID:      dev.BuildID,
+		Online:       online,
+		BatteryPct:   dev.BatteryPct,
+		BatteryWidth: fmt.Sprintf("%d%%", dev.BatteryPct),
+		PollInterval: dev.PollIntervalMs,
+		KioskEnabled: dev.KioskEnabled,
+		KioskPackage: dev.KioskPackage,
+		RowClasses:   deviceRowClasses(dev),
+	}
+
+	switch {
+	case dev.BatteryPct < 20:
+		r.BatteryClass = "battery-low"
+	case dev.BatteryPct < 50:
+		r.BatteryClass = "battery-mid"
+	default:
+		r.BatteryClass = "battery-ok"
+	}
+
+	if len(dev.LatestExtra) > 0 {
+		var extra map[string]json.RawMessage
+		if json.Unmarshal(dev.LatestExtra, &extra) == nil {
+			if v, ok := extra["ram_usage_mb"]; ok {
+				var ram map[string]int
+				if json.Unmarshal(v, &ram) == nil {
+					total := ram["total"]
+					if total > 0 {
+						r.HasRam = true
+						r.RamPct = ram["used"] * 100 / total
+					}
+				}
+			}
+		}
+	}
+
+	if temp, ok := extractBatteryTempC(dev.LatestExtra); ok {
+		r.TempStr = fmt.Sprintf("%.1f°C", temp)
+		switch {
+		case temp >= 60:
+			r.TempClass = "danger"
+		case temp >= 45:
+			r.TempClass = "warn"
+		case temp <= -10:
+			r.TempClass = "danger"
+		case temp <= 0:
+			r.TempClass = "warn"
+		default:
+			r.TempClass = "ok"
+		}
+	}
+
+	if !dev.LastSeenAt.IsZero() {
+		r.LastSeenISO = dev.LastSeenAt.UTC().Format(time.RFC3339)
+		d := time.Since(dev.LastSeenAt)
+		switch {
+		case d < time.Minute:
+			r.TimeSince = "just now"
+		case d < time.Hour:
+			r.TimeSince = fmt.Sprintf("%dm ago", int(d.Minutes()))
+		case d < 24*time.Hour:
+			r.TimeSince = fmt.Sprintf("%dh ago", int(d.Hours()))
+		default:
+			r.TimeSince = fmt.Sprintf("%dd ago", int(d.Hours()/24))
+		}
+	}
+
+	return r
+}
+
 func colorizeLogcatText(content string) template.HTML {
 	if content == "" {
 		return ""
@@ -765,7 +857,8 @@ func (h *Handler) DevicePresenceStream(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// FleetEvents streams lightweight SSE notifications for fleet-wide dashboard refreshes.
+// FleetEvents streams per-device SSE updates for the fleet dashboard.
+// Each event carries a JSON payload so the browser can patch only the affected row.
 func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -778,8 +871,22 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	fmt.Fprint(w, "event: fleet\ndata: ready\n\n")
+	fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()
+
+	sendRow := func(deviceID uuid.UUID) {
+		dev, err := h.db.GetDeviceByID(r.Context(), deviceID)
+		if err != nil {
+			return
+		}
+		row := deviceToRowJSON(*dev, h.hub.IsConnected(deviceID))
+		b, err := json.Marshal(row)
+		if err != nil {
+			return
+		}
+		fmt.Fprintf(w, "event: device-update\ndata: %s\n\n", b)
+		flusher.Flush()
+	}
 
 	presenceSub := h.hub.SubscribePresence()
 	defer h.hub.UnsubscribePresence(presenceSub)
@@ -797,12 +904,16 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 		case <-heartbeat.C:
 			fmt.Fprint(w, ": keep-alive\n\n")
 			flusher.Flush()
-		case <-presenceSub:
-			fmt.Fprint(w, "event: fleet\ndata: refresh\n\n")
-			flusher.Flush()
-		case <-updateSub:
-			fmt.Fprint(w, "event: fleet\ndata: refresh\n\n")
-			flusher.Flush()
+		case ev, ok := <-presenceSub:
+			if !ok {
+				return
+			}
+			sendRow(ev.DeviceID)
+		case ev, ok := <-updateSub:
+			if !ok {
+				return
+			}
+			sendRow(ev.DeviceID)
 		}
 	}
 }

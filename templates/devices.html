@@ -56,7 +56,7 @@
   <tbody>
     {{if .Devices}}
       {{range .Devices}}
-      <tr class="{{rowClasses .}}">
+      <tr class="{{rowClasses .}}" data-serial="{{.SerialNumber}}">
         <td><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" onchange="updateBulkBar()"></td>
         <td class="mono" style="white-space:nowrap;">
           <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}WebSocket connected{{else}}offline{{end}}"></span>{{.SerialNumber}}
@@ -569,33 +569,92 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <script>
-  // Lightweight manual refresh: fire the table update on demand
-  // and when the tab returns to the foreground after more than 2 minutes.
+  // Manual refresh (used by refresh button and visibility change).
   (function () {
     var lastRefresh = Date.now();
-    var pending = null;
-    function fire() {
+    window.mdmRefreshDevices = function () {
       lastRefresh = Date.now();
       document.body.dispatchEvent(new CustomEvent('refresh-devices'));
-    }
-    function schedule() {
-      if (pending) return;
-      pending = setTimeout(function () {
-        pending = null;
-        fire();
-      }, 300);
-    }
-    window.mdmRefreshDevices = fire;
+    };
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) return;
-      if (Date.now() - lastRefresh > 120000) fire();
+      if (Date.now() - lastRefresh > 120000) window.mdmRefreshDevices();
     });
-    if (window.EventSource) {
-      var es = new EventSource('/events/devices');
-      es.addEventListener('fleet', function () {
-        schedule();
-      });
+  })();
+
+  // Real-time row patching via SSE.
+  (function () {
+    if (!window.EventSource) return;
+
+    function patchRow(d) {
+      var tr = document.querySelector('tr[data-serial="' + d.serial + '"]');
+      if (!tr) return;
+
+      var cells = tr.cells;
+
+      // col 1: ws-dot + serial (dot class only)
+      var dot = cells[1].querySelector('.ws-dot');
+      if (dot) {
+        dot.className = 'ws-dot' + (d.online ? ' online' : '');
+        dot.title = d.online ? 'WebSocket connected' : 'offline';
+      }
+
+      // col 2: build_id
+      cells[2].textContent = d.build_id;
+
+      // col 3: battery
+      var bar = cells[3].querySelector('.battery-bar');
+      if (bar) {
+        bar.className = 'battery-bar ' + d.battery_class;
+        bar.style.width = d.battery_width;
+      }
+      var label = cells[3].querySelector('.battery-label');
+      if (label) label.textContent = d.battery_pct + '%';
+
+      // col 4: ram
+      if (d.has_ram) {
+        var cls = d.ram_pct >= 80 ? 'danger' : d.ram_pct >= 60 ? 'warn' : 'ok';
+        cells[4].innerHTML = '<span class="' + cls + '">' + d.ram_pct + '%</span>';
+      } else {
+        cells[4].innerHTML = '<span class="muted small">—</span>';
+      }
+
+      // col 5: temp
+      if (d.temp_str) {
+        cells[5].innerHTML = '<span class="' + d.temp_class + '">' + d.temp_str + '</span>';
+      } else {
+        cells[5].innerHTML = '<span class="muted small">—</span>';
+      }
+
+      // col 6: last seen
+      var seenHtml = d.time_since;
+      if (d.poll_interval_ms > 0 && d.last_seen_iso) {
+        var fallback = d.last_seen_iso.replace('T', ' ').replace('Z', ' UTC').slice(0, 19) + ' UTC';
+        seenHtml += ' <span class="last-synced">synced <span class="js-local-time" data-utc="' + d.last_seen_iso + '" data-format="short">' + fallback + '</span></span>';
+      }
+      cells[6].className = 'muted';
+      cells[6].innerHTML = seenHtml;
+      if (window.localizeTimes) window.localizeTimes(cells[6]);
+
+      // col 8: kiosk
+      if (d.kiosk_enabled) {
+        cells[8].innerHTML = '<span class="status-badge ok" title="' + d.kiosk_package + '">Kiosk</span>';
+      } else {
+        cells[8].innerHTML = '<span class="muted small">—</span>';
+      }
+
+      // row-level alert classes
+      tr.className = d.row_classes;
+      tr.setAttribute('data-serial', d.serial);
     }
+
+    var es = new EventSource('/events/devices');
+    es.addEventListener('device-update', function (e) {
+      try { patchRow(JSON.parse(e.data)); } catch (_) {}
+    });
+    es.onerror = function () {
+      // browser will auto-reconnect; no action needed
+    };
   })();
 </script>
 

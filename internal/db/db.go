@@ -539,6 +539,33 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 	return &dev, nil
 }
 
+// GetDeviceByID fetches a single device by its UUID.
+func (d *DB) GetDeviceByID(ctx context.Context, id uuid.UUID) (*Device, error) {
+	var dev Device
+	err := d.pool.QueryRow(ctx, `
+		SELECT
+			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
+			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.poll_interval_ms,
+			COALESCE(dc.kiosk_enabled, false),
+			COALESCE(dc.kiosk_package, ''),
+			COALESCE(c.extra, '{}'::jsonb) AS latest_extra
+		FROM devices d
+		LEFT JOIN LATERAL (
+			SELECT battery_pct, extra FROM checkins
+			WHERE device_id = d.id
+			ORDER BY created_at DESC
+			LIMIT 1
+		) c ON true
+		LEFT JOIN device_config dc ON dc.device_id = d.id
+		WHERE d.id = $1
+	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra)
+	if err != nil {
+		return nil, fmt.Errorf("device not found: %w", err)
+	}
+	return &dev, nil
+}
+
 // HideDevice marks a device as hidden. It stays in the DB but is excluded from
 // listings and summaries. The flag is cleared automatically on the next check-in.
 func (d *DB) HideDevice(ctx context.Context, serial string) error {
