@@ -919,12 +919,11 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 type deviceEventPayload struct {
-	TsMs       int64   `json:"ts_ms"`
-	BatteryPct int     `json:"battery_pct"`
-	Wlc        *int    `json:"wlc"`      // nil = no data
-	TempC      *float64 `json:"temp_c"`  // nil = no data
+	TsMs       int64    `json:"ts_ms"`
+	BatteryPct int      `json:"battery_pct"`
+	Wlc        *int     `json:"wlc"`    // nil = no data
+	TempC      *float64 `json:"temp_c"` // nil = no data
 	RamPct     *float64 `json:"ram_pct"` // nil = no data
-	Timezone   string  `json:"timezone"`
 }
 
 func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
@@ -946,12 +945,6 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 				if json.Unmarshal(v, &ram) == nil && ram["total"] > 0 {
 					pct := float64(ram["used"]) * 100 / float64(ram["total"])
 					p.RamPct = &pct
-				}
-			}
-			if v, ok := extra["timezone"]; ok {
-				var tz string
-				if json.Unmarshal(v, &tz) == nil {
-					p.Timezone = tz
 				}
 			}
 		}
