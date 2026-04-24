@@ -78,19 +78,9 @@ func extractBatteryTempC(raw json.RawMessage) (float64, bool) {
 	return temp, true
 }
 
-func deviceRowClasses(dev db.Device, now time.Time, globalIntervalSec int) string {
+func deviceRowClasses(dev db.Device) string {
 	var classes []string
 
-	staleAfter := time.Duration(globalIntervalSec) * time.Second * 3
-	if dev.PollIntervalMs > 0 {
-		poll := time.Duration(dev.PollIntervalMs) * time.Millisecond * 2
-		if poll > staleAfter {
-			staleAfter = poll
-		}
-	}
-	if !dev.LastSeenAt.IsZero() && now.Sub(dev.LastSeenAt) > staleAfter {
-		classes = append(classes, "row-stale")
-	}
 	if dev.BatteryPct < 20 {
 		classes = append(classes, "row-alert-battery")
 	}
@@ -356,8 +346,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			}
 			return template.JS(fmt.Sprintf("%.1f", temp))
 		},
-		"rowClasses": func(dev db.Device, now time.Time) string {
-			return deviceRowClasses(dev, now, cfg.CheckinInterval())
+		"rowClasses": func(dev db.Device) string {
+			return deviceRowClasses(dev)
 		},
 		"colorizeLogcat": func(content string) template.HTML {
 			return colorizeLogcatText(content)

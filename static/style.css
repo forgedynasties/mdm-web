@@ -1946,8 +1946,6 @@ input[type="checkbox"]:hover {
 .compact .status-badge { font-size: 10px; padding: 1px 6px; }
 
 /* ── Row Highlighting ──────────────────────────── */
-.row-stale td { opacity: 0.4; }
-.row-stale:hover td { opacity: 0.7; }
 .row-alert-battery { box-shadow: inset 3px 0 0 var(--danger); }
 .row-alert-temp { box-shadow: inset 3px 0 0 var(--warn); }
 .row-alert-battery.row-alert-temp { box-shadow: inset 3px 0 0 var(--danger), inset 6px 0 0 var(--warn); }

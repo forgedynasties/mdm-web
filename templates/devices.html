@@ -55,9 +55,8 @@
   </thead>
   <tbody>
     {{if .Devices}}
-      {{$now := nowUTC}}
       {{range .Devices}}
-      <tr class="{{rowClasses . $now}}">
+      <tr class="{{rowClasses .}}">
         <td><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" onchange="updateBulkBar()"></td>
         <td class="mono" style="white-space:nowrap;">
           <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}WebSocket connected{{else}}offline{{end}}"></span>{{.SerialNumber}}
