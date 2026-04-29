@@ -1,0 +1,144 @@
+{{define "production_detail.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <a href="/productions" class="back-link">← Productions</a>
+    <h2 class="page-title">{{.Production.Name}}</h2>
+    <p class="page-subtitle">
+      <span class="mono small">{{.Production.FirstSerial}}</span>
+      <span class="muted"> → </span>
+      <span class="mono small">{{.Production.LastSerial}}</span>
+    </p>
+  </div>
+  <form action="/productions/{{.Production.ID}}/delete" method="POST"
+        onsubmit="return confirm('Delete production {{.Production.Name}}? This cannot be undone.')">
+    <button type="submit" class="btn-danger-sm">Delete</button>
+  </form>
+</div>
+
+{{/* ── Stats ── */}}
+<div class="stats-row" style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">
+  <div class="stat-card card">
+    <div class="stat-label">Total Units</div>
+    <div class="stat-value">{{.Production.Total}}</div>
+  </div>
+  <div class="stat-card card">
+    <div class="stat-label">Ever Connected</div>
+    <div class="stat-value {{if gt .Production.EverConnected 0}}text-ok{{end}}">{{.Production.EverConnected}}</div>
+  </div>
+  <div class="stat-card card">
+    <div class="stat-label">Online Now</div>
+    <div class="stat-value {{if gt .Production.Online 0}}text-ok{{end}}">{{.Production.Online}}</div>
+  </div>
+  <div class="stat-card card">
+    <div class="stat-label">Never Connected</div>
+    {{$never := sub .Production.Total .Production.EverConnected}}
+    <div class="stat-value {{if gt $never 0}}text-warn{{end}}">{{$never}}</div>
+  </div>
+</div>
+
+{{/* ── Metadata ── */}}
+<div class="card" style="margin-bottom:24px;">
+  <div class="card-header"><h3>Production Info</h3></div>
+  <table class="table table-compact">
+    <tr>
+      <td class="muted" style="width:180px;">Product Code</td>
+      <td class="mono">{{.Production.ProductCode}}</td>
+    </tr>
+    <tr>
+      <td class="muted">Model Code</td>
+      <td class="mono">{{.Production.ModelCode}}</td>
+    </tr>
+    <tr>
+      <td class="muted">Variant</td>
+      <td class="mono">{{.Production.Variant}}</td>
+    </tr>
+    <tr>
+      <td class="muted">SKU</td>
+      <td class="mono">{{.Production.SKU}}</td>
+    </tr>
+    <tr>
+      <td class="muted">Batch Code</td>
+      <td class="mono"><strong>{{.Production.Batch}}</strong> &nbsp;<span class="muted small">(month {{.Production.BatchMonth}}, year {{printf "%02d" .Production.BatchYear}})</span></td>
+    </tr>
+    <tr>
+      <td class="muted">Sequence Range</td>
+      <td class="mono">{{printf "%05d" .Production.StartSequence}} – {{printf "%05d" .Production.EndSequence}}</td>
+    </tr>
+    {{if .Production.Notes}}
+    <tr>
+      <td class="muted">Notes</td>
+      <td>{{.Production.Notes}}</td>
+    </tr>
+    {{end}}
+    <tr>
+      <td class="muted">Created</td>
+      <td class="muted small">{{localTime .Production.CreatedAt}}</td>
+    </tr>
+  </table>
+</div>
+
+{{/* ── Device List ── */}}
+<div class="card">
+  <div class="card-header">
+    <h3>Connected Devices</h3>
+    <span class="muted small">{{len .Devices}} of {{.Production.Total}} units have connected to MDM</span>
+  </div>
+
+  {{if not .Devices}}
+  <div class="empty-state">
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No devices connected yet</div>
+      <div class="empty-state-text">Devices will appear here once they check in to MDM for the first time.</div>
+    </div>
+  </div>
+  {{else}}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Serial Number</th>
+        <th>Build ID</th>
+        <th>Battery</th>
+        <th>Last Seen</th>
+        <th>First Seen</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Devices}}
+      <tr class="{{if eq .ConnectionStatus "online"}}row-online{{else if eq .ConnectionStatus "offline"}}row-stale{{end}}">
+        <td>
+          {{if eq .ConnectionStatus "online"}}
+            <span class="status-dot dot-online" title="Online"></span>
+          {{else}}
+            <span class="status-dot dot-offline" title="Offline"></span>
+          {{end}}
+        </td>
+        <td>
+          <a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>
+        </td>
+        <td class="mono small">{{.BuildID}}</td>
+        <td>
+          {{if gt .BatteryPct 0}}
+          <div class="battery-wrap">
+            <div class="battery-track">
+              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+            </div>
+            <span class="battery-label">{{.BatteryPct}}%</span>
+          </div>
+          {{else}}
+          <span class="muted">—</span>
+          {{end}}
+        </td>
+        <td class="muted">{{timeSince .LastSeenAt}}</td>
+        <td class="muted small">{{localTime .CreatedAt}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}

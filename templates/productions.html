@@ -1,0 +1,80 @@
+{{define "productions.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>Productions</h2>
+    <p class="page-subtitle">{{len .Productions}} production run{{if ne (len .Productions) 1}}s{{end}}</p>
+  </div>
+  <a href="/productions/new" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Production</a>
+</div>
+
+<div class="card">
+  {{if not .Productions}}
+  <div class="empty-state">
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No productions yet</div>
+      <div class="empty-state-text">Create a production run to track serial number ranges and monitor which units have connected to MDM.</div>
+    </div>
+    <a href="/productions/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Production</a>
+  </div>
+  {{else}}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Serial Range</th>
+        <th>Batch</th>
+        <th class="text-right">Total</th>
+        <th class="text-right">Connected</th>
+        <th class="text-right">Online</th>
+        <th class="text-right">Never</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Productions}}
+      <tr>
+        <td><a href="/productions/{{.ID}}" class="link-detail">{{.Name}}</a></td>
+        <td class="mono small">{{.FirstSerial}} → {{.LastSerial}}</td>
+        <td class="mono">{{.Batch}}</td>
+        <td class="text-right">{{.Total}}</td>
+        <td class="text-right">
+          {{if gt .EverConnected 0}}
+            <span class="badge badge-ok">{{.EverConnected}}</span>
+          {{else}}
+            <span class="muted">0</span>
+          {{end}}
+        </td>
+        <td class="text-right">
+          {{if gt .Online 0}}
+            <span class="badge badge-online">{{.Online}}</span>
+          {{else}}
+            <span class="muted">0</span>
+          {{end}}
+        </td>
+        <td class="text-right">
+          {{$never := sub .Total .EverConnected}}
+          {{if gt $never 0}}
+            <span class="muted">{{$never}}</span>
+          {{else}}
+            <span class="badge badge-ok">0</span>
+          {{end}}
+        </td>
+        <td class="muted small">{{localTime .CreatedAt}}</td>
+        <td>
+          <form action="/productions/{{.ID}}/delete" method="POST" style="display:inline"
+                onsubmit="return confirm('Delete production {{.Name}}?')">
+            <button type="submit" class="btn-danger-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}

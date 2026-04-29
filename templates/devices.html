@@ -254,6 +254,13 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     {{end}}
   </select>
 
+  <select id="filter-production" class="filter-select {{if .FilterProduction}}active{{end}}" onchange="applyFilters()">
+    <option value="">Production</option>
+    {{range .Productions}}
+      <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterProduction}}selected{{end}}>{{.Name}}</option>
+    {{end}}
+  </select>
+
   <select id="filter-build" class="filter-select {{if .FilterBuild}}active{{end}}" onchange="applyFilters()">
     <option value="">Build</option>
     {{range .Builds}}
@@ -296,17 +303,20 @@ function getFilterVals(overrides) {
     dir: p.get('dir') || '',
     page: p.get('page') || '1',
     group: p.get('group') || '',
+    production: p.get('production') || '',
     status: p.get('status') || '',
     build: p.get('build') || '',
     battery: p.get('battery') || '',
     hidden: p.get('hidden') || ''
   };
   var fg = document.getElementById('filter-group');
+  var fp = document.getElementById('filter-production');
   var fs = document.getElementById('filter-status');
   var fb = document.getElementById('filter-build');
   var fbt = document.getElementById('filter-battery');
   var sq = document.getElementById('search-input');
   if (fg) vals.group = fg.value;
+  if (fp) vals.production = fp.value;
   if (fs) vals.status = fs.value;
   if (fb) vals.build = fb.value;
   if (fbt) vals.battery = fbt.value;
@@ -338,6 +348,7 @@ function setHidden(val) {
 
 function clearFilters() {
   document.getElementById('filter-group').value = '';
+  document.getElementById('filter-production').value = '';
   document.getElementById('filter-status').value = '';
   document.getElementById('filter-build').value = '';
   document.getElementById('filter-battery').value = '';

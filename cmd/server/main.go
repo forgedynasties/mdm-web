@@ -116,6 +116,11 @@ func main() {
 	mux.Handle("POST /api/v1/groups/{id}/devices",   adminAuth(http.HandlerFunc(apiHandler.AddDeviceToGroup)))
 	mux.Handle("DELETE /api/v1/groups/{id}/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.RemoveDeviceFromGroup)))
 
+	mux.Handle("GET /api/v1/productions",            adminAuth(http.HandlerFunc(apiHandler.ListProductions)))
+	mux.Handle("POST /api/v1/productions",           adminAuth(http.HandlerFunc(apiHandler.CreateProduction)))
+	mux.Handle("GET /api/v1/productions/{id}",       adminAuth(http.HandlerFunc(apiHandler.GetProduction)))
+	mux.Handle("DELETE /api/v1/productions/{id}",    adminAuth(http.HandlerFunc(apiHandler.DeleteProduction)))
+
 	// Commands
 	mux.Handle("GET /api/v1/commands",               adminAuth(http.HandlerFunc(apiHandler.ListCommands)))
 	mux.Handle("POST /api/v1/commands",              adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))

@@ -1,0 +1,136 @@
+{{define "production_form.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <a href="/productions" class="back-link">← Productions</a>
+    <h2 class="page-title">New Production Run</h2>
+    <p class="page-subtitle">Define a serial number range for a manufacturing batch.</p>
+  </div>
+</div>
+
+<div class="card" style="max-width:680px;">
+  <form action="/productions" method="POST" id="production-form">
+
+    <div class="form-row">
+      <label class="form-label">Production Name</label>
+      <input type="text" name="name" class="form-input" placeholder="e.g. K27 Q2 2026 Run 1" required
+             oninput="refreshPreview()">
+      <span class="muted small">A human-readable label for this run.</span>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-row">
+        <label class="form-label">Product Code</label>
+        <input type="text" name="product_code" id="f-product" class="form-input mono" placeholder="AK" maxlength="3" required
+               oninput="this.value=this.value.toUpperCase(); refreshPreview()">
+        <span class="muted small">2–3 letter product prefix (e.g. AK, AT, AM, AP, FS, WM, CS)</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Model Code</label>
+        <input type="text" name="model_code" id="f-model" class="form-input mono" placeholder="27" maxlength="2" required
+               oninput="refreshPreview()">
+        <span class="muted small">Integer part of model size, zero-padded to 2 chars (e.g. 18, 27, 06, 15)</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-row">
+        <label class="form-label">Variant</label>
+        <input type="text" name="variant" id="f-variant" class="form-input mono" placeholder="0" maxlength="1" value="0"
+               oninput="refreshPreview()">
+        <span class="muted small">1 char — feature variant (default: 0)</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">SKU</label>
+        <input type="text" name="sku" id="f-sku" class="form-input mono" placeholder="AA" maxlength="2" value="AA"
+               oninput="this.value=this.value.toUpperCase(); refreshPreview()">
+        <span class="muted small">2 chars — white label / aesthetic (default: AA)</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-row">
+        <label class="form-label">Batch Month</label>
+        <input type="number" name="batch_month" id="f-month" class="form-input" placeholder="4" min="1" max="12" required
+               oninput="refreshPreview()">
+        <span class="muted small">1–12</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Batch Year</label>
+        <input type="number" name="batch_year" id="f-year" class="form-input" placeholder="26" min="0" max="99" required
+               oninput="refreshPreview()">
+        <span class="muted small">2-digit year (e.g. 26 for 2026)</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-row">
+        <label class="form-label">Start Sequence</label>
+        <input type="number" name="start_sequence" id="f-start" class="form-input" value="1" min="1" max="99999" required
+               oninput="refreshPreview()">
+        <span class="muted small">First unit number (usually 1)</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Quantity</label>
+        <input type="number" name="quantity" id="f-qty" class="form-input" placeholder="1000" min="1" max="99999" required
+               oninput="refreshPreview()">
+        <span class="muted small">Number of units in this run</span>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Serial Preview</label>
+      <div id="serial-preview" class="serial-preview-box muted">Fill in the fields above to see a preview.</div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Notes</label>
+      <textarea name="notes" class="form-input" rows="2" placeholder="Optional notes about this production run"></textarea>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button type="submit" class="btn-primary">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+        Create Production
+      </button>
+      <a href="/productions" class="btn-outline">Cancel</a>
+    </div>
+
+  </form>
+</div>
+
+<script>
+var previewTimer;
+function refreshPreview() {
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(function() {
+    var p = document.getElementById('f-product').value.trim().toUpperCase();
+    var m = document.getElementById('f-model').value.trim();
+    var v = document.getElementById('f-variant').value.trim() || '0';
+    var s = document.getElementById('f-sku').value.trim().toUpperCase() || 'AA';
+    var month = parseInt(document.getElementById('f-month').value, 10);
+    var year = parseInt(document.getElementById('f-year').value, 10);
+    var start = parseInt(document.getElementById('f-start').value, 10);
+    var qty = parseInt(document.getElementById('f-qty').value, 10);
+
+    var el = document.getElementById('serial-preview');
+
+    if (!p || !m || isNaN(month) || month < 1 || month > 12 || isNaN(year) || year < 0 || isNaN(start) || start < 1 || isNaN(qty) || qty < 1) {
+      el.innerHTML = '<span class="muted">Fill in the fields above to see a preview.</span>';
+      return;
+    }
+
+    var params = new URLSearchParams({
+      product_code: p, model_code: m, variant: v, sku: s,
+      batch_month: month, batch_year: year, start_sequence: start, quantity: qty
+    });
+    fetch('/productions/preview-serial?' + params)
+      .then(function(r) { return r.text(); })
+      .then(function(html) { el.innerHTML = html; });
+  }, 200);
+}
+</script>
+
+{{template "footer" .}}
+{{end}}
