@@ -64,10 +64,7 @@
         </td>
         <td class="muted small">{{localTime .CreatedAt}}</td>
         <td>
-          <form action="/productions/{{.ID}}/delete" method="POST" style="display:inline"
-                onsubmit="return confirm('Delete production {{.Name}}?')">
-            <button type="submit" class="btn-danger-sm">Delete</button>
-          </form>
+          <a href="/productions/{{.ID}}/export.csv" class="btn-outline-sm">Export CSV</a>
         </td>
       </tr>
       {{end}}

@@ -11,10 +11,7 @@
       <span class="mono small">{{.Production.LastSerial}}</span>
     </p>
   </div>
-  <form action="/productions/{{.Production.ID}}/delete" method="POST"
-        onsubmit="return confirm('Delete production {{.Production.Name}}? This cannot be undone.')">
-    <button type="submit" class="btn-danger-sm">Delete</button>
-  </form>
+  <a href="/productions/{{.Production.ID}}/export.csv" class="btn-outline">Export CSV</a>
 </div>
 
 {{/* ── Stats ── */}}

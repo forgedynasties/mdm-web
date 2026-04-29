@@ -1968,17 +1968,54 @@ func (h *Handler) ProductionDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) ProductionDelete(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ProductionExportCSV(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid production ID", http.StatusBadRequest)
 		return
 	}
-	if err := h.db.DeleteProduction(r.Context(), id); err != nil {
+	prod, err := h.db.GetProduction(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Production not found", http.StatusNotFound)
+		return
+	}
+	devices, err := h.db.GetProductionDevices(r.Context(), id)
+	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/productions", http.StatusFound)
+
+	// Index connected devices by serial for O(1) lookup
+	connected := make(map[string]*db.ProductionDevice, len(devices))
+	for i := range devices {
+		connected[devices[i].Serial] = &devices[i]
+	}
+
+	filename := prod.Name + ".csv"
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+
+	cw := csv.NewWriter(w)
+	cw.Write([]string{"serial_number", "status", "build_id", "battery_pct", "last_seen_at", "first_seen_at"})
+
+	prefix := prod.SerialPrefix()
+	for seq := prod.StartSequence; seq <= prod.EndSequence; seq++ {
+		serial := fmt.Sprintf("%s%05d", prefix, seq)
+		if dev, ok := connected[serial]; ok {
+			lastSeen := ""
+			firstSeen := ""
+			if !dev.LastSeenAt.IsZero() {
+				lastSeen = dev.LastSeenAt.UTC().Format(time.RFC3339)
+			}
+			if !dev.CreatedAt.IsZero() {
+				firstSeen = dev.CreatedAt.UTC().Format(time.RFC3339)
+			}
+			cw.Write([]string{serial, dev.ConnectionStatus, dev.BuildID, strconv.Itoa(dev.BatteryPct), lastSeen, firstSeen})
+		} else {
+			cw.Write([]string{serial, "never", "", "", "", ""})
+		}
+	}
+	cw.Flush()
 }
 
 // ProductionPreviewSerial returns the first/last serial for the given form values (HTMX partial).
@@ -2047,9 +2084,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /productions", h.requireAuth(h.ProductionList))
 	mux.HandleFunc("GET /productions/new", h.requireAuth(h.ProductionNew))
 	mux.HandleFunc("POST /productions", h.requireAuth(h.ProductionCreate))
-	mux.HandleFunc("GET /productions/{id}", h.requireAuth(h.ProductionDetail))
-	mux.HandleFunc("POST /productions/{id}/delete", h.requireAuth(h.ProductionDelete))
 	mux.HandleFunc("GET /productions/preview-serial", h.requireAuth(h.ProductionPreviewSerial))
+	mux.HandleFunc("GET /productions/{id}", h.requireAuth(h.ProductionDetail))
+	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAuth(h.ProductionExportCSV))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
