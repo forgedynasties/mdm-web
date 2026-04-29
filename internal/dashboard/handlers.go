@@ -501,14 +501,21 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			groupID = parsed
 		}
 	}
+	var productionID uuid.UUID
+	if pid := r.URL.Query().Get("production"); pid != "" {
+		if parsed, err := uuid.Parse(pid); err == nil {
+			productionID = parsed
+		}
+	}
 
 	filter := db.DeviceFilter{
-		Search:  q,
-		GroupID: groupID,
-		Online:  r.URL.Query().Get("status"),
-		BuildID: r.URL.Query().Get("build"),
-		Battery: r.URL.Query().Get("battery"),
-		Hidden:  r.URL.Query().Get("hidden"),
+		Search:       q,
+		GroupID:      groupID,
+		ProductionID: productionID,
+		Online:       r.URL.Query().Get("status"),
+		BuildID:      r.URL.Query().Get("build"),
+		Battery:      r.URL.Query().Get("battery"),
+		Hidden:       r.URL.Query().Get("hidden"),
 	}
 
 	devices, err := h.db.ListDevices(r.Context(), filter, offset, pageSize, sort, dir)
@@ -529,6 +536,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 
 	// Load filter options
 	groups, _ := h.db.ListGroups(r.Context())
+	productions, _ := h.db.ListProductions(r.Context())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 
 	totalPages := (total + pageSize - 1) / pageSize
@@ -554,13 +562,15 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Sort":          sort,
 		"SortDir":       dir,
 		"Online":        online,
-		"Groups":        groups,
-		"Builds":        builds,
-		"FilterGroup":   r.URL.Query().Get("group"),
-		"FilterStatus":  r.URL.Query().Get("status"),
-		"FilterBuild":   r.URL.Query().Get("build"),
-		"FilterBattery": r.URL.Query().Get("battery"),
-		"FilterHidden":  r.URL.Query().Get("hidden"),
+		"Groups":           groups,
+		"Productions":      productions,
+		"Builds":           builds,
+		"FilterGroup":      r.URL.Query().Get("group"),
+		"FilterProduction": r.URL.Query().Get("production"),
+		"FilterStatus":     r.URL.Query().Get("status"),
+		"FilterBuild":      r.URL.Query().Get("build"),
+		"FilterBattery":    r.URL.Query().Get("battery"),
+		"FilterHidden":     r.URL.Query().Get("hidden"),
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
