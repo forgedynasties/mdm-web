@@ -14,9 +14,9 @@
 
     <div class="form-row">
       <label class="form-label">Production Name</label>
-      <input type="text" name="name" class="form-input" placeholder="e.g. K27 Q2 2026 Run 1" required
-             oninput="refreshPreview()">
-      <span class="muted small">A human-readable label for this run.</span>
+      <input type="text" name="name" id="f-name" class="form-input" placeholder="e.g. AT07-prod-04-26-900pc" required
+             oninput="nameEdited=true; refreshPreview()">
+      <span class="muted small">Auto-generated from fields below — edit to override.</span>
     </div>
 
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
@@ -102,6 +102,7 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', refreshPreview);
+var nameEdited = false;
 var B36 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 function encodeBatch(month, year) {
   var val = month * 100 + (year % 100);
@@ -130,6 +131,12 @@ function refreshPreview() {
   var prefix = p + m + v + s + batch;
   var first  = prefix + pad5(start);
   var last   = prefix + pad5(start + qty - 1);
+
+  if (!nameEdited) {
+    var mo = String(month).padStart(2, '0');
+    var yr = String(year % 100).padStart(2, '0');
+    document.getElementById('f-name').value = p + m + '-prod-' + mo + '-' + yr + '-' + qty + 'pc';
+  }
 
   el.innerHTML =
     '<code class="serial-preview">' + first + '</code>' +
