@@ -100,6 +100,26 @@ a:hover { color: var(--accent-h); }
 }
 .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
 
+.navbar-user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  margin-left: auto;
+  margin-right: 12px;
+  line-height: 1.1;
+}
+.navbar-user-name {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+.navbar-user-role {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
 /* ── Layout ──────────────────────────────────────── */
 .container {
   max-width: 1280px;
@@ -2014,6 +2034,9 @@ input[type="checkbox"]:hover {
 }
 
 @media (max-width: 640px) {
+  .navbar { height: auto; min-height: 56px; padding: 10px 16px; flex-wrap: wrap; gap: 8px; }
+  .navbar-links { order: 3; width: 100%; overflow-x: auto; padding-bottom: 2px; }
+  .navbar-user { align-items: flex-start; margin-left: 0; margin-right: 0; }
   .container { padding: 16px; }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .stats-grid { grid-template-columns: 1fr 1fr; }

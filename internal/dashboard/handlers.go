@@ -587,11 +587,36 @@ func (h *Handler) role(r *http.Request) string {
 	return role
 }
 
+func (h *Handler) currentUsername(r *http.Request) string {
+	if h.isAdmin(r) {
+		return h.user
+	}
+	session, err := h.store.Get(r, "mdm-session")
+	if err != nil {
+		return ""
+	}
+	uid, _ := session.Values["user_id"].(string)
+	if uid == "" {
+		return ""
+	}
+	userID, err := uuid.Parse(uid)
+	if err != nil {
+		return uid
+	}
+	u, err := h.db.GetUserByID(r.Context(), userID)
+	if err != nil {
+		return uid
+	}
+	return u.Username
+}
+
 func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any {
 	if data == nil {
 		data = map[string]any{}
 	}
-	data["Role"] = h.role(r)
+	role := h.role(r)
+	data["Role"] = role
+	data["CurrentUser"] = h.currentUsername(r)
 	return data
 }
 
