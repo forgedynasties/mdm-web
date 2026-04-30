@@ -850,35 +850,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	const pageSize = 25
-	page := 1
-	if p := r.URL.Query().Get("page"); p != "" {
-		if n, err := strconv.Atoi(p); err == nil && n > 0 {
-			page = n
-		}
-	}
-	offset := (page - 1) * pageSize
-
-	total, err := h.db.GetCheckinsCount(r.Context(), device.ID)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	totalPages := (total + pageSize - 1) / pageSize
-	if totalPages == 0 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-		offset = (page - 1) * pageSize
-	}
-
-	checkins, err := h.db.GetCheckinsPaged(r.Context(), device.ID, pageSize, offset)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
 	chartCheckins, err := h.db.GetCheckinsForDuration(r.Context(), device.ID, device.LastSeenAt.Add(-48*time.Hour))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -913,16 +884,67 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Title":             device.SerialNumber,
 		"Device":            device,
 		"Online":            h.hub.IsConnected(device.ID),
-		"Checkins":          checkins,
 		"ChartCheckins":     chartCheckins,
 		"Commands":          commands,
 		"ExtraColumns":      h.cfg.Columns(),
 		"Apps":              apps,
-		"CheckinPage":       page,
-		"CheckinPages":      totalPages,
-		"CheckinTotal":      total,
 		"InstalledPackages": installedPkgs,
 		"KioskConfig":       kioskCfg,
+	})
+}
+
+func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	const pageSize = 25
+	page := 1
+	if p := r.URL.Query().Get("page"); p != "" {
+		if n, err := strconv.Atoi(p); err == nil && n > 0 {
+			page = n
+		}
+	}
+	offset := (page - 1) * pageSize
+
+	total, err := h.db.GetCheckinsCount(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages == 0 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+		offset = (page - 1) * pageSize
+	}
+
+	checkins, err := h.db.GetCheckinsPaged(r.Context(), device.ID, pageSize, offset)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	h.render(w, r, "device_history.html", map[string]any{
+		"Title":        device.SerialNumber + " — History",
+		"Device":       device,
+		"Commands":     commands,
+		"Checkins":     checkins,
+		"ExtraColumns": h.cfg.Columns(),
+		"CheckinPage":  page,
+		"CheckinPages": totalPages,
+		"CheckinTotal": total,
 	})
 }
 
@@ -2870,6 +2892,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
+	mux.HandleFunc("GET /devices/{serial}/history", h.requireAuth(h.DeviceHistory))
 	mux.HandleFunc("GET /devices/{serial}/events", h.requireAuth(h.DeviceEvents))
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.DeviceOnlineStatus))
 	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(h.DevicePresenceStream))
