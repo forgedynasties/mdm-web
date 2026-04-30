@@ -1,0 +1,75 @@
+{{define "users.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title icon-title">
+      <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      Users
+    </h2>
+    <p class="page-subtitle">Manage dashboard users. Viewers get read-only access; operators can also send shell and reboot commands.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Existing Users</h3></div>
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Role</th>
+        <th>Created</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Users}}
+        {{range .Users}}
+        <tr>
+          <td class="mono">{{.Username}}</td>
+          <td><span class="badge badge-{{.Role}}">{{.Role}}</span></td>
+          <td class="muted small">{{localTime .CreatedAt}}</td>
+          <td>
+            <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;"
+                  onsubmit="return confirm('Delete user {{.Username}}?')">
+              <button type="submit" class="btn-danger-sm">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="4" class="empty">No users yet.</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="max-width:480px;">
+  <div class="card-header"><h3>Create User</h3></div>
+  <form action="/users" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">Username</label>
+      <input type="text" name="username" class="form-input" required autocomplete="off">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Password</label>
+      <input type="password" name="password" class="form-input" required autocomplete="new-password">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Role</label>
+      <select name="role" class="form-input">
+        <option value="viewer">Viewer — read-only + screenshot + logcat</option>
+        <option value="operator">Operator — viewer + shell + reboot</option>
+      </select>
+    </div>
+    <button type="submit" class="btn-primary">
+      <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+      Create User
+    </button>
+  </form>
+</div>
+
+{{template "footer" .}}
+{{end}}

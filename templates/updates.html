@@ -9,9 +9,11 @@
     </h2>
     <p class="page-subtitle">{{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}} in repository</p>
   </div>
+  {{if eq .Role "admin"}}
   <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
     + New Package
   </button>
+  {{end}}
 </div>
 
 {{if .Packages}}
@@ -76,13 +78,16 @@
   <div class="empty-state">
     <div class="empty-state-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></div>
     <div class="empty-state-text">No OTA packages yet. Add one to start managing device firmware updates.</div>
+    {{if eq .Role "admin"}}
     <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
       + New Package
     </button>
+    {{end}}
   </div>
 </div>
 {{end}}
 
+{{if eq .Role "admin"}}
 <!-- Create Package Modal -->
 <div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
   <div class="modal-box" style="max-width:540px;">
@@ -140,6 +145,7 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') document.getElementById('create-pkg-modal').classList.remove('modal-open');
 });
 </script>
+{{end}}
 
 {{template "footer" .}}
 {{end}}

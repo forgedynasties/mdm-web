@@ -891,26 +891,32 @@
     </div>
 
     <div class="device-action-picker">
+      {{if eq .Role "admin"}}
       <button type="button" class="device-action-tile active" data-device-action="install" onclick="selectDeviceAction('install', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
         <div class="device-action-tile-title">Install App</div>
         <div class="device-action-tile-copy">Choose an APK from the repository and queue it for the next check-in.</div>
       </button>
-      <button type="button" class="device-action-tile" data-device-action="screenshot" onclick="selectDeviceAction('screenshot', this)">
+      {{end}}
+      <button type="button" class="device-action-tile{{if ne .Role "admin"}} active{{end}}" data-device-action="screenshot" onclick="selectDeviceAction('screenshot', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
         <div class="device-action-tile-title">Capture Screenshot</div>
         <div class="device-action-tile-copy">Request a fresh screenshot and review it from the command status screen.</div>
       </button>
+      {{if or (eq .Role "admin") (eq .Role "operator")}}
       <button type="button" class="device-action-tile" data-device-action="shell" onclick="selectDeviceAction('shell', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
         <div class="device-action-tile-title">Run Shell Command</div>
         <div class="device-action-tile-copy">Send a one-off shell command to older devices that still use check-in responses.</div>
       </button>
+      {{end}}
+      {{if eq .Role "admin"}}
       <button type="button" class="device-action-tile" data-device-action="poll" onclick="selectDeviceAction('poll', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>
         <div class="device-action-tile-title">Set Poll Interval</div>
         <div class="device-action-tile-copy">Adjust how often the device checks in for updates and queued work.</div>
       </button>
+      {{end}}
     </div>
 
     <div class="device-action-panel">
@@ -922,6 +928,7 @@
         <span class="device-action-meta" id="device-action-meta">Common task</span>
       </div>
 
+      {{if eq .Role "admin"}}
       <div id="device-action-install" class="device-action-body">
         <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
           <input type="hidden" name="type" value="install_apk">
@@ -950,6 +957,7 @@
           </div>
         </form>
       </div>
+      {{end}}
 
       <div id="device-action-screenshot" class="device-action-body" style="display:none;">
         <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
@@ -961,6 +969,7 @@
         </form>
       </div>
 
+      {{if or (eq .Role "admin") (eq .Role "operator")}}
       <div id="device-action-shell" class="device-action-body" style="display:none;">
         <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
           <input type="hidden" name="type" value="shell">
@@ -975,7 +984,9 @@
           </div>
         </form>
       </div>
+      {{end}}
 
+      {{if eq .Role "admin"}}
       <div id="device-action-poll" class="device-action-body" style="display:none;">
         <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" class="device-action-form">
           <div class="form-row">
@@ -991,22 +1002,26 @@
           </div>
         </form>
       </div>
+      {{end}}
     </div>
 
+    {{if or (eq .Role "admin") (eq .Role "operator")}}
     <div class="danger-zone">
       <div>
         <div class="danger-zone-title">Danger Zone</div>
         <div class="danger-zone-copy">Queue a reboot only when you’re sure. The device will restart on its next check-in and any unsaved work on the device may be interrupted.</div>
       </div>
       <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST"
-            onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')">
+            onsubmit="return confirm(‘Reboot {{.Device.SerialNumber}}?’)">
         <input type="hidden" name="type" value="reboot">
         <button type="submit" class="btn-danger">Reboot Device</button>
       </form>
     </div>
+    {{end}}
   </div>
 </div>
 
+{{if eq .Role "admin"}}
 <!-- Kiosk Management -->
 <div class="card" style="margin-bottom:16px;position:relative;overflow:hidden;">
   <div class="card-header" style="opacity:0.5;">
@@ -1019,6 +1034,7 @@
     <div class="muted small" style="text-align:center;max-width:320px;">Kiosk configuration is not available yet. This feature is coming soon.</div>
   </div>
 </div>
+{{end}}
 
 {{template "device-commands" .}}
 

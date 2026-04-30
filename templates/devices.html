@@ -5,6 +5,7 @@
   </label>
   <div class="bulk-actions" id="bulk-bar" style="display:none;">
     <span class="bulk-count" id="bulk-count">0 selected</span>
+    {{if eq .Role "admin"}}
     <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
           onsubmit="return confirmBulkHide(event)">
       <button type="submit" class="btn-danger-sm">Hide Selected</button>
@@ -13,6 +14,7 @@
     <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
     <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
     <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
+    {{end}}
     <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
   </div>
 </div>
@@ -101,10 +103,12 @@
         </td>
         <td style="white-space:nowrap;">
           <a href="/devices/{{.SerialNumber}}" class="link-detail">View</a>
+          {{if eq $.Role "admin"}}
           <form action="/devices/{{.SerialNumber}}/hide" method="POST" style="display:inline;margin-left:6px;"
                 onsubmit="return confirm('Hide {{.SerialNumber}}? It will reappear on next check-in.')">
             <button type="submit" class="btn-danger-sm" title="Hide device">x</button>
           </form>
+          {{end}}
         </td>
       </tr>
       {{end}}

@@ -7,7 +7,7 @@
     <h2 class="page-title">{{.Group.Name}}</h2>
     <p class="page-subtitle">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}}</p>
   </div>
-  <button type="button" class="btn-primary" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>
+  {{if eq .Role "admin"}}<button type="button" class="btn-primary" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>{{end}}
 </div>
 
 <div class="card">
@@ -20,7 +20,7 @@
       <div class="empty-state-title">No devices in this group yet</div>
       <div class="empty-state-text">Add one or more devices so this group can be used for commands and rollout targeting.</div>
     </div>
-    <button type="button" class="btn-primary" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>
+    {{if eq .Role "admin"}}<button type="button" class="btn-primary" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>{{end}}
   </div>
   {{else}}
   <table class="table">
@@ -30,7 +30,7 @@
         <th>Build ID</th>
         <th>Battery</th>
         <th>Last Seen</th>
-        <th></th>
+        {{if eq .Role "admin"}}<th></th>{{end}}
       </tr>
     </thead>
     <tbody>
@@ -48,11 +48,13 @@
             </div>
           </td>
           <td class="muted">{{timeSince .LastSeenAt}}</td>
+          {{if eq $.Role "admin"}}
           <td>
             <form action="/groups/{{$.Group.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline">
               <button type="submit" class="btn-danger-sm">Remove</button>
             </form>
           </td>
+          {{end}}
         </tr>
         {{end}}
       {{else}}
@@ -65,6 +67,7 @@
   {{end}}
 </div>
 
+{{if eq .Role "admin"}}
 <div id="group-device-modal" class="modal-backdrop" onclick="closeAddDeviceModal(event)">
   <div class="modal-box modal-wide">
     <div class="modal-header">
@@ -94,6 +97,7 @@
     </form>
   </div>
 </div>
+{{end}}
 
 <script>
 function openAddDeviceModal() {

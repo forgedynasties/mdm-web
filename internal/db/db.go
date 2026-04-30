@@ -186,6 +186,64 @@ func (p *Production) LastSerial() string {
 	return fmt.Sprintf("%s%05d", p.SerialPrefix(), p.EndSequence)
 }
 
+// ── Users ─────────────────────────────────────────────────────────────────────
+
+type User struct {
+	ID           uuid.UUID `json:"id"`
+	Username     string    `json:"username"`
+	Role         string    `json:"role"` // "viewer" | "operator"
+	PasswordHash string    `json:"-"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+func (d *DB) CreateUser(ctx context.Context, username, passwordHash, role string) (*User, error) {
+	var u User
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO users (username, password_hash, role)
+		VALUES ($1, $2, $3)
+		RETURNING id, username, role, password_hash, created_at
+	`, username, passwordHash, role).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (d *DB) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+	var u User
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, username, role, password_hash, created_at FROM users WHERE username = $1
+	`, username).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (d *DB) ListUsers(ctx context.Context) ([]User, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, username, role, created_at FROM users ORDER BY created_at ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt); err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+func (d *DB) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
+	return err
+}
+
 // ProductionDevice is a device row augmented with connection status for production detail view.
 type ProductionDevice struct {
 	Serial           string    `json:"serial"`
@@ -1996,6 +2054,14 @@ CREATE INDEX IF NOT EXISTS idx_productions_prefix ON productions(product_code, m
 
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS changelog TEXT NOT NULL DEFAULT '';
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS status    TEXT NOT NULL DEFAULT 'active';
+
+CREATE TABLE IF NOT EXISTS users (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username      TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    role          TEXT NOT NULL CHECK (role IN ('viewer', 'operator')),
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

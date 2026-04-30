@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
+	"golang.org/x/crypto/bcrypt"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/shell"
@@ -550,7 +551,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 	}
 }
 
-func (h *Handler) isAuthenticated(r *http.Request) bool {
+func (h *Handler) isAdmin(r *http.Request) bool {
 	session, err := h.store.Get(r, "mdm-session")
 	if err != nil {
 		return false
@@ -559,9 +560,48 @@ func (h *Handler) isAuthenticated(r *http.Request) bool {
 	return ok && auth
 }
 
+// isAuthenticated is kept for compatibility; use isAdmin for admin-only checks.
+func (h *Handler) isAuthenticated(r *http.Request) bool { return h.isAdmin(r) }
+
+func (h *Handler) isLoggedIn(r *http.Request) bool {
+	if h.isAdmin(r) {
+		return true
+	}
+	session, err := h.store.Get(r, "mdm-session")
+	if err != nil {
+		return false
+	}
+	uid, _ := session.Values["user_id"].(string)
+	return uid != ""
+}
+
+func (h *Handler) role(r *http.Request) string {
+	if h.isAdmin(r) {
+		return "admin"
+	}
+	session, err := h.store.Get(r, "mdm-session")
+	if err != nil {
+		return ""
+	}
+	role, _ := session.Values["user_role"].(string)
+	return role
+}
+
+func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any {
+	if data == nil {
+		data = map[string]any{}
+	}
+	data["Role"] = h.role(r)
+	return data
+}
+
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data map[string]any) {
+	h.tmpl.ExecuteTemplate(w, name, h.withRole(r, data))
+}
+
 func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !h.isAuthenticated(r) {
+		if !h.isLoggedIn(r) {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
@@ -569,8 +609,18 @@ func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !h.isAdmin(r) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
-	if h.isAuthenticated(r) {
+	if h.isLoggedIn(r) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
@@ -582,23 +632,38 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	user := r.FormValue("username")
 	pass := r.FormValue("password")
 
+	// Check admin credentials first (constant-time).
 	userMatch := subtle.ConstantTimeCompare([]byte(user), []byte(h.user)) == 1
 	passMatch := subtle.ConstantTimeCompare([]byte(pass), []byte(h.password)) == 1
-
-	if !userMatch || !passMatch {
-		h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": "Invalid credentials"})
+	if userMatch && passMatch {
+		session, _ := h.store.Get(r, "mdm-session")
+		session.Values["authenticated"] = true
+		session.Save(r, w)
+		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
 
-	session, _ := h.store.Get(r, "mdm-session")
-	session.Values["authenticated"] = true
-	session.Save(r, w)
-	http.Redirect(w, r, "/", http.StatusFound)
+	// Fall back to DB users.
+	dbUser, err := h.db.GetUserByUsername(r.Context(), user)
+	if err == nil {
+		if bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(pass)) == nil {
+			session, _ := h.store.Get(r, "mdm-session")
+			session.Values["user_id"] = dbUser.ID.String()
+			session.Values["user_role"] = dbUser.Role
+			session.Save(r, w)
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+	}
+
+	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": "Invalid credentials"})
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	session, _ := h.store.Get(r, "mdm-session")
 	session.Values["authenticated"] = false
+	delete(session.Values, "user_id")
+	delete(session.Values, "user_role")
 	session.Options.MaxAge = -1
 	session.Save(r, w)
 	http.Redirect(w, r, "/login", http.StatusFound)
@@ -702,10 +767,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
-		h.tmpl.ExecuteTemplate(w, "device-table", data)
+		h.tmpl.ExecuteTemplate(w, "device-table", h.withRole(r, data))
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "devices.html", data)
+	h.render(w, r, "devices.html", data)
 }
 
 func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
@@ -775,7 +840,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.tmpl.ExecuteTemplate(w, "device.html", map[string]any{
+	h.render(w, r, "device.html", map[string]any{
 		"Title":             device.SerialNumber,
 		"Device":            device,
 		"Online":            h.hub.IsConnected(device.ID),
@@ -1161,7 +1226,7 @@ func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
 	}
 	serialList := strings.Split(serials, ",")
 
-	h.tmpl.ExecuteTemplate(w, "export.html", map[string]any{
+	h.render(w, r, "export.html", map[string]any{
 		"Title":   "Export Data",
 		"Serials": serialList,
 	})
@@ -1453,7 +1518,7 @@ func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "groups.html", map[string]any{
+	h.render(w, r, "groups.html", map[string]any{
 		"Title":  "Groups",
 		"Groups": groups,
 	})
@@ -1475,7 +1540,7 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "group_detail.html", map[string]any{
+	h.render(w, r, "group_detail.html", map[string]any{
 		"Title":   g.Name,
 		"Group":   g,
 		"Devices": devices,
@@ -1674,7 +1739,7 @@ func (h *Handler) OTAPackages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "updates.html", map[string]any{
+	h.render(w, r, "updates.html", map[string]any{
 		"Title":    "OTA Packages",
 		"Packages": pkgs,
 	})
@@ -1724,7 +1789,7 @@ func (h *Handler) OTAPackageDetail(w http.ResponseWriter, r *http.Request) {
 	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
 
-	h.tmpl.ExecuteTemplate(w, "update_detail.html", map[string]any{
+	h.render(w, r, "update_detail.html", map[string]any{
 		"Title":       fmt.Sprintf("OTA Package #%d", id),
 		"Package":     pkg,
 		"Deployments": deployments,
@@ -1830,7 +1895,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	targets, _ := h.db.GetUpdateTargets(r.Context(), did)
 	upd.Targets = targets
 
-	h.tmpl.ExecuteTemplate(w, "deployment_detail.html", map[string]any{
+	h.render(w, r, "deployment_detail.html", map[string]any{
 		"Title":      fmt.Sprintf("Deployment #%d", did),
 		"Deployment": upd,
 		"Package":    upd.OtaPackage,
@@ -1919,7 +1984,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "commands.html", map[string]any{
+	h.render(w, r, "commands.html", map[string]any{
 		"Title":    "Commands",
 		"Commands": cmds,
 		"Groups":   groups,
@@ -2033,7 +2098,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "command_detail.html", map[string]any{
+	h.render(w, r, "command_detail.html", map[string]any{
 		"Title":      "Command " + id.String()[:8],
 		"Command":    cmd,
 		"Deliveries": deliveries,
@@ -2117,7 +2182,7 @@ func (h *Handler) SetupPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "setup.html", map[string]any{
+	h.render(w, r, "setup.html", map[string]any{
 		"Title": "App Repository",
 		"Apps":  apps,
 	})
@@ -2171,7 +2236,7 @@ func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
-	h.tmpl.ExecuteTemplate(w, "settings.html", map[string]any{
+	h.render(w, r, "settings.html", map[string]any{
 		"Title":           "Settings",
 		"ExtraColumns":    h.cfg.Columns(),
 		"LegacyCheckin":   h.cfg.LegacyCheckin(),
@@ -2285,7 +2350,7 @@ func (h *Handler) LogcatPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.tmpl.ExecuteTemplate(w, "logcat.html", map[string]any{
+	h.render(w, r, "logcat.html", map[string]any{
 		"Title":      device.SerialNumber + " — Logcat",
 		"Device":     device,
 		"Entries":    entries,
@@ -2357,6 +2422,20 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	cmdType := r.FormValue("type")
 	if cmdType == "" {
 		cmdType = "install_apk"
+	}
+
+	userRole := h.role(r)
+	switch cmdType {
+	case "shell", "reboot":
+		if userRole != "admin" && userRole != "operator" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	case "install_apk", "ota":
+		if userRole != "admin" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
 	}
 
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -2440,7 +2519,7 @@ func (h *Handler) FleetPackages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "packages.html", map[string]any{
+	h.render(w, r, "packages.html", map[string]any{
 		"Title":    "Package Inventory",
 		"Packages": pkgs,
 		"Query":    q,
@@ -2459,7 +2538,7 @@ func (h *Handler) DevicePackages(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "device_packages.html", map[string]any{
+	h.render(w, r, "device_packages.html", map[string]any{
 		"Title":    serial + " — Packages",
 		"Device":   device,
 		"Packages": pkgs,
@@ -2474,13 +2553,13 @@ func (h *Handler) ProductionList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "productions.html", map[string]any{
+	h.render(w, r, "productions.html", map[string]any{
 		"Productions": productions,
 	})
 }
 
 func (h *Handler) ProductionNew(w http.ResponseWriter, r *http.Request) {
-	h.tmpl.ExecuteTemplate(w, "production_form.html", nil)
+	h.render(w, r, "production_form.html", nil)
 }
 
 func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
@@ -2549,7 +2628,7 @@ func (h *Handler) ProductionDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	online := h.hub.ConnectedIDs()
-	h.tmpl.ExecuteTemplate(w, "production_detail.html", map[string]any{
+	h.render(w, r, "production_detail.html", map[string]any{
 		"Production": prod,
 		"Devices":    devices,
 		"Online":     online,
@@ -2635,6 +2714,57 @@ func (h *Handler) ProductionPreviewSerial(w http.ResponseWriter, r *http.Request
 	fmt.Fprintf(w, `<code class="serial-preview">%s</code> → <code class="serial-preview">%s</code> &nbsp;<span class="muted small">batch <strong>%s</strong></span>`, first, last, batch)
 }
 
+// ── Users ─────────────────────────────────────────────────────────────────────
+
+func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
+	users, err := h.db.ListUsers(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "users.html", map[string]any{
+		"Users": users,
+	})
+}
+
+func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	username := strings.TrimSpace(r.FormValue("username"))
+	password := r.FormValue("password")
+	role := r.FormValue("role")
+
+	if username == "" || password == "" || (role != "viewer" && role != "operator") {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := h.db.CreateUser(r.Context(), username, string(hash), role); err != nil {
+		http.Error(w, "Username already exists or internal error", http.StatusBadRequest)
+		return
+	}
+
+	http.Redirect(w, r, "/users", http.StatusFound)
+}
+
+func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteUser(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/users", http.StatusFound)
+}
+
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /login", h.LoginPage)
 	mux.HandleFunc("POST /login", h.LoginSubmit)
@@ -2651,11 +2781,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	mux.HandleFunc("GET /devices/{serial}/checkins-live", h.requireAuth(h.DeviceCheckinsPartial))
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
-	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAuth(h.DeviceSetPollInterval))
-	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAuth(h.DeviceKioskUpdate))
-	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAuth(h.DeviceHide))
-	mux.HandleFunc("POST /devices/bulk-hide", h.requireAuth(h.BulkHideDevices))
-	mux.HandleFunc("POST /devices/bulk-kiosk", h.requireAuth(h.BulkKioskUpdate))
+	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
+	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
+	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
+	mux.HandleFunc("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
+	mux.HandleFunc("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	mux.HandleFunc("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
@@ -2665,49 +2795,53 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
 
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
-	mux.HandleFunc("POST /groups", h.requireAuth(h.GroupCreate))
+	mux.HandleFunc("POST /groups", h.requireAdmin(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
-	mux.HandleFunc("POST /groups/{id}/delete", h.requireAuth(h.GroupDelete))
-	mux.HandleFunc("POST /groups/{id}/devices", h.requireAuth(h.GroupAddDevice))
-	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAuth(h.GroupRemoveDevice))
-	mux.HandleFunc("POST /groups/{id}/commands", h.requireAuth(h.GroupCommandCreate))
+	mux.HandleFunc("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))
+	mux.HandleFunc("POST /groups/{id}/devices", h.requireAdmin(h.GroupAddDevice))
+	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAdmin(h.GroupRemoveDevice))
+	mux.HandleFunc("POST /groups/{id}/commands", h.requireAdmin(h.GroupCommandCreate))
 
 	mux.HandleFunc("GET /productions", h.requireAuth(h.ProductionList))
-	mux.HandleFunc("GET /productions/new", h.requireAuth(h.ProductionNew))
-	mux.HandleFunc("POST /productions", h.requireAuth(h.ProductionCreate))
+	mux.HandleFunc("GET /productions/new", h.requireAdmin(h.ProductionNew))
+	mux.HandleFunc("POST /productions", h.requireAdmin(h.ProductionCreate))
 	mux.HandleFunc("GET /productions/preview-serial", h.requireAuth(h.ProductionPreviewSerial))
 	mux.HandleFunc("GET /productions/{id}", h.requireAuth(h.ProductionDetail))
 	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAuth(h.ProductionExportCSV))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
-	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
+	mux.HandleFunc("POST /commands", h.requireAdmin(h.CommandCreate))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
-	mux.HandleFunc("POST /commands/{id}/delete", h.requireAuth(h.CommandDelete))
-	mux.HandleFunc("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
-	mux.HandleFunc("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
+	mux.HandleFunc("POST /commands/{id}/delete", h.requireAdmin(h.CommandDelete))
+	mux.HandleFunc("POST /commands/{id}/resend", h.requireAdmin(h.CommandResendAll))
+	mux.HandleFunc("POST /commands/{id}/resend/{serial}", h.requireAdmin(h.CommandResendDevice))
 
-	mux.HandleFunc("GET /settings", h.requireAuth(h.SettingsPage))
-	mux.HandleFunc("POST /settings/columns/add", h.requireAuth(h.SettingsAddColumn))
-	mux.HandleFunc("POST /settings/columns/{key}/remove", h.requireAuth(h.SettingsRemoveColumn))
-	mux.HandleFunc("POST /settings/legacy-checkin/toggle", h.requireAuth(h.SettingsToggleLegacyCheckin))
-	mux.HandleFunc("POST /settings/checkin-interval", h.requireAuth(h.SettingsSetCheckinInterval))
+	mux.HandleFunc("GET /settings", h.requireAdmin(h.SettingsPage))
+	mux.HandleFunc("POST /settings/columns/add", h.requireAdmin(h.SettingsAddColumn))
+	mux.HandleFunc("POST /settings/columns/{key}/remove", h.requireAdmin(h.SettingsRemoveColumn))
+	mux.HandleFunc("POST /settings/legacy-checkin/toggle", h.requireAdmin(h.SettingsToggleLegacyCheckin))
+	mux.HandleFunc("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))
 
-	mux.HandleFunc("GET /setup", h.requireAuth(h.SetupPage))
-	mux.HandleFunc("POST /setup/apps", h.requireAuth(h.SetupCreateApp))
-	mux.HandleFunc("POST /setup/apps/create", h.requireAuth(h.SetupCreateAppJSON))
-	mux.HandleFunc("POST /setup/apps/{id}/delete", h.requireAuth(h.SetupDeleteApp))
+	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
+	mux.HandleFunc("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
+	mux.HandleFunc("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
+	mux.HandleFunc("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 
 	mux.HandleFunc("GET /updates", h.requireAuth(h.OTAPackages))
-	mux.HandleFunc("POST /updates", h.requireAuth(h.OTAPackageCreate))
+	mux.HandleFunc("POST /updates", h.requireAdmin(h.OTAPackageCreate))
 	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.OTAPackageDetail))
-	mux.HandleFunc("POST /updates/{id}/yank", h.requireAuth(h.OTAPackageYank))
-	mux.HandleFunc("POST /updates/{id}/delete", h.requireAuth(h.OTAPackageDelete))
-	mux.HandleFunc("POST /updates/{id}/deploy", h.requireAuth(h.OTAPackageDeploy))
+	mux.HandleFunc("POST /updates/{id}/yank", h.requireAdmin(h.OTAPackageYank))
+	mux.HandleFunc("POST /updates/{id}/delete", h.requireAdmin(h.OTAPackageDelete))
+	mux.HandleFunc("POST /updates/{id}/deploy", h.requireAdmin(h.OTAPackageDeploy))
 	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
-	mux.HandleFunc("POST /updates/{id}/deployments/{did}/delete", h.requireAuth(h.DeploymentDelete))
+	mux.HandleFunc("POST /updates/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
+
+	mux.HandleFunc("GET /users", h.requireAdmin(h.UserList))
+	mux.HandleFunc("POST /users", h.requireAdmin(h.UserCreate))
+	mux.HandleFunc("POST /users/{id}/delete", h.requireAdmin(h.UserDelete))
 
 	// Command output SSE
 	mux.HandleFunc("GET /commands/{id}/output/{serial}/stream", h.requireAuth(h.CommandOutputStream))

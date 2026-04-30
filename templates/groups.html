@@ -6,7 +6,7 @@
     <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>Groups</h2>
     <p class="page-subtitle">{{len .Groups}} group{{if ne (len .Groups) 1}}s{{end}}</p>
   </div>
-  <button type="button" class="btn-outline btn-plus" onclick="openGroupModal()" title="New Group"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></button>
+  {{if eq .Role "admin"}}<button type="button" class="btn-outline btn-plus" onclick="openGroupModal()" title="New Group"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></button>{{end}}
 </div>
 
 <div class="card">
@@ -16,7 +16,7 @@
       <div class="empty-state-title">No groups yet</div>
       <div class="empty-state-text">Create a group to target commands, exports, and kiosk changes faster.</div>
     </div>
-    <button type="button" class="btn-primary" onclick="openGroupModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
+    {{if eq .Role "admin"}}<button type="button" class="btn-primary" onclick="openGroupModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>{{end}}
   </div>
   {{else}}
   <table class="table">
@@ -25,7 +25,7 @@
         <th>Name</th>
         <th>Devices</th>
         <th>Created</th>
-        <th></th>
+        {{if eq .Role "admin"}}<th></th>{{end}}
       </tr>
     </thead>
     <tbody>
@@ -35,12 +35,14 @@
           <td><a href="/groups/{{.ID}}" class="link-detail">{{.Name}}</a></td>
           <td class="muted">{{.DeviceCount}}</td>
           <td class="muted small">{{localTime .CreatedAt}}</td>
+          {{if eq $.Role "admin"}}
           <td>
             <form action="/groups/{{.ID}}/delete" method="POST" style="display:inline"
                   onsubmit="return confirm('Delete group {{.Name}}?')">
               <button type="submit" class="btn-danger-sm">Delete</button>
             </form>
           </td>
+          {{end}}
         </tr>
         {{end}}
       {{else}}
@@ -53,6 +55,7 @@
   {{end}}
 </div>
 
+{{if eq .Role "admin"}}
 <div id="group-modal" class="modal-backdrop" onclick="closeGroupModal(event)">
   <div class="modal-box">
     <div class="modal-header">
@@ -71,6 +74,7 @@
     </form>
   </div>
 </div>
+{{end}}
 
 <script>
 function openGroupModal() {

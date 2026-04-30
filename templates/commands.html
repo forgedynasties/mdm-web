@@ -8,6 +8,7 @@
   </div>
 </div>
 
+{{if eq .Role "admin"}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>New Command</h3></div>
   <form action="/commands" method="POST" class="command-form" id="cmd-form">
@@ -91,6 +92,7 @@
     <button type="submit" id="send-btn" class="btn-primary btn-send"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg></span>Send Command</button>
   </form>
 </div>
+{{end}}
 
 <div class="card">
   <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
@@ -131,9 +133,11 @@
           <td class="muted small">{{localTime .CreatedAt}}</td>
           <td style="display:flex;gap:8px;align-items:center;">
             <a href="/commands/{{.ID}}" class="link-detail">Status</a>
+            {{if eq $.Role "admin"}}
             <form action="/commands/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
               <button type="submit" class="btn-link" style="color:var(--danger);">Delete</button>
             </form>
+            {{end}}
           </td>
         </tr>
         {{end}}
