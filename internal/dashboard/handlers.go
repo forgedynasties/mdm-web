@@ -595,19 +595,8 @@ func (h *Handler) currentUsername(r *http.Request) string {
 	if err != nil {
 		return ""
 	}
-	uid, _ := session.Values["user_id"].(string)
-	if uid == "" {
-		return ""
-	}
-	userID, err := uuid.Parse(uid)
-	if err != nil {
-		return uid
-	}
-	u, err := h.db.GetUserByID(r.Context(), userID)
-	if err != nil {
-		return uid
-	}
-	return u.Username
+	username, _ := session.Values["username"].(string)
+	return username
 }
 
 func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any {
@@ -663,6 +652,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if userMatch && passMatch {
 		session, _ := h.store.Get(r, "mdm-session")
 		session.Values["authenticated"] = true
+		session.Values["username"] = h.user
 		session.Save(r, w)
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
@@ -675,6 +665,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 			session, _ := h.store.Get(r, "mdm-session")
 			session.Values["user_id"] = dbUser.ID.String()
 			session.Values["user_role"] = dbUser.Role
+			session.Values["username"] = dbUser.Username
 			session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
@@ -689,6 +680,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	session.Values["authenticated"] = false
 	delete(session.Values, "user_id")
 	delete(session.Values, "user_role")
+	delete(session.Values, "username")
 	session.Options.MaxAge = -1
 	session.Save(r, w)
 	http.Redirect(w, r, "/login", http.StatusFound)
