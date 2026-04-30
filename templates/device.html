@@ -951,7 +951,6 @@
             </div>
             <input type="hidden" name="apk_url" id="cmd-apk-url">
           {{end}}
-          <div class="device-action-note">The install request is queued immediately and delivered on the device's next check-in.</div>
           <div>
             <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>Install App</button>
           </div>
@@ -978,7 +977,6 @@
             <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required>
             <span class="muted small">Best for quick diagnostics on legacy devices. Output is easier to inspect from the command detail page.</span>
           </div>
-          <div class="device-action-note warn">This command runs through the legacy check-in path, so timing depends on when the device checks in next.</div>
           <div>
             <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Run Command</button>
           </div>
@@ -1139,7 +1137,7 @@ var deviceActionConfig = {
   install: {
     title: 'Install App',
     copy: 'Choose an app from your repository and queue it for the next check-in.',
-    meta: 'Common task'
+    meta: ''
   },
   screenshot: {
     title: 'Capture Screenshot',
