@@ -242,6 +242,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 		"formatTime": func(t time.Time) string {
 			return t.UTC().Format("2006-01-02 15:04:05 UTC")
 		},
+		"utcDateTimeLocal": func(t time.Time) string {
+			if t.IsZero() {
+				return ""
+			}
+			return t.UTC().Format("2006-01-02T15:04")
+		},
 		"timeISO": func(t time.Time) string {
 			return t.UTC().Format(time.RFC3339)
 		},
@@ -1936,15 +1942,7 @@ func (h *Handler) OTAPackageDeploy(w http.ResponseWriter, r *http.Request) {
 	if rebootBehavior == "" {
 		rebootBehavior = "immediate"
 	}
-	var scheduledTime *time.Time
-	if rebootBehavior == "scheduled" {
-		if s := r.FormValue("scheduled_time"); s != "" {
-			if t, err := time.Parse("2006-01-02T15:04", s); err == nil {
-				utc := t.UTC()
-				scheduledTime = &utc
-			}
-		}
-	}
+	scheduledTime := parseScheduledUTC(r.FormValue("scheduled_time"), rebootBehavior)
 
 	deployment, err := h.db.CreateUpdate(r.Context(), pkgID, rebootBehavior, scheduledTime)
 	if err != nil {
@@ -1993,6 +1991,39 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) DeploymentUpdateSettings(w http.ResponseWriter, r *http.Request) {
+	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), did)
+	if err != nil || upd.OtaPackageID != pkgID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+
+	rebootBehavior := strings.TrimSpace(r.FormValue("reboot_behavior"))
+	switch rebootBehavior {
+	case "immediate", "scheduled", "manual":
+	default:
+		rebootBehavior = "immediate"
+	}
+	scheduledTime := parseScheduledUTC(r.FormValue("scheduled_time"), rebootBehavior)
+
+	if err := h.db.UpdateDeploymentRebootSettings(r.Context(), did, rebootBehavior, scheduledTime); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", pkgID, did), http.StatusSeeOther)
+}
+
 func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
 	pkgID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -2009,6 +2040,22 @@ func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/updates/%d", pkgID), http.StatusSeeOther)
+}
+
+func parseScheduledUTC(raw, rebootBehavior string) *time.Time {
+	if rebootBehavior != "scheduled" {
+		return nil
+	}
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return nil
+	}
+	t, err := time.ParseInLocation("2006-01-02T15:04", s, time.UTC)
+	if err != nil {
+		return nil
+	}
+	utc := t.UTC()
+	return &utc
 }
 
 func (h *Handler) resolveEligibleDevices(r *http.Request) ([]uuid.UUID, error) {
@@ -2958,6 +3005,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /updates/{id}/delete", h.requireAdmin(h.OTAPackageDelete))
 	mux.HandleFunc("POST /updates/{id}/deploy", h.requireAdmin(h.OTAPackageDeploy))
 	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
+	mux.HandleFunc("POST /updates/{id}/deployments/{did}/settings", h.requireAdmin(h.DeploymentUpdateSettings))
 	mux.HandleFunc("POST /updates/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 
 	mux.HandleFunc("GET /users", h.requireAdmin(h.UserList))

@@ -2192,6 +2192,15 @@ func (d *DB) DeleteUpdate(ctx context.Context, id int) error {
 	return err
 }
 
+func (d *DB) UpdateDeploymentRebootSettings(ctx context.Context, id int, rebootBehavior string, scheduledTime *time.Time) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE updates
+		SET reboot_behavior = $2, scheduled_time = $3
+		WHERE id = $1
+	`, id, rebootBehavior, scheduledTime)
+	return err
+}
+
 // SendUpdateToDevices adds devices as targets of an update. Skips devices that
 // already have an active (non-complete) update. Sets the update status to "active".
 func (d *DB) SendUpdateToDevices(ctx context.Context, updateID int, deviceIDs []uuid.UUID) error {

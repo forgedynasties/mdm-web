@@ -96,8 +96,9 @@
       <input type="hidden" name="reboot_behavior" id="reboot-input" value="immediate">
     </div>
     <div class="form-row" id="scheduled-time-row" style="display:none;">
-      <label class="form-label">Scheduled Time</label>
+      <label class="form-label">Scheduled Time (UTC / GMT+0)</label>
       <input type="datetime-local" name="scheduled_time" class="form-input" style="max-width:260px;">
+      <div class="form-hint">This field is interpreted as UTC. Example: enter 17:00 here to schedule 5:00 PM UTC.</div>
     </div>
 
     {{/* Device / Group picker */}}
