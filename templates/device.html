@@ -326,6 +326,19 @@
     return { pts: all.filter(p => p.x >= minX), minX, lastX };
   }
 
+  // Smooth integer battery check-in points so the line reads as a trend.
+  // Keeps timestamp and metadata intact; only y is softened for rendering.
+  function smoothBatterySeries(points, alpha) {
+    if (!points || points.length < 3) return points;
+    const a = (typeof alpha === 'number' ? alpha : 0.35);
+    let prev = points[0].y;
+    return points.map(function (p, idx) {
+      if (idx === 0) return p;
+      prev = (a * p.y) + ((1 - a) * prev);
+      return Object.assign({}, p, { y: Math.max(0, Math.min(100, Number(prev.toFixed(2)))) });
+    });
+  }
+
   window.setChartTab = function setChartTab(tab) {
     activeTab = tab;
     localStorage.setItem(tabStorageKey, tab);
@@ -339,7 +352,7 @@
 
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
-    chart.data.datasets[0].data = pts;
+    chart.data.datasets[0].data = (chart === batteryChart) ? smoothBatterySeries(pts, 0.32) : pts;
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
     chart.update();
@@ -352,7 +365,7 @@
   function applyUnifiedData() {
     if (!unifiedChart) return;
     const { pts: bPts, minX, lastX } = filterWindow(allBattery);
-    unifiedChart.data.datasets[0].data = bPts;
+    unifiedChart.data.datasets[0].data = smoothBatterySeries(bPts, 0.32);
     unifiedChart.data.datasets[1].data = filterWindow(allTemp).pts;
     unifiedChart.data.datasets[2].data = filterWindow(allRam).pts;
     unifiedChart.options.scales.x.min = minX;
