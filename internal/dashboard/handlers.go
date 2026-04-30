@@ -2426,12 +2426,12 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 
 	userRole := h.role(r)
 	switch cmdType {
-	case "shell", "reboot":
+	case "shell", "reboot", "install_apk":
 		if userRole != "admin" && userRole != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
-	case "install_apk", "ota":
+	case "ota":
 		if userRole != "admin" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return

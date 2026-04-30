@@ -891,14 +891,14 @@
     </div>
 
     <div class="device-action-picker">
-      {{if eq .Role "admin"}}
+      {{if or (eq .Role "admin") (eq .Role "operator")}}
       <button type="button" class="device-action-tile active" data-device-action="install" onclick="selectDeviceAction('install', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
         <div class="device-action-tile-title">Install App</div>
         <div class="device-action-tile-copy">Choose an APK from the repository and queue it for the next check-in.</div>
       </button>
       {{end}}
-      <button type="button" class="device-action-tile{{if ne .Role "admin"}} active{{end}}" data-device-action="screenshot" onclick="selectDeviceAction('screenshot', this)">
+      <button type="button" class="device-action-tile{{if eq .Role "viewer"}} active{{end}}" data-device-action="screenshot" onclick="selectDeviceAction('screenshot', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
         <div class="device-action-tile-title">Capture Screenshot</div>
         <div class="device-action-tile-copy">Request a fresh screenshot and review it from the command status screen.</div>
@@ -928,7 +928,7 @@
         <span class="device-action-meta" id="device-action-meta">Common task</span>
       </div>
 
-      {{if eq .Role "admin"}}
+      {{if or (eq .Role "admin") (eq .Role "operator")}}
       <div id="device-action-install" class="device-action-body">
         <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
           <input type="hidden" name="type" value="install_apk">
