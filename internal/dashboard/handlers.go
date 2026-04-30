@@ -3005,7 +3005,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /updates/{id}/delete", h.requireAdmin(h.OTAPackageDelete))
 	mux.HandleFunc("POST /updates/{id}/deploy", h.requireAdmin(h.OTAPackageDeploy))
 	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
-	mux.HandleFunc("POST /updates/{id}/deployments/{did}/settings", h.requireAdmin(h.DeploymentUpdateSettings))
+	mux.HandleFunc("POST /updates/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
 	mux.HandleFunc("POST /updates/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 
 	mux.HandleFunc("GET /users", h.requireAdmin(h.UserList))
