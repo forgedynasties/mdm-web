@@ -30,13 +30,40 @@
   <div class="stat-card">
     <div class="stat-label">Reboot</div>
     <div class="stat-value small">{{$dep.RebootBehavior}}</div>
-    {{if $dep.ScheduledTime}}<div class="stat-sub">{{localTime (deref $dep.ScheduledTime)}}</div>{{end}}
+    {{if $dep.ScheduledTime}}
+    <div class="stat-sub">{{formatTime (deref $dep.ScheduledTime)}}</div>
+    <div class="stat-sub">{{localTime (deref $dep.ScheduledTime)}}</div>
+    {{end}}
   </div>
   <div class="stat-card">
     <div class="stat-label">Created</div>
     <div class="stat-value small">{{timeSince $dep.CreatedAt}}</div>
     <div class="stat-sub">{{localTime $dep.CreatedAt}}</div>
   </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Edit Reboot Settings</h3>
+    <span class="muted small">Changes apply to this deployment without updating the Android client.</span>
+  </div>
+  <form action="/updates/{{$pkg.ID}}/deployments/{{$dep.ID}}/settings" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">Reboot After Install</label>
+      <div class="seg-control" id="reboot-seg">
+        <button type="button" class="seg-btn {{if eq $dep.RebootBehavior "immediate"}}active{{end}}" data-mode="immediate" onclick="setReboot('immediate')">Immediate</button>
+        <button type="button" class="seg-btn {{if eq $dep.RebootBehavior "scheduled"}}active{{end}}" data-mode="scheduled" onclick="setReboot('scheduled')">Scheduled</button>
+        <button type="button" class="seg-btn {{if eq $dep.RebootBehavior "manual"}}active{{end}}" data-mode="manual" onclick="setReboot('manual')">Manual</button>
+      </div>
+      <input type="hidden" name="reboot_behavior" id="reboot-input" value="{{$dep.RebootBehavior}}">
+    </div>
+    <div class="form-row" id="scheduled-time-row" style="{{if eq $dep.RebootBehavior "scheduled"}}{{else}}display:none;{{end}}">
+      <label class="form-label">Scheduled Time (UTC / GMT+0)</label>
+      <input type="datetime-local" name="scheduled_time" value="{{if $dep.ScheduledTime}}{{utcDateTimeLocal (deref $dep.ScheduledTime)}}{{end}}" class="form-input" style="max-width:260px;">
+      <div class="form-hint">This field is interpreted as UTC. Devices that have not yet received the OTA command will use the updated reboot setting.</div>
+    </div>
+    <button type="submit" class="btn-primary">Save Reboot Settings</button>
+  </form>
 </div>
 
 <div class="card">
@@ -67,6 +94,16 @@
     </tbody>
   </table>
 </div>
+
+<script>
+function setReboot(mode) {
+  document.getElementById('reboot-input').value = mode;
+  document.getElementById('scheduled-time-row').style.display = mode === 'scheduled' ? '' : 'none';
+  document.querySelectorAll('#reboot-seg .seg-btn').forEach(function (b) {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
+</script>
 
 {{template "footer" .}}
 {{end}}
