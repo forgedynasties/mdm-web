@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -729,34 +730,74 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	filter := db.DeviceFilter{
 		Search:                   q,
 		GroupID:                  groupID,
-		ProductionID: productionID,
+		ProductionID:             productionID,
 		Online:                   r.URL.Query().Get("status"),
 		BuildID:                  r.URL.Query().Get("build"),
 		Battery:                  r.URL.Query().Get("battery"),
 		Hidden:                   r.URL.Query().Get("hidden"),
-		ActiveThresholdSecs: activeThreshold,
+		ActiveThresholdSecs:      activeThreshold,
 	}
 
-	devices, err := h.db.ListDevices(r.Context(), filter, offset, pageSize, sort, dir)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	total, err := h.db.CountDevices(r.Context(), filter)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	summary, err := h.db.GetSummary(r.Context(), activeThreshold)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	var (
+		devices     []db.Device
+		total       int
+		summary     db.Summary
+		groups      []db.Group
+		productions []db.Production
+		builds      []string
+	)
+
+	errCh := make(chan error, 6)
+	var wg sync.WaitGroup
+	run := func(fn func() error) {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := fn(); err != nil {
+				errCh <- err
+			}
+		}()
 	}
 
-	// Load filter options
-	groups, _ := h.db.ListGroups(r.Context())
-	productions, _ := h.db.ListProductions(r.Context())
-	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
+	run(func() error {
+		var err error
+		devices, err = h.db.ListDevices(r.Context(), filter, offset, pageSize, sort, dir)
+		return err
+	})
+	run(func() error {
+		var err error
+		total, err = h.db.CountDevices(r.Context(), filter)
+		return err
+	})
+	run(func() error {
+		var err error
+		summary, err = h.db.GetSummary(r.Context(), activeThreshold)
+		return err
+	})
+	run(func() error {
+		var err error
+		groups, err = h.db.ListGroups(r.Context())
+		return err
+	})
+	run(func() error {
+		var err error
+		productions, err = h.db.ListProductions(r.Context())
+		return err
+	})
+	run(func() error {
+		var err error
+		builds, err = h.db.GetDistinctBuildIDs(r.Context())
+		return err
+	})
+
+	wg.Wait()
+	close(errCh)
+	for err := range errCh {
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
 
 	totalPages := (total + pageSize - 1) / pageSize
 	if totalPages < 1 {
@@ -781,15 +822,15 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Sort":                sort,
 		"SortDir":             dir,
 		"Online":              online,
-		"Groups":                 groups,
-		"Productions":      productions,
-		"Builds":                 builds,
-		"FilterGroup":            r.URL.Query().Get("group"),
-		"FilterProduction": r.URL.Query().Get("production"),
-		"FilterStatus":           r.URL.Query().Get("status"),
-		"FilterBuild":            r.URL.Query().Get("build"),
-		"FilterBattery":          r.URL.Query().Get("battery"),
-		"FilterHidden":           r.URL.Query().Get("hidden"),
+		"Groups":              groups,
+		"Productions":         productions,
+		"Builds":              builds,
+		"FilterGroup":         r.URL.Query().Get("group"),
+		"FilterProduction":    r.URL.Query().Get("production"),
+		"FilterStatus":        r.URL.Query().Get("status"),
+		"FilterBuild":         r.URL.Query().Get("build"),
+		"FilterBattery":       r.URL.Query().Get("battery"),
+		"FilterHidden":        r.URL.Query().Get("hidden"),
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
 	}

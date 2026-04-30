@@ -298,14 +298,16 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	var deviceID uuid.UUID
 	var pollIntervalMs int
 	err = tx.QueryRow(ctx, `
-		INSERT INTO devices (serial_number, build_id, last_seen_at)
-		VALUES ($1, $2, NOW())
+		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra)
+		VALUES ($1, $2, NOW(), $3, $4)
 		ON CONFLICT (serial_number) DO UPDATE
-			SET build_id     = EXCLUDED.build_id,
-			    last_seen_at = NOW(),
-			    hidden       = false
+			SET build_id           = EXCLUDED.build_id,
+			    last_seen_at       = NOW(),
+			    latest_battery_pct = EXCLUDED.latest_battery_pct,
+			    latest_extra       = EXCLUDED.latest_extra,
+			    hidden             = false
 		RETURNING id, poll_interval_ms
-	`, serial, buildID).Scan(&deviceID, &pollIntervalMs)
+	`, serial, buildID, batteryPct, extra).Scan(&deviceID, &pollIntervalMs)
 	if err != nil {
 		return uuid.Nil, 0, err
 	}
@@ -327,20 +329,13 @@ func (d *DB) GetSummary(ctx context.Context, activeSecs int) (Summary, error) {
 	}
 	var s Summary
 	err := d.pool.QueryRow(ctx, `
-		WITH latest AS (
-			SELECT DISTINCT ON (device_id)
-				device_id, battery_pct
-			FROM checkins
-			ORDER BY device_id, created_at DESC
-		)
 		SELECT
 			COUNT(d.id),
 			COUNT(*) FILTER (WHERE d.last_seen_at > NOW() - ($1 * INTERVAL '1 second')),
-			COUNT(*) FILTER (WHERE l.battery_pct < 20),
+			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20),
 			COUNT(DISTINCT d.build_id),
 			COUNT(*) FILTER (WHERE dc.kiosk_enabled = true)
 		FROM devices d
-		LEFT JOIN latest l ON l.device_id = d.id
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE NOT d.hidden
 	`, activeSecs).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.UniqueBuilds, &s.KioskCount)
@@ -431,18 +426,12 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	if selectRows {
 		base := `SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
-			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.latest_battery_pct AS battery_pct,
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
-			COALESCE(c.extra, '{}'::jsonb) AS latest_extra
+			d.latest_extra AS latest_extra
 		FROM devices d
-		LEFT JOIN LATERAL (
-			SELECT battery_pct, extra FROM checkins
-			WHERE device_id = d.id
-			ORDER BY created_at DESC
-			LIMIT 1
-		) c ON true
 		LEFT JOIN device_config dc ON dc.device_id = d.id`
 
 		for _, j := range joins {
@@ -451,15 +440,14 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 
 		base += "\nWHERE " + strings.Join(wheres, " AND ")
 
-		// battery filter needs the lateral join, so it goes in HAVING-style via a wrapping CTE
-		// or we simply add it to WHERE referencing c.battery_pct
+		// Battery filters run against the latest checkin snapshot denormalized onto devices.
 		switch f.Battery {
 		case "low":
-			base += " AND COALESCE(c.battery_pct, 0) < 20"
+			base += " AND d.latest_battery_pct < 20"
 		case "mid":
-			base += " AND COALESCE(c.battery_pct, 0) BETWEEN 20 AND 49"
+			base += " AND d.latest_battery_pct BETWEEN 20 AND 49"
 		case "ok":
-			base += " AND COALESCE(c.battery_pct, 0) >= 50"
+			base += " AND d.latest_battery_pct >= 50"
 		}
 
 		if dir != "asc" && dir != "desc" {
@@ -482,13 +470,13 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 			}
 		case "battery":
 			if dir == "desc" {
-				orderClause = "COALESCE(c.battery_pct, 0) DESC"
+				orderClause = "d.latest_battery_pct DESC"
 			} else {
-				orderClause = "COALESCE(c.battery_pct, 0) ASC"
+				orderClause = "d.latest_battery_pct ASC"
 			}
 		case "ram":
 			orderClause = `COALESCE(
-				((c.extra->'ram_usage_mb'->>'used')::int * 100) / NULLIF((c.extra->'ram_usage_mb'->>'total')::int, 0),
+				((d.latest_extra->'ram_usage_mb'->>'used')::int * 100) / NULLIF((d.latest_extra->'ram_usage_mb'->>'total')::int, 0),
 				0
 			) `
 			if dir == "desc" {
@@ -498,9 +486,9 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 			}
 		case "temp":
 			if dir == "desc" {
-				orderClause = "COALESCE((c.extra->>'battery_temp_c')::numeric, 0) DESC"
+				orderClause = "COALESCE((d.latest_extra->>'battery_temp_c')::numeric, 0) DESC"
 			} else {
-				orderClause = "COALESCE((c.extra->>'battery_temp_c')::numeric, 0) ASC"
+				orderClause = "COALESCE((d.latest_extra->>'battery_temp_c')::numeric, 0) ASC"
 			}
 		case "created_at":
 			if dir == "asc" {
@@ -525,28 +513,17 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 
 	// COUNT query
 	base := "SELECT COUNT(*) FROM devices d"
-	// For battery filter we need the lateral join even in count
-	needLateral := f.Battery != ""
-	if needLateral {
-		base += `
-		LEFT JOIN LATERAL (
-			SELECT battery_pct FROM checkins
-			WHERE device_id = d.id
-			ORDER BY created_at DESC
-			LIMIT 1
-		) c ON true`
-	}
 	for _, j := range joins {
 		base += "\n" + j
 	}
 	base += "\nWHERE " + strings.Join(wheres, " AND ")
 	switch f.Battery {
 	case "low":
-		base += " AND COALESCE(c.battery_pct, 0) < 20"
+		base += " AND d.latest_battery_pct < 20"
 	case "mid":
-		base += " AND COALESCE(c.battery_pct, 0) BETWEEN 20 AND 49"
+		base += " AND d.latest_battery_pct BETWEEN 20 AND 49"
 	case "ok":
-		base += " AND COALESCE(c.battery_pct, 0) >= 50"
+		base += " AND d.latest_battery_pct >= 50"
 	}
 
 	return base, args
@@ -646,18 +623,12 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 	err := d.pool.QueryRow(ctx, `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
-			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.latest_battery_pct AS battery_pct,
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
-			COALESCE(c.extra, '{}'::jsonb) AS latest_extra
+			d.latest_extra AS latest_extra
 		FROM devices d
-		LEFT JOIN LATERAL (
-			SELECT battery_pct, extra FROM checkins
-			WHERE device_id = d.id
-			ORDER BY created_at DESC
-			LIMIT 1
-		) c ON true
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.serial_number = $1
 	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra)
@@ -673,18 +644,12 @@ func (d *DB) GetDeviceByID(ctx context.Context, id uuid.UUID) (*Device, error) {
 	err := d.pool.QueryRow(ctx, `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
-			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.latest_battery_pct AS battery_pct,
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
-			COALESCE(c.extra, '{}'::jsonb) AS latest_extra
+			d.latest_extra AS latest_extra
 		FROM devices d
-		LEFT JOIN LATERAL (
-			SELECT battery_pct, extra FROM checkins
-			WHERE device_id = d.id
-			ORDER BY created_at DESC
-			LIMIT 1
-		) c ON true
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.id = $1
 	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra)
@@ -941,18 +906,12 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
-			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.latest_battery_pct AS battery_pct,
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, '')
 		FROM devices d
 		JOIN device_groups dg ON dg.device_id = d.id
-		LEFT JOIN LATERAL (
-			SELECT battery_pct FROM checkins
-			WHERE device_id = d.id
-			ORDER BY created_at DESC
-			LIMIT 1
-		) c ON true
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE dg.group_id = $1
 		ORDER BY d.serial_number
@@ -1079,7 +1038,7 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]Producti
 			d.serial_number,
 			d.id,
 			d.build_id,
-			COALESCE(c.battery_pct, 0),
+			d.latest_battery_pct,
 			d.last_seen_at,
 			d.created_at,
 			CASE
@@ -1092,12 +1051,6 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]Producti
 			AND LENGTH(d.serial_number) = 14
 			AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$'
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
-		LEFT JOIN LATERAL (
-			SELECT battery_pct FROM checkins
-			WHERE device_id = d.id
-			ORDER BY created_at DESC
-			LIMIT 1
-		) c ON true
 		WHERE p.id = $1
 		ORDER BY d.serial_number
 	`, id)
@@ -1121,18 +1074,12 @@ func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int)
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
-			COALESCE(c.battery_pct, 0) AS battery_pct,
+			d.latest_battery_pct AS battery_pct,
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
-			COALESCE(c.extra, '{}'::jsonb) AS latest_extra
+			d.latest_extra AS latest_extra
 		FROM devices d
-		LEFT JOIN LATERAL (
-			SELECT battery_pct, extra FROM checkins
-			WHERE device_id = d.id
-			ORDER BY created_at DESC
-			LIMIT 1
-		) c ON true
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.serial_number ILIKE $1
 		ORDER BY
@@ -1870,6 +1817,8 @@ CREATE TABLE IF NOT EXISTS devices (
 	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 	serial_number TEXT        NOT NULL UNIQUE,
 	build_id      TEXT        NOT NULL DEFAULT '',
+	latest_battery_pct SMALLINT    NOT NULL DEFAULT 0,
+	latest_extra  JSONB       NOT NULL DEFAULT '{}',
 	last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1980,6 +1929,27 @@ CREATE INDEX IF NOT EXISTS idx_device_packages_package_name ON device_packages(p
 ALTER TABLE device_packages ADD COLUMN IF NOT EXISTS app_name TEXT NOT NULL DEFAULT '';
 
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS poll_interval_ms INTEGER NOT NULL DEFAULT 30000;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS latest_battery_pct SMALLINT NOT NULL DEFAULT 0;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS latest_extra JSONB NOT NULL DEFAULT '{}';
+
+WITH latest_checkin AS (
+	SELECT DISTINCT ON (c.device_id)
+		c.device_id,
+		c.battery_pct,
+		c.extra
+	FROM checkins c
+	ORDER BY c.device_id, c.created_at DESC
+)
+UPDATE devices d
+SET
+	latest_battery_pct = lc.battery_pct,
+	latest_extra = lc.extra
+FROM latest_checkin lc
+WHERE d.id = lc.device_id
+  AND (
+	d.latest_battery_pct IS DISTINCT FROM lc.battery_pct
+	OR d.latest_extra IS DISTINCT FROM lc.extra
+  );
 
 CREATE TABLE IF NOT EXISTS device_config (
 	device_id      UUID    PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
