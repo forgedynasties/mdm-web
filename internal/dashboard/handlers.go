@@ -623,16 +623,24 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			groupID = parsed
 		}
 	}
+	
+	var productionID uuid.UUID
+	if pid := r.URL.Query().Get("production"); pid != "" {
+		if parsed, err := uuid.Parse(pid); err == nil {
+			productionID = parsed
+		}
+	}
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
 	filter := db.DeviceFilter{
-		Search:              q,
-		GroupID:             groupID,
-		Online:              r.URL.Query().Get("status"),
-		BuildID:             r.URL.Query().Get("build"),
-		Battery:             r.URL.Query().Get("battery"),
-		Hidden:              r.URL.Query().Get("hidden"),
+		Search:                   q,
+		GroupID:                  groupID,
+		ProductionID: productionID,
+		Online:                   r.URL.Query().Get("status"),
+		BuildID:                  r.URL.Query().Get("build"),
+		Battery:                  r.URL.Query().Get("battery"),
+		Hidden:                   r.URL.Query().Get("hidden"),
 		ActiveThresholdSecs: activeThreshold,
 	}
 
@@ -654,6 +662,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 
 	// Load filter options
 	groups, _ := h.db.ListGroups(r.Context())
+	productions, _ := h.db.ListProductions(r.Context())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 
 	totalPages := (total + pageSize - 1) / pageSize
@@ -679,13 +688,15 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Sort":                sort,
 		"SortDir":             dir,
 		"Online":              online,
-		"Groups":              groups,
-		"Builds":              builds,
-		"FilterGroup":         r.URL.Query().Get("group"),
-		"FilterStatus":        r.URL.Query().Get("status"),
-		"FilterBuild":         r.URL.Query().Get("build"),
-		"FilterBattery":       r.URL.Query().Get("battery"),
-		"FilterHidden":        r.URL.Query().Get("hidden"),
+		"Groups":                 groups,
+		"Productions":      productions,
+		"Builds":                 builds,
+		"FilterGroup":            r.URL.Query().Get("group"),
+		"FilterProduction": r.URL.Query().Get("production"),
+		"FilterStatus":           r.URL.Query().Get("status"),
+		"FilterBuild":            r.URL.Query().Get("build"),
+		"FilterBattery":          r.URL.Query().Get("battery"),
+		"FilterHidden":           r.URL.Query().Get("hidden"),
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
 	}
@@ -2455,6 +2466,175 @@ func (h *Handler) DevicePackages(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ── Productions ───────────────────────────────────────────────────────────────
+
+func (h *Handler) ProductionList(w http.ResponseWriter, r *http.Request) {
+	productions, err := h.db.ListProductions(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "productions.html", map[string]any{
+		"Productions": productions,
+	})
+}
+
+func (h *Handler) ProductionNew(w http.ResponseWriter, r *http.Request) {
+	h.tmpl.ExecuteTemplate(w, "production_form.html", nil)
+}
+
+func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	productCode := strings.ToUpper(strings.TrimSpace(r.FormValue("product_code")))
+	modelCode := strings.TrimSpace(r.FormValue("model_code"))
+	variant := r.FormValue("variant")
+	if variant == "" {
+		variant = "0"
+	}
+	sku := strings.ToUpper(r.FormValue("sku"))
+	if sku == "" {
+		sku = "AA"
+	}
+	batchMonth, _ := strconv.Atoi(r.FormValue("batch_month"))
+	batchYear, _ := strconv.Atoi(r.FormValue("batch_year"))
+	startSeq, _ := strconv.Atoi(r.FormValue("start_sequence"))
+	quantity, _ := strconv.Atoi(r.FormValue("quantity"))
+	notes := r.FormValue("notes")
+
+	if name == "" || productCode == "" || modelCode == "" ||
+		batchMonth < 1 || batchMonth > 12 || batchYear < 0 || batchYear > 99 ||
+		startSeq < 1 || quantity < 1 {
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+
+	endSeq := startSeq + quantity - 1
+	params := db.ProductionParams{
+		Name:          name,
+		ProductCode:   productCode,
+		ModelCode:     modelCode,
+		Variant:       variant,
+		SKU:           sku,
+		Batch:         db.EncodeBatch(batchMonth, batchYear),
+		BatchMonth:    batchMonth,
+		BatchYear:     batchYear,
+		StartSequence: startSeq,
+		EndSequence:   endSeq,
+		Notes:         notes,
+	}
+	prod, err := h.db.CreateProduction(r.Context(), params)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/productions/"+prod.ID.String(), http.StatusFound)
+}
+
+func (h *Handler) ProductionDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid production ID", http.StatusBadRequest)
+		return
+	}
+	prod, err := h.db.GetProduction(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Production not found", http.StatusNotFound)
+		return
+	}
+	devices, err := h.db.GetProductionDevices(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	online := h.hub.ConnectedIDs()
+	h.tmpl.ExecuteTemplate(w, "production_detail.html", map[string]any{
+		"Production": prod,
+		"Devices":    devices,
+		"Online":     online,
+	})
+}
+
+func (h *Handler) ProductionExportCSV(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid production ID", http.StatusBadRequest)
+		return
+	}
+	prod, err := h.db.GetProduction(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Production not found", http.StatusNotFound)
+		return
+	}
+	devices, err := h.db.GetProductionDevices(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	// Index connected devices by serial for O(1) lookup
+	connected := make(map[string]*db.ProductionDevice, len(devices))
+	for i := range devices {
+		connected[devices[i].Serial] = &devices[i]
+	}
+
+	filename := prod.Name + ".csv"
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+
+	cw := csv.NewWriter(w)
+	cw.Write([]string{"serial_number", "status", "build_id", "battery_pct", "last_seen_at", "first_seen_at"})
+
+	prefix := prod.SerialPrefix()
+	for seq := prod.StartSequence; seq <= prod.EndSequence; seq++ {
+		serial := fmt.Sprintf("%s%05d", prefix, seq)
+		if dev, ok := connected[serial]; ok {
+			lastSeen := ""
+			firstSeen := ""
+			if !dev.LastSeenAt.IsZero() {
+				lastSeen = dev.LastSeenAt.UTC().Format(time.RFC3339)
+			}
+			if !dev.CreatedAt.IsZero() {
+				firstSeen = dev.CreatedAt.UTC().Format(time.RFC3339)
+			}
+			cw.Write([]string{serial, dev.ConnectionStatus, dev.BuildID, strconv.Itoa(dev.BatteryPct), lastSeen, firstSeen})
+		} else {
+			cw.Write([]string{serial, "never", "", "", "", ""})
+		}
+	}
+	cw.Flush()
+}
+
+// ProductionPreviewSerial returns the first/last serial for the given form values (HTMX partial).
+func (h *Handler) ProductionPreviewSerial(w http.ResponseWriter, r *http.Request) {
+	productCode := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("product_code")))
+	modelCode := strings.TrimSpace(r.URL.Query().Get("model_code"))
+	variant := r.URL.Query().Get("variant")
+	if variant == "" {
+		variant = "0"
+	}
+	sku := strings.ToUpper(r.URL.Query().Get("sku"))
+	if sku == "" {
+		sku = "AA"
+	}
+	batchMonth, _ := strconv.Atoi(r.URL.Query().Get("batch_month"))
+	batchYear, _ := strconv.Atoi(r.URL.Query().Get("batch_year"))
+	startSeq, _ := strconv.Atoi(r.URL.Query().Get("start_sequence"))
+	quantity, _ := strconv.Atoi(r.URL.Query().Get("quantity"))
+
+	if productCode == "" || modelCode == "" || batchMonth < 1 || batchMonth > 12 || batchYear < 0 || startSeq < 1 || quantity < 1 {
+		fmt.Fprint(w, `<span class="muted">—</span>`)
+		return
+	}
+
+	batch := db.EncodeBatch(batchMonth, batchYear)
+	prefix := productCode + modelCode + variant + sku + batch
+	first := fmt.Sprintf("%s%05d", prefix, startSeq)
+	last := fmt.Sprintf("%s%05d", prefix, startSeq+quantity-1)
+	fmt.Fprintf(w, `<code class="serial-preview">%s</code> → <code class="serial-preview">%s</code> &nbsp;<span class="muted small">batch <strong>%s</strong></span>`, first, last, batch)
+}
+
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /login", h.LoginPage)
 	mux.HandleFunc("POST /login", h.LoginSubmit)
@@ -2492,6 +2672,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /groups/{id}/devices", h.requireAuth(h.GroupAddDevice))
 	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAuth(h.GroupRemoveDevice))
 	mux.HandleFunc("POST /groups/{id}/commands", h.requireAuth(h.GroupCommandCreate))
+
+	mux.HandleFunc("GET /productions", h.requireAuth(h.ProductionList))
+	mux.HandleFunc("GET /productions/new", h.requireAuth(h.ProductionNew))
+	mux.HandleFunc("POST /productions", h.requireAuth(h.ProductionCreate))
+	mux.HandleFunc("GET /productions/preview-serial", h.requireAuth(h.ProductionPreviewSerial))
+	mux.HandleFunc("GET /productions/{id}", h.requireAuth(h.ProductionDetail))
+	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAuth(h.ProductionExportCSV))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))

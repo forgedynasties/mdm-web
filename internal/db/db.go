@@ -124,13 +124,77 @@ type CommandDelivery struct {
 
 // DeviceFilter holds optional filter parameters for device listing.
 type DeviceFilter struct {
-	Search               string    // search by serial/build (ILIKE)
-	GroupID              uuid.UUID // filter by group membership (uuid.Nil = no filter)
-	Online               string    // "online", "offline", or "" (no filter)
-	BuildID              string    // exact build_id match, or "" (no filter)
-	Battery              string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
-	Hidden               string    // "include" (show all), "only" (hidden only), or "" (active only)
-	ActiveThresholdSecs  int       // seconds before a device is considered offline (0 = default 180)
+	Search                    string    // search by serial/build (ILIKE)
+	GroupID                   uuid.UUID // filter by group membership (uuid.Nil = no filter)
+	ProductionID uuid.UUID // filter by production (uuid.Nil = no filter)
+	Online                    string    // "online", "offline", or "" (no filter)
+	BuildID                   string    // exact build_id match, or "" (no filter)
+	Battery                   string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
+	Hidden                    string    // "include" (show all), "only" (hidden only), or "" (active only)
+	ActiveThresholdSecs       int       // seconds before a device is considered offline (0 = default 180)
+}
+
+// ── Productions ───────────────────────────────────────────────────────────────
+
+const base36Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// EncodeBatch encodes a month (1-12) and 2-digit year into a 2-char base36 batch code.
+// Formula: month*100 + year → base36(2 chars).
+// e.g. April 2026 → 4*100+26 = 426 → "BU"
+func EncodeBatch(month, year int) string {
+	val := month*100 + (year % 100)
+	return string([]byte{base36Chars[val/36], base36Chars[val%36]})
+}
+
+// DecodeBatch decodes a 2-char base36 batch code into month and 2-digit year.
+func DecodeBatch(batch string) (month, year int) {
+	hi := strings.IndexByte(base36Chars, batch[0])
+	lo := strings.IndexByte(base36Chars, batch[1])
+	val := hi*36 + lo
+	return val / 100, val % 100
+}
+
+type Production struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	ProductCode   string    `json:"product_code"`
+	ModelCode     string    `json:"model_code"`
+	Variant       string    `json:"variant"`
+	SKU           string    `json:"sku"`
+	Batch         string    `json:"batch"`
+	BatchMonth    int       `json:"batch_month"`
+	BatchYear     int       `json:"batch_year"`
+	StartSequence int       `json:"start_sequence"`
+	EndSequence   int       `json:"end_sequence"`
+	Notes         string    `json:"notes"`
+	CreatedAt     time.Time `json:"created_at"`
+	// Computed stats
+	Total         int `json:"total"`
+	EverConnected int `json:"ever_connected"`
+	Online        int `json:"online"`
+}
+
+func (p *Production) SerialPrefix() string {
+	return p.ProductCode + p.ModelCode + p.Variant + p.SKU + p.Batch
+}
+
+func (p *Production) FirstSerial() string {
+	return fmt.Sprintf("%s%05d", p.SerialPrefix(), p.StartSequence)
+}
+
+func (p *Production) LastSerial() string {
+	return fmt.Sprintf("%s%05d", p.SerialPrefix(), p.EndSequence)
+}
+
+// ProductionDevice is a device row augmented with connection status for production detail view.
+type ProductionDevice struct {
+	Serial           string    `json:"serial"`
+	DeviceID         uuid.UUID `json:"device_id,omitempty"`
+	BuildID          string    `json:"build_id,omitempty"`
+	BatteryPct       int       `json:"battery_pct,omitempty"`
+	LastSeenAt       time.Time `json:"last_seen_at,omitempty"`
+	CreatedAt        time.Time `json:"created_at,omitempty"`
+	ConnectionStatus string    `json:"connection_status"` // "online", "offline", "never"
 }
 
 type DB struct {
@@ -277,6 +341,12 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	if f.GroupID != uuid.Nil {
 		joins = append(joins, fmt.Sprintf("JOIN device_groups dg ON dg.device_id = d.id AND dg.group_id = $%d", argN))
 		args = append(args, f.GroupID)
+		argN++
+	}
+
+	if f.ProductionID != uuid.Nil {
+		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
+		args = append(args, f.ProductionID)
 		argN++
 	}
 
@@ -838,6 +908,150 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 	for rows.Next() {
 		var dev Device
 		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage); err != nil {
+			return nil, err
+		}
+		devices = append(devices, dev)
+	}
+	return devices, rows.Err()
+}
+
+// ── Productions ───────────────────────────────────────────────────────────────
+
+type ProductionParams struct {
+	Name          string
+	ProductCode   string
+	ModelCode     string
+	Variant       string
+	SKU           string
+	Batch         string
+	BatchMonth    int
+	BatchYear     int
+	StartSequence int
+	EndSequence   int
+	Notes         string
+}
+
+func (d *DB) CreateProduction(ctx context.Context, p ProductionParams) (*Production, error) {
+	var prod Production
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO productions (name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		RETURNING id, name, product_code, model_code, variant, sku, batch, batch_month, batch_year, start_sequence, end_sequence, notes, created_at
+	`, p.Name, p.ProductCode, p.ModelCode, p.Variant, p.SKU, p.Batch, p.BatchMonth, p.BatchYear, p.StartSequence, p.EndSequence, p.Notes).
+		Scan(&prod.ID, &prod.Name, &prod.ProductCode, &prod.ModelCode, &prod.Variant, &prod.SKU,
+			&prod.Batch, &prod.BatchMonth, &prod.BatchYear, &prod.StartSequence, &prod.EndSequence, &prod.Notes, &prod.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	prod.Total = prod.EndSequence - prod.StartSequence + 1
+	return &prod, nil
+}
+
+func (d *DB) ListProductions(ctx context.Context) ([]Production, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT
+			p.id, p.name, p.product_code, p.model_code, p.variant, p.sku, p.batch,
+			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
+			p.end_sequence - p.start_sequence + 1 AS total,
+			COUNT(d.id) AS ever_connected,
+			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes') AS online
+		FROM productions p
+		LEFT JOIN devices d ON
+			d.serial_number LIKE (p.product_code || p.model_code || p.variant || p.sku || p.batch || '%')
+			AND LENGTH(d.serial_number) = 14
+			AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$'
+			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
+		GROUP BY p.id
+		ORDER BY p.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var productions []Production
+	for rows.Next() {
+		var p Production
+		if err := rows.Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
+			&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.CreatedAt,
+			&p.Total, &p.EverConnected, &p.Online); err != nil {
+			return nil, err
+		}
+		productions = append(productions, p)
+	}
+	return productions, rows.Err()
+}
+
+func (d *DB) GetProduction(ctx context.Context, id uuid.UUID) (*Production, error) {
+	var p Production
+	err := d.pool.QueryRow(ctx, `
+		SELECT
+			p.id, p.name, p.product_code, p.model_code, p.variant, p.sku, p.batch,
+			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
+			p.end_sequence - p.start_sequence + 1 AS total,
+			COUNT(d.id) AS ever_connected,
+			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes') AS online
+		FROM productions p
+		LEFT JOIN devices d ON
+			d.serial_number LIKE (p.product_code || p.model_code || p.variant || p.sku || p.batch || '%')
+			AND LENGTH(d.serial_number) = 14
+			AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$'
+			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
+		WHERE p.id = $1
+		GROUP BY p.id
+	`, id).Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
+		&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.CreatedAt,
+		&p.Total, &p.EverConnected, &p.Online)
+	if err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+func (d *DB) DeleteProduction(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM productions WHERE id = $1`, id)
+	return err
+}
+
+// GetProductionDevices returns connected devices for a production.
+// Devices that have never connected are not in this list but can be inferred from total - ever_connected.
+func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]ProductionDevice, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT
+			d.serial_number,
+			d.id,
+			d.build_id,
+			COALESCE(c.battery_pct, 0),
+			d.last_seen_at,
+			d.created_at,
+			CASE
+				WHEN d.last_seen_at > NOW() - INTERVAL '3 minutes' THEN 'online'
+				ELSE 'offline'
+			END AS connection_status
+		FROM productions p
+		JOIN devices d ON
+			d.serial_number LIKE (p.product_code || p.model_code || p.variant || p.sku || p.batch || '%')
+			AND LENGTH(d.serial_number) = 14
+			AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$'
+			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
+		LEFT JOIN LATERAL (
+			SELECT battery_pct FROM checkins
+			WHERE device_id = d.id
+			ORDER BY created_at DESC
+			LIMIT 1
+		) c ON true
+		WHERE p.id = $1
+		ORDER BY d.serial_number
+	`, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []ProductionDevice
+	for rows.Next() {
+		var dev ProductionDevice
+		if err := rows.Scan(&dev.Serial, &dev.DeviceID, &dev.BuildID, &dev.BatteryPct, &dev.LastSeenAt, &dev.CreatedAt, &dev.ConnectionStatus); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -1761,6 +1975,24 @@ CREATE TABLE IF NOT EXISTS update_devices (
 );
 
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT false;
+
+CREATE TABLE IF NOT EXISTS productions (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name           TEXT NOT NULL,
+    product_code   TEXT NOT NULL,
+    model_code     TEXT NOT NULL,
+    variant        CHAR(1) NOT NULL DEFAULT '0',
+    sku            CHAR(2) NOT NULL DEFAULT 'AA',
+    batch          CHAR(2) NOT NULL,
+    batch_month    INT NOT NULL,
+    batch_year     INT NOT NULL,
+    start_sequence INT NOT NULL,
+    end_sequence   INT NOT NULL,
+    notes          TEXT NOT NULL DEFAULT '',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_productions_batch ON productions(batch);
+CREATE INDEX IF NOT EXISTS idx_productions_prefix ON productions(product_code, model_code, variant, sku, batch);
 
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS changelog TEXT NOT NULL DEFAULT '';
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS status    TEXT NOT NULL DEFAULT 'active';

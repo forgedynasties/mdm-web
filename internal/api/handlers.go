@@ -612,6 +612,110 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// ── Productions ───────────────────────────────────────────────────────────────
+
+func (h *Handler) ListProductions(w http.ResponseWriter, r *http.Request) {
+	productions, err := h.db.ListProductions(r.Context())
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	if productions == nil {
+		productions = []db.Production{}
+	}
+	writeJSON(w, http.StatusOK, productions)
+}
+
+func (h *Handler) CreateProduction(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Name          string `json:"name"`
+		ProductCode   string `json:"product_code"`
+		ModelCode     string `json:"model_code"`
+		Variant       string `json:"variant"`
+		SKU           string `json:"sku"`
+		BatchMonth    int    `json:"batch_month"`
+		BatchYear     int    `json:"batch_year"`
+		StartSequence int    `json:"start_sequence"`
+		EndSequence   int    `json:"end_sequence"`
+		Notes         string `json:"notes"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+		return
+	}
+	if strings.TrimSpace(body.Name) == "" || body.ProductCode == "" || body.ModelCode == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name, product_code, model_code required"})
+		return
+	}
+	if body.BatchMonth < 1 || body.BatchMonth > 12 || body.BatchYear < 0 || body.BatchYear > 99 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid batch_month or batch_year"})
+		return
+	}
+	if body.StartSequence < 1 || body.EndSequence < body.StartSequence {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid sequence range"})
+		return
+	}
+	variant := body.Variant
+	if variant == "" {
+		variant = "0"
+	}
+	sku := body.SKU
+	if sku == "" {
+		sku = "AA"
+	}
+	params := db.ProductionParams{
+		Name:          strings.TrimSpace(body.Name),
+		ProductCode:   strings.ToUpper(body.ProductCode),
+		ModelCode:     body.ModelCode,
+		Variant:       variant,
+		SKU:           strings.ToUpper(sku),
+		Batch:         db.EncodeBatch(body.BatchMonth, body.BatchYear),
+		BatchMonth:    body.BatchMonth,
+		BatchYear:     body.BatchYear,
+		StartSequence: body.StartSequence,
+		EndSequence:   body.EndSequence,
+		Notes:         body.Notes,
+	}
+	prod, err := h.db.CreateProduction(r.Context(), params)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusCreated, prod)
+}
+
+func (h *Handler) GetProduction(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid production id"})
+		return
+	}
+	prod, err := h.db.GetProduction(r.Context(), id)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "production not found"})
+		return
+	}
+	devices, err := h.db.GetProductionDevices(r.Context(), id)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"production": prod, "devices": devices})
+}
+
+func (h *Handler) DeleteProduction(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid production id"})
+		return
+	}
+	if err := h.db.DeleteProduction(r.Context(), id); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func marshalCommand(id uuid.UUID, cmdType, apkURL string, payload json.RawMessage) []byte {

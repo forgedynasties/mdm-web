@@ -1,0 +1,150 @@
+{{define "production_form.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <a href="/productions" class="back-link">← Productions</a>
+    <h2 class="page-title">New Production Run</h2>
+    <p class="page-subtitle">Define a serial number range for a manufacturing batch.</p>
+  </div>
+</div>
+
+<div class="card" style="max-width:680px;">
+  <form action="/productions" method="POST" id="production-form" style="padding:28px 32px;">
+
+    <div class="form-row">
+      <label class="form-label">Production Name</label>
+      <input type="text" name="name" id="f-name" class="form-input" placeholder="e.g. AT07-prod-04-26-900pc" required
+             oninput="nameEdited=true; refreshPreview()">
+      <span class="muted small">Auto-generated from fields below — edit to override.</span>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-row">
+        <label class="form-label">Product Code</label>
+        <input type="text" name="product_code" id="f-product" class="form-input mono" placeholder="AK" maxlength="3" required
+               oninput="this.value=this.value.toUpperCase(); refreshPreview()">
+        <span class="muted small">2–3 letter product prefix (e.g. AK, AT, AM, AP, FS, WM, CS)</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Model Code</label>
+        <input type="text" name="model_code" id="f-model" class="form-input mono" placeholder="27" maxlength="2" required
+               oninput="refreshPreview()">
+        <span class="muted small">Integer part of model size, zero-padded to 2 chars (e.g. 18, 27, 06, 15)</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-row">
+        <label class="form-label">Variant</label>
+        <input type="text" name="variant" id="f-variant" class="form-input mono" placeholder="0" maxlength="1" value="0"
+               oninput="refreshPreview()">
+        <span class="muted small">1 char — feature variant (default: 0)</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">SKU</label>
+        <input type="text" name="sku" id="f-sku" class="form-input mono" placeholder="AA" maxlength="2" value="AA"
+               oninput="this.value=this.value.toUpperCase(); refreshPreview()">
+        <span class="muted small">2 chars — white label / aesthetic (default: AA)</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-row">
+        <label class="form-label">Batch Month</label>
+        <input type="number" name="batch_month" id="f-month" class="form-input" placeholder="4" min="1" max="12" required
+               oninput="refreshPreview()">
+        <span class="muted small">1–12</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Batch Year</label>
+        <input type="number" name="batch_year" id="f-year" class="form-input" placeholder="26" min="0" max="99" required
+               oninput="refreshPreview()">
+        <span class="muted small">2-digit year (e.g. 26 for 2026)</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="form-row">
+        <label class="form-label">Start Sequence</label>
+        <input type="number" name="start_sequence" id="f-start" class="form-input" value="1" min="1" max="99999" required
+               oninput="refreshPreview()">
+        <span class="muted small">First unit number (usually 1)</span>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Quantity</label>
+        <input type="number" name="quantity" id="f-qty" class="form-input" placeholder="1000" min="1" max="99999" required
+               oninput="refreshPreview()">
+        <span class="muted small">Number of units in this run</span>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Serial Preview</label>
+      <div id="serial-preview" class="serial-preview-box muted">Fill in the fields above to see a preview.</div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Notes</label>
+      <textarea name="notes" class="form-input" rows="2" placeholder="Optional notes about this production run"></textarea>
+    </div>
+
+    <div style="display:flex; gap:12px; margin-top:8px;">
+      <button type="submit" class="btn-primary">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+        Create Production
+      </button>
+      <a href="/productions" class="btn-outline">Cancel</a>
+    </div>
+
+  </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', refreshPreview);
+var nameEdited = false;
+var B36 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+function encodeBatch(month, year) {
+  var val = month * 100 + (year % 100);
+  return B36[Math.floor(val / 36)] + B36[val % 36];
+}
+function pad5(n) { return String(n).padStart(5, '0'); }
+
+function refreshPreview() {
+  var p     = document.getElementById('f-product').value.trim().toUpperCase();
+  var m     = document.getElementById('f-model').value.trim();
+  var v     = document.getElementById('f-variant').value.trim() || '0';
+  var s     = document.getElementById('f-sku').value.trim().toUpperCase() || 'AA';
+  var month = parseInt(document.getElementById('f-month').value, 10);
+  var year  = parseInt(document.getElementById('f-year').value, 10);
+  var start = parseInt(document.getElementById('f-start').value, 10);
+  var qty   = parseInt(document.getElementById('f-qty').value, 10);
+  var el    = document.getElementById('serial-preview');
+
+  if (!p || !m || isNaN(month) || month < 1 || month > 12 ||
+      isNaN(year) || year < 0 || isNaN(start) || start < 1 || isNaN(qty) || qty < 1) {
+    el.innerHTML = '<span class="muted">Fill in the fields above to see a preview.</span>';
+    return;
+  }
+
+  var batch  = encodeBatch(month, year);
+  var prefix = p + m + v + s + batch;
+  var first  = prefix + pad5(start);
+  var last   = prefix + pad5(start + qty - 1);
+
+  if (!nameEdited) {
+    var mo = String(month).padStart(2, '0');
+    var yr = String(year % 100).padStart(2, '0');
+    document.getElementById('f-name').value = p + m + '-prod-' + mo + '-' + yr + '-' + qty + 'pc';
+  }
+
+  el.innerHTML =
+    '<code class="serial-preview">' + first + '</code>' +
+    ' <span class="muted">→</span> ' +
+    '<code class="serial-preview">' + last + '</code>' +
+    ' &nbsp;<span class="muted small">batch <strong>' + batch + '</strong> &middot; ' + qty.toLocaleString() + ' unit' + (qty !== 1 ? 's' : '') + '</span>';
+}
+</script>
+
+{{template "footer" .}}
+{{end}}
