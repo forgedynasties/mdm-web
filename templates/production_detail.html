@@ -11,7 +11,14 @@
       <span class="mono small">{{.Production.LastSerial}}</span>
     </p>
   </div>
-  <a href="/productions/{{.Production.ID}}/export.csv" class="btn-outline">Export CSV</a>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <a href="/productions/{{.Production.ID}}/export.csv" class="btn-outline">Export CSV</a>
+    {{if eq .Role "admin"}}
+    <form action="/productions/{{.Production.ID}}/delete" method="POST" onsubmit="return confirm('Delete this production? This cannot be undone.');">
+      <button type="submit" class="btn-danger">Delete</button>
+    </form>
+    {{end}}
+  </div>
 </div>
 
 {{/* ── Stats ── */}}

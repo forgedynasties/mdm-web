@@ -633,6 +633,17 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		role := h.role(r)
+		if role != "admin" && role != "operator" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	if h.isLoggedIn(r) {
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -2717,6 +2728,19 @@ func (h *Handler) ProductionExportCSV(w http.ResponseWriter, r *http.Request) {
 	cw.Flush()
 }
 
+func (h *Handler) ProductionDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid production ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteProduction(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/productions", http.StatusFound)
+}
+
 // ProductionPreviewSerial returns the first/last serial for the given form values (HTMX partial).
 func (h *Handler) ProductionPreviewSerial(w http.ResponseWriter, r *http.Request) {
 	productCode := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("product_code")))
@@ -2836,11 +2860,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /groups/{id}/commands", h.requireAdmin(h.GroupCommandCreate))
 
 	mux.HandleFunc("GET /productions", h.requireAuth(h.ProductionList))
-	mux.HandleFunc("GET /productions/new", h.requireAdmin(h.ProductionNew))
-	mux.HandleFunc("POST /productions", h.requireAdmin(h.ProductionCreate))
+	mux.HandleFunc("GET /productions/new", h.requireOperatorOrAdmin(h.ProductionNew))
+	mux.HandleFunc("POST /productions", h.requireOperatorOrAdmin(h.ProductionCreate))
 	mux.HandleFunc("GET /productions/preview-serial", h.requireAuth(h.ProductionPreviewSerial))
 	mux.HandleFunc("GET /productions/{id}", h.requireAuth(h.ProductionDetail))
 	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAuth(h.ProductionExportCSV))
+	mux.HandleFunc("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
