@@ -2111,6 +2111,21 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	if cmdType == "" {
 		cmdType = "install_apk"
 	}
+
+	userRole := h.role(r)
+	switch cmdType {
+	case "shell", "reboot", "install_apk":
+		if userRole != "admin" && userRole != "operator" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	case "ota":
+		if userRole != "admin" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
 	targetType := r.FormValue("target_type")
 	if targetType != "all" && targetType != "devices" && targetType != "groups" {
 		http.Redirect(w, r, "/commands", http.StatusFound)
@@ -2811,7 +2826,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAuth(h.ProductionExportCSV))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
-	mux.HandleFunc("POST /commands", h.requireAdmin(h.CommandCreate))
+	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
