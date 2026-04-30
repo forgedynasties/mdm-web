@@ -124,7 +124,7 @@ type CommandDelivery struct {
 
 // DeviceFilter holds optional filter parameters for device listing.
 type DeviceFilter struct {
-	Search                    string    // search by serial prefix
+	Search                    string    // search by serial substring
 	GroupID                   uuid.UUID // filter by group membership (uuid.Nil = no filter)
 	ProductionID uuid.UUID // filter by production (uuid.Nil = no filter)
 	Online                    string    // "online", "offline", or "" (no filter)
@@ -386,8 +386,8 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	}
 
 	if f.Search != "" {
-		wheres = append(wheres, fmt.Sprintf("d.serial_number LIKE $%d", argN))
-		args = append(args, f.Search+"%")
+		wheres = append(wheres, fmt.Sprintf("d.serial_number ILIKE $%d", argN))
+		args = append(args, "%"+f.Search+"%")
 		argN++
 	}
 
@@ -1873,11 +1873,13 @@ CREATE TABLE IF NOT EXISTS apps (
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE INDEX IF NOT EXISTS idx_checkins_device_id  ON checkins(device_id);
 CREATE INDEX IF NOT EXISTS idx_checkins_device_created_at ON checkins(device_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_checkins_created_at ON checkins(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_devices_last_seen   ON devices(last_seen_at DESC);
-CREATE INDEX IF NOT EXISTS idx_devices_serial_prefix ON devices(serial_number text_pattern_ops);
+CREATE INDEX IF NOT EXISTS idx_devices_serial_trgm ON devices USING GIN (serial_number gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_device_groups_group_id_device_id ON device_groups(group_id, device_id);
 
 CREATE TABLE IF NOT EXISTS logcat_requests (
