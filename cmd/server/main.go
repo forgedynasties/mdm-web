@@ -2,12 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"mdm/internal/api"
 	"mdm/internal/config"
 	"mdm/internal/dashboard"
@@ -69,7 +71,6 @@ func main() {
 
 	hub := ws.NewHub()
 	shellMgr := shell.NewManager()
-	hub.SetOnMessage(shellMgr.HandleDeviceMessage)
 
 	mux := http.NewServeMux()
 
@@ -95,6 +96,17 @@ func main() {
 	}
 
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg)
+	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
+		var peek struct {
+			Type string `json:"type"`
+		}
+		_ = json.Unmarshal(raw, &peek)
+		if peek.Type == "telemetry" {
+			apiHandler.HandleWsTelemetry(deviceID, raw)
+		} else {
+			shellMgr.HandleDeviceMessage(deviceID, raw)
+		}
+	})
 
 	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAPIKeyAuth(deviceAPIKey, h) }
 	adminAuth := func(h http.Handler) http.Handler { return middleware.AdminAPIKeyAuth(adminAPIKey, h) }

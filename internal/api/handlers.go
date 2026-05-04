@@ -268,6 +268,100 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleWsTelemetry processes a "telemetry" message sent by a device over the
+// WebSocket connection. It performs the same upsert, OTA check, and config push
+// as the HTTP Checkin handler, but returns config to the device over WS instead
+// of an HTTP response body.
+func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
+	ctx := context.Background()
+	var req checkinRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		log.Printf("[ws-telemetry] parse error: %v", err)
+		return
+	}
+	if req.SerialNumber == "" || req.BuildID == "" {
+		log.Printf("[ws-telemetry] missing serial_number or build_id")
+		return
+	}
+
+	id, _, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
+	if err != nil {
+		log.Printf("[ws-telemetry] UpsertCheckin error: %v", err)
+		return
+	}
+
+	log.Printf("[ws-telemetry] serial=%s packages_count=%d", req.SerialNumber, len(req.InstalledApps))
+	if len(req.InstalledApps) > 0 {
+		seen := make(map[string]struct{})
+		var pkgs []db.DevicePackage
+		for _, p := range req.InstalledApps {
+			if _, dup := seen[p.Package]; dup {
+				continue
+			}
+			seen[p.Package] = struct{}{}
+			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName})
+		}
+		if err := h.db.UpsertDevicePackages(ctx, id, pkgs); err != nil {
+			log.Printf("[ws-telemetry] UpsertDevicePackages error: %v", err)
+		}
+	}
+
+	h.hub.PublishDeviceUpdate(id)
+
+	// OTA check — same logic as HTTP Checkin.
+	if upd, err := h.db.ResolveUpdateForDevice(ctx, id); err != nil {
+		log.Printf("[ws-telemetry] ResolveUpdateForDevice error: %v", err)
+	} else if upd != nil && upd.OtaPackage != nil {
+		pkg := upd.OtaPackage
+		if pkg.TargetBuildID == req.BuildID {
+			_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, id, "installed")
+			_ = h.db.CheckAndCompleteUpdate(ctx, upd.ID)
+		} else {
+			if hasPending, err := h.db.HasPendingOTACommand(ctx, id); err != nil {
+				log.Printf("[ws-telemetry] HasPendingOTACommand error: %v", err)
+			} else if !hasPending {
+				applicable := true
+				if pkg.Type == "incremental" {
+					applicable = pkg.SourceBuildID == req.BuildID
+				}
+				if applicable {
+					p := map[string]any{
+						"package_id":      pkg.ID,
+						"build_id":        pkg.TargetBuildID,
+						"update_url":      pkg.UpdateURL,
+						"reboot_behavior": upd.RebootBehavior,
+					}
+					if upd.ScheduledTime != nil {
+						p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
+					}
+					payload, _ := json.Marshal(p)
+					if cmd, err := h.db.CreateCommand(ctx, "ota", "", payload, "devices", []uuid.UUID{id}); err != nil {
+						log.Printf("[ws-telemetry] create OTA command error: %v", err)
+					} else {
+						_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, id, "downloading")
+						h.pushCommand(ctx, cmd, "devices", []uuid.UUID{id})
+					}
+				}
+			}
+		}
+	}
+
+	deviceCfg, err := h.db.GetOrCreateDeviceConfig(ctx, id)
+	if err != nil {
+		log.Printf("[ws-telemetry] GetOrCreateDeviceConfig error: %v", err)
+		return
+	}
+
+	cfgMsg, _ := json.Marshal(map[string]any{
+		"type":                     "config",
+		"kiosk_enabled":            deviceCfg.KioskEnabled,
+		"kiosk_package":            deviceCfg.KioskPackage,
+		"kiosk_features":           deviceCfg.KioskFeatures,
+		"checkin_interval_seconds": h.cfg.CheckinInterval(),
+	})
+	h.hub.Push(deviceID, cfgMsg)
+}
+
 // ── Logcat ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
