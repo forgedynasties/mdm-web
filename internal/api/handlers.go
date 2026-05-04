@@ -56,8 +56,30 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	h.flushPendingCommands(r.Context(), device.ID)
 	h.flushPendingLogcatRequests(r.Context(), device.ID)
 
+	// Request telemetry immediately, then on a repeating interval.
+	reqMsg, _ := json.Marshal(map[string]any{"type": "telemetry_request"})
+	h.hub.Push(device.ID, reqMsg)
+	go h.runTelemetryRequestLoop(device.ID)
+
 	go client.WritePump()
 	client.ReadPump() // blocks until connection closes
+}
+
+// runTelemetryRequestLoop sends a telemetry_request to the device on the
+// configured checkin interval. Exits when the device disconnects (Push returns
+// false). Re-reads the interval each cycle so config changes take effect.
+func (h *Handler) runTelemetryRequestLoop(deviceID uuid.UUID) {
+	msg, _ := json.Marshal(map[string]any{"type": "telemetry_request"})
+	for {
+		interval := time.Duration(h.cfg.CheckinInterval()) * time.Second
+		if interval < 10*time.Second {
+			interval = 30 * time.Second
+		}
+		time.Sleep(interval)
+		if !h.hub.Push(deviceID, msg) {
+			return
+		}
+	}
 }
 
 // flushPendingCommands pushes pending commands to the device over WS and
