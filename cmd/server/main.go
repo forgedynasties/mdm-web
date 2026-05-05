@@ -101,9 +101,16 @@ func main() {
 			Type string `json:"type"`
 		}
 		_ = json.Unmarshal(raw, &peek)
-		if peek.Type == "telemetry" {
+		switch peek.Type {
+		case "telemetry":
 			apiHandler.HandleWsTelemetry(deviceID, raw)
-		} else {
+		case "command_ack":
+			apiHandler.HandleWsCommandAck(deviceID, raw)
+		case "logcat_result":
+			apiHandler.HandleWsLogcat(deviceID, raw)
+		case "ota_status":
+			apiHandler.HandleWsOtaStatus(deviceID, raw)
+		default:
 			shellMgr.HandleDeviceMessage(deviceID, raw)
 		}
 	})

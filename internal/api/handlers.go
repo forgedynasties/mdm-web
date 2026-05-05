@@ -290,6 +290,92 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// HandleWsCommandAck processes a "command_ack" message from a device over WS.
+func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
+	ctx := context.Background()
+	var body struct {
+		CommandID uuid.UUID `json:"command_id"`
+		Status    string    `json:"status"`
+		Output    string    `json:"output"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil || body.CommandID == uuid.Nil {
+		log.Printf("[ws-ack] parse error or missing command_id: %v", err)
+		return
+	}
+	if body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
+		log.Printf("[ws-ack] invalid status: %q", body.Status)
+		return
+	}
+	if err := h.db.AckCommand(ctx, body.CommandID, deviceID, body.Status); err != nil {
+		log.Printf("[ws-ack] AckCommand error: %v", err)
+		return
+	}
+	if body.Output != "" {
+		_ = h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output)
+	}
+	h.hub.PublishDeviceUpdate(deviceID)
+	h.hub.PublishCommandUpdate(body.CommandID)
+}
+
+// HandleWsLogcat processes a "logcat_result" message from a device over WS.
+func (h *Handler) HandleWsLogcat(deviceID uuid.UUID, raw []byte) {
+	ctx := context.Background()
+	var body struct {
+		RequestID uuid.UUID `json:"request_id"`
+		Content   string    `json:"content"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil || body.RequestID == uuid.Nil {
+		log.Printf("[ws-logcat] parse error or missing request_id: %v", err)
+		return
+	}
+	if _, err := h.db.SaveLogcatResult(ctx, body.RequestID, deviceID, body.Content); err != nil {
+		log.Printf("[ws-logcat] SaveLogcatResult error: %v", err)
+		return
+	}
+	h.hub.PublishDeviceUpdate(deviceID)
+	h.hub.PublishLogcatUpdate(deviceID)
+}
+
+// HandleWsOtaStatus processes an "ota_status" message from a device over WS.
+func (h *Handler) HandleWsOtaStatus(deviceID uuid.UUID, raw []byte) {
+	ctx := context.Background()
+	var body struct {
+		CommandID uuid.UUID `json:"command_id"`
+		Status    string    `json:"status"`
+		ErrorCode string    `json:"error_code"`
+	}
+	if err := json.Unmarshal(raw, &body); err != nil || body.CommandID == uuid.Nil {
+		log.Printf("[ws-ota] parse error or missing command_id: %v", err)
+		return
+	}
+	if body.Status != "downloaded" && body.Status != "installed" && body.Status != "error" {
+		log.Printf("[ws-ota] invalid status: %q", body.Status)
+		return
+	}
+	ackStatus := body.Status
+	if body.Status == "error" {
+		ackStatus = "failed"
+	}
+	if err := h.db.AckCommand(ctx, body.CommandID, deviceID, ackStatus); err != nil {
+		log.Printf("[ws-ota] AckCommand error: %v", err)
+		return
+	}
+	if body.ErrorCode != "" {
+		_ = h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.ErrorCode)
+	}
+	if body.Status == "installed" || body.Status == "error" {
+		h.shell.ClearOTAProgress(deviceID)
+	}
+	if body.Status == "installed" {
+		if cmd, err := h.db.CreateCommand(ctx, "reboot", "", nil, "devices", []uuid.UUID{deviceID}); err != nil {
+			log.Printf("[ws-ota] create reboot command error: %v", err)
+		} else {
+			h.pushCommand(ctx, cmd, "devices", []uuid.UUID{deviceID})
+		}
+	}
+	h.hub.PublishDeviceUpdate(deviceID)
+}
+
 // HandleWsTelemetry processes a "telemetry" message sent by a device over the
 // WebSocket connection. It performs the same upsert, OTA check, and config push
 // as the HTTP Checkin handler, but returns config to the device over WS instead
