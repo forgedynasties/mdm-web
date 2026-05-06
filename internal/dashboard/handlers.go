@@ -1998,10 +1998,20 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	targets, _ := h.db.GetUpdateTargets(r.Context(), did)
 	upd.Targets = targets
 
+	otaProgress := make(map[string]any)
+	for _, t := range targets {
+		if t.Status == "downloading" {
+			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
+				otaProgress[t.DeviceID.String()] = p
+			}
+		}
+	}
+
 	h.render(w, r, "deployment_detail.html", map[string]any{
-		"Title":      fmt.Sprintf("Deployment #%d", did),
-		"Deployment": upd,
-		"Package":    upd.OtaPackage,
+		"Title":       fmt.Sprintf("Deployment #%d", did),
+		"Deployment":  upd,
+		"Package":     upd.OtaPackage,
+		"OTAProgress": otaProgress,
 	})
 }
 

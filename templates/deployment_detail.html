@@ -87,7 +87,20 @@
         <tr>
           <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
           <td class="mono small">{{.BuildID}}</td>
-          <td><span class="status-badge {{deployStatusClass .Status}}">{{.Status}}</span></td>
+          <td>
+            <span class="status-badge {{deployStatusClass .Status}}">{{.Status}}</span>
+            {{if eq .Status "downloading"}}
+              {{$progress := index $.OTAProgress .DeviceID.String}}
+              {{if $progress}}
+                <div class="ota-progress-panel" style="margin-top:6px;">
+                  <div class="ota-progress-bar">
+                    <div class="ota-progress-fill" style="width:{{$progress.Percent}}%"></div>
+                  </div>
+                  <span class="muted small">{{$progress.Phase}} {{$progress.Percent}}%</span>
+                </div>
+              {{end}}
+            {{end}}
+          </td>
         </tr>
         {{end}}
       {{else}}
