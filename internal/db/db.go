@@ -2322,3 +2322,24 @@ func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool
 	`, deviceID).Scan(&exists)
 	return exists, err
 }
+
+	// ClearPendingOTACommands marks in-progress OTA commands for a device as
+	// failed so HasPendingOTACommand returns false, allowing immediate retry.
+	func (d *DB) ClearPendingOTACommands(ctx context.Context, deviceID uuid.UUID) error {
+		_, err := d.pool.Exec(ctx, `
+			INSERT INTO command_status (command_id, device_id, status, updated_at)
+			SELECT c.id, ct.target_id, 'failed', NOW() - INTERVAL '2 hours'
+			FROM commands c
+			JOIN command_targets ct ON ct.command_id = c.id AND ct.target_id = $1
+			LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
+			WHERE c.type = 'ota'
+			AND (
+				cs.status IS NULL
+				OR cs.status NOT IN ('installed', 'failed', 'completed')
+				OR (cs.status = 'failed' AND cs.updated_at > NOW() - INTERVAL '2 hours')
+			)
+			ON CONFLICT (command_id, device_id) DO UPDATE
+				SET status = EXCLUDED.status, updated_at = EXCLUDED.updated_at
+		`, deviceID)
+		return err
+	}

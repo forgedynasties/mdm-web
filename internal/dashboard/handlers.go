@@ -1784,6 +1784,20 @@ func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if err := h.db.ClearPendingOTACommands(r.Context(), device.ID); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
+}
+
 func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	serials := r.Form["serials"]
@@ -2951,6 +2965,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
 	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
+	mux.HandleFunc("POST /devices/{serial}/clear-ota", h.requireAuth(h.DeviceClearOTA))
 	mux.HandleFunc("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
 	mux.HandleFunc("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
