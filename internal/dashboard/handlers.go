@@ -2965,7 +2965,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
 	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
-	mux.HandleFunc("POST /devices/{serial}/clear-ota", h.requireAuth(h.DeviceClearOTA))
+	mux.HandleFunc("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
 	mux.HandleFunc("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
 	mux.HandleFunc("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
