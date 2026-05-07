@@ -28,7 +28,6 @@
         <span class="tok-val" id="prev-val">none</span>
         <span class="tok-flag">--to</span>
         <span class="tok-val" id="prev-target">all</span>
-        <span class="caret"></span>
       </div>
 
       <div style="padding:18px 20px 0;">
@@ -271,13 +270,6 @@
 </div>
 
 <script>
-// Type → color used for live preview accent
-var TYPE_COLOR = {
-  install_apk: { c: '#5b6ef5', soft: 'rgba(91,110,245,0.14)', cls: '' },
-  shell:       { c: '#f0a832', soft: 'rgba(240,168,50,0.14)',  cls: 'warn' },
-  screenshot:  { c: '#34c77b', soft: 'rgba(52,199,123,0.14)',  cls: '' },
-  reboot:      { c: '#f05252', soft: 'rgba(240,82,82,0.14)',   cls: 'danger' },
-};
 
 
 // Show toast on resend (via global showToast)
@@ -312,14 +304,6 @@ function selectType(val, btn) {
   document.getElementById(sectionId).classList.add('is-active');
   var apkSel = document.getElementById('apk-select');
   if (apkSel) apkSel.disabled = (val !== 'install_apk');
-
-  // Recolor builder via CSS vars
-  var t = TYPE_COLOR[val] || TYPE_COLOR.install_apk;
-  var builder = document.getElementById('cmd-builder');
-  if (builder) {
-    builder.style.setProperty('--type-color', t.c);
-    builder.style.setProperty('--type-color-soft', t.soft);
-  }
   updatePreview();
 }
 
@@ -334,16 +318,14 @@ function selectTarget(val, btn) {
 function updatePreview() {
   var type = document.getElementById('cmd-type-input').value;
   var target = document.getElementById('target-type-input').value;
-  var t = TYPE_COLOR[type] || TYPE_COLOR.install_apk;
 
   var prevCmd = document.getElementById('prev-cmd');
   var prevVal = document.getElementById('prev-val');
   var prevTarget = document.getElementById('prev-target');
   if (prevCmd) prevCmd.textContent = type;
 
-  // Value column reflects payload
   var valNode = prevVal;
-  valNode.className = 'tok-val ' + (t.cls || '');
+  valNode.className = 'tok-val';
   var flagNode = prevVal.previousElementSibling;
   if (type === 'install_apk') {
     flagNode.textContent = '--app';
