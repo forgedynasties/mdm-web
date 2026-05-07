@@ -7,8 +7,47 @@
     <h2 class="page-title">{{.Group.Name}}</h2>
     <p class="page-subtitle">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}}</p>
   </div>
-  {{if eq .Role "admin"}}<button type="button" class="btn-primary" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>{{end}}
 </div>
+
+{{if eq .Role "admin"}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="collapse-arrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
+      <h3>Add Devices</h3>
+    </div>
+  </div>
+  <div class="collapsible-body">
+    <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
+      <div class="form-row">
+        <label class="form-label">Serial Numbers</label>
+        <textarea name="serials" class="form-textarea"
+                  placeholder="Type or paste serials, one per line"
+                  style="min-height:80px;"></textarea>
+        <span class="muted small">Add multiple devices at once. Each line should contain one serial number.</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="flex:1;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);">Or add a single device</span>
+        <input type="text"
+               name="serial_number"
+               id="group-serial-input"
+               placeholder="Search by serial number"
+               class="form-input"
+               style="flex:2;"
+               autocomplete="off"
+               hx-get="/groups/{{.Group.ID}}/device-search"
+               hx-trigger="input changed delay:200ms, search"
+               hx-target="#group-device-search-results"
+               hx-include="#group-serial-input">
+      </div>
+      <div id="group-device-search-results" style="width:100%;"></div>
+      <div>
+        <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Devices</button>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}
 
 <div class="card">
   <div class="card-header">
@@ -16,11 +55,11 @@
   </div>
   {{if not .Devices}}
   <div class="empty-state">
+    <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
     <div class="empty-state-copy">
       <div class="empty-state-title">No devices in this group yet</div>
-      <div class="empty-state-text">Add one or more devices so this group can be used for commands and rollout targeting.</div>
+      <div class="empty-state-text">Add devices above to target commands and exports.</div>
     </div>
-    {{if eq .Role "admin"}}<button type="button" class="btn-primary" onclick="openAddDeviceModal()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>{{end}}
   </div>
   {{else}}
   <table class="table">
@@ -59,7 +98,13 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="5" class="empty">No devices in this group yet.</td>
+          <td colspan="5">
+            <div class="empty-state">
+              <div class="empty-state-copy">
+                <div class="empty-state-title">No devices in this group yet</div>
+              </div>
+            </div>
+          </td>
         </tr>
       {{end}}
     </tbody>
@@ -67,51 +112,17 @@
   {{end}}
 </div>
 
-{{if eq .Role "admin"}}
-<div id="group-device-modal" class="modal-backdrop" onclick="closeAddDeviceModal(event)">
-  <div class="modal-box modal-wide">
-    <div class="modal-header">
-      <span class="modal-title">Add Device to {{.Group.Name}}</span>
-      <button class="modal-close" type="button" onclick="closeAddDeviceModal()">&times;</button>
-    </div>
-    <form action="/groups/{{.Group.ID}}/devices" method="POST" class="modal-body">
-      <div class="form-row">
-        <label class="form-label">Serial Number</label>
-        <input type="text"
-               name="serial_number"
-               id="group-serial-input"
-               placeholder="Search by serial number"
-               class="form-input"
-               required
-               autocomplete="off"
-               hx-get="/groups/{{.Group.ID}}/device-search"
-               hx-trigger="input changed delay:200ms, search"
-               hx-target="#group-device-search-results"
-               hx-include="#group-serial-input">
-        <span class="muted small">Type part of a serial and pick a match, or enter it directly.</span>
-      </div>
-      <div id="group-device-search-results" style="width:100%;"></div>
-      <div>
-        <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Device</button>
-      </div>
-    </form>
-  </div>
-</div>
-{{end}}
-
 <script>
-function openAddDeviceModal() {
-  var modal = document.getElementById('group-device-modal');
-  if (!modal) return;
-  modal.classList.add('modal-open');
-  var input = document.getElementById('group-serial-input');
-  if (input) setTimeout(function() { input.focus(); }, 0);
-}
-
-function closeAddDeviceModal(e) {
-  var modal = document.getElementById('group-device-modal');
-  if (!modal) return;
-  if (!e || e.target === modal) modal.classList.remove('modal-open');
+function toggleSection(header) {
+  var body = header.nextElementSibling;
+  var open = body.style.display !== 'none';
+  if (open) {
+    body.style.display = 'none';
+    header.classList.remove('open');
+  } else {
+    body.style.display = '';
+    header.classList.add('open');
+  }
 }
 
 function pickGroupSerial(serial) {
@@ -120,10 +131,6 @@ function pickGroupSerial(serial) {
   input.value = serial;
   input.focus();
 }
-
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeAddDeviceModal();
-});
 </script>
 
 {{template "footer" .}}
