@@ -10,11 +10,10 @@
 
 {{if or (eq .Role "admin") (eq .Role "operator")}}
 <form action="/commands" method="POST" id="cmd-form">
-  <div class="cmd-builder{{if .Commands}} is-collapsed{{end}}" id="cmd-builder">
+  <div class="cmd-builder" id="cmd-builder">
 
-    <div class="cmd-builder-head" onclick="toggleBuilder()">
+    <div class="cmd-builder-head">
       <div class="head-title">
-        <span class="head-arrow"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
         <span>NEW <strong>COMMAND</strong></span>
       </div>
       <span class="kbd-hint">⌘ + ↵ to send</span>
@@ -280,10 +279,6 @@ var TYPE_COLOR = {
   reboot:      { c: '#f05252', soft: 'rgba(240,82,82,0.14)',   cls: 'danger' },
 };
 
-function toggleBuilder() {
-  var b = document.getElementById('cmd-builder');
-  if (b) b.classList.toggle('is-collapsed');
-}
 
 // Show toast on resend (via global showToast)
 document.addEventListener('submit', function(evt) {
@@ -447,8 +442,6 @@ async function saveNewApp() {
     if (ta) ta.value = serials.split(',').join('\n');
     var pill = document.querySelector('.target-pill[data-target="devices"]');
     if (pill) selectTarget('devices', pill);
-    var b = document.getElementById('cmd-builder');
-    if (b) b.classList.remove('is-collapsed');
   }
   // Initial preview render with current type colors applied
   var firstCard = document.querySelector('.type-card.is-active') || document.querySelector('.type-card');
