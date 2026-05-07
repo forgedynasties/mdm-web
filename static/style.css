@@ -69,6 +69,7 @@ a:hover { color: var(--accent-h); }
   gap: 8px;
 }
 .nav-link:hover { color: var(--text); background: var(--surface2); }
+.nav-link.active { color: var(--text); background: var(--surface2); box-shadow: inset 0 -2px 0 var(--accent); }
 .ui-icon {
   display: inline-flex;
   align-items: center;
