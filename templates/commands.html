@@ -9,103 +9,140 @@
 </div>
 
 {{if or (eq .Role "admin") (eq .Role "operator")}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header collapsible-header{{if .Commands}} open{{end}}" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span class="collapse-arrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
-      <h3>New Command</h3>
+<form action="/commands" method="POST" id="cmd-form">
+  <div class="cmd-builder{{if .Commands}} is-collapsed{{end}}" id="cmd-builder">
+
+    <div class="cmd-builder-head" onclick="toggleBuilder()">
+      <div class="head-title">
+        <span class="head-arrow"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+        <span>NEW <strong>COMMAND</strong></span>
+      </div>
+      <span class="kbd-hint">⌘ + ↵ to send</span>
+    </div>
+
+    <div class="cmd-builder-body">
+
+      <div class="cmd-preview" id="cmd-preview">
+        <span class="prompt">aio-mdm ❯</span>
+        <span class="tok-cmd" id="prev-cmd">install_apk</span>
+        <span class="tok-flag">--app</span>
+        <span class="tok-val" id="prev-val">none</span>
+        <span class="tok-flag">--to</span>
+        <span class="tok-val" id="prev-target">all</span>
+        <span class="caret"></span>
+      </div>
+
+      <div style="padding:18px 20px 0;">
+
+        <div class="type-grid">
+          <button type="button" class="type-card is-active" data-type="install_apk" onclick="selectType('install_apk', this)">
+            <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
+            <span class="type-name">Install APK</span>
+            <span class="type-desc">Push an app to devices</span>
+          </button>
+          <button type="button" class="type-card" data-type="shell" onclick="selectType('shell', this)">
+            <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
+            <span class="type-name">Shell</span>
+            <span class="type-desc">Run a shell command</span>
+          </button>
+          <button type="button" class="type-card" data-type="screenshot" onclick="selectType('screenshot', this)">
+            <span class="type-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
+            <span class="type-name">Screenshot</span>
+            <span class="type-desc">Capture device screen</span>
+          </button>
+          <button type="button" class="type-card" data-type="reboot" onclick="selectType('reboot', this)">
+            <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>
+            <span class="type-name">Reboot</span>
+            <span class="type-desc">Restart the device</span>
+          </button>
+        </div>
+        <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
+
+        <div class="payload-zone">
+          <span class="payload-zone-label">payload</span>
+
+          <div id="apk-fields" class="payload-section is-active">
+            {{if .Apps}}
+              <div class="app-select-wrap">
+                <select name="apk_url" class="form-input" id="apk-select" onchange="updatePreview()">
+                  <option value="" disabled selected>Select an app…</option>
+                  {{range .Apps}}
+                  <option value="{{.ApkURL}}" data-name="{{.Name}}">{{.Name}}</option>
+                  {{end}}
+                </select>
+                <button type="button" class="btn-outline btn-plus" onclick="openAppModal()" title="New App"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></button>
+              </div>
+            {{else}}
+              <div class="app-empty-hint">
+                No apps in library. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>
+                <input type="hidden" name="apk_url" id="cmd-apk-url">
+              </div>
+            {{end}}
+          </div>
+
+          <div id="shell-fields" class="payload-section">
+            <input type="text" name="shell_cmd" id="shell-cmd-input" class="form-input" placeholder="ls /sdcard" oninput="updatePreview()" style="font-family:var(--mono);">
+            <div class="muted small" style="margin-top:6px;">Legacy devices only. Runs via checkin response. Expires after 5 minutes.</div>
+          </div>
+
+          <div id="screenshot-hint" class="payload-section">
+            <div class="payload-empty">→ device captures screen on next checkin (5 min window)</div>
+          </div>
+
+          <div id="reboot-hint" class="payload-section">
+            <div class="payload-empty" style="color:var(--danger);">⚠ device will restart on next checkin (5 min window)</div>
+          </div>
+        </div>
+
+        <div class="target-row">
+          <span class="target-label">→ target</span>
+          <div class="target-pills">
+            <button type="button" class="target-pill is-active" data-target="all" onclick="selectTarget('all', this)">
+              <span class="pill-dot"></span>All Devices
+            </button>
+            <button type="button" class="target-pill" data-target="groups" onclick="selectTarget('groups', this)">
+              <span class="pill-dot"></span>Groups
+            </button>
+            <button type="button" class="target-pill" data-target="devices" onclick="selectTarget('devices', this)">
+              <span class="pill-dot"></span>Specific
+            </button>
+          </div>
+          <input type="hidden" name="target_type" id="target-type-input" value="all">
+        </div>
+
+        <div id="target-groups" class="target-detail">
+          <div class="checkbox-group">
+            {{range .Groups}}
+            <label class="checkbox-label">
+              <input type="checkbox" name="target_groups" value="{{.ID}}" onchange="updatePreview()"> {{.Name}} ({{.DeviceCount}} devices)
+            </label>
+            {{else}}
+            <span class="muted small">No groups created yet.</span>
+            {{end}}
+          </div>
+        </div>
+
+        <div id="target-devices" class="target-detail">
+          <textarea name="target_serials" class="form-textarea" placeholder="One serial number per line&#10;DEVICE001&#10;DEVICE002" oninput="updatePreview()" style="font-family:var(--mono);font-size:12px;"></textarea>
+        </div>
+
+      </div>
+
+      <div class="cmd-builder-foot">
+        <span class="foot-meta">
+          <span class="meta-dot"></span>
+          <span id="foot-summary">ready · <span id="foot-target-count">all devices</span></span>
+        </span>
+        <button type="submit" id="send-btn" class="btn-send-cli">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
+          Send Command
+          <span class="kbd">⌘↵</span>
+        </button>
+      </div>
+
     </div>
   </div>
-  <div class="collapsible-body"{{if .Commands}} style="display:none;"{{end}}>
-  <form action="/commands" method="POST" class="command-form" id="cmd-form">
-
-    <div class="form-row">
-      <label class="form-label">Type</label>
-      <div class="seg-control">
-        <button type="button" class="seg-btn active" onclick="selectType('install_apk', this)">
-          <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>Install APK
-        </button>
-        <button type="button" class="seg-btn" onclick="selectType('shell', this)">
-          <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell
-        </button>
-        <button type="button" class="seg-btn" onclick="selectType('screenshot', this)">
-          <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot
-        </button>
-        <button type="button" class="seg-btn" onclick="selectType('reboot', this)">
-          <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot
-        </button>
-      </div>
-      <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
-    </div>
-
-    <div id="apk-fields">
-      <div class="form-row">
-        <label class="form-label">App</label>
-        {{if .Apps}}
-          <div class="app-select-wrap">
-            <select name="apk_url" class="form-input" id="apk-select">
-              <option value="" disabled selected>Select an app…</option>
-              {{range .Apps}}
-              <option value="{{.ApkURL}}">{{.Name}}</option>
-              {{end}}
-            </select>
-            <button type="button" class="btn-outline btn-plus" onclick="openAppModal()" title="New App"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></button>
-          </div>
-        {{else}}
-          <div class="app-empty-hint">
-            No apps in library. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>
-            <input type="hidden" name="apk_url" id="cmd-apk-url">
-          </div>
-        {{end}}
-      </div>
-    </div>
-
-    <div id="shell-fields" class="form-row" style="display:none;">
-      <label class="form-label">Command</label>
-      <input type="text" name="shell_cmd" id="shell-cmd-input" class="form-input" placeholder="e.g. ls /sdcard">
-      <span class="muted small" style="margin-top:4px;">Legacy devices only. Command runs via checkin response.</span>
-    </div>
-
-    <div id="screenshot-hint" class="form-row" style="display:none;">
-      <span class="muted small">Device will capture a screenshot and upload it on next checkin.</span>
-    </div>
-
-    <div id="reboot-hint" class="form-row" style="display:none;">
-      <span class="muted small" style="color:var(--warn);">Device will reboot on next checkin.</span>
-    </div>
-
-    <div class="form-row">
-      <label class="form-label">Target</label>
-      <div class="seg-control">
-        <button type="button" class="seg-btn active" onclick="selectTarget('all', this)">All Devices</button>
-        <button type="button" class="seg-btn"        onclick="selectTarget('groups', this)">Groups</button>
-        <button type="button" class="seg-btn"        onclick="selectTarget('devices', this)">Specific Devices</button>
-      </div>
-      <input type="hidden" name="target_type" id="target-type-input" value="all">
-    </div>
-
-    <div id="target-groups" class="form-row" style="display:none;">
-      <label class="form-label">Groups</label>
-      <div class="checkbox-group">
-        {{range .Groups}}
-        <label class="checkbox-label">
-          <input type="checkbox" name="target_groups" value="{{.ID}}"> {{.Name}} ({{.DeviceCount}} devices)
-        </label>
-        {{else}}
-        <span class="muted small">No groups created yet.</span>
-        {{end}}
-      </div>
-    </div>
-
-    <div id="target-devices" class="form-row" style="display:none;">
-      <label class="form-label">Serial numbers</label>
-      <textarea name="target_serials" class="form-textarea" placeholder="One serial number per line&#10;DEVICE001&#10;DEVICE002"></textarea>
-    </div>
-
-    <button type="submit" id="send-btn" class="btn-primary btn-send"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg></span>Send Command</button>
-  </form>
-  </div>
-</div>
+</form>
 {{end}}
 
 <div class="card">
@@ -235,17 +272,17 @@
 </div>
 
 <script>
-// Collapsible section
-function toggleSection(header) {
-  var body = header.nextElementSibling;
-  var open = body.style.display !== 'none';
-  if (open) {
-    body.style.display = 'none';
-    header.classList.remove('open');
-  } else {
-    body.style.display = '';
-    header.classList.add('open');
-  }
+// Type → color used for live preview accent
+var TYPE_COLOR = {
+  install_apk: { c: '#5b6ef5', soft: 'rgba(91,110,245,0.14)', cls: '' },
+  shell:       { c: '#f0a832', soft: 'rgba(240,168,50,0.14)',  cls: 'warn' },
+  screenshot:  { c: '#34c77b', soft: 'rgba(52,199,123,0.14)',  cls: '' },
+  reboot:      { c: '#f05252', soft: 'rgba(240,82,82,0.14)',   cls: 'danger' },
+};
+
+function toggleBuilder() {
+  var b = document.getElementById('cmd-builder');
+  if (b) b.classList.toggle('is-collapsed');
 }
 
 // Show toast on resend (via global showToast)
@@ -272,23 +309,89 @@ function filterCommands() {
 
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
-  btn.closest('.seg-control').querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
-  document.getElementById('apk-fields').style.display      = val === 'install_apk' ? '' : 'none';
-  document.getElementById('shell-fields').style.display    = val === 'shell'       ? '' : 'none';
-  document.getElementById('screenshot-hint').style.display  = val === 'screenshot'  ? '' : 'none';
-  document.getElementById('reboot-hint').style.display      = val === 'reboot'      ? '' : 'none';
+  document.querySelectorAll('.type-card').forEach(function(c) { c.classList.toggle('is-active', c.dataset.type === val); });
+  ['apk-fields','shell-fields','screenshot-hint','reboot-hint'].forEach(function(id) {
+    document.getElementById(id).classList.remove('is-active');
+  });
+  var sectionId = ({ install_apk:'apk-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint' })[val];
+  document.getElementById(sectionId).classList.add('is-active');
   var apkSel = document.getElementById('apk-select');
   if (apkSel) apkSel.disabled = (val !== 'install_apk');
+
+  // Recolor builder via CSS vars
+  var t = TYPE_COLOR[val] || TYPE_COLOR.install_apk;
+  var builder = document.getElementById('cmd-builder');
+  if (builder) {
+    builder.style.setProperty('--type-color', t.c);
+    builder.style.setProperty('--type-color-soft', t.soft);
+  }
+  updatePreview();
 }
 
 function selectTarget(val, btn) {
   document.getElementById('target-type-input').value = val;
-  document.getElementById('target-groups').style.display  = val === 'groups'  ? '' : 'none';
-  document.getElementById('target-devices').style.display = val === 'devices' ? '' : 'none';
-  btn.closest('.seg-control').querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
-  btn.classList.add('active');
+  document.querySelectorAll('.target-pill').forEach(function(p) { p.classList.toggle('is-active', p.dataset.target === val); });
+  document.getElementById('target-groups').classList.toggle('is-active', val === 'groups');
+  document.getElementById('target-devices').classList.toggle('is-active', val === 'devices');
+  updatePreview();
 }
+
+function updatePreview() {
+  var type = document.getElementById('cmd-type-input').value;
+  var target = document.getElementById('target-type-input').value;
+  var t = TYPE_COLOR[type] || TYPE_COLOR.install_apk;
+
+  var prevCmd = document.getElementById('prev-cmd');
+  var prevVal = document.getElementById('prev-val');
+  var prevTarget = document.getElementById('prev-target');
+  if (prevCmd) prevCmd.textContent = type;
+
+  // Value column reflects payload
+  var valNode = prevVal;
+  valNode.className = 'tok-val ' + (t.cls || '');
+  var flagNode = prevVal.previousElementSibling;
+  if (type === 'install_apk') {
+    flagNode.textContent = '--app';
+    var sel = document.getElementById('apk-select');
+    var opt = sel && sel.options[sel.selectedIndex];
+    valNode.textContent = (opt && opt.value) ? (opt.dataset.name || opt.value) : 'none';
+  } else if (type === 'shell') {
+    flagNode.textContent = '--cmd';
+    var s = (document.getElementById('shell-cmd-input').value || '').trim();
+    valNode.textContent = s ? '"' + s.replace(/"/g, '\\"') + '"' : '<empty>';
+  } else if (type === 'screenshot') {
+    flagNode.textContent = '--capture';
+    valNode.textContent = 'next-checkin';
+  } else if (type === 'reboot') {
+    flagNode.textContent = '--mode';
+    valNode.textContent = 'soft';
+  }
+
+  // Target column
+  var targetText = 'all-devices';
+  var summary = 'all devices';
+  if (target === 'groups') {
+    var checked = document.querySelectorAll('input[name="target_groups"]:checked');
+    targetText = checked.length ? checked.length + '-groups' : '<no-groups>';
+    summary = checked.length + ' groups';
+  } else if (target === 'devices') {
+    var ta = document.querySelector('textarea[name="target_serials"]');
+    var n = ta ? ta.value.split('\n').filter(function(x){return x.trim().length;}).length : 0;
+    targetText = n ? n + '-devices' : '<no-devices>';
+    summary = n + ' devices';
+  }
+  prevTarget.textContent = targetText;
+  var foot = document.getElementById('foot-target-count');
+  if (foot) foot.textContent = summary;
+}
+
+// ⌘↵ / Ctrl+↵ submit
+document.addEventListener('keydown', function(e) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    var f = document.getElementById('cmd-form');
+    if (f) f.requestSubmit();
+  }
+});
 
 function openAppModal() {
   document.getElementById('new-app-name').value = '';
@@ -342,26 +445,14 @@ async function saveNewApp() {
   if (serials) {
     var ta = document.querySelector('textarea[name="target_serials"]');
     if (ta) ta.value = serials.split(',').join('\n');
-    document.getElementById('target-type-input').value = 'devices';
-    document.getElementById('target-devices').style.display = '';
-    document.querySelectorAll('.seg-control').forEach(function(sc) {
-      sc.querySelectorAll('.seg-btn').forEach(function(b) {
-        if (b.textContent.trim() === 'Specific Devices') {
-          sc.querySelectorAll('.seg-btn').forEach(function(x) { x.classList.remove('active'); });
-          b.classList.add('active');
-        }
-      });
-    });
+    var pill = document.querySelector('.target-pill[data-target="devices"]');
+    if (pill) selectTarget('devices', pill);
+    var b = document.getElementById('cmd-builder');
+    if (b) b.classList.remove('is-collapsed');
   }
-
-  // Collapse form if history exists
-  var hasHistory = document.querySelectorAll('#cmd-history-table tbody tr[data-cmd-type]').length > 0;
-  if (!hasHistory) {
-    var body = document.querySelector('.collapsible-body');
-    var header = document.querySelector('.collapsible-header');
-    if (body) body.style.display = '';
-    if (header) header.classList.add('open');
-  }
+  // Initial preview render with current type colors applied
+  var firstCard = document.querySelector('.type-card.is-active') || document.querySelector('.type-card');
+  if (firstCard) selectType(firstCard.dataset.type, firstCard);
 })();
 </script>
 
