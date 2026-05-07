@@ -613,6 +613,26 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	role := h.role(r)
 	data["Role"] = role
 	data["CurrentUser"] = h.currentUsername(r)
+
+	path := r.URL.Path
+	switch {
+	case path == "/" || strings.HasPrefix(path, "/devices") || path == "/export" || path == "/packages":
+		data["ActivePage"] = "devices"
+	case strings.HasPrefix(path, "/groups"):
+		data["ActivePage"] = "groups"
+	case strings.HasPrefix(path, "/productions"):
+		data["ActivePage"] = "productions"
+	case strings.HasPrefix(path, "/commands"):
+		data["ActivePage"] = "commands"
+	case strings.HasPrefix(path, "/updates"):
+		data["ActivePage"] = "updates"
+	case strings.HasPrefix(path, "/setup"):
+		data["ActivePage"] = "setup"
+	case strings.HasPrefix(path, "/settings"):
+		data["ActivePage"] = "settings"
+	case strings.HasPrefix(path, "/users"):
+		data["ActivePage"] = "users"
+	}
 	return data
 }
 
