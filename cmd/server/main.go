@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,7 +26,27 @@ var (
 	Branch  = "unknown"
 )
 
+func detectGitInfo() {
+	if Version != "dev" && Branch != "unknown" {
+		return // already set via ldflags
+	}
+	if _, err := os.Stat(".git"); os.IsNotExist(err) {
+		return // not in a git repo
+	}
+	if out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output(); err == nil {
+		if s := strings.TrimSpace(string(out)); s != "" {
+			Version = s
+		}
+	}
+	if out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
+		if s := strings.TrimSpace(string(out)); s != "" {
+			Branch = s
+		}
+	}
+}
+
 func main() {
+	detectGitInfo()
 	ctx := context.Background()
 
 	port          := getEnv("PORT", "8080")
