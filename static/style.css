@@ -73,6 +73,25 @@ a:hover { color: var(--accent-h); }
 }
 .navbar-brand:hover { color: var(--accent-h); }
 
+.nav-toggle {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+}
+.nav-toggle span {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--muted);
+  border-radius: 1px;
+  transition: background 0.15s;
+}
+.nav-toggle:hover span { background: var(--text); }
+
 .navbar-links {
   display: flex;
   gap: 4px;
@@ -171,7 +190,9 @@ a:hover { color: var(--accent-h); }
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
 }
 
 .page-title {
@@ -289,10 +310,10 @@ a:hover { color: var(--accent-h); }
 
 .table tbody tr {
   border-bottom: 1px solid var(--border);
-  transition: background 0.1s;
+  transition: background 0.1s, box-shadow 0.1s;
 }
 .table tbody tr:last-child { border-bottom: none; }
-.table tbody tr:hover { background: var(--surface2); }
+.table tbody tr:hover { background: var(--surface2); box-shadow: inset 3px 0 0 var(--accent); }
 
 .table tbody td {
   padding: 12px 16px;
@@ -472,12 +493,18 @@ a:hover { color: var(--accent-h); }
 }
 
 .summary-card {
-  background: var(--surface);
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px 18px;
   text-align: center;
   position: relative;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+.summary-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(91,110,245,0.25);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 .summary-icon {
   position: absolute;
@@ -2141,7 +2168,9 @@ input[type="checkbox"]:hover {
 
 @media (max-width: 640px) {
   .navbar { height: auto; min-height: 56px; padding: 10px 16px; flex-wrap: wrap; gap: 8px; }
-  .navbar-links { order: 3; width: 100%; overflow-x: auto; padding-bottom: 2px; }
+  .nav-toggle { display: flex; }
+  .navbar-links { display: none; order: 3; width: 100%; flex-direction: column; gap: 2px; padding-bottom: 2px; }
+  .nav-open .navbar-links { display: flex; }
   .navbar-user { align-items: flex-start; margin-left: 0; margin-right: 0; }
   .container { padding: 16px; }
   .summary-grid { grid-template-columns: repeat(2, 1fr); }

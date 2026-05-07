@@ -1037,7 +1037,7 @@
       </form>
       <form action="/devices/{{.Device.SerialNumber}}/clear-ota" method="POST"
             onsubmit="return confirm(‘Clear pending OTA for {{.Device.SerialNumber}}?’)">
-        <button type="submit" class="btn-outline" style="color:var(--warn);border-color:var(--warn);">Clear Pending OTA</button>
+        <button type="submit" class="btn-danger">Clear Pending OTA</button>
       </form>
     </div>
     {{end}}
