@@ -2199,26 +2199,14 @@ input[type="checkbox"]:hover {
 /* ── New Command Builder ──────────────────────────────────── */
 .cmd-builder {
   --type-color: var(--accent);
-  --type-color-soft: rgba(91, 110, 245, 0.14);
-  background: linear-gradient(180deg, var(--surface) 0%, #161924 100%);
+  --type-color-soft: rgba(91, 110, 245, 0.10);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
   margin-bottom: 16px;
   position: relative;
-  transition: --type-color 0.3s;
 }
-.cmd-builder::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--type-color) 30%, var(--type-color) 70%, transparent);
-  opacity: 0.85;
-  transition: background 0.25s;
-}
-
-.cmd-builder.is-collapsed .cmd-builder-body { display: none; }
 
 .cmd-builder-head {
   display: flex;
@@ -2227,7 +2215,6 @@ input[type="checkbox"]:hover {
   gap: 12px;
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
-  cursor: pointer;
   user-select: none;
 }
 .cmd-builder-head .head-title {
@@ -2244,16 +2231,6 @@ input[type="checkbox"]:hover {
   color: var(--text);
   letter-spacing: 1.4px;
 }
-.cmd-builder-head .head-arrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  color: var(--muted);
-  transition: transform 0.2s;
-}
-.cmd-builder.is-collapsed .head-arrow { transform: rotate(-90deg); }
 .cmd-builder-head .kbd-hint {
   font-family: var(--mono);
   font-size: 10px;
@@ -2270,9 +2247,7 @@ input[type="checkbox"]:hover {
   font-family: var(--mono);
   font-size: 13px;
   padding: 14px 20px;
-  background:
-    linear-gradient(90deg, var(--type-color-soft), transparent 60%),
-    repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 3px);
+  background: var(--surface2);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -2463,7 +2438,6 @@ input[type="checkbox"]:hover {
 .target-pill.is-active {
   background: var(--type-color);
   color: #fff;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.2), 0 4px 14px -4px var(--type-color);
 }
 .target-pill .pill-dot {
   width: 6px;
@@ -2500,7 +2474,6 @@ input[type="checkbox"]:hover {
   height: 6px;
   border-radius: 50%;
   background: var(--type-color);
-  box-shadow: 0 0 8px var(--type-color);
 }
 .btn-send-cli {
   display: inline-flex;
@@ -2516,11 +2489,9 @@ input[type="checkbox"]:hover {
   font-weight: 700;
   letter-spacing: 0.3px;
   cursor: pointer;
-  transition: transform 0.1s, box-shadow 0.15s, filter 0.15s;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.3), 0 8px 22px -10px var(--type-color);
+  transition: filter 0.15s;
 }
-.btn-send-cli:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.btn-send-cli:active { transform: translateY(0); }
+.btn-send-cli:hover { filter: brightness(1.08); }
 .btn-send-cli .kbd {
   font-family: var(--mono);
   font-size: 10.5px;
