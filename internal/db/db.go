@@ -1215,6 +1215,68 @@ func (d *DB) GetCommand(ctx context.Context, id uuid.UUID) (*Command, error) {
 	return &c, nil
 }
 
+type CommandDeliverySummary struct {
+	CommandID uuid.UUID
+	Pending   int
+	Delivered int
+	Completed int
+	Failed    int
+}
+
+func (d *DB) GetCommandDeliverySummaries(ctx context.Context) (map[uuid.UUID]CommandDeliverySummary, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT command_id, status, COUNT(*) FROM command_deliveries GROUP BY command_id, status
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]CommandDeliverySummary)
+	for rows.Next() {
+		var cid uuid.UUID
+		var status string
+		var count int
+		if err := rows.Scan(&cid, &status, &count); err != nil {
+			return nil, err
+		}
+		s := out[cid]
+		s.CommandID = cid
+		switch status {
+		case "pending":
+			s.Pending = count
+		case "delivered":
+			s.Delivered = count
+		case "completed":
+			s.Completed = count
+		case "failed":
+			s.Failed = count
+		}
+		out[cid] = s
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) GetCommandTargetSerials(ctx context.Context, commandID uuid.UUID) ([]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.serial_number FROM devices d
+		JOIN command_targets ct ON ct.target_id = d.id
+		WHERE ct.command_id = $1
+	`, commandID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 // GetCommandTargetIDs returns the target UUIDs stored in command_targets for a command.
 func (d *DB) GetCommandTargetIDs(ctx context.Context, commandID uuid.UUID) ([]uuid.UUID, error) {
 	rows, err := d.pool.Query(ctx, `SELECT target_id FROM command_targets WHERE command_id = $1`, commandID)

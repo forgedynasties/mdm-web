@@ -2090,6 +2090,16 @@ input[type="checkbox"]:hover {
 }
 @keyframes btn-spin { to { transform: rotate(360deg); } }
 
+.shell-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--accent);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: btn-spin 0.7s linear infinite;
+}
+
 /* ── Logcat Line Colors ───────────────────────── */
 .logcat-terminal .log-E { color: #f05252; }
 .logcat-terminal .log-W { color: #f0a832; }

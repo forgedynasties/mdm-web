@@ -4,22 +4,36 @@
 <div class="page-header">
   <div>
     <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>Commands</h2>
-    <p class="page-subtitle">Send commands to devices</p>
+    <p class="page-subtitle">Send and track commands across devices</p>
   </div>
 </div>
 
 {{if or (eq .Role "admin") (eq .Role "operator")}}
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>New Command</h3></div>
+  <div class="card-header collapsible-header{{if .Commands}} open{{end}}" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="collapse-arrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
+      <h3>New Command</h3>
+    </div>
+  </div>
+  <div class="collapsible-body"{{if .Commands}} style="display:none;"{{end}}>
   <form action="/commands" method="POST" class="command-form" id="cmd-form">
 
     <div class="form-row">
       <label class="form-label">Type</label>
       <div class="seg-control">
-        <button type="button" class="seg-btn active" onclick="selectType('install_apk', this)">Install APK</button>
-        <button type="button" class="seg-btn"        onclick="selectType('shell', this)">Shell</button>
-        <button type="button" class="seg-btn"        onclick="selectType('screenshot', this)">Screenshot</button>
-        <button type="button" class="seg-btn"        onclick="selectType('reboot', this)">Reboot</button>
+        <button type="button" class="seg-btn active" onclick="selectType('install_apk', this)">
+          <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>Install APK
+        </button>
+        <button type="button" class="seg-btn" onclick="selectType('shell', this)">
+          <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell
+        </button>
+        <button type="button" class="seg-btn" onclick="selectType('screenshot', this)">
+          <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot
+        </button>
+        <button type="button" class="seg-btn" onclick="selectType('reboot', this)">
+          <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot
+        </button>
       </div>
       <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
     </div>
@@ -45,7 +59,6 @@
         {{end}}
       </div>
     </div>
-
 
     <div id="shell-fields" class="form-row" style="display:none;">
       <label class="form-label">Command</label>
@@ -91,21 +104,28 @@
 
     <button type="submit" id="send-btn" class="btn-primary btn-send"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg></span>Send Command</button>
   </form>
+  </div>
 </div>
 {{end}}
 
 <div class="card">
-  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+  <div class="card-header">
     <h3>History</h3>
     <div style="display:flex;gap:8px;align-items:center;">
-      <select id="filter-type" class="form-input" style="width:auto;padding:4px 8px;font-size:0.85rem;" onchange="filterCommands()">
+      <div style="position:relative;display:flex;align-items:center;">
+        <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+          <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+        </svg>
+        <input type="search" id="cmd-search" class="form-input" style="width:180px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Search serial…" oninput="filterCommands()">
+      </div>
+      <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="filterCommands()">
         <option value="">All Types</option>
         <option value="install_apk">Install APK</option>
         <option value="shell">Shell</option>
         <option value="screenshot">Screenshot</option>
         <option value="reboot">Reboot</option>
       </select>
-      <select id="filter-target" class="form-input" style="width:auto;padding:4px 8px;font-size:0.85rem;" onchange="filterCommands()">
+      <select id="filter-target" class="filter-select" style="font-size:12px;" onchange="filterCommands()">
         <option value="">All Targets</option>
         <option value="all">All Devices</option>
         <option value="devices">Devices</option>
@@ -117,8 +137,8 @@
     <thead>
       <tr>
         <th>Type</th>
-        <th>Details</th>
         <th>Target</th>
+        <th>Status</th>
         <th>Sent</th>
         <th></th>
       </tr>
@@ -126,13 +146,47 @@
     <tbody>
       {{if .Commands}}
         {{range .Commands}}
-        <tr data-cmd-type="{{.Type}}" data-cmd-target="{{.TargetType}}">
-          <td><span class="status-badge muted">{{cmdLabel .Type}}</span></td>
-          <td class="mono small muted">{{cmdDetail .}}</td>
-          <td class="muted">{{.TargetType}}</td>
-          <td class="muted small">{{localTime .CreatedAt}}</td>
+        {{$summary := index $.Summaries .ID}}
+        {{$serials := index $.TargetSerials .ID}}
+        <tr data-cmd-type="{{.Type}}" data-cmd-target="{{.TargetType}}" data-cmd-serials="{{range $serials}}{{.}},{{end}}">
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:6px;">
+              <span class="ui-icon" style="width:14px;height:14px;color:var(--accent);">
+                {{if eq .Type "install_apk"}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg>
+                {{else if eq .Type "shell"}}<svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>
+                {{else if eq .Type "screenshot"}}<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg>
+                {{else if eq .Type "reboot"}}<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>
+                {{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>{{end}}
+              </span>
+              {{cmdLabel .Type}}
+            </span>
+          </td>
+          <td>
+            {{if eq .TargetType "devices"}}
+              {{if eq (len $serials) 1}}
+                <a href="/devices/{{index $serials 0}}" class="mono link-detail" style="font-size:11px;">{{index $serials 0}}</a>
+              {{else}}
+                <span class="muted small">{{len $serials}} devices</span>
+              {{end}}
+            {{else if eq .TargetType "groups"}}
+              <span class="muted small">groups</span>
+            {{else}}
+              <span class="muted small">all devices</span>
+            {{end}}
+          </td>
+          <td>
+            {{if $summary}}
+              {{if gt $summary.Completed 0}}<span class="ok" style="font-size:12px;font-weight:600;">{{$summary.Completed}}</span>{{end}}
+              {{if gt $summary.Failed 0}}<span class="danger" style="font-size:12px;font-weight:600;">{{$summary.Failed}}</span>{{end}}
+              {{if gt $summary.Pending 0}}<span class="muted" style="font-size:12px;">{{$summary.Pending}}</span>{{end}}
+              {{if gt $summary.Delivered 0}}<span style="color:var(--accent-h);font-size:12px;">{{$summary.Delivered}}</span>{{end}}
+            {{else}}
+              <span class="muted small">—</span>
+            {{end}}
+          </td>
+          <td class="muted small">{{timeSince .CreatedAt}}</td>
           <td style="display:flex;gap:8px;align-items:center;">
-            <a href="/commands/{{.ID}}" class="link-detail">Status</a>
+            <a href="/commands/{{.ID}}" class="link-detail">View</a>
             {{if eq $.Role "admin"}}
             <form action="/commands/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
               <button type="submit" class="btn-link" style="color:var(--danger);">Delete</button>
@@ -181,30 +235,50 @@
 </div>
 
 <script>
+// Collapsible section
+function toggleSection(header) {
+  var body = header.nextElementSibling;
+  var open = body.style.display !== 'none';
+  if (open) {
+    body.style.display = 'none';
+    header.classList.remove('open');
+  } else {
+    body.style.display = '';
+    header.classList.add('open');
+  }
+}
+
+// Show toast on resend (via global showToast)
+document.addEventListener('submit', function(evt) {
+  var form = evt.target;
+  if (!form || form.tagName !== 'FORM') return;
+  if (form.action.indexOf('/resend') !== -1) {
+    setTimeout(function() { if (window.showToast) showToast('Command resent', 'success'); }, 100);
+  }
+});
+
 function filterCommands() {
+  var q = (document.getElementById('cmd-search').value || '').toLowerCase();
   var ft = document.getElementById('filter-type').value;
   var fg = document.getElementById('filter-target').value;
   var rows = document.querySelectorAll('#cmd-history-table tbody tr[data-cmd-type]');
   rows.forEach(function(r) {
-    var show = (!ft || r.dataset.cmdType === ft) && (!fg || r.dataset.cmdTarget === fg);
-    r.style.display = show ? '' : 'none';
+    var typeMatch = !ft || r.dataset.cmdType === ft;
+    var targetMatch = !fg || r.dataset.cmdTarget === fg;
+    var searchMatch = !q || (r.dataset.cmdSerials || '').toLowerCase().indexOf(q) !== -1;
+    r.style.display = typeMatch && targetMatch && searchMatch ? '' : 'none';
   });
 }
 
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
-  document.querySelectorAll('.seg-control:first-of-type .seg-btn').forEach(b => b.classList.remove('active'));
-  // find the seg-control containing this btn and update only those buttons
-  btn.closest('.seg-control').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.closest('.seg-control').querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
   btn.classList.add('active');
-
   document.getElementById('apk-fields').style.display      = val === 'install_apk' ? '' : 'none';
   document.getElementById('shell-fields').style.display    = val === 'shell'       ? '' : 'none';
   document.getElementById('screenshot-hint').style.display  = val === 'screenshot'  ? '' : 'none';
   document.getElementById('reboot-hint').style.display      = val === 'reboot'      ? '' : 'none';
-
-  // disable the apk_url select/input when not install_apk so it doesn't block submission
-  const apkSel = document.getElementById('apk-select');
+  var apkSel = document.getElementById('apk-select');
   if (apkSel) apkSel.disabled = (val !== 'install_apk');
 }
 
@@ -212,7 +286,7 @@ function selectTarget(val, btn) {
   document.getElementById('target-type-input').value = val;
   document.getElementById('target-groups').style.display  = val === 'groups'  ? '' : 'none';
   document.getElementById('target-devices').style.display = val === 'devices' ? '' : 'none';
-  btn.closest('.seg-control').querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+  btn.closest('.seg-control').querySelectorAll('.seg-btn').forEach(function(b) { b.classList.remove('active'); });
   btn.classList.add('active');
 }
 
@@ -230,33 +304,33 @@ function closeAppModal(e) {
   }
 }
 
-document.addEventListener('keydown', e => {
+document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeAppModal();
 });
 
 async function saveNewApp() {
-  const name   = document.getElementById('new-app-name').value.trim();
-  const apkURL = document.getElementById('new-app-url').value.trim();
-  const errEl  = document.getElementById('app-modal-error');
+  var name   = document.getElementById('new-app-name').value.trim();
+  var apkURL = document.getElementById('new-app-url').value.trim();
+  var errEl  = document.getElementById('app-modal-error');
   if (!name || !apkURL) {
     errEl.textContent = 'Both fields are required.';
     errEl.style.display = '';
     return;
   }
-  const body = new URLSearchParams({ name, apk_url: apkURL });
-  const res  = await fetch('/setup/apps/create', { method: 'POST', body });
+  var body = new URLSearchParams({ name, apk_url: apkURL });
+  var res  = await fetch('/setup/apps/create', { method: 'POST', body });
   if (!res.ok) {
     errEl.textContent = 'Failed to save app. Try again.';
     errEl.style.display = '';
     return;
   }
-  const app = await res.json();
-  document.querySelectorAll('select[name="apk_url"]').forEach(sel => {
-    const opt = new Option(app.name, app.apk_url, true, true);
+  var app = await res.json();
+  document.querySelectorAll('select[name="apk_url"]').forEach(function(sel) {
+    var opt = new Option(app.name, app.apk_url, true, true);
     sel.add(opt);
     sel.value = app.apk_url;
   });
-  const hidden = document.getElementById('cmd-apk-url');
+  var hidden = document.getElementById('cmd-apk-url');
   if (hidden) hidden.value = app.apk_url;
   closeAppModal();
 }
@@ -268,11 +342,8 @@ async function saveNewApp() {
   if (serials) {
     var ta = document.querySelector('textarea[name="target_serials"]');
     if (ta) ta.value = serials.split(',').join('\n');
-    // Switch to "Specific Devices" target
     document.getElementById('target-type-input').value = 'devices';
     document.getElementById('target-devices').style.display = '';
-    var btns = document.querySelectorAll('#target-type-input').closest ? null : null;
-    // activate the correct seg-btn
     document.querySelectorAll('.seg-control').forEach(function(sc) {
       sc.querySelectorAll('.seg-btn').forEach(function(b) {
         if (b.textContent.trim() === 'Specific Devices') {
@@ -281,6 +352,15 @@ async function saveNewApp() {
         }
       });
     });
+  }
+
+  // Collapse form if history exists
+  var hasHistory = document.querySelectorAll('#cmd-history-table tbody tr[data-cmd-type]').length > 0;
+  if (!hasHistory) {
+    var body = document.querySelector('.collapsible-body');
+    var header = document.querySelector('.collapsible-header');
+    if (body) body.style.display = '';
+    if (header) header.classList.add('open');
   }
 })();
 </script>
