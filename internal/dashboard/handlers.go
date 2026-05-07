@@ -2749,7 +2749,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if cmdType == "screenshot" || cmdType == "shell" {
-		http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
+		http.Redirect(w, r, "/commands/"+cmd.ID.String()+"?from=/devices/"+serial, http.StatusFound)
 		return
 	}
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
