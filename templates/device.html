@@ -71,7 +71,7 @@
   {{end}}>
   <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
     <div style="display:flex;align-items:center;gap:8px;">
-      <span class="collapse-arrow">▶</span>
+      <span class="collapse-arrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
       <h3>Commands</h3>
       <span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span>
     </div>
@@ -125,7 +125,7 @@
   hx-swap="outerHTML">
   <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
     <div style="display:flex;align-items:center;gap:8px;">
-      <span class="collapse-arrow">▶</span>
+      <span class="collapse-arrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
       <h3>Checkin History</h3>
       <span class="muted small">{{.CheckinTotal}} total</span>
     </div>
@@ -1087,17 +1087,17 @@
 
 function toggleSection(header) {
   var body = header.nextElementSibling;
-  var arrow = header.querySelector('.collapse-arrow');
-  if (body.style.display === 'none') {
+  var open = body.style.display !== 'none';
+  if (open) {
+    body.style.display = 'none';
+    header.classList.remove('open');
+  } else {
     body.style.display = '';
-    arrow.textContent = '▼';
+    header.classList.add('open');
     var card = header.closest('.card');
     if (card && window.htmx && card.hasAttribute('hx-trigger')) {
       window.htmx.trigger(card, 'load');
     }
-  } else {
-    body.style.display = 'none';
-    arrow.textContent = '▶';
   }
 }
 
@@ -1265,17 +1265,17 @@ async function saveNewApp() {
 <script>
 function toggleSection(header) {
   var body = header.nextElementSibling;
-  var arrow = header.querySelector('.collapse-arrow');
-  if (body.style.display === 'none') {
+  var open = body.style.display !== 'none';
+  if (open) {
+    body.style.display = 'none';
+    header.classList.remove('open');
+  } else {
     body.style.display = '';
-    arrow.textContent = '▼';
+    header.classList.add('open');
     var card = header.closest('.card');
     if (card && window.htmx && card.hasAttribute('hx-trigger')) {
       window.htmx.trigger(card, 'load');
     }
-  } else {
-    body.style.display = 'none';
-    arrow.textContent = '▶';
   }
 }
 

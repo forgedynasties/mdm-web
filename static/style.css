@@ -109,6 +109,25 @@ a:hover { color: var(--accent-h); }
   stroke-linejoin: round;
 }
 
+.collapse-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--muted);
+  transition: color 0.15s;
+}
+.collapse-arrow svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.2s ease;
+}
+.collapsible-header.open .collapse-arrow svg {
+  transform: rotate(90deg);
+  color: var(--text);
+}
+
 .btn-logout {
   background: transparent;
   border: 1px solid var(--border);
