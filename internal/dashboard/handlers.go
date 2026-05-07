@@ -2340,6 +2340,7 @@ func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
+	from := r.URL.Query().Get("from")
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid command ID", http.StatusBadRequest)
@@ -2359,6 +2360,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		"Title":      "Command " + id.String()[:8],
 		"Command":    cmd,
 		"Deliveries": deliveries,
+		"From":       from,
 	})
 }
 
