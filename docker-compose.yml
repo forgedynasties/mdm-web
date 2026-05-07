@@ -19,8 +19,8 @@ services:
     build:
       context: .
       args:
-        VERSION:
-        BRANCH:
+        VERSION: ${VERSION:-}
+        BRANCH: ${BRANCH:-}
     restart: unless-stopped
     ports:
       - "${PORT:-8080}:8080"
