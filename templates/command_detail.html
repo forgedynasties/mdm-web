@@ -113,7 +113,7 @@
   </div>
   <div class="stat-card">
     <div class="stat-label">Sent</div>
-    <div class="stat-value small">{{timeSince .Command.CreatedAt}}</div>
+    <div class="stat-value small" data-since-ms="{{.Command.CreatedAt.UnixMilli}}">{{timeSince .Command.CreatedAt}}</div>
     <div class="stat-sub">{{localTime .Command.CreatedAt}}</div>
   </div>
 </div>
@@ -135,6 +135,25 @@
     document.body.dispatchEvent(new CustomEvent('command-updated'));
   });
   window.addEventListener('beforeunload', function () { es.close(); });
+})();
+
+// Live-update relative timestamps (data-since-ms="<unix-millis>")
+(function () {
+  function fmt(ms) {
+    var d = (Date.now() - ms) / 1000;
+    if (d < 60)        return 'just now';
+    if (d < 3600)      return Math.floor(d / 60) + 'm ago';
+    if (d < 86400)     return Math.floor(d / 3600) + 'h ago';
+    return Math.floor(d / 86400) + 'd ago';
+  }
+  function tick() {
+    document.querySelectorAll('[data-since-ms]').forEach(function (el) {
+      var ms = parseInt(el.dataset.sinceMs, 10);
+      if (!isNaN(ms)) el.textContent = fmt(ms);
+    });
+  }
+  tick();
+  setInterval(tick, 30000);
 })();
 </script>
 
