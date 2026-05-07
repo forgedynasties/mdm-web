@@ -1454,11 +1454,23 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]Devic
 }
 
 // GetCommandDeliveries returns per-device status for a command.
+// Shell/screenshot/reboot deliveries that are still 'delivered' or 'pending'
+// after 5 minutes from command creation are reported as 'expired'.
 func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]CommandDelivery, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT d.serial_number, cs.status, cs.updated_at, COALESCE(cr.output, '') AS output
+		SELECT d.serial_number,
+		       CASE
+		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
+		              AND cs.status IN ('pending', 'delivered')
+		              AND c.created_at <= NOW() - INTERVAL '5 minutes'
+		           THEN 'expired'
+		         ELSE cs.status
+		       END AS status,
+		       cs.updated_at,
+		       COALESCE(cr.output, '') AS output
 		FROM command_status cs
 		JOIN devices d ON d.id = cs.device_id
+		JOIN commands c ON c.id = cs.command_id
 		LEFT JOIN command_results cr ON cr.command_id = cs.command_id AND cr.device_id = cs.device_id
 		WHERE cs.command_id = $1
 		ORDER BY cs.updated_at DESC
