@@ -380,16 +380,30 @@ a:hover { color: var(--accent-h); }
   max-width: 380px;
 }
 
+.login-brand {
+  width: 48px;
+  height: 48px;
+  color: var(--accent);
+  margin: 0 auto 20px;
+}
+
+.login-brand svg {
+  width: 48px;
+  height: 48px;
+}
+
 .login-title {
   font-size: 22px;
   font-weight: 700;
   margin-bottom: 4px;
+  text-align: center;
 }
 
 .login-subtitle {
   color: var(--muted);
   font-size: 13px;
   margin-bottom: 28px;
+  text-align: center;
 }
 
 .login-form { display: flex; flex-direction: column; gap: 16px; }

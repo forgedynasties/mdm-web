@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login — MDM</title>
+  <title>TSAI Fleet — MDM</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,8 +13,19 @@
 </head>
 <body class="login-body">
   <div class="login-card">
-    <h1 class="login-title">MDM Dashboard</h1>
-    <p class="login-subtitle">Sign in to continue</p>
+    <div class="login-brand">
+      <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="8" width="14" height="10" rx="2"/>
+        <rect x="28" y="8" width="14" height="10" rx="2"/>
+        <rect x="4" y="26" width="14" height="10" rx="2"/>
+        <rect x="28" y="26" width="14" height="10" rx="2"/>
+        <circle cx="22" cy="20" r="6"/>
+        <path d="M19 19l2 2 4-4"/>
+        <line x1="22" y1="26" x2="22" y2="42"/>
+      </svg>
+    </div>
+    <h1 class="login-title">TSAI Fleet</h1>
+    <p class="login-subtitle">Device management dashboard</p>
 
     {{if .Error}}
     <div class="alert alert-error">{{.Error}}</div>
