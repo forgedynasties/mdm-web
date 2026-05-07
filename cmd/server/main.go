@@ -7,8 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,31 +20,10 @@ import (
 )
 
 var (
-	Version = "dev"
-	Branch  = "unknown"
 )
 
-func detectGitInfo() {
-	if Version != "dev" || Branch != "unknown" {
-		return
-	}
-	if _, err := exec.LookPath("git"); err != nil {
-		return
-	}
-	if out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output(); err == nil {
-		if s := strings.TrimSpace(string(out)); s != "" {
-			Version = s
-		}
-	}
-	if out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
-		if s := strings.TrimSpace(string(out)); s != "" {
-			Branch = s
-		}
-	}
-}
 
 func main() {
-	detectGitInfo()
 	ctx := context.Background()
 
 	port          := getEnv("PORT", "8080")
@@ -176,7 +153,7 @@ func main() {
 	mux.Handle("POST /api/v1/commands",              adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
 	mux.Handle("GET /api/v1/commands/{id}",          adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 
-	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg, Version, Branch)
+	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg)
 	dash.RegisterRoutes(mux)
 
 	server := &http.Server{

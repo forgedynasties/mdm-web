@@ -16,11 +16,7 @@ services:
       retries: 10
 
   server:
-    build:
-      context: .
-      args:
-        VERSION: ${VERSION:-}
-        BRANCH: ${BRANCH:-}
+    build: .
     restart: unless-stopped
     ports:
       - "${PORT:-8080}:8080"
