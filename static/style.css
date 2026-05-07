@@ -26,6 +26,27 @@ body {
   color: var(--text);
   font-size: 14px;
   line-height: 1.5;
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(91,110,245,0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 50% at 20% 80%, rgba(91,110,245,0.03) 0%, transparent 70%);
+  filter: url(#grain);
+  opacity: 0.35;
+}
+
+body > nav,
+body > main,
+body > .modal-backdrop {
+  position: relative;
+  z-index: 1;
 }
 
 a { color: var(--accent); text-decoration: none; }
