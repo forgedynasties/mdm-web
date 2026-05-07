@@ -85,8 +85,8 @@
 
 <div class="page-header">
   <div>
-    <a href="/commands" class="back-link">← Commands</a>
-    <h2 class="page-title">Command Detail</h2>
+    {{if .From}}<a href="{{.From}}" class="back-link">← Back to device</a>{{else}}<a href="/commands" class="back-link">← Commands</a>{{end}}
+    <h2 class="page-title">{{.Title}}</h2>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <form action="/commands/{{.Command.ID}}/resend" method="POST">
