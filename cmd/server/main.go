@@ -27,11 +27,11 @@ var (
 )
 
 func detectGitInfo() {
-	if Version != "dev" && Branch != "unknown" {
-		return // already set via ldflags
+	if Version != "dev" || Branch != "unknown" {
+		return
 	}
-	if _, err := os.Stat(".git"); os.IsNotExist(err) {
-		return // not in a git repo
+	if _, err := exec.LookPath("git"); err != nil {
+		return
 	}
 	if out, err := exec.Command("git", "rev-parse", "--short", "HEAD").Output(); err == nil {
 		if s := strings.TrimSpace(string(out)); s != "" {
