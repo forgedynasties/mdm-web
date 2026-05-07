@@ -36,6 +36,7 @@
       <button type="submit" class="btn-logout">Logout</button>
     </form>
   </nav>
+  <div id="toast" class="toast" aria-live="polite"></div>
   <main class="container">
 {{end}}
 
@@ -244,6 +245,35 @@
     }
     document.body.addEventListener('htmx:afterSettle', function (evt) {
       if (evt.detail && evt.detail.target) jitterPollingElements(evt.detail.target);
+    });
+
+    // Toast notifications
+    var toastTimer;
+    function showToast(msg, type) {
+      var el = document.getElementById('toast');
+      if (!el) return;
+      clearTimeout(toastTimer);
+      el.className = 'toast ' + (type || 'info');
+      el.textContent = msg;
+      requestAnimationFrame(function () { el.classList.add('show'); });
+      toastTimer = setTimeout(function () { el.classList.remove('show'); }, 4000);
+    }
+    window.showToast = showToast;
+
+    document.body.addEventListener('htmx:afterRequest', function (evt) {
+      var tgt = evt.detail.target;
+      if (!tgt || !tgt.closest) return;
+      // Skip polling / SSE triggers
+      var form = tgt.closest('form');
+      if (!form) return;
+      if (form.dataset.noToast === 'true') return;
+      var xhr = evt.detail.xhr;
+      if (!xhr) return;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        showToast('Done', 'success');
+      } else if (xhr.status >= 400) {
+        showToast('Something went wrong', 'error');
+      }
     });
   })();
   </script>
