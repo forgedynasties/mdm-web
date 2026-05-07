@@ -1317,6 +1317,10 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 			WHERE cs.command_id = c.id AND cs.device_id = $1
 			AND cs.status IN ('delivered', 'installed', 'failed', 'completed')
 		)
+		AND (
+			c.type NOT IN ('shell', 'screenshot', 'reboot')
+			OR c.created_at > NOW() - INTERVAL '5 minutes'
+		)
 		ORDER BY c.created_at ASC
 	`, deviceID)
 	if err != nil {
@@ -1409,7 +1413,12 @@ type DeviceCommand struct {
 func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]DeviceCommand, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at,
-		       COALESCE(cs.status, 'pending') AS status,
+		       CASE
+		         WHEN cs.status IS NOT NULL THEN cs.status
+		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
+		              AND c.created_at <= NOW() - INTERVAL '5 minutes' THEN 'expired'
+		         ELSE 'pending'
+		       END AS status,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
 		       COALESCE(cr.output, '') AS output
 		FROM commands c
@@ -1552,6 +1561,7 @@ func (d *DB) GetPendingLogcatRequestsForDevice(ctx context.Context, deviceID uui
 		SELECT id, device_id, level, lines, tag, status, created_at, updated_at
 		FROM logcat_requests
 		WHERE device_id = $1 AND status = 'pending'
+		AND created_at > NOW() - INTERVAL '5 minutes'
 		ORDER BY created_at ASC
 	`, deviceID)
 	if err != nil {
@@ -1611,7 +1621,12 @@ func (d *DB) SaveLogcatResult(ctx context.Context, requestID, deviceID uuid.UUID
 func (d *DB) GetLogcatEntriesForDevice(ctx context.Context, deviceID uuid.UUID, limit int) ([]LogcatEntry, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT
-			lr.id, lr.device_id, lr.level, lr.lines, lr.tag, lr.status, lr.created_at, lr.updated_at,
+			lr.id, lr.device_id, lr.level, lr.lines, lr.tag,
+			CASE
+			  WHEN lr.status = 'pending' AND lr.created_at <= NOW() - INTERVAL '5 minutes' THEN 'expired'
+			  ELSE lr.status
+			END AS status,
+			lr.created_at, lr.updated_at,
 			lres.id, lres.content, lres.created_at
 		FROM logcat_requests lr
 		LEFT JOIN logcat_results lres ON lres.request_id = lr.id

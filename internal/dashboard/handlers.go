@@ -301,6 +301,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 				return "ok"
 			case "failed":
 				return "danger"
+			case "expired":
+				return "warn"
 			default:
 				return "muted"
 			}
@@ -339,6 +341,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 				return "ok"
 			case "delivered":
 				return "warn"
+			case "expired":
+				return "danger"
 			default:
 				return "muted"
 			}
