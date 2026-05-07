@@ -57,6 +57,8 @@ type Handler struct {
 	user     string
 	password string
 	cfg      *config.Config
+	version  string
+	branch   string
 }
 
 var logcatSeverityRe = regexp.MustCompile(`\b([EWIDV])\/|\s([EWIDV])\s`)
@@ -220,7 +222,7 @@ func colorizeLogcatText(content string) template.HTML {
 	return template.HTML(out.String())
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, user, password string, cfg *config.Config) *Handler {
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, user, password string, cfg *config.Config, version, branch string) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -555,6 +557,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 		user:     user,
 		password: password,
 		cfg:      cfg,
+		version:  version,
+		branch:   branch,
 	}
 }
 
@@ -632,6 +636,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "settings"
 	case strings.HasPrefix(path, "/users"):
 		data["ActivePage"] = "users"
+		data["GitVersion"] = h.version
+		data["GitBranch"] = h.branch
 	}
 	return data
 }

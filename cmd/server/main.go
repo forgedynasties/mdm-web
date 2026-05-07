@@ -19,6 +19,11 @@ import (
 	"mdm/internal/ws"
 )
 
+var (
+	Version = "dev"
+	Branch  = "unknown"
+)
+
 func main() {
 	ctx := context.Background()
 
@@ -149,7 +154,7 @@ func main() {
 	mux.Handle("POST /api/v1/commands",              adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
 	mux.Handle("GET /api/v1/commands/{id}",          adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 
-	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg)
+	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg, Version, Branch)
 	dash.RegisterRoutes(mux)
 
 	server := &http.Server{
