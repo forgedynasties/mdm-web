@@ -38,12 +38,16 @@
             {{if .Output}}
             <pre class="logcat-terminal" style="max-height:300px;margin:0;">{{colorizeLogcat .Output}}</pre>
             {{else if or (eq .Status "delivered") (eq .Status "pending")}}
-            <pre id="out-{{.SerialNumber}}" class="logcat-terminal" style="max-height:300px;margin:0;"></pre>
+            <div id="wait-{{.SerialNumber}}" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px;color:var(--accent-h);"><span class="shell-spinner"></span> Waiting for output…</div>
+            <pre id="out-{{.SerialNumber}}" class="logcat-terminal" style="max-height:300px;margin:0;display:none;"></pre>
             <script>
             (function(){
               const el = document.getElementById('out-{{.SerialNumber}}');
               const es = new EventSource('/commands/{{$cmd.ID}}/output/{{.SerialNumber}}/stream');
               es.onmessage = function(e) {
+                el.style.display = '';
+                var wait = document.getElementById('wait-{{.SerialNumber}}');
+                if (wait) wait.style.display = 'none';
                 el.textContent += JSON.parse(e.data);
                 el.scrollTop = el.scrollHeight;
               };
@@ -117,7 +121,7 @@
 {{if .Command.ApkURL}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>APK URL</h3></div>
-  <div style="padding:12px 16px;"><span class="mono small">{{.Command.ApkURL}}</span></div>
+  <div style="padding:12px 16px;"><a href="{{.Command.ApkURL}}" target="_blank" rel="noopener" class="mono small" style="word-break:break-all;">{{.Command.ApkURL}}</a></div>
 </div>
 {{end}}
 

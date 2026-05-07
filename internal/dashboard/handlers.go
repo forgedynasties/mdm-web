@@ -2241,11 +2241,22 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context())
+	targetSerials := make(map[uuid.UUID][]string)
+	for _, c := range cmds {
+		if c.TargetType == "devices" {
+			if s, err := h.db.GetCommandTargetSerials(r.Context(), c.ID); err == nil {
+				targetSerials[c.ID] = s
+			}
+		}
+	}
 	h.render(w, r, "commands.html", map[string]any{
-		"Title":    "Commands",
-		"Commands": cmds,
-		"Groups":   groups,
-		"Apps":     apps,
+		"Title":         "Commands",
+		"Commands":      cmds,
+		"Groups":        groups,
+		"Apps":          apps,
+		"Summaries":     summaries,
+		"TargetSerials": targetSerials,
 	})
 }
 
