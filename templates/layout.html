@@ -45,6 +45,11 @@
 
 {{define "footer"}}
   </main>
+  <footer class="page-footer">
+    <span>{{if .GitVersion}}{{.GitVersion}}{{else}}dev{{end}}</span>
+    <span class="footer-sep">·</span>
+    <span>{{if .GitBranch}}{{.GitBranch}}{{else}}unknown{{end}}</span>
+  </footer>
   <script>
   (function () {
     var progress = document.getElementById('htmx-progress');
