@@ -9,7 +9,7 @@
   id="deliveries-card"
   {{if $hasPending}}
   hx-get="/commands/{{$cmd.ID}}/status"
-  hx-trigger="command-updated from:body"
+  hx-trigger="command-updated from:body, every 30s"
   hx-swap="outerHTML"
   {{end}}>
   <div class="card-header">
@@ -37,6 +37,11 @@
           <td style="min-width:320px;">
             {{if .Output}}
             <pre class="logcat-terminal" style="max-height:300px;margin:0;">{{colorizeLogcat .Output}}</pre>
+            {{else if eq .Status "expired"}}
+            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--warn);">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+              Timed out — no output received within 5 minutes
+            </div>
             {{else if or (eq .Status "delivered") (eq .Status "pending")}}
             <div id="wait-{{.SerialNumber}}" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px;color:var(--accent-h);"><span class="shell-spinner"></span> Waiting for output…</div>
             <pre id="out-{{.SerialNumber}}" class="logcat-terminal" style="max-height:300px;margin:0;display:none;"></pre>
