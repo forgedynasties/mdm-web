@@ -1,0 +1,212 @@
+{{define "group_form.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <a href="/groups" class="back-link">← Groups</a>
+    <h2 class="page-title">New Group</h2>
+    <p class="page-subtitle">Name your group and select devices</p>
+  </div>
+</div>
+
+<form action="/groups" method="POST" id="create-group-form">
+<div class="card" style="margin-bottom:16px;">
+  <div style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
+    <div class="form-row">
+      <label class="form-label">Group Name</label>
+      <input type="text" name="name" id="group-name" class="form-input" placeholder="Field Team A" required autofocus>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Selected Devices (<span id="selected-count">0</span>)</label>
+      <textarea name="serials" id="selected-serials" class="form-textarea"
+                placeholder="Type or paste serials, one per line&#10;Or check devices in the table below"
+                oninput="onTextareaChange()"
+                style="min-height:80px;"></textarea>
+    </div>
+  </div>
+
+  <div class="card-header">
+    <h3>Browse Devices</h3>
+  </div>
+
+  <div class="filter-bar" style="margin:0 12px 0 12px;border-bottom:none;">
+    <div class="filter-search">
+      <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+      </svg>
+      <input type="search" id="group-search" name="q" placeholder="Search serial..." class="filter-search-input"
+             oninput="debouncedReload()">
+    </div>
+    <div class="filter-divider"></div>
+    <select id="group-filter-status" class="filter-select" onchange="reloadDevices()">
+      <option value="">Status</option>
+      <option value="online">Online</option>
+      <option value="offline">Offline</option>
+    </select>
+    <select id="group-filter-group" class="filter-select" onchange="reloadDevices()">
+      <option value="">Group</option>
+      {{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+    </select>
+    <select id="group-filter-production" class="filter-select" onchange="reloadDevices()">
+      <option value="">Production</option>
+      {{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+    </select>
+    <select id="group-filter-build" class="filter-select" onchange="reloadDevices()">
+      <option value="">Build</option>
+      {{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}
+    </select>
+    <select id="group-filter-battery" class="filter-select" onchange="reloadDevices()">
+      <option value="">Battery</option>
+      <option value="low">Critical &lt;20%</option>
+      <option value="mid">Low 20-49%</option>
+      <option value="ok">Healthy 50%+</option>
+    </select>
+    <div style="flex:1;"></div>
+    <button type="button" class="filter-clear" onclick="clearGroupFilters()">Clear</button>
+  </div>
+
+  <div id="group-device-browser"
+       hx-get="/groups/new/devices"
+       hx-trigger="load"
+       hx-target="#group-device-browser"
+       hx-swap="innerHTML">
+  </div>
+
+  <div style="padding:14px 20px;display:flex;gap:12px;border-top:1px solid var(--border);">
+    <button type="submit" class="btn-primary" id="create-group-btn" disabled>Create Group</button>
+    <a href="/groups" class="btn-outline">Cancel</a>
+  </div>
+</div>
+</form>
+
+<script>
+var searchTimer;
+function debouncedReload() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(reloadDevices, 300);
+}
+
+function getGroupFilters() {
+  return {
+    q: document.getElementById('group-search').value,
+    status: document.getElementById('group-filter-status').value,
+    group: document.getElementById('group-filter-group').value,
+    production: document.getElementById('group-filter-production').value,
+    build: document.getElementById('group-filter-build').value,
+    battery: document.getElementById('group-filter-battery').value
+  };
+}
+
+function reloadDevices() {
+  var f = getGroupFilters();
+  var params = new URLSearchParams();
+  for (var k in f) { if (f[k]) params.set(k, f[k]); }
+  htmx.ajax('GET', '/groups/new/devices?' + params.toString(), '#group-device-browser');
+}
+
+function clearGroupFilters() {
+  document.getElementById('group-search').value = '';
+  document.getElementById('group-filter-status').value = '';
+  document.getElementById('group-filter-group').value = '';
+  document.getElementById('group-filter-production').value = '';
+  document.getElementById('group-filter-build').value = '';
+  document.getElementById('group-filter-battery').value = '';
+  reloadDevices();
+}
+
+// Selected serials management
+function getSelectedSerials() {
+  var ta = document.getElementById('selected-serials');
+  return ta.value.split('\n').map(function(s) { return s.trim(); }).filter(Boolean);
+}
+
+function updateSelectedUI() {
+  var serials = getSelectedSerials();
+  document.getElementById('selected-count').textContent = serials.length;
+  document.getElementById('create-group-btn').disabled = serials.length === 0;
+  // Sync checkboxes in the device table
+  var set = {};
+  serials.forEach(function(s) { set[s] = true; });
+  document.querySelectorAll('#group-device-browser .device-cb').forEach(function(cb) {
+    cb.checked = !!set[cb.value];
+  });
+}
+
+function onTextareaChange() {
+  updateSelectedUI();
+}
+
+function toggleDeviceInGroup(cb) {
+  var serials = getSelectedSerials();
+  var idx = serials.indexOf(cb.value);
+  if (cb.checked && idx === -1) {
+    serials.push(cb.value);
+  } else if (!cb.checked && idx !== -1) {
+    serials.splice(idx, 1);
+  }
+  document.getElementById('selected-serials').value = serials.join('\n') + (serials.length ? '\n' : '');
+  updateSelectedUI();
+}
+
+// After HTMX swaps, sync checkboxes
+document.body.addEventListener('htmx:afterSettle', function(evt) {
+  if (evt.detail.target.id === 'group-device-browser') {
+    updateSelectedUI();
+  }
+});
+
+// Init
+updateSelectedUI();
+</script>
+
+{{template "footer" .}}
+{{end}}
+
+{{define "group-device-browser"}}
+<table class="table">
+  <thead>
+    <tr>
+      <th style="width:36px;"></th>
+      <th>Serial Number</th>
+      <th>Build ID</th>
+      <th>Battery</th>
+      <th>Last Seen</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{if .Devices}}
+      {{range .Devices}}
+      <tr>
+        <td><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" onchange="toggleDeviceInGroup(this)"></td>
+        <td class="mono" style="white-space:nowrap;">
+          <span class="ws-dot {{if index $.Online .ID}}online{{end}}"></span>{{.SerialNumber}}
+        </td>
+        <td class="mono small">{{.BuildID}}</td>
+        <td>
+          <div class="battery-wrap">
+            <div class="battery-track">
+              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+            </div>
+            <span class="battery-label">{{.BatteryPct}}%</span>
+          </div>
+        </td>
+        <td class="muted">{{timeSince .LastSeenAt}}</td>
+      </tr>
+      {{end}}
+    {{else}}
+      <tr>
+        <td colspan="5">
+          <div class="empty-state">
+            <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
+            <div class="empty-state-copy">
+              <div class="empty-state-title">{{if .Query}}No devices match "{{.Query}}"{{else}}No devices found{{end}}</div>
+              <div class="empty-state-text">{{if .Query}}Try a different search term.{{else}}Devices will appear after their first check-in.{{end}}</div>
+            </div>
+          </div>
+        </td>
+      </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}

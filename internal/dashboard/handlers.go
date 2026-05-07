@@ -1629,6 +1629,71 @@ func (h *Handler) DeviceCheckinsPartial(w http.ResponseWriter, r *http.Request) 
 
 // ── Groups ────────────────────────────────────────────────────────────────────
 
+func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 500, "", "")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	groups, _ := h.db.ListGroups(r.Context())
+	productions, _ := h.db.ListProductions(r.Context())
+	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
+	connected := h.hub.ConnectedIDs()
+	online := make(map[uuid.UUID]bool, len(connected))
+	for id := range connected {
+		online[id] = true
+	}
+
+	h.render(w, r, "group_form.html", map[string]any{
+		"Title":       "New Group",
+		"Devices":     devices,
+		"Online":      online,
+		"Groups":      groups,
+		"Productions": productions,
+		"Builds":      builds,
+	})
+}
+
+func (h *Handler) GroupNewDevices(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	filter := db.DeviceFilter{
+		Search: q,
+		Online: r.URL.Query().Get("status"),
+		BuildID: r.URL.Query().Get("build"),
+		Battery: r.URL.Query().Get("battery"),
+	}
+	var groupID uuid.UUID
+	if gid := r.URL.Query().Get("group"); gid != "" {
+		if parsed, err := uuid.Parse(gid); err == nil {
+			groupID = parsed
+		}
+	}
+	filter.GroupID = groupID
+	var productionID uuid.UUID
+	if pid := r.URL.Query().Get("production"); pid != "" {
+		if parsed, err := uuid.Parse(pid); err == nil {
+			productionID = parsed
+		}
+	}
+	filter.ProductionID = productionID
+
+	devices, err := h.db.ListDevices(r.Context(), filter, 0, 500, "", "")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	connected := h.hub.ConnectedIDs()
+	online := make(map[uuid.UUID]bool)
+	for id := range connected {
+		online[id] = true
+	}
+	h.renderCachedHTML(w, r, "group-device-browser", map[string]any{
+		"Devices": devices,
+		"Online":  online,
+		"Query":   q,
+	})
+}
+
 func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 	groups, err := h.db.ListGroups(r.Context())
 	if err != nil {
@@ -1709,12 +1774,22 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
-	serial := strings.TrimSpace(r.FormValue("serial_number"))
-	if serial == "" {
+	// Accept single serial_number (legacy) or multi-line serials textarea
+	var serials []string
+	if s := strings.TrimSpace(r.FormValue("serial_number")); s != "" {
+		serials = append(serials, s)
+	}
+	for _, s := range r.Form["serials"] {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			serials = append(serials, s)
+		}
+	}
+	if len(serials) == 0 {
 		http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
 		return
 	}
-	if err := h.db.AddDeviceToGroup(r.Context(), serial, id); err != nil {
+	if err := h.db.AddDevicesToGroup(r.Context(), serials, id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -3006,6 +3081,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/logcat/events", h.requireAuth(h.LogcatEvents))
 	mux.HandleFunc("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
 
+		mux.HandleFunc("GET /groups/new", h.requireAdmin(h.GroupNew))
+		mux.HandleFunc("GET /groups/new/devices", h.requireAdmin(h.GroupNewDevices))
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
 	mux.HandleFunc("POST /groups", h.requireAdmin(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
