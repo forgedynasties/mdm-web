@@ -38,8 +38,7 @@ body::before {
   background:
     radial-gradient(ellipse 80% 60% at 50% 0%, rgba(91,110,245,0.04) 0%, transparent 70%),
     radial-gradient(ellipse 40% 50% at 20% 80%, rgba(91,110,245,0.03) 0%, transparent 70%);
-  filter: url(#grain);
-  opacity: 0.35;
+  opacity: 0.6;
 }
 
 body > nav,
@@ -90,7 +89,7 @@ a:hover { color: var(--accent-h); }
   gap: 8px;
 }
 .nav-link:hover { color: var(--text); background: var(--surface2); }
-.nav-link.active { color: var(--text); background: var(--surface2); box-shadow: inset 0 -2px 0 var(--accent); }
+.nav-link.active { color: #fff; background: var(--surface2); }
 .ui-icon {
   display: inline-flex;
   align-items: center;
