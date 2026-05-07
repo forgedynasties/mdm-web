@@ -1,7 +1,9 @@
 FROM golang:1.23-alpine AS builder
 
-ARG VERSION=dev
-ARG BRANCH=unknown
+RUN apk add --no-cache git
+
+ARG VERSION
+ARG BRANCH
 
 WORKDIR /app
 
@@ -9,7 +11,10 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=${VERSION} -X main.Branch=${BRANCH}" -o server ./cmd/server
+RUN VERSION=${VERSION:-$(git rev-parse --short HEAD)} && \
+    BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)} && \
+    echo "build: $VERSION @ $BRANCH" && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -X main.Version=$VERSION -X main.Branch=$BRANCH" -o server ./cmd/server
 
 
 FROM alpine:3.21
