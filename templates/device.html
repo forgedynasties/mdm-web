@@ -56,15 +56,6 @@
       <div class="stat-value muted">—</div>
     {{end}}
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Kiosk</div>
-    {{if .Device.KioskEnabled}}
-      <div class="stat-value ok">Active</div>
-      <div class="stat-sub mono small">{{.Device.KioskPackage}}</div>
-    {{else}}
-      <div class="stat-value muted">Off</div>
-    {{end}}
-  </div>
 </div>
 {{end}}
 
@@ -109,7 +100,15 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="5" class="empty">No commands sent to this device.</td>
+          <td colspan="5">
+            <div class="empty-state">
+              <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
+              <div class="empty-state-copy">
+                <div class="empty-state-title">No commands yet</div>
+                <div class="empty-state-text">Send a command from the actions panel above.</div>
+              </div>
+            </div>
+          </td>
         </tr>
       {{end}}
     </tbody>
@@ -163,7 +162,15 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="4" class="empty">No checkins recorded.</td>
+          <td colspan="4">
+            <div class="empty-state">
+              <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l2 2"/></svg></span>
+              <div class="empty-state-copy">
+                <div class="empty-state-title">No checkins recorded</div>
+                <div class="empty-state-text">Check-in data will appear after the device connects.</div>
+              </div>
+            </div>
+          </td>
         </tr>
       {{end}}
     </tbody>
@@ -1092,17 +1099,6 @@ function toggleSection(header) {
     body.style.display = 'none';
     arrow.textContent = '▶';
   }
-}
-
-function setKioskMode(mode) {
-  var enable = mode === 'enable';
-  document.getElementById('kiosk-enabled-input').value = enable ? '1' : '0';
-  document.getElementById('kiosk-package-row').style.display = enable ? 'block' : 'none';
-  var pkg = document.getElementById('kiosk-package-input');
-  if (pkg) pkg.required = enable;
-  document.querySelectorAll('.kiosk-mode-control .seg-btn').forEach(function(btn) {
-    btn.classList.toggle('active', btn.dataset.mode === mode);
-  });
 }
 
 var deviceActionConfig = {

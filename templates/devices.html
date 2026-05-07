@@ -10,7 +10,6 @@
           onsubmit="return confirmBulkHide(event)">
       <button type="submit" class="btn-danger-sm">Hide Selected</button>
     </form>
-    <button type="button" class="btn-outline" disabled title="Coming soon" style="padding:3px 10px;font-size:12px;opacity:0.45;cursor:not-allowed;">Kiosk</button>
     <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
     <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
     <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
@@ -51,7 +50,6 @@
         First Seen
         {{if eq .Sort "created_at"}}<span class="sort-arrow">{{if eq .SortDir "asc"}}&#9650;{{else}}&#9660;{{end}}</span>{{end}}
       </th>
-      <th>Kiosk</th>
       <th></th>
     </tr>
   </thead>
@@ -94,13 +92,6 @@
           {{if gt .PollIntervalMs 0}}<span class="last-synced">synced {{localShortTime .LastSeenAt}}</span>{{end}}
         </td>
         <td class="muted small">{{localTime .CreatedAt}}</td>
-        <td>
-          {{if .KioskEnabled}}
-            <span class="status-badge ok" title="{{.KioskPackage}}">Kiosk</span>
-          {{else}}
-            <span class="muted small">—</span>
-          {{end}}
-        </td>
         <td style="white-space:nowrap;">
           <a href="/devices/{{.SerialNumber}}" class="link-detail">View</a>
           {{if eq $.Role "admin"}}
@@ -114,8 +105,14 @@
       {{end}}
     {{else}}
       <tr>
-        <td colspan="10" class="empty">
-          {{if .Query}}No devices match "{{.Query}}".{{else}}No devices have checked in yet.{{end}}
+        <td colspan="9">
+          <div class="empty-state">
+            <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
+            <div class="empty-state-copy">
+              <div class="empty-state-title">{{if .Query}}No devices match "{{.Query}}"{{else}}No devices yet{{end}}</div>
+              <div class="empty-state-text">{{if .Query}}Try a different search term or clear filters.{{else}}Devices will appear here after their first check-in.{{end}}</div>
+            </div>
+          </div>
         </td>
       </tr>
     {{end}}
@@ -221,11 +218,6 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     <span class="summary-icon"><svg viewBox="0 0 24 24"><path d="M6 18V8"/><path d="M12 18V5"/><path d="M18 18v-3"/></svg></span>
     <div class="summary-value">{{.UniqueBuilds}}</div>
     <div class="summary-label">Unique Builds</div>
-  </div>
-  <div class="summary-card">
-    <span class="summary-icon"><svg viewBox="0 0 24 24"><path d="M8 11V7a4 4 0 1 1 8 0v4"/><rect x="5" y="11" width="14" height="9" rx="2"/></svg></span>
-    <div class="summary-value {{if gt .KioskCount 0}}ok{{end}}">{{.KioskCount}}</div>
-    <div class="summary-label">In Kiosk Mode</div>
   </div>
 </div>
 {{end}}
@@ -462,45 +454,10 @@ function openBulkGroupModal() {
   document.getElementById('bulk-group-name').focus();
 }
 
-function openBulkKioskModal() {
-  var serials = getSelectedSerials();
-  if (serials.length === 0) return;
-  var form = document.getElementById('bulk-kiosk-form');
-  form.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
-  serials.forEach(function(s) {
-    var inp = document.createElement('input');
-    inp.type = 'hidden';
-    inp.name = 'serials';
-    inp.value = s;
-    form.appendChild(inp);
-  });
-  document.getElementById('bulk-kiosk-count').textContent = serials.length;
-  document.getElementById('bulk-kiosk-package').value = '';
-  setBulkKioskMode('enable');
-  document.getElementById('bulk-kiosk-modal').classList.add('modal-open');
-  document.getElementById('bulk-kiosk-package').focus();
-}
-
 function closeBulkGroupModal(event) {
   if (!event || event.target === document.getElementById('bulk-group-modal')) {
     document.getElementById('bulk-group-modal').classList.remove('modal-open');
   }
-}
-
-function closeBulkKioskModal(event) {
-  if (!event || event.target === document.getElementById('bulk-kiosk-modal')) {
-    document.getElementById('bulk-kiosk-modal').classList.remove('modal-open');
-  }
-}
-
-function setBulkKioskMode(mode) {
-  var enable = mode === 'enable';
-  document.getElementById('bulk-kiosk-enabled').value = enable ? '1' : '0';
-  document.getElementById('bulk-kiosk-package-row').style.display = enable ? '' : 'none';
-  document.getElementById('bulk-kiosk-package').required = enable;
-  document.querySelectorAll('.bulk-kiosk-mode .seg-btn').forEach(function(btn) {
-    btn.classList.toggle('active', btn.dataset.mode === mode);
-  });
 }
 
 // Density toggle
@@ -568,7 +525,6 @@ function submitConfirmedMassAction() {
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeConfirmModal();
   if (e.key === 'Escape') closeBulkGroupModal();
-  if (e.key === 'Escape') closeBulkKioskModal();
 });
 </script>
 
@@ -651,13 +607,6 @@ document.addEventListener('keydown', function(e) {
       cells[6].innerHTML = seenHtml;
       if (window.localizeTimes) window.localizeTimes(cells[6]);
 
-      // col 8: kiosk
-      if (d.kiosk_enabled) {
-        cells[8].innerHTML = '<span class="status-badge ok" title="' + d.kiosk_package + '">Kiosk</span>';
-      } else {
-        cells[8].innerHTML = '<span class="muted small">—</span>';
-      }
-
       // row-level alert classes
       tr.className = d.row_classes;
       tr.setAttribute('data-serial', d.serial);
@@ -710,34 +659,6 @@ document.addEventListener('keydown', function(e) {
           <input type="text" name="name" id="bulk-group-name" class="form-input" placeholder="Field Team A" required>
         </div>
         <button type="submit" class="btn-primary">Create Group</button>
-      </form>
-    </div>
-  </div>
-</div>
-
-<div id="bulk-kiosk-modal" class="modal-backdrop" onclick="closeBulkKioskModal(event)">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span class="modal-title">Bulk Kiosk Mode</span>
-      <button class="modal-close" type="button" onclick="closeBulkKioskModal()">&times;</button>
-    </div>
-    <div class="modal-body">
-      <div class="muted small"><span id="bulk-kiosk-count">0</span> selected devices will receive this kiosk config on next checkin.</div>
-      <form action="/devices/bulk-kiosk" method="POST" id="bulk-kiosk-form" class="command-form" style="padding:0;margin-top:12px;">
-        <input type="hidden" name="kiosk_enabled" id="bulk-kiosk-enabled" value="1">
-        <div class="form-row">
-          <label class="form-label">Mode</label>
-          <div class="seg-control bulk-kiosk-mode">
-            <button type="button" class="seg-btn active" data-mode="enable" onclick="setBulkKioskMode('enable')">Enable</button>
-            <button type="button" class="seg-btn" data-mode="disable" onclick="setBulkKioskMode('disable')">Disable</button>
-          </div>
-        </div>
-        <div class="form-row" id="bulk-kiosk-package-row">
-          <label class="form-label">Pinned Package</label>
-          <input type="text" name="kiosk_package" id="bulk-kiosk-package" class="form-input" placeholder="com.example.app" required>
-          <div class="form-hint">Use the Android package name to pin across the selected devices.</div>
-        </div>
-        <button type="submit" class="btn-primary">Apply Kiosk Config</button>
       </form>
     </div>
   </div>

@@ -143,7 +143,15 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="5" class="empty">No commands sent yet.</td>
+          <td colspan="5">
+            <div class="empty-state">
+              <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
+              <div class="empty-state-copy">
+                <div class="empty-state-title">No commands sent yet</div>
+                <div class="empty-state-text">Use the form above to send your first command.</div>
+              </div>
+            </div>
+          </td>
         </tr>
       {{end}}
     </tbody>
