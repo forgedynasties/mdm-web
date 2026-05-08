@@ -56,6 +56,8 @@ type Hub struct {
 	cmdUpdates     map[chan CommandUpdateEvent]struct{}
 	logcatMu       sync.RWMutex
 	logcatUpdates  map[chan LogcatUpdateEvent]struct{}
+	pingMu         sync.Mutex
+	pingWaiters    map[string]chan struct{}
 }
 
 // SetOnMessage registers a function that is called for every message received
@@ -79,8 +81,39 @@ func NewHub() *Hub {
 		updates:       make(map[chan DeviceUpdateEvent]struct{}),
 		cmdUpdates:    make(map[chan CommandUpdateEvent]struct{}),
 		logcatUpdates: make(map[chan LogcatUpdateEvent]struct{}),
+		pingWaiters:   make(map[string]chan struct{}),
 	}
 }
+
+// RegisterPingWaiter registers a channel that will be closed when a
+// pong_response with the given nonce arrives from any device.
+func (h *Hub) RegisterPingWaiter(nonce string) chan struct{} {
+	ch := make(chan struct{})
+	h.pingMu.Lock()
+	h.pingWaiters[nonce] = ch
+	h.pingMu.Unlock()
+	return ch
+}
+
+func (h *Hub) UnregisterPingWaiter(nonce string) {
+	h.pingMu.Lock()
+	delete(h.pingWaiters, nonce)
+	h.pingMu.Unlock()
+}
+
+// SignalPong is called by the message dispatcher when a pong_response arrives.
+func (h *Hub) SignalPong(nonce string) {
+	h.pingMu.Lock()
+	ch, ok := h.pingWaiters[nonce]
+	if ok {
+		delete(h.pingWaiters, nonce)
+	}
+	h.pingMu.Unlock()
+	if ok {
+		close(ch)
+	}
+}
+
 
 // SubscribeCommandUpdates returns a channel that receives command update events.
 func (h *Hub) SubscribeCommandUpdates() chan CommandUpdateEvent {

@@ -77,8 +77,44 @@ func (h *Handler) runTelemetryRequestLoop(deviceID uuid.UUID) {
 		}
 		time.Sleep(interval)
 		if !h.hub.Push(deviceID, msg) {
+			log.Printf("[ws] telemetry loop exiting for device %s — send channel full or disconnected", deviceID)
 			return
 		}
+	}
+}
+
+// PingDevice sends a ping_request to the device over WS and waits up to 5s for
+// a pong_response. Reports whether the device is truly responsive or just appears connected.
+func (h *Handler) PingDevice(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+	if !h.hub.IsConnected(device.ID) {
+		writeJSON(w, http.StatusOK, map[string]any{"connected": false, "responsive": false})
+		return
+	}
+	nonce := uuid.New().String()
+	ch := h.hub.RegisterPingWaiter(nonce)
+	defer h.hub.UnregisterPingWaiter(nonce)
+	start := time.Now()
+	msg, _ := json.Marshal(map[string]any{"type": "ping_request", "nonce": nonce})
+	h.hub.Push(device.ID, msg)
+	select {
+	case <-ch:
+		writeJSON(w, http.StatusOK, map[string]any{
+			"connected":  true,
+			"responsive": true,
+			"latency_ms": time.Since(start).Milliseconds(),
+		})
+	case <-time.After(5 * time.Second):
+		writeJSON(w, http.StatusOK, map[string]any{
+			"connected":  true,
+			"responsive": false,
+			"error":      "timeout — device connected but not responding",
+		})
 	}
 }
 
