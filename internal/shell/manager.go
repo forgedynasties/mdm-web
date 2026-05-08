@@ -66,8 +66,10 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 	}
 	switch frame.Type {
 	case "command_output":
+		log.Printf("[shell] output device=%s command=%s chunk_len=%d", deviceID, frame.CommandID, len(frame.Chunk))
 		m.appendCommandOutput(outputKey{frame.CommandID, deviceID}, frame.Chunk)
 	case "command_done":
+		log.Printf("[shell] done device=%s command=%s", deviceID, frame.CommandID)
 		m.closeCommandOutput(outputKey{frame.CommandID, deviceID})
 	case "ota_progress":
 		m.updateOTAProgress(deviceID, frame.CommandID, frame.Phase, frame.Percent)

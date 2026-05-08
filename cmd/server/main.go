@@ -114,6 +114,12 @@ func main() {
 			apiHandler.HandleWsLogcat(deviceID, raw)
 		case "ota_status":
 			apiHandler.HandleWsOtaStatus(deviceID, raw)
+		case "pong_response":
+			var p struct {
+				Nonce string `json:"nonce"`
+			}
+			_ = json.Unmarshal(raw, &p)
+			hub.SignalPong(p.Nonce)
 		default:
 			shellMgr.HandleDeviceMessage(deviceID, raw)
 		}
@@ -134,6 +140,7 @@ func main() {
 	// Admin-authenticated API endpoints
 	mux.Handle("GET /api/v1/devices",                adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
 	mux.Handle("GET /api/v1/devices/{serial}",       adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
+	mux.Handle("POST /api/v1/devices/{serial}/ping", adminAuth(http.HandlerFunc(apiHandler.PingDevice)))
 
 	// Groups
 	mux.Handle("GET /api/v1/groups",                 adminAuth(http.HandlerFunc(apiHandler.ListGroups)))
