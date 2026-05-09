@@ -213,6 +213,10 @@ a:hover { color: var(--accent-h); }
 .nav-link:hover { color: var(--text-2); }
 .nav-link.active { color: var(--text); }
 .nav-link.active::after { background: var(--accent); }
+/* ── Icons ───────────────────────────────────────────
+ * Single rule normalizes every inline <svg> in .ui-icon.
+ * Variants: .ui-icon-sm (12px) | .ui-icon-lg (20px) | .ui-icon-xl (28px)
+ */
 .ui-icon {
   display: inline-flex;
   align-items: center;
@@ -223,14 +227,17 @@ a:hover { color: var(--accent-h); }
   flex: 0 0 16px;
 }
 .ui-icon svg {
-  width: 16px;
-  height: 16px;
+  width: 100%;
+  height: 100%;
   stroke: currentColor;
   fill: none;
-  stroke-width: 1.8;
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.ui-icon-sm { width: 12px; height: 12px; flex-basis: 12px; }
+.ui-icon-lg { width: 20px; height: 20px; flex-basis: 20px; }
+.ui-icon-xl { width: 28px; height: 28px; flex-basis: 28px; }
 
 .collapse-arrow {
   display: inline-flex;
