@@ -691,7 +691,8 @@ a:hover { color: var(--accent-h); }
 .alert-info    { background: var(--info-bg);   border-color: var(--info-edge);   color: var(--info); }
 
 .ota-incompatible {
-  color: var(--text-faint);
+  color: var(--muted);
+  font-style: italic;
 }
 
 /* ── Summary bar ─────────────────────────────────── */
