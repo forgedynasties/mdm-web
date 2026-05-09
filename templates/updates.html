@@ -76,12 +76,17 @@
 {{else}}
 <div class="card">
   <div class="empty-state">
-    <div class="empty-state-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></div>
-    <div class="empty-state-text">No OTA packages yet. Add one to start managing device firmware updates.</div>
+    <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></div>
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No OTA packages yet</div>
+      <div class="empty-state-text">Add one to start managing device firmware updates.</div>
+    </div>
     {{if eq .Role "admin"}}
-    <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
-      + New Package
-    </button>
+    <div class="empty-state-actions">
+      <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Package
+      </button>
+    </div>
     {{end}}
   </div>
 </div>
