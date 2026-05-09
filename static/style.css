@@ -530,20 +530,71 @@ a:hover { color: var(--accent-h); }
 
 .login-form { display: flex; flex-direction: column; gap: 16px; }
 
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group label { font-size: 13px; font-weight: 500; color: var(--muted); }
+/* ── Form primitives ─────────────────────────────────
+ * One shared input rule. Focus visual is handled by the
+ * global :focus-visible ring; we also lift border-color
+ * for mouse focus continuity.
+ */
+.form-group { display: flex; flex-direction: column; gap: var(--s-2); }
 
-.form-group input {
+.form-group input,
+.form-group select,
+.form-input,
+.form-textarea,
+.search-input,
+.filter-search-input {
   background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-2);
   color: var(--text);
-  padding: 10px 12px;
-  font-size: 14px;
+  padding: 8px 12px;
+  font-family: var(--font);
+  font-size: var(--t-13);
+  line-height: var(--leading-normal);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
-.form-group input:focus { border-color: var(--accent); }
+.form-group input:hover,
+.form-input:hover,
+.form-textarea:hover,
+.search-input:hover,
+.filter-search-input:hover { border-color: var(--rule-2); }
+
+.form-group input:focus,
+.form-input:focus,
+.form-textarea:focus,
+.search-input:focus,
+.filter-search-input:focus { border-color: var(--accent-edge); }
+
+.form-group input::placeholder,
+.form-input::placeholder,
+.form-textarea::placeholder,
+.search-input::placeholder,
+.filter-search-input::placeholder { color: var(--text-faint); }
+
+.form-input--error,
+.form-input.has-error,
+.form-textarea--error,
+.form-textarea.has-error {
+  border-color: var(--danger-edge);
+  background: var(--danger-bg);
+}
+
+.form-group label,
+.form-label {
+  font-size: var(--t-11);
+  font-weight: var(--fw-semibold);
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--muted);
+}
+.form-label[data-required]::after,
+.form-group label[data-required]::after {
+  content: "*";
+  margin-left: 4px;
+  color: var(--danger);
+  font-weight: var(--fw-bold);
+}
 
 .alert {
   padding: 10px 14px;
@@ -633,19 +684,7 @@ a:hover { color: var(--accent-h); }
   margin-bottom: 14px;
 }
 
-.search-input {
-  width: 100%;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  padding: 10px 14px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-.search-input:focus { border-color: var(--accent); }
-.search-input::placeholder { color: var(--muted); }
+.search-input { width: 100%; }
 
 /* ── Pagination ──────────────────────────────────── */
 .pagination {
@@ -871,59 +910,27 @@ a:hover { color: var(--accent-h); }
   align-items: center;
 }
 
-.form-input {
-  flex: 1;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  padding: 8px 12px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.15s;
-}
-.form-input:focus { border-color: var(--accent); }
-.form-input::placeholder { color: var(--muted); }
+.form-input { flex: 1; }
 
 .command-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--s-4);
+  padding: var(--s-4);
 }
-.form-submitting {
-  opacity: 0.92;
-}
+.form-submitting { opacity: 0.92; }
 
 .form-row {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--muted);
+  gap: var(--s-2);
 }
 
 .form-textarea {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  color: var(--text);
-  padding: 10px 12px;
-  font-size: 13px;
   font-family: var(--mono);
-  outline: none;
   resize: vertical;
   min-height: 90px;
-  transition: border-color 0.15s;
 }
-.form-textarea:focus { border-color: var(--accent); }
-.form-textarea::placeholder { color: var(--muted); }
 
 .radio-group,
 .checkbox-group {
@@ -1933,21 +1940,12 @@ input[type="checkbox"]:hover {
 }
 
 .filter-search-input {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  color: var(--text);
+  /* Layout-only overrides; visuals inherited from shared input rule. */
   padding: 6px 10px 6px 30px;
-  font-size: 13px;
-  outline: none;
   width: 200px;
-  transition: border-color 0.15s, width 0.2s;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease), width var(--dur-slow) var(--ease);
 }
-.filter-search-input:focus {
-  border-color: var(--accent);
-  width: 260px;
-}
-.filter-search-input::placeholder { color: var(--muted); }
+.filter-search-input:focus { width: 260px; }
 
 .filter-divider {
   width: 1px;
