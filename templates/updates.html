@@ -9,7 +9,7 @@
     </h2>
     <p class="page-subtitle">{{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}} in repository</p>
   </div>
-  {{if eq .Role "admin"}}
+  {{if and .Packages (eq .Role "admin")}}
   <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
     + New Package
   </button>
