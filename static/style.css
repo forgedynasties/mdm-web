@@ -376,30 +376,42 @@ a:hover { color: var(--accent-h); }
 .table {
   width: 100%;
   border-collapse: collapse;
+  font-size: var(--t-12);
 }
 
 .table thead th {
-  padding: 10px 16px;
+  position: sticky;
+  top: 0;
+  padding: 9px var(--s-4);
   text-align: left;
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--t-10);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: .14em;
   color: var(--muted);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--rule);
   background: var(--surface2);
+  white-space: nowrap;
 }
 
 .table tbody tr {
   border-bottom: 1px solid var(--border);
-  transition: background 0.1s, box-shadow 0.1s;
+  transition: background var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease);
 }
 .table tbody tr:last-child { border-bottom: none; }
-.table tbody tr:hover { background: var(--surface2); box-shadow: inset 3px 0 0 var(--accent); }
+.table tbody tr:hover {
+  background: var(--surface2);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.table tbody tr.is-selected {
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 
 .table tbody td {
-  padding: 12px 16px;
+  padding: 11px var(--s-4);
   vertical-align: middle;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ── Battery bar ─────────────────────────────────── */
@@ -2019,15 +2031,17 @@ input[type="checkbox"]:hover {
 .sortable-th {
   cursor: pointer;
   user-select: none;
-  transition: color 0.15s;
+  transition: color var(--dur) var(--ease);
 }
-.sortable-th:hover { color: var(--text); }
-.sortable-th.sorted { color: var(--accent); }
+.sortable-th:hover { color: var(--text-2); }
+.sortable-th.sorted { color: var(--text); }
 .sort-arrow {
-  font-size: 9px;
-  margin-left: 3px;
+  font-size: var(--t-10);
+  margin-left: 5px;
   vertical-align: middle;
+  color: var(--text-faint);
 }
+.sortable-th.sorted .sort-arrow { color: var(--accent); }
 
 /* ── Export page ────────────────────────────────── */
 .export-serials {
@@ -2148,7 +2162,8 @@ input[type="checkbox"]:hover {
 
 /* ── Density Toggle ─────────────────────────────── */
 .density-toggle { padding: 4px 8px !important; }
-.compact .table td, .compact .table th { padding: 4px 10px; font-size: 12px; line-height: 1.3; }
+.compact .table td,
+.compact .table th { padding: 5px var(--s-3); font-size: var(--t-11); line-height: 1.3; }
 .compact .battery-wrap { height: 14px; }
 .compact .battery-track { height: 8px; }
 .compact .battery-label { font-size: 11px; }
