@@ -2287,6 +2287,53 @@ input[type="checkbox"]:hover {
 .htmx-requesting-progress #htmx-progress { opacity: 1; animation: htmx-progress-grow 2s ease-out forwards; }
 @keyframes htmx-progress-grow { from { width: 0; } to { width: 90%; } }
 
+/* ── Loading skeletons ─────────────────────────────
+ * Element-level loading state. Use .skeleton on a placeholder
+ * element, or wrap a region with .is-loading to dim its contents.
+ */
+.skeleton {
+  display: block;
+  background: linear-gradient(90deg,
+    var(--surface2) 0%,
+    var(--surface-3) 50%,
+    var(--surface2) 100%);
+  background-size: 200% 100%;
+  border-radius: var(--r-1);
+  animation: skeleton-shimmer 1.4s linear infinite;
+  color: transparent !important;
+  user-select: none;
+  pointer-events: none;
+}
+.skeleton-text  { height: 12px; width: 100%; margin: 4px 0; }
+.skeleton-line  { height: 1em; width: 60%; }
+.skeleton-row   { height: 36px; margin-bottom: 1px; }
+.skeleton-stat  { height: 24px; width: 70px; margin: 4px 0; }
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Region-level loading: dim and forbid interaction during HTMX swap.
+ * Apply to any .card / .panel / .tbl-wrap by adding hx-indicator
+ * attribute pointing to itself. */
+.htmx-request { position: relative; }
+.htmx-request::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  opacity: 0.35;
+  pointer-events: none;
+  z-index: 1;
+}
+.htmx-request.htmx-indicator-row { /* table row: lighter dim */ }
+.htmx-request.htmx-indicator-row::after { opacity: 0.20; }
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; background: var(--surface2); }
+}
+
 /* ── Form Submit Feedback ─────────────────────── */
 .btn-submitting { opacity: 0.72; pointer-events: none; position: relative; }
 .btn-submitting::after {
