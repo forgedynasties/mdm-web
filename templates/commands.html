@@ -245,6 +245,37 @@
       {{end}}
     </tbody>
   </table>
+
+  {{if gt .TotalPages 1}}
+  <div class="pagination">
+    {{if gt .Page 1}}
+      <a class="page-btn page-nav" href="?page={{sub .Page 1}}">&#8592; Prev</a>
+    {{else}}
+      <span class="page-btn disabled">&#8592; Prev</span>
+    {{end}}
+
+    <div class="page-numbers">
+      {{range iter 1 .TotalPages}}
+        {{if eq . $.Page}}
+          <span class="page-num active">{{.}}</span>
+        {{else}}
+          <a class="page-num" href="?page={{.}}">{{.}}</a>
+        {{end}}
+      {{end}}
+    </div>
+
+    {{if lt .Page .TotalPages}}
+      <a class="page-btn page-nav" href="?page={{add .Page 1}}">Next &#8594;</a>
+    {{else}}
+      <span class="page-btn disabled">Next &#8594;</span>
+    {{end}}
+  </div>
+
+  <div class="table-footer">
+    Showing {{len .Commands}} of {{.Total}} command{{if ne .Total 1}}s{{end}}
+    — page {{.Page}} of {{.TotalPages}}
+  </div>
+  {{end}}
 </div>
 
 <!-- Add new app modal -->

@@ -2245,9 +2245,34 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+
+	// Pagination
+	const pageSize = 25
+	total := len(cmds)
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	page := 1
+	if p, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("page"))); err == nil && p > 0 {
+		page = p
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * pageSize
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	pagedCmds := cmds
+	if total > 0 {
+		pagedCmds = cmds[start:end]
+	}
+
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context())
 	targetSerials := make(map[uuid.UUID][]string)
-	for _, c := range cmds {
+	for _, c := range pagedCmds {
 		if c.TargetType == "devices" {
 			if s, err := h.db.GetCommandTargetSerials(r.Context(), c.ID); err == nil {
 				targetSerials[c.ID] = s
@@ -2256,11 +2281,15 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	}
 	h.render(w, r, "commands.html", map[string]any{
 		"Title":         "Commands",
-		"Commands":      cmds,
+		"Commands":      pagedCmds,
 		"Groups":        groups,
 		"Apps":          apps,
 		"Summaries":     summaries,
 		"TargetSerials": targetSerials,
+		"Page":          page,
+		"PageSize":      pageSize,
+		"Total":         total,
+		"TotalPages":    totalPages,
 	})
 }
 
