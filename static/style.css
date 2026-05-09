@@ -93,6 +93,23 @@ body {
   position: relative;
 }
 
+/* ── Focus ring (keyboard only) ──────────────────────── */
+:focus { outline: none; }
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--r-2);
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:not([tabindex="-1"]):focus-visible {
+  box-shadow: var(--ring);
+}
+
 body::before {
   content: '';
   position: fixed;
