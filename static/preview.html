@@ -1,0 +1,1026 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TSAI Fleet — Console Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* surfaces — deep slate, layered */
+  --bg:        #0b0d10;
+  --bg-grid:   #0e1115;
+  --surface:   #12161b;
+  --surface-2: #181d24;
+  --surface-3: #20262f;
+  --overlay:   rgba(0,0,0,.65);
+
+  /* borders */
+  --hairline:  #232a33;
+  --rule:      #2c343f;
+  --rule-2:    #3a4452;
+
+  /* text */
+  --ink:       #e7ebf0;
+  --ink-2:     #b9c1cc;
+  --ink-3:     #7a8493;
+  --ink-4:     #4f5866;
+
+  /* signal — single amber accent, used sparingly */
+  --signal:    #f5a524;
+  --signal-h:  #ffb945;
+  --signal-soft: rgba(245,165,36,.10);
+  --signal-edge: rgba(245,165,36,.35);
+  --ring:      0 0 0 2px rgba(245,165,36,.45);
+
+  /* semantic */
+  --ok:        #59c97a;
+  --warn:      #e6a836;
+  --bad:       #e05656;
+  --ok-bg:     rgba(89,201,122,.10);
+  --warn-bg:   rgba(230,168,54,.10);
+  --bad-bg:    rgba(224,86,86,.10);
+
+  /* type */
+  --ui:        'IBM Plex Sans', system-ui, sans-serif;
+  --mono:      'JetBrains Mono', 'IBM Plex Mono', ui-monospace, monospace;
+
+  --t-10: 10px; --t-11: 11px; --t-12: 12px; --t-13: 13px;
+  --t-14: 14px; --t-16: 16px; --t-18: 18px; --t-22: 22px; --t-28: 28px;
+
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 40px;
+
+  --r-1: 2px; --r-2: 4px; --r-3: 6px;
+
+  --dur: 140ms;
+  --ease: cubic-bezier(.2,.6,.2,1);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family: var(--ui);
+  font-size: var(--t-13);
+  line-height: 1.45;
+  font-feature-settings: "ss01","cv11";
+  color: var(--ink);
+  background: var(--bg);
+  background-image:
+    linear-gradient(var(--bg-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: -1px -1px;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: .005em;
+}
+
+::selection{background:var(--signal);color:#0b0d10}
+
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+input,select,textarea{font:inherit;color:inherit}
+
+/* ------------ utility ------------ */
+.mono{font-family:var(--mono);font-feature-settings:"zero","ss02"}
+.tnum{font-variant-numeric: tabular-nums}
+.uc{text-transform:uppercase;letter-spacing:.12em;font-size:var(--t-10);font-weight:600;color:var(--ink-3)}
+.dim{color:var(--ink-3)}
+.faint{color:var(--ink-4)}
+.hr{height:1px;background:var(--hairline);width:100%}
+
+:focus-visible{outline:none;box-shadow:var(--ring);border-radius:2px}
+
+/* ------------ frame ------------ */
+.app{
+  min-height:100vh;
+  display:grid;
+  grid-template-columns: 220px 1fr;
+}
+
+/* ------------ sidebar ------------ */
+.side{
+  position:sticky;top:0;align-self:start;
+  height:100vh;
+  border-right:1px solid var(--hairline);
+  background: var(--surface);
+  display:flex;flex-direction:column;
+  padding: var(--s-4) 0;
+}
+.brand{
+  display:flex;align-items:center;gap:10px;
+  padding: 0 var(--s-5) var(--s-5);
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: var(--s-4);
+}
+.brand-mark{
+  width:22px;height:22px;
+  display:grid;place-items:center;
+  background:var(--signal);
+  color:#0b0d10;
+  font-family:var(--mono);font-weight:700;font-size:12px;
+  border-radius:1px;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.4) inset;
+}
+.brand-name{
+  font-weight:600;letter-spacing:.04em;font-size:var(--t-13);
+}
+.brand-name .slash{color:var(--ink-3);margin:0 6px}
+.brand-name .env{font-family:var(--mono);font-size:var(--t-11);color:var(--ink-3)}
+
+.nav-group{padding: 0 var(--s-3); margin-bottom: var(--s-5)}
+.nav-label{
+  padding: 0 var(--s-3) var(--s-2);
+}
+.nav-link{
+  display:flex;align-items:center;gap:10px;
+  padding: 7px var(--s-3);
+  font-size: var(--t-13);
+  color: var(--ink-2);
+  border-left: 2px solid transparent;
+  margin-left: -2px;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+  position:relative;
+}
+.nav-link:hover{color:var(--ink);background:var(--surface-2)}
+.nav-link.active{
+  color:var(--ink);
+  background:var(--surface-2);
+  border-left-color: var(--signal);
+}
+.nav-link .nm{flex:1}
+.nav-link .ct{
+  font-family:var(--mono);font-size:var(--t-11);color:var(--ink-3);
+  font-variant-numeric:tabular-nums;
+}
+.nav-link.active .ct{color:var(--signal)}
+
+.side-foot{
+  margin-top:auto;
+  border-top:1px solid var(--hairline);
+  padding: var(--s-4) var(--s-5);
+  display:flex;align-items:center;gap:10px;
+  font-size:var(--t-12);color:var(--ink-3);
+}
+.dot{width:6px;height:6px;border-radius:999px;background:var(--ok);box-shadow:0 0 0 3px var(--ok-bg)}
+
+/* ------------ main ------------ */
+.main{min-width:0}
+
+.topbar{
+  display:flex;align-items:center;
+  height:48px;
+  border-bottom:1px solid var(--hairline);
+  background: rgba(11,13,16,.85);
+  backdrop-filter: blur(8px);
+  position:sticky;top:0;z-index:10;
+  padding: 0 var(--s-6);
+  gap: var(--s-4);
+}
+.crumbs{font-family:var(--mono);font-size:var(--t-12);color:var(--ink-3)}
+.crumbs b{color:var(--ink);font-weight:500}
+.crumbs .sep{margin: 0 8px;color:var(--ink-4)}
+.topbar .spacer{flex:1}
+.cmdbar{
+  display:flex;align-items:center;gap:8px;
+  width: 320px;
+  height: 28px;
+  padding: 0 10px;
+  background: var(--surface);
+  border:1px solid var(--hairline);
+  border-radius: var(--r-1);
+  color: var(--ink-3);
+  font-family: var(--mono);font-size:var(--t-12);
+}
+.cmdbar kbd{
+  margin-left:auto;
+  font-family:var(--mono);font-size:10px;
+  padding:1px 5px;border:1px solid var(--rule);
+  border-radius:2px;color:var(--ink-3);
+}
+.usr{
+  display:flex;align-items:center;gap:8px;
+  font-size:var(--t-12);color:var(--ink-2);
+}
+.avatar{
+  width:22px;height:22px;border-radius:1px;
+  background:var(--surface-3);color:var(--ink);
+  display:grid;place-items:center;
+  font-family:var(--mono);font-size:11px;font-weight:600;
+}
+
+/* page */
+.page{padding: var(--s-6) var(--s-6) var(--s-8); max-width: 1500px}
+
+.page-head{
+  display:flex;align-items:flex-end;justify-content:space-between;
+  gap: var(--s-5);
+  margin-bottom: var(--s-6);
+  padding-bottom: var(--s-5);
+  border-bottom:1px solid var(--hairline);
+}
+.page-head h1{
+  font-size: var(--t-22);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  margin:0 0 6px;
+}
+.page-head .meta{display:flex;gap:var(--s-5);font-family:var(--mono);font-size:var(--t-11);color:var(--ink-3)}
+.page-head .meta b{color:var(--ink-2);font-weight:500}
+.page-head .actions{display:flex;gap:var(--s-2)}
+
+/* buttons */
+.btn{
+  display:inline-flex;align-items:center;gap:8px;
+  height: 30px;
+  padding: 0 12px;
+  font-family: var(--ui);
+  font-size: var(--t-12);
+  font-weight: 500;
+  letter-spacing:.01em;
+  border-radius: var(--r-1);
+  border:1px solid var(--rule);
+  color: var(--ink);
+  background: var(--surface);
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.btn:hover{background:var(--surface-2);border-color:var(--rule-2)}
+.btn .k{font-family:var(--mono);font-size:10px;color:var(--ink-3);padding:1px 4px;border:1px solid var(--rule);border-radius:2px;margin-left:4px}
+.btn-primary{
+  background: var(--signal);
+  color:#0b0d10;
+  border-color: var(--signal);
+  font-weight: 600;
+}
+.btn-primary:hover{background:var(--signal-h);border-color:var(--signal-h)}
+.btn-ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
+.btn-ghost:hover{color:var(--ink);background:var(--surface-2)}
+
+/* stats — KPI strip */
+.kpis{
+  display:grid;
+  grid-template-columns: repeat(6, 1fr);
+  border:1px solid var(--hairline);
+  background: var(--surface);
+  margin-bottom: var(--s-6);
+}
+.kpi{
+  padding: 14px var(--s-5) 16px;
+  border-right: 1px solid var(--hairline);
+  display:flex;flex-direction:column;gap:6px;
+  position:relative;
+}
+.kpi:last-child{border-right:0}
+.kpi .lbl{font-size:var(--t-10);text-transform:uppercase;letter-spacing:.14em;color:var(--ink-3);font-weight:600}
+.kpi .val{
+  font-family: var(--mono);
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.kpi .delta{
+  font-family:var(--mono);font-size:var(--t-11);
+  display:inline-flex;align-items:center;gap:4px;
+}
+.delta.up{color:var(--ok)} .delta.down{color:var(--bad)}
+.kpi.signal::before{
+  content:""; position:absolute; top:0;left:0; height:2px; width:24px;
+  background: var(--signal);
+}
+
+/* sparkline */
+.spark{
+  position:absolute; right:var(--s-4); bottom:14px;
+  width:64px;height:18px;
+  opacity:.7;
+}
+
+/* toolbar */
+.toolbar{
+  display:flex;align-items:center;gap:var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border:1px solid var(--hairline);
+  border-bottom:0;
+  background: var(--surface);
+}
+.toolbar .search{
+  display:flex;align-items:center;gap:8px;
+  height:28px;padding:0 10px;
+  border:1px solid var(--hairline);
+  background: var(--bg);
+  width: 280px;
+  color: var(--ink-3);
+  font-family: var(--mono);font-size:var(--t-12);
+  border-radius: var(--r-1);
+}
+.toolbar .search input{flex:1;background:transparent;border:0;outline:0;color:var(--ink);font-family:var(--mono);font-size:var(--t-12)}
+.toolbar .search input::placeholder{color:var(--ink-4)}
+.chip{
+  height:24px;display:inline-flex;align-items:center;gap:6px;
+  padding: 0 8px;
+  font-size:var(--t-11);
+  border:1px solid var(--hairline);
+  color:var(--ink-2);
+  border-radius: var(--r-1);
+  background: var(--bg);
+  font-family: var(--mono);
+}
+.chip:hover{border-color:var(--rule-2);color:var(--ink)}
+.chip .x{color:var(--ink-4);margin-left:2px}
+.toolbar .spacer{flex:1}
+.seg{
+  display:inline-flex;border:1px solid var(--hairline);border-radius:var(--r-1);overflow:hidden;background:var(--bg)
+}
+.seg button{
+  height:26px;padding:0 10px;font-size:var(--t-11);color:var(--ink-3);
+  font-family:var(--mono);
+  border-right:1px solid var(--hairline);
+}
+.seg button:last-child{border-right:0}
+.seg button.on{background:var(--surface-3);color:var(--ink)}
+
+/* table */
+.tbl-wrap{
+  border:1px solid var(--hairline);
+  background: var(--surface);
+  overflow:hidden;
+}
+table.tbl{
+  width:100%;
+  border-collapse: collapse;
+  font-size: var(--t-12);
+}
+.tbl thead th{
+  position:sticky;top:0;
+  text-align:left;
+  font-size:var(--t-10);
+  text-transform:uppercase;
+  letter-spacing:.14em;
+  font-weight:600;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-bottom:1px solid var(--rule);
+  padding: 9px var(--s-4);
+  white-space:nowrap;
+}
+.tbl thead th.sorted{color:var(--signal)}
+.tbl thead th.sorted::after{content:" ▾";font-size:9px}
+.tbl tbody td{
+  padding: 11px var(--s-4);
+  border-bottom: 1px solid var(--hairline);
+  vertical-align:middle;
+  font-variant-numeric: tabular-nums;
+}
+.tbl tbody tr{transition: background var(--dur) var(--ease)}
+.tbl tbody tr:hover{background:var(--surface-2)}
+.tbl tbody tr.selected{background: rgba(245,165,36,.05)}
+.tbl tbody tr.selected td:first-child{box-shadow: inset 2px 0 0 var(--signal)}
+.tbl tbody tr:last-child td{border-bottom:0}
+
+.id{font-family:var(--mono);color:var(--ink)}
+.id .sub{color:var(--ink-3);font-size:var(--t-11)}
+
+/* status pill */
+.pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding: 2px 8px 2px 7px;
+  font-size: var(--t-11);
+  font-family:var(--mono);
+  border-radius: var(--r-1);
+  border: 1px solid;
+  letter-spacing: .04em;
+  text-transform: lowercase;
+}
+.pill .pd{width:5px;height:5px;border-radius:999px}
+.pill.ok{color:var(--ok);background:var(--ok-bg);border-color: rgba(89,201,122,.25)} .pill.ok .pd{background:var(--ok)}
+.pill.warn{color:var(--warn);background:var(--warn-bg);border-color: rgba(230,168,54,.25)} .pill.warn .pd{background:var(--warn)}
+.pill.bad{color:var(--bad);background:var(--bad-bg);border-color: rgba(224,86,86,.25)} .pill.bad .pd{background:var(--bad)}
+.pill.off{color:var(--ink-3);background:var(--surface-3);border-color: var(--rule)} .pill.off .pd{background:var(--ink-4)}
+
+/* battery bar */
+.bat{display:flex;align-items:center;gap:8px;min-width:120px}
+.bat .track{flex:1;height:4px;background:var(--surface-3);position:relative;border-radius:1px;overflow:hidden}
+.bat .fill{position:absolute;inset:0 auto 0 0;background:var(--ok)}
+.bat .fill.warn{background:var(--warn)}
+.bat .fill.bad{background:var(--bad)}
+.bat .num{font-family:var(--mono);font-size:var(--t-11);color:var(--ink-2);width:34px;text-align:right}
+
+/* ago */
+.ago{font-family:var(--mono);color:var(--ink-2)}
+.ago.stale{color:var(--warn)}
+
+/* network signal bars */
+.bars{display:inline-flex;gap:1px;align-items:flex-end}
+.bars i{width:3px;background:var(--ink-4);display:block}
+.bars i:nth-child(1){height:4px}
+.bars i:nth-child(2){height:7px}
+.bars i:nth-child(3){height:10px}
+.bars i:nth-child(4){height:13px}
+.bars.s4 i{background:var(--ok)}
+.bars.s3 i:nth-child(-n+3){background:var(--ok)}
+.bars.s2 i:nth-child(-n+2){background:var(--warn)}
+.bars.s1 i:nth-child(1){background:var(--bad)}
+
+/* row check */
+.cb{
+  width:14px;height:14px;
+  border:1px solid var(--rule);
+  background:transparent;
+  display:inline-grid;place-items:center;
+  border-radius: 1px;
+}
+.cb.on{background:var(--signal);border-color:var(--signal)}
+.cb.on::after{content:"";width:7px;height:3px;border-left:2px solid #0b0d10;border-bottom:2px solid #0b0d10;transform:rotate(-45deg) translate(0,-1px)}
+
+/* footer of table — selection bar */
+.selbar{
+  display:flex;align-items:center;gap:var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--surface-2);
+  border:1px solid var(--hairline);
+  border-top:0;
+  font-size: var(--t-12);
+  color: var(--ink-2);
+}
+.selbar .count{
+  font-family:var(--mono);
+  color:var(--signal);
+  font-weight:600;
+}
+.selbar .spacer{flex:1}
+
+/* right rail */
+.layout{
+  display:grid;
+  grid-template-columns: minmax(0,1fr) 320px;
+  gap: var(--s-6);
+}
+@media(max-width:1280px){ .layout{grid-template-columns:1fr} }
+
+.rail{
+  display:flex;flex-direction:column;gap:var(--s-5);
+  position:sticky;top:64px;align-self:start;
+}
+.panel{
+  border:1px solid var(--hairline);
+  background: var(--surface);
+}
+.panel-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding: 10px var(--s-4);
+  border-bottom: 1px solid var(--hairline);
+}
+.panel-head h3{margin:0;font-size:var(--t-12);font-weight:600;letter-spacing:.04em}
+.panel-body{padding: var(--s-4)}
+
+/* command builder mini */
+.cmd-types{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--hairline);border:1px solid var(--hairline);margin-bottom:var(--s-3)}
+.cmd-types button{
+  background:var(--surface);
+  padding: 10px 8px;
+  display:flex;flex-direction:column;align-items:flex-start;gap:4px;
+  font-size:var(--t-11);color:var(--ink-2);
+  font-family:var(--mono);
+  transition: background var(--dur) var(--ease);
+}
+.cmd-types button:hover{background:var(--surface-2);color:var(--ink)}
+.cmd-types button.on{background:var(--surface-3);color:var(--ink);box-shadow:inset 0 -2px 0 var(--signal)}
+.cmd-types .ico{font-size:14px;color:var(--ink-3)}
+.cmd-types button.on .ico{color:var(--signal)}
+
+.cmd-target{
+  font-family:var(--mono);font-size:var(--t-11);color:var(--ink-3);
+  background: var(--bg);border:1px solid var(--hairline);
+  padding: 8px 10px; border-radius: var(--r-1);
+  margin-bottom: var(--s-3);
+  display:flex;align-items:center;gap:8px;
+}
+.cmd-target b{color:var(--ink);font-weight:500}
+
+.cmd-payload{
+  background:var(--bg);border:1px solid var(--hairline);
+  padding: 10px;
+  font-family:var(--mono);font-size:var(--t-12);color:var(--ink);
+  min-height: 80px;
+  border-radius: var(--r-1);
+  white-space:pre-wrap;
+}
+.cmd-payload .prompt{color:var(--signal)}
+.cmd-payload .arg{color:var(--ink-2)}
+
+.cmd-foot{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-top: var(--s-3);
+  font-family: var(--mono);font-size:var(--t-11);color:var(--ink-3);
+}
+
+/* event ticker */
+.tick{
+  display:flex;gap:10px;
+  padding: 8px var(--s-4);
+  border-bottom: 1px solid var(--hairline);
+  font-family: var(--mono);
+  font-size: var(--t-11);
+  align-items:flex-start;
+}
+.tick:last-child{border-bottom:0}
+.tick time{color:var(--ink-4);min-width:40px}
+.tick .lvl{
+  width: 14px;text-align:center;
+  color: var(--ink-3);font-weight:600;
+}
+.tick .lvl.E{color:var(--bad)}
+.tick .lvl.W{color:var(--warn)}
+.tick .lvl.I{color:var(--ok)}
+.tick .msg{flex:1;color:var(--ink-2);line-height:1.5}
+.tick .msg b{color:var(--ink);font-weight:500}
+
+/* ascii title detail */
+.ascii{
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 10px;
+  color: var(--ink-4);
+  white-space: pre;
+  position:absolute; right:var(--s-6); top:60px;
+  user-select:none;pointer-events:none;
+  opacity:.7;
+}
+
+/* small icons (svg currentColor) */
+.i{width:14px;height:14px;flex:0 0 14px}
+.i-sm{width:12px;height:12px;flex:0 0 12px}
+
+/* responsive */
+@media(max-width:980px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .kpis{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-mark">T</div>
+      <div class="brand-name">TSAI<span class="slash">/</span><span class="env">fleet</span></div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label uc">Operate</div>
+      <a class="nav-link active">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <span class="nm">Devices</span><span class="ct tnum">412</span>
+      </a>
+      <a class="nav-link">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        <span class="nm">Commands</span><span class="ct tnum">7</span>
+      </a>
+      <a class="nav-link">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
+        <span class="nm">Live shell</span>
+      </a>
+      <a class="nav-link">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h16v6H4zM4 14h16v6H4z"/><circle cx="7" cy="7" r="0.8" fill="currentColor"/><circle cx="7" cy="17" r="0.8" fill="currentColor"/></svg>
+        <span class="nm">Logcat</span>
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label uc">Manage</div>
+      <a class="nav-link">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2"/><path d="M3 20a6 6 0 0 1 12 0M14 20a5 5 0 0 1 7 0"/></svg>
+        <span class="nm">Groups</span><span class="ct tnum">14</span>
+      </a>
+      <a class="nav-link">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v9"/></svg>
+        <span class="nm">Packages</span><span class="ct tnum">38</span>
+      </a>
+      <a class="nav-link">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v18M3 12h18"/></svg>
+        <span class="nm">Productions</span>
+      </a>
+      <a class="nav-link">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l9 4v5c0 5-4 8-9 9-5-1-9-4-9-9V7l9-4z"/></svg>
+        <span class="nm">Updates</span>
+      </a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label uc">System</div>
+      <a class="nav-link">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 1-.1 1.2l2 1.6-2 3.4-2.4-1a7 7 0 0 1-2 1.2L14 21h-4l-.5-2.6a7 7 0 0 1-2-1.2l-2.4 1-2-3.4 2-1.6A7 7 0 0 1 5 12a7 7 0 0 1 .1-1.2l-2-1.6 2-3.4 2.4 1a7 7 0 0 1 2-1.2L10 3h4l.5 2.6a7 7 0 0 1 2 1.2l2.4-1 2 3.4-2 1.6c.1.4.1.8.1 1.2z"/></svg>
+        <span class="nm">Settings</span>
+      </a>
+      <a class="nav-link">
+        <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        <span class="nm">Users</span>
+      </a>
+    </div>
+
+    <div class="side-foot">
+      <span class="dot"></span>
+      <span>WS uplink · <span class="mono">14.2ms</span></span>
+    </div>
+  </aside>
+
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="crumbs">
+        <span>operate</span><span class="sep">/</span><b>devices</b>
+      </div>
+      <div class="spacer"></div>
+      <div class="cmdbar">
+        <svg class="i-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <span>jump to device, group, command…</span>
+        <kbd>⌘K</kbd>
+      </div>
+      <div class="usr">
+        <span class="dim mono">muhammadali</span>
+        <div class="avatar">MA</div>
+      </div>
+    </div>
+
+
+    <!-- PAGE -->
+    <div class="page">
+
+      <!-- HEAD -->
+      <div style="position:relative">
+        <div class="page-head">
+          <div>
+            <h1>Fleet overview</h1>
+            <div class="meta">
+              <span><b>412</b> devices enrolled</span>
+              <span>last sync <b class="mono">14:02:11</b></span>
+              <span>region <b>ap-south-1</b></span>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost">
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+              Refresh
+            </button>
+            <button class="btn">
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 5v14M5 12h14"/></svg>
+              Enrol device
+            </button>
+            <button class="btn btn-primary">
+              <svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+              Dispatch command<span class="k">⌘↵</span>
+            </button>
+          </div>
+        </div>
+
+<pre class="ascii" aria-hidden="true">
+ ░░░░░░  ▒▒▒▒▒▒
+ ░░░░░░  ▒▒▒▒▒▒
+  ───────────────
+ [ uplink stable ]
+</pre>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpis">
+        <div class="kpi signal">
+          <span class="lbl">online</span>
+          <span class="val">387</span>
+          <span class="delta up">▲ 12 (24h)</span>
+          <svg class="spark" viewBox="0 0 64 18" fill="none" stroke="var(--ok)" stroke-width="1.2">
+            <polyline points="0,12 6,10 12,11 18,8 24,9 30,6 36,8 42,5 48,7 54,4 60,5 64,3"/>
+          </svg>
+        </div>
+        <div class="kpi">
+          <span class="lbl">degraded</span>
+          <span class="val">18</span>
+          <span class="delta down">▲ 4 (24h)</span>
+          <svg class="spark" viewBox="0 0 64 18" fill="none" stroke="var(--warn)" stroke-width="1.2">
+            <polyline points="0,14 8,12 16,13 24,11 32,10 40,8 48,9 56,7 64,6"/>
+          </svg>
+        </div>
+        <div class="kpi">
+          <span class="lbl">offline</span>
+          <span class="val">7</span>
+          <span class="delta dim mono">— 0 (24h)</span>
+        </div>
+        <div class="kpi">
+          <span class="lbl">battery &lt; 20%</span>
+          <span class="val">23</span>
+          <span class="delta dim mono">across 5 groups</span>
+        </div>
+        <div class="kpi">
+          <span class="lbl">pending OTA</span>
+          <span class="val">41</span>
+          <span class="delta dim mono">v2.14.3 → v2.15.0</span>
+        </div>
+        <div class="kpi">
+          <span class="lbl">cmd queue</span>
+          <span class="val">7</span>
+          <span class="delta dim mono">avg ack 220ms</span>
+        </div>
+      </div>
+
+
+      <!-- LAYOUT: table + rail -->
+      <div class="layout">
+
+        <!-- LEFT: toolbar + table -->
+        <section>
+          <div class="toolbar">
+            <div class="search">
+              <svg class="i-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input placeholder="filter id, serial, group, ip…">
+            </div>
+            <button class="chip">status: online <span class="x">✕</span></button>
+            <button class="chip">group: kiosks-mum <span class="x">✕</span></button>
+            <button class="chip">+ filter</button>
+            <div class="spacer"></div>
+            <div class="seg">
+              <button class="on">comfortable</button>
+              <button>compact</button>
+            </div>
+            <button class="btn btn-ghost" style="height:28px">
+              <svg class="i-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3v12M6 9l6-6 6 6M5 21h14"/></svg>
+              Export
+            </button>
+          </div>
+
+          <div class="tbl-wrap">
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th style="width:32px"></th>
+                  <th class="sorted">Device</th>
+                  <th>Status</th>
+                  <th>Group</th>
+                  <th>Battery</th>
+                  <th>Network</th>
+                  <th>App</th>
+                  <th>Last seen</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="selected">
+                  <td><span class="cb on" aria-checked="true" role="checkbox"></span></td>
+                  <td class="id">
+                    <div>FLEET-AX91-0184</div>
+                    <div class="sub">SN · A91·MX·77324</div>
+                  </td>
+                  <td><span class="pill ok"><span class="pd"></span>online</span></td>
+                  <td class="dim mono">kiosks-mum</td>
+                  <td><div class="bat"><div class="track"><div class="fill" style="width:84%"></div></div><span class="num">84%</span></div></td>
+                  <td><span class="bars s4"><i></i><i></i><i></i><i></i></span> <span class="dim mono" style="font-size:11px">LTE</span></td>
+                  <td class="mono">2.15.0</td>
+                  <td><span class="ago">12s ago</span></td>
+                </tr>
+                <tr class="selected">
+                  <td><span class="cb on"></span></td>
+                  <td class="id">
+                    <div>FLEET-AX91-0185</div>
+                    <div class="sub">SN · A91·MX·77325</div>
+                  </td>
+                  <td><span class="pill ok"><span class="pd"></span>online</span></td>
+                  <td class="dim mono">kiosks-mum</td>
+                  <td><div class="bat"><div class="track"><div class="fill" style="width:62%"></div></div><span class="num">62%</span></div></td>
+                  <td><span class="bars s3"><i></i><i></i><i></i><i></i></span> <span class="dim mono" style="font-size:11px">LTE</span></td>
+                  <td class="mono">2.15.0</td>
+                  <td><span class="ago">18s ago</span></td>
+                </tr>
+                <tr>
+                  <td><span class="cb"></span></td>
+                  <td class="id">
+                    <div>FLEET-AX91-0190</div>
+                    <div class="sub">SN · A91·MX·77330</div>
+                  </td>
+                  <td><span class="pill warn"><span class="pd"></span>degraded</span></td>
+                  <td class="dim mono">kiosks-mum</td>
+                  <td><div class="bat"><div class="track"><div class="fill warn" style="width:24%"></div></div><span class="num">24%</span></div></td>
+                  <td><span class="bars s2"><i></i><i></i><i></i><i></i></span> <span class="dim mono" style="font-size:11px">3G</span></td>
+                  <td class="mono">2.14.3</td>
+                  <td><span class="ago stale">3m ago</span></td>
+                </tr>
+                <tr>
+                  <td><span class="cb"></span></td>
+                  <td class="id">
+                    <div>FLEET-BR22-0042</div>
+                    <div class="sub">SN · B22·DEL·22148</div>
+                  </td>
+                  <td><span class="pill ok"><span class="pd"></span>online</span></td>
+                  <td class="dim mono">retail-del</td>
+                  <td><div class="bat"><div class="track"><div class="fill" style="width:91%"></div></div><span class="num">91%</span></div></td>
+                  <td><span class="bars s4"><i></i><i></i><i></i><i></i></span> <span class="dim mono" style="font-size:11px">WIFI</span></td>
+                  <td class="mono">2.15.0</td>
+                  <td><span class="ago">7s ago</span></td>
+                </tr>
+                <tr>
+                  <td><span class="cb"></span></td>
+                  <td class="id">
+                    <div>FLEET-BR22-0043</div>
+                    <div class="sub">SN · B22·DEL·22149</div>
+                  </td>
+                  <td><span class="pill bad"><span class="pd"></span>offline</span></td>
+                  <td class="dim mono">retail-del</td>
+                  <td><div class="bat"><div class="track"><div class="fill bad" style="width:8%"></div></div><span class="num">8%</span></div></td>
+                  <td><span class="bars s1"><i></i><i></i><i></i><i></i></span> <span class="dim mono" style="font-size:11px">—</span></td>
+                  <td class="mono">2.14.3</td>
+                  <td><span class="ago stale">2h 14m</span></td>
+                </tr>
+                <tr>
+                  <td><span class="cb"></span></td>
+                  <td class="id">
+                    <div>FLEET-CY11-0301</div>
+                    <div class="sub">SN · C11·BLR·11907</div>
+                  </td>
+                  <td><span class="pill ok"><span class="pd"></span>online</span></td>
+                  <td class="dim mono">drivers-blr</td>
+                  <td><div class="bat"><div class="track"><div class="fill" style="width:73%"></div></div><span class="num">73%</span></div></td>
+                  <td><span class="bars s4"><i></i><i></i><i></i><i></i></span> <span class="dim mono" style="font-size:11px">LTE</span></td>
+                  <td class="mono">2.15.0</td>
+                  <td><span class="ago">2s ago</span></td>
+                </tr>
+                <tr>
+                  <td><span class="cb"></span></td>
+                  <td class="id">
+                    <div>FLEET-CY11-0302</div>
+                    <div class="sub">SN · C11·BLR·11908</div>
+                  </td>
+                  <td><span class="pill warn"><span class="pd"></span>degraded</span></td>
+                  <td class="dim mono">drivers-blr</td>
+                  <td><div class="bat"><div class="track"><div class="fill warn" style="width:38%"></div></div><span class="num">38%</span></div></td>
+                  <td><span class="bars s3"><i></i><i></i><i></i><i></i></span> <span class="dim mono" style="font-size:11px">LTE</span></td>
+                  <td class="mono">2.14.3</td>
+                  <td><span class="ago">42s ago</span></td>
+                </tr>
+                <tr>
+                  <td><span class="cb"></span></td>
+                  <td class="id">
+                    <div>FLEET-DZ04-1120</div>
+                    <div class="sub">SN · D04·HYD·04880</div>
+                  </td>
+                  <td><span class="pill ok"><span class="pd"></span>online</span></td>
+                  <td class="dim mono">warehouse-hyd</td>
+                  <td><div class="bat"><div class="track"><div class="fill" style="width:55%"></div></div><span class="num">55%</span></div></td>
+                  <td><span class="bars s4"><i></i><i></i><i></i><i></i></span> <span class="dim mono" style="font-size:11px">WIFI</span></td>
+                  <td class="mono">2.15.0</td>
+                  <td><span class="ago">9s ago</span></td>
+                </tr>
+                <tr>
+                  <td><span class="cb"></span></td>
+                  <td class="id">
+                    <div>FLEET-DZ04-1121</div>
+                    <div class="sub">SN · D04·HYD·04881</div>
+                  </td>
+                  <td><span class="pill off"><span class="pd"></span>idle</span></td>
+                  <td class="dim mono">warehouse-hyd</td>
+                  <td><div class="bat"><div class="track"><div class="fill" style="width:48%"></div></div><span class="num">48%</span></div></td>
+                  <td><span class="bars s3"><i></i><i></i><i></i><i></i></span> <span class="dim mono" style="font-size:11px">WIFI</span></td>
+                  <td class="mono">2.14.3</td>
+                  <td><span class="ago">8m ago</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="selbar">
+            <span class="count">2 selected</span>
+            <span class="dim">FLEET-AX91-0184, FLEET-AX91-0185</span>
+            <div class="spacer"></div>
+            <button class="btn btn-ghost" style="height:26px">Clear</button>
+            <button class="btn" style="height:26px">Reboot</button>
+            <button class="btn" style="height:26px">Pull logs</button>
+            <button class="btn btn-primary" style="height:26px">Dispatch ⌘↵</button>
+          </div>
+        </section>
+
+
+        <!-- RIGHT RAIL -->
+        <aside class="rail">
+
+          <!-- COMMAND COMPOSER -->
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="uc" style="text-transform:uppercase;letter-spacing:.14em;font-size:var(--t-10)">Compose command</h3>
+              <span class="dim mono" style="font-size:11px">⌘↵ to dispatch</span>
+            </div>
+            <div class="panel-body">
+              <div class="cmd-types">
+                <button>
+                  <span class="ico">⌘</span>
+                  <span>shell</span>
+                </button>
+                <button class="on">
+                  <span class="ico">▣</span>
+                  <span>install_apk</span>
+                </button>
+                <button>
+                  <span class="ico">↻</span>
+                  <span>reboot</span>
+                </button>
+                <button>
+                  <span class="ico">◉</span>
+                  <span>screenshot</span>
+                </button>
+              </div>
+
+              <div class="cmd-target">
+                <svg class="i-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/></svg>
+                target · <b>2 selected</b> · kiosks-mum
+              </div>
+
+              <div class="cmd-payload"><span class="prompt">$</span> install_apk <span class="arg">--package</span> aio-kiosk <span class="arg">--version</span> 2.15.0 <span class="arg">--strategy</span> rolling --concurrency 5</div>
+
+              <div class="cmd-foot">
+                <span>est. ack <b style="color:var(--ink-2)">~220ms</b> · est. complete <b style="color:var(--ink-2)">~6m</b></span>
+                <button class="btn btn-primary" style="height:26px">dispatch</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- LIVE EVENTS -->
+          <div class="panel">
+            <div class="panel-head">
+              <h3 class="uc" style="text-transform:uppercase;letter-spacing:.14em;font-size:var(--t-10)">Live events</h3>
+              <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-3);font-family:var(--mono)">
+                <span class="dot" style="width:5px;height:5px"></span> streaming
+              </span>
+            </div>
+            <div>
+              <div class="tick">
+                <time>14:02:11</time>
+                <span class="lvl I">I</span>
+                <span class="msg"><b>FLEET-CY11-0301</b> reported telemetry · battery 73%</span>
+              </div>
+              <div class="tick">
+                <time>14:02:08</time>
+                <span class="lvl W">W</span>
+                <span class="msg"><b>FLEET-AX91-0190</b> network degraded · LTE → 3G</span>
+              </div>
+              <div class="tick">
+                <time>14:02:02</time>
+                <span class="lvl I">I</span>
+                <span class="msg">cmd <span class="dim">cmd_8f3a</span> ack from <b>FLEET-DZ04-1120</b></span>
+              </div>
+              <div class="tick">
+                <time>14:01:54</time>
+                <span class="lvl E">E</span>
+                <span class="msg"><b>FLEET-BR22-0043</b> uplink lost · last seen 14:00:40</span>
+              </div>
+              <div class="tick">
+                <time>14:01:41</time>
+                <span class="lvl I">I</span>
+                <span class="msg">OTA queued · v2.15.0 · 41 devices</span>
+              </div>
+              <div class="tick">
+                <time>14:01:22</time>
+                <span class="lvl I">I</span>
+                <span class="msg">enrolment · <b>FLEET-DZ04-1121</b> joined warehouse-hyd</span>
+              </div>
+            </div>
+          </div>
+
+        </aside>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// minimal interactivity for feel: row checkbox + selbar count
+document.querySelectorAll('.tbl tbody tr').forEach(tr=>{
+  tr.addEventListener('click', e=>{
+    if(e.target.closest('a,button')) return;
+    const cb = tr.querySelector('.cb');
+    cb.classList.toggle('on');
+    tr.classList.toggle('selected');
+    updateSel();
+  });
+});
+function updateSel(){
+  const sel = document.querySelectorAll('.tbl tbody tr.selected');
+  const bar = document.querySelector('.selbar');
+  if(!bar) return;
+  bar.querySelector('.count').textContent = sel.length + ' selected';
+  const ids = [...sel].map(r=>r.querySelector('.id div').textContent).join(', ');
+  bar.querySelector('.dim').textContent = ids || '—';
+}
+// command type toggle
+document.querySelectorAll('.cmd-types button').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    document.querySelectorAll('.cmd-types button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+  });
+});
+</script>
+</body>
+</html>
