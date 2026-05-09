@@ -44,6 +44,11 @@
   --danger-edge: rgba(224, 86, 86, 0.30);
   --info-edge:   rgba(106, 169, 255, 0.30);
 
+  /* ── Chart palette (data-viz, not UI accent) ──────── */
+  --chart-battery: #6aa9ff;
+  --chart-temp:    #ff8a4c;
+  --chart-ram:     #59c97a;
+
   /* ── Spacing scale (8px baseline) ─────────────────── */
   --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
   --s-5: 20px; --s-6: 24px; --s-7: 28px; --s-8: 32px;
@@ -534,13 +539,13 @@ a:hover { color: var(--accent-h); }
   color: var(--danger);
 }
 .alert-info {
-  background: rgba(33, 150, 243, 0.1);
-  border: 1px solid rgba(33, 150, 243, 0.3);
-  color: #90caf9;
+  background: var(--info-bg);
+  border: 1px solid var(--info-edge);
+  color: var(--info);
 }
 
 .ota-incompatible {
-  color: #666;
+  color: var(--text-faint);
 }
 
 /* ── Summary bar ─────────────────────────────────── */
@@ -715,7 +720,7 @@ a:hover { color: var(--accent-h); }
   align-items: center;
   gap: 12px;
   font-size: 12px;
-  color: #7a7f9a;
+  color: var(--muted);
   margin-bottom: 4px;
   flex-wrap: wrap;
 }
@@ -725,7 +730,7 @@ a:hover { color: var(--accent-h); }
   gap: 4px;
 }
 .chart-hover-info {
-  --hover-accent: #6387d2;
+  --hover-accent: var(--chart-battery);
   display: inline-flex;
   flex: 1 1 0;
   align-items: center;
@@ -749,9 +754,9 @@ a:hover { color: var(--accent-h); }
   border-color: color-mix(in srgb, var(--hover-accent) 55%, transparent);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
-.chart-hover-info[data-accent="battery"] { --hover-accent: #6387d2; }
-.chart-hover-info[data-accent="temp"] { --hover-accent: #ff9800; }
-.chart-hover-info[data-accent="ram"] { --hover-accent: #4caf50; }
+.chart-hover-info[data-accent="battery"] { --hover-accent: var(--chart-battery); }
+.chart-hover-info[data-accent="temp"]    { --hover-accent: var(--chart-temp); }
+.chart-hover-info[data-accent="ram"]     { --hover-accent: var(--chart-ram); }
 
 .chart-hover-info .hover-indicator {
   flex: 0 0 auto;
@@ -1331,7 +1336,7 @@ input[type="checkbox"]:hover {
   transition: background 0.15s, border-color 0.15s;
 }
 .page-btn:not(.disabled):hover {
-  background: var(--surface-alt, #1e2130);
+  background: var(--surface2);
   border-color: var(--accent);
 }
 .page-btn.disabled {
@@ -1351,8 +1356,8 @@ input[type="checkbox"]:hover {
   border-top: 1px solid var(--border);
 }
 .logcat-terminal {
-  background: #080b10;
-  color: #c8d0e0;
+  background: var(--bg);
+  color: var(--text-2);
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.6;
@@ -1367,11 +1372,11 @@ input[type="checkbox"]:hover {
   padding: 12px 16px;
   border-top: 1px solid var(--border);
 }
-.logcat-level-E { background: rgba(240,82,82,0.15); color: #f05252; border-color: rgba(240,82,82,0.3); }
-.logcat-level-W { background: rgba(240,168,50,0.15); color: #f0a832; border-color: rgba(240,168,50,0.3); }
-.logcat-level-I { background: var(--info-bg); color: var(--info); border-color: var(--info-edge); }
-.logcat-level-D { background: rgba(52,199,123,0.15); color: #34c77b; border-color: rgba(52,199,123,0.3); }
-.logcat-level-V { background: rgba(122,127,154,0.15); color: #7a7f9a; border-color: rgba(122,127,154,0.3); }
+.logcat-level-E { background: var(--danger-bg); color: var(--danger); border-color: var(--danger-edge); }
+.logcat-level-W { background: var(--warn-bg);   color: var(--warn);   border-color: var(--warn-edge); }
+.logcat-level-I { background: var(--info-bg);   color: var(--info);   border-color: var(--info-edge); }
+.logcat-level-D { background: var(--ok-bg);     color: var(--ok);     border-color: var(--ok-edge); }
+.logcat-level-V { background: rgba(138,146,160,0.10); color: var(--muted); border-color: rgba(138,146,160,0.25); }
 .logcat-toolbar {
   display: flex;
   align-items: center;
@@ -1644,7 +1649,7 @@ input[type="checkbox"]:hover {
 .danger-zone-title {
   font-size: 14px;
   font-weight: 700;
-  color: #ffd7d7;
+  color: var(--danger);
 }
 
 .danger-zone-copy {
@@ -2160,11 +2165,11 @@ input[type="checkbox"]:hover {
 }
 
 /* ── Logcat Line Colors ───────────────────────── */
-.logcat-terminal .log-E { color: #f05252; }
-.logcat-terminal .log-W { color: #f0a832; }
+.logcat-terminal .log-E { color: var(--danger); }
+.logcat-terminal .log-W { color: var(--warn); }
 .logcat-terminal .log-I { color: var(--info); }
-.logcat-terminal .log-D { color: #34c77b; }
-.logcat-terminal .log-V { color: #7a7f9a; }
+.logcat-terminal .log-D { color: var(--ok); }
+.logcat-terminal .log-V { color: var(--muted); }
 
 /* ── Logcat Pause Button ──────────────────────── */
 .logcat-pause { display: flex; align-items: center; gap: 6px; }
