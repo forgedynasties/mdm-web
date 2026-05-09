@@ -514,11 +514,17 @@ a:hover { color: var(--accent-h); }
 .warn { color: var(--warn); }
 .danger { color: var(--danger); }
 
+/* ── Empty state (canonical pattern) ─────────────────
+ * Two flavors:
+ *   .empty           — inline cell empty (table colspan, etc.)
+ *   .empty-state     — page/section empty with icon + title + copy + CTA
+ */
 .empty {
   text-align: center;
   color: var(--muted);
-  padding: 40px 16px !important;
-  font-size: 13px;
+  padding: var(--s-7) var(--s-4) !important;
+  font-size: var(--t-12);
+  font-family: var(--mono);
 }
 
 .extra-cell {
@@ -1774,27 +1780,62 @@ input[type="checkbox"]:hover {
 }
 
 .empty-state {
-  padding: 28px 20px;
+  padding: var(--s-8) var(--s-6);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  justify-content: center;
+  text-align: center;
+  gap: var(--s-3);
+  color: var(--muted);
+}
+
+.empty-state-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r-2);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-faint);
+  margin-bottom: var(--s-2);
+}
+.empty-state-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .empty-state-copy {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 4px;
+  max-width: 420px;
 }
 
 .empty-state-title {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: var(--t-14);
+  font-weight: var(--fw-semibold);
+  color: var(--text);
 }
 
 .empty-state-text {
-  font-size: 12px;
+  font-size: var(--t-12);
+  line-height: var(--leading-normal);
   color: var(--muted);
+}
+
+.empty-state-actions {
+  display: flex;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
 }
 
 .command-composer {

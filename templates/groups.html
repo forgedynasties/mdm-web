@@ -12,12 +12,16 @@
 <div class="card">
   {{if not .Groups}}
   <div class="empty-state">
-    <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>
+    <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></div>
     <div class="empty-state-copy">
       <div class="empty-state-title">No groups yet</div>
       <div class="empty-state-text">Create a group to target commands and exports faster.</div>
     </div>
-    {{if eq .Role "admin"}}<a href="/groups/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</a>{{end}}
+    {{if eq .Role "admin"}}
+    <div class="empty-state-actions">
+      <a href="/groups/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</a>
+    </div>
+    {{end}}
   </div>
   {{else}}
   <table class="table">
