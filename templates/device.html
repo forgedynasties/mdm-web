@@ -69,7 +69,7 @@
   hx-trigger="device-updated from:body, every 60s"
   hx-swap="outerHTML"
   {{end}}>
-  <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
+  <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key===&apos;Enter&apos;||event.key===&apos; &apos;){event.preventDefault();toggleSection(this);}" style="cursor:pointer;user-select:none;">
     <div style="display:flex;align-items:center;gap:8px;">
       <span class="collapse-arrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
       <h3>Commands</h3>
@@ -123,7 +123,7 @@
   hx-get="/devices/{{.Device.SerialNumber}}/checkins-live?page={{.CheckinPage}}"
   hx-trigger="device-updated from:body, every 300s"
   hx-swap="outerHTML">
-  <div class="card-header collapsible-header" onclick="toggleSection(this)" style="cursor:pointer;user-select:none;">
+  <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key===&apos;Enter&apos;||event.key===&apos; &apos;){event.preventDefault();toggleSection(this);}" style="cursor:pointer;user-select:none;">
     <div style="display:flex;align-items:center;gap:8px;">
       <span class="collapse-arrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
       <h3>Checkin History</h3>
@@ -1091,9 +1091,11 @@ function toggleSection(header) {
   if (open) {
     body.style.display = 'none';
     header.classList.remove('open');
+    header.setAttribute('aria-expanded', 'false');
   } else {
     body.style.display = '';
     header.classList.add('open');
+    header.setAttribute('aria-expanded', 'true');
     var card = header.closest('.card');
     if (card && window.htmx && card.hasAttribute('hx-trigger')) {
       window.htmx.trigger(card, 'load');
@@ -1269,9 +1271,11 @@ function toggleSection(header) {
   if (open) {
     body.style.display = 'none';
     header.classList.remove('open');
+    header.setAttribute('aria-expanded', 'false');
   } else {
     body.style.display = '';
     header.classList.add('open');
+    header.setAttribute('aria-expanded', 'true');
     var card = header.closest('.card');
     if (card && window.htmx && card.hasAttribute('hx-trigger')) {
       window.htmx.trigger(card, 'load');
