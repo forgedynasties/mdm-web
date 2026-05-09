@@ -95,8 +95,8 @@ body::before {
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(91,110,245,0.04) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 50% at 20% 80%, rgba(91,110,245,0.03) 0%, transparent 70%);
+    radial-gradient(ellipse 80% 60% at 50% 0%, rgba(245, 165, 36,0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 50% at 20% 80%, rgba(245, 165, 36,0.03) 0%, transparent 70%);
   opacity: 0.6;
 }
 
@@ -562,7 +562,7 @@ a:hover { color: var(--accent-h); }
 }
 .summary-card:hover {
   transform: translateY(-2px);
-  border-color: rgba(91,110,245,0.25);
+  border-color: rgba(245, 165, 36,0.25);
   box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 .summary-icon {
@@ -1014,16 +1014,16 @@ input[type="checkbox"]:hover {
   font-size: 15px;
   font-weight: 700;
   letter-spacing: 0.3px;
-  box-shadow: 0 2px 8px rgba(91,110,245,0.35);
+  box-shadow: 0 2px 8px rgba(245, 165, 36,0.35);
   transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
 }
 .btn-send:hover {
-  box-shadow: 0 4px 14px rgba(91,110,245,0.45);
+  box-shadow: 0 4px 14px rgba(245, 165, 36,0.45);
   transform: translateY(-1px);
 }
 .btn-send:active {
   transform: translateY(0);
-  box-shadow: 0 1px 4px rgba(91,110,245,0.3);
+  box-shadow: 0 1px 4px rgba(245, 165, 36,0.3);
 }
 .btn-primary:disabled {
   background: var(--surface2);
@@ -1369,7 +1369,7 @@ input[type="checkbox"]:hover {
 }
 .logcat-level-E { background: rgba(240,82,82,0.15); color: #f05252; border-color: rgba(240,82,82,0.3); }
 .logcat-level-W { background: rgba(240,168,50,0.15); color: #f0a832; border-color: rgba(240,168,50,0.3); }
-.logcat-level-I { background: rgba(91,110,245,0.15); color: #5b6ef5; border-color: rgba(91,110,245,0.3); }
+.logcat-level-I { background: var(--info-bg); color: var(--info); border-color: var(--info-edge); }
 .logcat-level-D { background: rgba(52,199,123,0.15); color: #34c77b; border-color: rgba(52,199,123,0.3); }
 .logcat-level-V { background: rgba(122,127,154,0.15); color: #7a7f9a; border-color: rgba(122,127,154,0.3); }
 .logcat-toolbar {
@@ -1545,8 +1545,8 @@ input[type="checkbox"]:hover {
 
 .device-action-tile.active {
   border-color: var(--accent);
-  background: rgba(91,110,245,0.12);
-  box-shadow: inset 0 0 0 1px rgba(91,110,245,0.15);
+  background: rgba(245, 165, 36,0.12);
+  box-shadow: inset 0 0 0 1px rgba(245, 165, 36,0.15);
 }
 
 .device-action-tile .ui-icon {
@@ -1614,8 +1614,8 @@ input[type="checkbox"]:hover {
 .device-action-note {
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(91,110,245,0.22);
-  background: rgba(91,110,245,0.08);
+  border: 1px solid rgba(245, 165, 36,0.22);
+  background: rgba(245, 165, 36,0.08);
   font-size: 12px;
   color: var(--text);
 }
@@ -1742,8 +1742,8 @@ input[type="checkbox"]:hover {
 
 .choice-card.active {
   border-color: var(--accent);
-  background: rgba(91,110,245,0.12);
-  box-shadow: inset 0 0 0 1px rgba(91,110,245,0.15);
+  background: rgba(245, 165, 36,0.12);
+  box-shadow: inset 0 0 0 1px rgba(245, 165, 36,0.15);
 }
 
 .choice-card .ui-icon {
@@ -1785,7 +1785,7 @@ input[type="checkbox"]:hover {
 .composer-note {
   padding: 10px 12px;
   border: 1px solid rgba(112,128,255,0.2);
-  background: rgba(91,110,245,0.08);
+  background: rgba(245, 165, 36,0.08);
   border-radius: 10px;
   font-size: 12px;
   color: var(--text);
@@ -1814,7 +1814,7 @@ input[type="checkbox"]:hover {
 
 .target-option.active {
   border-color: var(--accent);
-  background: rgba(91,110,245,0.1);
+  background: rgba(245, 165, 36,0.1);
 }
 
 .target-option-copy {
@@ -1936,7 +1936,7 @@ input[type="checkbox"]:hover {
 .filter-select.active {
   color: var(--accent);
   border-color: var(--accent);
-  background: rgba(91, 110, 245, 0.08);
+  background: rgba(245, 165, 36, 0.08);
 }
 .filter-select option { background: var(--surface2); color: var(--text); }
 
@@ -2106,7 +2106,7 @@ input[type="checkbox"]:hover {
 
 .ota-progress-fill {
   height: 100%;
-  background: var(--accent, #5b6ef5);
+  background: var(--accent);
   border-radius: 3px;
   transition: width 0.3s ease;
 }
@@ -2162,7 +2162,7 @@ input[type="checkbox"]:hover {
 /* ── Logcat Line Colors ───────────────────────── */
 .logcat-terminal .log-E { color: #f05252; }
 .logcat-terminal .log-W { color: #f0a832; }
-.logcat-terminal .log-I { color: #5b6ef5; }
+.logcat-terminal .log-I { color: var(--info); }
 .logcat-terminal .log-D { color: #34c77b; }
 .logcat-terminal .log-V { color: #7a7f9a; }
 
@@ -2224,8 +2224,8 @@ input[type="checkbox"]:hover {
   color: var(--danger);
 }
 .toast.info {
-  background: rgba(91,110,245,0.15);
-  border: 1px solid rgba(91,110,245,0.35);
+  background: rgba(245, 165, 36,0.15);
+  border: 1px solid rgba(245, 165, 36,0.35);
   color: var(--accent-h);
 }
 
@@ -2258,7 +2258,7 @@ input[type="checkbox"]:hover {
 /* ── New Command Builder ──────────────────────────────────── */
 .cmd-builder {
   --type-color: var(--accent);
-  --type-color-soft: rgba(91, 110, 245, 0.10);
+  --type-color-soft: rgba(245, 165, 36, 0.10);
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -2351,10 +2351,10 @@ input[type="checkbox"]:hover {
   text-align: left;
   cursor: pointer;
 }
-.type-card[data-type="install_apk"] { --tc: #5b6ef5; }
-.type-card[data-type="shell"]       { --tc: #f0a832; }
-.type-card[data-type="screenshot"]  { --tc: #34c77b; }
-.type-card[data-type="reboot"]      { --tc: #f05252; }
+.type-card[data-type="install_apk"] { --tc: var(--accent); }
+.type-card[data-type="shell"]       { --tc: var(--warn); }
+.type-card[data-type="screenshot"]  { --tc: var(--ok); }
+.type-card[data-type="reboot"]      { --tc: var(--danger); }
 
 .type-card:hover { border-color: var(--muted); }
 .type-card.is-active { border-color: var(--tc); }
