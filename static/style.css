@@ -1333,74 +1333,73 @@ input[type="checkbox"]:hover {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: var(--overlay);
   z-index: 100;
   align-items: center;
   justify-content: center;
+  padding: var(--s-4);
 }
-.modal-backdrop.modal-open {
-  display: flex;
-}
+.modal-backdrop.modal-open { display: flex; }
 
 .modal-box {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r-2);
   width: 100%;
   max-width: 520px;
-  max-height: 80vh;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
-.modal-box.modal-wide {
-  max-width: 640px;
-}
+.modal-box.modal-wide { max-width: 640px; }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  padding: var(--s-3) var(--s-5);
   border-bottom: 1px solid var(--border);
 }
 
 .modal-title {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: var(--t-14);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -.005em;
 }
 
 .modal-close {
   background: none;
-  border: none;
+  border: 1px solid transparent;
   color: var(--muted);
-  font-size: 20px;
+  font-size: var(--t-18);
   cursor: pointer;
   line-height: 1;
-  padding: 0 4px;
-  transition: color 0.15s;
+  padding: 2px 8px;
+  border-radius: var(--r-1);
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.modal-close:hover { color: var(--text); }
+.modal-close:hover { color: var(--text); background: var(--surface2); border-color: var(--rule); }
 
 .modal-body {
-  padding: 16px 20px;
+  padding: var(--s-4) var(--s-5);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--s-3);
 }
 
 .modal-row {
   display: flex;
   align-items: baseline;
-  gap: 12px;
+  gap: var(--s-3);
 }
 
 .modal-label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--t-10);
+  font-weight: var(--fw-semibold);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
+  letter-spacing: .14em;
   color: var(--muted);
   min-width: 70px;
   flex-shrink: 0;

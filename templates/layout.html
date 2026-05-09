@@ -278,6 +278,85 @@
         showToast('Something went wrong', 'error');
       }
     });
+
+    // Modal a11y: dialog semantics, focus trap, ESC to close, focus return
+    var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    var modalLastFocus = new WeakMap();
+
+    function initModal(m) {
+      if (m.dataset.a11yReady === 'true') return;
+      m.dataset.a11yReady = 'true';
+      m.setAttribute('role', 'dialog');
+      m.setAttribute('aria-modal', 'true');
+      var title = m.querySelector('.modal-title');
+      if (title) {
+        if (!title.id) title.id = 'modal-title-' + Math.random().toString(36).slice(2, 8);
+        m.setAttribute('aria-labelledby', title.id);
+      }
+    }
+
+    function openModal(m) {
+      if (!m) return;
+      modalLastFocus.set(m, document.activeElement);
+      // Focus first focusable inside modal
+      requestAnimationFrame(function () {
+        var first = m.querySelector(FOCUSABLE);
+        if (first) first.focus();
+      });
+    }
+
+    function closeModal(m) {
+      var last = modalLastFocus.get(m);
+      if (last && typeof last.focus === 'function') last.focus();
+    }
+
+    document.querySelectorAll('.modal-backdrop').forEach(initModal);
+
+    // Watch for modal open/close transitions
+    new MutationObserver(function (records) {
+      records.forEach(function (r) {
+        if (r.attributeName !== 'class') return;
+        var el = r.target;
+        if (!el.classList.contains('modal-backdrop')) return;
+        var wasOpen = (r.oldValue || '').indexOf('modal-open') !== -1;
+        var isOpen = el.classList.contains('modal-open');
+        if (!wasOpen && isOpen) openModal(el);
+        if (wasOpen && !isOpen) closeModal(el);
+      });
+    }).observe(document.body, {
+      subtree: true,
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ['class'],
+    });
+
+    // ESC closes any open modal; Tab is trapped inside it
+    document.addEventListener('keydown', function (e) {
+      var open = document.querySelector('.modal-backdrop.modal-open');
+      if (!open) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        open.classList.remove('modal-open');
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      var focusables = open.querySelectorAll(FOCUSABLE);
+      if (!focusables.length) return;
+      var first = focusables[0], last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    });
+
+    // Initialize any modals injected later (HTMX swap)
+    document.body.addEventListener('htmx:afterSettle', function (evt) {
+      var root = (evt.detail && evt.detail.target) || document;
+      if (root.querySelectorAll) root.querySelectorAll('.modal-backdrop').forEach(initModal);
+    });
   })();
   </script>
 </body>
