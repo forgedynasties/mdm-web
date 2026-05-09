@@ -239,15 +239,19 @@ a:hover { color: var(--accent-h); }
   width: 14px;
   height: 14px;
   color: var(--muted);
-  transition: color 0.15s;
+  transition: color var(--dur) var(--ease);
 }
 .collapse-arrow svg {
   width: 14px;
   height: 14px;
-  transition: transform 0.2s ease;
+  transition: transform var(--dur-slow) var(--ease);
 }
+.collapsible-header[aria-expanded="true"] .collapse-arrow svg,
 .collapsible-header.open .collapse-arrow svg {
   transform: rotate(90deg);
+}
+.collapsible-header[aria-expanded="true"] .collapse-arrow,
+.collapsible-header.open .collapse-arrow {
   color: var(--text);
 }
 
@@ -461,37 +465,45 @@ a:hover { color: var(--accent-h); }
 .battery-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--s-2);
   min-width: 120px;
 }
 
 .battery-wrap.large {
   min-width: 100%;
-  margin-top: 6px;
+  margin-top: var(--s-2);
 }
 
 .battery-track {
   flex: 1;
   min-width: 0;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--surface2);
+  height: 4px;
+  border-radius: 1px;
+  background: var(--surface-3);
+  overflow: hidden;
 }
+.battery-wrap.large .battery-track { height: 6px; }
 
 .battery-bar {
   height: 100%;
-  border-radius: 3px;
+  border-radius: 0;
   min-width: 2px;
+  transition: width var(--dur-slow) var(--ease);
 }
 .battery-bar.battery-low  { background: var(--danger); }
 .battery-bar.battery-mid  { background: var(--warn); }
 .battery-bar.battery-ok   { background: var(--ok); }
 
 .battery-label {
-  font-size: 13px;
-  font-weight: 600;
+  font-family: var(--mono);
+  font-size: var(--t-11);
+  font-weight: var(--fw-medium);
+  color: var(--text-2);
   white-space: nowrap;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  width: 36px;
+  text-align: right;
 }
 
 /* ── Helpers ─────────────────────────────────────── */
