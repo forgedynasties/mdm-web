@@ -230,15 +230,16 @@ a:hover { color: var(--accent-h); }
 
 .btn-logout {
   background: transparent;
-  border: 1px solid var(--border);
+  border: 1px solid var(--rule);
   color: var(--muted);
-  padding: 6px 14px;
-  border-radius: var(--radius);
+  padding: 5px 12px;
+  border-radius: var(--r-2);
   cursor: pointer;
-  font-size: 13px;
-  transition: border-color 0.15s, color 0.15s;
+  font-size: var(--t-12);
+  font-family: var(--font);
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
-.btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+.btn-logout:hover { border-color: var(--danger-edge); color: var(--danger); background: var(--danger-bg); }
 
 .navbar-user {
   display: flex;
@@ -1013,61 +1014,82 @@ input[type="checkbox"]:hover {
   border-color: var(--accent);
 }
 
-.btn-primary {
-  align-self: flex-start;
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius);
-  padding: 9px 20px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
-  white-space: nowrap;
+/* ── Buttons ─────────────────────────────────────────
+ * Variants: .btn-primary | .btn-outline | .btn-link
+ * Modifiers: .btn-sm | .btn-danger-sm
+ * All accent-fill variants use --accent-ink for AA contrast on amber.
+ */
+.btn-primary,
+.btn-outline,
+.btn-outline-sm,
+.btn-danger-sm {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: var(--s-2);
+  font-family: var(--font);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+  cursor: pointer;
+  border-radius: var(--r-2);
+  border: 1px solid transparent;
+  transition: background var(--dur) var(--ease),
+              border-color var(--dur) var(--ease),
+              color var(--dur) var(--ease);
 }
-.btn-primary:hover { background: var(--accent-h); }
-.btn-send {
-  padding: 10px 28px;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  box-shadow: 0 2px 8px rgba(245, 165, 36,0.35);
-  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  padding: 8px 16px;
+  font-size: var(--t-13);
 }
-.btn-send:hover {
-  box-shadow: 0 4px 14px rgba(245, 165, 36,0.45);
-  transform: translateY(-1px);
-}
-.btn-send:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 4px rgba(245, 165, 36,0.3);
-}
+.btn-primary:hover  { background: var(--accent-h); border-color: var(--accent-h); }
+.btn-primary:active { background: var(--accent); }
 .btn-primary:disabled {
   background: var(--surface2);
   color: var(--muted);
+  border-color: var(--border);
   cursor: not-allowed;
 }
 
-.btn-danger-sm {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: var(--radius);
-  padding: 3px 10px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+.btn-outline {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--rule);
+  padding: 7px 14px;
+  font-size: var(--t-13);
 }
-.btn-danger-sm:hover { color: var(--danger); border-color: var(--danger); }
+.btn-outline:hover {
+  background: var(--surface2);
+  border-color: var(--rule-2);
+  color: var(--text);
+}
+
+.btn-outline-sm {
+  background: transparent;
+  color: var(--text-2);
+  border-color: var(--rule);
+  padding: 4px 10px;
+  font-size: var(--t-12);
+  font-weight: var(--fw-medium);
+}
+.btn-outline-sm:hover {
+  background: var(--surface2);
+  border-color: var(--rule-2);
+  color: var(--text);
+}
+
+.btn-danger-sm {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--rule);
+  padding: 4px 10px;
+  font-size: var(--t-12);
+  font-weight: var(--fw-medium);
+}
+.btn-danger-sm:hover { color: var(--danger); border-color: var(--danger-edge); background: var(--danger-bg); }
 
 /* ── Status badge ────────────────────────────────── */
 .status-badge {
@@ -1147,26 +1169,9 @@ input[type="checkbox"]:hover {
 
 .app-select-wrap select { flex: 1; min-width: 0; }
 
-.btn-outline {
-  background: transparent;
-  border: 1px solid var(--border);
-  color: var(--accent);
-  border-radius: var(--radius);
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.15s, color 0.15s;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.btn-outline:hover { border-color: var(--accent); color: var(--accent-h); }
-
 .btn-primary .ui-icon,
 .btn-outline .ui-icon,
+.btn-outline-sm .ui-icon,
 .btn-danger-sm .ui-icon {
   width: 14px;
   height: 14px;
@@ -1175,16 +1180,17 @@ input[type="checkbox"]:hover {
 
 .btn-primary .ui-icon svg,
 .btn-outline .ui-icon svg,
+.btn-outline-sm .ui-icon svg,
 .btn-danger-sm .ui-icon svg {
   width: 14px;
   height: 14px;
 }
 
 .btn-plus {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   padding: 0;
-  border-radius: 999px;
+  border-radius: var(--r-2);
 }
 
 .dur-btns { display: flex; gap: 2px; }
@@ -1220,10 +1226,12 @@ input[type="checkbox"]:hover {
   background: none;
   border: none;
   color: var(--accent);
-  font-size: 14px;
+  font-size: var(--t-13);
   cursor: pointer;
   padding: 0;
   text-decoration: underline;
+  text-underline-offset: 3px;
+  transition: color var(--dur) var(--ease);
 }
 .btn-link:hover { color: var(--accent-h); }
 
@@ -1418,18 +1426,25 @@ input[type="checkbox"]:hover {
   font-size: 13px;
 }
 .btn-danger {
-  background: rgba(240,82,82,0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  background: var(--danger-bg);
   color: var(--danger);
-  border: 1px solid rgba(240,82,82,0.35);
-  padding: 6px 14px;
-  border-radius: 6px;
+  border: 1px solid var(--danger-edge);
+  padding: 7px 14px;
+  border-radius: var(--r-2);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--t-13);
+  font-weight: var(--fw-semibold);
   font-family: var(--font);
-  transition: background 0.15s;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 .btn-danger:hover {
-  background: rgba(240,82,82,0.25);
+  background: var(--danger);
+  color: var(--accent-ink);
+  border-color: var(--danger);
 }
 
 /* ── Screenshot ──────────────────────────────────── */
@@ -2505,27 +2520,27 @@ input[type="checkbox"]:hover {
 .btn-send-cli {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 16px 9px 14px;
+  gap: var(--s-2);
+  padding: 8px 14px;
   background: var(--accent);
-  color: #fff;
-  border: none;
-  border-radius: 6px;
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-2);
   font-family: var(--font);
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
+  font-size: var(--t-13);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
-.btn-send-cli:hover { background: var(--accent-h); }
+.btn-send-cli:hover { background: var(--accent-h); border-color: var(--accent-h); }
 .btn-send-cli .kbd {
   font-family: var(--mono);
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: var(--t-10);
+  font-weight: var(--fw-semibold);
   padding: 2px 6px;
-  border-radius: 3px;
-  background: rgba(0,0,0,0.25);
-  letter-spacing: 0.3px;
+  border-radius: var(--r-1);
+  background: rgba(0,0,0,0.20);
+  letter-spacing: .04em;
 }
 
 @media (max-width: 720px) {
