@@ -2,20 +2,79 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0f1117;
-  --surface:   #1a1d27;
-  --surface2:  #22263a;
-  --border:    #2e3347;
-  --text:      #e2e4ed;
-  --muted:     #7a7f9a;
-  --accent:    #5b6ef5;
-  --accent-h:  #7080ff;
-  --ok:        #34c77b;
-  --warn:      #f0a832;
-  --danger:    #f05252;
-  --radius:    8px;
-  --font:      'Manrope', system-ui, sans-serif;
-  --mono:      'JetBrains Mono', 'Fira Code', monospace;
+  /* ── Surfaces ─────────────────────────────────────── */
+  --bg:        #0b0d10;
+  --bg-grid:   #0e1115;
+  --surface:   #12161b;
+  --surface2:  #181d24;
+  --surface-3: #20262f;
+  --overlay:   rgba(0, 0, 0, 0.65);
+
+  /* ── Borders ──────────────────────────────────────── */
+  --border:      #232a33;
+  --border-soft: #1b2129;
+  --rule:        #2c343f;
+  --rule-2:      #3a4452;
+
+  /* ── Text ─────────────────────────────────────────── */
+  --text:        #e7ebf0;
+  --text-2:      #b9c1cc;
+  --muted:       #8a92a0;        /* lifted from #7a7f9a for AA */
+  --text-faint:  #4f5866;
+
+  /* ── Signal — amber, single accent ────────────────── */
+  --accent:        #f5a524;
+  --accent-h:      #ffb945;
+  --accent-soft:   rgba(245, 165, 36, 0.10);
+  --accent-edge:   rgba(245, 165, 36, 0.35);
+  --accent-ink:    #0b0d10;       /* text on accent */
+  --ring:          0 0 0 2px rgba(245, 165, 36, 0.45);
+
+  /* ── Semantic ─────────────────────────────────────── */
+  --ok:        #59c97a;
+  --warn:      #e6a836;
+  --danger:    #e05656;
+  --info:      #6aa9ff;
+  --ok-bg:     rgba(89, 201, 122, 0.10);
+  --warn-bg:   rgba(230, 168, 54, 0.10);
+  --danger-bg: rgba(224, 86, 86, 0.10);
+  --info-bg:   rgba(106, 169, 255, 0.10);
+  --ok-edge:     rgba(89, 201, 122, 0.30);
+  --warn-edge:   rgba(230, 168, 54, 0.30);
+  --danger-edge: rgba(224, 86, 86, 0.30);
+  --info-edge:   rgba(106, 169, 255, 0.30);
+
+  /* ── Spacing scale (8px baseline) ─────────────────── */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 28px; --s-8: 32px;
+  --s-9: 36px; --s-10: 40px;
+
+  /* ── Type scale ───────────────────────────────────── */
+  --t-10: 10px; --t-11: 11px; --t-12: 12px; --t-13: 13px;
+  --t-14: 14px; --t-16: 16px; --t-18: 18px; --t-22: 22px;
+  --leading-tight:  1.2;
+  --leading-normal: 1.45;
+  --leading-loose:  1.6;
+  --fw-normal:    400;
+  --fw-medium:    500;
+  --fw-semibold:  600;
+  --fw-bold:      700;
+
+  /* ── Radius ───────────────────────────────────────── */
+  --r-1: 2px; --r-2: 4px; --r-3: 6px; --r-4: 8px;
+  --radius:    var(--r-3);          /* legacy alias */
+
+  /* ── Motion ───────────────────────────────────────── */
+  --dur-fast:   100ms;
+  --dur:        140ms;
+  --dur-slow:   220ms;
+  --ease:       cubic-bezier(.2, .6, .2, 1);
+  --ease-in:    cubic-bezier(.4, 0, 1, 1);
+  --ease-out:   cubic-bezier(0, 0, .2, 1);
+
+  /* ── Type families ────────────────────────────────── */
+  --font:      'IBM Plex Sans', 'Manrope', system-ui, sans-serif;
+  --mono:      'JetBrains Mono', 'IBM Plex Mono', 'Fira Code', monospace;
 }
 
 html, body { height: 100%; }
