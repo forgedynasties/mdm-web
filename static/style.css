@@ -608,22 +608,19 @@ a:hover { color: var(--accent-h); }
   font-weight: var(--fw-bold);
 }
 
+/* ── Alerts (shared bg + border + color pattern) ──── */
 .alert {
-  padding: 10px 14px;
-  border-radius: var(--radius);
-  font-size: 13px;
-  margin-bottom: 16px;
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-2);
+  font-size: var(--t-13);
+  line-height: var(--leading-normal);
+  margin-bottom: var(--s-4);
+  border: 1px solid;
 }
-.alert-error {
-  background: rgba(240, 82, 82, 0.1);
-  border: 1px solid rgba(240, 82, 82, 0.3);
-  color: var(--danger);
-}
-.alert-info {
-  background: var(--info-bg);
-  border: 1px solid var(--info-edge);
-  color: var(--info);
-}
+.alert-error   { background: var(--danger-bg); border-color: var(--danger-edge); color: var(--danger); }
+.alert-warn    { background: var(--warn-bg);   border-color: var(--warn-edge);   color: var(--warn); }
+.alert-success { background: var(--ok-bg);     border-color: var(--ok-edge);     color: var(--ok); }
+.alert-info    { background: var(--info-bg);   border-color: var(--info-edge);   color: var(--info); }
 
 .ota-incompatible {
   color: var(--text-faint);
@@ -1110,45 +1107,44 @@ input[type="checkbox"]:hover {
 }
 .btn-danger-sm:hover { color: var(--danger); border-color: var(--danger-edge); background: var(--danger-bg); }
 
-/* ── Status badge ────────────────────────────────── */
-.status-badge {
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+/* ── Status badge / WS badge ─────────────────────────
+ * Shared (bg + border + color) pattern keyed off semantic tokens.
+ */
+.status-badge,
+.ws-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: var(--t-11);
+  font-weight: var(--fw-medium);
+  letter-spacing: .04em;
+  text-transform: lowercase;
   padding: 2px 8px;
-  border-radius: 20px;
-  border: 1px solid currentColor;
+  border-radius: var(--r-2);
+  border: 1px solid;
 }
-.status-badge.ok     { color: var(--ok); }
-.status-badge.danger { color: var(--danger); }
-.status-badge.muted  { color: var(--muted); }
+.status-badge.ok,
+.ws-badge.online   { color: var(--ok);     background: var(--ok-bg);     border-color: var(--ok-edge); }
+.status-badge.warn { color: var(--warn);   background: var(--warn-bg);   border-color: var(--warn-edge); }
+.status-badge.danger { color: var(--danger); background: var(--danger-bg); border-color: var(--danger-edge); }
+.status-badge.muted,
+.ws-badge.offline  { color: var(--muted);  background: var(--surface-3); border-color: var(--rule); }
 
 /* ── WebSocket online dot ────────────────────────── */
 .ws-dot {
   display: inline-block;
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--muted);
   margin-right: 5px;
   flex-shrink: 0;
 }
-.ws-dot.online { background: var(--ok); box-shadow: 0 0 5px var(--ok); }
-
-.ws-badge {
-  display: inline-flex;
-  align-items: center;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 2px 8px;
-  border-radius: 20px;
-  border: 1px solid currentColor;
+.ws-dot.online {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px var(--ok-bg);
 }
-.ws-badge.online  { color: var(--ok); }
-.ws-badge.offline { color: var(--muted); }
 
 /* ── Segmented control ───────────────────────────── */
 .seg-control {
@@ -2263,21 +2259,10 @@ input[type="checkbox"]:hover {
   transform: translateY(0);
   pointer-events: auto;
 }
-.toast.success {
-  background: rgba(52,199,123,0.15);
-  border: 1px solid rgba(52,199,123,0.35);
-  color: var(--ok);
-}
-.toast.error {
-  background: rgba(240,82,82,0.15);
-  border: 1px solid rgba(240,82,82,0.35);
-  color: var(--danger);
-}
-.toast.info {
-  background: rgba(244, 245, 247,0.15);
-  border: 1px solid rgba(244, 245, 247,0.35);
-  color: var(--accent-h);
-}
+.toast.success { background: var(--ok-bg);     border: 1px solid var(--ok-edge);     color: var(--ok); }
+.toast.error   { background: var(--danger-bg); border: 1px solid var(--danger-edge); color: var(--danger); }
+.toast.warn    { background: var(--warn-bg);   border: 1px solid var(--warn-edge);   color: var(--warn); }
+.toast.info    { background: var(--info-bg);   border: 1px solid var(--info-edge);   color: var(--info); }
 
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 900px) {
