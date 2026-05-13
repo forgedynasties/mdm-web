@@ -1025,7 +1025,23 @@
           </div>
           <div class="form-row">
             <label class="form-label">Kiosk Package</label>
-            <input type="text" name="kiosk_package" class="form-input" value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
+            {{if .InstalledPackages}}
+              <select name="kiosk_package" class="form-input">
+                <option value="" {{if eq .KioskConfig.KioskPackage ""}}selected{{end}}>Select a package…</option>
+                {{$current := .KioskConfig.KioskPackage}}
+                {{$found := false}}
+                {{range .InstalledPackages}}
+                  {{if eq .PackageName $current}}{{$found = true}}{{end}}
+                  <option value="{{.PackageName}}" {{if eq .PackageName $current}}selected{{end}}>{{if .AppName}}{{.AppName}} — {{end}}{{.PackageName}}</option>
+                {{end}}
+                {{if and (ne $current "") (not $found)}}
+                  <option value="{{$current}}" selected>{{$current}} (not installed)</option>
+                {{end}}
+              </select>
+            {{else}}
+              <input type="text" name="kiosk_package" class="form-input" value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
+              <span class="muted small">No packages reported by this device yet — enter a package name manually.</span>
+            {{end}}
             <span class="muted small">Required when enabling. The device will be locked to this package via lock-task mode on the next check-in.</span>
           </div>
           <div>
