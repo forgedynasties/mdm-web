@@ -1933,6 +1933,28 @@ func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
+// pushKioskConfigToDevices fetches the current device_config for each device and
+// pushes a "config" WebSocket message so connected devices apply kiosk changes
+// immediately instead of waiting for the next check-in.
+func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid.UUID) {
+	interval := h.cfg.CheckinInterval()
+	for _, id := range deviceIDs {
+		cfg, err := h.db.GetOrCreateDeviceConfig(ctx, id)
+		if err != nil {
+			continue
+		}
+		msg, _ := json.Marshal(map[string]any{
+			"type":                     "config",
+			"kiosk_enabled":            cfg.KioskEnabled,
+			"kiosk_package":            cfg.KioskPackage,
+			"kiosk_features":           cfg.KioskFeatures,
+			"checkin_interval_seconds": interval,
+		})
+		h.hub.Push(id, msg)
+		h.hub.PublishDeviceUpdate(id)
+	}
+}
+
 func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	serials := r.Form["serials"]
@@ -1960,6 +1982,7 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.pushKioskConfigToDevices(r.Context(), deviceIDs)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -2847,6 +2870,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
