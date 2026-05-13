@@ -1100,6 +1100,30 @@
 
       console.log('[mdm] device event', d, 'mdmChart:', !!window.mdmChart);
 
+      // Fast-path: reflect charging icon immediately without waiting for the
+      // HTMX stats refetch round-trip below.
+      if (typeof d.charging === 'boolean') {
+        document.querySelectorAll('#device-stats .charging-bolt, #device-stats + * .charging-bolt').forEach(function (el) {
+          el.style.display = d.charging ? '' : 'none';
+        });
+        var statCard = document.querySelector('#device-stats .stat-card');
+        if (statCard && d.charging) {
+          var existing = statCard.querySelector('.charging-bolt');
+          if (!existing) {
+            var span = document.createElement('span');
+            span.className = 'charging-bolt';
+            span.title = 'Charging';
+            span.setAttribute('aria-label', 'Charging');
+            span.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
+            var valueEl = statCard.querySelector('.stat-value');
+            if (valueEl) valueEl.appendChild(span);
+          }
+        } else if (statCard && !d.charging) {
+          var bolt = statCard.querySelector('.charging-bolt');
+          if (bolt) bolt.remove();
+        }
+      }
+
       // dispatch for HTMX stats/commands/checkins re-fetch
       document.body.dispatchEvent(new CustomEvent('device-updated'));
 
