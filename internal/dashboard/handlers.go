@@ -61,6 +61,25 @@ type Handler struct {
 
 var logcatSeverityRe = regexp.MustCompile(`\b([EWIDV])\/|\s([EWIDV])\s`)
 
+func extractCharging(raw json.RawMessage) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return false
+	}
+	v, ok := m["charging"]
+	if !ok {
+		return false
+	}
+	var b bool
+	if err := json.Unmarshal(v, &b); err != nil {
+		return false
+	}
+	return b
+}
+
 func extractBatteryTempC(raw json.RawMessage) (float64, bool) {
 	if len(raw) == 0 {
 		return 0, false
@@ -406,6 +425,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 				loc = time.UTC
 			}
 			return time.Now().In(loc).Format("15:04:05") + " (" + tz + ")"
+		},
+		"charging": func(raw json.RawMessage) bool {
+			return extractCharging(raw)
 		},
 		"batteryTemp": func(raw json.RawMessage) string {
 			temp, ok := extractBatteryTempC(raw)
