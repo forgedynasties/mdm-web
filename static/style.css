@@ -239,6 +239,23 @@ a:hover { color: var(--accent-h); }
 .ui-icon-lg { width: 20px; height: 20px; flex-basis: 20px; }
 .ui-icon-xl { width: 28px; height: 28px; flex-basis: 28px; }
 
+.charging-bolt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  margin-left: 2px;
+  color: #f5a623;
+  vertical-align: -1px;
+}
+.charging-bolt svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+  stroke: none;
+}
+
 .collapse-arrow {
   display: inline-flex;
   align-items: center;
