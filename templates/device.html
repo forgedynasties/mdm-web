@@ -937,6 +937,11 @@
         <div class="device-action-tile-title">Set Poll Interval</div>
         <div class="device-action-tile-copy">Adjust how often the device checks in for updates and queued work.</div>
       </button>
+      <button type="button" class="device-action-tile" data-device-action="kiosk" onclick="selectDeviceAction('kiosk', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/><rect x="9" y="9" width="6" height="4" rx="1"/><path d="M11 9V7.5a1 1 0 0 1 2 0V9"/></svg></span>
+        <div class="device-action-tile-title">Kiosk Mode</div>
+        <div class="device-action-tile-copy">Lock the device to a single app package, or release it back to the launcher.</div>
+      </button>
       {{end}}
     </div>
 
@@ -1006,6 +1011,28 @@
       {{end}}
 
       {{if eq .Role "admin"}}
+      <div id="device-action-kiosk" class="device-action-body" style="display:none;">
+        <form action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" class="device-action-form">
+          <div class="form-row">
+            <label class="form-label">Kiosk Status</label>
+            <div class="device-action-inline">
+              <select name="kiosk_enabled" class="form-input" style="max-width:180px;">
+                <option value="0" {{if not .KioskConfig.KioskEnabled}}selected{{end}}>Disabled</option>
+                <option value="1" {{if .KioskConfig.KioskEnabled}}selected{{end}}>Enabled</option>
+              </select>
+              <span class="device-action-meta">Current: {{if .KioskConfig.KioskEnabled}}Enabled{{else}}Disabled{{end}}</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Kiosk Package</label>
+            <input type="text" name="kiosk_package" class="form-input" value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
+            <span class="muted small">Required when enabling. The device will be locked to this package via lock-task mode on the next check-in.</span>
+          </div>
+          <div>
+            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/><rect x="9" y="9" width="6" height="4" rx="1"/><path d="M11 9V7.5a1 1 0 0 1 2 0V9"/></svg></span>Save Kiosk Config</button>
+          </div>
+        </form>
+      </div>
       <div id="device-action-poll" class="device-action-body" style="display:none;">
         <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" class="device-action-form">
           <div class="form-row">
@@ -1122,6 +1149,11 @@ var deviceActionConfig = {
   poll: {
     title: 'Set Poll Interval',
     copy: 'Tune how often this device checks in for commands and telemetry.',
+    meta: 'Device setting'
+  },
+  kiosk: {
+    title: 'Kiosk Mode',
+    copy: 'Lock the device to a single package or release it back to the launcher.',
     meta: 'Device setting'
   }
 };
