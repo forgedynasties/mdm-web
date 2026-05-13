@@ -582,7 +582,19 @@ document.addEventListener('keydown', function(e) {
         bar.style.width = d.battery_width;
       }
       var label = cells[3].querySelector('.battery-label');
-      if (label) label.textContent = d.battery_pct + '%';
+      if (label) {
+        var existingBolt = label.querySelector('.charging-bolt');
+        label.textContent = d.battery_pct + '%';
+        if (d.charging) {
+          var span = existingBolt || document.createElement('span');
+          span.className = 'charging-bolt';
+          span.title = 'Charging';
+          span.setAttribute('aria-label', 'Charging');
+          span.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
+          label.appendChild(document.createTextNode(' '));
+          label.appendChild(span);
+        }
+      }
 
       // col 4: ram
       if (d.has_ram) {

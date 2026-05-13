@@ -129,6 +129,7 @@ type DeviceRowJSON struct {
 	PollInterval int    `json:"poll_interval_ms"`
 	KioskEnabled bool   `json:"kiosk_enabled"`
 	KioskPackage string `json:"kiosk_package"`
+	Charging     bool   `json:"charging"`
 	RowClasses   string `json:"row_classes"`
 }
 
@@ -165,6 +166,12 @@ func deviceToRowJSON(dev db.Device, online bool) DeviceRowJSON {
 						r.HasRam = true
 						r.RamPct = ram["used"] * 100 / total
 					}
+				}
+			}
+			if v, ok := extra["charging"]; ok {
+				var b bool
+				if json.Unmarshal(v, &b) == nil {
+					r.Charging = b
 				}
 			}
 		}
@@ -1140,9 +1147,10 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 type deviceEventPayload struct {
 	TsMs       int64    `json:"ts_ms"`
 	BatteryPct int      `json:"battery_pct"`
-	Wlc        *int     `json:"wlc"`    // nil = no data
-	TempC      *float64 `json:"temp_c"` // nil = no data
-	RamPct     *float64 `json:"ram_pct"` // nil = no data
+	Wlc        *int     `json:"wlc"`      // nil = no data
+	TempC      *float64 `json:"temp_c"`   // nil = no data
+	RamPct     *float64 `json:"ram_pct"`  // nil = no data
+	Charging   *bool    `json:"charging"` // nil = no data
 }
 
 func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
@@ -1157,6 +1165,12 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 				var n int
 				if json.Unmarshal(v, &n) == nil {
 					p.Wlc = &n
+				}
+			}
+			if v, ok := extra["charging"]; ok {
+				var b bool
+				if json.Unmarshal(v, &b) == nil {
+					p.Charging = &b
 				}
 			}
 			if v, ok := extra["ram_usage_mb"]; ok {
