@@ -67,7 +67,7 @@
             <div class="battery-track">
               <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
             </div>
-            <span class="battery-label">{{.BatteryPct}}%{{if charging .LatestExtra}} <span class="charging-bolt" title="Charging">⚡</span>{{end}}</span>
+            <span class="battery-label">{{.BatteryPct}}%{{if charging .LatestExtra}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span>
           </div>
         </td>
         <td>
