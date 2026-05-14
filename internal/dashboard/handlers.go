@@ -524,10 +524,10 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			if err := json.Unmarshal(v, &n); err != nil {
 				return "undefined"
 			}
-			if n != 0 {
-				return "1"
+			if n < 0 || n > 2 {
+				return "undefined"
 			}
-			return "0"
+			return template.JS(strconv.Itoa(n))
 		},
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
@@ -1329,10 +1329,16 @@ func wlcStatusFromExtra(raw json.RawMessage) string {
 	if err := json.Unmarshal(v, &n); err != nil {
 		return ""
 	}
-	if n != 0 {
+	switch n {
+	case 0:
+		return "not_charging"
+	case 1:
 		return "charging"
+	case 2:
+		return "pad_disconnected"
+	default:
+		return ""
 	}
-	return "not_charging"
 }
 
 func (h *Handler) DeviceBatteryCSV(w http.ResponseWriter, r *http.Request) {
