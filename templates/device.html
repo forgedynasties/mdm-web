@@ -388,10 +388,10 @@
     const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
     if (customMin !== null && customMax !== null) {
       document.getElementById("chart-info").textContent =
-        fmtDate(customMin) + " \u2013 " + fmtDate(customMax) + " \u2014 " + pts.length + " checkins";
+        fmtDate(customMin) + " \u2013 " + fmtDate(customMax);
     } else {
       document.getElementById("chart-info").textContent =
-        "Last " + (labels[currentDuration] || "") + " \u2014 " + pts.length + " checkins";
+        "Last " + (labels[currentDuration] || "");
     }
 
     if (batteryChart) applyData(batteryChart, allBattery);
