@@ -264,6 +264,7 @@
       <div class="chart-legend">
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
         <span class="chart-legend-item"><span class="chart-legend-line command-marker"></span> Command</span>
       </div>
@@ -322,6 +323,7 @@
   function segColor(ctx) {
     const raw = ctx.p1 && ctx.p1.raw;
     if (!raw || raw.wlc === undefined) return "#7a7f9a";
+    if (raw.wlc === 2) return "#f39c12";
     return raw.wlc ? "#e84393" : "#6c5ce7";
   }
 
@@ -672,6 +674,7 @@
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
     if (pt.wlc === undefined) return line;
+    if (pt.wlc === 2) return line + ' ⚠ WLC Pad Disconnected';
     return line + (pt.wlc ? ' ⚡ WLC On' : ' — WLC Off');
   };
   batteryChart._commandMarkers = commandMarkers;
