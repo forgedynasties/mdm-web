@@ -14,6 +14,7 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
+	"mdm/internal/geolocate"
 	"mdm/internal/middleware"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
@@ -99,7 +100,12 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	apiHandler := api.NewHandler(database, hub, shellMgr, cfg)
+	var geo *geolocate.Resolver
+	if os.Getenv("GEOLOCATE_ENABLED") == "true" {
+		geo = geolocate.New()
+		log.Println("Geolocation resolver enabled (MLS)")
+	}
+	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo)
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
 		var peek struct {
 			Type string `json:"type"`

@@ -56,6 +56,23 @@
       <div class="stat-value muted">—</div>
     {{end}}
   </div>
+  <div class="stat-card">
+    <div class="stat-label">Location</div>
+    {{$lat := extraField .Device.LatestExtra "latitude"}}
+    {{$lon := extraField .Device.LatestExtra "longitude"}}
+    {{if and $lat $lon}}
+      <div class="stat-value small"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{$lat}}, {{$lon}}</a></div>
+      {{$acc := extraField .Device.LatestExtra "location_accuracy"}}
+      {{if $acc}}
+        <div class="stat-sub">±{{$acc}}m via WiFi</div>
+      {{else}}
+        <div class="stat-sub">via WiFi</div>
+      {{end}}
+    {{else}}
+      <div class="stat-value muted">—</div>
+      <div class="stat-sub">No WiFi location</div>
+    {{end}}
+  </div>
 </div>
 {{end}}
 
