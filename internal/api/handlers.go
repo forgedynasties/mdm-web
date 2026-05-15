@@ -12,19 +12,21 @@ import (
 	"github.com/google/uuid"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/geolocate"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
 
 type Handler struct {
-	db    *db.DB
-	hub   *ws.Hub
-	shell *shell.Manager
-	cfg   *config.Config
+	db        *db.DB
+	hub       *ws.Hub
+	shell     *shell.Manager
+	cfg       *config.Config
+	geolocate *geolocate.Resolver
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg}
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver) *Handler {
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo}
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -191,6 +193,37 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 	}
 }
 
+// enrichLocation resolves WiFi scan data to geographic coordinates and merges
+// the result into the extra JSONB payload. If the geolocate resolver is nil or
+// no wifi_scan data is present, returns unchanged extra.
+func (h *Handler) enrichLocation(ctx context.Context, extra json.RawMessage) json.RawMessage {
+	if h.geolocate == nil || len(extra) == 0 {
+		return extra
+	}
+	aps := geolocate.ExtractWifiScan(extra)
+	if len(aps) == 0 {
+		return extra
+	}
+	lat, lon, accuracy, err := h.geolocate.Resolve(ctx, aps)
+	if err != nil {
+		log.Printf("[geolocate] resolve error: %v", err)
+		return extra
+	}
+	// Merge lat/lon/accuracy into the extra JSON object
+	var m map[string]any
+	if err := json.Unmarshal(extra, &m); err != nil {
+		m = make(map[string]any)
+	}
+	m["latitude"] = lat
+	m["longitude"] = lon
+	m["location_accuracy"] = accuracy
+	enriched, err := json.Marshal(m)
+	if err != nil {
+		return extra
+	}
+	return json.RawMessage(enriched)
+}
+
 // ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
 type checkinRequest struct {
@@ -219,6 +252,8 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "battery_pct must be 0-100"})
 		return
 	}
+
+	req.Extra = h.enrichLocation(r.Context(), req.Extra)
 
 	deviceID, _, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
 	if err != nil {
@@ -427,6 +462,8 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		log.Printf("[ws-telemetry] missing serial_number or build_id")
 		return
 	}
+
+	req.Extra = h.enrichLocation(ctx, req.Extra)
 
 	id, _, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
 	if err != nil {
