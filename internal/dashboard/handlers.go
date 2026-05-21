@@ -135,7 +135,7 @@ type DeviceRowJSON struct {
 	Longitude    float64 `json:"longitude,omitempty"`
 }
 
-func deviceToRowJSON(dev db.Device, online bool) DeviceRowJSON {
+func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) DeviceRowJSON {
 	r := DeviceRowJSON{
 		Serial:       dev.SerialNumber,
 		BuildID:      dev.BuildID,
@@ -172,7 +172,7 @@ func deviceToRowJSON(dev db.Device, online bool) DeviceRowJSON {
 			}
 			if v, ok := extra["charging"]; ok {
 				var b bool
-				if json.Unmarshal(v, &b) == nil {
+				if json.Unmarshal(v, &b) == nil && (staleThreshold == 0 || time.Since(dev.LastSeenAt) <= staleThreshold) {
 					r.Charging = b
 				}
 			}
@@ -449,6 +449,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 		},
 		"charging": func(raw json.RawMessage) bool {
 			return extractCharging(raw)
+		},
+		"notStale": func(t time.Time, thresholdSecs int) bool {
+			if thresholdSecs <= 0 {
+				return true
+			}
+			return time.Since(t) <= time.Duration(thresholdSecs)*time.Second
 		},
 		"batteryTemp": func(raw json.RawMessage) string {
 			temp, ok := extractBatteryTempC(raw)
@@ -954,15 +960,16 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "device.html", map[string]any{
-		"Title":             device.SerialNumber,
-		"Device":            device,
-		"Online":            h.hub.IsConnected(device.ID),
-		"ChartCheckins":     chartCheckins,
-		"Commands":          commands,
-		"ExtraColumns":      h.cfg.Columns(),
-		"Apps":              apps,
-		"InstalledPackages": installedPkgs,
-		"KioskConfig":       kioskCfg,
+		"Title":               device.SerialNumber,
+		"Device":              device,
+		"Online":              h.hub.IsConnected(device.ID),
+		"ChartCheckins":       chartCheckins,
+		"Commands":            commands,
+		"ExtraColumns":        h.cfg.Columns(),
+		"Apps":                apps,
+		"InstalledPackages":   installedPkgs,
+		"KioskConfig":         kioskCfg,
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	})
 }
 
@@ -1114,12 +1121,14 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, ": connected\n\n")
 	flusher.Flush()
 
+	activeThreshold := time.Duration(h.cfg.CheckinInterval()*3) * time.Second
+
 	sendRow := func(deviceID uuid.UUID) {
 		dev, err := h.db.GetDeviceByID(r.Context(), deviceID)
 		if err != nil {
 			return
 		}
-		row := deviceToRowJSON(*dev, h.hub.IsConnected(deviceID))
+		row := deviceToRowJSON(*dev, h.hub.IsConnected(deviceID), activeThreshold)
 		b, err := json.Marshal(row)
 		if err != nil {
 			return
@@ -1637,7 +1646,8 @@ func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.renderCachedHTML(w, r, "device-stats", map[string]any{
-		"Device": device,
+		"Device":              device,
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	})
 }
 
