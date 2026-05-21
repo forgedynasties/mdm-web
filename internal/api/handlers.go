@@ -202,13 +202,13 @@ func (h *Handler) enrichLocation(ctx context.Context, extra json.RawMessage) jso
 	}
 	aps := geolocate.ExtractWifiScan(extra)
 	if len(aps) == 0 {
-		log.Printf("[geolocate] no wifi_scan in extra or empty scan list")
 		return extra
 	}
-	log.Printf("[geolocate] resolving %d WiFi APs", len(aps))
 	lat, lon, accuracy, err := h.geolocate.Resolve(ctx, aps)
 	if err != nil {
-		log.Printf("[geolocate] resolve error: %v", err)
+		if err != geolocate.ErrCooldown {
+			log.Printf("[geolocate] resolve error: %v", err)
+		}
 		return extra
 	}
 	// Merge lat/lon/accuracy into the extra JSON object

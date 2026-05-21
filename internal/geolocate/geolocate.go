@@ -30,9 +30,11 @@ type cachedLocation struct {
 // Resolver resolves WiFi AP data to geographic coordinates using BeaconDB.
 // Safe for concurrent use.
 type Resolver struct {
-	cache  map[string]cachedLocation
-	mu     sync.RWMutex
-	client *http.Client
+	cache    map[string]cachedLocation
+	mu       sync.RWMutex
+	client   *http.Client
+	lastCall time.Time
+	callMu   sync.Mutex
 }
 
 // New creates a Resolver with a 5s timeout and an in-memory cache (5 min TTL).
@@ -45,13 +47,25 @@ func New() *Resolver {
 	}
 }
 
+// ErrCooldown is returned when Resolve is called within the cooldown period.
+var ErrCooldown = fmt.Errorf("beacondb cooldown")
+
 // Resolve resolves a set of WiFi APs to a latitude/longitude using BeaconDB.
 // Returns zero values and an error on failure. Results are cached for 5
-// minutes keyed by the top-3 strongest BSSIDs.
+// minutes keyed by all BSSIDs (sorted alphabetically, stable against RSSI drift).
 func (r *Resolver) Resolve(ctx context.Context, aps []WifiAP) (lat, lon, accuracy float64, err error) {
 	if len(aps) == 0 {
 		return 0, 0, 0, fmt.Errorf("no access points provided")
 	}
+
+	// Global cooldown — don't call BeaconDB more than once per 10s regardless of
+	// whether the AP set changed. RSSI drift can cause cache-key churn otherwise.
+	r.callMu.Lock()
+	if elapsed := time.Since(r.lastCall); elapsed < 10*time.Second {
+		r.callMu.Unlock()
+		return 0, 0, 0, ErrCooldown
+	}
+	r.callMu.Unlock()
 
 	key := cacheKey(aps)
 
@@ -61,6 +75,11 @@ func (r *Resolver) Resolve(ctx context.Context, aps []WifiAP) (lat, lon, accurac
 		return c.Lat, c.Lon, c.Accuracy, nil
 	}
 	r.mu.RUnlock()
+
+	// Mark call time right before the HTTP call so concurrent goroutines wait.
+	r.callMu.Lock()
+	r.lastCall = time.Now()
+	r.callMu.Unlock()
 
 	lat, lon, accuracy, err = r.query(ctx, aps)
 	if err != nil {
@@ -88,18 +107,13 @@ func cacheKey(aps []WifiAP) string {
 	if len(aps) == 0 {
 		return ""
 	}
-	sorted := make([]WifiAP, len(aps))
-	copy(sorted, aps)
-	sort.Slice(sorted, func(i, j int) bool { return sorted[i].RSSI > sorted[j].RSSI })
-	n := 3
-	if len(sorted) < n {
-		n = len(sorted)
+	// Use BSSIDs only, sorted alphabetically — stable against RSSI drift.
+	ids := make([]string, len(aps))
+	for i, ap := range aps {
+		ids[i] = ap.BSSID
 	}
-	var parts []string
-	for i := 0; i < n; i++ {
-		parts = append(parts, sorted[i].BSSID)
-	}
-	return strings.Join(parts, ",")
+	sort.Strings(ids)
+	return strings.Join(ids, ",")
 }
 
 type beaconDBRequest struct {
