@@ -6,7 +6,7 @@
   hx-swap="outerHTML">
   <div class="stat-card">
     <div class="stat-label">Battery</div>
-    <div class="stat-value {{batteryClass .Device.BatteryPct}}">{{.Device.BatteryPct}}%{{if charging .Device.LatestExtra}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</div>
+    <div class="stat-value {{batteryClass .Device.BatteryPct}}">{{.Device.BatteryPct}}%{{if and (charging .Device.LatestExtra) (notStale .Device.LastSeenAt $.ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</div>
     <div class="battery-wrap large">
       <div class="battery-track">
         <div class="battery-bar {{batteryClass .Device.BatteryPct}}" style="width:{{batteryWidth .Device.BatteryPct}}"></div>
