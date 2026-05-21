@@ -103,7 +103,7 @@ func main() {
 	var geo *geolocate.Resolver
 	if os.Getenv("GEOLOCATE_ENABLED") == "true" {
 		geo = geolocate.New()
-		log.Println("Geolocation resolver enabled (MLS)")
+		log.Println("Geolocation resolver enabled (BeaconDB)")
 	}
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo)
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {

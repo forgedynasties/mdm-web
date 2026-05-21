@@ -27,8 +27,8 @@ type cachedLocation struct {
 	ExpiresAt time.Time
 }
 
-// Resolver resolves WiFi AP data to geographic coordinates using Mozilla
-// Location Service. Safe for concurrent use.
+// Resolver resolves WiFi AP data to geographic coordinates using BeaconDB.
+// Safe for concurrent use.
 type Resolver struct {
 	cache  map[string]cachedLocation
 	mu     sync.RWMutex
@@ -45,7 +45,7 @@ func New() *Resolver {
 	}
 }
 
-// Resolve resolves a set of WiFi APs to a latitude/longitude using MLS.
+// Resolve resolves a set of WiFi APs to a latitude/longitude using BeaconDB.
 // Returns zero values and an error on failure. Results are cached for 5
 // minutes keyed by the top-3 strongest BSSIDs.
 func (r *Resolver) Resolve(ctx context.Context, aps []WifiAP) (lat, lon, accuracy float64, err error) {
@@ -102,16 +102,16 @@ func cacheKey(aps []WifiAP) string {
 	return strings.Join(parts, ",")
 }
 
-type mlsRequest struct {
-	WifiAccessPoints []mlsWifiAP `json:"wifiAccessPoints"`
+type beaconDBRequest struct {
+	WifiAccessPoints []beaconDBWifiAP `json:"wifiAccessPoints"`
 }
 
-type mlsWifiAP struct {
+type beaconDBWifiAP struct {
 	MacAddress     string `json:"macAddress"`
 	SignalStrength int    `json:"signalStrength,omitempty"`
 }
 
-type mlsResponse struct {
+type beaconDBResponse struct {
 	Location struct {
 		Lat float64 `json:"lat"`
 		Lng float64 `json:"lng"`
@@ -119,17 +119,15 @@ type mlsResponse struct {
 	Accuracy float64 `json:"accuracy"`
 }
 
-const mlsURL = "https://location.services.mozilla.com/v1/geolocate"
+const beaconDBURL = "https://beacondb.net/v1/geolocate"
 
 func (r *Resolver) query(ctx context.Context, aps []WifiAP) (float64, float64, float64, error) {
-	reqBody := mlsRequest{}
+	reqBody := beaconDBRequest{}
 	for _, ap := range aps {
-		// Skip BSSIDs that start with "02:00:00" — those are iOS/Mac private
-		// (locally administered) addresses, not real APs.
 		if strings.HasPrefix(strings.ToUpper(ap.BSSID), "02:00:00") {
 			continue
 		}
-		reqBody.WifiAccessPoints = append(reqBody.WifiAccessPoints, mlsWifiAP{
+		reqBody.WifiAccessPoints = append(reqBody.WifiAccessPoints, beaconDBWifiAP{
 			MacAddress:     ap.BSSID,
 			SignalStrength: ap.RSSI,
 		})
@@ -143,7 +141,7 @@ func (r *Resolver) query(ctx context.Context, aps []WifiAP) (float64, float64, f
 		return 0, 0, 0, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", mlsURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", beaconDBURL, bytes.NewReader(body))
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -156,19 +154,19 @@ func (r *Resolver) query(ctx context.Context, aps []WifiAP) (float64, float64, f
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, 0, 0, fmt.Errorf("mls returned %d", resp.StatusCode)
+		return 0, 0, 0, fmt.Errorf("beacondb returned %d", resp.StatusCode)
 	}
 
-	var mlsResp mlsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&mlsResp); err != nil {
+	var bdbResp beaconDBResponse
+	if err := json.NewDecoder(resp.Body).Decode(&bdbResp); err != nil {
 		return 0, 0, 0, err
 	}
 
-	if mlsResp.Location.Lat == 0 && mlsResp.Location.Lng == 0 {
-		return 0, 0, 0, fmt.Errorf("mls returned no location")
+	if bdbResp.Location.Lat == 0 && bdbResp.Location.Lng == 0 {
+		return 0, 0, 0, fmt.Errorf("beacondb returned no location")
 	}
 
-	return mlsResp.Location.Lat, mlsResp.Location.Lng, mlsResp.Accuracy, nil
+	return bdbResp.Location.Lat, bdbResp.Location.Lng, bdbResp.Accuracy, nil
 }
 
 // ExtractWifiScan parses the "wifi_scan" array from a raw extra JSONB payload
