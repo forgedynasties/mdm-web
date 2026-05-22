@@ -16,6 +16,7 @@ import (
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
 	"mdm/internal/middleware"
+	"mdm/internal/remote"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
@@ -76,6 +77,8 @@ func main() {
 
 	hub := ws.NewHub()
 	shellMgr := shell.NewManager()
+	remoteMgr := remote.New(hub)
+	hub.SetOnBinaryMessage(remoteMgr.RelayFrame)
 
 	mux := http.NewServeMux()
 
@@ -105,7 +108,7 @@ func main() {
 		geo = geolocate.New()
 		log.Println("Geolocation resolver enabled (BeaconDB)")
 	}
-	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo)
+	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, remoteMgr)
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
 		var peek struct {
 			Type string `json:"type"`
@@ -147,6 +150,7 @@ func main() {
 	mux.Handle("GET /api/v1/devices",                adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
 	mux.Handle("GET /api/v1/devices/{serial}",       adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
 	mux.Handle("POST /api/v1/devices/{serial}/ping", adminAuth(http.HandlerFunc(apiHandler.PingDevice)))
+	mux.Handle("GET /api/v1/remote/{serial}", adminAuth(http.HandlerFunc(apiHandler.ConnectRemote)))
 
 	// Groups
 	mux.Handle("GET /api/v1/groups",                 adminAuth(http.HandlerFunc(apiHandler.ListGroups)))

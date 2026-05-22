@@ -973,6 +973,21 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+
+	h.render(w, r, "remote.html", map[string]any{
+		"Title":  "Remote — " + device.SerialNumber,
+		"Serial": device.SerialNumber,
+		"Online": h.hub.IsConnected(device.ID),
+	})
+}
+
 func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -3226,6 +3241,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
 	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	mux.HandleFunc("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
+	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAuth(h.DeviceRemote))
 	mux.HandleFunc("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
 	mux.HandleFunc("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
