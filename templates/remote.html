@@ -1,0 +1,254 @@
+{{template "header" .}}
+
+<style>
+#remote-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+#remote-screen {
+  position: relative;
+  background: #000;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 100%;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+#remote-screen img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  touch-action: none;
+  user-select: none;
+}
+#remote-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+#remote-toolbar .stat {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--muted, #888);
+}
+#remote-toolbar .stat span {
+  color: var(--fg, #fff);
+}
+.remote-disconnected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  color: var(--muted, #888);
+  gap: 12px;
+}
+.remote-disconnected h3 {
+  color: var(--fg, #fff);
+  margin: 0;
+}
+</style>
+
+<div id="remote-container">
+  <div id="remote-toolbar">
+    <div class="stat">FPS: <span id="stat-fps">—</span></div>
+    <div class="stat">KB/s: <span id="stat-kbps">—</span></div>
+    <div class="stat" id="stat-size" style="display:none">Frame: <span></span></div>
+    <button id="btn-disconnect" class="btn-danger" onclick="disconnect()" style="display:none">Disconnect</button>
+    <span id="badge-status" class="status-badge pending">connecting…</span>
+  </div>
+
+  <div id="remote-screen">
+    <div id="remote-placeholder" class="remote-disconnected">
+      <h3>{{.Serial}}</h3>
+      {{if .Online}}
+      <p>Connecting…</p>
+      {{else}}
+      <p class="muted">Device is offline</p>
+      <button class="btn-outline" onclick="location.reload()">Retry</button>
+      {{end}}
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var serial = {{.Serial}};
+  var online = {{.Online}};
+  if (!online) return;
+
+  var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial);
+
+  var ws;
+  var img = null;
+  var frameCount = 0;
+  var byteCount = 0;
+  var fpsStart = performance.now();
+  var bwStart = performance.now();
+  var bwBytes = 0;
+  var displayWidth = 1080;
+  var displayHeight = 1920;
+
+  function connect() {
+    ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
+
+    ws.onopen = function() {
+      setStatus('connected', 'connected');
+      document.getElementById('btn-disconnect').style.display = '';
+      var ph = document.getElementById('remote-placeholder');
+      if (ph) {
+        img = document.createElement('img');
+        img.draggable = false;
+        ph.parentNode.replaceChild(img, ph);
+        setupInput(img);
+      }
+    };
+
+    ws.onmessage = function(e) {
+      if (typeof e.data === 'string') {
+        // JSON control messages (not used currently, but server may send)
+        return;
+      }
+      // Binary frame — WebP
+      var blob = new Blob([e.data], {type: 'image/webp'});
+      var url = URL.createObjectURL(blob);
+      var prevUrl = img.src;
+      img.src = url;
+      if (prevUrl && prevUrl.startsWith('blob:')) URL.revokeObjectURL(prevUrl);
+
+      frameCount++;
+      byteCount += e.data.byteLength;
+      bwBytes += e.data.byteLength;
+
+      var now = performance.now();
+      if (now - fpsStart >= 1000) {
+        document.getElementById('stat-fps').textContent = frameCount;
+        frameCount = 0;
+        fpsStart = now;
+      }
+      if (now - bwStart >= 1000) {
+        var kbps = (bwBytes / 1024 / ((now - bwStart) / 1000)).toFixed(1);
+        document.getElementById('stat-kbps').textContent = kbps;
+        bwBytes = 0;
+        bwStart = now;
+      }
+    };
+
+    ws.onclose = function() {
+      setStatus('disconnected', 'disconnected');
+      document.getElementById('btn-disconnect').style.display = 'none';
+      var screen = document.getElementById('remote-screen');
+      if (img) {
+        img.replaceWith(document.createElement('div'));
+        img = null;
+      }
+      var ph = document.createElement('div');
+      ph.id = 'remote-placeholder';
+      ph.className = 'remote-disconnected';
+      ph.innerHTML = '<h3>' + serial + '</h3><p>Connection lost</p><button class="btn-outline" onclick="location.reload()">Reconnect</button>';
+      screen.appendChild(ph);
+    };
+
+    ws.onerror = function() {
+      setStatus('error', 'error');
+    };
+  }
+
+  function setupInput(el) {
+    var pointerId = null;
+
+    el.addEventListener('pointerdown', function(e) {
+      pointerId = e.pointerId;
+      el.setPointerCapture(pointerId);
+      sendInput('touch', e, 'down');
+      e.preventDefault();
+    });
+
+    el.addEventListener('pointermove', function(e) {
+      if (e.pointerId !== pointerId) return;
+      sendInput('touch', e, 'move');
+      e.preventDefault();
+    });
+
+    el.addEventListener('pointerup', function(e) {
+      if (e.pointerId !== pointerId) return;
+      sendInput('touch', e, 'up');
+      pointerId = null;
+      e.preventDefault();
+    });
+
+    el.addEventListener('pointercancel', function(e) {
+      if (e.pointerId !== pointerId) return;
+      sendInput('touch', e, 'up');
+      pointerId = null;
+    });
+
+    // Keyboard events — forwarded for text input
+    document.addEventListener('keydown', function(e) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        sendKeyEvent(e.key, e.keyCode, 'down');
+      }
+    });
+    document.addEventListener('keyup', function(e) {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        sendKeyEvent(e.key, e.keyCode, 'up');
+      }
+    });
+  }
+
+  function sendInput(action, e, eventName) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    var rect = img.getBoundingClientRect();
+
+    // Natural size from rendered image vs displayed size
+    var scaleX = img.naturalWidth / rect.width;
+    var scaleY = img.naturalHeight / rect.height;
+
+    var x = ((e.clientX - rect.left) * scaleX) / img.naturalWidth;
+    var y = ((e.clientY - rect.top) * scaleY) / img.naturalHeight;
+
+    // Clamp
+    x = Math.max(0, Math.min(1, x));
+    y = Math.max(0, Math.min(1, y));
+
+    var msg = JSON.stringify({
+      type: 'input_event',
+      action: 'touch',
+      event: eventName,
+      x: x,
+      y: y
+    });
+    ws.send(msg);
+  }
+
+  function sendKeyEvent(key, keyCode, eventName) {
+    var msg = JSON.stringify({
+      type: 'input_event',
+      action: 'key',
+      event: eventName,
+      key: key,
+      keycode: keyCode
+    });
+    ws.send(msg);
+  }
+
+  function setStatus(text, cls) {
+    var badge = document.getElementById('badge-status');
+    badge.textContent = text;
+    badge.className = 'status-badge ' + cls;
+  }
+
+  window.disconnect = function() {
+    if (ws) ws.close();
+  };
+
+  connect();
+})();
+</script>
+
+{{template "footer" .}}

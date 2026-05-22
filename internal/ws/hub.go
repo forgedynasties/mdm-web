@@ -22,6 +22,9 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
+// Upgrader returns the WebSocket upgrader used by the hub.
+func Upgrader() websocket.Upgrader { return upgrader }
+
 // PresenceEvent is emitted when a device connects or disconnects.
 type PresenceEvent struct {
 	DeviceID uuid.UUID
@@ -45,25 +48,32 @@ type LogcatUpdateEvent struct {
 
 // Hub maintains the set of active WebSocket clients keyed by device ID.
 type Hub struct {
-	mu             sync.RWMutex
-	clients        map[uuid.UUID]*Client
-	onMessage      func(deviceID uuid.UUID, msg []byte)
-	subMu          sync.RWMutex
-	subscribers    map[chan PresenceEvent]struct{}
-	updateMu       sync.RWMutex
-	updates        map[chan DeviceUpdateEvent]struct{}
-	cmdMu          sync.RWMutex
-	cmdUpdates     map[chan CommandUpdateEvent]struct{}
-	logcatMu       sync.RWMutex
-	logcatUpdates  map[chan LogcatUpdateEvent]struct{}
-	pingMu         sync.Mutex
-	pingWaiters    map[string]chan struct{}
+	mu              sync.RWMutex
+	clients         map[uuid.UUID]*Client
+	onMessage       func(deviceID uuid.UUID, msg []byte)
+	onBinaryMessage func(deviceID uuid.UUID, data []byte)
+	subMu           sync.RWMutex
+	subscribers     map[chan PresenceEvent]struct{}
+	updateMu        sync.RWMutex
+	updates         map[chan DeviceUpdateEvent]struct{}
+	cmdMu           sync.RWMutex
+	cmdUpdates      map[chan CommandUpdateEvent]struct{}
+	logcatMu        sync.RWMutex
+	logcatUpdates   map[chan LogcatUpdateEvent]struct{}
+	pingMu          sync.Mutex
+	pingWaiters     map[string]chan struct{}
 }
 
-// SetOnMessage registers a function that is called for every message received
-// from any device. Safe to call before any connections are established.
+// SetOnMessage registers a function that is called for every text message
+// received from any device. Safe to call before any connections are established.
 func (h *Hub) SetOnMessage(fn func(deviceID uuid.UUID, msg []byte)) {
 	h.onMessage = fn
+}
+
+// SetOnBinaryMessage registers a function that is called for every binary
+// message received from any device.
+func (h *Hub) SetOnBinaryMessage(fn func(deviceID uuid.UUID, data []byte)) {
+	h.onBinaryMessage = fn
 }
 
 // Client represents a single device WebSocket connection.
@@ -381,12 +391,22 @@ func (c *Client) ReadPump() {
 		return nil
 	})
 	for {
-		_, msg, err := c.conn.ReadMessage()
+		mt, msg, err := c.conn.ReadMessage()
 		if err != nil {
 			break
 		}
-		if len(msg) > 0 && c.hub.onMessage != nil {
-			c.hub.onMessage(c.DeviceID, msg)
+		if len(msg) == 0 {
+			continue
+		}
+		switch mt {
+		case websocket.TextMessage:
+			if c.hub.onMessage != nil {
+				c.hub.onMessage(c.DeviceID, msg)
+			}
+		case websocket.BinaryMessage:
+			if c.hub.onBinaryMessage != nil {
+				c.hub.onBinaryMessage(c.DeviceID, msg)
+			}
 		}
 	}
 }

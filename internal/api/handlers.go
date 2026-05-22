@@ -10,9 +10,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
+	"mdm/internal/remote"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
@@ -23,10 +25,11 @@ type Handler struct {
 	shell     *shell.Manager
 	cfg       *config.Config
 	geolocate *geolocate.Resolver
+	remote    *remote.Manager
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo}
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, rm *remote.Manager) *Handler {
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, remote: rm}
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -118,6 +121,77 @@ func (h *Handler) PingDevice(w http.ResponseWriter, r *http.Request) {
 			"error":      "timeout — device connected but not responding",
 		})
 	}
+}
+
+// ConnectRemote upgrades the dashboard HTTP connection to a WebSocket for
+// remote control of the specified device. It starts a capture session, relays
+// binary frames from the device to the dashboard, and relays input events back.
+func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
+	serial := strings.TrimSpace(r.PathValue("serial"))
+	if serial == "" {
+		http.Error(w, "serial query parameter required", http.StatusBadRequest)
+		return
+	}
+
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+
+	if !h.hub.IsConnected(device.ID) {
+		http.Error(w, "device not connected", http.StatusServiceUnavailable)
+		return
+	}
+
+	_, err = h.remote.Start(device.ID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
+
+	startMsg, _ := json.Marshal(map[string]any{
+		"type":    "start_capture",
+		"quality": 60,
+		"scale":   0.5,
+		"max_fps": 10,
+	})
+	h.hub.Push(device.ID, startMsg)
+
+	upgrader := ws.Upgrader()
+	dashConn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		h.remote.Stop(device.ID)
+		return
+	}
+	defer dashConn.Close()
+	defer h.remote.Stop(device.ID)
+
+	frameCh, _ := h.remote.SubscribeFrames(device.ID)
+
+	// Write pump: relay device frames → dashboard (binary)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for data := range frameCh {
+			dashConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+			if err := dashConn.WriteMessage(2, data); err != nil {
+				return
+			}
+		}
+	}()
+
+	// Read pump: dashboard input events → device (JSON)
+	for {
+		_, msg, err := dashConn.ReadMessage()
+		if err != nil {
+			break
+		}
+		h.remote.RelayInput(device.ID, msg)
+	}
+
+	dashConn.WriteMessage(websocket.CloseMessage, []byte{})
+	<-done
 }
 
 // flushPendingCommands pushes pending commands to the device over WS and
