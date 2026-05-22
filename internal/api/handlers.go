@@ -128,7 +128,9 @@ func (h *Handler) PingDevice(w http.ResponseWriter, r *http.Request) {
 // remote control of the specified device. It starts a capture session, relays
 // binary frames from the device to the dashboard, and relays input events back.
 func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
+	log.Printf("[remote] ConnectRemote called from %s", r.RemoteAddr)
 	if r.URL.Query().Get("key") != h.adminAPIKey {
+		log.Printf("[remote] auth failed for %s", r.RemoteAddr)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
