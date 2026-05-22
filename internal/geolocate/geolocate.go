@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"sort"
@@ -42,7 +43,7 @@ func New() *Resolver {
 	return &Resolver{
 		cache: make(map[string]cachedLocation),
 		client: &http.Client{
-			Timeout: 5 * time.Second,
+			Timeout: 15 * time.Second,
 		},
 	}
 }
@@ -168,7 +169,9 @@ func (r *Resolver) query(ctx context.Context, aps []WifiAP) (float64, float64, f
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, 0, 0, fmt.Errorf("beacondb returned %d", resp.StatusCode)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		log.Printf("[geolocate] beaconDB %d — request: %s — response: %s", resp.StatusCode, string(body), string(respBody))
+		return 0, 0, 0, fmt.Errorf("beacondb returned %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var bdbResp beaconDBResponse
