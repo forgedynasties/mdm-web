@@ -49,14 +49,15 @@ func (h *Handler) renderCachedHTML(w http.ResponseWriter, r *http.Request, name 
 }
 
 type Handler struct {
-	db       *db.DB
-	hub      *ws.Hub
-	shell    *shell.Manager
-	store    *sessions.CookieStore
-	tmpl     *template.Template
-	user     string
-	password string
-	cfg      *config.Config
+	db          *db.DB
+	hub         *ws.Hub
+	shell       *shell.Manager
+	store       *sessions.CookieStore
+	tmpl        *template.Template
+	user        string
+	password    string
+	cfg         *config.Config
+	adminAPIKey string
 }
 
 var logcatSeverityRe = regexp.MustCompile(`\b([EWIDV])\/|\s([EWIDV])\s`)
@@ -260,7 +261,7 @@ func colorizeLogcatText(content string) template.HTML {
 	return template.HTML(out.String())
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, user, password string, cfg *config.Config) *Handler {
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey string) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -600,14 +601,15 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob("templates/*.html"))
 
 	return &Handler{
-		db:       d,
-		hub:      hub,
-		shell:    shellMgr,
-		store:    store,
-		tmpl:     tmpl,
-		user:     user,
-		password: password,
-		cfg:      cfg,
+		db:          d,
+		hub:         hub,
+		shell:       shellMgr,
+		store:       store,
+		tmpl:        tmpl,
+		user:        user,
+		password:    password,
+		cfg:         cfg,
+		adminAPIKey: adminAPIKey,
 	}
 }
 
@@ -985,6 +987,7 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		"Title":  "Remote — " + device.SerialNumber,
 		"Serial": device.SerialNumber,
 		"Online": h.hub.IsConnected(device.ID),
+		"APIKey": h.adminAPIKey,
 	})
 }
 

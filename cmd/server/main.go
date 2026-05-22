@@ -108,7 +108,7 @@ func main() {
 		geo = geolocate.New()
 		log.Println("Geolocation resolver enabled (BeaconDB)")
 	}
-	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, remoteMgr)
+	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, remoteMgr, adminAPIKey)
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
 		var peek struct {
 			Type string `json:"type"`
@@ -150,7 +150,7 @@ func main() {
 	mux.Handle("GET /api/v1/devices",                adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
 	mux.Handle("GET /api/v1/devices/{serial}",       adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
 	mux.Handle("POST /api/v1/devices/{serial}/ping", adminAuth(http.HandlerFunc(apiHandler.PingDevice)))
-	mux.Handle("GET /api/v1/remote/{serial}", adminAuth(http.HandlerFunc(apiHandler.ConnectRemote)))
+	mux.Handle("GET /api/v1/remote/{serial}", http.HandlerFunc(apiHandler.ConnectRemote))
 
 	// Groups
 	mux.Handle("GET /api/v1/groups",                 adminAuth(http.HandlerFunc(apiHandler.ListGroups)))
@@ -170,7 +170,7 @@ func main() {
 	mux.Handle("POST /api/v1/commands",              adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
 	mux.Handle("GET /api/v1/commands/{id}",          adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 
-	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg)
+	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
 	dash.RegisterRoutes(mux)
 
 	server := &http.Server{

@@ -20,16 +20,17 @@ import (
 )
 
 type Handler struct {
-	db        *db.DB
-	hub       *ws.Hub
-	shell     *shell.Manager
-	cfg       *config.Config
-	geolocate *geolocate.Resolver
-	remote    *remote.Manager
+	db          *db.DB
+	hub         *ws.Hub
+	shell       *shell.Manager
+	cfg         *config.Config
+	geolocate   *geolocate.Resolver
+	remote      *remote.Manager
+	adminAPIKey string
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, rm *remote.Manager) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, remote: rm}
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, rm *remote.Manager, adminAPIKey string) *Handler {
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, remote: rm, adminAPIKey: adminAPIKey}
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -127,6 +128,10 @@ func (h *Handler) PingDevice(w http.ResponseWriter, r *http.Request) {
 // remote control of the specified device. It starts a capture session, relays
 // binary frames from the device to the dashboard, and relays input events back.
 func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("key") != h.adminAPIKey {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 	serial := strings.TrimSpace(r.PathValue("serial"))
 	if serial == "" {
 		http.Error(w, "serial query parameter required", http.StatusBadRequest)
