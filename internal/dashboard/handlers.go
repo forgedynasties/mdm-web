@@ -1434,6 +1434,26 @@ func (h *Handler) DeviceBatteryCSV(w http.ResponseWriter, r *http.Request) {
 	cw.Flush()
 }
 
+// safeCSVFilename returns a filename safe for use in a Content-Disposition
+// header: control chars, quotes, and path separators are replaced with '_'.
+// Falls back to the provided default if the result would be empty.
+func safeCSVFilename(name, fallback string) string {
+	var b strings.Builder
+	for _, r := range name {
+		switch {
+		case r < 0x20, r == 0x7f, r == '"', r == '\\', r == '/', r == ':', r == '\r', r == '\n':
+			b.WriteByte('_')
+		default:
+			b.WriteRune(r)
+		}
+	}
+	s := strings.TrimSpace(b.String())
+	if s == "" {
+		s = fallback
+	}
+	return s + ".csv"
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
@@ -3117,9 +3137,9 @@ func (h *Handler) ProductionExportCSV(w http.ResponseWriter, r *http.Request) {
 		connected[devices[i].Serial] = &devices[i]
 	}
 
-	filename := prod.Name + ".csv"
+	filename := safeCSVFilename(prod.Name, "production")
 	w.Header().Set("Content-Type", "text/csv")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 
 	cw := csv.NewWriter(w)
 	cw.Write([]string{"serial_number", "status", "build_id", "battery_pct", "last_seen_at", "first_seen_at"})
