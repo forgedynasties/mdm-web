@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"log"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -1627,23 +1628,13 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rows, err := h.db.ExportCheckins(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec)
-	if err != nil {
-		http.Error(w, "Export error: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	filename := "mdm_export.csv"
 	if len(serials) == 1 {
-		filename = serials[0] + "_export.csv"
+		filename = safeCSVFilename(serials[0]+"_export", "mdm_export")
 	}
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
 
-	cw := csv.NewWriter(w)
-
-	// Build header
-	header := []string{"serial_number", "timestamp"}
 	colSet := make(map[string]bool, len(columns))
 	for _, c := range columns {
 		colSet[c] = true
@@ -1651,14 +1642,19 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	colOrder := []string{"battery_pct", "battery_temp_c", "build_id", "wifi", "ip_address",
 		"ram_used_mb", "ram_total_mb", "storage_free_gb", "uptime_seconds", "wlc_status", "timezone",
 		"latitude", "longitude", "last_seen"}
+
+	header := []string{"serial_number", "timestamp"}
 	for _, c := range colOrder {
 		if colSet[c] {
 			header = append(header, c)
 		}
 	}
-	cw.Write(header)
+	cw := csv.NewWriter(w)
+	if err := cw.Write(header); err != nil {
+		return
+	}
 
-	for _, row := range rows {
+	err = h.db.StreamExportCheckins(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, func(row db.ExportRow) error {
 		rec := []string{
 			row.SerialNumber,
 			row.Timestamp.Format(time.RFC3339),
@@ -1698,9 +1694,14 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 				rec = append(rec, row.LastSeenAt.Format(time.RFC3339))
 			}
 		}
-		cw.Write(rec)
-	}
+		return cw.Write(rec)
+	})
 	cw.Flush()
+	if err != nil {
+		// Headers already written; the partial CSV is the best we can do.
+		// Log so operators can see disconnects / DB errors.
+		log.Printf("export: stream error: %v", err)
+	}
 }
 
 func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {
