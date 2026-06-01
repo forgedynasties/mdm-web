@@ -1548,14 +1548,28 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Start and end time required", http.StatusBadRequest)
 		return
 	}
-	start, err := time.Parse("2006-01-02T15:04", startStr)
+	// datetime-local inputs are wall-clock in the user's timezone. Prefer an
+	// explicit tz_offset (minutes east of UTC, as sent by JS via
+	// new Date().getTimezoneOffset()*-1) when present; otherwise fall back to
+	// the server's local time. Either way, normalize to UTC for the DB query.
+	loc := time.Local
+	if v := r.FormValue("tz_offset"); v != "" {
+		if mins, errOff := strconv.Atoi(v); errOff == nil {
+			loc = time.FixedZone("client", mins*60)
+		}
+	}
+	start, err := time.ParseInLocation("2006-01-02T15:04", startStr, loc)
 	if err != nil {
 		http.Error(w, "Invalid start time", http.StatusBadRequest)
 		return
 	}
-	end, err := time.Parse("2006-01-02T15:04", endStr)
+	end, err := time.ParseInLocation("2006-01-02T15:04", endStr, loc)
 	if err != nil {
 		http.Error(w, "Invalid end time", http.StatusBadRequest)
+		return
+	}
+	if !end.After(start) {
+		http.Error(w, "End time must be after start time", http.StatusBadRequest)
 		return
 	}
 

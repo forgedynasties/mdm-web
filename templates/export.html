@@ -27,6 +27,8 @@
   {{range .Serials}}
     <input type="hidden" name="serials" value="{{.}}">
   {{end}}
+  <input type="hidden" name="tz_offset" id="export-tz-offset" value="">
+  <script>document.getElementById('export-tz-offset').value = -new Date().getTimezoneOffset();</script>
 
   <div class="card" style="margin-top:16px;">
     <div class="card-header">
