@@ -47,13 +47,13 @@
       </div>
       <div style="margin-top:10px;">
         <span class="form-label" style="margin-right:8px;">Quick:</span>
-        <div class="dur-btns" style="display:inline-flex;">
-          <button type="button" class="dur-btn" onclick="setRange(1)">1h</button>
-          <button type="button" class="dur-btn" onclick="setRange(6)">6h</button>
-          <button type="button" class="dur-btn" onclick="setRange(24)">24h</button>
-          <button type="button" class="dur-btn active" onclick="setRange(48)">48h</button>
-          <button type="button" class="dur-btn" onclick="setRange(168)">7d</button>
-          <button type="button" class="dur-btn" onclick="setRange(720)">30d</button>
+        <div class="dur-btns" id="export-range-btns" style="display:inline-flex;">
+          <button type="button" class="dur-btn" data-hours="1" onclick="setRange(this, 1)">1h</button>
+          <button type="button" class="dur-btn" data-hours="6" onclick="setRange(this, 6)">6h</button>
+          <button type="button" class="dur-btn" data-hours="24" onclick="setRange(this, 24)">24h</button>
+          <button type="button" class="dur-btn active" data-hours="48" onclick="setRange(this, 48)">48h</button>
+          <button type="button" class="dur-btn" data-hours="168" onclick="setRange(this, 168)">7d</button>
+          <button type="button" class="dur-btn" data-hours="720" onclick="setRange(this, 720)">30d</button>
         </div>
       </div>
     </div>
@@ -113,16 +113,15 @@
 </form>
 
 <script>
-function setRange(hours) {
+function setRange(btn, hours) {
   var now = new Date();
   var start = new Date(now.getTime() - hours * 3600 * 1000);
   document.getElementById('export-start').value = toLocalISO(start);
   document.getElementById('export-end').value = toLocalISO(now);
-  // Update active state
-  document.querySelectorAll('.dur-btns')[0].querySelectorAll('.dur-btn').forEach(function(b) {
+  document.getElementById('export-range-btns').querySelectorAll('.dur-btn').forEach(function(b) {
     b.classList.remove('active');
   });
-  event.target.classList.add('active');
+  if (btn) btn.classList.add('active');
 }
 
 function toLocalISO(d) {
@@ -141,7 +140,7 @@ function toggleAllCols(checked) {
 }
 
 // Default: last 48 hours
-setRange(48);
+setRange(document.querySelector('#export-range-btns .dur-btn[data-hours="48"]'), 48);
 </script>
 
 {{template "footer" .}}
