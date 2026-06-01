@@ -257,7 +257,7 @@
         <button class="btn-outline" id="apply-range-btn" style="font-size:11px;padding:2px 8px;">Apply</button>
       </div>
       <button type="button" id="toggle-markers-btn" class="btn-outline" style="font-size:12px;padding:4px 10px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M6 8h12"/><path d="M8 12h8"/><path d="M10 16h4"/></svg></span><span class="toggle-markers-label">Hide Markers</span></button>
-      <a id="csv-export" href="/devices/{{.Device.SerialNumber}}/battery.csv?hours=6" class="btn-outline" style="font-size:12px;padding:4px 10px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Export CSV</a>
+      <a id="csv-export" href="/export?serials={{.Device.SerialNumber}}" class="btn-outline" style="font-size:12px;padding:4px 10px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Export CSV</a>
     </div>
   </div>
   <div class="chart-tabs">
@@ -869,9 +869,6 @@
       document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentDuration = +btn.dataset.ms;
-      var hours = Math.round(currentDuration / 3600000);
-      document.getElementById("csv-export").href =
-        "/devices/{{.Device.SerialNumber}}/battery.csv?hours=" + hours;
       updateCharts();
     });
   });
@@ -898,10 +895,6 @@
     if (customMin >= customMax) return;
     document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("custom-range-btn").classList.add("active");
-    var startISO = new Date(customMin).toISOString();
-    var endISO = new Date(customMax).toISOString();
-    document.getElementById("csv-export").href =
-      "/devices/{{.Device.SerialNumber}}/battery.csv?start=" + encodeURIComponent(startISO) + "&end=" + encodeURIComponent(endISO);
     updateCharts();
   });
 
