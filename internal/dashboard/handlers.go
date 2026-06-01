@@ -1405,8 +1405,8 @@ func (h *Handler) DeviceBatteryCSV(w http.ResponseWriter, r *http.Request) {
 	}
 
 	hours := 48
-	if h := r.URL.Query().Get("hours"); h != "" {
-		if n, err := strconv.Atoi(h); err == nil && n > 0 && n <= 168 {
+	if v := r.URL.Query().Get("hours"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 168 {
 			hours = n
 		}
 	}
@@ -1553,8 +1553,16 @@ func extraRamField(raw json.RawMessage, field string) string {
 	return strconv.Itoa(val)
 }
 
+// maxExportRange caps the time window for a single CSV export to keep
+// memory and download size bounded. 90 days is well past any reasonable
+// dashboard use; bump it if a real workflow needs more.
+const maxExportRange = 90 * 24 * time.Hour
+
 func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Invalid form", http.StatusBadRequest)
+		return
+	}
 	serials := r.Form["serials"]
 	if len(serials) == 0 {
 		http.Error(w, "No devices selected", http.StatusBadRequest)
@@ -1592,6 +1600,10 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "End time must be after start time", http.StatusBadRequest)
 		return
 	}
+	if end.Sub(start) > maxExportRange {
+		http.Error(w, "Time range too large (max 90 days). Narrow the window or use a coarser sampling interval.", http.StatusBadRequest)
+		return
+	}
 
 	// Sampling interval
 	intervalSec := 0
@@ -1601,10 +1613,11 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Columns to include
+	// Columns to include — at least one is required.
 	columns := r.Form["columns"]
 	if len(columns) == 0 {
-		columns = []string{"battery_pct", "build_id", "last_seen"}
+		http.Error(w, "Select at least one column to export", http.StatusBadRequest)
+		return
 	}
 
 	// Resolve serials to device IDs
