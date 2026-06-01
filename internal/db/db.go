@@ -551,71 +551,83 @@ func (d *DB) GetDistinctBuildIDs(ctx context.Context) ([]string, error) {
 	return builds, rows.Err()
 }
 
-// ExportCheckins returns checkin data for multiple devices within a time range,
-// sampled at the given interval in seconds (0 = all rows).
-func (d *DB) ExportCheckins(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int) ([]ExportRow, error) {
-	var query string
-	var args []interface{}
-
-	if intervalSec > 0 {
-		// Use ROW_NUMBER to pick one row per device per interval bucket
-		query = `
-		WITH numbered AS (
-			SELECT
-				d.serial_number,
-				c.battery_pct,
-				c.build_id,
-				c.extra,
-				c.created_at,
-				d.last_seen_at,
-				ROW_NUMBER() OVER (
-					PARTITION BY c.device_id,
-						floor(EXTRACT(EPOCH FROM c.created_at) / $4)
-					ORDER BY c.created_at
-				) AS rn
-			FROM checkins c
-			JOIN devices d ON d.id = c.device_id
-			WHERE c.device_id = ANY($1)
-			  AND c.created_at >= $2
-			  AND c.created_at <= $3
-		)
-		SELECT serial_number, battery_pct, build_id, extra, created_at, last_seen_at
-		FROM numbered WHERE rn = 1
-		ORDER BY serial_number, created_at`
-		args = []interface{}{deviceIDs, start, end, intervalSec}
-	} else {
-		query = `
-		SELECT d.serial_number, c.battery_pct, c.build_id, c.extra, c.created_at, d.last_seen_at
-		FROM checkins c
-		JOIN devices d ON d.id = c.device_id
-		WHERE c.device_id = ANY($1)
-		  AND c.created_at >= $2
-		  AND c.created_at <= $3
-		ORDER BY d.serial_number, c.created_at`
-		args = []interface{}{deviceIDs, start, end}
-	}
-
+// StreamExportCheckins runs the same query as ExportCheckins but invokes
+// fn for each row as it is read, so the caller can write directly to a
+// response without buffering the whole result set. If fn returns an error,
+// iteration stops and that error is returned.
+func (d *DB) StreamExportCheckins(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int, fn func(ExportRow) error) error {
+	query, args := exportCheckinsQuery(deviceIDs, start, end, intervalSec)
 	rows, err := d.pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
-
-	var out []ExportRow
 	for rows.Next() {
 		var r ExportRow
 		var extra []byte
 		if err := rows.Scan(&r.SerialNumber, &r.BatteryPct, &r.BuildID, &extra, &r.Timestamp, &r.LastSeenAt); err != nil {
-			return nil, err
+			return err
 		}
 		if len(extra) > 0 {
 			r.Extra = json.RawMessage(extra)
 		} else {
 			r.Extra = json.RawMessage("{}")
 		}
-		out = append(out, r)
+		if err := fn(r); err != nil {
+			return err
+		}
 	}
-	return out, rows.Err()
+	return rows.Err()
+}
+
+func exportCheckinsQuery(deviceIDs []uuid.UUID, start, end time.Time, intervalSec int) (string, []interface{}) {
+	if intervalSec > 0 {
+		return `
+			WITH numbered AS (
+				SELECT
+					d.serial_number,
+					c.battery_pct,
+					c.build_id,
+					c.extra,
+					c.created_at,
+					d.last_seen_at,
+					ROW_NUMBER() OVER (
+						PARTITION BY c.device_id,
+							floor(EXTRACT(EPOCH FROM c.created_at) / $4)
+						ORDER BY c.created_at
+					) AS rn
+				FROM checkins c
+				JOIN devices d ON d.id = c.device_id
+				WHERE c.device_id = ANY($1)
+				  AND c.created_at >= $2
+				  AND c.created_at <= $3
+			)
+			SELECT serial_number, battery_pct, build_id, extra, created_at, last_seen_at
+			FROM numbered WHERE rn = 1
+			ORDER BY serial_number, created_at`,
+			[]interface{}{deviceIDs, start, end, intervalSec}
+	}
+	return `
+			SELECT d.serial_number, c.battery_pct, c.build_id, c.extra, c.created_at, d.last_seen_at
+			FROM checkins c
+			JOIN devices d ON d.id = c.device_id
+			WHERE c.device_id = ANY($1)
+			  AND c.created_at >= $2
+			  AND c.created_at <= $3
+			ORDER BY d.serial_number, c.created_at`,
+		[]interface{}{deviceIDs, start, end}
+}
+
+// ExportCheckins returns checkin data for multiple devices within a time range,
+// sampled at the given interval in seconds (0 = all rows). Prefer
+// StreamExportCheckins for large windows so the rows aren't all buffered.
+func (d *DB) ExportCheckins(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int) ([]ExportRow, error) {
+	var out []ExportRow
+	err := d.StreamExportCheckins(ctx, deviceIDs, start, end, intervalSec, func(r ExportRow) error {
+		out = append(out, r)
+		return nil
+	})
+	return out, err
 }
 
 func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
