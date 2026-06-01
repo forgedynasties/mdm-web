@@ -12,18 +12,21 @@
 
 <div class="card">
   <div class="card-header">
-    <h3>Selected Devices</h3>
+    <h3>Selected Devices <span class="muted small">({{len .Serials}})</span></h3>
+    {{if gt (len .Serials) 10}}
+      <button type="button" class="btn-outline-sm" id="toggle-serials-btn" onclick="toggleSerials(this)">Show all</button>
+    {{end}}
   </div>
   <div style="padding:12px 20px;">
-    <div class="export-serials">
-      {{range .Serials}}
-        <span class="status-badge muted">{{.}}</span>
+    <div class="export-serials" id="export-serials" data-collapsed="{{if gt (len .Serials) 10}}1{{else}}0{{end}}">
+      {{range $i, $s := .Serials}}
+        <span class="status-badge muted serial-chip{{if and (gt (len $.Serials) 10) (ge $i 10)}} serial-chip-hidden{{end}}">{{$s}}</span>
       {{end}}
     </div>
   </div>
 </div>
 
-<form action="/export/csv" method="POST" class="export-form">
+<form action="/export/csv" method="POST" class="export-form" id="export-form">
   {{range .Serials}}
     <input type="hidden" name="serials" value="{{.}}">
   {{end}}
@@ -33,21 +36,22 @@
   <div class="card" style="margin-top:16px;">
     <div class="card-header">
       <h3>Time Range</h3>
+      <span class="muted small" id="range-summary">Last 48 hours</span>
     </div>
     <div style="padding:16px 20px;">
       <div class="export-time-row">
         <div class="form-row">
-          <label class="form-label">Start</label>
-          <input type="datetime-local" name="start" class="form-input" id="export-start">
+          <label class="form-label" for="export-start">Start</label>
+          <input type="datetime-local" name="start" class="form-input" id="export-start" onchange="onTimeChange()">
         </div>
         <div class="form-row">
-          <label class="form-label">End</label>
-          <input type="datetime-local" name="end" class="form-input" id="export-end">
+          <label class="form-label" for="export-end">End</label>
+          <input type="datetime-local" name="end" class="form-input" id="export-end" onchange="onTimeChange()">
         </div>
       </div>
       <div style="margin-top:10px;">
         <span class="form-label" style="margin-right:8px;">Quick:</span>
-        <div class="dur-btns" id="export-range-btns" style="display:inline-flex;">
+        <div class="dur-btns" id="export-range-btns" style="display:inline-flex;flex-wrap:wrap;">
           <button type="button" class="dur-btn" data-hours="1" onclick="setRange(this, 1)">1h</button>
           <button type="button" class="dur-btn" data-hours="6" onclick="setRange(this, 6)">6h</button>
           <button type="button" class="dur-btn" data-hours="24" onclick="setRange(this, 24)">24h</button>
@@ -62,20 +66,21 @@
   <div class="card" style="margin-top:16px;">
     <div class="card-header">
       <h3>Sampling Interval</h3>
+      <span class="muted small" id="interval-summary">All rows</span>
     </div>
     <div style="padding:16px 20px;">
       <p class="muted small" style="margin-bottom:10px;">
         Reduce data volume by picking one row per interval per device. "All" exports every checkin.
       </p>
-      <div class="dur-btns">
-        <button type="button" class="dur-btn active" onclick="setSampleInterval(this, 0)">All</button>
-        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 60)">1 min</button>
-        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 300)">5 min</button>
-        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 900)">15 min</button>
-        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 1800)">30 min</button>
-        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 3600)">1 hr</button>
-        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 21600)">6 hr</button>
-        <button type="button" class="dur-btn" onclick="setSampleInterval(this, 86400)">1 day</button>
+      <div class="dur-btns" id="export-interval-btns">
+        <button type="button" class="dur-btn active" data-label="All rows" onclick="setSampleInterval(this, 0)">All</button>
+        <button type="button" class="dur-btn" data-label="1 row / minute" onclick="setSampleInterval(this, 60)">1 min</button>
+        <button type="button" class="dur-btn" data-label="1 row / 5 min" onclick="setSampleInterval(this, 300)">5 min</button>
+        <button type="button" class="dur-btn" data-label="1 row / 15 min" onclick="setSampleInterval(this, 900)">15 min</button>
+        <button type="button" class="dur-btn" data-label="1 row / 30 min" onclick="setSampleInterval(this, 1800)">30 min</button>
+        <button type="button" class="dur-btn" data-label="1 row / hour" onclick="setSampleInterval(this, 3600)">1 hr</button>
+        <button type="button" class="dur-btn" data-label="1 row / 6 hr" onclick="setSampleInterval(this, 21600)">6 hr</button>
+        <button type="button" class="dur-btn" data-label="1 row / day" onclick="setSampleInterval(this, 86400)">1 day</button>
       </div>
       <input type="hidden" name="interval" id="export-interval" value="0">
     </div>
@@ -84,37 +89,108 @@
   <div class="card" style="margin-top:16px;">
     <div class="card-header">
       <h3>Columns</h3>
+      <span class="muted small"><span id="col-count">0</span> selected</span>
     </div>
     <div style="padding:16px 20px;">
-      <div class="export-columns">
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_pct" checked> Battery %</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_temp_c" checked> Battery Temp</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="build_id" checked> Build ID</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="wifi" checked> WiFi SSID</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="ip_address" checked> IP Address</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_used_mb" checked> RAM Used (MB)</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_total_mb" checked> RAM Total (MB)</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="storage_free_gb" checked> Storage Free (GB)</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="uptime_seconds" checked> Uptime (sec)</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="wlc_status" checked> WLC Status</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="timezone" checked> Timezone</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="latitude"> Latitude</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="longitude"> Longitude</label>
-        <label class="checkbox-label"><input type="checkbox" name="columns" value="last_seen" checked> Last Seen</label>
+      <div class="export-presets">
+        <span class="form-label" style="margin-right:8px;">Preset:</span>
+        <button type="button" class="dur-btn" onclick="applyPreset('common')">Common</button>
+        <button type="button" class="dur-btn" onclick="applyPreset('battery')">Battery</button>
+        <button type="button" class="dur-btn" onclick="applyPreset('network')">Network</button>
+        <button type="button" class="dur-btn" onclick="applyPreset('system')">System</button>
+        <button type="button" class="dur-btn" onclick="applyPreset('location')">Location</button>
+        <button type="button" class="dur-btn" onclick="applyPreset('all')">All</button>
+        <button type="button" class="dur-btn" onclick="applyPreset('none')">None</button>
       </div>
-      <div style="margin-top:10px;">
-        <button type="button" class="btn-outline" onclick="toggleAllCols(true)" style="padding:4px 10px;font-size:12px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg></span>Select All</button>
-        <button type="button" class="btn-outline" onclick="toggleAllCols(false)" style="padding:4px 10px;font-size:12px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></span>Deselect All</button>
+
+      <div class="export-col-group">
+        <div class="export-col-group-head">
+          <strong>Battery</strong>
+          <button type="button" class="link-btn" onclick="toggleGroup('battery')">toggle</button>
+        </div>
+        <div class="export-columns" data-group="battery">
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_pct" checked onchange="updateColCount()"> Battery %</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_temp_c" checked onchange="updateColCount()"> Battery Temp (°C)</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="wlc_status" checked onchange="updateColCount()"> WLC / Charging</label>
+        </div>
+      </div>
+
+      <div class="export-col-group">
+        <div class="export-col-group-head">
+          <strong>Network</strong>
+          <button type="button" class="link-btn" onclick="toggleGroup('network')">toggle</button>
+        </div>
+        <div class="export-columns" data-group="network">
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="wifi" checked onchange="updateColCount()"> WiFi SSID</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="ip_address" checked onchange="updateColCount()"> IP Address</label>
+        </div>
+      </div>
+
+      <div class="export-col-group">
+        <div class="export-col-group-head">
+          <strong>System</strong>
+          <button type="button" class="link-btn" onclick="toggleGroup('system')">toggle</button>
+        </div>
+        <div class="export-columns" data-group="system">
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="build_id" checked onchange="updateColCount()"> Build ID</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_used_mb" checked onchange="updateColCount()"> RAM Used (MB)</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="ram_total_mb" checked onchange="updateColCount()"> RAM Total (MB)</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="storage_free_gb" checked onchange="updateColCount()"> Storage Free (GB)</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="uptime_seconds" checked onchange="updateColCount()"> Uptime (sec)</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="timezone" checked onchange="updateColCount()"> Timezone</label>
+        </div>
+      </div>
+
+      <div class="export-col-group">
+        <div class="export-col-group-head">
+          <strong>Location</strong>
+          <button type="button" class="link-btn" onclick="toggleGroup('location')">toggle</button>
+        </div>
+        <div class="export-columns" data-group="location">
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="latitude" onchange="updateColCount()"> Latitude</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="longitude" onchange="updateColCount()"> Longitude</label>
+        </div>
+      </div>
+
+      <div class="export-col-group">
+        <div class="export-col-group-head">
+          <strong>Meta</strong>
+          <button type="button" class="link-btn" onclick="toggleGroup('meta')">toggle</button>
+        </div>
+        <div class="export-columns" data-group="meta">
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="last_seen" checked onchange="updateColCount()"> Last Seen</label>
+        </div>
       </div>
     </div>
   </div>
 
-  <div style="margin-top:20px;">
-    <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Download CSV</button>
+  <div class="export-submit-bar">
+    <div class="export-submit-summary">
+      <span class="muted small">
+        <strong id="summary-devices">{{len .Serials}}</strong> device{{if ne (len .Serials) 1}}s{{end}}
+        · <strong id="summary-cols">0</strong> columns
+        · <span id="summary-range">Last 48 hours</span>
+        · <span id="summary-interval">All rows</span>
+      </span>
+    </div>
+    <button type="submit" class="btn-primary" id="export-submit">
+      <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>
+      <span id="export-submit-label">Download CSV</span>
+    </button>
   </div>
 </form>
 
 <script>
+var COLUMN_PRESETS = {
+  common:   ['battery_pct', 'build_id', 'wifi', 'ip_address', 'last_seen'],
+  battery:  ['battery_pct', 'battery_temp_c', 'wlc_status', 'last_seen'],
+  network:  ['wifi', 'ip_address', 'last_seen'],
+  system:   ['build_id', 'ram_used_mb', 'ram_total_mb', 'storage_free_gb', 'uptime_seconds', 'timezone', 'last_seen'],
+  location: ['latitude', 'longitude', 'last_seen'],
+  all:      null,  // sentinel: check everything
+  none:     []
+};
+
 function setRange(btn, hours) {
   var now = new Date();
   var start = new Date(now.getTime() - hours * 3600 * 1000);
@@ -124,6 +200,35 @@ function setRange(btn, hours) {
     b.classList.remove('active');
   });
   if (btn) btn.classList.add('active');
+  document.getElementById('range-summary').textContent = humanRange(hours);
+  document.getElementById('summary-range').textContent = humanRange(hours);
+}
+
+function humanRange(hours) {
+  if (hours < 24) return 'Last ' + hours + ' hour' + (hours === 1 ? '' : 's');
+  var days = hours / 24;
+  if (days < 7) return 'Last ' + days + ' day' + (days === 1 ? '' : 's');
+  if (days % 7 === 0) return 'Last ' + (days/7) + ' week' + (days/7 === 1 ? '' : 's');
+  return 'Last ' + days + ' days';
+}
+
+function onTimeChange() {
+  // User edited inputs directly — clear quick-pick highlight and show "Custom".
+  document.getElementById('export-range-btns').querySelectorAll('.dur-btn').forEach(function(b) {
+    b.classList.remove('active');
+  });
+  var s = document.getElementById('export-start').value;
+  var e = document.getElementById('export-end').value;
+  var label = 'Custom range';
+  if (s && e) {
+    var diffMs = new Date(e).getTime() - new Date(s).getTime();
+    if (diffMs > 0) {
+      var hours = Math.round(diffMs / 3600000);
+      label = humanRange(hours);
+    }
+  }
+  document.getElementById('range-summary').textContent = label;
+  document.getElementById('summary-range').textContent = label;
 }
 
 function toLocalISO(d) {
@@ -135,14 +240,70 @@ function setSampleInterval(btn, sec) {
   document.getElementById('export-interval').value = sec;
   btn.closest('.dur-btns').querySelectorAll('.dur-btn').forEach(function(b) { b.classList.remove('active'); });
   btn.classList.add('active');
+  var label = btn.getAttribute('data-label') || btn.textContent;
+  document.getElementById('interval-summary').textContent = label;
+  document.getElementById('summary-interval').textContent = label;
 }
 
-function toggleAllCols(checked) {
-  document.querySelectorAll('.export-columns input[type="checkbox"]').forEach(function(cb) { cb.checked = checked; });
+function applyPreset(preset) {
+  var wanted = COLUMN_PRESETS[preset];
+  document.querySelectorAll('.export-columns input[type="checkbox"]').forEach(function(cb) {
+    if (wanted === null) {
+      cb.checked = true;
+    } else {
+      cb.checked = wanted.indexOf(cb.value) !== -1;
+    }
+  });
+  updateColCount();
 }
 
-// Default: last 48 hours
+function toggleGroup(group) {
+  var boxes = document.querySelectorAll('.export-columns[data-group="' + group + '"] input[type="checkbox"]');
+  var anyUnchecked = false;
+  boxes.forEach(function(cb) { if (!cb.checked) anyUnchecked = true; });
+  boxes.forEach(function(cb) { cb.checked = anyUnchecked; });
+  updateColCount();
+}
+
+function updateColCount() {
+  var n = document.querySelectorAll('.export-columns input[type="checkbox"]:checked').length;
+  document.getElementById('col-count').textContent = n;
+  document.getElementById('summary-cols').textContent = n;
+  var btn = document.getElementById('export-submit');
+  btn.disabled = (n === 0);
+  document.getElementById('export-submit-label').textContent =
+    n === 0 ? 'Select at least one column' : 'Download CSV';
+}
+
+function toggleSerials(btn) {
+  var wrap = document.getElementById('export-serials');
+  var collapsed = wrap.getAttribute('data-collapsed') === '1';
+  wrap.setAttribute('data-collapsed', collapsed ? '0' : '1');
+  wrap.querySelectorAll('.serial-chip').forEach(function(chip, i) {
+    if (collapsed) {
+      chip.classList.remove('serial-chip-hidden');
+    } else if (i >= 10) {
+      chip.classList.add('serial-chip-hidden');
+    }
+  });
+  btn.textContent = collapsed ? 'Show fewer' : 'Show all';
+}
+
+document.getElementById('export-form').addEventListener('submit', function() {
+  var btn = document.getElementById('export-submit');
+  var label = document.getElementById('export-submit-label');
+  btn.disabled = true;
+  label.textContent = 'Preparing CSV…';
+  // Re-enable after a moment so users can retry if the server errors.
+  setTimeout(function() {
+    btn.disabled = false;
+    label.textContent = 'Download CSV';
+  }, 4000);
+});
+
+// Default: last 48 hours, "Common" preset
 setRange(document.querySelector('#export-range-btns .dur-btn[data-hours="48"]'), 48);
+updateColCount();
 </script>
 
 {{template "footer" .}}
