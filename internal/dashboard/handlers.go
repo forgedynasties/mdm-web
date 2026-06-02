@@ -1885,6 +1885,25 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 
+// parseSerialsField splits the "serials" form field(s) into individual,
+// trimmed, non-empty serial numbers. The group forms submit selected devices
+// as a single newline-separated <textarea name="serials">, so the raw form
+// value is one multi-line blob — it must be split, not used as-is. Also
+// tolerates comma separators and repeated form values.
+func parseSerialsField(values []string) []string {
+	var out []string
+	for _, v := range values {
+		for _, part := range strings.FieldsFunc(v, func(r rune) bool {
+			return r == '\n' || r == '\r' || r == ','
+		}) {
+			if part = strings.TrimSpace(part); part != "" {
+				out = append(out, part)
+			}
+		}
+	}
+	return out
+}
+
 func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	name := strings.TrimSpace(r.FormValue("name"))
@@ -1897,7 +1916,7 @@ func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	serials := r.Form["serials"]
+	serials := parseSerialsField(r.Form["serials"])
 	if len(serials) > 0 {
 		if err := h.db.AddDevicesToGroup(r.Context(), serials, group.ID); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -1934,12 +1953,7 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 	if s := strings.TrimSpace(r.FormValue("serial_number")); s != "" {
 		serials = append(serials, s)
 	}
-	for _, s := range r.Form["serials"] {
-		s = strings.TrimSpace(s)
-		if s != "" {
-			serials = append(serials, s)
-		}
-	}
+	serials = append(serials, parseSerialsField(r.Form["serials"])...)
 	if len(serials) == 0 {
 		http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
 		return
