@@ -12,6 +12,7 @@
     </form>
     <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
     <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
+    <button type="button" class="btn-outline" onclick="openBulkKioskModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk</button>
     <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
     {{end}}
     <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
@@ -465,6 +466,39 @@ function closeBulkGroupModal(event) {
   }
 }
 
+function openBulkKioskModal() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var form = document.getElementById('bulk-kiosk-form');
+  form.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
+  serials.forEach(function(s) {
+    var inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'serials';
+    inp.value = s;
+    form.appendChild(inp);
+  });
+  document.getElementById('bulk-kiosk-count').textContent = serials.length;
+  document.getElementById('bulk-kiosk-enabled').value = '1';
+  document.getElementById('bulk-kiosk-package').value = '';
+  onBulkKioskToggle();
+  document.getElementById('bulk-kiosk-modal').classList.add('modal-open');
+  document.getElementById('bulk-kiosk-package').focus();
+}
+
+// Hide/require the package field depending on whether kiosk is being enabled.
+function onBulkKioskToggle() {
+  var enabled = document.getElementById('bulk-kiosk-enabled').value === '1';
+  document.getElementById('bulk-kiosk-pkg-row').style.display = enabled ? '' : 'none';
+  document.getElementById('bulk-kiosk-package').required = enabled;
+}
+
+function closeBulkKioskModal(event) {
+  if (!event || event.target === document.getElementById('bulk-kiosk-modal')) {
+    document.getElementById('bulk-kiosk-modal').classList.remove('modal-open');
+  }
+}
+
 // Density toggle
 function toggleDensity() {
   var el = document.getElementById('device-table-container');
@@ -678,6 +712,33 @@ document.addEventListener('keydown', function(e) {
           <input type="text" name="name" id="bulk-group-name" class="form-input" placeholder="Field Team A" required>
         </div>
         <button type="submit" class="btn-primary">Create Group</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="bulk-kiosk-modal" class="modal-backdrop" onclick="closeBulkKioskModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Kiosk Mode</span>
+      <button class="modal-close" aria-label="Close" type="button" onclick="closeBulkKioskModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted small">Apply kiosk settings to <span id="bulk-kiosk-count">0</span> selected device(s).</div>
+      <form action="/devices/bulk-kiosk" method="POST" id="bulk-kiosk-form" class="command-form" style="padding:0;margin-top:12px;">
+        <div class="form-row">
+          <label class="form-label">Kiosk Mode</label>
+          <select name="kiosk_enabled" id="bulk-kiosk-enabled" class="form-input" onchange="onBulkKioskToggle()">
+            <option value="1">Enable</option>
+            <option value="0">Disable</option>
+          </select>
+        </div>
+        <div class="form-row" id="bulk-kiosk-pkg-row">
+          <label class="form-label">Kiosk Package</label>
+          <input type="text" name="kiosk_package" id="bulk-kiosk-package" class="form-input" placeholder="com.example.app">
+          <div class="confirm-hint">The package pinned to the foreground in lock-task mode.</div>
+        </div>
+        <button type="submit" class="btn-primary">Apply Kiosk</button>
       </form>
     </div>
   </div>
