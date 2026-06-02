@@ -26,8 +26,9 @@
     </div>
   </div>
 
-  <div class="card-header">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
     <h3>Browse Devices</h3>
+    <button type="button" class="btn-outline" id="select-all-btn" onclick="toggleSelectAll()">Select all</button>
   </div>
 
   <div class="filter-bar" style="margin:0 12px 0 12px;border-bottom:none;">
@@ -128,9 +129,41 @@ function updateSelectedUI() {
   // Sync checkboxes in the device table
   var set = {};
   serials.forEach(function(s) { set[s] = true; });
-  document.querySelectorAll('#group-device-browser .device-cb').forEach(function(cb) {
+  var cbs = document.querySelectorAll('#group-device-browser .device-cb');
+  cbs.forEach(function(cb) {
     cb.checked = !!set[cb.value];
   });
+  // Update the Select all / Deselect all button to reflect the visible rows
+  var btn = document.getElementById('select-all-btn');
+  if (btn) {
+    if (cbs.length === 0) {
+      btn.disabled = true;
+      btn.textContent = 'Select all';
+    } else {
+      btn.disabled = false;
+      var allChecked = Array.prototype.every.call(cbs, function(cb) { return cb.checked; });
+      btn.textContent = allChecked ? 'Deselect all' : 'Select all';
+    }
+  }
+}
+
+// Select (or deselect) every device currently shown in the table. Operates on
+// the visible/filtered rows only, merging into the existing textarea selection.
+function toggleSelectAll() {
+  var cbs = document.querySelectorAll('#group-device-browser .device-cb');
+  if (cbs.length === 0) return;
+  var allChecked = Array.prototype.every.call(cbs, function(cb) { return cb.checked; });
+  var serials = getSelectedSerials();
+  cbs.forEach(function(cb) {
+    var idx = serials.indexOf(cb.value);
+    if (allChecked) {
+      if (idx !== -1) serials.splice(idx, 1);
+    } else if (idx === -1) {
+      serials.push(cb.value);
+    }
+  });
+  document.getElementById('selected-serials').value = serials.join('\n') + (serials.length ? '\n' : '');
+  updateSelectedUI();
 }
 
 function onTextareaChange() {
