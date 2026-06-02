@@ -136,9 +136,36 @@ type beaconDBResponse struct {
 
 const beaconDBURL = "https://beacondb.net/v1/geolocate"
 
+// validMAC reports whether s is a well-formed colon-separated MAC address
+// (six hex octets). BeaconDB rejects the entire request with a deserialize
+// error if any macAddress is empty or malformed, so we drop bad entries —
+// Android wifi scans occasionally return results with blank BSSIDs.
+func validMAC(s string) bool {
+	if len(s) != 17 {
+		return false
+	}
+	for i := 0; i < 17; i++ {
+		c := s[i]
+		if i%3 == 2 {
+			if c != ':' {
+				return false
+			}
+			continue
+		}
+		isHex := (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+		if !isHex {
+			return false
+		}
+	}
+	return true
+}
+
 func (r *Resolver) query(ctx context.Context, aps []WifiAP) (float64, float64, float64, error) {
 	reqBody := beaconDBRequest{}
 	for _, ap := range aps {
+		if !validMAC(ap.BSSID) {
+			continue
+		}
 		if strings.HasPrefix(strings.ToUpper(ap.BSSID), "02:00:00") {
 			continue
 		}
