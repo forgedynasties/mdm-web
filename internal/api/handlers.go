@@ -799,7 +799,7 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Type == "" {
 		body.Type = "install_apk"
 	}
-	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true}
+	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true, "update_splash": true}
 	if !validTypes[body.Type] {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid type"})
 		return
@@ -807,6 +807,17 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Type == "install_apk" && body.ApkURL == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "apk_url is required for install_apk"})
 		return
+	}
+	if body.Type == "update_splash" {
+		// URL travels in payload {"url": "...", "partition_size": <opt>}.
+		var p struct {
+			URL string `json:"url"`
+		}
+		_ = json.Unmarshal(body.Payload, &p)
+		if strings.TrimSpace(p.URL) == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "payload.url is required for update_splash"})
+			return
+		}
 	}
 	if body.TargetType != "all" && body.TargetType != "devices" && body.TargetType != "groups" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "target_type must be all, devices, or groups"})

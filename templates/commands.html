@@ -53,6 +53,13 @@
             <span class="type-name">Reboot</span>
             <span class="type-desc">Restart the device</span>
           </button>
+          {{if eq .Role "admin"}}
+          <button type="button" class="type-card" data-type="update_splash" onclick="selectType('update_splash', this)">
+            <span class="type-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="7" cy="7" r="0.5"/></svg></span>
+            <span class="type-name">Boot Logo</span>
+            <span class="type-desc">Flash the splash image</span>
+          </button>
+          {{end}}
         </div>
         <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
 
@@ -89,6 +96,12 @@
 
           <div id="reboot-hint" class="payload-section">
             <div class="payload-empty" style="color:var(--danger);">⚠ device will restart on next checkin (5 min window)</div>
+          </div>
+
+          <div id="splash-fields" class="payload-section">
+            <input type="url" name="splash_url" id="splash-url-input" class="form-input" placeholder="https://…/splash.img" oninput="updatePreview()" style="font-family:var(--mono);">
+            <input type="number" name="partition_size" id="splash-size-input" class="form-input" placeholder="partition size in bytes (optional)" min="1" style="margin-top:8px;">
+            <div class="muted small" style="margin-top:6px;">Must be a Qualcomm <code>SPLASH!!</code> container. The device validates the magic and stages it; an init broker writes the partition — visible next boot. Size is checked by the broker if left blank.</div>
           </div>
         </div>
 
@@ -328,11 +341,13 @@ function filterCommands() {
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
   document.querySelectorAll('.type-card').forEach(function(c) { c.classList.toggle('is-active', c.dataset.type === val); });
-  ['apk-fields','shell-fields','screenshot-hint','reboot-hint'].forEach(function(id) {
-    document.getElementById(id).classList.remove('is-active');
+  ['apk-fields','shell-fields','screenshot-hint','reboot-hint','splash-fields'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.classList.remove('is-active');
   });
-  var sectionId = ({ install_apk:'apk-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint' })[val];
-  document.getElementById(sectionId).classList.add('is-active');
+  var sectionId = ({ install_apk:'apk-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', update_splash:'splash-fields' })[val];
+  var section = document.getElementById(sectionId);
+  if (section) section.classList.add('is-active');
   var apkSel = document.getElementById('apk-select');
   if (apkSel) apkSel.disabled = (val !== 'install_apk');
   updatePreview();
@@ -373,6 +388,10 @@ function updatePreview() {
   } else if (type === 'reboot') {
     flagNode.textContent = '--mode';
     valNode.textContent = 'soft';
+  } else if (type === 'update_splash') {
+    flagNode.textContent = '--image';
+    var u = (document.getElementById('splash-url-input').value || '').trim();
+    valNode.textContent = u ? u.replace(/^https?:\/\//, '') : '<no-url>';
   }
 
   // Target column

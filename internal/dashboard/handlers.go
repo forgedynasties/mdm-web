@@ -2623,7 +2623,8 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
-	case "ota":
+	case "ota", "update_splash":
+		// Both write a partition — admin only.
 		if userRole != "admin" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
@@ -2638,6 +2639,10 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	if cmdType == "install_apk" && apkURL == "" {
+		http.Redirect(w, r, "/commands", http.StatusFound)
+		return
+	}
+	if cmdType == "update_splash" && strings.TrimSpace(r.FormValue("splash_url")) == "" {
 		http.Redirect(w, r, "/commands", http.StatusFound)
 		return
 	}
@@ -2687,6 +2692,15 @@ func buildPayload(cmdType string, r *http.Request) json.RawMessage {
 	case "shell":
 		cmd := strings.TrimSpace(r.FormValue("shell_cmd"))
 		b, _ := json.Marshal(map[string]string{"cmd": cmd})
+		return json.RawMessage(b)
+	case "update_splash":
+		// Client downloads url, validates the SPLASH!! magic and (if given)
+		// partition_size, then stages + triggers the init broker.
+		m := map[string]any{"url": strings.TrimSpace(r.FormValue("splash_url"))}
+		if ps, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("partition_size")), 10, 64); err == nil && ps > 0 {
+			m["partition_size"] = ps
+		}
+		b, _ := json.Marshal(m)
 		return json.RawMessage(b)
 	default:
 		return json.RawMessage("{}")
