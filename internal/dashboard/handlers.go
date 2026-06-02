@@ -2481,6 +2481,17 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// markDeliveryPresence flags each delivery online when the device currently
+// holds a live WebSocket connection in the hub — so the UI can distinguish a
+// device that's about to ack from one that's offline and won't receive the
+// command until it reconnects.
+func (h *Handler) markDeliveryPresence(deliveries []db.CommandDelivery) {
+	connected := h.hub.ConnectedIDs()
+	for i := range deliveries {
+		_, deliveries[i].Online = connected[deliveries[i].DeviceID]
+	}
+}
+
 func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -2497,6 +2508,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.markDeliveryPresence(deliveries)
 	h.renderCachedHTML(w, r, "command-deliveries", map[string]any{
 		"Command":    cmd,
 		"Deliveries": deliveries,
@@ -2588,6 +2600,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.markDeliveryPresence(deliveries)
 	h.render(w, r, "command_detail.html", map[string]any{
 		"Title":      "Command " + id.String()[:8],
 		"Command":    cmd,

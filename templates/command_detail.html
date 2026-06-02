@@ -1,9 +1,10 @@
 {{define "command-deliveries"}}
 {{$cmd := .Command}}
 {{$hasPending := true}}
+{{$offlinePending := 0}}
 {{if .Deliveries}}
   {{$hasPending = false}}
-  {{range .Deliveries}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{end}}{{end}}
+  {{range .Deliveries}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{if not .Online}}{{$offlinePending = add $offlinePending 1}}{{end}}{{end}}{{end}}
 {{end}}
 <div class="card"
   id="deliveries-card"
@@ -14,7 +15,7 @@
   {{end}}>
   <div class="card-header">
     <h3>Delivery Status</h3>
-    <span class="muted small">{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{if $hasPending}} · waiting…{{end}}</span>
+    <span class="muted small">{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{if $hasPending}} · waiting…{{if gt $offlinePending 0}} ({{$offlinePending}} offline){{end}}{{end}}</span>
   </div>
   <table class="table">
     <thead>
@@ -31,7 +32,12 @@
         {{range .Deliveries}}
         <tr>
           <td class="mono">{{.SerialNumber}}</td>
-          <td><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></td>
+          <td style="white-space:nowrap;">
+            <span class="status-badge {{statusClass .Status}}">{{.Status}}</span>
+            {{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered"))}}
+            <span class="muted small" style="margin-left:8px;" title="Device offline — it will receive this command when it reconnects"><span class="ws-dot"></span>offline · last seen {{timeSince .LastSeenAt}}</span>
+            {{end}}
+          </td>
           <td class="muted small">{{localTime .UpdatedAt}}</td>
           {{if eq $cmd.Type "shell"}}
           <td style="min-width:320px;">
