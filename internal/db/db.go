@@ -116,10 +116,13 @@ type ExportRow struct {
 }
 
 type CommandDelivery struct {
+	DeviceID     uuid.UUID `json:"device_id"`
 	SerialNumber string    `json:"serial_number"`
 	Status       string    `json:"status"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	Output       string    `json:"output"`
+	LastSeenAt   time.Time `json:"last_seen_at"`
+	Online       bool      `json:"online"` // set by the handler from the ws.Hub, not the DB
 }
 
 // DeviceFilter holds optional filter parameters for device listing.
@@ -1470,7 +1473,8 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]Devic
 // after 5 minutes from command creation are reported as 'expired'.
 func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]CommandDelivery, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT d.serial_number,
+		SELECT cs.device_id,
+		       d.serial_number,
 		       CASE
 		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
 		              AND cs.status IN ('pending', 'delivered')
@@ -1479,7 +1483,8 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]C
 		         ELSE cs.status
 		       END AS status,
 		       cs.updated_at,
-		       COALESCE(cr.output, '') AS output
+		       COALESCE(cr.output, '') AS output,
+		       d.last_seen_at
 		FROM command_status cs
 		JOIN devices d ON d.id = cs.device_id
 		JOIN commands c ON c.id = cs.command_id
@@ -1495,7 +1500,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]C
 	var out []CommandDelivery
 	for rows.Next() {
 		var cd CommandDelivery
-		if err := rows.Scan(&cd.SerialNumber, &cd.Status, &cd.UpdatedAt, &cd.Output); err != nil {
+		if err := rows.Scan(&cd.DeviceID, &cd.SerialNumber, &cd.Status, &cd.UpdatedAt, &cd.Output, &cd.LastSeenAt); err != nil {
 			return nil, err
 		}
 		out = append(out, cd)
