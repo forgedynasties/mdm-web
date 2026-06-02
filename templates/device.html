@@ -325,6 +325,26 @@
   const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
   const markerStorageKey = 'mdm-chart-markers:v2:{{.Device.SerialNumber}}';
 
+  // A device is treated as inactive once it misses ~3 expected check-ins;
+  // gaps larger than this break the chart line instead of bridging across.
+  const pollIntervalMs = {{.Device.PollIntervalMs}};
+  const gapThresholdMs = (pollIntervalMs > 0 ? pollIntervalMs : 300000) * 3;
+
+  // Insert a null sample between consecutive points that are further apart
+  // than gapThresholdMs, so the line shows a break over inactive periods.
+  // Expects a time-sorted {x,y} array; returns a new array.
+  function insertGaps(pts) {
+    if (!pts || pts.length < 2) return pts;
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      if (i > 0 && (pts[i].x - pts[i - 1].x) > gapThresholdMs) {
+        out.push({ x: (pts[i - 1].x + pts[i].x) / 2, y: null });
+      }
+      out.push(pts[i]);
+    }
+    return out;
+  }
+
   let currentDuration = 6 * 3600 * 1000;
   let customMin = null, customMax = null;
   let batteryChart, tempChart, ramChart, unifiedChart;
@@ -358,9 +378,10 @@
   function smoothBatterySeries(points, alpha) {
     if (!points || points.length < 3) return points;
     const a = (typeof alpha === 'number' ? alpha : 0.35);
-    let prev = points[0].y;
-    return points.map(function (p, idx) {
-      if (idx === 0) return p;
+    let prev = null;
+    return points.map(function (p) {
+      if (p.y == null) { prev = null; return p; }   // gap break — reset the filter
+      if (prev === null) { prev = p.y; return p; }
       prev = (a * p.y) + ((1 - a) * prev);
       return Object.assign({}, p, { y: Math.max(0, Math.min(100, Number(prev.toFixed(2)))) });
     });
@@ -379,7 +400,7 @@
 
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
-    chart.data.datasets[0].data = (chart === batteryChart) ? smoothBatterySeries(pts, 0.32) : pts;
+    chart.data.datasets[0].data = (chart === batteryChart) ? smoothBatterySeries(insertGaps(pts), 0.32) : insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
     chart.update();
@@ -392,9 +413,9 @@
   function applyUnifiedData() {
     if (!unifiedChart) return;
     const { pts: bPts, minX, lastX } = filterWindow(allBattery);
-    unifiedChart.data.datasets[0].data = smoothBatterySeries(bPts, 0.32);
-    unifiedChart.data.datasets[1].data = filterWindow(allTemp).pts;
-    unifiedChart.data.datasets[2].data = filterWindow(allRam).pts;
+    unifiedChart.data.datasets[0].data = smoothBatterySeries(insertGaps(bPts), 0.32);
+    unifiedChart.data.datasets[1].data = insertGaps(filterWindow(allTemp).pts);
+    unifiedChart.data.datasets[2].data = insertGaps(filterWindow(allRam).pts);
     unifiedChart.options.scales.x.min = minX;
     unifiedChart.options.scales.x.max = lastX;
     unifiedChart.update('none');
@@ -805,18 +826,18 @@
         {
           label: 'Battery %', data: [], yAxisID: 'yPct',
           borderColor: '#6387d2', backgroundColor: 'rgba(99,135,210,0.12)',
-          borderWidth: 1.5, pointRadius: 0, spanGaps: true, tension: 0,
+          borderWidth: 1.5, pointRadius: 0, spanGaps: false, tension: 0,
           fill: false,
         },
         {
           label: 'Temp °C', data: [], yAxisID: 'yTemp',
           borderColor: '#ff9800', backgroundColor: 'transparent',
-          borderWidth: 1.5, pointRadius: 0, spanGaps: true, tension: 0,
+          borderWidth: 1.5, pointRadius: 0, spanGaps: false, tension: 0,
         },
         {
           label: 'RAM %', data: [], yAxisID: 'yPct',
           borderColor: '#4caf50', backgroundColor: 'transparent',
-          borderWidth: 1.5, pointRadius: 0, spanGaps: true, tension: 0,
+          borderWidth: 1.5, pointRadius: 0, spanGaps: false, tension: 0,
           borderDash: [4, 3],
         },
       ],
