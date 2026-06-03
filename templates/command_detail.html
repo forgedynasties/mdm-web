@@ -69,9 +69,11 @@
             {{else}}<span class="muted small">—</span>{{end}}
           </td>
           <td>
+            {{if $.CanResend}}
             <form action="/commands/{{$cmd.ID}}/resend/{{.SerialNumber}}" method="POST" style="display:inline;">
               <button type="submit" class="btn-outline" style="padding:3px 10px;font-size:12px;">Resend</button>
             </form>
+            {{end}}
           </td>
           {{end}}
           {{if eq $cmd.Type "screenshot"}}
@@ -104,12 +106,16 @@
     <h2 class="page-title">{{.Title}}</h2>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
+    {{if .CanResend}}
     <form action="/commands/{{.Command.ID}}/resend" method="POST">
       <button type="submit" class="btn-outline">Resend to All Targets</button>
     </form>
+    {{end}}
+    {{if eq .Role "admin"}}
     <form action="/commands/{{.Command.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
       <button type="submit" class="btn-danger">Delete Command</button>
     </form>
+    {{end}}
   </div>
 </div>
 
