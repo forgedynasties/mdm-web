@@ -732,6 +732,10 @@ a:hover { color: var(--accent-h); }
 }
 .summary-card:last-child { border-right: 0; }
 .summary-card:hover { background: var(--surface2); }
+.summary-card-clickable { cursor: pointer; }
+.summary-card-clickable:hover { background: var(--surface2); }
+.summary-card-clickable:hover .summary-label { color: var(--text); }
+.summary-card-clickable:active { background: var(--surface3, var(--surface2)); }
 .summary-icon {
   position: absolute;
   top: 12px;

@@ -816,6 +816,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		Online:                   r.URL.Query().Get("status"),
 		BuildID:                  r.URL.Query().Get("build"),
 		Battery:                  r.URL.Query().Get("battery"),
+		Kiosk:                    r.URL.Query().Get("kiosk"),
 		Hidden:                   r.URL.Query().Get("hidden"),
 		ActiveThresholdSecs:      activeThreshold,
 	}
@@ -912,6 +913,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterStatus":        r.URL.Query().Get("status"),
 		"FilterBuild":         r.URL.Query().Get("build"),
 		"FilterBattery":       r.URL.Query().Get("battery"),
+		"FilterKiosk":         r.URL.Query().Get("kiosk"),
 		"FilterHidden":        r.URL.Query().Get("hidden"),
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,

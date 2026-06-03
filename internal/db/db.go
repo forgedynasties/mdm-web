@@ -133,6 +133,7 @@ type DeviceFilter struct {
 	Online                    string    // "online", "offline", or "" (no filter)
 	BuildID                   string    // exact build_id match, or "" (no filter)
 	Battery                   string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
+	Kiosk                     string    // "enabled" (kiosk mode on), or "" (no filter)
 	Hidden                    string    // "include" (show all), "only" (hidden only), or "" (active only)
 	ActiveThresholdSecs       int       // seconds before a device is considered offline (0 = default 180)
 }
@@ -424,6 +425,10 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, fmt.Sprintf("d.build_id = $%d", argN))
 		args = append(args, f.BuildID)
 		argN++
+	}
+
+	if f.Kiosk == "enabled" {
+		wheres = append(wheres, "EXISTS (SELECT 1 FROM device_config dck WHERE dck.device_id = d.id AND dck.kiosk_enabled = true)")
 	}
 
 	if selectRows {
