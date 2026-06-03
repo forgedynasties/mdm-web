@@ -2514,6 +2514,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 	h.renderCachedHTML(w, r, "command-deliveries", map[string]any{
 		"Command":    cmd,
 		"Deliveries": deliveries,
+		"CanResend":  commandTypeAllowed(h.role(r), cmd.Type),
 	})
 }
 
@@ -2546,6 +2547,10 @@ func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
+	if !commandTypeAllowed(h.role(r), cmd.Type) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 	deviceIDs, err := h.db.GetDeviceIDsBySerials(r.Context(), []string{serial})
 	if err != nil || len(deviceIDs) == 0 {
 		http.Error(w, "Device not found", http.StatusNotFound)
@@ -2569,6 +2574,10 @@ func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
 	cmd, err := h.db.GetCommand(r.Context(), id)
 	if err != nil {
 		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
+	if !commandTypeAllowed(h.role(r), cmd.Type) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 	targetIDs, err := h.db.GetCommandTargetIDs(r.Context(), id)
@@ -2608,7 +2617,23 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		"Command":    cmd,
 		"Deliveries": deliveries,
 		"From":       from,
+		"CanResend":  commandTypeAllowed(h.role(r), cmd.Type),
 	})
+}
+
+// commandTypeAllowed reports whether a role may create or resend a command of
+// the given type. ota/update_splash write a device partition and are admin-only;
+// shell/reboot/install_apk are also available to operators. Other types (e.g.
+// screenshot) carry no extra restriction beyond being authenticated.
+func commandTypeAllowed(role, cmdType string) bool {
+	switch cmdType {
+	case "shell", "reboot", "install_apk":
+		return role == "admin" || role == "operator"
+	case "ota", "update_splash":
+		return role == "admin"
+	default:
+		return true
+	}
 }
 
 func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
@@ -2618,19 +2643,9 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		cmdType = "install_apk"
 	}
 
-	userRole := h.role(r)
-	switch cmdType {
-	case "shell", "reboot", "install_apk":
-		if userRole != "admin" && userRole != "operator" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
-	case "ota", "update_splash":
-		// Both write a partition — admin only.
-		if userRole != "admin" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
+	if !commandTypeAllowed(h.role(r), cmdType) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
 	}
 
 	targetType := r.FormValue("target_type")
@@ -3371,8 +3386,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
 	mux.HandleFunc("POST /commands/{id}/delete", h.requireAdmin(h.CommandDelete))
-	mux.HandleFunc("POST /commands/{id}/resend", h.requireAdmin(h.CommandResendAll))
-	mux.HandleFunc("POST /commands/{id}/resend/{serial}", h.requireAdmin(h.CommandResendDevice))
+	mux.HandleFunc("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
+	mux.HandleFunc("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
 
 	mux.HandleFunc("GET /settings", h.requireAdmin(h.SettingsPage))
 	mux.HandleFunc("POST /settings/columns/add", h.requireAdmin(h.SettingsAddColumn))
