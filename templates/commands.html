@@ -9,7 +9,7 @@
 </div>
 
 {{if or (eq .Role "admin") (eq .Role "operator")}}
-<form action="/commands" method="POST" id="cmd-form">
+<form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data">
   <div class="cmd-builder" id="cmd-builder">
 
     <div class="cmd-builder-head">
@@ -99,9 +99,11 @@
           </div>
 
           <div id="splash-fields" class="payload-section">
-            <input type="url" name="splash_url" id="splash-url-input" class="form-input" placeholder="https://…/splash.img" oninput="updatePreview()" style="font-family:var(--mono);">
+            <input type="file" name="splash_file" id="splash-file-input" class="form-input" accept="image/bmp,image/png,image/jpeg,.bmp,.png,.jpg,.jpeg" onchange="updatePreview()">
+            <div class="muted small" style="margin-top:6px;">Upload a BMP (passed through as-is) or PNG/JPEG (converted to 24-bit BMP). The server wraps it into a <code>splash.img</code> (0x4000 zero filler + BMP) and hosts it — no need to build the image yourself. Match the panel resolution (e.g. 720×1280).</div>
+            <input type="url" name="splash_url" id="splash-url-input" class="form-input" placeholder="…or paste a splash.img URL" oninput="updatePreview()" style="font-family:var(--mono); margin-top:8px;">
             <input type="number" name="partition_size" id="splash-size-input" class="form-input" placeholder="partition size in bytes (optional)" min="1" style="margin-top:8px;">
-            <div class="muted small" style="margin-top:6px;">Must be a Qualcomm <code>SPLASH!!</code> container. The device validates the magic and stages it; an init broker writes the partition — visible next boot. Size is checked by the broker if left blank.</div>
+            <div class="muted small" style="margin-top:6px;">The device validates the BMP signature and stages it; an init broker writes the partition — visible next boot. Size is checked by the broker if left blank.</div>
           </div>
         </div>
 
@@ -390,8 +392,10 @@ function updatePreview() {
     valNode.textContent = 'soft';
   } else if (type === 'update_splash') {
     flagNode.textContent = '--image';
+    var fileInput = document.getElementById('splash-file-input');
+    var f = fileInput && fileInput.files && fileInput.files[0];
     var u = (document.getElementById('splash-url-input').value || '').trim();
-    valNode.textContent = u ? u.replace(/^https?:\/\//, '') : '<no-url>';
+    valNode.textContent = f ? f.name : (u ? u.replace(/^https?:\/\//, '') : '<no-image>');
   }
 
   // Target column

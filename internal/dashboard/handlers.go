@@ -2637,7 +2637,15 @@ func commandTypeAllowed(role, cmdType string) bool {
 }
 
 func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
+	// update_splash may carry a file upload (multipart); other types are urlencoded.
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+		if err := r.ParseMultipartForm(uploadSizeLimit); err != nil {
+			http.Error(w, "bad upload", http.StatusBadRequest)
+			return
+		}
+	} else {
+		r.ParseForm()
+	}
 	cmdType := r.FormValue("type")
 	if cmdType == "" {
 		cmdType = "install_apk"
@@ -2659,9 +2667,22 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/commands", http.StatusFound)
 		return
 	}
-	if cmdType == "update_splash" && strings.TrimSpace(r.FormValue("splash_url")) == "" {
-		http.Redirect(w, r, "/commands", http.StatusFound)
-		return
+	if cmdType == "update_splash" {
+		// An uploaded BMP/PNG/JPEG is wrapped into a splash.img server-side and
+		// served from /splash-img/; its URL then drives the normal flow. A pasted
+		// splash_url is the fallback when no file is uploaded.
+		url, err := h.generateSplashFromUpload(r)
+		if err != nil {
+			http.Error(w, "splash upload failed: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		if url != "" {
+			r.Form.Set("splash_url", url)
+		}
+		if strings.TrimSpace(r.FormValue("splash_url")) == "" {
+			http.Redirect(w, r, "/commands", http.StatusFound)
+			return
+		}
 	}
 
 	payload := buildPayload(cmdType, r)
@@ -2711,8 +2732,9 @@ func buildPayload(cmdType string, r *http.Request) json.RawMessage {
 		b, _ := json.Marshal(map[string]string{"cmd": cmd})
 		return json.RawMessage(b)
 	case "update_splash":
-		// Client downloads url, validates the SPLASH!! magic and (if given)
-		// partition_size, then stages + triggers the init broker.
+		// Client downloads url (a splash.img: 0x4000 zero filler + BMP), validates
+		// the BMP signature at 0x4000 and (if given) partition_size, then stages +
+		// triggers the init broker.
 		m := map[string]any{"url": strings.TrimSpace(r.FormValue("splash_url"))}
 		if ps, err := strconv.ParseInt(strings.TrimSpace(r.FormValue("partition_size")), 10, 64); err == nil && ps > 0 {
 			m["partition_size"] = ps
