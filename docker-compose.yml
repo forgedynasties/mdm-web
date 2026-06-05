@@ -23,9 +23,12 @@ services:
     env_file: .env
     environment:
       DB_HOST: postgres
+    volumes:
+      - splashdata:/app/data
     depends_on:
       postgres:
         condition: service_healthy
 
 volumes:
   pgdata:
+  splashdata:

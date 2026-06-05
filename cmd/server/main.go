@@ -88,6 +88,19 @@ func main() {
 		staticFS.ServeHTTP(w, r)
 	}))
 
+	// Generated splash images (uploaded BMP/PNG/JPEG wrapped into splash.img by the
+	// dashboard) live on a persistent volume and are downloaded by devices. Filenames
+	// are unguessable UUIDs, so this is served unauthenticated like /static/.
+	splashDir := dashboard.SplashStoreDir()
+	if err := os.MkdirAll(splashDir, 0o755); err != nil {
+		log.Fatalf("failed to create splash dir: %v", err)
+	}
+	splashFS := http.StripPrefix("/splash-img/", http.FileServer(http.Dir(splashDir)))
+	mux.Handle("GET /splash-img/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
+		splashFS.ServeHTTP(w, r)
+	}))
+
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if err := database.Ping(r.Context()); err != nil {
