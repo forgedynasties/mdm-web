@@ -1994,6 +1994,93 @@ func (d *DB) PruneCheckins(ctx context.Context, days int) (int64, error) {
 	return tag.RowsAffected(), nil
 }
 
+// RollupDailyStats aggregates one calendar day of checkins into device_daily_stats
+// (one row per device for that day). Idempotent: re-running refreshes the day, so it
+// is safe to call repeatedly for the current (still-accumulating) day. Returns the
+// number of device-day rows written. `day` is interpreted at date granularity.
+func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error) {
+	dayStr := day.Format("2006-01-02")
+	tag, err := d.pool.Exec(ctx, `
+		INSERT INTO device_daily_stats AS s (
+			device_id, day, checkin_count, battery_min, battery_max, battery_avg,
+			temp_max, ram_pct_peak, charging_frac, online_minutes, build_id,
+			first_seen_at, last_seen_at, computed_at)
+		SELECT
+			c.device_id,
+			$1::date,
+			COUNT(*),
+			MIN(c.battery_pct),
+			MAX(c.battery_pct),
+			AVG(c.battery_pct)::real,
+			MAX((c.extra->>'battery_temp_c')::numeric)::real,
+			MAX(COALESCE(
+				((c.extra->'ram_usage_mb'->>'used')::numeric * 100)
+					/ NULLIF((c.extra->'ram_usage_mb'->>'total')::numeric, 0),
+				0))::smallint,
+			AVG(CASE WHEN (c.extra->>'charging')::boolean THEN 1 ELSE 0 END)::real,
+			COUNT(DISTINCT date_trunc('minute', c.created_at)),
+			(ARRAY_AGG(c.build_id ORDER BY c.created_at DESC))[1],
+			MIN(c.created_at),
+			MAX(c.created_at),
+			NOW()
+		FROM checkins c
+		WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
+		GROUP BY c.device_id
+		ON CONFLICT (device_id, day) DO UPDATE SET
+			checkin_count  = EXCLUDED.checkin_count,
+			battery_min    = EXCLUDED.battery_min,
+			battery_max    = EXCLUDED.battery_max,
+			battery_avg    = EXCLUDED.battery_avg,
+			temp_max       = EXCLUDED.temp_max,
+			ram_pct_peak   = EXCLUDED.ram_pct_peak,
+			charging_frac  = EXCLUDED.charging_frac,
+			online_minutes = EXCLUDED.online_minutes,
+			build_id       = EXCLUDED.build_id,
+			first_seen_at  = EXCLUDED.first_seen_at,
+			last_seen_at   = EXCLUDED.last_seen_at,
+			computed_at    = EXCLUDED.computed_at
+	`, dayStr)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// BackfillDailyStats rolls up every calendar day present in checkins that has no
+// rows yet in device_daily_stats. Used once at startup so historical telemetry is
+// captured before the hourly rollup takes over the current/recent days. Returns the
+// number of days processed.
+func (d *DB) BackfillDailyStats(ctx context.Context) (int, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT c.created_at::date AS day
+		FROM checkins c
+		WHERE NOT EXISTS (
+			SELECT 1 FROM device_daily_stats s WHERE s.day = c.created_at::date)
+		ORDER BY day`)
+	if err != nil {
+		return 0, err
+	}
+	var days []time.Time
+	for rows.Next() {
+		var day time.Time
+		if err := rows.Scan(&day); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		days = append(days, day)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+	for _, day := range days {
+		if _, err := d.RollupDailyStats(ctx, day); err != nil {
+			return 0, err
+		}
+	}
+	return len(days), nil
+}
+
 // PruneLogcat deletes logcat results and requests older than `days` days.
 func (d *DB) PruneLogcat(ctx context.Context, days int) (int64, error) {
 	if days <= 0 {
@@ -2262,6 +2349,27 @@ CREATE TABLE IF NOT EXISTS audit_log (
     detail     TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
+
+-- Per-device per-day rollup of checkin telemetry (Tier 1 descriptive analytics).
+-- Populated by RollupDailyStats; queried for trends so we never scan raw checkins.
+CREATE TABLE IF NOT EXISTS device_daily_stats (
+    device_id      UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    day            DATE NOT NULL,
+    checkin_count  INTEGER NOT NULL DEFAULT 0,
+    battery_min    SMALLINT,
+    battery_max    SMALLINT,
+    battery_avg    REAL,
+    temp_max       REAL,
+    ram_pct_peak   SMALLINT,
+    charging_frac  REAL,          -- fraction of checkins reporting charging=true
+    online_minutes INTEGER NOT NULL DEFAULT 0, -- distinct minute buckets with a checkin
+    build_id       TEXT NOT NULL DEFAULT '',    -- last build_id seen that day
+    first_seen_at  TIMESTAMPTZ,
+    last_seen_at   TIMESTAMPTZ,
+    computed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (device_id, day)
+);
+CREATE INDEX IF NOT EXISTS idx_device_daily_stats_day ON device_daily_stats(day DESC);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
