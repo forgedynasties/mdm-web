@@ -975,10 +975,16 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"InstalledPackages":   installedPkgs,
 		"KioskConfig":         kioskCfg,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+		"ShellEnabled":        h.cfg.ShellEnabled(),
+		"RemoteEnabled":       h.cfg.RemoteEnabled(),
 	})
 }
 
 func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.RemoteEnabled() {
+		http.Error(w, "Remote control is disabled by an administrator.", http.StatusForbidden)
+		return
+	}
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
@@ -2025,6 +2031,10 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	if cmdType == "" {
 		cmdType = "install_apk"
 	}
+	if cmdType == "shell" && !h.cfg.ShellEnabled() {
+		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
+		return
+	}
 
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	if cmdType == "install_apk" && apkURL == "" {
@@ -2657,6 +2667,10 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
+	if cmdType == "shell" && !h.cfg.ShellEnabled() {
+		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
+		return
+	}
 
 	targetType := r.FormValue("target_type")
 	if targetType != "all" && targetType != "devices" && targetType != "groups" {
@@ -2815,11 +2829,23 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"ExtraColumns":    h.cfg.Columns(),
 		"LegacyCheckin":   h.cfg.LegacyCheckin(),
 		"CheckinInterval": h.cfg.CheckinInterval(),
+		"ShellEnabled":    h.cfg.ShellEnabled(),
+		"RemoteEnabled":   h.cfg.RemoteEnabled(),
 	})
 }
 
 func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetLegacyCheckin(!h.cfg.LegacyCheckin())
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsToggleShell(w http.ResponseWriter, r *http.Request) {
+	h.cfg.SetShellEnabled(!h.cfg.ShellEnabled())
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsToggleRemote(w http.ResponseWriter, r *http.Request) {
+	h.cfg.SetRemoteEnabled(!h.cfg.RemoteEnabled())
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -2996,6 +3022,11 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	cmdType := r.FormValue("type")
 	if cmdType == "" {
 		cmdType = "install_apk"
+	}
+
+	if cmdType == "shell" && !h.cfg.ShellEnabled() {
+		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
+		return
 	}
 
 	userRole := h.role(r)
@@ -3417,6 +3448,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/columns/add", h.requireAdmin(h.SettingsAddColumn))
 	mux.HandleFunc("POST /settings/columns/{key}/remove", h.requireAdmin(h.SettingsRemoveColumn))
 	mux.HandleFunc("POST /settings/legacy-checkin/toggle", h.requireAdmin(h.SettingsToggleLegacyCheckin))
+	mux.HandleFunc("POST /settings/shell/toggle", h.requireAdmin(h.SettingsToggleShell))
+	mux.HandleFunc("POST /settings/remote/toggle", h.requireAdmin(h.SettingsToggleRemote))
 	mux.HandleFunc("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))
 
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
