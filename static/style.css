@@ -971,25 +971,36 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
   height: 300px;
 }
 .chart-tabs {
-  display: flex;
+  display: inline-flex;
   gap: 2px;
-  padding: 8px 16px 0;
-  border-bottom: 1px solid var(--border);
+  margin: 12px 16px 4px;
+  padding: 2px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: fit-content;
 }
 .chart-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 5px 14px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: var(--fw-medium);
   color: var(--muted);
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: color 120ms, border-color 120ms;
+  transition: color 120ms, background 120ms;
 }
 .chart-tab:hover { color: var(--text); }
-.chart-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.chart-tab.active {
+  background: var(--surface);
+  color: var(--accent);
+  font-weight: var(--fw-semibold);
+  box-shadow: var(--shadow-sm);
+}
 .chart-legend {
   display: flex;
   align-items: center;
