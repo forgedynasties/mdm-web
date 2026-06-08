@@ -13,10 +13,7 @@
   <div class="cmd-builder" id="cmd-builder">
 
     <div class="cmd-builder-head">
-      <div class="head-title">
-        <span>New <strong>command</strong></span>
-      </div>
-      <span class="kbd-hint">⌘↵ to send</span>
+      <h3 class="head-title">New command</h3>
     </div>
 
     <div class="cmd-builder-body">
@@ -64,7 +61,7 @@
         <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
 
         <div class="payload-zone">
-          <span class="payload-zone-label">payload</span>
+          <span class="payload-zone-label">Payload</span>
 
           <div id="apk-fields" class="payload-section is-active">
             {{if .Apps}}
@@ -108,7 +105,7 @@
         </div>
 
         <div class="target-row">
-          <span class="target-label">→ target</span>
+          <span class="target-label">Target</span>
           <div class="target-pills">
             <button type="button" class="target-pill is-active" data-target="all" onclick="selectTarget('all', this)">
               <span class="pill-dot"></span>All Devices
@@ -149,7 +146,6 @@
         <button type="submit" id="send-btn" class="btn-send-cli">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
           Send Command
-          <span class="kbd">⌘↵</span>
         </button>
       </div>
 
