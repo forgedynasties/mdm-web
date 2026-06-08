@@ -942,6 +942,23 @@
   syncMarkerToggle();
   setChartTab(activeTab);
   window.mdmChart = { allBattery, allTemp, allRam, updateCharts };
+
+  // Recolor chart grid/ticks live when the theme is toggled.
+  window.addEventListener('mdm:themechange', function () {
+    const cs = getComputedStyle(document.documentElement);
+    const grid = (cs.getPropertyValue('--chart-grid') || '').trim() || GRID;
+    const tick = (cs.getPropertyValue('--chart-tick') || '').trim() || TICK;
+    [batteryChart, tempChart, ramChart, unifiedChart].forEach(function (ch) {
+      if (!ch || !ch.options || !ch.options.scales) return;
+      Object.keys(ch.options.scales).forEach(function (k) {
+        const sc = ch.options.scales[k];
+        if (!sc) return;
+        if (sc.grid) sc.grid.color = grid;
+        if (sc.ticks) sc.ticks.color = tick;
+      });
+      ch.update('none');
+    });
+  });
 })();
 </script>
 
