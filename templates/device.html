@@ -1,76 +1,52 @@
 {{define "device-stats"}}
-<div class="stats-grid"
+<div class="dd-details"
   id="device-stats"
   hx-get="/devices/{{.Device.SerialNumber}}/stats"
   hx-trigger="device-updated from:body, every 180s"
   hx-swap="outerHTML">
-  <div class="stat-card">
-    <div class="stat-label">Battery</div>
-    <div class="stat-value {{batteryClass .Device.BatteryPct}}">{{.Device.BatteryPct}}%{{if and (charging .Device.LatestExtra) (notStale .Device.LastSeenAt $.ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</div>
-    <div class="battery-wrap large">
-      <div class="battery-track">
-        <div class="battery-bar {{batteryClass .Device.BatteryPct}}" style="width:{{batteryWidth .Device.BatteryPct}}"></div>
-      </div>
-    </div>
+  <div class="dd-drow">
+    <span class="dd-row-label">Battery</span>
+    <span class="dd-row-val">{{.Device.BatteryPct}}%{{if and (charging .Device.LatestExtra) (notStale .Device.LastSeenAt $.ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Build ID</div>
-    <div class="stat-value mono small">{{.Device.BuildID}}</div>
+  <div class="dd-drow">
+    <span class="dd-row-label">Build ID</span>
+    <span class="dd-row-val mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Last Seen</div>
-    <div class="stat-value">{{timeSince .Device.LastSeenAt}}</div>
-    <div class="stat-sub">{{localTime .Device.LastSeenAt}}</div>
+  <div class="dd-drow">
+    <span class="dd-row-label">Last seen</span>
+    <span class="dd-row-val">{{timeSince .Device.LastSeenAt}}</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">First Seen</div>
-    <div class="stat-value">{{timeSince .Device.CreatedAt}}</div>
-    <div class="stat-sub">{{localTime .Device.CreatedAt}}</div>
+  <div class="dd-drow">
+    <span class="dd-row-label">Onboarded</span>
+    <span class="dd-row-val">{{timeSince .Device.CreatedAt}}</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">RAM Usage</div>
+  <div class="dd-drow">
+    <span class="dd-row-label">RAM usage</span>
     {{$ram := ramUsage .Device.LatestExtra}}
     {{if $ram}}
-      {{$pct := ramPct $ram}}
-      <div class="stat-value {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</div>
-      <div class="stat-sub">{{index $ram "used"}}MB / {{index $ram "total"}}MB</div>
+      <span class="dd-row-val">{{ramPct $ram}}% <span class="muted">({{index $ram "used"}} / {{index $ram "total"}} MB)</span></span>
     {{else}}
-      <div class="stat-value muted">—</div>
+      <span class="dd-row-val muted">—</span>
     {{end}}
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Temperature</div>
+  <div class="dd-drow">
+    <span class="dd-row-label">Temperature</span>
     {{$temp := batteryTemp .Device.LatestExtra}}
-    {{if ne $temp ""}}
-      <div class="stat-value {{tempClass .Device.LatestExtra}}">{{$temp}}</div>
-    {{else}}
-      <div class="stat-value muted">—</div>
-    {{end}}
+    <span class="dd-row-val">{{if ne $temp ""}}{{$temp}}{{else}}—{{end}}</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Timezone</div>
+  <div class="dd-drow">
+    <span class="dd-row-label">Timezone</span>
     {{$tz := extraField .Device.LatestExtra "timezone"}}
-    {{if $tz}}
-      <div class="stat-value mono small">{{$tz}}</div>
-    {{else}}
-      <div class="stat-value muted">—</div>
-    {{end}}
+    <span class="dd-row-val mono">{{if $tz}}{{$tz}}{{else}}—{{end}}</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Location</div>
+  <div class="dd-drow">
+    <span class="dd-row-label">Location</span>
     {{$lat := extraField .Device.LatestExtra "latitude"}}
     {{$lon := extraField .Device.LatestExtra "longitude"}}
     {{if and $lat $lon}}
-      <div class="stat-value small"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{$lat}}, {{$lon}}</a></div>
-      {{$acc := extraField .Device.LatestExtra "location_accuracy"}}
-      {{if $acc}}
-        <div class="stat-sub">±{{$acc}}m via WiFi</div>
-      {{else}}
-        <div class="stat-sub">via WiFi</div>
-      {{end}}
+      <span class="dd-row-val"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{$lat}}, {{$lon}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if $acc}} <span class="muted">±{{$acc}}m</span>{{end}}</span>
     {{else}}
-      <div class="stat-value muted">—</div>
-      <div class="stat-sub">No WiFi location</div>
+      <span class="dd-row-val muted">—</span>
     {{end}}
   </div>
 </div>
