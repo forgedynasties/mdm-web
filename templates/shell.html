@@ -6,33 +6,50 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{.Title}} — MDM</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('mdm-theme');
+        document.documentElement.setAttribute('data-theme', (t === 'light' || t === 'dark') ? t : 'light');
+      } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); }
+    })();
+  </script>
   <link rel="stylesheet" href="/static/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
   <style>
-    body { display: flex; flex-direction: column; height: 100vh; margin: 0; }
+    body { display: flex; flex-direction: column; height: 100vh; margin: 0; background: var(--console-bg); }
     .shell-nav {
-      display: flex; align-items: center; gap: 12px;
-      padding: 8px 16px; background: var(--surface);
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; background: var(--surface);
       border-bottom: 1px solid var(--border); flex-shrink: 0;
     }
-    .shell-status {
-      margin-left: auto; font-size: 12px; padding: 2px 8px;
-      border-radius: 4px; font-family: var(--mono);
+    .shell-nav .shell-title {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 14px; font-weight: var(--fw-semibold); color: var(--text);
     }
-    .shell-status.connected    { background: rgba(0,200,80,0.15); color: #00c850; }
-    .shell-status.disconnected { background: rgba(220,50,50,0.15); color: #dc3232; }
-    .shell-status.connecting   { background: rgba(120,120,120,0.15); color: #888; }
+    .shell-nav .shell-title .ui-icon { width: 16px; height: 16px; color: var(--accent); }
+    .shell-nav .shell-serial { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+    .shell-status {
+      margin-left: auto; font-size: var(--t-11); font-weight: var(--fw-medium);
+      padding: 3px 10px; border-radius: 999px; border: 1px solid;
+      font-family: var(--mono); letter-spacing: .02em; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .shell-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .shell-status.connected    { color: var(--ok);     background: var(--ok-bg);     border-color: var(--ok-edge); }
+    .shell-status.disconnected { color: var(--danger); background: var(--danger-bg); border-color: var(--danger-edge); }
+    .shell-status.connecting   { color: var(--muted);  background: var(--surface-3); border-color: var(--rule); }
     #terminal-wrap {
-      flex: 1; overflow: hidden; padding: 8px;
-      background: #1a1a2e;
+      flex: 1; overflow: hidden; padding: 10px 12px;
+      background: var(--console-bg);
     }
     #terminal { height: 100%; }
   </style>
 </head>
 <body>
   <div class="shell-nav">
-    <a href="/devices/{{.Serial}}" class="back-link" style="margin:0;">← {{.Serial}}</a>
-    <span class="mono small" style="color:var(--muted);">Interactive Shell</span>
+    <a href="/devices/{{.Serial}}" class="dd-icon-btn" title="Back to device" aria-label="Back to device"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a>
+    <span class="shell-title"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Interactive Shell</span>
+    <span class="shell-serial">{{.Serial}}</span>
     <span id="status" class="shell-status connecting">connecting…</span>
   </div>
   <div id="terminal-wrap">
@@ -51,11 +68,11 @@
       fontSize: 13,
       fontFamily: '"Cascadia Code", "Fira Code", monospace',
       theme: {
-        background: '#1a1a2e',
-        foreground: '#e0e0f0',
-        cursor:     '#e0e0f0',
-        black:      '#1a1a2e',
-        brightBlack:'#4a4a6e',
+        background: '#0e1115',
+        foreground: '#d6dbe2',
+        cursor:     '#d6dbe2',
+        black:      '#0e1115',
+        brightBlack:'#3a4452',
       },
     });
 
