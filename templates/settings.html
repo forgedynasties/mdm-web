@@ -57,5 +57,37 @@
   </div>
 </div>
 
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Command Governance</h3></div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:8px;">A pending shell/screenshot/reboot command is shown as <em>expired</em> after this long.</div>
+    <form action="/settings/command-expiry" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="expiry" value="{{.CommandExpiry}}" min="30" step="1" class="form-input" style="width:120px;">
+      <span class="muted small">seconds</span>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:8px;">Maximum number of devices a single command may target by explicit serial list (0 = unlimited). Does not affect "all devices".</div>
+    <form action="/settings/max-targets" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="max_targets" value="{{.MaxTargets}}" min="0" step="1" class="form-input" style="width:120px;">
+      <span class="muted small">devices</span>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+  <div style="padding:16px;">
+    <strong>Operator permissions</strong>
+    <div class="muted small" style="margin:4px 0 10px;">Which command types operators may send. Admins always have full access; viewers are read-only.</div>
+    <form action="/settings/operator-perms" method="POST">
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="install_apk" {{if .OpAllowInstall}}checked{{end}}> Install APK</label>
+        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="shell" {{if .OpAllowShell}}checked{{end}}> Shell</label>
+        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="reboot" {{if .OpAllowReboot}}checked{{end}}> Reboot</label>
+      </div>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+</div>
+
 {{template "footer" .}}
 {{end}}

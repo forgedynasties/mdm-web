@@ -1432,13 +1432,16 @@ type DeviceCommand struct {
 }
 
 // GetDeviceCommands returns all commands targeting a device with their status.
-func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]DeviceCommand, error) {
-	rows, err := d.pool.Query(ctx, `
+func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySec int) ([]DeviceCommand, error) {
+	if expirySec <= 0 {
+		expirySec = 300
+	}
+	rows, err := d.pool.Query(ctx, fmt.Sprintf(`
 		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at,
 		       CASE
 		         WHEN cs.status IS NOT NULL THEN cs.status
 		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
-		              AND c.created_at <= NOW() - INTERVAL '5 minutes' THEN 'expired'
+		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
 		         ELSE 'pending'
 		       END AS status,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
@@ -1458,7 +1461,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]Devic
 			))
 		)
 		ORDER BY c.created_at DESC
-	`, deviceID)
+	`, expirySec), deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -1478,14 +1481,17 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID) ([]Devic
 // GetCommandDeliveries returns per-device status for a command.
 // Shell/screenshot/reboot deliveries that are still 'delivered' or 'pending'
 // after 5 minutes from command creation are reported as 'expired'.
-func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]CommandDelivery, error) {
-	rows, err := d.pool.Query(ctx, `
+func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expirySec int) ([]CommandDelivery, error) {
+	if expirySec <= 0 {
+		expirySec = 300
+	}
+	rows, err := d.pool.Query(ctx, fmt.Sprintf(`
 		SELECT cs.device_id,
 		       d.serial_number,
 		       CASE
 		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
 		              AND cs.status IN ('pending', 'delivered')
-		              AND c.created_at <= NOW() - INTERVAL '5 minutes'
+		              AND c.created_at <= NOW() - INTERVAL '%d seconds'
 		           THEN 'expired'
 		         ELSE cs.status
 		       END AS status,
@@ -1498,7 +1504,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID) ([]C
 		LEFT JOIN command_results cr ON cr.command_id = cs.command_id AND cr.device_id = cs.device_id
 		WHERE cs.command_id = $1
 		ORDER BY cs.updated_at DESC
-	`, commandID)
+	`, expirySec), commandID)
 	if err != nil {
 		return nil, err
 	}
