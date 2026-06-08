@@ -678,6 +678,17 @@ func (h *Handler) currentUsername(r *http.Request) string {
 	return username
 }
 
+// audit records an admin action (best-effort; never blocks the request).
+func (h *Handler) audit(r *http.Request, action, target, detail string) {
+	actor := h.currentUsername(r)
+	if actor == "" {
+		actor = "unknown"
+	}
+	if err := h.db.InsertAudit(r.Context(), actor, action, target, detail); err != nil {
+		log.Printf("[audit] insert failed: %v", err)
+	}
+}
+
 func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any {
 	if data == nil {
 		data = map[string]any{}
@@ -704,6 +715,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
 		data["ActivePage"] = "settings"
+	case strings.HasPrefix(path, "/audit"):
+		data["ActivePage"] = "audit"
 	case strings.HasPrefix(path, "/users"):
 		data["ActivePage"] = "users"
 	}
@@ -2091,6 +2104,7 @@ func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.audit(r, "device.hide", serial, "")
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -2707,6 +2721,11 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
 		return
 	}
+	reason := strings.TrimSpace(r.FormValue("reason"))
+	if isDestructiveCmd(cmdType) && h.cfg.RequireReason() && reason == "" {
+		http.Error(w, "A reason is required for this command.", http.StatusBadRequest)
+		return
+	}
 
 	targetType := r.FormValue("target_type")
 	if targetType != "all" && targetType != "devices" && targetType != "groups" {
@@ -2778,7 +2797,18 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushCommand(r.Context(), cmd, targetType, targetIDs)
+	detail := fmt.Sprintf("target=%s, devices=%d", targetType, len(targetIDs))
+	if reason != "" {
+		detail += ", reason=" + reason
+	}
+	h.audit(r, "command.send", cmdType, detail)
 	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
+}
+
+// isDestructiveCmd marks command types that change device state in a way that
+// warrants a reason when the RequireReason setting is on.
+func isDestructiveCmd(t string) bool {
+	return t == "reboot" || t == "ota" || t == "update_splash"
 }
 
 func buildPayload(cmdType string, r *http.Request) json.RawMessage {
@@ -2876,6 +2906,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"OpAllowShell":    h.cfg.OperatorAllows("shell"),
 		"OpAllowReboot":   h.cfg.OperatorAllows("reboot"),
 		"OpAllowInstall":  h.cfg.OperatorAllows("install_apk"),
+		"RequireReason":   h.cfg.RequireReason(),
 		"SessionTimeout":  h.cfg.SessionTimeout(),
 		"BrandName":       h.cfg.BrandName(),
 		"PageSize":        h.cfg.PageSize(),
@@ -2926,6 +2957,20 @@ func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Reques
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
+func (h *Handler) AuditPage(w http.ResponseWriter, r *http.Request) {
+	entries, err := h.db.ListAudit(r.Context(), 200)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "audit.html", map[string]any{"Title": "Audit Log", "Entries": entries})
+}
+
+func (h *Handler) SettingsToggleRequireReason(w http.ResponseWriter, r *http.Request) {
+	h.cfg.SetRequireReason(!h.cfg.RequireReason())
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
 func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	h.cfg.SetBrandName(strings.TrimSpace(r.FormValue("brand")))
@@ -2955,6 +3000,7 @@ func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Reque
 
 func (h *Handler) SettingsLogoutAll(w http.ResponseWriter, r *http.Request) {
 	// Invalidate every session issued before now (including this one).
+	h.audit(r, "session.logout_all", "", "")
 	h.cfg.SetSessionEpoch(time.Now().Unix())
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
@@ -3183,6 +3229,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
+	h.audit(r, "command.send", cmdType, "device="+serial)
 	if r.Header.Get("Accept") == "application/json" {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"id": cmd.ID.String()})
@@ -3573,6 +3620,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/command-expiry", h.requireAdmin(h.SettingsSetCommandExpiry))
 	mux.HandleFunc("POST /settings/max-targets", h.requireAdmin(h.SettingsSetMaxTargets))
 	mux.HandleFunc("POST /settings/operator-perms", h.requireAdmin(h.SettingsSetOperatorPerms))
+	mux.HandleFunc("GET /audit", h.requireAdmin(h.AuditPage))
+	mux.HandleFunc("POST /settings/require-reason", h.requireAdmin(h.SettingsToggleRequireReason))
 	mux.HandleFunc("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
 	mux.HandleFunc("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
 	mux.HandleFunc("POST /settings/logout-all", h.requireAdmin(h.SettingsLogoutAll))

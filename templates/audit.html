@@ -1,0 +1,51 @@
+{{define "audit.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v4"/><path d="M21 12h-4"/></svg></span>Audit Log</h2>
+    <p class="page-subtitle">Recent administrative actions</p>
+  </div>
+</div>
+
+<div class="card">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Actor</th>
+        <th>Action</th>
+        <th>Target</th>
+        <th>Detail</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{if .Entries}}
+        {{range .Entries}}
+        <tr>
+          <td class="muted small"><span class="js-local-time" data-utc="{{timeISO .CreatedAt}}" data-format="full">{{localTime .CreatedAt}}</span></td>
+          <td class="small">{{.Actor}}</td>
+          <td><span class="status-badge muted">{{.Action}}</span></td>
+          <td class="mono small">{{if .Target}}{{.Target}}{{else}}<span class="muted">—</span>{{end}}</td>
+          <td class="small muted">{{if .Detail}}{{.Detail}}{{else}}—{{end}}</td>
+        </tr>
+        {{end}}
+      {{else}}
+        <tr>
+          <td colspan="5">
+            <div class="empty-state">
+              <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 8v5l3 2"/><circle cx="12" cy="12" r="9"/></svg></span>
+              <div class="empty-state-copy">
+                <div class="empty-state-title">No activity yet</div>
+                <div class="empty-state-text">Administrative actions (commands, hides, kiosk changes) will appear here.</div>
+              </div>
+            </div>
+          </td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+{{template "footer" .}}
+{{end}}

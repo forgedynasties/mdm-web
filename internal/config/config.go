@@ -24,6 +24,7 @@ type Config struct {
 	CommandExpirySecVal int      `json:"command_expiry_sec"` // 0 -> default 300
 	MaxTargetsVal       int      `json:"max_targets"`        // 0 -> unlimited
 	OperatorDeniedCmds  []string `json:"operator_denied_cmds"`
+	RequireReasonFlag   bool     `json:"require_reason"` // require a reason for destructive commands
 
 	// Sessions.
 	SessionTimeoutSecVal int   `json:"session_timeout_sec"` // 0 -> default 86400
@@ -220,6 +221,20 @@ func (c *Config) SessionEpoch() int64 {
 func (c *Config) SetSessionEpoch(ts int64) error {
 	c.mu.Lock()
 	c.SessionEpochVal = ts
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) RequireReason() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.RequireReasonFlag
+}
+
+func (c *Config) SetRequireReason(v bool) error {
+	c.mu.Lock()
+	c.RequireReasonFlag = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)
