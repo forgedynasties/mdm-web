@@ -215,29 +215,36 @@ body > .modal-backdrop {
   z-index: 1;
 }
 
+/* Sidebar layout: shift page content right of the fixed sidebar */
+body.has-sidebar { padding-left: 220px; }
+
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-h); }
 
 /* ── Navbar ──────────────────────────────────────── */
 .navbar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 220px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 var(--s-6);
-  height: 52px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 16px 12px;
   background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  border-right: 1px solid var(--border);
+  z-index: 20;
+  overflow-y: auto;
 }
+.navbar > form { width: 100%; }
 
 .navbar-brand {
   font-family: var(--font);
   font-weight: var(--fw-semibold);
-  font-size: var(--t-14);
+  font-size: 16px;
   letter-spacing: .04em;
   color: var(--text);
+  padding: 6px 10px 16px;
   transition: color var(--dur) var(--ease);
 }
 .navbar-brand:hover { color: var(--text-2); }
@@ -270,35 +277,31 @@ a:hover { color: var(--accent-h); }
 
 .navbar-links {
   display: flex;
+  flex-direction: column;
   gap: 2px;
-  height: 100%;
   align-items: stretch;
+  height: auto;
 }
 .nav-link {
   color: var(--muted);
   font-family: var(--font);
   font-size: var(--t-13);
   font-weight: var(--fw-medium);
-  padding: 0 var(--s-3);
+  padding: 9px 10px;
+  border-radius: var(--r-2);
   display: inline-flex;
   align-items: center;
   gap: var(--s-2);
   position: relative;
-  transition: color var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
-.nav-link::after {
-  content: "";
-  position: absolute;
-  left: var(--s-3);
-  right: var(--s-3);
-  bottom: 0;
-  height: 2px;
-  background: transparent;
-  transition: background var(--dur) var(--ease);
+.nav-link:hover { color: var(--text); background: var(--hover); }
+.nav-link.active {
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: var(--fw-semibold);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
-.nav-link:hover { color: var(--text-2); }
-.nav-link.active { color: var(--text); }
-.nav-link.active::after { background: var(--accent); }
 /* ── Icons ───────────────────────────────────────────
  * Single rule normalizes every inline <svg> in .ui-icon.
  * Variants: .ui-icon-sm (12px) | .ui-icon-lg (20px) | .ui-icon-xl (28px)
@@ -366,10 +369,11 @@ a:hover { color: var(--accent-h); }
 }
 
 .btn-logout {
+  width: 100%;
   background: transparent;
   border: 1px solid var(--rule);
   color: var(--muted);
-  padding: 5px 12px;
+  padding: 7px 12px;
   border-radius: var(--r-2);
   cursor: pointer;
   font-size: var(--t-12);
@@ -389,8 +393,9 @@ a:hover { color: var(--accent-h); }
   padding: 6px;
   border-radius: var(--r-2);
   cursor: pointer;
-  margin-left: auto;
-  margin-right: 12px;
+  margin-top: auto;
+  align-self: flex-start;
+  margin-bottom: 8px;
   transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .theme-toggle:hover { color: var(--text); background: var(--hover); border-color: var(--rule-2); }
@@ -405,9 +410,9 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 .navbar-user {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 2px;
-  margin-right: 12px;
+  margin: 0 4px 10px;
   line-height: 1.1;
 }
 .navbar-user-name {
@@ -2638,12 +2643,50 @@ input[type="checkbox"]:hover {
   .type-grid { grid-template-columns: repeat(2, 1fr); }
   .container { padding: var(--s-5); }
   .page-header { gap: var(--s-3); }
-  .navbar-user { display: none; }   /* user/role labels hide; logout stays */
 }
 
 @media (max-width: 900px) {
   .summary-grid { grid-template-columns: repeat(3, 1fr); }
   .filter-bar { flex-wrap: wrap; }
+}
+
+/* Narrow screens: revert the sidebar to a horizontal top bar + hamburger */
+@media (max-width: 860px) {
+  body.has-sidebar { padding-left: 0; }
+  .navbar {
+    position: sticky;
+    inset: auto;
+    top: 0;
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--s-2);
+    min-height: 52px;
+    padding: var(--s-3) var(--s-4);
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    overflow: visible;
+    z-index: 10;
+  }
+  .navbar > form { width: auto; }
+  .navbar-brand { padding: 0; }
+  .nav-toggle { display: flex; }
+  .navbar-links {
+    display: none;
+    order: 3;
+    width: 100%;
+    gap: 0;
+    padding: var(--s-2) 0;
+    border-top: 1px solid var(--border);
+    margin-top: var(--s-2);
+  }
+  .nav-open .navbar-links { display: flex; }
+  .nav-link { border-radius: 0; box-shadow: none; }
+  .nav-link.active { background: var(--surface2); box-shadow: none; border-left: 2px solid var(--accent); padding-left: calc(10px - 2px); }
+  .theme-toggle { margin: 0 0 0 auto; align-self: center; }
+  .navbar-user { display: none; }
+  .btn-logout { width: auto; }
 }
 
 @media (max-width: 640px) {
