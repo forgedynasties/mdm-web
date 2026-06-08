@@ -106,15 +106,21 @@
       <span class="muted small">{{.CheckinTotal}} total</span>
     </div>
   </div>
-  <div class="collapsible-body" style="display:none;">
+  <div class="collapsible-body">
   <table class="table">
     <thead>
       <tr>
         <th>Time</th>
         <th>Battery</th>
+        <th>Temp</th>
         <th>Build ID</th>
-        {{range .ExtraColumns}}<th>{{.Label}}</th>{{end}}
-        <th>Extra Data</th>
+        <th>RAM Used</th>
+        <th>RAM Total</th>
+        <th>Storage Free</th>
+        <th>Uptime</th>
+        <th>Timezone</th>
+        <th>WiFi</th>
+        <th>IP Address</th>
       </tr>
     </thead>
     <tbody>
@@ -131,14 +137,20 @@
               <span class="battery-label">{{.BatteryPct}}%{{if charging .Extra}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span>
             </div>
           </td>
+          <td class="small">{{$t := extraField $extra "battery_temp_c"}}{{if $t}}{{$t}}°C{{else}}<span class="muted">—</span>{{end}}</td>
           <td class="mono small">{{.BuildID}}</td>
-          {{range $.ExtraColumns}}<td class="small">{{extraField $extra .Key}}</td>{{end}}
-          <td class="mono small muted extra-cell">{{rawJSON .Extra}}</td>
+          <td class="small">{{or (extraField $extra "ram_used_mb") "—"}}</td>
+          <td class="small">{{or (extraField $extra "ram_total_mb") "—"}}</td>
+          <td class="small">{{or (extraField $extra "storage_free_gb") "—"}}</td>
+          <td class="small">{{or (extraField $extra "uptime_seconds") "—"}}</td>
+          <td class="small">{{or (extraField $extra "timezone") "—"}}</td>
+          <td class="small">{{or (extraField $extra "wifi") "—"}}</td>
+          <td class="mono small">{{or (extraField $extra "ip_address") "—"}}</td>
         </tr>
         {{end}}
       {{else}}
         <tr>
-          <td colspan="4">
+          <td colspan="11">
             <div class="empty-state">
               <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l2 2"/></svg></span>
               <div class="empty-state-copy">
@@ -1409,15 +1421,15 @@ async function saveNewApp() {
   <div>
     <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
     <h2 class="page-title">History</h2>
-    <p class="page-subtitle">Command history and check-in history for this device.</p>
+    <p class="page-subtitle">Check-in history and command history for this device.</p>
   </div>
   <div style="display:flex;gap:8px;">
     <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg></span>Logcat</a>
   </div>
 </div>
 
-{{template "device-commands" .}}
 {{template "device-checkins" .}}
+{{template "device-commands" .}}
 
 <div id="checkin-modal" class="modal-backdrop" onclick="closeModal(event)">
   <div class="modal-box">
