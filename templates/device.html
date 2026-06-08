@@ -325,6 +325,10 @@
 
 <script>
 (function () {
+  // Theme-aware chart colors (grid/ticks) read from CSS tokens.
+  const _cs = getComputedStyle(document.documentElement);
+  const GRID = (_cs.getPropertyValue('--chart-grid') || '').trim() || 'rgba(46,51,71,0.8)';
+  const TICK = (_cs.getPropertyValue('--chart-tick') || '').trim() || '#7a7f9a';
   const allBattery = [{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}];
   const allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
   const allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
@@ -498,7 +502,7 @@
   function sharedXScale() {
     return {
       type: "linear",
-      ticks: { color: "#7a7f9a", maxTicksLimit: 8, maxRotation: 0, minRotation: 0, callback: v => fmtTime(v) },
+      ticks: { color: TICK, maxTicksLimit: 8, maxRotation: 0, minRotation: 0, callback: v => fmtTime(v) },
       grid: { display: false },
     };
   }
@@ -711,7 +715,7 @@
       },
       scales: {
         x: sharedXScale(),
-        y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
+        y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20 }, grid: { color: GRID } },
       },
     },
     plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
@@ -761,7 +765,7 @@
       },
       scales: {
         x: sharedXScale(),
-        y: { ticks: { color: "#7a7f9a", callback: v => v + "°C" }, grid: { color: "rgba(46,51,71,0.8)" } },
+        y: { ticks: { color: TICK, callback: v => v + "°C" }, grid: { color: GRID } },
       },
     },
     plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
@@ -806,7 +810,7 @@
       },
       scales: {
         x: sharedXScale(),
-        y: { min: 0, max: 100, ticks: { color: "#7a7f9a", callback: v => v + "%", stepSize: 20 }, grid: { color: "rgba(46,51,71,0.8)" } },
+        y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20 }, grid: { color: GRID } },
       },
     },
     plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
@@ -819,7 +823,7 @@
   // Reuse the same linear ms-timestamp x-axis the individual charts use
   const unifiedXCfg = {
     type: 'linear',
-    grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+    grid: { color: GRID, drawBorder: false },
     ticks: {
       color: '#7a7f9a', maxTicksLimit: 8, font: { size: 11 },
       callback: v => fmtDate(v),
@@ -862,7 +866,7 @@
         x: unifiedXCfg,
         yPct: {
           position: 'left', min: 0, max: 100,
-          grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+          grid: { color: GRID, drawBorder: false },
           ticks: { color: '#7a7f9a', font: { size: 11 }, callback: v => v + '%', maxTicksLimit: 5 },
           border: { display: false },
         },
