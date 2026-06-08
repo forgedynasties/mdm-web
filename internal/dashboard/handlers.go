@@ -2965,6 +2965,14 @@ func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Reques
 // RunHousekeeping applies the configured auto-hide and retention policies.
 // Safe to call repeatedly; each step is a no-op when its setting is 0.
 func (h *Handler) RunHousekeeping(ctx context.Context) {
+	// Roll up daily stats first — refresh today and finalize yesterday — so checkins
+	// are always aggregated before the retention prune below can delete them.
+	now := time.Now()
+	for _, day := range []time.Time{now, now.AddDate(0, 0, -1)} {
+		if _, err := h.db.RollupDailyStats(ctx, day); err != nil {
+			log.Printf("[housekeeping] rollup daily stats %s: %v", day.Format("2006-01-02"), err)
+		}
+	}
 	if d := h.cfg.AutoHideDays(); d > 0 {
 		if n, err := h.db.HideStaleDevices(ctx, d); err != nil {
 			log.Printf("[housekeeping] hide stale: %v", err)

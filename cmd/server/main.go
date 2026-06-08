@@ -186,7 +186,17 @@ func main() {
 	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
 	dash.RegisterRoutes(mux)
 
-	// Periodic housekeeping: auto-hide stale devices + retention pruning.
+	// One-time backfill of daily stats for any historical days not yet rolled up.
+	// Runs in the background so it never blocks startup.
+	go func() {
+		if n, err := database.BackfillDailyStats(context.Background()); err != nil {
+			log.Printf("[startup] backfill daily stats: %v", err)
+		} else if n > 0 {
+			log.Printf("[startup] backfilled daily stats for %d day(s)", n)
+		}
+	}()
+
+	// Periodic housekeeping: daily-stats rollup + auto-hide stale devices + retention pruning.
 	go func() {
 		t := time.NewTicker(1 * time.Hour)
 		defer t.Stop()
