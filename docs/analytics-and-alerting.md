@@ -75,9 +75,23 @@ value. The time series is the unmined asset.
 
 ## 2. Tiered roadmap (build in this order)
 
-### Tier 1 — Descriptive (≈80% already exists)
+### Tier 1 — Descriptive (≈80% already exists) — **rollup pipeline landed**
 Extend `GetSummary()`-style snapshots from "right now" to "over time" via per-device and
 per-group **daily rollups**. Foundation for everything below.
+
+**Done (branch `analytics-alerting`):**
+- `device_daily_stats` table (per device per day): checkin_count, battery min/max/avg,
+  temp_max, ram_pct_peak, charging_frac, online_minutes, build_id, first/last_seen.
+- `RollupDailyStats(day)` (idempotent upsert) + `BackfillDailyStats()` in `db.go`.
+- Wired: rollup runs at the top of `RunHousekeeping` (today + yesterday, before prune);
+  one-time backfill at startup in `main.go`.
+- Read side: `GetDeviceDailyStats(deviceID, days)` + `GET /devices/{serial}/daily-stats`
+  JSON endpoint.
+- UI: **Trends** tab on device detail — 30/7/90-day Chart.js line chart (battery min–max
+  band + avg, charging-coverage %).
+
+**Still open for Tier 1:** per-**group** rollup/aggregation (currently per-device only);
+visual screenshot verification of the Trends tab against a seeded stack.
 
 ### Tier 2 — Alerting (build FIRST — highest ROI, no ML)
 Rule-based catalog, tuned to the restaurant/overnight-charge use case. See §3.
@@ -179,3 +193,7 @@ and an **Alerts** view (open/ack/resolved).
 
 - **2026-06-08** — Initial checkpoint. Data inventory, ML verdict (not needed yet),
   4-tier roadmap, alert catalog, volume/architecture, first slice, open questions.
+- **2026-06-08** — Tier 1 rollup pipeline landed on branch `analytics-alerting`:
+  `device_daily_stats` + rollup/backfill, housekeeping + startup wiring, daily-stats
+  getter + JSON endpoint, and a device-detail **Trends** tab (Chart.js). Per-group
+  aggregation and screenshot verification still open.
