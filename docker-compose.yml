@@ -19,7 +19,7 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "${PORT:-8080}:8080"
+      - "${PORT:-8082}:8082"
     env_file: .env
     environment:
       DB_HOST: postgres
