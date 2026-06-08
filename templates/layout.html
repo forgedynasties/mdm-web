@@ -16,7 +16,7 @@
       }
     })();
   </script>
-  <title>{{.Title}} — MDM</title>
+  <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}MDM{{end}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,10 +24,10 @@
   <link rel="stylesheet" href="/static/style.css">
   <script src="https://unpkg.com/htmx.org@2.0.4" crossorigin="anonymous"></script>
 </head>
-<body class="has-sidebar">
+<body class="has-sidebar"{{if .Use24Hour}} data-time24="1"{{end}}>
   <div id="htmx-progress"></div>
   <nav class="navbar">
-    <a href="/" class="navbar-brand">MDM</a>
+    <a href="/" class="navbar-brand">{{if .Brand}}{{.Brand}}{{else}}MDM{{end}}</a>
     <button class="nav-toggle" onclick="document.querySelector('.navbar').classList.toggle('nav-open')" aria-label="Toggle menu">
       <span></span><span></span><span></span>
     </button>
@@ -146,6 +146,7 @@
       stamp.textContent = 'Synced ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
 
+    var use24Hour = document.body.getAttribute('data-time24') === '1';
     function formatLocalTime(el) {
       var raw = el.dataset.utc;
       if (!raw) return;
@@ -153,7 +154,7 @@
       if (isNaN(date.getTime())) return;
       var format = el.dataset.format || 'full';
       if (format === 'short') {
-        el.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        el.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: !use24Hour });
       } else {
         el.textContent = date.toLocaleString([], {
           year: 'numeric',
@@ -161,7 +162,8 @@
           day: '2-digit',
           hour: '2-digit',
           minute: '2-digit',
-          second: '2-digit'
+          second: '2-digit',
+          hour12: !use24Hour
         });
       }
       el.title = date.toLocaleString();
