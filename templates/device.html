@@ -944,7 +944,9 @@
 </section><!-- /summary -->
 
 <section class="dd-panel" data-dd-panel="details" hidden>
-  {{template "device-stats" .}}
+  <div class="card dd-details-card">
+    {{template "device-stats" .}}
+  </div>
 </section>
 
 <section class="dd-panel" data-dd-panel="apps" hidden>
