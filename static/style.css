@@ -55,6 +55,8 @@
   --chart-battery: #2563eb;
   --chart-temp:    #ea580c;
   --chart-ram:     #15803d;
+  --chart-grid:    rgba(16, 24, 40, 0.08);
+  --chart-tick:    #687078;
 
   /* ── Elevation / interaction (theme-specific) ─────── */
   --shadow-sm:  0 1px 2px rgba(16, 24, 40, 0.06);
@@ -155,6 +157,8 @@ html[data-theme="dark"] {
   --chart-battery: #6aa9ff;
   --chart-temp:    #ff8a4c;
   --chart-ram:     #59c97a;
+  --chart-grid:    rgba(46, 51, 71, 0.8);
+  --chart-tick:    #7a7f9a;
 
   /* Elevation / interaction */
   --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.30);
