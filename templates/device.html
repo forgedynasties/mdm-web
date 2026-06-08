@@ -216,26 +216,54 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
-<div class="page-header">
-  <div>
-    <a href="/" class="back-link">← All Devices</a>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <h2 class="page-title mono" style="margin:0;">{{.Device.SerialNumber}}</h2>
-      {{if .Online}}
-        <span id="ws-badge" class="ws-badge online" title="WebSocket connected"><span class="ws-dot"></span>online</span>
-      {{else}}
-        <span id="ws-badge" class="ws-badge offline" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>
-      {{end}}
-    </div>
+<div class="device-detail">
+<div class="dd-header">
+  <a href="/" class="dd-close" title="All devices" aria-label="All devices"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
+  <div class="dd-titlewrap">
+    {{if .Device.BuildID}}<div class="dd-eyebrow">Build {{.Device.BuildID}}</div>{{end}}
+    <h1 class="dd-title mono">{{.Device.SerialNumber}}</h1>
   </div>
-  <div style="display:flex;gap:8px;">
-    <a href="/devices/{{.Device.SerialNumber}}/packages" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>Packages</a>
-    <a href="/devices/{{.Device.SerialNumber}}/history" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v4"/><path d="M21 12h-4"/></svg></span>History</a>
-    <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg></span>Logcat</a>
+  <div class="dd-header-meta">
+    <span>Last updated <span class="js-local-time" data-utc="{{timeISO .Device.LastSeenAt}}" data-format="full"></span></span>
+    <button type="button" class="dd-icon-btn" title="Refresh" aria-label="Refresh" onclick="document.body.dispatchEvent(new CustomEvent('device-updated'))"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+    <a href="/devices/{{.Device.SerialNumber}}/history" class="dd-icon-btn" title="History" aria-label="History"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5l3 2"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v4"/><path d="M21 12h-4"/></svg></a>
+    <a href="/devices/{{.Device.SerialNumber}}/logcat" class="dd-icon-btn" title="Logcat" aria-label="Logcat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg></a>
+  </div>
+</div>
+<hr class="dd-rule">
+
+<div class="dd-summary">
+  <div class="dd-card">
+    <div class="dd-card-title">Device
+      {{if .Online}}<span id="ws-badge" class="ws-badge online" title="WebSocket connected"><span class="ws-dot online"></span>online</span>{{else}}<span id="ws-badge" class="ws-badge offline" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>{{end}}
+    </div>
+    <div class="dd-row"><span class="dd-row-label">Serial number</span><span class="dd-row-val mono">{{.Device.SerialNumber}}</span></div>
+    <div class="dd-row"><span class="dd-row-label">Build ID</span><span class="dd-row-val mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
+    <div class="dd-row"><span class="dd-row-label">First seen</span><span class="dd-row-val">{{timeSince .Device.CreatedAt}}</span></div>
+  </div>
+  <div class="dd-card">
+    <div class="dd-card-title">Connection</div>
+    <div class="dd-row"><span class="dd-row-label">Last check-in</span><span class="dd-row-val">{{timeSince .Device.LastSeenAt}}</span></div>
+    <div class="dd-row"><span class="dd-row-label">Poll interval</span><span class="dd-row-val">{{div .Device.PollIntervalMs 1000}}s</span></div>
+    <div class="dd-row"><span class="dd-row-label">Kiosk mode</span><span class="dd-row-val">{{if .KioskConfig.KioskEnabled}}On{{else}}Off{{end}}</span></div>
+  </div>
+  <div class="dd-card">
+    <div class="dd-card-title">Alerts</div>
+    {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
+    {{if lt .Device.BatteryPct 20}}<div class="dd-alert danger"><span class="dd-alert-dot"></span>Low battery — {{.Device.BatteryPct}}%</div>{{end}}
+    {{if $stale}}<div class="dd-alert warn"><span class="dd-alert-dot"></span>No recent check-in</div>{{end}}
+    {{if and (ge .Device.BatteryPct 20) (not $stale)}}<div class="dd-alert ok"><span class="dd-alert-dot"></span>Device operating normally</div>{{end}}
   </div>
 </div>
 
-{{template "device-stats" .}}
+<div class="dd-tabs" role="tablist">
+  <button class="dd-tab active" role="tab" type="button" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Device summary</button>
+  <button class="dd-tab" role="tab" type="button" data-dd-tab="details" onclick="setDeviceTab('details', this)">Device details</button>
+  <button class="dd-tab" role="tab" type="button" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>
+  <button class="dd-tab" role="tab" type="button" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Device settings <span class="pill-beta">Beta</span></button>
+</div>
+
+<section class="dd-panel" data-dd-panel="summary">
 
 <div class="card chart-card">
   <div class="card-header">
@@ -935,6 +963,46 @@
 })();
 </script>
 
+</section><!-- /summary -->
+
+<section class="dd-panel" data-dd-panel="details" hidden>
+  {{template "device-stats" .}}
+</section>
+
+<section class="dd-panel" data-dd-panel="apps" hidden>
+  <div class="card">
+    <div class="card-header"><h3>Installed Applications</h3><span class="muted small">{{len .InstalledPackages}} packages</span></div>
+    <table class="table">
+      <thead><tr><th>App Name</th><th>Package Name</th><th>Version</th><th>Last Updated</th></tr></thead>
+      <tbody>
+        {{if .InstalledPackages}}
+          {{range .InstalledPackages}}
+          <tr>
+            <td class="small">{{if .AppName}}{{.AppName}}{{else}}<span class="muted">—</span>{{end}}</td>
+            <td class="mono small">{{.PackageName}}</td>
+            <td class="small">{{if .VersionName}}{{.VersionName}}{{else}}<span class="muted">—</span>{{end}}</td>
+            <td class="muted small"><span class="js-local-time" data-utc="{{timeISO .UpdatedAt}}" data-format="full">{{localTime .UpdatedAt}}</span></td>
+          </tr>
+          {{end}}
+        {{else}}
+          <tr>
+            <td colspan="4">
+              <div class="empty-state">
+                <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
+                <div class="empty-state-copy">
+                  <div class="empty-state-title">No package data</div>
+                  <div class="empty-state-text">The device client must include <code>packages</code> in its checkin payload.</div>
+                </div>
+              </div>
+            </td>
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="dd-panel" data-dd-panel="settings" hidden>
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Actions</h3></div>
   <div class="device-actions">
@@ -1128,7 +1196,23 @@
     {{end}}
   </div>
 </div>
+</section><!-- /settings -->
+</div><!-- /device-detail -->
 
+<script>
+  // Device-detail tab switching
+  function setDeviceTab(name, btn) {
+    document.querySelectorAll('.dd-tab').forEach(function (t) { t.classList.toggle('active', t === btn); });
+    document.querySelectorAll('.dd-panel').forEach(function (p) {
+      p.hidden = p.getAttribute('data-dd-panel') !== name;
+    });
+    // Charts may have been laid out while hidden; nudge a resize when summary shows.
+    if (name === 'summary' && window.mdmChart) {
+      requestAnimationFrame(function () { window.dispatchEvent(new Event('resize')); });
+    }
+  }
+  window.setDeviceTab = setDeviceTab;
+</script>
 
 <script>
   (function () {
