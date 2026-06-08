@@ -875,7 +875,7 @@ func (h *Handler) GetCommandStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "command not found"})
 		return
 	}
-	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id)
+	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id, h.cfg.CommandExpiry())
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return

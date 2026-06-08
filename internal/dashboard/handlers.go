@@ -940,7 +940,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID)
+	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -1037,7 +1037,7 @@ func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID)
+	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -1734,7 +1734,7 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID)
+	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -2517,7 +2517,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
-	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id)
+	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id, h.cfg.CommandExpiry())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -2526,7 +2526,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 	h.renderCachedHTML(w, r, "command-deliveries", map[string]any{
 		"Command":    cmd,
 		"Deliveries": deliveries,
-		"CanResend":  commandTypeAllowed(h.role(r), cmd.Type),
+		"CanResend":  h.commandTypeAllowed(h.role(r), cmd.Type),
 	})
 }
 
@@ -2559,7 +2559,7 @@ func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
-	if !commandTypeAllowed(h.role(r), cmd.Type) {
+	if !h.commandTypeAllowed(h.role(r), cmd.Type) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -2588,7 +2588,7 @@ func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
-	if !commandTypeAllowed(h.role(r), cmd.Type) {
+	if !h.commandTypeAllowed(h.role(r), cmd.Type) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -2618,7 +2618,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
-	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id)
+	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id, h.cfg.CommandExpiry())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -2629,7 +2629,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		"Command":    cmd,
 		"Deliveries": deliveries,
 		"From":       from,
-		"CanResend":  commandTypeAllowed(h.role(r), cmd.Type),
+		"CanResend":  h.commandTypeAllowed(h.role(r), cmd.Type),
 	})
 }
 
@@ -2637,7 +2637,11 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 // the given type. ota/update_splash write a device partition and are admin-only;
 // shell/reboot/install_apk are also available to operators. Other types (e.g.
 // screenshot) carry no extra restriction beyond being authenticated.
-func commandTypeAllowed(role, cmdType string) bool {
+func (h *Handler) commandTypeAllowed(role, cmdType string) bool {
+	// Operators can be further restricted per command type via settings.
+	if role == "operator" && !h.cfg.OperatorAllows(cmdType) {
+		return false
+	}
 	switch cmdType {
 	case "shell", "reboot", "install_apk":
 		return role == "admin" || role == "operator"
@@ -2663,7 +2667,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		cmdType = "install_apk"
 	}
 
-	if !commandTypeAllowed(h.role(r), cmdType) {
+	if !h.commandTypeAllowed(h.role(r), cmdType) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -2719,6 +2723,10 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
 		if err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
+			http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(ids), max), http.StatusBadRequest)
 			return
 		}
 		targetIDs = ids
@@ -2831,11 +2839,52 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"CheckinInterval": h.cfg.CheckinInterval(),
 		"ShellEnabled":    h.cfg.ShellEnabled(),
 		"RemoteEnabled":   h.cfg.RemoteEnabled(),
+		"CommandExpiry":   h.cfg.CommandExpiry(),
+		"MaxTargets":      h.cfg.MaxTargets(),
+		"OpAllowShell":    h.cfg.OperatorAllows("shell"),
+		"OpAllowReboot":   h.cfg.OperatorAllows("reboot"),
+		"OpAllowInstall":  h.cfg.OperatorAllows("install_apk"),
 	})
 }
 
 func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetLegacyCheckin(!h.cfg.LegacyCheckin())
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsSetCommandExpiry(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	sec := 300
+	if n, err := strconv.Atoi(r.FormValue("expiry")); err == nil && n >= 30 {
+		sec = n
+	}
+	h.cfg.SetCommandExpiry(sec)
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	n := 0
+	if v, err := strconv.Atoi(r.FormValue("max_targets")); err == nil && v >= 0 {
+		n = v
+	}
+	h.cfg.SetMaxTargets(n)
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	allowed := map[string]bool{}
+	for _, t := range r.Form["op_allow"] {
+		allowed[t] = true
+	}
+	var denied []string
+	for _, t := range []string{"shell", "reboot", "install_apk"} {
+		if !allowed[t] {
+			denied = append(denied, t)
+		}
+	}
+	h.cfg.SetOperatorDenied(denied)
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -3450,6 +3499,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/legacy-checkin/toggle", h.requireAdmin(h.SettingsToggleLegacyCheckin))
 	mux.HandleFunc("POST /settings/shell/toggle", h.requireAdmin(h.SettingsToggleShell))
 	mux.HandleFunc("POST /settings/remote/toggle", h.requireAdmin(h.SettingsToggleRemote))
+	mux.HandleFunc("POST /settings/command-expiry", h.requireAdmin(h.SettingsSetCommandExpiry))
+	mux.HandleFunc("POST /settings/max-targets", h.requireAdmin(h.SettingsSetMaxTargets))
+	mux.HandleFunc("POST /settings/operator-perms", h.requireAdmin(h.SettingsSetOperatorPerms))
 	mux.HandleFunc("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))
 
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))

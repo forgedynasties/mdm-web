@@ -20,6 +20,11 @@ type Config struct {
 	ShellDisabledFlag  bool `json:"shell_disabled"`
 	RemoteDisabledFlag bool `json:"remote_disabled"`
 
+	// Command governance.
+	CommandExpirySecVal int      `json:"command_expiry_sec"` // 0 -> default 300
+	MaxTargetsVal       int      `json:"max_targets"`        // 0 -> unlimited
+	OperatorDeniedCmds  []string `json:"operator_denied_cmds"`
+
 	mu   sync.RWMutex
 	path string
 }
@@ -110,6 +115,69 @@ func (c *Config) RemoteEnabled() bool {
 func (c *Config) SetRemoteEnabled(v bool) error {
 	c.mu.Lock()
 	c.RemoteDisabledFlag = !v
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) CommandExpiry() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.CommandExpirySecVal <= 0 {
+		return 300
+	}
+	return c.CommandExpirySecVal
+}
+
+func (c *Config) SetCommandExpiry(sec int) error {
+	c.mu.Lock()
+	c.CommandExpirySecVal = sec
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) MaxTargets() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.MaxTargetsVal < 0 {
+		return 0
+	}
+	return c.MaxTargetsVal
+}
+
+func (c *Config) SetMaxTargets(n int) error {
+	c.mu.Lock()
+	c.MaxTargetsVal = n
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+// OperatorDenied returns the command types operators are barred from sending.
+func (c *Config) OperatorDenied() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := make([]string, len(c.OperatorDeniedCmds))
+	copy(out, c.OperatorDeniedCmds)
+	return out
+}
+
+// OperatorAllows reports whether operators may send the given command type.
+func (c *Config) OperatorAllows(cmdType string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, t := range c.OperatorDeniedCmds {
+		if t == cmdType {
+			return false
+		}
+	}
+	return true
+}
+
+func (c *Config) SetOperatorDenied(denied []string) error {
+	c.mu.Lock()
+	c.OperatorDeniedCmds = denied
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)
