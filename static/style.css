@@ -1595,8 +1595,8 @@ input[type="checkbox"]:hover {
   border-top: 1px solid var(--border);
 }
 .logcat-terminal {
-  background: var(--bg);
-  color: var(--text-2);
+  background: var(--console-bg);
+  color: var(--console-text);
   font-family: var(--mono);
   font-size: 12px;
   line-height: 1.6;
@@ -2571,11 +2571,12 @@ input[type="checkbox"]:hover {
 }
 
 /* ── Logcat Line Colors ───────────────────────── */
-.logcat-terminal .log-E { color: var(--danger); }
-.logcat-terminal .log-W { color: var(--warn); }
-.logcat-terminal .log-I { color: var(--info); }
-.logcat-terminal .log-D { color: var(--ok); }
-.logcat-terminal .log-V { color: var(--muted); }
+/* Fixed bright levels — the terminal is dark in both themes */
+.logcat-terminal .log-E { color: #e05656; }
+.logcat-terminal .log-W { color: #e6a836; }
+.logcat-terminal .log-I { color: #6aa9ff; }
+.logcat-terminal .log-D { color: #59c97a; }
+.logcat-terminal .log-V { color: #8a92a0; }
 
 /* ── Logcat Pause Button ──────────────────────── */
 .logcat-pause { display: flex; align-items: center; gap: 6px; }
