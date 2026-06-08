@@ -25,6 +25,10 @@ type Config struct {
 	MaxTargetsVal       int      `json:"max_targets"`        // 0 -> unlimited
 	OperatorDeniedCmds  []string `json:"operator_denied_cmds"`
 
+	// Sessions.
+	SessionTimeoutSecVal int   `json:"session_timeout_sec"` // 0 -> default 86400
+	SessionEpochVal      int64 `json:"session_epoch"`       // sessions issued before this are invalid
+
 	mu   sync.RWMutex
 	path string
 }
@@ -178,6 +182,37 @@ func (c *Config) OperatorAllows(cmdType string) bool {
 func (c *Config) SetOperatorDenied(denied []string) error {
 	c.mu.Lock()
 	c.OperatorDeniedCmds = denied
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) SessionTimeout() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.SessionTimeoutSecVal <= 0 {
+		return 86400
+	}
+	return c.SessionTimeoutSecVal
+}
+
+func (c *Config) SetSessionTimeout(sec int) error {
+	c.mu.Lock()
+	c.SessionTimeoutSecVal = sec
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) SessionEpoch() int64 {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.SessionEpochVal
+}
+
+func (c *Config) SetSessionEpoch(ts int64) error {
+	c.mu.Lock()
+	c.SessionEpochVal = ts
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)
