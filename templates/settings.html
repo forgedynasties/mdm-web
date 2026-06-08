@@ -9,6 +9,28 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Security &amp; Access</h3></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
+    <div>
+      <strong>Interactive Shell</strong>
+      <div class="muted small">Allow operators to send one-off shell commands to devices. When off, the shell action is hidden and shell commands are rejected.</div>
+    </div>
+    <form action="/settings/shell/toggle" method="POST">
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">{{if .ShellEnabled}}Disable{{else}}Enable{{end}}</button>
+    </form>
+  </div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <strong>Remote Control</strong>
+      <div class="muted small">Allow viewing and controlling device screens in real time. When off, the remote screen is blocked.</div>
+    </div>
+    <form action="/settings/remote/toggle" method="POST">
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">{{if .RemoteEnabled}}Disable{{else}}Enable{{end}}</button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Compatibility</h3></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
     <div>

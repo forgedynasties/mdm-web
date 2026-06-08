@@ -1006,7 +1006,7 @@
         <div class="device-action-tile-copy">Choose an APK from the repository and queue it for the next check-in.</div>
       </button>
       {{end}}
-      {{if or (eq .Role "admin") (eq .Role "operator")}}
+      {{if and (or (eq .Role "admin") (eq .Role "operator")) .RemoteEnabled}}
       <a href="/devices/{{.Device.SerialNumber}}/remote" class="device-action-tile" style="text-decoration:none;color:inherit;">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></span>
         <div class="device-action-tile-title">Remote Control</div>
@@ -1018,7 +1018,7 @@
         <div class="device-action-tile-title">Capture Screenshot</div>
         <div class="device-action-tile-copy">Request a fresh screenshot and review it from the command status screen.</div>
       </button>
-      {{if or (eq .Role "admin") (eq .Role "operator")}}
+      {{if and (or (eq .Role "admin") (eq .Role "operator")) .ShellEnabled}}
       <button type="button" class="device-action-tile" data-device-action="shell" onclick="selectDeviceAction('shell', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
         <div class="device-action-tile-title">Run Shell Command</div>

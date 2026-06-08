@@ -15,6 +15,10 @@ type Config struct {
 	ExtraColumns       []ExtraColumn `json:"extra_columns"`
 	LegacyCheckinOn    bool          `json:"legacy_checkin"`
 	CheckinIntervalSec int           `json:"checkin_interval_sec"`
+	// Stored as "disabled" so an existing config file (without these keys)
+	// defaults to enabled.
+	ShellDisabledFlag  bool `json:"shell_disabled"`
+	RemoteDisabledFlag bool `json:"remote_disabled"`
 
 	mu   sync.RWMutex
 	path string
@@ -78,6 +82,34 @@ func (c *Config) CheckinInterval() int {
 func (c *Config) SetCheckinInterval(sec int) error {
 	c.mu.Lock()
 	c.CheckinIntervalSec = sec
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) ShellEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return !c.ShellDisabledFlag
+}
+
+func (c *Config) SetShellEnabled(v bool) error {
+	c.mu.Lock()
+	c.ShellDisabledFlag = !v
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) RemoteEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return !c.RemoteDisabledFlag
+}
+
+func (c *Config) SetRemoteEnabled(v bool) error {
+	c.mu.Lock()
+	c.RemoteDisabledFlag = !v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)
