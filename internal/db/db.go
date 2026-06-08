@@ -2081,6 +2081,51 @@ func (d *DB) BackfillDailyStats(ctx context.Context) (int, error) {
 	return len(days), nil
 }
 
+// DeviceDailyStat is one rolled-up day of telemetry for a device. Aggregate columns
+// are pointers so a day with no data for a metric serializes as null rather than 0.
+type DeviceDailyStat struct {
+	Day           time.Time `json:"day"`
+	CheckinCount  int       `json:"checkin_count"`
+	BatteryMin    *int      `json:"battery_min"`
+	BatteryMax    *int      `json:"battery_max"`
+	BatteryAvg    *float32  `json:"battery_avg"`
+	TempMax       *float32  `json:"temp_max"`
+	RAMPctPeak    *int      `json:"ram_pct_peak"`
+	ChargingFrac  *float32  `json:"charging_frac"`
+	OnlineMinutes int       `json:"online_minutes"`
+	BuildID       string    `json:"build_id"`
+}
+
+// GetDeviceDailyStats returns the last `days` days of rolled-up stats for a device,
+// oldest first. Defaults to 30 days.
+func (d *DB) GetDeviceDailyStats(ctx context.Context, deviceID uuid.UUID, days int) ([]DeviceDailyStat, error) {
+	if days <= 0 {
+		days = 30
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT day, checkin_count, battery_min, battery_max, battery_avg,
+		       temp_max, ram_pct_peak, charging_frac, online_minutes, build_id
+		FROM device_daily_stats
+		WHERE device_id = $1 AND day >= CURRENT_DATE - ($2::int - 1)
+		ORDER BY day`, deviceID, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []DeviceDailyStat
+	for rows.Next() {
+		var s DeviceDailyStat
+		if err := rows.Scan(&s.Day, &s.CheckinCount, &s.BatteryMin, &s.BatteryMax,
+			&s.BatteryAvg, &s.TempMax, &s.RAMPctPeak, &s.ChargingFrac,
+			&s.OnlineMinutes, &s.BuildID); err != nil {
+			return nil, err
+		}
+		stats = append(stats, s)
+	}
+	return stats, rows.Err()
+}
+
 // PruneLogcat deletes logcat results and requests older than `days` days.
 func (d *DB) PruneLogcat(ctx context.Context, days int) (int64, error) {
 	if days <= 0 {
