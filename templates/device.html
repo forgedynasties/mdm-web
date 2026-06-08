@@ -239,7 +239,9 @@
     </div>
     <div class="dd-row"><span class="dd-row-label">Serial number</span><span class="dd-row-val mono">{{.Device.SerialNumber}}</span></div>
     <div class="dd-row"><span class="dd-row-label">Build ID</span><span class="dd-row-val mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
-    <div class="dd-row"><span class="dd-row-label">First seen</span><span class="dd-row-val">{{timeSince .Device.CreatedAt}}</span></div>
+    <div class="dd-row"><span class="dd-row-label">Battery</span><span class="dd-row-val">{{.Device.BatteryPct}}%{{if and (charging .Device.LatestExtra) (notStale .Device.LastSeenAt .ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span></div>
+    <div class="dd-row"><span class="dd-row-label">Temperature</span><span class="dd-row-val">{{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}{{$t}}{{else}}—{{end}}</span></div>
+    <div class="dd-row"><span class="dd-row-label">Onboarded</span><span class="dd-row-val">{{timeSince .Device.CreatedAt}}</span></div>
   </div>
   <div class="dd-card">
     <div class="dd-card-title">Connection</div>
