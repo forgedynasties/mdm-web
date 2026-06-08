@@ -2894,6 +2894,7 @@ func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
 // ── Settings ──────────────────────────────────────────────────────────────────
 
 func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
+	dbStats, _ := h.db.TableStats(r.Context())
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":           "Settings",
 		"ExtraColumns":    h.cfg.Columns(),
@@ -2911,8 +2912,12 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"BrandName":       h.cfg.BrandName(),
 		"PageSize":        h.cfg.PageSize(),
 		"DefaultSort":     h.cfg.DefaultSort(),
-		"Density":         h.cfg.Density(),
-		"Use24Hour":       h.cfg.Use24Hour(),
+		"Density":              h.cfg.Density(),
+		"Use24Hour":            h.cfg.Use24Hour(),
+		"AutoHideDays":         h.cfg.AutoHideDays(),
+		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
+		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
+		"DBStats":              dbStats,
 	})
 }
 
@@ -2954,6 +2959,54 @@ func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	h.cfg.SetOperatorDenied(denied)
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+// RunHousekeeping applies the configured auto-hide and retention policies.
+// Safe to call repeatedly; each step is a no-op when its setting is 0.
+func (h *Handler) RunHousekeeping(ctx context.Context) {
+	if d := h.cfg.AutoHideDays(); d > 0 {
+		if n, err := h.db.HideStaleDevices(ctx, d); err != nil {
+			log.Printf("[housekeeping] hide stale: %v", err)
+		} else if n > 0 {
+			log.Printf("[housekeeping] hid %d device(s) not seen in %dd", n, d)
+		}
+	}
+	if d := h.cfg.CheckinRetentionDays(); d > 0 {
+		if n, err := h.db.PruneCheckins(ctx, d); err != nil {
+			log.Printf("[housekeeping] prune checkins: %v", err)
+		} else if n > 0 {
+			log.Printf("[housekeeping] pruned %d checkin(s) older than %dd", n, d)
+		}
+	}
+	if d := h.cfg.LogcatRetentionDays(); d > 0 {
+		if n, err := h.db.PruneLogcat(ctx, d); err != nil {
+			log.Printf("[housekeeping] prune logcat: %v", err)
+		} else if n > 0 {
+			log.Printf("[housekeeping] pruned %d logcat row(s) older than %dd", n, d)
+		}
+	}
+}
+
+func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	atoiNonNeg := func(s string) int {
+		if n, err := strconv.Atoi(s); err == nil && n >= 0 {
+			return n
+		}
+		return 0
+	}
+	h.cfg.SetDataLifecycle(
+		atoiNonNeg(r.FormValue("auto_hide_days")),
+		atoiNonNeg(r.FormValue("checkin_retention_days")),
+		atoiNonNeg(r.FormValue("logcat_retention_days")),
+	)
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsPruneNow(w http.ResponseWriter, r *http.Request) {
+	h.RunHousekeeping(r.Context())
+	h.audit(r, "data.prune", "", "manual housekeeping run")
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -3623,6 +3676,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /audit", h.requireAdmin(h.AuditPage))
 	mux.HandleFunc("POST /settings/require-reason", h.requireAdmin(h.SettingsToggleRequireReason))
 	mux.HandleFunc("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
+	mux.HandleFunc("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
+	mux.HandleFunc("POST /settings/prune-now", h.requireAdmin(h.SettingsPruneNow))
 	mux.HandleFunc("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
 	mux.HandleFunc("POST /settings/logout-all", h.requireAdmin(h.SettingsLogoutAll))
 	mux.HandleFunc("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))

@@ -186,6 +186,16 @@ func main() {
 	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
 	dash.RegisterRoutes(mux)
 
+	// Periodic housekeeping: auto-hide stale devices + retention pruning.
+	go func() {
+		t := time.NewTicker(1 * time.Hour)
+		defer t.Stop()
+		dash.RunHousekeeping(context.Background())
+		for range t.C {
+			dash.RunHousekeeping(context.Background())
+		}
+	}()
+
 	server := &http.Server{
 		Addr:        ":" + port,
 		Handler:     mux,
