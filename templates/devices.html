@@ -248,27 +248,27 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 
   {{/* ── Status & Group ── */}}
   <select id="filter-status" class="filter-select {{if .FilterStatus}}active{{end}}" onchange="applyFilters()">
-    <option value="">Status</option>
+    <option value="">All statuses</option>
     <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
     <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
   </select>
 
   <select id="filter-group" class="filter-select {{if .FilterGroup}}active{{end}}" onchange="applyFilters()">
-    <option value="">Group</option>
+    <option value="">All groups</option>
     {{range .Groups}}
       <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
     {{end}}
   </select>
 
   <select id="filter-production" class="filter-select {{if .FilterProduction}}active{{end}}" onchange="applyFilters()">
-    <option value="">Production</option>
+    <option value="">All productions</option>
     {{range .Productions}}
       <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterProduction}}selected{{end}}>{{.Name}}</option>
     {{end}}
   </select>
 
   <select id="filter-build" class="filter-select {{if .FilterBuild}}active{{end}}" onchange="applyFilters()">
-    <option value="">Build</option>
+    <option value="">All builds</option>
     {{range .Builds}}
       <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
     {{end}}
@@ -278,15 +278,15 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 
   {{/* ── Alerts / Health ── */}}
   <select id="filter-battery" class="filter-select {{if .FilterBattery}}active{{end}}" onchange="applyFilters()">
-    <option value="">Battery</option>
+    <option value="">Any battery</option>
     <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical &lt;20%</option>
     <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low 20-49%</option>
     <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Healthy 50%+</option>
   </select>
 
   <select id="filter-kiosk" class="filter-select {{if .FilterKiosk}}active{{end}}" onchange="applyFilters()">
-    <option value="">Kiosk</option>
-    <option value="enabled" {{if eq .FilterKiosk "enabled"}}selected{{end}}>Kiosk Mode</option>
+    <option value="">Any kiosk</option>
+    <option value="enabled" {{if eq .FilterKiosk "enabled"}}selected{{end}}>Kiosk enabled</option>
   </select>
 
   <div style="flex:1;"></div>
