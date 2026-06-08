@@ -266,9 +266,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
-		MaxAge:   86400,
+		MaxAge:   cfg.SessionTimeout(),
 		HttpOnly: true,
 	}
+	// Align the securecookie codec max-age with the cookie so the timeout is
+	// actually enforced server-side, not just by the browser.
+	store.MaxAge(cfg.SessionTimeout())
 
 	funcMap := template.FuncMap{
 		"batteryClass": func(pct int) string {
@@ -614,9 +617,19 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 	}
 }
 
+// sessionFresh reports whether a session was issued at/after the current
+// session epoch. Bumping the epoch (Log out all) invalidates older cookies.
+func (h *Handler) sessionFresh(session *sessions.Session) bool {
+	issued, _ := session.Values["issued"].(int64)
+	return issued >= h.cfg.SessionEpoch()
+}
+
 func (h *Handler) isAdmin(r *http.Request) bool {
 	session, err := h.store.Get(r, "mdm-session")
 	if err != nil {
+		return false
+	}
+	if !h.sessionFresh(session) {
 		return false
 	}
 	auth, ok := session.Values["authenticated"].(bool)
@@ -632,6 +645,9 @@ func (h *Handler) isLoggedIn(r *http.Request) bool {
 	}
 	session, err := h.store.Get(r, "mdm-session")
 	if err != nil {
+		return false
+	}
+	if !h.sessionFresh(session) {
 		return false
 	}
 	uid, _ := session.Values["user_id"].(string)
@@ -747,6 +763,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 		session, _ := h.store.Get(r, "mdm-session")
 		session.Values["authenticated"] = true
 		session.Values["username"] = h.user
+		session.Values["issued"] = time.Now().Unix()
 		session.Save(r, w)
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
@@ -760,6 +777,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 			session.Values["user_id"] = dbUser.ID.String()
 			session.Values["user_role"] = dbUser.Role
 			session.Values["username"] = dbUser.Username
+			session.Values["issued"] = time.Now().Unix()
 			session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
@@ -2844,6 +2862,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"OpAllowShell":    h.cfg.OperatorAllows("shell"),
 		"OpAllowReboot":   h.cfg.OperatorAllows("reboot"),
 		"OpAllowInstall":  h.cfg.OperatorAllows("install_apk"),
+		"SessionTimeout":  h.cfg.SessionTimeout(),
 	})
 }
 
@@ -2886,6 +2905,23 @@ func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Reques
 	}
 	h.cfg.SetOperatorDenied(denied)
 	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	sec := 86400
+	if n, err := strconv.Atoi(r.FormValue("timeout")); err == nil && n >= 300 {
+		sec = n
+	}
+	h.cfg.SetSessionTimeout(sec)
+	h.store.MaxAge(sec) // apply to cookie + codec at runtime
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsLogoutAll(w http.ResponseWriter, r *http.Request) {
+	// Invalidate every session issued before now (including this one).
+	h.cfg.SetSessionEpoch(time.Now().Unix())
+	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
 func (h *Handler) SettingsToggleShell(w http.ResponseWriter, r *http.Request) {
@@ -3502,6 +3538,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/command-expiry", h.requireAdmin(h.SettingsSetCommandExpiry))
 	mux.HandleFunc("POST /settings/max-targets", h.requireAdmin(h.SettingsSetMaxTargets))
 	mux.HandleFunc("POST /settings/operator-perms", h.requireAdmin(h.SettingsSetOperatorPerms))
+	mux.HandleFunc("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
+	mux.HandleFunc("POST /settings/logout-all", h.requireAdmin(h.SettingsLogoutAll))
 	mux.HandleFunc("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))
 
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))

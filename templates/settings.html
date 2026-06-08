@@ -89,5 +89,26 @@
   </div>
 </div>
 
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Sessions</h3></div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:8px;">How long a dashboard login stays valid before requiring sign-in again.</div>
+    <form action="/settings/session-timeout" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="timeout" value="{{.SessionTimeout}}" min="300" step="1" class="form-input" style="width:120px;">
+      <span class="muted small">seconds</span>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <strong>Log out all sessions</strong>
+      <div class="muted small">Immediately sign out every user on every device, including you.</div>
+    </div>
+    <form action="/settings/logout-all" method="POST" onsubmit="return confirm('Log out all sessions now? You will need to sign in again.')">
+      <button type="submit" class="btn-danger-sm">Log out all</button>
+    </form>
+  </div>
+</div>
+
 {{template "footer" .}}
 {{end}}
