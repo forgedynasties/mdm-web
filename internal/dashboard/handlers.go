@@ -685,6 +685,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	role := h.role(r)
 	data["Role"] = role
 	data["CurrentUser"] = h.currentUsername(r)
+	data["Brand"] = h.cfg.BrandName()
+	data["Use24Hour"] = h.cfg.Use24Hour()
 
 	path := r.URL.Path
 	switch {
@@ -748,7 +750,7 @@ func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "login.html", nil)
+	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Brand": h.cfg.BrandName()})
 }
 
 func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -784,7 +786,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": "Invalid credentials"})
+	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": "Invalid credentials", "Brand": h.cfg.BrandName()})
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -801,9 +803,20 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 const pageSize = 25
 
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
+	pageSize := h.cfg.PageSize()
 	q := r.URL.Query().Get("q")
 	sort := r.URL.Query().Get("sort")
 	dir := r.URL.Query().Get("dir")
+	if sort == "" {
+		sort = h.cfg.DefaultSort()
+		if dir == "" {
+			if sort == "last_seen" || sort == "created_at" {
+				dir = "desc"
+			} else {
+				dir = "asc"
+			}
+		}
+	}
 	page := 1
 	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
 		page = p
@@ -935,6 +948,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterHidden":        r.URL.Query().Get("hidden"),
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
+		"Density":              h.cfg.Density(),
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -2863,6 +2877,11 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"OpAllowReboot":   h.cfg.OperatorAllows("reboot"),
 		"OpAllowInstall":  h.cfg.OperatorAllows("install_apk"),
 		"SessionTimeout":  h.cfg.SessionTimeout(),
+		"BrandName":       h.cfg.BrandName(),
+		"PageSize":        h.cfg.PageSize(),
+		"DefaultSort":     h.cfg.DefaultSort(),
+		"Density":         h.cfg.Density(),
+		"Use24Hour":       h.cfg.Use24Hour(),
 	})
 }
 
@@ -2904,6 +2923,22 @@ func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	h.cfg.SetOperatorDenied(denied)
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	h.cfg.SetBrandName(strings.TrimSpace(r.FormValue("brand")))
+	if n, err := strconv.Atoi(r.FormValue("page_size")); err == nil && n > 0 && n <= 500 {
+		h.cfg.SetPageSize(n)
+	}
+	if s := r.FormValue("default_sort"); s != "" {
+		h.cfg.SetDefaultSort(s)
+	}
+	if d := r.FormValue("density"); d == "compact" || d == "comfortable" {
+		h.cfg.SetDensity(d)
+	}
+	h.cfg.SetUse24Hour(r.FormValue("time_format") == "24")
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -3538,6 +3573,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/command-expiry", h.requireAdmin(h.SettingsSetCommandExpiry))
 	mux.HandleFunc("POST /settings/max-targets", h.requireAdmin(h.SettingsSetMaxTargets))
 	mux.HandleFunc("POST /settings/operator-perms", h.requireAdmin(h.SettingsSetOperatorPerms))
+	mux.HandleFunc("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
 	mux.HandleFunc("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
 	mux.HandleFunc("POST /settings/logout-all", h.requireAdmin(h.SettingsLogoutAll))
 	mux.HandleFunc("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))

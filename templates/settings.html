@@ -9,6 +9,47 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Dashboard</h3></div>
+  <form action="/settings/dashboard" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;">
+    <div class="form-group">
+      <label>Brand name</label>
+      <input type="text" name="brand" value="{{.BrandName}}" placeholder="MDM" class="form-input">
+    </div>
+    <div class="form-group">
+      <label>Devices per page</label>
+      <input type="number" name="page_size" value="{{.PageSize}}" min="1" max="500" step="1" class="form-input">
+    </div>
+    <div class="form-group">
+      <label>Default sort</label>
+      <select name="default_sort" class="form-input">
+        <option value="last_seen" {{if eq .DefaultSort "last_seen"}}selected{{end}}>Last seen</option>
+        <option value="created_at" {{if eq .DefaultSort "created_at"}}selected{{end}}>First seen</option>
+        <option value="serial" {{if eq .DefaultSort "serial"}}selected{{end}}>Serial number</option>
+        <option value="build" {{if eq .DefaultSort "build"}}selected{{end}}>Build ID</option>
+        <option value="battery" {{if eq .DefaultSort "battery"}}selected{{end}}>Battery</option>
+        <option value="ram" {{if eq .DefaultSort "ram"}}selected{{end}}>RAM</option>
+        <option value="temp" {{if eq .DefaultSort "temp"}}selected{{end}}>Temperature</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Default table density</label>
+      <select name="density" class="form-input">
+        <option value="comfortable" {{if eq .Density "comfortable"}}selected{{end}}>Comfortable</option>
+        <option value="compact" {{if eq .Density "compact"}}selected{{end}}>Compact</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Time format</label>
+      <select name="time_format" class="form-input">
+        <option value="12" {{if not .Use24Hour}}selected{{end}}>12-hour (AM/PM)</option>
+        <option value="24" {{if .Use24Hour}}selected{{end}}>24-hour</option>
+      </select>
+    </div>
+    <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Security &amp; Access</h3></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
     <div>

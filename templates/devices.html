@@ -538,7 +538,8 @@ function toggleDensity() {
   document.getElementById('density-toggle').classList.toggle('active', compact);
 }
 (function() {
-  if (localStorage.getItem('mdm-density') === 'compact') {
+  var density = localStorage.getItem('mdm-density') || '{{.Density}}';
+  if (density === 'compact') {
     document.getElementById('device-table-container').classList.add('compact');
     document.getElementById('density-toggle').classList.add('active');
   } else {
@@ -546,7 +547,8 @@ function toggleDensity() {
   }
 })();
 document.body.addEventListener('htmx:afterSwap', function(evt) {
-  if (evt.detail.target.id === 'device-table-container' && localStorage.getItem('mdm-density') === 'compact') {
+  var density = localStorage.getItem('mdm-density') || '{{.Density}}';
+  if (evt.detail.target.id === 'device-table-container' && density === 'compact') {
     evt.detail.target.classList.add('compact');
   }
 });

@@ -29,6 +29,13 @@ type Config struct {
 	SessionTimeoutSecVal int   `json:"session_timeout_sec"` // 0 -> default 86400
 	SessionEpochVal      int64 `json:"session_epoch"`       // sessions issued before this are invalid
 
+	// Dashboard preferences & branding.
+	PageSizeVal    int    `json:"page_size"`    // 0 -> default 25
+	DefaultSortVal string `json:"default_sort"` // "" -> last_seen
+	DensityVal     string `json:"density"`      // "" -> comfortable
+	BrandNameVal   string `json:"brand_name"`   // "" -> MDM
+	Use24HourFlag  bool   `json:"use_24_hour"`
+
 	mu   sync.RWMutex
 	path string
 }
@@ -213,6 +220,88 @@ func (c *Config) SessionEpoch() int64 {
 func (c *Config) SetSessionEpoch(ts int64) error {
 	c.mu.Lock()
 	c.SessionEpochVal = ts
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) PageSize() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.PageSizeVal <= 0 {
+		return 25
+	}
+	return c.PageSizeVal
+}
+
+func (c *Config) SetPageSize(n int) error {
+	c.mu.Lock()
+	c.PageSizeVal = n
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) DefaultSort() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.DefaultSortVal == "" {
+		return "last_seen"
+	}
+	return c.DefaultSortVal
+}
+
+func (c *Config) SetDefaultSort(s string) error {
+	c.mu.Lock()
+	c.DefaultSortVal = s
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) Density() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.DensityVal == "" {
+		return "comfortable"
+	}
+	return c.DensityVal
+}
+
+func (c *Config) SetDensity(s string) error {
+	c.mu.Lock()
+	c.DensityVal = s
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) BrandName() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.BrandNameVal == "" {
+		return "MDM"
+	}
+	return c.BrandNameVal
+}
+
+func (c *Config) SetBrandName(s string) error {
+	c.mu.Lock()
+	c.BrandNameVal = s
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) Use24Hour() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Use24HourFlag
+}
+
+func (c *Config) SetUse24Hour(v bool) error {
+	c.mu.Lock()
+	c.Use24HourFlag = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)
