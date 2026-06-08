@@ -1931,6 +1931,43 @@ func (d *DB) GetDeviceIDsByGroupIDs(ctx context.Context, groupIDs []uuid.UUID) (
 	return ids, rows.Err()
 }
 
+type AuditEntry struct {
+	ID        int64     `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	Actor     string    `json:"actor"`
+	Action    string    `json:"action"`
+	Target    string    `json:"target"`
+	Detail    string    `json:"detail"`
+}
+
+func (d *DB) InsertAudit(ctx context.Context, actor, action, target, detail string) error {
+	_, err := d.pool.Exec(ctx,
+		`INSERT INTO audit_log (actor, action, target, detail) VALUES ($1, $2, $3, $4)`,
+		actor, action, target, detail)
+	return err
+}
+
+func (d *DB) ListAudit(ctx context.Context, limit int) ([]AuditEntry, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	rows, err := d.pool.Query(ctx,
+		`SELECT id, created_at, actor, action, target, detail FROM audit_log ORDER BY created_at DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AuditEntry
+	for rows.Next() {
+		var a AuditEntry
+		if err := rows.Scan(&a.ID, &a.CreatedAt, &a.Actor, &a.Action, &a.Target, &a.Detail); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
 const migrationSQL = `
 CREATE TABLE IF NOT EXISTS devices (
 	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -2154,6 +2191,16 @@ CREATE TABLE IF NOT EXISTS users (
     role          TEXT NOT NULL CHECK (role IN ('viewer', 'operator')),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS audit_log (
+    id         BIGSERIAL PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    actor      TEXT NOT NULL DEFAULT '',
+    action     TEXT NOT NULL,
+    target     TEXT NOT NULL DEFAULT '',
+    detail     TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
