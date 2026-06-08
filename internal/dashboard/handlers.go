@@ -1713,9 +1713,11 @@ func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	kioskCfg, _ := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID)
 	h.renderCachedHTML(w, r, "device-stats", map[string]any{
 		"Device":              device,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+		"KioskConfig":         kioskCfg,
 	})
 }
 
