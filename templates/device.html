@@ -1178,7 +1178,7 @@
     <div class="danger-zone">
       <div>
         <div class="danger-zone-title">Danger Zone</div>
-        <div class="danger-zone-copy">Queue a reboot only when you’re sure. The device will restart on its next check-in and any unsaved work on the device may be interrupted.</div>
+        <div class="danger-zone-copy">The device restarts on its next check-in. In-progress activity may be interrupted.</div>
       </div>
       <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST"
             onsubmit="return confirm(‘Reboot {{.Device.SerialNumber}}?’)">
