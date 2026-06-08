@@ -287,6 +287,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   <select id="filter-kiosk" class="filter-select {{if .FilterKiosk}}active{{end}}" onchange="applyFilters()">
     <option value="">Any kiosk</option>
     <option value="enabled" {{if eq .FilterKiosk "enabled"}}selected{{end}}>Kiosk enabled</option>
+    <option value="disabled" {{if eq .FilterKiosk "disabled"}}selected{{end}}>Kiosk disabled</option>
   </select>
 
   <div style="flex:1;"></div>
