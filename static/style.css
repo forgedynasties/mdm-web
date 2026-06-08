@@ -475,7 +475,8 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
@@ -1319,8 +1320,8 @@ input[type="checkbox"]:hover {
   font-weight: var(--fw-medium);
   letter-spacing: .04em;
   text-transform: lowercase;
-  padding: 2px 8px;
-  border-radius: var(--r-2);
+  padding: 3px 10px;
+  border-radius: 999px;
   border: 1px solid;
 }
 .status-badge.ok,
