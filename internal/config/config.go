@@ -30,6 +30,11 @@ type Config struct {
 	SessionTimeoutSecVal int   `json:"session_timeout_sec"` // 0 -> default 86400
 	SessionEpochVal      int64 `json:"session_epoch"`       // sessions issued before this are invalid
 
+	// Data lifecycle (0 = disabled / keep forever).
+	AutoHideDaysVal         int `json:"auto_hide_days"`
+	CheckinRetentionDaysVal int `json:"checkin_retention_days"`
+	LogcatRetentionDaysVal  int `json:"logcat_retention_days"`
+
 	// Dashboard preferences & branding.
 	PageSizeVal    int    `json:"page_size"`    // 0 -> default 25
 	DefaultSortVal string `json:"default_sort"` // "" -> last_seen
@@ -221,6 +226,43 @@ func (c *Config) SessionEpoch() int64 {
 func (c *Config) SetSessionEpoch(ts int64) error {
 	c.mu.Lock()
 	c.SessionEpochVal = ts
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) AutoHideDays() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AutoHideDaysVal < 0 {
+		return 0
+	}
+	return c.AutoHideDaysVal
+}
+
+func (c *Config) CheckinRetentionDays() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.CheckinRetentionDaysVal < 0 {
+		return 0
+	}
+	return c.CheckinRetentionDaysVal
+}
+
+func (c *Config) LogcatRetentionDays() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.LogcatRetentionDaysVal < 0 {
+		return 0
+	}
+	return c.LogcatRetentionDaysVal
+}
+
+func (c *Config) SetDataLifecycle(autoHide, checkinRet, logcatRet int) error {
+	c.mu.Lock()
+	c.AutoHideDaysVal = autoHide
+	c.CheckinRetentionDaysVal = checkinRet
+	c.LogcatRetentionDaysVal = logcatRet
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)

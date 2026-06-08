@@ -160,5 +160,36 @@
   </div>
 </div>
 
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Data &amp; Maintenance</h3></div>
+  <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small">Background housekeeping runs hourly. Set to 0 to disable a policy.</div>
+    <div class="form-group">
+      <label>Auto-hide devices not seen in (days)</label>
+      <input type="number" name="auto_hide_days" value="{{.AutoHideDays}}" min="0" step="1" class="form-input">
+    </div>
+    <div class="form-group">
+      <label>Delete check-ins older than (days)</label>
+      <input type="number" name="checkin_retention_days" value="{{.CheckinRetentionDays}}" min="0" step="1" class="form-input">
+    </div>
+    <div class="form-group">
+      <label>Delete logcat results older than (days)</label>
+      <input type="number" name="logcat_retention_days" value="{{.LogcatRetentionDays}}" min="0" step="1" class="form-input">
+    </div>
+    <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
+  </form>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div class="muted small">
+      Database: <strong>{{.DBStats.Devices}}</strong> devices ·
+      <strong>{{.DBStats.Checkins}}</strong> check-ins ·
+      <strong>{{.DBStats.Commands}}</strong> commands ·
+      <strong>{{.DBStats.LogcatResults}}</strong> logcat results
+    </div>
+    <form action="/settings/prune-now" method="POST" onsubmit="return confirm('Run housekeeping now? This applies the retention policies above immediately.')">
+      <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 14px;">Prune now</button>
+    </form>
+  </div>
+</div>
+
 {{template "footer" .}}
 {{end}}

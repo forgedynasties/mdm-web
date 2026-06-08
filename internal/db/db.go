@@ -1968,6 +1968,67 @@ func (d *DB) ListAudit(ctx context.Context, limit int) ([]AuditEntry, error) {
 	return out, rows.Err()
 }
 
+// HideStaleDevices hides visible devices not seen within the last `days` days.
+func (d *DB) HideStaleDevices(ctx context.Context, days int) (int64, error) {
+	if days <= 0 {
+		return 0, nil
+	}
+	tag, err := d.pool.Exec(ctx, fmt.Sprintf(
+		`UPDATE devices SET hidden = true WHERE NOT hidden AND last_seen_at < NOW() - INTERVAL '%d days'`, days))
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// PruneCheckins deletes check-in rows older than `days` days.
+func (d *DB) PruneCheckins(ctx context.Context, days int) (int64, error) {
+	if days <= 0 {
+		return 0, nil
+	}
+	tag, err := d.pool.Exec(ctx, fmt.Sprintf(
+		`DELETE FROM checkins WHERE created_at < NOW() - INTERVAL '%d days'`, days))
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// PruneLogcat deletes logcat results and requests older than `days` days.
+func (d *DB) PruneLogcat(ctx context.Context, days int) (int64, error) {
+	if days <= 0 {
+		return 0, nil
+	}
+	var total int64
+	for _, tbl := range []string{"logcat_results", "logcat_requests"} {
+		tag, err := d.pool.Exec(ctx, fmt.Sprintf(
+			`DELETE FROM %s WHERE created_at < NOW() - INTERVAL '%d days'`, tbl, days))
+		if err != nil {
+			return total, err
+		}
+		total += tag.RowsAffected()
+	}
+	return total, nil
+}
+
+type DBStats struct {
+	Devices       int64 `json:"devices"`
+	Checkins      int64 `json:"checkins"`
+	Commands      int64 `json:"commands"`
+	LogcatResults int64 `json:"logcat_results"`
+}
+
+func (d *DB) TableStats(ctx context.Context) (DBStats, error) {
+	var s DBStats
+	err := d.pool.QueryRow(ctx, `
+		SELECT (SELECT count(*) FROM devices),
+		       (SELECT count(*) FROM checkins),
+		       (SELECT count(*) FROM commands),
+		       (SELECT count(*) FROM logcat_results)
+	`).Scan(&s.Devices, &s.Checkins, &s.Commands, &s.LogcatResults)
+	return s, err
+}
+
 const migrationSQL = `
 CREATE TABLE IF NOT EXISTS devices (
 	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
