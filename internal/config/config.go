@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -74,6 +75,7 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			c.ExtraColumns = []ExtraColumn{}
+			c.applyEnvOverrides()
 			return c, nil
 		}
 		return nil, err
@@ -81,7 +83,35 @@ func Load(path string) (*Config, error) {
 	if err := json.Unmarshal(data, c); err != nil {
 		return nil, err
 	}
+	c.applyEnvOverrides()
 	return c, nil
+}
+
+// applyEnvOverrides lets environment variables override the persisted AI settings
+// (convenient for .env-based deployment). A set env var wins over the stored value
+// and over the Settings UI on every restart; unset vars leave the file value intact.
+//
+//	AI_PROVIDER  anthropic | deepseek | openai
+//	AI_API_KEY   the provider's API key ("" = AI disabled)
+//	AI_MODEL     model id (e.g. deepseek-chat, claude-opus-4-8)
+//	AI_BASE_URL  endpoint override (e.g. https://api.deepseek.com/anthropic)
+//	AI_DIGEST    1/true/on to enable the daily fleet digest
+func (c *Config) applyEnvOverrides() {
+	if v := os.Getenv("AI_PROVIDER"); v != "" {
+		c.AIProviderVal = v
+	}
+	if v := os.Getenv("AI_API_KEY"); v != "" {
+		c.AnthropicAPIKeyVal = v
+	}
+	if v := os.Getenv("AI_MODEL"); v != "" {
+		c.AnthropicModelVal = v
+	}
+	if v := os.Getenv("AI_BASE_URL"); v != "" {
+		c.AIBaseURLVal = v
+	}
+	if v := os.Getenv("AI_DIGEST"); v != "" {
+		c.AIDigestEnabledVal = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "on")
+	}
 }
 
 func (c *Config) Columns() []ExtraColumn {

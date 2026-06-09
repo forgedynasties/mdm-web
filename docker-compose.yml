@@ -23,6 +23,9 @@ services:
     env_file: .env
     environment:
       DB_HOST: postgres
+      # Persist the settings/config file on the data volume so all settings
+      # survive container restarts and rebuilds (default config/ is not mounted).
+      CONFIG_PATH: ${CONFIG_PATH:-/app/data/config.json}
     volumes:
       - splashdata:/app/data
     depends_on:
