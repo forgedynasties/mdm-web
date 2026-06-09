@@ -46,9 +46,19 @@ type Config struct {
 	// Alerting. Slack/Discord/Mattermost-compatible webhook for new alerts ("" = off).
 	AlertWebhookURLVal string `json:"alert_webhook_url"`
 
+	// AI analysis (Anthropic). Key is the on/off switch ("" = disabled). Model
+	// defaults to claude-opus-4-8. Digest posts a daily fleet summary to the alert
+	// webhook during housekeeping when enabled.
+	AnthropicAPIKeyVal string `json:"anthropic_api_key"`
+	AnthropicModelVal  string `json:"anthropic_model"`
+	AIDigestEnabledVal bool   `json:"ai_digest_enabled"`
+
 	mu   sync.RWMutex
 	path string
 }
+
+// DefaultAnthropicModel is used when no model has been configured.
+const DefaultAnthropicModel = "claude-opus-4-8"
 
 func Load(path string) (*Config, error) {
 	c := &Config{path: path}
@@ -360,6 +370,59 @@ func (c *Config) AlertWebhookURL() string {
 func (c *Config) SetAlertWebhookURL(s string) error {
 	c.mu.Lock()
 	c.AlertWebhookURLVal = s
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+// AnthropicAPIKey returns the configured key ("" = AI analysis disabled).
+func (c *Config) AnthropicAPIKey() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AnthropicAPIKeyVal
+}
+
+func (c *Config) SetAnthropicAPIKey(s string) error {
+	c.mu.Lock()
+	c.AnthropicAPIKeyVal = s
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+// AIEnabled reports whether AI analysis can run (a key is set).
+func (c *Config) AIEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AnthropicAPIKeyVal != ""
+}
+
+func (c *Config) AnthropicModel() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AnthropicModelVal == "" {
+		return DefaultAnthropicModel
+	}
+	return c.AnthropicModelVal
+}
+
+func (c *Config) SetAnthropicModel(s string) error {
+	c.mu.Lock()
+	c.AnthropicModelVal = s
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+func (c *Config) AIDigestEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AIDigestEnabledVal
+}
+
+func (c *Config) SetAIDigestEnabled(v bool) error {
+	c.mu.Lock()
+	c.AIDigestEnabledVal = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)
