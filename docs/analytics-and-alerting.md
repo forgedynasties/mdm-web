@@ -114,9 +114,20 @@ Rule-based catalog, tuned to the restaurant/overnight-charge use case. See §3.
 - Verified 2026-06-09 via the seeded stack (alert row + nav badge render; fixed a
   date/int SQL type-ambiguity bug in the decline query found by running it).
 
-**Still open for Tier 2:** the marquee **offline-during-service** rule (needs service
-hours — see open questions); group/device-scoped rules (evaluator currently fleet-scope
-only); notification channels (email/Slack/webhook) — alerts are in-dashboard only today.
+**Also landed (2026-06-09):**
+- **offline** rule — fires when `last_seen_at` exceeds a threshold, skipping each
+  device's local quiet/overnight window (timezone from `latest_extra`, default 00:00–06:00)
+  so overnight charging doesn't trip it. Verified fire + auto-resolve.
+- **Webhook notifications** — `EvaluateAlerts` returns serial-tagged notifications;
+  housekeeping POSTs each new alert to a Slack/Discord/Mattermost-compatible webhook
+  (`AlertWebhookURL` setting + Settings UI). Verified end-to-end delivery.
+- Bonus fix: config writes were silently failing in Docker (missing config dir); `Load`
+  now creates it, so all settings actually persist.
+
+**Still open for Tier 2:** offline rule uses quiet-hours, not true per-restaurant service
+windows (refine once service hours are defined); group/device-scoped rules (evaluator is
+fleet-scope only); live dashboard refresh when an alert fires (webhook covers external
+notify; in-app live update would need an SSE endpoint).
 
 ### Tier 3 — Diagnostic & trends (the "per-group" analytics)
 Per restaurant/chain: uptime %, offline incidents (count + duration), overnight charge
@@ -225,5 +236,7 @@ and an **Alerts** view (open/ack/resolved).
 - **2026-06-09** — Tier 2 alerting landed (`analytics-alerting`): alert tables, DB layer,
   evaluator (3 rules) wired into housekeeping, Alerts dashboard page + nav badge. Tier 1
   and Tier 2 both verified by screenshotting a seeded Docker stack. Fixed a date/int SQL
-  bug in the decline query. Remaining: offline-during-service rule (needs service hours),
-  scoped rules, notification channels.
+  bug in the decline query.
+- **2026-06-09** — Tier 2 completed: **offline** rule (quiet-hours aware) + **webhook
+  notifications** (Slack-compatible), both verified end-to-end against the Docker stack;
+  fixed config-dir bug so settings persist. Next up: Tier 3 fleet/group health overview.
