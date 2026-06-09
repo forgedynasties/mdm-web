@@ -876,6 +876,13 @@ func summarizePreview(md string) string {
 }
 
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
+	// A ?page_size=N from the main-page selector persists to config (survives
+	// restarts) so the choice sticks across sessions and machines.
+	if v := r.URL.Query().Get("page_size"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 && n != h.cfg.PageSize() {
+			h.cfg.SetPageSize(n)
+		}
+	}
 	pageSize := h.cfg.PageSize()
 	q := r.URL.Query().Get("q")
 	sort := r.URL.Query().Get("sort")
@@ -3276,31 +3283,62 @@ func (h *Handler) refreshFleetSummary(ctx context.Context) {
 		!cur.GeneratedAt.IsZero() && time.Since(cur.GeneratedAt) < 55*time.Minute {
 		return
 	}
+	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	if _, err := h.generateFleetSummary(cctx); err != nil {
+		log.Printf("[ai-summary] %v", err)
+	} else {
+		log.Printf("[ai-summary] refreshed fleet summary")
+	}
+}
+
+// generateFleetSummary runs the fleet analysis (health + open alerts), records token
+// usage, caches the result, and returns it. Always generates — callers gate freshness.
+func (h *Handler) generateFleetSummary(ctx context.Context) (db.AISummary, error) {
 	activeSecs := h.cfg.CheckinInterval() * 3
 	groups, err := h.db.GetGroupHealth(ctx, activeSecs)
 	if err != nil {
-		log.Printf("[ai-summary] group health: %v", err)
-		return
+		return db.AISummary{}, err
 	}
 	summary, _ := h.db.GetSummary(ctx, activeSecs)
 	openAlerts, _ := h.db.CountOpenAlerts(ctx)
+	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
 
-	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
-	defer cancel()
 	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts)
+	text, usage, err := client.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts)
 	if err != nil {
-		log.Printf("[ai-summary] analyze: %v", err)
-		return
+		return db.AISummary{}, err
 	}
-	if err := h.db.RecordAIUsage(cctx, usage.InputTokens, usage.OutputTokens); err != nil {
+	if err := h.db.RecordAIUsage(ctx, usage.InputTokens, usage.OutputTokens); err != nil {
 		log.Printf("[ai-summary] record usage: %v", err)
 	}
 	if err := h.db.SetAISummary(ctx, "fleet", text, client.Model()); err != nil {
-		log.Printf("[ai-summary] store: %v", err)
+		return db.AISummary{}, err
+	}
+	return db.AISummary{Summary: text, Model: client.Model(), GeneratedAt: time.Now()}, nil
+}
+
+// AISummaryRefresh forces a fresh fleet summary (the main-page card's refresh button)
+// and returns the new text + timestamp.
+func (h *Handler) AISummaryRefresh(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.AIEnabled() {
+		writeJSONError(w, http.StatusServiceUnavailable, "AI analysis is not configured — add an API key in Settings.")
 		return
 	}
-	log.Printf("[ai-summary] refreshed fleet summary")
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	s, err := h.generateFleetSummary(ctx)
+	if err != nil {
+		log.Printf("[ai-summary] refresh: %v", err)
+		writeJSONError(w, http.StatusBadGateway, "Refresh failed: "+err.Error())
+		return
+	}
+	h.audit(r, "ai.summary_refresh", "", "")
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"text":         s.Summary,
+		"generated_at": s.GeneratedAt.UTC().Format(time.RFC3339),
+	})
 }
 
 // maybeSendDigest posts a once-a-day AI fleet summary to the alert webhook. It is
@@ -3328,11 +3366,12 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 	}
 	summary, _ := h.db.GetSummary(ctx, activeSecs)
 	openAlerts, _ := h.db.CountOpenAlerts(ctx)
+	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
 
 	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts)
+	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts)
 	if err != nil {
 		log.Printf("[digest] analyze: %v", err)
 		return
@@ -3613,7 +3652,8 @@ func (h *Handler) FleetAIAnalysis(w http.ResponseWriter, r *http.Request) {
 		}
 		summary, _ := h.db.GetSummary(ctx, activeSecs)
 		openAlerts, _ := h.db.CountOpenAlerts(ctx)
-		return c.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts)
+		alerts, _ := h.db.ListAlerts(ctx, "open", 40)
+		return c.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts)
 	})
 	h.audit(r, "ai.fleet", "", "")
 }
@@ -4226,6 +4266,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("POST /fleet-health/ai-analysis", h.requireAuth(h.FleetAIAnalysis))
+	mux.HandleFunc("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
 	mux.HandleFunc("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
