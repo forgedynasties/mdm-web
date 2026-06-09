@@ -853,9 +853,12 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 
 const pageSize = 25
 
-// summarizePreview produces a one-line plaintext preview from a Markdown summary:
-// the first non-empty line, stripped of common Markdown markers and truncated.
+// summarizePreview produces a one-line plaintext preview of a cached summary. For a
+// structured report it's the headline; otherwise the first meaningful Markdown line.
 func summarizePreview(md string) string {
+	if rep, ok := ai.ParseReport(md); ok {
+		return rep.Headline
+	}
 	for _, line := range strings.Split(md, "\n") {
 		t := strings.TrimSpace(line)
 		if t == "" {
@@ -3312,7 +3315,7 @@ func (h *Handler) generateFleetSummary(ctx context.Context) (db.AISummary, error
 	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
 
 	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, usage, err := client.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts)
+	text, usage, err := client.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts, h.alertThresholds(ctx))
 	if err != nil {
 		return db.AISummary{}, err
 	}
@@ -3378,7 +3381,7 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts)
+	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts, h.alertThresholds(cctx))
 	if err != nil {
 		log.Printf("[digest] analyze: %v", err)
 		return
@@ -3386,7 +3389,12 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 	if err := h.db.RecordAIUsage(cctx, usage.InputTokens, usage.OutputTokens); err != nil {
 		log.Printf("[digest] record usage: %v", err)
 	}
-	if err := notify.SendWebhook(ctx, url, "*Daily fleet digest*\n"+text); err != nil {
+	// The report is structured JSON; flatten it to readable text for the webhook.
+	msg := text
+	if rep, ok := ai.ParseReport(text); ok {
+		msg = rep.Text()
+	}
+	if err := notify.SendWebhook(ctx, url, "*Daily fleet digest*\n"+msg); err != nil {
 		log.Printf("[digest] webhook: %v", err)
 		return
 	}
@@ -3480,6 +3488,9 @@ var alertRuleDefs = []struct {
 		{"drop_pct", "Decline threshold", "%", 1, 15},
 		{"window_days", "Comparison window", "days", 1, 7},
 	}},
+	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Hourly Report uses for memory.", []alertParamField{
+		{"ram_pct", "RAM usage", "%", 1, 85},
+	}},
 }
 
 type alertFieldView struct {
@@ -3523,6 +3534,39 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleView {
 		out = append(out, alertRuleView{r.ID.String(), def.Type, def.Label, def.Desc, r.Enabled, fields})
 	}
 	return out
+}
+
+// alertThresholds reads the configurable cutoffs from the alert rules so the fleet
+// report judges problems against the same numbers (defaults if a rule is missing).
+func (h *Handler) alertThresholds(ctx context.Context) ai.Thresholds {
+	t := ai.Thresholds{TempC: 45, MinFullPct: 90, MaxChargeFrac: 0.3, DropPct: 15, WindowDays: 7, RAMPct: 85}
+	rules, err := h.db.ListAlertRules(ctx, false)
+	if err != nil {
+		return t
+	}
+	for _, r := range rules {
+		var p map[string]float64
+		_ = json.Unmarshal(r.Params, &p)
+		get := func(k string, d float64) float64 {
+			if v, ok := p[k]; ok {
+				return v
+			}
+			return d
+		}
+		switch r.Type {
+		case "overheating":
+			t.TempC = get("temp_c", t.TempC)
+		case "no_overnight_charge":
+			t.MinFullPct = get("min_full_pct", t.MinFullPct)
+			t.MaxChargeFrac = get("max_charge_frac", t.MaxChargeFrac)
+		case "battery_health_decline":
+			t.DropPct = get("drop_pct", t.DropPct)
+			t.WindowDays = get("window_days", t.WindowDays)
+		case "memory_pressure":
+			t.RAMPct = get("ram_pct", t.RAMPct)
+		}
+	}
+	return t
 }
 
 // SettingsUpdateAlertRule saves one alert rule's enabled flag and thresholds.
@@ -3647,22 +3691,6 @@ func (h *Handler) DeviceAIAnalysis(w http.ResponseWriter, r *http.Request) {
 		return c.AnalyzeDevice(ctx, serial, stats, devAlerts)
 	})
 	h.audit(r, "ai.device", serial, "")
-}
-
-// FleetAIAnalysis returns an AI reading of the per-group health scorecard.
-func (h *Handler) FleetAIAnalysis(w http.ResponseWriter, r *http.Request) {
-	h.writeAIResult(w, r, func(ctx context.Context, c *ai.Client) (string, ai.Usage, error) {
-		activeSecs := h.cfg.CheckinInterval() * 3
-		groups, err := h.db.GetGroupHealth(ctx, activeSecs)
-		if err != nil {
-			return "", ai.Usage{}, err
-		}
-		summary, _ := h.db.GetSummary(ctx, activeSecs)
-		openAlerts, _ := h.db.CountOpenAlerts(ctx)
-		alerts, _ := h.db.ListAlerts(ctx, "open", 40)
-		return c.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts)
-	})
-	h.audit(r, "ai.fleet", "", "")
 }
 
 func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Request) {
@@ -4272,7 +4300,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
-	mux.HandleFunc("POST /fleet-health/ai-analysis", h.requireAuth(h.FleetAIAnalysis))
 	mux.HandleFunc("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
