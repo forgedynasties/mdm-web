@@ -1283,7 +1283,36 @@
     </p>
     <div class="chart-wrap chart-wrap--tall"><canvas id="trendsChart"></canvas></div>
   </div>
+  <div class="card chart-card" style="margin-top:16px;">
+    <div class="card-header">
+      <h3>AI analysis</h3>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="dev-ai-meta" class="muted small"></span>
+        <button type="button" id="dev-ai-btn" class="btn-primary" style="font-size:12px;padding:4px 14px;" onclick="runDeviceAI()">Analyze with AI</button>
+      </div>
+    </div>
+    <div style="padding:14px 20px;"><div id="dev-ai-text" class="muted small" style="white-space:pre-wrap;line-height:1.5;">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action. Click to run.</div></div>
+  </div>
 </section><!-- /trends -->
+<script>
+function runDeviceAI() {
+  var serial = '{{.Device.SerialNumber}}';
+  var btn = document.getElementById('dev-ai-btn'),
+      out = document.getElementById('dev-ai-text'),
+      meta = document.getElementById('dev-ai-meta');
+  btn.disabled = true; var label = btn.textContent; btn.textContent = 'Analyzing…';
+  out.textContent = 'Reading 30 days of telemetry…'; meta.textContent = '';
+  fetch('/devices/' + encodeURIComponent(serial) + '/ai-analysis', { method: 'POST' })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      if (!res.ok) { out.textContent = res.j.error || 'Analysis failed.'; return; }
+      out.textContent = res.j.text;
+      meta.textContent = res.j.model + ' · ' + new Date(res.j.generated_at).toLocaleString();
+    })
+    .catch(function () { out.textContent = 'Network error.'; })
+    .finally(function () { btn.disabled = false; btn.textContent = label; });
+}
+</script>
 </div><!-- /device-detail -->
 
 <script>

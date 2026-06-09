@@ -6,7 +6,35 @@
     <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span>Fleet Health</h2>
     <p class="page-subtitle">Per-group health, worst first — where to send a tech.</p>
   </div>
+  <div>
+    <button type="button" id="ai-btn" class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="runFleetAI()">Analyze with AI</button>
+  </div>
 </div>
+
+<div class="card" id="ai-panel" hidden style="margin-bottom:16px;">
+  <div class="card-header"><h3>AI analysis</h3><span class="muted small" id="ai-meta"></span></div>
+  <div style="padding:16px;"><div id="ai-text" class="muted small" style="white-space:pre-wrap;line-height:1.5;"></div></div>
+</div>
+
+<script>
+function runFleetAI() {
+  var btn = document.getElementById('ai-btn'),
+      panel = document.getElementById('ai-panel'),
+      out = document.getElementById('ai-text'),
+      meta = document.getElementById('ai-meta');
+  btn.disabled = true; var label = btn.textContent; btn.textContent = 'Analyzing…';
+  panel.hidden = false; out.textContent = 'Reading fleet health…'; meta.textContent = '';
+  fetch('/fleet-health/ai-analysis', { method: 'POST' })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      if (!res.ok) { out.textContent = res.j.error || 'Analysis failed.'; return; }
+      out.textContent = res.j.text;
+      meta.textContent = res.j.model + ' · ' + new Date(res.j.generated_at).toLocaleString();
+    })
+    .catch(function () { out.textContent = 'Network error.'; })
+    .finally(function () { btn.disabled = false; btn.textContent = label; });
+}
+</script>
 
 <div class="health-summary">
   <div class="health-stat"><div class="health-stat-num">{{.TotalDevices}}</div><div class="health-stat-label">Devices</div></div>
