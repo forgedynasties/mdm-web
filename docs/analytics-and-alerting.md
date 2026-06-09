@@ -129,11 +129,26 @@ windows (refine once service hours are defined); group/device-scoped rules (eval
 fleet-scope only); live dashboard refresh when an alert fires (webhook covers external
 notify; in-app live update would need an SSE endpoint).
 
-### Tier 3 — Diagnostic & trends (the "per-group" analytics)
+### Tier 3 — Diagnostic & trends (the "per-group" analytics) — **landed + verified**
 Per restaurant/chain: uptime %, offline incidents (count + duration), overnight charge
 recovery, battery-health trend, temp distribution, firmware consistency %. Rank venues by
 health so ops knows where to send a tech. Week-over-week deltas catch a venue degrading
 *before* a support ticket.
+
+**Done (2026-06-09):**
+- `GetGroupHealth(activeSecs)` — one SQL (CTEs over `device_daily_stats` + `devices` +
+  `alerts`) computing per group: device/offline counts, open critical/warning alerts,
+  recent avg daily-peak battery, **week-over-week battery delta**, avg charging coverage,
+  max temp, distinct build count.
+- A 0–100 **health score** (`computeScore`): penalties for offline ratio, open alerts,
+  poor charging, battery decline, overheating, firmware fragmentation → ok/warn/danger.
+- **Fleet Health** page at `/fleet-health` (nav "Health"): fleet summary bar + per-group
+  scorecard ranked **worst-first**. Verified via seeded stack — a struggling group scored
+  0, a healthy one 100, with correct alert/offline/delta columns.
+
+**Still open for Tier 3:** offline *incident* history (count + duration over time) is not
+yet tracked (we show current offline count, not historical incidents); temp distribution
+is shown as a single max, not a spread.
 
 ### Tier 4 — Predictive (ML, eventually & optional)
 Predictive battery replacement: "this tablet's battery will fail within ~3 weeks." Needs
@@ -239,4 +254,8 @@ and an **Alerts** view (open/ack/resolved).
   bug in the decline query.
 - **2026-06-09** — Tier 2 completed: **offline** rule (quiet-hours aware) + **webhook
   notifications** (Slack-compatible), both verified end-to-end against the Docker stack;
-  fixed config-dir bug so settings persist. Next up: Tier 3 fleet/group health overview.
+  fixed config-dir bug so settings persist.
+- **2026-06-09** — **Tier 3 landed**: `GetGroupHealth` + 0–100 health score + **Fleet
+  Health** page (`/fleet-health`), per-group scorecard ranked worst-first with
+  week-over-week battery delta. Verified via seeded stack. Tiers 1–3 now complete; Tier 4
+  (predictive ML) remains intentionally deferred (~mid-2027, needs 6–12mo history).
