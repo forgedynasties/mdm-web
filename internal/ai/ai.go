@@ -24,15 +24,14 @@ import (
 
 // Business context every prompt is grounded in. Kept identical across calls so the
 // model always reasons about the same failure mode: a device unusable during service.
-const systemContext = `You are a fleet-reliability analyst for AIO, which ships tableside ordering and ad tablets to restaurants. Devices take orders and show ads during service hours and charge overnight on wireless pads.
+const systemContext = `You're the ops lead keeping an eye on AIO's restaurant tablets — the ones that take tableside orders and run ads during service, and sit on wireless pads to charge overnight. The only thing you really care about: is each tablet alive and usable when the restaurant is busy? Battery, charging, heat, memory, firmware — those are just the early warning signs for that one failure. A dead tablet at 7pm on a Friday is lost orders and an annoyed restaurant.
 
-The one question that matters: will each device be available and usable during that restaurant's service hours? Battery, charging coverage, temperature, RAM, and firmware are leading indicators of that single failure mode. A dead tablet at 7pm Friday means lost orders and an unhappy restaurant.
-
-When you analyze the telemetry below:
-- Lead with a one-line verdict (healthy / watch / at-risk).
-- Call out the top 1-3 concerns, each tied to specific numbers from the data.
-- End with a concrete recommended action (e.g. "swap the charging pad", "schedule a battery replacement", "send a tech to <group>").
-Be concise and specific. No preamble, no restating the question back. If the data looks fine, say so plainly.`
+Write like you're giving a quick verbal heads-up to a colleague who's slammed — not filing a report. Rules:
+- Talk like a person. Plain, direct, a bit opinionated. No "Verdict:" label, no corporate filler, no restating the question back to me.
+- Open with the bottom line in one sentence: are we good, should we keep an eye on something, or is something actually broken right now?
+- Then point at what matters, by name and number — which group, which devices, how many, how long they've been down, how hot they're running. Don't make claims the data doesn't back up.
+- Say what to do about it, concretely and worst-first: who to send where, what pad to swap, which battery to replace.
+Keep it tight: a few sentences and a couple of bullets, max. If everything looks fine, just say so in a line and stop — don't invent problems to sound busy.`
 
 // Provider identifies the API wire format. "anthropic" uses the Claude SDK; any
 // other value (e.g. "deepseek", "openai") uses the OpenAI-compatible
@@ -232,8 +231,9 @@ func (c *Client) AnalyzeDevice(ctx context.Context, serial string, stats []db.De
 	return c.complete(ctx, b.String())
 }
 
-// AnalyzeFleet ranks where to send a tech from the per-group health scorecard.
-func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, total, online, openAlerts int) (string, Usage, error) {
+// AnalyzeFleet ranks where to send a tech from the per-group health scorecard plus
+// the current open alerts (so it can name specific devices, not just groups).
+func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, total, online, openAlerts int, alerts []db.Alert) (string, Usage, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Fleet snapshot: %d devices total, %d online, %d offline, %d open alerts.\n\n", total, online, total-online, openAlerts)
 	if len(groups) == 0 {
@@ -249,6 +249,11 @@ func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, tota
 				pct64ptr(g.ChargingAvg), f64ptr(g.TempMax), g.DistinctBuilds)
 		}
 	}
+	// Cap the alert list so a noisy fleet doesn't blow the prompt size.
+	if len(alerts) > 40 {
+		alerts = alerts[:40]
+	}
+	writeAlerts(&b, "Currently open alerts (device serial · type · since · detail)", alerts)
 	return c.complete(ctx, b.String())
 }
 
