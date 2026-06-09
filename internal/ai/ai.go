@@ -90,8 +90,14 @@ func New(provider, apiKey, model, baseURL string) *Client {
 // Model returns the resolved model id (after defaulting).
 func (c *Client) Model() string { return c.model }
 
+// Usage reports the token counts for one call (0 if the provider omitted them).
+type Usage struct {
+	InputTokens  int64 `json:"input_tokens"`
+	OutputTokens int64 `json:"output_tokens"`
+}
+
 // complete dispatches to the configured provider's backend.
-func (c *Client) complete(ctx context.Context, user string) (string, error) {
+func (c *Client) complete(ctx context.Context, user string) (string, Usage, error) {
 	if c.provider == ProviderAnthropic {
 		return c.anthropicComplete(ctx, user)
 	}
@@ -103,7 +109,7 @@ func (c *Client) complete(ctx context.Context, user string) (string, error) {
 // endpoint), which expects bearer-token auth and may not support Claude-native
 // adaptive thinking — so that's only enabled against the real Anthropic API.
 // Only visible text blocks are returned.
-func (c *Client) anthropicComplete(ctx context.Context, user string) (string, error) {
+func (c *Client) anthropicComplete(ctx context.Context, user string) (string, Usage, error) {
 	var opts []option.RequestOption
 	if c.baseURL != "" {
 		opts = append(opts, option.WithBaseURL(c.baseURL), option.WithAuthToken(c.apiKey))
@@ -123,7 +129,7 @@ func (c *Client) anthropicComplete(ctx context.Context, user string) (string, er
 	}
 	resp, err := client.Messages.New(ctx, params)
 	if err != nil {
-		return "", err
+		return "", Usage{}, err
 	}
 	var b strings.Builder
 	for _, block := range resp.Content {
@@ -131,17 +137,18 @@ func (c *Client) anthropicComplete(ctx context.Context, user string) (string, er
 			b.WriteString(t.Text)
 		}
 	}
+	usage := Usage{InputTokens: resp.Usage.InputTokens, OutputTokens: resp.Usage.OutputTokens}
 	out := strings.TrimSpace(b.String())
 	if out == "" {
-		return "", fmt.Errorf("model returned no text")
+		return "", usage, fmt.Errorf("model returned no text")
 	}
-	return out, nil
+	return out, usage, nil
 }
 
 // openaiComplete calls an OpenAI-compatible /chat/completions endpoint (DeepSeek,
 // OpenAI, Groq, OpenRouter, local servers, …). The system context and user data
 // map onto the system/user chat roles.
-func (c *Client) openaiComplete(ctx context.Context, user string) (string, error) {
+func (c *Client) openaiComplete(ctx context.Context, user string) (string, Usage, error) {
 	type msg struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
@@ -160,14 +167,14 @@ func (c *Client) openaiComplete(ctx context.Context, user string) (string, error
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(reqBody))
 	if err != nil {
-		return "", err
+		return "", Usage{}, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", Usage{}, err
 	}
 	defer resp.Body.Close()
 
@@ -177,31 +184,36 @@ func (c *Client) openaiComplete(ctx context.Context, user string) (string, error
 				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int64 `json:"prompt_tokens"`
+			CompletionTokens int64 `json:"completion_tokens"`
+		} `json:"usage"`
 		Error *struct {
 			Message string `json:"message"`
 		} `json:"error"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return "", fmt.Errorf("%s returned status %d (unparseable body)", c.provider, resp.StatusCode)
+		return "", Usage{}, fmt.Errorf("%s returned status %d (unparseable body)", c.provider, resp.StatusCode)
 	}
 	if resp.StatusCode >= 300 {
 		if parsed.Error != nil && parsed.Error.Message != "" {
-			return "", fmt.Errorf("%s %d: %s", c.provider, resp.StatusCode, parsed.Error.Message)
+			return "", Usage{}, fmt.Errorf("%s %d: %s", c.provider, resp.StatusCode, parsed.Error.Message)
 		}
-		return "", fmt.Errorf("%s returned status %d", c.provider, resp.StatusCode)
+		return "", Usage{}, fmt.Errorf("%s returned status %d", c.provider, resp.StatusCode)
 	}
 	if len(parsed.Choices) == 0 {
-		return "", fmt.Errorf("%s returned no choices", c.provider)
+		return "", Usage{}, fmt.Errorf("%s returned no choices", c.provider)
 	}
+	usage := Usage{InputTokens: parsed.Usage.PromptTokens, OutputTokens: parsed.Usage.CompletionTokens}
 	out := strings.TrimSpace(parsed.Choices[0].Message.Content)
 	if out == "" {
-		return "", fmt.Errorf("model returned no text")
+		return "", usage, fmt.Errorf("model returned no text")
 	}
-	return out, nil
+	return out, usage, nil
 }
 
 // AnalyzeDevice summarizes one device's recent daily stats and open alerts.
-func (c *Client) AnalyzeDevice(ctx context.Context, serial string, stats []db.DeviceDailyStat, alerts []db.Alert) (string, error) {
+func (c *Client) AnalyzeDevice(ctx context.Context, serial string, stats []db.DeviceDailyStat, alerts []db.Alert) (string, Usage, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Device %s — last %d day(s) of rolled-up telemetry (one row per day, oldest first).\n", serial, len(stats))
 	if len(stats) == 0 {
@@ -221,7 +233,7 @@ func (c *Client) AnalyzeDevice(ctx context.Context, serial string, stats []db.De
 }
 
 // AnalyzeFleet ranks where to send a tech from the per-group health scorecard.
-func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, total, online, openAlerts int) (string, error) {
+func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, total, online, openAlerts int) (string, Usage, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Fleet snapshot: %d devices total, %d online, %d offline, %d open alerts.\n\n", total, online, total-online, openAlerts)
 	if len(groups) == 0 {

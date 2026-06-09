@@ -141,6 +141,18 @@
       </label>
       <div><button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button></div>
     </form>
+
+    <div style="margin-top:18px;border-top:1px solid var(--border-soft);padding-top:16px;">
+      <strong class="small">Token usage</strong>
+      <div style="display:flex;flex-wrap:wrap;gap:24px;margin:12px 0 16px;">
+        <div><div style="font-size:22px;font-weight:600;">{{.AIUsage.Calls}}</div><div class="muted small">Calls</div></div>
+        <div><div style="font-size:22px;font-weight:600;">{{.AIUsage.InputTokens}}</div><div class="muted small">Input tokens</div></div>
+        <div><div style="font-size:22px;font-weight:600;">{{.AIUsage.OutputTokens}}</div><div class="muted small">Output tokens</div></div>
+        <div><div style="font-size:22px;font-weight:600;">{{.AIUsageTotal}}</div><div class="muted small">Total tokens</div></div>
+      </div>
+      <div style="height:200px;"><canvas id="aiUsageChart"></canvas></div>
+      <div class="muted small" style="margin-top:6px;">Input + output tokens per day, last 30 days.</div>
+    </div>
   </div>
 </div>
 
@@ -233,6 +245,32 @@
     </div>
   </div>
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  var rows = {{.AIUsageDailyJSON}};
+  var el = document.getElementById('aiUsageChart');
+  if (!el || typeof Chart === 'undefined') return;
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDay(d) { var p = String(d).slice(0,10).split('-'); return MONTHS[parseInt(p[1],10)-1] + ' ' + parseInt(p[2],10); }
+  var labels = rows.map(function (r) { return fmtDay(r.day); });
+  var input = rows.map(function (r) { return r.input_tokens; });
+  var output = rows.map(function (r) { return r.output_tokens; });
+  new Chart(el.getContext('2d'), {
+    type: 'bar',
+    data: { labels: labels, datasets: [
+      { label: 'Input tokens', data: input, backgroundColor: 'rgba(120,144,170,0.7)', stack: 's' },
+      { label: 'Output tokens', data: output, backgroundColor: '#d82747', stack: 's' }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'tokens' } } },
+      plugins: { legend: { position: 'bottom' } }
+    }
+  });
+})();
+</script>
 
 {{template "footer" .}}
 {{end}}
