@@ -1291,7 +1291,7 @@
         <button type="button" id="dev-ai-btn" class="btn-primary" style="font-size:12px;padding:4px 14px;" onclick="runDeviceAI()">Analyze with AI</button>
       </div>
     </div>
-    <div style="padding:14px 20px;"><div id="dev-ai-text" class="muted small" style="white-space:pre-wrap;line-height:1.5;">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action. Click to run.</div></div>
+    <div style="padding:14px 20px;"><div id="dev-ai-text" class="ai-text small" style="line-height:1.5;"><span class="muted">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action. Click to run.</span></div></div>
   </div>
 </section><!-- /trends -->
 <script>
@@ -1306,7 +1306,7 @@ function runDeviceAI() {
     .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
     .then(function (res) {
       if (!res.ok) { out.textContent = res.j.error || 'Analysis failed.'; return; }
-      out.textContent = res.j.text;
+      out.innerHTML = window.mdmRenderMarkdown(res.j.text);
       meta.textContent = res.j.model + ' · ' + new Date(res.j.generated_at).toLocaleString();
     })
     .catch(function () { out.textContent = 'Network error.'; })

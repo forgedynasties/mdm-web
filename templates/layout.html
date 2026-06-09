@@ -79,7 +79,40 @@
   window.mdmTheme = function () {
     return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
   };
-  </script>
+
+  // mdmRenderMarkdown: minimal, XSS-safe Markdown -> HTML for model output.
+  // Escapes HTML first, then formats a small subset (bold/italic/code,
+  // unordered + ordered lists, #-headings, paragraphs). Returns an HTML string
+  // safe to assign to innerHTML.
+  window.mdmRenderMarkdown = function (text) {
+    function esc(t) {
+      return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function inline(s) {
+      return s
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>');
+    }
+    var lines = String(text == null ? '' : text).replace(/\r\n/g, '\n').split('\n');
+    var html = [], list = null, para = [];
+    function flushList() { if (list) { html.push('<' + list.tag + '>' + list.items.join('') + '</' + list.tag + '>'); list = null; } }
+    function flushPara() { if (para.length) { html.push('<p>' + para.join('<br>') + '</p>'); para = []; } }
+    for (var i = 0; i < lines.length; i++) {
+      var line = esc(lines[i]);
+      if (line.trim() === '') { flushPara(); flushList(); continue; }
+      var mH = /^\s*#{1,6}\s+(.*)$/.exec(line);
+      var mUl = /^\s*[-*]\s+(.*)$/.exec(line);
+      var mOl = /^\s*\d+\.\s+(.*)$/.exec(line);
+      if (mH) { flushPara(); flushList(); html.push('<p><strong>' + inline(mH[1]) + '</strong></p>'); continue; }
+      if (mUl) { flushPara(); if (!list || list.tag !== 'ul') { flushList(); list = { tag: 'ul', items: [] }; } list.items.push('<li>' + inline(mUl[1]) + '</li>'); continue; }
+      if (mOl) { flushPara(); if (!list || list.tag !== 'ol') { flushList(); list = { tag: 'ol', items: [] }; } list.items.push('<li>' + inline(mOl[1]) + '</li>'); continue; }
+      flushList(); para.push(inline(line.trim()));
+    }
+    flushPara(); flushList();
+    return html.join('');
+  };
+</script>
   <script>
   (function () {
     var progress = document.getElementById('htmx-progress');
