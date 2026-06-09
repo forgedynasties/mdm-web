@@ -13,7 +13,7 @@
 
 <div class="card" id="ai-panel" hidden style="margin-bottom:16px;">
   <div class="card-header"><h3>AI analysis</h3><span class="muted small" id="ai-meta"></span></div>
-  <div style="padding:16px;"><div id="ai-text" class="muted small" style="white-space:pre-wrap;line-height:1.5;"></div></div>
+  <div style="padding:16px;"><div id="ai-text" class="ai-text small" style="line-height:1.5;"></div></div>
 </div>
 
 <script>
@@ -28,7 +28,7 @@ function runFleetAI() {
     .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
     .then(function (res) {
       if (!res.ok) { out.textContent = res.j.error || 'Analysis failed.'; return; }
-      out.textContent = res.j.text;
+      out.innerHTML = window.mdmRenderMarkdown(res.j.text);
       meta.textContent = res.j.model + ' · ' + new Date(res.j.generated_at).toLocaleString();
     })
     .catch(function () { out.textContent = 'Network error.'; })
