@@ -3178,13 +3178,22 @@ input[type="checkbox"]:hover {
 .ai-text strong { font-weight: 600; color: var(--text-strong, var(--text)); }
 .ai-text code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; background: var(--surface-2, rgba(127,127,127,0.12)); padding: 1px 4px; border-radius: 4px; }
 
-/* AI Hourly Report — structured card. */
-.report-metrics { display: flex; flex-wrap: wrap; gap: 22px; margin: 2px 0 14px; }
-.report-metric .rm-val { font-size: 20px; font-weight: 600; color: var(--text); line-height: 1.1; }
-.report-metric .rm-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-top: 2px; }
-.report-issues { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.report-issue { display: flex; gap: 10px; align-items: flex-start; }
-.report-issue .ri-icon { font-size: 15px; line-height: 1.4; flex: none; }
-.report-issue .ri-text { font-size: 13px; color: var(--text); line-height: 1.45; }
-.report-issue .ri-action { color: var(--muted); margin-top: 2px; }
-.report-good { margin-top: 12px; color: var(--muted); font-size: 12px; }
+/* AI Hourly Report — structured card (stat tiles + dotted issue list). */
+.rep-status { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-right: 10px; }
+.rep-status.rep-ok { color: var(--ok); }
+.rep-status.rep-warn { color: var(--warn); }
+.rep-status.rep-danger { color: var(--danger); }
+.rep-status.rep-muted { color: var(--muted); }
+.rep-headline { color: var(--text); }
+.rep-tiles { display: flex; flex-wrap: wrap; gap: 26px; margin: 2px 0 16px; }
+.rep-tile .v { font-size: 22px; font-weight: 600; line-height: 1; color: var(--text); }
+.rep-tile .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 5px; }
+.rep-row { display: flex; gap: 12px; padding: 11px 0; border-top: 1px solid var(--border-soft); }
+.rep-row .ind { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
+.rep-row.rep-danger .ind { background: var(--danger); }
+.rep-row.rep-warn .ind { background: var(--warn); }
+.rep-row .meta { font-size: 13.5px; color: var(--text); line-height: 1.45; }
+.rep-uplabel { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-right: 4px; }
+.rep-row .scope { font-weight: 600; }
+.rep-row .action { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+.rep-good { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
