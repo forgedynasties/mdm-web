@@ -3070,6 +3070,12 @@ func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	dbStats, _ := h.db.TableStats(r.Context())
+	aiTotals, _ := h.db.GetAIUsageTotals(r.Context())
+	aiDaily, _ := h.db.GetAIUsageDaily(r.Context(), 30)
+	if aiDaily == nil {
+		aiDaily = []db.AIUsageDay{}
+	}
+	aiDailyJSON, _ := json.Marshal(aiDaily)
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":           "Settings",
 		"ExtraColumns":    h.cfg.Columns(),
@@ -3095,6 +3101,9 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"AnthropicModel":       h.cfg.AnthropicModel(),
 		"AIBaseURL":            h.cfg.AIBaseURL(),
 		"AIDigestEnabled":      h.cfg.AIDigestEnabled(),
+		"AIUsage":              aiTotals,
+		"AIUsageTotal":         aiTotals.InputTokens + aiTotals.OutputTokens,
+		"AIUsageDailyJSON":     template.JS(aiDailyJSON),
 		"AutoHideDays":         h.cfg.AutoHideDays(),
 		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
 		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
@@ -3223,10 +3232,13 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts)
+	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts)
 	if err != nil {
 		log.Printf("[digest] analyze: %v", err)
 		return
+	}
+	if err := h.db.RecordAIUsage(cctx, usage.InputTokens, usage.OutputTokens); err != nil {
+		log.Printf("[digest] record usage: %v", err)
 	}
 	if err := notify.SendWebhook(ctx, url, "*Daily fleet digest*\n"+text); err != nil {
 		log.Printf("[digest] webhook: %v", err)
@@ -3311,9 +3323,10 @@ func (h *Handler) SettingsSetAI(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
-// writeAIResult runs an analysis closure under a timeout and writes a JSON
-// {"text","model","generated_at"} body, or an error JSON on failure.
-func (h *Handler) writeAIResult(w http.ResponseWriter, r *http.Request, run func(ctx context.Context, c *ai.Client) (string, error)) {
+// writeAIResult runs an analysis closure under a timeout, records token usage, and
+// writes a JSON {"text","model","generated_at","input_tokens","output_tokens"}
+// body, or an error JSON on failure.
+func (h *Handler) writeAIResult(w http.ResponseWriter, r *http.Request, run func(ctx context.Context, c *ai.Client) (string, ai.Usage, error)) {
 	if !h.cfg.AIEnabled() {
 		writeJSONError(w, http.StatusServiceUnavailable, "AI analysis is not configured — add an Anthropic API key in Settings.")
 		return
@@ -3321,17 +3334,22 @@ func (h *Handler) writeAIResult(w http.ResponseWriter, r *http.Request, run func
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
 	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, err := run(ctx, client)
+	text, usage, err := run(ctx, client)
 	if err != nil {
 		log.Printf("[ai] analysis failed: %v", err)
 		writeJSONError(w, http.StatusBadGateway, "Analysis failed: "+err.Error())
 		return
 	}
+	if err := h.db.RecordAIUsage(ctx, usage.InputTokens, usage.OutputTokens); err != nil {
+		log.Printf("[ai] record usage: %v", err)
+	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"text":         text,
-		"model":        client.Model(),
-		"generated_at": time.Now().Format(time.RFC3339),
+	json.NewEncoder(w).Encode(map[string]any{
+		"text":          text,
+		"model":         client.Model(),
+		"generated_at":  time.Now().Format(time.RFC3339),
+		"input_tokens":  usage.InputTokens,
+		"output_tokens": usage.OutputTokens,
 	})
 }
 
@@ -3349,10 +3367,10 @@ func (h *Handler) DeviceAIAnalysis(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusNotFound, "Device not found")
 		return
 	}
-	h.writeAIResult(w, r, func(ctx context.Context, c *ai.Client) (string, error) {
+	h.writeAIResult(w, r, func(ctx context.Context, c *ai.Client) (string, ai.Usage, error) {
 		stats, err := h.db.GetDeviceDailyStats(ctx, device.ID, 30)
 		if err != nil {
-			return "", err
+			return "", ai.Usage{}, err
 		}
 		// No per-device alert query exists; filter the open list by serial.
 		open, _ := h.db.ListAlerts(ctx, "open", 200)
@@ -3369,11 +3387,11 @@ func (h *Handler) DeviceAIAnalysis(w http.ResponseWriter, r *http.Request) {
 
 // FleetAIAnalysis returns an AI reading of the per-group health scorecard.
 func (h *Handler) FleetAIAnalysis(w http.ResponseWriter, r *http.Request) {
-	h.writeAIResult(w, r, func(ctx context.Context, c *ai.Client) (string, error) {
+	h.writeAIResult(w, r, func(ctx context.Context, c *ai.Client) (string, ai.Usage, error) {
 		activeSecs := h.cfg.CheckinInterval() * 3
 		groups, err := h.db.GetGroupHealth(ctx, activeSecs)
 		if err != nil {
-			return "", err
+			return "", ai.Usage{}, err
 		}
 		summary, _ := h.db.GetSummary(ctx, activeSecs)
 		openAlerts, _ := h.db.CountOpenAlerts(ctx)

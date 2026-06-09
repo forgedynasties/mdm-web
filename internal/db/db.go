@@ -2488,6 +2488,68 @@ func (d *DB) SetAlertStatus(ctx context.Context, id uuid.UUID, status string) er
 	return err
 }
 
+// AIUsageDay is one day of AI token usage. Used for the Settings usage chart.
+type AIUsageDay struct {
+	Day          time.Time `json:"day"`
+	Calls        int       `json:"calls"`
+	InputTokens  int64     `json:"input_tokens"`
+	OutputTokens int64     `json:"output_tokens"`
+}
+
+// AIUsageTotals is the all-time AI usage rollup for the Settings summary.
+type AIUsageTotals struct {
+	Calls        int   `json:"calls"`
+	InputTokens  int64 `json:"input_tokens"`
+	OutputTokens int64 `json:"output_tokens"`
+}
+
+// RecordAIUsage adds one call's token counts to today's ai_usage row (upsert).
+func (d *DB) RecordAIUsage(ctx context.Context, inputTokens, outputTokens int64) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO ai_usage (day, calls, input_tokens, output_tokens)
+		VALUES (CURRENT_DATE, 1, $1, $2)
+		ON CONFLICT (day) DO UPDATE SET
+			calls         = ai_usage.calls + 1,
+			input_tokens  = ai_usage.input_tokens + EXCLUDED.input_tokens,
+			output_tokens = ai_usage.output_tokens + EXCLUDED.output_tokens
+	`, inputTokens, outputTokens)
+	return err
+}
+
+// GetAIUsageDaily returns per-day usage for the last `days` days, oldest first.
+func (d *DB) GetAIUsageDaily(ctx context.Context, days int) ([]AIUsageDay, error) {
+	if days <= 0 {
+		days = 30
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT day, calls, input_tokens, output_tokens
+		FROM ai_usage
+		WHERE day >= CURRENT_DATE - ($1::int - 1)
+		ORDER BY day`, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AIUsageDay
+	for rows.Next() {
+		var u AIUsageDay
+		if err := rows.Scan(&u.Day, &u.Calls, &u.InputTokens, &u.OutputTokens); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// GetAIUsageTotals returns the all-time AI usage rollup.
+func (d *DB) GetAIUsageTotals(ctx context.Context) (AIUsageTotals, error) {
+	var t AIUsageTotals
+	err := d.pool.QueryRow(ctx, `
+		SELECT COALESCE(SUM(calls),0), COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0)
+		FROM ai_usage`).Scan(&t.Calls, &t.InputTokens, &t.OutputTokens)
+	return t, err
+}
+
 // alertHit is one device flagged by a rule, with display summary + detail payload.
 type alertHit struct {
 	DeviceID uuid.UUID
@@ -3019,6 +3081,15 @@ CREATE TABLE IF NOT EXISTS alerts (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_alerts_open_unique ON alerts(type, device_id) WHERE status <> 'resolved';
 CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status, fired_at DESC);
 CREATE INDEX IF NOT EXISTS idx_alerts_device ON alerts(device_id);
+
+-- AI analysis token usage, rolled up per day (one row per calendar day). Each AI
+-- call increments calls and adds its input/output token counts.
+CREATE TABLE IF NOT EXISTS ai_usage (
+    day           DATE PRIMARY KEY,
+    calls         INTEGER NOT NULL DEFAULT 0,
+    input_tokens  BIGINT  NOT NULL DEFAULT 0,
+    output_tokens BIGINT  NOT NULL DEFAULT 0
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
