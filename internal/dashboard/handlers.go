@@ -3227,25 +3227,39 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	}
 	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
-	if d := h.cfg.AutoHideDays(); d > 0 {
-		if n, err := h.db.HideStaleDevices(ctx, d); err != nil {
-			log.Printf("[housekeeping] hide stale: %v", err)
-		} else if n > 0 {
-			log.Printf("[housekeeping] hid %d device(s) not seen in %dd", n, d)
-		}
+	h.applyAutoHide(ctx)
+	h.applyPrunes(ctx)
+}
+
+// applyAutoHide hides devices not seen within the configured window (no-op when
+// disabled). Reversible: a hidden device is un-hidden on its next check-in.
+func (h *Handler) applyAutoHide(ctx context.Context) {
+	d := h.cfg.AutoHideDays()
+	if d <= 0 {
+		return
 	}
+	if n, err := h.db.HideStaleDevices(ctx, d); err != nil {
+		log.Printf("[retention] hide stale: %v", err)
+	} else if n > 0 {
+		log.Printf("[retention] hid %d device(s) not seen in %dd", n, d)
+	}
+}
+
+// applyPrunes deletes check-ins and logcat results past their retention windows
+// (each a no-op when disabled). These are destructive — rows are removed.
+func (h *Handler) applyPrunes(ctx context.Context) {
 	if d := h.cfg.CheckinRetentionDays(); d > 0 {
 		if n, err := h.db.PruneCheckins(ctx, d); err != nil {
-			log.Printf("[housekeeping] prune checkins: %v", err)
+			log.Printf("[retention] prune checkins: %v", err)
 		} else if n > 0 {
-			log.Printf("[housekeeping] pruned %d checkin(s) older than %dd", n, d)
+			log.Printf("[retention] pruned %d checkin(s) older than %dd", n, d)
 		}
 	}
 	if d := h.cfg.LogcatRetentionDays(); d > 0 {
 		if n, err := h.db.PruneLogcat(ctx, d); err != nil {
-			log.Printf("[housekeeping] prune logcat: %v", err)
+			log.Printf("[retention] prune logcat: %v", err)
 		} else if n > 0 {
-			log.Printf("[housekeeping] pruned %d logcat row(s) older than %dd", n, d)
+			log.Printf("[retention] pruned %d logcat row(s) older than %dd", n, d)
 		}
 	}
 }
@@ -3347,6 +3361,12 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 		atoiNonNeg(r.FormValue("checkin_retention_days")),
 		atoiNonNeg(r.FormValue("logcat_retention_days")),
 	)
+	// Apply immediately so the policy takes effect on Save rather than waiting for
+	// the next hourly housekeeping run. Auto-hide is a fast, reversible UPDATE — run
+	// it inline so it's reflected on reload. Prunes can delete many rows, so run them
+	// in the background to keep the Save snappy.
+	h.applyAutoHide(r.Context())
+	go h.applyPrunes(context.Background())
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
