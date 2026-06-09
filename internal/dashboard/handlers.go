@@ -729,7 +729,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 
 	path := r.URL.Path
 	switch {
-	case strings.HasPrefix(path, "/health"):
+	case strings.HasPrefix(path, "/fleet-health"):
 		data["ActivePage"] = "health"
 	case strings.HasPrefix(path, "/alerts"):
 		data["ActivePage"] = "alerts"
@@ -3846,7 +3846,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
-	mux.HandleFunc("GET /health", h.requireAuth(h.FleetHealth))
+	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	mux.HandleFunc("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
