@@ -233,8 +233,9 @@
   <button class="dd-tab active" role="tab" type="button" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Device summary</button>
   <button class="dd-tab" role="tab" type="button" data-dd-tab="details" onclick="setDeviceTab('details', this)">Device details</button>
   <button class="dd-tab" role="tab" type="button" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>
-  <button class="dd-tab" role="tab" type="button" data-dd-tab="trends" onclick="setDeviceTab('trends', this)">Trends</button>
+  <button class="dd-tab" role="tab" type="button" data-dd-tab="controls" onclick="setDeviceTab('controls', this)">Controls</button>
   <button class="dd-tab" role="tab" type="button" data-dd-tab="settings" onclick="setDeviceTab('settings', this)">Device settings</button>
+  <button class="dd-tab" role="tab" type="button" data-dd-tab="trends" onclick="setDeviceTab('trends', this)">Trends</button>
 </div>
 
 <section class="dd-panel" data-dd-panel="summary">
@@ -999,26 +1000,32 @@
   </div>
 </section>
 
-<section class="dd-panel" data-dd-panel="settings" hidden>
+<section class="dd-panel" data-dd-panel="controls" hidden>
+{{$ctrlDefault := "screenshot"}}{{if or (eq .Role "admin") (eq .Role "operator")}}{{$ctrlDefault = "install"}}{{end}}
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Actions</h3></div>
+  <div class="card-header"><h3>Controls</h3></div>
   <div class="device-actions">
     <div class="device-actions-header">
       <div>
-        <div class="device-actions-title">Control this device with one focused step at a time</div>
-        <div class="device-actions-subtitle">Pick an action below, fill only the fields you need, and send it without hunting across multiple mini-forms.</div>
+        <div class="device-actions-title">Act on this device, one focused step at a time</div>
+        <div class="device-actions-subtitle">Pick an action below, fill only the fields you need, and send it.</div>
       </div>
       <span class="status-badge muted">Target: {{.Device.SerialNumber}}</span>
     </div>
 
     <div class="device-action-picker">
       {{if or (eq .Role "admin") (eq .Role "operator")}}
-      <button type="button" class="device-action-tile active" data-device-action="install" onclick="selectDeviceAction('install', this)">
+      <button type="button" class="device-action-tile{{if eq $ctrlDefault "install"}} active{{end}}" data-device-action="install" onclick="selectDeviceAction('install', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
         <div class="device-action-tile-title">Install App</div>
         <div class="device-action-tile-copy">Choose an APK from the repository and queue it for the next check-in.</div>
       </button>
       {{end}}
+      <button type="button" class="device-action-tile{{if eq $ctrlDefault "screenshot"}} active{{end}}" data-device-action="screenshot" onclick="selectDeviceAction('screenshot', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
+        <div class="device-action-tile-title">Capture Screenshot</div>
+        <div class="device-action-tile-copy">Request a fresh screenshot and review it from the command status screen.</div>
+      </button>
       {{if and (or (eq .Role "admin") (eq .Role "operator")) .RemoteEnabled}}
       <a href="/devices/{{.Device.SerialNumber}}/remote" class="device-action-tile" style="text-decoration:none;color:inherit;">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></span>
@@ -1026,11 +1033,18 @@
         <div class="device-action-tile-copy">View and control the device screen in real time over WebSocket.</div>
       </a>
       {{end}}
-      <button type="button" class="device-action-tile{{if eq .Role "viewer"}} active{{end}}" data-device-action="screenshot" onclick="selectDeviceAction('screenshot', this)">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
-        <div class="device-action-tile-title">Capture Screenshot</div>
-        <div class="device-action-tile-copy">Request a fresh screenshot and review it from the command status screen.</div>
-      </button>
+      {{if and (or (eq .Role "admin") (eq .Role "operator")) .ShellEnabled}}
+      <a href="/devices/{{.Device.SerialNumber}}/shell" class="device-action-tile" style="text-decoration:none;color:inherit;">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/><path d="M13 15h4"/></svg></span>
+        <div class="device-action-tile-title">Interactive Shell</div>
+        <div class="device-action-tile-copy">Open a live terminal and keep sending commands in one session.</div>
+      </a>
+      {{end}}
+      <a href="/devices/{{.Device.SerialNumber}}/logcat" class="device-action-tile" style="text-decoration:none;color:inherit;">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h16"/><path d="M4 15h10"/><path d="M4 20h7"/></svg></span>
+        <div class="device-action-tile-title">Logcat</div>
+        <div class="device-action-tile-copy">Pull a filtered slice of the device's logs for diagnostics.</div>
+      </a>
       {{if and (or (eq .Role "admin") (eq .Role "operator")) .ShellEnabled}}
       <button type="button" class="device-action-tile" data-device-action="shell" onclick="selectDeviceAction('shell', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
@@ -1038,16 +1052,11 @@
         <div class="device-action-tile-copy">Send a one-off shell command to older devices that still use check-in responses.</div>
       </button>
       {{end}}
-      {{if eq .Role "admin"}}
-      <button type="button" class="device-action-tile" data-device-action="poll" onclick="selectDeviceAction('poll', this)">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>
-        <div class="device-action-tile-title">Set Poll Interval</div>
-        <div class="device-action-tile-copy">Adjust how often the device checks in for updates and queued work.</div>
-      </button>
-      <button type="button" class="device-action-tile" data-device-action="kiosk" onclick="selectDeviceAction('kiosk', this)">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/><rect x="9" y="9" width="6" height="4" rx="1"/><path d="M11 9V7.5a1 1 0 0 1 2 0V9"/></svg></span>
-        <div class="device-action-tile-title">Kiosk Mode</div>
-        <div class="device-action-tile-copy">Lock the device to a single app package, or release it back to the launcher.</div>
+      {{if or (eq .Role "admin") (eq .Role "operator")}}
+      <button type="button" class="device-action-tile" data-device-action="reboot" onclick="selectDeviceAction('reboot', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v6"/><path d="M5.5 7a8 8 0 1 0 13 0"/></svg></span>
+        <div class="device-action-tile-title">Reboot Device</div>
+        <div class="device-action-tile-copy">Queue a restart that the device applies on its next check-in.</div>
       </button>
       {{end}}
     </div>
@@ -1055,14 +1064,14 @@
     <div class="device-action-panel">
       <div class="device-action-panel-head">
         <div>
-          <div class="device-action-panel-title" id="device-action-title">Install App</div>
-          <div class="device-action-panel-copy" id="device-action-copy">Choose an app from your repository and send it to this device.</div>
+          <div class="device-action-panel-title js-da-title">Install App</div>
+          <div class="device-action-panel-copy js-da-copy">Choose an app from your repository and send it to this device.</div>
         </div>
-        <span class="device-action-meta" id="device-action-meta">Common task</span>
+        <span class="device-action-meta js-da-meta"></span>
       </div>
 
       {{if or (eq .Role "admin") (eq .Role "operator")}}
-      <div id="device-action-install" class="device-action-body">
+      <div class="device-action-body" data-action="install"{{if ne $ctrlDefault "install"}} style="display:none;"{{end}}>
         <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
           <input type="hidden" name="type" value="install_apk">
           {{if .Apps}}
@@ -1091,7 +1100,7 @@
       </div>
       {{end}}
 
-      <div id="device-action-screenshot" class="device-action-body" style="display:none;">
+      <div class="device-action-body" data-action="screenshot"{{if ne $ctrlDefault "screenshot"}} style="display:none;"{{end}}>
         <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
           <input type="hidden" name="type" value="screenshot">
           <div class="device-action-note">The device captures the screen on its next check-in. After sending, you'll land on the command detail page to follow progress.</div>
@@ -1101,14 +1110,14 @@
         </form>
       </div>
 
-      {{if or (eq .Role "admin") (eq .Role "operator")}}
-      <div id="device-action-shell" class="device-action-body" style="display:none;">
+      {{if and (or (eq .Role "admin") (eq .Role "operator")) .ShellEnabled}}
+      <div class="device-action-body" data-action="shell" style="display:none;">
         <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
           <input type="hidden" name="type" value="shell">
           <div class="form-row">
             <label class="form-label">Shell Command</label>
             <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required>
-            <span class="muted small">Best for quick diagnostics on legacy devices. Output is easier to inspect from the command detail page.</span>
+            <span class="muted small">Best for quick diagnostics on legacy devices. For a live session, use Interactive Shell above.</span>
           </div>
           <div>
             <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Run Command</button>
@@ -1117,8 +1126,70 @@
       </div>
       {{end}}
 
+      {{if or (eq .Role "admin") (eq .Role "operator")}}
+      <div class="device-action-body" data-action="reboot" style="display:none;">
+        <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form"
+              onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')">
+          <input type="hidden" name="type" value="reboot">
+          <div class="device-action-note">The device restarts on its next check-in. In-progress activity may be interrupted.</div>
+          <div>
+            <button type="submit" class="btn-danger"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v6"/><path d="M5.5 7a8 8 0 1 0 13 0"/></svg></span>Reboot Device</button>
+          </div>
+        </form>
+      </div>
+      {{end}}
+    </div>
+  </div>
+</div>
+</section><!-- /controls -->
+
+<section class="dd-panel" data-dd-panel="settings" hidden>
+{{$setDefault := ""}}{{if eq .Role "admin"}}{{$setDefault = "kiosk"}}{{else if eq .Role "operator"}}{{$setDefault = "clearota"}}{{end}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Device settings</h3></div>
+  <div class="device-actions">
+    <div class="device-actions-header">
+      <div>
+        <div class="device-actions-title">Configure how this device behaves</div>
+        <div class="device-actions-subtitle">Persistent settings applied to the device on its next check-in.</div>
+      </div>
+      <span class="status-badge muted">Target: {{.Device.SerialNumber}}</span>
+    </div>
+
+    {{if or (eq .Role "admin") (eq .Role "operator")}}
+    <div class="device-action-picker">
       {{if eq .Role "admin"}}
-      <div id="device-action-kiosk" class="device-action-body" style="display:none;">
+      <button type="button" class="device-action-tile{{if eq $setDefault "kiosk"}} active{{end}}" data-device-action="kiosk" onclick="selectDeviceAction('kiosk', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/><rect x="9" y="9" width="6" height="4" rx="1"/><path d="M11 9V7.5a1 1 0 0 1 2 0V9"/></svg></span>
+        <div class="device-action-tile-title">Kiosk Mode</div>
+        <div class="device-action-tile-copy">Lock the device to a single app package, or release it back to the launcher.</div>
+      </button>
+      <button type="button" class="device-action-tile" data-device-action="poll" onclick="selectDeviceAction('poll', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>
+        <div class="device-action-tile-title">Set Poll Interval</div>
+        <div class="device-action-tile-copy">Adjust how often the device checks in for updates and queued work.</div>
+      </button>
+      {{end}}
+      {{if or (eq .Role "admin") (eq .Role "operator")}}
+      <button type="button" class="device-action-tile{{if eq $setDefault "clearota"}} active{{end}}" data-device-action="clearota" onclick="selectDeviceAction('clearota', this)">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v8"/><path d="M8 8l4 4 4-4"/><path d="M5 19h14"/></svg></span>
+        <div class="device-action-tile-title">Clear Pending OTA</div>
+        <div class="device-action-tile-copy">Cancel an OTA update that is queued for this device.</div>
+      </button>
+      {{end}}
+    </div>
+
+    <div class="device-action-panel">
+      <div class="device-action-panel-head">
+        <div>
+          <div class="device-action-panel-title js-da-title">Device setting</div>
+          <div class="device-action-panel-copy js-da-copy">Adjust this device's configuration.</div>
+        </div>
+        <span class="device-action-meta js-da-meta"></span>
+      </div>
+
+      {{if eq .Role "admin"}}
+      <div class="device-action-body" data-action="kiosk"{{if ne $setDefault "kiosk"}} style="display:none;"{{end}}>
         <form action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" class="device-action-form">
           <div class="form-row">
             <label class="form-label">Kiosk Status</label>
@@ -1156,7 +1227,7 @@
           </div>
         </form>
       </div>
-      <div id="device-action-poll" class="device-action-body" style="display:none;">
+      <div class="device-action-body" data-action="poll" style="display:none;">
         <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" class="device-action-form">
           <div class="form-row">
             <label class="form-label">Poll Interval (ms)</label>
@@ -1172,24 +1243,21 @@
         </form>
       </div>
       {{end}}
-    </div>
 
-    {{if or (eq .Role "admin") (eq .Role "operator")}}
-    <div class="danger-zone">
-      <div>
-        <div class="danger-zone-title">Danger Zone</div>
-        <div class="danger-zone-copy">The device restarts on its next check-in. In-progress activity may be interrupted.</div>
+      {{if or (eq .Role "admin") (eq .Role "operator")}}
+      <div class="device-action-body" data-action="clearota"{{if ne $setDefault "clearota"}} style="display:none;"{{end}}>
+        <form action="/devices/{{.Device.SerialNumber}}/clear-ota" method="POST" class="device-action-form"
+              onsubmit="return confirm('Clear pending OTA for {{.Device.SerialNumber}}?')">
+          <div class="device-action-note">Cancels any OTA update currently queued for this device. The device keeps its current build.</div>
+          <div>
+            <button type="submit" class="btn-danger">Clear Pending OTA</button>
+          </div>
+        </form>
       </div>
-      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST"
-            onsubmit="return confirm(‘Reboot {{.Device.SerialNumber}}?’)">
-        <input type="hidden" name="type" value="reboot">
-        <button type="submit" class="btn-danger">Reboot Device</button>
-      </form>
-      <form action="/devices/{{.Device.SerialNumber}}/clear-ota" method="POST"
-            onsubmit="return confirm(‘Clear pending OTA for {{.Device.SerialNumber}}?’)">
-        <button type="submit" class="btn-danger">Clear Pending OTA</button>
-      </form>
+      {{end}}
     </div>
+    {{else}}
+    <div class="device-action-note" style="margin-top:14px;">You don't have permission to change this device's settings.</div>
     {{end}}
   </div>
 </div>
@@ -1403,6 +1471,11 @@ var deviceActionConfig = {
     copy: 'Send a one-off shell command to a legacy device and inspect output afterward.',
     meta: 'Legacy only'
   },
+  reboot: {
+    title: 'Reboot Device',
+    copy: 'Queue a restart the device applies on its next check-in.',
+    meta: 'Destructive'
+  },
   poll: {
     title: 'Set Poll Interval',
     copy: 'Tune how often this device checks in for commands and telemetry.',
@@ -1412,25 +1485,42 @@ var deviceActionConfig = {
     title: 'Kiosk Mode',
     copy: 'Lock the device to a single package or release it back to the launcher.',
     meta: 'Device setting'
+  },
+  clearota: {
+    title: 'Clear Pending OTA',
+    copy: 'Cancel an OTA update queued for this device.',
+    meta: 'Destructive'
   }
 };
 
+// Picker is scoped to its container (.device-actions) so the Controls and Settings
+// tabs can each run an independent picker without colliding.
 function selectDeviceAction(key, btn) {
-  document.querySelectorAll('.device-action-tile').forEach(function(tile) {
-    tile.classList.toggle('active', tile.dataset.deviceAction === key);
+  var root = btn.closest('.device-actions');
+  if (!root) return;
+  root.querySelectorAll('.device-action-tile').forEach(function(tile) {
+    if (tile.dataset.deviceAction) tile.classList.toggle('active', tile.dataset.deviceAction === key);
   });
-  document.querySelectorAll('.device-action-body').forEach(function(panel) {
-    panel.style.display = panel.id === 'device-action-' + key ? '' : 'none';
+  root.querySelectorAll('.device-action-body').forEach(function(panel) {
+    panel.style.display = panel.dataset.action === key ? '' : 'none';
   });
   var cfg = deviceActionConfig[key];
   if (!cfg) return;
-  var title = document.getElementById('device-action-title');
-  var copy = document.getElementById('device-action-copy');
-  var meta = document.getElementById('device-action-meta');
+  var title = root.querySelector('.js-da-title');
+  var copy = root.querySelector('.js-da-copy');
+  var meta = root.querySelector('.js-da-meta');
   if (title) title.textContent = cfg.title;
   if (copy) copy.textContent = cfg.copy;
   if (meta) meta.textContent = cfg.meta;
 }
+
+// Sync each picker's header to its initially-active tile on load.
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.device-actions').forEach(function(root) {
+    var active = root.querySelector('.device-action-tile.active[data-device-action]');
+    if (active) selectDeviceAction(active.dataset.deviceAction, active);
+  });
+});
 
 </script>
 
