@@ -93,11 +93,30 @@ per-group **daily rollups**. Foundation for everything below.
   + `GET /groups/{id}/daily-stats` JSON + a **Group trends** chart on the group page
   (battery band/avg, charging coverage; also aggregates device_count + distinct_builds).
 
-**Still open for Tier 1:** visual screenshot verification of the Trends views against a
-seeded stack.
+**Tier 1 verified (2026-06-09):** brought up the Docker stack, seeded a device + 35 days
+of daily stats + a group, and screenshotted the device **Trends** tab and the group
+**Group trends** chart — both render (battery band + avg, charging coverage, human-readable
+date axis).
 
-### Tier 2 — Alerting (build FIRST — highest ROI, no ML)
+### Tier 2 — Alerting (build FIRST — highest ROI, no ML) — **landed + verified**
 Rule-based catalog, tuned to the restaurant/overnight-charge use case. See §3.
+
+**Done (branch `analytics-alerting`):**
+- `alert_rules` + `alerts` tables; partial unique index enforces one non-resolved alert
+  per (type, device) so re-evaluation never duplicates.
+- DB layer: `EnsureDefaultRules`, `ListAlertRules`, `CreateAlertIfAbsent`,
+  `ResolveOpenAlert`, `ListAlerts`, `CountOpenAlerts`, `SetAlertStatus`.
+- Evaluator `EvaluateAlerts` over `device_daily_stats` (rules: **overheating**,
+  **no_overnight_charge**, **battery_health_decline**), run in `RunHousekeeping` after
+  the rollup; default rules seeded at startup. Creates + auto-resolves alerts.
+- Dashboard **Alerts** page (status filter pills, severity/status badges, Ack/Resolve),
+  nav entry with an open-count badge.
+- Verified 2026-06-09 via the seeded stack (alert row + nav badge render; fixed a
+  date/int SQL type-ambiguity bug in the decline query found by running it).
+
+**Still open for Tier 2:** the marquee **offline-during-service** rule (needs service
+hours — see open questions); group/device-scoped rules (evaluator currently fleet-scope
+only); notification channels (email/Slack/webhook) — alerts are in-dashboard only today.
 
 ### Tier 3 — Diagnostic & trends (the "per-group" analytics)
 Per restaurant/chain: uptime %, offline incidents (count + duration), overnight charge
@@ -203,3 +222,8 @@ and an **Alerts** view (open/ack/resolved).
 - **2026-06-08** — Tier 1 per-group landed: `GetGroupDailyStats` + `/groups/{id}/daily-stats`
   + **Group trends** chart on the group page (groups = generic buckets, per answer).
   Only screenshot verification remains for Tier 1. Next up: Tier 2 alerting.
+- **2026-06-09** — Tier 2 alerting landed (`analytics-alerting`): alert tables, DB layer,
+  evaluator (3 rules) wired into housekeeping, Alerts dashboard page + nav badge. Tier 1
+  and Tier 2 both verified by screenshotting a seeded Docker stack. Fixed a date/int SQL
+  bug in the decline query. Remaining: offline-during-service rule (needs service hours),
+  scoped rules, notification channels.
