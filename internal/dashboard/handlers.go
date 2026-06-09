@@ -2233,6 +2233,27 @@ func (h *Handler) GroupDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/groups", http.StatusFound)
 }
 
+// GroupSetDeployment marks a whole restaurant (group) live or back to lab. Devices in
+// the group inherit this unless they carry their own override.
+func (h *Handler) GroupSetDeployment(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	deployed := r.FormValue("deployed") == "1"
+	if err := h.db.SetGroupDeployed(r.Context(), id, deployed); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	state := "lab"
+	if deployed {
+		state = "deployed"
+	}
+	h.audit(r, "group.deployment", id.String(), state)
+	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+}
+
 func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -2343,6 +2364,38 @@ func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "device.hide", serial, "")
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// DeviceSetDeployment sets the per-device deployment override from the settings tab:
+// "inherit" clears it (follow the group), "deployed"/"lab" force the value.
+func (h *Handler) DeviceSetDeployment(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	var override *bool
+	switch r.FormValue("deployment") {
+	case "deployed":
+		v := true
+		override = &v
+	case "lab":
+		v := false
+		override = &v
+	case "inherit":
+		override = nil
+	default:
+		http.Error(w, "Invalid deployment value", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetDeviceDeployed(r.Context(), serial, override); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.audit(r, "device.deployment", serial, r.FormValue("deployment"))
+	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
 func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
@@ -4282,6 +4335,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
 	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
+	mux.HandleFunc("POST /devices/{serial}/deployment", h.requireAdmin(h.DeviceSetDeployment))
 	mux.HandleFunc("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAuth(h.DeviceRemote))
 	mux.HandleFunc("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
@@ -4309,6 +4363,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	mux.HandleFunc("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
 	mux.HandleFunc("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))
+	mux.HandleFunc("POST /groups/{id}/deployment", h.requireAdmin(h.GroupSetDeployment))
 	mux.HandleFunc("POST /groups/{id}/devices", h.requireAdmin(h.GroupAddDevice))
 	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAdmin(h.GroupRemoveDevice))
 	mux.HandleFunc("POST /groups/{id}/commands", h.requireAdmin(h.GroupCommandCreate))

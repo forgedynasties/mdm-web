@@ -219,6 +219,7 @@
     <div class="dd-row"><span class="dd-row-label">Last check-in</span><span class="dd-row-val">{{timeSince .Device.LastSeenAt}}</span></div>
     <div class="dd-row"><span class="dd-row-label">Poll interval</span><span class="dd-row-val">{{div .Device.PollIntervalMs 1000}}s</span></div>
     <div class="dd-row"><span class="dd-row-label">Kiosk mode</span><span class="dd-row-val">{{if .KioskConfig.KioskEnabled}}On{{else}}Off{{end}}</span></div>
+    <div class="dd-row"><span class="dd-row-label">Deployment</span><span class="dd-row-val">{{if .Device.DeployedEffective}}<span class="status-badge ok">Deployed</span>{{else}}<span class="status-badge muted">In lab</span>{{end}} <span class="muted small">{{if .Device.Deployed}}(override){{else}}(inherited){{end}}</span></span></div>
   </div>
   <div class="dd-card">
     <div class="dd-card-title">Alerts</div>
@@ -1261,6 +1262,29 @@
     {{end}}
   </div>
 </div>
+
+{{if eq .Role "admin"}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Deployment</h3></div>
+  <form action="/devices/{{.Device.SerialNumber}}/deployment" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+    <div class="device-action-note">Mark whether this unit is live in a restaurant or still on the bench in the lab. Lab units are excluded from AI health concerns. "Inherit" follows the device's group(s).</div>
+    <div class="form-row">
+      <label class="form-label">Deployment state</label>
+      <div class="device-action-inline">
+        <select name="deployment" class="form-input" style="max-width:220px;">
+          <option value="inherit" {{if not .Device.Deployed}}selected{{end}}>Inherit from group</option>
+          <option value="deployed" {{if and .Device.Deployed .Device.DeployedEffective}}selected{{end}}>Deployed (live in restaurant)</option>
+          <option value="lab" {{if and .Device.Deployed (not .Device.DeployedEffective)}}selected{{end}}>In lab (on the bench)</option>
+        </select>
+        <span class="device-action-meta">Currently: {{if .Device.DeployedEffective}}Deployed{{else}}In lab{{end}}{{if .Device.Deployed}} (override){{else}} (inherited){{end}}</span>
+      </div>
+    </div>
+    <div>
+      <button type="submit" class="btn-primary">Save Deployment State</button>
+    </div>
+  </form>
+</div>
+{{end}}
 </section><!-- /settings -->
 
 <section class="dd-panel" data-dd-panel="trends" hidden>
