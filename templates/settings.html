@@ -134,7 +134,7 @@
       </label>
       <label class="small">API base URL <span class="muted">(optional)</span>
         <input type="text" name="ai_base_url" value="{{.AIBaseURL}}" placeholder="leave blank for the provider default (DeepSeek: https://api.deepseek.com)" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
-        <span class="muted small">Only needed for self-hosted or non-default OpenAI-compatible endpoints. Ignored for Anthropic.</span>
+        <span class="muted small">Overrides the default endpoint. Blank = provider default. Two ways to use DeepSeek: provider <strong>DeepSeek</strong> with blank URL (OpenAI-compatible), or provider <strong>Anthropic</strong> with URL <code>https://api.deepseek.com/anthropic</code> (Claude-compatible; key is sent as a bearer token, set the model to a DeepSeek id).</span>
       </label>
       <label class="small" style="display:flex;align-items:center;gap:8px;">
         <input type="checkbox" name="ai_digest"{{if .AIDigestEnabled}} checked{{end}}> Post a daily fleet digest to the alert webhook (sent once a day during housekeeping)
