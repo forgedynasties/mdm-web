@@ -1651,6 +1651,21 @@ func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status 
 	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
 }
 
+// AlertAckAll acknowledges every open alert; AlertResolveAll resolves every
+// non-resolved alert.
+func (h *Handler) AlertAckAll(w http.ResponseWriter, r *http.Request)     { h.bulkAlertStatus(w, r, "acknowledged") }
+func (h *Handler) AlertResolveAll(w http.ResponseWriter, r *http.Request) { h.bulkAlertStatus(w, r, "resolved") }
+
+func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status string) {
+	n, err := h.db.BulkSetAlertStatus(r.Context(), status)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "alert."+status+"_all", "", strconv.FormatInt(n, 10))
+	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
+}
+
 // FleetHealth renders the Tier 3 fleet/group health overview: a fleet summary plus a
 // per-group scorecard ranked worst-first.
 func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
@@ -4192,6 +4207,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("POST /fleet-health/ai-analysis", h.requireAuth(h.FleetAIAnalysis))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
+	mux.HandleFunc("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
+	mux.HandleFunc("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
 	mux.HandleFunc("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	mux.HandleFunc("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
 	mux.HandleFunc("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))

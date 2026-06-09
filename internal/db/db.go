@@ -2486,6 +2486,26 @@ func (d *DB) CountOpenAlerts(ctx context.Context) (int, error) {
 	return n, err
 }
 
+// BulkSetAlertStatus transitions every applicable alert to status and returns the
+// number changed. "acknowledged" affects open alerts; "resolved" affects every
+// non-resolved alert (open + acknowledged). resolved sets resolved_at.
+func (d *DB) BulkSetAlertStatus(ctx context.Context, status string) (int64, error) {
+	where := "status = 'open'"
+	if status == "resolved" {
+		where = "status <> 'resolved'"
+	}
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts
+		SET status = $1,
+		    resolved_at = CASE WHEN $1 = 'resolved' THEN NOW() ELSE resolved_at END,
+		    updated_at = NOW()
+		WHERE `+where, status)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // SetAlertStatus transitions a single alert (acknowledged/resolved). resolved sets
 // resolved_at; other statuses clear it.
 func (d *DB) SetAlertStatus(ctx context.Context, id uuid.UUID, status string) error {
