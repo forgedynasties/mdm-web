@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -42,12 +43,20 @@ type Config struct {
 	BrandNameVal   string `json:"brand_name"`   // "" -> MDM
 	Use24HourFlag  bool   `json:"use_24_hour"`
 
+	// Alerting. Slack/Discord/Mattermost-compatible webhook for new alerts ("" = off).
+	AlertWebhookURLVal string `json:"alert_webhook_url"`
+
 	mu   sync.RWMutex
 	path string
 }
 
 func Load(path string) (*Config, error) {
 	c := &Config{path: path}
+	// Ensure the parent directory exists so setters (os.WriteFile) can persist.
+	// Without this, a missing dir makes every settings write fail silently.
+	if dir := filepath.Dir(path); dir != "" && dir != "." {
+		_ = os.MkdirAll(dir, 0o755)
+	}
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -340,6 +349,20 @@ func (c *Config) BrandName() string {
 		return "MDM"
 	}
 	return c.BrandNameVal
+}
+
+func (c *Config) AlertWebhookURL() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AlertWebhookURLVal
+}
+
+func (c *Config) SetAlertWebhookURL(s string) error {
+	c.mu.Lock()
+	c.AlertWebhookURLVal = s
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
 }
 
 func (c *Config) SetBrandName(s string) error {
