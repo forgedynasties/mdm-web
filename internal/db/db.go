@@ -2550,6 +2550,37 @@ func (d *DB) GetAIUsageTotals(ctx context.Context) (AIUsageTotals, error) {
 	return t, err
 }
 
+// AISummary is a cached AI summary for one scope.
+type AISummary struct {
+	Summary     string    `json:"summary"`
+	Model       string    `json:"model"`
+	GeneratedAt time.Time `json:"generated_at"`
+}
+
+// SetAISummary upserts the cached summary for a scope (e.g. "fleet").
+func (d *DB) SetAISummary(ctx context.Context, scope, summary, model string) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO ai_summary (scope, summary, model, generated_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (scope) DO UPDATE SET
+			summary = EXCLUDED.summary, model = EXCLUDED.model, generated_at = NOW()
+	`, scope, summary, model)
+	return err
+}
+
+// GetAISummary returns the cached summary for a scope. A missing row yields a zero
+// AISummary and a nil error (no summary generated yet).
+func (d *DB) GetAISummary(ctx context.Context, scope string) (AISummary, error) {
+	var s AISummary
+	err := d.pool.QueryRow(ctx, `
+		SELECT summary, model, generated_at FROM ai_summary WHERE scope = $1
+	`, scope).Scan(&s.Summary, &s.Model, &s.GeneratedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return AISummary{}, nil
+	}
+	return s, err
+}
+
 // alertHit is one device flagged by a rule, with display summary + detail payload.
 type alertHit struct {
 	DeviceID uuid.UUID
@@ -3089,6 +3120,15 @@ CREATE TABLE IF NOT EXISTS ai_usage (
     calls         INTEGER NOT NULL DEFAULT 0,
     input_tokens  BIGINT  NOT NULL DEFAULT 0,
     output_tokens BIGINT  NOT NULL DEFAULT 0
+);
+
+-- Cached AI summaries, one row per scope (e.g. 'fleet'). Regenerated periodically
+-- by housekeeping so the dashboard can show it without an on-demand API call.
+CREATE TABLE IF NOT EXISTS ai_summary (
+    scope        TEXT PRIMARY KEY,
+    summary      TEXT NOT NULL DEFAULT '',
+    model        TEXT NOT NULL DEFAULT '',
+    generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 `
 

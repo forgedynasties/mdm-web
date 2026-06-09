@@ -853,6 +853,28 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 
 const pageSize = 25
 
+// summarizePreview produces a one-line plaintext preview from a Markdown summary:
+// the first non-empty line, stripped of common Markdown markers and truncated.
+func summarizePreview(md string) string {
+	for _, line := range strings.Split(md, "\n") {
+		t := strings.TrimSpace(line)
+		if t == "" {
+			continue
+		}
+		t = strings.NewReplacer("**", "", "*", "", "`", "", "#", "").Replace(t)
+		t = strings.TrimLeft(t, "-0123456789. ")
+		t = strings.TrimSpace(t)
+		if t == "" {
+			continue
+		}
+		if len(t) > 160 {
+			t = t[:157] + "…"
+		}
+		return t
+	}
+	return ""
+}
+
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	pageSize := h.cfg.PageSize()
 	q := r.URL.Query().Get("q")
@@ -1000,6 +1022,14 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
 		"Density":              h.cfg.Density(),
+	}
+
+	// Cached hourly AI fleet summary for the main-page card (full page only).
+	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
+		data["AISummary"] = s.Summary
+		data["AISummaryModel"] = s.Model
+		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
+		data["AISummaryPreview"] = summarizePreview(s.Summary)
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -3179,6 +3209,7 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			}
 		}
 	}
+	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
 	if d := h.cfg.AutoHideDays(); d > 0 {
 		if n, err := h.db.HideStaleDevices(ctx, d); err != nil {
@@ -3201,6 +3232,45 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			log.Printf("[housekeeping] pruned %d logcat row(s) older than %dd", n, d)
 		}
 	}
+}
+
+// refreshFleetSummary regenerates the cached fleet AI summary shown on the main
+// page, at most hourly. It's a no-op unless AI is configured, and it skips when the
+// cached summary is still fresh (< 55 min) so frequent housekeeping runs or restarts
+// don't trigger extra API calls.
+func (h *Handler) refreshFleetSummary(ctx context.Context) {
+	if !h.cfg.AIEnabled() {
+		return
+	}
+	if cur, err := h.db.GetAISummary(ctx, "fleet"); err == nil && cur.Summary != "" &&
+		!cur.GeneratedAt.IsZero() && time.Since(cur.GeneratedAt) < 55*time.Minute {
+		return
+	}
+	activeSecs := h.cfg.CheckinInterval() * 3
+	groups, err := h.db.GetGroupHealth(ctx, activeSecs)
+	if err != nil {
+		log.Printf("[ai-summary] group health: %v", err)
+		return
+	}
+	summary, _ := h.db.GetSummary(ctx, activeSecs)
+	openAlerts, _ := h.db.CountOpenAlerts(ctx)
+
+	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
+	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts)
+	if err != nil {
+		log.Printf("[ai-summary] analyze: %v", err)
+		return
+	}
+	if err := h.db.RecordAIUsage(cctx, usage.InputTokens, usage.OutputTokens); err != nil {
+		log.Printf("[ai-summary] record usage: %v", err)
+	}
+	if err := h.db.SetAISummary(ctx, "fleet", text, client.Model()); err != nil {
+		log.Printf("[ai-summary] store: %v", err)
+		return
+	}
+	log.Printf("[ai-summary] refreshed fleet summary")
 }
 
 // maybeSendDigest posts a once-a-day AI fleet summary to the alert webhook. It is
