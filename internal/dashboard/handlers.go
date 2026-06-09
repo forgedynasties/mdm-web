@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
+	"mdm/internal/ai"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/notify"
@@ -3084,6 +3085,9 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"Density":              h.cfg.Density(),
 		"Use24Hour":            h.cfg.Use24Hour(),
 		"AlertWebhookURL":      h.cfg.AlertWebhookURL(),
+		"AIKeySet":             h.cfg.AIEnabled(),
+		"AnthropicModel":       h.cfg.AnthropicModel(),
+		"AIDigestEnabled":      h.cfg.AIDigestEnabled(),
 		"AutoHideDays":         h.cfg.AutoHideDays(),
 		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
 		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
@@ -3233,6 +3237,96 @@ func (h *Handler) SettingsSetAlertWebhook(w http.ResponseWriter, r *http.Request
 	h.cfg.SetAlertWebhookURL(strings.TrimSpace(r.FormValue("alert_webhook_url")))
 	h.audit(r, "alerts.webhook", "", "")
 	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+// SettingsSetAI saves the Anthropic API key, model, and daily-digest toggle. An
+// empty key field is treated as "keep the current key" so saving the model/digest
+// never clears a configured key; submit the literal "-" to clear it.
+func (h *Handler) SettingsSetAI(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	if k := strings.TrimSpace(r.FormValue("anthropic_api_key")); k != "" {
+		if k == "-" {
+			k = ""
+		}
+		h.cfg.SetAnthropicAPIKey(k)
+	}
+	if m := strings.TrimSpace(r.FormValue("anthropic_model")); m != "" {
+		h.cfg.SetAnthropicModel(m)
+	}
+	h.cfg.SetAIDigestEnabled(r.FormValue("ai_digest") == "on")
+	h.audit(r, "ai.settings", "", "")
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+// writeAIResult runs an analysis closure under a timeout and writes a JSON
+// {"text","model","generated_at"} body, or an error JSON on failure.
+func (h *Handler) writeAIResult(w http.ResponseWriter, r *http.Request, run func(ctx context.Context, c *ai.Client) (string, error)) {
+	if !h.cfg.AIEnabled() {
+		writeJSONError(w, http.StatusServiceUnavailable, "AI analysis is not configured — add an Anthropic API key in Settings.")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	client := ai.New(h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel())
+	text, err := run(ctx, client)
+	if err != nil {
+		log.Printf("[ai] analysis failed: %v", err)
+		writeJSONError(w, http.StatusBadGateway, "Analysis failed: "+err.Error())
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"text":         text,
+		"model":        h.cfg.AnthropicModel(),
+		"generated_at": time.Now().Format(time.RFC3339),
+	})
+}
+
+func writeJSONError(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(map[string]string{"error": msg})
+}
+
+// DeviceAIAnalysis returns an AI reading of one device's recent trends + open alerts.
+func (h *Handler) DeviceAIAnalysis(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, "Device not found")
+		return
+	}
+	h.writeAIResult(w, r, func(ctx context.Context, c *ai.Client) (string, error) {
+		stats, err := h.db.GetDeviceDailyStats(ctx, device.ID, 30)
+		if err != nil {
+			return "", err
+		}
+		// No per-device alert query exists; filter the open list by serial.
+		open, _ := h.db.ListAlerts(ctx, "open", 200)
+		var devAlerts []db.Alert
+		for _, a := range open {
+			if a.Serial == serial {
+				devAlerts = append(devAlerts, a)
+			}
+		}
+		return c.AnalyzeDevice(ctx, serial, stats, devAlerts)
+	})
+	h.audit(r, "ai.device", serial, "")
+}
+
+// FleetAIAnalysis returns an AI reading of the per-group health scorecard.
+func (h *Handler) FleetAIAnalysis(w http.ResponseWriter, r *http.Request) {
+	h.writeAIResult(w, r, func(ctx context.Context, c *ai.Client) (string, error) {
+		activeSecs := h.cfg.CheckinInterval() * 3
+		groups, err := h.db.GetGroupHealth(ctx, activeSecs)
+		if err != nil {
+			return "", err
+		}
+		summary, _ := h.db.GetSummary(ctx, activeSecs)
+		openAlerts, _ := h.db.CountOpenAlerts(ctx)
+		return c.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts)
+	})
+	h.audit(r, "ai.fleet", "", "")
 }
 
 func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Request) {
@@ -3814,6 +3908,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))
 	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.DeviceBatteryCSV))
 	mux.HandleFunc("GET /devices/{serial}/daily-stats", h.requireAuth(h.DeviceDailyStatsJSON))
+	mux.HandleFunc("POST /devices/{serial}/ai-analysis", h.requireAuth(h.DeviceAIAnalysis))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireOperatorOrAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	mux.HandleFunc("GET /devices/{serial}/checkins-live", h.requireAuth(h.DeviceCheckinsPartial))
@@ -3841,6 +3936,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
+	mux.HandleFunc("POST /fleet-health/ai-analysis", h.requireAuth(h.FleetAIAnalysis))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	mux.HandleFunc("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
@@ -3879,6 +3975,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/require-reason", h.requireAdmin(h.SettingsToggleRequireReason))
 	mux.HandleFunc("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
 	mux.HandleFunc("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
+	mux.HandleFunc("POST /settings/ai", h.requireAdmin(h.SettingsSetAI))
 	mux.HandleFunc("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
 	mux.HandleFunc("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
 	mux.HandleFunc("POST /settings/logout-all", h.requireAdmin(h.SettingsLogoutAll))
