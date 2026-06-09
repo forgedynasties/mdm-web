@@ -98,17 +98,30 @@ func (c *Client) complete(ctx context.Context, user string) (string, error) {
 	return c.openaiComplete(ctx, user)
 }
 
-// anthropicComplete calls the Claude Messages API. Adaptive thinking is left on
-// (recommended for Opus 4.x); only visible text blocks are returned.
+// anthropicComplete calls the Claude Messages API. With a custom base URL it
+// targets an Anthropic-compatible gateway instead (e.g. DeepSeek's /anthropic
+// endpoint), which expects bearer-token auth and may not support Claude-native
+// adaptive thinking — so that's only enabled against the real Anthropic API.
+// Only visible text blocks are returned.
 func (c *Client) anthropicComplete(ctx context.Context, user string) (string, error) {
-	client := anthropic.NewClient(option.WithAPIKey(c.apiKey))
-	resp, err := client.Messages.New(ctx, anthropic.MessageNewParams{
+	var opts []option.RequestOption
+	if c.baseURL != "" {
+		opts = append(opts, option.WithBaseURL(c.baseURL), option.WithAuthToken(c.apiKey))
+	} else {
+		opts = append(opts, option.WithAPIKey(c.apiKey))
+	}
+	client := anthropic.NewClient(opts...)
+
+	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),
 		MaxTokens: 4096,
 		System:    []anthropic.TextBlockParam{{Text: systemContext}},
-		Thinking:  anthropic.ThinkingConfigParamUnion{OfAdaptive: &anthropic.ThinkingConfigAdaptiveParam{}},
 		Messages:  []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(user))},
-	})
+	}
+	if c.baseURL == "" {
+		params.Thinking = anthropic.ThinkingConfigParamUnion{OfAdaptive: &anthropic.ThinkingConfigAdaptiveParam{}}
+	}
+	resp, err := client.Messages.New(ctx, params)
 	if err != nil {
 		return "", err
 	}
