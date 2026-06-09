@@ -2350,6 +2350,152 @@ func (d *DB) SetAlertStatus(ctx context.Context, id uuid.UUID, status string) er
 	return err
 }
 
+// alertHit is one device flagged by a rule, with display summary + detail payload.
+type alertHit struct {
+	DeviceID uuid.UUID
+	Summary  string
+	Detail   map[string]any
+}
+
+// param reads a numeric threshold from a rule's params JSON, falling back to def.
+func param(p map[string]float64, key string, def float64) float64 {
+	if v, ok := p[key]; ok {
+		return v
+	}
+	return def
+}
+
+// EvaluateAlerts runs every enabled fleet-scoped rule against device_daily_stats,
+// creating alerts for violators (deduped) and resolving alerts whose condition has
+// cleared. Returns counts of created and resolved alerts. Called from housekeeping.
+func (d *DB) EvaluateAlerts(ctx context.Context) (created, resolved int, err error) {
+	rules, err := d.ListAlertRules(ctx, true)
+	if err != nil {
+		return 0, 0, err
+	}
+	for _, r := range rules {
+		if r.ScopeType != "fleet" {
+			continue // group/device scoping not implemented yet
+		}
+		var p map[string]float64
+		if len(r.Params) > 0 {
+			_ = json.Unmarshal(r.Params, &p)
+		}
+		hits, severity, e := d.detectRule(ctx, r.Type, p)
+		if e != nil {
+			return created, resolved, e
+		}
+
+		ids := make([]uuid.UUID, 0, len(hits))
+		ruleID := r.ID
+		for _, h := range hits {
+			ids = append(ids, h.DeviceID)
+			ok, e := d.CreateAlertIfAbsent(ctx, &ruleID, r.Type, h.DeviceID, severity, h.Summary, h.Detail)
+			if e != nil {
+				return created, resolved, e
+			}
+			if ok {
+				created++
+			}
+		}
+		// Resolve any open alert of this type whose device is no longer violating.
+		tag, e := d.pool.Exec(ctx, `
+			UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+			WHERE type = $1 AND status <> 'resolved' AND device_id <> ALL($2::uuid[])
+		`, r.Type, ids)
+		if e != nil {
+			return created, resolved, e
+		}
+		resolved += int(tag.RowsAffected())
+	}
+	return created, resolved, nil
+}
+
+// detectRule returns the devices currently violating a rule type plus the severity
+// to record. Unknown rule types return no hits.
+func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) ([]alertHit, string, error) {
+	switch typ {
+	case "overheating":
+		limit := param(p, "temp_c", 45)
+		rows, err := d.pool.Query(ctx, `
+			SELECT device_id, temp_max FROM device_daily_stats
+			WHERE day = CURRENT_DATE AND temp_max >= $1`, limit)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var temp float32
+			if err := rows.Scan(&id, &temp); err != nil {
+				return nil, "critical", err
+			}
+			hits = append(hits, alertHit{id,
+				fmt.Sprintf("Battery reached %.0f°C today (limit %.0f°C)", temp, limit),
+				map[string]any{"temp_c": temp, "limit_c": limit}})
+		}
+		return hits, "critical", rows.Err()
+
+	case "no_overnight_charge":
+		minFull := param(p, "min_full_pct", 90)
+		maxFrac := param(p, "max_charge_frac", 0.3)
+		rows, err := d.pool.Query(ctx, `
+			SELECT device_id, battery_max, charging_frac FROM device_daily_stats
+			WHERE day = CURRENT_DATE - 1 AND battery_max < $1 AND COALESCE(charging_frac, 0) < $2`,
+			minFull, maxFrac)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var bmax int
+			var frac float32
+			if err := rows.Scan(&id, &bmax, &frac); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id,
+				fmt.Sprintf("Only reached %d%% and charged %.0f%% of yesterday", bmax, frac*100),
+				map[string]any{"battery_max": bmax, "charging_frac": frac}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "battery_health_decline":
+		win := int(param(p, "window_days", 7))
+		drop := param(p, "drop_pct", 15)
+		rows, err := d.pool.Query(ctx, `
+			SELECT device_id, recent, prior FROM (
+				SELECT device_id,
+					AVG(battery_max) FILTER (WHERE day > CURRENT_DATE - $1)                                AS recent,
+					AVG(battery_max) FILTER (WHERE day <= CURRENT_DATE - $1 AND day > CURRENT_DATE - 2*$1) AS prior
+				FROM device_daily_stats
+				WHERE day > CURRENT_DATE - 2*$1
+				GROUP BY device_id
+			) t
+			WHERE recent IS NOT NULL AND prior IS NOT NULL AND (prior - recent) >= $2`,
+			win, drop)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var recent, prior float64
+			if err := rows.Scan(&id, &recent, &prior); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id,
+				fmt.Sprintf("Daily peak battery fell %.0f points vs the prior %dd", prior-recent, win),
+				map[string]any{"recent_avg": recent, "prior_avg": prior, "window_days": win}})
+		}
+		return hits, "warning", rows.Err()
+	}
+	return nil, "warning", nil
+}
+
 // PruneLogcat deletes logcat results and requests older than `days` days.
 func (d *DB) PruneLogcat(ctx context.Context, days int) (int64, error) {
 	if days <= 0 {

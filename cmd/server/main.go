@@ -75,6 +75,10 @@ func main() {
 	}
 	log.Println("Migrations applied")
 
+	if err := database.EnsureDefaultRules(ctx); err != nil {
+		log.Printf("seed default alert rules: %v", err)
+	}
+
 	hub := ws.NewHub()
 	shellMgr := shell.NewManager()
 	remoteMgr := remote.New(hub)
