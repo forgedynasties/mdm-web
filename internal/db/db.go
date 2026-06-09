@@ -2396,6 +2396,17 @@ func (d *DB) ListAlertRules(ctx context.Context, onlyEnabled bool) ([]AlertRule,
 	return out, rows.Err()
 }
 
+// UpdateAlertRule sets a rule's enabled flag and threshold params.
+func (d *DB) UpdateAlertRule(ctx context.Context, id uuid.UUID, enabled bool, params json.RawMessage) error {
+	if len(params) == 0 {
+		params = json.RawMessage("{}")
+	}
+	_, err := d.pool.Exec(ctx, `
+		UPDATE alert_rules SET enabled = $2, params = $3::jsonb WHERE id = $1
+	`, id, enabled, params)
+	return err
+}
+
 // CreateAlertIfAbsent inserts a new alert unless a non-resolved one already exists
 // for (type, device). Returns true only when a row was actually created, so callers
 // broadcast/notify exactly once per occurrence.
