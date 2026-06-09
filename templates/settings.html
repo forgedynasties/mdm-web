@@ -12,10 +12,6 @@
   <div class="card-header"><h3>Dashboard</h3></div>
   <form action="/settings/dashboard" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;">
     <div class="form-group">
-      <label>Brand name</label>
-      <input type="text" name="brand" value="{{.BrandName}}" placeholder="MDM" class="form-input">
-    </div>
-    <div class="form-group">
       <label>Devices per page</label>
       <input type="number" name="page_size" value="{{.PageSize}}" min="1" max="500" step="1" class="form-input">
     </div>
@@ -106,6 +102,33 @@
       <input type="url" name="alert_webhook_url" value="{{.AlertWebhookURL}}" placeholder="https://hooks.slack.com/services/…" class="form-input" style="flex:1;">
       <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
+
+    <div class="muted small" style="margin:18px 0 4px;border-top:1px solid var(--border-soft);padding-top:14px;">
+      <strong style="color:var(--text);">Alert rules</strong> — choose which alerts fire and tune their thresholds. Evaluated hourly during housekeeping.
+    </div>
+    {{range .AlertRules}}
+    <form action="/settings/alert-rules/{{.ID}}" method="POST" style="padding:12px 0;border-bottom:1px solid var(--border-soft);">
+      <input type="hidden" name="type" value="{{.Type}}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
+        <div>
+          <strong class="small">{{.Name}}</strong>
+          <div class="muted small">{{.Desc}}</div>
+        </div>
+        <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
+          <input type="checkbox" name="enabled"{{if .Enabled}} checked{{end}}> Enabled
+        </label>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-top:10px;">
+        {{range .Fields}}
+        <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">
+          {{.Label}}{{if .Unit}} <span class="muted">({{.Unit}})</span>{{end}}
+          <input type="number" name="{{.Key}}" value="{{.Value}}" step="{{.Step}}" class="form-input" style="width:130px;">
+        </label>
+        {{end}}
+        <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      </div>
+    </form>
+    {{end}}
   </div>
 </div>
 
@@ -221,18 +244,18 @@
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Data &amp; Maintenance</h3></div>
   <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
-    <div class="muted small">Background housekeeping runs hourly. Set to 0 to disable a policy.</div>
+    <div class="muted small">Background housekeeping runs hourly. Leave a field blank to disable that policy (keep forever).</div>
     <div class="form-group">
       <label>Auto-hide devices not seen in (days)</label>
-      <input type="number" name="auto_hide_days" value="{{.AutoHideDays}}" min="0" step="1" class="form-input">
+      <input type="number" name="auto_hide_days" value="{{if .AutoHideDays}}{{.AutoHideDays}}{{end}}" min="0" step="1" placeholder="Off — never auto-hide" class="form-input">
     </div>
     <div class="form-group">
       <label>Delete check-ins older than (days)</label>
-      <input type="number" name="checkin_retention_days" value="{{.CheckinRetentionDays}}" min="0" step="1" class="form-input">
+      <input type="number" name="checkin_retention_days" value="{{if .CheckinRetentionDays}}{{.CheckinRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
     </div>
     <div class="form-group">
       <label>Delete logcat results older than (days)</label>
-      <input type="number" name="logcat_retention_days" value="{{.LogcatRetentionDays}}" min="0" step="1" class="form-input">
+      <input type="number" name="logcat_retention_days" value="{{if .LogcatRetentionDays}}{{.LogcatRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
     </div>
     <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
   </form>

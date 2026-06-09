@@ -3126,6 +3126,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"Density":              h.cfg.Density(),
 		"Use24Hour":            h.cfg.Use24Hour(),
 		"AlertWebhookURL":      h.cfg.AlertWebhookURL(),
+		"AlertRules":           h.buildAlertRuleViews(r.Context()),
 		"AIKeySet":             h.cfg.AIEnabled(),
 		"AIProvider":           h.cfg.AIProvider(),
 		"AnthropicModel":       h.cfg.AnthropicModel(),
@@ -3350,7 +3351,6 @@ func (h *Handler) SettingsToggleRequireReason(w http.ResponseWriter, r *http.Req
 
 func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	h.cfg.SetBrandName(strings.TrimSpace(r.FormValue("brand")))
 	if n, err := strconv.Atoi(r.FormValue("page_size")); err == nil && n > 0 && n <= 500 {
 		h.cfg.SetPageSize(n)
 	}
@@ -3368,6 +3368,119 @@ func (h *Handler) SettingsSetAlertWebhook(w http.ResponseWriter, r *http.Request
 	r.ParseForm()
 	h.cfg.SetAlertWebhookURL(strings.TrimSpace(r.FormValue("alert_webhook_url")))
 	h.audit(r, "alerts.webhook", "", "")
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+// alertParamField describes one tunable threshold of an alert rule.
+type alertParamField struct {
+	Key, Label, Unit string
+	Step, Default    float64
+}
+
+// alertRuleDefs is the catalog of configurable alert rules and their thresholds,
+// in display order. Keys/defaults mirror db.go's detectRule param() calls.
+var alertRuleDefs = []struct {
+	Type, Label, Desc string
+	Fields            []alertParamField
+}{
+	{"offline", "Device offline", "Fires when a device is silent longer than the threshold, skipping its local overnight quiet hours so charging doesn't trip it.", []alertParamField{
+		{"offline_minutes", "Offline after", "min", 1, 30},
+		{"quiet_start", "Quiet hours start", "h", 1, 0},
+		{"quiet_end", "Quiet hours end", "h", 1, 6},
+	}},
+	{"overheating", "Battery overheating", "Fires when a device's max daily battery temperature exceeds the threshold.", []alertParamField{
+		{"temp_c", "Temperature", "°C", 1, 45},
+	}},
+	{"no_overnight_charge", "Did not charge overnight", "Fires when a device didn't reach the target overnight battery level or charging coverage.", []alertParamField{
+		{"min_full_pct", "Min overnight battery", "%", 1, 90},
+		{"max_charge_frac", "Max charging coverage", "0–1", 0.05, 0.3},
+	}},
+	{"battery_health_decline", "Battery health declining", "Fires when the overnight-full to shift-end battery drop grows week over week.", []alertParamField{
+		{"drop_pct", "Decline threshold", "%", 1, 15},
+		{"window_days", "Comparison window", "days", 1, 7},
+	}},
+}
+
+type alertFieldView struct {
+	Key, Label, Unit string
+	Step, Value      float64
+}
+
+type alertRuleView struct {
+	ID, Type, Name, Desc string
+	Enabled              bool
+	Fields               []alertFieldView
+}
+
+// buildAlertRuleViews merges the seeded alert rules with the field catalog so the
+// settings page can render an enable toggle + current thresholds per rule.
+func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleView {
+	rules, err := h.db.ListAlertRules(ctx, false)
+	if err != nil {
+		return nil
+	}
+	byType := map[string]db.AlertRule{}
+	for _, r := range rules {
+		byType[r.Type] = r
+	}
+	var out []alertRuleView
+	for _, def := range alertRuleDefs {
+		r, ok := byType[def.Type]
+		if !ok {
+			continue
+		}
+		var p map[string]float64
+		_ = json.Unmarshal(r.Params, &p)
+		var fields []alertFieldView
+		for _, f := range def.Fields {
+			val := f.Default
+			if v, ok := p[f.Key]; ok {
+				val = v
+			}
+			fields = append(fields, alertFieldView{f.Key, f.Label, f.Unit, f.Step, val})
+		}
+		out = append(out, alertRuleView{r.ID.String(), def.Type, def.Label, def.Desc, r.Enabled, fields})
+	}
+	return out
+}
+
+// SettingsUpdateAlertRule saves one alert rule's enabled flag and thresholds.
+func (h *Handler) SettingsUpdateAlertRule(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid rule ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	typ := r.FormValue("type")
+	var def *struct {
+		Type, Label, Desc string
+		Fields            []alertParamField
+	}
+	for i := range alertRuleDefs {
+		if alertRuleDefs[i].Type == typ {
+			def = &alertRuleDefs[i]
+			break
+		}
+	}
+	if def == nil {
+		http.Error(w, "Unknown rule type", http.StatusBadRequest)
+		return
+	}
+	params := map[string]float64{}
+	for _, f := range def.Fields {
+		if v, err := strconv.ParseFloat(strings.TrimSpace(r.FormValue(f.Key)), 64); err == nil {
+			params[f.Key] = v
+		} else {
+			params[f.Key] = f.Default
+		}
+	}
+	pj, _ := json.Marshal(params)
+	if err := h.db.UpdateAlertRule(r.Context(), id, r.FormValue("enabled") == "on", pj); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "alerts.rule", typ, "")
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -4116,6 +4229,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/require-reason", h.requireAdmin(h.SettingsToggleRequireReason))
 	mux.HandleFunc("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
 	mux.HandleFunc("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
+	mux.HandleFunc("POST /settings/alert-rules/{id}", h.requireAdmin(h.SettingsUpdateAlertRule))
 	mux.HandleFunc("POST /settings/ai", h.requireAdmin(h.SettingsSetAI))
 	mux.HandleFunc("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
 	mux.HandleFunc("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
