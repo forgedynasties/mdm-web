@@ -321,6 +321,31 @@ a:hover { color: var(--accent-h); }
   font-weight: var(--fw-semibold);
   line-height: 1;
 }
+
+/* ── Fleet health summary ────────────────────────── */
+.health-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.health-stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-sm);
+  padding: 14px 16px;
+}
+.health-stat-num { font-size: 24px; font-weight: var(--fw-semibold); line-height: 1.1; }
+.health-stat-num.is-bad { color: var(--danger); }
+.health-stat-num.is-warn { color: var(--warn); }
+.health-stat-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  margin-top: 4px;
+}
 /* ── Icons ───────────────────────────────────────────
  * Single rule normalizes every inline <svg> in .ui-icon.
  * Variants: .ui-icon-sm (12px) | .ui-icon-lg (20px) | .ui-icon-xl (28px)

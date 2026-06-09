@@ -1,0 +1,69 @@
+{{define "health.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span>Fleet Health</h2>
+    <p class="page-subtitle">Per-group health, worst first — where to send a tech.</p>
+  </div>
+</div>
+
+<div class="health-summary">
+  <div class="health-stat"><div class="health-stat-num">{{.TotalDevices}}</div><div class="health-stat-label">Devices</div></div>
+  <div class="health-stat"><div class="health-stat-num">{{.OnlineDevices}}</div><div class="health-stat-label">Online</div></div>
+  <div class="health-stat"><div class="health-stat-num{{if gt .OfflineDevices 0}} is-bad{{end}}">{{.OfflineDevices}}</div><div class="health-stat-label">Offline</div></div>
+  <div class="health-stat"><div class="health-stat-num{{if gt .OpenAlerts 0}} is-warn{{end}}">{{.OpenAlerts}}</div><div class="health-stat-label">Open alerts</div></div>
+  <div class="health-stat"><div class="health-stat-num">{{.UniqueBuilds}}</div><div class="health-stat-label">Builds</div></div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3>Groups by health</h3></div>
+  {{if not .Groups}}
+  <div class="empty-state">
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No groups yet</div>
+      <div class="empty-state-text">Create groups and the health scorecard ranks them here.</div>
+    </div>
+  </div>
+  {{else}}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Score</th>
+        <th>Group</th>
+        <th>Devices</th>
+        <th>Offline</th>
+        <th>Alerts</th>
+        <th title="Recent average daily peak battery">Battery</th>
+        <th title="Change vs the prior week">Δ wk</th>
+        <th title="Average charging coverage">Charging</th>
+        <th title="Hottest device this week">Max °C</th>
+        <th title="Distinct firmware builds in the group">Builds</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Groups}}
+      <tr>
+        <td><span class="status-badge {{.ScoreClass}}" style="min-width:34px;justify-content:center;">{{.Score}}</span></td>
+        <td><a href="/groups/{{.GroupID}}" class="link-detail">{{.Name}}</a></td>
+        <td class="muted">{{.DeviceCount}}</td>
+        <td>{{if gt .OfflineCount 0}}<span class="status-badge danger">{{.OfflineCount}}</span>{{else}}<span class="muted">0</span>{{end}}</td>
+        <td>
+          {{if gt .OpenCritical 0}}<span class="status-badge danger">{{.OpenCritical}}</span>{{end}}
+          {{if gt .OpenWarning 0}}<span class="status-badge warn">{{.OpenWarning}}</span>{{end}}
+          {{if and (eq .OpenCritical 0) (eq .OpenWarning 0)}}<span class="muted">—</span>{{end}}
+        </td>
+        <td class="muted">{{fnum .BatteryAvg}}{{if .BatteryAvg}}%{{end}}</td>
+        <td class="muted small">{{fdelta .BatteryDelta}}</td>
+        <td class="muted">{{fpct .ChargingAvg}}</td>
+        <td class="muted">{{fnum .TempMax}}</td>
+        <td class="muted">{{.DistinctBuilds}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}
