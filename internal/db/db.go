@@ -27,6 +27,11 @@ type Device struct {
 	KioskPackage   string          `json:"kiosk_package"`
 	LatestExtra    json.RawMessage `json:"latest_extra,omitempty"`
 	Hidden         bool            `json:"hidden"`
+	// Deployed is the per-device deployment override: nil = inherit from the device's
+	// groups, &true = forced deployed, &false = forced lab. DeployedEffective is the
+	// resolved value (override, else any of its groups is deployed, else false).
+	Deployed          *bool `json:"deployed,omitempty"`
+	DeployedEffective bool  `json:"deployed_effective"`
 }
 
 // DefaultKioskFeatures shows system info (battery/wifi) but blocks home, recents,
@@ -63,6 +68,7 @@ type Group struct {
 	Name        string    `json:"name"`
 	DeviceCount int       `json:"device_count"`
 	CreatedAt   time.Time `json:"created_at"`
+	Deployed    bool      `json:"deployed"` // whole restaurant is live (devices inherit unless overridden)
 }
 
 type OTAPackage struct {
@@ -651,11 +657,16 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
-			d.latest_extra AS latest_extra
+			d.latest_extra AS latest_extra,
+			d.deployed,
+			COALESCE(d.deployed, (
+				SELECT bool_or(g.deployed) FROM device_groups dg
+				JOIN groups g ON g.id = dg.group_id WHERE dg.device_id = d.id
+			), false) AS deployed_effective
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Deployed, &dev.DeployedEffective)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -681,6 +692,38 @@ func (d *DB) GetDeviceByID(ctx context.Context, id uuid.UUID) (*Device, error) {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
 	return &dev, nil
+}
+
+// SetDeviceDeployed sets the per-device deployment override: deployed=nil clears it
+// (the device inherits from its groups), &true/&false force the value.
+func (d *DB) SetDeviceDeployed(ctx context.Context, serial string, deployed *bool) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET deployed = $2 WHERE serial_number = $1`, serial, deployed)
+	return err
+}
+
+// SetGroupDeployed marks a whole restaurant (group) live or back to lab. Devices in
+// the group inherit this unless they carry their own override.
+func (d *DB) SetGroupDeployed(ctx context.Context, id uuid.UUID, deployed bool) error {
+	_, err := d.pool.Exec(ctx, `UPDATE groups SET deployed = $2 WHERE id = $1`, id, deployed)
+	return err
+}
+
+// DeploymentCounts returns how many non-hidden devices resolve to deployed vs. lab,
+// using each device's override and falling back to whether any of its groups is live.
+func (d *DB) DeploymentCounts(ctx context.Context) (deployed, lab int, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE COALESCE(d.deployed, dep.any_dep, false)),
+			COUNT(*) FILTER (WHERE NOT COALESCE(d.deployed, dep.any_dep, false))
+		FROM devices d
+		LEFT JOIN LATERAL (
+			SELECT bool_or(g.deployed) AS any_dep
+			FROM device_groups dg JOIN groups g ON g.id = dg.group_id
+			WHERE dg.device_id = d.id
+		) dep ON true
+		WHERE NOT d.hidden
+	`).Scan(&deployed, &lab)
+	return deployed, lab, err
 }
 
 // HideDevice marks a device as hidden. It stays in the DB but is excluded from
@@ -854,10 +897,10 @@ func (d *DB) CreateGroup(ctx context.Context, name string) (*Group, error) {
 
 func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count
+		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count, g.deployed
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
-		GROUP BY g.id, g.name, g.created_at
+		GROUP BY g.id, g.name, g.created_at, g.deployed
 		ORDER BY g.name
 	`)
 	if err != nil {
@@ -868,7 +911,7 @@ func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	var groups []Group
 	for rows.Next() {
 		var g Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount, &g.Deployed); err != nil {
 			return nil, err
 		}
 		groups = append(groups, g)
@@ -879,12 +922,12 @@ func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 func (d *DB) GetGroup(ctx context.Context, id uuid.UUID) (*Group, error) {
 	var g Group
 	err := d.pool.QueryRow(ctx, `
-		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count
+		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count, g.deployed
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
 		WHERE g.id = $1
-		GROUP BY g.id, g.name, g.created_at
-	`, id).Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount)
+		GROUP BY g.id, g.name, g.created_at, g.deployed
+	`, id).Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount, &g.Deployed)
 	if err != nil {
 		return nil, err
 	}
@@ -2197,8 +2240,10 @@ type GroupHealth struct {
 	ChargingAvg    *float64  `json:"charging_avg"`   // recent avg charging coverage (0-1)
 	TempMax        *float64  `json:"temp_max"`       // hottest device in the window
 	DistinctBuilds int       `json:"distinct_builds"`
-	Score          int       `json:"score"`       // 0-100, higher is healthier
-	ScoreClass     string    `json:"score_class"` // ok | warn | danger (for badge styling)
+	Deployed       bool      `json:"deployed"`       // restaurant is marked live
+	DeployedCount  int       `json:"deployed_count"` // devices in the group resolving to deployed
+	Score          int       `json:"score"`          // 0-100, higher is healthier
+	ScoreClass     string    `json:"score_class"`    // ok | warn | danger (for badge styling)
 }
 
 // healthScore derives a 0-100 score and class from a group's metrics. Heuristic and
@@ -2269,9 +2314,11 @@ func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth,
 		devs AS (
 			SELECT dg.group_id,
 				COUNT(*) AS device_count,
-				COUNT(*) FILTER (WHERE d.last_seen_at < NOW() - ($1 * INTERVAL '1 second')) AS offline_count
+				COUNT(*) FILTER (WHERE d.last_seen_at < NOW() - ($1 * INTERVAL '1 second')) AS offline_count,
+				COUNT(*) FILTER (WHERE COALESCE(d.deployed, g.deployed, false)) AS deployed_count
 			FROM device_groups dg
 			JOIN devices d ON d.id = dg.device_id AND NOT d.hidden
+			JOIN groups g ON g.id = dg.group_id
 			GROUP BY dg.group_id
 		),
 		al AS (
@@ -2287,7 +2334,8 @@ func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth,
 			COALESCE(devs.device_count, 0), COALESCE(devs.offline_count, 0),
 			COALESCE(al.crit, 0), COALESCE(al.warn, 0),
 			recent.battery_avg, (recent.battery_avg - prior.battery_avg),
-			recent.charging_avg, recent.temp_max, COALESCE(recent.builds, 0)
+			recent.charging_avg, recent.temp_max, COALESCE(recent.builds, 0),
+			g.deployed, COALESCE(devs.deployed_count, 0)
 		FROM groups g
 		LEFT JOIN devs   ON devs.group_id   = g.id
 		LEFT JOIN recent ON recent.group_id = g.id
@@ -2304,7 +2352,7 @@ func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth,
 		var g GroupHealth
 		if err := rows.Scan(&g.GroupID, &g.Name, &g.DeviceCount, &g.OfflineCount,
 			&g.OpenCritical, &g.OpenWarning, &g.BatteryAvg, &g.BatteryDelta,
-			&g.ChargingAvg, &g.TempMax, &g.DistinctBuilds); err != nil {
+			&g.ChargingAvg, &g.TempMax, &g.DistinctBuilds, &g.Deployed, &g.DeployedCount); err != nil {
 			return nil, err
 		}
 		g.computeScore()
@@ -3205,6 +3253,14 @@ BEGIN
         INSERT INTO app_flags (flag) VALUES ('offline_rule_disabled_v1');
     END IF;
 END $$;
+
+-- Deployment flag: is a unit actually live in a restaurant, or still on the bench in
+-- our lab? groups.deployed marks a whole restaurant as live; devices.deployed is a
+-- nullable per-device override (NULL = inherit from the device's groups). Effective
+-- deployed = COALESCE(device.deployed, bool_or(group.deployed), false). This drives
+-- the AI report framing so idle lab units aren't judged as failing restaurant units.
+ALTER TABLE groups  ADD COLUMN IF NOT EXISTS deployed BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS deployed BOOLEAN;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
