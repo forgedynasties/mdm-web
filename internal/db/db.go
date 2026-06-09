@@ -2181,6 +2181,175 @@ func (d *DB) GetGroupDailyStats(ctx context.Context, groupID uuid.UUID, days int
 	return stats, rows.Err()
 }
 
+// ── Alerts ────────────────────────────────────────────────────────────────────
+
+// AlertRule is a rule definition the evaluator checks each housekeeping pass.
+type AlertRule struct {
+	ID        uuid.UUID       `json:"id"`
+	Type      string          `json:"type"`
+	Name      string          `json:"name"`
+	Enabled   bool            `json:"enabled"`
+	Params    json.RawMessage `json:"params"`
+	ScopeType string          `json:"scope_type"`
+	ScopeID   *uuid.UUID      `json:"scope_id"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+// Alert is a fired alert instance. Serial is joined from devices for display.
+type Alert struct {
+	ID         uuid.UUID       `json:"id"`
+	RuleID     *uuid.UUID      `json:"rule_id"`
+	Type       string          `json:"type"`
+	DeviceID   *uuid.UUID      `json:"device_id"`
+	Serial     string          `json:"serial"`
+	Severity   string          `json:"severity"`
+	Status     string          `json:"status"`
+	Summary    string          `json:"summary"`
+	Detail     json.RawMessage `json:"detail"`
+	FiredAt    time.Time       `json:"fired_at"`
+	ResolvedAt *time.Time      `json:"resolved_at"`
+	UpdatedAt  time.Time       `json:"updated_at"`
+}
+
+// defaultAlertRules are seeded once (per type) by EnsureDefaultRules so alerting
+// works out of the box; admins can edit/disable/delete them afterward.
+var defaultAlertRules = []struct {
+	Type, Name, Params string
+}{
+	{"overheating", "Battery overheating", `{"temp_c":45}`},
+	{"no_overnight_charge", "Did not charge overnight", `{"min_full_pct":90,"max_charge_frac":0.3}`},
+	{"battery_health_decline", "Battery health declining", `{"drop_pct":15,"window_days":7}`},
+}
+
+// EnsureDefaultRules inserts each default rule only if no rule of that type exists.
+func (d *DB) EnsureDefaultRules(ctx context.Context) error {
+	for _, r := range defaultAlertRules {
+		if _, err := d.pool.Exec(ctx, `
+			INSERT INTO alert_rules (type, name, params)
+			SELECT $1, $2, $3::jsonb
+			WHERE NOT EXISTS (SELECT 1 FROM alert_rules WHERE type = $1)
+		`, r.Type, r.Name, r.Params); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ListAlertRules returns alert rules, optionally only the enabled ones.
+func (d *DB) ListAlertRules(ctx context.Context, onlyEnabled bool) ([]AlertRule, error) {
+	q := `SELECT id, type, name, enabled, params, scope_type, scope_id, created_at FROM alert_rules`
+	if onlyEnabled {
+		q += ` WHERE enabled`
+	}
+	q += ` ORDER BY type`
+	rows, err := d.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AlertRule
+	for rows.Next() {
+		var r AlertRule
+		if err := rows.Scan(&r.ID, &r.Type, &r.Name, &r.Enabled, &r.Params, &r.ScopeType, &r.ScopeID, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// CreateAlertIfAbsent inserts a new alert unless a non-resolved one already exists
+// for (type, device). Returns true only when a row was actually created, so callers
+// broadcast/notify exactly once per occurrence.
+func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ string, deviceID uuid.UUID, severity, summary string, detail any) (bool, error) {
+	detailJSON := []byte("{}")
+	if detail != nil {
+		b, err := json.Marshal(detail)
+		if err != nil {
+			return false, err
+		}
+		detailJSON = b
+	}
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO alerts (rule_id, type, device_id, severity, summary, detail)
+		VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+		ON CONFLICT (type, device_id) WHERE status <> 'resolved' DO NOTHING
+		RETURNING id
+	`, ruleID, typ, deviceID, severity, summary, detailJSON).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// ResolveOpenAlert resolves any non-resolved alert for (type, device); used when a
+// condition clears. Returns the number of alerts resolved.
+func (d *DB) ResolveOpenAlert(ctx context.Context, typ string, deviceID uuid.UUID) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+		WHERE type = $1 AND device_id = $2 AND status <> 'resolved'
+	`, typ, deviceID)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// ListAlerts returns alerts (newest first), optionally filtered by status, with the
+// device serial joined. limit <= 0 means 200.
+func (d *DB) ListAlerts(ctx context.Context, status string, limit int) ([]Alert, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
+		       a.severity, a.status, a.summary, a.detail, a.fired_at, a.resolved_at, a.updated_at
+		FROM alerts a
+		LEFT JOIN devices d ON d.id = a.device_id
+		WHERE ($1 = '' OR a.status = $1)
+		ORDER BY a.fired_at DESC
+		LIMIT $2
+	`, status, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Alert
+	for rows.Next() {
+		var a Alert
+		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
+			&a.Severity, &a.Status, &a.Summary, &a.Detail, &a.FiredAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// CountOpenAlerts returns the number of alerts in the 'open' status (for nav badge).
+func (d *DB) CountOpenAlerts(ctx context.Context) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM alerts WHERE status = 'open'`).Scan(&n)
+	return n, err
+}
+
+// SetAlertStatus transitions a single alert (acknowledged/resolved). resolved sets
+// resolved_at; other statuses clear it.
+func (d *DB) SetAlertStatus(ctx context.Context, id uuid.UUID, status string) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE alerts
+		SET status = $2,
+		    resolved_at = CASE WHEN $2 = 'resolved' THEN NOW() ELSE NULL END,
+		    updated_at = NOW()
+		WHERE id = $1
+	`, id, status)
+	return err
+}
+
 // PruneLogcat deletes logcat results and requests older than `days` days.
 func (d *DB) PruneLogcat(ctx context.Context, days int) (int64, error) {
 	if days <= 0 {
