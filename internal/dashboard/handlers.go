@@ -1590,6 +1590,26 @@ func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status 
 	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
 }
 
+// DeviceShellPage renders the interactive shell console for a device. The console
+// reuses the existing command-create (JSON) + command-output SSE endpoints: each
+// submitted line is sent as a `shell` command and its output is streamed back.
+func (h *Handler) DeviceShellPage(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.ShellEnabled() {
+		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
+		return
+	}
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	h.render(w, r, "device_shell.html", map[string]any{
+		"Title":  "Shell · " + serial,
+		"Device": device,
+	})
+}
+
 // safeCSVFilename returns a filename safe for use in a Content-Disposition
 // header: control chars, quotes, and path separators are replaced with '_'.
 // Falls back to the provided default if the result would be empty.
@@ -3735,6 +3755,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))
 	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.DeviceBatteryCSV))
 	mux.HandleFunc("GET /devices/{serial}/daily-stats", h.requireAuth(h.DeviceDailyStatsJSON))
+	mux.HandleFunc("GET /devices/{serial}/shell", h.requireOperatorOrAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	mux.HandleFunc("GET /devices/{serial}/checkins-live", h.requireAuth(h.DeviceCheckinsPartial))
 	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
