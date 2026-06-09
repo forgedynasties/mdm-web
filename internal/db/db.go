@@ -2468,10 +2468,10 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		rows, err := d.pool.Query(ctx, `
 			SELECT device_id, recent, prior FROM (
 				SELECT device_id,
-					AVG(battery_max) FILTER (WHERE day > CURRENT_DATE - $1)                                AS recent,
-					AVG(battery_max) FILTER (WHERE day <= CURRENT_DATE - $1 AND day > CURRENT_DATE - 2*$1) AS prior
+					AVG(battery_max) FILTER (WHERE day > CURRENT_DATE - ($1::int))                                       AS recent,
+					AVG(battery_max) FILTER (WHERE day <= CURRENT_DATE - ($1::int) AND day > CURRENT_DATE - (2 * $1::int)) AS prior
 				FROM device_daily_stats
-				WHERE day > CURRENT_DATE - 2*$1
+				WHERE day > CURRENT_DATE - (2 * $1::int)
 				GROUP BY device_id
 			) t
 			WHERE recent IS NOT NULL AND prior IS NOT NULL AND (prior - recent) >= $2`,
