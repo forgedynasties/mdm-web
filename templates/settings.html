@@ -113,20 +113,28 @@
   <div class="card-header"><h3>AI Analysis</h3></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
-      Adds an <strong>Analyze with AI</strong> button to device Trends and Fleet Health that reads the rolled-up metrics and explains what's wrong and what to do — a non-ML shortcut while there isn't enough history for prediction. Uses the Anthropic API.
+      Adds an <strong>Analyze with AI</strong> button to device Trends and Fleet Health that reads the rolled-up metrics and explains what's wrong and what to do — a non-ML shortcut while there isn't enough history for prediction. Works with Anthropic (Claude) or any OpenAI-compatible provider such as DeepSeek.
       {{if .AIKeySet}}<span class="status-badge ok">key configured</span>{{else}}<span class="status-badge warn">no key — disabled</span>{{end}}
     </div>
     <form action="/settings/ai" method="POST" style="display:flex;flex-direction:column;gap:12px;max-width:560px;">
-      <label class="small">Anthropic API key
-        <input type="password" name="anthropic_api_key" value="" placeholder="{{if .AIKeySet}}•••• configured — leave blank to keep{{else}}sk-ant-…{{end}}" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
+      <label class="small">Provider
+        <select name="ai_provider" class="form-input" style="display:block;margin-top:4px;">
+          <option value="anthropic"{{if eq .AIProvider "anthropic"}} selected{{end}}>Anthropic (Claude)</option>
+          <option value="deepseek"{{if eq .AIProvider "deepseek"}} selected{{end}}>DeepSeek</option>
+          <option value="openai"{{if eq .AIProvider "openai"}} selected{{end}}>OpenAI-compatible (other)</option>
+        </select>
+      </label>
+      <label class="small">API key
+        <input type="password" name="anthropic_api_key" value="" placeholder="{{if .AIKeySet}}•••• configured — leave blank to keep{{else}}sk-… (key for the selected provider){{end}}" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
         <span class="muted small">Leave blank to keep the current key; enter <code>-</code> to clear it.</span>
       </label>
       <label class="small">Model
-        <select name="anthropic_model" class="form-input" style="display:block;margin-top:4px;">
-          <option value="claude-opus-4-8"{{if eq .AnthropicModel "claude-opus-4-8"}} selected{{end}}>Opus 4.8 — most capable</option>
-          <option value="claude-sonnet-4-6"{{if eq .AnthropicModel "claude-sonnet-4-6"}} selected{{end}}>Sonnet 4.6 — cheaper</option>
-          <option value="claude-haiku-4-5"{{if eq .AnthropicModel "claude-haiku-4-5"}} selected{{end}}>Haiku 4.5 — cheapest</option>
-        </select>
+        <input type="text" name="anthropic_model" value="{{.AnthropicModel}}" placeholder="claude-opus-4-8 · deepseek-chat · deepseek-reasoner" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
+        <span class="muted small">Anthropic: <code>claude-opus-4-8</code> / <code>claude-sonnet-4-6</code> / <code>claude-haiku-4-5</code>. DeepSeek: <code>deepseek-chat</code> / <code>deepseek-reasoner</code>. Blank uses the provider default.</span>
+      </label>
+      <label class="small">API base URL <span class="muted">(optional)</span>
+        <input type="text" name="ai_base_url" value="{{.AIBaseURL}}" placeholder="leave blank for the provider default (DeepSeek: https://api.deepseek.com)" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
+        <span class="muted small">Only needed for self-hosted or non-default OpenAI-compatible endpoints. Ignored for Anthropic.</span>
       </label>
       <label class="small" style="display:flex;align-items:center;gap:8px;">
         <input type="checkbox" name="ai_digest"{{if .AIDigestEnabled}} checked{{end}}> Post a daily fleet digest to the alert webhook (sent once a day during housekeeping)

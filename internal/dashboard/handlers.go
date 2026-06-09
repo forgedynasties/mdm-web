@@ -3091,7 +3091,9 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"Use24Hour":            h.cfg.Use24Hour(),
 		"AlertWebhookURL":      h.cfg.AlertWebhookURL(),
 		"AIKeySet":             h.cfg.AIEnabled(),
+		"AIProvider":           h.cfg.AIProvider(),
 		"AnthropicModel":       h.cfg.AnthropicModel(),
+		"AIBaseURL":            h.cfg.AIBaseURL(),
 		"AIDigestEnabled":      h.cfg.AIDigestEnabled(),
 		"AutoHideDays":         h.cfg.AutoHideDays(),
 		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
@@ -3220,7 +3222,7 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 
 	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
-	client := ai.New(h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel())
+	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
 	text, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts)
 	if err != nil {
 		log.Printf("[digest] analyze: %v", err)
@@ -3292,15 +3294,18 @@ func (h *Handler) SettingsSetAlertWebhook(w http.ResponseWriter, r *http.Request
 // never clears a configured key; submit the literal "-" to clear it.
 func (h *Handler) SettingsSetAI(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	if p := strings.TrimSpace(r.FormValue("ai_provider")); p != "" {
+		h.cfg.SetAIProvider(p)
+	}
 	if k := strings.TrimSpace(r.FormValue("anthropic_api_key")); k != "" {
 		if k == "-" {
 			k = ""
 		}
 		h.cfg.SetAnthropicAPIKey(k)
 	}
-	if m := strings.TrimSpace(r.FormValue("anthropic_model")); m != "" {
-		h.cfg.SetAnthropicModel(m)
-	}
+	// Model and base URL are saved verbatim (empty allowed — defaults fill in).
+	h.cfg.SetAnthropicModel(strings.TrimSpace(r.FormValue("anthropic_model")))
+	h.cfg.SetAIBaseURL(strings.TrimSpace(r.FormValue("ai_base_url")))
 	h.cfg.SetAIDigestEnabled(r.FormValue("ai_digest") == "on")
 	h.audit(r, "ai.settings", "", "")
 	http.Redirect(w, r, "/settings", http.StatusFound)
@@ -3315,7 +3320,7 @@ func (h *Handler) writeAIResult(w http.ResponseWriter, r *http.Request, run func
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
-	client := ai.New(h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel())
+	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
 	text, err := run(ctx, client)
 	if err != nil {
 		log.Printf("[ai] analysis failed: %v", err)
@@ -3325,7 +3330,7 @@ func (h *Handler) writeAIResult(w http.ResponseWriter, r *http.Request, run func
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"text":         text,
-		"model":        h.cfg.AnthropicModel(),
+		"model":        client.Model(),
 		"generated_at": time.Now().Format(time.RFC3339),
 	})
 }

@@ -8,9 +8,13 @@
 package ai
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
@@ -30,23 +34,73 @@ When you analyze the telemetry below:
 - End with a concrete recommended action (e.g. "swap the charging pad", "schedule a battery replacement", "send a tech to <group>").
 Be concise and specific. No preamble, no restating the question back. If the data looks fine, say so plainly.`
 
-// Client wraps the Anthropic SDK with a configured key and model.
+// Provider identifies the API wire format. "anthropic" uses the Claude SDK; any
+// other value (e.g. "deepseek", "openai") uses the OpenAI-compatible
+// /chat/completions format, which DeepSeek and most other vendors implement.
+const (
+	ProviderAnthropic = "anthropic"
+	ProviderDeepSeek  = "deepseek"
+)
+
+// Client wraps a configured provider, key, model, and optional base URL.
 type Client struct {
-	apiKey string
-	model  string
+	provider string
+	apiKey   string
+	model    string
+	baseURL  string
 }
 
-// New builds a client. An empty model falls back to the config default.
-func New(apiKey, model string) *Client {
-	if model == "" {
-		model = "claude-opus-4-8"
+// httpClient is reused for OpenAI-compatible calls; the per-call context carries
+// the real deadline.
+var httpClient = &http.Client{Timeout: 120 * time.Second}
+
+// New builds a client, filling provider-appropriate defaults for an empty model or
+// base URL. An empty provider means Anthropic (back-compat with earlier configs).
+func New(provider, apiKey, model, baseURL string) *Client {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if provider == "" {
+		provider = ProviderAnthropic
 	}
-	return &Client{apiKey: apiKey, model: model}
+	c := &Client{
+		provider: provider,
+		apiKey:   apiKey,
+		model:    strings.TrimSpace(model),
+		baseURL:  strings.TrimRight(strings.TrimSpace(baseURL), "/"),
+	}
+	if c.model == "" {
+		if provider == ProviderAnthropic {
+			c.model = "claude-opus-4-8"
+		} else {
+			c.model = "deepseek-chat"
+		}
+	}
+	if c.baseURL == "" {
+		switch provider {
+		case ProviderDeepSeek:
+			c.baseURL = "https://api.deepseek.com"
+		case ProviderAnthropic:
+			// SDK has its own default; baseURL unused.
+		default: // generic openai-compatible
+			c.baseURL = "https://api.openai.com/v1"
+		}
+	}
+	return c
 }
 
-// complete runs one message and returns the concatenated text blocks. Adaptive
-// thinking is left on (recommended for Opus 4.x); only visible text is returned.
+// Model returns the resolved model id (after defaulting).
+func (c *Client) Model() string { return c.model }
+
+// complete dispatches to the configured provider's backend.
 func (c *Client) complete(ctx context.Context, user string) (string, error) {
+	if c.provider == ProviderAnthropic {
+		return c.anthropicComplete(ctx, user)
+	}
+	return c.openaiComplete(ctx, user)
+}
+
+// anthropicComplete calls the Claude Messages API. Adaptive thinking is left on
+// (recommended for Opus 4.x); only visible text blocks are returned.
+func (c *Client) anthropicComplete(ctx context.Context, user string) (string, error) {
 	client := anthropic.NewClient(option.WithAPIKey(c.apiKey))
 	resp, err := client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),
@@ -65,6 +119,68 @@ func (c *Client) complete(ctx context.Context, user string) (string, error) {
 		}
 	}
 	out := strings.TrimSpace(b.String())
+	if out == "" {
+		return "", fmt.Errorf("model returned no text")
+	}
+	return out, nil
+}
+
+// openaiComplete calls an OpenAI-compatible /chat/completions endpoint (DeepSeek,
+// OpenAI, Groq, OpenRouter, local servers, …). The system context and user data
+// map onto the system/user chat roles.
+func (c *Client) openaiComplete(ctx context.Context, user string) (string, error) {
+	type msg struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}
+	reqBody, _ := json.Marshal(struct {
+		Model     string `json:"model"`
+		Messages  []msg  `json:"messages"`
+		MaxTokens int    `json:"max_tokens"`
+		Stream    bool   `json:"stream"`
+	}{
+		Model:     c.model,
+		Messages:  []msg{{Role: "system", Content: systemContext}, {Role: "user", Content: user}},
+		MaxTokens: 4096,
+		Stream:    false,
+	})
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(reqBody))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+c.apiKey)
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var parsed struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return "", fmt.Errorf("%s returned status %d (unparseable body)", c.provider, resp.StatusCode)
+	}
+	if resp.StatusCode >= 300 {
+		if parsed.Error != nil && parsed.Error.Message != "" {
+			return "", fmt.Errorf("%s %d: %s", c.provider, resp.StatusCode, parsed.Error.Message)
+		}
+		return "", fmt.Errorf("%s returned status %d", c.provider, resp.StatusCode)
+	}
+	if len(parsed.Choices) == 0 {
+		return "", fmt.Errorf("%s returned no choices", c.provider)
+	}
+	out := strings.TrimSpace(parsed.Choices[0].Message.Content)
 	if out == "" {
 		return "", fmt.Errorf("model returned no text")
 	}
