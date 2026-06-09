@@ -3198,12 +3198,6 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
-func (h *Handler) SettingsPruneNow(w http.ResponseWriter, r *http.Request) {
-	h.RunHousekeeping(r.Context())
-	h.audit(r, "data.prune", "", "manual housekeeping run")
-	http.Redirect(w, r, "/settings", http.StatusFound)
-}
-
 func (h *Handler) AuditPage(w http.ResponseWriter, r *http.Request) {
 	entries, err := h.db.ListAudit(r.Context(), 200)
 	if err != nil {
@@ -3886,7 +3880,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
 	mux.HandleFunc("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
 	mux.HandleFunc("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
-	mux.HandleFunc("POST /settings/prune-now", h.requireAdmin(h.SettingsPruneNow))
 	mux.HandleFunc("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
 	mux.HandleFunc("POST /settings/logout-all", h.requireAdmin(h.SettingsLogoutAll))
 	mux.HandleFunc("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))

@@ -189,16 +189,13 @@
     </div>
     <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
   </form>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+  <div style="padding:16px;">
     <div class="muted small">
       Database: <strong>{{.DBStats.Devices}}</strong> devices ·
       <strong>{{.DBStats.Checkins}}</strong> check-ins ·
       <strong>{{.DBStats.Commands}}</strong> commands ·
       <strong>{{.DBStats.LogcatResults}}</strong> logcat results
     </div>
-    <form action="/settings/prune-now" method="POST" onsubmit="return confirm('Run housekeeping now? This applies the retention policies above immediately.')">
-      <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 14px;">Prune now</button>
-    </form>
   </div>
 </div>
 
