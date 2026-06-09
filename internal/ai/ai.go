@@ -24,14 +24,20 @@ import (
 
 // personaContext grounds every prompt in the same framing and voice. The four
 // signals it names are the focus; offline/connectivity is deliberately out of scope.
-const personaContext = `You're the ops lead watching over AIO's TSAI units — tableside devices in restaurants that take orders and run ads, each with a built-in wireless charging pad that customers use for their own phones. There may be a single unit or many. What matters: is each TSAI healthy enough to get through a busy service? The signals that predict trouble are its own battery health (capacity slipping week over week), whether it charged properly, running hot, and memory pressure (RAM near the ceiling → crashes). A struggling unit at 7pm on a Friday means lost orders and an annoyed restaurant.
+// Deployment state is central: most units are still on the bench in the lab, and the
+// model must not judge an idle lab unit as a failing restaurant unit.
+const personaContext = `You're keeping an eye on AIO's TSAI units — tableside devices in restaurants that take orders and run ads, each with a built-in wireless charging pad customers use for their own phones. The fleet is small and most units are still on the bench in our lab, not yet in a restaurant. Your job is early warning: read the telemetry and say, plainly, which deployed units look healthy and which are trending toward trouble.
 
-Talk like a person giving a quick heads-up to a colleague who's slammed — plain, direct, a little opinionated, no corporate filler. Ground everything in the actual numbers and name the specific restaurant/group or unit. Don't invent problems to sound busy, and don't flag a unit for being briefly offline — connectivity isn't the priority right now.`
+The signals that matter are a unit's own battery health (capacity slipping week over week), whether it charged properly, running hot, and memory pressure (RAM near the ceiling → crashes). Connectivity is not a concern — never flag a unit for being offline or briefly unreachable.
+
+Deployment state changes how much a unit matters. LAB units sitting on the bench are expected to be idle, unplugged, or powered down — that's normal, not a problem. Don't raise alarms about lab units; at most note a genuine hardware fault worth a second look. Reserve real concern for DEPLOYED units live in a restaurant.
+
+Voice: calm and measured. State the facts and a sensible next step without drama. Right now there's usually nothing to physically do but watch and log — so a good report is an honest status read, not a call to action. Ground every statement in the actual numbers and name the specific unit or restaurant. Don't invent problems to sound busy, and don't manufacture urgency the data doesn't support.`
 
 // deviceSystem is the system prompt for a single-unit prose analysis.
 const deviceSystem = personaContext + `
 
-Give a short read on this one TSAI: a one-line bottom line, the top 1-3 concerns tied to its numbers, and a concrete next action. A few sentences, no preamble, no restating the question.`
+Give a short, measured read on this one TSAI: a one-line bottom line, the top 1-3 things worth noting tied to its numbers, and — only if there's something to do — a sensible next step. A few sentences, no preamble, no restating the question. If this is a lab unit, keep it low-stakes: note hardware health if something looks genuinely wrong, but don't treat idle, unplugged, or powered-down behavior as a problem.`
 
 // Thresholds are the configurable cutoffs (from the alert rules) the fleet report
 // uses to decide what counts as a problem.
@@ -49,16 +55,21 @@ func fleetSystem(t Thresholds) string {
 	return personaContext + fmt.Sprintf(`
 
 Focus ONLY on these four signals, judged against the configured cutoffs:
-- Battery health: flag a restaurant/unit whose weekly peak-battery drop is about %.0f points or more.
-- Charging: flag units that didn't reach ~%.0f%% or charged less than %.0f%% of the day.
-- Overheating: flag units running at ~%.0f°C or hotter.
-- Memory pressure: flag units whose peak RAM hit ~%.0f%% or more.
+- Battery health: a weekly peak-battery drop of about %.0f points or more.
+- Charging: didn't reach ~%.0f%% or charged less than %.0f%% of the day.
+- Overheating: running at ~%.0f°C or hotter.
+- Memory pressure: peak RAM hit ~%.0f%% or more.
 Do NOT raise offline/connectivity as an issue.
+
+Deployment rules — read these carefully:
+- The snapshot tells you how many units are DEPLOYED (live in a restaurant) vs in the LAB, and each group is flagged deployed or lab.
+- Only DEPLOYED units may drive "watch" or "at_risk" status or appear as issues. A lab unit hitting a cutoff is expected bench behavior — do not list it as an issue and do not let it raise the status.
+- If nothing is deployed yet, status is "ok": say plainly that the fleet is still in the lab and there's nothing to act on. Don't invent restaurant-risk that can't exist.
 
 Respond with ONLY a JSON object — no markdown, no code fences, no prose around it — in exactly this shape:
 {
   "status": "ok" | "watch" | "at_risk",
-  "headline": "one short, human sentence — the bottom line",
+  "headline": "one short, plain sentence — the bottom line",
   "metrics": [{"label": "Charging", "value": "94%%"}, {"label": "Hottest", "value": "41°C"}],
   "issues": [
     {"severity": "warn" | "critical", "area": "battery" | "charging" | "heat" | "memory",
@@ -66,7 +77,7 @@ Respond with ONLY a JSON object — no markdown, no code fences, no prose around
   ],
   "good": ["short labels of signals that look fine"]
 }
-status: ok = nothing to do, watch = keep an eye on it, at_risk = act now. Sort issues worst-first; use an empty array when there are none. When everything's healthy give an upbeat one-line headline plus 2-3 grounding metrics. Keep "detail" and "action" human and specific.`,
+status: ok = nothing to act on, watch = a deployed unit worth keeping an eye on, at_risk = a deployed unit needs attention. Sort issues worst-first; use an empty array when there are none. When everything's fine (or all units are still in the lab) give a calm one-line headline plus 2-3 grounding metrics. Keep "detail" and "action" specific and free of drama.`,
 		t.DropPct, t.MinFullPct, t.MaxChargeFrac*100, t.TempC, t.RAMPct)
 }
 
@@ -308,9 +319,14 @@ func (c *Client) openaiComplete(ctx context.Context, system, user string) (strin
 }
 
 // AnalyzeDevice summarizes one device's recent daily stats and open alerts.
-func (c *Client) AnalyzeDevice(ctx context.Context, serial string, stats []db.DeviceDailyStat, alerts []db.Alert) (string, Usage, error) {
+func (c *Client) AnalyzeDevice(ctx context.Context, serial string, deployed bool, stats []db.DeviceDailyStat, alerts []db.Alert) (string, Usage, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Device %s — last %d day(s) of rolled-up telemetry (one row per day, oldest first).\n", serial, len(stats))
+	state := "IN THE LAB (on the bench, not yet deployed to a restaurant — idle/unplugged behavior is expected here)"
+	if deployed {
+		state = "DEPLOYED (live in a restaurant)"
+	}
+	fmt.Fprintf(&b, "Device %s is %s.\n", serial, state)
+	fmt.Fprintf(&b, "Last %d day(s) of rolled-up telemetry (one row per day, oldest first).\n", len(stats))
 	if len(stats) == 0 {
 		b.WriteString("No daily stats recorded yet.\n")
 	} else {
@@ -330,17 +346,25 @@ func (c *Client) AnalyzeDevice(ctx context.Context, serial string, stats []db.De
 // AnalyzeFleet returns a structured JSON report (see Report) from the per-group
 // health scorecard plus the current open alerts, judged against the configured
 // thresholds. Focus is battery/charging/heat/memory — not offline.
-func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, total, online, openAlerts int, alerts []db.Alert, t Thresholds) (string, Usage, error) {
+func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, total, online, openAlerts, deployed, lab int, alerts []db.Alert, t Thresholds) (string, Usage, error) {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Fleet snapshot: %d devices total, %d online, %d offline, %d open alerts.\n\n", total, online, total-online, openAlerts)
+	fmt.Fprintf(&b, "Fleet snapshot: %d devices total — %d DEPLOYED (live in a restaurant), %d in the LAB (on the bench). %d online, %d offline, %d open alerts.\n", total, deployed, lab, online, total-online, openAlerts)
+	if deployed == 0 {
+		b.WriteString("Nothing is deployed yet — the whole fleet is still in the lab.\n")
+	}
+	b.WriteByte('\n')
 	if len(groups) == 0 {
 		b.WriteString("No groups configured.\n")
 	} else {
-		b.WriteString("Per-group health (worst score first). Score is 0-100 (higher = healthier).\n")
-		b.WriteString("group | score | devices | offline | crit/warn alerts | avg peak battery % | Δ vs prior wk | charging coverage | max temp °C | distinct builds\n")
+		b.WriteString("Per-group health (worst score first). Score is 0-100 (higher = healthier). The 'where' column says whether the group is a live restaurant or a lab group, and how many of its devices resolve to deployed.\n")
+		b.WriteString("group | where | score | devices | offline | crit/warn alerts | avg peak battery % | Δ vs prior wk | charging coverage | max temp °C | distinct builds\n")
 		for _, g := range groups {
-			fmt.Fprintf(&b, "%s | %d | %d | %d | %d/%d | %s | %s | %s | %s | %d\n",
-				g.Name, g.Score, g.DeviceCount, g.OfflineCount,
+			where := "lab"
+			if g.Deployed || g.DeployedCount > 0 {
+				where = fmt.Sprintf("DEPLOYED (%d/%d live)", g.DeployedCount, g.DeviceCount)
+			}
+			fmt.Fprintf(&b, "%s | %s | %d | %d | %d | %d/%d | %s | %s | %s | %s | %d\n",
+				g.Name, where, g.Score, g.DeviceCount, g.OfflineCount,
 				g.OpenCritical, g.OpenWarning,
 				f64ptr(g.BatteryAvg), f64delta(g.BatteryDelta),
 				pct64ptr(g.ChargingAvg), f64ptr(g.TempMax), g.DistinctBuilds)
