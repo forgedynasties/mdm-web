@@ -2470,6 +2470,38 @@ CREATE TABLE IF NOT EXISTS device_daily_stats (
     PRIMARY KEY (device_id, day)
 );
 CREATE INDEX IF NOT EXISTS idx_device_daily_stats_day ON device_daily_stats(day DESC);
+
+-- Alert rules: a rule type + JSONB params (thresholds), optionally scoped. The
+-- evaluator (RunHousekeeping) reads enabled rules and fires alerts against them.
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    type       TEXT NOT NULL,                 -- overheating | no_overnight_charge | battery_health_decline | ...
+    name       TEXT NOT NULL DEFAULT '',
+    enabled    BOOLEAN NOT NULL DEFAULT true,
+    params     JSONB NOT NULL DEFAULT '{}',   -- thresholds, e.g. {"temp_c":45}
+    scope_type TEXT NOT NULL DEFAULT 'fleet', -- fleet | group | device
+    scope_id   UUID,                          -- group_id or device_id when scoped
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Fired alert instances. At most one OPEN alert per (type, device) via the partial
+-- unique index below, so re-evaluating a still-true condition does not duplicate.
+CREATE TABLE IF NOT EXISTS alerts (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    rule_id     UUID REFERENCES alert_rules(id) ON DELETE SET NULL,
+    type        TEXT NOT NULL,
+    device_id   UUID REFERENCES devices(id) ON DELETE CASCADE,
+    severity    TEXT NOT NULL DEFAULT 'warning', -- info | warning | critical
+    status      TEXT NOT NULL DEFAULT 'open',    -- open | acknowledged | resolved
+    summary     TEXT NOT NULL DEFAULT '',
+    detail      JSONB NOT NULL DEFAULT '{}',
+    fired_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    resolved_at TIMESTAMPTZ,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_alerts_open_unique ON alerts(type, device_id) WHERE status <> 'resolved';
+CREATE INDEX IF NOT EXISTS idx_alerts_status ON alerts(status, fired_at DESC);
+CREATE INDEX IF NOT EXISTS idx_alerts_device ON alerts(device_id);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
