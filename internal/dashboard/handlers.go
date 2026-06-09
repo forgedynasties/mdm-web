@@ -400,6 +400,28 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			}
 			return *t
 		},
+		// Nullable-float formatters for the health scorecard.
+		"fnum": func(p *float64) string {
+			if p == nil {
+				return "—"
+			}
+			return fmt.Sprintf("%.0f", *p)
+		},
+		"fpct": func(p *float64) string {
+			if p == nil {
+				return "—"
+			}
+			return fmt.Sprintf("%.0f%%", *p*100)
+		},
+		"fdelta": func(p *float64) string {
+			if p == nil {
+				return "—"
+			}
+			if *p >= 0 {
+				return fmt.Sprintf("▲ %.0f", *p)
+			}
+			return fmt.Sprintf("▼ %.0f", -*p)
+		},
 		"ramUsage": func(raw json.RawMessage) map[string]int {
 			if len(raw) == 0 {
 				return nil
@@ -707,6 +729,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 
 	path := r.URL.Path
 	switch {
+	case strings.HasPrefix(path, "/health"):
+		data["ActivePage"] = "health"
 	case strings.HasPrefix(path, "/alerts"):
 		data["ActivePage"] = "alerts"
 	case path == "/" || strings.HasPrefix(path, "/devices") || path == "/export" || path == "/packages":
@@ -1589,6 +1613,28 @@ func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status 
 	}
 	h.audit(r, "alert."+status, id.String(), "")
 	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
+}
+
+// FleetHealth renders the Tier 3 fleet/group health overview: a fleet summary plus a
+// per-group scorecard ranked worst-first.
+func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
+	activeSecs := h.cfg.CheckinInterval() * 3
+	groups, err := h.db.GetGroupHealth(r.Context(), activeSecs)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	summary, _ := h.db.GetSummary(r.Context(), activeSecs)
+	openAlerts, _ := h.db.CountOpenAlerts(r.Context())
+	h.render(w, r, "health.html", map[string]any{
+		"Title":        "Fleet Health",
+		"Groups":       groups,
+		"TotalDevices": summary.Total,
+		"OnlineDevices": summary.RecentlyActive,
+		"OfflineDevices": summary.Total - summary.RecentlyActive,
+		"OpenAlerts":   openAlerts,
+		"UniqueBuilds": summary.UniqueBuilds,
+	})
 }
 
 // DeviceShellPage renders the interactive shell console for a device. The console
@@ -3800,6 +3846,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
+	mux.HandleFunc("GET /health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	mux.HandleFunc("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
