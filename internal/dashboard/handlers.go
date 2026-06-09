@@ -61,6 +61,11 @@ type Handler struct {
 	password    string
 	cfg         *config.Config
 	adminAPIKey string
+
+	// lastDigestDay is the YYYY-MM-DD of the most recent AI fleet digest sent, so
+	// housekeeping posts it at most once per day. Touched only from the single
+	// housekeeping goroutine.
+	lastDigestDay string
 }
 
 var logcatSeverityRe = regexp.MustCompile(`\b([EWIDV])\/|\s([EWIDV])\s`)
@@ -3163,6 +3168,7 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			}
 		}
 	}
+	h.maybeSendDigest(ctx)
 	if d := h.cfg.AutoHideDays(); d > 0 {
 		if n, err := h.db.HideStaleDevices(ctx, d); err != nil {
 			log.Printf("[housekeeping] hide stale: %v", err)
@@ -3184,6 +3190,48 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			log.Printf("[housekeeping] pruned %d logcat row(s) older than %dd", n, d)
 		}
 	}
+}
+
+// maybeSendDigest posts a once-a-day AI fleet summary to the alert webhook. It is
+// a no-op unless AI analysis + the digest toggle + a webhook are all configured. It
+// fires on the first housekeeping run at or after 08:00 local each day, so the
+// summary reflects daytime service rather than overnight charging.
+func (h *Handler) maybeSendDigest(ctx context.Context) {
+	if !h.cfg.AIDigestEnabled() || !h.cfg.AIEnabled() {
+		return
+	}
+	url := h.cfg.AlertWebhookURL()
+	if url == "" {
+		return
+	}
+	now := time.Now()
+	today := now.Format("2006-01-02")
+	if h.lastDigestDay == today || now.Hour() < 8 {
+		return
+	}
+	activeSecs := h.cfg.CheckinInterval() * 3
+	groups, err := h.db.GetGroupHealth(ctx, activeSecs)
+	if err != nil {
+		log.Printf("[digest] group health: %v", err)
+		return
+	}
+	summary, _ := h.db.GetSummary(ctx, activeSecs)
+	openAlerts, _ := h.db.CountOpenAlerts(ctx)
+
+	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
+	defer cancel()
+	client := ai.New(h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel())
+	text, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts)
+	if err != nil {
+		log.Printf("[digest] analyze: %v", err)
+		return
+	}
+	if err := notify.SendWebhook(ctx, url, "*Daily fleet digest*\n"+text); err != nil {
+		log.Printf("[digest] webhook: %v", err)
+		return
+	}
+	h.lastDigestDay = today // only on success, so a transient failure retries next hour
+	log.Printf("[digest] sent daily fleet digest")
 }
 
 func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
