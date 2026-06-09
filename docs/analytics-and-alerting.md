@@ -89,9 +89,12 @@ per-group **daily rollups**. Foundation for everything below.
   JSON endpoint.
 - UI: **Trends** tab on device detail — 30/7/90-day Chart.js line chart (battery min–max
   band + avg, charging-coverage %).
+- Per-group (groups treated as generic device buckets): `GetGroupDailyStats(groupID, days)`
+  + `GET /groups/{id}/daily-stats` JSON + a **Group trends** chart on the group page
+  (battery band/avg, charging coverage; also aggregates device_count + distinct_builds).
 
-**Still open for Tier 1:** per-**group** rollup/aggregation (currently per-device only);
-visual screenshot verification of the Trends tab against a seeded stack.
+**Still open for Tier 1:** visual screenshot verification of the Trends views against a
+seeded stack.
 
 ### Tier 2 — Alerting (build FIRST — highest ROI, no ML)
 Rule-based catalog, tuned to the restaurant/overnight-charge use case. See §3.
@@ -197,3 +200,6 @@ and an **Alerts** view (open/ack/resolved).
   `device_daily_stats` + rollup/backfill, housekeeping + startup wiring, daily-stats
   getter + JSON endpoint, and a device-detail **Trends** tab (Chart.js). Per-group
   aggregation and screenshot verification still open.
+- **2026-06-08** — Tier 1 per-group landed: `GetGroupDailyStats` + `/groups/{id}/daily-stats`
+  + **Group trends** chart on the group page (groups = generic buckets, per answer).
+  Only screenshot verification remains for Tier 1. Next up: Tier 2 alerting.
