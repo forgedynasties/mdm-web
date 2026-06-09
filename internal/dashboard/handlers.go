@@ -3030,6 +3030,12 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			log.Printf("[housekeeping] rollup daily stats %s: %v", day.Format("2006-01-02"), err)
 		}
 	}
+	// Evaluate alert rules against the freshly rolled-up stats.
+	if c, r, err := h.db.EvaluateAlerts(ctx); err != nil {
+		log.Printf("[housekeeping] evaluate alerts: %v", err)
+	} else if c > 0 || r > 0 {
+		log.Printf("[housekeeping] alerts: %d new, %d resolved", c, r)
+	}
 	if d := h.cfg.AutoHideDays(); d > 0 {
 		if n, err := h.db.HideStaleDevices(ctx, d); err != nil {
 			log.Printf("[housekeeping] hide stale: %v", err)
