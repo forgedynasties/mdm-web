@@ -698,9 +698,16 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	data["CurrentUser"] = h.currentUsername(r)
 	data["Brand"] = h.cfg.BrandName()
 	data["Use24Hour"] = h.cfg.Use24Hour()
+	if role != "" {
+		if n, err := h.db.CountOpenAlerts(r.Context()); err == nil {
+			data["AlertsOpenCount"] = n
+		}
+	}
 
 	path := r.URL.Path
 	switch {
+	case strings.HasPrefix(path, "/alerts"):
+		data["ActivePage"] = "alerts"
 	case path == "/" || strings.HasPrefix(path, "/devices") || path == "/export" || path == "/packages":
 		data["ActivePage"] = "devices"
 	case strings.HasPrefix(path, "/groups"):
@@ -1543,6 +1550,44 @@ func (h *Handler) GroupDailyStatsJSON(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(stats)
+}
+
+// AlertList renders the alerts page, optionally filtered by ?status=open|acknowledged|resolved.
+func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
+	status := r.URL.Query().Get("status")
+	switch status {
+	case "", "open", "acknowledged", "resolved":
+	default:
+		status = ""
+	}
+	alerts, err := h.db.ListAlerts(r.Context(), status, 200)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "alerts.html", map[string]any{
+		"Title":  "Alerts",
+		"Alerts": alerts,
+		"Filter": status,
+	})
+}
+
+// AlertAck marks an alert acknowledged. AlertResolve resolves it.
+func (h *Handler) AlertAck(w http.ResponseWriter, r *http.Request)     { h.setAlertStatus(w, r, "acknowledged") }
+func (h *Handler) AlertResolve(w http.ResponseWriter, r *http.Request) { h.setAlertStatus(w, r, "resolved") }
+
+func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status string) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid alert ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetAlertStatus(r.Context(), id, status); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "alert."+status, id.String(), "")
+	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
 }
 
 // safeCSVFilename returns a filename safe for use in a Content-Disposition
@@ -3715,6 +3760,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
+	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
+	mux.HandleFunc("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
+	mux.HandleFunc("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
 	mux.HandleFunc("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))
 	mux.HandleFunc("POST /groups/{id}/devices", h.requireAdmin(h.GroupAddDevice))
 	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAdmin(h.GroupRemoveDevice))

@@ -1,0 +1,78 @@
+{{define "alerts.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>Alerts</h2>
+    <p class="page-subtitle">{{len .Alerts}} alert{{if ne (len .Alerts) 1}}s{{end}}{{if .Filter}} · {{.Filter}}{{end}}</p>
+  </div>
+</div>
+
+<div class="filter-pills">
+  <a href="/alerts" class="filter-pill{{if eq .Filter ""}} active{{end}}">All</a>
+  <a href="/alerts?status=open" class="filter-pill{{if eq .Filter "open"}} active{{end}}">Open</a>
+  <a href="/alerts?status=acknowledged" class="filter-pill{{if eq .Filter "acknowledged"}} active{{end}}">Acknowledged</a>
+  <a href="/alerts?status=resolved" class="filter-pill{{if eq .Filter "resolved"}} active{{end}}">Resolved</a>
+</div>
+
+<div class="card">
+  {{if not .Alerts}}
+  <div class="empty-state">
+    <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No alerts{{if .Filter}} ({{.Filter}}){{end}}</div>
+      <div class="empty-state-text">Alerts are raised automatically from daily device telemetry.</div>
+    </div>
+  </div>
+  {{else}}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Severity</th>
+        <th>Device</th>
+        <th>Alert</th>
+        <th>When</th>
+        <th>Status</th>
+        {{if or (eq .Role "admin") (eq .Role "operator")}}<th></th>{{end}}
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Alerts}}
+      <tr>
+        <td>
+          <span class="status-badge {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{else}}muted{{end}}">{{.Severity}}</span>
+        </td>
+        <td>
+          {{if .Serial}}<a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>{{else}}<span class="muted">—</span>{{end}}
+        </td>
+        <td>
+          <div>{{.Summary}}</div>
+          <div class="muted small mono">{{.Type}}</div>
+        </td>
+        <td class="muted small" title="{{localTime .FiredAt}}">{{timeSince .FiredAt}}</td>
+        <td>
+          <span class="status-badge {{if eq .Status "open"}}warn{{else if eq .Status "resolved"}}ok{{else}}muted{{end}}">{{.Status}}</span>
+        </td>
+        {{if or (eq $.Role "admin") (eq $.Role "operator")}}
+        <td style="white-space:nowrap;">
+          {{if eq .Status "open"}}
+          <form action="/alerts/{{.ID}}/ack" method="POST" style="display:inline">
+            <button type="submit" class="btn-outline btn-sm">Ack</button>
+          </form>
+          {{end}}
+          {{if ne .Status "resolved"}}
+          <form action="/alerts/{{.ID}}/resolve" method="POST" style="display:inline">
+            <button type="submit" class="btn-outline btn-sm">Resolve</button>
+          </form>
+          {{end}}
+        </td>
+        {{end}}
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}
