@@ -874,28 +874,28 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 /* ── Summary bar ─────────────────────────────────── */
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
   margin-bottom: var(--s-5);
-  border: 1px solid var(--border);
-  background: var(--surface);
 }
 
 .summary-card {
   background: var(--surface);
-  border-right: 1px solid var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-sm);
   padding: 14px var(--s-5);
   text-align: left;
   position: relative;
   transition: background var(--dur) var(--ease);
 }
-.summary-card:last-child { border-right: 0; }
 .summary-card:hover { background: var(--surface2); }
 .summary-card-clickable { cursor: pointer; }
 .summary-card-clickable:hover { background: var(--surface2); }
 .summary-card-clickable:hover .summary-label { color: var(--text); }
 .summary-card-clickable:active { background: var(--surface3, var(--surface2)); }
 .summary-icon {
+  display: none; /* match the icon-free summary tiles used elsewhere */
   position: absolute;
   top: 12px;
   right: 12px;
