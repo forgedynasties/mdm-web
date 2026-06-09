@@ -874,7 +874,7 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 /* ── Summary bar ─────────────────────────────────── */
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 0;
   margin-bottom: var(--s-5);
   border: 1px solid var(--border);
