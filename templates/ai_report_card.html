@@ -1,0 +1,22 @@
+{{define "ai-report-card"}}
+{{if .AISummary}}
+<div class="card" id="ai-summary-card" style="margin-bottom:16px;">
+  <div class="card-header" onclick="toggleAISummary()" style="cursor:pointer;">
+    <h3 style="display:flex;align-items:center;gap:8px;margin:0;">
+      <span class="ui-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span>
+      Hourly Report
+    </h3>
+    <span class="muted small" style="display:flex;align-items:center;gap:12px;">
+      <span>updated <span class="js-local-time" data-utc="{{.AISummaryAt}}" data-format="short">{{.AISummaryAt}}</span></span>
+      <button type="button" id="ai-sum-refresh" class="btn-outline btn-sm" onclick="event.stopPropagation();refreshHourlyReport()" title="Regenerate now">Refresh</button>
+      <span id="ai-sum-toggle" class="link">expand</span>
+    </span>
+  </div>
+  <div style="padding:14px 18px;">
+    <div id="ai-sum-raw" hidden>{{.AISummary}}</div>
+    <div id="ai-sum-preview" class="muted small">{{.AISummaryPreview}}</div>
+    <div id="ai-sum-full" class="ai-text small" hidden style="line-height:1.5;"></div>
+  </div>
+</div>
+{{end}}
+{{end}}

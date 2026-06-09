@@ -210,72 +210,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   </div>
 </div>
 
-{{if .AISummary}}
-<div class="card" id="ai-summary-card" style="margin-bottom:16px;">
-  <div class="card-header" onclick="toggleAISummary()" style="cursor:pointer;">
-    <h3 style="display:flex;align-items:center;gap:8px;margin:0;">
-      <span class="ui-icon"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span>
-      Hourly Report
-    </h3>
-    <span class="muted small" style="display:flex;align-items:center;gap:12px;">
-      <span>updated <span class="js-local-time" data-utc="{{.AISummaryAt}}" data-format="short">{{.AISummaryAt}}</span></span>
-      <button type="button" id="ai-sum-refresh" class="btn-outline btn-sm" onclick="event.stopPropagation();refreshHourlyReport()" title="Regenerate now">Refresh</button>
-      <span id="ai-sum-toggle" class="link">expand</span>
-    </span>
-  </div>
-  <div style="padding:14px 18px;">
-    <div id="ai-sum-raw" hidden>{{.AISummary}}</div>
-    <div id="ai-sum-preview" class="muted small">{{.AISummaryPreview}}</div>
-    <div id="ai-sum-full" class="ai-text small" hidden style="line-height:1.5;"></div>
-  </div>
-</div>
-<script>
-function toggleAISummary() {
-  var raw = document.getElementById('ai-sum-raw'),
-      pre = document.getElementById('ai-sum-preview'),
-      full = document.getElementById('ai-sum-full'),
-      tog = document.getElementById('ai-sum-toggle');
-  if (full.hidden) {
-    if (!full.dataset.rendered) {
-      full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(raw.textContent) : raw.textContent;
-      full.dataset.rendered = '1';
-    }
-    full.hidden = false; pre.hidden = true; if (tog) tog.textContent = 'collapse';
-  } else {
-    full.hidden = true; pre.hidden = false; if (tog) tog.textContent = 'expand';
-  }
-}
-function aiPreview(t) {
-  var lines = String(t == null ? '' : t).split('\n');
-  for (var i = 0; i < lines.length; i++) {
-    var s = lines[i].replace(/[*`#]/g, '').replace(/^[-0-9.\s]+/, '').trim();
-    if (s) return s.length > 160 ? s.slice(0, 157) + '…' : s;
-  }
-  return '';
-}
-function refreshHourlyReport() {
-  var btn = document.getElementById('ai-sum-refresh'),
-      raw = document.getElementById('ai-sum-raw'),
-      pre = document.getElementById('ai-sum-preview'),
-      full = document.getElementById('ai-sum-full'),
-      tog = document.getElementById('ai-sum-toggle');
-  btn.disabled = true; var lbl = btn.textContent; btn.textContent = 'Refreshing…';
-  fetch('/ai-summary/refresh', { method: 'POST' })
-    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-    .then(function (res) {
-      if (!res.ok) { pre.hidden = false; full.hidden = true; if (tog) tog.textContent = 'expand'; pre.textContent = res.j.error || 'Refresh failed.'; return; }
-      raw.textContent = res.j.text;
-      pre.textContent = aiPreview(res.j.text);
-      full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(res.j.text) : res.j.text;
-      full.dataset.rendered = '1';
-      var ts = document.querySelector('#ai-summary-card .js-local-time');
-      if (ts) { ts.setAttribute('data-utc', res.j.generated_at); ts.textContent = new Date(res.j.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-    })
-    .catch(function () { pre.hidden = false; pre.textContent = 'Network error.'; })
-    .finally(function () { btn.disabled = false; btn.textContent = lbl; });
-}
-</script>
-{{end}}
+{{template "ai-report-card" .}}
 
 {{with .Summary}}
 <div class="summary-grid">

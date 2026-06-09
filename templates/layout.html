@@ -112,6 +112,60 @@
     flushPara(); flushList();
     return html.join('');
   };
+
+  // Shared behaviour for the "Hourly Report" card (main page + Fleet Health).
+  // No-ops if the card isn't on the page.
+  window.toggleAISummary = function () {
+    var raw = document.getElementById('ai-sum-raw'),
+        pre = document.getElementById('ai-sum-preview'),
+        full = document.getElementById('ai-sum-full'),
+        tog = document.getElementById('ai-sum-toggle');
+    if (!full) return;
+    if (full.hidden) {
+      if (!full.dataset.rendered) {
+        full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(raw.textContent) : raw.textContent;
+        full.dataset.rendered = '1';
+      }
+      full.hidden = false; pre.hidden = true; if (tog) tog.textContent = 'collapse';
+    } else {
+      full.hidden = true; pre.hidden = false; if (tog) tog.textContent = 'expand';
+    }
+  };
+  window.aiPreview = function (t) {
+    var lines = String(t == null ? '' : t).split('\n');
+    for (var i = 0; i < lines.length; i++) {
+      var s = lines[i].replace(/[*`#]/g, '').replace(/^[-0-9.\s]+/, '').trim();
+      if (s) return s.length > 160 ? s.slice(0, 157) + '…' : s;
+    }
+    return '';
+  };
+  window.refreshHourlyReport = function () {
+    var btn = document.getElementById('ai-sum-refresh');
+    if (!btn) return;
+    btn.disabled = true; var lbl = btn.textContent; btn.textContent = 'Refreshing…';
+    fetch('/ai-summary/refresh', { method: 'POST' })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        var raw = document.getElementById('ai-sum-raw'),
+            pre = document.getElementById('ai-sum-preview'),
+            full = document.getElementById('ai-sum-full'),
+            tog = document.getElementById('ai-sum-toggle');
+        if (!res.ok) {
+          if (pre) { pre.hidden = false; if (full) full.hidden = true; if (tog) tog.textContent = 'expand'; pre.textContent = res.j.error || 'Refresh failed.'; }
+          else { alert(res.j.error || 'Refresh failed.'); }
+          return;
+        }
+        if (!raw) { location.reload(); return; } // card wasn't rendered yet — load it server-side
+        raw.textContent = res.j.text;
+        pre.textContent = window.aiPreview(res.j.text);
+        full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(res.j.text) : res.j.text;
+        full.dataset.rendered = '1';
+        var ts = document.querySelector('#ai-summary-card .js-local-time');
+        if (ts) { ts.setAttribute('data-utc', res.j.generated_at); ts.textContent = new Date(res.j.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+      })
+      .catch(function () { var pre = document.getElementById('ai-sum-preview'); if (pre) pre.textContent = 'Network error.'; })
+      .finally(function () { btn.disabled = false; btn.textContent = lbl; });
+  };
 </script>
   <script>
   (function () {

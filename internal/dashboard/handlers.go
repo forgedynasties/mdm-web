@@ -1684,15 +1684,22 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	summary, _ := h.db.GetSummary(r.Context(), activeSecs)
 	openAlerts, _ := h.db.CountOpenAlerts(r.Context())
-	h.render(w, r, "health.html", map[string]any{
-		"Title":        "Fleet Health",
-		"Groups":       groups,
-		"TotalDevices": summary.Total,
-		"OnlineDevices": summary.RecentlyActive,
+	data := map[string]any{
+		"Title":          "Fleet Health",
+		"Groups":         groups,
+		"TotalDevices":   summary.Total,
+		"OnlineDevices":  summary.RecentlyActive,
 		"OfflineDevices": summary.Total - summary.RecentlyActive,
-		"OpenAlerts":   openAlerts,
-		"UniqueBuilds": summary.UniqueBuilds,
-	})
+		"OpenAlerts":     openAlerts,
+		"UniqueBuilds":   summary.UniqueBuilds,
+	}
+	// Show the same cached fleet report as the main page (latest of hourly or manual).
+	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
+		data["AISummary"] = s.Summary
+		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
+		data["AISummaryPreview"] = summarizePreview(s.Summary)
+	}
+	h.render(w, r, "health.html", data)
 }
 
 // DeviceShellPage renders the interactive shell console for a device. The console
