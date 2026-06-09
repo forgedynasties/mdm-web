@@ -46,11 +46,14 @@ type Config struct {
 	// Alerting. Slack/Discord/Mattermost-compatible webhook for new alerts ("" = off).
 	AlertWebhookURLVal string `json:"alert_webhook_url"`
 
-	// AI analysis (Anthropic). Key is the on/off switch ("" = disabled). Model
-	// defaults to claude-opus-4-8. Digest posts a daily fleet summary to the alert
-	// webhook during housekeeping when enabled.
-	AnthropicAPIKeyVal string `json:"anthropic_api_key"`
-	AnthropicModelVal  string `json:"anthropic_model"`
+	// AI analysis. The API key is the on/off switch ("" = disabled). Provider selects
+	// the wire format: "anthropic" (Claude) or "deepseek"/"openai" (OpenAI-compatible
+	// /chat/completions). BaseURL overrides the provider's default endpoint. Digest
+	// posts a daily fleet summary to the alert webhook during housekeeping when on.
+	AnthropicAPIKeyVal string `json:"anthropic_api_key"` // the active provider's API key
+	AnthropicModelVal  string `json:"anthropic_model"`   // active model id
+	AIProviderVal      string `json:"ai_provider"`       // "anthropic" | "deepseek" | "openai"
+	AIBaseURLVal       string `json:"ai_base_url"`       // optional endpoint override
 	AIDigestEnabledVal bool   `json:"ai_digest_enabled"`
 
 	mu   sync.RWMutex
@@ -397,18 +400,50 @@ func (c *Config) AIEnabled() bool {
 	return c.AnthropicAPIKeyVal != ""
 }
 
+// AnthropicModel returns the configured model id verbatim ("" if unset — the ai
+// package fills in a provider-appropriate default).
 func (c *Config) AnthropicModel() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if c.AnthropicModelVal == "" {
-		return DefaultAnthropicModel
-	}
 	return c.AnthropicModelVal
 }
 
 func (c *Config) SetAnthropicModel(s string) error {
 	c.mu.Lock()
 	c.AnthropicModelVal = s
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+// AIProvider returns the configured provider, defaulting to "anthropic".
+func (c *Config) AIProvider() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.AIProviderVal == "" {
+		return "anthropic"
+	}
+	return c.AIProviderVal
+}
+
+func (c *Config) SetAIProvider(s string) error {
+	c.mu.Lock()
+	c.AIProviderVal = s
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return os.WriteFile(c.path, data, 0644)
+}
+
+// AIBaseURL returns the optional endpoint override ("" = use provider default).
+func (c *Config) AIBaseURL() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.AIBaseURLVal
+}
+
+func (c *Config) SetAIBaseURL(s string) error {
+	c.mu.Lock()
+	c.AIBaseURLVal = s
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return os.WriteFile(c.path, data, 0644)
