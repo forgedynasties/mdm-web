@@ -3314,8 +3314,9 @@ func (h *Handler) generateFleetSummary(ctx context.Context) (db.AISummary, error
 	openAlerts, _ := h.db.CountOpenAlerts(ctx)
 	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
 
+	deployed, lab, _ := h.db.DeploymentCounts(ctx)
 	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, usage, err := client.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts, h.alertThresholds(ctx))
+	text, usage, err := client.AnalyzeFleet(ctx, groups, summary.Total, summary.RecentlyActive, openAlerts, deployed, lab, alerts, h.alertThresholds(ctx))
 	if err != nil {
 		return db.AISummary{}, err
 	}
@@ -3380,8 +3381,9 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 
 	cctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
+	deployed, lab, _ := h.db.DeploymentCounts(cctx)
 	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts, alerts, h.alertThresholds(cctx))
+	text, usage, err := client.AnalyzeFleet(cctx, groups, summary.Total, summary.RecentlyActive, openAlerts, deployed, lab, alerts, h.alertThresholds(cctx))
 	if err != nil {
 		log.Printf("[digest] analyze: %v", err)
 		return
@@ -3688,7 +3690,7 @@ func (h *Handler) DeviceAIAnalysis(w http.ResponseWriter, r *http.Request) {
 				devAlerts = append(devAlerts, a)
 			}
 		}
-		return c.AnalyzeDevice(ctx, serial, stats, devAlerts)
+		return c.AnalyzeDevice(ctx, serial, device.DeployedEffective, stats, devAlerts)
 	})
 	h.audit(r, "ai.device", serial, "")
 }
