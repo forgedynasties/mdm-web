@@ -24,6 +24,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/notify"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
@@ -3036,6 +3037,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"DefaultSort":     h.cfg.DefaultSort(),
 		"Density":              h.cfg.Density(),
 		"Use24Hour":            h.cfg.Use24Hour(),
+		"AlertWebhookURL":      h.cfg.AlertWebhookURL(),
 		"AutoHideDays":         h.cfg.AutoHideDays(),
 		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
 		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
@@ -3095,11 +3097,21 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			log.Printf("[housekeeping] rollup daily stats %s: %v", day.Format("2006-01-02"), err)
 		}
 	}
-	// Evaluate alert rules against the freshly rolled-up stats.
-	if c, r, err := h.db.EvaluateAlerts(ctx); err != nil {
+	// Evaluate alert rules against the freshly rolled-up stats, then notify on new ones.
+	if created, resolved, err := h.db.EvaluateAlerts(ctx); err != nil {
 		log.Printf("[housekeeping] evaluate alerts: %v", err)
-	} else if c > 0 || r > 0 {
-		log.Printf("[housekeeping] alerts: %d new, %d resolved", c, r)
+	} else {
+		if len(created) > 0 || resolved > 0 {
+			log.Printf("[housekeeping] alerts: %d new, %d resolved", len(created), resolved)
+		}
+		if url := h.cfg.AlertWebhookURL(); url != "" {
+			for _, n := range created {
+				text := fmt.Sprintf("[%s] %s — %s", strings.ToUpper(n.Severity), n.Serial, n.Summary)
+				if err := notify.SendWebhook(ctx, url, text); err != nil {
+					log.Printf("[alert] webhook failed: %v", err)
+				}
+			}
+		}
 	}
 	if d := h.cfg.AutoHideDays(); d > 0 {
 		if n, err := h.db.HideStaleDevices(ctx, d); err != nil {
@@ -3173,6 +3185,13 @@ func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
 		h.cfg.SetDensity(d)
 	}
 	h.cfg.SetUse24Hour(r.FormValue("time_format") == "24")
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsSetAlertWebhook(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	h.cfg.SetAlertWebhookURL(strings.TrimSpace(r.FormValue("alert_webhook_url")))
+	h.audit(r, "alerts.webhook", "", "")
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -3818,6 +3837,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /audit", h.requireAdmin(h.AuditPage))
 	mux.HandleFunc("POST /settings/require-reason", h.requireAdmin(h.SettingsToggleRequireReason))
 	mux.HandleFunc("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
+	mux.HandleFunc("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
 	mux.HandleFunc("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
 	mux.HandleFunc("POST /settings/prune-now", h.requireAdmin(h.SettingsPruneNow))
 	mux.HandleFunc("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))

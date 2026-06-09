@@ -2355,8 +2355,18 @@ func (d *DB) SetAlertStatus(ctx context.Context, id uuid.UUID, status string) er
 // alertHit is one device flagged by a rule, with display summary + detail payload.
 type alertHit struct {
 	DeviceID uuid.UUID
+	Serial   string
 	Summary  string
 	Detail   map[string]any
+}
+
+// AlertNotification is a freshly-created alert handed back to the caller so it can
+// notify (webhook) exactly once per occurrence.
+type AlertNotification struct {
+	Type     string
+	Severity string
+	Summary  string
+	Serial   string
 }
 
 // param reads a numeric threshold from a rule's params JSON, falling back to def.
@@ -2395,10 +2405,10 @@ func inQuiet(h, start, end int) bool {
 // EvaluateAlerts runs every enabled fleet-scoped rule against device_daily_stats,
 // creating alerts for violators (deduped) and resolving alerts whose condition has
 // cleared. Returns counts of created and resolved alerts. Called from housekeeping.
-func (d *DB) EvaluateAlerts(ctx context.Context) (created, resolved int, err error) {
+func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, resolved int, err error) {
 	rules, err := d.ListAlertRules(ctx, true)
 	if err != nil {
-		return 0, 0, err
+		return nil, 0, err
 	}
 	for _, r := range rules {
 		if r.ScopeType != "fleet" {
@@ -2422,7 +2432,7 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created, resolved int, err err
 				return created, resolved, e
 			}
 			if ok {
-				created++
+				created = append(created, AlertNotification{r.Type, severity, h.Summary, h.Serial})
 			}
 		}
 		// Resolve any open alert of this type whose device is no longer violating.
@@ -2469,7 +2479,7 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 				continue
 			}
 			down := int(now.Sub(lastSeen).Minutes())
-			hits = append(hits, alertHit{id,
+			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Offline — last check-in %dm ago", down),
 				map[string]any{"offline_minutes": down, "last_seen": lastSeen, "timezone": tz}})
 		}
@@ -2478,8 +2488,9 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 	case "overheating":
 		limit := param(p, "temp_c", 45)
 		rows, err := d.pool.Query(ctx, `
-			SELECT device_id, temp_max FROM device_daily_stats
-			WHERE day = CURRENT_DATE AND temp_max >= $1`, limit)
+			SELECT s.device_id, dv.serial_number, s.temp_max
+			FROM device_daily_stats s JOIN devices dv ON dv.id = s.device_id
+			WHERE s.day = CURRENT_DATE AND s.temp_max >= $1`, limit)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -2487,11 +2498,12 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		var hits []alertHit
 		for rows.Next() {
 			var id uuid.UUID
+			var serial string
 			var temp float32
-			if err := rows.Scan(&id, &temp); err != nil {
+			if err := rows.Scan(&id, &serial, &temp); err != nil {
 				return nil, "critical", err
 			}
-			hits = append(hits, alertHit{id,
+			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Battery reached %.0f°C today (limit %.0f°C)", temp, limit),
 				map[string]any{"temp_c": temp, "limit_c": limit}})
 		}
@@ -2501,8 +2513,9 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		minFull := param(p, "min_full_pct", 90)
 		maxFrac := param(p, "max_charge_frac", 0.3)
 		rows, err := d.pool.Query(ctx, `
-			SELECT device_id, battery_max, charging_frac FROM device_daily_stats
-			WHERE day = CURRENT_DATE - 1 AND battery_max < $1 AND COALESCE(charging_frac, 0) < $2`,
+			SELECT s.device_id, dv.serial_number, s.battery_max, s.charging_frac
+			FROM device_daily_stats s JOIN devices dv ON dv.id = s.device_id
+			WHERE s.day = CURRENT_DATE - 1 AND s.battery_max < $1 AND COALESCE(s.charging_frac, 0) < $2`,
 			minFull, maxFrac)
 		if err != nil {
 			return nil, "warning", err
@@ -2511,12 +2524,13 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		var hits []alertHit
 		for rows.Next() {
 			var id uuid.UUID
+			var serial string
 			var bmax int
 			var frac float32
-			if err := rows.Scan(&id, &bmax, &frac); err != nil {
+			if err := rows.Scan(&id, &serial, &bmax, &frac); err != nil {
 				return nil, "warning", err
 			}
-			hits = append(hits, alertHit{id,
+			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Only reached %d%% and charged %.0f%% of yesterday", bmax, frac*100),
 				map[string]any{"battery_max": bmax, "charging_frac": frac}})
 		}
@@ -2526,7 +2540,7 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		win := int(param(p, "window_days", 7))
 		drop := param(p, "drop_pct", 15)
 		rows, err := d.pool.Query(ctx, `
-			SELECT device_id, recent, prior FROM (
+			SELECT t.device_id, dv.serial_number, t.recent, t.prior FROM (
 				SELECT device_id,
 					AVG(battery_max) FILTER (WHERE day > CURRENT_DATE - ($1::int))                                       AS recent,
 					AVG(battery_max) FILTER (WHERE day <= CURRENT_DATE - ($1::int) AND day > CURRENT_DATE - (2 * $1::int)) AS prior
@@ -2534,7 +2548,8 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 				WHERE day > CURRENT_DATE - (2 * $1::int)
 				GROUP BY device_id
 			) t
-			WHERE recent IS NOT NULL AND prior IS NOT NULL AND (prior - recent) >= $2`,
+			JOIN devices dv ON dv.id = t.device_id
+			WHERE t.recent IS NOT NULL AND t.prior IS NOT NULL AND (t.prior - t.recent) >= $2`,
 			win, drop)
 		if err != nil {
 			return nil, "warning", err
@@ -2543,11 +2558,12 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		var hits []alertHit
 		for rows.Next() {
 			var id uuid.UUID
+			var serial string
 			var recent, prior float64
-			if err := rows.Scan(&id, &recent, &prior); err != nil {
+			if err := rows.Scan(&id, &serial, &recent, &prior); err != nil {
 				return nil, "warning", err
 			}
-			hits = append(hits, alertHit{id,
+			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Daily peak battery fell %.0f points vs the prior %dd", prior-recent, win),
 				map[string]any{"recent_avg": recent, "prior_avg": prior, "window_days": win}})
 		}
