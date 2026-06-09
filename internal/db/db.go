@@ -2866,24 +2866,14 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS poll_interval_ms INTEGER NOT NULL D
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS latest_battery_pct SMALLINT NOT NULL DEFAULT 0;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS latest_extra JSONB NOT NULL DEFAULT '{}';
 
-WITH latest_checkin AS (
-	SELECT DISTINCT ON (c.device_id)
-		c.device_id,
-		c.battery_pct,
-		c.extra
-	FROM checkins c
-	ORDER BY c.device_id, c.created_at DESC
-)
-UPDATE devices d
-SET
-	latest_battery_pct = lc.battery_pct,
-	latest_extra = lc.extra
-FROM latest_checkin lc
-WHERE d.id = lc.device_id
-  AND (
-	d.latest_battery_pct IS DISTINCT FROM lc.battery_pct
-	OR d.latest_extra IS DISTINCT FROM lc.extra
-  );
+-- NOTE: A one-time backfill of devices.latest_battery_pct / latest_extra from the
+-- newest checkin per device used to live here (a DISTINCT ON over the whole
+-- checkins table). It ran on EVERY startup inside this migration batch, doing a
+-- full scan + sort of checkins — instant on a fresh DB but ~30 min and IO-bound
+-- on production where checkins has millions of rows, blocking the server from
+-- ever binding its port. It is also redundant: UpsertCheckin keeps both columns
+-- current on every checkin. Removed. If a fresh backfill is ever needed again,
+-- run it once manually, not from the recurring startup migration.
 
 CREATE TABLE IF NOT EXISTS device_config (
 	device_id      UUID    PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
