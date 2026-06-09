@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -2216,6 +2217,7 @@ type Alert struct {
 var defaultAlertRules = []struct {
 	Type, Name, Params string
 }{
+	{"offline", "Device offline", `{"offline_minutes":30,"quiet_start":0,"quiet_end":6}`},
 	{"overheating", "Battery overheating", `{"temp_c":45}`},
 	{"no_overnight_charge", "Did not charge overnight", `{"min_full_pct":90,"max_charge_frac":0.3}`},
 	{"battery_health_decline", "Battery health declining", `{"drop_pct":15,"window_days":7}`},
@@ -2365,6 +2367,31 @@ func param(p map[string]float64, key string, def float64) float64 {
 	return def
 }
 
+// gmtOffset parses a device-reported timezone like "GMT+5"/"GMT-3"/"GMT+0" to an
+// hour offset. Anything unrecognized is treated as UTC (0).
+func gmtOffset(tz string) int {
+	if !strings.HasPrefix(tz, "GMT") {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.TrimPrefix(tz, "GMT"))
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+// inQuiet reports whether local hour h falls in the [start,end) quiet window,
+// supporting windows that wrap past midnight (e.g. 22→6). start==end means "never".
+func inQuiet(h, start, end int) bool {
+	if start == end {
+		return false
+	}
+	if start < end {
+		return h >= start && h < end
+	}
+	return h >= start || h < end
+}
+
 // EvaluateAlerts runs every enabled fleet-scoped rule against device_daily_stats,
 // creating alerts for violators (deduped) and resolving alerts whose condition has
 // cleared. Returns counts of created and resolved alerts. Called from housekeeping.
@@ -2415,6 +2442,39 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created, resolved int, err err
 // to record. Unknown rule types return no hits.
 func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) ([]alertHit, string, error) {
 	switch typ {
+	case "offline":
+		mins := int(param(p, "offline_minutes", 30))
+		qs := int(param(p, "quiet_start", 0))
+		qe := int(param(p, "quiet_end", 6))
+		rows, err := d.pool.Query(ctx, `
+			SELECT id, serial_number, last_seen_at, COALESCE(latest_extra->>'timezone', '')
+			FROM devices
+			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')`, mins)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		now := time.Now().UTC()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial, tz string
+			var lastSeen time.Time
+			if err := rows.Scan(&id, &serial, &lastSeen, &tz); err != nil {
+				return nil, "critical", err
+			}
+			// Skip devices in their local quiet/overnight window (expected offline).
+			localHour := ((now.Hour()+gmtOffset(tz))%24 + 24) % 24
+			if inQuiet(localHour, qs, qe) {
+				continue
+			}
+			down := int(now.Sub(lastSeen).Minutes())
+			hits = append(hits, alertHit{id,
+				fmt.Sprintf("Offline — last check-in %dm ago", down),
+				map[string]any{"offline_minutes": down, "last_seen": lastSeen, "timezone": tz}})
+		}
+		return hits, "critical", rows.Err()
+
 	case "overheating":
 		limit := param(p, "temp_c", 45)
 		rows, err := d.pool.Query(ctx, `
