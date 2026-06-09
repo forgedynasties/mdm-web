@@ -1517,6 +1517,34 @@ func (h *Handler) DeviceDailyStatsJSON(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
+// GroupDailyStatsJSON returns daily stats aggregated across all devices in a group as
+// JSON, oldest first. ?days=N selects the window (default 30, capped at 365).
+func (h *Handler) GroupDailyStatsJSON(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+
+	days := 30
+	if v := r.URL.Query().Get("days"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 365 {
+			days = n
+		}
+	}
+
+	stats, err := h.db.GetGroupDailyStats(r.Context(), id, days)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if stats == nil {
+		stats = []db.GroupDailyStat{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
 // safeCSVFilename returns a filename safe for use in a Content-Disposition
 // header: control chars, quotes, and path separators are replaced with '_'.
 // Falls back to the provided default if the result would be empty.
@@ -3680,6 +3708,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /groups", h.requireAdmin(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
+	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))
 	mux.HandleFunc("POST /groups/{id}/devices", h.requireAdmin(h.GroupAddDevice))
 	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAdmin(h.GroupRemoveDevice))

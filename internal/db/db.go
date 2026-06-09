@@ -2126,6 +2126,61 @@ func (d *DB) GetDeviceDailyStats(ctx context.Context, deviceID uuid.UUID, days i
 	return stats, rows.Err()
 }
 
+// GroupDailyStat is one day of stats aggregated across all devices in a group.
+// Aggregates are pointers so a day/metric with no data serializes as null, not 0.
+type GroupDailyStat struct {
+	Day            time.Time `json:"day"`
+	DeviceCount    int       `json:"device_count"`    // devices with data that day
+	BatteryMin     *int      `json:"battery_min"`     // lowest daily min across the group
+	BatteryMax     *int      `json:"battery_max"`     // highest daily max across the group
+	BatteryAvg     *float32  `json:"battery_avg"`     // mean of per-device daily averages
+	TempMax        *float32  `json:"temp_max"`        // hottest device that day
+	ChargingFrac   *float32  `json:"charging_frac"`   // mean charging coverage
+	OnlineMinAvg   *float32  `json:"online_min_avg"`  // mean online minutes per device
+	DistinctBuilds int       `json:"distinct_builds"` // build_id spread (fleet consistency)
+}
+
+// GetGroupDailyStats returns the last `days` days of stats rolled up across every
+// device in the group, oldest first. Defaults to 30 days. Groups are treated as
+// generic device buckets — no assumption about what a group represents.
+func (d *DB) GetGroupDailyStats(ctx context.Context, groupID uuid.UUID, days int) ([]GroupDailyStat, error) {
+	if days <= 0 {
+		days = 30
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT
+			s.day,
+			COUNT(DISTINCT s.device_id),
+			MIN(s.battery_min),
+			MAX(s.battery_max),
+			AVG(s.battery_avg)::real,
+			MAX(s.temp_max)::real,
+			AVG(s.charging_frac)::real,
+			AVG(s.online_minutes)::real,
+			COUNT(DISTINCT NULLIF(s.build_id, ''))
+		FROM device_daily_stats s
+		JOIN device_groups dg ON dg.device_id = s.device_id
+		WHERE dg.group_id = $1 AND s.day >= CURRENT_DATE - ($2::int - 1)
+		GROUP BY s.day
+		ORDER BY s.day`, groupID, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []GroupDailyStat
+	for rows.Next() {
+		var s GroupDailyStat
+		if err := rows.Scan(&s.Day, &s.DeviceCount, &s.BatteryMin, &s.BatteryMax,
+			&s.BatteryAvg, &s.TempMax, &s.ChargingFrac, &s.OnlineMinAvg,
+			&s.DistinctBuilds); err != nil {
+			return nil, err
+		}
+		stats = append(stats, s)
+	}
+	return stats, rows.Err()
+}
+
 // PruneLogcat deletes logcat results and requests older than `days` days.
 func (d *DB) PruneLogcat(ctx context.Context, days int) (int64, error) {
 	if days <= 0 {
