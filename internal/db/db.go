@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -2180,6 +2181,141 @@ func (d *DB) GetGroupDailyStats(ctx context.Context, groupID uuid.UUID, days int
 		stats = append(stats, s)
 	}
 	return stats, rows.Err()
+}
+
+// GroupHealth is a per-group health scorecard (Tier 3). Pointer fields are null when
+// the group has no rolled-up data in the window. Score/ScoreClass are computed in Go.
+type GroupHealth struct {
+	GroupID        uuid.UUID `json:"group_id"`
+	Name           string    `json:"name"`
+	DeviceCount    int       `json:"device_count"`
+	OfflineCount   int       `json:"offline_count"`
+	OpenCritical   int       `json:"open_critical"`
+	OpenWarning    int       `json:"open_warning"`
+	BatteryAvg     *float64  `json:"battery_avg"`    // recent avg daily peak battery (overnight fullness)
+	BatteryDelta   *float64  `json:"battery_delta"`  // recent minus prior week (negative = declining)
+	ChargingAvg    *float64  `json:"charging_avg"`   // recent avg charging coverage (0-1)
+	TempMax        *float64  `json:"temp_max"`       // hottest device in the window
+	DistinctBuilds int       `json:"distinct_builds"`
+	Score          int       `json:"score"`       // 0-100, higher is healthier
+	ScoreClass     string    `json:"score_class"` // ok | warn | danger (for badge styling)
+}
+
+// healthScore derives a 0-100 score and class from a group's metrics. Heuristic and
+// explainable: start at 100 and subtract penalties for offline devices, open alerts,
+// poor charging, battery decline, overheating, and firmware fragmentation.
+func (g *GroupHealth) computeScore() {
+	score := 100
+	if g.DeviceCount > 0 {
+		score -= int(float64(g.OfflineCount) / float64(g.DeviceCount) * 40) // up to -40 if all offline
+	}
+	score -= g.OpenCritical * 15
+	score -= g.OpenWarning * 4
+	if g.ChargingAvg != nil && *g.ChargingAvg < 0.3 {
+		score -= 15
+	}
+	if g.BatteryDelta != nil && *g.BatteryDelta < -10 {
+		score -= 15
+	}
+	if g.TempMax != nil && *g.TempMax >= 45 {
+		score -= 15
+	}
+	if g.DistinctBuilds > 1 {
+		score -= (g.DistinctBuilds - 1) * 5
+	}
+	if score < 0 {
+		score = 0
+	}
+	if score > 100 {
+		score = 100
+	}
+	g.Score = score
+	switch {
+	case score >= 80:
+		g.ScoreClass = "ok"
+	case score >= 50:
+		g.ScoreClass = "warn"
+	default:
+		g.ScoreClass = "danger"
+	}
+}
+
+// GetGroupHealth returns a health scorecard per group, worst score first. activeSecs is
+// the offline threshold (a device quieter than this counts as offline). Recent window is
+// the last 7 days; battery delta compares it to the prior 7 days.
+func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth, error) {
+	if activeSecs <= 0 {
+		activeSecs = 180
+	}
+	rows, err := d.pool.Query(ctx, `
+		WITH recent AS (
+			SELECT dg.group_id,
+				AVG(s.battery_max)   AS battery_avg,
+				AVG(s.charging_frac) AS charging_avg,
+				MAX(s.temp_max)      AS temp_max,
+				COUNT(DISTINCT NULLIF(s.build_id, '')) AS builds
+			FROM device_daily_stats s
+			JOIN device_groups dg ON dg.device_id = s.device_id
+			WHERE s.day > CURRENT_DATE - 7
+			GROUP BY dg.group_id
+		),
+		prior AS (
+			SELECT dg.group_id, AVG(s.battery_max) AS battery_avg
+			FROM device_daily_stats s
+			JOIN device_groups dg ON dg.device_id = s.device_id
+			WHERE s.day <= CURRENT_DATE - 7 AND s.day > CURRENT_DATE - 14
+			GROUP BY dg.group_id
+		),
+		devs AS (
+			SELECT dg.group_id,
+				COUNT(*) AS device_count,
+				COUNT(*) FILTER (WHERE d.last_seen_at < NOW() - ($1 * INTERVAL '1 second')) AS offline_count
+			FROM device_groups dg
+			JOIN devices d ON d.id = dg.device_id AND NOT d.hidden
+			GROUP BY dg.group_id
+		),
+		al AS (
+			SELECT dg.group_id,
+				COUNT(*) FILTER (WHERE a.severity = 'critical')  AS crit,
+				COUNT(*) FILTER (WHERE a.severity <> 'critical') AS warn
+			FROM alerts a
+			JOIN device_groups dg ON dg.device_id = a.device_id
+			WHERE a.status <> 'resolved'
+			GROUP BY dg.group_id
+		)
+		SELECT g.id, g.name,
+			COALESCE(devs.device_count, 0), COALESCE(devs.offline_count, 0),
+			COALESCE(al.crit, 0), COALESCE(al.warn, 0),
+			recent.battery_avg, (recent.battery_avg - prior.battery_avg),
+			recent.charging_avg, recent.temp_max, COALESCE(recent.builds, 0)
+		FROM groups g
+		LEFT JOIN devs   ON devs.group_id   = g.id
+		LEFT JOIN recent ON recent.group_id = g.id
+		LEFT JOIN prior  ON prior.group_id  = g.id
+		LEFT JOIN al     ON al.group_id     = g.id
+		ORDER BY g.name`, activeSecs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []GroupHealth
+	for rows.Next() {
+		var g GroupHealth
+		if err := rows.Scan(&g.GroupID, &g.Name, &g.DeviceCount, &g.OfflineCount,
+			&g.OpenCritical, &g.OpenWarning, &g.BatteryAvg, &g.BatteryDelta,
+			&g.ChargingAvg, &g.TempMax, &g.DistinctBuilds); err != nil {
+			return nil, err
+		}
+		g.computeScore()
+		out = append(out, g)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// Worst (lowest score) first so the page surfaces venues needing attention.
+	sort.Slice(out, func(i, j int) bool { return out[i].Score < out[j].Score })
+	return out, nil
 }
 
 // ── Alerts ────────────────────────────────────────────────────────────────────
