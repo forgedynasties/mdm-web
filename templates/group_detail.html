@@ -22,7 +22,7 @@
       </div>
     </div>
   </div>
-  <p class="muted small" style="margin:0 0 10px;">
+  <p class="muted small" style="margin:0;padding:14px 20px 0;">
     Aggregated across every device in this group, one point per day. Band is the group's
     daily battery min–max; the line is the mean of per-device daily averages. Charging
     coverage is the average share of the day devices reported charging.
@@ -162,7 +162,8 @@ function pickGroupSerial(serial) {
   var info = document.getElementById('gtrends-info');
   var CRIMSON = '#d82747';
 
-  function fmtDay(d) { return d.slice(5); } // YYYY-MM-DD -> MM-DD
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDay(d) { var p = d.split('-'); return MONTHS[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10); } // 2026-06-09 -> Jun 9
 
   function render(rows) {
     var data = {
