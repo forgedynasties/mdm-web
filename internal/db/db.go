@@ -2352,21 +2352,25 @@ type Alert struct {
 // works out of the box; admins can edit/disable/delete them afterward.
 var defaultAlertRules = []struct {
 	Type, Name, Params string
+	Enabled            bool
 }{
-	{"offline", "Device offline", `{"offline_minutes":30,"quiet_start":0,"quiet_end":6}`},
-	{"overheating", "Battery overheating", `{"temp_c":45}`},
-	{"no_overnight_charge", "Did not charge overnight", `{"min_full_pct":90,"max_charge_frac":0.3}`},
-	{"battery_health_decline", "Battery health declining", `{"drop_pct":15,"window_days":7}`},
+	// Offline is de-prioritized — seeded disabled (still editable in Settings).
+	{"offline", "Device offline", `{"offline_minutes":30,"quiet_start":0,"quiet_end":6}`, false},
+	{"overheating", "Battery overheating", `{"temp_c":45}`, true},
+	{"no_overnight_charge", "Did not charge overnight", `{"min_full_pct":90,"max_charge_frac":0.3}`, true},
+	{"battery_health_decline", "Battery health declining", `{"drop_pct":15,"window_days":7}`, true},
+	// Memory pressure gives the report a configurable RAM cutoff; off by default.
+	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, false},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
 func (d *DB) EnsureDefaultRules(ctx context.Context) error {
 	for _, r := range defaultAlertRules {
 		if _, err := d.pool.Exec(ctx, `
-			INSERT INTO alert_rules (type, name, params)
-			SELECT $1, $2, $3::jsonb
+			INSERT INTO alert_rules (type, name, enabled, params)
+			SELECT $1, $2, $3, $4::jsonb
 			WHERE NOT EXISTS (SELECT 1 FROM alert_rules WHERE type = $1)
-		`, r.Type, r.Name, r.Params); err != nil {
+		`, r.Type, r.Name, r.Enabled, r.Params); err != nil {
 			return err
 		}
 	}
@@ -2828,6 +2832,30 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 				map[string]any{"recent_avg": recent, "prior_avg": prior, "window_days": win}})
 		}
 		return hits, "warning", rows.Err()
+
+	case "memory_pressure":
+		limit := param(p, "ram_pct", 85)
+		rows, err := d.pool.Query(ctx, `
+			SELECT s.device_id, dv.serial_number, s.ram_pct_peak
+			FROM device_daily_stats s JOIN devices dv ON dv.id = s.device_id
+			WHERE s.day = CURRENT_DATE AND s.ram_pct_peak >= $1`, limit)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var ram int
+			if err := rows.Scan(&id, &serial, &ram); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Peak RAM hit %d%% today (limit %.0f%%)", ram, limit),
+				map[string]any{"ram_pct": ram, "limit_pct": limit}})
+		}
+		return hits, "warning", rows.Err()
 	}
 	return nil, "warning", nil
 }
@@ -3161,6 +3189,22 @@ CREATE TABLE IF NOT EXISTS ai_summary (
     model        TEXT NOT NULL DEFAULT '',
     generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- One-time data migrations that must run exactly once (no versioned migration tool).
+CREATE TABLE IF NOT EXISTS app_flags (
+    flag       TEXT PRIMARY KEY,
+    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Offline alerts were de-prioritized: disable the existing offline rule once, so an
+-- upgrade reflects the new default without clobbering it if the admin re-enables it.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM app_flags WHERE flag = 'offline_rule_disabled_v1') THEN
+        UPDATE alert_rules SET enabled = false WHERE type = 'offline';
+        INSERT INTO app_flags (flag) VALUES ('offline_rule_disabled_v1');
+    END IF;
+END $$;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

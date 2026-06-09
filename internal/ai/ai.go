@@ -22,16 +22,112 @@ import (
 	"mdm/internal/db"
 )
 
-// Business context every prompt is grounded in. Kept identical across calls so the
-// model always reasons about the same failure mode: a device unusable during service.
-const systemContext = `You're the ops lead keeping an eye on AIO's restaurant tablets — the ones that take tableside orders and run ads during service, and sit on wireless pads to charge overnight. The only thing you really care about: is each tablet alive and usable when the restaurant is busy? Battery, charging, heat, memory, firmware — those are just the early warning signs for that one failure. A dead tablet at 7pm on a Friday is lost orders and an annoyed restaurant.
+// personaContext grounds every prompt in the same framing and voice. The four
+// signals it names are the focus; offline/connectivity is deliberately out of scope.
+const personaContext = `You're the ops lead keeping an eye on AIO's restaurant tablets — the ones that take tableside orders and run ads during service, and charge overnight on wireless pads. What matters: is each tablet healthy enough to last a busy service? The signals that predict trouble are battery health (capacity slipping week over week), overnight charging (did it actually charge), overheating on the pads, and memory pressure (RAM near the ceiling → crashes). A struggling tablet at 7pm on a Friday is lost orders and an annoyed restaurant.
 
-Write like you're giving a quick verbal heads-up to a colleague who's slammed — not filing a report. Rules:
-- Talk like a person. Plain, direct, a bit opinionated. No "Verdict:" label, no corporate filler, no restating the question back to me.
-- Open with the bottom line in one sentence: are we good, should we keep an eye on something, or is something actually broken right now?
-- Then point at what matters, by name and number — which group, which devices, how many, how long they've been down, how hot they're running. Don't make claims the data doesn't back up.
-- Say what to do about it, concretely and worst-first: who to send where, what pad to swap, which battery to replace.
-Keep it tight: a few sentences and a couple of bullets, max. If everything looks fine, just say so in a line and stop — don't invent problems to sound busy.`
+Talk like a person giving a quick heads-up to a colleague who's slammed — plain, direct, a little opinionated, no corporate filler. Ground everything in the actual numbers and name the specific group or device. Don't invent problems to sound busy, and don't flag devices for being briefly offline — connectivity isn't the priority right now.`
+
+// deviceSystem is the system prompt for a single-device prose analysis.
+const deviceSystem = personaContext + `
+
+Give a short read on this one device: a one-line bottom line, the top 1-3 concerns tied to its numbers, and a concrete next action. A few sentences, no preamble, no restating the question.`
+
+// Thresholds are the configurable cutoffs (from the alert rules) the fleet report
+// uses to decide what counts as a problem.
+type Thresholds struct {
+	TempC         float64 // overheating limit °C
+	MinFullPct    float64 // overnight battery target %
+	MaxChargeFrac float64 // overnight charging-coverage floor (0–1)
+	DropPct       float64 // battery weekly-decline points
+	WindowDays    float64 // decline comparison window
+	RAMPct        float64 // memory-pressure RAM %
+}
+
+// fleetSystem builds the structured-JSON system prompt for the fleet report.
+func fleetSystem(t Thresholds) string {
+	return personaContext + fmt.Sprintf(`
+
+Focus ONLY on these four signals, judged against the configured cutoffs:
+- Battery health: flag a group/device whose weekly peak-battery drop is about %.0f points or more.
+- Overnight charging: flag devices that didn't reach ~%.0f%% overnight or charged less than %.0f%% of the night.
+- Overheating: flag devices whose battery hit ~%.0f°C or hotter.
+- Memory pressure: flag devices whose peak RAM hit ~%.0f%% or more.
+Do NOT raise offline/connectivity as an issue.
+
+Respond with ONLY a JSON object — no markdown, no code fences, no prose around it — in exactly this shape:
+{
+  "status": "ok" | "watch" | "at_risk",
+  "headline": "one short, human sentence — the bottom line",
+  "metrics": [{"label": "Charging", "value": "94%%"}, {"label": "Hottest", "value": "41°C"}],
+  "issues": [
+    {"severity": "warn" | "critical", "area": "battery" | "charging" | "heat" | "memory",
+     "scope": "group or device name", "detail": "what's wrong, with numbers", "action": "what to do"}
+  ],
+  "good": ["short labels of signals that look fine"]
+}
+status: ok = nothing to do, watch = keep an eye on it, at_risk = act now. Sort issues worst-first; use an empty array when there are none. When everything's healthy give an upbeat one-line headline plus 2-3 grounding metrics. Keep "detail" and "action" human and specific.`,
+		t.DropPct, t.MinFullPct, t.MaxChargeFrac*100, t.TempC, t.RAMPct)
+}
+
+// ReportMetric is one at-a-glance number on the report card.
+type ReportMetric struct {
+	Label string `json:"label"`
+	Value string `json:"value"`
+}
+
+// ReportIssue is one flagged problem.
+type ReportIssue struct {
+	Severity string `json:"severity"`
+	Area     string `json:"area"`
+	Scope    string `json:"scope"`
+	Detail   string `json:"detail"`
+	Action   string `json:"action"`
+}
+
+// Report is the structured fleet report the model returns (rendered as cards in the
+// dashboard; flattened to text for the webhook digest).
+type Report struct {
+	Status   string         `json:"status"`
+	Headline string         `json:"headline"`
+	Metrics  []ReportMetric `json:"metrics"`
+	Issues   []ReportIssue  `json:"issues"`
+	Good     []string       `json:"good"`
+}
+
+// ParseReport extracts a Report from the model's response, tolerating ```json fences.
+// ok is false if the text isn't a usable report (callers fall back to plain text).
+func ParseReport(s string) (Report, bool) {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "```json")
+	s = strings.TrimPrefix(s, "```")
+	s = strings.TrimSuffix(s, "```")
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "{") {
+		return Report{}, false
+	}
+	var r Report
+	if err := json.Unmarshal([]byte(s), &r); err != nil {
+		return Report{}, false
+	}
+	if r.Headline == "" && r.Status == "" {
+		return Report{}, false
+	}
+	return r, true
+}
+
+// Text flattens a Report to a readable plain-text summary (for the webhook digest).
+func (r Report) Text() string {
+	var b strings.Builder
+	b.WriteString(r.Headline)
+	for _, is := range r.Issues {
+		fmt.Fprintf(&b, "\n• [%s] %s — %s", strings.ToUpper(is.Severity), is.Scope, is.Detail)
+		if is.Action != "" {
+			fmt.Fprintf(&b, " → %s", is.Action)
+		}
+	}
+	return strings.TrimSpace(b.String())
+}
 
 // Provider identifies the API wire format. "anthropic" uses the Claude SDK; any
 // other value (e.g. "deepseek", "openai") uses the OpenAI-compatible
@@ -96,11 +192,11 @@ type Usage struct {
 }
 
 // complete dispatches to the configured provider's backend.
-func (c *Client) complete(ctx context.Context, user string) (string, Usage, error) {
+func (c *Client) complete(ctx context.Context, system, user string) (string, Usage, error) {
 	if c.provider == ProviderAnthropic {
-		return c.anthropicComplete(ctx, user)
+		return c.anthropicComplete(ctx, system, user)
 	}
-	return c.openaiComplete(ctx, user)
+	return c.openaiComplete(ctx, system, user)
 }
 
 // anthropicComplete calls the Claude Messages API. With a custom base URL it
@@ -108,7 +204,7 @@ func (c *Client) complete(ctx context.Context, user string) (string, Usage, erro
 // endpoint), which expects bearer-token auth and may not support Claude-native
 // adaptive thinking — so that's only enabled against the real Anthropic API.
 // Only visible text blocks are returned.
-func (c *Client) anthropicComplete(ctx context.Context, user string) (string, Usage, error) {
+func (c *Client) anthropicComplete(ctx context.Context, system, user string) (string, Usage, error) {
 	var opts []option.RequestOption
 	if c.baseURL != "" {
 		opts = append(opts, option.WithBaseURL(c.baseURL), option.WithAuthToken(c.apiKey))
@@ -120,7 +216,7 @@ func (c *Client) anthropicComplete(ctx context.Context, user string) (string, Us
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(c.model),
 		MaxTokens: 4096,
-		System:    []anthropic.TextBlockParam{{Text: systemContext}},
+		System:    []anthropic.TextBlockParam{{Text: system}},
 		Messages:  []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(user))},
 	}
 	if c.baseURL == "" {
@@ -147,7 +243,7 @@ func (c *Client) anthropicComplete(ctx context.Context, user string) (string, Us
 // openaiComplete calls an OpenAI-compatible /chat/completions endpoint (DeepSeek,
 // OpenAI, Groq, OpenRouter, local servers, …). The system context and user data
 // map onto the system/user chat roles.
-func (c *Client) openaiComplete(ctx context.Context, user string) (string, Usage, error) {
+func (c *Client) openaiComplete(ctx context.Context, system, user string) (string, Usage, error) {
 	type msg struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
@@ -159,7 +255,7 @@ func (c *Client) openaiComplete(ctx context.Context, user string) (string, Usage
 		Stream    bool   `json:"stream"`
 	}{
 		Model:     c.model,
-		Messages:  []msg{{Role: "system", Content: systemContext}, {Role: "user", Content: user}},
+		Messages:  []msg{{Role: "system", Content: system}, {Role: "user", Content: user}},
 		MaxTokens: 4096,
 		Stream:    false,
 	})
@@ -228,12 +324,13 @@ func (c *Client) AnalyzeDevice(ctx context.Context, serial string, stats []db.De
 		}
 	}
 	writeAlerts(&b, "Open alerts for this device", alerts)
-	return c.complete(ctx, b.String())
+	return c.complete(ctx, deviceSystem, b.String())
 }
 
-// AnalyzeFleet ranks where to send a tech from the per-group health scorecard plus
-// the current open alerts (so it can name specific devices, not just groups).
-func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, total, online, openAlerts int, alerts []db.Alert) (string, Usage, error) {
+// AnalyzeFleet returns a structured JSON report (see Report) from the per-group
+// health scorecard plus the current open alerts, judged against the configured
+// thresholds. Focus is battery/charging/heat/memory — not offline.
+func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, total, online, openAlerts int, alerts []db.Alert, t Thresholds) (string, Usage, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Fleet snapshot: %d devices total, %d online, %d offline, %d open alerts.\n\n", total, online, total-online, openAlerts)
 	if len(groups) == 0 {
@@ -254,7 +351,7 @@ func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, tota
 		alerts = alerts[:40]
 	}
 	writeAlerts(&b, "Currently open alerts (device serial · type · since · detail)", alerts)
-	return c.complete(ctx, b.String())
+	return c.complete(ctx, fleetSystem(t), b.String())
 }
 
 // writeAlerts appends a labeled alert list (or "none") to b.

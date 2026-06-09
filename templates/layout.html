@@ -113,31 +113,71 @@
     return html.join('');
   };
 
-  // Shared behaviour for the "Hourly Report" card (main page + Fleet Health).
-  // No-ops if the card isn't on the page.
-  window.toggleAISummary = function () {
-    var raw = document.getElementById('ai-sum-raw'),
-        pre = document.getElementById('ai-sum-preview'),
-        full = document.getElementById('ai-sum-full'),
-        tog = document.getElementById('ai-sum-toggle');
-    if (!full) return;
-    if (full.hidden) {
-      if (!full.dataset.rendered) {
-        full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(raw.textContent) : raw.textContent;
-        full.dataset.rendered = '1';
-      }
-      full.hidden = false; pre.hidden = true; if (tog) tog.textContent = 'collapse';
-    } else {
-      full.hidden = true; pre.hidden = false; if (tog) tog.textContent = 'expand';
+  // ── "Hourly Report" structured card (main page + Fleet Health) ──────────────
+  // The cache stores a JSON Report ({status, headline, metrics, issues, good}).
+  // We render it as a status badge + headline (collapsed) and metrics/issues/good
+  // (expanded). Falls back to Markdown for any legacy prose summary. No-ops if the
+  // card isn't on the page.
+  function mdmEsc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function mdmReportBadge(status) {
+    var map = { ok: ['ok', 'OK'], watch: ['warn', 'WATCH'], at_risk: ['danger', 'AT-RISK'] };
+    var m = map[status] || ['muted', (status || '').toUpperCase() || '—'];
+    return '<span class="status-badge ' + m[0] + '" style="margin-right:8px;">' + m[1] + '</span>';
+  }
+  function mdmReportPreview(rep) { return mdmReportBadge(rep.status) + '<span>' + mdmEsc(rep.headline) + '</span>'; }
+  function mdmReportBody(rep) {
+    var h = '';
+    if (rep.metrics && rep.metrics.length) {
+      h += '<div class="report-metrics">';
+      rep.metrics.forEach(function (m) { h += '<div class="report-metric"><div class="rm-val">' + mdmEsc(m.value) + '</div><div class="rm-lbl">' + mdmEsc(m.label) + '</div></div>'; });
+      h += '</div>';
     }
+    if (rep.issues && rep.issues.length) {
+      var icons = { battery: '🔋', charging: '🔌', heat: '🔥', memory: '🧠' };
+      h += '<ul class="report-issues">';
+      rep.issues.forEach(function (is) {
+        var sev = is.severity === 'critical' ? 'danger' : 'warn';
+        h += '<li class="report-issue"><span class="ri-icon">' + (icons[is.area] || '•') + '</span>'
+          + '<div class="ri-text"><span class="status-badge ' + sev + '" style="margin-right:6px;">' + mdmEsc(is.area) + '</span>'
+          + '<strong>' + mdmEsc(is.scope) + '</strong>' + (is.detail ? ' — ' + mdmEsc(is.detail) : '')
+          + (is.action ? '<div class="ri-action">→ ' + mdmEsc(is.action) + '</div>' : '') + '</div></li>';
+      });
+      h += '</ul>';
+    }
+    if (rep.good && rep.good.length) {
+      h += '<div class="report-good">✓ ' + rep.good.map(mdmEsc).join(', ') + ' look fine</div>';
+    }
+    return h || '<div class="muted small">No further detail.</div>';
+  }
+  function mdmParseReport(raw) {
+    try { var o = JSON.parse(raw); if (o && (o.headline || o.status)) return o; } catch (e) {}
+    return null;
+  }
+  // Render the card from #ai-sum-raw into preview + full.
+  window.mdmInitReportCard = function () {
+    var rawEl = document.getElementById('ai-sum-raw');
+    if (!rawEl) return;
+    var raw = rawEl.textContent;
+    var pre = document.getElementById('ai-sum-preview');
+    var full = document.getElementById('ai-sum-full');
+    var rep = mdmParseReport(raw);
+    if (rep) {
+      pre.innerHTML = mdmReportPreview(rep);
+      full.innerHTML = mdmReportBody(rep);
+    } else { // legacy prose summary
+      var lines = String(raw || '').split('\n');
+      var head = '';
+      for (var i = 0; i < lines.length && !head; i++) { head = lines[i].replace(/[*`#]/g, '').replace(/^[-0-9.\s]+/, '').trim(); }
+      pre.textContent = head;
+      full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(raw) : raw;
+    }
+    full.dataset.rendered = '1';
   };
-  window.aiPreview = function (t) {
-    var lines = String(t == null ? '' : t).split('\n');
-    for (var i = 0; i < lines.length; i++) {
-      var s = lines[i].replace(/[*`#]/g, '').replace(/^[-0-9.\s]+/, '').trim();
-      if (s) return s.length > 160 ? s.slice(0, 157) + '…' : s;
-    }
-    return '';
+  window.toggleAISummary = function () {
+    var full = document.getElementById('ai-sum-full'), tog = document.getElementById('ai-sum-toggle');
+    if (!full) return;
+    full.hidden = !full.hidden;
+    if (tog) tog.textContent = full.hidden ? 'expand' : 'collapse';
   };
   window.refreshHourlyReport = function () {
     var btn = document.getElementById('ai-sum-refresh');
@@ -146,26 +186,22 @@
     fetch('/ai-summary/refresh', { method: 'POST' })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
-        var raw = document.getElementById('ai-sum-raw'),
-            pre = document.getElementById('ai-sum-preview'),
-            full = document.getElementById('ai-sum-full'),
-            tog = document.getElementById('ai-sum-toggle');
+        var rawEl = document.getElementById('ai-sum-raw');
         if (!res.ok) {
-          if (pre) { pre.hidden = false; if (full) full.hidden = true; if (tog) tog.textContent = 'expand'; pre.textContent = res.j.error || 'Refresh failed.'; }
-          else { alert(res.j.error || 'Refresh failed.'); }
+          var pre = document.getElementById('ai-sum-preview');
+          if (pre) { pre.textContent = res.j.error || 'Refresh failed.'; } else { alert(res.j.error || 'Refresh failed.'); }
           return;
         }
-        if (!raw) { location.reload(); return; } // card wasn't rendered yet — load it server-side
-        raw.textContent = res.j.text;
-        pre.textContent = window.aiPreview(res.j.text);
-        full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(res.j.text) : res.j.text;
-        full.dataset.rendered = '1';
+        if (!rawEl) { location.reload(); return; } // card wasn't on the page yet
+        rawEl.textContent = res.j.text;
+        window.mdmInitReportCard();
         var ts = document.querySelector('#ai-summary-card .js-local-time');
         if (ts) { ts.setAttribute('data-utc', res.j.generated_at); ts.textContent = new Date(res.j.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
       })
       .catch(function () { var pre = document.getElementById('ai-sum-preview'); if (pre) pre.textContent = 'Network error.'; })
       .finally(function () { btn.disabled = false; btn.textContent = lbl; });
   };
+  document.addEventListener('DOMContentLoaded', function () { if (document.getElementById('ai-sum-raw')) window.mdmInitReportCard(); });
 </script>
   <script>
   (function () {
