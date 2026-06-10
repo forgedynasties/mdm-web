@@ -335,10 +335,12 @@
 
   // A device is treated as inactive once it misses ~3 expected check-ins;
   // gaps larger than this break the chart line instead of bridging across.
-  // Floored at 5 min so fast-polling devices (e.g. 30s) don't break the line
-  // over brief interruptions — 30s × 3 = 90s would be far too twitchy.
+  // Floored at 6.5 min so a 5-min poll (300s) with normal network jitter
+  // doesn't break the line every time a check-in lands a little late, and
+  // fast-polling devices (e.g. 30s) don't break over brief interruptions —
+  // 30s × 3 = 90s would be far too twitchy.
   const pollIntervalMs = {{.Device.PollIntervalMs}};
-  const gapThresholdMs = Math.max((pollIntervalMs > 0 ? pollIntervalMs : 300000) * 3, 300000);
+  const gapThresholdMs = Math.max((pollIntervalMs > 0 ? pollIntervalMs : 300000) * 3, 390000);
 
   // Insert a null sample between consecutive points that are further apart
   // than gapThresholdMs, so the line shows a break over inactive periods.
