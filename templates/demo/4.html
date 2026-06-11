@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explorer — Devices Demo</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{
+    --bg:#fafafb; --panel:#ffffff; --rail:#f4f5f7; --line:#e8eaee; --line2:#dde0e6;
+    --ink:#14171c; --ink2:#444b55; --muted:#737b86; --faint:#a4abb5;
+    --accent:#d82747; --accent2:#bd1f3c; --accent-soft:rgba(216,39,71,.08);
+    --ok:#16a34a; --warn:#d97706; --bad:#dc2626; --cool:#2563eb;
+    --mono:"JetBrains Mono",ui-monospace,monospace; --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --sh:0 1px 2px rgba(16,24,40,.05);
+  }
+  *{box-sizing:border-box} html,body{margin:0;height:100%}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  a{color:inherit;text-decoration:none}
+
+  .demo-switch{display:flex;align-items:center;gap:18px;padding:0 22px;height:44px;background:var(--panel);
+    border-bottom:1px solid var(--line);flex:none;z-index:50}
+  .demo-switch b{font-family:var(--mono);letter-spacing:.04em;color:var(--faint);text-transform:uppercase;font-size:10.5px}
+  .demo-switch nav{display:flex;gap:2px;margin-left:auto}
+  .demo-switch nav a{padding:6px 12px;border-radius:7px;color:var(--ink2);font-size:12.5px;transition:.15s}
+  .demo-switch nav a:hover{background:var(--rail)}
+  .demo-switch nav a.on{background:var(--accent);color:#fff}
+  .demo-switch .back{color:var(--muted);font-family:var(--mono);font-size:11px}
+
+  .split{flex:1;display:flex;min-height:0}
+
+  /* master */
+  .master{width:354px;flex:none;border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+  .master .head{padding:16px 16px 12px;border-bottom:1px solid var(--line)}
+  .master .head .t{display:flex;align-items:baseline;gap:9px;margin-bottom:11px}
+  .master .head h2{margin:0;font-size:15px;font-weight:600}
+  .master .head .ct{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .search{position:relative}
+  .search input{width:100%;background:var(--rail);border:1px solid transparent;border-radius:9px;padding:9px 12px 9px 33px;
+    font-family:var(--sans);font-size:13px;outline:none;transition:.15s}
+  .search input:focus{background:#fff;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--faint)}
+  .list{overflow-y:auto;flex:1;padding:6px}
+  .item{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:10px;cursor:pointer;transition:background .12s}
+  .item:hover{background:var(--rail)}
+  .item.on{background:var(--accent-soft);box-shadow:inset 2px 0 var(--accent)}
+  .item .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .item .dot.online{background:var(--ok);box-shadow:0 0 0 3px rgba(22,163,74,.12)}
+  .item .dot.stale{background:var(--warn)} .item .dot.offline{background:var(--bad)}
+  .item .id{flex:1;min-width:0}
+  .item .id .s{font-family:var(--mono);font-size:12.5px;font-weight:550;letter-spacing:-.02em}
+  .item .id .g{font-size:11px;color:var(--muted);margin-top:1px}
+  .item .mb{width:34px;height:4px;border-radius:3px;background:var(--line2);overflow:hidden;flex:none}
+  .item .mb i{display:block;height:100%;border-radius:3px}
+  .item .pc{font-family:var(--mono);font-size:11px;color:var(--muted);width:30px;text-align:right}
+
+  /* detail */
+  .detail{flex:1;overflow-y:auto;min-width:0}
+  .dwrap{max-width:760px;margin:0 auto;padding:28px 32px 60px}
+  .dhead{display:flex;align-items:flex-start;gap:16px}
+  .dhead .avatar{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#1d2026,#2c313a);
+    display:flex;align-items:center;justify-content:center;flex:none}
+  .dhead .avatar svg{width:24px;height:24px;color:#cfd5de}
+  .dhead h1{margin:0;font-family:var(--mono);font-size:21px;font-weight:600;letter-spacing:-.03em}
+  .dhead .meta{margin-top:5px;display:flex;gap:9px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+  .statetag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.04em;padding:4px 10px;border-radius:20px}
+  .statetag i{width:6px;height:6px;border-radius:50%}
+  .statetag.online{color:var(--ok);background:#eafaf0} .statetag.online i{background:var(--ok)}
+  .statetag.stale{color:var(--warn);background:#fdf4e7} .statetag.stale i{background:var(--warn)}
+  .statetag.offline{color:var(--bad);background:#fdeded} .statetag.offline i{background:var(--bad)}
+  .chip{font-family:var(--mono);font-size:11.5px;color:var(--ink2);background:var(--rail);border:1px solid var(--line);border-radius:6px;padding:2px 8px}
+  .dhead .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  .btn{font-family:var(--sans);font-size:12.5px;font-weight:550;border:1px solid var(--line2);background:#fff;color:var(--ink2);
+    border-radius:9px;padding:8px 13px;cursor:pointer;transition:.13s;display:inline-flex;gap:6px;align-items:center}
+  .btn:hover{border-color:var(--ink2);color:var(--ink)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn.primary:hover{background:var(--accent2)}
+  .btn.danger{color:var(--bad);border-color:#f3c9c9}.btn.danger:hover{background:#fdeded}
+  .btn svg{width:14px;height:14px}
+
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:26px}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:15px;box-shadow:var(--sh)}
+  .tile .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .tile .v{font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:-.02em;margin-top:7px;display:flex;align-items:baseline;gap:3px}
+  .tile .v small{font-size:12px;color:var(--muted);font-weight:400}
+  .tile .v.warn{color:var(--warn)} .tile .v.bad{color:var(--bad)} .tile .v.ok{color:var(--ok)} .tile .v.cool{color:var(--cool)}
+  .tile .track{height:5px;border-radius:3px;background:var(--line2);margin-top:10px;overflow:hidden}
+  .tile .track i{display:block;height:100%;border-radius:3px}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-top:14px;box-shadow:var(--sh)}
+  .panel h3{margin:0 0 4px;font-size:13px;font-weight:600}
+  .panel .sub{font-size:12px;color:var(--muted);margin-bottom:14px}
+  .spark{width:100%;height:78px}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:11px 28px}
+  .kv .r{display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:9px;font-size:13px}
+  .kv .r .k{color:var(--muted)} .kv .r .v{font-family:var(--mono);font-size:12.5px}
+
+  .list::-webkit-scrollbar,.detail::-webkit-scrollbar{width:9px}
+  .list::-webkit-scrollbar-thumb,.detail::-webkit-scrollbar-thumb{background:var(--line2);border-radius:9px;border:2px solid var(--panel)}
+  .toast{position:fixed;bottom:22px;right:24px;background:var(--ink);color:#fff;font-size:12.5px;padding:11px 16px;
+    border-radius:10px;font-family:var(--mono);opacity:0;transform:translateY(12px);transition:.22s;pointer-events:none}
+  .toast.show{opacity:1;transform:none}
+</style>
+</head>
+<body>
+  <div class="demo-switch">
+    <b>Devices UI · exploration</b>
+    <nav><a href="/demo/1">1 · Mission Control</a><a href="/demo/2">2 · Fleet Board</a><a href="/demo/3">3 · Triage</a><a href="/demo/4" class="on">4 · Explorer</a></nav>
+    <a href="/" class="back">← live dashboard</a>
+  </div>
+
+  <div class="split">
+    <aside class="master">
+      <div class="head">
+        <div class="t"><h2>Devices</h2><span class="ct" id="ct"></span></div>
+        <div class="search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+          <input id="q" placeholder="Search serial or group…" autocomplete="off">
+        </div>
+      </div>
+      <div class="list" id="list"></div>
+    </aside>
+    <section class="detail"><div class="dwrap" id="detail"></div></section>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+const RAW = [
+ ["AT070AABU00442","v2.15.0",84,1,62,31.2,1,"tableside-pune",1,18],
+ ["AT070AABU00443","v2.15.0",76,0,58,33.0,1,"tableside-pune",1,35],
+ ["AT070AABU00451","v2.14.3",12,0,71,38.5,1,"kiosks-mum",1,52],
+ ["AT070AABU00455","v2.15.0",91,1,49,30.1,1,"kiosks-mum",1,12],
+ ["AT070AABU00460","v2.14.3",64,0,66,35.4,0,"drivers-blr",1,240],
+ ["AT070AABU00461","v2.13.9",8,0,80,44.2,0,"drivers-blr",1,95],
+ ["AT070AABU00470","v2.15.0",100,1,41,29.0,1,"retail-del",1,22],
+ ["AT070AABU00471","v2.15.0",55,0,60,32.8,1,"retail-del",1,61],
+ ["AT070AABU00480","v2.14.3",47,0,73,36.9,0,"warehouse-hyd",0,1850],
+ ["AT070AABU00481","v2.14.3",33,0,69,41.0,0,"warehouse-hyd",1,410],
+ ["AT070AABU00490","v2.15.0",88,1,52,31.5,1,"tableside-pune",1,9],
+ ["AT070AABU00491","v2.13.9",17,0,77,43.6,0,"drivers-blr",1,130],
+ ["AT070AABU00500","v2.15.0",72,0,57,33.3,1,"kiosks-mum",1,44],
+ ["AT070AABU00501","v2.14.3",69,1,63,34.1,1,"kiosks-mum",1,28],
+ ["AT070AABU00510","v2.15.0",95,1,45,30.7,1,"retail-del",1,15],
+ ["AT070AABU00511","v2.14.3",58,0,61,35.0,0,"warehouse-hyd",1,320],
+ ["AT070AABU00520","v2.13.9",41,0,74,37.8,0,"drivers-blr",0,3600],
+ ["AT070AABU00521","v2.15.0",80,1,50,31.0,1,"tableside-pune",1,20],
+ ["AT070AABU00530","v2.15.0",66,0,59,33.9,1,"retail-del",1,70],
+ ["AT070AABU00531","v2.14.3",29,0,70,40.2,0,"warehouse-hyd",1,510],
+ ["AT070AABU00540","v2.15.0",90,1,47,30.3,1,"kiosks-mum",1,11],
+ ["AT070AABU00541","v2.14.3",53,0,64,34.7,1,"kiosks-mum",1,88],
+ ["AT070AABU00550","v2.13.9",38,0,72,38.1,0,"drivers-blr",1,260],
+ ["AT070AABU00551","v2.15.0",77,0,56,32.2,1,"tableside-pune",1,33],
+ ["AT070AABU00560","v2.14.3",61,1,65,35.6,0,"warehouse-hyd",1,175],
+ ["AT070AABU00561","v2.15.0",99,1,43,29.4,1,"retail-del",1,7],
+].map(r=>({serial:r[0],build:r[1],batt:r[2],chg:!!r[3],ram:r[4],temp:r[5],kiosk:!!r[6],group:r[7],online:!!r[8],last:r[9]}));
+RAW.forEach(d=>{ d.state=!d.online||d.last>1800?"offline":d.last>600?"stale":"online"; });
+
+const $=s=>document.querySelector(s);
+let q="", curSerial=RAW[0].serial;
+const ago=s=>s<60?s+"s ago":s<3600?Math.floor(s/60)+"m ago":Math.floor(s/3600)+"h ago";
+const battC=b=>b<20?'var(--bad)':b<50?'var(--warn)':'var(--ok)';
+
+// deterministic battery trend per device
+function trend(d){
+  let v=Math.min(100,d.batt+ (d.chg?-22:18)), seed=[...d.serial].reduce((a,c)=>a+c.charCodeAt(0),0);
+  const pts=[];
+  for(let i=0;i<24;i++){
+    seed=(seed*9301+49297)%233280; const r=(seed/233280-.5)*7;
+    v += (d.chg? .9 : -.8) + r; v=Math.max(4,Math.min(100,v));
+    if(i===23) v=d.batt;
+    pts.push(v);
+  }
+  return pts;
+}
+function spark(d){
+  const pts=trend(d), W=700,H=78,max=100;
+  const step=W/(pts.length-1);
+  const path=pts.map((p,i)=>`${i?'L':'M'}${(i*step).toFixed(1)},${(H-4-(p/max)*(H-12)).toFixed(1)}`).join(" ");
+  const area=path+` L${W},${H} L0,${H} Z`;
+  const col=battC(d.batt);
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+    <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".22"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+    <path d="${area}" fill="url(#g)"/><path d="${path}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/></svg>`;
+}
+
+function renderList(){
+  const d=RAW.filter(x=>!q||(x.serial+x.group).toLowerCase().includes(q));
+  $("#ct").textContent=`${d.length} of ${RAW.length}`;
+  $("#list").innerHTML=d.map(x=>`
+    <div class="item ${x.serial===curSerial?'on':''}" data-s="${x.serial}">
+      <span class="dot ${x.state}"></span>
+      <div class="id"><div class="s">${x.serial}</div><div class="g">${x.group}</div></div>
+      <div class="mb"><i style="width:${x.batt}%;background:${battC(x.batt)}"></i></div>
+      <span class="pc">${x.batt}%</span>
+    </div>`).join("");
+  [...$("#list").children].forEach(el=>el.onclick=()=>{curSerial=el.dataset.s;renderList();renderDetail();});
+}
+function renderDetail(){
+  const d=RAW.find(x=>x.serial===curSerial); if(!d)return;
+  const poll = d.last<120?5:30;
+  $("#detail").innerHTML=`
+    <div class="dhead">
+      <div class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 19h2"/></svg></div>
+      <div>
+        <h1>${d.serial}</h1>
+        <div class="meta"><span class="statetag ${d.state}"><i></i>${d.state}</span>
+          <span class="chip">${d.group}</span><span class="chip">${d.build}</span><span>${d.chg?'charging · ':''}seen ${ago(d.last)}</span></div>
+      </div>
+      <div class="acts">
+        <button class="btn primary" data-a="Screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg>Screenshot</button>
+        <button class="btn" data-a="Pull logs">Pull logs</button>
+        <button class="btn" data-a="Shell">Shell</button>
+        <button class="btn danger" data-a="Reboot">Reboot</button>
+      </div>
+    </div>
+
+    <div class="tiles">
+      <div class="tile"><div class="l">Battery</div><div class="v ${d.batt<20?'bad':d.batt<50?'warn':'ok'}">${d.batt}<small>%${d.chg?' ⚡':''}</small></div>
+        <div class="track"><i style="width:${d.batt}%;background:${battC(d.batt)}"></i></div></div>
+      <div class="tile"><div class="l">RAM used</div><div class="v ${d.ram>=80?'bad':d.ram>=65?'warn':''}">${d.ram}<small>%</small></div>
+        <div class="track"><i style="width:${d.ram}%;background:${d.ram>=80?'var(--bad)':d.ram>=65?'var(--warn)':'var(--ink2)'}"></i></div></div>
+      <div class="tile"><div class="l">Temp</div><div class="v ${d.temp>=42?'bad':d.temp>=38?'warn':'cool'}">${d.temp.toFixed(1)}<small>°C</small></div>
+        <div class="track"><i style="width:${Math.min(100,d.temp/50*100)}%;background:${d.temp>=42?'var(--bad)':'var(--cool)'}"></i></div></div>
+      <div class="tile"><div class="l">Poll</div><div class="v">${poll}<small>s</small></div>
+        <div class="track"><i style="width:${100-poll}%;background:var(--ink2)"></i></div></div>
+    </div>
+
+    <div class="panel">
+      <h3>Battery · last 24 check-ins</h3>
+      <div class="sub">Synthetic trend for this exploration.</div>
+      ${spark(d)}
+    </div>
+
+    <div class="panel">
+      <h3>Details</h3><div class="sub" style="margin-bottom:14px"></div>
+      <div class="kv">
+        <div class="r"><span class="k">Serial</span><span class="v">${d.serial}</span></div>
+        <div class="r"><span class="k">Build ID</span><span class="v">${d.build}</span></div>
+        <div class="r"><span class="k">Deployment</span><span class="v">${d.group}</span></div>
+        <div class="r"><span class="k">Kiosk mode</span><span class="v">${d.kiosk?'locked':'off'}</span></div>
+        <div class="r"><span class="k">Connection</span><span class="v">${d.online?'websocket':'offline'}</span></div>
+        <div class="r"><span class="k">Last check-in</span><span class="v">${ago(d.last)}</span></div>
+      </div>
+    </div>`;
+  $("#detail").querySelectorAll(".btn").forEach(b=>b.onclick=()=>{
+    const t=$("#toast");t.textContent=`▸ ${b.dataset.a} → ${d.serial}`;t.classList.add("show");
+    clearTimeout(window._t);window._t=setTimeout(()=>t.classList.remove("show"),1800);});
+}
+$("#q").oninput=e=>{q=e.target.value.toLowerCase().trim();renderList();};
+document.addEventListener("keydown",e=>{
+  if(document.activeElement.id==="q")return;
+  const vis=RAW.filter(x=>!q||(x.serial+x.group).toLowerCase().includes(q));
+  let i=vis.findIndex(x=>x.serial===curSerial);
+  if(e.key==="ArrowDown"){e.preventDefault();i=Math.min(vis.length-1,i+1);}
+  else if(e.key==="ArrowUp"){e.preventDefault();i=Math.max(0,i-1);} else return;
+  curSerial=vis[i].serial;renderList();renderDetail();
+  $("#list").children[i]?.scrollIntoView({block:"nearest"});
+});
+renderList();renderDetail();
+</script>
+</body>
+</html>

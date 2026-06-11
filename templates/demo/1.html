@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mission Control — Devices Demo</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{
+    --mc-bg:#0b0e13; --mc-bg2:#0e1218; --mc-panel:#11161d; --mc-panel2:#151b23;
+    --mc-line:#1d2530; --mc-line2:#27313d; --mc-ink:#e7edf5; --mc-ink2:#aab6c5;
+    --mc-faint:#6b7888; --mc-accent:#ff3355; --mc-accent-soft:rgba(255,51,85,.12);
+    --mc-ok:#2fd07a; --mc-warn:#ffb020; --mc-hot:#ff6a3d; --mc-cold:#3aa0ff;
+    --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:
+      radial-gradient(1200px 500px at 80% -10%, rgba(255,51,85,.06), transparent 60%),
+      radial-gradient(900px 500px at -10% 110%, rgba(58,160,255,.05), transparent 60%),
+      var(--mc-bg);
+    color:var(--mc-ink); font-family:var(--sans);
+    font-feature-settings:"cv05","ss01"; -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  body::before{ /* scanline grain */
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:9999; opacity:.025;
+    background-image:repeating-linear-gradient(0deg,#fff 0 1px,transparent 1px 3px);
+    mix-blend-mode:overlay;
+  }
+  a{color:inherit;text-decoration:none}
+
+  /* ── shared demo switcher ── */
+  .demo-switch{display:flex;align-items:center;gap:18px;padding:0 18px;height:40px;
+    background:#080a0e;border-bottom:1px solid var(--mc-line);font-size:12px;
+    position:sticky;top:0;z-index:50}
+  .demo-switch b{font-family:var(--mono);letter-spacing:.04em;color:var(--mc-faint);text-transform:uppercase;font-size:10.5px}
+  .demo-switch nav{display:flex;gap:2px;margin-left:auto}
+  .demo-switch nav a{padding:5px 11px;border-radius:6px;color:var(--mc-ink2);font-size:12px;transition:.15s}
+  .demo-switch nav a:hover{background:var(--mc-panel2);color:var(--mc-ink)}
+  .demo-switch nav a.on{background:var(--mc-accent);color:#fff}
+  .demo-switch .back{color:var(--mc-faint);font-family:var(--mono);font-size:11px}
+  .demo-switch .back:hover{color:var(--mc-ink)}
+
+  /* ── command bar ── */
+  .cmd{display:flex;align-items:center;gap:22px;padding:16px 22px 14px;border-bottom:1px solid var(--mc-line)}
+  .cmd h1{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+  .cmd h1 .live{width:7px;height:7px;border-radius:50%;background:var(--mc-ok);box-shadow:0 0 0 0 rgba(47,208,122,.6);animation:pulse 2.4s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(47,208,122,.5)}70%{box-shadow:0 0 0 7px rgba(47,208,122,0)}100%{box-shadow:0 0 0 0 rgba(47,208,122,0)}}
+  .vitals{display:flex;gap:0;font-family:var(--mono)}
+  .vital{padding:0 18px;border-left:1px solid var(--mc-line);line-height:1.1}
+  .vital:first-child{border-left:0;padding-left:0}
+  .vital .n{font-size:22px;font-weight:600;letter-spacing:-.02em}
+  .vital .l{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--mc-faint);margin-top:3px}
+  .vital.low .n{color:var(--mc-accent)} .vital.hot .n{color:var(--mc-hot)} .vital.live .n{color:var(--mc-ok)}
+  .search{margin-left:auto;position:relative}
+  .search input{background:var(--mc-panel);border:1px solid var(--mc-line2);border-radius:8px;color:var(--mc-ink);
+    font-family:var(--mono);font-size:12.5px;padding:9px 12px 9px 34px;width:280px;outline:none;transition:.15s}
+  .search input:focus{border-color:var(--mc-accent);box-shadow:0 0 0 3px var(--mc-accent-soft)}
+  .search svg{position:absolute;left:11px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--mc-faint)}
+  .search kbd{position:absolute;right:9px;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:10px;
+    color:var(--mc-faint);border:1px solid var(--mc-line2);border-radius:4px;padding:1px 5px}
+  .clock{font-family:var(--mono);font-size:12px;color:var(--mc-ink2);min-width:84px;text-align:right}
+
+  /* ── filter chips ── */
+  .chips{display:flex;gap:7px;padding:11px 22px;border-bottom:1px solid var(--mc-line);flex-wrap:wrap;align-items:center}
+  .chips .lbl{font-size:10px;text-transform:uppercase;letter-spacing:.09em;color:var(--mc-faint);font-family:var(--mono);margin-right:4px}
+  .chip{font-size:11.5px;padding:4px 11px;border-radius:20px;border:1px solid var(--mc-line2);color:var(--mc-ink2);
+    cursor:pointer;transition:.14s;font-family:var(--mono);background:transparent}
+  .chip:hover{border-color:var(--mc-line2);color:var(--mc-ink);background:var(--mc-panel)}
+  .chip.on{background:var(--mc-accent-soft);border-color:var(--mc-accent);color:#ff8197}
+  .chip .dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:middle}
+
+  /* ── table ── */
+  .grid{padding:0 12px 60px}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
+  thead th{position:sticky;top:40px;background:var(--mc-bg);z-index:5;text-align:left;
+    font-family:var(--sans);font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--mc-faint);
+    font-weight:600;padding:11px 12px;border-bottom:1px solid var(--mc-line2);cursor:pointer;user-select:none}
+  thead th:hover{color:var(--mc-ink2)}
+  thead th .ar{opacity:.5;font-size:9px;margin-left:3px}
+  tbody tr{border-bottom:1px solid rgba(29,37,48,.55);transition:background .12s;cursor:pointer;
+    animation:rowin .4s both}
+  @keyframes rowin{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+  tbody tr:hover{background:var(--mc-panel)}
+  tbody tr.sel{background:var(--mc-accent-soft)}
+  tbody td{padding:9px 12px;white-space:nowrap;border-left:2px solid transparent}
+  tbody td:first-child{border-left-width:0}
+  tr[data-state=online] td:first-child{box-shadow:inset 2px 0 var(--mc-ok)}
+  tr[data-state=stale]  td:first-child{box-shadow:inset 2px 0 var(--mc-warn)}
+  tr[data-state=offline]td:first-child{box-shadow:inset 2px 0 var(--mc-accent)}
+  .st{display:inline-flex;align-items:center;gap:7px}
+  .st i{width:7px;height:7px;border-radius:50%;flex:none}
+  .st.online i{background:var(--mc-ok);box-shadow:0 0 6px rgba(47,208,122,.7);animation:pulse 2.4s infinite}
+  .st.stale i{background:var(--mc-warn)} .st.offline i{background:var(--mc-accent)}
+  .serial{color:var(--mc-ink);font-weight:500;letter-spacing:-.01em}
+  .sub{color:var(--mc-faint);font-size:10.5px}
+  .bat{display:flex;align-items:center;gap:8px}
+  .bat .track{width:46px;height:5px;border-radius:3px;background:var(--mc-line2);overflow:hidden}
+  .bat .fill{height:100%;border-radius:3px}
+  .bat .pc{width:34px;color:var(--mc-ink2)}
+  .bat .bolt{color:var(--mc-ok);width:11px;height:11px}
+  .metric.warn{color:var(--mc-warn)} .metric.hot{color:var(--mc-hot)} .metric.cold{color:var(--mc-cold)} .metric{color:var(--mc-ink2)}
+  .pill{font-size:10.5px;padding:2px 8px;border-radius:5px;background:var(--mc-panel2);color:var(--mc-ink2);border:1px solid var(--mc-line)}
+  .grp{color:var(--mc-ink2)}
+  .kiosk{font-size:10px;color:var(--mc-cold);border:1px solid rgba(58,160,255,.3);border-radius:4px;padding:1px 6px}
+  td.act{text-align:right}
+  .rowbtn{opacity:0;font-family:var(--sans);font-size:11px;color:var(--mc-ink2);border:1px solid var(--mc-line2);
+    border-radius:6px;padding:3px 10px;background:var(--mc-panel);transition:.13s}
+  tr:hover .rowbtn{opacity:1}
+  .rowbtn:hover{border-color:var(--mc-accent);color:#fff}
+
+  /* ── status line ── */
+  .statusline{position:fixed;bottom:0;left:0;right:0;height:30px;background:#080a0e;border-top:1px solid var(--mc-line);
+    display:flex;align-items:center;gap:20px;padding:0 18px;font-family:var(--mono);font-size:11px;color:var(--mc-faint)}
+  .statusline .seg{display:flex;gap:7px;align-items:center}
+  .statusline b{color:var(--mc-ink2);font-weight:500}
+  .statusline .right{margin-left:auto;display:flex;gap:16px}
+  .hint kbd{border:1px solid var(--mc-line2);border-radius:3px;padding:0 5px;color:var(--mc-ink2)}
+</style>
+</head>
+<body>
+  <div class="demo-switch">
+    <b>Devices UI · exploration</b>
+    <nav>
+      <a href="/demo/1" class="on">1 · Mission Control</a>
+      <a href="/demo/2">2 · Fleet Board</a>
+      <a href="/demo/3">3 · Triage</a>
+      <a href="/demo/4">4 · Explorer</a>
+    </nav>
+    <a href="/" class="back">← live dashboard</a>
+  </div>
+
+  <div class="cmd">
+    <h1><span class="live"></span>FLEET · MISSION CONTROL</h1>
+    <div class="vitals">
+      <div class="vital"><div class="n" id="v-total">—</div><div class="l">Nodes</div></div>
+      <div class="vital live"><div class="n" id="v-live">—</div><div class="l">Live</div></div>
+      <div class="vital low"><div class="n" id="v-low">—</div><div class="l">Low batt</div></div>
+      <div class="vital hot"><div class="n" id="v-hot">—</div><div class="l">Thermal</div></div>
+    </div>
+    <div class="search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+      <input id="q" placeholder="filter serial / build / group…" autocomplete="off">
+      <kbd>/</kbd>
+    </div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+
+  <div class="chips" id="chips">
+    <span class="lbl">scope</span>
+    <button class="chip on" data-f="all">All</button>
+    <button class="chip" data-f="online"><span class="dot" style="background:var(--mc-ok)"></span>Live</button>
+    <button class="chip" data-f="stale"><span class="dot" style="background:var(--mc-warn)"></span>Stale</button>
+    <button class="chip" data-f="offline"><span class="dot" style="background:var(--mc-accent)"></span>Offline</button>
+    <button class="chip" data-f="low">Low battery</button>
+    <button class="chip" data-f="hot">Thermal</button>
+    <button class="chip" data-f="kiosk">Kiosk</button>
+  </div>
+
+  <div class="grid">
+    <table>
+      <thead>
+        <tr>
+          <th data-k="state">Status</th>
+          <th data-k="serial">Serial</th>
+          <th data-k="build">Build</th>
+          <th data-k="batt">Battery</th>
+          <th data-k="ram">RAM</th>
+          <th data-k="temp">Temp</th>
+          <th data-k="group">Group</th>
+          <th data-k="last">Last seen</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <div class="statusline">
+    <div class="seg">● <b id="sl-count">0</b> shown</div>
+    <div class="seg">sort <b id="sl-sort">last ↑</b></div>
+    <div class="seg">poll <b>30s</b></div>
+    <div class="right">
+      <span class="hint"><kbd>j</kbd><kbd>k</kbd> move</span>
+      <span class="hint"><kbd>/</kbd> search</span>
+      <span class="hint"><kbd>↵</kbd> open</span>
+    </div>
+  </div>
+
+<script>
+const RAW = [
+ ["AT070AABU00442","v2.15.0",84,1,62,31.2,1,"tableside-pune",1,18],
+ ["AT070AABU00443","v2.15.0",76,0,58,33.0,1,"tableside-pune",1,35],
+ ["AT070AABU00451","v2.14.3",12,0,71,38.5,1,"kiosks-mum",1,52],
+ ["AT070AABU00455","v2.15.0",91,1,49,30.1,1,"kiosks-mum",1,12],
+ ["AT070AABU00460","v2.14.3",64,0,66,35.4,0,"drivers-blr",1,240],
+ ["AT070AABU00461","v2.13.9",8,0,80,44.2,0,"drivers-blr",1,95],
+ ["AT070AABU00470","v2.15.0",100,1,41,29.0,1,"retail-del",1,22],
+ ["AT070AABU00471","v2.15.0",55,0,60,32.8,1,"retail-del",1,61],
+ ["AT070AABU00480","v2.14.3",47,0,73,36.9,0,"warehouse-hyd",0,1850],
+ ["AT070AABU00481","v2.14.3",33,0,69,41.0,0,"warehouse-hyd",1,410],
+ ["AT070AABU00490","v2.15.0",88,1,52,31.5,1,"tableside-pune",1,9],
+ ["AT070AABU00491","v2.13.9",17,0,77,43.6,0,"drivers-blr",1,130],
+ ["AT070AABU00500","v2.15.0",72,0,57,33.3,1,"kiosks-mum",1,44],
+ ["AT070AABU00501","v2.14.3",69,1,63,34.1,1,"kiosks-mum",1,28],
+ ["AT070AABU00510","v2.15.0",95,1,45,30.7,1,"retail-del",1,15],
+ ["AT070AABU00511","v2.14.3",58,0,61,35.0,0,"warehouse-hyd",1,320],
+ ["AT070AABU00520","v2.13.9",41,0,74,37.8,0,"drivers-blr",0,3600],
+ ["AT070AABU00521","v2.15.0",80,1,50,31.0,1,"tableside-pune",1,20],
+ ["AT070AABU00530","v2.15.0",66,0,59,33.9,1,"retail-del",1,70],
+ ["AT070AABU00531","v2.14.3",29,0,70,40.2,0,"warehouse-hyd",1,510],
+ ["AT070AABU00540","v2.15.0",90,1,47,30.3,1,"kiosks-mum",1,11],
+ ["AT070AABU00541","v2.14.3",53,0,64,34.7,1,"kiosks-mum",1,88],
+ ["AT070AABU00550","v2.13.9",38,0,72,38.1,0,"drivers-blr",1,260],
+ ["AT070AABU00551","v2.15.0",77,0,56,32.2,1,"tableside-pune",1,33],
+ ["AT070AABU00560","v2.14.3",61,1,65,35.6,0,"warehouse-hyd",1,175],
+ ["AT070AABU00561","v2.15.0",99,1,43,29.4,1,"retail-del",1,7],
+].map(r=>({serial:r[0],build:r[1],batt:r[2],chg:!!r[3],ram:r[4],temp:r[5],kiosk:!!r[6],group:r[7],online:!!r[8],last:r[9]}));
+RAW.forEach(d=>{ d.state = !d.online||d.last>1800 ? "offline" : d.last>600 ? "stale" : "online";
+  d.low = d.batt<20; d.hot = d.temp>=42; });
+
+let filter="all", q="", sort="last", dir=1, sel=0;
+const $=s=>document.querySelector(s), rows=$("#rows");
+const batColor=b=> b<20?"var(--mc-accent)": b<50?"var(--mc-warn)":"var(--mc-ok)";
+const ago=s=> s<60?s+"s": s<3600?Math.floor(s/60)+"m": Math.floor(s/3600)+"h";
+
+function view(){
+  let d=RAW.filter(x=>{
+    if(filter==="online"&&x.state!=="online")return false;
+    if(filter==="stale"&&x.state!=="stale")return false;
+    if(filter==="offline"&&x.state!=="offline")return false;
+    if(filter==="low"&&!x.low)return false;
+    if(filter==="hot"&&!x.hot)return false;
+    if(filter==="kiosk"&&!x.kiosk)return false;
+    if(q&&!(x.serial+x.build+x.group).toLowerCase().includes(q))return false;
+    return true;
+  });
+  const ord={online:0,stale:1,offline:2};
+  d.sort((a,b)=>{ let av=a[sort],bv=b[sort];
+    if(sort==="state"){av=ord[a.state];bv=ord[b.state];}
+    if(typeof av==="string")return dir*av.localeCompare(bv);
+    return dir*(av-bv); });
+  return d;
+}
+function render(){
+  const d=view();
+  if(sel>=d.length)sel=d.length-1; if(sel<0)sel=0;
+  rows.innerHTML=d.map((x,i)=>`
+    <tr data-state="${x.state}" class="${i===sel?'sel':''}" style="animation-delay:${Math.min(i*14,260)}ms" data-i="${i}">
+      <td><span class="st ${x.state}"><i></i>${x.state}</span></td>
+      <td><span class="serial">${x.serial}</span></td>
+      <td><span class="pill">${x.build}</span></td>
+      <td><div class="bat"><div class="track"><div class="fill" style="width:${x.batt}%;background:${batColor(x.batt)}"></div></div>
+        <span class="pc">${x.batt}%</span>${x.chg?'<svg class="bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>':''}</div></td>
+      <td><span class="metric ${x.ram>=80?'hot':x.ram>=65?'warn':''}">${x.ram}%</span></td>
+      <td><span class="metric ${x.hot?'hot':x.temp<31?'cold':''}">${x.temp.toFixed(1)}°</span></td>
+      <td><span class="grp">${x.group}</span> ${x.kiosk?'<span class="kiosk">KIOSK</span>':''}</td>
+      <td><span class="${x.state==='offline'?'metric hot':'sub'}" style="${x.state!=='offline'?'color:var(--mc-ink2)':''}">${ago(x.last)} ago</span></td>
+      <td class="act"><button class="rowbtn">Open →</button></td>
+    </tr>`).join("");
+  $("#sl-count").textContent=d.length;
+  $("#sl-sort").textContent=sort+(dir>0?" ↑":" ↓");
+  [...rows.children].forEach(tr=>tr.onclick=()=>{sel=+tr.dataset.i;render();});
+}
+function stats(){
+  $("#v-total").textContent=RAW.length;
+  $("#v-live").textContent=RAW.filter(x=>x.state==="online").length;
+  $("#v-low").textContent=RAW.filter(x=>x.low).length;
+  $("#v-hot").textContent=RAW.filter(x=>x.hot).length;
+}
+$("#chips").onclick=e=>{const b=e.target.closest(".chip");if(!b)return;
+  filter=b.dataset.f;[...e.currentTarget.children].forEach(c=>c.classList?.toggle?.("on",c===b));render();};
+$("#q").oninput=e=>{q=e.target.value.toLowerCase().trim();render();};
+document.querySelectorAll("thead th[data-k]").forEach(th=>th.onclick=()=>{
+  const k=th.dataset.k; if(sort===k)dir*=-1; else{sort=k;dir=1;} render();});
+document.addEventListener("keydown",e=>{
+  if(e.key==="/"&&document.activeElement.id!=="q"){e.preventDefault();$("#q").focus();}
+  else if(e.key==="j"){sel++;render();}
+  else if(e.key==="k"){sel--;render();}
+});
+function tick(){const n=new Date();$("#clock").textContent=n.toTimeString().slice(0,8);}
+stats();render();tick();setInterval(tick,1000);
+</script>
+</body>
+</html>

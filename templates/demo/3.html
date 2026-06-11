@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Triage — Devices Demo</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{
+    --bg:#f6f5f4; --paper:#ffffff; --line:#e8e6e3; --line2:#ddd9d4;
+    --ink:#1a1715; --ink2:#4a443f; --muted:#7a736b; --faint:#a8a097;
+    --accent:#d82747; --accent2:#b01f39; --accent-soft:#fcebee;
+    --crit:#c1121f; --crit-bg:#fdeced; --crit-line:#f5c2c5;
+    --high:#c2410c; --high-bg:#fdf0e8; --warn:#a16207; --warn-bg:#fbf3df;
+    --ok:#15803d; --ok-bg:#eef7ef;
+    --mono:"JetBrains Mono",ui-monospace,monospace; --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --sh:0 1px 2px rgba(40,30,20,.05); --sh2:0 8px 28px rgba(40,30,20,.10);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{font-family:var(--sans);color:var(--ink);background:var(--bg);min-height:100vh;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+
+  .demo-switch{display:flex;align-items:center;gap:18px;padding:0 22px;height:44px;background:var(--paper);
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+  .demo-switch b{font-family:var(--mono);letter-spacing:.04em;color:var(--faint);text-transform:uppercase;font-size:10.5px}
+  .demo-switch nav{display:flex;gap:2px;margin-left:auto}
+  .demo-switch nav a{padding:6px 12px;border-radius:7px;color:var(--ink2);font-size:12.5px;transition:.15s}
+  .demo-switch nav a:hover{background:var(--bg)}
+  .demo-switch nav a.on{background:var(--accent);color:#fff}
+  .demo-switch .back{color:var(--muted);font-family:var(--mono);font-size:11px}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:34px 28px 80px}
+
+  /* hero */
+  .hero{display:flex;gap:34px;align-items:center;background:var(--paper);border:1px solid var(--line);
+    border-radius:20px;padding:30px 34px;box-shadow:var(--sh);position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;
+    background:radial-gradient(circle,var(--accent-soft),transparent 70%)}
+  .donut{position:relative;width:148px;height:148px;flex:none}
+  .donut svg{transform:rotate(-90deg)}
+  .donut .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .donut .c b{font-size:38px;font-weight:650;letter-spacing:-.03em;line-height:1}
+  .donut .c span{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:4px}
+  .verdict{flex:1;z-index:1}
+  .verdict .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  .verdict h1{margin:7px 0 6px;font-size:27px;font-weight:600;letter-spacing:-.025em;line-height:1.15}
+  .verdict p{margin:0 0 16px;color:var(--ink2);font-size:14.5px;max-width:48ch;line-height:1.5}
+  .breakdown{display:flex;gap:22px}
+  .bd{display:flex;flex-direction:column;gap:2px}
+  .bd b{font-family:var(--mono);font-size:21px;font-weight:600;letter-spacing:-.02em}
+  .bd small{font-size:11.5px;color:var(--muted)}
+  .bd.crit b{color:var(--crit)} .bd.warn b{color:var(--warn)} .bd.ok b{color:var(--ok)}
+
+  /* section */
+  .sec-h{display:flex;align-items:baseline;gap:12px;margin:34px 4px 14px}
+  .sec-h h2{margin:0;font-size:17px;font-weight:600;letter-spacing:-.02em}
+  .sec-h .ct{font-family:var(--mono);font-size:12px;color:var(--muted)}
+  .sec-h .rule{flex:1;height:1px;background:var(--line)}
+
+  /* attention list */
+  .att{display:flex;flex-direction:column;gap:9px}
+  .row{display:flex;align-items:center;gap:16px;background:var(--paper);border:1px solid var(--line);
+    border-left:4px solid var(--sev);border-radius:13px;padding:13px 16px 13px 15px;box-shadow:var(--sh);
+    transition:transform .14s,box-shadow .14s;animation:slide .4s both}
+  @keyframes slide{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:none}}
+  .row:hover{transform:translateX(2px);box-shadow:var(--sh2)}
+  .row .lead{min-width:188px}
+  .row .serial{font-family:var(--mono);font-size:13.5px;font-weight:600;letter-spacing:-.02em}
+  .row .grp{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .issues{display:flex;gap:7px;flex-wrap:wrap;flex:1}
+  .iss{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:550;padding:4px 10px;border-radius:8px;font-family:var(--mono)}
+  .iss.crit{background:var(--crit-bg);color:var(--crit);border:1px solid var(--crit-line)}
+  .iss.high{background:var(--high-bg);color:var(--high)} .iss.warn{background:var(--warn-bg);color:var(--warn)}
+  .iss.info{background:#eef1f6;color:#475569}
+  .iss i{width:6px;height:6px;border-radius:50%;background:currentColor}
+  .acts{display:flex;gap:7px}
+  .btn{font-family:var(--sans);font-size:12px;font-weight:550;border:1px solid var(--line2);background:var(--paper);
+    color:var(--ink2);border-radius:8px;padding:6px 12px;cursor:pointer;transition:.13s;white-space:nowrap}
+  .btn:hover{border-color:var(--ink2);color:var(--ink)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:var(--accent2)}
+
+  /* healthy */
+  .healthy{background:linear-gradient(180deg,#fff,#fbfbfa);border:1px solid var(--line);border-radius:14px;
+    padding:18px 20px;box-shadow:var(--sh)}
+  .healthy .hh{display:flex;align-items:center;gap:13px;cursor:pointer}
+  .healthy .dot{width:10px;height:10px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px var(--ok-bg)}
+  .healthy h3{margin:0;font-size:14.5px;font-weight:600}
+  .healthy .sub{font-size:12.5px;color:var(--muted)}
+  .healthy .chev{margin-left:auto;color:var(--faint);transition:transform .2s}
+  .healthy.open .chev{transform:rotate(90deg)}
+  .healthy .list{display:none;flex-wrap:wrap;gap:7px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+  .healthy.open .list{display:flex}
+  .hchip{font-family:var(--mono);font-size:11.5px;color:var(--ink2);background:var(--bg);border:1px solid var(--line);
+    border-radius:7px;padding:5px 10px;display:inline-flex;gap:7px;align-items:center}
+  .hchip i{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+  .hchip .b{color:var(--muted)}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;
+    font-size:13px;padding:11px 18px;border-radius:10px;box-shadow:var(--sh2);opacity:0;transition:.25s;pointer-events:none;font-family:var(--mono)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+  <div class="demo-switch">
+    <b>Devices UI · exploration</b>
+    <nav><a href="/demo/1">1 · Mission Control</a><a href="/demo/2">2 · Fleet Board</a><a href="/demo/3" class="on">3 · Triage</a><a href="/demo/4">4 · Explorer</a></nav>
+    <a href="/" class="back">← live dashboard</a>
+  </div>
+
+  <div class="wrap">
+    <div class="hero">
+      <div class="donut" id="donut"></div>
+      <div class="verdict">
+        <div class="eyebrow">Fleet health · live</div>
+        <h1 id="verdict-h">—</h1>
+        <p id="verdict-p">—</p>
+        <div class="breakdown" id="breakdown"></div>
+      </div>
+    </div>
+
+    <div class="sec-h"><h2>Needs attention</h2><span class="ct" id="att-ct"></span><span class="rule"></span></div>
+    <div class="att" id="att"></div>
+
+    <div class="sec-h"><h2>Build drift</h2><span class="rule"></span></div>
+    <div class="healthy" id="healthy"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+const LATEST="v2.15.0";
+const RAW = [
+ ["AT070AABU00442","v2.15.0",84,1,62,31.2,1,"tableside-pune",1,18],
+ ["AT070AABU00443","v2.15.0",76,0,58,33.0,1,"tableside-pune",1,35],
+ ["AT070AABU00451","v2.14.3",12,0,71,38.5,1,"kiosks-mum",1,52],
+ ["AT070AABU00455","v2.15.0",91,1,49,30.1,1,"kiosks-mum",1,12],
+ ["AT070AABU00460","v2.14.3",64,0,66,35.4,0,"drivers-blr",1,240],
+ ["AT070AABU00461","v2.13.9",8,0,80,44.2,0,"drivers-blr",1,95],
+ ["AT070AABU00470","v2.15.0",100,1,41,29.0,1,"retail-del",1,22],
+ ["AT070AABU00471","v2.15.0",55,0,60,32.8,1,"retail-del",1,61],
+ ["AT070AABU00480","v2.14.3",47,0,73,36.9,0,"warehouse-hyd",0,1850],
+ ["AT070AABU00481","v2.14.3",33,0,69,41.0,0,"warehouse-hyd",1,410],
+ ["AT070AABU00490","v2.15.0",88,1,52,31.5,1,"tableside-pune",1,9],
+ ["AT070AABU00491","v2.13.9",17,0,77,43.6,0,"drivers-blr",1,130],
+ ["AT070AABU00500","v2.15.0",72,0,57,33.3,1,"kiosks-mum",1,44],
+ ["AT070AABU00501","v2.14.3",69,1,63,34.1,1,"kiosks-mum",1,28],
+ ["AT070AABU00510","v2.15.0",95,1,45,30.7,1,"retail-del",1,15],
+ ["AT070AABU00511","v2.14.3",58,0,61,35.0,0,"warehouse-hyd",1,320],
+ ["AT070AABU00520","v2.13.9",41,0,74,37.8,0,"drivers-blr",0,3600],
+ ["AT070AABU00521","v2.15.0",80,1,50,31.0,1,"tableside-pune",1,20],
+ ["AT070AABU00530","v2.15.0",66,0,59,33.9,1,"retail-del",1,70],
+ ["AT070AABU00531","v2.14.3",29,0,70,40.2,0,"warehouse-hyd",1,510],
+ ["AT070AABU00540","v2.15.0",90,1,47,30.3,1,"kiosks-mum",1,11],
+ ["AT070AABU00541","v2.14.3",53,0,64,34.7,1,"kiosks-mum",1,88],
+ ["AT070AABU00550","v2.13.9",38,0,72,38.1,0,"drivers-blr",1,260],
+ ["AT070AABU00551","v2.15.0",77,0,56,32.2,1,"tableside-pune",1,33],
+ ["AT070AABU00560","v2.14.3",61,1,65,35.6,0,"warehouse-hyd",1,175],
+ ["AT070AABU00561","v2.15.0",99,1,43,29.4,1,"retail-del",1,7],
+].map(r=>({serial:r[0],build:r[1],batt:r[2],chg:!!r[3],ram:r[4],temp:r[5],kiosk:!!r[6],group:r[7],online:!!r[8],last:r[9]}));
+const $=s=>document.querySelector(s);
+const ago=s=>s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h";
+
+RAW.forEach(d=>{
+  d.offline=!d.online||d.last>1800;
+  d.issues=[];
+  if(d.offline) d.issues.push({sev:"crit",rank:4,label:"Offline "+ago(d.last)});
+  if(d.batt<20) d.issues.push({sev:"crit",rank:4,label:"Battery "+d.batt+"%"});
+  if(d.temp>=42) d.issues.push({sev:"high",rank:3,label:"Thermal "+d.temp.toFixed(1)+"°"});
+  if(d.batt>=20&&d.batt<35&&!d.offline) d.issues.push({sev:"warn",rank:2,label:"Battery low "+d.batt+"%"});
+  if(d.ram>=80) d.issues.push({sev:"warn",rank:2,label:"RAM "+d.ram+"%"});
+  d.maxrank=d.issues.reduce((m,i)=>Math.max(m,i.rank),0);
+  d.attention=d.issues.length>0;
+});
+const att=RAW.filter(d=>d.attention).sort((a,b)=>b.maxrank-a.maxrank||a.batt-b.batt);
+const healthy=RAW.filter(d=>!d.attention);
+const drift=RAW.filter(d=>d.build!==LATEST);
+
+// donut
+(function(){
+  const pct=Math.round(healthy.length/RAW.length*100);
+  const r=64,c=2*Math.PI*r,off=c*(1-pct/100);
+  const col=pct>=80?'#15803d':pct>=60?'#a16207':'#c1121f';
+  $("#donut").innerHTML=`<svg width="148" height="148" viewBox="0 0 148 148">
+    <circle cx="74" cy="74" r="${r}" fill="none" stroke="#ece9e5" stroke-width="11"/>
+    <circle cx="74" cy="74" r="${r}" fill="none" stroke="${col}" stroke-width="11" stroke-linecap="round"
+      stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${c.toFixed(1)}" id="dring"/>
+  </svg><div class="c"><b style="color:${col}">${pct}<span style="font-size:20px">%</span></b><span>Healthy</span></div>`;
+  requestAnimationFrame(()=>{const el=document.getElementById("dring");el.style.transition="stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)";el.style.strokeDashoffset=off.toFixed(1);});
+  $("#verdict-h").textContent = att.length===0 ? "Fleet is steady" : `${att.length} unit${att.length>1?'s':''} need a look`;
+  $("#verdict-p").textContent = att.length===0
+    ? "No critical or warning conditions across the fleet right now."
+    : `${RAW.filter(d=>d.offline).length} offline, ${RAW.filter(d=>d.batt<20).length} critically low on battery, and ${RAW.filter(d=>d.temp>=42).length} running hot. Handle the red items first.`;
+  $("#breakdown").innerHTML=`
+    <div class="bd crit"><b>${att.filter(d=>d.maxrank>=3).length}</b><small>critical / high</small></div>
+    <div class="bd warn"><b>${att.filter(d=>d.maxrank<3).length}</b><small>warnings</small></div>
+    <div class="bd ok"><b>${healthy.length}</b><small>healthy</small></div>
+    <div class="bd"><b>${drift.length}</b><small>build drift</small></div>`;
+})();
+
+const sevColor={crit:'#c1121f',high:'#c2410c',warn:'#a16207'};
+$("#att-ct").textContent=`${att.length} of ${RAW.length} units`;
+$("#att").innerHTML=att.map((d,i)=>{
+  const sev=d.maxrank>=4?'crit':d.maxrank>=3?'high':'warn';
+  const primary = d.offline ? "Ping" : d.temp>=42 ? "Reboot" : "Notify";
+  return `<div class="row" style="--sev:${sevColor[sev]};animation-delay:${i*30}ms">
+    <div class="lead"><div class="serial">${d.serial}</div><div class="grp">${d.group} · ${d.build}</div></div>
+    <div class="issues">${d.issues.sort((a,b)=>b.rank-a.rank).map(is=>`<span class="iss ${is.sev}"><i></i>${is.label}</span>`).join("")}</div>
+    <div class="acts"><button class="btn primary" data-a="${primary}" data-s="${d.serial}">${primary}</button><button class="btn" data-a="Open" data-s="${d.serial}">Open</button></div>
+  </div>`;
+}).join("");
+
+const H=$("#healthy");
+H.innerHTML=`<div class="hh"><span class="dot"></span>
+  <div><h3>${drift.length} units behind ${LATEST}</h3><div class="sub">On older builds but otherwise healthy — candidates for the next rollout.</div></div>
+  <svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 6 6 6-6 6"/></svg></div>
+  <div class="list">${drift.map(d=>`<span class="hchip"><i style="background:${d.offline?'#c1121f':'#15803d'}"></i>${d.serial}<span class="b">${d.build}</span></span>`).join("")}</div>`;
+H.querySelector(".hh").onclick=()=>H.classList.toggle("open");
+
+let tt;
+$("#att").onclick=e=>{const b=e.target.closest(".btn");if(!b)return;
+  const t=$("#toast");t.textContent=`▸ ${b.dataset.a} → ${b.dataset.s} (demo)`;t.classList.add("show");
+  clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),1900);};
+</script>
+</body>
+</html>
