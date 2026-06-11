@@ -282,6 +282,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 		Path:     "/",
 		MaxAge:   cfg.SessionTimeout(),
 		HttpOnly: true,
+		// Secure by default so the session cookie is never sent over cleartext;
+		// set COOKIE_SECURE=false for local HTTP development. SameSite=Lax keeps
+		// the cookie off cross-site sub-requests, complementing the CSRF guard.
+		Secure:   os.Getenv("COOKIE_SECURE") != "false",
+		SameSite: http.SameSiteLaxMode,
 	}
 	// Align the securecookie codec max-age with the cookie so the timeout is
 	// actually enforced server-side, not just by the browser.
