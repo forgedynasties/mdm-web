@@ -1,0 +1,141 @@
+{{define "ai_report_detail.html"}}
+{{template "header" .}}
+
+<div class="page-header">
+  <div>
+    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span>Detailed analysis</h2>
+    <p class="page-subtitle">Every call-out in the hourly report, traced to the specific units, times, and values behind it.</p>
+  </div>
+  <div>
+    <a href="/fleet-health" class="btn-outline btn-sm">← Fleet Health</a>
+  </div>
+</div>
+
+{{if .AISummaryAt}}
+<p class="muted small" style="margin:-6px 0 16px;">Report generated <span class="js-local-time" data-utc="{{.AISummaryAt}}" data-format="full">{{.AISummaryAt}}</span>{{if .AISummaryModel}} · {{.AISummaryModel}}{{end}}</p>
+{{end}}
+
+{{if .Report}}
+{{with .Report}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header" style="gap:10px;align-items:center;">
+    {{if eq .Status "at_risk"}}<span class="rep-status rep-danger">AT-RISK</span>
+    {{else if eq .Status "watch"}}<span class="rep-status rep-warn">WATCH</span>
+    {{else if eq .Status "ok"}}<span class="rep-status rep-ok">OK</span>
+    {{else}}<span class="rep-status rep-muted">—</span>{{end}}
+    <h3 style="margin:0;">{{.Headline}}</h3>
+  </div>
+  <div style="padding:14px 18px;">
+    {{if .Metrics}}
+    <div class="rep-tiles">
+      {{range .Metrics}}<div class="rep-tile"><div class="v">{{.Value}}</div><div class="l">{{.Label}}</div></div>{{end}}
+    </div>
+    {{end}}
+    {{if .Issues}}
+    <div class="rep-rows" style="margin-top:12px;">
+      {{range .Issues}}
+      <div class="rep-row {{if eq .Severity "critical"}}rep-danger{{else}}rep-warn{{end}}">
+        <span class="ind"></span>
+        <div class="meta">
+          <div class="line">{{if .Area}}<span class="rep-uplabel">{{.Area}}</span> {{end}}<span class="scope">{{.Scope}}</span>{{if .Detail}} — {{.Detail}}{{end}}</div>
+          {{if .Action}}<div class="action">→ {{.Action}}</div>{{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+    {{if .Good}}
+    <div class="rep-good" style="margin-top:12px;">{{range $i, $g := .Good}}{{if $i}}, {{end}}{{$g}}{{end}} look fine</div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{else if .ReportText}}
+<div class="card" style="margin-bottom:16px;"><div class="ai-text small" style="padding:14px 18px;line-height:1.5;">{{.ReportText}}</div></div>
+{{else}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="empty-state"><div class="empty-state-copy">
+    <div class="empty-state-title">No report yet</div>
+    <div class="empty-state-text">Generate the hourly report from the dashboard, then return here for the breakdown.</div>
+  </div></div>
+</div>
+{{end}}
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Evidence by signal</h3><span class="muted small">{{.OpenAlertsCount}} open alert{{if ne .OpenAlertsCount 1}}s{{end}}</span></div>
+  <div style="padding:4px 18px 16px;">
+    <p class="muted small" style="margin:6px 0 4px;">Each row is a real open alert — the unit, when it fired, and the measured value behind the report's call-out. Serials link to the device's telemetry.</p>
+    {{range .Evidence}}
+    <div style="margin-top:16px;">
+      <h4 style="margin:0 0 6px;display:flex;align-items:center;gap:8px;">{{.Label}} <span class="muted small">{{len .Alerts}}</span></h4>
+      {{if .Alerts}}
+      <table class="table">
+        <thead><tr><th>Device</th><th>Severity</th><th>When</th><th>What the telemetry showed</th></tr></thead>
+        <tbody>
+          {{range .Alerts}}
+          <tr>
+            <td>{{if .Serial}}<a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
+            <td><span class="status-badge {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{else}}muted{{end}}">{{.Severity}}</span></td>
+            <td class="muted small" title="{{formatTime .FiredAt}}">{{timeSince .FiredAt}}</td>
+            <td class="small">{{.Summary}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <p class="muted small" style="margin:0;">No open alerts in this category.</p>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3>Group health</h3><span class="muted small">worst first</span></div>
+  {{if not .Groups}}
+  <div class="empty-state"><div class="empty-state-copy">
+    <div class="empty-state-title">No groups yet</div>
+    <div class="empty-state-text">Create groups and the health scorecard ranks them here.</div>
+  </div></div>
+  {{else}}
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Score</th>
+        <th>Group</th>
+        <th>Devices</th>
+        <th>Offline</th>
+        <th>Alerts</th>
+        <th title="Recent average daily peak battery">Battery</th>
+        <th title="Change vs the prior week">Δ wk</th>
+        <th title="Average charging coverage">Charging</th>
+        <th title="Hottest device this week">Max °C</th>
+        <th title="Distinct firmware builds in the group">Builds</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Groups}}
+      <tr>
+        <td><span class="status-badge {{.ScoreClass}}" style="min-width:34px;justify-content:center;">{{.Score}}</span></td>
+        <td><a href="/groups/{{.GroupID}}" class="link-detail">{{.Name}}</a></td>
+        <td class="muted">{{.DeviceCount}}</td>
+        <td>{{if gt .OfflineCount 0}}<span class="status-badge danger">{{.OfflineCount}}</span>{{else}}<span class="muted">0</span>{{end}}</td>
+        <td>
+          {{if gt .OpenCritical 0}}<span class="status-badge danger">{{.OpenCritical}}</span>{{end}}
+          {{if gt .OpenWarning 0}}<span class="status-badge warn">{{.OpenWarning}}</span>{{end}}
+          {{if and (eq .OpenCritical 0) (eq .OpenWarning 0)}}<span class="muted">—</span>{{end}}
+        </td>
+        <td class="muted">{{fnum .BatteryAvg}}{{if .BatteryAvg}}%{{end}}</td>
+        <td class="muted small">{{fdelta .BatteryDelta}}</td>
+        <td class="muted">{{fpct .ChargingAvg}}</td>
+        <td class="muted">{{fnum .TempMax}}</td>
+        <td class="muted">{{.DistinctBuilds}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}
