@@ -648,6 +648,25 @@ func (d *DB) ExportCheckins(ctx context.Context, deviceIDs []uuid.UUID, start, e
 	return out, err
 }
 
+// ListAllSerials returns every device serial (visible and hidden), so callers can
+// detect and linkify serials named in free text (e.g. the AI report prose).
+func (d *DB) ListAllSerials(ctx context.Context) ([]string, error) {
+	rows, err := d.pool.Query(ctx, `SELECT serial_number FROM devices ORDER BY serial_number`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 	var dev Device
 	err := d.pool.QueryRow(ctx, `

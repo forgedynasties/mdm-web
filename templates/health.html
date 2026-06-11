@@ -23,6 +23,35 @@
   <div class="health-stat"><div class="health-stat-num">{{.UniqueBuilds}}</div><div class="health-stat-label">Builds</div></div>
 </div>
 
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Evidence by signal</h3><span class="muted small">{{.OpenAlertsCount}} open alert{{if ne .OpenAlertsCount 1}}s{{end}}</span></div>
+  <div style="padding:4px 18px 16px;">
+    <p class="muted small" style="margin:6px 0 4px;">Each row is a real open alert behind the report's call-outs — the unit, when it fired, and the measured value. Serials link to the device's telemetry.</p>
+    {{range .Evidence}}
+    <div style="margin-top:16px;">
+      <h4 style="margin:0 0 6px;display:flex;align-items:center;gap:8px;">{{.Label}} <span class="muted small">{{len .Alerts}}</span></h4>
+      {{if .Alerts}}
+      <table class="table">
+        <thead><tr><th>Device</th><th>Severity</th><th>When</th><th>What the telemetry showed</th></tr></thead>
+        <tbody>
+          {{range .Alerts}}
+          <tr>
+            <td>{{if .Serial}}<a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
+            <td><span class="status-badge {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{else}}muted{{end}}">{{.Severity}}</span></td>
+            <td class="muted small" title="{{formatTime .FiredAt}}">{{timeSince .FiredAt}}</td>
+            <td class="small">{{.Summary}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <p class="muted small" style="margin:0;">No open alerts in this category.</p>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+</div>
+
 <div class="card">
   <div class="card-header"><h3>Groups by health</h3></div>
   {{if not .Groups}}

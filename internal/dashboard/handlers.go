@@ -735,7 +735,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 
 	path := r.URL.Path
 	switch {
-	case strings.HasPrefix(path, "/fleet-health"), strings.HasPrefix(path, "/ai-report"):
+	case strings.HasPrefix(path, "/fleet-health"):
 		data["ActivePage"] = "health"
 	case strings.HasPrefix(path, "/alerts"):
 		data["ActivePage"] = "alerts"
@@ -1040,6 +1040,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		data["AISummaryModel"] = s.Model
 		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
 		data["AISummaryPreview"] = summarizePreview(s.Summary)
+		// Serial list so the card can turn serials named in the report prose into links.
+		if serials, err := h.db.ListAllSerials(r.Context()); err == nil {
+			data["DeviceSerials"] = serialsJSON(serials)
+		}
 	}
 
 	if r.Header.Get("HX-Request") == "true" {
@@ -1678,6 +1682,12 @@ func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status
 
 // FleetHealth renders the Tier 3 fleet/group health overview: a fleet summary plus a
 // per-group scorecard ranked worst-first.
+// FleetHealth is the detailed-analysis page: the cached fleet report on top, then —
+// per signal category — the actual open alerts that back it (serial linked to the
+// device page, fired-at, and the value-rich summary), then the per-group scorecard.
+// Every serial/timestamp/value in the evidence comes straight from the alerts table,
+// so the page can never cite a device the model invented. The "Detailed analysis"
+// button on the hourly-report card points here.
 func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 	activeSecs := h.cfg.CheckinInterval() * 3
 	groups, err := h.db.GetGroupHealth(r.Context(), activeSecs)
@@ -1687,14 +1697,19 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	summary, _ := h.db.GetSummary(r.Context(), activeSecs)
 	openAlerts, _ := h.db.CountOpenAlerts(r.Context())
+	alerts, _ := h.db.ListAlerts(r.Context(), "open", 500)
+	serials, _ := h.db.ListAllSerials(r.Context())
 	data := map[string]any{
-		"Title":          "Fleet Health",
-		"Groups":         groups,
-		"TotalDevices":   summary.Total,
-		"OnlineDevices":  summary.RecentlyActive,
-		"OfflineDevices": summary.Total - summary.RecentlyActive,
-		"OpenAlerts":     openAlerts,
-		"UniqueBuilds":   summary.UniqueBuilds,
+		"Title":           "Fleet Health",
+		"Groups":          groups,
+		"TotalDevices":    summary.Total,
+		"OnlineDevices":   summary.RecentlyActive,
+		"OfflineDevices":  summary.Total - summary.RecentlyActive,
+		"OpenAlerts":      openAlerts,
+		"UniqueBuilds":    summary.UniqueBuilds,
+		"Evidence":        groupAlertsBySignal(alerts),
+		"OpenAlertsCount": len(alerts),
+		"DeviceSerials":   serialsJSON(serials),
 	}
 	// Show the same cached fleet report as the main page (latest of hourly or manual).
 	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
@@ -1706,9 +1721,9 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 // reportSignals maps the fleet report's four signal categories to the alert types
-// that evidence them. Order is worst-first display order on the detailed page. Each
-// signal lines up with a ReportIssue.Area value, so the narrative issue and the
-// device-level evidence below it speak the same vocabulary.
+// that evidence them. Order is worst-first display order. Each signal lines up with a
+// ReportIssue.Area value, so the narrative issue and the device-level evidence below
+// it speak the same vocabulary.
 var reportSignals = []struct {
 	Key, Label string
 	Types      []string
@@ -1727,32 +1742,9 @@ type reportEvidence struct {
 	Alerts     []db.Alert
 }
 
-// AIReportDetail renders the "Detailed analysis" drill-down for the hourly report:
-// the cached Report narrative on top, then — per signal category — the actual open
-// alerts that back it (serial linked to the device page, fired-at, and the value-rich
-// summary). Every serial/timestamp/value comes straight from the alerts table, so the
-// page can never cite a device the model invented. Re-queries live open alerts; the
-// report regenerates hourly against the same open set, so drift is negligible.
-func (h *Handler) AIReportDetail(w http.ResponseWriter, r *http.Request) {
-	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, _ := h.db.GetGroupHealth(r.Context(), activeSecs)
-	alerts, _ := h.db.ListAlerts(r.Context(), "open", 500)
-
-	data := map[string]any{
-		"Title":  "Detailed analysis",
-		"Groups": groups,
-	}
-	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
-		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
-		data["AISummaryModel"] = s.Model
-		if rep, ok := ai.ParseReport(s.Summary); ok {
-			data["Report"] = rep
-		} else {
-			data["ReportText"] = s.Summary // legacy prose summary
-		}
-	}
-
-	// Group the open alerts by signal category for the evidence sections.
+// groupAlertsBySignal buckets the open alerts into the four report signal categories
+// for the detailed-analysis evidence tables.
+func groupAlertsBySignal(alerts []db.Alert) []reportEvidence {
 	evidence := make([]reportEvidence, 0, len(reportSignals))
 	for _, sig := range reportSignals {
 		var matched []db.Alert
@@ -1766,10 +1758,17 @@ func (h *Handler) AIReportDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		evidence = append(evidence, reportEvidence{sig.Key, sig.Label, matched})
 	}
-	data["Evidence"] = evidence
-	data["OpenAlerts"] = alerts
-	data["OpenAlertsCount"] = len(alerts)
-	h.render(w, r, "ai_report_detail.html", data)
+	return evidence
+}
+
+// serialsJSON marshals the device serial list for the report card's client-side
+// serial linkifier (it turns any serial named in the report prose into a device link).
+func serialsJSON(serials []string) template.JS {
+	b, err := json.Marshal(serials)
+	if err != nil {
+		return template.JS("[]")
+	}
+	return template.JS(b)
 }
 
 // DeviceShellPage renders the interactive shell console for a device. The console
@@ -4423,7 +4422,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
-	mux.HandleFunc("GET /ai-report", h.requireAuth(h.AIReportDetail))
 	mux.HandleFunc("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))

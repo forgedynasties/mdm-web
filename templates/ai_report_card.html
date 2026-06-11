@@ -9,14 +9,15 @@
     <span class="muted small" style="display:flex;align-items:center;gap:12px;">
       <span>updated <span class="js-local-time" data-utc="{{.AISummaryAt}}" data-format="short">{{.AISummaryAt}}</span></span>
       <button type="button" id="ai-sum-refresh" class="btn-outline btn-sm" onclick="event.stopPropagation();refreshHourlyReport()" title="Regenerate now">Refresh</button>
-      <a href="/ai-report" class="link" onclick="event.stopPropagation();" title="Which units, when, and the values behind each call-out">Detailed analysis →</a>
-      <span id="ai-sum-toggle" class="link">expand</span>
+      {{if ne .ActivePage "health"}}<a href="/fleet-health" class="link" onclick="event.stopPropagation();" title="Which units, when, and the values behind each call-out">Detailed analysis →</a>{{end}}
+      <span id="ai-sum-toggle" class="link">collapse</span>
     </span>
   </div>
   <div style="padding:14px 18px;">
     <div id="ai-sum-raw" hidden>{{.AISummary}}</div>
+    {{if .DeviceSerials}}<script type="application/json" id="ai-sum-serials">{{.DeviceSerials}}</script>{{end}}
     <div id="ai-sum-preview" class="muted small">{{.AISummaryPreview}}</div>
-    <div id="ai-sum-full" class="ai-text small" hidden style="line-height:1.5;"></div>
+    <div id="ai-sum-full" class="ai-text small" style="line-height:1.5;"></div>
   </div>
 </div>
 {{end}}
