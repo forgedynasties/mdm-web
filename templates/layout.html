@@ -124,7 +124,27 @@
     var m = map[status] || ['muted', (status || '').toUpperCase() || '—'];
     return '<span class="rep-status rep-' + m[0] + '">' + m[1] + '</span>';
   }
-  function mdmReportPreview(rep) { return mdmStatusWord(rep.status) + '<span class="rep-headline">' + mdmEsc(rep.headline) + '</span>'; }
+  // Device serials (embedded once per page) so any serial named in the report prose
+  // becomes a link to that device. Cached after first read; safe if the list is absent.
+  function mdmSerials() {
+    if (mdmSerials._cache) return mdmSerials._cache;
+    var el = document.getElementById('ai-sum-serials'), arr = [];
+    if (el) { try { arr = JSON.parse(el.textContent) || []; } catch (e) {} }
+    mdmSerials._cache = arr;
+    return arr;
+  }
+  function mdmLinkifySerials(html) {
+    var serials = mdmSerials();
+    if (!serials.length) return html;
+    // Longest-first so a shorter serial can't shadow a longer one in the alternation.
+    var esc = serials.slice().sort(function (a, b) { return b.length - a.length; })
+      .map(function (s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+    var re = new RegExp('\\b(' + esc.join('|') + ')\\b', 'g');
+    return html.replace(re, function (m) {
+      return '<a href="/devices/' + encodeURIComponent(m) + '" class="link-detail mono">' + m + '</a>';
+    });
+  }
+  function mdmReportPreview(rep) { return mdmStatusWord(rep.status) + '<span class="rep-headline">' + mdmLinkifySerials(mdmEsc(rep.headline)) + '</span>'; }
   function mdmReportBody(rep) {
     var h = '';
     if (rep.metrics && rep.metrics.length) {
@@ -147,7 +167,7 @@
     if (rep.good && rep.good.length) {
       h += '<div class="rep-good">' + rep.good.map(mdmEsc).join(', ') + ' look fine</div>';
     }
-    return h || '<div class="muted small">No further detail.</div>';
+    return mdmLinkifySerials(h) || '<div class="muted small">No further detail.</div>';
   }
   function mdmParseReport(raw) {
     try { var o = JSON.parse(raw); if (o && (o.headline || o.status)) return o; } catch (e) {}

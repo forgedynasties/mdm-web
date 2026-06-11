@@ -77,7 +77,8 @@ Respond with ONLY a JSON object — no markdown, no code fences, no prose around
   ],
   "good": ["short labels of signals that look fine"]
 }
-status: ok = nothing to act on, watch = a deployed unit worth keeping an eye on, at_risk = a deployed unit needs attention. Sort issues worst-first; use an empty array when there are none. When everything's fine give a calm one-line headline plus 2-3 grounding metrics; when all units are still in the lab, make the headline about how the units under test are doing and ground it in their hardware numbers. Keep "detail" and "action" specific and free of drama.`,
+status: ok = nothing to act on, watch = a deployed unit worth keeping an eye on, at_risk = a deployed unit needs attention. Sort issues worst-first; use an empty array when there are none. When everything's fine give a calm one-line headline plus 2-3 grounding metrics; when all units are still in the lab, make the headline about how the units under test are doing and ground it in their hardware numbers. Keep "detail" and "action" specific and free of drama.
+When you name a unit, write its full device serial exactly as it appears in the data — and when several units are involved, list each full serial separated by commas. Never abbreviate or merge serials (no "ABC1230030/0021/0046" shorthand); the dashboard turns each full serial into a link, so a shortened serial just becomes dead text.`,
 		t.DropPct, t.MinFullPct, t.MaxChargeFrac*100, t.TempC, t.RAMPct)
 }
 
