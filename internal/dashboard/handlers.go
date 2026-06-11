@@ -1131,6 +1131,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	redactDeviceCommandURLs(h.role(r), commands)
 
 	apps, err := h.db.ListApps(r.Context())
 	if err != nil {
@@ -1228,6 +1229,7 @@ func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	redactDeviceCommandURLs(h.role(r), commands)
 
 	h.render(w, r, "device_history.html", map[string]any{
 		"Title":        device.SerialNumber + " — History",
@@ -2154,6 +2156,7 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	redactDeviceCommandURLs(h.role(r), commands)
 	h.renderCachedHTML(w, r, "device-commands", map[string]any{
 		"Device":   device,
 		"Commands": commands,
@@ -3095,6 +3098,9 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.markDeliveryPresence(deliveries)
+	if !canSeeCommandURLs(h.role(r)) {
+		cmd.ApkURL = ""
+	}
 	h.render(w, r, "command_detail.html", map[string]any{
 		"Title":      "Command " + id.String()[:8],
 		"Command":    cmd,
@@ -3174,6 +3180,23 @@ func writeCommandAuthzError(w http.ResponseWriter, authz cmdAuthz) bool {
 // use authorizeCommand directly so they can distinguish 400 from 403.
 func (h *Handler) commandTypeAllowed(role, cmdType string) bool {
 	return h.authorizeCommand(role, cmdType) == cmdAuthzOK
+}
+
+// canSeeCommandURLs reports whether a role may be shown internal APK/OTA URLs,
+// which embed the object-store bucket name. Only operational roles need them;
+// viewers must not see them, so the bucket name is not disclosed via command
+// reads (GB-05).
+func canSeeCommandURLs(role string) bool { return role == "admin" || role == "operator" }
+
+// redactDeviceCommandURLs blanks the APK/OTA URL on a command-history slice for
+// roles that may not see it. The template falls back to the command label.
+func redactDeviceCommandURLs(role string, cmds []db.DeviceCommand) {
+	if canSeeCommandURLs(role) {
+		return
+	}
+	for i := range cmds {
+		cmds[i].ApkURL = ""
+	}
 }
 
 func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
