@@ -66,10 +66,12 @@ type Handler struct {
 	cfg         *config.Config
 	adminAPIKey string
 
-	// publicOrigin is the canonical browser-facing origin (scheme://host) used
-	// for CSRF same-origin checks, e.g. "https://udm.dev.aioapp.com". When empty
-	// (unset), checks fall back to matching the request's own Host header.
-	publicOrigin string
+	// publicOrigins is the set of trusted browser-facing origins (scheme://host)
+	// for CSRF checks, e.g. ["https://udm.dev.aioapp.com",
+	// "https://mdm.dev.aioapp.com"]. Parsed from the comma-separated PUBLIC_ORIGIN
+	// env. When empty (unset), checks fall back to matching the request's own Host
+	// header, which trusts whichever served domain the request came from.
+	publicOrigins []string
 
 	// loginFails throttles failed login attempts per source IP and per account
 	// to blunt brute-force / credential-spray (F-01).
@@ -654,18 +656,30 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob("templates/*.html"))
 
 	return &Handler{
-		db:           d,
-		hub:          hub,
-		shell:        shellMgr,
-		store:        store,
-		tmpl:         tmpl,
-		user:         user,
-		password:     password,
-		cfg:          cfg,
-		adminAPIKey:  adminAPIKey,
-		publicOrigin: strings.TrimRight(os.Getenv("PUBLIC_ORIGIN"), "/"),
-		loginFails:   ratelimit.New(15 * time.Minute),
+		db:            d,
+		hub:           hub,
+		shell:         shellMgr,
+		store:         store,
+		tmpl:          tmpl,
+		user:          user,
+		password:      password,
+		cfg:           cfg,
+		adminAPIKey:   adminAPIKey,
+		publicOrigins: parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
+		loginFails:    ratelimit.New(15 * time.Minute),
 	}
+}
+
+// parseOrigins splits the comma-separated PUBLIC_ORIGIN env into a normalized
+// list of trusted origins (trailing slash and surrounding space removed).
+func parseOrigins(raw string) []string {
+	var out []string
+	for _, p := range strings.Split(raw, ",") {
+		if o := strings.TrimRight(strings.TrimSpace(p), "/"); o != "" {
+			out = append(out, o)
+		}
+	}
+	return out
 }
 
 // loginMaxFailures is the number of failed login attempts (per IP or per
@@ -911,8 +925,13 @@ func (h *Handler) enforceSameOrigin(next http.HandlerFunc) http.HandlerFunc {
 // publicOrigin is configured it must match exactly; otherwise the Origin's host
 // must equal the request Host (works behind a TLS-terminating proxy).
 func (h *Handler) originAllowed(origin string, r *http.Request) bool {
-	if h.publicOrigin != "" {
-		return origin == h.publicOrigin
+	if len(h.publicOrigins) > 0 {
+		for _, o := range h.publicOrigins {
+			if origin == o {
+				return true
+			}
+		}
+		return false
 	}
 	u, err := url.Parse(origin)
 	if err != nil {
