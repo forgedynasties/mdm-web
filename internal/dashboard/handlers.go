@@ -3,6 +3,7 @@ package dashboard
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha1"
 	"crypto/subtle"
 	"encoding/csv"
@@ -671,65 +672,105 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 // account) within the limiter window before further attempts are refused.
 const loginMaxFailures = 8
 
-// sessionFresh reports whether a session was issued at/after the current
-// session epoch. Bumping the epoch (Log out all) invalidates older cookies.
-func (h *Handler) sessionFresh(session *sessions.Session) bool {
-	issued, _ := session.Values["issued"].(int64)
-	return issued >= h.cfg.SessionEpoch()
+// sessionIdleTimeout logs out a session that has gone this long without an
+// authenticated request, independent of the absolute lifetime
+// (cfg.SessionTimeout()). Activity slides last_seen forward (touchSession).
+const sessionIdleTimeout = 30 * time.Minute
+
+// currentSession resolves the server-side session referenced by the request
+// cookie, enforcing both the absolute expiry and the idle timeout. An invalid,
+// expired, or idle-timed-out session is deleted and reported as absent. This
+// does a primary-key lookup per call; the dashboard is low-traffic, so the few
+// calls per request are acceptable.
+func (h *Handler) currentSession(r *http.Request) (*db.Session, bool) {
+	cookie, err := h.store.Get(r, "mdm-session")
+	if err != nil {
+		return nil, false
+	}
+	sid, _ := cookie.Values["sid"].(string)
+	if sid == "" {
+		return nil, false
+	}
+	s, err := h.db.GetSession(r.Context(), sid)
+	if err != nil {
+		return nil, false
+	}
+	now := time.Now()
+	if now.After(s.ExpiresAt) || now.Sub(s.LastSeen) > sessionIdleTimeout {
+		_ = h.db.DeleteSession(r.Context(), sid)
+		return nil, false
+	}
+	return s, true
+}
+
+// touchSession slides the session's last_seen forward so an active user is not
+// idle-timed-out mid-use. Called once per authenticated request by the route
+// guards. Best-effort; never blocks the request.
+func (h *Handler) touchSession(r *http.Request) {
+	cookie, err := h.store.Get(r, "mdm-session")
+	if err != nil {
+		return
+	}
+	if sid, _ := cookie.Values["sid"].(string); sid != "" {
+		_ = h.db.TouchSession(r.Context(), sid)
+	}
+}
+
+// newSessionID returns a 256-bit random opaque session identifier.
+func newSessionID() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// startSession creates a server-side session row and writes its id into the
+// signed cookie. userID is nil for the static env-configured admin.
+func (h *Handler) startSession(w http.ResponseWriter, r *http.Request, userID *uuid.UUID, username, role string) error {
+	sid, err := newSessionID()
+	if err != nil {
+		return err
+	}
+	if err := h.db.CreateSession(r.Context(), db.Session{
+		ID:        sid,
+		UserID:    userID,
+		Username:  username,
+		Role:      role,
+		ExpiresAt: time.Now().Add(time.Duration(h.cfg.SessionTimeout()) * time.Second),
+	}); err != nil {
+		return err
+	}
+	cookie, _ := h.store.Get(r, "mdm-session")
+	cookie.Values = map[interface{}]interface{}{"sid": sid}
+	return cookie.Save(r, w)
 }
 
 func (h *Handler) isAdmin(r *http.Request) bool {
-	session, err := h.store.Get(r, "mdm-session")
-	if err != nil {
-		return false
-	}
-	if !h.sessionFresh(session) {
-		return false
-	}
-	auth, ok := session.Values["authenticated"].(bool)
-	return ok && auth
+	s, ok := h.currentSession(r)
+	return ok && s.Role == "admin"
 }
 
 // isAuthenticated is kept for compatibility; use isAdmin for admin-only checks.
 func (h *Handler) isAuthenticated(r *http.Request) bool { return h.isAdmin(r) }
 
 func (h *Handler) isLoggedIn(r *http.Request) bool {
-	if h.isAdmin(r) {
-		return true
-	}
-	session, err := h.store.Get(r, "mdm-session")
-	if err != nil {
-		return false
-	}
-	if !h.sessionFresh(session) {
-		return false
-	}
-	uid, _ := session.Values["user_id"].(string)
-	return uid != ""
+	_, ok := h.currentSession(r)
+	return ok
 }
 
 func (h *Handler) role(r *http.Request) string {
-	if h.isAdmin(r) {
-		return "admin"
+	if s, ok := h.currentSession(r); ok {
+		return s.Role
 	}
-	session, err := h.store.Get(r, "mdm-session")
-	if err != nil {
-		return ""
-	}
-	role, _ := session.Values["user_role"].(string)
-	return role
+	return ""
 }
 
 func (h *Handler) currentUsername(r *http.Request) string {
-	if h.isAdmin(r) {
-		return h.user
+	if s, ok := h.currentSession(r); ok {
+		return s.Username
 	}
-	session, err := h.store.Get(r, "mdm-session")
-	if err != nil {
-		return ""
-	}
-	username, _ := session.Values["username"].(string)
-	return username
+	return ""
 }
 
 // audit records an admin action (best-effort; never blocks the request).
@@ -796,6 +837,7 @@ func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
+		h.touchSession(r)
 		next(w, r)
 	}
 }
@@ -805,29 +847,32 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 		// An anonymous caller is redirected to login like any other protected
 		// route, so admin-only paths don't stand out with a 403 (F-07). A
 		// logged-in but non-admin user gets a genuine 403.
-		if !h.isLoggedIn(r) {
+		s, ok := h.currentSession(r)
+		if !ok {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if !h.isAdmin(r) {
+		if s.Role != "admin" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+		h.touchSession(r)
 		next(w, r)
 	}
 }
 
 func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !h.isLoggedIn(r) {
+		s, ok := h.currentSession(r)
+		if !ok {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		role := h.role(r)
-		if role != "admin" && role != "operator" {
+		if s.Role != "admin" && s.Role != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+		h.touchSession(r)
 		next(w, r)
 	}
 }
@@ -915,11 +960,10 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	passMatch := subtle.ConstantTimeCompare([]byte(pass), []byte(h.password)) == 1
 	if userMatch && passMatch {
 		loginOK()
-		session, _ := h.store.Get(r, "mdm-session")
-		session.Values["authenticated"] = true
-		session.Values["username"] = h.user
-		session.Values["issued"] = time.Now().Unix()
-		session.Save(r, w)
+		if err := h.startSession(w, r, nil, h.user, "admin"); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
@@ -929,12 +973,11 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		if bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(pass)) == nil {
 			loginOK()
-			session, _ := h.store.Get(r, "mdm-session")
-			session.Values["user_id"] = dbUser.ID.String()
-			session.Values["user_role"] = dbUser.Role
-			session.Values["username"] = dbUser.Username
-			session.Values["issued"] = time.Now().Unix()
-			session.Save(r, w)
+			uid := dbUser.ID
+			if err := h.startSession(w, r, &uid, dbUser.Username, dbUser.Role); err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
 			http.Redirect(w, r, "/", http.StatusFound)
 			return
 		}
@@ -947,11 +990,12 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	// Delete the server-side session so the cookie is dead immediately, not just
+	// dropped by the browser (GB-04).
 	session, _ := h.store.Get(r, "mdm-session")
-	session.Values["authenticated"] = false
-	delete(session.Values, "user_id")
-	delete(session.Values, "user_role")
-	delete(session.Values, "username")
+	if sid, _ := session.Values["sid"].(string); sid != "" {
+		_ = h.db.DeleteSession(r.Context(), sid)
+	}
 	session.Options.MaxAge = -1
 	session.Save(r, w)
 	http.Redirect(w, r, "/login", http.StatusFound)
@@ -3589,6 +3633,9 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 			log.Printf("[retention] pruned %d logcat row(s) older than %dd", n, d)
 		}
 	}
+	if err := h.db.DeleteExpiredSessions(ctx); err != nil {
+		log.Printf("[retention] prune sessions: %v", err)
+	}
 }
 
 // refreshFleetSummary regenerates the cached fleet AI summary shown on the main
@@ -4017,9 +4064,11 @@ func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *Handler) SettingsLogoutAll(w http.ResponseWriter, r *http.Request) {
-	// Invalidate every session issued before now (including this one).
+	// Delete every server-side session, including this one (GB-04/GB-08).
 	h.audit(r, "session.logout_all", "", "")
-	h.cfg.SetSessionEpoch(time.Now().Unix())
+	if err := h.db.DeleteAllSessions(r.Context()); err != nil {
+		log.Printf("[session] logout all: %v", err)
+	}
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
