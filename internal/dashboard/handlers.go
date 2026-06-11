@@ -3552,6 +3552,26 @@ func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Req
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
+// DemoPage serves a self-contained devices-page UI/UX exploration from
+// templates/demo/<n>.html. Gated behind requireAuth so these design mockups are
+// never exposed unauthenticated (unlike the removed static/preview.html). These
+// are throwaway design demos with synthetic data, not wired to the real fleet.
+func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
+	switch r.PathValue("n") {
+	case "1", "2", "3", "4":
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	b, err := os.ReadFile("templates/demo/" + r.PathValue("n") + ".html")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(b)
+}
+
 func (h *Handler) SettingsSetCommandExpiry(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	sec := 300
@@ -4641,6 +4661,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /logout", h.Logout)
 
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
+	mux.HandleFunc("GET /demo", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/demo/1", http.StatusFound)
+	}))
+	mux.HandleFunc("GET /demo/{n}", h.requireAuth(h.DemoPage))
 	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
 	mux.HandleFunc("GET /devices/{serial}/history", h.requireAuth(h.DeviceHistory))

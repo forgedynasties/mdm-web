@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet Board — Devices Demo</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{
+    --bg:#f3f4f7; --bg2:#eceef2; --card:#ffffff; --line:#e6e9ee; --line2:#dde1e8;
+    --ink:#15181d; --ink2:#454b55; --muted:#737b86; --faint:#a3aab4;
+    --accent:#d82747; --accent2:#bd1f3c; --accent-soft:rgba(216,39,71,.09);
+    --ok:#16a34a; --okline:#bbf7d0; --warn:#d97706; --warnline:#fde7c4; --bad:#dc2626; --badline:#fecaca;
+    --cool:#2563eb;
+    --mono:"JetBrains Mono",ui-monospace,monospace; --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --sh:0 1px 2px rgba(16,24,40,.05); --sh2:0 6px 20px rgba(16,24,40,.10);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{font-family:var(--sans);color:var(--ink);min-height:100vh;
+    background:radial-gradient(1100px 600px at 100% -5%,rgba(216,39,71,.04),transparent 55%),var(--bg);
+    -webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+
+  .demo-switch{display:flex;align-items:center;gap:18px;padding:0 22px;height:44px;background:#fff;
+    border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50;box-shadow:var(--sh)}
+  .demo-switch b{font-family:var(--mono);letter-spacing:.04em;color:var(--faint);text-transform:uppercase;font-size:10.5px}
+  .demo-switch nav{display:flex;gap:2px;margin-left:auto}
+  .demo-switch nav a{padding:6px 12px;border-radius:7px;color:var(--ink2);font-size:12.5px;transition:.15s}
+  .demo-switch nav a:hover{background:var(--bg2)}
+  .demo-switch nav a.on{background:var(--accent);color:#fff}
+  .demo-switch .back{color:var(--muted);font-family:var(--mono);font-size:11px}
+
+  header.page{padding:30px 32px 18px;max-width:1480px;margin:0 auto}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600}
+  header.page h1{margin:6px 0 2px;font-size:30px;font-weight:600;letter-spacing:-.025em}
+  header.page p{margin:0;color:var(--muted);font-size:14px}
+  .toolbar{display:flex;align-items:center;gap:14px;margin-top:22px;flex-wrap:wrap}
+  .summary{display:flex;gap:10px}
+  .scard{background:#fff;border:1px solid var(--line);border-radius:13px;padding:12px 16px;min-width:104px;box-shadow:var(--sh)}
+  .scard .n{font-size:24px;font-weight:650;letter-spacing:-.02em;line-height:1}
+  .scard .l{font-size:11px;color:var(--muted);margin-top:5px;text-transform:uppercase;letter-spacing:.05em}
+  .scard.alert{border-color:var(--badline);background:linear-gradient(180deg,#fff,#fff6f6)} .scard.alert .n{color:var(--accent)}
+  .scard.warm .n{color:var(--warn)} .scard.live .n{color:var(--ok)}
+  .spacer{flex:1}
+  .search{position:relative}
+  .search input{background:#fff;border:1px solid var(--line2);border-radius:11px;padding:11px 14px 11px 38px;width:260px;
+    font-family:var(--sans);font-size:13.5px;outline:none;transition:.15s;box-shadow:var(--sh)}
+  .search input:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--faint)}
+  .seg{display:flex;background:#fff;border:1px solid var(--line2);border-radius:11px;padding:3px;box-shadow:var(--sh)}
+  .seg button{border:0;background:none;font-family:var(--sans);font-size:12.5px;color:var(--ink2);padding:7px 14px;
+    border-radius:8px;cursor:pointer;transition:.14s}
+  .seg button.on{background:var(--accent);color:#fff}
+
+  main{max-width:1480px;margin:0 auto;padding:8px 32px 70px}
+  .group-h{display:flex;align-items:center;gap:12px;margin:26px 4px 14px}
+  .group-h h2{margin:0;font-size:15px;font-weight:600;letter-spacing:-.01em}
+  .group-h .ct{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--bg2);border-radius:20px;padding:2px 10px}
+  .group-h .bar{flex:1;height:1px;background:var(--line)}
+  .group-h .health{display:flex;gap:5px;align-items:center;font-size:11.5px;color:var(--muted)}
+  .group-h .health i{width:8px;height:8px;border-radius:50%}
+
+  .board{display:grid;grid-template-columns:repeat(auto-fill,minmax(244px,1fr));gap:14px}
+  .dev{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;position:relative;
+    box-shadow:var(--sh);transition:transform .16s,box-shadow .16s,border-color .16s;cursor:pointer;
+    animation:pop .4s both;overflow:hidden}
+  @keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .dev:hover{transform:translateY(-3px);box-shadow:var(--sh2);border-color:var(--line2)}
+  .dev::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--st)}
+  .dev .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .dev .serial{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:-.02em}
+  .dev .grp{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .statetag{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.04em;padding:3px 8px;border-radius:20px}
+  .statetag i{width:6px;height:6px;border-radius:50%}
+  .statetag.online{color:var(--ok);background:var(--ok-bg,#ecfdf3)} .statetag.online i{background:var(--ok)}
+  .statetag.stale{color:var(--warn);background:#fef6e9} .statetag.stale i{background:var(--warn)}
+  .statetag.offline{color:var(--accent);background:var(--accent-soft)} .statetag.offline i{background:var(--accent)}
+
+  .ringrow{display:flex;align-items:center;gap:16px;margin:16px 0 14px}
+  .ring{position:relative;width:72px;height:72px;flex:none}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .val b{font-family:var(--mono);font-size:17px;font-weight:600;letter-spacing:-.03em}
+  .ring .val small{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:1px}
+  .meta{flex:1;display:flex;flex-direction:column;gap:7px}
+  .meta .build{font-family:var(--mono);font-size:11px;color:var(--ink2);background:var(--bg2);border:1px solid var(--line);
+    border-radius:6px;padding:2px 8px;width:fit-content}
+  .meta .seen{font-size:11.5px;color:var(--muted)}
+  .meta .kiosk{font-size:10px;color:var(--cool);border:1px solid #c7dbff;background:#f0f6ff;border-radius:5px;padding:1px 7px;width:fit-content}
+
+  .stats{display:flex;gap:0;border-top:1px solid var(--line);padding-top:12px}
+  .stats .s{flex:1;text-align:center;border-left:1px solid var(--line)}
+  .stats .s:first-child{border-left:0}
+  .stats .s b{font-family:var(--mono);font-size:13px;display:block;letter-spacing:-.02em}
+  .stats .s small{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .stats .s b.warn{color:var(--warn)} .stats .s b.bad{color:var(--bad)} .stats .s b.cool{color:var(--cool)}
+  .bolt{color:var(--ok);width:11px;height:11px;vertical-align:-1px}
+</style>
+</head>
+<body>
+  <div class="demo-switch">
+    <b>Devices UI · exploration</b>
+    <nav><a href="/demo/1">1 · Mission Control</a><a href="/demo/2" class="on">2 · Fleet Board</a><a href="/demo/3">3 · Triage</a><a href="/demo/4">4 · Explorer</a></nav>
+    <a href="/" class="back">← live dashboard</a>
+  </div>
+
+  <header class="page">
+    <div class="eyebrow">Fleet overview</div>
+    <h1>Device Board</h1>
+    <p>Every unit at a glance — health as shape, grouped by deployment.</p>
+    <div class="toolbar">
+      <div class="summary" id="summary"></div>
+      <div class="spacer"></div>
+      <div class="search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>
+        <input id="q" placeholder="Search serial, build…" autocomplete="off">
+      </div>
+      <div class="seg" id="grouptoggle">
+        <button class="on" data-g="group">By group</button>
+        <button data-g="flat">All units</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="board"></main>
+
+<script>
+const RAW = [
+ ["AT070AABU00442","v2.15.0",84,1,62,31.2,1,"tableside-pune",1,18],
+ ["AT070AABU00443","v2.15.0",76,0,58,33.0,1,"tableside-pune",1,35],
+ ["AT070AABU00451","v2.14.3",12,0,71,38.5,1,"kiosks-mum",1,52],
+ ["AT070AABU00455","v2.15.0",91,1,49,30.1,1,"kiosks-mum",1,12],
+ ["AT070AABU00460","v2.14.3",64,0,66,35.4,0,"drivers-blr",1,240],
+ ["AT070AABU00461","v2.13.9",8,0,80,44.2,0,"drivers-blr",1,95],
+ ["AT070AABU00470","v2.15.0",100,1,41,29.0,1,"retail-del",1,22],
+ ["AT070AABU00471","v2.15.0",55,0,60,32.8,1,"retail-del",1,61],
+ ["AT070AABU00480","v2.14.3",47,0,73,36.9,0,"warehouse-hyd",0,1850],
+ ["AT070AABU00481","v2.14.3",33,0,69,41.0,0,"warehouse-hyd",1,410],
+ ["AT070AABU00490","v2.15.0",88,1,52,31.5,1,"tableside-pune",1,9],
+ ["AT070AABU00491","v2.13.9",17,0,77,43.6,0,"drivers-blr",1,130],
+ ["AT070AABU00500","v2.15.0",72,0,57,33.3,1,"kiosks-mum",1,44],
+ ["AT070AABU00501","v2.14.3",69,1,63,34.1,1,"kiosks-mum",1,28],
+ ["AT070AABU00510","v2.15.0",95,1,45,30.7,1,"retail-del",1,15],
+ ["AT070AABU00511","v2.14.3",58,0,61,35.0,0,"warehouse-hyd",1,320],
+ ["AT070AABU00520","v2.13.9",41,0,74,37.8,0,"drivers-blr",0,3600],
+ ["AT070AABU00521","v2.15.0",80,1,50,31.0,1,"tableside-pune",1,20],
+ ["AT070AABU00530","v2.15.0",66,0,59,33.9,1,"retail-del",1,70],
+ ["AT070AABU00531","v2.14.3",29,0,70,40.2,0,"warehouse-hyd",1,510],
+ ["AT070AABU00540","v2.15.0",90,1,47,30.3,1,"kiosks-mum",1,11],
+ ["AT070AABU00541","v2.14.3",53,0,64,34.7,1,"kiosks-mum",1,88],
+ ["AT070AABU00550","v2.13.9",38,0,72,38.1,0,"drivers-blr",1,260],
+ ["AT070AABU00551","v2.15.0",77,0,56,32.2,1,"tableside-pune",1,33],
+ ["AT070AABU00560","v2.14.3",61,1,65,35.6,0,"warehouse-hyd",1,175],
+ ["AT070AABU00561","v2.15.0",99,1,43,29.4,1,"retail-del",1,7],
+].map(r=>({serial:r[0],build:r[1],batt:r[2],chg:!!r[3],ram:r[4],temp:r[5],kiosk:!!r[6],group:r[7],online:!!r[8],last:r[9]}));
+RAW.forEach(d=>{ d.state=!d.online||d.last>1800?"offline":d.last>600?"stale":"online"; });
+
+let mode="group", q="";
+const $=s=>document.querySelector(s);
+const C={ok:getCss('--ok'),warn:getCss('--warn'),bad:getCss('--bad'),line:'#e9ecf1'};
+function getCss(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+const ago=s=>s<60?s+"s":s<3600?Math.floor(s/60)+"m":Math.floor(s/3600)+"h";
+const battC=b=>b<20?C.bad:b<50?C.warn:C.ok;
+
+function ring(b){
+  const r=30,c=2*Math.PI*r,off=c*(1-b/100);
+  return `<div class="ring"><svg width="72" height="72" viewBox="0 0 72 72">
+    <circle cx="36" cy="36" r="${r}" fill="none" stroke="${C.line}" stroke-width="6"/>
+    <circle cx="36" cy="36" r="${r}" fill="none" stroke="${battC(b)}" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}"/>
+  </svg><div class="val"><b>${b}</b><small>battery</small></div></div>`;
+}
+function card(x,i){
+  return `<div class="dev" style="--st:${x.state==='online'?C.ok:x.state==='stale'?C.warn:C.bad};animation-delay:${Math.min(i*22,400)}ms">
+    <div class="top">
+      <div><div class="serial">${x.serial}</div><div class="grp">${x.group}</div></div>
+      <span class="statetag ${x.state}"><i></i>${x.state}</span>
+    </div>
+    <div class="ringrow">
+      ${ring(x.batt)}
+      <div class="meta">
+        <span class="build">${x.build}</span>
+        <span class="seen">Seen ${ago(x.last)} ago ${x.chg?'<svg class="bolt" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg>':''}</span>
+        ${x.kiosk?'<span class="kiosk">KIOSK LOCKED</span>':''}
+      </div>
+    </div>
+    <div class="stats">
+      <div class="s"><b class="${x.ram>=80?'bad':x.ram>=65?'warn':''}">${x.ram}%</b><small>RAM</small></div>
+      <div class="s"><b class="${x.temp>=42?'bad':x.temp>=38?'warn':'cool'}">${x.temp.toFixed(0)}°</b><small>Temp</small></div>
+      <div class="s"><b>${x.build.replace('v','')}</b><small>Build</small></div>
+    </div>
+  </div>`;
+}
+function render(){
+  let d=RAW.filter(x=>!q||(x.serial+x.build+x.group).toLowerCase().includes(q));
+  const board=$("#board");
+  if(mode==="flat"){
+    board.innerHTML=`<div class="board">${d.map(card).join("")}</div>`;
+  }else{
+    const groups=[...new Set(d.map(x=>x.group))].sort();
+    board.innerHTML=groups.map(g=>{
+      const gd=d.filter(x=>x.group===g);
+      const on=gd.filter(x=>x.state==='online').length, st=gd.filter(x=>x.state==='stale').length, off=gd.filter(x=>x.state==='offline').length;
+      return `<section><div class="group-h"><h2>${g}</h2><span class="ct">${gd.length} units</span>
+        <span class="bar"></span>
+        <span class="health"><i style="background:${C.ok}"></i>${on} <i style="background:${C.warn}"></i>${st} <i style="background:${C.bad}"></i>${off}</span></div>
+        <div class="board">${gd.map(card).join("")}</div></section>`;
+    }).join("");
+  }
+}
+function summary(){
+  const t=RAW.length, on=RAW.filter(x=>x.state==='online').length, low=RAW.filter(x=>x.batt<20).length, k=RAW.filter(x=>x.kiosk).length;
+  $("#summary").innerHTML=`
+    <div class="scard"><div class="n">${t}</div><div class="l">Units</div></div>
+    <div class="scard live"><div class="n">${on}</div><div class="l">Live</div></div>
+    <div class="scard alert"><div class="n">${low}</div><div class="l">Low batt</div></div>
+    <div class="scard"><div class="n">${k}</div><div class="l">Kiosk</div></div>`;
+}
+$("#q").oninput=e=>{q=e.target.value.toLowerCase().trim();render();};
+$("#grouptoggle").onclick=e=>{const b=e.target.closest("button");if(!b)return;mode=b.dataset.g;
+  [...e.currentTarget.children].forEach(c=>c.classList.toggle("on",c===b));render();};
+summary();render();
+</script>
+</body>
+</html>
