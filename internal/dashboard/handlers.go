@@ -13,6 +13,8 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -61,6 +63,11 @@ type Handler struct {
 	password    string
 	cfg         *config.Config
 	adminAPIKey string
+
+	// publicOrigin is the canonical browser-facing origin (scheme://host) used
+	// for CSRF same-origin checks, e.g. "https://udm.dev.aioapp.com". When empty
+	// (unset), checks fall back to matching the request's own Host header.
+	publicOrigin string
 
 	// lastDigestDay is the YYYY-MM-DD of the most recent AI fleet digest sent, so
 	// housekeeping posts it at most once per day. Touched only from the single
@@ -129,9 +136,9 @@ type DeviceRowJSON struct {
 	BatteryPct   int     `json:"battery_pct"`
 	BatteryClass string  `json:"battery_class"`
 	BatteryWidth string  `json:"battery_width"`
-	RamPct       int     `json:"ram_pct"`     // 0 = no data
+	RamPct       int     `json:"ram_pct"` // 0 = no data
 	HasRam       bool    `json:"has_ram"`
-	TempStr      string  `json:"temp_str"`    // "" = no data
+	TempStr      string  `json:"temp_str"` // "" = no data
 	TempClass    string  `json:"temp_class"`
 	LastSeenISO  string  `json:"last_seen_iso"` // RFC3339, empty if zero
 	TimeSince    string  `json:"time_since"`
@@ -380,7 +387,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 				return cmd.ApkURL
 			}
 			if cmd.Type == "shell" && len(cmd.Payload) > 0 {
-				var p struct{ Cmd string `json:"cmd"` }
+				var p struct {
+					Cmd string `json:"cmd"`
+				}
 				if json.Unmarshal(cmd.Payload, &p) == nil && p.Cmd != "" {
 					return p.Cmd
 				}
@@ -634,15 +643,16 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob("templates/*.html"))
 
 	return &Handler{
-		db:          d,
-		hub:         hub,
-		shell:       shellMgr,
-		store:       store,
-		tmpl:        tmpl,
-		user:        user,
-		password:    password,
-		cfg:         cfg,
-		adminAPIKey: adminAPIKey,
+		db:           d,
+		hub:          hub,
+		shell:        shellMgr,
+		store:        store,
+		tmpl:         tmpl,
+		user:         user,
+		password:     password,
+		cfg:          cfg,
+		adminAPIKey:  adminAPIKey,
+		publicOrigin: strings.TrimRight(os.Getenv("PUBLIC_ORIGIN"), "/"),
 	}
 }
 
@@ -796,6 +806,50 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 	}
 }
 
+// enforceSameOrigin wraps a state-changing dashboard handler and rejects
+// requests that originate cross-site, mitigating CSRF (GB-03). Dashboard auth
+// is a cookie the browser attaches automatically, so a malicious page could
+// otherwise drive any POST (e.g. issuing a device command or logging the user
+// out). The device/admin JSON API under /api/v1/* is authenticated by an
+// X-API-Key header rather than an ambient cookie, so it is not CSRF-able and is
+// intentionally not wrapped.
+//
+// The check uses two independent signals and blocks only when one positively
+// indicates a cross-origin request, so legacy clients that send neither header
+// still work:
+//   - Sec-Fetch-Site (fetch metadata): must be same-origin or none when present.
+//   - Origin: must match publicOrigin (or the request Host) when present.
+func (h *Handler) enforceSameOrigin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		switch r.Header.Get("Sec-Fetch-Site") {
+		case "", "same-origin", "none":
+			// allowed, or header absent — fall through to the Origin check
+		default:
+			http.Error(w, "cross-site request blocked", http.StatusForbidden)
+			return
+		}
+		if origin := r.Header.Get("Origin"); origin != "" && !h.originAllowed(origin, r) {
+			http.Error(w, "cross-origin request blocked", http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}
+}
+
+// originAllowed reports whether an Origin header value is this site. When
+// publicOrigin is configured it must match exactly; otherwise the Origin's host
+// must equal the request Host (works behind a TLS-terminating proxy).
+func (h *Handler) originAllowed(origin string, r *http.Request) bool {
+	if h.publicOrigin != "" {
+		return origin == h.publicOrigin
+	}
+	u, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	return u.Host == r.Host
+}
+
 func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 	if h.isLoggedIn(r) {
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -913,7 +967,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 			groupID = parsed
 		}
 	}
-	
+
 	var productionID uuid.UUID
 	if pid := r.URL.Query().Get("production"); pid != "" {
 		if parsed, err := uuid.Parse(pid); err == nil {
@@ -924,15 +978,15 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
 	filter := db.DeviceFilter{
-		Search:                   q,
-		GroupID:                  groupID,
-		ProductionID:             productionID,
-		Online:                   r.URL.Query().Get("status"),
-		BuildID:                  r.URL.Query().Get("build"),
-		Battery:                  r.URL.Query().Get("battery"),
-		Kiosk:                    r.URL.Query().Get("kiosk"),
-		Hidden:                   r.URL.Query().Get("hidden"),
-		ActiveThresholdSecs:      activeThreshold,
+		Search:              q,
+		GroupID:             groupID,
+		ProductionID:        productionID,
+		Online:              r.URL.Query().Get("status"),
+		BuildID:             r.URL.Query().Get("build"),
+		Battery:             r.URL.Query().Get("battery"),
+		Kiosk:               r.URL.Query().Get("kiosk"),
+		Hidden:              r.URL.Query().Get("hidden"),
+		ActiveThresholdSecs: activeThreshold,
 	}
 
 	var (
@@ -1008,27 +1062,27 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]any{
-		"Title":               "Devices",
-		"Devices":             devices,
-		"Total":               total,
-		"Page":                page,
-		"TotalPages":          totalPages,
-		"Query":               q,
-		"PageSize":            pageSize,
-		"Summary":             summary,
-		"Sort":                sort,
-		"SortDir":             dir,
-		"Online":              online,
-		"Groups":              groups,
-		"Productions":         productions,
-		"Builds":              builds,
-		"FilterGroup":         r.URL.Query().Get("group"),
-		"FilterProduction":    r.URL.Query().Get("production"),
-		"FilterStatus":        r.URL.Query().Get("status"),
-		"FilterBuild":         r.URL.Query().Get("build"),
-		"FilterBattery":       r.URL.Query().Get("battery"),
-		"FilterKiosk":         r.URL.Query().Get("kiosk"),
-		"FilterHidden":        r.URL.Query().Get("hidden"),
+		"Title":                "Devices",
+		"Devices":              devices,
+		"Total":                total,
+		"Page":                 page,
+		"TotalPages":           totalPages,
+		"Query":                q,
+		"PageSize":             pageSize,
+		"Summary":              summary,
+		"Sort":                 sort,
+		"SortDir":              dir,
+		"Online":               online,
+		"Groups":               groups,
+		"Productions":          productions,
+		"Builds":               builds,
+		"FilterGroup":          r.URL.Query().Get("group"),
+		"FilterProduction":     r.URL.Query().Get("production"),
+		"FilterStatus":         r.URL.Query().Get("status"),
+		"FilterBuild":          r.URL.Query().Get("build"),
+		"FilterBattery":        r.URL.Query().Get("battery"),
+		"FilterKiosk":          r.URL.Query().Get("kiosk"),
+		"FilterHidden":         r.URL.Query().Get("hidden"),
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
 		"Density":              h.cfg.Density(),
@@ -1648,8 +1702,12 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 }
 
 // AlertAck marks an alert acknowledged. AlertResolve resolves it.
-func (h *Handler) AlertAck(w http.ResponseWriter, r *http.Request)     { h.setAlertStatus(w, r, "acknowledged") }
-func (h *Handler) AlertResolve(w http.ResponseWriter, r *http.Request) { h.setAlertStatus(w, r, "resolved") }
+func (h *Handler) AlertAck(w http.ResponseWriter, r *http.Request) {
+	h.setAlertStatus(w, r, "acknowledged")
+}
+func (h *Handler) AlertResolve(w http.ResponseWriter, r *http.Request) {
+	h.setAlertStatus(w, r, "resolved")
+}
 
 func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status string) {
 	id, err := uuid.Parse(r.PathValue("id"))
@@ -1667,8 +1725,12 @@ func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status 
 
 // AlertAckAll acknowledges every open alert; AlertResolveAll resolves every
 // non-resolved alert.
-func (h *Handler) AlertAckAll(w http.ResponseWriter, r *http.Request)     { h.bulkAlertStatus(w, r, "acknowledged") }
-func (h *Handler) AlertResolveAll(w http.ResponseWriter, r *http.Request) { h.bulkAlertStatus(w, r, "resolved") }
+func (h *Handler) AlertAckAll(w http.ResponseWriter, r *http.Request) {
+	h.bulkAlertStatus(w, r, "acknowledged")
+}
+func (h *Handler) AlertResolveAll(w http.ResponseWriter, r *http.Request) {
+	h.bulkAlertStatus(w, r, "resolved")
+}
 
 func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status string) {
 	n, err := h.db.BulkSetAlertStatus(r.Context(), status)
@@ -2170,8 +2232,8 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) GroupNewDevices(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	filter := db.DeviceFilter{
-		Search: q,
-		Online: r.URL.Query().Get("status"),
+		Search:  q,
+		Online:  r.URL.Query().Get("status"),
 		BuildID: r.URL.Query().Get("build"),
 		Battery: r.URL.Query().Get("battery"),
 	}
@@ -2241,7 +2303,6 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		"Devices": devices,
 	})
 }
-
 
 // parseSerialsField splits the "serials" form field(s) into individual,
 // trimmed, non-empty serial numbers. The group forms submit selected devices
@@ -3259,7 +3320,7 @@ func (h *Handler) SetupPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) SetupCreateApp(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	name   := strings.TrimSpace(r.FormValue("name"))
+	name := strings.TrimSpace(r.FormValue("name"))
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	if name == "" || apkURL == "" {
 		http.Redirect(w, r, "/setup", http.StatusFound)
@@ -3274,7 +3335,7 @@ func (h *Handler) SetupCreateApp(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) SetupCreateAppJSON(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	name   := strings.TrimSpace(r.FormValue("name"))
+	name := strings.TrimSpace(r.FormValue("name"))
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	if name == "" || apkURL == "" {
 		w.WriteHeader(http.StatusBadRequest)
@@ -3313,22 +3374,22 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	aiDailyJSON, _ := json.Marshal(aiDaily)
 	h.render(w, r, "settings.html", map[string]any{
-		"Title":           "Settings",
-		"ExtraColumns":    h.cfg.Columns(),
-		"LegacyCheckin":   h.cfg.LegacyCheckin(),
-		"CheckinInterval": h.cfg.CheckinInterval(),
-		"ShellEnabled":    h.cfg.ShellEnabled(),
-		"RemoteEnabled":   h.cfg.RemoteEnabled(),
-		"CommandExpiry":   h.cfg.CommandExpiry(),
-		"MaxTargets":      h.cfg.MaxTargets(),
-		"OpAllowShell":    h.cfg.OperatorAllows("shell"),
-		"OpAllowReboot":   h.cfg.OperatorAllows("reboot"),
-		"OpAllowInstall":  h.cfg.OperatorAllows("install_apk"),
-		"RequireReason":   h.cfg.RequireReason(),
-		"SessionTimeout":  h.cfg.SessionTimeout(),
-		"BrandName":       h.cfg.BrandName(),
-		"PageSize":        h.cfg.PageSize(),
-		"DefaultSort":     h.cfg.DefaultSort(),
+		"Title":                "Settings",
+		"ExtraColumns":         h.cfg.Columns(),
+		"LegacyCheckin":        h.cfg.LegacyCheckin(),
+		"CheckinInterval":      h.cfg.CheckinInterval(),
+		"ShellEnabled":         h.cfg.ShellEnabled(),
+		"RemoteEnabled":        h.cfg.RemoteEnabled(),
+		"CommandExpiry":        h.cfg.CommandExpiry(),
+		"MaxTargets":           h.cfg.MaxTargets(),
+		"OpAllowShell":         h.cfg.OperatorAllows("shell"),
+		"OpAllowReboot":        h.cfg.OperatorAllows("reboot"),
+		"OpAllowInstall":       h.cfg.OperatorAllows("install_apk"),
+		"RequireReason":        h.cfg.RequireReason(),
+		"SessionTimeout":       h.cfg.SessionTimeout(),
+		"BrandName":            h.cfg.BrandName(),
+		"PageSize":             h.cfg.PageSize(),
+		"DefaultSort":          h.cfg.DefaultSort(),
 		"Density":              h.cfg.Density(),
 		"Use24Hour":            h.cfg.Use24Hour(),
 		"AlertWebhookURL":      h.cfg.AlertWebhookURL(),
@@ -4425,9 +4486,16 @@ func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
+	// post registers a state-changing route behind the same-origin (CSRF) guard.
+	// Use it for every POST so cross-site requests can't drive an authenticated
+	// browser session; GET routes stay on mux.HandleFunc directly.
+	post := func(pattern string, handler http.HandlerFunc) {
+		mux.HandleFunc(pattern, h.enforceSameOrigin(handler))
+	}
+
 	mux.HandleFunc("GET /login", h.LoginPage)
-	mux.HandleFunc("POST /login", h.LoginSubmit)
-	mux.HandleFunc("POST /logout", h.Logout)
+	post("POST /login", h.LoginSubmit)
+	post("POST /logout", h.Logout)
 
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
@@ -4439,102 +4507,102 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))
 	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.DeviceBatteryCSV))
 	mux.HandleFunc("GET /devices/{serial}/daily-stats", h.requireAuth(h.DeviceDailyStatsJSON))
-	mux.HandleFunc("POST /devices/{serial}/ai-analysis", h.requireAuth(h.DeviceAIAnalysis))
+	post("POST /devices/{serial}/ai-analysis", h.requireAuth(h.DeviceAIAnalysis))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireOperatorOrAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	mux.HandleFunc("GET /devices/{serial}/checkins-live", h.requireAuth(h.DeviceCheckinsPartial))
-	mux.HandleFunc("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
-	mux.HandleFunc("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
-	mux.HandleFunc("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
-	mux.HandleFunc("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
-	mux.HandleFunc("POST /devices/{serial}/deployment", h.requireAdmin(h.DeviceSetDeployment))
-	mux.HandleFunc("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
+	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
+	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
+	post("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
+	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
+	post("POST /devices/{serial}/deployment", h.requireAdmin(h.DeviceSetDeployment))
+	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAuth(h.DeviceRemote))
-	mux.HandleFunc("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
-	mux.HandleFunc("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
+	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
+	post("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
-	mux.HandleFunc("POST /export/csv", h.requireAuth(h.ExportCSV))
+	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))
 	mux.HandleFunc("GET /devices/{serial}/logcat/events", h.requireAuth(h.LogcatEvents))
-	mux.HandleFunc("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
+	post("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
 
-		mux.HandleFunc("GET /groups/new", h.requireAdmin(h.GroupNew))
-		mux.HandleFunc("GET /groups/new/devices", h.requireAdmin(h.GroupNewDevices))
+	mux.HandleFunc("GET /groups/new", h.requireAdmin(h.GroupNew))
+	mux.HandleFunc("GET /groups/new/devices", h.requireAdmin(h.GroupNewDevices))
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
-	mux.HandleFunc("POST /groups", h.requireAdmin(h.GroupCreate))
+	post("POST /groups", h.requireAdmin(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
-	mux.HandleFunc("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
+	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
-	mux.HandleFunc("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
-	mux.HandleFunc("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
-	mux.HandleFunc("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
-	mux.HandleFunc("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
-	mux.HandleFunc("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))
-	mux.HandleFunc("POST /groups/{id}/deployment", h.requireAdmin(h.GroupSetDeployment))
-	mux.HandleFunc("POST /groups/{id}/devices", h.requireAdmin(h.GroupAddDevice))
-	mux.HandleFunc("POST /groups/{id}/devices/{serial}/remove", h.requireAdmin(h.GroupRemoveDevice))
-	mux.HandleFunc("POST /groups/{id}/commands", h.requireAdmin(h.GroupCommandCreate))
+	post("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
+	post("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
+	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
+	post("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
+	post("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))
+	post("POST /groups/{id}/deployment", h.requireAdmin(h.GroupSetDeployment))
+	post("POST /groups/{id}/devices", h.requireAdmin(h.GroupAddDevice))
+	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdmin(h.GroupRemoveDevice))
+	post("POST /groups/{id}/commands", h.requireAdmin(h.GroupCommandCreate))
 
 	mux.HandleFunc("GET /productions", h.requireAuth(h.ProductionList))
 	mux.HandleFunc("GET /productions/new", h.requireOperatorOrAdmin(h.ProductionNew))
-	mux.HandleFunc("POST /productions", h.requireOperatorOrAdmin(h.ProductionCreate))
+	post("POST /productions", h.requireOperatorOrAdmin(h.ProductionCreate))
 	mux.HandleFunc("GET /productions/preview-serial", h.requireAuth(h.ProductionPreviewSerial))
 	mux.HandleFunc("GET /productions/{id}", h.requireAuth(h.ProductionDetail))
 	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAuth(h.ProductionExportCSV))
-	mux.HandleFunc("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
+	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
-	mux.HandleFunc("POST /commands", h.requireAuth(h.CommandCreate))
+	post("POST /commands", h.requireAuth(h.CommandCreate))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
-	mux.HandleFunc("POST /commands/{id}/delete", h.requireAdmin(h.CommandDelete))
-	mux.HandleFunc("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
-	mux.HandleFunc("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
+	post("POST /commands/{id}/delete", h.requireAdmin(h.CommandDelete))
+	post("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
+	post("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
 
 	mux.HandleFunc("GET /settings", h.requireAdmin(h.SettingsPage))
-	mux.HandleFunc("POST /settings/columns/add", h.requireAdmin(h.SettingsAddColumn))
-	mux.HandleFunc("POST /settings/columns/{key}/remove", h.requireAdmin(h.SettingsRemoveColumn))
-	mux.HandleFunc("POST /settings/legacy-checkin/toggle", h.requireAdmin(h.SettingsToggleLegacyCheckin))
-	mux.HandleFunc("POST /settings/shell/toggle", h.requireAdmin(h.SettingsToggleShell))
-	mux.HandleFunc("POST /settings/remote/toggle", h.requireAdmin(h.SettingsToggleRemote))
-	mux.HandleFunc("POST /settings/command-expiry", h.requireAdmin(h.SettingsSetCommandExpiry))
-	mux.HandleFunc("POST /settings/max-targets", h.requireAdmin(h.SettingsSetMaxTargets))
-	mux.HandleFunc("POST /settings/operator-perms", h.requireAdmin(h.SettingsSetOperatorPerms))
+	post("POST /settings/columns/add", h.requireAdmin(h.SettingsAddColumn))
+	post("POST /settings/columns/{key}/remove", h.requireAdmin(h.SettingsRemoveColumn))
+	post("POST /settings/legacy-checkin/toggle", h.requireAdmin(h.SettingsToggleLegacyCheckin))
+	post("POST /settings/shell/toggle", h.requireAdmin(h.SettingsToggleShell))
+	post("POST /settings/remote/toggle", h.requireAdmin(h.SettingsToggleRemote))
+	post("POST /settings/command-expiry", h.requireAdmin(h.SettingsSetCommandExpiry))
+	post("POST /settings/max-targets", h.requireAdmin(h.SettingsSetMaxTargets))
+	post("POST /settings/operator-perms", h.requireAdmin(h.SettingsSetOperatorPerms))
 	mux.HandleFunc("GET /audit", h.requireAdmin(h.AuditPage))
-	mux.HandleFunc("POST /settings/require-reason", h.requireAdmin(h.SettingsToggleRequireReason))
-	mux.HandleFunc("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
-	mux.HandleFunc("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
-	mux.HandleFunc("POST /settings/alert-rules/{id}", h.requireAdmin(h.SettingsUpdateAlertRule))
-	mux.HandleFunc("POST /settings/ai", h.requireAdmin(h.SettingsSetAI))
-	mux.HandleFunc("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
-	mux.HandleFunc("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
-	mux.HandleFunc("POST /settings/logout-all", h.requireAdmin(h.SettingsLogoutAll))
-	mux.HandleFunc("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))
+	post("POST /settings/require-reason", h.requireAdmin(h.SettingsToggleRequireReason))
+	post("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
+	post("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
+	post("POST /settings/alert-rules/{id}", h.requireAdmin(h.SettingsUpdateAlertRule))
+	post("POST /settings/ai", h.requireAdmin(h.SettingsSetAI))
+	post("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
+	post("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
+	post("POST /settings/logout-all", h.requireAdmin(h.SettingsLogoutAll))
+	post("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))
 
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
-	mux.HandleFunc("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
-	mux.HandleFunc("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
-	mux.HandleFunc("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
+	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
+	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
+	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 
 	mux.HandleFunc("GET /updates", h.requireAuth(h.OTAPackages))
-	mux.HandleFunc("POST /updates", h.requireAdmin(h.OTAPackageCreate))
+	post("POST /updates", h.requireAdmin(h.OTAPackageCreate))
 	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.OTAPackageDetail))
-	mux.HandleFunc("POST /updates/{id}/yank", h.requireAdmin(h.OTAPackageYank))
-	mux.HandleFunc("POST /updates/{id}/delete", h.requireAdmin(h.OTAPackageDelete))
-	mux.HandleFunc("POST /updates/{id}/deploy", h.requireAdmin(h.OTAPackageDeploy))
+	post("POST /updates/{id}/yank", h.requireAdmin(h.OTAPackageYank))
+	post("POST /updates/{id}/delete", h.requireAdmin(h.OTAPackageDelete))
+	post("POST /updates/{id}/deploy", h.requireAdmin(h.OTAPackageDeploy))
 	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
-	mux.HandleFunc("POST /updates/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
-	mux.HandleFunc("POST /updates/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
+	post("POST /updates/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
+	post("POST /updates/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 
 	mux.HandleFunc("GET /users", h.requireAdmin(h.UserList))
-	mux.HandleFunc("POST /users", h.requireAdmin(h.UserCreate))
-	mux.HandleFunc("POST /users/{id}/delete", h.requireAdmin(h.UserDelete))
+	post("POST /users", h.requireAdmin(h.UserCreate))
+	post("POST /users/{id}/delete", h.requireAdmin(h.UserDelete))
 
 	// Command output SSE
 	mux.HandleFunc("GET /commands/{id}/output/{serial}/stream", h.requireAuth(h.CommandOutputStream))
