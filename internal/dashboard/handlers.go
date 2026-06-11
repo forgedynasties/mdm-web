@@ -792,6 +792,13 @@ func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 
 func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// An anonymous caller is redirected to login like any other protected
+		// route, so admin-only paths don't stand out with a 403 (F-07). A
+		// logged-in but non-admin user gets a genuine 403.
+		if !h.isLoggedIn(r) {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
 		if !h.isAdmin(r) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
@@ -802,6 +809,10 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 
 func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !h.isLoggedIn(r) {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
 		role := h.role(r)
 		if role != "admin" && role != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)

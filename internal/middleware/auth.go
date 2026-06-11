@@ -19,10 +19,13 @@ func APIKeyAuth(apiKey, errorMessage string, next http.Handler) http.Handler {
 	})
 }
 
+// Both key classes return an identical "unauthorized" body so an unauthenticated
+// caller cannot distinguish the admin key from the device key (F-07). The class
+// is still differentiated at the call site for routing, just not in the response.
 func DeviceAPIKeyAuth(apiKey string, next http.Handler) http.Handler {
-	return APIKeyAuth(apiKey, `{"error":"invalid device api key"}`, next)
+	return APIKeyAuth(apiKey, `{"error":"unauthorized"}`, next)
 }
 
 func AdminAPIKeyAuth(apiKey string, next http.Handler) http.Handler {
-	return APIKeyAuth(apiKey, `{"error":"invalid admin api key"}`, next)
+	return APIKeyAuth(apiKey, `{"error":"unauthorized"}`, next)
 }
