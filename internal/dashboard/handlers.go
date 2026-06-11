@@ -28,6 +28,7 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/notify"
+	"mdm/internal/ratelimit"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
@@ -68,6 +69,10 @@ type Handler struct {
 	// for CSRF same-origin checks, e.g. "https://udm.dev.aioapp.com". When empty
 	// (unset), checks fall back to matching the request's own Host header.
 	publicOrigin string
+
+	// loginFails throttles failed login attempts per source IP and per account
+	// to blunt brute-force / credential-spray (F-01).
+	loginFails *ratelimit.Counter
 
 	// lastDigestDay is the YYYY-MM-DD of the most recent AI fleet digest sent, so
 	// housekeeping posts it at most once per day. Touched only from the single
@@ -658,8 +663,13 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 		cfg:          cfg,
 		adminAPIKey:  adminAPIKey,
 		publicOrigin: strings.TrimRight(os.Getenv("PUBLIC_ORIGIN"), "/"),
+		loginFails:   ratelimit.New(15 * time.Minute),
 	}
 }
+
+// loginMaxFailures is the number of failed login attempts (per IP or per
+// account) within the limiter window before further attempts are refused.
+const loginMaxFailures = 8
 
 // sessionFresh reports whether a session was issued at/after the current
 // session epoch. Bumping the epoch (Log out all) invalidates older cookies.
@@ -879,10 +889,32 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	user := r.FormValue("username")
 	pass := r.FormValue("password")
 
+	// Refuse further attempts once either the source IP or the targeted account
+	// has accumulated too many recent failures (F-01).
+	ip := ratelimit.ClientIP(r)
+	userKey := "u:" + user
+	for _, key := range []string{ip, userKey} {
+		if n, retry := h.loginFails.Count(key); n >= loginMaxFailures {
+			mins := int(retry.Minutes()) + 1
+			w.WriteHeader(http.StatusTooManyRequests)
+			h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{
+				"Error": fmt.Sprintf("Too many failed attempts. Try again in %d minute(s).", mins),
+				"Brand": h.cfg.BrandName(),
+			})
+			return
+		}
+	}
+
+	loginOK := func() {
+		h.loginFails.Reset(ip)
+		h.loginFails.Reset(userKey)
+	}
+
 	// Check admin credentials first (constant-time).
 	userMatch := subtle.ConstantTimeCompare([]byte(user), []byte(h.user)) == 1
 	passMatch := subtle.ConstantTimeCompare([]byte(pass), []byte(h.password)) == 1
 	if userMatch && passMatch {
+		loginOK()
 		session, _ := h.store.Get(r, "mdm-session")
 		session.Values["authenticated"] = true
 		session.Values["username"] = h.user
@@ -896,6 +928,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	dbUser, err := h.db.GetUserByUsername(r.Context(), user)
 	if err == nil {
 		if bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(pass)) == nil {
+			loginOK()
 			session, _ := h.store.Get(r, "mdm-session")
 			session.Values["user_id"] = dbUser.ID.String()
 			session.Values["user_role"] = dbUser.Role
@@ -907,6 +940,9 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Failed attempt — count it against both the IP and the account.
+	h.loginFails.Hit(ip)
+	h.loginFails.Hit(userKey)
 	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": "Invalid credentials", "Brand": h.cfg.BrandName()})
 }
 
