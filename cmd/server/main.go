@@ -114,13 +114,16 @@ func main() {
 	}))
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		// The status code carries liveness for the load balancer; the body is
+		// deliberately minimal and does not disclose the database backend or its
+		// state to unauthenticated callers (F-08).
 		w.Header().Set("Content-Type", "application/json")
 		if err := database.Ping(r.Context()); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte(`{"status":"error","db":"unreachable"}`))
+			w.Write([]byte(`{"status":"error"}`))
 			return
 		}
-		w.Write([]byte(`{"status":"ok","db":"ok"}`))
+		w.Write([]byte(`{"status":"ok"}`))
 	})
 
 	cfg, err := config.Load(configPath)
