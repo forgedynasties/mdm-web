@@ -2400,6 +2400,9 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	if cmdType == "" {
 		cmdType = "install_apk"
 	}
+	if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
+		return
+	}
 	if cmdType == "shell" && !h.cfg.ShellEnabled() {
 		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
 		return
@@ -3035,23 +3038,76 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// commandTypeAllowed reports whether a role may create or resend a command of
-// the given type. ota/update_splash write a device partition and are admin-only;
-// shell/reboot/install_apk are also available to operators. Other types (e.g.
-// screenshot) carry no extra restriction beyond being authenticated.
-func (h *Handler) commandTypeAllowed(role, cmdType string) bool {
-	// Operators can be further restricted per command type via settings.
-	if role == "operator" && !h.cfg.OperatorAllows(cmdType) {
-		return false
+// cmdAuthz is the outcome of a command-authorization check. It distinguishes an
+// unknown command type (a client error -> 400) from a known type the caller's
+// role may not issue (an authorization error -> 403).
+type cmdAuthz int
+
+const (
+	cmdAuthzOK cmdAuthz = iota
+	cmdAuthzUnknownType
+	cmdAuthzForbidden
+)
+
+// commandRoles is the single source of truth for which dashboard roles may
+// issue (or resend) each command type. A type absent from this map is unknown
+// and is rejected outright — this is what closes the previous default-allow gap
+// where any arbitrary string (including destructive verbs) was accepted,
+// persisted, and dispatched from the lowest-privilege role (GB-01/GB-02). The
+// admin JSON API (internal/api) independently gates the same set behind the
+// admin key. Keep the two lists in sync when adding a command type.
+var commandRoles = map[string][]string{
+	"screenshot":    {"admin", "operator", "viewer"},
+	"install_apk":   {"admin", "operator"},
+	"reboot":        {"admin", "operator"},
+	"shell":         {"admin", "operator"},
+	"ota":           {"admin"},
+	"update_splash": {"admin"},
+}
+
+// authorizeCommand reports whether role may issue a command of cmdType.
+// Operators can be further restricted per type via the OperatorAllows setting.
+func (h *Handler) authorizeCommand(role, cmdType string) cmdAuthz {
+	roles, known := commandRoles[cmdType]
+	if !known {
+		return cmdAuthzUnknownType
 	}
-	switch cmdType {
-	case "shell", "reboot", "install_apk":
-		return role == "admin" || role == "operator"
-	case "ota", "update_splash":
-		return role == "admin"
-	default:
+	allowed := false
+	for _, r := range roles {
+		if r == role {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		return cmdAuthzForbidden
+	}
+	if role == "operator" && !h.cfg.OperatorAllows(cmdType) {
+		return cmdAuthzForbidden
+	}
+	return cmdAuthzOK
+}
+
+// writeCommandAuthzError writes the HTTP response for a non-OK command
+// authorization result and reports whether it wrote anything. Callers return
+// early when it returns true.
+func writeCommandAuthzError(w http.ResponseWriter, authz cmdAuthz) bool {
+	switch authz {
+	case cmdAuthzUnknownType:
+		http.Error(w, "Unknown command type", http.StatusBadRequest)
+		return true
+	case cmdAuthzForbidden:
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return true
 	}
+	return false
+}
+
+// commandTypeAllowed is a boolean convenience for read/template paths (e.g.
+// whether to offer a Resend button). Handlers that create or resend commands
+// use authorizeCommand directly so they can distinguish 400 from 403.
+func (h *Handler) commandTypeAllowed(role, cmdType string) bool {
+	return h.authorizeCommand(role, cmdType) == cmdAuthzOK
 }
 
 func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
@@ -3069,8 +3125,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		cmdType = "install_apk"
 	}
 
-	if !h.commandTypeAllowed(h.role(r), cmdType) {
-		http.Error(w, "Forbidden", http.StatusForbidden)
+	if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
 		return
 	}
 	if cmdType == "shell" && !h.cfg.ShellEnabled() {
@@ -4017,23 +4072,14 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		cmdType = "install_apk"
 	}
 
+	// Authorize the command type (role-keyed allowlist) before touching the
+	// device, so an unknown/forbidden type never leaks device existence.
+	if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
+		return
+	}
 	if cmdType == "shell" && !h.cfg.ShellEnabled() {
 		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
 		return
-	}
-
-	userRole := h.role(r)
-	switch cmdType {
-	case "shell", "reboot", "install_apk":
-		if userRole != "admin" && userRole != "operator" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
-	case "ota":
-		if userRole != "admin" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
 	}
 
 	device, err := h.db.GetDevice(r.Context(), serial)
