@@ -133,15 +133,31 @@
     mdmSerials._cache = arr;
     return arr;
   }
+  function mdmDevLink(serial, text) {
+    return '<a href="/devices/' + encodeURIComponent(serial) + '" class="link-detail mono">' + (text || serial) + '</a>';
+  }
   function mdmLinkifySerials(html) {
     var serials = mdmSerials();
     if (!serials.length) return html;
+    var known = {};
+    serials.forEach(function (s) { known[s] = true; });
     // Longest-first so a shorter serial can't shadow a longer one in the alternation.
     var esc = serials.slice().sort(function (a, b) { return b.length - a.length; })
       .map(function (s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
-    var re = new RegExp('\\b(' + esc.join('|') + ')\\b', 'g');
-    return html.replace(re, function (m) {
-      return '<a href="/devices/' + encodeURIComponent(m) + '" class="link-detail mono">' + m + '</a>';
+    // A full serial, plus any trailing "/NNNN" shorthand the model uses to compress a
+    // run of units that share a prefix (e.g. AT…0030/0021/0046). Each shorthand is
+    // resolved by swapping the matching number of trailing chars and is only linked if
+    // it lands on a real device, so we never fabricate a link.
+    var re = new RegExp('\\b(' + esc.join('|') + ')((?:\\/[0-9A-Za-z]+)+)?', 'g');
+    return html.replace(re, function (whole, full, tail) {
+      var out = mdmDevLink(full);
+      if (!tail) return out;
+      tail.split('/').forEach(function (ab) {
+        if (!ab) return;
+        var cand = full.slice(0, Math.max(0, full.length - ab.length)) + ab;
+        out += '/' + (known[cand] ? mdmDevLink(cand) : ab);
+      });
+      return out;
     });
   }
   function mdmReportPreview(rep) { return mdmStatusWord(rep.status) + '<span class="rep-headline">' + mdmLinkifySerials(mdmEsc(rep.headline)) + '</span>'; }
@@ -192,12 +208,6 @@
       full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(raw) : raw;
     }
     full.dataset.rendered = '1';
-  };
-  window.toggleAISummary = function () {
-    var full = document.getElementById('ai-sum-full'), tog = document.getElementById('ai-sum-toggle');
-    if (!full) return;
-    full.hidden = !full.hidden;
-    if (tog) tog.textContent = full.hidden ? 'expand' : 'collapse';
   };
   window.refreshHourlyReport = function () {
     var btn = document.getElementById('ai-sum-refresh');
