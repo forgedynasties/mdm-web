@@ -223,7 +223,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:        ":" + port,
-		Handler:     mux,
+		Handler:     middleware.SecurityHeaders(mux),
 		IdleTimeout: 120 * time.Second,
 	}
 
