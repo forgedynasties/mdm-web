@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -88,6 +89,13 @@ func main() {
 
 	staticFS := http.StripPrefix("/static/", http.FileServer(http.Dir("static")))
 	mux.Handle("GET /static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Disable the default directory autoindex: any request resolving to a
+		// directory (path ends in "/") is rejected so the static tree can't be
+		// enumerated for dev-only artifacts.
+		if strings.HasSuffix(r.URL.Path, "/") {
+			http.NotFound(w, r)
+			return
+		}
 		w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 		staticFS.ServeHTTP(w, r)
 	}))
