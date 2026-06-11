@@ -387,8 +387,13 @@ func writeAlerts(b *strings.Builder, label string, alerts []db.Alert) {
 	}
 	b.WriteByte('\n')
 	for _, a := range alerts {
-		fmt.Fprintf(b, "- [%s] %s (since %s): %s\n",
-			strings.ToUpper(a.Severity), a.Type, a.FiredAt.Format("2006-01-02 15:04"), a.Summary)
+		serial := a.Serial
+		if serial == "" {
+			serial = "unknown-device"
+		}
+		// Serial first so the model can name the specific unit behind each incident.
+		fmt.Fprintf(b, "- [%s] %s · %s (since %s): %s\n",
+			strings.ToUpper(a.Severity), serial, a.Type, a.FiredAt.Format("2006-01-02 15:04"), a.Summary)
 	}
 }
 
