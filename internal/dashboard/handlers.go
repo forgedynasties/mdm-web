@@ -735,7 +735,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 
 	path := r.URL.Path
 	switch {
-	case strings.HasPrefix(path, "/fleet-health"):
+	case strings.HasPrefix(path, "/fleet-health"), strings.HasPrefix(path, "/ai-report"):
 		data["ActivePage"] = "health"
 	case strings.HasPrefix(path, "/alerts"):
 		data["ActivePage"] = "alerts"
@@ -1703,6 +1703,73 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		data["AISummaryPreview"] = summarizePreview(s.Summary)
 	}
 	h.render(w, r, "health.html", data)
+}
+
+// reportSignals maps the fleet report's four signal categories to the alert types
+// that evidence them. Order is worst-first display order on the detailed page. Each
+// signal lines up with a ReportIssue.Area value, so the narrative issue and the
+// device-level evidence below it speak the same vocabulary.
+var reportSignals = []struct {
+	Key, Label string
+	Types      []string
+}{
+	{"heat", "Overheating", []string{"overheating"}},
+	{"charging", "Charging", []string{"no_overnight_charge"}},
+	{"battery", "Battery health", []string{"battery_health_decline"}},
+	{"memory", "Memory pressure", []string{"memory_pressure"}},
+}
+
+// reportEvidence is one signal category plus the open alerts that evidence it. Every
+// alert carries its own serial, fired-at, and a number-rich summary, so the template
+// can link each unit to its device page with the real values behind the call-out.
+type reportEvidence struct {
+	Key, Label string
+	Alerts     []db.Alert
+}
+
+// AIReportDetail renders the "Detailed analysis" drill-down for the hourly report:
+// the cached Report narrative on top, then — per signal category — the actual open
+// alerts that back it (serial linked to the device page, fired-at, and the value-rich
+// summary). Every serial/timestamp/value comes straight from the alerts table, so the
+// page can never cite a device the model invented. Re-queries live open alerts; the
+// report regenerates hourly against the same open set, so drift is negligible.
+func (h *Handler) AIReportDetail(w http.ResponseWriter, r *http.Request) {
+	activeSecs := h.cfg.CheckinInterval() * 3
+	groups, _ := h.db.GetGroupHealth(r.Context(), activeSecs)
+	alerts, _ := h.db.ListAlerts(r.Context(), "open", 500)
+
+	data := map[string]any{
+		"Title":  "Detailed analysis",
+		"Groups": groups,
+	}
+	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
+		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
+		data["AISummaryModel"] = s.Model
+		if rep, ok := ai.ParseReport(s.Summary); ok {
+			data["Report"] = rep
+		} else {
+			data["ReportText"] = s.Summary // legacy prose summary
+		}
+	}
+
+	// Group the open alerts by signal category for the evidence sections.
+	evidence := make([]reportEvidence, 0, len(reportSignals))
+	for _, sig := range reportSignals {
+		var matched []db.Alert
+		for _, a := range alerts {
+			for _, t := range sig.Types {
+				if a.Type == t {
+					matched = append(matched, a)
+					break
+				}
+			}
+		}
+		evidence = append(evidence, reportEvidence{sig.Key, sig.Label, matched})
+	}
+	data["Evidence"] = evidence
+	data["OpenAlerts"] = alerts
+	data["OpenAlertsCount"] = len(alerts)
+	h.render(w, r, "ai_report_detail.html", data)
 }
 
 // DeviceShellPage renders the interactive shell console for a device. The console
@@ -4356,6 +4423,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
+	mux.HandleFunc("GET /ai-report", h.requireAuth(h.AIReportDetail))
 	mux.HandleFunc("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
