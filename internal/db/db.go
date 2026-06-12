@@ -95,6 +95,7 @@ type Update struct {
 	Targets         []UpdateTarget `json:"targets,omitempty"`
 	DeviceTotal     int            `json:"device_total,omitempty"`     // populated by ListDeploymentsByPackage
 	DeviceInstalled int            `json:"device_installed,omitempty"` // populated by ListDeploymentsByPackage
+	DeviceStatus    string         `json:"device_status,omitempty"`    // populated by ResolveUpdateForDevice
 }
 
 type UpdateTarget struct {
@@ -3554,7 +3555,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 	var u Update
 	var p OTAPackage
 	err := d.pool.QueryRow(ctx, `
-		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at,
+		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at, ud.status,
 		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.changelog, p.status, p.created_at
 		FROM update_devices ud
 		JOIN updates u ON u.id = ud.update_id
@@ -3562,7 +3563,7 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 		WHERE ud.device_id = $1 AND u.status = 'active' AND ud.status != 'installed' AND p.status = 'active'
 		ORDER BY u.created_at DESC
 		LIMIT 1
-	`, deviceID).Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt,
+	`, deviceID).Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt, &u.DeviceStatus,
 		&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -3572,6 +3573,40 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 	}
 	u.OtaPackage = &p
 	return &u, nil
+}
+
+// DueReboot is a device whose scheduled-reboot deployment time has arrived.
+type DueReboot struct {
+	UpdateID int
+	DeviceID uuid.UUID
+}
+
+// ListDueScheduledReboots returns devices that have installed an update under a
+// "scheduled" reboot policy and whose scheduled time has passed.
+func (d *DB) ListDueScheduledReboots(ctx context.Context) ([]DueReboot, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT ud.update_id, ud.device_id
+		FROM update_devices ud
+		JOIN updates u ON u.id = ud.update_id
+		WHERE u.reboot_behavior = 'scheduled'
+		  AND u.scheduled_time IS NOT NULL
+		  AND u.scheduled_time <= NOW()
+		  AND u.status = 'active'
+		  AND ud.status = 'awaiting_reboot'
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DueReboot
+	for rows.Next() {
+		var dr DueReboot
+		if err := rows.Scan(&dr.UpdateID, &dr.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, dr)
+	}
+	return out, rows.Err()
 }
 
 // SetUpdateDeviceStatus updates the status of a device within an update.

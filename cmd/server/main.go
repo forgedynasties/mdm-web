@@ -221,6 +221,16 @@ func main() {
 		}
 	}()
 
+	// OTA scheduled-reboot dispatcher: devices that installed an update under a
+	// "scheduled" reboot policy get their reboot command once the time arrives.
+	go func() {
+		t := time.NewTicker(1 * time.Minute)
+		defer t.Stop()
+		for range t.C {
+			apiHandler.ProcessDueScheduledReboots(context.Background())
+		}
+	}()
+
 	server := &http.Server{
 		Addr:        ":" + port,
 		Handler:     middleware.SecurityHeaders(mux),

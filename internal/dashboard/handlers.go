@@ -626,7 +626,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			switch s {
 			case "complete", "installed":
 				return "ok"
-			case "active":
+			case "active", "downloading", "awaiting_reboot", "reboot_sent":
 				return "warn"
 			case "failed":
 				return "danger"
@@ -3044,19 +3044,25 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 
 	otaProgress := make(map[string]any)
 	for _, t := range targets {
-		if t.Status == "downloading" {
-			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
-				otaProgress[t.DeviceID.String()] = p
-			}
+		if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
+			otaProgress[t.DeviceID.String()] = p
 		}
 	}
 
-	h.render(w, r, "deployment_detail.html", map[string]any{
+	data := map[string]any{
 		"Title":       fmt.Sprintf("Deployment #%d", did),
 		"Deployment":  upd,
 		"Package":     upd.OtaPackage,
 		"OTAProgress": otaProgress,
-	})
+	}
+
+	// HTMX polling target: just the device-status table, re-rendered live.
+	if r.URL.Query().Get("partial") == "targets" {
+		h.tmpl.ExecuteTemplate(w, "deployment-targets", h.withRole(r, data))
+		return
+	}
+
+	h.render(w, r, "deployment_detail.html", data)
 }
 
 func (h *Handler) DeploymentUpdateSettings(w http.ResponseWriter, r *http.Request) {
