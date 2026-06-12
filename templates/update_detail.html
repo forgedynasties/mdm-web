@@ -3,19 +3,17 @@
 
 {{$pkg := .Package}}
 
-<div class="page-header">
-  <div>
-    <a href="/updates" class="back-link">← OTA Packages</a>
-    <h2 class="page-title">
-      {{if eq $pkg.Type "incremental"}}
-        <span class="status-badge warn" style="font-size:12px;vertical-align:middle;">incremental</span>
-      {{else}}
-        <span class="status-badge muted" style="font-size:12px;vertical-align:middle;">full</span>
-      {{end}}
-      → {{$pkg.TargetBuildID}}
-    </h2>
-  </div>
-  <div style="display:flex;gap:8px;align-items:center;">
+<a href="/updates" class="back-link">← OTA Packages</a>
+<div class="ov-greet">
+  <h1 class="ov-title">
+    {{if eq $pkg.Type "incremental"}}
+      <span class="status-badge warn" style="font-size:12px;vertical-align:middle;">incremental</span>
+    {{else}}
+      <span class="status-badge muted" style="font-size:12px;vertical-align:middle;">full</span>
+    {{end}}
+    → {{$pkg.TargetBuildID}}
+  </h1>
+  <span class="acts">
     <form action="/updates/{{$pkg.ID}}/yank" method="POST" style="display:inline;">
       {{if eq $pkg.Status "yanked"}}
         <button type="submit" class="btn-outline" style="padding:5px 12px;font-size:13px;">Restore</button>
@@ -30,7 +28,7 @@
           onsubmit="return confirm('Delete this package and all its deployments?')">
       <button type="submit" class="btn-danger">Delete Package</button>
     </form>
-  </div>
+  </span>
 </div>
 
 {{if eq $pkg.Status "yanked"}}

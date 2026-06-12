@@ -1,17 +1,15 @@
 {{define "logcat.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
-    <h2 class="page-title">Logcat</h2>
-  </div>
-  <div class="logcat-toolbar">
+<a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
+<div class="ov-greet">
+  <h1 class="ov-title">Logcat</h1>
+  <span class="acts logcat-toolbar">
     <span id="logcat-poll-state" class="muted small"></span>
     <div class="logcat-pause">
       <button type="button" id="logcat-pause-btn" class="btn-outline" onclick="toggleLogcatPolling()">Pause</button>
     </div>
-  </div>
+  </span>
 </div>
 
 <div class="card" style="margin-bottom:16px;">

@@ -1,15 +1,13 @@
 {{define "production_form.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <a href="/productions" class="back-link">← Productions</a>
-    <h2 class="page-title">New Production Run</h2>
-    <p class="page-subtitle">Define a serial number range for a manufacturing batch.</p>
-  </div>
+<a href="/productions" class="back-link">← Productions</a>
+<div class="ov-greet">
+  <h1 class="ov-title">New Production Run</h1>
+  <span class="ov-date">define a serial number range for a manufacturing batch</span>
 </div>
 
-<div class="card" style="max-width:680px;">
+<div class="card dv-rise-1" style="max-width:680px;">
   <form action="/productions" method="POST" id="production-form" style="padding:28px 32px;">
 
     <div class="form-row">

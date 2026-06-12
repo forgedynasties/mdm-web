@@ -1,15 +1,13 @@
 {{define "device_packages.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
-    <h2 class="page-title">Installed Packages</h2>
-  </div>
-  <span class="muted small">{{len .Packages}} packages</span>
+<a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
+<div class="ov-greet">
+  <h1 class="ov-title">Installed Packages</h1>
+  <span class="ov-date">{{len .Packages}} packages</span>
 </div>
 
-<div class="card" style="margin-bottom:16px;">
+<div class="card dv-rise-1" style="margin-bottom:16px;">
   <div style="padding:16px 0 0;">
     <input type="text" id="pkg-filter" class="form-input" placeholder="Filter packages…" oninput="filterPackages(this.value)" autofocus>
   </div>

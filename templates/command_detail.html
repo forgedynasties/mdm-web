@@ -100,12 +100,10 @@
 {{define "command_detail.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    {{if .From}}<a href="{{.From}}" class="back-link">← Back to device</a>{{else}}<a href="/commands" class="back-link">← Commands</a>{{end}}
-    <h2 class="page-title">{{.Title}}</h2>
-  </div>
-  <div style="display:flex;gap:8px;align-items:center;">
+{{if .From}}<a href="{{.From}}" class="back-link">← Back to device</a>{{else}}<a href="/commands" class="back-link">← Commands</a>{{end}}
+<div class="ov-greet">
+  <h1 class="ov-title">{{.Title}}</h1>
+  <span class="acts">
     {{if .CanResend}}
     <form action="/commands/{{.Command.ID}}/resend" method="POST">
       <button type="submit" class="btn-outline">Resend to All Targets</button>
@@ -116,7 +114,7 @@
       <button type="submit" class="btn-danger">Delete Command</button>
     </form>
     {{end}}
-  </div>
+  </span>
 </div>
 
 <div class="stats-grid" style="margin-bottom:16px;">

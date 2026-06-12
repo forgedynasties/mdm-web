@@ -1,24 +1,18 @@
 {{define "production_detail.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <a href="/productions" class="back-link">← Productions</a>
-    <h2 class="page-title">{{.Production.Name}}</h2>
-    <p class="page-subtitle">
-      <span class="mono small">{{.Production.FirstSerial}}</span>
-      <span class="muted"> → </span>
-      <span class="mono small">{{.Production.LastSerial}}</span>
-    </p>
-  </div>
-  <div style="display:flex;gap:8px;align-items:center;">
+<a href="/productions" class="back-link">← Productions</a>
+<div class="ov-greet">
+  <h1 class="ov-title">{{.Production.Name}}</h1>
+  <span class="ov-date"><span class="mono">{{.Production.FirstSerial}}</span> → <span class="mono">{{.Production.LastSerial}}</span></span>
+  <span class="acts">
     <a href="/productions/{{.Production.ID}}/export.csv" class="btn-outline">Export CSV</a>
     {{if eq .Role "admin"}}
     <form action="/productions/{{.Production.ID}}/delete" method="POST" onsubmit="return confirm('Delete this production? This cannot be undone.');">
       <button type="submit" class="btn-danger">Delete</button>
     </form>
     {{end}}
-  </div>
+  </span>
 </div>
 
 {{/* ── Stats ── */}}
