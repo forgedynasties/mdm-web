@@ -93,6 +93,27 @@
         </div>
       </div>
     {{end}}
+
+    <div class="card">
+      <div class="card-header"><h3>Open alerts</h3><a href="/alerts?status=open" class="link small">all →</a></div>
+      {{if .OpenAlerts}}
+      <div class="ov-alrs">
+        {{range .OpenAlerts}}
+        <div class="ov-alr">
+          <span class="status-badge {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{else}}muted{{end}}">{{.Severity}}</span>
+          {{if .Serial}}<a href="/devices/{{.Serial}}" class="link-detail mono sn">{{.Serial}}</a>{{end}}
+          <span class="sum">{{.Summary}}</span>
+          <span class="t">{{timeSince .FiredAt}}</span>
+        </div>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="ov-alrs-empty">
+        <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
+        No open alerts — nothing is firing right now.
+      </div>
+      {{end}}
+    </div>
   </div>
 
   <div class="ov-side">
