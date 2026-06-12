@@ -3323,6 +3323,19 @@ input[type="checkbox"]:hover {
 .ov-ra .what b { font-family: var(--mono); font-size: 11.5px; font-weight: 500; color: var(--text-2); }
 .ov-ra .t { margin-left: auto; color: var(--text-faint); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
 
+.ov-alrs { padding: 4px 18px 12px; }
+.ov-alr { display: flex; align-items: center; gap: 10px; padding: 9px 0;
+  border-bottom: 1px solid var(--border-soft); font-size: 12.5px; }
+.ov-alr:last-child { border-bottom: 0; }
+.ov-alr .status-badge { flex: none; }
+.ov-alr .sn { flex: none; font-size: 11.5px; }
+.ov-alr .sum { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ov-alr .t { margin-left: auto; color: var(--text-faint); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+.ov-alrs-empty { display: flex; align-items: center; gap: 10px; padding: 18px;
+  color: var(--muted); font-size: 13px; }
+.ov-alrs-empty svg { width: 16px; height: 16px; flex: none; stroke: var(--ok); fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
 @keyframes ov-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .ov-hero, .ov-strip, .ov-cols { animation: ov-rise 0.45s var(--ease) both; }
 .ov-strip { animation-delay: 0.08s; }
