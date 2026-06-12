@@ -1,16 +1,16 @@
 {{define "groups.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>Groups</h2>
-    <p class="page-subtitle">{{len .Groups}} group{{if ne (len .Groups) 1}}s{{end}}</p>
-  </div>
-  {{if and .Groups (eq .Role "admin")}}<a href="/groups/new" class="btn-outline btn-plus" title="New Group"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></a>{{end}}
+<div class="ov-greet">
+  <h1 class="ov-title">Groups</h1>
+  <span class="ov-date">{{len .Groups}} group{{if ne (len .Groups) 1}}s{{end}} · device cohorts</span>
+  {{if and .Groups (eq .Role "admin")}}
+  <a href="/groups/new" class="btn-outline btn-plus" style="margin-left:auto;" title="New Group"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></a>
+  {{end}}
 </div>
 
-<div class="card">
-  {{if not .Groups}}
+{{if not .Groups}}
+<div class="card dv-rise-1">
   <div class="empty-state">
     <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></div>
     <div class="empty-state-copy">
@@ -23,42 +23,40 @@
     </div>
     {{end}}
   </div>
-  {{else}}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Devices</th>
-        <th>Created</th>
-        {{if eq .Role "admin"}}<th></th>{{end}}
-      </tr>
-    </thead>
-    <tbody>
-      {{if .Groups}}
-        {{range .Groups}}
-        <tr>
-          <td><a href="/groups/{{.ID}}" class="link-detail">{{.Name}}</a></td>
-          <td class="muted">{{.DeviceCount}}</td>
-          <td class="muted small">{{localTime .CreatedAt}}</td>
-          {{if eq $.Role "admin"}}
-          <td>
-            <form action="/groups/{{.ID}}/delete" method="POST" style="display:inline"
-                  onsubmit="return confirm('Delete group {{.Name}}?')">
-              <button type="submit" class="btn-danger-sm">Delete</button>
-            </form>
-          </td>
-          {{end}}
-        </tr>
-        {{end}}
+</div>
+{{else}}
+<div class="gp-grid dv-rise-1">
+  {{range .Groups}}
+  {{$h := index $.Health .ID}}
+  <div class="gp-card{{if gt $h.OpenCritical 0}} alerty{{end}}">
+    <div class="gp-top">
+      <a href="/groups/{{.ID}}" class="gp-name">{{.Name}}</a>
+      {{if gt $h.DeviceCount 0}}
+      <span class="gp-score {{if ge $h.Score 80}}is-ok{{else if ge $h.Score 50}}is-warn{{else}}is-danger{{end}}">{{$h.Score}}</span>
       {{else}}
-        <tr>
-          <td colspan="4" class="empty">No groups yet.</td>
-        </tr>
+      <span class="gp-score is-empty">—</span>
       {{end}}
-    </tbody>
-  </table>
+    </div>
+    <div class="gp-meta">
+      {{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}
+      {{if gt $h.OfflineCount 0}} · <span class="danger">{{$h.OfflineCount}} offline</span>{{end}}
+      {{if gt $h.OpenCritical 0}} · <span class="danger">{{$h.OpenCritical}} critical</span>{{end}}
+      {{if gt $h.OpenWarning 0}} · <span class="warn">{{$h.OpenWarning}} warning{{if ne $h.OpenWarning 1}}s{{end}}</span>{{end}}
+    </div>
+    <div class="gp-foot">
+      <span>created {{localTime .CreatedAt}}</span>
+      {{if $h.Deployed}}<span class="gp-chip">deployed</span>{{end}}
+    </div>
+    {{if eq $.Role "admin"}}
+    <form action="/groups/{{.ID}}/delete" method="POST" class="gp-del"
+          onsubmit="return confirm('Delete group {{.Name}}?')">
+      <button type="submit" class="btn-danger-sm" title="Delete group">x</button>
+    </form>
+    {{end}}
+  </div>
   {{end}}
 </div>
+{{end}}
 
 {{template "footer" .}}
 {{end}}
