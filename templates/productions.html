@@ -1,15 +1,13 @@
 {{define "productions.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>Productions</h2>
-    <p class="page-subtitle">{{len .Productions}} production run{{if ne (len .Productions) 1}}s{{end}}</p>
-  </div>
-  {{if and .Productions (or (eq .Role "admin") (eq .Role "operator"))}}<a href="/productions/new" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Production</a>{{end}}
+<div class="ov-greet">
+  <h1 class="ov-title">Productions</h1>
+  <span class="ov-date">{{len .Productions}} production run{{if ne (len .Productions) 1}}s{{end}}</span>
+  {{if and .Productions (or (eq .Role "admin") (eq .Role "operator"))}}<span class="acts"><a href="/productions/new" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Production</a></span>{{end}}
 </div>
 
-<div class="card">
+<div class="card dv-rise-1">
   {{if not .Productions}}
   <div class="empty-state">
     <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></div>

@@ -3230,6 +3230,7 @@ input[type="checkbox"]:hover {
    OVERVIEW PAGE (main1 "command deck" port)
    ════════════════════════════════════════════════════ */
 .ov-greet { display: flex; align-items: baseline; gap: 14px; margin-bottom: 22px; }
+.ov-greet .acts { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .ov-title { font-family: var(--font-display); font-size: 26px; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
 .ov-date { font-size: 13px; color: var(--text-faint); }
 .ov-live { margin-left: auto; display: flex; align-items: center; gap: 7px; font-family: var(--mono);

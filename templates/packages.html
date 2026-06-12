@@ -1,12 +1,12 @@
 {{define "packages.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <h2 class="page-title">Package Inventory</h2>
-  <span class="muted small">{{len .Packages}} packages shown (max 200)</span>
+<div class="ov-greet">
+  <h1 class="ov-title">Package Inventory</h1>
+  <span class="ov-date">{{len .Packages}} packages shown (max 200)</span>
 </div>
 
-<div class="card" style="margin-bottom:16px;">
+<div class="card dv-rise-1" style="margin-bottom:16px;">
   <form method="GET" action="/packages" style="display:flex;gap:8px;padding:16px 0 0;">
     <input type="text" name="q" value="{{.Query}}" class="form-input" placeholder="Search package name…" style="flex:1;" autofocus>
     <button type="submit" class="btn-primary">Search</button>
