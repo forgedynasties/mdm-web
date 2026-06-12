@@ -121,6 +121,9 @@ type ExportRow struct {
 	Extra        json.RawMessage `json:"extra"`
 	Timestamp    time.Time       `json:"timestamp"`
 	LastSeenAt   time.Time       `json:"last_seen_at"`
+	// Empty marks a cycles-mode grid row with no check-in within one interval
+	// of the mark — data fields are zero values and should export as blanks.
+	Empty bool `json:"empty,omitempty"`
 }
 
 type CommandDelivery struct {
@@ -634,6 +637,60 @@ func exportCheckinsQuery(deviceIDs []uuid.UUID, start, end time.Time, intervalSe
 			  AND c.created_at <= $3
 			ORDER BY d.serial_number, c.created_at`,
 		[]interface{}{deviceIDs, start, end}
+}
+
+// StreamExportCycles streams one row per device per grid mark: start, start+interval,
+// …, end (inclusive). Each mark carries the latest check-in at or before it, but only
+// if that check-in is within one interval of the mark — otherwise the row comes back
+// with Empty=true so the CSV shows a visible gap instead of stale carried-forward data.
+func (d *DB) StreamExportCycles(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int, fn func(ExportRow) error) error {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.serial_number, c.battery_pct, c.build_id, c.extra, g.ts, d.last_seen_at
+		FROM devices d
+		CROSS JOIN generate_series($2::timestamptz, $3::timestamptz, make_interval(secs => $4)) AS g(ts)
+		LEFT JOIN LATERAL (
+			SELECT battery_pct, build_id, extra
+			FROM checkins c
+			WHERE c.device_id = d.id
+			  AND c.created_at <= g.ts
+			  AND c.created_at > g.ts - make_interval(secs => $4)
+			ORDER BY c.created_at DESC
+			LIMIT 1
+		) c ON true
+		WHERE d.id = ANY($1)
+		ORDER BY d.serial_number, g.ts`,
+		deviceIDs, start, end, intervalSec)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var r ExportRow
+		var batteryPct *int
+		var buildID *string
+		var extra []byte
+		if err := rows.Scan(&r.SerialNumber, &batteryPct, &buildID, &extra, &r.Timestamp, &r.LastSeenAt); err != nil {
+			return err
+		}
+		if batteryPct == nil {
+			r.Empty = true
+			r.Extra = json.RawMessage("{}")
+		} else {
+			r.BatteryPct = *batteryPct
+			if buildID != nil {
+				r.BuildID = *buildID
+			}
+			if len(extra) > 0 {
+				r.Extra = json.RawMessage(extra)
+			} else {
+				r.Extra = json.RawMessage("{}")
+			}
+		}
+		if err := fn(r); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
 }
 
 // ExportCheckins returns checkin data for multiple devices within a time range,

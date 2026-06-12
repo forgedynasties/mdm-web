@@ -63,6 +63,25 @@
 
   <div class="card" style="margin-top:16px;">
     <div class="card-header">
+      <h3>Row Timestamps</h3>
+      <span class="muted small" id="mode-summary">Check-in times</span>
+    </div>
+    <div style="padding:16px 20px;">
+      <p class="muted small" style="margin-bottom:10px;">
+        <strong>Check-ins</strong> exports rows at the devices' actual check-in times.
+        <strong>Cycles</strong> exports one row per device at fixed marks — start, start&nbsp;+&nbsp;interval, … —
+        each carrying the latest check-in within one interval of the mark (cells are blank if the device was silent).
+      </p>
+      <div class="dur-btns" id="export-mode-btns">
+        <button type="button" class="dur-btn active" onclick="setMode(this, '')">Check-ins</button>
+        <button type="button" class="dur-btn" onclick="setMode(this, '1')">Cycles</button>
+      </div>
+      <input type="hidden" name="cycles" id="export-cycles" value="">
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header">
       <h3>Sampling Interval</h3>
       <span class="muted small" id="interval-summary">All rows</span>
     </div>
@@ -232,6 +251,24 @@ function onTimeChange() {
 function toLocalISO(d) {
   var pad = function(n) { return n < 10 ? '0' + n : n; };
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+
+function setMode(btn, cycles) {
+  document.getElementById('export-cycles').value = cycles;
+  document.getElementById('export-mode-btns').querySelectorAll('.dur-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  // Cycles needs a positive step — "All rows" makes no sense on a fixed grid.
+  var allBtn = document.querySelector('#export-interval-btns .dur-btn');
+  if (cycles) {
+    allBtn.disabled = true;
+    if (document.getElementById('export-interval').value === '0') {
+      setSampleInterval(document.querySelector('#export-interval-btns .dur-btn[data-label="1 row / hour"]'), 3600);
+    }
+    document.getElementById('mode-summary').textContent = 'Fixed cycle marks';
+  } else {
+    allBtn.disabled = false;
+    document.getElementById('mode-summary').textContent = 'Check-in times';
+  }
 }
 
 function setSampleInterval(btn, sec) {
