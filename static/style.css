@@ -67,12 +67,12 @@
   --selected:   var(--accent-soft);        /* selection highlight */
   --page-glow:  none;                      /* ambient body wash */
 
-  /* ── Console surfaces (logcat/shell/remote — stay dark
-        in BOTH themes for terminal legibility) ──────── */
-  --console-bg:      #0e1115;
-  --console-surface: #14181e;
-  --console-text:    #d6dbe2;
-  --console-border:  #232a33;
+  /* ── Console surfaces (logcat/shell — follow the theme;
+        dark values live in the dark block below) ─────── */
+  --console-bg:      #f6f7f9;
+  --console-surface: #ffffff;
+  --console-text:    #2c333c;
+  --console-border:  #e2e6eb;
 
   /* ── Spacing scale (8px baseline) ─────────────────── */
   --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
@@ -171,6 +171,12 @@ html[data-theme="dark"] {
   --page-glow:
     radial-gradient(ellipse 80% 60% at 50% 0%, rgba(244, 63, 99, 0.05) 0%, transparent 70%),
     radial-gradient(ellipse 40% 50% at 20% 80%, rgba(244, 63, 99, 0.035) 0%, transparent 70%);
+
+  /* Console surfaces — dark terminal in dark mode */
+  --console-bg:      #0e1115;
+  --console-surface: #14181e;
+  --console-text:    #d6dbe2;
+  --console-border:  #232a33;
 
   /* Console surfaces already match dark; keep as-is */
 }
@@ -2516,12 +2522,17 @@ input[type="checkbox"]:hover {
 }
 
 /* ── Logcat Line Colors ───────────────────────── */
-/* Fixed bright levels — the terminal is dark in both themes */
-.logcat-terminal .log-E { color: #e05656; }
-.logcat-terminal .log-W { color: #e6a836; }
-.logcat-terminal .log-I { color: #6aa9ff; }
-.logcat-terminal .log-D { color: #59c97a; }
-.logcat-terminal .log-V { color: #8a92a0; }
+/* Light-legible defaults; bright variants for the dark terminal below. */
+.logcat-terminal .log-E { color: #c0392b; }
+.logcat-terminal .log-W { color: #9a6d00; }
+.logcat-terminal .log-I { color: #2563c9; }
+.logcat-terminal .log-D { color: #1e8a4c; }
+.logcat-terminal .log-V { color: #6b7280; }
+html[data-theme="dark"] .logcat-terminal .log-E { color: #e05656; }
+html[data-theme="dark"] .logcat-terminal .log-W { color: #e6a836; }
+html[data-theme="dark"] .logcat-terminal .log-I { color: #6aa9ff; }
+html[data-theme="dark"] .logcat-terminal .log-D { color: #59c97a; }
+html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 
 /* ── Logcat Pause Button ──────────────────────── */
 .logcat-pause { display: flex; align-items: center; gap: 6px; }

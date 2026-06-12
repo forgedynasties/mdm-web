@@ -63,16 +63,32 @@
     const serial = {{.Serial | printf "%q"}};
     const statusEl = document.getElementById('status');
 
+    // Match the dashboard theme (set on <html> by the inline script above).
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
     const term = new Terminal({
       cursorBlink: true,
       fontSize: 13,
       fontFamily: '"Cascadia Code", "Fira Code", monospace',
-      theme: {
+      theme: dark ? {
         background: '#0e1115',
         foreground: '#d6dbe2',
         cursor:     '#d6dbe2',
         black:      '#0e1115',
         brightBlack:'#3a4452',
+      } : {
+        background: '#f6f7f9',
+        foreground: '#2c333c',
+        cursor:     '#2c333c',
+        black:      '#f6f7f9',
+        brightBlack:'#9aa4b1',
+        selectionBackground: 'rgba(216, 39, 71, 0.18)',
+        // Stock xterm ANSI yellow/green are unreadable on a light background.
+        yellow:     '#9a6d00',
+        green:      '#1e8a4c',
+        red:        '#c0392b',
+        blue:       '#2563c9',
+        cyan:       '#0e7490',
+        white:      '#6b7280',
       },
     });
 
