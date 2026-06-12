@@ -3668,3 +3668,57 @@ func (d *DB) DeleteExpiredSessions(ctx context.Context) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM sessions WHERE expires_at < NOW()`)
 	return err
 }
+
+// FleetDailyStat is one day of stats aggregated across the whole (non-hidden)
+// fleet, feeding the overview page sparklines. Aggregated from device_daily_stats,
+// so "today" reflects the last rollup, not the live minute.
+type FleetDailyStat struct {
+	Day        time.Time `json:"day"`
+	Active     int       `json:"active"`      // devices with at least one checkin that day
+	LowBattery int       `json:"low_battery"` // devices whose daily minimum dipped under 20%
+	Hot        int       `json:"hot"`         // devices whose daily max temp reached 45°C
+	BatteryAvg *float32  `json:"battery_avg"` // mean of per-device daily averages
+}
+
+// GetFleetDailyStats returns the last `days` days of fleet-wide rollups, oldest
+// first. Days with no checkins at all simply have no row.
+func (d *DB) GetFleetDailyStats(ctx context.Context, days int) ([]FleetDailyStat, error) {
+	if days <= 0 {
+		days = 7
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT s.day,
+		       COUNT(*) FILTER (WHERE s.checkin_count > 0),
+		       COUNT(*) FILTER (WHERE s.battery_min < 20),
+		       COUNT(*) FILTER (WHERE s.temp_max >= 45),
+		       AVG(s.battery_avg)::real
+		FROM device_daily_stats s
+		JOIN devices dv ON dv.id = s.device_id AND NOT dv.hidden
+		WHERE s.day >= CURRENT_DATE - ($1::int - 1)
+		GROUP BY s.day
+		ORDER BY s.day`, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []FleetDailyStat
+	for rows.Next() {
+		var s FleetDailyStat
+		if err := rows.Scan(&s.Day, &s.Active, &s.LowBattery, &s.Hot, &s.BatteryAvg); err != nil {
+			return nil, err
+		}
+		stats = append(stats, s)
+	}
+	return stats, rows.Err()
+}
+
+// CountHotDevices returns how many non-hidden devices are currently reporting a
+// battery temperature at or above 45°C (the dashboard's warn threshold).
+func (d *DB) CountHotDevices(ctx context.Context) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM devices
+		WHERE NOT hidden AND COALESCE((latest_extra->>'battery_temp_c')::numeric, 0) >= 45`).Scan(&n)
+	return n, err
+}
