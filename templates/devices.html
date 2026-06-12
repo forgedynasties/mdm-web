@@ -210,8 +210,6 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   </div>
 </div>
 
-{{template "ai-report-card" .}}
-
 {{with .Summary}}
 <div class="summary-grid">
   <div class="summary-card summary-card-clickable" onclick="tileFilter(null)" title="Show all active devices">
@@ -236,6 +234,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   </div>
 </div>
 {{end}}
+
+{{template "ai-report-card" .}}
 
 <div class="filter-bar">
   {{/* ── Search ── */}}
