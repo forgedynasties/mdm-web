@@ -13,6 +13,7 @@ import (
 	"html"
 	"html/template"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -819,7 +820,9 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "health"
 	case strings.HasPrefix(path, "/alerts"):
 		data["ActivePage"] = "alerts"
-	case path == "/" || strings.HasPrefix(path, "/devices") || path == "/export" || path == "/packages":
+	case path == "/":
+		data["ActivePage"] = "overview"
+	case strings.HasPrefix(path, "/devices") || path == "/export" || path == "/packages":
 		data["ActivePage"] = "devices"
 	case strings.HasPrefix(path, "/groups"):
 		data["ActivePage"] = "groups"
@@ -1220,6 +1223,142 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, "devices.html", data)
+}
+
+// sparkPoints converts a numeric series into an SVG polyline points string for a
+// 58x22 viewbox, scaled to the series' own min/max so the shape (not magnitude)
+// reads. Returns "" for fewer than two points so the template can omit the svg.
+func sparkPoints(vals []float64) string {
+	if len(vals) < 2 {
+		return ""
+	}
+	lo, hi := vals[0], vals[0]
+	for _, v := range vals {
+		lo, hi = math.Min(lo, v), math.Max(hi, v)
+	}
+	const wd, ht, pad = 58.0, 22.0, 2.0
+	span := hi - lo
+	step := (wd - 2) / float64(len(vals)-1)
+	var b strings.Builder
+	for i, v := range vals {
+		y := ht / 2
+		if span > 0 {
+			y = pad + (ht-2*pad)*(1-(v-lo)/span)
+		}
+		if i > 0 {
+			b.WriteByte(' ')
+		}
+		fmt.Fprintf(&b, "%.1f,%.1f", 1+float64(i)*step, y)
+	}
+	return b.String()
+}
+
+// Overview renders the landing page: fleet pulse score, vital cards with 7-day
+// sparklines, the cached AI fleet report, quick actions, and recent activity.
+// The devices table itself lives on /devices.
+func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	activeSecs := h.cfg.CheckinInterval() * 3
+	summary, err := h.db.GetSummary(ctx, activeSecs)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	groups, _ := h.db.GetGroupHealth(ctx, activeSecs)
+	hot, _ := h.db.CountHotDevices(ctx)
+	daily, _ := h.db.GetFleetDailyStats(ctx, 7)
+	// The audit page itself is admin-only; keep the activity feed consistent.
+	var audit []db.AuditEntry
+	if h.role(r) == "admin" {
+		audit, _ = h.db.ListAudit(ctx, 8)
+	}
+
+	// Fleet score: device-weighted mean of the per-group health scores. Without
+	// groups, fall back to an online-ratio penalty so the ring still means something.
+	score := 100
+	if summary.Total > 0 {
+		if num, den := 0, 0; len(groups) > 0 {
+			for _, g := range groups {
+				num += g.Score * g.DeviceCount
+				den += g.DeviceCount
+			}
+			if den > 0 {
+				score = num / den
+			}
+		} else {
+			score -= 40 * (summary.Total - summary.RecentlyActive) / summary.Total
+		}
+	}
+	scoreClass := "danger"
+	switch {
+	case score >= 80:
+		scoreClass = "ok"
+	case score >= 50:
+		scoreClass = "warn"
+	}
+
+	offline := summary.Total - summary.RecentlyActive
+	attention := offline + summary.LowBattery + hot
+	verdict := "Fleet is healthy — all devices reporting"
+	if attention == 1 {
+		verdict = "Fleet is healthy — 1 device needs a look"
+	} else if attention > 1 {
+		verdict = fmt.Sprintf("%d devices need a look", attention)
+	}
+
+	var actS, offS, lowS, hotS []float64
+	for _, ds := range daily {
+		actS = append(actS, float64(ds.Active))
+		offS = append(offS, math.Max(0, float64(summary.Total-ds.Active)))
+		lowS = append(lowS, float64(ds.LowBattery))
+		hotS = append(hotS, float64(ds.Hot))
+	}
+
+	hour := time.Now().Hour()
+	greeting := "Good evening"
+	if hour < 12 {
+		greeting = "Good morning"
+	} else if hour < 17 {
+		greeting = "Good afternoon"
+	}
+
+	data := map[string]any{
+		"Title": "Overview",
+		// withRole overwrites this on success; the default keeps the template's
+		// numeric comparison safe if the alerts count query fails.
+		"AlertsOpenCount": 0,
+		"Summary":         summary,
+		"Offline":         offline,
+		"Hot":             hot,
+		"Attention":       attention,
+		"Score":           score,
+		"ScoreClass":      scoreClass,
+		// 2π·r44 = 276.5; the ring template animates to this offset.
+		"RingOffset":           fmt.Sprintf("%.1f", 276.5*float64(100-score)/100),
+		"Verdict":              verdict,
+		"Greeting":             greeting,
+		"DateLine":             time.Now().Format("Monday, January 2"),
+		"GroupsCount":          len(groups),
+		"SparkActive":          sparkPoints(actS),
+		"SparkOff":             sparkPoints(offS),
+		"SparkLow":             sparkPoints(lowS),
+		"SparkHot":             sparkPoints(hotS),
+		"Audit":                audit,
+		"ActiveThresholdLabel": fmt.Sprintf("%d min", activeSecs/60),
+	}
+
+	// Same cached hourly AI fleet report the devices page used to host.
+	if s, err := h.db.GetAISummary(ctx, "fleet"); err == nil && s.Summary != "" {
+		data["AISummary"] = s.Summary
+		data["AISummaryModel"] = s.Model
+		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
+		data["AISummaryPreview"] = summarizePreview(s.Summary)
+		if serials, err := h.db.ListAllSerials(ctx); err == nil {
+			data["DeviceSerials"] = serialsJSON(serials)
+		}
+	}
+
+	h.render(w, r, "overview.html", data)
 }
 
 func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
@@ -1995,7 +2134,7 @@ func safeCSVFilename(name, fallback string) string {
 func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
 	serials := r.URL.Query().Get("serials")
 	if serials == "" {
-		http.Redirect(w, r, "/", http.StatusFound)
+		http.Redirect(w, r, "/devices", http.StatusFound)
 		return
 	}
 	serialList := strings.Split(serials, ",")
@@ -2611,7 +2750,7 @@ func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "device.hide", serial, "")
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/devices", http.StatusSeeOther)
 }
 
 // DeviceSetDeployment sets the per-device deployment override from the settings tab:
@@ -2664,14 +2803,14 @@ func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	serials := r.Form["serials"]
 	if len(serials) == 0 {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/devices", http.StatusSeeOther)
 		return
 	}
 	if err := h.db.BulkHideDevices(r.Context(), serials); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/devices", http.StatusSeeOther)
 }
 
 // pushKioskConfigToDevices fetches the current device_config for each device and
@@ -2700,7 +2839,7 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	serials := r.Form["serials"]
 	if len(serials) == 0 {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		http.Redirect(w, r, "/devices", http.StatusSeeOther)
 		return
 	}
 
@@ -2724,7 +2863,7 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushKioskConfigToDevices(r.Context(), deviceIDs)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/devices", http.StatusSeeOther)
 }
 
 // ── OTA Packages & Deployments ────────────────────────────────────────────────
@@ -4660,9 +4799,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /login", h.LoginSubmit)
 	post("POST /logout", h.Logout)
 
-	mux.HandleFunc("GET /{$}", h.requireAuth(h.DeviceList))
+	mux.HandleFunc("GET /{$}", h.requireAuth(h.Overview))
+	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /demo", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/demo/1", http.StatusFound)
+		http.Redirect(w, r, "/demo/main1", http.StatusFound)
 	}))
 	mux.HandleFunc("GET /demo/{n}", h.requireAuth(h.DemoPage))
 	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
