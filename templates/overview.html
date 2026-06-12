@@ -106,6 +106,9 @@
           <span class="t">{{timeSince .FiredAt}}</span>
         </div>
         {{end}}
+        {{if gt .AlertsOpenCount (len .OpenAlerts)}}
+        <a class="ov-alr-more" href="/alerts?status=open">+ {{sub .AlertsOpenCount (len .OpenAlerts)}} more open alert{{if ne (sub .AlertsOpenCount (len .OpenAlerts)) 1}}s{{end}} →</a>
+        {{end}}
       </div>
       {{else}}
       <div class="ov-alrs-empty">
