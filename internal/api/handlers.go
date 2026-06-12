@@ -319,6 +319,21 @@ type checkinRequest struct {
 		Name        string `json:"name"`
 		VersionName string `json:"version_name"`
 	} `json:"installed_apps,omitempty"`
+	// OTA progress piggybacked on the checkin so the dashboard keeps tracking
+	// download/install percent even when the WebSocket is down.
+	OtaProgress *struct {
+		CommandID uuid.UUID `json:"command_id"`
+		Phase     string    `json:"phase"`
+		Percent   int       `json:"percent"`
+	} `json:"ota_progress,omitempty"`
+}
+
+// recordCheckinOtaProgress stores OTA progress reported in a checkin payload.
+func (h *Handler) recordCheckinOtaProgress(deviceID uuid.UUID, req *checkinRequest) {
+	if req.OtaProgress == nil || req.OtaProgress.CommandID == uuid.Nil {
+		return
+	}
+	h.shell.SetOTAProgress(deviceID, req.OtaProgress.CommandID, req.OtaProgress.Phase, req.OtaProgress.Percent)
 }
 
 func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
@@ -360,6 +375,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	h.recordCheckinOtaProgress(deviceID, &req)
 	h.hub.PublishDeviceUpdate(deviceID)
 
 	// OTA check: resolve update from update_devices table.
@@ -371,6 +387,9 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		if pkg.TargetBuildID == req.BuildID {
 			_ = h.db.SetUpdateDeviceStatus(r.Context(), upd.ID, deviceID, "installed")
 			_ = h.db.CheckAndCompleteUpdate(r.Context(), upd.ID)
+		} else if upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent" {
+			// Installed to the inactive slot, reboot pending (manual/scheduled)
+			// — don't re-issue the OTA command.
 		} else {
 			// Check if an OTA command is already in flight
 			if hasPending, err := h.db.HasPendingOTACommand(r.Context(), deviceID); err != nil {
@@ -491,6 +510,74 @@ func (h *Handler) HandleWsLogcat(deviceID uuid.UUID, raw []byte) {
 }
 
 // HandleWsOtaStatus processes an "ota_status" message from a device over WS.
+// afterOtaTerminal applies deployment bookkeeping and the deployment's reboot
+// policy after a device reports a terminal OTA status ("installed" or "error").
+func (h *Handler) afterOtaTerminal(ctx context.Context, deviceID uuid.UUID, status string) {
+	upd, err := h.db.ResolveUpdateForDevice(ctx, deviceID)
+	if err != nil {
+		log.Printf("[ota] ResolveUpdateForDevice error: %v", err)
+	}
+	if status == "error" {
+		if upd != nil {
+			_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "failed")
+		}
+		return
+	}
+	// status == "installed": the new build is applied to the inactive slot and
+	// takes effect at the next reboot. What happens now is the deployment's call.
+	behavior := "immediate"
+	if upd != nil {
+		behavior = upd.RebootBehavior
+		_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "awaiting_reboot")
+	}
+	switch behavior {
+	case "manual":
+		// An operator reboots the device when convenient — never auto-reboot.
+		return
+	case "scheduled":
+		if upd != nil && upd.ScheduledTime != nil && upd.ScheduledTime.After(time.Now()) {
+			return // ProcessDueScheduledReboots pushes the reboot when due
+		}
+		// No schedule or already past due — reboot now.
+	}
+	h.pushRebootFor(ctx, upd, deviceID)
+}
+
+// pushRebootFor creates and pushes a reboot command for a device, recording
+// reboot_sent on its deployment row when one is attached.
+func (h *Handler) pushRebootFor(ctx context.Context, upd *db.Update, deviceID uuid.UUID) {
+	cmd, err := h.db.CreateCommand(ctx, "reboot", "", nil, "devices", []uuid.UUID{deviceID})
+	if err != nil {
+		log.Printf("[ota] create reboot command error: %v", err)
+		return
+	}
+	if upd != nil {
+		_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "reboot_sent")
+	}
+	h.pushCommand(ctx, cmd, "devices", []uuid.UUID{deviceID})
+}
+
+// ProcessDueScheduledReboots pushes reboot commands for devices whose
+// scheduled-reboot deployments have come due. Called from a ticker in main.
+func (h *Handler) ProcessDueScheduledReboots(ctx context.Context) {
+	due, err := h.db.ListDueScheduledReboots(ctx)
+	if err != nil {
+		log.Printf("[ota-scheduler] ListDueScheduledReboots error: %v", err)
+		return
+	}
+	for _, dr := range due {
+		cmd, err := h.db.CreateCommand(ctx, "reboot", "", nil, "devices", []uuid.UUID{dr.DeviceID})
+		if err != nil {
+			log.Printf("[ota-scheduler] create reboot command error: %v", err)
+			continue
+		}
+		_ = h.db.SetUpdateDeviceStatus(ctx, dr.UpdateID, dr.DeviceID, "reboot_sent")
+		h.pushCommand(ctx, cmd, "devices", []uuid.UUID{dr.DeviceID})
+		h.hub.PublishDeviceUpdate(dr.DeviceID)
+		log.Printf("[ota-scheduler] scheduled reboot pushed device=%s update=%d", dr.DeviceID, dr.UpdateID)
+	}
+}
+
 func (h *Handler) HandleWsOtaStatus(deviceID uuid.UUID, raw []byte) {
 	ctx := context.Background()
 	var body struct {
@@ -519,13 +606,7 @@ func (h *Handler) HandleWsOtaStatus(deviceID uuid.UUID, raw []byte) {
 	}
 	if body.Status == "installed" || body.Status == "error" {
 		h.shell.ClearOTAProgress(deviceID)
-	}
-	if body.Status == "installed" {
-		if cmd, err := h.db.CreateCommand(ctx, "reboot", "", nil, "devices", []uuid.UUID{deviceID}); err != nil {
-			log.Printf("[ws-ota] create reboot command error: %v", err)
-		} else {
-			h.pushCommand(ctx, cmd, "devices", []uuid.UUID{deviceID})
-		}
+		h.afterOtaTerminal(ctx, deviceID, body.Status)
 	}
 	h.hub.PublishDeviceUpdate(deviceID)
 }
@@ -570,6 +651,7 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		}
 	}
 
+	h.recordCheckinOtaProgress(id, &req)
 	h.hub.PublishDeviceUpdate(id)
 
 	// OTA check — same logic as HTTP Checkin.
@@ -580,6 +662,8 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		if pkg.TargetBuildID == req.BuildID {
 			_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, id, "installed")
 			_ = h.db.CheckAndCompleteUpdate(ctx, upd.ID)
+		} else if upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent" {
+			// Installed to the inactive slot, reboot pending — don't re-issue.
 		} else {
 			if hasPending, err := h.db.HasPendingOTACommand(ctx, id); err != nil {
 				log.Printf("[ws-telemetry] HasPendingOTACommand error: %v", err)
@@ -962,18 +1046,10 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 		_ = h.db.SaveCommandResult(r.Context(), body.CommandID, device.ID, body.ErrorCode)
 	}
 
-	// Clear in-memory OTA progress on terminal statuses.
+	// Clear in-memory OTA progress and apply the deployment's reboot policy.
 	if body.Status == "installed" || body.Status == "error" {
 		h.shell.ClearOTAProgress(device.ID)
-	}
-
-	// On installed: push a reboot command immediately via WS.
-	if body.Status == "installed" {
-		if cmd, err := h.db.CreateCommand(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}); err != nil {
-			log.Printf("[ota_status] create reboot command error: %v", err)
-		} else {
-			h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
-		}
+		h.afterOtaTerminal(r.Context(), device.ID, body.Status)
 	}
 
 	h.hub.PublishDeviceUpdate(device.ID)

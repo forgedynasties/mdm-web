@@ -168,6 +168,13 @@ func (m *Manager) updateOTAProgress(deviceID, commandID uuid.UUID, phase string,
 	log.Printf("[ota] device %s: %s %d%%", deviceID, phase, percent)
 }
 
+// SetOTAProgress records OTA progress reported outside the WebSocket path —
+// devices piggyback their current phase/percent on HTTP checkins so progress
+// stays visible even when the WS connection is down.
+func (m *Manager) SetOTAProgress(deviceID, commandID uuid.UUID, phase string, percent int) {
+	m.updateOTAProgress(deviceID, commandID, phase, percent)
+}
+
 // GetOTAProgress returns the latest OTA progress for a device, or nil if none.
 func (m *Manager) GetOTAProgress(deviceID uuid.UUID) *OTAProgress {
 	m.otaMu.Lock()
