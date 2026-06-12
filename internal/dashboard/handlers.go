@@ -1206,18 +1206,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Density":              h.cfg.Density(),
 	}
 
-	// Cached hourly AI fleet summary for the main-page card (full page only).
-	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
-		data["AISummary"] = s.Summary
-		data["AISummaryModel"] = s.Model
-		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
-		data["AISummaryPreview"] = summarizePreview(s.Summary)
-		// Serial list so the card can turn serials named in the report prose into links.
-		if serials, err := h.db.ListAllSerials(r.Context()); err == nil {
-			data["DeviceSerials"] = serialsJSON(serials)
-		}
-	}
-
 	if r.Header.Get("HX-Request") == "true" {
 		h.tmpl.ExecuteTemplate(w, "device-table", h.withRole(r, data))
 		return
