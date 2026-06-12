@@ -2278,6 +2278,13 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Cycles mode: rows at fixed grid marks (start, start+interval, …) instead of
+	// raw check-in timestamps. Needs a positive step; default to hourly.
+	cycles := r.FormValue("cycles") == "1"
+	if cycles && intervalSec <= 0 {
+		intervalSec = 3600
+	}
+
 	// Columns to include — at least one is required.
 	columns := r.Form["columns"]
 	if len(columns) == 0 {
@@ -2318,13 +2325,23 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = h.db.StreamExportCheckins(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, func(row db.ExportRow) error {
+	writeRow := func(row db.ExportRow) error {
+		ts := row.Timestamp
+		if cycles {
+			// Grid marks read naturally in the requester's wall clock (13:00, 14:00…).
+			ts = ts.In(loc)
+		}
 		rec := []string{
 			row.SerialNumber,
-			row.Timestamp.Format(time.RFC3339),
+			ts.Format(time.RFC3339),
 		}
 		for _, c := range colOrder {
 			if !colSet[c] {
+				continue
+			}
+			// Grid mark with no check-in within one interval: leave data cells blank.
+			if row.Empty && c != "last_seen" {
+				rec = append(rec, "")
 				continue
 			}
 			switch c {
@@ -2359,7 +2376,12 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		return cw.Write(rec)
-	})
+	}
+	if cycles {
+		err = h.db.StreamExportCycles(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, writeRow)
+	} else {
+		err = h.db.StreamExportCheckins(r.Context(), deviceIDs, start.UTC(), end.UTC(), intervalSec, writeRow)
+	}
 	cw.Flush()
 	if err != nil {
 		// Headers already written; the partial CSV is the best we can do.

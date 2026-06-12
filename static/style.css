@@ -1371,6 +1371,8 @@ input[type="checkbox"]:hover {
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .dur-btn:hover { border-color: var(--accent); color: var(--accent); }
+.dur-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.dur-btn:disabled:hover { border-color: transparent; color: var(--muted); }
 .dur-btn.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 
 .custom-range-inputs {
