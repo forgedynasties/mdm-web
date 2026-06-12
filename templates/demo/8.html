@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hybrid Split — Demo 8</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#16181d; --ink2:#555b66; --faint:#8a919d;
+    --line:#e4e7ec; --line2:#d2d7df;
+    --crimson:#d82747; --crimson-soft:#fbeaee; --crimson-deep:#ab1535;
+    --ok:#149455; --ok-soft:#e3f5ec; --warn:#b97a0a; --warn-soft:#fdf4e0;
+    --hot:#cc4f24; --hot-soft:#fceee8; --info:#2563c9; --info-soft:#e8effb;
+    --display:"Schibsted Grotesk","IBM Plex Sans",sans-serif;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+    --shadow:0 1px 2px rgba(22,24,29,.04),0 6px 20px rgba(22,24,29,.04);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+
+  /* ---------- top navbar ---------- */
+  .nav{display:flex;align-items:center;gap:2px;padding:0 24px;height:54px;background:var(--card);
+       border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+  .brand{font-family:var(--display);font-weight:700;font-size:17px;margin-right:24px;color:var(--ink);
+         text-decoration:none;display:flex;align-items:center;gap:9px}
+  .brand .sq{width:22px;height:22px;border-radius:6px;background:var(--crimson);display:flex;align-items:center;
+             justify-content:center;color:#fff;font-size:12px;font-weight:800}
+  .nav a.item{font-size:13.5px;color:var(--ink2);text-decoration:none;padding:6px 11px;border-radius:7px;font-weight:500}
+  .nav a.item:hover{background:var(--bg);color:var(--ink)}
+  .nav a.item.on{color:var(--ink);background:var(--bg);box-shadow:inset 0 0 0 1px var(--line2);font-weight:600}
+  .nav .spacer{flex:1}
+  .nav .user{font-size:12px;color:var(--faint)}
+  .nav .user b{color:var(--ink2)}
+
+  /* ---------- split layout ---------- */
+  .split{display:grid;grid-template-columns:248px 1fr;gap:0;max-width:1400px;margin:0 auto;min-height:calc(100vh - 54px)}
+
+  /* facet rail */
+  .rail{border-right:1px solid var(--line);padding:22px 18px;background:var(--card)}
+  .rail .fh{font-family:var(--display);font-size:12px;font-weight:700;text-transform:uppercase;
+            letter-spacing:.09em;color:var(--faint);margin:20px 0 8px}
+  .rail .fh:first-child{margin-top:0}
+  .facet{display:flex;align-items:center;gap:10px;width:100%;padding:8px 11px;border-radius:9px;border:0;
+         background:none;font-family:var(--sans);font-size:13.5px;color:var(--ink2);cursor:pointer;text-align:left}
+  .facet:hover{background:var(--bg)}
+  .facet.on{background:var(--crimson-soft);color:var(--crimson-deep);font-weight:600}
+  .facet .ic{width:9px;height:9px;border-radius:50%;flex:none}
+  .facet .n{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint);background:var(--bg);
+            border-radius:99px;padding:1px 8px;min-width:26px;text-align:center}
+  .facet.on .n{background:#fff;color:var(--crimson-deep)}
+  .facet .bar{position:relative;flex:1;height:4px;border-radius:99px;background:var(--line);overflow:hidden;min-width:30px}
+  .facet .bar i{position:absolute;inset:0;width:var(--w);background:var(--c);border-radius:99px}
+  .health{background:linear-gradient(135deg,#fff,#fdf7f8);border:1px solid var(--line);border-radius:13px;
+          padding:15px;margin-bottom:6px;box-shadow:var(--shadow)}
+  .health .hv{font-family:var(--display);font-size:34px;font-weight:700;letter-spacing:-.02em}
+  .health .hv small{font-size:15px;color:var(--faint);font-weight:500}
+  .health .hk{font-size:11.5px;color:var(--faint);margin-top:2px}
+  .health .trend{display:flex;align-items:center;gap:6px;margin-top:9px;font-size:11.5px;color:var(--ok);font-weight:600}
+
+  /* main column */
+  .content{padding:22px 26px 70px;min-width:0}
+  .crumbs{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .crumbs h1{font-family:var(--display);font-size:21px;font-weight:700;margin:0;letter-spacing:-.01em}
+  .crumbs .applied{display:flex;gap:6px;flex-wrap:wrap}
+  .ap{display:flex;align-items:center;gap:6px;font-size:12px;background:var(--crimson-soft);color:var(--crimson-deep);
+      border-radius:99px;padding:4px 7px 4px 11px;font-weight:600}
+  .ap b{cursor:pointer;background:#fff;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;
+        justify-content:center;font-size:11px}
+  .crumbs .right{margin-left:auto;display:flex;gap:8px}
+  .btn{font-family:var(--sans);font-size:12.5px;font-weight:500;padding:7px 14px;border-radius:9px;
+       border:1px solid var(--line2);background:var(--card);color:var(--ink2);cursor:pointer}
+  .btn:hover{border-color:var(--faint);color:var(--ink)}
+  .btn.primary{background:var(--ink);border-color:var(--ink);color:#fff}
+
+  .searchrow{display:flex;gap:10px;margin-bottom:14px;align-items:center}
+  .search{flex:0 1 360px;display:flex;align-items:center;gap:9px;background:var(--card);
+          border:1px solid var(--line);border-radius:10px;padding:8px 13px;box-shadow:var(--shadow)}
+  .search input{border:0;background:none;outline:none;font-family:var(--sans);font-size:13.5px;width:100%;color:var(--ink)}
+  .search svg{width:14px;height:14px;stroke:var(--faint);fill:none;stroke-width:2}
+  .sortby{margin-left:auto;font-size:12.5px;color:var(--faint)}
+  .sortby select{font-family:var(--sans);font-size:12.5px;border:1px solid var(--line);background:var(--card);
+                 border-radius:8px;padding:6px 9px;color:var(--ink2);outline:none}
+
+  /* device cards list */
+  .list{display:flex;flex-direction:column;gap:9px}
+  .dev{display:grid;grid-template-columns:18px 215px 130px 1fr 1fr 1fr 110px 30px;align-items:center;gap:14px;
+       background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 18px;cursor:pointer;
+       box-shadow:var(--shadow);transition:transform .13s,border-color .13s;animation:up .35s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes up{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+  .dev:hover{transform:translateY(-2px);border-color:var(--line2)}
+  .dev.offline{background:linear-gradient(135deg,var(--card),#fdf4f5)}
+  .ws{width:9px;height:9px;border-radius:50%;background:var(--line2)}
+  .ws.on{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+  .ws.off{background:var(--crimson);box-shadow:0 0 0 3px var(--crimson-soft)}
+  .dev .ser{font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .dev .ser small{display:block;font-weight:400;color:var(--faint);font-size:10.5px;margin-top:2px}
+  .gp{font-size:11.5px;background:var(--bg);border:1px solid var(--line);color:var(--ink2);padding:3px 10px;
+      border-radius:99px;font-family:var(--mono);justify-self:start}
+  .m{min-width:0}
+  .m .k{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);font-weight:600}
+  .m .v{font-size:13px;margin-top:2px;font-family:var(--mono)}
+  .m .v .u{color:var(--faint);font-size:11px}
+  .mt{display:flex;align-items:center;gap:8px;margin-top:3px}
+  .track{flex:1;max-width:70px;height:5px;border-radius:99px;background:var(--line);overflow:hidden}
+  .track i{display:block;height:100%;border-radius:99px;background:var(--ok)}
+  .track i.w{background:var(--warn)}.track i.d{background:var(--crimson)}
+  .last{font-size:12px;color:var(--faint);text-align:right}
+  .last b{display:block;color:var(--ink2);font-weight:500}
+  .chev{color:var(--line2);font-size:17px;text-align:center}
+  .dev:hover .chev{color:var(--crimson)}
+  .okc{color:var(--ok)}.warnc{color:var(--warn)}.hotc{color:var(--hot)}.badc{color:var(--crimson)}
+  .empty{padding:50px;text-align:center;color:var(--faint);font-size:13.5px}
+
+  .demo-switch{position:fixed;bottom:18px;right:18px;z-index:99;background:var(--ink);color:#b9bec7;border-radius:99px;
+     padding:7px 9px 7px 14px;font-family:var(--mono);font-size:11.5px;display:flex;gap:5px;align-items:center;
+     box-shadow:0 6px 24px rgba(22,24,29,.3)}
+  .demo-switch a{color:#b9bec7;text-decoration:none;width:24px;height:24px;border-radius:50%;display:flex;
+     align-items:center;justify-content:center}
+  .demo-switch a:hover{background:rgba(255,255,255,.12)}
+  .demo-switch a.cur{background:var(--crimson);color:#fff;font-weight:700}
+  @media(max-width:1000px){.split{grid-template-columns:1fr}.rail{border-right:0;border-bottom:1px solid var(--line)}
+    .dev{grid-template-columns:18px 1fr 1fr;grid-auto-rows:auto}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="brand" href="#"><span class="sq">T</span>TSAI MDM</a>
+  <a class="item on" href="#">Devices</a>
+  <a class="item" href="#">Groups</a>
+  <a class="item" href="#">Productions</a>
+  <a class="item" href="#">Commands</a>
+  <a class="item" href="#">Updates</a>
+  <a class="item" href="#">Alerts</a>
+  <span class="spacer"></span>
+  <span class="user"><b>claude-hw</b> · admin</span>
+</nav>
+
+<div class="split">
+
+  <!-- FACET RAIL -->
+  <aside class="rail">
+    <div class="health">
+      <div class="hv">87<small>/100</small></div>
+      <div class="hk">fleet health score</div>
+      <div class="trend">▲ +3 vs yesterday</div>
+    </div>
+
+    <div class="fh">Status</div>
+    <button class="facet on" data-k="status" data-v="all"><span class="ic" style="background:var(--ink2)"></span>All devices<span class="n">30</span></button>
+    <button class="facet" data-k="status" data-v="online"><span class="ic" style="background:var(--ok)"></span>Online<span class="n">26</span></button>
+    <button class="facet" data-k="status" data-v="offline"><span class="ic" style="background:var(--crimson)"></span>Offline<span class="n">4</span></button>
+
+    <div class="fh">Needs action</div>
+    <button class="facet" data-k="flag" data-v="low"><span class="ic" style="background:var(--warn)"></span>Low battery<span class="n">2</span></button>
+    <button class="facet" data-k="flag" data-v="hot"><span class="ic" style="background:var(--hot)"></span>Running hot<span class="n">2</span></button>
+    <button class="facet" data-k="flag" data-v="stale"><span class="ic" style="background:var(--info)"></span>Old build<span class="n">7</span></button>
+
+    <div class="fh">Groups</div>
+    <button class="facet" data-k="group" data-v="tableside-pune"><span class="bar"><i style="--w:92%;--c:var(--ok)"></i></span>tableside-pune<span class="n">12</span></button>
+    <button class="facet" data-k="group" data-v="kiosks-mum"><span class="bar"><i style="--w:90%;--c:var(--ok)"></i></span>kiosks-mum<span class="n">10</span></button>
+    <button class="facet" data-k="group" data-v="drivers-blr"><span class="bar"><i style="--w:75%;--c:var(--warn)"></i></span>drivers-blr<span class="n">8</span></button>
+
+    <div class="fh">Build</div>
+    <button class="facet" data-k="build" data-v="v2.15.0"><span class="ic" style="background:var(--ok)"></span>v2.15.0<span class="n">23</span></button>
+    <button class="facet" data-k="build" data-v="v2.14.3"><span class="ic" style="background:var(--warn)"></span>v2.14.3<span class="n">5</span></button>
+    <button class="facet" data-k="build" data-v="v2.13.9"><span class="ic" style="background:var(--crimson)"></span>v2.13.9<span class="n">2</span></button>
+  </aside>
+
+  <!-- CONTENT -->
+  <div class="content">
+    <div class="crumbs">
+      <h1>Devices</h1>
+      <div class="applied" id="applied"></div>
+      <div class="right"><button class="btn">Export</button><button class="btn primary">Send command</button></div>
+    </div>
+
+    <div class="searchrow">
+      <label class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <input id="q" placeholder="Search serial, build, group…"></label>
+      <span class="sortby">sort
+        <select id="sort">
+          <option value="last">last seen</option>
+          <option value="batt">battery</option>
+          <option value="temp">temperature</option>
+          <option value="serial">serial</option>
+        </select>
+      </span>
+    </div>
+
+    <div class="list" id="list"></div>
+  </div>
+</div>
+
+<div class="demo-switch">demo
+  <a href="/demo/5">5</a><a href="/demo/6">6</a><a href="/demo/7">7</a><a href="/demo/8" class="cur">8</a>
+</div>
+
+<script>
+var D=[
+["AT070AABU00442","v2.15.0",84,1,62,31.2,1,"tableside-pune",1,0],
+["AT070AABU00443","v2.15.0",76,0,58,33.0,1,"tableside-pune",1,1],
+["AT070AABU00444","v2.15.0",98,1,41,29.4,1,"tableside-pune",1,0],
+["AT070AABU00445","v2.15.0",67,0,55,32.1,1,"tableside-pune",1,2],
+["AT070AABU00446","v2.15.0",14,0,63,34.8,1,"tableside-pune",1,1],
+["AT070AABU00447","v2.15.0",52,0,77,36.2,1,"tableside-pune",1,3],
+["AT070AABU00448","v2.14.3",88,1,49,30.6,1,"tableside-pune",1,0],
+["AT070AABU00449","v2.15.0",71,0,52,31.9,1,"tableside-pune",1,1],
+["AT070AABU00450","v2.15.0",45,0,68,44.6,1,"tableside-pune",1,0],
+["AT070AABU00452","v2.15.0",81,1,57,30.2,1,"tableside-pune",1,2],
+["AT070AABU00453","v2.14.3",60,0,73,35.5,1,"tableside-pune",0,196],
+["AT070AABU00454","v2.15.0",93,1,44,29.8,1,"tableside-pune",1,1],
+["AT070AABU00451","v2.14.3",12,0,71,38.5,1,"kiosks-mum",1,0],
+["AT070AABU00455","v2.15.0",91,1,49,30.1,1,"kiosks-mum",1,0],
+["AT070AABU00456","v2.15.0",78,1,54,31.4,1,"kiosks-mum",1,1],
+["AT070AABU00457","v2.15.0",83,1,61,33.7,1,"kiosks-mum",1,2],
+["AT070AABU00458","v2.14.3",69,0,66,37.0,1,"kiosks-mum",0,1441],
+["AT070AABU00459","v2.15.0",87,1,47,30.9,1,"kiosks-mum",1,0],
+["AT070AABU00462","v2.15.0",74,0,59,32.6,1,"kiosks-mum",1,4],
+["AT070AABU00463","v2.15.0",96,1,38,28.7,1,"kiosks-mum",1,1],
+["AT070AABU00464","v2.13.9",55,0,82,45.1,1,"kiosks-mum",1,2],
+["AT070AABU00465","v2.15.0",80,1,51,31.0,1,"kiosks-mum",1,0],
+["AT070AABU00460","v2.14.3",64,0,66,35.4,0,"drivers-blr",0,240],
+["AT070AABU00461","v2.15.0",58,0,62,33.3,0,"drivers-blr",1,5],
+["AT070AABU00466","v2.15.0",49,0,70,36.8,0,"drivers-blr",1,2],
+["AT070AABU00467","v2.15.0",90,1,46,29.5,0,"drivers-blr",1,1],
+["AT070AABU00468","v2.14.3",33,0,64,34.0,0,"drivers-blr",1,8],
+["AT070AABU00469","v2.13.9",26,0,75,39.2,0,"drivers-blr",0,4523],
+["AT070AABU00470","v2.15.0",72,0,53,31.6,0,"drivers-blr",1,3],
+["AT070AABU00471","v2.15.0",85,1,50,30.4,0,"drivers-blr",1,0]
+].map(function(r){return{serial:r[0],build:r[1],batt:r[2],chg:!!r[3],ram:r[4],temp:r[5],kiosk:!!r[6],group:r[7],online:!!r[8],mins:r[9]}});
+
+function ago(m){if(m<1)return"just now";if(m<60)return m+"m ago";if(m<1440)return Math.round(m/60)+"h ago";return Math.round(m/1440)+"d ago"}
+function battCls(b){return b<20?"d":(b<40?"w":"")}
+
+var sel={status:"all",flag:null,group:null,build:null};
+var LBL={online:"Online",offline:"Offline",low:"Low battery",hot:"Running hot",stale:"Old build"};
+
+function pass(d){
+  if(sel.status==="online"&&!d.online)return false;
+  if(sel.status==="offline"&&d.online)return false;
+  if(sel.flag==="low"&&d.batt>=20)return false;
+  if(sel.flag==="hot"&&d.temp<=43)return false;
+  if(sel.flag==="stale"&&d.build==="v2.15.0")return false;
+  if(sel.group&&d.group!==sel.group)return false;
+  if(sel.build&&d.build!==sel.build)return false;
+  var q=(document.getElementById("q").value||"").toLowerCase();
+  if(q&&!(d.serial+d.build+d.group).toLowerCase().includes(q))return false;
+  return true;
+}
+function render(){
+  // applied chips
+  var chips=[];
+  if(sel.status!=="all")chips.push(["status",LBL[sel.status]]);
+  if(sel.flag)chips.push(["flag",LBL[sel.flag]]);
+  if(sel.group)chips.push(["group",sel.group]);
+  if(sel.build)chips.push(["build",sel.build]);
+  document.getElementById("applied").innerHTML=chips.map(function(c){
+    return '<span class="ap">'+c[1]+'<b onclick="clearF(\''+c[0]+'\')">×</b></span>'}).join("");
+  // facet highlight
+  document.querySelectorAll(".facet").forEach(function(f){
+    var k=f.dataset.k,v=f.dataset.v;
+    var on=(k==="status")?(sel.status===v):(sel[k]===v);
+    f.classList.toggle("on",on);
+  });
+  // list
+  var s=document.getElementById("sort").value;
+  var rows=D.filter(pass).slice().sort(function(a,b){
+    if(s==="batt")return a.batt-b.batt;
+    if(s==="temp")return b.temp-a.temp;
+    if(s==="serial")return a.serial<b.serial?-1:1;
+    return a.mins-b.mins;
+  });
+  if(!rows.length){document.getElementById("list").innerHTML='<div class="empty">No devices match these filters.</div>';return}
+  document.getElementById("list").innerHTML=rows.map(function(d,i){
+    return '<div class="dev'+(d.online?'':' offline')+'" style="animation-delay:'+Math.min(i*18,350)+'ms">'+
+    '<span class="ws '+(d.online?"on":"off")+'"></span>'+
+    '<div class="ser">'+d.serial+'<small>'+(d.kiosk?"kiosk mode":"open mode")+' · '+d.build+'</small></div>'+
+    '<span class="gp">'+d.group+'</span>'+
+    '<div class="m"><div class="k">Battery</div><div class="mt"><span class="track"><i class="'+battCls(d.batt)+'" style="width:'+d.batt+'%"></i></span>'+
+      '<span class="v">'+d.batt+'%'+(d.chg?" ⚡":"")+'</span></div></div>'+
+    '<div class="m"><div class="k">RAM</div><div class="v '+(d.ram>=80?"badc":(d.ram>=60?"warnc":""))+'">'+d.ram+'<span class="u">%</span></div></div>'+
+    '<div class="m"><div class="k">Temp</div><div class="v '+(d.temp>43?"hotc":"")+'">'+d.temp.toFixed(1)+'<span class="u">°C</span></div></div>'+
+    '<div class="last"><b>'+ago(d.mins)+'</b>last seen</div>'+
+    '<span class="chev">›</span></div>';
+  }).join("");
+}
+function clearF(k){if(k==="status")sel.status="all";else sel[k]=null;render()}
+document.querySelectorAll(".facet").forEach(function(f){f.onclick=function(){
+  var k=f.dataset.k,v=f.dataset.v;
+  if(k==="status")sel.status=v;
+  else sel[k]=(sel[k]===v)?null:v;
+  render();
+}});
+document.getElementById("q").oninput=render;
+document.getElementById("sort").onchange=render;
+render();
+</script>
+</body>
+</html>

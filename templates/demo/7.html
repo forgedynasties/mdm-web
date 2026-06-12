@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet Grid — Demo 7</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0d12; --bg2:#0d1118; --panel:#121722; --panel2:#161c29;
+    --line:#1e2634; --line2:#2c3644;
+    --ink:#e8edf5; --ink2:#9fabbd; --faint:#5d6a7d;
+    --crimson:#ff3a5e; --crimson-glow:rgba(255,58,94,.45);
+    --ok:#2ee584; --ok-glow:rgba(46,229,132,.35);
+    --warn:#ffc24d; --hot:#ff7a45; --cold:#46a8ff;
+    --display:"Oxanium","JetBrains Mono",monospace;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:
+        radial-gradient(1100px 500px at 85% -10%, rgba(255,58,94,.07), transparent 60%),
+        radial-gradient(800px 600px at -5% 110%, rgba(70,168,255,.05), transparent 60%),
+        var(--bg);
+       color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased;display:flex;min-height:100vh}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.04;
+    background-image:repeating-linear-gradient(0deg,transparent,transparent 2px,#fff 2px,#fff 3px)}
+
+  /* ---------- icon rail ---------- */
+  .rail{width:58px;flex:none;background:var(--bg2);border-right:1px solid var(--line);height:100vh;position:sticky;top:0;
+        display:flex;flex-direction:column;align-items:center;padding:12px 0;gap:4px;z-index:10}
+  .rail .mark{font-family:var(--display);font-weight:700;font-size:16px;color:var(--crimson);margin-bottom:14px;
+              text-shadow:0 0 14px var(--crimson-glow)}
+  .ri{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+      color:var(--faint);cursor:pointer;position:relative}
+  .ri svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .ri:hover{color:var(--ink);background:var(--panel)}
+  .ri.on{color:var(--crimson);background:rgba(255,58,94,.12);box-shadow:inset 0 0 0 1px rgba(255,58,94,.3)}
+  .ri .bdg{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--crimson);
+           box-shadow:0 0 6px var(--crimson-glow)}
+  .rail .grow{flex:1}
+
+  /* ---------- main ---------- */
+  .main{flex:1;min-width:0;padding:20px 26px 60px;position:relative;z-index:2}
+  .hud{display:flex;align-items:center;gap:22px;margin-bottom:18px;flex-wrap:wrap}
+  .hud h1{font-family:var(--display);font-size:20px;font-weight:600;letter-spacing:.06em;margin:0;text-transform:uppercase}
+  .hud h1 i{color:var(--crimson);font-style:normal}
+  .hudstat{display:flex;align-items:baseline;gap:7px}
+  .hudstat .v{font-family:var(--display);font-size:24px;font-weight:700}
+  .hudstat .v.ok{color:var(--ok);text-shadow:0 0 16px var(--ok-glow)}
+  .hudstat .v.bad{color:var(--crimson);text-shadow:0 0 16px var(--crimson-glow)}
+  .hudstat .v.warn{color:var(--warn)} .hudstat .v.hot{color:var(--hot)}
+  .hudstat .k{font-family:var(--mono);font-size:10px;color:var(--faint);text-transform:uppercase;letter-spacing:.12em}
+  .hud .clock{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--faint);text-align:right;line-height:1.5}
+  .hud .clock b{color:var(--ok);font-weight:400}
+
+  /* mode + legend bar */
+  .bar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+  .modes{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px}
+  .mode{font-family:var(--mono);font-size:11px;letter-spacing:.06em;padding:6px 13px;border-radius:7px;color:var(--ink2);
+        cursor:pointer;text-transform:uppercase}
+  .mode.on{background:var(--crimson);color:#fff;box-shadow:0 0 14px var(--crimson-glow)}
+  .legend{display:flex;gap:14px;margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--ink2);flex-wrap:wrap}
+  .lg{display:flex;align-items:center;gap:6px}
+  .lg i{width:10px;height:10px;border-radius:3px}
+
+  /* ---------- grid sections ---------- */
+  .zone{margin-bottom:26px}
+  .zh{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+  .zh h2{font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.14em;margin:0;
+         text-transform:uppercase;color:var(--ink2)}
+  .zh .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line2),transparent)}
+  .zh .zn{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:10px}
+
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 12px;cursor:pointer;
+        position:relative;transition:transform .14s,border-color .14s,box-shadow .14s;min-height:86px;
+        display:flex;flex-direction:column;justify-content:space-between;animation:pop .4s cubic-bezier(.2,.8,.3,1.2) both}
+  @keyframes pop{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
+  .tile:hover{transform:translateY(-3px);border-color:var(--line2);box-shadow:0 8px 22px rgba(0,0,0,.5)}
+  .tile .id{font-family:var(--mono);font-size:11px;color:var(--ink);letter-spacing:.02em}
+  .tile .id small{color:var(--faint);display:block;font-size:9.5px;margin-top:1px}
+  .tile .foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+  .tile .bv{font-family:var(--display);font-size:17px;font-weight:600}
+  .tile .st{width:9px;height:9px;border-radius:50%}
+  .tile.s-ok{border-color:rgba(46,229,132,.25)}
+  .tile.s-ok .st{background:var(--ok);box-shadow:0 0 8px var(--ok-glow)}
+  .tile.s-ok .bv{color:var(--ok)}
+  .tile.s-warn{border-color:rgba(255,194,77,.3)}
+  .tile.s-warn .st{background:var(--warn);box-shadow:0 0 8px rgba(255,194,77,.4)}
+  .tile.s-warn .bv{color:var(--warn)}
+  .tile.s-hot{border-color:rgba(255,122,69,.35)}
+  .tile.s-hot .st{background:var(--hot);box-shadow:0 0 8px rgba(255,122,69,.45)}
+  .tile.s-hot .bv{color:var(--hot)}
+  .tile.s-off{border-color:rgba(255,58,94,.3);background:linear-gradient(135deg,var(--panel),rgba(255,58,94,.06))}
+  .tile.s-off .st{background:var(--crimson);box-shadow:0 0 9px var(--crimson-glow);animation:blink 1.6s infinite}
+  .tile.s-off .bv{color:var(--crimson)}
+  .tile.s-off .id{color:var(--ink2)}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  .tile .meter{height:3px;border-radius:99px;background:var(--bg);margin-top:7px;overflow:hidden}
+  .tile .meter i{display:block;height:100%;border-radius:99px}
+
+  /* tooltip */
+  .tip{position:fixed;z-index:60;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;
+       padding:12px 14px;width:230px;pointer-events:none;opacity:0;transition:opacity .12s;
+       box-shadow:0 14px 40px rgba(0,0,0,.6);font-size:12px}
+  .tip.show{opacity:1}
+  .tip .ts{font-family:var(--mono);font-size:12px;font-weight:600;margin-bottom:8px}
+  .tip .tr{display:flex;justify-content:space-between;padding:3px 0;color:var(--ink2)}
+  .tip .tr b{font-family:var(--mono);font-weight:400;color:var(--ink)}
+
+  .demo-switch{position:fixed;bottom:18px;right:18px;z-index:99;background:#000;color:#9fabbd;border-radius:99px;
+     padding:7px 9px 7px 14px;font-family:var(--mono);font-size:11.5px;display:flex;gap:5px;align-items:center;
+     box-shadow:0 6px 24px rgba(0,0,0,.6);border:1px solid var(--line)}
+  .demo-switch a{color:#9fabbd;text-decoration:none;width:24px;height:24px;border-radius:50%;display:flex;
+     align-items:center;justify-content:center}
+  .demo-switch a:hover{background:rgba(255,255,255,.12)}
+  .demo-switch a.cur{background:var(--crimson);color:#fff;font-weight:700}
+</style>
+</head>
+<body>
+
+<aside class="rail">
+  <div class="mark">T·</div>
+  <div class="ri on" title="Devices"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></div>
+  <div class="ri" title="Groups"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4M20 19c0-2.2-1.8-4-4-4M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></div>
+  <div class="ri" title="Productions"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+  <div class="ri" title="Commands"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5M13 17h6"/></svg></div>
+  <div class="ri" title="Updates"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg></div>
+  <div class="ri" title="Health"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></div>
+  <div class="ri" title="Alerts"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="bdg"></span></div>
+  <div class="grow"></div>
+  <div class="ri" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z"/></svg></div>
+</aside>
+
+<div class="main">
+  <div class="hud">
+    <h1>Fleet<i>_</i>Grid</h1>
+    <div class="hudstat"><span class="v">30</span><span class="k">devices</span></div>
+    <div class="hudstat"><span class="v ok">26</span><span class="k">online</span></div>
+    <div class="hudstat"><span class="v bad">4</span><span class="k">offline</span></div>
+    <div class="hudstat"><span class="v warn">2</span><span class="k">low batt</span></div>
+    <div class="hudstat"><span class="v hot">2</span><span class="k">hot</span></div>
+    <div class="clock">TSAI LAB — PUNE<br><b>● LIVE</b> · ws connected</div>
+  </div>
+
+  <div class="bar">
+    <div class="modes" id="modes">
+      <div class="mode on" data-m="status">Status</div>
+      <div class="mode" data-m="battery">Battery</div>
+      <div class="mode" data-m="temp">Temp</div>
+      <div class="mode" data-m="build">Build</div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div id="zones"></div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<div class="demo-switch">demo
+  <a href="/demo/5">5</a><a href="/demo/6">6</a><a href="/demo/7" class="cur">7</a><a href="/demo/8">8</a>
+</div>
+
+<script>
+var D=[
+["AT070AABU00442","v2.15.0",84,1,62,31.2,1,"tableside-pune",1,0],
+["AT070AABU00443","v2.15.0",76,0,58,33.0,1,"tableside-pune",1,1],
+["AT070AABU00444","v2.15.0",98,1,41,29.4,1,"tableside-pune",1,0],
+["AT070AABU00445","v2.15.0",67,0,55,32.1,1,"tableside-pune",1,2],
+["AT070AABU00446","v2.15.0",14,0,63,34.8,1,"tableside-pune",1,1],
+["AT070AABU00447","v2.15.0",52,0,77,36.2,1,"tableside-pune",1,3],
+["AT070AABU00448","v2.14.3",88,1,49,30.6,1,"tableside-pune",1,0],
+["AT070AABU00449","v2.15.0",71,0,52,31.9,1,"tableside-pune",1,1],
+["AT070AABU00450","v2.15.0",45,0,68,44.6,1,"tableside-pune",1,0],
+["AT070AABU00452","v2.15.0",81,1,57,30.2,1,"tableside-pune",1,2],
+["AT070AABU00453","v2.14.3",60,0,73,35.5,1,"tableside-pune",0,196],
+["AT070AABU00454","v2.15.0",93,1,44,29.8,1,"tableside-pune",1,1],
+["AT070AABU00451","v2.14.3",12,0,71,38.5,1,"kiosks-mum",1,0],
+["AT070AABU00455","v2.15.0",91,1,49,30.1,1,"kiosks-mum",1,0],
+["AT070AABU00456","v2.15.0",78,1,54,31.4,1,"kiosks-mum",1,1],
+["AT070AABU00457","v2.15.0",83,1,61,33.7,1,"kiosks-mum",1,2],
+["AT070AABU00458","v2.14.3",69,0,66,37.0,1,"kiosks-mum",0,1441],
+["AT070AABU00459","v2.15.0",87,1,47,30.9,1,"kiosks-mum",1,0],
+["AT070AABU00462","v2.15.0",74,0,59,32.6,1,"kiosks-mum",1,4],
+["AT070AABU00463","v2.15.0",96,1,38,28.7,1,"kiosks-mum",1,1],
+["AT070AABU00464","v2.13.9",55,0,82,45.1,1,"kiosks-mum",1,2],
+["AT070AABU00465","v2.15.0",80,1,51,31.0,1,"kiosks-mum",1,0],
+["AT070AABU00460","v2.14.3",64,0,66,35.4,0,"drivers-blr",0,240],
+["AT070AABU00461","v2.15.0",58,0,62,33.3,0,"drivers-blr",1,5],
+["AT070AABU00466","v2.15.0",49,0,70,36.8,0,"drivers-blr",1,2],
+["AT070AABU00467","v2.15.0",90,1,46,29.5,0,"drivers-blr",1,1],
+["AT070AABU00468","v2.14.3",33,0,64,34.0,0,"drivers-blr",1,8],
+["AT070AABU00469","v2.13.9",26,0,75,39.2,0,"drivers-blr",0,4523],
+["AT070AABU00470","v2.15.0",72,0,53,31.6,0,"drivers-blr",1,3],
+["AT070AABU00471","v2.15.0",85,1,50,30.4,0,"drivers-blr",1,0]
+].map(function(r){return{serial:r[0],build:r[1],batt:r[2],chg:!!r[3],ram:r[4],temp:r[5],kiosk:!!r[6],group:r[7],online:!!r[8],mins:r[9]}});
+
+function ago(m){if(m<1)return"just now";if(m<60)return m+"m ago";if(m<1440)return Math.round(m/60)+"h ago";return Math.round(m/1440)+"d ago"}
+
+var mode="status";
+var LEGENDS={
+  status:[["#2ee584","healthy"],["#ffc24d","low battery"],["#ff7a45","running hot"],["#ff3a5e","offline"]],
+  battery:[["#2ee584","> 60%"],["#ffc24d","20–60%"],["#ff3a5e","< 20%"]],
+  temp:[["#46a8ff","< 33°C"],["#2ee584","33–40°C"],["#ff7a45","> 40°C"]],
+  build:[["#2ee584","v2.15.0"],["#ffc24d","v2.14.3"],["#ff3a5e","v2.13.9"]]
+};
+function classify(d){
+  if(mode==="status"){
+    if(!d.online)return"s-off";
+    if(d.temp>43)return"s-hot";
+    if(d.batt<20)return"s-warn";
+    return"s-ok";
+  }
+  if(mode==="battery")return d.batt<20?"s-off":(d.batt<60?"s-warn":"s-ok");
+  if(mode==="temp")return d.temp>40?"s-hot":(d.temp<33?"s-cold s-ok":"s-ok");
+  if(mode==="build")return d.build==="v2.15.0"?"s-ok":(d.build==="v2.14.3"?"s-warn":"s-off");
+}
+function bigVal(d){
+  if(mode==="temp")return d.temp.toFixed(0)+"°";
+  if(mode==="build")return d.build.replace("v2.","·");
+  return d.batt+"%";
+}
+function meter(d){
+  var pct=mode==="temp"?Math.min(100,(d.temp/50)*100):d.batt;
+  var col=getComputedStyle(document.documentElement).getPropertyValue(
+    d.online?(mode==="temp"?(d.temp>40?"--hot":"--ok"):(d.batt<20?"--crimson":d.batt<60?"--warn":"--ok")):"--crimson");
+  return '<div class="meter"><i style="width:'+pct+'%;background:'+col+'"></i></div>';
+}
+function render(){
+  // legend
+  document.getElementById("legend").innerHTML=LEGENDS[mode].map(function(l){
+    return '<span class="lg"><i style="background:'+l[0]+';box-shadow:0 0 7px '+l[0]+'66"></i>'+l[1]+'</span>'}).join("");
+  // zones
+  var by={};
+  D.forEach(function(d){(by[d.group]=by[d.group]||[]).push(d)});
+  var html="";
+  Object.keys(by).sort().forEach(function(g){
+    var on=by[g].filter(function(d){return d.online}).length;
+    html+='<div class="zone"><div class="zh"><h2>'+g+'</h2><span class="ln"></span>'+
+          '<span class="zn">'+on+'/'+by[g].length+' online</span></div><div class="grid">';
+    by[g].forEach(function(d,i){
+      html+='<div class="tile '+classify(d)+'" style="animation-delay:'+(i*22)+'ms" data-serial="'+d.serial+'">'+
+      '<div class="id">'+d.serial.slice(-5)+'<small>'+d.serial.slice(0,9)+'…</small></div>'+
+      '<div class="foot"><span class="bv">'+bigVal(d)+'</span><span class="st"></span></div>'+meter(d)+'</div>';
+    });
+    html+='</div></div>';
+  });
+  document.getElementById("zones").innerHTML=html;
+  bindTips();
+}
+document.querySelectorAll(".mode").forEach(function(m){m.onclick=function(){
+  document.querySelectorAll(".mode").forEach(function(x){x.classList.remove("on")});
+  m.classList.add("on");mode=m.dataset.m;render();}});
+
+// tooltip
+var tip=document.getElementById("tip");
+function bindTips(){
+  document.querySelectorAll(".tile").forEach(function(t){
+    var d=D.find(function(x){return x.serial===t.dataset.serial});
+    t.onmousemove=function(e){
+      tip.innerHTML='<div class="ts">'+d.serial+'</div>'+
+        '<div class="tr">status <b style="color:'+(d.online?"var(--ok)":"var(--crimson)")+'">'+(d.online?"online":"offline")+'</b></div>'+
+        '<div class="tr">battery <b>'+d.batt+'%'+(d.chg?" ⚡":"")+'</b></div>'+
+        '<div class="tr">ram <b>'+d.ram+'%</b></div>'+
+        '<div class="tr">temp <b>'+d.temp.toFixed(1)+' °C</b></div>'+
+        '<div class="tr">build <b>'+d.build+'</b></div>'+
+        '<div class="tr">kiosk <b>'+(d.kiosk?"on":"off")+'</b></div>'+
+        '<div class="tr">last seen <b>'+ago(d.mins)+'</b></div>';
+      tip.classList.add("show");
+      var x=Math.min(e.clientX+16,window.innerWidth-250),y=Math.min(e.clientY+16,window.innerHeight-220);
+      tip.style.left=x+"px";tip.style.top=y+"px";
+    };
+    t.onmouseleave=function(){tip.classList.remove("show")};
+  });
+}
+render();
+</script>
+</body>
+</html>
