@@ -3348,6 +3348,35 @@ input[type="checkbox"]:hover {
 .dv-rise-1 { animation: ov-rise 0.45s var(--ease) 0.08s both; }
 .dv-rise-2 { animation: ov-rise 0.45s var(--ease) 0.16s both; }
 
+/* Groups page: one card per cohort, same tile language as the overview vitals.
+   The group name's ::after stretches over the card so the whole tile is the link;
+   the delete form sits above it. */
+.gp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 14px; }
+.gp-card { position: relative; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-4); box-shadow: var(--shadow-sm); padding: 15px 17px;
+  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.gp-card:hover { transform: translateY(-2px); border-color: var(--rule-2); }
+.gp-card.alerty { border-color: var(--danger-edge); }
+.gp-top { display: flex; align-items: baseline; gap: 12px; }
+.gp-name { font-family: var(--font-display); font-size: 17px; font-weight: 600;
+  color: var(--text); text-decoration: none; overflow-wrap: anywhere; }
+.gp-name::after { content: ""; position: absolute; inset: 0; }
+.gp-score { margin-left: auto; font-family: var(--font-display); font-size: 27px;
+  font-weight: 600; letter-spacing: -0.01em; flex: none; }
+.gp-score.is-ok { color: var(--ok); }
+.gp-score.is-warn { color: var(--warn); }
+.gp-score.is-danger { color: var(--danger); }
+.gp-score.is-empty { color: var(--text-faint); font-size: 20px; }
+.gp-meta { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+.gp-foot { display: flex; align-items: center; gap: 8px; font-size: 11.5px;
+  color: var(--text-faint); margin-top: 10px; }
+.gp-chip { font-family: var(--mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--ok); background: var(--ok-bg);
+  border-radius: 5px; padding: 2px 7px; }
+.gp-del { position: absolute; right: 12px; bottom: 12px; z-index: 1; opacity: 0;
+  transition: opacity var(--dur) var(--ease); }
+.gp-card:hover .gp-del, .gp-del:focus-within { opacity: 1; }
+
 @media (max-width: 1100px) {
   .ov-hero { grid-template-columns: 1fr; }
   .ov-vitals { grid-template-columns: repeat(2, 1fr); }

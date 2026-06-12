@@ -2522,9 +2522,17 @@ func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Per-group health scores for the card grid; missing entries render as "—".
+	health := make(map[uuid.UUID]db.GroupHealth)
+	if ghs, err := h.db.GetGroupHealth(r.Context(), h.cfg.CheckinInterval()*3); err == nil {
+		for _, gh := range ghs {
+			health[gh.GroupID] = gh
+		}
+	}
 	h.render(w, r, "groups.html", map[string]any{
 		"Title":  "Groups",
 		"Groups": groups,
+		"Health": health,
 	})
 }
 
