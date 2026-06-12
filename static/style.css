@@ -3341,6 +3341,13 @@ input[type="checkbox"]:hover {
 .ov-strip { animation-delay: 0.08s; }
 .ov-cols { animation-delay: 0.16s; }
 
+/* Devices page reuses the overview vocabulary: a single-row vitals strip plus
+   the same staggered entrance for the filter bar and table card. */
+.dv-vitals { grid-template-rows: none; margin-bottom: 18px; animation: ov-rise 0.45s var(--ease) both; }
+.dv-vitals .ov-vital:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dv-rise-1 { animation: ov-rise 0.45s var(--ease) 0.08s both; }
+.dv-rise-2 { animation: ov-rise 0.45s var(--ease) 0.16s both; }
+
 @media (max-width: 1100px) {
   .ov-hero { grid-template-columns: 1fr; }
   .ov-vitals { grid-template-columns: repeat(2, 1fr); }
