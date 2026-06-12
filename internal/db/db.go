@@ -73,7 +73,7 @@ type Group struct {
 
 type OTAPackage struct {
 	ID              int       `json:"id"`
-	Type            string    `json:"type"`            // "full" or "incremental"
+	Type            string    `json:"type"` // "full" or "incremental"
 	TargetBuildID   string    `json:"target_build_id"`
 	SourceBuildID   string    `json:"source_build_id"` // incremental only
 	ReleaseDate     time.Time `json:"release_date"`
@@ -135,15 +135,15 @@ type CommandDelivery struct {
 
 // DeviceFilter holds optional filter parameters for device listing.
 type DeviceFilter struct {
-	Search                    string    // search by serial substring
-	GroupID                   uuid.UUID // filter by group membership (uuid.Nil = no filter)
-	ProductionID uuid.UUID // filter by production (uuid.Nil = no filter)
-	Online                    string    // "online", "offline", or "" (no filter)
-	BuildID                   string    // exact build_id match, or "" (no filter)
-	Battery                   string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
-	Kiosk                     string    // "enabled" (kiosk on), "disabled" (kiosk off), or "" (no filter)
-	Hidden                    string    // "include" (show all), "only" (hidden only), or "" (active only)
-	ActiveThresholdSecs       int       // seconds before a device is considered offline (0 = default 180)
+	Search              string    // search by serial substring
+	GroupID             uuid.UUID // filter by group membership (uuid.Nil = no filter)
+	ProductionID        uuid.UUID // filter by production (uuid.Nil = no filter)
+	Online              string    // "online", "offline", or "" (no filter)
+	BuildID             string    // exact build_id match, or "" (no filter)
+	Battery             string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
+	Kiosk               string    // "enabled" (kiosk on), "disabled" (kiosk off), or "" (no filter)
+	Hidden              string    // "include" (show all), "only" (hidden only), or "" (active only)
+	ActiveThresholdSecs int       // seconds before a device is considered offline (0 = default 180)
 }
 
 // ── Productions ───────────────────────────────────────────────────────────────
@@ -2254,10 +2254,10 @@ type GroupHealth struct {
 	OfflineCount   int       `json:"offline_count"`
 	OpenCritical   int       `json:"open_critical"`
 	OpenWarning    int       `json:"open_warning"`
-	BatteryAvg     *float64  `json:"battery_avg"`    // recent avg daily peak battery (overnight fullness)
-	BatteryDelta   *float64  `json:"battery_delta"`  // recent minus prior week (negative = declining)
-	ChargingAvg    *float64  `json:"charging_avg"`   // recent avg charging coverage (0-1)
-	TempMax        *float64  `json:"temp_max"`       // hottest device in the window
+	BatteryAvg     *float64  `json:"battery_avg"`   // recent avg daily peak battery (overnight fullness)
+	BatteryDelta   *float64  `json:"battery_delta"` // recent minus prior week (negative = declining)
+	ChargingAvg    *float64  `json:"charging_avg"`  // recent avg charging coverage (0-1)
+	TempMax        *float64  `json:"temp_max"`      // hottest device in the window
 	DistinctBuilds int       `json:"distinct_builds"`
 	Deployed       bool      `json:"deployed"`       // restaurant is marked live
 	DeployedCount  int       `json:"deployed_count"` // devices in the group resolving to deployed
@@ -3586,10 +3586,10 @@ func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool
 	return exists, err
 }
 
-	// ClearPendingOTACommands marks in-progress OTA commands for a device as
-	// failed so HasPendingOTACommand returns false, allowing immediate retry.
-	func (d *DB) ClearPendingOTACommands(ctx context.Context, deviceID uuid.UUID) error {
-		_, err := d.pool.Exec(ctx, `
+// ClearPendingOTACommands marks in-progress OTA commands for a device as
+// failed so HasPendingOTACommand returns false, allowing immediate retry.
+func (d *DB) ClearPendingOTACommands(ctx context.Context, deviceID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
 			INSERT INTO command_status (command_id, device_id, status, updated_at)
 			SELECT c.id, ct.target_id, 'failed', NOW() - INTERVAL '2 hours'
 			FROM commands c
@@ -3604,8 +3604,8 @@ func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool
 			ON CONFLICT (command_id, device_id) DO UPDATE
 				SET status = EXCLUDED.status, updated_at = EXCLUDED.updated_at
 		`, deviceID)
-		return err
-	}
+	return err
+}
 
 // ── Dashboard sessions ──────────────────────────────────────────────────────
 

@@ -1,0 +1,147 @@
+{{define "overview.html"}}
+{{template "header" .}}
+
+<div class="ov-greet">
+  <h1 class="ov-title">{{.Greeting}}</h1>
+  <span class="ov-date">{{.DateLine}} · fleet overview</span>
+  <span class="ov-live"><i></i>live</span>
+</div>
+
+{{/* ── Hero: fleet pulse ring + vital cards ── */}}
+<div class="ov-hero">
+  <div class="ov-pulse">
+    <h2>FLEET PULSE</h2>
+    <div class="ov-score-row">
+      <svg class="ov-ring" viewBox="0 0 104 104">
+        <circle class="ov-ring-track" cx="52" cy="52" r="44"/>
+        <circle class="ov-ring-val is-{{.ScoreClass}}" cx="52" cy="52" r="44"
+                stroke-dasharray="276.5" stroke-dashoffset="{{.RingOffset}}"
+                transform="rotate(-90 52 52)">
+          <animate attributeName="stroke-dashoffset" from="276.5" to="{{.RingOffset}}" dur="0.9s" fill="freeze"
+                   calcMode="spline" keySplines="0.2 0.7 0.3 1"/>
+        </circle>
+      </svg>
+      <div>
+        <div class="ov-score">{{.Score}}</div>
+        <div class="ov-score-sub">fleet health<br>last 7 days</div>
+      </div>
+    </div>
+    <div class="ov-verdict is-{{.ScoreClass}}">{{.Verdict}}</div>
+  </div>
+
+  <div class="ov-vitals">
+    <a class="ov-vital" href="/devices">
+      <div class="k">Total devices</div><div class="v">{{.Summary.Total}}</div>
+      <div class="d">{{.GroupsCount}} group{{if ne .GroupsCount 1}}s{{end}}</div>
+    </a>
+    <a class="ov-vital" href="/devices?status=online">
+      <div class="k">Online now</div><div class="v ok">{{.Summary.RecentlyActive}}</div>
+      <div class="d">active last {{.ActiveThresholdLabel}}</div>
+      {{if .SparkActive}}<svg class="spark" width="58" height="22"><polyline class="sp-ok" points="{{.SparkActive}}"/></svg>{{end}}
+    </a>
+    <a class="ov-vital{{if gt .Offline 0}} alerty{{end}}" href="/devices?status=offline">
+      <div class="k">Offline</div><div class="v{{if gt .Offline 0}} bad{{end}}">{{.Offline}}</div>
+      <div class="d">silent &gt; {{.ActiveThresholdLabel}}</div>
+      {{if .SparkOff}}<svg class="spark" width="58" height="22"><polyline class="sp-bad" points="{{.SparkOff}}"/></svg>{{end}}
+    </a>
+    <a class="ov-vital" href="/devices?battery=low">
+      <div class="k">Low battery</div><div class="v{{if gt .Summary.LowBattery 0}} warn{{end}}">{{.Summary.LowBattery}}</div>
+      <div class="d">&lt; 20 %</div>
+      {{if .SparkLow}}<svg class="spark" width="58" height="22"><polyline class="sp-warn" points="{{.SparkLow}}"/></svg>{{end}}
+    </a>
+    <a class="ov-vital" href="/devices?sort=temp&dir=desc">
+      <div class="k">Running hot</div><div class="v{{if gt .Hot 0}} hot{{end}}">{{.Hot}}</div>
+      <div class="d">&ge; 45 °C</div>
+      {{if .SparkHot}}<svg class="spark" width="58" height="22"><polyline class="sp-hot" points="{{.SparkHot}}"/></svg>{{end}}
+    </a>
+    <a class="ov-vital" href="/devices?kiosk=enabled">
+      <div class="k">In kiosk mode</div><div class="v">{{.Summary.KioskCount}}</div>
+      <div class="d">of {{.Summary.Total}} enrolled</div>
+    </a>
+    <a class="ov-vital" href="/updates">
+      <div class="k">Builds in fleet</div><div class="v">{{.Summary.UniqueBuilds}}</div>
+      <div class="d">unique build IDs</div>
+    </a>
+    <a class="ov-vital" href="/alerts">
+      <div class="k">Open alerts</div><div class="v{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</div>
+      <div class="d">across the fleet</div>
+    </a>
+  </div>
+</div>
+
+{{/* ── Attention strip → devices page ── */}}
+{{if gt .Attention 0}}
+<div class="ov-strip">
+  <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+  <span class="tx"><b>{{.Attention}} device{{if ne .Attention 1}}s{{end}} need{{if eq .Attention 1}}s{{end}} attention</b>
+    — {{.Offline}} offline, {{.Summary.LowBattery}} low battery, {{.Hot}} running hot.</span>
+  <a class="go" href="/devices?status=offline">Review in Devices →</a>
+</div>
+{{end}}
+
+<div class="ov-cols">
+  <div class="ov-main">
+    {{if .AISummary}}
+      {{template "ai-report-card" .}}
+    {{else}}
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header"><h3>Fleet report</h3></div>
+        <div style="padding:18px;display:flex;align-items:center;gap:14px;">
+          <span class="muted small">No report generated yet for this hour.</span>
+          <button type="button" id="ai-sum-refresh" class="btn-primary" style="font-size:12px;padding:6px 14px;"
+                  onclick="refreshHourlyReport()">Generate report</button>
+        </div>
+      </div>
+    {{end}}
+  </div>
+
+  <div class="ov-side">
+    <div class="card ov-qa-card">
+      <div class="card-header"><h3>Quick actions</h3></div>
+      <div class="ov-qa">
+        <a class="ov-qact" href="/commands">
+          <span class="qi c1"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
+          <span class="qt">Send command</span><span class="qd">to a device, group, or the fleet</span></a>
+        <a class="ov-qact" href="/updates">
+          <span class="qi c2"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>
+          <span class="qt">Push update</span><span class="qd">roll out an OTA or APK</span></a>
+        <a class="ov-qact" href="/devices?kiosk=disabled">
+          <span class="qi c4"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+          <span class="qt">Lock kiosks</span><span class="qd">find devices out of kiosk mode</span></a>
+        <a class="ov-qact" href="/fleet-health">
+          <span class="qi c3"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span>
+          <span class="qt">Fleet health</span><span class="qd">per-group scores &amp; evidence</span></a>
+        <a class="ov-qact" href="/devices">
+          <span class="qi c2"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><rect x="4" y="15" width="16" height="6" rx="2"/></svg></span>
+          <span class="qt">Export fleet</span><span class="qd">select devices, export CSV</span></a>
+        {{if eq .Role "admin"}}
+        <a class="ov-qact" href="/audit">
+          <span class="qi c3"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v4"/><path d="M21 12h-4"/></svg></span>
+          <span class="qt">Audit log</span><span class="qd">who did what, when</span></a>
+        {{else}}
+        <a class="ov-qact" href="/alerts">
+          <span class="qi c4"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+          <span class="qt">Alerts</span><span class="qd">open &amp; recent alerts</span></a>
+        {{end}}
+      </div>
+    </div>
+
+    {{if .Audit}}
+    <div class="card">
+      <div class="card-header"><h3>Recent activity</h3><a href="/audit" class="link small">all →</a></div>
+      <div class="ov-ract">
+        {{range .Audit}}
+        <div class="ov-ra">
+          <span class="who">{{.Actor}}</span>
+          <span class="what">{{.Action}}{{if .Target}} · <b>{{.Target}}</b>{{end}}</span>
+          <span class="t">{{timeSince .CreatedAt}}</span>
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+
+{{template "footer" .}}
+{{end}}

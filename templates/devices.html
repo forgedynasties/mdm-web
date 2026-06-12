@@ -235,7 +235,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 </div>
 {{end}}
 
-{{template "ai-report-card" .}}
+
 
 <div class="filter-bar">
   {{/* ── Search ── */}}
@@ -353,7 +353,7 @@ function getFilterVals(overrides) {
 
 function navigateDevices(overrides) {
   var vals = getFilterVals(overrides);
-  var url = '/?' + new URLSearchParams(vals).toString();
+  var url = '/devices?' + new URLSearchParams(vals).toString();
   htmx.ajax('GET', url, '#device-table-container').then(function() {
     history.pushState(null, '', url);
   });
@@ -613,7 +613,7 @@ document.addEventListener('keydown', function(e) {
 
 <div class="card"
      id="device-table-container"
-     hx-get="/"
+     hx-get="/devices"
      hx-trigger="refresh-devices from:body"
      hx-target="#device-table-container"
      hx-swap="innerHTML"

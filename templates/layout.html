@@ -30,7 +30,8 @@
       <span></span><span></span><span></span>
     </button>
     <div class="navbar-links">
-      <a href="/" class="nav-link{{if eq .ActivePage "devices"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Devices</a>
+      <a href="/" class="nav-link{{if eq .ActivePage "overview"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span>Overview</a>
+      <a href="/devices" class="nav-link{{if eq .ActivePage "devices"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Devices</a>
       <a href="/groups" class="nav-link{{if eq .ActivePage "groups"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>Groups</a>
       <a href="/productions" class="nav-link{{if eq .ActivePage "productions"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>Productions</a>
       <a href="/commands" class="nav-link{{if eq .ActivePage "commands"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>Commands</a>
