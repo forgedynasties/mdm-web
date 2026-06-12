@@ -3211,6 +3211,9 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .ov-alr .sn { flex: none; font-size: 11.5px; }
 .ov-alr .sum { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ov-alr .t { margin-left: auto; color: var(--text-faint); font-family: var(--mono); font-size: 11px; white-space: nowrap; }
+.ov-alr-more { display: block; padding: 9px 0; font-size: 12.5px; font-weight: 600;
+  color: var(--accent); text-decoration: none; }
+.ov-alr-more:hover { text-decoration: underline; }
 .ov-alrs-empty { display: flex; align-items: center; gap: 10px; padding: 18px;
   color: var(--muted); font-size: 13px; }
 .ov-alrs-empty svg { width: 16px; height: 16px; flex: none; stroke: var(--ok); fill: none;

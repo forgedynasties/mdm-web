@@ -1255,7 +1255,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	groups, _ := h.db.GetGroupHealth(ctx, activeSecs)
 	hot, _ := h.db.CountHotDevices(ctx)
 	daily, _ := h.db.GetFleetDailyStats(ctx, 7)
-	openAlerts, _ := h.db.ListAlerts(ctx, "open", 8)
+	openAlerts, _ := h.db.ListAlerts(ctx, "open", 5)
 	// The audit page itself is admin-only; keep the activity feed consistent.
 	var audit []db.AuditEntry
 	if h.role(r) == "admin" {
