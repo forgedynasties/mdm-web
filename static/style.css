@@ -334,17 +334,21 @@ a:hover { color: var(--accent-h); }
   border: 1px solid var(--border);
   border-radius: var(--r-4);
   box-shadow: var(--shadow-sm);
-  padding: 14px 16px;
+  padding: 15px 16px;
+  display: flex;
+  flex-direction: column-reverse;  /* label reads above the value (Explorer tile) */
+  justify-content: flex-end;
 }
 .health-stat-num { font-family: var(--mono); font-size: 22px; font-weight: var(--fw-semibold); letter-spacing: -.02em; line-height: 1.1; }
 .health-stat-num.is-bad { color: var(--danger); }
 .health-stat-num.is-warn { color: var(--warn); }
 .health-stat-label {
   font-size: 11px;
+  font-weight: var(--fw-medium);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: .05em;
   color: var(--muted);
-  margin-top: 4px;
+  margin-bottom: 7px;
 }
 /* ── Icons ───────────────────────────────────────────
  * Single rule normalizes every inline <svg> in .ui-icon.
@@ -3022,6 +3026,19 @@ input[type="checkbox"]:hover {
   transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .dd-close:hover { color: var(--text); background: var(--hover); }
+.dd-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1d2026, #2c313a);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: #cfd5de;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.dd-avatar svg { width: 22px; height: 22px; }
 .dd-titlewrap { flex: 1 1 auto; min-width: 0; }
 .dd-eyebrow {
   font-size: var(--t-12);
