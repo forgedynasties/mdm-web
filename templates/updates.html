@@ -1,23 +1,20 @@
 {{define "updates.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <h2 class="page-title icon-title">
-      <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>
-      OTA Packages
-    </h2>
-    <p class="page-subtitle">{{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}} in repository</p>
-  </div>
+<div class="ov-greet">
+  <h1 class="ov-title">OTA Packages</h1>
+  <span class="ov-date">{{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}} in repository</span>
   {{if and .Packages (eq .Role "admin")}}
-  <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
-    + New Package
-  </button>
+  <span class="acts">
+    <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
+      + New Package
+    </button>
+  </span>
   {{end}}
 </div>
 
 {{if .Packages}}
-<div class="card">
+<div class="card dv-rise-1">
   <table class="table">
     <thead>
       <tr>

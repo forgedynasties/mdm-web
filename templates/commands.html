@@ -1,16 +1,14 @@
 {{define "commands.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>Commands</h2>
-    <p class="page-subtitle">Send and track commands across devices</p>
-  </div>
+<div class="ov-greet">
+  <h1 class="ov-title">Commands</h1>
+  <span class="ov-date">send and track commands across devices</span>
 </div>
 
 {{if or (eq .Role "admin") (eq .Role "operator")}}
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data">
-  <div class="cmd-builder" id="cmd-builder">
+  <div class="cmd-builder dv-rise-1" id="cmd-builder">
 
     <div class="cmd-builder-head">
       <h3 class="head-title">New command</h3>
