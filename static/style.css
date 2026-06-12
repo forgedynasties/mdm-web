@@ -3092,18 +3092,38 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .rep-status.rep-danger { color: var(--danger); }
 .rep-status.rep-muted { color: var(--muted); }
 .rep-headline { color: var(--text); }
-.rep-tiles { display: flex; flex-wrap: wrap; gap: 26px; margin: 2px 0 16px; }
-.rep-tile .v { font-family: var(--mono); font-size: 22px; font-weight: 600; letter-spacing: -.02em; line-height: 1; color: var(--text); }
-.rep-tile .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-top: 5px; }
-.rep-row { display: flex; gap: 12px; padding: 11px 0; border-top: 1px solid var(--border-soft); }
-.rep-row .ind { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; }
+
+/* Metric tiles: small bordered cards, display-serif values (overview language). */
+.rep-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 14px 0 16px; }
+.rep-tile { background: var(--bg); border: 1px solid var(--border-soft); border-radius: 10px; padding: 11px 14px; }
+.rep-tile .v { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: -.01em; line-height: 1.1; color: var(--text); }
+.rep-tile .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); margin-top: 4px; }
+
+/* Issue rows: severity reads as a colored left rail, not a floating dot. */
+.rep-row { position: relative; padding: 11px 0 11px 16px; border-top: 1px solid var(--border-soft); }
+.rep-row .ind { position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 2px; }
 .rep-row.rep-danger .ind { background: var(--danger); }
 .rep-row.rep-warn .ind { background: var(--warn); }
-.rep-row .meta { font-size: 13.5px; color: var(--text); line-height: 1.45; }
-.rep-uplabel { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-right: 4px; }
+.rep-row .meta { font-size: 13.5px; color: var(--text); line-height: 1.6; }
+.rep-uplabel { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted); background: var(--surface2);
+  border-radius: 4px; padding: 2px 7px; margin-right: 6px; vertical-align: 1px; }
+.rep-row.rep-danger .rep-uplabel { color: var(--danger); background: var(--danger-bg); }
+.rep-row.rep-warn .rep-uplabel { color: var(--warn); background: var(--warn-bg); }
 .rep-row .scope { font-weight: 600; }
-.rep-row .action { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
+.rep-row .action { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
 .rep-good { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+
+/* Serial links inside report prose: inline mono text, not boxed chips —
+   the boxed .link-detail style breaks the sentence flow around commas. */
+#ai-sum-preview .link-detail, #ai-sum-full .link-detail {
+  display: inline; padding: 0; border: none; border-radius: 0;
+  font-family: var(--mono); font-size: 12.5px; font-weight: 600;
+  color: var(--accent); white-space: nowrap;
+}
+#ai-sum-preview .link-detail:hover, #ai-sum-full .link-detail:hover {
+  color: var(--accent-h); text-decoration: underline;
+}
 
 /* ════════════════════════════════════════════════════
    OVERVIEW PAGE (main1 "command deck" port)
