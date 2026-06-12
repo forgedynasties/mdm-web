@@ -323,34 +323,6 @@ a:hover { color: var(--accent-h); }
   line-height: 1;
 }
 
-/* ── Fleet health summary ────────────────────────── */
-.health-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.health-stat {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-4);
-  box-shadow: var(--shadow-sm);
-  padding: 15px 16px;
-  display: flex;
-  flex-direction: column-reverse;  /* label reads above the value (Explorer tile) */
-  justify-content: flex-end;
-}
-.health-stat-num { font-family: var(--mono); font-size: 22px; font-weight: var(--fw-semibold); letter-spacing: -.02em; line-height: 1.1; }
-.health-stat-num.is-bad { color: var(--danger); }
-.health-stat-num.is-warn { color: var(--warn); }
-.health-stat-label {
-  font-size: 11px;
-  font-weight: var(--fw-medium);
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--muted);
-  margin-bottom: 7px;
-}
 /* ── Icons ───────────────────────────────────────────
  * Single rule normalizes every inline <svg> in .ui-icon.
  * Variants: .ui-icon-sm (12px) | .ui-icon-lg (20px) | .ui-icon-xl (28px)
@@ -3348,6 +3320,10 @@ input[type="checkbox"]:hover {
 .dv-vitals .ov-vital:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .dv-rise-1 { animation: ov-rise 0.45s var(--ease) 0.08s both; }
 .dv-rise-2 { animation: ov-rise 0.45s var(--ease) 0.16s both; }
+
+/* Fleet-health vitals: five-up single row of the overview tiles. */
+.hl-vitals { grid-template-columns: repeat(5, 1fr); grid-template-rows: none;
+  margin-bottom: 18px; animation: ov-rise 0.45s var(--ease) both; }
 
 /* Groups page: one card per cohort, same tile language as the overview vitals.
    The group name's ::after stretches over the card so the whole tile is the link;
