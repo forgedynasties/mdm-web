@@ -1,15 +1,13 @@
 {{define "device_shell.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
-    <h2 class="page-title icon-title"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/><path d="M13 15h4"/></svg></span>Interactive Shell</h2>
-    <p class="page-subtitle">Each line runs as a separate command — state like <span class="mono">cd</span> does not persist between lines.</p>
-  </div>
+<a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
+<div class="ov-greet">
+  <h1 class="ov-title">Interactive Shell</h1>
+  <span class="ov-date">each line runs as a separate command — state like <span class="mono">cd</span> does not persist between lines</span>
 </div>
 
-<div class="card">
+<div class="card dv-rise-1">
   <div class="card-header">
     <h3>Console</h3>
     <button type="button" class="btn-outline btn-sm" onclick="window.shellClear&&window.shellClear()">Clear</button>

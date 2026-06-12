@@ -1658,15 +1658,13 @@ async function saveNewApp() {
 {{define "device_history.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
-    <h2 class="page-title">History</h2>
-    <p class="page-subtitle">Check-in history and command history for this device.</p>
-  </div>
-  <div style="display:flex;gap:8px;">
+<a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
+<div class="ov-greet">
+  <h1 class="ov-title">History</h1>
+  <span class="ov-date">check-in and command history for this device</span>
+  <span class="acts">
     <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg></span>Logcat</a>
-  </div>
+  </span>
 </div>
 
 {{template "device-checkins" .}}

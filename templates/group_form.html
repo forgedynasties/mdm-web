@@ -1,12 +1,10 @@
 {{define "group_form.html"}}
 {{template "header" .}}
 
-<div class="page-header">
-  <div>
-    <a href="/groups" class="back-link">← Groups</a>
-    <h2 class="page-title">New Group</h2>
-    <p class="page-subtitle">Name your group and select devices</p>
-  </div>
+<a href="/groups" class="back-link">← Groups</a>
+<div class="ov-greet">
+  <h1 class="ov-title">New Group</h1>
+  <span class="ov-date">name your group and select devices</span>
 </div>
 
 <form action="/groups" method="POST" id="create-group-form">

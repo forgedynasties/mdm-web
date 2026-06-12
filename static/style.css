@@ -454,41 +454,6 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
   padding: 28px 24px;
 }
 
-.page-header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.page-title {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--text);
-}
-.page-title.icon-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-.page-title.icon-title .ui-icon {
-  width: 20px;
-  height: 20px;
-  color: var(--accent);
-}
-.page-title.icon-title .ui-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.page-subtitle {
-  color: var(--muted);
-  margin-top: 2px;
-  font-size: 13px;
-}
-
 .back-link {
   font-size: 13px;
   color: var(--muted);
@@ -854,75 +819,6 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 .ota-incompatible {
   color: var(--muted);
   font-style: italic;
-}
-
-/* ── Summary bar ─────────────────────────────────── */
-.summary-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-  margin-bottom: var(--s-5);
-}
-
-.summary-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--r-4);
-  box-shadow: var(--shadow-sm);
-  padding: 15px var(--s-4);
-  text-align: left;
-  position: relative;
-  display: flex;
-  flex-direction: column-reverse;  /* label reads above the value (Explorer tile) */
-  justify-content: flex-end;
-  transition: background var(--dur) var(--ease);
-}
-.summary-card:hover { background: var(--surface2); }
-.summary-card-clickable { cursor: pointer; }
-.summary-card-clickable:hover { background: var(--surface2); }
-.summary-card-clickable:hover .summary-label { color: var(--text); }
-.summary-card-clickable:active { background: var(--surface3, var(--surface2)); }
-.summary-icon {
-  display: none; /* match the icon-free summary tiles used elsewhere */
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 16px;
-  height: 16px;
-  color: var(--text-faint);
-}
-.summary-icon svg {
-  width: 16px;
-  height: 16px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.summary-value {
-  font-family: var(--mono);
-  font-size: 22px;
-  font-weight: var(--fw-semibold);
-  letter-spacing: -.02em;
-  color: var(--text);
-  line-height: 1.1;
-  margin-top: 7px;
-  font-variant-numeric: tabular-nums;
-}
-.summary-value.ok     { color: var(--ok); }
-.summary-value.danger { color: var(--danger); }
-.summary-value.battery-low { color: var(--danger); }
-.summary-value.battery-mid { color: var(--warn); }
-.summary-value.battery-ok  { color: var(--ok); }
-
-.summary-label {
-  font-size: var(--t-11);
-  font-weight: var(--fw-medium);
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--muted);
 }
 
 /* ── Search ──────────────────────────────────────── */
@@ -2679,16 +2575,13 @@ input[type="checkbox"]:hover {
 
 /* ── Responsive ──────────────────────────────────── */
 @media (max-width: 1024px) {
-  .summary-grid { grid-template-columns: repeat(4, 1fr); }
   .stats-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .command-composer-grid { grid-template-columns: 1fr; }
   .type-grid { grid-template-columns: repeat(2, 1fr); }
   .container { padding: var(--s-5); }
-  .page-header { gap: var(--s-3); }
 }
 
 @media (max-width: 900px) {
-  .summary-grid { grid-template-columns: repeat(3, 1fr); }
   .filter-bar { flex-wrap: wrap; }
 }
 
@@ -2749,10 +2642,9 @@ input[type="checkbox"]:hover {
   .nav-link::after { display: none; }
   .nav-link.active { background: var(--surface2); border-left: 2px solid var(--accent); padding-left: calc(var(--s-3) - 2px); }
   .container { padding: var(--s-4); }
-  .summary-grid { grid-template-columns: repeat(2, 1fr); }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .type-grid { grid-template-columns: 1fr; }
-  .page-header { flex-direction: column; align-items: flex-start; gap: var(--s-3); }
+  .ov-greet { flex-wrap: wrap; }
   .composer-footer { flex-direction: column; align-items: flex-start; }
   .choice-grid { grid-template-columns: 1fr; }
   .device-actions-header { flex-direction: column; }

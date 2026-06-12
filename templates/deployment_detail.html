@@ -4,15 +4,15 @@
 {{$dep := .Deployment}}
 {{$pkg := .Package}}
 
-<div class="page-header">
-  <div>
-    <a href="/updates/{{$pkg.ID}}" class="back-link">← {{$pkg.TargetBuildID}}</a>
-    <h2 class="page-title">Deployment #{{$dep.ID}}</h2>
-  </div>
-  <form action="/updates/{{$pkg.ID}}/deployments/{{$dep.ID}}/delete" method="POST"
-        onsubmit="return confirm('Delete this deployment record? This will not undo any updates already applied.')">
-    <button type="submit" class="btn-danger">Delete</button>
-  </form>
+<a href="/updates/{{$pkg.ID}}" class="back-link">← {{$pkg.TargetBuildID}}</a>
+<div class="ov-greet">
+  <h1 class="ov-title">Deployment #{{$dep.ID}}</h1>
+  <span class="acts">
+    <form action="/updates/{{$pkg.ID}}/deployments/{{$dep.ID}}/delete" method="POST"
+          onsubmit="return confirm('Delete this deployment record? This will not undo any updates already applied.')">
+      <button type="submit" class="btn-danger">Delete</button>
+    </form>
+  </span>
 </div>
 
 <div class="stats-grid" style="margin-bottom:16px;">
