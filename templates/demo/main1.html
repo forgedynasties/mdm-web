@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Command Deck — Demo main1</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#faf8f5; --card:#ffffff; --ink:#1c1a18; --ink2:#5c564f; --faint:#948d84;
+    --line:#e8e2da; --line2:#d9d1c7;
+    --crimson:#d82747; --crimson-soft:#fdeef1; --crimson-deep:#a91733;
+    --ok:#1e9e5a; --ok-soft:#e6f6ed; --warn:#c77d10; --warn-soft:#fdf3e2;
+    --hot:#d4502a; --hot-soft:#fcefe9; --info:#2a6fd4; --info-soft:#e9f0fb;
+    --display:"Fraunces",Georgia,serif;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.05),0 4px 16px rgba(28,26,24,.05);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+
+  /* ---------- top navbar ---------- */
+  .nav{display:flex;align-items:center;gap:4px;padding:0 28px;height:56px;background:var(--card);
+       border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+  .brand{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:-.01em;margin-right:22px;
+         color:var(--ink);text-decoration:none}
+  .brand b{color:var(--crimson)}
+  .nav a.item{font-size:13.5px;color:var(--ink2);text-decoration:none;padding:7px 12px;border-radius:8px}
+  .nav a.item:hover{background:var(--paper);color:var(--ink)}
+  .nav a.item.on{color:var(--crimson);background:var(--crimson-soft);font-weight:600}
+  .nav .spacer{flex:1}
+  .nav .user{font-size:12.5px;color:var(--faint);text-align:right;line-height:1.3}
+  .nav .user b{display:block;color:var(--ink2);font-weight:600}
+
+  .wrap{max-width:1240px;margin:0 auto;padding:30px 28px 80px}
+  .greet{display:flex;align-items:baseline;gap:14px;margin-bottom:22px}
+  .greet h1{font-family:var(--display);font-size:26px;font-weight:600;letter-spacing:-.01em;margin:0}
+  .greet .sub{font-size:13px;color:var(--faint)}
+  .greet .live{margin-left:auto;display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11px;
+               color:var(--ok);text-transform:uppercase;letter-spacing:.08em}
+  .greet .live i{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px var(--ok-soft)}
+
+  /* ---------- hero: ring + vitals (the demo-5 cards you liked) ---------- */
+  .hero{display:grid;grid-template-columns:300px 1fr;gap:22px;align-items:stretch;margin-bottom:22px}
+  .pulse{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;box-shadow:var(--shadow);
+         display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+  .pulse::after{content:"";position:absolute;right:-50px;top:-50px;width:170px;height:170px;border-radius:50%;
+                background:radial-gradient(circle,var(--crimson-soft),transparent 70%)}
+  .pulse h2{font-family:var(--display);font-size:15px;font-weight:600;margin:0;color:var(--ink2);letter-spacing:.02em}
+  .score-row{display:flex;align-items:center;gap:18px;margin:14px 0 8px}
+  .ring{width:104px;height:104px;flex:none}
+  .score-big{font-family:var(--display);font-size:44px;font-weight:700;line-height:1;letter-spacing:-.02em}
+  .score-sub{font-size:12.5px;color:var(--faint);margin-top:6px;line-height:1.45}
+  .pulse .verdict{font-size:13px;color:var(--ok);font-weight:600;display:flex;align-items:center;gap:7px}
+  .pulse .verdict::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--ok);
+        box-shadow:0 0 0 4px var(--ok-soft)}
+
+  .vitals{display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;gap:14px}
+  .vital{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:15px 17px;box-shadow:var(--shadow);
+         cursor:pointer;transition:transform .15s,border-color .15s;position:relative;text-decoration:none;color:inherit;display:block}
+  .vital:hover{transform:translateY(-2px);border-color:var(--line2)}
+  .vital.alerty{border-color:#f3cfd6}
+  .vital .k{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);font-weight:600}
+  .vital .v{font-family:var(--display);font-size:27px;font-weight:600;margin-top:4px;letter-spacing:-.01em}
+  .vital .v.ok{color:var(--ok)} .vital .v.bad{color:var(--crimson)} .vital .v.warn{color:var(--warn)} .vital .v.hot{color:var(--hot)}
+  .vital .spark{position:absolute;right:14px;bottom:13px;opacity:.85}
+  .vital .d{font-size:11.5px;color:var(--faint);margin-top:2px}
+
+  /* ---------- attention strip ---------- */
+  .strip{display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,var(--crimson-soft),var(--card) 60%);
+         border:1px solid #f3cfd6;border-radius:13px;padding:13px 18px;margin-bottom:26px;box-shadow:var(--shadow)}
+  .strip .ic{width:34px;height:34px;border-radius:10px;background:var(--crimson);display:flex;align-items:center;
+             justify-content:center;flex:none}
+  .strip .ic svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .strip .tx{font-size:13.5px;color:var(--ink2)}
+  .strip .tx b{color:var(--ink)}
+  .strip a.go{margin-left:auto;font-size:13px;font-weight:600;color:var(--crimson);text-decoration:none;white-space:nowrap}
+  .strip a.go:hover{text-decoration:underline}
+
+  /* ---------- two-column: AI report + quick actions ---------- */
+  .cols{display:grid;grid-template-columns:1.4fr 1fr;gap:22px;align-items:start}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden}
+  .panel .ph{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .panel .ph h3{font-family:var(--display);font-size:17px;font-weight:600;margin:0;letter-spacing:-.01em}
+  .aibadge{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:#fff;
+           background:linear-gradient(135deg,var(--crimson),#e8617a);border-radius:6px;padding:3px 8px}
+  .panel .ph .when{margin-left:auto;font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+  .panel .ph .regen{font-size:12px;border:1px solid var(--line2);background:var(--card);color:var(--ink2);
+                    border-radius:8px;padding:5px 11px;cursor:pointer;font-family:var(--sans)}
+  .panel .ph .regen:hover{color:var(--crimson);border-color:var(--crimson)}
+  .ai-body{padding:18px 20px}
+  .ai-lede{font-family:var(--display);font-size:16.5px;line-height:1.55;color:var(--ink);margin:0 0 14px;font-weight:500}
+  .ai-lede em{color:var(--crimson);font-style:normal}
+  .ai-p{font-size:13.5px;line-height:1.65;color:var(--ink2);margin:0 0 12px}
+  .ai-h{display:flex;flex-direction:column;gap:9px;margin-top:16px}
+  .hl{display:flex;gap:11px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--ink2)}
+  .hl .pip{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px}
+  .hl b{color:var(--ink);font-weight:600}
+  .hl .mono{font-family:var(--mono);font-size:12px}
+  .ai-foot{padding:13px 20px;border-top:1px solid var(--line);display:flex;gap:14px;font-size:12px;color:var(--faint)}
+  .ai-foot a{color:var(--info);text-decoration:none}
+
+  /* quick actions */
+  .qa{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:16px}
+  .qact{display:flex;flex-direction:column;gap:9px;background:var(--paper);border:1px solid var(--line);border-radius:13px;
+        padding:15px 16px;cursor:pointer;transition:transform .14s,border-color .14s,background .14s;text-decoration:none;color:inherit}
+  .qact:hover{transform:translateY(-2px);border-color:var(--crimson);background:var(--card)}
+  .qact .qi{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .qact .qi svg{width:17px;height:17px;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .qi.c1{background:var(--crimson-soft)} .qi.c1 svg{stroke:var(--crimson)}
+  .qi.c2{background:var(--info-soft)} .qi.c2 svg{stroke:var(--info)}
+  .qi.c3{background:var(--ok-soft)} .qi.c3 svg{stroke:var(--ok)}
+  .qi.c4{background:var(--warn-soft)} .qi.c4 svg{stroke:var(--warn)}
+  .qact .qt{font-size:13.5px;font-weight:600}
+  .qact .qd{font-size:11.5px;color:var(--faint);line-height:1.4;margin-top:-4px}
+
+  /* recent activity under quick actions */
+  .ract{padding:4px 20px 14px}
+  .ra{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:12.5px}
+  .ra:last-child{border-bottom:0}
+  .ra .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .ra .what{color:var(--ink2)} .ra .what b{color:var(--ink);font-family:var(--mono);font-size:11.5px;font-weight:500}
+  .ra .t{margin-left:auto;color:var(--faint);font-family:var(--mono);font-size:11px;white-space:nowrap}
+
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .hero,.strip,.cols{animation:rise .45s cubic-bezier(.2,.7,.3,1) both}
+  .strip{animation-delay:.08s}.cols{animation-delay:.16s}
+
+  .demo-switch{position:fixed;bottom:18px;right:18px;z-index:99;background:var(--ink);color:#cfc9c2;border-radius:99px;
+     padding:7px 9px 7px 14px;font-family:var(--mono);font-size:11.5px;display:flex;gap:5px;align-items:center;
+     box-shadow:0 6px 24px rgba(28,26,24,.25)}
+  .demo-switch a{color:#cfc9c2;text-decoration:none;height:24px;border-radius:99px;display:flex;padding:0 8px;
+     align-items:center;justify-content:center}
+  .demo-switch a:hover{background:rgba(255,255,255,.12)}
+  .demo-switch a.cur{background:var(--crimson);color:#fff;font-weight:700}
+  @media(max-width:980px){.hero{grid-template-columns:1fr}.vitals{grid-template-columns:repeat(2,1fr)}.cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="brand" href="#">TSAI<b>·</b>MDM</a>
+  <a class="item on" href="#">Overview</a>
+  <a class="item" href="#">Devices</a>
+  <a class="item" href="#">Groups</a>
+  <a class="item" href="#">Productions</a>
+  <a class="item" href="#">Commands</a>
+  <a class="item" href="#">Updates</a>
+  <a class="item" href="#">Alerts</a>
+  <span class="spacer"></span>
+  <div class="user"><b>claude-hw</b>admin</div>
+</nav>
+
+<div class="wrap">
+
+  <div class="greet">
+    <h1>Good afternoon</h1>
+    <span class="sub">Friday, June 12 · fleet overview</span>
+    <span class="live"><i></i>live · ws connected</span>
+  </div>
+
+  <!-- HERO: circular graph + sparkline vitals -->
+  <div class="hero">
+    <div class="pulse">
+      <h2>FLEET PULSE</h2>
+      <div class="score-row">
+        <svg class="ring" viewBox="0 0 104 104">
+          <circle cx="52" cy="52" r="44" fill="none" stroke="#efe9e1" stroke-width="9"/>
+          <circle cx="52" cy="52" r="44" fill="none" stroke="#d82747" stroke-width="9"
+                  stroke-linecap="round" stroke-dasharray="276.4" stroke-dashoffset="36"
+                  transform="rotate(-90 52 52)">
+            <animate attributeName="stroke-dashoffset" from="276.4" to="36" dur="0.9s" fill="freeze"
+                     calcMode="spline" keySplines="0.2 0.7 0.3 1"/>
+          </circle>
+        </svg>
+        <div>
+          <div class="score-big">87</div>
+          <div class="score-sub">fleet health<br>last 24 h</div>
+        </div>
+      </div>
+      <div class="verdict">Fleet is healthy — 4 devices need a look</div>
+    </div>
+
+    <div class="vitals">
+      <a class="vital" href="#devices"><div class="k">Total devices</div><div class="v">30</div><div class="d">3 groups</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,16 9,15 18,15 27,12 36,12 45,9 52,8 58,6" fill="none" stroke="#948d84" stroke-width="1.6"/></svg></a>
+      <a class="vital" href="#devices?status=online"><div class="k">Online now</div><div class="v ok">26</div><div class="d">via websocket</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,9 9,7 18,10 27,6 36,8 45,5 52,7 58,5" fill="none" stroke="#1e9e5a" stroke-width="1.6"/></svg></a>
+      <a class="vital alerty" href="#devices?status=offline"><div class="k">Offline</div><div class="v bad">4</div><div class="d">&gt; 3 h silent</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,16 9,15 18,17 27,13 36,15 45,12 52,13 58,10" fill="none" stroke="#d82747" stroke-width="1.6"/></svg></a>
+      <a class="vital" href="#devices?battery=low"><div class="k">Low battery</div><div class="v warn">2</div><div class="d">&lt; 20 %</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,8 9,10 18,9 27,12 36,11 45,13 52,12 58,14" fill="none" stroke="#c77d10" stroke-width="1.6"/></svg></a>
+      <a class="vital" href="#devices?temp=hot"><div class="k">Running hot</div><div class="v hot">2</div><div class="d">&gt; 43 °C</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,14 9,13 18,14 27,11 36,12 45,10 52,11 58,9" fill="none" stroke="#d4502a" stroke-width="1.6"/></svg></a>
+      <a class="vital" href="#devices?kiosk=on"><div class="k">In kiosk mode</div><div class="v">22</div><div class="d">of 30 enrolled</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,12 9,12 18,10 27,10 36,8 45,8 52,7 58,7" fill="none" stroke="#948d84" stroke-width="1.6"/></svg></a>
+      <a class="vital" href="#updates"><div class="k">On latest build</div><div class="v">23</div><div class="d">v2.15.0 · 77 %</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,18 9,16 18,13 27,11 36,9 45,7 52,6 58,4" fill="none" stroke="#1e9e5a" stroke-width="1.6"/></svg></a>
+      <a class="vital" href="#alerts"><div class="k">Open alerts</div><div class="v warn">3</div><div class="d">2 batt · 1 offline</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,10 9,12 18,11 27,13 36,12 45,14 52,13 58,12" fill="none" stroke="#c77d10" stroke-width="1.6"/></svg></a>
+    </div>
+  </div>
+
+  <!-- attention strip → devices page -->
+  <div class="strip">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+    <span class="tx"><b>6 devices need attention</b> — 4 offline, 1 low battery &amp; discharging, 1 running at 45.1 °C.</span>
+    <a class="go" href="#devices?filter=attention">Review in Devices →</a>
+  </div>
+
+  <div class="cols">
+    <!-- AI FLEET REPORT -->
+    <div class="panel">
+      <div class="ph">
+        <h3>Fleet report</h3><span class="aibadge">AI</span>
+        <span class="when">generated 12:05 · 7 min ago</span>
+        <button class="regen">↻ Regenerate</button>
+      </div>
+      <div class="ai-body">
+        <p class="ai-lede">A quiet day overall: the fleet is stable at <em>87/100</em>, with check-ins arriving on schedule from 26 of 30 devices.</p>
+        <p class="ai-p">Battery posture across <b>tableside-pune</b> remains strong — median 78% with 7 devices on chargers. The v2.15.0 rollout has reached 23 devices (77%) with zero failed installs; the remaining 7 are split between v2.14.3 and two stragglers on v2.13.9 in <b>drivers-blr</b>.</p>
+        <div class="ai-h">
+          <div class="hl"><span class="pip" style="background:var(--crimson)"></span><span><b>Offline cluster:</b> <span class="mono">…00469</span> has been silent for 3 days and <span class="mono">…00458</span> for 24 h — both went quiet shortly after a Wi-Fi AP change in the lab. Worth checking the AP allowlist before rebooting.</span></div>
+          <div class="hl"><span class="pip" style="background:var(--hot)"></span><span><b>Thermal:</b> <span class="mono">…00464</span> is at 45.1 °C with RAM at 82% — the only device pairing high temp with memory pressure. A reboot likely clears it.</span></div>
+          <div class="hl"><span class="pip" style="background:var(--warn)"></span><span><b>Battery:</b> <span class="mono">…00451</span> (12%) and <span class="mono">…00446</span> (14%) are discharging during service hours; both are kiosk units that should be on power.</span></div>
+          <div class="hl"><span class="pip" style="background:var(--ok)"></span><span><b>Trend:</b> health score is up 3 points vs yesterday, driven by the update rollout and two devices returning online overnight.</span></div>
+        </div>
+      </div>
+      <div class="ai-foot">
+        <span>Sources: 720 checkins · 14 commands · 1 OTA rollout</span>
+        <a href="#report">Full report card →</a>
+      </div>
+    </div>
+
+    <!-- QUICK ACTIONS + RECENT -->
+    <div style="display:flex;flex-direction:column;gap:22px">
+      <div class="panel">
+        <div class="ph"><h3>Quick actions</h3></div>
+        <div class="qa">
+          <a class="qact" href="#commands/new">
+            <span class="qi c1"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
+            <span class="qt">Send command</span><span class="qd">to a device, group, or the fleet</span></a>
+          <a class="qact" href="#updates/new">
+            <span class="qi c2"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>
+            <span class="qt">Push update</span><span class="qd">roll out an OTA or APK</span></a>
+          <a class="qact" href="#kiosk">
+            <span class="qi c4"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+            <span class="qt">Lock kiosks</span><span class="qd">toggle lock-task mode per group</span></a>
+          <a class="qact" href="#reboot">
+            <span class="qi c3"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span>
+            <span class="qt">Reboot group</span><span class="qd">staggered, off-peak safe</span></a>
+          <a class="qact" href="#logcat">
+            <span class="qi c2"><svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></span>
+            <span class="qt">Pull logcat</span><span class="qd">grab logs from any device</span></a>
+          <a class="qact" href="#export">
+            <span class="qi c3"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><rect x="4" y="15" width="16" height="6" rx="2"/></svg></span>
+            <span class="qt">Export fleet</span><span class="qd">CSV snapshot of all devices</span></a>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="ph"><h3>Recent activity</h3></div>
+        <div class="ract">
+          <div class="ra"><span class="dot" style="background:var(--ok)"></span><span class="what">OTA <b>v2.15.0</b> installed on <b>…00463</b></span><span class="t">12 min</span></div>
+          <div class="ra"><span class="dot" style="background:var(--ok)"></span><span class="what">reboot completed on <b>…00450</b></span><span class="t">38 min</span></div>
+          <div class="ra"><span class="dot" style="background:var(--warn)"></span><span class="what">alert opened: low battery <b>…00451</b></span><span class="t">1 h</span></div>
+          <div class="ra"><span class="dot" style="background:var(--info)"></span><span class="what">group <b>kiosks-mum</b> kiosk mode enabled</span><span class="t">3 h</span></div>
+          <div class="ra"><span class="dot" style="background:var(--crimson)"></span><span class="what"><b>…00458</b> went offline</span><span class="t">24 h</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="demo-switch">demo
+  <a href="/demo/main1" class="cur">main1</a><a href="/demo/main2">main2</a><a href="/demo/5">5</a><a href="/demo/8">8</a>
+</div>
+
+</body>
+</html>

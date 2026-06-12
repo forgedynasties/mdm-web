@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atlas — Demo main2</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#16181d; --ink2:#555b66; --faint:#8a919d;
+    --line:#e4e7ec; --line2:#d2d7df;
+    --crimson:#d82747; --crimson-soft:#fbeaee; --crimson-deep:#ab1535;
+    --ok:#149455; --ok-soft:#e3f5ec; --warn:#b97a0a; --warn-soft:#fdf4e0;
+    --hot:#cc4f24; --hot-soft:#fceee8; --info:#2563c9; --info-soft:#e8effb;
+    --display:"Schibsted Grotesk","IBM Plex Sans",sans-serif;
+    --sans:"IBM Plex Sans",system-ui,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,monospace;
+    --shadow:0 1px 2px rgba(22,24,29,.04),0 6px 20px rgba(22,24,29,.04);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+
+  /* ---------- top navbar ---------- */
+  .nav{display:flex;align-items:center;gap:2px;padding:0 24px;height:54px;background:var(--card);
+       border-bottom:1px solid var(--line);position:sticky;top:0;z-index:50}
+  .brand{font-family:var(--display);font-weight:700;font-size:17px;margin-right:24px;color:var(--ink);
+         text-decoration:none;display:flex;align-items:center;gap:9px}
+  .brand .sq{width:22px;height:22px;border-radius:6px;background:var(--crimson);display:flex;align-items:center;
+             justify-content:center;color:#fff;font-size:12px;font-weight:800}
+  .nav a.item{font-size:13.5px;color:var(--ink2);text-decoration:none;padding:6px 11px;border-radius:7px;font-weight:500}
+  .nav a.item:hover{background:var(--bg);color:var(--ink)}
+  .nav a.item.on{color:var(--ink);background:var(--bg);box-shadow:inset 0 0 0 1px var(--line2);font-weight:600}
+  .nav .spacer{flex:1}
+  .nav .user{font-size:12px;color:var(--faint)}
+  .nav .user b{color:var(--ink2)}
+
+  /* ---------- split ---------- */
+  .split{display:grid;grid-template-columns:248px 1fr;max-width:1400px;margin:0 auto;min-height:calc(100vh - 54px)}
+
+  /* facet rail (from demo 8) — here facets are jump links into Devices */
+  .rail{border-right:1px solid var(--line);padding:22px 18px;background:var(--card)}
+  .rail .fh{font-family:var(--display);font-size:12px;font-weight:700;text-transform:uppercase;
+            letter-spacing:.09em;color:var(--faint);margin:20px 0 8px}
+  .rail .fh:first-child{margin-top:0}
+  .facet{display:flex;align-items:center;gap:10px;width:100%;padding:8px 11px;border-radius:9px;
+         font-size:13.5px;color:var(--ink2);cursor:pointer;text-decoration:none}
+  .facet:hover{background:var(--bg);color:var(--ink)}
+  .facet .ic{width:9px;height:9px;border-radius:50%;flex:none}
+  .facet .n{margin-left:auto;font-family:var(--mono);font-size:11.5px;color:var(--faint);background:var(--bg);
+            border-radius:99px;padding:1px 8px;min-width:26px;text-align:center}
+  .facet .bar{position:relative;flex:1;height:4px;border-radius:99px;background:var(--line);overflow:hidden;min-width:30px}
+  .facet .bar i{position:absolute;inset:0;width:var(--w);background:var(--c);border-radius:99px}
+  .facet .arrow{opacity:0;color:var(--faint);font-size:13px;margin-left:2px;transition:opacity .12s}
+  .facet:hover .arrow{opacity:1}
+  .railnote{font-size:11px;color:var(--faint);line-height:1.5;margin-top:22px;padding-top:14px;border-top:1px solid var(--line)}
+
+  /* health mini-card in rail */
+  .health{background:linear-gradient(135deg,#fff,#fdf7f8);border:1px solid var(--line);border-radius:13px;
+          padding:15px;margin-bottom:6px;box-shadow:var(--shadow)}
+  .health .row{display:flex;align-items:center;gap:13px}
+  .health .ring{width:58px;height:58px;flex:none}
+  .health .hv{font-family:var(--display);font-size:26px;font-weight:700;letter-spacing:-.02em;line-height:1}
+  .health .hv small{font-size:13px;color:var(--faint);font-weight:500}
+  .health .hk{font-size:11px;color:var(--faint);margin-top:3px}
+  .health .trend{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:11.5px;color:var(--ok);font-weight:600}
+
+  /* ---------- content bento ---------- */
+  .content{padding:24px 26px 70px;min-width:0}
+  .chead{display:flex;align-items:baseline;gap:12px;margin-bottom:18px}
+  .chead h1{font-family:var(--display);font-size:22px;font-weight:700;margin:0;letter-spacing:-.01em}
+  .chead .sub{font-size:12.5px;color:var(--faint)}
+  .chead .live{margin-left:auto;display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10.5px;
+               color:var(--ok);text-transform:uppercase;letter-spacing:.08em}
+  .chead .live i{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
+
+  .bento{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+  .cell{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+        padding:16px 18px;animation:up .4s cubic-bezier(.2,.7,.3,1) both}
+  @keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+  /* stat cells with sparklines (demo-5 cards) */
+  .stat{cursor:pointer;transition:transform .14s,border-color .14s;position:relative;text-decoration:none;color:inherit;display:block}
+  .stat:hover{transform:translateY(-2px);border-color:var(--line2)}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);font-weight:600}
+  .stat .v{font-family:var(--display);font-size:26px;font-weight:700;margin-top:4px;letter-spacing:-.01em}
+  .stat .v.ok{color:var(--ok)} .stat .v.bad{color:var(--crimson)} .stat .v.warn{color:var(--warn)} .stat .v.hot{color:var(--hot)}
+  .stat .d{font-size:11px;color:var(--faint);margin-top:2px}
+  .stat .spark{position:absolute;right:14px;bottom:14px;opacity:.85}
+  .stat.alerty{border-color:#f1ccd4}
+
+  /* AI overview cell */
+  .ai{grid-column:span 3;grid-row:span 2;display:flex;flex-direction:column;padding:0}
+  .ai .ph{display:flex;align-items:center;gap:10px;padding:15px 20px;border-bottom:1px solid var(--line)}
+  .ai .ph h3{font-family:var(--display);font-size:16px;font-weight:700;margin:0}
+  .aibadge{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:#fff;
+           background:linear-gradient(135deg,var(--crimson),#e8617a);border-radius:6px;padding:3px 8px}
+  .ai .ph .when{margin-left:auto;font-size:11px;color:var(--faint);font-family:var(--mono)}
+  .ai .ph .regen{font-size:12px;border:1px solid var(--line2);background:var(--card);color:var(--ink2);
+                 border-radius:8px;padding:5px 11px;cursor:pointer;font-family:var(--sans)}
+  .ai .ph .regen:hover{color:var(--crimson);border-color:var(--crimson)}
+  .ai .body{padding:16px 20px;flex:1}
+  .ai .lede{font-size:14px;line-height:1.6;color:var(--ink);margin:0 0 14px}
+  .ai .lede em{font-style:normal;font-weight:700;color:var(--crimson)}
+  .ggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px}
+  .gcard{background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:12px 14px}
+  .gcard .gn{font-family:var(--mono);font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:7px}
+  .gcard .gn .st{width:8px;height:8px;border-radius:50%;flex:none}
+  .gcard .gs{font-size:11.5px;color:var(--ink2);line-height:1.5;margin-top:7px}
+  .ai .foot{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:14px;font-size:11.5px;color:var(--faint)}
+  .ai .foot a{color:var(--info);text-decoration:none;margin-left:auto}
+
+  /* gauge cell */
+  .gauge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;grid-row:span 2}
+  .gauge .ring{width:120px;height:120px}
+  .gauge .gv{font-family:var(--display);font-size:15px;font-weight:700;margin-top:-4px}
+  .gauge .gk{font-size:11px;color:var(--faint);line-height:1.5}
+  .gauge .delta{font-size:11.5px;color:var(--ok);font-weight:600;background:var(--ok-soft);border-radius:99px;padding:3px 10px}
+
+  /* quick action tiles row */
+  .qrow{grid-column:span 4;display:grid;grid-template-columns:repeat(6,1fr);gap:12px;background:none;border:0;
+        box-shadow:none;padding:0}
+  .q{display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:13px;
+     padding:14px 15px;cursor:pointer;transition:transform .13s,border-color .13s;text-decoration:none;color:inherit;
+     box-shadow:var(--shadow)}
+  .q:hover{transform:translateY(-2px);border-color:var(--crimson)}
+  .q .qi{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center}
+  .q .qi svg{width:16px;height:16px;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .qi.c1{background:var(--crimson-soft)} .qi.c1 svg{stroke:var(--crimson)}
+  .qi.c2{background:var(--info-soft)} .qi.c2 svg{stroke:var(--info)}
+  .qi.c3{background:var(--ok-soft)} .qi.c3 svg{stroke:var(--ok)}
+  .qi.c4{background:var(--warn-soft)} .qi.c4 svg{stroke:var(--warn)}
+  .q .qt{font-size:12.5px;font-weight:600}
+
+  .demo-switch{position:fixed;bottom:18px;right:18px;z-index:99;background:var(--ink);color:#b9bec7;border-radius:99px;
+     padding:7px 9px 7px 14px;font-family:var(--mono);font-size:11.5px;display:flex;gap:5px;align-items:center;
+     box-shadow:0 6px 24px rgba(22,24,29,.3)}
+  .demo-switch a{color:#b9bec7;text-decoration:none;height:24px;border-radius:99px;display:flex;padding:0 8px;
+     align-items:center;justify-content:center}
+  .demo-switch a:hover{background:rgba(255,255,255,.12)}
+  .demo-switch a.cur{background:var(--crimson);color:#fff;font-weight:700}
+  @media(max-width:1080px){.bento{grid-template-columns:repeat(2,1fr)}.ai{grid-column:span 2}.qrow{grid-column:span 2;grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:1000px){.split{grid-template-columns:1fr}.rail{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="brand" href="#"><span class="sq">T</span>TSAI MDM</a>
+  <a class="item on" href="#">Overview</a>
+  <a class="item" href="#">Devices</a>
+  <a class="item" href="#">Groups</a>
+  <a class="item" href="#">Productions</a>
+  <a class="item" href="#">Commands</a>
+  <a class="item" href="#">Updates</a>
+  <a class="item" href="#">Alerts</a>
+  <span class="spacer"></span>
+  <span class="user"><b>claude-hw</b> · admin</span>
+</nav>
+
+<div class="split">
+
+  <!-- RAIL: fleet navigator (demo 8 facets as jump links into Devices) -->
+  <aside class="rail">
+    <div class="health">
+      <div class="row">
+        <svg class="ring" viewBox="0 0 58 58">
+          <circle cx="29" cy="29" r="24" fill="none" stroke="#eceef2" stroke-width="6"/>
+          <circle cx="29" cy="29" r="24" fill="none" stroke="#d82747" stroke-width="6"
+                  stroke-linecap="round" stroke-dasharray="150.8" stroke-dashoffset="19.6"
+                  transform="rotate(-90 29 29)"/>
+        </svg>
+        <div>
+          <div class="hv">87<small>/100</small></div>
+          <div class="hk">fleet health</div>
+        </div>
+      </div>
+      <div class="trend">▲ +3 vs yesterday</div>
+    </div>
+
+    <div class="fh">Status</div>
+    <a class="facet" href="#devices"><span class="ic" style="background:var(--ink2)"></span>All devices<span class="n">30</span><span class="arrow">→</span></a>
+    <a class="facet" href="#devices?status=online"><span class="ic" style="background:var(--ok)"></span>Online<span class="n">26</span><span class="arrow">→</span></a>
+    <a class="facet" href="#devices?status=offline"><span class="ic" style="background:var(--crimson)"></span>Offline<span class="n">4</span><span class="arrow">→</span></a>
+
+    <div class="fh">Needs action</div>
+    <a class="facet" href="#devices?battery=low"><span class="ic" style="background:var(--warn)"></span>Low battery<span class="n">2</span><span class="arrow">→</span></a>
+    <a class="facet" href="#devices?temp=hot"><span class="ic" style="background:var(--hot)"></span>Running hot<span class="n">2</span><span class="arrow">→</span></a>
+    <a class="facet" href="#devices?build=old"><span class="ic" style="background:var(--info)"></span>Old build<span class="n">7</span><span class="arrow">→</span></a>
+
+    <div class="fh">Groups</div>
+    <a class="facet" href="#devices?group=tableside-pune"><span class="bar"><i style="--w:92%;--c:var(--ok)"></i></span>tableside-pune<span class="n">12</span></a>
+    <a class="facet" href="#devices?group=kiosks-mum"><span class="bar"><i style="--w:90%;--c:var(--ok)"></i></span>kiosks-mum<span class="n">10</span></a>
+    <a class="facet" href="#devices?group=drivers-blr"><span class="bar"><i style="--w:75%;--c:var(--warn)"></i></span>drivers-blr<span class="n">8</span></a>
+
+    <div class="fh">Build</div>
+    <a class="facet" href="#devices?build=v2.15.0"><span class="ic" style="background:var(--ok)"></span>v2.15.0<span class="n">23</span></a>
+    <a class="facet" href="#devices?build=v2.14.3"><span class="ic" style="background:var(--warn)"></span>v2.14.3<span class="n">5</span></a>
+    <a class="facet" href="#devices?build=v2.13.9"><span class="ic" style="background:var(--crimson)"></span>v2.13.9<span class="n">2</span></a>
+
+    <div class="railnote">Each item opens the Devices page pre-filtered — the overview stays clean, the list lives one click away.</div>
+  </aside>
+
+  <!-- CONTENT: bento -->
+  <div class="content">
+    <div class="chead">
+      <h1>Overview</h1>
+      <span class="sub">Friday, June 12</span>
+      <span class="live"><i></i>live · ws connected</span>
+    </div>
+
+    <div class="bento">
+
+      <!-- circular gauge -->
+      <div class="cell gauge" style="animation-delay:.02s">
+        <svg class="ring" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#eceef2" stroke-width="10"/>
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#d82747" stroke-width="10"
+                  stroke-linecap="round" stroke-dasharray="314.2" stroke-dashoffset="40.8"
+                  transform="rotate(-90 60 60)">
+            <animate attributeName="stroke-dashoffset" from="314.2" to="40.8" dur="0.9s" fill="freeze"
+                     calcMode="spline" keySplines="0.2 0.7 0.3 1"/>
+          </circle>
+          <text x="60" y="57" text-anchor="middle" font-family="Schibsted Grotesk,sans-serif" font-size="27"
+                font-weight="700" fill="#16181d">87</text>
+          <text x="60" y="74" text-anchor="middle" font-family="IBM Plex Sans,sans-serif" font-size="9.5" fill="#8a919d">HEALTH</text>
+        </svg>
+        <div class="gk">26/30 reporting on schedule<br>0 failed installs · 3 open alerts</div>
+        <span class="delta">▲ +3 today</span>
+      </div>
+
+      <!-- stat cells (demo-5 cards) -->
+      <a class="cell stat" href="#devices" style="animation-delay:.05s"><div class="k">Total devices</div><div class="v">30</div><div class="d">3 groups</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,16 9,15 18,15 27,12 36,12 45,9 52,8 58,6" fill="none" stroke="#8a919d" stroke-width="1.6"/></svg></a>
+      <a class="cell stat" href="#devices?status=online" style="animation-delay:.08s"><div class="k">Online now</div><div class="v ok">26</div><div class="d">via websocket</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,9 9,7 18,10 27,6 36,8 45,5 52,7 58,5" fill="none" stroke="#149455" stroke-width="1.6"/></svg></a>
+      <a class="cell stat alerty" href="#devices?status=offline" style="animation-delay:.11s"><div class="k">Offline</div><div class="v bad">4</div><div class="d">&gt; 3 h silent</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,16 9,15 18,17 27,13 36,15 45,12 52,13 58,10" fill="none" stroke="#d82747" stroke-width="1.6"/></svg></a>
+
+      <!-- AI overview (large) -->
+      <div class="cell ai" style="animation-delay:.14s">
+        <div class="ph">
+          <h3>AI fleet overview</h3><span class="aibadge">AI</span>
+          <span class="when">12:05 · 7 min ago</span>
+          <button class="regen">↻ Regenerate</button>
+        </div>
+        <div class="body">
+          <p class="lede">Fleet is stable at <em>87/100</em>. The v2.15.0 rollout reached 23 of 30 devices with zero failures; 4 devices are offline — two correlate with yesterday's lab AP change and are worth checking before a reboot. Two kiosk units are discharging during service hours and should be on power.</p>
+          <div class="ggrid">
+            <div class="gcard">
+              <div class="gn"><span class="st" style="background:var(--ok)"></span>tableside-pune</div>
+              <div class="gs">11/12 online, median battery 78%. One unit (…00453) silent 3 h — likely the AP change.</div>
+            </div>
+            <div class="gcard">
+              <div class="gn"><span class="st" style="background:var(--warn)"></span>kiosks-mum</div>
+              <div class="gs">9/10 online. …00451 at 12% and off charger; …00464 hot at 45.1 °C with RAM 82% — reboot suggested.</div>
+            </div>
+            <div class="gcard">
+              <div class="gn"><span class="st" style="background:var(--crimson)"></span>drivers-blr</div>
+              <div class="gs">6/8 online. …00469 silent 3 days on v2.13.9 — needs physical check. Build spread widest here.</div>
+            </div>
+          </div>
+        </div>
+        <div class="foot">
+          <span>Sources: 720 checkins · 14 commands · 1 OTA rollout</span>
+          <a href="#report">Full report card →</a>
+        </div>
+      </div>
+
+      <!-- right column stats next to AI -->
+      <a class="cell stat" href="#devices?battery=low" style="animation-delay:.17s"><div class="k">Low battery</div><div class="v warn">2</div><div class="d">&lt; 20 %</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,8 9,10 18,9 27,12 36,11 45,13 52,12 58,14" fill="none" stroke="#b97a0a" stroke-width="1.6"/></svg></a>
+      <a class="cell stat" href="#updates" style="animation-delay:.2s"><div class="k">On latest build</div><div class="v">23</div><div class="d">v2.15.0 · 77 %</div>
+        <svg class="spark" width="58" height="22"><polyline points="0,18 9,16 18,13 27,11 36,9 45,7 52,6 58,4" fill="none" stroke="#149455" stroke-width="1.6"/></svg></a>
+
+      <!-- quick actions -->
+      <div class="qrow" style="animation-delay:.23s">
+        <a class="q" href="#commands/new"><span class="qi c1"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span><span class="qt">Send command</span></a>
+        <a class="q" href="#updates/new"><span class="qi c2"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="qt">Push update</span></a>
+        <a class="q" href="#kiosk"><span class="qi c4"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="qt">Lock kiosks</span></a>
+        <a class="q" href="#reboot"><span class="qi c3"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg></span><span class="qt">Reboot group</span></a>
+        <a class="q" href="#logcat"><span class="qi c2"><svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg></span><span class="qt">Pull logcat</span></a>
+        <a class="q" href="#export"><span class="qi c3"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><rect x="4" y="15" width="16" height="6" rx="2"/></svg></span><span class="qt">Export fleet</span></a>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="demo-switch">demo
+  <a href="/demo/main1">main1</a><a href="/demo/main2" class="cur">main2</a><a href="/demo/5">5</a><a href="/demo/8">8</a>
+</div>
+
+</body>
+</html>
