@@ -131,6 +131,70 @@
 </div>
 {{end}}
 
+{{if and (ne $dep.Status "canceled") (or (eq .Role "admin") (eq .Role "operator"))}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Push to more devices</h3>
+    <span class="muted small">Add devices or groups to this deployment — they inherit its reboot setting.</span>
+  </div>
+  <form action="/updates/{{$rel.ID}}/deployments/{{$dep.ID}}/add-targets" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">Targets</label>
+      <div class="seg-control" id="target-seg">
+        <button type="button" class="seg-btn active" data-tab="devices" onclick="setTargetTab('devices')">Devices</button>
+        <button type="button" class="seg-btn"        data-tab="groups"  onclick="setTargetTab('groups')">Groups</button>
+      </div>
+    </div>
+    <div id="tab-devices" class="send-tab-panel">
+      <div class="form-row" style="margin-top:0;">
+        <input type="search" class="form-input" placeholder="Filter devices…" oninput="filterSendList(this)" style="margin-bottom:8px;">
+        <span class="send-count muted small"></span>
+        <label class="checkbox-label" style="margin-bottom:6px;font-size:12px;color:var(--muted);">
+          <input type="checkbox" onchange="toggleAll(this,'serials')"> Select all visible
+        </label>
+        <div style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 0;">
+          {{range .Devices}}
+          <label class="send-item checkbox-label" data-search="{{.SerialNumber}} {{.BuildID}}" style="display:flex;padding:6px 12px;gap:8px;cursor:pointer;">
+            <input type="checkbox" name="serials" value="{{.SerialNumber}}">
+            <span class="mono small">{{.SerialNumber}}</span>
+            <span class="muted small" style="margin-left:auto;">{{.BuildID}}</span>
+          </label>
+          {{else}}
+          <div class="empty" style="padding:12px;">No devices registered.</div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    <div id="tab-groups" class="send-tab-panel" style="display:none;">
+      <div class="form-row" style="margin-top:0;">
+        <input type="search" class="form-input" placeholder="Filter groups…" oninput="filterSendList(this)" style="margin-bottom:8px;">
+        <span class="send-count muted small"></span>
+        <label class="checkbox-label" style="margin-bottom:6px;font-size:12px;color:var(--muted);">
+          <input type="checkbox" onchange="toggleAll(this,'group_ids')"> Select all visible
+        </label>
+        <div style="max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:4px 0;">
+          {{range .Groups}}
+          <label class="send-item checkbox-label" data-search="{{.Name}}" style="display:flex;padding:6px 12px;gap:8px;cursor:pointer;">
+            <input type="checkbox" name="group_ids" value="{{.ID}}">
+            <span class="small">{{.Name}}</span>
+            <span class="muted small" style="margin-left:auto;">{{.DeviceCount}} devices</span>
+          </label>
+          {{else}}
+          <div class="empty" style="padding:12px;">No groups yet.</div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Stage Limit <span class="muted small">(optional)</span></label>
+      <input type="number" name="limit" class="form-input" min="1" style="max-width:120px;" placeholder="e.g. 10">
+      <div class="form-hint">Devices already updating or done are skipped automatically.</div>
+    </div>
+    <button type="submit" class="btn-primary">Add to deployment</button>
+  </form>
+</div>
+{{end}}
+
 <div class="card">
   <div class="card-header">
     <h3>Device Status</h3>
@@ -152,6 +216,32 @@ function setReboot(mode) {
   document.getElementById('scheduled-time-row').style.display = mode === 'scheduled' ? '' : 'none';
   document.querySelectorAll('#reboot-seg .seg-btn').forEach(function (b) {
     b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
+function setTargetTab(tab) {
+  document.getElementById('tab-devices').style.display = tab === 'devices' ? '' : 'none';
+  document.getElementById('tab-groups').style.display  = tab === 'groups'  ? '' : 'none';
+  document.querySelectorAll('#target-seg .seg-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.tab === tab);
+  });
+}
+function filterSendList(input) {
+  var el = input;
+  while (el && !el.classList.contains('send-tab-panel')) el = el.parentElement;
+  if (!el) return;
+  var q = input.value.toLowerCase(), visible = 0;
+  el.querySelectorAll('.send-item').forEach(function(item) {
+    var match = !q || item.dataset.search.toLowerCase().indexOf(q) !== -1;
+    item.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  var countEl = el.querySelector('.send-count');
+  if (countEl) countEl.textContent = q ? visible + ' match' + (visible !== 1 ? 'es' : '') : '';
+}
+function toggleAll(master, name) {
+  var panel = master.closest('.send-tab-panel');
+  panel.querySelectorAll('input[name="' + name + '"]').forEach(function(cb) {
+    if (cb.closest('.send-item').style.display !== 'none') cb.checked = master.checked;
   });
 }
 </script>

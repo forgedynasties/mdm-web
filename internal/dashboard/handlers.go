@@ -3275,6 +3275,12 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Only the full page needs the device/group lists for the "add targets" picker.
+	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
+	groups, _ := h.db.ListGroups(r.Context())
+	data["Devices"] = devices
+	data["Groups"] = groups
+
 	h.render(w, r, "deployment_detail.html", data)
 }
 
@@ -3386,6 +3392,41 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "pending")
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.audit(r, "deployment.retry", r.PathValue("serial"), strconv.Itoa(did))
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, did), http.StatusSeeOther)
+}
+
+// DeploymentAddTargets widens an existing deployment by adding more devices or
+// groups to it, instead of creating a separate deployment. Eligible devices
+// (not already on an active update) are appended to the same update.
+func (h *Handler) DeploymentAddTargets(w http.ResponseWriter, r *http.Request) {
+	relID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), did)
+	if err != nil || upd.ReleaseID != relID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	eligible, err := h.resolveEligibleDevices(r)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if len(eligible) > 0 {
+		if err := h.db.SendUpdateToDevices(r.Context(), did, eligible); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+	h.audit(r, "deployment.add_targets", strconv.Itoa(did), strconv.Itoa(len(eligible)))
 	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, did), http.StatusSeeOther)
 }
 
@@ -5207,6 +5248,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
 	post("POST /updates/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
 	post("POST /updates/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
+	post("POST /updates/{id}/deployments/{did}/add-targets", h.requireOperatorOrAdmin(h.DeploymentAddTargets))
 	post("POST /updates/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
 	post("POST /updates/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 
