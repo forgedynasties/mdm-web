@@ -3650,6 +3650,23 @@ func (d *DB) CheckAndCompleteUpdate(ctx context.Context, updateID int) error {
 	return err
 }
 
+// CancelDeployment stops an active deployment: devices that haven't started yet
+// (pending) are marked canceled, and the update leaves 'active' so
+// ResolveUpdateForDevice no longer hands it out on check-in. Devices already
+// downloading/installed are left alone — their work continues on-device.
+func (d *DB) CancelDeployment(ctx context.Context, updateID int) error {
+	if _, err := d.pool.Exec(ctx, `
+		UPDATE update_devices SET status = 'canceled', error_code = '', updated_at = NOW()
+		WHERE update_id = $1 AND status = 'pending'
+	`, updateID); err != nil {
+		return err
+	}
+	_, err := d.pool.Exec(ctx, `
+		UPDATE updates SET status = 'canceled' WHERE id = $1 AND status = 'active'
+	`, updateID)
+	return err
+}
+
 // GetUpdateTargets returns the device targets for an update.
 func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget, error) {
 	rows, err := d.pool.Query(ctx, `

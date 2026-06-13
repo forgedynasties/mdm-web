@@ -3208,6 +3208,66 @@ func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/updates/%d", pkgID), http.StatusSeeOther)
 }
 
+// DeploymentCancel stops an active deployment from reaching devices that
+// haven't started yet (pending → canceled) and flips the update off 'active'.
+func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
+	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), did)
+	if err != nil || upd.OtaPackageID != pkgID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	if err := h.db.CancelDeployment(r.Context(), did); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "deployment.cancel", strconv.Itoa(did), "")
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", pkgID, did), http.StatusSeeOther)
+}
+
+// DeploymentRetryDevice re-arms one failed device on a deployment: it clears the
+// OTA command guard and resets the device's row to pending, so the next check-in
+// re-issues the update (same mechanism as DeviceClearOTA).
+func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) {
+	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), did)
+	if err != nil || upd.OtaPackageID != pkgID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if err := h.db.ClearPendingOTACommands(r.Context(), device.ID); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "pending")
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.audit(r, "deployment.retry", r.PathValue("serial"), strconv.Itoa(did))
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", pkgID, did), http.StatusSeeOther)
+}
+
 func parseScheduledUTC(raw, rebootBehavior string) *time.Time {
 	if rebootBehavior != "scheduled" {
 		return nil
@@ -5023,6 +5083,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /updates/{id}/deploy", h.requireAdmin(h.OTAPackageDeploy))
 	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
 	post("POST /updates/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
+	post("POST /updates/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
+	post("POST /updates/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
 	post("POST /updates/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 
 	mux.HandleFunc("GET /users", h.requireAdmin(h.UserList))
