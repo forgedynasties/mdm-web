@@ -4040,6 +4040,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"FleetWindow":          fleetWindow,
 		"GroupWindows":         groupWindows,
 		"AlertChannels":        channels,
+		"ChannelTest":          r.URL.Query().Get("channel_test"),
 		"AIKeySet":             h.cfg.AIEnabled(),
 		"AIProvider":           h.cfg.AIProvider(),
 		"AnthropicModel":       h.cfg.AnthropicModel(),
@@ -4576,6 +4577,32 @@ func (h *Handler) SettingsSaveChannel(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "alerts.channel", c.Name, "")
 	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+// SettingsTestChannel sends a sample alert to one channel so the admin can confirm the
+// webhook URL works before a real alert fires. Redirects back with a ?channel_test result.
+func (h *Handler) SettingsTestChannel(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid channel", http.StatusBadRequest)
+		return
+	}
+	c, err := h.db.GetAlertChannel(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Channel not found", http.StatusNotFound)
+		return
+	}
+	sample := db.AlertNotification{
+		Type: "test", Severity: "info", Serial: "TEST-DEVICE",
+		Summary: "Test alert from AIO MDM — this channel is wired up correctly.",
+	}
+	result := "ok"
+	if err := sendToChannel(r.Context(), c, sample); err != nil {
+		log.Printf("[alert] test channel %q failed: %v", c.Name, err)
+		result = "fail"
+	}
+	h.audit(r, "alerts.channel.test", c.Name, result)
+	http.Redirect(w, r, "/settings?channel_test="+result+"#channels", http.StatusFound)
 }
 
 // SettingsDeleteChannel removes an alert channel.
@@ -5552,6 +5579,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/alert-rules/{id}", h.requireAdmin(h.SettingsUpdateAlertRule))
 	post("POST /settings/service-window", h.requireAdmin(h.SettingsSetServiceWindow))
 	post("POST /settings/alert-channels", h.requireAdmin(h.SettingsSaveChannel))
+	post("POST /settings/alert-channels/{id}/test", h.requireAdmin(h.SettingsTestChannel))
 	post("POST /settings/alert-channels/{id}/delete", h.requireAdmin(h.SettingsDeleteChannel))
 	post("POST /settings/ai", h.requireAdmin(h.SettingsSetAI))
 	post("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))

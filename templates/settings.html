@@ -190,9 +190,11 @@
   </div>
 </div>
 
-<div class="card" style="margin-bottom:16px;">
+<div class="card" style="margin-bottom:16px;" id="channels">
   <div class="card-header"><h3>Alert channels</h3></div>
   <div style="padding:16px;">
+    {{if eq .ChannelTest "ok"}}<div class="status-badge ok" style="margin-bottom:10px;">Test alert sent — check the channel.</div>{{end}}
+    {{if eq .ChannelTest "fail"}}<div class="status-badge danger" style="margin-bottom:10px;">Test failed — the webhook URL was rejected (see server logs).</div>{{end}}
     <div class="muted small" style="margin-bottom:12px;">
       Route alerts to one or more <strong>Slack / Discord / Mattermost</strong> or <strong>Microsoft Teams</strong> webhooks by minimum severity. For Teams, use a channel's <em>Workflows → "Post to a channel when a webhook request is received"</em> URL (Teams gets an Adaptive Card; the others get a text webhook). <strong>Realtime</strong> channels post immediately; <strong>digest</strong> channels are summarised in the daily digest. A channel's active window can restrict it to service or overnight hours (fleet default window). Channels supersede the single webhook above; if none exist, that webhook is used for everything.
     </div>
@@ -202,6 +204,9 @@
         <input type="hidden" name="id" value="{{.ID}}">
         {{template "chan-fields" .}}
         <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      </form>
+      <form action="/settings/alert-channels/{{.ID}}/test" method="POST" style="display:inline;">
+        <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 12px;">Test</button>
       </form>
       <form action="/settings/alert-channels/{{.ID}}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this channel?')">
         <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 12px;">Delete</button>
