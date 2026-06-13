@@ -26,7 +26,11 @@
         <td class="mono small">{{.BuildID}}</td>
         <td>
           {{$progress := index $.OTAProgress .DeviceID.String}}
-          <span class="status-badge {{deployStatusClass .Status}}">{{if and $progress (eq .Status "downloading") $progress.Phase}}{{$progress.Phase}}{{else if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
+          {{if and $progress (eq .Status "downloading") $progress.Phase}}
+            <span class="status-badge {{deployStatusClass .Status}} phase-badge">{{$progress.Phase}}</span>
+          {{else}}
+            <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
+          {{end}}
           {{if otaStalled .Status .UpdatedAt $progress}}<span class="status-badge warn" title="No progress for over 10 minutes — the device may be offline or stuck.">stalled</span>{{end}}
           {{if $progress}}
             <div class="ota-progress-panel" style="padding:8px 10px;margin:6px 0 2px;max-width:300px;">
@@ -57,6 +61,21 @@
 
 {{define "deployment_detail.html"}}
 {{template "header" .}}
+
+<style>
+  /* The live OTA phase pill (downloading/verifying/installing): enlarged and pulsing
+     to signal the update is actively in progress. Inline so it ships with the page
+     HTML rather than the immutable-cached style.css. */
+  @keyframes ota-phase-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  .phase-badge {
+    display: inline-block;
+    transform: scale(1.35);
+    transform-origin: left center;
+    margin: 4px 12px 4px 2px;
+    animation: ota-phase-pulse 1.4s ease-in-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .phase-badge { animation: none; } }
+</style>
 
 {{$dep := .Deployment}}
 {{$rel := .Release}}
