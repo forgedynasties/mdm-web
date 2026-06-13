@@ -108,6 +108,7 @@ type Update struct {
 	Status          string         `json:"status"` // "pending", "active", "complete"
 	CreatedAt       time.Time      `json:"created_at"`
 	OtaPackage      *OTAPackage    `json:"ota_package,omitempty"`
+	Release         *Release       `json:"release,omitempty"`
 	Targets         []UpdateTarget `json:"targets,omitempty"`
 	DeviceTotal     int            `json:"device_total,omitempty"`     // populated by ListDeploymentsByPackage
 	DeviceInstalled int            `json:"device_installed,omitempty"` // populated by ListDeploymentsByPackage
@@ -3648,6 +3649,34 @@ func (d *DB) ListDeploymentsByPackage(ctx context.Context, pkgID int) ([]Update,
 	return out, rows.Err()
 }
 
+// ListDeploymentsByRelease returns deployments for a release with device counts.
+func (d *DB) ListDeploymentsByRelease(ctx context.Context, releaseID int) ([]Update, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT u.id, COALESCE(u.ota_package_id, 0), u.release_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at,
+		       COUNT(ud.device_id) AS device_total,
+		       COUNT(CASE WHEN ud.status = 'installed' THEN 1 END) AS device_installed
+		FROM updates u
+		LEFT JOIN update_devices ud ON ud.update_id = u.id
+		WHERE u.release_id = $1
+		GROUP BY u.id
+		ORDER BY u.created_at DESC
+	`, releaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Update
+	for rows.Next() {
+		var u Update
+		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt,
+			&u.DeviceTotal, &u.DeviceInstalled); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) ListUpdates(ctx context.Context) ([]Update, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at,
@@ -3677,19 +3706,19 @@ func (d *DB) ListUpdates(ctx context.Context) ([]Update, error) {
 
 func (d *DB) GetUpdate(ctx context.Context, id int) (*Update, error) {
 	var u Update
-	var p OTAPackage
+	var rel Release
 	err := d.pool.QueryRow(ctx, `
-		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at,
-		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.changelog, p.status, p.created_at
+		SELECT u.id, COALESCE(u.ota_package_id, 0), u.release_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at,
+		       rel.id, rel.version, rel.name, rel.changelog, rel.status, rel.created_at, rel.published_at
 		FROM updates u
-		JOIN ota_packages p ON p.id = u.ota_package_id
+		JOIN releases rel ON rel.id = u.release_id
 		WHERE u.id = $1
-	`, id).Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt,
-		&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt)
+	`, id).Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt,
+		&rel.ID, &rel.Version, &rel.Name, &rel.Changelog, &rel.Status, &rel.CreatedAt, &rel.PublishedAt)
 	if err != nil {
 		return nil, err
 	}
-	u.OtaPackage = &p
+	u.Release = &rel
 	return &u, nil
 }
 

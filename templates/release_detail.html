@@ -1,89 +1,145 @@
-{{define "update_detail.html"}}
+{{define "release_detail.html"}}
 {{template "header" .}}
 
-{{$pkg := .Package}}
+{{$rel := .Release}}
 
-<a href="/updates" class="back-link">← OTA Packages</a>
+<a href="/updates" class="back-link">← Releases</a>
 <div class="ov-greet">
   <h1 class="ov-title">
-    {{if eq $pkg.Type "incremental"}}
-      <span class="status-badge warn" style="font-size:12px;vertical-align:middle;">incremental</span>
-    {{else}}
-      <span class="status-badge muted" style="font-size:12px;vertical-align:middle;">full</span>
-    {{end}}
-    → {{$pkg.TargetBuildID}}
+    <span class="status-badge {{releaseStatusClass $rel.Status}}" style="font-size:12px;vertical-align:middle;">{{$rel.Status}}</span>
+    {{$rel.Version}}
   </h1>
+  {{if eq .Role "admin"}}
   <span class="acts">
-    <form action="/updates/{{$pkg.ID}}/yank" method="POST" style="display:inline;">
-      {{if eq $pkg.Status "yanked"}}
+    {{if ne $rel.Status "published"}}
+    <form action="/updates/{{$rel.ID}}/publish" method="POST" style="display:inline;">
+      <button type="submit" class="btn-primary" style="padding:5px 12px;font-size:13px;">Publish</button>
+    </form>
+    {{end}}
+    <form action="/updates/{{$rel.ID}}/yank" method="POST" style="display:inline;">
+      {{if eq $rel.Status "yanked"}}
         <button type="submit" class="btn-outline" style="padding:5px 12px;font-size:13px;">Restore</button>
       {{else}}
         <button type="submit" class="btn-outline" style="padding:5px 12px;font-size:13px;"
-                onclick="return confirm('Yank this package? Active deployments will stop delivering it to new devices.')">
-          Yank
-        </button>
+                onclick="return confirm('Yank this release? It will stop being delivered to devices and cannot be deployed.')">Yank</button>
       {{end}}
     </form>
-    <form action="/updates/{{$pkg.ID}}/delete" method="POST" style="display:inline;"
-          onsubmit="return confirm('Delete this package and all its deployments?')">
-      <button type="submit" class="btn-danger">Delete Package</button>
-    </form>
   </span>
+  {{end}}
 </div>
 
-{{if eq $pkg.Status "yanked"}}
+{{if eq $rel.Status "draft"}}
 <div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg,#2a2010);border:1px solid var(--warn,#f59e0b);color:var(--warn,#f59e0b);font-size:13px;">
-  This package is yanked. It will not be delivered to any devices. Restore it to resume deployments.
+  This release is a draft. Add its packages, then <strong>Publish</strong> it before deploying.
+</div>
+{{else if eq $rel.Status "yanked"}}
+<div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg,#2a2010);border:1px solid var(--warn,#f59e0b);color:var(--warn,#f59e0b);font-size:13px;">
+  This release is yanked — it is not delivered to any device. Restore it to resume.
 </div>
 {{end}}
 
-<!-- Package info -->
 <div class="stats-grid" style="margin-bottom:16px;">
   <div class="stat-card">
-    <div class="stat-label">Target Build</div>
-    <div class="stat-value small mono">{{$pkg.TargetBuildID}}</div>
+    <div class="stat-label">Version</div>
+    <div class="stat-value small mono">{{$rel.Version}}</div>
   </div>
-  {{if $pkg.SourceBuildID}}
   <div class="stat-card">
-    <div class="stat-label">Source Build</div>
-    <div class="stat-value small mono">{{$pkg.SourceBuildID}}</div>
+    <div class="stat-label">Packages</div>
+    <div class="stat-value">{{len .Packages}}</div>
   </div>
-  {{end}}
   <div class="stat-card">
     <div class="stat-label">Deployments</div>
-    <div class="stat-value">{{$pkg.DeploymentCount}}</div>
+    <div class="stat-value">{{len .Deployments}}</div>
   </div>
   <div class="stat-card">
-    <div class="stat-label">Added</div>
-    <div class="stat-value small">{{timeSince $pkg.CreatedAt}}</div>
-    <div class="stat-sub">{{localTime $pkg.CreatedAt}}</div>
+    <div class="stat-label">Created</div>
+    <div class="stat-value small">{{timeSince $rel.CreatedAt}}</div>
+    <div class="stat-sub">{{localTime $rel.CreatedAt}}</div>
   </div>
 </div>
 
-{{if $pkg.UpdateURL}}
+{{if $rel.Changelog}}
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Package URL</h3></div>
-  <div style="padding:12px 16px;">
-    <a href="{{$pkg.UpdateURL}}" target="_blank" rel="noopener" class="mono small link-detail">{{$pkg.UpdateURL}}</a>
-  </div>
+  <div class="card-header"><h3>Changelog</h3></div>
+  <div style="padding:12px 16px;white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$rel.Changelog}}</div>
 </div>
 {{end}}
 
-{{if $pkg.Changelog}}
+<!-- Packages in this release -->
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Changelog</h3></div>
-  <div style="padding:12px 16px;white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$pkg.Changelog}}</div>
+  <div class="card-header">
+    <h3>Packages</h3>
+    <span class="muted small">The full image and any incrementals. The server picks the right one per device.</span>
+  </div>
+  {{if .Packages}}
+  <table class="table">
+    <thead>
+      <tr><th>Type</th><th>From build</th><th>URL</th><th>Added</th><th></th></tr>
+    </thead>
+    <tbody>
+      {{range .Packages}}
+      <tr {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
+        <td>{{if eq .Type "incremental"}}<span class="status-badge warn">incremental</span>{{else}}<span class="status-badge muted">full</span>{{end}}</td>
+        <td class="mono small">{{if .SourceBuildID}}{{.SourceBuildID}}{{else}}<span class="muted">— (any)</span>{{end}}</td>
+        <td class="mono small" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <a href="{{.UpdateURL}}" target="_blank" rel="noopener" class="link-detail" style="font-size:11px;">{{truncate .UpdateURL 48}}</a>
+        </td>
+        <td class="muted small">{{localTime .CreatedAt}}</td>
+        <td style="white-space:nowrap;">
+          {{if eq $.Role "admin"}}
+          <form action="/updates/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="display:inline;"
+                onsubmit="return confirm('Delete this package from the release?')">
+            <button type="submit" class="btn-outline btn-sm">Delete</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty" style="padding:16px;">No packages yet — add the full image below.</div>
+  {{end}}
+</div>
+
+{{if eq .Role "admin"}}
+<!-- Add a package to this release -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Add Package</h3><span class="muted small">Add the full image or an incremental for version {{$rel.Version}}</span></div>
+  <form id="add-pkg-form" action="/updates/{{$rel.ID}}/packages" method="POST" class="command-form">
+    <div class="form-row">
+      <label class="form-label">Type</label>
+      <div class="seg-control">
+        <button type="button" class="seg-btn active" data-mode="full"        onclick="setPkgType('full')">Full</button>
+        <button type="button" class="seg-btn"        data-mode="incremental" onclick="setPkgType('incremental')">Incremental</button>
+      </div>
+      <input type="hidden" name="type" id="pkg-type-input" value="full">
+    </div>
+    <div class="form-row" id="source-build-row" style="display:none;">
+      <label class="form-label">Source Build ID</label>
+      <input type="text" name="source_build_id" id="pkg-source-build" class="form-input" placeholder="e.g. 2026.05.01-release">
+      <div class="form-hint">Only devices currently on this build will receive this incremental.</div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Package URL</label>
+      <input type="url" name="update_url" id="pkg-update-url" class="form-input" placeholder="https://..." required>
+      <input type="hidden" name="update_url_b64" id="pkg-update-url-b64">
+      <div class="form-hint">External URL where the OTA zip is hosted.</div>
+    </div>
+    <button type="submit" class="btn-primary">Add Package</button>
+  </form>
 </div>
 {{end}}
 
 <!-- Deploy form -->
-{{if ne $pkg.Status "yanked"}}
+{{if eq $rel.Status "published"}}
+{{if eq .Role "admin"}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>New Deployment</h3>
-    <span class="muted small">Push this package to devices</span>
+    <span class="muted small">Deploy this release; each device gets the matching artifact.</span>
   </div>
-  <form action="/updates/{{$pkg.ID}}/deploy" method="POST" class="command-form">
+  <form action="/updates/{{$rel.ID}}/deploy" method="POST" class="command-form">
     <div class="form-row">
       <label class="form-label">Reboot After Install</label>
       <div class="seg-control" id="reboot-seg">
@@ -96,10 +152,9 @@
     <div class="form-row" id="scheduled-time-row" style="display:none;">
       <label class="form-label">Scheduled Time (UTC / GMT+0)</label>
       <input type="datetime-local" name="scheduled_time" class="form-input" style="max-width:260px;">
-      <div class="form-hint">This field is interpreted as UTC. Example: enter 17:00 here to schedule 5:00 PM UTC.</div>
+      <div class="form-hint">This field is interpreted as UTC.</div>
     </div>
 
-    {{/* Device / Group picker */}}
     <div class="form-row">
       <label class="form-label">Targets</label>
       <div class="seg-control" id="target-seg">
@@ -158,15 +213,10 @@
       <div class="form-hint">Cap how many devices receive this deployment. Useful for staged rollouts.</div>
     </div>
 
-    {{if eq $pkg.Type "incremental"}}
-    <div class="muted small" style="margin-bottom:12px;">
-      &#9432; Incremental — only devices currently on <span class="mono">{{$pkg.SourceBuildID}}</span> will apply this update.
-    </div>
-    {{end}}
-
     <button type="submit" class="btn-primary">Deploy</button>
   </form>
 </div>
+{{end}}
 {{end}}
 
 <!-- Deployments list -->
@@ -178,15 +228,7 @@
   {{if .Deployments}}
   <table class="table">
     <thead>
-      <tr>
-        <th>#</th>
-        <th>Status</th>
-        <th>Reboot</th>
-        <th>Devices</th>
-        <th>Installed</th>
-        <th>Created</th>
-        <th></th>
-      </tr>
+      <tr><th>#</th><th>Status</th><th>Reboot</th><th>Devices</th><th>Installed</th><th>Created</th><th></th></tr>
     </thead>
     <tbody>
       {{range .Deployments}}
@@ -197,17 +239,13 @@
         <td class="muted small">{{.DeviceTotal}}</td>
         <td>
           {{if gt .DeviceTotal 0}}
-            <span class="{{if eq .DeviceInstalled .DeviceTotal}}ok{{else}}muted{{end}} small">
-              {{.DeviceInstalled}} / {{.DeviceTotal}}
-            </span>
+            <span class="{{if eq .DeviceInstalled .DeviceTotal}}ok{{else}}muted{{end}} small">{{.DeviceInstalled}} / {{.DeviceTotal}}</span>
           {{else}}
             <span class="muted small">—</span>
           {{end}}
         </td>
         <td class="muted small">{{timeSince .CreatedAt}}</td>
-        <td style="white-space:nowrap;">
-          <a href="/updates/{{$pkg.ID}}/deployments/{{.ID}}" class="link-detail">View</a>
-        </td>
+        <td style="white-space:nowrap;"><a href="/updates/{{$rel.ID}}/deployments/{{.ID}}" class="link-detail">View</a></td>
       </tr>
       {{end}}
     </tbody>
@@ -218,6 +256,16 @@
 </div>
 
 <script>
+function setPkgType(mode) {
+  document.getElementById('pkg-type-input').value = mode;
+  var srcRow = document.getElementById('source-build-row');
+  var srcInput = document.getElementById('pkg-source-build');
+  if (srcRow) srcRow.style.display = mode === 'incremental' ? '' : 'none';
+  if (srcInput) srcInput.required = mode === 'incremental';
+  document.querySelectorAll('#add-pkg-form .seg-btn').forEach(function(b) {
+    b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
 function setReboot(mode) {
   document.getElementById('reboot-input').value = mode;
   document.getElementById('scheduled-time-row').style.display = mode === 'scheduled' ? '' : 'none';
@@ -225,7 +273,6 @@ function setReboot(mode) {
     b.classList.toggle('active', b.dataset.mode === mode);
   });
 }
-
 function setTargetTab(tab) {
   document.getElementById('tab-devices').style.display = tab === 'devices' ? '' : 'none';
   document.getElementById('tab-groups').style.display  = tab === 'groups'  ? '' : 'none';
@@ -233,16 +280,12 @@ function setTargetTab(tab) {
     b.classList.toggle('active', b.dataset.tab === tab);
   });
 }
-
 function filterSendList(input) {
-  var q = input.value.toLowerCase();
-  var panel = input.closest('.form-row').nextElementSibling || input.closest('.send-tab-panel');
-  // Walk up to the panel
   var el = input;
   while (el && !el.classList.contains('send-tab-panel')) el = el.parentElement;
   if (!el) return;
   var items = el.querySelectorAll('.send-item');
-  var visible = 0;
+  var q = input.value.toLowerCase(), visible = 0;
   items.forEach(function(item) {
     var match = !q || item.dataset.search.toLowerCase().indexOf(q) !== -1;
     item.style.display = match ? '' : 'none';
@@ -251,13 +294,25 @@ function filterSendList(input) {
   var countEl = el.querySelector('.send-count');
   if (countEl) countEl.textContent = q ? visible + ' match' + (visible !== 1 ? 'es' : '') : '';
 }
-
 function toggleAll(master, name) {
   var panel = master.closest('.send-tab-panel');
   panel.querySelectorAll('input[name="' + name + '"]').forEach(function(cb) {
     if (cb.closest('.send-item').style.display !== 'none') cb.checked = master.checked;
   });
 }
+// base64-encode the add-package URL (WAF bypass), mirroring the create form.
+(function() {
+  var form = document.getElementById('add-pkg-form');
+  if (!form) return;
+  form.addEventListener('submit', function() {
+    var urlInput = document.getElementById('pkg-update-url');
+    var b64Input = document.getElementById('pkg-update-url-b64');
+    if (!urlInput || !b64Input || !urlInput.value) return;
+    b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    urlInput.removeAttribute('name');
+  });
+})();
 </script>
 
 {{template "footer" .}}
