@@ -1,9 +1,9 @@
 {{define "deployment-targets"}}
 {{$dep := .Deployment}}
 {{if $dep.Targets}}
-<div class="ota-rollup" style="margin-bottom:12px;">
+<div class="ota-rollup">
   <div class="ota-progress-bar"><div class="ota-progress-fill" style="width:{{.SummaryPct}}%"></div></div>
-  <div class="small" style="margin-top:6px;">
+  <div class="ota-rollup-summary small">
     <span class="muted">{{.SummaryDone}}/{{.SummaryTotal}} installed</span>
     {{range .Summary}} <span class="status-badge {{deployStatusClass .Status}}">{{.Count}} {{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
   </div>
