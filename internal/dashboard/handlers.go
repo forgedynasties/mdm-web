@@ -286,6 +286,26 @@ func colorizeLogcatText(content string) template.HTML {
 	return template.HTML(out.String())
 }
 
+// updateEngineErrors maps android.os.UpdateEngine.ErrorCodeConstants values
+// (the client reports them as "UPDATE_ERROR_<n>") to operator-readable text.
+var updateEngineErrors = map[string]string{
+	"1":  "Generic update_engine error.",
+	"4":  "Filesystem copier error.",
+	"5":  "Post-install step failed.",
+	"6":  "Payload type mismatch — wrong package for this device.",
+	"7":  "Couldn't open the target partition.",
+	"8":  "Couldn't open the kernel partition.",
+	"9":  "Download transfer error (network or source).",
+	"10": "Payload hash mismatch — corrupted or wrong package.",
+	"11": "Payload size mismatch — corrupted or wrong package.",
+	"12": "Payload signature verification failed — signing-key mismatch.",
+	"51": "Payload older than the installed build — downgrade blocked.",
+	"52": "Updated, but the new slot did not become active.",
+	"60": "Not enough free space to apply the update.",
+	"61": "Device storage is corrupted.",
+	"62": "Package excluded for this device.",
+}
+
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey string) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
@@ -634,6 +654,36 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			default:
 				return "muted"
 			}
+		},
+		// otaErrorText turns a device-reported OTA error_code into operator-readable
+		// text. The client sends DOWNLOAD_ERROR, UPDATE_ENGINE_BIND_ERROR, or
+		// UPDATE_ERROR_<n> where <n> is an UpdateEngine.ErrorCodeConstants value.
+		"otaErrorText": func(code string) string {
+			if code == "" {
+				return ""
+			}
+			switch code {
+			case "DOWNLOAD_ERROR":
+				return "Download failed — the device couldn't fetch the OTA package (check the URL is reachable from the device)."
+			case "UPDATE_ENGINE_BIND_ERROR":
+				return "Couldn't reach the device's system update service (update_engine)."
+			}
+			if n, ok := strings.CutPrefix(code, "UPDATE_ERROR_"); ok {
+				if txt := updateEngineErrors[n]; txt != "" {
+					return txt
+				}
+				return "update_engine error code " + n + "."
+			}
+			return code
+		},
+		// otaStalled flags a device that has sat in an in-progress state past a
+		// threshold with no status change — likely wedged (offline, slow link).
+		"otaStalled": func(status string, t time.Time) bool {
+			switch status {
+			case "pending", "downloading", "installing":
+				return time.Since(t) > 10*time.Minute
+			}
+			return false
 		},
 		"truncate": func(s string, n int) string {
 			runes := []rune(s)

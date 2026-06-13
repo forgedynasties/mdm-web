@@ -104,6 +104,8 @@ type UpdateTarget struct {
 	SerialNumber string    `json:"serial_number"` // joined from devices
 	BuildID      string    `json:"build_id"`      // current device build
 	Status       string    `json:"status"`        // "pending", "downloading", "installing", "installed"
+	ErrorCode    string    `json:"error_code"`    // device-reported code when status == "failed"
+	UpdatedAt    time.Time `json:"updated_at"`    // when this row last changed state
 }
 
 type Command struct {
@@ -3356,6 +3358,12 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+
+-- Per-device OTA detail for the deployment view: when the row last changed
+-- state (to surface "last updated" and flag devices stalled mid-update) and the
+-- error_code the device reported on failure (to show why it failed).
+ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS error_code TEXT        NOT NULL DEFAULT '';
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -3609,11 +3617,24 @@ func (d *DB) ListDueScheduledReboots(ctx context.Context) ([]DueReboot, error) {
 	return out, rows.Err()
 }
 
-// SetUpdateDeviceStatus updates the status of a device within an update.
+// SetUpdateDeviceStatus updates the status of a device within an update. It
+// stamps updated_at and clears any prior error_code, so a device that moves on
+// from a failure (e.g. on retry) doesn't keep showing a stale reason.
 func (d *DB) SetUpdateDeviceStatus(ctx context.Context, updateID int, deviceID uuid.UUID, status string) error {
 	_, err := d.pool.Exec(ctx, `
-		UPDATE update_devices SET status = $3 WHERE update_id = $1 AND device_id = $2
+		UPDATE update_devices SET status = $3, error_code = '', updated_at = NOW()
+		WHERE update_id = $1 AND device_id = $2
 	`, updateID, deviceID, status)
+	return err
+}
+
+// SetUpdateDeviceFailed marks a device's deployment row failed and records the
+// error_code it reported, so the deployment view can show why it failed.
+func (d *DB) SetUpdateDeviceFailed(ctx context.Context, updateID int, deviceID uuid.UUID, errorCode string) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE update_devices SET status = 'failed', error_code = $3, updated_at = NOW()
+		WHERE update_id = $1 AND device_id = $2
+	`, updateID, deviceID, errorCode)
 	return err
 }
 
@@ -3632,7 +3653,7 @@ func (d *DB) CheckAndCompleteUpdate(ctx context.Context, updateID int) error {
 // GetUpdateTargets returns the device targets for an update.
 func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT ud.update_id, ud.device_id, d.serial_number, d.build_id, ud.status
+		SELECT ud.update_id, ud.device_id, d.serial_number, d.build_id, ud.status, ud.error_code, ud.updated_at
 		FROM update_devices ud
 		JOIN devices d ON d.id = ud.device_id
 		WHERE ud.update_id = $1
@@ -3646,7 +3667,7 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 	var out []UpdateTarget
 	for rows.Next() {
 		var t UpdateTarget
-		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status); err != nil {
+		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
