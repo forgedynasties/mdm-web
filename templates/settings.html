@@ -1,6 +1,10 @@
 {{define "chan-fields"}}
-      <input type="text" name="name" value="{{.Name}}" placeholder="Name (e.g. On-call)" class="form-input" style="width:160px;">
-      <input type="url" name="url" value="{{.URL}}" placeholder="https://hooks.slack.com/…" class="form-input" style="flex:1;min-width:220px;">
+      <input type="text" name="name" value="{{.Name}}" placeholder="Name (e.g. On-call)" class="form-input" style="width:140px;">
+      <select name="kind" class="form-input" style="width:120px;" title="Destination type">
+        <option value="webhook"{{if ne .Kind "teams"}} selected{{end}}>Slack/Discord</option>
+        <option value="teams"{{if eq .Kind "teams"}} selected{{end}}>MS Teams</option>
+      </select>
+      <input type="url" name="url" value="{{.URL}}" placeholder="webhook URL" class="form-input" style="flex:1;min-width:200px;">
       <select name="min_severity" class="form-input" style="width:120px;" title="Minimum severity">
         <option value="info"{{if eq .MinSeverity "info"}} selected{{end}}>Info+</option>
         <option value="warning"{{if eq .MinSeverity "warning"}} selected{{end}}>Warning+</option>
@@ -190,7 +194,7 @@
   <div class="card-header"><h3>Alert channels</h3></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:12px;">
-      Route alerts to one or more Slack / Discord / Mattermost webhooks by minimum severity. <strong>Realtime</strong> channels post immediately; <strong>digest</strong> channels are summarised in the daily digest. A channel's active window can restrict it to service or overnight hours (fleet default window). Channels supersede the single webhook above; if none exist, that webhook is used for everything.
+      Route alerts to one or more <strong>Slack / Discord / Mattermost</strong> or <strong>Microsoft Teams</strong> webhooks by minimum severity. For Teams, use a channel's <em>Workflows → "Post to a channel when a webhook request is received"</em> URL (Teams gets an Adaptive Card; the others get a text webhook). <strong>Realtime</strong> channels post immediately; <strong>digest</strong> channels are summarised in the daily digest. A channel's active window can restrict it to service or overnight hours (fleet default window). Channels supersede the single webhook above; if none exist, that webhook is used for everything.
     </div>
     {{range .AlertChannels}}
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border-soft);">

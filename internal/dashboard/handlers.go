@@ -4156,7 +4156,7 @@ func (h *Handler) dispatchAlertNotifications(ctx context.Context, created []db.A
 		return
 	}
 	for _, c := range channels {
-		if c.Kind != "webhook" || c.URL == "" || c.Mode != "realtime" {
+		if c.URL == "" || c.Mode != "realtime" {
 			continue // digest channels are handled by the daily digest
 		}
 		if !h.db.FleetWindowActive(ctx, c.ActiveWindow) {
@@ -4167,11 +4167,29 @@ func (h *Handler) dispatchAlertNotifications(ctx context.Context, created []db.A
 			if db.SeverityRank(n.Severity) < min {
 				continue
 			}
-			if err := notify.SendWebhook(ctx, c.URL, formatAlert(n)); err != nil {
-				log.Printf("[alert] channel %q webhook failed: %v", c.Name, err)
+			if err := sendToChannel(ctx, c, n); err != nil {
+				log.Printf("[alert] channel %q (%s) failed: %v", c.Name, c.Kind, err)
 			}
 		}
 	}
+}
+
+// sendToChannel delivers one notification to a channel using the right payload shape
+// for its kind: Microsoft Teams gets an Adaptive Card; everything else (Slack / Discord
+// / Mattermost) gets the {"text":...} webhook.
+func sendToChannel(ctx context.Context, c db.AlertChannel, n db.AlertNotification) error {
+	if c.Kind == "teams" {
+		emoji := "🔵"
+		switch n.Severity {
+		case "critical":
+			emoji = "🔴"
+		case "warning":
+			emoji = "🟠"
+		}
+		title := fmt.Sprintf("%s %s — %s", emoji, strings.ToUpper(n.Severity), n.Serial)
+		return notify.SendTeams(ctx, c.URL, title, n.Summary, n.Severity)
+	}
+	return notify.SendWebhook(ctx, c.URL, formatAlert(n))
 }
 
 // formatAlert renders a notification line with a severity emoji/prefix.
@@ -4517,9 +4535,13 @@ func (h *Handler) SettingsSetServiceWindow(w http.ResponseWriter, r *http.Reques
 // SettingsSaveChannel creates a channel (no id) or updates one (id present).
 func (h *Handler) SettingsSaveChannel(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	kind := r.FormValue("kind")
+	if kind != "teams" {
+		kind = "webhook"
+	}
 	c := db.AlertChannel{
 		Name:          strings.TrimSpace(r.FormValue("name")),
-		Kind:          "webhook",
+		Kind:          kind,
 		URL:           strings.TrimSpace(r.FormValue("url")),
 		MinSeverity:   r.FormValue("min_severity"),
 		Mode:          r.FormValue("mode"),
