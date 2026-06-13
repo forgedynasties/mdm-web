@@ -3112,17 +3112,40 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	upd.Targets = targets
 
 	otaProgress := make(map[string]any)
+	counts := make(map[string]int)
+	done := 0
 	for _, t := range targets {
 		if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
 			otaProgress[t.DeviceID.String()] = p
 		}
+		counts[t.Status]++
+		switch t.Status {
+		case "installed", "awaiting_reboot", "reboot_sent":
+			done++ // applied to the inactive slot or beyond
+		}
+	}
+	// Ordered, non-zero status buckets for the rollup line (map iteration order
+	// is unstable, so build a fixed-order slice for the template).
+	var summary []map[string]any
+	for _, s := range []string{"pending", "downloading", "installing", "installed", "awaiting_reboot", "reboot_sent", "failed"} {
+		if counts[s] > 0 {
+			summary = append(summary, map[string]any{"Status": s, "Count": counts[s]})
+		}
+	}
+	pct := 0
+	if len(targets) > 0 {
+		pct = done * 100 / len(targets)
 	}
 
 	data := map[string]any{
-		"Title":       fmt.Sprintf("Deployment #%d", did),
-		"Deployment":  upd,
-		"Package":     upd.OtaPackage,
-		"OTAProgress": otaProgress,
+		"Title":        fmt.Sprintf("Deployment #%d", did),
+		"Deployment":   upd,
+		"Package":      upd.OtaPackage,
+		"OTAProgress":  otaProgress,
+		"Summary":      summary,
+		"SummaryDone":  done,
+		"SummaryTotal": len(targets),
+		"SummaryPct":   pct,
 	}
 
 	// HTMX polling target: just the device-status table, re-rendered live.
