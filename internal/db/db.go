@@ -2466,14 +2466,15 @@ func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth,
 
 // AlertRule is a rule definition the evaluator checks each housekeeping pass.
 type AlertRule struct {
-	ID        uuid.UUID       `json:"id"`
-	Type      string          `json:"type"`
-	Name      string          `json:"name"`
-	Enabled   bool            `json:"enabled"`
-	Params    json.RawMessage `json:"params"`
-	ScopeType string          `json:"scope_type"`
-	ScopeID   *uuid.UUID      `json:"scope_id"`
-	CreatedAt time.Time       `json:"created_at"`
+	ID           uuid.UUID       `json:"id"`
+	Type         string          `json:"type"`
+	Name         string          `json:"name"`
+	Enabled      bool            `json:"enabled"`
+	Params       json.RawMessage `json:"params"`
+	ScopeType    string          `json:"scope_type"`
+	ScopeID      *uuid.UUID      `json:"scope_id"`
+	ActiveWindow string          `json:"active_window"` // "" / always | service | overnight
+	CreatedAt    time.Time       `json:"created_at"`
 }
 
 // Alert is a fired alert instance. Serial is joined from devices for display.
@@ -2495,26 +2496,36 @@ type Alert struct {
 // defaultAlertRules are seeded once (per type) by EnsureDefaultRules so alerting
 // works out of the box; admins can edit/disable/delete them afterward.
 var defaultAlertRules = []struct {
-	Type, Name, Params string
-	Enabled            bool
+	Type, Name, Params, ActiveWindow string
+	Enabled                          bool
 }{
-	// Offline is de-prioritized — seeded disabled (still editable in Settings).
-	{"offline", "Device offline", `{"offline_minutes":30,"quiet_start":0,"quiet_end":6}`, false},
-	{"overheating", "Battery overheating", `{"temp_c":45}`, true},
-	{"no_overnight_charge", "Did not charge overnight", `{"min_full_pct":90,"max_charge_frac":0.3}`, true},
-	{"battery_health_decline", "Battery health declining", `{"drop_pct":15,"window_days":7}`, true},
+	// Daily-tier rules.
+	{"overheating", "Battery overheating", `{"temp_c":45}`, "always", true},
+	{"no_overnight_charge", "Did not charge overnight", `{"min_full_pct":90,"max_charge_frac":0.3}`, "always", true},
+	{"battery_health_decline", "Battery health declining (proxy)", `{"drop_pct":15,"window_days":7}`, "always", true},
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
-	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, false},
+	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
+	// Recent-tier rules (T7 matrix). Offline stays de-prioritized → seeded disabled.
+	{"offline", "Device offline during service", `{"offline_minutes":5}`, "service", false},
+	{"soc_low_service", "SoC low during service", `{"soc_pct":20}`, "service", true},
+	{"soc_low_guest_charging", "SoC low while charging a guest", `{"soc_pct":20}`, "service", true},
+	{"pad_disconnected", "Guest charging pad disconnected", `{}`, "service", true},
+	{"storage_low", "Storage critically low", `{"free_gb":0.5}`, "always", true},
+	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", true},
+	{"discharge_rate_idle", "Abnormal discharge — pad idle", `{"rate_pct_per_hr":5}`, "service", true},
+	{"discharge_rate_active", "Abnormal discharge — pad active", `{"rate_pct_per_hr":14}`, "service", true},
+	{"overnight_not_charging", "Not charging overnight", `{"min_pct":95}`, "overnight", true},
+	{"overnight_slow_charge", "Charging too slowly overnight", `{"gain_pct":15,"min_pct":95}`, "overnight", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
 func (d *DB) EnsureDefaultRules(ctx context.Context) error {
 	for _, r := range defaultAlertRules {
 		if _, err := d.pool.Exec(ctx, `
-			INSERT INTO alert_rules (type, name, enabled, params)
-			SELECT $1, $2, $3, $4::jsonb
+			INSERT INTO alert_rules (type, name, enabled, params, active_window)
+			SELECT $1, $2, $3, $4::jsonb, $5
 			WHERE NOT EXISTS (SELECT 1 FROM alert_rules WHERE type = $1)
-		`, r.Type, r.Name, r.Enabled, r.Params); err != nil {
+		`, r.Type, r.Name, r.Enabled, r.Params, r.ActiveWindow); err != nil {
 			return err
 		}
 	}
@@ -2523,7 +2534,7 @@ func (d *DB) EnsureDefaultRules(ctx context.Context) error {
 
 // ListAlertRules returns alert rules, optionally only the enabled ones.
 func (d *DB) ListAlertRules(ctx context.Context, onlyEnabled bool) ([]AlertRule, error) {
-	q := `SELECT id, type, name, enabled, params, scope_type, scope_id, created_at FROM alert_rules`
+	q := `SELECT id, type, name, enabled, params, scope_type, scope_id, active_window, created_at FROM alert_rules`
 	if onlyEnabled {
 		q += ` WHERE enabled`
 	}
@@ -2536,7 +2547,7 @@ func (d *DB) ListAlertRules(ctx context.Context, onlyEnabled bool) ([]AlertRule,
 	var out []AlertRule
 	for rows.Next() {
 		var r AlertRule
-		if err := rows.Scan(&r.ID, &r.Type, &r.Name, &r.Enabled, &r.Params, &r.ScopeType, &r.ScopeID, &r.CreatedAt); err != nil {
+		if err := rows.Scan(&r.ID, &r.Type, &r.Name, &r.Enabled, &r.Params, &r.ScopeType, &r.ScopeID, &r.ActiveWindow, &r.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -2873,6 +2884,20 @@ func (d *DB) GetFleetServiceWindow(ctx context.Context) (ServiceWindow, error) {
 	return w, err
 }
 
+// FleetWindowActive reports whether the fleet-default service window says we are
+// currently inside aw ("" / always | service | overnight). Used to gate channel
+// delivery (e.g. an on-call channel that should only page during service hours).
+func (d *DB) FleetWindowActive(ctx context.Context, aw string) bool {
+	if aw == "" || aw == "always" {
+		return true
+	}
+	w, err := d.GetFleetServiceWindow(ctx)
+	if err != nil {
+		return true // fail open: better a stray notification than a silently dropped alert
+	}
+	return inActiveWindow(time.Now().UTC(), w.TZ, w, aw)
+}
+
 // SetServiceWindow upserts a group's service window (pass a nil groupID to set the
 // fleet default).
 func (d *DB) SetServiceWindow(ctx context.Context, w ServiceWindow) error {
@@ -2897,7 +2922,8 @@ func (d *DB) effectiveWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow,
 		return nil, err
 	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT d.id, sw.open_min, sw.close_min, sw.night_open_min, sw.night_close_min, sw.timezone
+		SELECT d.id, COALESCE(d.latest_extra->>'timezone', ''),
+		       sw.open_min, sw.close_min, sw.night_open_min, sw.night_close_min, sw.timezone
 		FROM devices d
 		LEFT JOIN LATERAL (
 			SELECT s.open_min, s.close_min, s.night_open_min, s.night_close_min, s.timezone
@@ -2913,17 +2939,22 @@ func (d *DB) effectiveWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow,
 	out := make(map[uuid.UUID]ServiceWindow)
 	for rows.Next() {
 		var id uuid.UUID
+		var devTZ string
 		var open, closeM, nOpen, nClose *int
-		var tz *string
-		if err := rows.Scan(&id, &open, &closeM, &nOpen, &nClose, &tz); err != nil {
+		var winTZ *string
+		if err := rows.Scan(&id, &devTZ, &open, &closeM, &nOpen, &nClose, &winTZ); err != nil {
 			return nil, err
 		}
 		w := fleet // copy fleet defaults, override with the group's window when present
 		if open != nil {
 			w.OpenMin, w.CloseMin, w.NightOpenMin, w.NightCloseMin = *open, *closeM, *nOpen, *nClose
-			if tz != nil {
-				w.TZ = *tz
+			if winTZ != nil {
+				w.TZ = *winTZ
 			}
+		}
+		// Bake the effective tz: the venue window's tz wins, else the device's own.
+		if w.TZ == "" {
+			w.TZ = devTZ
 		}
 		out[id] = w
 	}
@@ -2950,6 +2981,9 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, r
 	for _, r := range rules {
 		if r.ScopeType != "fleet" {
 			continue // group/device scoping not implemented yet
+		}
+		if isRecentType(r.Type) {
+			continue // owned by the recent tier (EvaluateRecentAlerts)
 		}
 		var p map[string]float64
 		if len(r.Params) > 0 {
@@ -3131,6 +3165,450 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		return hits, "warning", rows.Err()
 	}
 	return nil, "warning", nil
+}
+
+// ── Recent-tier alert evaluation (Tier 5 §10) ───────────────────────────────────
+//
+// The daily evaluator (EvaluateAlerts) runs hourly over device_daily_stats and serves
+// trend rules. Point-in-time and short-window rate/sustained rules from the T7 matrix
+// need finer granularity, so they run here on a 1-minute ticker over devices.latest_extra
+// and recent `checkins` rows. Both tiers feed the same `alerts` table and dedupe/resolve
+// machinery; each rule type belongs to exactly one tier (recentRuleTypes below) so a rule
+// is never evaluated — and spuriously resolved — by the wrong tier.
+
+// recentRuleTypes is the set of rule types evaluated by the recent tier.
+var recentRuleTypes = map[string]bool{
+	"offline":                true,
+	"soc_low_service":        true,
+	"soc_low_guest_charging": true,
+	"pad_disconnected":       true,
+	"storage_low":            true,
+	"temp_elevated":          true,
+	"discharge_rate_idle":    true,
+	"discharge_rate_active":  true,
+	"overnight_not_charging": true,
+	"overnight_slow_charge":  true,
+}
+
+func isRecentType(typ string) bool { return recentRuleTypes[typ] }
+
+// defaultActiveWindow is the window a recent rule is gated to when its active_window
+// column is unset, so the matrix's intent holds even for rules seeded before the column.
+func defaultActiveWindow(typ string) string {
+	switch typ {
+	case "offline", "soc_low_service", "soc_low_guest_charging", "pad_disconnected",
+		"discharge_rate_idle", "discharge_rate_active":
+		return "service"
+	case "overnight_not_charging", "overnight_slow_charge":
+		return "overnight"
+	}
+	return "always"
+}
+
+// EvaluateRecentAlerts runs every enabled recent-tier rule against current telemetry,
+// gating each hit to the rule's active window (per-venue service hours), then creating
+// and auto-resolving alerts exactly like EvaluateAlerts. Called from the 1-minute ticker.
+func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotification, resolved int, err error) {
+	rules, err := d.ListAlertRules(ctx, true)
+	if err != nil {
+		return nil, 0, err
+	}
+	windows, err := d.effectiveWindows(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	now := time.Now().UTC()
+	for _, r := range rules {
+		if !isRecentType(r.Type) || r.ScopeType != "fleet" {
+			continue
+		}
+		var p map[string]float64
+		if len(r.Params) > 0 {
+			_ = json.Unmarshal(r.Params, &p)
+		}
+		hits, severity, e := d.detectRecentRule(ctx, r.Type, p)
+		if e != nil {
+			return created, resolved, e
+		}
+		aw := r.ActiveWindow
+		if aw == "" {
+			aw = defaultActiveWindow(r.Type)
+		}
+		ids := make([]uuid.UUID, 0, len(hits))
+		ruleID := r.ID
+		for _, h := range hits {
+			// Skip devices outside the rule's active window; they auto-resolve below.
+			if !inActiveWindow(now, "", windowFor(windows, h.DeviceID), aw) {
+				continue
+			}
+			ids = append(ids, h.DeviceID)
+			ok, e := d.CreateAlertIfAbsent(ctx, &ruleID, r.Type, h.DeviceID, severity, h.Summary, h.Detail)
+			if e != nil {
+				return created, resolved, e
+			}
+			if ok {
+				created = append(created, AlertNotification{r.Type, severity, h.Summary, h.Serial})
+			}
+		}
+		tag, e := d.pool.Exec(ctx, `
+			UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+			WHERE type = $1 AND status <> 'resolved' AND device_id <> ALL($2::uuid[])
+		`, r.Type, ids)
+		if e != nil {
+			return created, resolved, e
+		}
+		resolved += int(tag.RowsAffected())
+	}
+	return created, resolved, nil
+}
+
+// recentReportingCutoff bounds "current" telemetry: a device silent longer than this is
+// handled by the offline rule, not the SoC/pad/storage rules (whose latest_extra is stale).
+const recentReportingCutoff = "15 minutes"
+
+// detectRecentRule returns devices currently violating a recent-tier rule. Window gating
+// is applied by the caller (EvaluateRecentAlerts).
+func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]float64) ([]alertHit, string, error) {
+	switch typ {
+	case "offline":
+		mins := int(param(p, "offline_minutes", 5))
+		rows, err := d.pool.Query(ctx, `
+			SELECT id, serial_number, last_seen_at FROM devices
+			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')`, mins)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		now := time.Now().UTC()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var last time.Time
+			if err := rows.Scan(&id, &serial, &last); err != nil {
+				return nil, "critical", err
+			}
+			down := int(now.Sub(last).Minutes())
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Offline — last check-in %dm ago", down),
+				map[string]any{"offline_minutes": down, "last_seen": last}})
+		}
+		return hits, "critical", rows.Err()
+
+	case "soc_low_service":
+		soc := param(p, "soc_pct", 20)
+		return d.latestExtraHits(ctx, "critical",
+			`d.latest_battery_pct < $1
+			 AND COALESCE((d.latest_extra->>'charging')::boolean, false) = false`,
+			func(pct int) string { return fmt.Sprintf("Battery %d%% and unplugged during service", pct) },
+			soc)
+
+	case "soc_low_guest_charging":
+		soc := param(p, "soc_pct", 20)
+		return d.latestExtraHits(ctx, "critical",
+			`d.latest_battery_pct < $1
+			 AND COALESCE((d.latest_extra->>'wlc_status')::int, 0) = 1`,
+			func(pct int) string { return fmt.Sprintf("Battery %d%% while reverse-charging a guest", pct) },
+			soc)
+
+	case "pad_disconnected":
+		return d.latestExtraHits(ctx, "warning",
+			`COALESCE((d.latest_extra->>'wlc_status')::int, 0) = 2 AND $1 = $1`,
+			func(int) string { return "Guest charging pad disconnected" }, 0)
+
+	case "storage_low":
+		freeGB := param(p, "free_gb", 0.5)
+		rows, err := d.pool.Query(ctx, `
+			SELECT d.id, d.serial_number, (d.latest_extra->>'storage_free_gb')::numeric
+			FROM devices d
+			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+			  AND (d.latest_extra->>'storage_free_gb')::numeric < $1`, freeGB)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var free float64
+			if err := rows.Scan(&id, &serial, &free); err != nil {
+				return nil, "critical", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Only %.0f MB storage free", free*1024),
+				map[string]any{"storage_free_gb": free, "limit_gb": freeGB}})
+		}
+		return hits, "critical", rows.Err()
+
+	case "temp_elevated":
+		lo := param(p, "temp_min", 38)
+		hi := param(p, "temp_max", 45)
+		// Sustained: every reading in the last ~20 min is in [lo,hi) and spans ≥14 min.
+		rows, err := d.pool.Query(ctx, `
+			SELECT c.device_id, dv.serial_number, MAX(c.temp) FROM (
+				SELECT device_id, (extra->>'battery_temp_c')::numeric AS temp, created_at
+				FROM checkins WHERE created_at > NOW() - INTERVAL '20 minutes'
+			) c JOIN devices dv ON dv.id = c.device_id
+			WHERE c.temp IS NOT NULL
+			GROUP BY c.device_id, dv.serial_number
+			HAVING MIN(c.temp) >= $1 AND MAX(c.temp) < $2
+			   AND (MAX(c.created_at) - MIN(c.created_at)) >= INTERVAL '14 minutes'`, lo, hi)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var tmax float64
+			if err := rows.Scan(&id, &serial, &tmax); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Battery held %.0f–%.0f°C for >15 min (peak %.0f°C)", lo, hi, tmax),
+				map[string]any{"temp_min": lo, "temp_max": hi, "peak_c": tmax}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "discharge_rate_idle":
+		rate := param(p, "rate_pct_per_hr", 5)
+		return d.dischargeRateHits(ctx, rate,
+			`COALESCE((dv.latest_extra->>'charging')::boolean,false) = false
+			 AND COALESCE((dv.latest_extra->>'wlc_status')::int, 0) <> 1`,
+			"%.0f%%/hr while idle (no guest on pad)")
+
+	case "discharge_rate_active":
+		rate := param(p, "rate_pct_per_hr", 14)
+		return d.dischargeRateHits(ctx, rate,
+			`COALESCE((dv.latest_extra->>'wlc_status')::int, 0) = 1`,
+			"%.0f%%/hr while reverse-charging a guest")
+
+	case "overnight_not_charging":
+		minPct := param(p, "min_pct", 95)
+		// Plugged in, below full, but battery flat or falling over the last ~60 min.
+		return d.overnightChargeHits(ctx, "60 minutes", 3000, minPct, 0, "critical",
+			"Plugged in overnight but battery flat at %d%%")
+
+	case "overnight_slow_charge":
+		minPct := param(p, "min_pct", 95)
+		gain := param(p, "gain_pct", 15)
+		// Plugged in, below full, gained less than gain_pct over the last ~2 h.
+		return d.overnightChargeHits(ctx, "2 hours", 6600, minPct, gain, "critical",
+			fmt.Sprintf("Charging slowly: +%%d%%%% over 2h overnight (need %.0f%%)", gain))
+	}
+	return nil, "warning", nil
+}
+
+// latestExtraHits runs a one-row-per-device query over devices+latest_extra for the
+// point-in-time rules. cond is an extra WHERE fragment referencing alias d and using $1
+// as its single numeric parameter (threshold); summary formats latest_battery_pct.
+func (d *DB) latestExtraHits(ctx context.Context, severity, cond string, summary func(pct int) string, threshold float64) ([]alertHit, string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, d.serial_number, COALESCE(d.latest_battery_pct, 0)
+		FROM devices d
+		WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+		  AND (`+cond+`)`, threshold)
+	if err != nil {
+		return nil, severity, err
+	}
+	defer rows.Close()
+	var hits []alertHit
+	for rows.Next() {
+		var id uuid.UUID
+		var serial string
+		var pct int
+		if err := rows.Scan(&id, &serial, &pct); err != nil {
+			return nil, severity, err
+		}
+		hits = append(hits, alertHit{id, serial, summary(pct),
+			map[string]any{"battery_pct": pct}})
+	}
+	return hits, severity, rows.Err()
+}
+
+// dischargeRateHits flags devices whose battery is dropping faster than rate %/hr over
+// the last ~hour, with at least 30 min of data, subject to an extra condition (alias dv).
+func (d *DB) dischargeRateHits(ctx context.Context, rate float64, cond, summaryRate string) ([]alertHit, string, error) {
+	rows, err := d.pool.Query(ctx, `
+		WITH w AS (
+			SELECT device_id,
+				(array_agg(battery_pct ORDER BY created_at))[1]      AS first_pct,
+				(array_agg(battery_pct ORDER BY created_at DESC))[1] AS last_pct,
+				EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) AS span_s
+			FROM checkins WHERE created_at > NOW() - INTERVAL '70 minutes'
+			GROUP BY device_id
+		)
+		SELECT w.device_id, dv.serial_number,
+			(w.first_pct - w.last_pct) / (w.span_s / 3600.0) AS rate
+		FROM w JOIN devices dv ON dv.id = w.device_id
+		WHERE NOT dv.hidden AND w.span_s >= 1800 AND w.first_pct > w.last_pct
+		  AND (w.first_pct - w.last_pct) / (w.span_s / 3600.0) > $1
+		  AND (`+cond+`)`, rate)
+	if err != nil {
+		return nil, "warning", err
+	}
+	defer rows.Close()
+	var hits []alertHit
+	for rows.Next() {
+		var id uuid.UUID
+		var serial string
+		var r float64
+		if err := rows.Scan(&id, &serial, &r); err != nil {
+			return nil, "warning", err
+		}
+		hits = append(hits, alertHit{id, serial,
+			"Battery dropping " + fmt.Sprintf(summaryRate, r),
+			map[string]any{"rate_pct_per_hr": r, "limit_pct_per_hr": rate}})
+	}
+	return hits, "warning", rows.Err()
+}
+
+// overnightChargeHits flags devices that are plugged in and below min_pct but gained no
+// more than maxGain percentage points over the trailing window (≥minSpanSec of data).
+func (d *DB) overnightChargeHits(ctx context.Context, window string, minSpanSec int, minPct, maxGain float64, severity, summaryFmt string) ([]alertHit, string, error) {
+	rows, err := d.pool.Query(ctx, `
+		WITH w AS (
+			SELECT device_id,
+				(array_agg(battery_pct ORDER BY created_at))[1]      AS first_pct,
+				(array_agg(battery_pct ORDER BY created_at DESC))[1] AS last_pct,
+				EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) AS span_s
+			FROM checkins WHERE created_at > NOW() - INTERVAL '`+window+`'
+			GROUP BY device_id
+		)
+		SELECT w.device_id, dv.serial_number, w.last_pct
+		FROM w JOIN devices dv ON dv.id = w.device_id
+		WHERE NOT dv.hidden AND w.span_s >= $1
+		  AND COALESCE((dv.latest_extra->>'charging')::boolean, false) = true
+		  AND w.last_pct < $2
+		  AND (w.last_pct - w.first_pct) < $3`, minSpanSec, minPct, maxGain)
+	if err != nil {
+		return nil, severity, err
+	}
+	defer rows.Close()
+	var hits []alertHit
+	for rows.Next() {
+		var id uuid.UUID
+		var serial string
+		var last int
+		if err := rows.Scan(&id, &serial, &last); err != nil {
+			return nil, severity, err
+		}
+		hits = append(hits, alertHit{id, serial, fmt.Sprintf(summaryFmt, last),
+			map[string]any{"battery_pct": last, "min_pct": minPct, "max_gain": maxGain}})
+	}
+	return hits, severity, rows.Err()
+}
+
+// ── Alert channels (Tier 5 §11) ─────────────────────────────────────────────────
+
+// AlertChannel is a notification destination. Alerts at or above MinSeverity route to
+// it; realtime channels POST immediately, digest channels batch into the daily digest.
+type AlertChannel struct {
+	ID            uuid.UUID `json:"id"`
+	Name          string    `json:"name"`
+	Kind          string    `json:"kind"`     // webhook
+	URL           string    `json:"url"`
+	MinSeverity   string    `json:"min_severity"`   // info | warning | critical
+	Mode          string    `json:"mode"`           // realtime | digest
+	ActiveWindow  string    `json:"active_window"`  // "" | service | overnight
+	Enabled       bool      `json:"enabled"`
+	NotifyResolve bool      `json:"notify_resolve"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+// SeverityRank maps a severity to a comparable level (info<warning<critical). Unknown
+// severities rank as warning so they are never silently dropped below info channels.
+func SeverityRank(sev string) int {
+	switch sev {
+	case "info":
+		return 0
+	case "critical":
+		return 2
+	default:
+		return 1
+	}
+}
+
+// ListAlertChannels returns channels, optionally only the enabled ones, newest first.
+func (d *DB) ListAlertChannels(ctx context.Context, onlyEnabled bool) ([]AlertChannel, error) {
+	q := `SELECT id, name, kind, url, min_severity, mode, active_window, enabled, notify_resolve, created_at
+	      FROM alert_channels`
+	if onlyEnabled {
+		q += ` WHERE enabled`
+	}
+	q += ` ORDER BY created_at`
+	rows, err := d.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AlertChannel
+	for rows.Next() {
+		var c AlertChannel
+		if err := rows.Scan(&c.ID, &c.Name, &c.Kind, &c.URL, &c.MinSeverity, &c.Mode,
+			&c.ActiveWindow, &c.Enabled, &c.NotifyResolve, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// CreateAlertChannel inserts a channel and returns its id.
+func (d *DB) CreateAlertChannel(ctx context.Context, c AlertChannel) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO alert_channels (name, kind, url, min_severity, mode, active_window, enabled, notify_resolve)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		c.Name, nz(c.Kind, "webhook"), c.URL, nz(c.MinSeverity, "warning"), nz(c.Mode, "realtime"),
+		c.ActiveWindow, c.Enabled, c.NotifyResolve).Scan(&id)
+	return id, err
+}
+
+// UpdateAlertChannel updates a channel's mutable fields.
+func (d *DB) UpdateAlertChannel(ctx context.Context, c AlertChannel) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE alert_channels SET name=$2, url=$3, min_severity=$4, mode=$5,
+			active_window=$6, enabled=$7, notify_resolve=$8 WHERE id=$1`,
+		c.ID, c.Name, c.URL, nz(c.MinSeverity, "warning"), nz(c.Mode, "realtime"),
+		c.ActiveWindow, c.Enabled, c.NotifyResolve)
+	return err
+}
+
+// DeleteAlertChannel removes a channel.
+func (d *DB) DeleteAlertChannel(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM alert_channels WHERE id=$1`, id)
+	return err
+}
+
+// EnsureDefaultChannelFromWebhook migrates a legacy single AlertWebhookURL into a default
+// channel the first time, so upgrades keep delivering. No-op if any channel already
+// exists or the legacy URL is empty.
+func (d *DB) EnsureDefaultChannelFromWebhook(ctx context.Context, legacyURL string) error {
+	if legacyURL == "" {
+		return nil
+	}
+	var n int
+	if err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM alert_channels`).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO alert_channels (name, kind, url, min_severity, mode, active_window)
+		VALUES ('Default webhook', 'webhook', $1, 'warning', 'realtime', '')`, legacyURL)
+	return err
+}
+
+// nz returns s, or def when s is empty.
+func nz(s, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
 }
 
 // PruneLogcat deletes logcat results and requests older than `days` days.

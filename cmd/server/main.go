@@ -130,6 +130,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
+	// Migrate a legacy single alert webhook into a default channel (one-time, no-op
+	// if channels already exist or no legacy URL is set).
+	if err := database.EnsureDefaultChannelFromWebhook(ctx, cfg.AlertWebhookURL()); err != nil {
+		log.Printf("seed default alert channel: %v", err)
+	}
 
 	var geo *geolocate.Resolver
 	if os.Getenv("GEOLOCATE_ENABLED") == "true" {
@@ -228,6 +233,8 @@ func main() {
 		defer t.Stop()
 		for range t.C {
 			apiHandler.ProcessDueScheduledReboots(context.Background())
+			// Recent-tier alert rules (point-in-time + rate/sustained); see Tier 5 §10.
+			dash.RunRecentAlerts(context.Background())
 		}
 	}()
 

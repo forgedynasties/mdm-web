@@ -4087,6 +4087,76 @@ func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Reques
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
+// RunRecentAlerts evaluates the recent-tier rules (point-in-time + rate/sustained T7
+// matrix rules) and dispatches any new alerts. Called every minute from main.go so
+// 5-minute-offline / SoC-now / discharge-rate alerts fire promptly, not hourly.
+func (h *Handler) RunRecentAlerts(ctx context.Context) {
+	created, resolved, err := h.db.EvaluateRecentAlerts(ctx)
+	if err != nil {
+		log.Printf("[recent-alerts] evaluate: %v", err)
+		return
+	}
+	if len(created) > 0 || resolved > 0 {
+		log.Printf("[recent-alerts] %d new, %d resolved", len(created), resolved)
+	}
+	h.dispatchAlertNotifications(ctx, created)
+}
+
+// dispatchAlertNotifications routes freshly-created alerts to every matching enabled
+// channel: severity ≥ the channel's minimum, realtime mode, and the channel's active
+// window currently open (fleet-default window). Falls back to the legacy single
+// AlertWebhookURL when no channels are configured, so upgrades keep working.
+func (h *Handler) dispatchAlertNotifications(ctx context.Context, created []db.AlertNotification) {
+	if len(created) == 0 {
+		return
+	}
+	channels, err := h.db.ListAlertChannels(ctx, true)
+	if err != nil {
+		log.Printf("[alert] list channels: %v", err)
+		return
+	}
+	// Back-compat: no channels yet → use the legacy single webhook for everything.
+	if len(channels) == 0 {
+		if url := h.cfg.AlertWebhookURL(); url != "" {
+			for _, n := range created {
+				if err := notify.SendWebhook(ctx, url, formatAlert(n)); err != nil {
+					log.Printf("[alert] webhook failed: %v", err)
+				}
+			}
+		}
+		return
+	}
+	for _, c := range channels {
+		if c.Kind != "webhook" || c.URL == "" || c.Mode != "realtime" {
+			continue // digest channels are handled by the daily digest
+		}
+		if !h.db.FleetWindowActive(ctx, c.ActiveWindow) {
+			continue
+		}
+		min := db.SeverityRank(c.MinSeverity)
+		for _, n := range created {
+			if db.SeverityRank(n.Severity) < min {
+				continue
+			}
+			if err := notify.SendWebhook(ctx, c.URL, formatAlert(n)); err != nil {
+				log.Printf("[alert] channel %q webhook failed: %v", c.Name, err)
+			}
+		}
+	}
+}
+
+// formatAlert renders a notification line with a severity emoji/prefix.
+func formatAlert(n db.AlertNotification) string {
+	emoji := "🔵"
+	switch n.Severity {
+	case "critical":
+		emoji = "🔴"
+	case "warning":
+		emoji = "🟠"
+	}
+	return fmt.Sprintf("%s [%s] %s — %s", emoji, strings.ToUpper(n.Severity), n.Serial, n.Summary)
+}
+
 // RunHousekeeping applies the configured auto-hide and retention policies.
 // Safe to call repeatedly; each step is a no-op when its setting is 0.
 func (h *Handler) RunHousekeeping(ctx context.Context) {
@@ -4098,21 +4168,14 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			log.Printf("[housekeeping] rollup daily stats %s: %v", day.Format("2006-01-02"), err)
 		}
 	}
-	// Evaluate alert rules against the freshly rolled-up stats, then notify on new ones.
+	// Evaluate daily-tier alert rules against the freshly rolled-up stats, then notify.
 	if created, resolved, err := h.db.EvaluateAlerts(ctx); err != nil {
 		log.Printf("[housekeeping] evaluate alerts: %v", err)
 	} else {
 		if len(created) > 0 || resolved > 0 {
 			log.Printf("[housekeeping] alerts: %d new, %d resolved", len(created), resolved)
 		}
-		if url := h.cfg.AlertWebhookURL(); url != "" {
-			for _, n := range created {
-				text := fmt.Sprintf("[%s] %s — %s", strings.ToUpper(n.Severity), n.Serial, n.Summary)
-				if err := notify.SendWebhook(ctx, url, text); err != nil {
-					log.Printf("[alert] webhook failed: %v", err)
-				}
-			}
-		}
+		h.dispatchAlertNotifications(ctx, created)
 	}
 	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
