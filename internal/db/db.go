@@ -2959,10 +2959,21 @@ func (d *DB) DeleteServiceWindow(ctx context.Context, groupID uuid.UUID) error {
 // SetServiceWindow upserts a group's service window (pass a nil groupID to set the
 // fleet default).
 func (d *DB) SetServiceWindow(ctx context.Context, w ServiceWindow) error {
+	if w.GroupID == nil {
+		// Fleet default is a single NULL-group row seeded by the migration: update it
+		// (ON CONFLICT can't target NULL, which never conflicts).
+		_, err := d.pool.Exec(ctx, `
+			UPDATE service_windows SET
+				open_min = $1, close_min = $2, night_open_min = $3, night_close_min = $4,
+				timezone = $5, updated_at = NOW()
+			WHERE group_id IS NULL`,
+			w.OpenMin, w.CloseMin, w.NightOpenMin, w.NightCloseMin, w.TZ)
+		return err
+	}
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO service_windows (group_id, open_min, close_min, night_open_min, night_close_min, timezone, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, NOW())
-		ON CONFLICT (group_id) DO UPDATE SET
+		ON CONFLICT (group_id) WHERE group_id IS NOT NULL DO UPDATE SET
 			open_min = EXCLUDED.open_min, close_min = EXCLUDED.close_min,
 			night_open_min = EXCLUDED.night_open_min, night_close_min = EXCLUDED.night_close_min,
 			timezone = EXCLUDED.timezone, updated_at = NOW()
@@ -4207,8 +4218,11 @@ ALTER TABLE updates ALTER COLUMN ota_package_id DROP NOT NULL;
 -- fire when they matter for that venue. A group with no row uses the fleet default
 -- seeded below; overnight = the configured night window (defaults to the matrix's
 -- 23:30–06:00). timezone falls back to each device's reported extra.timezone.
+-- group_id is nullable: a NULL row is the single fleet-default window; non-NULL rows
+-- are per-group overrides. Not a PK (PKs can't be NULL); uniqueness is enforced by the
+-- two partial indexes below.
 CREATE TABLE IF NOT EXISTS service_windows (
-    group_id        UUID PRIMARY KEY REFERENCES groups(id) ON DELETE CASCADE,
+    group_id        UUID REFERENCES groups(id) ON DELETE CASCADE,
     open_min        INTEGER NOT NULL DEFAULT 420,   -- 07:00 local
     close_min       INTEGER NOT NULL DEFAULT 1380,  -- 23:00 local
     night_open_min  INTEGER NOT NULL DEFAULT 1410,  -- 23:30 local
@@ -4216,11 +4230,11 @@ CREATE TABLE IF NOT EXISTS service_windows (
     timezone        TEXT    NOT NULL DEFAULT '',     -- '' = use device-reported tz
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
--- group_id NULL row = the fleet default service window (single row). Seeded once.
-ALTER TABLE service_windows ALTER COLUMN group_id DROP NOT NULL;
+-- one window per group, and at most one fleet-default (NULL) row.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_service_windows_group
+    ON service_windows (group_id) WHERE group_id IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_service_windows_fleet_default
-    ON service_windows ((group_id IS NULL)) WHERE group_id IS NULL;
+    ON service_windows ((1)) WHERE group_id IS NULL;
 INSERT INTO service_windows (group_id) SELECT NULL
     WHERE NOT EXISTS (SELECT 1 FROM service_windows WHERE group_id IS NULL);
 
