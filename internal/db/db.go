@@ -2544,6 +2544,8 @@ var defaultAlertRules = []struct {
 	{"discharge_rate_active", "Abnormal discharge — pad active", `{"rate_pct_per_hr":14}`, "service", true},
 	{"overnight_not_charging", "Not charging overnight", `{"min_pct":95}`, "overnight", true},
 	{"overnight_slow_charge", "Charging too slowly overnight", `{"gain_pct":15,"min_pct":95}`, "overnight", true},
+	{"unexpected_reboot", "Unexpected reboot", `{"window_minutes":30}`, "service", true},
+	{"memory_low", "Memory low (available)", `{"avail_mb":400}`, "always", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
@@ -3365,6 +3367,8 @@ var recentRuleTypes = map[string]bool{
 	"discharge_rate_active":  true,
 	"overnight_not_charging": true,
 	"overnight_slow_charge":  true,
+	"unexpected_reboot":      true,
+	"memory_low":             true,
 }
 
 func isRecentType(typ string) bool { return recentRuleTypes[typ] }
@@ -3374,7 +3378,7 @@ func isRecentType(typ string) bool { return recentRuleTypes[typ] }
 func defaultActiveWindow(typ string) string {
 	switch typ {
 	case "offline", "soc_low_service", "soc_low_guest_charging", "pad_disconnected",
-		"discharge_rate_idle", "discharge_rate_active":
+		"discharge_rate_idle", "discharge_rate_active", "unexpected_reboot":
 		return "service"
 	case "overnight_not_charging", "overnight_slow_charge":
 		return "overnight"
@@ -3586,6 +3590,73 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// Plugged in, below full, gained less than gain_pct over the last ~2 h.
 		return d.overnightChargeHits(ctx, "2 hours", 6600, minPct, gain, "critical",
 			fmt.Sprintf("Charging slowly: +%%d%%%% over 2h overnight (need %.0f%%)", gain))
+
+	case "unexpected_reboot":
+		win := int(param(p, "window_minutes", 30))
+		// uptime is monotonic; if the latest reading is below an earlier one in the
+		// window, the device rebooted. Auto-resolves once the window no longer straddles
+		// the reboot (so it fires/notifies once, then clears).
+		rows, err := d.pool.Query(ctx, fmt.Sprintf(`
+			WITH w AS (
+				SELECT device_id,
+					(array_agg((extra->>'uptime_seconds')::bigint ORDER BY created_at))[1]      AS first_up,
+					(array_agg((extra->>'uptime_seconds')::bigint ORDER BY created_at DESC))[1] AS last_up
+				FROM checkins
+				WHERE created_at > NOW() - INTERVAL '%d minutes' AND extra ? 'uptime_seconds'
+				GROUP BY device_id
+			)
+			SELECT w.device_id, dv.serial_number, w.last_up
+			FROM w JOIN devices dv ON dv.id = w.device_id
+			WHERE NOT dv.hidden AND w.last_up < w.first_up`, win))
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var up int64
+			if err := rows.Scan(&id, &serial, &up); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Unexpected reboot — back up %dm ago", up/60),
+				map[string]any{"uptime_seconds": up}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "memory_low":
+		availMB := param(p, "avail_mb", 400)
+		// Sustained low available RAM (total-used) over the last ~10 min: even the
+		// highest reading in the window stays below the floor. Always-on hardware rule.
+		rows, err := d.pool.Query(ctx, `
+			SELECT c.device_id, dv.serial_number, MAX(c.avail) FROM (
+				SELECT device_id,
+					((extra->'ram_usage_mb'->>'total')::numeric - (extra->'ram_usage_mb'->>'used')::numeric) AS avail,
+					created_at
+				FROM checkins WHERE created_at > NOW() - INTERVAL '12 minutes'
+			) c JOIN devices dv ON dv.id = c.device_id
+			WHERE c.avail IS NOT NULL AND NOT dv.hidden
+			GROUP BY c.device_id, dv.serial_number
+			HAVING MAX(c.avail) < $1 AND (MAX(c.created_at) - MIN(c.created_at)) >= INTERVAL '8 minutes'`, availMB)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var avail float64
+			if err := rows.Scan(&id, &serial, &avail); err != nil {
+				return nil, "critical", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Available RAM held under %.0f MB for >8 min (peak %.0f MB)", availMB, avail),
+				map[string]any{"avail_mb": avail, "limit_mb": availMB}})
+		}
+		return hits, "critical", rows.Err()
 	}
 	return nil, "warning", nil
 }

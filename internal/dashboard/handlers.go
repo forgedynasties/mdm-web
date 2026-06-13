@@ -4641,6 +4641,12 @@ var alertRuleDefs = []struct {
 	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Hourly Report uses for memory.", []alertParamField{
 		{"ram_pct", "RAM usage", "%", 1, 85},
 	}, false, false},
+	{"memory_low", "Memory low (available)", "Fires when available RAM (total − used) holds below the floor for >8 min — Android's low-memory killer territory.", []alertParamField{
+		{"avail_mb", "Available floor", "MB", 10, 400},
+	}, false, true},
+	{"unexpected_reboot", "Unexpected reboot", "Fires when a device's uptime resets (rebooted) during service hours. Deployed units only.", []alertParamField{
+		{"window_minutes", "Look-back", "min", 1, 30},
+	}, true, true},
 }
 
 type alertFieldView struct {
