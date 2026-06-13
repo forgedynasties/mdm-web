@@ -444,6 +444,16 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			}
 		},
 		"rawJSON": func(b []byte) string { return string(b) },
+		// dict builds a map from alternating key/value args for passing ad-hoc data to
+		// a sub-template (e.g. the blank "add channel" form row).
+		"dict": func(kv ...any) map[string]any {
+			m := make(map[string]any, len(kv)/2)
+			for i := 0; i+1 < len(kv); i += 2 {
+				k, _ := kv[i].(string)
+				m[k] = kv[i+1]
+			}
+			return m
+		},
 		"deref": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
@@ -4005,6 +4015,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	aiDailyJSON, _ := json.Marshal(aiDaily)
 	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
+	channels, _ := h.db.ListAlertChannels(r.Context(), false)
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":                "Settings",
 		"ExtraColumns":         h.cfg.Columns(),
@@ -4028,6 +4039,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"AlertRules":           h.buildAlertRuleViews(r.Context()),
 		"FleetWindow":          fleetWindow,
 		"GroupWindows":         groupWindows,
+		"AlertChannels":        channels,
 		"AIKeySet":             h.cfg.AIEnabled(),
 		"AIProvider":           h.cfg.AIProvider(),
 		"AnthropicModel":       h.cfg.AnthropicModel(),
@@ -4499,6 +4511,63 @@ func (h *Handler) SettingsSetServiceWindow(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	h.audit(r, "alerts.service_window", gidStr, "")
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+// SettingsSaveChannel creates a channel (no id) or updates one (id present).
+func (h *Handler) SettingsSaveChannel(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	c := db.AlertChannel{
+		Name:          strings.TrimSpace(r.FormValue("name")),
+		Kind:          "webhook",
+		URL:           strings.TrimSpace(r.FormValue("url")),
+		MinSeverity:   r.FormValue("min_severity"),
+		Mode:          r.FormValue("mode"),
+		ActiveWindow:  r.FormValue("active_window"),
+		Enabled:       r.FormValue("enabled") == "on",
+		NotifyResolve: r.FormValue("notify_resolve") == "on",
+	}
+	switch c.MinSeverity {
+	case "info", "warning", "critical":
+	default:
+		c.MinSeverity = "warning"
+	}
+	if c.Mode != "digest" {
+		c.Mode = "realtime"
+	}
+	if c.ActiveWindow != "service" && c.ActiveWindow != "overnight" {
+		c.ActiveWindow = ""
+	}
+	var err error
+	if idStr := r.FormValue("id"); idStr != "" {
+		if c.ID, err = uuid.Parse(idStr); err != nil {
+			http.Error(w, "Invalid channel", http.StatusBadRequest)
+			return
+		}
+		err = h.db.UpdateAlertChannel(r.Context(), c)
+	} else {
+		_, err = h.db.CreateAlertChannel(r.Context(), c)
+	}
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "alerts.channel", c.Name, "")
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+// SettingsDeleteChannel removes an alert channel.
+func (h *Handler) SettingsDeleteChannel(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid channel", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteAlertChannel(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "alerts.channel.delete", id.String(), "")
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -5454,6 +5523,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
 	post("POST /settings/alert-rules/{id}", h.requireAdmin(h.SettingsUpdateAlertRule))
 	post("POST /settings/service-window", h.requireAdmin(h.SettingsSetServiceWindow))
+	post("POST /settings/alert-channels", h.requireAdmin(h.SettingsSaveChannel))
+	post("POST /settings/alert-channels/{id}/delete", h.requireAdmin(h.SettingsDeleteChannel))
 	post("POST /settings/ai", h.requireAdmin(h.SettingsSetAI))
 	post("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
 	post("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
