@@ -25,9 +25,9 @@
         <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
         <td class="mono small">{{.BuildID}}</td>
         <td>
-          <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
-          {{if otaStalled .Status .UpdatedAt}}<span class="status-badge warn" title="No status change in over 10 minutes — the device may be offline or stuck.">stalled</span>{{end}}
           {{$progress := index $.OTAProgress .DeviceID.String}}
+          <span class="status-badge {{deployStatusClass .Status}}">{{if and $progress (eq .Status "downloading") $progress.Phase}}{{$progress.Phase}}{{else if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
+          {{if otaStalled .Status .UpdatedAt $progress}}<span class="status-badge warn" title="No progress for over 10 minutes — the device may be offline or stuck.">stalled</span>{{end}}
           {{if $progress}}
             <div class="ota-progress-panel" style="padding:8px 10px;margin:6px 0 2px;max-width:300px;">
               <div class="ota-progress-bar">

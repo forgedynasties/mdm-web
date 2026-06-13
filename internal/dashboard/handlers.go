@@ -697,11 +697,18 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			return code
 		},
 		// otaStalled flags a device that has sat in an in-progress state past a
-		// threshold with no status change — likely wedged (offline, slow link).
-		"otaStalled": func(status string, t time.Time) bool {
+		// threshold with no activity — likely wedged (offline, slow link). Live OTA
+		// progress counts as activity: a device reporting phase/percent (even while its
+		// coarse status stays "downloading" through verify/install) is NOT stalled, so
+		// we use the most recent of the status timestamp and the progress timestamp.
+		"otaStalled": func(status string, t time.Time, p *shell.OTAProgress) bool {
 			switch status {
 			case "pending", "downloading", "installing":
-				return time.Since(t) > 10*time.Minute
+				last := t
+				if p != nil && p.UpdatedAt.After(last) {
+					last = p.UpdatedAt
+				}
+				return time.Since(last) > 10*time.Minute
 			}
 			return false
 		},

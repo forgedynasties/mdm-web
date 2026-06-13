@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -30,8 +31,9 @@ type outputStream struct {
 // OTAProgress holds the latest OTA download progress for a device.
 type OTAProgress struct {
 	CommandID uuid.UUID `json:"command_id"`
-	Phase     string    `json:"phase"`   // downloading, verifying, finalizing
+	Phase     string    `json:"phase"`   // downloading, verifying, installing, finalizing
 	Percent   int       `json:"percent"` // 0-100
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // Manager routes messages from devices to browser connections.
@@ -163,6 +165,7 @@ func (m *Manager) updateOTAProgress(deviceID, commandID uuid.UUID, phase string,
 		CommandID: commandID,
 		Phase:     phase,
 		Percent:   percent,
+		UpdatedAt: time.Now(),
 	}
 	m.otaMu.Unlock()
 	log.Printf("[ota] device %s: %s %d%%", deviceID, phase, percent)
@@ -188,4 +191,3 @@ func (m *Manager) ClearOTAProgress(deviceID uuid.UUID) {
 	delete(m.otaState, deviceID)
 	m.otaMu.Unlock()
 }
-
