@@ -512,14 +512,14 @@ func (h *Handler) HandleWsLogcat(deviceID uuid.UUID, raw []byte) {
 // HandleWsOtaStatus processes an "ota_status" message from a device over WS.
 // afterOtaTerminal applies deployment bookkeeping and the deployment's reboot
 // policy after a device reports a terminal OTA status ("installed" or "error").
-func (h *Handler) afterOtaTerminal(ctx context.Context, deviceID uuid.UUID, status string) {
+func (h *Handler) afterOtaTerminal(ctx context.Context, deviceID uuid.UUID, status, errorCode string) {
 	upd, err := h.db.ResolveUpdateForDevice(ctx, deviceID)
 	if err != nil {
 		log.Printf("[ota] ResolveUpdateForDevice error: %v", err)
 	}
 	if status == "error" {
 		if upd != nil {
-			_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "failed")
+			_ = h.db.SetUpdateDeviceFailed(ctx, upd.ID, deviceID, errorCode)
 		}
 		return
 	}
@@ -606,7 +606,7 @@ func (h *Handler) HandleWsOtaStatus(deviceID uuid.UUID, raw []byte) {
 	}
 	if body.Status == "installed" || body.Status == "error" {
 		h.shell.ClearOTAProgress(deviceID)
-		h.afterOtaTerminal(ctx, deviceID, body.Status)
+		h.afterOtaTerminal(ctx, deviceID, body.Status, body.ErrorCode)
 	}
 	h.hub.PublishDeviceUpdate(deviceID)
 }
@@ -1049,7 +1049,7 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 	// Clear in-memory OTA progress and apply the deployment's reboot policy.
 	if body.Status == "installed" || body.Status == "error" {
 		h.shell.ClearOTAProgress(device.ID)
-		h.afterOtaTerminal(r.Context(), device.ID, body.Status)
+		h.afterOtaTerminal(r.Context(), device.ID, body.Status, body.ErrorCode)
 	}
 
 	h.hub.PublishDeviceUpdate(device.ID)

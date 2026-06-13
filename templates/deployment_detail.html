@@ -6,6 +6,7 @@
       <th>Serial Number</th>
       <th>Current Build</th>
       <th>Status</th>
+      <th>Updated</th>
     </tr>
   </thead>
   <tbody>
@@ -16,6 +17,7 @@
         <td class="mono small">{{.BuildID}}</td>
         <td>
           <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
+          {{if otaStalled .Status .UpdatedAt}}<span class="status-badge warn" title="No status change in over 10 minutes — the device may be offline or stuck.">stalled</span>{{end}}
           {{$progress := index $.OTAProgress .DeviceID.String}}
           {{if $progress}}
             <div class="ota-progress-panel" style="margin-top:6px;">
@@ -25,11 +27,15 @@
               <span class="muted small">{{$progress.Phase}} {{$progress.Percent}}%</span>
             </div>
           {{end}}
+          {{if and (eq .Status "failed") .ErrorCode}}
+            <div class="muted small" style="margin-top:6px;">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
+          {{end}}
         </td>
+        <td class="small muted" title="{{localTime .UpdatedAt}}">{{timeSince .UpdatedAt}}</td>
       </tr>
       {{end}}
     {{else}}
-      <tr><td colspan="3" class="empty">No devices targeted yet.</td></tr>
+      <tr><td colspan="4" class="empty">No devices targeted yet.</td></tr>
     {{end}}
   </tbody>
 </table>
