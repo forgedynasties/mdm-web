@@ -73,6 +73,7 @@ type Group struct {
 
 type OTAPackage struct {
 	ID              int       `json:"id"`
+	ReleaseID       int       `json:"release_id"`
 	Type            string    `json:"type"` // "full" or "incremental"
 	TargetBuildID   string    `json:"target_build_id"`
 	SourceBuildID   string    `json:"source_build_id"` // incremental only
@@ -84,9 +85,24 @@ type OTAPackage struct {
 	DeploymentCount int       `json:"deployment_count,omitempty"` // populated by ListOTAPackages
 }
 
+// Release groups the packages for one target build version under a single
+// lifecycle. Version equals the target build id.
+type Release struct {
+	ID           int        `json:"id"`
+	Version      string     `json:"version"`
+	Name         string     `json:"name"`
+	Changelog    string     `json:"changelog"`
+	Status       string     `json:"status"` // "draft" | "published" | "yanked"
+	CreatedAt    time.Time  `json:"created_at"`
+	PublishedAt  *time.Time `json:"published_at"`
+	PackageCount int        `json:"package_count,omitempty"` // populated by ListReleases
+	DeployCount  int        `json:"deploy_count,omitempty"`  // populated by ListReleases
+}
+
 type Update struct {
 	ID              int            `json:"id"`
 	OtaPackageID    int            `json:"ota_package_id"`
+	ReleaseID       int            `json:"release_id"`
 	RebootBehavior  string         `json:"reboot_behavior"` // "immediate", "scheduled", "manual"
 	ScheduledTime   *time.Time     `json:"scheduled_time"`
 	Status          string         `json:"status"` // "pending", "active", "complete"
@@ -3364,18 +3380,57 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 -- error_code the device reported on failure (to show why it failed).
 ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS error_code TEXT        NOT NULL DEFAULT '';
+
+-- Releases group the packages for one target build version (the full image plus
+-- its incrementals) under a single lifecycle (draft -> published -> yanked).
+-- Deploying a release lets the server pick the right artifact per device.
+CREATE TABLE IF NOT EXISTS releases (
+    id           SERIAL      PRIMARY KEY,
+    version      TEXT        NOT NULL UNIQUE,
+    name         TEXT        NOT NULL DEFAULT '',
+    changelog    TEXT        NOT NULL DEFAULT '',
+    status       TEXT        NOT NULL DEFAULT 'draft',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    published_at TIMESTAMPTZ
+);
+ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS release_id INTEGER REFERENCES releases(id);
+ALTER TABLE updates      ADD COLUMN IF NOT EXISTS release_id INTEGER REFERENCES releases(id);
+
+-- Backfill one release per existing target build (falling back to the legacy
+-- build_id when target_build_id is blank). Existing packages are marked published
+-- so deployments already in flight keep resolving; then link packages and updates.
+INSERT INTO releases (version, status, changelog, created_at, published_at)
+  SELECT COALESCE(NULLIF(target_build_id,''), build_id), 'published', MAX(changelog), MIN(created_at), MIN(created_at)
+  FROM ota_packages
+  GROUP BY COALESCE(NULLIF(target_build_id,''), build_id)
+  ON CONFLICT (version) DO NOTHING;
+UPDATE ota_packages p SET release_id = r.id
+  FROM releases r
+  WHERE r.version = COALESCE(NULLIF(p.target_build_id,''), p.build_id) AND p.release_id IS NULL;
+UPDATE updates u SET release_id = p.release_id
+  FROM ota_packages p WHERE p.id = u.ota_package_id AND u.release_id IS NULL;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
 
 func (d *DB) CreateOTAPackage(ctx context.Context, typ, targetBuildID, sourceBuildID, updateURL, changelog string, releaseDate time.Time) (*OTAPackage, error) {
+	rel, err := d.GetOrCreateRelease(ctx, targetBuildID)
+	if err != nil {
+		return nil, err
+	}
+	// build_id is UNIQUE per artifact, so a full and its incrementals for the
+	// same target build must differ — qualify incrementals by source build.
+	buildID := targetBuildID
+	if typ == "incremental" && sourceBuildID != "" {
+		buildID = targetBuildID + "~from~" + sourceBuildID
+	}
 	var p OTAPackage
-	err := d.pool.QueryRow(ctx, `
-		INSERT INTO ota_packages (type, target_build_id, source_build_id, build_id, update_url, changelog, release_date)
-		VALUES ($1, $2, $3, $2, $4, $5, $6)
-		RETURNING id, type, target_build_id, source_build_id, release_date, update_url, changelog, status, created_at
-	`, typ, targetBuildID, sourceBuildID, updateURL, changelog, releaseDate).
-		Scan(&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt)
+	err = d.pool.QueryRow(ctx, `
+		INSERT INTO ota_packages (type, target_build_id, source_build_id, build_id, update_url, changelog, release_date, release_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, release_id, type, target_build_id, source_build_id, release_date, update_url, changelog, status, created_at
+	`, typ, targetBuildID, sourceBuildID, buildID, updateURL, changelog, releaseDate, rel.ID).
+		Scan(&p.ID, &p.ReleaseID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt)
 	return &p, err
 }
 
@@ -3428,6 +3483,108 @@ func (d *DB) SetOTAPackageStatus(ctx context.Context, id int, status string) err
 func (d *DB) DeleteOTAPackage(ctx context.Context, id int) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM ota_packages WHERE id = $1`, id)
 	return err
+}
+
+// ── Releases ──────────────────────────────────────────────────────────────────
+
+// GetOrCreateRelease returns the release for a version (target build id),
+// creating it in 'draft' if absent.
+func (d *DB) GetOrCreateRelease(ctx context.Context, version string) (*Release, error) {
+	if _, err := d.pool.Exec(ctx,
+		`INSERT INTO releases (version) VALUES ($1) ON CONFLICT (version) DO NOTHING`, version); err != nil {
+		return nil, err
+	}
+	return d.GetReleaseByVersion(ctx, version)
+}
+
+func (d *DB) GetReleaseByVersion(ctx context.Context, version string) (*Release, error) {
+	var r Release
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, version, name, changelog, status, created_at, published_at
+		FROM releases WHERE version = $1
+	`, version).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.CreatedAt, &r.PublishedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
+	var r Release
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, version, name, changelog, status, created_at, published_at
+		FROM releases WHERE id = $1
+	`, id).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.CreatedAt, &r.PublishedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT r.id, r.version, r.name, r.changelog, r.status, r.created_at, r.published_at,
+		       COUNT(DISTINCT p.id) AS package_count,
+		       COUNT(DISTINCT u.id) AS deploy_count
+		FROM releases r
+		LEFT JOIN ota_packages p ON p.release_id = r.id
+		LEFT JOIN updates u ON u.release_id = r.id
+		GROUP BY r.id
+		ORDER BY r.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Release
+	for rows.Next() {
+		var r Release
+		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.CreatedAt, &r.PublishedAt, &r.PackageCount, &r.DeployCount); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// SetReleaseStatus moves a release through its lifecycle; publishing stamps
+// published_at the first time.
+func (d *DB) SetReleaseStatus(ctx context.Context, id int, status string) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE releases
+		SET status = $2,
+		    published_at = CASE WHEN $2 = 'published' AND published_at IS NULL THEN NOW() ELSE published_at END
+		WHERE id = $1
+	`, id, status)
+	return err
+}
+
+// SetReleaseMeta updates the editable release fields (name, changelog).
+func (d *DB) SetReleaseMeta(ctx context.Context, id int, name, changelog string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET name = $2, changelog = $3 WHERE id = $1`, id, name, changelog)
+	return err
+}
+
+// ListPackagesByRelease returns the packages (full + incrementals) of a release.
+func (d *DB) ListPackagesByRelease(ctx context.Context, releaseID int) ([]OTAPackage, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, release_id, type, target_build_id, source_build_id, release_date, update_url, changelog, status, created_at
+		FROM ota_packages WHERE release_id = $1
+		ORDER BY (type = 'full') DESC, source_build_id, created_at DESC
+	`, releaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []OTAPackage
+	for rows.Next() {
+		var p OTAPackage
+		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 // ── Updates (Deployments) ─────────────────────────────────────────────────────
