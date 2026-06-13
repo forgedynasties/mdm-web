@@ -3831,9 +3831,9 @@ func (d *DB) CreateAlertChannel(ctx context.Context, c AlertChannel) (uuid.UUID,
 func (d *DB) UpdateAlertChannel(ctx context.Context, c AlertChannel) error {
 	_, err := d.pool.Exec(ctx, `
 		UPDATE alert_channels SET name=$2, url=$3, min_severity=$4, mode=$5,
-			active_window=$6, enabled=$7, notify_resolve=$8 WHERE id=$1`,
+			active_window=$6, enabled=$7, notify_resolve=$8, kind=$9 WHERE id=$1`,
 		c.ID, c.Name, c.URL, nz(c.MinSeverity, "warning"), nz(c.Mode, "realtime"),
-		c.ActiveWindow, c.Enabled, c.NotifyResolve)
+		c.ActiveWindow, c.Enabled, c.NotifyResolve, nz(c.Kind, "webhook"))
 	return err
 }
 

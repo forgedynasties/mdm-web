@@ -351,8 +351,9 @@ Today notification is a single best-effort `SendWebhook` per new alert (`notify.
 matrix needs the alert to reach the right place at the right time, so we build a routing layer
 **and** wire a concrete chat destination:
 
-- **New table `alert_channels`**: `name`, `kind` (`webhook` — Slack/Discord/Mattermost-compatible
-  to start), `url`, `min_severity` (`info`/`warning`/`critical`), `mode` (`realtime` | `digest`),
+- **New table `alert_channels`**: `name`, `kind` (`webhook` = Slack/Discord/Mattermost-compatible
+  `{"text":...}`, or `teams` = a Microsoft Teams **Adaptive Card** for the channel's
+  Workflows "Post to a channel when a webhook request is received" URL), `url`, `min_severity` (`info`/`warning`/`critical`), `mode` (`realtime` | `digest`),
   optional `active_window` (route only during/outside service). The existing single
   `AlertWebhookURL` setting is migrated into one default channel so nothing breaks.
 - **Routing**: when a tier creates an alert, the router picks every channel whose `min_severity`
