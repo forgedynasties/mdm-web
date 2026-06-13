@@ -2810,6 +2810,135 @@ func inQuiet(h, start, end int) bool {
 	return h >= start || h < end
 }
 
+// ── Service windows (Tier 5 §9) ─────────────────────────────────────────────────
+
+// ServiceWindow is a venue's open/close + overnight hours, in local minutes past
+// midnight. TZ is the GMT±offset string used to convert UTC "now" to local time;
+// empty TZ means fall back to the device's own reported extra.timezone.
+type ServiceWindow struct {
+	GroupID       *uuid.UUID `json:"group_id"`
+	OpenMin       int        `json:"open_min"`
+	CloseMin      int        `json:"close_min"`
+	NightOpenMin  int        `json:"night_open_min"`
+	NightCloseMin int        `json:"night_close_min"`
+	TZ            string     `json:"timezone"`
+}
+
+// inMinWindow reports whether local minute m falls in [start,end), supporting windows
+// that wrap past midnight (e.g. 1410→360). start==end means "never".
+func inMinWindow(m, start, end int) bool {
+	if start == end {
+		return false
+	}
+	if start < end {
+		return m >= start && m < end
+	}
+	return m >= start || m < end
+}
+
+// inActiveWindow reports whether a device with reported timezone devTZ is currently
+// inside the rule's active window. aw is "" / "always" (always true), "service", or
+// "overnight". w.TZ overrides devTZ when set (per-venue timezone).
+func inActiveWindow(now time.Time, devTZ string, w ServiceWindow, aw string) bool {
+	if aw == "" || aw == "always" {
+		return true
+	}
+	tz := w.TZ
+	if tz == "" {
+		tz = devTZ
+	}
+	localMin := ((now.UTC().Hour()*60+now.UTC().Minute())+gmtOffset(tz)*60)%1440 + 1440
+	localMin %= 1440
+	switch aw {
+	case "service":
+		return inMinWindow(localMin, w.OpenMin, w.CloseMin)
+	case "overnight":
+		return inMinWindow(localMin, w.NightOpenMin, w.NightCloseMin)
+	}
+	return true
+}
+
+// GetFleetServiceWindow returns the fleet-default service window (the group_id IS NULL
+// row, seeded by the migration).
+func (d *DB) GetFleetServiceWindow(ctx context.Context) (ServiceWindow, error) {
+	var w ServiceWindow
+	err := d.pool.QueryRow(ctx, `
+		SELECT open_min, close_min, night_open_min, night_close_min, timezone
+		FROM service_windows WHERE group_id IS NULL`).
+		Scan(&w.OpenMin, &w.CloseMin, &w.NightOpenMin, &w.NightCloseMin, &w.TZ)
+	if errors.Is(err, pgx.ErrNoRows) {
+		// Defensive fallback matching the migration defaults (07:00–23:00 / 23:30–06:00).
+		return ServiceWindow{OpenMin: 420, CloseMin: 1380, NightOpenMin: 1410, NightCloseMin: 360}, nil
+	}
+	return w, err
+}
+
+// SetServiceWindow upserts a group's service window (pass a nil groupID to set the
+// fleet default).
+func (d *DB) SetServiceWindow(ctx context.Context, w ServiceWindow) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO service_windows (group_id, open_min, close_min, night_open_min, night_close_min, timezone, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		ON CONFLICT (group_id) DO UPDATE SET
+			open_min = EXCLUDED.open_min, close_min = EXCLUDED.close_min,
+			night_open_min = EXCLUDED.night_open_min, night_close_min = EXCLUDED.night_close_min,
+			timezone = EXCLUDED.timezone, updated_at = NOW()
+	`, w.GroupID, w.OpenMin, w.CloseMin, w.NightOpenMin, w.NightCloseMin, w.TZ)
+	return err
+}
+
+// effectiveWindows returns the resolved service window for every non-hidden device:
+// the window of one of its groups (most-recently-updated) if any group has one, else
+// the fleet default. Loaded once per evaluation pass so window-gated rules don't
+// re-query per device.
+func (d *DB) effectiveWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow, error) {
+	fleet, err := d.GetFleetServiceWindow(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, sw.open_min, sw.close_min, sw.night_open_min, sw.night_close_min, sw.timezone
+		FROM devices d
+		LEFT JOIN LATERAL (
+			SELECT s.open_min, s.close_min, s.night_open_min, s.night_close_min, s.timezone
+			FROM device_groups dg JOIN service_windows s ON s.group_id = dg.group_id
+			WHERE dg.device_id = d.id
+			ORDER BY s.updated_at DESC LIMIT 1
+		) sw ON true
+		WHERE NOT d.hidden`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]ServiceWindow)
+	for rows.Next() {
+		var id uuid.UUID
+		var open, closeM, nOpen, nClose *int
+		var tz *string
+		if err := rows.Scan(&id, &open, &closeM, &nOpen, &nClose, &tz); err != nil {
+			return nil, err
+		}
+		w := fleet // copy fleet defaults, override with the group's window when present
+		if open != nil {
+			w.OpenMin, w.CloseMin, w.NightOpenMin, w.NightCloseMin = *open, *closeM, *nOpen, *nClose
+			if tz != nil {
+				w.TZ = *tz
+			}
+		}
+		out[id] = w
+	}
+	return out, rows.Err()
+}
+
+// windowFor returns the resolved window for a device, falling back to fleet defaults
+// (already baked into the map) or a hard default if the device is absent.
+func windowFor(m map[uuid.UUID]ServiceWindow, id uuid.UUID) ServiceWindow {
+	if w, ok := m[id]; ok {
+		return w
+	}
+	return ServiceWindow{OpenMin: 420, CloseMin: 1380, NightOpenMin: 1410, NightCloseMin: 360}
+}
+
 // EvaluateAlerts runs every enabled fleet-scoped rule against device_daily_stats,
 // creating alerts for violators (deduped) and resolving alerts whose condition has
 // cleared. Returns counts of created and resolved alerts. Called from housekeeping.
@@ -3414,6 +3543,55 @@ UPDATE updates u SET release_id = p.release_id
 -- Release deployments pick the per-device artifact at resolve time, so a
 -- deployment no longer needs a single package. (DROP NOT NULL is idempotent.)
 ALTER TABLE updates ALTER COLUMN ota_package_id DROP NOT NULL;
+
+-- ── Tier 5: T7 alert-matrix (see docs/analytics-and-alerting.md §8) ─────────────
+
+-- Per-restaurant service windows. Rules with active_window=service|overnight gate
+-- against a group's open/close hours (local minutes past midnight) so alerts only
+-- fire when they matter for that venue. A group with no row uses the fleet default
+-- seeded below; overnight = the configured night window (defaults to the matrix's
+-- 23:30–06:00). timezone falls back to each device's reported extra.timezone.
+CREATE TABLE IF NOT EXISTS service_windows (
+    group_id        UUID PRIMARY KEY REFERENCES groups(id) ON DELETE CASCADE,
+    open_min        INTEGER NOT NULL DEFAULT 420,   -- 07:00 local
+    close_min       INTEGER NOT NULL DEFAULT 1380,  -- 23:00 local
+    night_open_min  INTEGER NOT NULL DEFAULT 1410,  -- 23:30 local
+    night_close_min INTEGER NOT NULL DEFAULT 360,   -- 06:00 local
+    timezone        TEXT    NOT NULL DEFAULT '',     -- '' = use device-reported tz
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- group_id NULL row = the fleet default service window (single row). Seeded once.
+ALTER TABLE service_windows ALTER COLUMN group_id DROP NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_service_windows_fleet_default
+    ON service_windows ((group_id IS NULL)) WHERE group_id IS NULL;
+INSERT INTO service_windows (group_id) SELECT NULL
+    WHERE NOT EXISTS (SELECT 1 FROM service_windows WHERE group_id IS NULL);
+
+-- active_window on a rule: service | overnight | always. NULL/'' = always (back-compat).
+ALTER TABLE alert_rules ADD COLUMN IF NOT EXISTS active_window TEXT NOT NULL DEFAULT '';
+
+-- Daily-stats columns for the pad-utilisation and storage-trend rules (§8.1 #11,#12,#23).
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS wlc_guest_frac      REAL;     -- fraction of checkins with a guest device on the pad (wlc_status=1)
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS pad_readable        BOOLEAN;  -- pad was readable at all that day (any wlc_status >= 0)
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS storage_free_last_gb REAL;    -- last storage_free_gb reading of the day, for the 24h-delta rule
+
+-- Alert channels: where fired alerts are routed. Each channel takes alerts at or
+-- above min_severity; realtime channels POST immediately, digest channels batch into
+-- the daily digest. active_window optionally restricts a channel to service/overnight.
+-- The legacy single AlertWebhookURL setting is migrated into one channel in code.
+CREATE TABLE IF NOT EXISTS alert_channels (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name          TEXT NOT NULL DEFAULT '',
+    kind          TEXT NOT NULL DEFAULT 'webhook',     -- webhook (Slack/Discord/Mattermost-compatible)
+    url           TEXT NOT NULL DEFAULT '',
+    min_severity  TEXT NOT NULL DEFAULT 'warning',     -- info | warning | critical
+    mode          TEXT NOT NULL DEFAULT 'realtime',    -- realtime | digest
+    active_window TEXT NOT NULL DEFAULT '',             -- '' = always | service | overnight
+    enabled       BOOLEAN NOT NULL DEFAULT true,
+    notify_resolve BOOLEAN NOT NULL DEFAULT true,       -- post a one-liner when an alert auto-resolves
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
