@@ -142,6 +142,51 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Alert channels</h3></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:12px;">
+      Route alerts to one or more Slack / Discord / Mattermost webhooks by minimum severity. <strong>Realtime</strong> channels post immediately; <strong>digest</strong> channels are summarised in the daily digest. A channel's active window can restrict it to service or overnight hours (fleet default window). Channels supersede the single webhook above; if none exist, that webhook is used for everything.
+    </div>
+    {{define "chan-fields"}}
+      <input type="text" name="name" value="{{.Name}}" placeholder="Name (e.g. On-call)" class="form-input" style="width:160px;">
+      <input type="url" name="url" value="{{.URL}}" placeholder="https://hooks.slack.com/…" class="form-input" style="flex:1;min-width:220px;">
+      <select name="min_severity" class="form-input" style="width:120px;" title="Minimum severity">
+        <option value="info"{{if eq .MinSeverity "info"}} selected{{end}}>Info+</option>
+        <option value="warning"{{if eq .MinSeverity "warning"}} selected{{end}}>Warning+</option>
+        <option value="critical"{{if eq .MinSeverity "critical"}} selected{{end}}>Critical</option>
+      </select>
+      <select name="mode" class="form-input" style="width:110px;" title="Delivery">
+        <option value="realtime"{{if eq .Mode "realtime"}} selected{{end}}>Realtime</option>
+        <option value="digest"{{if eq .Mode "digest"}} selected{{end}}>Digest</option>
+      </select>
+      <select name="active_window" class="form-input" style="width:130px;" title="Active window">
+        <option value=""{{if eq .ActiveWindow ""}} selected{{end}}>Always</option>
+        <option value="service"{{if eq .ActiveWindow "service"}} selected{{end}}>Service</option>
+        <option value="overnight"{{if eq .ActiveWindow "overnight"}} selected{{end}}>Overnight</option>
+      </select>
+      <label class="muted small" style="display:flex;align-items:center;gap:4px;white-space:nowrap;"><input type="checkbox" name="enabled"{{if .Enabled}} checked{{end}}> On</label>
+      <label class="muted small" style="display:flex;align-items:center;gap:4px;white-space:nowrap;" title="Post a line when an alert auto-resolves"><input type="checkbox" name="notify_resolve"{{if .NotifyResolve}} checked{{end}}> Resolve msgs</label>
+    {{end}}
+    {{range .AlertChannels}}
+    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border-soft);">
+      <form action="/settings/alert-channels" method="POST" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1;">
+        <input type="hidden" name="id" value="{{.ID}}">
+        {{template "chan-fields" .}}
+        <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      </form>
+      <form action="/settings/alert-channels/{{.ID}}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this channel?')">
+        <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 12px;">Delete</button>
+      </form>
+    </div>
+    {{end}}
+    <form action="/settings/alert-channels" method="POST" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 0 0;">
+      {{template "chan-fields" (dict "MinSeverity" "warning" "Mode" "realtime" "Enabled" true "NotifyResolve" true)}}
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Add channel</button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Service hours</h3></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:12px;">
