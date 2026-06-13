@@ -41,7 +41,7 @@ type Config struct {
 	PageSizeVal    int    `json:"page_size"`    // 0 -> default 25
 	DefaultSortVal string `json:"default_sort"` // "" -> last_seen
 	DensityVal     string `json:"density"`      // "" -> comfortable
-	BrandNameVal   string `json:"brand_name"`   // "" -> MDM
+	BrandNameVal   string `json:"brand_name"`   // "" -> AIO MDM
 	Use24HourFlag  bool   `json:"use_24_hour"`
 
 	// Alerting. Slack/Discord/Mattermost-compatible webhook for new alerts ("" = off).
@@ -389,7 +389,7 @@ func (c *Config) BrandName() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.BrandNameVal == "" {
-		return "MDM"
+		return "AIO MDM"
 	}
 	return c.BrandNameVal
 }
