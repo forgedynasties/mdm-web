@@ -2145,7 +2145,8 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 		INSERT INTO device_daily_stats AS s (
 			device_id, day, checkin_count, battery_min, battery_max, battery_avg,
 			temp_max, ram_pct_peak, charging_frac, online_minutes, build_id,
-			first_seen_at, last_seen_at, computed_at)
+			first_seen_at, last_seen_at,
+			wlc_guest_frac, pad_readable, storage_free_last_gb, computed_at)
 		SELECT
 			c.device_id,
 			$1::date,
@@ -2163,6 +2164,11 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			(ARRAY_AGG(c.build_id ORDER BY c.created_at DESC))[1],
 			MIN(c.created_at),
 			MAX(c.created_at),
+			-- T7 pad utilisation: fraction of checkins with a guest device on the pad,
+			-- whether the pad was readable at all that day, and the day's last storage reading.
+			AVG(CASE WHEN c.extra->>'wlc_status' = '1' THEN 1 ELSE 0 END)::real,
+			bool_or(c.extra->>'wlc_status' IS NOT NULL AND c.extra->>'wlc_status' <> '-1'),
+			(ARRAY_AGG((c.extra->>'storage_free_gb')::numeric ORDER BY c.created_at DESC))[1]::real,
 			NOW()
 		FROM checkins c
 		WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
@@ -2179,6 +2185,9 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			build_id       = EXCLUDED.build_id,
 			first_seen_at  = EXCLUDED.first_seen_at,
 			last_seen_at   = EXCLUDED.last_seen_at,
+			wlc_guest_frac       = EXCLUDED.wlc_guest_frac,
+			pad_readable         = EXCLUDED.pad_readable,
+			storage_free_last_gb = EXCLUDED.storage_free_last_gb,
 			computed_at    = EXCLUDED.computed_at
 	`, dayStr)
 	if err != nil {
@@ -2505,6 +2514,8 @@ var defaultAlertRules = []struct {
 	{"battery_health_decline", "Battery health declining (proxy)", `{"drop_pct":15,"window_days":7}`, "always", true},
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
 	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
+	{"pad_unused", "Guest pad unused all day", `{}`, "always", true},
+	{"storage_filling", "Storage filling fast", `{"low_gb":1.5,"drop_gb":0.2}`, "always", true},
 	// Recent-tier rules (T7 matrix). Offline stays de-prioritized → seeded disabled.
 	{"offline", "Device offline during service", `{"offline_minutes":5}`, "service", false},
 	{"soc_low_service", "SoC low during service", `{"soc_pct":20}`, "service", true},
@@ -3010,6 +3021,9 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, r
 	if err != nil {
 		return nil, 0, err
 	}
+	// Operational daily rules (pad utilisation) only matter for live restaurant units,
+	// like the window-gated recent rules — keep lab-bench noise out (see §9).
+	var deployed map[uuid.UUID]bool
 	for _, r := range rules {
 		if r.ScopeType != "fleet" {
 			continue // group/device scoping not implemented yet
@@ -3025,10 +3039,19 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, r
 		if e != nil {
 			return created, resolved, e
 		}
+		deployedOnly := r.Type == "pad_unused"
+		if deployedOnly && deployed == nil {
+			if deployed, e = d.deployedDeviceSet(ctx); e != nil {
+				return created, resolved, e
+			}
+		}
 
 		ids := make([]uuid.UUID, 0, len(hits))
 		ruleID := r.ID
 		for _, h := range hits {
+			if deployedOnly && !deployed[h.DeviceID] {
+				continue
+			}
 			ids = append(ids, h.DeviceID)
 			ok, e := d.CreateAlertIfAbsent(ctx, &ruleID, r.Type, h.DeviceID, severity, h.Summary, h.Detail)
 			if e != nil {
@@ -3193,6 +3216,70 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Peak RAM hit %d%% today (limit %.0f%%)", ram, limit),
 				map[string]any{"ram_pct": ram, "limit_pct": limit}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "pad_unused":
+		// Yesterday the pad was readable all day but no guest device ever used it.
+		// Informational utilisation signal (T7 matrix #11). Gated to deployed units.
+		rows, err := d.pool.Query(ctx, `
+			SELECT s.device_id, dv.serial_number
+			FROM device_daily_stats s JOIN devices dv ON dv.id = s.device_id
+			WHERE s.day = CURRENT_DATE - 1 AND s.pad_readable = true
+			  AND COALESCE(s.wlc_guest_frac, 0) = 0`)
+		if err != nil {
+			return nil, "info", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			if err := rows.Scan(&id, &serial); err != nil {
+				return nil, "info", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				"Charging pad available all day but no guest device used it",
+				map[string]any{"day": "yesterday"}})
+		}
+		return hits, "info", rows.Err()
+
+	case "storage_filling":
+		lowGB := param(p, "low_gb", 1.5)
+		dropGB := param(p, "drop_gb", 0.2)
+		// Today's free storage is below the warning floor, or dropped sharply vs
+		// yesterday — but still above the critical floor (storage_low owns < 0.5 GB).
+		rows, err := d.pool.Query(ctx, `
+			SELECT t.device_id, dv.serial_number, t.today, t.yday FROM (
+				SELECT today.device_id,
+				       today.storage_free_last_gb AS today,
+				       yday.storage_free_last_gb  AS yday
+				FROM device_daily_stats today
+				LEFT JOIN device_daily_stats yday
+				  ON yday.device_id = today.device_id AND yday.day = CURRENT_DATE - 1
+				WHERE today.day = CURRENT_DATE
+			) t JOIN devices dv ON dv.id = t.device_id
+			WHERE t.today IS NOT NULL AND t.today >= 0.5
+			  AND (t.today < $1 OR (t.yday IS NOT NULL AND (t.yday - t.today) > $2))`, lowGB, dropGB)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var today float64
+			var yday *float64
+			if err := rows.Scan(&id, &serial, &today, &yday); err != nil {
+				return nil, "warning", err
+			}
+			summary := fmt.Sprintf("Storage down to %.1f GB free", today)
+			if yday != nil && (*yday-today) > dropGB {
+				summary = fmt.Sprintf("Storage dropped %.1f→%.1f GB in 24h", *yday, today)
+			}
+			hits = append(hits, alertHit{id, serial, summary,
+				map[string]any{"today_gb": today, "low_gb": lowGB, "drop_gb": dropGB}})
 		}
 		return hits, "warning", rows.Err()
 	}
