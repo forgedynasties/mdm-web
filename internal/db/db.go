@@ -3816,6 +3816,17 @@ func (d *DB) ListAlertChannels(ctx context.Context, onlyEnabled bool) ([]AlertCh
 	return out, rows.Err()
 }
 
+// GetAlertChannel returns a single channel by id.
+func (d *DB) GetAlertChannel(ctx context.Context, id uuid.UUID) (AlertChannel, error) {
+	var c AlertChannel
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, name, kind, url, min_severity, mode, active_window, enabled, notify_resolve, created_at
+		FROM alert_channels WHERE id = $1`, id).Scan(
+		&c.ID, &c.Name, &c.Kind, &c.URL, &c.MinSeverity, &c.Mode,
+		&c.ActiveWindow, &c.Enabled, &c.NotifyResolve, &c.CreatedAt)
+	return c, err
+}
+
 // CreateAlertChannel inserts a channel and returns its id.
 func (d *DB) CreateAlertChannel(ctx context.Context, c AlertChannel) (uuid.UUID, error) {
 	var id uuid.UUID
