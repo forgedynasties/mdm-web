@@ -2961,6 +2961,38 @@ func (d *DB) effectiveWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow,
 	return out, rows.Err()
 }
 
+// deployedDeviceSet returns the IDs of devices that are effectively deployed (live in a
+// restaurant): COALESCE(device.deployed, any-group.deployed, false). Operational
+// service-window rules from the T7 matrix only apply to these — a bench/lab unit that is
+// idle or unplugged during the default day window is expected, not an alert. Hardware
+// rules (storage_low, temp_elevated, overheating) still fire fleet-wide so genuine lab
+// faults surface. Mirrors the effective-deployed logic in the schema comment.
+func (d *DB) deployedDeviceSet(ctx context.Context) (map[uuid.UUID]bool, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, COALESCE(d.deployed, bool_or(g.deployed), false)
+		FROM devices d
+		LEFT JOIN device_groups dg ON dg.device_id = d.id
+		LEFT JOIN groups g ON g.id = dg.group_id
+		WHERE NOT d.hidden
+		GROUP BY d.id, d.deployed`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]bool)
+	for rows.Next() {
+		var id uuid.UUID
+		var dep bool
+		if err := rows.Scan(&id, &dep); err != nil {
+			return nil, err
+		}
+		if dep {
+			out[id] = true
+		}
+	}
+	return out, rows.Err()
+}
+
 // windowFor returns the resolved window for a device, falling back to fleet defaults
 // (already baked into the map) or a hard default if the device is absent.
 func windowFor(m map[uuid.UUID]ServiceWindow, id uuid.UUID) ServiceWindow {
@@ -3217,6 +3249,10 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 	if err != nil {
 		return nil, 0, err
 	}
+	deployed, err := d.deployedDeviceSet(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
 	now := time.Now().UTC()
 	for _, r := range rules {
 		if !isRecentType(r.Type) || r.ScopeType != "fleet" {
@@ -3234,9 +3270,17 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 		if aw == "" {
 			aw = defaultActiveWindow(r.Type)
 		}
+		windowed := aw == "service" || aw == "overnight"
 		ids := make([]uuid.UUID, 0, len(hits))
 		ruleID := r.ID
 		for _, h := range hits {
+			// Window-gated rules are operational (assume the unit is live in a restaurant
+			// on a service/charge schedule), so they apply to deployed units only — a
+			// bench/lab unit idle or unplugged during the day window is expected, not an
+			// alert. Hardware rules (always-on) still fire fleet-wide.
+			if windowed && !deployed[h.DeviceID] {
+				continue
+			}
 			// Skip devices outside the rule's active window; they auto-resolve below.
 			if !inActiveWindow(now, "", windowFor(windows, h.DeviceID), aw) {
 				continue

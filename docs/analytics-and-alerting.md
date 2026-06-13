@@ -309,6 +309,17 @@ matrix's clock. Closes the §7 "service hours" open question.
   how the `offline` rule already skips quiet hours, generalized.
 - Migration seeds a fleet-default window so Phase-1 rules work before any group is configured.
 
+**Lab vs deployment (matches the AI-report framing).** The window-gated rules
+(`service`/`overnight`) are *operational* — they assume the unit is live in a restaurant
+on a service/charge schedule. A bench/lab unit that is idle or unplugged during the default
+day window is expected behavior, not an alert, so these rules fire for **deployed units
+only** (effective deployed = `COALESCE(device.deployed, any-group.deployed, false)`,
+`deployedDeviceSet`). Always-on **hardware** rules (`storage_low`, `temp_elevated`,
+`overheating`) still fire fleet-wide so a genuine lab hardware fault surfaces. This keeps
+the Alerts feed — and therefore the AI fleet/device report, which ingests open alerts — free
+of lab-unit operational noise, consistent with the report's existing "only deployed units
+drive watch/at_risk" rule (`internal/ai/ai.go`).
+
 ## 10. Evaluation tiers (daily vs recent vs event)
 
 Today `EvaluateAlerts` runs **hourly** in `RunHousekeeping` over `device_daily_stats`. That
@@ -388,3 +399,12 @@ Dashboard: the existing **Alerts** page gains a severity filter (incl. info) and
   **recent-checkin evaluation tier** for rate/sustained rules (§10), an **`info`** severity,
   and a routing **alerts channel** (`alert_channels`, severity/window/digest, §11).
   Implementation next.
+- **2026-06-13** — Phase 1 server implementation landed (branch `t7-alert-matrix`):
+  service-window schema + resolution (§9); recent-tier evaluator on a 1-min ticker with
+  service-window gating + the matrix's point-in-time/rate/sustained rules (offline-5m,
+  soc_low_service, soc_low_guest_charging, pad_disconnected, storage_low, temp_elevated,
+  discharge_rate_idle/active, overnight_not_charging, overnight_slow_charge); each rule
+  type bound to exactly one tier; `alert_channels` CRUD + severity/window realtime routing
+  with legacy-webhook migration. Window-gated (operational) rules fire for **deployed units
+  only** so lab-bench noise stays out of the Alerts feed and the AI report, preserving the
+  lab-vs-deployment distinction.
