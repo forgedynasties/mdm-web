@@ -905,12 +905,17 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 // The check uses two independent signals and blocks only when one positively
 // indicates a cross-origin request, so legacy clients that send neither header
 // still work:
-//   - Sec-Fetch-Site (fetch metadata): must be same-origin or none when present.
+//   - Sec-Fetch-Site (fetch metadata): must be same-origin, same-site, or none
+//     when present. same-site is accepted because the deployment is reachable
+//     over more than one subdomain of the same site; a real cross-subdomain
+//     forgery is still caught by the Origin check below, which requires the
+//     Origin host to match publicOrigin (or the request Host). Only a positive
+//     cross-site signal is rejected here.
 //   - Origin: must match publicOrigin (or the request Host) when present.
 func (h *Handler) enforceSameOrigin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Header.Get("Sec-Fetch-Site") {
-		case "", "same-origin", "none":
+		case "", "same-origin", "same-site", "none":
 			// allowed, or header absent — fall through to the Origin check
 		default:
 			http.Error(w, "cross-site request blocked", http.StatusForbidden)
