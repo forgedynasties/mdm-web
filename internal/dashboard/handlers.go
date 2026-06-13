@@ -655,6 +655,16 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 				return "muted"
 			}
 		},
+		"releaseStatusClass": func(s string) string {
+			switch s {
+			case "published":
+				return "ok"
+			case "yanked":
+				return "danger"
+			default: // draft
+				return "muted"
+			}
+		},
 		// otaErrorText turns a device-reported OTA error_code into operator-readable
 		// text. The client sends DOWNLOAD_ERROR, UPDATE_ENGINE_BIND_ERROR, or
 		// UPDATE_ERROR_<n> where <n> is an UpdateEngine.ErrorCodeConstants value.
@@ -2944,19 +2954,24 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 
 // ── OTA Packages & Deployments ────────────────────────────────────────────────
 
-func (h *Handler) OTAPackages(w http.ResponseWriter, r *http.Request) {
-	pkgs, err := h.db.ListOTAPackages(r.Context())
+func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
+	releases, err := h.db.ListReleases(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.render(w, r, "updates.html", map[string]any{
-		"Title":    "OTA Packages",
-		"Packages": pkgs,
+	h.render(w, r, "releases.html", map[string]any{
+		"Title":    "Releases",
+		"Releases": releases,
 	})
 }
 
-func (h *Handler) OTAPackageCreate(w http.ResponseWriter, r *http.Request) {
+// createPackageFromForm parses the package form, decodes the base64 update_url
+// (WAF bypass), validates, and creates the package — auto-creating/linking its
+// release. When forcedTargetBuild is non-empty (adding to an existing release)
+// it overrides the form's target build. Returns the created package or false
+// after having written an error response.
+func (h *Handler) createPackageFromForm(w http.ResponseWriter, r *http.Request, forcedTargetBuild string) (*db.OTAPackage, bool) {
 	r.ParseForm()
 
 	typ := r.FormValue("type")
@@ -2964,6 +2979,9 @@ func (h *Handler) OTAPackageCreate(w http.ResponseWriter, r *http.Request) {
 		typ = "full"
 	}
 	targetBuildID := strings.TrimSpace(r.FormValue("target_build_id"))
+	if forcedTargetBuild != "" {
+		targetBuildID = forcedTargetBuild
+	}
 	sourceBuildID := strings.TrimSpace(r.FormValue("source_build_id"))
 	updateURL := strings.TrimSpace(r.FormValue("update_url"))
 	// The dashboard sends update_url as URL-safe base64 (update_url_b64) so an
@@ -2975,7 +2993,7 @@ func (h *Handler) OTAPackageCreate(w http.ResponseWriter, r *http.Request) {
 		dec, err := base64.RawURLEncoding.DecodeString(b64)
 		if err != nil {
 			http.Error(w, "invalid update_url encoding", http.StatusBadRequest)
-			return
+			return nil, false
 		}
 		updateURL = strings.TrimSpace(string(dec))
 	}
@@ -2983,84 +3001,149 @@ func (h *Handler) OTAPackageCreate(w http.ResponseWriter, r *http.Request) {
 
 	if targetBuildID == "" || updateURL == "" {
 		http.Error(w, "target_build_id and update_url are required", http.StatusBadRequest)
-		return
+		return nil, false
 	}
 	if typ == "incremental" && sourceBuildID == "" {
 		http.Error(w, "source_build_id is required for incremental updates", http.StatusBadRequest)
-		return
+		return nil, false
 	}
 
 	pkg, err := h.db.CreateOTAPackage(r.Context(), typ, targetBuildID, sourceBuildID, updateURL, changelog, time.Now().UTC())
 	if err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
-		return
+		return nil, false
 	}
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", pkg.ID), http.StatusSeeOther)
+	return pkg, true
 }
 
-func (h *Handler) OTAPackageDetail(w http.ResponseWriter, r *http.Request) {
+// OTAPackageCreate handles the "new release" form: create the first package,
+// which auto-creates its release, then land on the release.
+func (h *Handler) OTAPackageCreate(w http.ResponseWriter, r *http.Request) {
+	pkg, ok := h.createPackageFromForm(w, r, "")
+	if !ok {
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", pkg.ReleaseID), http.StatusSeeOther)
+}
+
+// ReleaseAddPackage adds another package (e.g. an incremental) to an existing
+// release; the target build is fixed to the release's version.
+func (h *Handler) ReleaseAddPackage(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
-	pkg, err := h.db.GetOTAPackage(r.Context(), id)
+	rel, err := h.db.GetRelease(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Package not found", http.StatusNotFound)
+		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
-	deployments, _ := h.db.ListDeploymentsByPackage(r.Context(), id)
+	if _, ok := h.createPackageFromForm(w, r, rel.Version); !ok {
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+}
+
+func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	rel, err := h.db.GetRelease(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	packages, _ := h.db.ListPackagesByRelease(r.Context(), id)
+	deployments, _ := h.db.ListDeploymentsByRelease(r.Context(), id)
 	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
 
-	h.render(w, r, "update_detail.html", map[string]any{
-		"Title":       fmt.Sprintf("OTA Package #%d", id),
-		"Package":     pkg,
+	h.render(w, r, "release_detail.html", map[string]any{
+		"Title":       "Release " + rel.Version,
+		"Release":     rel,
+		"Packages":    packages,
 		"Deployments": deployments,
 		"Devices":     devices,
 		"Groups":      groups,
 	})
 }
 
-func (h *Handler) OTAPackageYank(w http.ResponseWriter, r *http.Request) {
+// ReleasePublish moves a release to published (deployable).
+func (h *Handler) ReleasePublish(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
-	pkg, err := h.db.GetOTAPackage(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Package not found", http.StatusNotFound)
-		return
-	}
-	newStatus := "yanked"
-	if pkg.Status == "yanked" {
-		newStatus = "active"
-	}
-	if err := h.db.SetOTAPackageStatus(r.Context(), id, newStatus); err != nil {
+	if err := h.db.SetReleaseStatus(r.Context(), id, "published"); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.audit(r, "release.publish", strconv.Itoa(id), "")
 	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
 }
 
-func (h *Handler) OTAPackageDelete(w http.ResponseWriter, r *http.Request) {
+// ReleaseYank toggles a release between yanked and published.
+func (h *Handler) ReleaseYank(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
-	if err := h.db.DeleteOTAPackage(r.Context(), id); err != nil {
+	rel, err := h.db.GetRelease(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	newStatus := "yanked"
+	if rel.Status == "yanked" {
+		newStatus = "published"
+	}
+	if err := h.db.SetReleaseStatus(r.Context(), id, newStatus); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+	h.audit(r, "release.status", strconv.Itoa(id), newStatus)
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
 }
 
-func (h *Handler) OTAPackageDeploy(w http.ResponseWriter, r *http.Request) {
-	pkgID, err := strconv.Atoi(r.PathValue("id"))
+// PackageDelete removes a single package from a release.
+func (h *Handler) PackageDelete(w http.ResponseWriter, r *http.Request) {
+	relID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	pid, err := strconv.Atoi(r.PathValue("pid"))
+	if err != nil {
+		http.Error(w, "Invalid package ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteOTAPackage(r.Context(), pid); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", relID), http.StatusSeeOther)
+}
+
+// ReleaseDeploy deploys a whole release; the per-device artifact (full vs
+// incremental) is chosen at resolve time. Only published releases can deploy.
+func (h *Handler) ReleaseDeploy(w http.ResponseWriter, r *http.Request) {
+	relID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	rel, err := h.db.GetRelease(r.Context(), relID)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	if rel.Status != "published" {
+		http.Error(w, "Release must be published before it can be deployed.", http.StatusBadRequest)
 		return
 	}
 	r.ParseForm()
@@ -3071,7 +3154,7 @@ func (h *Handler) OTAPackageDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 	scheduledTime := parseScheduledUTC(r.FormValue("scheduled_time"), rebootBehavior)
 
-	deployment, err := h.db.CreateUpdate(r.Context(), pkgID, rebootBehavior, scheduledTime)
+	deployment, err := h.db.CreateReleaseUpdate(r.Context(), relID, rebootBehavior, scheduledTime)
 	if err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -3089,11 +3172,12 @@ func (h *Handler) OTAPackageDeploy(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", pkgID, deployment.ID), http.StatusSeeOther)
+	h.audit(r, "release.deploy", rel.Version, strconv.Itoa(len(eligible)))
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, deployment.ID), http.StatusSeeOther)
 }
 
 func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
-	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	relID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
@@ -3104,7 +3188,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	upd, err := h.db.GetUpdate(r.Context(), did)
-	if err != nil || upd.OtaPackageID != pkgID {
+	if err != nil || upd.ReleaseID != relID {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
@@ -3140,7 +3224,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	data := map[string]any{
 		"Title":        fmt.Sprintf("Deployment #%d", did),
 		"Deployment":   upd,
-		"Package":      upd.OtaPackage,
+		"Release":      upd.Release,
 		"OTAProgress":  otaProgress,
 		"Summary":      summary,
 		"SummaryDone":  done,
@@ -3158,7 +3242,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeploymentUpdateSettings(w http.ResponseWriter, r *http.Request) {
-	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	relID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
@@ -3169,7 +3253,7 @@ func (h *Handler) DeploymentUpdateSettings(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	upd, err := h.db.GetUpdate(r.Context(), did)
-	if err != nil || upd.OtaPackageID != pkgID {
+	if err != nil || upd.ReleaseID != relID {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
@@ -3187,11 +3271,11 @@ func (h *Handler) DeploymentUpdateSettings(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", pkgID, did), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, did), http.StatusSeeOther)
 }
 
 func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
-	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	relID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
@@ -3205,13 +3289,13 @@ func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", pkgID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", relID), http.StatusSeeOther)
 }
 
 // DeploymentCancel stops an active deployment from reaching devices that
 // haven't started yet (pending → canceled) and flips the update off 'active'.
 func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
-	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	relID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
@@ -3222,7 +3306,7 @@ func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	upd, err := h.db.GetUpdate(r.Context(), did)
-	if err != nil || upd.OtaPackageID != pkgID {
+	if err != nil || upd.ReleaseID != relID {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
@@ -3231,14 +3315,14 @@ func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "deployment.cancel", strconv.Itoa(did), "")
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", pkgID, did), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, did), http.StatusSeeOther)
 }
 
 // DeploymentRetryDevice re-arms one failed device on a deployment: it clears the
 // OTA command guard and resets the device's row to pending, so the next check-in
 // re-issues the update (same mechanism as DeviceClearOTA).
 func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) {
-	pkgID, err := strconv.Atoi(r.PathValue("id"))
+	relID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
@@ -3249,7 +3333,7 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	upd, err := h.db.GetUpdate(r.Context(), did)
-	if err != nil || upd.OtaPackageID != pkgID {
+	if err != nil || upd.ReleaseID != relID {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
@@ -3265,7 +3349,7 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "pending")
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.audit(r, "deployment.retry", r.PathValue("serial"), strconv.Itoa(did))
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", pkgID, did), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, did), http.StatusSeeOther)
 }
 
 func parseScheduledUTC(raw, rebootBehavior string) *time.Time {
@@ -5075,12 +5159,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 
-	mux.HandleFunc("GET /updates", h.requireAuth(h.OTAPackages))
+	mux.HandleFunc("GET /updates", h.requireAuth(h.ReleaseList))
 	post("POST /updates", h.requireAdmin(h.OTAPackageCreate))
-	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.OTAPackageDetail))
-	post("POST /updates/{id}/yank", h.requireAdmin(h.OTAPackageYank))
-	post("POST /updates/{id}/delete", h.requireAdmin(h.OTAPackageDelete))
-	post("POST /updates/{id}/deploy", h.requireAdmin(h.OTAPackageDeploy))
+	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.ReleaseDetail))
+	post("POST /updates/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
+	post("POST /updates/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
+	post("POST /updates/{id}/publish", h.requireAdmin(h.ReleasePublish))
+	post("POST /updates/{id}/yank", h.requireAdmin(h.ReleaseYank))
+	post("POST /updates/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
 	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
 	post("POST /updates/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
 	post("POST /updates/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
