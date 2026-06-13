@@ -39,6 +39,11 @@
           {{if and (eq .Status "failed") .ErrorCode}}
             <div class="muted small" style="margin-top:6px;">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
           {{end}}
+          {{if and (eq .Status "failed") (or (eq $.Role "admin") (eq $.Role "operator"))}}
+            <form action="/updates/{{$.Package.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" style="display:inline;margin-top:6px;">
+              <button type="submit" class="btn-outline btn-sm">Retry</button>
+            </form>
+          {{end}}
         </td>
         <td class="small muted" title="{{localTime .UpdatedAt}}">{{timeSince .UpdatedAt}}</td>
       </tr>
@@ -60,7 +65,13 @@
 <div class="ov-greet">
   <h1 class="ov-title">Deployment #{{$dep.ID}}</h1>
   <span class="acts">
-    <form action="/updates/{{$pkg.ID}}/deployments/{{$dep.ID}}/delete" method="POST"
+    {{if and (eq $dep.Status "active") (or (eq .Role "admin") (eq .Role "operator"))}}
+    <form action="/updates/{{$pkg.ID}}/deployments/{{$dep.ID}}/cancel" method="POST" style="display:inline;"
+          onsubmit="return confirm('Cancel this deployment? Devices that have not started yet will be skipped; devices already updating will finish.')">
+      <button type="submit" class="btn-outline">Cancel deployment</button>
+    </form>
+    {{end}}
+    <form action="/updates/{{$pkg.ID}}/deployments/{{$dep.ID}}/delete" method="POST" style="display:inline;"
           onsubmit="return confirm('Delete this deployment record? This will not undo any updates already applied.')">
       <button type="submit" class="btn-danger">Delete</button>
     </form>
