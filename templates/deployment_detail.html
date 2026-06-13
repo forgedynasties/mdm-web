@@ -1,9 +1,9 @@
 {{define "deployment-targets"}}
 {{$dep := .Deployment}}
 {{if $dep.Targets}}
-<div class="ota-rollup">
+<div class="ota-rollup" style="padding:16px 20px;border-bottom:1px solid var(--border);">
   <div class="ota-progress-bar"><div class="ota-progress-fill" style="width:{{.SummaryPct}}%"></div></div>
-  <div class="ota-rollup-summary small">
+  <div class="ota-rollup-summary small" style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
     <span class="muted">{{.SummaryDone}}/{{.SummaryTotal}} installed</span>
     {{range .Summary}} <span class="status-badge {{deployStatusClass .Status}}">{{.Count}} {{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
   </div>
@@ -29,7 +29,7 @@
           {{if otaStalled .Status .UpdatedAt}}<span class="status-badge warn" title="No status change in over 10 minutes — the device may be offline or stuck.">stalled</span>{{end}}
           {{$progress := index $.OTAProgress .DeviceID.String}}
           {{if $progress}}
-            <div class="ota-progress-panel" style="margin-top:6px;">
+            <div class="ota-progress-panel" style="padding:8px 10px;margin:6px 0 2px;max-width:300px;">
               <div class="ota-progress-bar">
                 <div class="ota-progress-fill" style="width:{{$progress.Percent}}%"></div>
               </div>
