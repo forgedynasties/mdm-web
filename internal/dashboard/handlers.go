@@ -4004,6 +4004,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		aiDaily = []db.AIUsageDay{}
 	}
 	aiDailyJSON, _ := json.Marshal(aiDaily)
+	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":                "Settings",
 		"ExtraColumns":         h.cfg.Columns(),
@@ -4025,6 +4026,8 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"Use24Hour":            h.cfg.Use24Hour(),
 		"AlertWebhookURL":      h.cfg.AlertWebhookURL(),
 		"AlertRules":           h.buildAlertRuleViews(r.Context()),
+		"FleetWindow":          fleetWindow,
+		"GroupWindows":         groupWindows,
 		"AIKeySet":             h.cfg.AIEnabled(),
 		"AIProvider":           h.cfg.AIProvider(),
 		"AnthropicModel":       h.cfg.AnthropicModel(),
@@ -4411,6 +4414,91 @@ func (h *Handler) SettingsSetAlertWebhook(w http.ResponseWriter, r *http.Request
 	r.ParseForm()
 	h.cfg.SetAlertWebhookURL(strings.TrimSpace(r.FormValue("alert_webhook_url")))
 	h.audit(r, "alerts.webhook", "", "")
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+// hhmm renders minutes-past-midnight as a "HH:MM" string for <input type=time>.
+func hhmm(min int) string {
+	min = ((min % 1440) + 1440) % 1440
+	return fmt.Sprintf("%02d:%02d", min/60, min%60)
+}
+
+// parseHHMM parses "HH:MM" into minutes-past-midnight, returning def on bad input.
+func parseHHMM(s string, def int) int {
+	var h, m int
+	if _, err := fmt.Sscanf(strings.TrimSpace(s), "%d:%d", &h, &m); err != nil {
+		return def
+	}
+	if h < 0 || h > 23 || m < 0 || m > 59 {
+		return def
+	}
+	return h*60 + m
+}
+
+// serviceWindowView is one editable service window (fleet default or a group's).
+type serviceWindowView struct {
+	GroupID, GroupName                 string // GroupID "" = fleet default
+	Open, Close, NightOpen, NightClose string // HH:MM
+	TZ                                 string
+	HasOwn                             bool // group has its own row (vs inheriting fleet)
+}
+
+func windowView(groupID, name string, w db.ServiceWindow, hasOwn bool) serviceWindowView {
+	return serviceWindowView{
+		GroupID: groupID, GroupName: name,
+		Open: hhmm(w.OpenMin), Close: hhmm(w.CloseMin),
+		NightOpen: hhmm(w.NightOpenMin), NightClose: hhmm(w.NightCloseMin),
+		TZ: w.TZ, HasOwn: hasOwn,
+	}
+}
+
+// buildServiceWindowViews returns the fleet default plus each group's window for the
+// Settings "Service hours" card.
+func (h *Handler) buildServiceWindowViews(ctx context.Context) (serviceWindowView, []serviceWindowView) {
+	fleet, _ := h.db.GetFleetServiceWindow(ctx)
+	fleetView := windowView("", "", fleet, true)
+	groups, _ := h.db.ListGroups(ctx)
+	var out []serviceWindowView
+	for _, g := range groups {
+		w, ok, _ := h.db.GetGroupServiceWindow(ctx, g.ID)
+		out = append(out, windowView(g.ID.String(), g.Name, w, ok))
+	}
+	return fleetView, out
+}
+
+// SettingsSetServiceWindow upserts a service window from the Settings form. An empty
+// group_id sets the fleet default; "reset" on a group deletes its row (inherit fleet).
+func (h *Handler) SettingsSetServiceWindow(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	gidStr := strings.TrimSpace(r.FormValue("group_id"))
+	if gidStr != "" && r.FormValue("action") == "reset" {
+		if gid, err := uuid.Parse(gidStr); err == nil {
+			_ = h.db.DeleteServiceWindow(r.Context(), gid)
+		}
+		h.audit(r, "alerts.service_window", gidStr, "reset")
+		http.Redirect(w, r, "/settings", http.StatusFound)
+		return
+	}
+	sw := db.ServiceWindow{
+		OpenMin:       parseHHMM(r.FormValue("open"), 420),
+		CloseMin:      parseHHMM(r.FormValue("close"), 1380),
+		NightOpenMin:  parseHHMM(r.FormValue("night_open"), 1410),
+		NightCloseMin: parseHHMM(r.FormValue("night_close"), 360),
+		TZ:            strings.TrimSpace(r.FormValue("timezone")),
+	}
+	if gidStr != "" {
+		if gid, err := uuid.Parse(gidStr); err == nil {
+			sw.GroupID = &gid
+		} else {
+			http.Error(w, "Invalid group", http.StatusBadRequest)
+			return
+		}
+	}
+	if err := h.db.SetServiceWindow(r.Context(), sw); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "alerts.service_window", gidStr, "")
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -5365,6 +5453,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
 	post("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
 	post("POST /settings/alert-rules/{id}", h.requireAdmin(h.SettingsUpdateAlertRule))
+	post("POST /settings/service-window", h.requireAdmin(h.SettingsSetServiceWindow))
 	post("POST /settings/ai", h.requireAdmin(h.SettingsSetAI))
 	post("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
 	post("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))

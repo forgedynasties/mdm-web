@@ -2914,6 +2914,31 @@ func (d *DB) FleetWindowActive(ctx context.Context, aw string) bool {
 	return inActiveWindow(time.Now().UTC(), w.TZ, w, aw)
 }
 
+// GetGroupServiceWindow returns a group's own service window and whether it has one.
+// When the group has no row, ok is false and the fleet default is returned.
+func (d *DB) GetGroupServiceWindow(ctx context.Context, groupID uuid.UUID) (w ServiceWindow, ok bool, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT open_min, close_min, night_open_min, night_close_min, timezone
+		FROM service_windows WHERE group_id = $1`, groupID).
+		Scan(&w.OpenMin, &w.CloseMin, &w.NightOpenMin, &w.NightCloseMin, &w.TZ)
+	if errors.Is(err, pgx.ErrNoRows) {
+		fleet, ferr := d.GetFleetServiceWindow(ctx)
+		return fleet, false, ferr
+	}
+	if err != nil {
+		return ServiceWindow{}, false, err
+	}
+	g := groupID
+	w.GroupID = &g
+	return w, true, nil
+}
+
+// DeleteServiceWindow removes a group's window so it falls back to the fleet default.
+func (d *DB) DeleteServiceWindow(ctx context.Context, groupID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM service_windows WHERE group_id = $1`, groupID)
+	return err
+}
+
 // SetServiceWindow upserts a group's service window (pass a nil groupID to set the
 // fleet default).
 func (d *DB) SetServiceWindow(ctx context.Context, w ServiceWindow) error {
@@ -3644,11 +3669,11 @@ func (d *DB) overnightChargeHits(ctx context.Context, window string, minSpanSec 
 type AlertChannel struct {
 	ID            uuid.UUID `json:"id"`
 	Name          string    `json:"name"`
-	Kind          string    `json:"kind"`     // webhook
+	Kind          string    `json:"kind"` // webhook
 	URL           string    `json:"url"`
-	MinSeverity   string    `json:"min_severity"`   // info | warning | critical
-	Mode          string    `json:"mode"`           // realtime | digest
-	ActiveWindow  string    `json:"active_window"`  // "" | service | overnight
+	MinSeverity   string    `json:"min_severity"`  // info | warning | critical
+	Mode          string    `json:"mode"`          // realtime | digest
+	ActiveWindow  string    `json:"active_window"` // "" | service | overnight
 	Enabled       bool      `json:"enabled"`
 	NotifyResolve bool      `json:"notify_resolve"`
 	CreatedAt     time.Time `json:"created_at"`
