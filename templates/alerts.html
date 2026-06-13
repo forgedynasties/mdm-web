@@ -17,10 +17,16 @@
 </div>
 
 <div class="filter-pills">
-  <a href="/alerts" class="filter-pill{{if eq .Filter ""}} active{{end}}">All</a>
-  <a href="/alerts?status=open" class="filter-pill{{if eq .Filter "open"}} active{{end}}">Open</a>
-  <a href="/alerts?status=acknowledged" class="filter-pill{{if eq .Filter "acknowledged"}} active{{end}}">Acknowledged</a>
-  <a href="/alerts?status=resolved" class="filter-pill{{if eq .Filter "resolved"}} active{{end}}">Resolved</a>
+  <a href="/alerts{{if .Severity}}?severity={{.Severity}}{{end}}" class="filter-pill{{if eq .Filter ""}} active{{end}}">All</a>
+  <a href="/alerts?status=open{{if .Severity}}&severity={{.Severity}}{{end}}" class="filter-pill{{if eq .Filter "open"}} active{{end}}">Open</a>
+  <a href="/alerts?status=acknowledged{{if .Severity}}&severity={{.Severity}}{{end}}" class="filter-pill{{if eq .Filter "acknowledged"}} active{{end}}">Acknowledged</a>
+  <a href="/alerts?status=resolved{{if .Severity}}&severity={{.Severity}}{{end}}" class="filter-pill{{if eq .Filter "resolved"}} active{{end}}">Resolved</a>
+</div>
+<div class="filter-pills" style="margin-top:6px;">
+  <a href="/alerts{{if .Filter}}?status={{.Filter}}{{end}}" class="filter-pill{{if eq .Severity ""}} active{{end}}">Any severity</a>
+  <a href="/alerts?severity=critical{{if .Filter}}&status={{.Filter}}{{end}}" class="filter-pill{{if eq .Severity "critical"}} active{{end}}">Critical</a>
+  <a href="/alerts?severity=warning{{if .Filter}}&status={{.Filter}}{{end}}" class="filter-pill{{if eq .Severity "warning"}} active{{end}}">Warning</a>
+  <a href="/alerts?severity=info{{if .Filter}}&status={{.Filter}}{{end}}" class="filter-pill{{if eq .Severity "info"}} active{{end}}">Info</a>
 </div>
 
 <div class="card dv-rise-1">

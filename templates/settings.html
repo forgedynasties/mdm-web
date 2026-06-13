@@ -102,7 +102,7 @@
     </form>
 
     <div class="muted small" style="margin:18px 0 4px;border-top:1px solid var(--border-soft);padding-top:14px;">
-      <strong style="color:var(--text);">Alert rules</strong> — choose which alerts fire and tune their thresholds. Evaluated hourly during housekeeping.
+      <strong style="color:var(--text);">Alert rules</strong> — choose which alerts fire and tune their thresholds. <span class="status-badge muted">live</span> rules are evaluated every minute; the rest hourly during housekeeping. Operational (windowed) rules apply to deployed units only.
     </div>
     {{range .AlertRules}}
     <form action="/settings/alert-rules/{{.ID}}" method="POST" style="padding:12px 0;border-bottom:1px solid var(--border-soft);">
@@ -110,6 +110,7 @@
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
         <div>
           <strong class="small">{{.Name}}</strong>
+          {{if .Recent}}<span class="status-badge muted" style="margin-left:6px;">live</span>{{end}}
           <div class="muted small">{{.Desc}}</div>
         </div>
         <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
@@ -121,6 +122,16 @@
         <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">
           {{.Label}}{{if .Unit}} <span class="muted">({{.Unit}})</span>{{end}}
           <input type="number" name="{{.Key}}" value="{{.Value}}" step="{{.Step}}" class="form-input" style="width:130px;">
+        </label>
+        {{end}}
+        {{if .Windowed}}
+        <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">
+          Active window
+          <select name="active_window" class="form-input" style="width:140px;">
+            <option value="service"{{if eq .ActiveWindow "service"}} selected{{end}}>Service hours</option>
+            <option value="overnight"{{if eq .ActiveWindow "overnight"}} selected{{end}}>Overnight</option>
+            <option value="always"{{if eq .ActiveWindow "always"}} selected{{end}}>Always</option>
+          </select>
         </label>
         {{end}}
         <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>

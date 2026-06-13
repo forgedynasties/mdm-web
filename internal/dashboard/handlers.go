@@ -2006,10 +2006,24 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	severity := r.URL.Query().Get("severity")
+	switch severity {
+	case "critical", "warning", "info":
+		filtered := alerts[:0]
+		for _, a := range alerts {
+			if a.Severity == severity {
+				filtered = append(filtered, a)
+			}
+		}
+		alerts = filtered
+	default:
+		severity = ""
+	}
 	h.render(w, r, "alerts.html", map[string]any{
-		"Title":  "Alerts",
-		"Alerts": alerts,
-		"Filter": status,
+		"Title":    "Alerts",
+		"Alerts":   alerts,
+		"Filter":   status,
+		"Severity": severity,
 	})
 }
 
@@ -4407,30 +4421,69 @@ type alertParamField struct {
 }
 
 // alertRuleDefs is the catalog of configurable alert rules and their thresholds,
-// in display order. Keys/defaults mirror db.go's detectRule param() calls.
+// in display order. Keys/defaults mirror db.go's detectRule/detectRecentRule param()
+// calls. Windowed rules are operational (deployed units only) and expose an active-window
+// selector; Recent rules are evaluated every minute, the rest hourly during housekeeping.
 var alertRuleDefs = []struct {
 	Type, Label, Desc string
 	Fields            []alertParamField
+	Windowed, Recent  bool
 }{
-	{"offline", "Device offline", "Fires when a device is silent longer than the threshold, skipping its local overnight quiet hours so charging doesn't trip it.", []alertParamField{
-		{"offline_minutes", "Offline after", "min", 1, 30},
-		{"quiet_start", "Quiet hours start", "h", 1, 0},
-		{"quiet_end", "Quiet hours end", "h", 1, 6},
-	}},
+	// ── Battery — state of charge (T7 matrix) ──
+	{"soc_low_service", "SoC low during service", "Battery below the floor and unplugged during service hours. Deployed units only.", []alertParamField{
+		{"soc_pct", "Battery floor", "%", 1, 20},
+	}, true, true},
+	{"soc_low_guest_charging", "SoC low while charging a guest", "Battery below the floor while reverse-charging a guest device on the pad. Deployed units only.", []alertParamField{
+		{"soc_pct", "Battery floor", "%", 1, 20},
+	}, true, true},
+	{"overnight_not_charging", "Not charging overnight", "Plugged in overnight but battery is flat or falling. Deployed units only.", []alertParamField{
+		{"min_pct", "Only below", "%", 1, 95},
+	}, true, true},
+	{"overnight_slow_charge", "Charging too slowly overnight", "Plugged in overnight but gained less than the target over ~2 h. Deployed units only.", []alertParamField{
+		{"gain_pct", "Min 2h gain", "%", 1, 15},
+		{"min_pct", "Only below", "%", 1, 95},
+	}, true, true},
+	{"discharge_rate_idle", "Abnormal discharge — pad idle", "Battery dropping faster than expected while idle (no guest on pad). Deployed units only.", []alertParamField{
+		{"rate_pct_per_hr", "Max drain", "%/h", 1, 5},
+	}, true, true},
+	{"discharge_rate_active", "Abnormal discharge — pad active", "Battery dropping faster than expected while reverse-charging a guest. Deployed units only.", []alertParamField{
+		{"rate_pct_per_hr", "Max drain", "%/h", 1, 14},
+	}, true, true},
+	{"battery_health_decline", "Battery health declining (proxy)", "Fires when the overnight-full to shift-end battery drop grows week over week.", []alertParamField{
+		{"drop_pct", "Decline threshold", "%", 1, 15},
+		{"window_days", "Comparison window", "days", 1, 7},
+	}, false, false},
+	// ── Guest charging pad ──
+	{"pad_disconnected", "Guest charging pad disconnected", "Fires when the guest charging pad reports disconnected during service. Deployed units only.", nil, true, true},
+	{"pad_unused", "Guest pad unused all day", "Informational: the pad was available all day but no guest device ever used it. Deployed units only.", nil, false, false},
+	// ── Thermal ──
 	{"overheating", "Battery overheating", "Fires when a device's max daily battery temperature exceeds the threshold.", []alertParamField{
 		{"temp_c", "Temperature", "°C", 1, 45},
-	}},
+	}, false, false},
+	{"temp_elevated", "Temperature elevated", "Fires when battery temperature holds in the elevated band for >15 min (trending toward throttle).", []alertParamField{
+		{"temp_min", "Band low", "°C", 1, 38},
+		{"temp_max", "Band high", "°C", 1, 45},
+	}, false, true},
+	// ── Connectivity ──
+	{"offline", "Device offline during service", "Fires when a device is silent longer than the threshold during service hours. Deployed units only.", []alertParamField{
+		{"offline_minutes", "Offline after", "min", 1, 5},
+	}, true, true},
+	// ── Storage ──
+	{"storage_low", "Storage critically low", "Fires when free storage falls below the critical floor.", []alertParamField{
+		{"free_gb", "Free floor", "GB", 0.1, 0.5},
+	}, false, true},
+	{"storage_filling", "Storage filling fast", "Fires when free storage is below the warning floor or dropped sharply over 24 h (above the critical floor).", []alertParamField{
+		{"low_gb", "Warning floor", "GB", 0.1, 1.5},
+		{"drop_gb", "24h drop", "GB", 0.1, 0.2},
+	}, false, false},
+	// ── System health ──
 	{"no_overnight_charge", "Did not charge overnight", "Fires when a device didn't reach the target overnight battery level or charging coverage.", []alertParamField{
 		{"min_full_pct", "Min overnight battery", "%", 1, 90},
 		{"max_charge_frac", "Max charging coverage", "0–1", 0.05, 0.3},
-	}},
-	{"battery_health_decline", "Battery health declining", "Fires when the overnight-full to shift-end battery drop grows week over week.", []alertParamField{
-		{"drop_pct", "Decline threshold", "%", 1, 15},
-		{"window_days", "Comparison window", "days", 1, 7},
-	}},
+	}, false, false},
 	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Hourly Report uses for memory.", []alertParamField{
 		{"ram_pct", "RAM usage", "%", 1, 85},
-	}},
+	}, false, false},
 }
 
 type alertFieldView struct {
@@ -4442,6 +4495,8 @@ type alertRuleView struct {
 	ID, Type, Name, Desc string
 	Enabled              bool
 	Fields               []alertFieldView
+	Windowed, Recent     bool
+	ActiveWindow         string
 }
 
 // buildAlertRuleViews merges the seeded alert rules with the field catalog so the
@@ -4471,7 +4526,15 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleView {
 			}
 			fields = append(fields, alertFieldView{f.Key, f.Label, f.Unit, f.Step, val})
 		}
-		out = append(out, alertRuleView{r.ID.String(), def.Type, def.Label, def.Desc, r.Enabled, fields})
+		aw := r.ActiveWindow
+		if aw == "" {
+			aw = "always"
+		}
+		out = append(out, alertRuleView{
+			ID: r.ID.String(), Type: def.Type, Name: def.Label, Desc: def.Desc,
+			Enabled: r.Enabled, Fields: fields,
+			Windowed: def.Windowed, Recent: def.Recent, ActiveWindow: aw,
+		})
 	}
 	return out
 }
@@ -4521,6 +4584,7 @@ func (h *Handler) SettingsUpdateAlertRule(w http.ResponseWriter, r *http.Request
 	var def *struct {
 		Type, Label, Desc string
 		Fields            []alertParamField
+		Windowed, Recent  bool
 	}
 	for i := range alertRuleDefs {
 		if alertRuleDefs[i].Type == typ {
@@ -4541,7 +4605,19 @@ func (h *Handler) SettingsUpdateAlertRule(w http.ResponseWriter, r *http.Request
 		}
 	}
 	pj, _ := json.Marshal(params)
-	if err := h.db.UpdateAlertRule(r.Context(), id, r.FormValue("enabled") == "on", pj); err != nil {
+	// active_window is only honored for windowed (operational) rules; "" leaves it as-is.
+	aw := ""
+	if def.Windowed {
+		switch r.FormValue("active_window") {
+		case "service":
+			aw = "service"
+		case "overnight":
+			aw = "overnight"
+		case "always":
+			aw = "always"
+		}
+	}
+	if err := h.db.UpdateAlertRule(r.Context(), id, r.FormValue("enabled") == "on", pj, aw); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}

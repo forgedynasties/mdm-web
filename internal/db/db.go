@@ -2566,14 +2566,19 @@ func (d *DB) ListAlertRules(ctx context.Context, onlyEnabled bool) ([]AlertRule,
 	return out, rows.Err()
 }
 
-// UpdateAlertRule sets a rule's enabled flag and threshold params.
-func (d *DB) UpdateAlertRule(ctx context.Context, id uuid.UUID, enabled bool, params json.RawMessage) error {
+// UpdateAlertRule sets a rule's enabled flag and threshold params. activeWindow is
+// applied only when non-empty (so updating a non-windowed rule leaves it unchanged);
+// pass "always"/"service"/"overnight" to set it.
+func (d *DB) UpdateAlertRule(ctx context.Context, id uuid.UUID, enabled bool, params json.RawMessage, activeWindow string) error {
 	if len(params) == 0 {
 		params = json.RawMessage("{}")
 	}
 	_, err := d.pool.Exec(ctx, `
-		UPDATE alert_rules SET enabled = $2, params = $3::jsonb WHERE id = $1
-	`, id, enabled, params)
+		UPDATE alert_rules
+		SET enabled = $2, params = $3::jsonb,
+		    active_window = COALESCE(NULLIF($4, ''), active_window)
+		WHERE id = $1
+	`, id, enabled, params, activeWindow)
 	return err
 }
 
