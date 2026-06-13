@@ -161,11 +161,18 @@ func (m *Manager) ensureStream(key outputKey) *outputStream {
 
 func (m *Manager) updateOTAProgress(deviceID, commandID uuid.UUID, phase string, percent int) {
 	m.otaMu.Lock()
+	// UpdatedAt tracks the last time progress actually advanced (phase or percent
+	// changed), not merely the last report — so a device that keeps checking in but is
+	// wedged at the same percent goes stale and gets flagged "stalled".
+	updatedAt := time.Now()
+	if prev := m.otaState[deviceID]; prev != nil && prev.Phase == phase && prev.Percent == percent {
+		updatedAt = prev.UpdatedAt
+	}
 	m.otaState[deviceID] = &OTAProgress{
 		CommandID: commandID,
 		Phase:     phase,
 		Percent:   percent,
-		UpdatedAt: time.Now(),
+		UpdatedAt: updatedAt,
 	}
 	m.otaMu.Unlock()
 	log.Printf("[ota] device %s: %s %d%%", deviceID, phase, percent)
