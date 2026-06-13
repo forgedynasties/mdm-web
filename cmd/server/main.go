@@ -22,25 +22,23 @@ import (
 	"mdm/internal/ws"
 )
 
-var (
-)
-
+var ()
 
 func main() {
 	ctx := context.Background()
 
-	port          := getEnv("PORT", "8080")
-	dbHost        := getEnv("DB_HOST", "localhost")
-	dbPort        := getEnv("DB_PORT", "5432")
-	dbUser        := getEnv("DB_USER", "mdm")
-	dbPass        := getEnv("DB_PASSWORD", "mdm")
-	dbName        := getEnv("DB_NAME", "mdm")
-	deviceAPIKey  := mustEnv("DEVICE_API_KEY")
-	adminAPIKey   := mustEnv("ADMIN_API_KEY")
-	dashUser      := getEnv("DASHBOARD_USER", "admin")
-	dashPass      := mustEnv("DASHBOARD_PASSWORD")
+	port := getEnv("PORT", "8080")
+	dbHost := getEnv("DB_HOST", "localhost")
+	dbPort := getEnv("DB_PORT", "5432")
+	dbUser := getEnv("DB_USER", "mdm")
+	dbPass := getEnv("DB_PASSWORD", "mdm")
+	dbName := getEnv("DB_NAME", "mdm")
+	deviceAPIKey := mustEnv("DEVICE_API_KEY")
+	adminAPIKey := mustEnv("ADMIN_API_KEY")
+	dashUser := getEnv("DASHBOARD_USER", "admin")
+	dashPass := mustEnv("DASHBOARD_PASSWORD")
 	sessionSecret := getEnv("SESSION_SECRET", deviceAPIKey)
-	configPath    := getEnv("CONFIG_PATH", "config/display.json")
+	configPath := getEnv("CONFIG_PATH", "config/display.json")
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPass, dbName)
@@ -174,34 +172,34 @@ func main() {
 	mux.Handle("GET /api/v1/ws", deviceAuth(http.HandlerFunc(apiHandler.Connect)))
 
 	// Device-authenticated endpoints
-	mux.Handle("POST /api/v1/checkin",               deviceAuth(http.HandlerFunc(apiHandler.Checkin)))
-	mux.Handle("POST /api/v1/commands/{id}/ack",     deviceAuth(http.HandlerFunc(apiHandler.AckCommand)))
-	mux.Handle("POST /api/v1/logcat",                deviceAuth(http.HandlerFunc(apiHandler.SubmitLogcat)))
-	mux.Handle("POST /api/v1/ota/status",            deviceAuth(http.HandlerFunc(apiHandler.OtaStatus)))
+	mux.Handle("POST /api/v1/checkin", deviceAuth(http.HandlerFunc(apiHandler.Checkin)))
+	mux.Handle("POST /api/v1/commands/{id}/ack", deviceAuth(http.HandlerFunc(apiHandler.AckCommand)))
+	mux.Handle("POST /api/v1/logcat", deviceAuth(http.HandlerFunc(apiHandler.SubmitLogcat)))
+	mux.Handle("POST /api/v1/ota/status", deviceAuth(http.HandlerFunc(apiHandler.OtaStatus)))
 
 	// Admin-authenticated API endpoints
-	mux.Handle("GET /api/v1/devices",                adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
-	mux.Handle("GET /api/v1/devices/{serial}",       adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
+	mux.Handle("GET /api/v1/devices", adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
+	mux.Handle("GET /api/v1/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.GetDevice)))
 	mux.Handle("POST /api/v1/devices/{serial}/ping", adminAuth(http.HandlerFunc(apiHandler.PingDevice)))
 	mux.Handle("GET /api/v1/remote/{serial}", http.HandlerFunc(apiHandler.ConnectRemote))
 
 	// Groups
-	mux.Handle("GET /api/v1/groups",                 adminAuth(http.HandlerFunc(apiHandler.ListGroups)))
-	mux.Handle("POST /api/v1/groups",                adminAuth(http.HandlerFunc(apiHandler.CreateGroup)))
-	mux.Handle("GET /api/v1/groups/{id}",            adminAuth(http.HandlerFunc(apiHandler.GetGroup)))
-	mux.Handle("DELETE /api/v1/groups/{id}",         adminAuth(http.HandlerFunc(apiHandler.DeleteGroup)))
-	mux.Handle("POST /api/v1/groups/{id}/devices",   adminAuth(http.HandlerFunc(apiHandler.AddDeviceToGroup)))
+	mux.Handle("GET /api/v1/groups", adminAuth(http.HandlerFunc(apiHandler.ListGroups)))
+	mux.Handle("POST /api/v1/groups", adminAuth(http.HandlerFunc(apiHandler.CreateGroup)))
+	mux.Handle("GET /api/v1/groups/{id}", adminAuth(http.HandlerFunc(apiHandler.GetGroup)))
+	mux.Handle("DELETE /api/v1/groups/{id}", adminAuth(http.HandlerFunc(apiHandler.DeleteGroup)))
+	mux.Handle("POST /api/v1/groups/{id}/devices", adminAuth(http.HandlerFunc(apiHandler.AddDeviceToGroup)))
 	mux.Handle("DELETE /api/v1/groups/{id}/devices/{serial}", adminAuth(http.HandlerFunc(apiHandler.RemoveDeviceFromGroup)))
 
-	mux.Handle("GET /api/v1/productions",            adminAuth(http.HandlerFunc(apiHandler.ListProductions)))
-	mux.Handle("POST /api/v1/productions",           adminAuth(http.HandlerFunc(apiHandler.CreateProduction)))
-	mux.Handle("GET /api/v1/productions/{id}",       adminAuth(http.HandlerFunc(apiHandler.GetProduction)))
-	mux.Handle("DELETE /api/v1/productions/{id}",    adminAuth(http.HandlerFunc(apiHandler.DeleteProduction)))
+	mux.Handle("GET /api/v1/productions", adminAuth(http.HandlerFunc(apiHandler.ListProductions)))
+	mux.Handle("POST /api/v1/productions", adminAuth(http.HandlerFunc(apiHandler.CreateProduction)))
+	mux.Handle("GET /api/v1/productions/{id}", adminAuth(http.HandlerFunc(apiHandler.GetProduction)))
+	mux.Handle("DELETE /api/v1/productions/{id}", adminAuth(http.HandlerFunc(apiHandler.DeleteProduction)))
 
 	// Commands
-	mux.Handle("GET /api/v1/commands",               adminAuth(http.HandlerFunc(apiHandler.ListCommands)))
-	mux.Handle("POST /api/v1/commands",              adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
-	mux.Handle("GET /api/v1/commands/{id}",          adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
+	mux.Handle("GET /api/v1/commands", adminAuth(http.HandlerFunc(apiHandler.ListCommands)))
+	mux.Handle("POST /api/v1/commands", adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
+	mux.Handle("GET /api/v1/commands/{id}", adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 
 	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
 	dash.RegisterRoutes(mux)

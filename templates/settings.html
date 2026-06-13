@@ -142,6 +142,40 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Service hours</h3></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:12px;">
+      Operational alerts (offline, low battery, charging, pad) only fire while a venue is open, and overnight-charging alerts only fire overnight. Set the default below; override per restaurant as needed. Timezone is <span class="mono">GMT±h</span> (e.g. <span class="mono">GMT-5</span>); leave blank to use each device's reported timezone.
+    </div>
+    {{define "swrow"}}
+    <form action="/settings/service-window" method="POST" style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-soft);">
+      <input type="hidden" name="group_id" value="{{.GroupID}}">
+      <div style="min-width:150px;">
+        <strong class="small">{{if .GroupName}}{{.GroupName}}{{else}}Fleet default{{end}}</strong>
+        {{if and .GroupID (not .HasOwn)}}<div class="muted small">inherits fleet default</div>{{end}}
+      </div>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Open
+        <input type="time" name="open" value="{{.Open}}" class="form-input" style="width:120px;"></label>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Close
+        <input type="time" name="close" value="{{.Close}}" class="form-input" style="width:120px;"></label>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Night start
+        <input type="time" name="night_open" value="{{.NightOpen}}" class="form-input" style="width:120px;"></label>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Night end
+        <input type="time" name="night_close" value="{{.NightClose}}" class="form-input" style="width:120px;"></label>
+      <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Timezone
+        <input type="text" name="timezone" value="{{.TZ}}" placeholder="GMT±h" class="form-input" style="width:90px;"></label>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      {{if and .GroupID .HasOwn}}
+      <button type="submit" name="action" value="reset" class="btn-outline" style="font-size:12px;padding:4px 14px;">Reset</button>
+      {{end}}
+    </form>
+    {{end}}
+    {{template "swrow" .FleetWindow}}
+    {{range .GroupWindows}}{{template "swrow" .}}{{end}}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>AI Analysis</h3></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
