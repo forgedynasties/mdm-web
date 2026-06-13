@@ -3409,6 +3409,10 @@ UPDATE ota_packages p SET release_id = r.id
   WHERE r.version = COALESCE(NULLIF(p.target_build_id,''), p.build_id) AND p.release_id IS NULL;
 UPDATE updates u SET release_id = p.release_id
   FROM ota_packages p WHERE p.id = u.ota_package_id AND u.release_id IS NULL;
+
+-- Release deployments pick the per-device artifact at resolve time, so a
+-- deployment no longer needs a single package. (DROP NOT NULL is idempotent.)
+ALTER TABLE updates ALTER COLUMN ota_package_id DROP NOT NULL;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -3592,11 +3596,27 @@ func (d *DB) ListPackagesByRelease(ctx context.Context, releaseID int) ([]OTAPac
 func (d *DB) CreateUpdate(ctx context.Context, otaPackageID int, rebootBehavior string, scheduledTime *time.Time) (*Update, error) {
 	var u Update
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO updates (ota_package_id, reboot_behavior, scheduled_time, status)
-		VALUES ($1, $2, $3, 'pending')
-		RETURNING id, ota_package_id, reboot_behavior, scheduled_time, status, created_at
+		INSERT INTO updates (ota_package_id, release_id, reboot_behavior, scheduled_time, status)
+		SELECT $1, p.release_id, $2, $3, 'pending' FROM ota_packages p WHERE p.id = $1
+		RETURNING id, COALESCE(ota_package_id, 0), release_id, reboot_behavior, scheduled_time, status, created_at
 	`, otaPackageID, rebootBehavior, scheduledTime).
-		Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt)
+		Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt)
+	return &u, err
+}
+
+// CreateReleaseUpdate creates a deployment for a whole release. ota_package_id is
+// set to the release's full package when present (representative / back-compat);
+// the per-device artifact is chosen at resolve time by ResolveUpdateForDevice.
+func (d *DB) CreateReleaseUpdate(ctx context.Context, releaseID int, rebootBehavior string, scheduledTime *time.Time) (*Update, error) {
+	var u Update
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO updates (release_id, ota_package_id, reboot_behavior, scheduled_time, status)
+		VALUES ($1,
+		        (SELECT id FROM ota_packages WHERE release_id = $1 AND type = 'full' ORDER BY created_at DESC LIMIT 1),
+		        $2, $3, 'pending')
+		RETURNING id, COALESCE(ota_package_id, 0), release_id, reboot_behavior, scheduled_time, status, created_at
+	`, releaseID, rebootBehavior, scheduledTime).
+		Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt)
 	return &u, err
 }
 
@@ -3719,17 +3739,29 @@ func (d *DB) DeviceHasActiveUpdate(ctx context.Context, deviceID uuid.UUID) (boo
 func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*Update, error) {
 	var u Update
 	var p OTAPackage
+	// Resolve via the deployment's release and pick the per-device artifact: the
+	// incremental whose source build matches the device's current build if one
+	// exists, otherwise the full image. Only published releases and active
+	// packages are eligible.
 	err := d.pool.QueryRow(ctx, `
-		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at, ud.status,
-		       p.id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.changelog, p.status, p.created_at
+		SELECT u.id, COALESCE(u.ota_package_id, 0), u.release_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at, ud.status,
+		       p.id, p.release_id, p.type, p.target_build_id, p.source_build_id, p.release_date, p.update_url, p.changelog, p.status, p.created_at
 		FROM update_devices ud
 		JOIN updates u ON u.id = ud.update_id
-		JOIN ota_packages p ON p.id = u.ota_package_id
-		WHERE ud.device_id = $1 AND u.status = 'active' AND ud.status != 'installed' AND p.status = 'active'
+		JOIN releases rel ON rel.id = u.release_id
+		JOIN devices d ON d.id = ud.device_id
+		JOIN LATERAL (
+			SELECT pk.* FROM ota_packages pk
+			WHERE pk.release_id = u.release_id AND pk.status = 'active'
+			  AND (pk.type = 'full' OR (pk.type = 'incremental' AND pk.source_build_id = d.build_id))
+			ORDER BY (pk.type = 'incremental' AND pk.source_build_id = d.build_id) DESC, pk.created_at DESC
+			LIMIT 1
+		) p ON true
+		WHERE ud.device_id = $1 AND u.status = 'active' AND ud.status != 'installed' AND rel.status = 'published'
 		ORDER BY u.created_at DESC
 		LIMIT 1
-	`, deviceID).Scan(&u.ID, &u.OtaPackageID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt, &u.DeviceStatus,
-		&p.ID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt)
+	`, deviceID).Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt, &u.DeviceStatus,
+		&p.ID, &p.ReleaseID, &p.Type, &p.TargetBuildID, &p.SourceBuildID, &p.ReleaseDate, &p.UpdateURL, &p.Changelog, &p.Status, &p.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
