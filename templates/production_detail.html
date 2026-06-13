@@ -81,14 +81,14 @@
 <div class="card">
   <div class="card-header">
     <h3>Connected Devices</h3>
-    <span class="muted small">{{len .Devices}} of {{.Production.Total}} units have connected to MDM</span>
+    <span class="muted small">{{len .Devices}} of {{.Production.Total}} units have connected to AIO MDM</span>
   </div>
 
   {{if not .Devices}}
   <div class="empty-state">
     <div class="empty-state-copy">
       <div class="empty-state-title">No devices connected yet</div>
-      <div class="empty-state-text">Devices will appear here once they check in to MDM for the first time.</div>
+      <div class="empty-state-text">Devices will appear here once they check in to AIO MDM for the first time.</div>
     </div>
   </div>
   {{else}}
