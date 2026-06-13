@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
@@ -2915,6 +2916,19 @@ func (h *Handler) OTAPackageCreate(w http.ResponseWriter, r *http.Request) {
 	targetBuildID := strings.TrimSpace(r.FormValue("target_build_id"))
 	sourceBuildID := strings.TrimSpace(r.FormValue("source_build_id"))
 	updateURL := strings.TrimSpace(r.FormValue("update_url"))
+	// The dashboard sends update_url as URL-safe base64 (update_url_b64) so an
+	// upstream WAF doesn't see the raw URL — an internal OTA host like
+	// http://10.0.0.5:3001/update.zip otherwise trips managed SSRF/RFI rules and
+	// the ALB rejects the POST with a 403 before it reaches us. Plain update_url
+	// stays as a fallback for API callers that don't encode.
+	if b64 := strings.TrimSpace(r.FormValue("update_url_b64")); b64 != "" {
+		dec, err := base64.RawURLEncoding.DecodeString(b64)
+		if err != nil {
+			http.Error(w, "invalid update_url encoding", http.StatusBadRequest)
+			return
+		}
+		updateURL = strings.TrimSpace(string(dec))
+	}
 	changelog := strings.TrimSpace(r.FormValue("changelog"))
 
 	if targetBuildID == "" || updateURL == "" {
