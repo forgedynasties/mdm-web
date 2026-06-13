@@ -283,7 +283,7 @@ Telemetry already collected (client → `checkins.extra`, see §1): `battery_pct
 | 23 | Storage filling fast (<1.5 GB or >200 MB/24h) | Warn | **new** `storage_filling` | 1 | snapshot + daily delta (new daily-stats column) |
 | 24 | Unexpected reboot | Warn | **new** `unexpected_reboot` | 1 (reason → 2) | reboot detectable now via `uptime_seconds` reset; reason code needs client |
 | 25 | OS out of compliance (>1 minor behind) | Info | **new** `os_noncompliant` | 2 | only `build_id` today; needs semantic OS version + baseline config |
-| 26 | Memory pressure (avail RAM <400 MB sustained) | Crit | refine `memory_pressure` | 1 | exists as %-based; add absolute-MB threshold + enable; recent-eval for "sustained" |
+| 26 | Memory pressure (avail RAM <400 MB sustained) | Crit | **new** `memory_low` | 1 | recent-tier absolute-MB sustained rule (the %-based `memory_pressure` daily rule stays) |
 
 **Phase 1 (server-only, telemetry already in hand):** alerts 1, 2, 3, 4, 5, 6, 10, 11, 12,
 13✓, 14, 15, 22, 23, 24 (occurrence), 26. Plus the cross-cutting primitives §9–§11.
@@ -408,3 +408,14 @@ Dashboard: the existing **Alerts** page gains a severity filter (incl. info) and
   with legacy-webhook migration. Window-gated (operational) rules fire for **deployed units
   only** so lab-bench noise stays out of the Alerts feed and the AI report, preserving the
   lab-vs-deployment distinction.
+- **2026-06-13** — Phase 1 **complete**: dashboard UI landed (Settings cards for alert
+  rules incl. active-window selector + a 'live' badge, per-restaurant **service windows**,
+  and **alert-channel** CRUD; severity filter incl. `info` on the Alerts page), plus the
+  last two server-feasible rules — `unexpected_reboot` (uptime-reset, service window,
+  deployed-only) and `memory_low` (sustained available-RAM floor, always-on). 18 default
+  rules. Verified end-to-end on a fresh DB: migrations apply, server binds, and
+  `/health`, `/login`, `/settings`, `/alerts` all render 200. Also hardened deploys: fixed
+  two startup crashes (service_windows PK, nested template define) and made the daily-stats
+  backfill bounded + one-time so `compose up --build` is fast. Phase 2 (AOSP client
+  telemetry: battery health/cycles, device thermal, wifi disconnects/RSSI, foreground app,
+  crashes/ANR, kiosk-exit, reboot reason, OS version) remains.
