@@ -3016,14 +3016,28 @@ func (h *Handler) createPackageFromForm(w http.ResponseWriter, r *http.Request, 
 	return pkg, true
 }
 
-// OTAPackageCreate handles the "new release" form: create the first package,
-// which auto-creates its release, then land on the release.
-func (h *Handler) OTAPackageCreate(w http.ResponseWriter, r *http.Request) {
-	pkg, ok := h.createPackageFromForm(w, r, "")
-	if !ok {
+// ReleaseCreate creates an empty release identified by its build id (the unique
+// version). Packages — the full image and any incrementals — are added
+// afterward on the release page.
+func (h *Handler) ReleaseCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	version := strings.TrimSpace(r.FormValue("version"))
+	if version == "" {
+		http.Error(w, "release build id is required", http.StatusBadRequest)
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", pkg.ReleaseID), http.StatusSeeOther)
+	rel, err := h.db.GetOrCreateRelease(r.Context(), version)
+	if err != nil {
+		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	changelog := strings.TrimSpace(r.FormValue("changelog"))
+	if name != "" || changelog != "" {
+		_ = h.db.SetReleaseMeta(r.Context(), rel.ID, name, changelog)
+	}
+	h.audit(r, "release.create", version, "")
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", rel.ID), http.StatusSeeOther)
 }
 
 // ReleaseAddPackage adds another package (e.g. an incremental) to an existing
@@ -3061,6 +3075,14 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
 
+	hasFull := false
+	for _, p := range packages {
+		if p.Type == "full" && p.Status == "active" {
+			hasFull = true
+			break
+		}
+	}
+
 	h.render(w, r, "release_detail.html", map[string]any{
 		"Title":       "Release " + rel.Version,
 		"Release":     rel,
@@ -3068,6 +3090,7 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"Deployments": deployments,
 		"Devices":     devices,
 		"Groups":      groups,
+		"HasFull":     hasFull,
 	})
 }
 
@@ -3144,6 +3167,20 @@ func (h *Handler) ReleaseDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 	if rel.Status != "published" {
 		http.Error(w, "Release must be published before it can be deployed.", http.StatusBadRequest)
+		return
+	}
+	// A push needs a full image as the baseline — a device not on one of the
+	// incremental source builds has nothing to apply otherwise.
+	pkgs, _ := h.db.ListPackagesByRelease(r.Context(), relID)
+	hasFull := false
+	for _, p := range pkgs {
+		if p.Type == "full" && p.Status == "active" {
+			hasFull = true
+			break
+		}
+	}
+	if !hasFull {
+		http.Error(w, "Add a full OTA package to this release before pushing.", http.StatusBadRequest)
 		return
 	}
 	r.ParseForm()
@@ -5160,7 +5197,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 
 	mux.HandleFunc("GET /updates", h.requireAuth(h.ReleaseList))
-	post("POST /updates", h.requireAdmin(h.OTAPackageCreate))
+	post("POST /updates", h.requireAdmin(h.ReleaseCreate))
 	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.ReleaseDetail))
 	post("POST /updates/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /updates/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
