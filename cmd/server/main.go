@@ -207,7 +207,7 @@ func main() {
 	// One-time backfill of daily stats for any historical days not yet rolled up.
 	// Runs in the background so it never blocks startup.
 	go func() {
-		if n, err := database.BackfillDailyStats(context.Background()); err != nil {
+		if n, err := database.BackfillDailyStats(context.Background(), cfg.CheckinRetentionDays()); err != nil {
 			log.Printf("[startup] backfill daily stats: %v", err)
 		} else if n > 0 {
 			log.Printf("[startup] backfilled daily stats for %d day(s)", n)
