@@ -2196,39 +2196,56 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 	return tag.RowsAffected(), nil
 }
 
-// BackfillDailyStats rolls up every calendar day present in checkins that has no
-// rows yet in device_daily_stats. Used once at startup so historical telemetry is
-// captured before the hourly rollup takes over the current/recent days. Returns the
-// number of days processed.
-func (d *DB) BackfillDailyStats(ctx context.Context) (int, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT DISTINCT c.created_at::date AS day
-		FROM checkins c
-		WHERE NOT EXISTS (
-			SELECT 1 FROM device_daily_stats s WHERE s.day = c.created_at::date)
-		ORDER BY day`)
-	if err != nil {
+// backfillFlag marks the one-time historical daily-stats backfill as done, so it never
+// re-runs on subsequent deploys (the hourly housekeeping keeps recent days current).
+const backfillFlag = "daily_stats_backfilled_v1"
+
+// BackfillDailyStats rolls up recent calendar days that have checkins but no
+// device_daily_stats row yet, so historical telemetry is captured the first time the
+// feature is deployed. Bounded to the last maxDays days (checkins beyond retention are
+// pruned, so older days have no data to roll up) and probed with cheap indexed EXISTS
+// queries — no full-table scan. Runs at most once ever (guarded by app_flags), so every
+// later deploy returns immediately and startup stays fast. Returns days processed.
+func (d *DB) BackfillDailyStats(ctx context.Context, maxDays int) (int, error) {
+	var done bool
+	if err := d.pool.QueryRow(ctx,
+		`SELECT EXISTS(SELECT 1 FROM app_flags WHERE flag = $1)`, backfillFlag).Scan(&done); err != nil {
 		return 0, err
 	}
-	var days []time.Time
-	for rows.Next() {
-		var day time.Time
-		if err := rows.Scan(&day); err != nil {
-			rows.Close()
-			return 0, err
+	if done {
+		return 0, nil
+	}
+	if maxDays <= 0 || maxDays > 120 {
+		maxDays = 120 // cap work even when retention is "keep forever"
+	}
+	today := time.Now().UTC()
+	n := 0
+	for i := 1; i <= maxDays; i++ { // start at yesterday; today is owned by housekeeping
+		dayStr := today.AddDate(0, 0, -i).Format("2006-01-02")
+		var rolled, hasCheckins bool
+		if err := d.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM device_daily_stats WHERE day = $1::date)`, dayStr).Scan(&rolled); err != nil {
+			return n, err
 		}
-		days = append(days, day)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return 0, err
-	}
-	for _, day := range days {
+		if rolled {
+			continue
+		}
+		if err := d.pool.QueryRow(ctx,
+			`SELECT EXISTS(SELECT 1 FROM checkins WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day'))`,
+			dayStr).Scan(&hasCheckins); err != nil {
+			return n, err
+		}
+		if !hasCheckins {
+			continue
+		}
+		day, _ := time.Parse("2006-01-02", dayStr)
 		if _, err := d.RollupDailyStats(ctx, day); err != nil {
-			return 0, err
+			return n, err
 		}
+		n++
 	}
-	return len(days), nil
+	_, err := d.pool.Exec(ctx, `INSERT INTO app_flags (flag) VALUES ($1) ON CONFLICT DO NOTHING`, backfillFlag)
+	return n, err
 }
 
 // DeviceDailyStat is one rolled-up day of telemetry for a device. Aggregate columns
