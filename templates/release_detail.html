@@ -131,13 +131,19 @@
 </div>
 {{end}}
 
-<!-- Deploy form -->
-{{if eq $rel.Status "published"}}
+<!-- Push update -->
 {{if eq .Role "admin"}}
+{{if eq $rel.Status "published"}}
+{{if not .HasFull}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Push Update</h3></div>
+  <div style="padding:16px;" class="muted small">Add a <strong>full OTA package</strong> above before you can push this release.</div>
+</div>
+{{else}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
-    <h3>New Deployment</h3>
-    <span class="muted small">Deploy this release; each device gets the matching artifact.</span>
+    <h3>Push Update</h3>
+    <span class="muted small">Push this release to devices; each one gets the matching artifact.</span>
   </div>
   <form action="/updates/{{$rel.ID}}/deploy" method="POST" class="command-form">
     <div class="form-row">
@@ -213,9 +219,10 @@
       <div class="form-hint">Cap how many devices receive this deployment. Useful for staged rollouts.</div>
     </div>
 
-    <button type="submit" class="btn-primary">Deploy</button>
+    <button type="submit" class="btn-primary">Push Update</button>
   </form>
 </div>
+{{end}}
 {{end}}
 {{end}}
 

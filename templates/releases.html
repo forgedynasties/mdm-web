@@ -70,69 +70,31 @@
       <button class="modal-close" aria-label="Close" type="button" onclick="document.getElementById('create-pkg-modal').classList.remove('modal-open')">&times;</button>
     </div>
     <div class="modal-body">
-      <form id="create-pkg-form" action="/updates" method="POST" class="command-form" style="padding:0;">
+      <form action="/updates" method="POST" class="command-form" style="padding:0;">
         <div class="form-row">
-          <label class="form-label">Type</label>
-          <div class="seg-control">
-            <button type="button" class="seg-btn active" data-mode="full"        onclick="setPkgType('full')">Full</button>
-            <button type="button" class="seg-btn"        data-mode="incremental" onclick="setPkgType('incremental')">Incremental</button>
-          </div>
-          <input type="hidden" name="type" id="pkg-type-input" value="full">
+          <label class="form-label">Release Build ID</label>
+          <input type="text" name="version" class="form-input" placeholder="e.g. 2026.06.01-release" required autofocus>
+          <div class="form-hint">The build devices will be on after this release. This is the unique release identifier.</div>
         </div>
         <div class="form-row">
-          <label class="form-label">Target Build ID (version)</label>
-          <input type="text" name="target_build_id" class="form-input" placeholder="e.g. 2026.06.01-release" required>
-          <div class="form-hint">The build the device will be on after the update. This is the release version.</div>
-        </div>
-        <div class="form-row" id="source-build-row" style="display:none;">
-          <label class="form-label">Source Build ID</label>
-          <input type="text" name="source_build_id" id="pkg-source-build" class="form-input" placeholder="e.g. 2026.05.01-release">
-          <div class="form-hint">Only devices currently on this build will receive this incremental.</div>
+          <label class="form-label">Name <span class="muted small">(optional)</span></label>
+          <input type="text" name="name" class="form-input" placeholder="e.g. June security update">
         </div>
         <div class="form-row">
-          <label class="form-label">Package URL</label>
-          <input type="url" name="update_url" id="pkg-update-url" class="form-input" placeholder="https://..." required>
-          <input type="hidden" name="update_url_b64" id="pkg-update-url-b64">
-          <div class="form-hint">External URL where the OTA zip is hosted.</div>
-        </div>
-        <div class="form-row">
-          <label class="form-label">Changelog</label>
+          <label class="form-label">Changelog <span class="muted small">(optional)</span></label>
           <textarea name="changelog" class="form-textarea" rows="4" placeholder="What changed in this release…" style="resize:vertical;"></textarea>
         </div>
         <button type="submit" class="btn-primary">Create Release</button>
+        <div class="form-hint" style="margin-top:8px;">You'll add the full OTA package and incrementals on the next screen.</div>
       </form>
     </div>
   </div>
 </div>
 
 <script>
-function setPkgType(mode) {
-  document.getElementById('pkg-type-input').value = mode;
-  var srcRow = document.getElementById('source-build-row');
-  var srcInput = document.getElementById('pkg-source-build');
-  srcRow.style.display = mode === 'incremental' ? '' : 'none';
-  srcInput.required = mode === 'incremental';
-  document.querySelectorAll('#create-pkg-modal .seg-btn').forEach(function(btn) {
-    btn.classList.toggle('active', btn.dataset.mode === mode);
-  });
-}
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') document.getElementById('create-pkg-modal').classList.remove('modal-open');
 });
-// Send update_url as URL-safe base64 so its value carries no "://" or raw-IP
-// pattern for an upstream WAF to flag; the server decodes update_url_b64.
-(function() {
-  var form = document.getElementById('create-pkg-form');
-  if (!form) return;
-  form.addEventListener('submit', function() {
-    var urlInput = document.getElementById('pkg-update-url');
-    var b64Input = document.getElementById('pkg-update-url-b64');
-    if (!urlInput || !b64Input || !urlInput.value) return;
-    b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-    urlInput.removeAttribute('name');
-  });
-})();
 </script>
 {{end}}
 
