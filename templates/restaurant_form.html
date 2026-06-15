@@ -33,10 +33,15 @@
                value="{{with .Restaurant}}{{with .Longitude}}{{.}}{{end}}{{end}}">
       </div>
     </div>
+    {{$tz := ""}}{{with .Restaurant}}{{$tz = .Timezone}}{{end}}
     <div class="form-row">
-      <label class="form-label">Timezone <span class="muted small">(optional — empty uses each device's reported tz)</span></label>
-      <input type="text" name="timezone" class="form-input" placeholder="e.g. GMT-8 or America/Los_Angeles"
-             value="{{with .Restaurant}}{{.Timezone}}{{end}}">
+      <label class="form-label">Timezone <span class="muted small">(optional — used for this venue's service hours)</span></label>
+      <select name="timezone" class="form-input">
+        <option value="" {{if eq $tz ""}}selected{{end}}>Use each device's reported timezone</option>
+        {{range iter -12 14}}
+        <option value="GMT{{if ge . 0}}+{{end}}{{.}}" {{if eq $tz (printf "GMT%+d" .)}}selected{{end}}>GMT{{if ge . 0}}+{{end}}{{.}}{{if eq . 0}} (UTC){{end}}</option>
+        {{end}}
+      </select>
     </div>
     <div class="form-row">
       <label class="form-label">Notes <span class="muted small">(optional)</span></label>
