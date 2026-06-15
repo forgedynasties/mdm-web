@@ -59,7 +59,6 @@
 
     <div class="cr-head">
       <h3>New command</h3>
-      <span class="muted small">⌘↵ / Ctrl+↵ to send</span>
     </div>
 
     <!-- LEFT · action rail -->
@@ -117,7 +116,7 @@
               <div class="suggest-row">{{range .ShellRecent}}<button type="button" class="suggest-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>
               {{end}}
               {{if .ShellPopular}}
-              <div class="suggest-lbl">Popular</div>
+              <div class="suggest-lbl">Frequent</div>
               <div class="suggest-row">{{range .ShellPopular}}<button type="button" class="suggest-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>
               {{end}}
             </div>
@@ -127,7 +126,7 @@
             <div class="payload-empty">→ device captures screen on next checkin (5 min window)</div>
           </div>
           <div id="reboot-hint" class="payload-section">
-            <div class="payload-empty" style="color:var(--danger);">⚠ device will restart on next checkin (5 min window)</div>
+            <div class="payload-empty" style="color:var(--danger);display:flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="14" height="14" style="flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>device will restart on next checkin (5 min window)</div>
           </div>
           <div id="splash-fields" class="payload-section">
             <input type="file" name="splash_file" id="splash-file-input" class="form-input" accept="image/bmp,image/png,image/jpeg,.bmp,.png,.jpg,.jpeg" onchange="updatePreview()">
@@ -197,7 +196,6 @@
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
         Send command
       </button>
-      <div class="review-hint muted small">⌘↵ / Ctrl+↵ to send</div>
     </aside>
 
   </div>
@@ -530,7 +528,8 @@ function updatePreview() {
   var warnEl = document.getElementById('rv-warn');
   if (all.length) {
     warnEl.style.display = '';
-    warnEl.innerHTML = all.map(function (w) { return '⚠ ' + w; }).join('<br>');
+    var warnIcon = '<svg viewBox="0 0 24 24" width="13" height="13" style="vertical-align:-2px;margin-right:5px;flex:none;fill:none;stroke:var(--warn);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
+    warnEl.innerHTML = all.map(function (w) { return warnIcon + w; }).join('<br>');
   } else {
     warnEl.style.display = 'none';
     warnEl.textContent = '';
