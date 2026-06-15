@@ -5099,69 +5099,69 @@ type alertParamField struct {
 // calls. Windowed rules are operational (deployed units only) and expose an active-window
 // selector; Recent rules are evaluated every minute, the rest hourly during housekeeping.
 var alertRuleDefs = []struct {
-	Type, Label, Desc string
-	Fields            []alertParamField
-	Windowed, Recent  bool
+	Type, Label, Desc, Category string
+	Fields                      []alertParamField
+	Windowed, Recent            bool
 }{
 	// ── Battery — state of charge (T7 matrix) ──
-	{"soc_low_service", "SoC low during service", "Battery below the floor and unplugged during service hours. Deployed units only.", []alertParamField{
+	{"soc_low_service", "SoC low during service", "Battery below the floor and unplugged during service hours. Deployed units only.", "Battery", []alertParamField{
 		{"soc_pct", "Battery floor", "%", 1, 20},
 	}, true, true},
-	{"soc_low_guest_charging", "SoC low while charging a guest", "Battery below the floor while reverse-charging a guest device on the pad. Deployed units only.", []alertParamField{
+	{"soc_low_guest_charging", "SoC low while charging a guest", "Battery below the floor while reverse-charging a guest device on the pad. Deployed units only.", "Battery", []alertParamField{
 		{"soc_pct", "Battery floor", "%", 1, 20},
 	}, true, true},
-	{"overnight_not_charging", "Not charging overnight", "Plugged in overnight but battery is flat or falling. Deployed units only.", []alertParamField{
+	{"overnight_not_charging", "Not charging overnight", "Plugged in overnight but battery is flat or falling. Deployed units only.", "Battery", []alertParamField{
 		{"min_pct", "Only below", "%", 1, 95},
 	}, true, true},
-	{"overnight_slow_charge", "Charging too slowly overnight", "Plugged in overnight but gained less than the target over ~2 h. Deployed units only.", []alertParamField{
+	{"overnight_slow_charge", "Charging too slowly overnight", "Plugged in overnight but gained less than the target over ~2 h. Deployed units only.", "Battery", []alertParamField{
 		{"gain_pct", "Min 2h gain", "%", 1, 15},
 		{"min_pct", "Only below", "%", 1, 95},
 	}, true, true},
-	{"discharge_rate_idle", "Abnormal discharge — pad idle", "Battery dropping faster than expected while idle (no guest on pad). Deployed units only.", []alertParamField{
+	{"discharge_rate_idle", "Abnormal discharge — pad idle", "Battery dropping faster than expected while idle (no guest on pad). Deployed units only.", "Battery", []alertParamField{
 		{"rate_pct_per_hr", "Max drain", "%/h", 1, 5},
 	}, true, true},
-	{"discharge_rate_active", "Abnormal discharge — pad active", "Battery dropping faster than expected while reverse-charging a guest. Deployed units only.", []alertParamField{
+	{"discharge_rate_active", "Abnormal discharge — pad active", "Battery dropping faster than expected while reverse-charging a guest. Deployed units only.", "Battery", []alertParamField{
 		{"rate_pct_per_hr", "Max drain", "%/h", 1, 14},
 	}, true, true},
-	{"battery_health_decline", "Battery health declining (proxy)", "Fires when the overnight-full to shift-end battery drop grows week over week.", []alertParamField{
+	{"battery_health_decline", "Battery health declining (proxy)", "Fires when the overnight-full to shift-end battery drop grows week over week.", "Battery", []alertParamField{
 		{"drop_pct", "Decline threshold", "%", 1, 15},
 		{"window_days", "Comparison window", "days", 1, 7},
 	}, false, false},
 	// ── Guest charging pad ──
-	{"pad_disconnected", "Guest charging pad disconnected", "Fires when the guest charging pad reports disconnected during service. Deployed units only.", nil, true, true},
-	{"pad_unused", "Guest pad unused all day", "Informational: the pad was available all day but no guest device ever used it. Deployed units only.", nil, false, false},
+	{"pad_disconnected", "Guest charging pad disconnected", "Fires when the guest charging pad reports disconnected during service. Deployed units only.", "Charging pad", nil, true, true},
+	{"pad_unused", "Guest pad unused all day", "Informational: the pad was available all day but no guest device ever used it. Deployed units only.", "Charging pad", nil, false, false},
 	// ── Thermal ──
-	{"overheating", "Battery overheating", "Fires when a device's max daily battery temperature exceeds the threshold.", []alertParamField{
+	{"overheating", "Battery overheating", "Fires when a device's max daily battery temperature exceeds the threshold.", "Thermal", []alertParamField{
 		{"temp_c", "Temperature", "°C", 1, 45},
 	}, false, false},
-	{"temp_elevated", "Temperature elevated", "Fires when battery temperature holds in the elevated band for >15 min (trending toward throttle).", []alertParamField{
+	{"temp_elevated", "Temperature elevated", "Fires when battery temperature holds in the elevated band for >15 min (trending toward throttle).", "Thermal", []alertParamField{
 		{"temp_min", "Band low", "°C", 1, 38},
 		{"temp_max", "Band high", "°C", 1, 45},
 	}, false, true},
 	// ── Connectivity ──
-	{"offline", "Device offline during service", "Fires when a device is silent longer than the threshold during service hours. Deployed units only.", []alertParamField{
+	{"offline", "Device offline during service", "Fires when a device is silent longer than the threshold during service hours. Deployed units only.", "Connectivity", []alertParamField{
 		{"offline_minutes", "Offline after", "min", 1, 5},
 	}, true, true},
 	// ── Storage ──
-	{"storage_low", "Storage critically low", "Fires when free storage falls below the critical floor.", []alertParamField{
+	{"storage_low", "Storage critically low", "Fires when free storage falls below the critical floor.", "Storage", []alertParamField{
 		{"free_gb", "Free floor", "GB", 0.1, 0.5},
 	}, false, true},
-	{"storage_filling", "Storage filling fast", "Fires when free storage is below the warning floor or dropped sharply over 24 h (above the critical floor).", []alertParamField{
+	{"storage_filling", "Storage filling fast", "Fires when free storage is below the warning floor or dropped sharply over 24 h (above the critical floor).", "Storage", []alertParamField{
 		{"low_gb", "Warning floor", "GB", 0.1, 1.5},
 		{"drop_gb", "24h drop", "GB", 0.1, 0.2},
 	}, false, false},
 	// ── System health ──
-	{"no_overnight_charge", "Did not charge overnight", "Fires when a device didn't reach the target overnight battery level or charging coverage.", []alertParamField{
+	{"no_overnight_charge", "Did not charge overnight", "Fires when a device didn't reach the target overnight battery level or charging coverage.", "System", []alertParamField{
 		{"min_full_pct", "Min overnight battery", "%", 1, 90},
 		{"max_charge_frac", "Max charging coverage", "0–1", 0.05, 0.3},
 	}, false, false},
-	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Hourly Report uses for memory.", []alertParamField{
+	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Hourly Report uses for memory.", "System", []alertParamField{
 		{"ram_pct", "RAM usage", "%", 1, 85},
 	}, false, false},
-	{"memory_low", "Memory low (available)", "Fires when available RAM (total − used) holds below the floor for >8 min — Android's low-memory killer territory.", []alertParamField{
+	{"memory_low", "Memory low (available)", "Fires when available RAM (total − used) holds below the floor for >8 min — Android's low-memory killer territory.", "System", []alertParamField{
 		{"avail_mb", "Available floor", "MB", 10, 400},
 	}, false, true},
-	{"unexpected_reboot", "Unexpected reboot", "Fires when a device's uptime resets (rebooted) during service hours. Deployed units only.", []alertParamField{
+	{"unexpected_reboot", "Unexpected reboot", "Fires when a device's uptime resets (rebooted) during service hours. Deployed units only.", "System", []alertParamField{
 		{"window_minutes", "Look-back", "min", 1, 30},
 	}, true, true},
 }
@@ -5179,9 +5179,16 @@ type alertRuleView struct {
 	ActiveWindow         string
 }
 
+// alertRuleGroup buckets rules by category for the Settings UI, with an enabled count.
+type alertRuleGroup struct {
+	Category     string
+	Rules        []alertRuleView
+	EnabledCount int
+}
+
 // buildAlertRuleViews merges the seeded alert rules with the field catalog so the
 // settings page can render an enable toggle + current thresholds per rule.
-func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleView {
+func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 	rules, err := h.db.ListAlertRules(ctx, false)
 	if err != nil {
 		return nil
@@ -5190,7 +5197,8 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleView {
 	for _, r := range rules {
 		byType[r.Type] = r
 	}
-	var out []alertRuleView
+	var groups []alertRuleGroup
+	idx := map[string]int{} // category -> groups index, preserving first-seen order
 	for _, def := range alertRuleDefs {
 		r, ok := byType[def.Type]
 		if !ok {
@@ -5210,13 +5218,23 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleView {
 		if aw == "" {
 			aw = "always"
 		}
-		out = append(out, alertRuleView{
+		view := alertRuleView{
 			ID: r.ID.String(), Type: def.Type, Name: def.Label, Desc: def.Desc,
 			Enabled: r.Enabled, Fields: fields,
 			Windowed: def.Windowed, Recent: def.Recent, ActiveWindow: aw,
-		})
+		}
+		gi, ok := idx[def.Category]
+		if !ok {
+			gi = len(groups)
+			idx[def.Category] = gi
+			groups = append(groups, alertRuleGroup{Category: def.Category})
+		}
+		groups[gi].Rules = append(groups[gi].Rules, view)
+		if r.Enabled {
+			groups[gi].EnabledCount++
+		}
 	}
-	return out
+	return groups
 }
 
 // alertThresholds reads the configurable cutoffs from the alert rules so the fleet
@@ -5262,9 +5280,9 @@ func (h *Handler) SettingsUpdateAlertRule(w http.ResponseWriter, r *http.Request
 	r.ParseForm()
 	typ := r.FormValue("type")
 	var def *struct {
-		Type, Label, Desc string
-		Fields            []alertParamField
-		Windowed, Recent  bool
+		Type, Label, Desc, Category string
+		Fields                      []alertParamField
+		Windowed, Recent            bool
 	}
 	for i := range alertRuleDefs {
 		if alertRuleDefs[i].Type == typ {

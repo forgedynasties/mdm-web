@@ -67,6 +67,9 @@
 .rule-summary{white-space:nowrap;}
 .rule-body{display:none;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-top:10px;padding-left:28px;}
 .rule-item.open .rule-body{display:flex;}
+.rule-item.off .rule-title{color:var(--muted);}
+.rule-group-head{margin:16px 0 2px;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);}
+.rule-group-head:first-child{margin-top:4px;}
 .collapsible-header .collapse-caret{transition:transform .15s;display:inline-block;}
 .collapsible-header.open .collapse-caret{transform:rotate(90deg);}
 </style>
@@ -259,7 +262,9 @@
   <div class="card-header"><h3>Alert rules</h3><span class="muted small">toggle what fires · Edit to tune thresholds</span></div>
   <div style="padding:6px 16px 14px;">
     {{range .AlertRules}}
-    <form action="/settings/alert-rules/{{.ID}}" method="POST" class="rule-item">
+    <div class="rule-group-head">{{.Category}} <span class="muted small" style="font-weight:400;">· {{.EnabledCount}}/{{len .Rules}} on</span></div>
+    {{range .Rules}}
+    <form action="/settings/alert-rules/{{.ID}}" method="POST" class="rule-item{{if not .Enabled}} off{{end}}">
       <input type="hidden" name="type" value="{{.Type}}">
       <div class="rule-head">
         <input type="checkbox" name="enabled"{{if .Enabled}} checked{{end}} title="Enabled">
@@ -289,7 +294,8 @@
       </div>
     </form>
     {{end}}
-    <div class="muted small" style="margin-top:10px;">Operational (windowed) rules apply to deployed units only. Alerts are evaluated hourly during housekeeping.</div>
+    {{end}}
+    <div class="muted small" style="margin-top:12px;">Operational (windowed) rules apply to deployed units only. Alerts are evaluated hourly during housekeeping.</div>
   </div>
 </div>
 
