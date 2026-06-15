@@ -3,20 +3,14 @@
 
 <a href="/restaurants" class="back-link">← Restaurants</a>
 <div class="ov-greet">
-  <h1 class="ov-title">{{.Restaurant.Name}} {{if .Restaurant.Deployed}}<span class="status-badge ok">Deployed</span>{{else}}<span class="status-badge muted">Lab</span>{{end}}</h1>
+  <h1 class="ov-title">{{.Restaurant.Name}}</h1>
   <span class="ov-date">
-    {{.Restaurant.DeviceCount}} device{{if ne .Restaurant.DeviceCount 1}}s{{end}}
+    {{.Restaurant.DeviceCount}} device{{if ne .Restaurant.DeviceCount 1}}s{{end}} deployed here
     {{if .Restaurant.Address}} · {{.Restaurant.Address}}{{end}}
     {{if .Restaurant.Timezone}} · {{.Restaurant.Timezone}}{{end}}
   </span>
   {{if eq .Role "admin"}}
   <span class="acts" style="margin-left:auto;display:flex;gap:8px;">
-    <form action="/restaurants/{{.Restaurant.ID}}/deployment" method="POST">
-      <input type="hidden" name="deployed" value="{{if .Restaurant.Deployed}}0{{else}}1{{end}}">
-      <button type="submit" class="btn-outline" title="Devices in this restaurant inherit this unless individually overridden.">
-        {{if .Restaurant.Deployed}}Move to lab{{else}}Mark deployed{{end}}
-      </button>
-    </form>
     <a href="/restaurants/{{.Restaurant.ID}}/edit" class="btn-outline">Edit</a>
     <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST"
           onsubmit="return confirm('Delete this restaurant? Its devices become unassigned (lab).')">
