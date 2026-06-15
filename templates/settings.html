@@ -50,11 +50,37 @@
 {{define "settings.html"}}
 {{template "header" .}}
 
+<style>
+.settings-wrap{display:flex;gap:22px;align-items:flex-start;}
+.settings-nav{display:flex;flex-direction:column;gap:2px;min-width:178px;flex-shrink:0;position:sticky;top:74px;}
+.settings-nav button{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;}
+.settings-nav button:hover{background:var(--border-soft);color:var(--text);}
+.settings-nav button.active{background:var(--border-soft);color:var(--text);font-weight:600;}
+.settings-panels{flex:1;min-width:0;}
+.settings-tab{display:none;}
+.settings-tab.active{display:block;}
+@media (max-width:760px){.settings-wrap{flex-direction:column;}.settings-nav{position:static;flex-direction:row;flex-wrap:wrap;min-width:0;}}
+</style>
+
 <div class="ov-greet">
   <h1 class="ov-title">Settings</h1>
   <span class="ov-date">server-wide device management settings</span>
 </div>
 
+<div class="settings-wrap">
+  <nav class="settings-nav" id="settings-nav">
+    <button type="button" data-tab="general" class="active">General</button>
+    <button type="button" data-tab="devices">Devices &amp; check-in</button>
+    <button type="button" data-tab="commands">Commands</button>
+    <button type="button" data-tab="alerts">Alerts</button>
+    <button type="button" data-tab="ai">AI</button>
+    <button type="button" data-tab="security">Security</button>
+  </nav>
+
+  <div class="settings-panels">
+
+  <!-- ── General ─────────────────────────────────────── -->
+  <section class="settings-tab active" data-tab="general">
 <div class="card dv-rise-1" style="margin-bottom:16px;">
   <div class="card-header"><h3>Dashboard</h3></div>
   <form action="/settings/dashboard" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;">
@@ -91,6 +117,109 @@
     <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
   </form>
 </div>
+  </section>
+
+  <!-- ── Devices & check-in ──────────────────────────── -->
+  <section class="settings-tab" data-tab="devices">
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Checkin Interval</h3></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:8px;">How often devices check in with the server (seconds). Applies to all devices, including ones added later.</div>
+    <form action="/settings/checkin-interval" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="interval" value="{{.CheckinInterval}}" min="10" step="1" class="form-input" style="width:100px;">
+      <span class="muted small">seconds</span>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Compatibility</h3></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <strong>Legacy Checkin Commands</strong>
+      <div class="muted small">Deliver pending commands via checkin response for devices not connected over WebSocket.</div>
+    </div>
+    <form action="/settings/legacy-checkin/toggle" method="POST">
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">
+        {{if .LegacyCheckin}}Disable{{else}}Enable{{end}}
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Data &amp; Maintenance</h3></div>
+  <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small">Background housekeeping runs hourly. Leave a field blank to disable that policy (keep forever).</div>
+    <div class="form-group">
+      <label>Auto-hide devices not seen in (days)</label>
+      <input type="number" name="auto_hide_days" value="{{if .AutoHideDays}}{{.AutoHideDays}}{{end}}" min="0" step="1" placeholder="Off — never auto-hide" class="form-input">
+    </div>
+    <div class="form-group">
+      <label>Delete check-ins older than (days)</label>
+      <input type="number" name="checkin_retention_days" value="{{if .CheckinRetentionDays}}{{.CheckinRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
+    </div>
+    <div class="form-group">
+      <label>Delete logcat results older than (days)</label>
+      <input type="number" name="logcat_retention_days" value="{{if .LogcatRetentionDays}}{{.LogcatRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
+    </div>
+    <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
+  </form>
+  <div style="padding:16px;">
+    <div class="muted small">
+      Database: <strong>{{.DBStats.Devices}}</strong> devices ·
+      <strong>≈{{.DBStats.Checkins}}</strong> check-ins ·
+      <strong>{{.DBStats.Commands}}</strong> commands ·
+      <strong>≈{{.DBStats.LogcatResults}}</strong> logcat results
+      <span class="muted" style="opacity:0.7;">(check-in / logcat counts are estimates)</span>
+    </div>
+  </div>
+</div>
+  </section>
+
+  <!-- ── Commands ────────────────────────────────────── -->
+  <section class="settings-tab" data-tab="commands">
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Command Governance</h3></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
+    <div>
+      <strong>Require a reason for destructive commands</strong>
+      <div class="muted small">Reboot / OTA / boot-logo commands must include a reason, recorded in the <a href="/audit" class="link">audit log</a>.</div>
+    </div>
+    <form action="/settings/require-reason" method="POST">
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">{{if .RequireReason}}Disable{{else}}Enable{{end}}</button>
+    </form>
+  </div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:8px;">A pending shell/screenshot/reboot command is shown as <em>expired</em> after this long.</div>
+    <form action="/settings/command-expiry" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="expiry" value="{{.CommandExpiry}}" min="30" step="1" class="form-input" style="width:120px;">
+      <span class="muted small">seconds</span>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
+    <div class="muted small" style="margin-bottom:8px;">Maximum number of devices a single command may target by explicit serial list (0 = unlimited). Does not affect "all devices".</div>
+    <form action="/settings/max-targets" method="POST" style="display:flex;align-items:center;gap:8px;">
+      <input type="number" name="max_targets" value="{{.MaxTargets}}" min="0" step="1" class="form-input" style="width:120px;">
+      <span class="muted small">devices</span>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+  <div style="padding:16px;">
+    <strong>Operator permissions</strong>
+    <div class="muted small" style="margin:4px 0 10px;">Which command types operators may send. Admins always have full access; viewers are read-only.</div>
+    <form action="/settings/operator-perms" method="POST">
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="install_apk" {{if .OpAllowInstall}}checked{{end}}> Install APK</label>
+        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="shell" {{if .OpAllowShell}}checked{{end}}> Shell</label>
+        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="reboot" {{if .OpAllowReboot}}checked{{end}}> Reboot</label>
+      </div>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
+  </div>
+</div>
 
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Security &amp; Access</h3></div>
@@ -113,34 +242,10 @@
     </form>
   </div>
 </div>
+  </section>
 
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Compatibility</h3></div>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
-    <div>
-      <strong>Legacy Checkin Commands</strong>
-      <div class="muted small">Deliver pending commands via checkin response for devices not connected over WebSocket.</div>
-    </div>
-    <form action="/settings/legacy-checkin/toggle" method="POST">
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">
-        {{if .LegacyCheckin}}Disable{{else}}Enable{{end}}
-      </button>
-    </form>
-  </div>
-</div>
-
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Checkin Interval</h3></div>
-  <div style="padding:16px;">
-    <div class="muted small" style="margin-bottom:8px;">How often devices check in with the server (seconds). Applies to all devices, including ones added later.</div>
-    <form action="/settings/checkin-interval" method="POST" style="display:flex;align-items:center;gap:8px;">
-      <input type="number" name="interval" value="{{.CheckinInterval}}" min="10" step="1" class="form-input" style="width:100px;">
-      <span class="muted small">seconds</span>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
-    </form>
-  </div>
-</div>
-
+  <!-- ── Alerts ──────────────────────────────────────── -->
+  <section class="settings-tab" data-tab="alerts">
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Alerts</h3></div>
   <div style="padding:16px;">
@@ -230,7 +335,10 @@
     {{range .GroupWindows}}{{template "swrow" .}}{{end}}
   </div>
 </div>
+  </section>
 
+  <!-- ── AI ──────────────────────────────────────────── -->
+  <section class="settings-tab" data-tab="ai">
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>AI Analysis</h3></div>
   <div style="padding:16px;">
@@ -277,48 +385,10 @@
     </div>
   </div>
 </div>
+  </section>
 
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Command Governance</h3></div>
-  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
-    <div>
-      <strong>Require a reason for destructive commands</strong>
-      <div class="muted small">Reboot / OTA / boot-logo commands must include a reason, recorded in the <a href="/audit" class="link">audit log</a>.</div>
-    </div>
-    <form action="/settings/require-reason" method="POST">
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">{{if .RequireReason}}Disable{{else}}Enable{{end}}</button>
-    </form>
-  </div>
-  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
-    <div class="muted small" style="margin-bottom:8px;">A pending shell/screenshot/reboot command is shown as <em>expired</em> after this long.</div>
-    <form action="/settings/command-expiry" method="POST" style="display:flex;align-items:center;gap:8px;">
-      <input type="number" name="expiry" value="{{.CommandExpiry}}" min="30" step="1" class="form-input" style="width:120px;">
-      <span class="muted small">seconds</span>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
-    </form>
-  </div>
-  <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
-    <div class="muted small" style="margin-bottom:8px;">Maximum number of devices a single command may target by explicit serial list (0 = unlimited). Does not affect "all devices".</div>
-    <form action="/settings/max-targets" method="POST" style="display:flex;align-items:center;gap:8px;">
-      <input type="number" name="max_targets" value="{{.MaxTargets}}" min="0" step="1" class="form-input" style="width:120px;">
-      <span class="muted small">devices</span>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
-    </form>
-  </div>
-  <div style="padding:16px;">
-    <strong>Operator permissions</strong>
-    <div class="muted small" style="margin:4px 0 10px;">Which command types operators may send. Admins always have full access; viewers are read-only.</div>
-    <form action="/settings/operator-perms" method="POST">
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="install_apk" {{if .OpAllowInstall}}checked{{end}}> Install APK</label>
-        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="shell" {{if .OpAllowShell}}checked{{end}}> Shell</label>
-        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="reboot" {{if .OpAllowReboot}}checked{{end}}> Reboot</label>
-      </div>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
-    </form>
-  </div>
-</div>
-
+  <!-- ── Security ────────────────────────────────────── -->
+  <section class="settings-tab" data-tab="security">
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Sessions</h3></div>
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
@@ -339,52 +409,28 @@
     </form>
   </div>
 </div>
+  </section>
 
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Data &amp; Maintenance</h3></div>
-  <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
-    <div class="muted small">Background housekeeping runs hourly. Leave a field blank to disable that policy (keep forever).</div>
-    <div class="form-group">
-      <label>Auto-hide devices not seen in (days)</label>
-      <input type="number" name="auto_hide_days" value="{{if .AutoHideDays}}{{.AutoHideDays}}{{end}}" min="0" step="1" placeholder="Off — never auto-hide" class="form-input">
-    </div>
-    <div class="form-group">
-      <label>Delete check-ins older than (days)</label>
-      <input type="number" name="checkin_retention_days" value="{{if .CheckinRetentionDays}}{{.CheckinRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
-    </div>
-    <div class="form-group">
-      <label>Delete logcat results older than (days)</label>
-      <input type="number" name="logcat_retention_days" value="{{if .LogcatRetentionDays}}{{.LogcatRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
-    </div>
-    <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
-  </form>
-  <div style="padding:16px;">
-    <div class="muted small">
-      Database: <strong>{{.DBStats.Devices}}</strong> devices ·
-      <strong>≈{{.DBStats.Checkins}}</strong> check-ins ·
-      <strong>{{.DBStats.Commands}}</strong> commands ·
-      <strong>≈{{.DBStats.LogcatResults}}</strong> logcat results
-      <span class="muted" style="opacity:0.7;">(check-in / logcat counts are estimates)</span>
-    </div>
-  </div>
-</div>
+  </div><!-- /.settings-panels -->
+</div><!-- /.settings-wrap -->
 
 <script src="/static/vendor/chart.umd.min.js"></script>
 <script>
-(function () {
-  var rows = {{.AIUsageDailyJSON}};
+// AI token-usage chart — lazily built the first time the AI tab is shown (a chart
+// created inside a display:none panel renders at 0×0).
+window.__initAIChart = function () {
+  if (window.__aiChartDone) return;
   var el = document.getElementById('aiUsageChart');
   if (!el || typeof Chart === 'undefined') return;
+  window.__aiChartDone = true;
+  var rows = {{.AIUsageDailyJSON}};
   var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function fmtDay(d) { var p = String(d).slice(0,10).split('-'); return MONTHS[parseInt(p[1],10)-1] + ' ' + parseInt(p[2],10); }
-  var labels = rows.map(function (r) { return fmtDay(r.day); });
-  var input = rows.map(function (r) { return r.input_tokens; });
-  var output = rows.map(function (r) { return r.output_tokens; });
   new Chart(el.getContext('2d'), {
     type: 'bar',
-    data: { labels: labels, datasets: [
-      { label: 'Input tokens', data: input, backgroundColor: 'rgba(120,144,170,0.7)', stack: 's' },
-      { label: 'Output tokens', data: output, backgroundColor: '#d82747', stack: 's' }
+    data: { labels: rows.map(function (r) { return fmtDay(r.day); }), datasets: [
+      { label: 'Input tokens', data: rows.map(function (r) { return r.input_tokens; }), backgroundColor: 'rgba(120,144,170,0.7)', stack: 's' },
+      { label: 'Output tokens', data: rows.map(function (r) { return r.output_tokens; }), backgroundColor: '#d82747', stack: 's' }
     ]},
     options: {
       responsive: true, maintainAspectRatio: false,
@@ -392,6 +438,28 @@
       plugins: { legend: { position: 'bottom' } }
     }
   });
+};
+</script>
+<script>
+// Settings tabs.
+(function () {
+  var nav = document.getElementById('settings-nav');
+  if (!nav) return;
+  var btns = nav.querySelectorAll('button');
+  var panels = document.querySelectorAll('.settings-tab');
+  function show(key) {
+    var found = false;
+    panels.forEach(function (p) { var on = p.getAttribute('data-tab') === key; p.classList.toggle('active', on); if (on) found = true; });
+    btns.forEach(function (b) { b.classList.toggle('active', b.getAttribute('data-tab') === key); });
+    if (found && key === 'ai' && window.__initAIChart) window.__initAIChart();
+    return found;
+  }
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () { var k = b.getAttribute('data-tab'); if (show(k)) history.replaceState(null, '', '#' + k); });
+  });
+  var initial = (location.hash || '').replace('#', '');
+  if (initial === 'channels') initial = 'alerts'; // legacy deep-link
+  if (!initial || !show(initial)) show('general');
 })();
 </script>
 
