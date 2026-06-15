@@ -1211,6 +1211,39 @@ func (d *DB) ListRestaurantDevices(ctx context.Context, restaurantID uuid.UUID) 
 	return devices, rows.Err()
 }
 
+// ListAssignableDevices returns candidate devices to assign to a restaurant: every
+// non-hidden device NOT already in this restaurant, optionally filtered by serial, with
+// its current restaurant name. Unassigned (lab) devices sort first, then most-recently
+// seen. Powers the restaurant device picker.
+func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, query string, limit int) ([]Device, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.serial_number, d.latest_battery_pct, d.last_seen_at, COALESCE(r.name, '')
+		FROM devices d
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE NOT d.hidden
+		  AND d.restaurant_id IS DISTINCT FROM $1
+		  AND ($2 = '' OR d.serial_number ILIKE '%' || $2 || '%')
+		ORDER BY (d.restaurant_id IS NULL) DESC, d.last_seen_at DESC
+		LIMIT $3
+	`, restaurantID, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Device
+	for rows.Next() {
+		var dev Device
+		if err := rows.Scan(&dev.SerialNumber, &dev.BatteryPct, &dev.LastSeenAt, &dev.RestaurantName); err != nil {
+			return nil, err
+		}
+		out = append(out, dev)
+	}
+	return out, rows.Err()
+}
+
 // GetRestaurantDailyStats returns the last `days` days of stats rolled up across every
 // device in the restaurant, oldest first. Mirrors GetGroupDailyStats but keyed by venue.
 func (d *DB) GetRestaurantDailyStats(ctx context.Context, restaurantID uuid.UUID, days int) ([]GroupDailyStat, error) {

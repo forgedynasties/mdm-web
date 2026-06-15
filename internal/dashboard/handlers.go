@@ -2995,6 +2995,26 @@ func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request
 	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 }
 
+// RestaurantDevicePicker renders the searchable candidate-device list for the assign
+// picker (devices not already in this restaurant; unassigned first).
+func (h *Handler) RestaurantDevicePicker(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	devices, err := h.db.ListAssignableDevices(r.Context(), id, q, 25)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "restaurant-device-picker", map[string]any{
+		"Devices": devices,
+		"Query":   q,
+	})
+}
+
 // RestaurantRemoveDevice unassigns a device from this restaurant (back to lab).
 func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
@@ -6171,6 +6191,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
 	post("POST /restaurants/{id}", h.requireAdmin(h.RestaurantUpdate))
 	post("POST /restaurants/{id}/delete", h.requireAdmin(h.RestaurantDelete))
+	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.requireAdmin(h.RestaurantDevicePicker))
 	post("POST /restaurants/{id}/devices", h.requireAdmin(h.RestaurantAssignDevices))
 	post("POST /restaurants/{id}/devices/{serial}/remove", h.requireAdmin(h.RestaurantRemoveDevice))
 	post("POST /restaurants/{id}/service-window", h.requireAdmin(h.RestaurantSetServiceWindow))
