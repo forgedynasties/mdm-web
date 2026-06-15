@@ -3,7 +3,7 @@
 
 <div class="ov-greet">
   <h1 class="ov-title">Fleet Health</h1>
-  <span class="ov-date">per-group health, worst first — where to send a tech</span>
+  <span class="ov-date">per-restaurant health, worst first — where to send a tech</span>
   {{if not .AISummary}}
   <span class="acts">
     <button type="button" id="ai-sum-refresh" class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="refreshHourlyReport()" title="Generate the fleet report">Generate report</button>
@@ -51,12 +51,12 @@
 </div>
 
 <div class="card">
-  <div class="card-header"><h3>Groups by health</h3></div>
+  <div class="card-header"><h3>Restaurants by health</h3></div>
   {{if not .Groups}}
   <div class="empty-state">
     <div class="empty-state-copy">
-      <div class="empty-state-title">No groups yet</div>
-      <div class="empty-state-text">Create groups and the health scorecard ranks them here.</div>
+      <div class="empty-state-title">No restaurants yet</div>
+      <div class="empty-state-text">Create restaurants and the health scorecard ranks them here.</div>
     </div>
   </div>
   {{else}}
@@ -64,7 +64,7 @@
     <thead>
       <tr>
         <th>Score</th>
-        <th>Group</th>
+        <th>Restaurant</th>
         <th>Devices</th>
         <th>Offline</th>
         <th>Alerts</th>
@@ -72,14 +72,14 @@
         <th title="Change vs the prior week">Δ wk</th>
         <th title="Average charging coverage">Charging</th>
         <th title="Hottest device this week">Max °C</th>
-        <th title="Distinct firmware builds in the group">Builds</th>
+        <th title="Distinct firmware builds in the restaurant">Builds</th>
       </tr>
     </thead>
     <tbody>
       {{range .Groups}}
       <tr>
         <td><span class="status-badge {{.ScoreClass}}" style="min-width:34px;justify-content:center;">{{.Score}}</span></td>
-        <td><a href="/groups/{{.GroupID}}" class="link-detail">{{.Name}}</a></td>
+        <td><a href="/restaurants/{{.GroupID}}" class="link-detail">{{.Name}}</a></td>
         <td class="muted">{{.DeviceCount}}</td>
         <td>{{if gt .OfflineCount 0}}<span class="status-badge danger">{{.OfflineCount}}</span>{{else}}<span class="muted">0</span>{{end}}</td>
         <td>

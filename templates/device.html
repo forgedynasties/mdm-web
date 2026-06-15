@@ -1270,12 +1270,12 @@
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Deployment</h3></div>
   <form action="/devices/{{.Device.SerialNumber}}/deployment" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
-    <div class="device-action-note">Mark whether this unit is live in a restaurant or still on the bench in the lab. Lab units are excluded from AI health concerns. "Inherit" follows the device's group(s).</div>
+    <div class="device-action-note">Mark whether this unit is live in a restaurant or still on the bench in the lab. Lab units are excluded from AI health concerns. "Inherit" follows the device's restaurant.</div>
     <div class="form-row">
       <label class="form-label">Deployment state</label>
       <div class="device-action-inline">
         <select name="deployment" class="form-input" style="max-width:220px;">
-          <option value="inherit" {{if not .Device.Deployed}}selected{{end}}>Inherit from group</option>
+          <option value="inherit" {{if not .Device.Deployed}}selected{{end}}>Inherit from restaurant</option>
           <option value="deployed" {{if and .Device.Deployed .Device.DeployedEffective}}selected{{end}}>Deployed (live in restaurant)</option>
           <option value="lab" {{if and .Device.Deployed (not .Device.DeployedEffective)}}selected{{end}}>In lab (on the bench)</option>
         </select>
@@ -1285,6 +1285,26 @@
     <div>
       <button type="submit" class="btn-primary">Save Deployment State</button>
     </div>
+  </form>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Restaurant</h3></div>
+  <form action="/devices/{{.Device.SerialNumber}}/restaurant" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+    <div class="device-action-note">The venue this device physically lives in. A device belongs to at most one restaurant; unassigned means it's a lab/bench unit.</div>
+    <div class="form-row">
+      <label class="form-label">Assigned restaurant</label>
+      <div class="device-action-inline">
+        <select name="restaurant_id" class="form-input" style="max-width:260px;">
+          <option value="">— Unassigned (lab) —</option>
+          {{range .Restaurants}}
+          <option value="{{.ID}}" {{if and $.Device.RestaurantID (eq (printf "%s" $.Device.RestaurantID) (printf "%s" .ID))}}selected{{end}}>{{.Name}}</option>
+          {{end}}
+        </select>
+        <span class="device-action-meta">Currently: {{if .Device.RestaurantName}}{{.Device.RestaurantName}}{{else}}Unassigned{{end}}</span>
+      </div>
+    </div>
+    <div><button type="submit" class="btn-primary">Save Restaurant</button></div>
   </form>
 </div>
 {{end}}
