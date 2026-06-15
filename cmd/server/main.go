@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	_ "time/tzdata" // embed the IANA tz database so LoadLocation works without OS tzdata
 
 	"github.com/google/uuid"
 	"mdm/internal/api"
