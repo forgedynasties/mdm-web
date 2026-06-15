@@ -11,6 +11,7 @@
       <button type="submit" class="btn-danger-sm">Hide Selected</button>
     </form>
     <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
+    <button type="button" class="btn-outline" onclick="openBulkRestaurantModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>Add to Restaurant</button>
     <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
     <button type="button" class="btn-outline" onclick="openBulkKioskModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk</button>
     <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
@@ -505,6 +506,26 @@ function closeBulkGroupModal(event) {
   }
 }
 
+function openBulkRestaurantModal() {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  var form = document.getElementById('bulk-restaurant-form');
+  form.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
+  serials.forEach(function(s) {
+    var inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'serials'; inp.value = s;
+    form.appendChild(inp);
+  });
+  document.getElementById('bulk-rest-count').textContent = serials.length;
+  document.getElementById('bulk-restaurant-modal').classList.add('modal-open');
+}
+
+function closeBulkRestaurantModal(event) {
+  if (!event || event.target === document.getElementById('bulk-restaurant-modal')) {
+    document.getElementById('bulk-restaurant-modal').classList.remove('modal-open');
+  }
+}
+
 function openBulkKioskModal() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
@@ -753,6 +774,27 @@ document.addEventListener('keydown', function(e) {
           <input type="text" name="name" id="bulk-group-name" class="form-input" placeholder="Field Team A" required>
         </div>
         <button type="submit" class="btn-primary">Create Group</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="bulk-restaurant-modal" class="modal-backdrop" onclick="closeBulkRestaurantModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Add to restaurant</span>
+      <button class="modal-close" aria-label="Close" type="button" onclick="closeBulkRestaurantModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted small"><span id="bulk-rest-count">0</span> selected device(s) will be assigned to this restaurant (and moved off any current one).</div>
+      <form action="/devices/bulk-restaurant" method="POST" id="bulk-restaurant-form" class="command-form" style="padding:0;margin-top:12px;">
+        <div class="form-row">
+          <label class="form-label">Restaurant</label>
+          <select name="restaurant_id" class="form-input" required>
+            {{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{else}}<option value="" disabled selected>No restaurants yet — create one first</option>{{end}}
+          </select>
+        </div>
+        <button type="submit" class="btn-primary"{{if not .Restaurants}} disabled{{end}}>Assign</button>
       </form>
     </div>
   </div>

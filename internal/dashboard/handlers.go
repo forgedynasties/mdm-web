@@ -1234,9 +1234,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		groups      []db.Group
 		productions []db.Production
 		builds      []string
+		restaurants []db.Restaurant
 	)
 
-	errCh := make(chan error, 6)
+	errCh := make(chan error, 7)
 	var wg sync.WaitGroup
 	run := func(fn func() error) {
 		wg.Add(1)
@@ -1278,6 +1279,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		builds, err = h.db.GetDistinctBuildIDs(r.Context())
 		return err
 	})
+	run(func() error {
+		var err error
+		restaurants, err = h.db.ListRestaurants(r.Context())
+		return err
+	})
 
 	wg.Wait()
 	close(errCh)
@@ -1312,6 +1318,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"SortDir":              dir,
 		"Online":               online,
 		"Groups":               groups,
+		"Restaurants":          restaurants,
 		"Productions":          productions,
 		"Builds":               builds,
 		"FilterGroup":          r.URL.Query().Get("group"),
@@ -3265,6 +3272,24 @@ func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/devices", http.StatusSeeOther)
+}
+
+// BulkAssignRestaurant assigns the selected devices to a restaurant from the devices-page
+// bulk-selection bar.
+func (h *Handler) BulkAssignRestaurant(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	serials := parseSerialsField(r.Form["serials"])
+	rid, err := uuid.Parse(strings.TrimSpace(r.FormValue("restaurant_id")))
+	if err != nil {
+		http.Error(w, "Invalid restaurant", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.AssignDevicesToRestaurant(r.Context(), serials, rid); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "restaurant.assign", rid.String(), strings.Join(serials, ","))
+	http.Redirect(w, r, "/restaurants/"+rid.String(), http.StatusSeeOther)
 }
 
 // pushKioskConfigToDevices fetches the current device_config for each device and
@@ -6156,6 +6181,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAuth(h.DeviceRemote))
 	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
+	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
