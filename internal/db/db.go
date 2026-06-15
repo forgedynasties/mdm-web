@@ -4610,6 +4610,14 @@ ALTER TABLE updates ADD CONSTRAINT updates_release_id_fkey
 ALTER TABLE devices     DROP COLUMN IF EXISTS deployed;
 ALTER TABLE groups      DROP COLUMN IF EXISTS deployed;
 ALTER TABLE restaurants DROP COLUMN IF EXISTS deployed;
+
+-- Versions seen on devices that ops has dismissed from the releases list (not worth
+-- tracking as a managed release). Keyed by the reported version string; only affects
+-- not-tracked versions — a managed release uses releases.hidden instead.
+CREATE TABLE IF NOT EXISTS hidden_versions (
+    version    TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -4786,6 +4794,37 @@ func (d *DB) GetFleetVersions(ctx context.Context) ([]FleetVersion, error) {
 			return nil, err
 		}
 		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// HideVersion dismisses a device-reported version from the releases list (for versions
+// that are not managed releases — managed ones use releases.hidden).
+func (d *DB) HideVersion(ctx context.Context, version string) error {
+	_, err := d.pool.Exec(ctx, `INSERT INTO hidden_versions (version) VALUES ($1) ON CONFLICT DO NOTHING`, version)
+	return err
+}
+
+// UnhideVersion brings a dismissed version back into the list.
+func (d *DB) UnhideVersion(ctx context.Context, version string) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM hidden_versions WHERE version = $1`, version)
+	return err
+}
+
+// ListHiddenVersions returns the set of dismissed (not-tracked) versions.
+func (d *DB) ListHiddenVersions(ctx context.Context) (map[string]bool, error) {
+	rows, err := d.pool.Query(ctx, `SELECT version FROM hidden_versions`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]bool)
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		out[v] = true
 	}
 	return out, rows.Err()
 }
