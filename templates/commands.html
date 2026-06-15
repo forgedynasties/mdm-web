@@ -10,6 +10,10 @@
 .cmd2{display:grid;grid-template-columns:1fr 330px;gap:18px;align-items:start;margin-bottom:22px;}
 @media (max-width:920px){.cmd2{grid-template-columns:1fr;}}
 .cmd2-body{padding:20px;display:flex;flex-direction:column;gap:26px;}
+/* payload-section visibility was scoped to .payload-zone (now removed) — restate it. */
+.cmd2-body .payload-section{display:none;}
+.cmd2-body .payload-section.is-active{display:block;}
+.cmd2-body .payload-empty{color:var(--muted);font-size:13px;}
 .cmd2-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 12px;}
 .cmd2-review{position:sticky;top:74px;}
 @media (max-width:920px){.cmd2-review{position:static;}}
