@@ -80,6 +80,45 @@
 </div>
 {{end}}
 
+<!-- Adoption: which devices are on this version, now and over time. -->
+<script src="/static/vendor/chart.umd.min.js"></script>
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Adoption</h3>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="muted small">{{len .DevicesOnVersion}} device{{if ne (len .DevicesOnVersion) 1}}s{{end}} on this version</span>
+      <div class="dur-btns" id="adopt-range">
+        <button class="dur-btn" data-days="7">7d</button>
+        <button class="dur-btn active" data-days="30">30d</button>
+        <button class="dur-btn" data-days="90">90d</button>
+      </div>
+    </div>
+  </div>
+  <div class="chart-wrap"><canvas id="adoptChart"></canvas></div>
+  {{if .DevicesOnVersion}}
+  <div class="collapsible-body" style="display:none;border-top:1px solid var(--border-soft);">
+    <table class="table">
+      <thead><tr><th>Serial Number</th><th>Restaurant</th><th>Battery</th><th>Last Seen</th></tr></thead>
+      <tbody>
+        {{range .DevicesOnVersion}}
+        <tr>
+          <td class="mono small"><a href="/devices/{{.SerialNumber}}" class="link-detail mono">{{.SerialNumber}}</a></td>
+          <td class="small">{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">lab</span>{{end}}</td>
+          <td class="small">{{.BatteryPct}}%</td>
+          <td class="muted small">{{timeSince .LastSeenAt}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  <div style="padding:10px 16px;">
+    <button type="button" class="btn-outline" onclick="var b=this.parentElement.previousElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.textContent=open?'Show devices ({{len .DevicesOnVersion}})':'Hide devices';">Show devices ({{len .DevicesOnVersion}})</button>
+  </div>
+  {{else}}
+  <div style="padding:12px 16px;" class="muted small">No devices are currently reporting this version.</div>
+  {{end}}
+</div>
+
 <!-- Packages in this release -->
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
@@ -334,6 +373,52 @@ function toggleAll(master, name) {
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     urlInput.removeAttribute('name');
   });
+})();
+
+// Adoption-over-time chart: devices reporting this version per day.
+(function () {
+  var relID = '{{$rel.ID}}';
+  var canvas = document.getElementById('adoptChart');
+  if (!relID || !canvas || typeof Chart === 'undefined') return;
+  var chart = null, days = 30;
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDay(d) { var p = d.split('-'); return MONTHS[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10); }
+  function render(rows) {
+    var data = {
+      labels: rows.map(function (r) { return fmtDay(r.day); }),
+      datasets: [{
+        label: 'Devices on this version',
+        data: rows.map(function (r) { return r.device_count; }),
+        borderColor: '#d82747', backgroundColor: 'rgba(216,39,71,0.12)',
+        borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3
+      }]
+    };
+    var opts = {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      plugins: { legend: { display: false } }
+    };
+    if (chart) { chart.data = data; chart.options = opts; chart.update(); }
+    else { chart = new Chart(canvas.getContext('2d'), { type: 'line', data: data, options: opts }); }
+  }
+  function load() {
+    fetch('/updates/' + encodeURIComponent(relID) + '/adoption?days=' + days)
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) { render(rows || []); })
+      .catch(function () {});
+  }
+  var rangeEl = document.getElementById('adopt-range');
+  if (rangeEl) {
+    rangeEl.addEventListener('click', function (e) {
+      var btn = e.target.closest('.dur-btn');
+      if (!btn) return;
+      days = parseInt(btn.getAttribute('data-days'), 10) || 30;
+      rangeEl.querySelectorAll('.dur-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      load();
+    });
+  }
+  load();
 })();
 </script>
 
