@@ -7,21 +7,34 @@
 </div>
 
 <style>
-.cmd2{display:grid;grid-template-columns:1fr 330px;gap:18px;align-items:start;margin-bottom:22px;}
-@media (max-width:920px){.cmd2{grid-template-columns:1fr;}}
-.cmd2-body{padding:20px;display:flex;flex-direction:column;gap:26px;}
-/* payload-section visibility was scoped to .payload-zone (now removed) — restate it. */
-.cmd2-body .payload-section{display:none;}
-.cmd2-body .payload-section.is-active{display:block;}
-.cmd2-body .payload-empty{color:var(--muted);font-size:13px;}
-/* inputs default to ~200px; make them fill the column in the builder. */
-.cmd2-body .form-input,.cmd2-body .form-textarea{width:100%;box-sizing:border-box;}
-.cmd2-body .form-textarea{min-height:80px;}
-.cmd2-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 12px;}
-.cmd2-review{position:sticky;top:74px;}
-@media (max-width:920px){.cmd2-review{position:static;}}
-.review-body{padding:16px;}
-.review-action{font-size:15px;font-weight:600;margin-bottom:10px;}
+/* Three-pane command builder: action rail · config · live review. */
+.cmd-rail3{display:grid;grid-template-columns:212px 1fr 300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
+.cr-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
+.cr-head h3{margin:0;font-size:15px;font-weight:650;}
+@media (max-width:980px){.cmd-rail3{grid-template-columns:1fr;}}
+
+.cr-rail{border-right:1px solid var(--border-soft);padding:12px;}
+@media (max-width:980px){.cr-rail{border-right:none;border-bottom:1px solid var(--border-soft);display:flex;flex-wrap:wrap;gap:6px;}}
+.cr-rail-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-3);cursor:pointer;font-size:13px;color:var(--text-2);user-select:none;}
+.cr-rail-item .ic{width:16px;height:16px;flex:none;color:var(--muted);}
+.cr-rail-item .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;}
+.cr-rail-item:hover{background:var(--surface2);}
+.cr-rail-item.on{background:var(--accent-soft);color:var(--text);font-weight:600;}
+.cr-rail-item.on .ic{color:var(--accent);}
+
+.cr-config{padding:22px 24px;border-right:1px solid var(--border-soft);min-width:0;}
+@media (max-width:980px){.cr-config{border-right:none;border-bottom:1px solid var(--border-soft);}}
+.cr-sec + .cr-sec{margin-top:24px;}
+.cr-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+.cr-config .form-input,.cr-config .form-textarea{width:100%;box-sizing:border-box;}
+.cr-config .form-textarea{min-height:80px;}
+.cr-config .payload-section{display:none;}
+.cr-config .payload-section.is-active{display:block;}
+.cr-config .payload-empty{color:var(--muted);font-size:13px;}
+
+.cr-review{padding:18px;background:var(--surface2);}
+.review-title{font-weight:650;margin-bottom:12px;}
+.review-action{font-size:15px;font-weight:600;margin-bottom:8px;}
 .review-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13px;}
 .review-row .k{color:var(--muted);white-space:nowrap;}
 .review-row .v{text-align:right;word-break:break-word;font-weight:500;}
@@ -37,50 +50,41 @@
 
 {{if or (eq .Role "admin") (eq .Role "operator")}}
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data">
-  <div class="cmd2 dv-rise-1">
+  <div class="cmd-rail3 dv-rise-1">
 
-    <!-- LEFT · configure -->
-    <div class="card">
-      <div class="card-header"><h3>New command</h3></div>
-      <div class="cmd2-body">
+    <div class="cr-head">
+      <h3>New command</h3>
+      <span class="muted small">⌘↵ / Ctrl+↵ to send</span>
+    </div>
 
-        <div>
-          <div class="cmd2-sec-title">Action</div>
-          <div class="type-grid">
-            <button type="button" class="type-card is-active" data-type="install_apk" onclick="selectType('install_apk', this)">
-              <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
-              <span class="type-name">Install APK</span>
-              <span class="type-desc">Push an app to devices</span>
-            </button>
-            <button type="button" class="type-card" data-type="shell" onclick="selectType('shell', this)">
-              <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
-              <span class="type-name">Shell</span>
-              <span class="type-desc">Run a shell command</span>
-            </button>
-            <button type="button" class="type-card" data-type="screenshot" onclick="selectType('screenshot', this)">
-              <span class="type-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
-              <span class="type-name">Screenshot</span>
-              <span class="type-desc">Capture device screen</span>
-            </button>
-            <button type="button" class="type-card" data-type="reboot" onclick="selectType('reboot', this)">
-              <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>
-              <span class="type-name">Reboot</span>
-              <span class="type-desc">Restart the device</span>
-            </button>
-            {{if eq .Role "admin"}}
-            <button type="button" class="type-card" data-type="update_splash" onclick="selectType('update_splash', this)">
-              <span class="type-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="7" cy="7" r="0.5"/></svg></span>
-              <span class="type-name">Boot Logo</span>
-              <span class="type-desc">Flash the splash image</span>
-            </button>
-            {{end}}
-          </div>
-          <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
-        </div>
+    <!-- LEFT · action rail -->
+    <div class="cr-rail">
+      <div class="cr-rail-item on" data-type="install_apk" onclick="selectType('install_apk', this)">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install APK
+      </div>
+      <div class="cr-rail-item" data-type="shell" onclick="selectType('shell', this)">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell
+      </div>
+      <div class="cr-rail-item" data-type="screenshot" onclick="selectType('screenshot', this)">
+        <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot
+      </div>
+      <div class="cr-rail-item" data-type="reboot" onclick="selectType('reboot', this)">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot
+      </div>
+      {{if eq .Role "admin"}}
+      <div class="cr-rail-item" data-type="update_splash" onclick="selectType('update_splash', this)">
+        <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo
+      </div>
+      {{end}}
+    </div>
+    <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
 
-        <div>
-          <div class="cmd2-sec-title">Payload</div>
-          <div id="apk-fields" class="payload-section is-active">
+    <!-- MIDDLE · configure -->
+    <div class="cr-config">
+
+      <div class="cr-sec">
+        <div class="cr-sec-title">Payload</div>
+        <div id="apk-fields" class="payload-section is-active">
             {{if .Apps}}
               <div class="app-select-wrap">
                 <select name="apk_url" class="form-input" id="apk-select" onchange="updatePreview()">
@@ -120,8 +124,8 @@
           </div>
         </div>
 
-        <div>
-          <div class="cmd2-sec-title">Target</div>
+        <div class="cr-sec">
+          <div class="cr-sec-title">Target</div>
           <div class="target-pills">
             <button type="button" class="target-pill is-active" data-target="all" onclick="selectTarget('all', this)">
               <span class="pill-dot"></span>All Devices
@@ -162,26 +166,21 @@
           </div>
         </div>
 
-      </div>
-    </div>
+    </div><!-- /.cr-config -->
 
-    <!-- RIGHT · review (sticky) -->
-    <aside class="cmd2-review">
-      <div class="card">
-        <div class="card-header"><h3>Review</h3></div>
-        <div class="review-body">
-          <div class="review-action" id="rv-action">Install APK</div>
-          <div class="review-row"><span class="k" id="rv-payload-k">App</span><span class="v" id="rv-payload-v">—</span></div>
-          <div class="review-row"><span class="k">Target</span><span class="v" id="rv-target-v">All devices</span></div>
-          <div class="review-row"><span class="k">Reason</span><span class="v" id="rv-reason-v">—</span></div>
-          <div id="rv-warn" class="review-warn" style="display:none;"></div>
-          <button type="submit" id="send-btn" class="btn-primary review-send">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
-            Send command
-          </button>
-          <div class="review-hint muted small">⌘↵ / Ctrl+↵ to send</div>
-        </div>
-      </div>
+    <!-- RIGHT · live review -->
+    <aside class="cr-review">
+      <div class="review-title">Review</div>
+      <div class="review-action" id="rv-action">Install APK</div>
+      <div class="review-row"><span class="k" id="rv-payload-k">App</span><span class="v" id="rv-payload-v">—</span></div>
+      <div class="review-row"><span class="k">Target</span><span class="v" id="rv-target-v">All devices</span></div>
+      <div class="review-row"><span class="k">Reason</span><span class="v" id="rv-reason-v">—</span></div>
+      <div id="rv-warn" class="review-warn" style="display:none;"></div>
+      <button type="submit" id="send-btn" class="btn-primary review-send">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
+        Send command
+      </button>
+      <div class="review-hint muted small">⌘↵ / Ctrl+↵ to send</div>
     </aside>
 
   </div>
@@ -374,7 +373,7 @@ function filterCommands() {
 
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
-  document.querySelectorAll('.type-card').forEach(function(c) { c.classList.toggle('is-active', c.dataset.type === val); });
+  document.querySelectorAll('.cr-rail-item').forEach(function(c) { c.classList.toggle('on', c.dataset.type === val); });
   ['apk-fields','shell-fields','screenshot-hint','reboot-hint','splash-fields'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('is-active');
@@ -583,7 +582,7 @@ async function saveNewApp() {
   }
   cmdRenderChips();
   // Initial preview render with current type colors applied
-  var firstCard = document.querySelector('.type-card.is-active') || document.querySelector('.type-card');
+  var firstCard = document.querySelector('.cr-rail-item.on') || document.querySelector('.cr-rail-item');
   if (firstCard) selectType(firstCard.dataset.type, firstCard);
 })();
 </script>
