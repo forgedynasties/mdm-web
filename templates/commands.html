@@ -7,11 +7,21 @@
 </div>
 
 <style>
-/* Sticky send/summary bar — override the card's overflow:hidden, keep rounded corners. */
-.cmd-builder{overflow:visible;}
-.cmd-builder-head{border-top-left-radius:var(--r-4);border-top-right-radius:var(--r-4);}
-.cmd-builder-foot{position:sticky;bottom:0;z-index:5;border-bottom-left-radius:var(--r-4);border-bottom-right-radius:var(--r-4);box-shadow:0 -6px 16px -12px rgba(0,0,0,.4);}
-.builder-section-label{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 8px;}
+.cmd2{display:grid;grid-template-columns:1fr 330px;gap:18px;align-items:start;margin-bottom:22px;}
+@media (max-width:920px){.cmd2{grid-template-columns:1fr;}}
+.cmd2-body{padding:20px;display:flex;flex-direction:column;gap:26px;}
+.cmd2-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 12px;}
+.cmd2-review{position:sticky;top:74px;}
+@media (max-width:920px){.cmd2-review{position:static;}}
+.review-body{padding:16px;}
+.review-action{font-size:15px;font-weight:600;margin-bottom:10px;}
+.review-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13px;}
+.review-row .k{color:var(--muted);white-space:nowrap;}
+.review-row .v{text-align:right;word-break:break-word;font-weight:500;}
+.review-warn{margin-top:12px;padding:9px 11px;border-radius:8px;background:var(--warn-bg);font-size:12px;line-height:1.6;}
+.review-send{width:100%;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;}
+.review-send:disabled{opacity:.5;cursor:not-allowed;}
+.review-hint{text-align:center;margin-top:8px;}
 .cmd-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
 .cmd-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:14px;background:var(--accent-soft);color:var(--text);font-size:12px;font-family:var(--mono);}
 .cmd-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px;}
@@ -20,60 +30,49 @@
 
 {{if or (eq .Role "admin") (eq .Role "operator")}}
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data">
-  <div class="cmd-builder dv-rise-1" id="cmd-builder">
+  <div class="cmd2 dv-rise-1">
 
-    <div class="cmd-builder-head">
-      <h3 class="head-title">New command</h3>
-    </div>
+    <!-- LEFT · configure -->
+    <div class="card">
+      <div class="card-header"><h3>New command</h3></div>
+      <div class="cmd2-body">
 
-    <div class="cmd-builder-body">
-
-      <div class="cmd-preview" id="cmd-preview">
-        <span class="prompt">aio-mdm ❯</span>
-        <span class="tok-cmd" id="prev-cmd">install_apk</span>
-        <span class="tok-flag">--app</span>
-        <span class="tok-val" id="prev-val">none</span>
-        <span class="tok-flag">--to</span>
-        <span class="tok-val" id="prev-target">all</span>
-      </div>
-
-      <div style="padding:18px 20px 0;">
-
-        <div class="builder-section-label">Command type</div>
-        <div class="type-grid">
-          <button type="button" class="type-card is-active" data-type="install_apk" onclick="selectType('install_apk', this)">
-            <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
-            <span class="type-name">Install APK</span>
-            <span class="type-desc">Push an app to devices</span>
-          </button>
-          <button type="button" class="type-card" data-type="shell" onclick="selectType('shell', this)">
-            <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
-            <span class="type-name">Shell</span>
-            <span class="type-desc">Run a shell command</span>
-          </button>
-          <button type="button" class="type-card" data-type="screenshot" onclick="selectType('screenshot', this)">
-            <span class="type-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
-            <span class="type-name">Screenshot</span>
-            <span class="type-desc">Capture device screen</span>
-          </button>
-          <button type="button" class="type-card" data-type="reboot" onclick="selectType('reboot', this)">
-            <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>
-            <span class="type-name">Reboot</span>
-            <span class="type-desc">Restart the device</span>
-          </button>
-          {{if eq .Role "admin"}}
-          <button type="button" class="type-card" data-type="update_splash" onclick="selectType('update_splash', this)">
-            <span class="type-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="7" cy="7" r="0.5"/></svg></span>
-            <span class="type-name">Boot Logo</span>
-            <span class="type-desc">Flash the splash image</span>
-          </button>
-          {{end}}
+        <div>
+          <div class="cmd2-sec-title">Action</div>
+          <div class="type-grid">
+            <button type="button" class="type-card is-active" data-type="install_apk" onclick="selectType('install_apk', this)">
+              <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
+              <span class="type-name">Install APK</span>
+              <span class="type-desc">Push an app to devices</span>
+            </button>
+            <button type="button" class="type-card" data-type="shell" onclick="selectType('shell', this)">
+              <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
+              <span class="type-name">Shell</span>
+              <span class="type-desc">Run a shell command</span>
+            </button>
+            <button type="button" class="type-card" data-type="screenshot" onclick="selectType('screenshot', this)">
+              <span class="type-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
+              <span class="type-name">Screenshot</span>
+              <span class="type-desc">Capture device screen</span>
+            </button>
+            <button type="button" class="type-card" data-type="reboot" onclick="selectType('reboot', this)">
+              <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>
+              <span class="type-name">Reboot</span>
+              <span class="type-desc">Restart the device</span>
+            </button>
+            {{if eq .Role "admin"}}
+            <button type="button" class="type-card" data-type="update_splash" onclick="selectType('update_splash', this)">
+              <span class="type-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="7" cy="7" r="0.5"/></svg></span>
+              <span class="type-name">Boot Logo</span>
+              <span class="type-desc">Flash the splash image</span>
+            </button>
+            {{end}}
+          </div>
+          <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
         </div>
-        <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
 
-        <div class="payload-zone">
-          <span class="payload-zone-label">Payload</span>
-
+        <div>
+          <div class="cmd2-sec-title">Payload</div>
           <div id="apk-fields" class="payload-section is-active">
             {{if .Apps}}
               <div class="app-select-wrap">
@@ -92,20 +91,16 @@
               </div>
             {{end}}
           </div>
-
           <div id="shell-fields" class="payload-section">
             <input type="text" name="shell_cmd" id="shell-cmd-input" class="form-input" placeholder="ls /sdcard" oninput="updatePreview()" style="font-family:var(--mono);">
             <div class="muted small" style="margin-top:6px;">Legacy devices only. Runs via checkin response. Expires after 5 minutes.</div>
           </div>
-
           <div id="screenshot-hint" class="payload-section">
             <div class="payload-empty">→ device captures screen on next checkin (5 min window)</div>
           </div>
-
           <div id="reboot-hint" class="payload-section">
             <div class="payload-empty" style="color:var(--danger);">⚠ device will restart on next checkin (5 min window)</div>
           </div>
-
           <div id="splash-fields" class="payload-section">
             <input type="file" name="splash_file" id="splash-file-input" class="form-input" accept="image/bmp,image/png,image/jpeg,.bmp,.png,.jpg,.jpeg" onchange="updatePreview()">
             <div class="muted small" style="margin-top:6px;">Upload a BMP (passed through as-is) or PNG/JPEG (converted to 24-bit BMP). The server wraps it into a <code>splash.img</code> (0x4000 zero filler + BMP) and hosts it — no need to build the image yourself. Match the panel resolution (e.g. 720×1280).</div>
@@ -113,14 +108,13 @@
             <input type="number" name="partition_size" id="splash-size-input" class="form-input" placeholder="partition size in bytes (optional)" min="1" style="margin-top:8px;">
             <div class="muted small" style="margin-top:6px;">The device validates the BMP signature and stages it; an init broker writes the partition — visible next boot. Size is checked by the broker if left blank.</div>
           </div>
+          <div style="margin-top:14px;">
+            <input type="text" name="reason" class="form-input" oninput="updatePreview()" placeholder="Reason (required for reboot / boot logo when reason-logging is on)">
+          </div>
         </div>
 
-        <div style="margin-bottom:14px;">
-          <input type="text" name="reason" class="form-input" placeholder="Reason (required for reboot / boot logo when reason-logging is on)">
-        </div>
-
-        <div class="target-row">
-          <span class="target-label">Target</span>
+        <div>
+          <div class="cmd2-sec-title">Target</div>
           <div class="target-pills">
             <button type="button" class="target-pill is-active" data-target="all" onclick="selectTarget('all', this)">
               <span class="pill-dot"></span>All Devices
@@ -133,48 +127,56 @@
             </button>
           </div>
           <input type="hidden" name="target_type" id="target-type-input" value="all">
-        </div>
 
-        <div id="target-groups" class="target-detail">
-          {{if .Groups}}
-          <input type="text" id="cmd-group-filter" class="form-input" autocomplete="off" placeholder="Filter groups…" oninput="filterCmdGroups()" style="margin-bottom:8px;">
-          {{end}}
-          <div class="checkbox-group" id="cmd-group-list">
-            {{range .Groups}}
-            <label class="checkbox-label" data-name="{{.Name}}">
-              <input type="checkbox" name="target_groups" value="{{.ID}}" onchange="updatePreview()"> {{.Name}} ({{.DeviceCount}} devices)
-            </label>
-            {{else}}
-            <span class="muted small">No groups created yet.</span>
+          <div id="target-groups" class="target-detail" style="margin-top:12px;">
+            {{if .Groups}}
+            <input type="text" id="cmd-group-filter" class="form-input" autocomplete="off" placeholder="Filter groups…" oninput="filterCmdGroups()" style="margin-bottom:8px;">
             {{end}}
+            <div class="checkbox-group" id="cmd-group-list">
+              {{range .Groups}}
+              <label class="checkbox-label" data-name="{{.Name}}">
+                <input type="checkbox" name="target_groups" value="{{.ID}}" onchange="updatePreview()"> {{.Name}} ({{.DeviceCount}} devices)
+              </label>
+              {{else}}
+              <span class="muted small">No groups created yet.</span>
+              {{end}}
+            </div>
+          </div>
+
+          <div id="target-devices" class="target-detail" style="margin-top:12px;">
+            <input type="text" id="cmd-serial-input" name="q" class="form-input" autocomplete="off"
+                   placeholder="Search or type a serial, Enter to add…"
+                   hx-get="/devices/search" hx-trigger="keyup changed delay:200ms, focus"
+                   hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
+            <div id="cmd-device-results"></div>
+            <div id="cmd-chips" class="cmd-chips"></div>
+            <textarea name="target_serials" id="cmd-serials" class="form-textarea" placeholder="paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="cmdRenderChips();updatePreview()" style="display:none;font-family:var(--mono);font-size:12px;"></textarea>
+            <button type="button" class="btn-link small" id="cmd-edit-list" onclick="cmdToggleList()">Edit as list ▾</button>
           </div>
         </div>
 
-        <div id="target-devices" class="target-detail">
-          <input type="text" id="cmd-serial-input" name="q" class="form-input" autocomplete="off"
-                 placeholder="Search or type a serial, Enter to add…"
-                 hx-get="/devices/search" hx-trigger="keyup changed delay:200ms, focus"
-                 hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
-          <div id="cmd-device-results"></div>
-          <div id="cmd-chips" class="cmd-chips"></div>
-          <textarea name="target_serials" id="cmd-serials" class="form-textarea" placeholder="paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="cmdRenderChips();updatePreview()" style="display:none;font-family:var(--mono);font-size:12px;"></textarea>
-          <button type="button" class="btn-link small" id="cmd-edit-list" onclick="cmdToggleList()">Edit as list ▾</button>
-        </div>
-
       </div>
-
-      <div class="cmd-builder-foot">
-        <span class="foot-meta">
-          <span class="meta-dot"></span>
-          <span id="foot-summary">ready · <span id="foot-target-count">all devices</span></span>
-        </span>
-        <button type="submit" id="send-btn" class="btn-send-cli">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
-          Send Command
-        </button>
-      </div>
-
     </div>
+
+    <!-- RIGHT · review (sticky) -->
+    <aside class="cmd2-review">
+      <div class="card">
+        <div class="card-header"><h3>Review</h3></div>
+        <div class="review-body">
+          <div class="review-action" id="rv-action">Install APK</div>
+          <div class="review-row"><span class="k" id="rv-payload-k">App</span><span class="v" id="rv-payload-v">—</span></div>
+          <div class="review-row"><span class="k">Target</span><span class="v" id="rv-target-v">All devices</span></div>
+          <div class="review-row"><span class="k">Reason</span><span class="v" id="rv-reason-v">—</span></div>
+          <div id="rv-warn" class="review-warn" style="display:none;"></div>
+          <button type="submit" id="send-btn" class="btn-primary review-send">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
+            Send command
+          </button>
+          <div class="review-hint muted small">⌘↵ / Ctrl+↵ to send</div>
+        </div>
+      </div>
+    </aside>
+
   </div>
 </form>
 {{end}}
@@ -440,62 +442,78 @@ function filterCmdGroups() {
 // The device-lookup partial's Add button calls this.
 function pickCommandSerial(serial) { cmdAddSerial(serial); }
 
+// Drives the right-hand Review pane and the Send button's validity.
 function updatePreview() {
   var type = document.getElementById('cmd-type-input').value;
   var target = document.getElementById('target-type-input').value;
+  var warn = [];
 
-  var prevCmd = document.getElementById('prev-cmd');
-  var prevVal = document.getElementById('prev-val');
-  var prevTarget = document.getElementById('prev-target');
-  if (prevCmd) prevCmd.textContent = type;
+  var NAMES = { install_apk: 'Install APK', shell: 'Shell command', screenshot: 'Screenshot', reboot: 'Reboot', update_splash: 'Boot logo' };
+  document.getElementById('rv-action').textContent = NAMES[type] || type;
 
-  var valNode = prevVal;
-  valNode.className = 'tok-val';
-  var flagNode = prevVal.previousElementSibling;
+  var pk = document.getElementById('rv-payload-k');
+  var pv = document.getElementById('rv-payload-v');
   if (type === 'install_apk') {
-    flagNode.textContent = '--app';
+    pk.textContent = 'App';
     var sel = document.getElementById('apk-select');
     var opt = sel && sel.options[sel.selectedIndex];
-    valNode.textContent = (opt && opt.value) ? (opt.dataset.name || opt.value) : 'none';
+    var v = (opt && opt.value) ? (opt.dataset.name || opt.value) : '';
+    pv.textContent = v || '—';
+    if (!v) warn.push('Choose an app to install.');
   } else if (type === 'shell') {
-    flagNode.textContent = '--cmd';
+    pk.textContent = 'Command';
     var s = (document.getElementById('shell-cmd-input').value || '').trim();
-    valNode.textContent = s ? '"' + s.replace(/"/g, '\\"') + '"' : '<empty>';
+    pv.textContent = s || '—';
+    if (!s) warn.push('Enter a shell command.');
   } else if (type === 'screenshot') {
-    flagNode.textContent = '--capture';
-    valNode.textContent = 'next-checkin';
+    pk.textContent = 'Capture'; pv.textContent = 'next check-in';
   } else if (type === 'reboot') {
-    flagNode.textContent = '--mode';
-    valNode.textContent = 'soft';
+    pk.textContent = 'Mode'; pv.textContent = 'soft reboot';
   } else if (type === 'update_splash') {
-    flagNode.textContent = '--image';
-    var fileInput = document.getElementById('splash-file-input');
-    var f = fileInput && fileInput.files && fileInput.files[0];
+    pk.textContent = 'Image';
+    var fi = document.getElementById('splash-file-input');
+    var f = fi && fi.files && fi.files[0];
     var u = (document.getElementById('splash-url-input').value || '').trim();
-    valNode.textContent = f ? f.name : (u ? u.replace(/^https?:\/\//, '') : '<no-image>');
+    pv.textContent = f ? f.name : (u ? u.replace(/^https?:\/\//, '') : '—');
+    if (!f && !u) warn.push('Upload or link a splash image.');
   }
 
-  // Target column
-  var targetText = 'all-devices';
-  var summary = 'all devices';
+  var tv = document.getElementById('rv-target-v');
   if (target === 'groups') {
-    var checked = document.querySelectorAll('input[name="target_groups"]:checked');
-    targetText = checked.length ? checked.length + '-groups' : '<no-groups>';
-    summary = checked.length + ' groups';
+    var n = document.querySelectorAll('input[name="target_groups"]:checked').length;
+    tv.textContent = n ? (n + ' group' + (n !== 1 ? 's' : '')) : '—';
+    if (!n) warn.push('Select at least one group.');
   } else if (target === 'devices') {
-    var ta = document.querySelector('textarea[name="target_serials"]');
-    var n = ta ? ta.value.split('\n').filter(function(x){return x.trim().length;}).length : 0;
-    targetText = n ? n + '-devices' : '<no-devices>';
-    summary = n + ' devices';
+    var dn = cmdSerials().length;
+    tv.textContent = dn ? (dn + ' device' + (dn !== 1 ? 's' : '')) : '—';
+    if (!dn) warn.push('Add at least one device.');
+  } else {
+    tv.textContent = 'All devices';
   }
-  prevTarget.textContent = targetText;
-  var foot = document.getElementById('foot-target-count');
-  if (foot) foot.textContent = summary;
+
+  var reason = (document.querySelector('input[name="reason"]').value || '').trim();
+  document.getElementById('rv-reason-v').textContent = reason || '—';
+  var softWarn = [];
+  if ((type === 'reboot' || type === 'update_splash') && !reason) softWarn.push('A reason may be required for this action.');
+
+  var all = warn.concat(softWarn);
+  var warnEl = document.getElementById('rv-warn');
+  if (all.length) {
+    warnEl.style.display = '';
+    warnEl.innerHTML = all.map(function (w) { return '⚠ ' + w; }).join('<br>');
+  } else {
+    warnEl.style.display = 'none';
+    warnEl.textContent = '';
+  }
+  var btn = document.getElementById('send-btn');
+  if (btn) btn.disabled = warn.length > 0; // hard-invalid only; soft notes don't block
 }
 
 // ⌘↵ / Ctrl+↵ submit
 document.addEventListener('keydown', function(e) {
   if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    var b = document.getElementById('send-btn');
+    if (b && b.disabled) return;
     var f = document.getElementById('cmd-form');
     if (f) f.requestSubmit();
   }
