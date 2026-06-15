@@ -60,6 +60,15 @@
 .settings-tab{display:none;}
 .settings-tab.active{display:block;}
 @media (max-width:760px){.settings-wrap{flex-direction:column;}.settings-nav{position:static;flex-direction:row;flex-wrap:wrap;min-width:0;}}
+/* Compact alert-rule rows: one line each, expand to edit thresholds. */
+.rule-item{padding:9px 0;border-bottom:1px solid var(--border-soft);}
+.rule-head{display:flex;align-items:center;gap:12px;}
+.rule-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rule-summary{white-space:nowrap;}
+.rule-body{display:none;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-top:10px;padding-left:28px;}
+.rule-item.open .rule-body{display:flex;}
+.collapsible-header .collapse-caret{transition:transform .15s;display:inline-block;}
+.collapsible-header.open .collapse-caret{transform:rotate(90deg);}
 </style>
 
 <div class="ov-greet">
@@ -247,31 +256,20 @@
   <!-- ── Alerts ──────────────────────────────────────── -->
   <section class="settings-tab" data-tab="alerts">
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Alerts</h3></div>
-  <div style="padding:16px;">
-    <div class="muted small" style="margin-bottom:8px;">Send new alerts to a Slack / Discord / Mattermost-compatible incoming webhook. Leave blank to disable. Alerts are evaluated hourly during housekeeping.</div>
-    <form action="/settings/alert-webhook" method="POST" style="display:flex;align-items:center;gap:8px;max-width:560px;">
-      <input type="url" name="alert_webhook_url" value="{{.AlertWebhookURL}}" placeholder="https://hooks.slack.com/services/…" class="form-input" style="flex:1;">
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
-    </form>
-
-    <div class="muted small" style="margin:18px 0 4px;border-top:1px solid var(--border-soft);padding-top:14px;">
-      <strong style="color:var(--text);">Alert rules</strong> — choose which alerts fire and tune their thresholds. <span class="status-badge muted">live</span> rules are evaluated every minute; the rest hourly during housekeeping. Operational (windowed) rules apply to deployed units only.
-    </div>
+  <div class="card-header"><h3>Alert rules</h3><span class="muted small">toggle what fires · Edit to tune thresholds</span></div>
+  <div style="padding:6px 16px 14px;">
     {{range .AlertRules}}
-    <form action="/settings/alert-rules/{{.ID}}" method="POST" style="padding:12px 0;border-bottom:1px solid var(--border-soft);">
+    <form action="/settings/alert-rules/{{.ID}}" method="POST" class="rule-item">
       <input type="hidden" name="type" value="{{.Type}}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;">
-        <div>
-          <strong class="small">{{.Name}}</strong>
-          {{if .Recent}}<span class="status-badge muted" style="margin-left:6px;">live</span>{{end}}
-          <div class="muted small">{{.Desc}}</div>
-        </div>
-        <label class="small" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
-          <input type="checkbox" name="enabled"{{if .Enabled}} checked{{end}}> Enabled
-        </label>
+      <div class="rule-head">
+        <input type="checkbox" name="enabled"{{if .Enabled}} checked{{end}} title="Enabled">
+        <strong class="small rule-title">{{.Name}}</strong>
+        <span class="rule-summary muted small">{{range .Fields}}{{.Value}}{{.Unit}} {{end}}{{if and .Windowed .ActiveWindow}}· {{.ActiveWindow}}{{end}}</span>
+        {{if or .Fields .Windowed}}<button type="button" class="btn-outline" style="font-size:12px;padding:3px 10px;" onclick="this.closest('.rule-item').classList.toggle('open')">Edit</button>{{end}}
+        <button type="submit" class="btn-primary" style="font-size:12px;padding:3px 12px;">Save</button>
       </div>
-      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-top:10px;">
+      <div class="rule-body">
+        <div class="muted small" style="flex-basis:100%;margin:0;">{{.Desc}}</div>
         {{range .Fields}}
         <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">
           {{.Label}}{{if .Unit}} <span class="muted">({{.Unit}})</span>{{end}}
@@ -288,21 +286,26 @@
           </select>
         </label>
         {{end}}
-        <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
       </div>
     </form>
     {{end}}
+    <div class="muted small" style="margin-top:10px;">Operational (windowed) rules apply to deployed units only. Alerts are evaluated hourly during housekeeping.</div>
   </div>
 </div>
 
 <div class="card" style="margin-bottom:16px;" id="channels">
-  <div class="card-header"><h3>Alert channels</h3></div>
-  <div style="padding:16px;">
+  <div class="card-header collapsible-header{{if .ChannelTest}} open{{end}}" role="button" tabindex="0" onclick="this.classList.toggle('open');var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
+    <h3><span class="collapse-caret">▸</span> Notifications</h3><span class="muted small">where alerts are sent · {{len .AlertChannels}} channel(s)</span>
+  </div>
+  <div style="padding:16px;{{if not .ChannelTest}}display:none;{{end}}">
+    <div class="muted small" style="margin-bottom:8px;">Default webhook (Slack / Discord / Mattermost). Used when no channel matches; leave blank to disable.</div>
+    <form action="/settings/alert-webhook" method="POST" style="display:flex;align-items:center;gap:8px;max-width:560px;margin-bottom:18px;">
+      <input type="url" name="alert_webhook_url" value="{{.AlertWebhookURL}}" placeholder="https://hooks.slack.com/services/…" class="form-input" style="flex:1;">
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+    </form>
     {{if eq .ChannelTest "ok"}}<div class="status-badge ok" style="margin-bottom:10px;">Test alert sent — check the channel.</div>{{end}}
     {{if eq .ChannelTest "fail"}}<div class="status-badge danger" style="margin-bottom:10px;">Test failed — the webhook URL was rejected (see server logs).</div>{{end}}
-    <div class="muted small" style="margin-bottom:12px;">
-      Route alerts to one or more <strong>Slack / Discord / Mattermost</strong> or <strong>Microsoft Teams</strong> webhooks by minimum severity. For Teams, use a channel's <em>Workflows → "Post to a channel when a webhook request is received"</em> URL (Teams gets an Adaptive Card; the others get a text webhook). <strong>Realtime</strong> channels post immediately; <strong>digest</strong> channels are summarised in the daily digest. A channel's active window can restrict it to service or overnight hours (fleet default window). Channels supersede the single webhook above; if none exist, that webhook is used for everything.
-    </div>
+    <div class="muted small" style="margin-bottom:12px;">Route alerts to multiple destinations by minimum severity. Teams gets an Adaptive Card (use a channel's <em>Workflows</em> webhook); the others get a text webhook. Realtime posts immediately; digest batches into the daily digest.</div>
     {{range .AlertChannels}}
     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--border-soft);">
       <form action="/settings/alert-channels" method="POST" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1;">
@@ -326,8 +329,10 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Service hours</h3></div>
-  <div style="padding:16px;">
+  <div class="card-header collapsible-header" role="button" tabindex="0" onclick="this.classList.toggle('open');var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
+    <h3><span class="collapse-caret">▸</span> Service hours</h3><span class="muted small">when operational alerts fire</span>
+  </div>
+  <div style="padding:16px;display:none;">
     <div class="muted small" style="margin-bottom:12px;">
       Operational alerts (offline, low battery, charging, pad) only fire while a venue is open, and overnight-charging alerts only fire overnight. Set the default below; override per restaurant as needed. Timezone is <span class="mono">GMT±h</span> (e.g. <span class="mono">GMT-5</span>); leave blank to use each device's reported timezone.
     </div>
