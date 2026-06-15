@@ -45,7 +45,7 @@
     </div>
     <div class="gp-foot">
       <span>created {{localTime .CreatedAt}}</span>
-      {{if $h.Deployed}}<span class="gp-chip">deployed</span>{{end}}
+      {{if gt $h.DeployedCount 0}}<span class="gp-chip">{{$h.DeployedCount}} deployed</span>{{end}}
     </div>
     {{if eq $.Role "admin"}}
     <form action="/groups/{{.ID}}/delete" method="POST" class="gp-del"

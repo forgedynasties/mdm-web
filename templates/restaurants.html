@@ -45,7 +45,7 @@
     </div>
     <div class="gp-foot">
       <span>{{if .Address}}{{.Address}}{{else}}<span class="muted">no address</span>{{end}}</span>
-      {{if .Deployed}}<span class="gp-chip">deployed</span>{{else}}<span class="gp-chip" style="opacity:0.6;">lab</span>{{end}}
+      <span class="gp-chip">{{.DeviceCount}} deployed</span>
     </div>
     {{if eq $.Role "admin"}}
     <form action="/restaurants/{{.ID}}/delete" method="POST" class="gp-del"
