@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -3278,6 +3279,20 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount,
 		})
 	}
+	// Default order is alphabetical by version; any saved manual (drag) order takes
+	// precedence, with positioned rows first and the rest alphabetical after them.
+	order, _ := h.db.GetVersionOrder(r.Context())
+	sort.SliceStable(active, func(i, j int) bool {
+		pi, iok := order[active[i].Version]
+		pj, jok := order[active[j].Version]
+		if iok && jok {
+			return pi < pj
+		}
+		if iok != jok {
+			return iok
+		}
+		return active[i].Version < active[j].Version
+	})
 	h.render(w, r, "releases.html", map[string]any{
 		"Title":           "Releases",
 		"Versions":        active,
@@ -3302,6 +3317,24 @@ func (h *Handler) ReleaseTrack(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "release.track", version, "")
 	http.Redirect(w, r, fmt.Sprintf("/updates/%d", rel.ID), http.StatusSeeOther)
+}
+
+// ReorderVersions saves the drag-and-drop order of the releases list (JSON body
+// {"versions": [...]} in display order). Returns 204 on success (called via fetch).
+func (h *Handler) ReorderVersions(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Versions []string `json:"versions"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetVersionOrder(r.Context(), body.Versions); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.reorder", "", strconv.Itoa(len(body.Versions)))
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // VersionHide dismisses a not-tracked device-reported version from the releases list
@@ -6038,6 +6071,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /updates/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /updates/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
 	post("POST /updates/track", h.requireAdmin(h.ReleaseTrack))
+	post("POST /updates/order", h.requireAdmin(h.ReorderVersions))
 	post("POST /updates/version/hide", h.requireAdmin(h.VersionHide))
 	post("POST /updates/version/unhide", h.requireAdmin(h.VersionUnhide))
 	mux.HandleFunc("GET /updates/{id}/adoption", h.requireAuth(h.ReleaseAdoptionJSON))

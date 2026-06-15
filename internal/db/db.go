@@ -4618,6 +4618,14 @@ CREATE TABLE IF NOT EXISTS hidden_versions (
     version    TEXT PRIMARY KEY,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Manual drag order for the releases list, keyed by version string (covers both managed
+-- releases and not-tracked device versions). Versions absent here sort alphabetically
+-- after the positioned ones. Lower position = higher in the list.
+CREATE TABLE IF NOT EXISTS version_order (
+    version  TEXT PRIMARY KEY,
+    position INTEGER NOT NULL
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -4827,6 +4835,48 @@ func (d *DB) ListHiddenVersions(ctx context.Context) (map[string]bool, error) {
 		out[v] = true
 	}
 	return out, rows.Err()
+}
+
+// GetVersionOrder returns the saved manual order (version -> position) for the releases list.
+func (d *DB) GetVersionOrder(ctx context.Context) (map[string]int, error) {
+	rows, err := d.pool.Query(ctx, `SELECT version, position FROM version_order`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]int)
+	for rows.Next() {
+		var v string
+		var p int
+		if err := rows.Scan(&v, &p); err != nil {
+			return nil, err
+		}
+		out[v] = p
+	}
+	return out, rows.Err()
+}
+
+// SetVersionOrder replaces the manual order with the given versions (position = index).
+func (d *DB) SetVersionOrder(ctx context.Context, versions []string) error {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `DELETE FROM version_order`); err != nil {
+		return err
+	}
+	for i, v := range versions {
+		if v == "" {
+			continue
+		}
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO version_order (version, position) VALUES ($1, $2)
+			 ON CONFLICT (version) DO UPDATE SET position = EXCLUDED.position`, v, i); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
 }
 
 // AdoptionPoint is one day of "how many devices were on this version".

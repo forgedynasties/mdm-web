@@ -18,6 +18,7 @@
   <table class="table">
     <thead>
       <tr>
+        {{if eq .Role "admin"}}<th style="width:22px;"></th>{{end}}
         <th>Version</th>
         <th>Tracking</th>
         <th>Name</th>
@@ -26,9 +27,10 @@
         <th></th>
       </tr>
     </thead>
-    <tbody>
+    <tbody id="versions-tbody">
       {{range .Versions}}
-      <tr {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
+      <tr data-version="{{.Version}}" {{if eq $.Role "admin"}}draggable="true"{{end}} {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
+        {{if eq $.Role "admin"}}<td class="drag-handle" style="cursor:grab;color:var(--muted);text-align:center;user-select:none;" title="Drag to reorder">⠿</td>{{end}}
         <td class="mono small">{{if .Tracked}}<a href="/updates/{{.ReleaseID}}" class="link-detail">{{.Version}}</a>{{else}}{{.Version}}{{end}}</td>
         <td>
           {{if .Tracked}}<span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>
@@ -164,6 +166,52 @@ document.addEventListener('keydown', function(e) {
 });
 </script>
 {{end}}
+
+<script>
+// Drag-to-reorder the releases list; saves the order (by version) to the server.
+(function () {
+  var tbody = document.getElementById('versions-tbody');
+  if (!tbody) return;
+  var rows = tbody.querySelectorAll('tr[draggable="true"]');
+  if (!rows.length) return;
+  var dragEl = null;
+
+  function afterElement(y) {
+    var els = [].slice.call(tbody.querySelectorAll('tr[draggable="true"]:not(.dragging)'));
+    var best = { offset: -Infinity, el: null };
+    els.forEach(function (el) {
+      var box = el.getBoundingClientRect();
+      var offset = y - box.top - box.height / 2;
+      if (offset < 0 && offset > best.offset) best = { offset: offset, el: el };
+    });
+    return best.el;
+  }
+
+  function saveOrder() {
+    var versions = [].slice.call(tbody.querySelectorAll('tr[draggable="true"]'))
+      .map(function (r) { return r.getAttribute('data-version'); });
+    fetch('/updates/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ versions: versions })
+    });
+  }
+
+  rows.forEach(function (row) {
+    row.addEventListener('dragstart', function () { dragEl = row; row.classList.add('dragging'); });
+    row.addEventListener('dragend', function () {
+      row.classList.remove('dragging'); dragEl = null; saveOrder();
+    });
+  });
+  tbody.addEventListener('dragover', function (e) {
+    if (!dragEl) return;
+    e.preventDefault();
+    var after = afterElement(e.clientY);
+    if (after == null) tbody.appendChild(dragEl);
+    else tbody.insertBefore(dragEl, after);
+  });
+})();
+</script>
 
 {{template "footer" .}}
 {{end}}
