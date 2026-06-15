@@ -1,0 +1,53 @@
+{{define "restaurant_form.html"}}
+{{template "header" .}}
+
+<a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" class="back-link">← Back</a>
+<div class="ov-greet">
+  <h1 class="ov-title">{{.Title}}</h1>
+</div>
+
+<div class="card" style="max-width:660px;">
+  <form action="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" method="POST"
+        style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+    <div class="form-row">
+      <label class="form-label">Name</label>
+      <input type="text" name="name" class="form-input" required autofocus
+             placeholder="e.g. Downtown Diner — 5th Ave"
+             value="{{with .Restaurant}}{{.Name}}{{end}}">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Address <span class="muted small">(optional)</span></label>
+      <input type="text" name="address" class="form-input"
+             placeholder="Street, city"
+             value="{{with .Restaurant}}{{.Address}}{{end}}">
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;">
+      <div class="form-row" style="flex:1;min-width:140px;">
+        <label class="form-label">Latitude <span class="muted small">(optional)</span></label>
+        <input type="text" name="latitude" class="form-input" placeholder="e.g. 37.7749"
+               value="{{with .Restaurant}}{{with .Latitude}}{{.}}{{end}}{{end}}">
+      </div>
+      <div class="form-row" style="flex:1;min-width:140px;">
+        <label class="form-label">Longitude <span class="muted small">(optional)</span></label>
+        <input type="text" name="longitude" class="form-input" placeholder="e.g. -122.4194"
+               value="{{with .Restaurant}}{{with .Longitude}}{{.}}{{end}}{{end}}">
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Timezone <span class="muted small">(optional — empty uses each device's reported tz)</span></label>
+      <input type="text" name="timezone" class="form-input" placeholder="e.g. GMT-8 or America/Los_Angeles"
+             value="{{with .Restaurant}}{{.Timezone}}{{end}}">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Notes <span class="muted small">(optional)</span></label>
+      <textarea name="notes" class="form-textarea" rows="3" style="resize:vertical;"
+                placeholder="Anything ops should know about this venue…">{{with .Restaurant}}{{.Notes}}{{end}}</textarea>
+    </div>
+    <div>
+      <button type="submit" class="btn-primary">{{if .Restaurant}}Save changes{{else}}Create restaurant{{end}}</button>
+    </div>
+  </form>
+</div>
+
+{{template "footer" .}}
+{{end}}

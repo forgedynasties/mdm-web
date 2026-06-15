@@ -3,18 +3,8 @@
 
 <a href="/groups" class="back-link">← Groups</a>
 <div class="ov-greet">
-  <h1 class="ov-title">{{.Group.Name}} {{if .Group.Deployed}}<span class="status-badge ok">Deployed</span>{{else}}<span class="status-badge muted">Lab</span>{{end}}</h1>
-  <span class="ov-date">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}}</span>
-  {{if eq .Role "admin"}}
-  <span class="acts">
-    <form action="/groups/{{.Group.ID}}/deployment" method="POST">
-      <input type="hidden" name="deployed" value="{{if .Group.Deployed}}0{{else}}1{{end}}">
-      <button type="submit" class="btn-outline" title="Devices in this group inherit this unless individually overridden.">
-        {{if .Group.Deployed}}Move group to lab{{else}}Mark group deployed{{end}}
-      </button>
-    </form>
-  </span>
-  {{end}}
+  <h1 class="ov-title">{{.Group.Name}}</h1>
+  <span class="ov-date">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}} · tag</span>
 </div>
 
 <script src="/static/vendor/chart.umd.min.js"></script>

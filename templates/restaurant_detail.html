@@ -1,0 +1,205 @@
+{{define "restaurant_detail.html"}}
+{{template "header" .}}
+
+<a href="/restaurants" class="back-link">← Restaurants</a>
+<div class="ov-greet">
+  <h1 class="ov-title">{{.Restaurant.Name}} {{if .Restaurant.Deployed}}<span class="status-badge ok">Deployed</span>{{else}}<span class="status-badge muted">Lab</span>{{end}}</h1>
+  <span class="ov-date">
+    {{.Restaurant.DeviceCount}} device{{if ne .Restaurant.DeviceCount 1}}s{{end}}
+    {{if .Restaurant.Address}} · {{.Restaurant.Address}}{{end}}
+    {{if .Restaurant.Timezone}} · {{.Restaurant.Timezone}}{{end}}
+  </span>
+  {{if eq .Role "admin"}}
+  <span class="acts" style="margin-left:auto;display:flex;gap:8px;">
+    <form action="/restaurants/{{.Restaurant.ID}}/deployment" method="POST">
+      <input type="hidden" name="deployed" value="{{if .Restaurant.Deployed}}0{{else}}1{{end}}">
+      <button type="submit" class="btn-outline" title="Devices in this restaurant inherit this unless individually overridden.">
+        {{if .Restaurant.Deployed}}Move to lab{{else}}Mark deployed{{end}}
+      </button>
+    </form>
+    <a href="/restaurants/{{.Restaurant.ID}}/edit" class="btn-outline">Edit</a>
+    <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST"
+          onsubmit="return confirm('Delete this restaurant? Its devices become unassigned (lab).')">
+      <button type="submit" class="btn-danger-sm">Delete</button>
+    </form>
+  </span>
+  {{end}}
+</div>
+
+{{if .Restaurant.Notes}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Notes</h3></div>
+  <div style="padding:12px 16px;white-space:pre-wrap;font-size:13px;line-height:1.6;">{{.Restaurant.Notes}}</div>
+</div>
+{{end}}
+
+<!-- Service hours -->
+{{if eq .Role "admin"}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Service hours</h3>
+    <span class="muted small">{{if .ServiceWindow.HasOwn}}custom{{else}}inheriting fleet default{{end}}</span>
+  </div>
+  <form action="/restaurants/{{.Restaurant.ID}}/service-window" method="POST"
+        style="display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;padding:16px 20px;">
+    <div class="form-row"><label class="form-label">Open</label>
+      <input type="time" name="open" class="form-input" value="{{.ServiceWindow.Open}}" style="max-width:130px;"></div>
+    <div class="form-row"><label class="form-label">Close</label>
+      <input type="time" name="close" class="form-input" value="{{.ServiceWindow.Close}}" style="max-width:130px;"></div>
+    <div class="form-row"><label class="form-label">Overnight open</label>
+      <input type="time" name="night_open" class="form-input" value="{{.ServiceWindow.NightOpen}}" style="max-width:130px;"></div>
+    <div class="form-row"><label class="form-label">Overnight close</label>
+      <input type="time" name="night_close" class="form-input" value="{{.ServiceWindow.NightClose}}" style="max-width:130px;"></div>
+    <div class="form-row"><label class="form-label">Timezone <span class="muted small">(blank = device tz)</span></label>
+      <input type="text" name="timezone" class="form-input" value="{{.ServiceWindow.TZ}}" placeholder="GMT-8" style="max-width:150px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button type="submit" class="btn-primary">Save hours</button>
+      {{if .ServiceWindow.HasOwn}}
+      <button type="submit" name="action" value="reset" class="btn-outline" title="Revert to the fleet default window">Reset</button>
+      {{end}}
+    </div>
+  </form>
+  <p class="muted small" style="margin:0;padding:0 20px 14px;">
+    Window-gated alerts (e.g. offline during service, low battery during service, overnight charging)
+    fire only for deployed units during these hours.
+  </p>
+</div>
+{{end}}
+
+<!-- Trends -->
+<script src="/static/vendor/chart.umd.min.js"></script>
+<div class="card chart-card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Restaurant trends</h3>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="rtrends-info" class="muted small"></span>
+      <div class="dur-btns" id="rtrends-range">
+        <button class="dur-btn" data-days="7">7d</button>
+        <button class="dur-btn active" data-days="30">30d</button>
+        <button class="dur-btn" data-days="90">90d</button>
+      </div>
+    </div>
+  </div>
+  <div class="chart-wrap chart-wrap--tall"><canvas id="rtrendsChart"></canvas></div>
+</div>
+
+<!-- Assign devices -->
+{{if eq .Role "admin"}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Assign devices</h3></div>
+  <form action="/restaurants/{{.Restaurant.ID}}/devices" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
+    <div class="form-row">
+      <label class="form-label">Serial numbers</label>
+      <textarea name="serials" class="form-textarea" placeholder="Type or paste serials, one per line" style="min-height:70px;"></textarea>
+      <span class="muted small">Each device is moved to this restaurant (and away from any previous one).</span>
+    </div>
+    <div><button type="submit" class="btn-primary">Assign</button></div>
+  </form>
+</div>
+{{end}}
+
+<!-- Members -->
+<div class="card">
+  <div class="card-header"><h3>Devices</h3></div>
+  {{if not .Devices}}
+  <div class="empty-state">
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No devices assigned yet</div>
+      <div class="empty-state-text">Assign devices above, or set a device's restaurant from its detail page.</div>
+    </div>
+  </div>
+  {{else}}
+  <table class="table">
+    <thead>
+      <tr><th>Serial Number</th><th>Build ID</th><th>Battery</th><th>Last Seen</th>{{if eq .Role "admin"}}<th></th>{{end}}</tr>
+    </thead>
+    <tbody>
+      {{range .Devices}}
+      <tr>
+        <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail mono">{{.SerialNumber}}</a></td>
+        <td class="mono small">{{.BuildID}}</td>
+        <td>
+          <div class="battery-wrap">
+            <div class="battery-track"><div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div></div>
+            <span class="battery-label">{{.BatteryPct}}%</span>
+          </div>
+        </td>
+        <td class="muted">{{timeSince .LastSeenAt}}</td>
+        {{if eq $.Role "admin"}}
+        <td>
+          <form action="/restaurants/{{$.Restaurant.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline">
+            <button type="submit" class="btn-danger-sm">Remove</button>
+          </form>
+        </td>
+        {{end}}
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+
+<script>
+// Restaurant trends chart — aggregated daily stats across the venue's devices.
+(function () {
+  var restID = '{{.Restaurant.ID}}';
+  var chart = null, days = 30;
+  var info = document.getElementById('rtrends-info');
+  var CRIMSON = '#d82747';
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDay(d) { var p = d.split('-'); return MONTHS[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10); }
+
+  function render(rows) {
+    var data = {
+      labels: rows.map(function (r) { return fmtDay(r.day); }),
+      datasets: [
+        { label: 'Battery max', data: rows.map(function (r) { return r.battery_max; }),
+          borderColor: 'rgba(120,144,170,0.5)', backgroundColor: 'rgba(120,144,170,0.12)',
+          borderWidth: 1, pointRadius: 0, fill: '+1', tension: 0.3 },
+        { label: 'Battery min', data: rows.map(function (r) { return r.battery_min; }),
+          borderColor: 'rgba(120,144,170,0.5)', borderWidth: 1, pointRadius: 0, fill: false, tension: 0.3 },
+        { label: 'Battery avg %', data: rows.map(function (r) { return r.battery_avg; }),
+          borderColor: CRIMSON, backgroundColor: CRIMSON, borderWidth: 2, pointRadius: 2, tension: 0.3 },
+        { label: 'Charging coverage %', data: rows.map(function (r) { return r.charging_frac == null ? null : Math.round(r.charging_frac * 100); }),
+          borderColor: '#1f8a4c', backgroundColor: '#1f8a4c', borderWidth: 2, borderDash: [4, 3], pointRadius: 0, tension: 0.3 }
+      ]
+    };
+    var opts = {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      scales: { y: { min: 0, max: 100, title: { display: true, text: '% (battery / charging)' } } },
+      plugins: { legend: { labels: { filter: function (i) { return i.text !== 'Battery min'; } } } }
+    };
+    if (chart) { chart.data = data; chart.options = opts; chart.update(); }
+    else { chart = new Chart(document.getElementById('rtrendsChart').getContext('2d'), { type: 'line', data: data, options: opts }); }
+  }
+
+  function load() {
+    if (!restID) return;
+    if (info) info.textContent = 'Loading…';
+    fetch('/restaurants/' + encodeURIComponent(restID) + '/daily-stats?days=' + days)
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (rows) {
+        if (!rows.length) { if (info) info.textContent = 'No data yet'; return; }
+        if (info) info.textContent = rows.length + ' day(s)';
+        render(rows);
+      })
+      .catch(function () { if (info) info.textContent = 'Failed to load'; });
+  }
+
+  var rangeEl = document.getElementById('rtrends-range');
+  if (rangeEl) {
+    rangeEl.addEventListener('click', function (e) {
+      var btn = e.target.closest('.dur-btn');
+      if (!btn) return;
+      days = parseInt(btn.getAttribute('data-days'), 10) || 30;
+      rangeEl.querySelectorAll('.dur-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
+      load();
+    });
+  }
+  load();
+})();
+</script>
+
+{{template "footer" .}}
+{{end}}
