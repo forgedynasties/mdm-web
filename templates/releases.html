@@ -3,8 +3,8 @@
 
 <div class="ov-greet">
   <h1 class="ov-title">Releases</h1>
-  <span class="ov-date">{{len .Releases}} release{{if ne (len .Releases) 1}}s{{end}}</span>
-  {{if and .Releases (eq .Role "admin")}}
+  <span class="ov-date">{{len .Releases}} release{{if ne (len .Releases) 1}}s{{end}}{{if .HiddenReleases}} · {{len .HiddenReleases}} hidden{{end}}</span>
+  {{if eq .Role "admin"}}
   <span class="acts">
     <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
       + New Release
@@ -36,7 +36,19 @@
         <td class="muted small">{{.PackageCount}}</td>
         <td class="muted small">{{.DeployCount}}</td>
         <td class="muted small">{{localTime .CreatedAt}}</td>
-        <td style="white-space:nowrap;"><a href="/updates/{{.ID}}" class="link-detail">View</a></td>
+        <td style="white-space:nowrap;">
+          <a href="/updates/{{.ID}}" class="link-detail">View</a>
+          {{if eq $.Role "admin"}}
+          <form action="/updates/{{.ID}}/hide" method="POST" style="display:inline;">
+            <input type="hidden" name="hidden" value="1">
+            <button type="submit" class="btn-outline" title="Hide this release from the list">Hide</button>
+          </form>
+          <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline;"
+                onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')">
+            <button type="submit" class="btn-danger-sm" title="Delete release">Delete</button>
+          </form>
+          {{end}}
+        </td>
       </tr>
       {{end}}
     </tbody>
@@ -61,6 +73,79 @@
 </div>
 {{end}}
 
+<!-- Release versions reported by devices (what's actually running in the field). -->
+<div class="card dv-rise-1" style="margin-top:16px;">
+  <div class="card-header">
+    <h3>Versions in the fleet</h3>
+    <span class="muted small">{{len .FleetVersions}} version{{if ne (len .FleetVersions) 1}}s{{end}} reported by devices</span>
+  </div>
+  {{if not .FleetVersions}}
+  <div class="empty-state"><div class="empty-state-copy"><div class="empty-state-title">No devices have reported a release version yet</div></div></div>
+  {{else}}
+  <table class="table">
+    <thead>
+      <tr><th>Release version</th><th>Devices</th><th>Tracking</th><th>Devices on this version</th></tr>
+    </thead>
+    <tbody>
+      {{range .FleetVersions}}
+      <tr>
+        <td class="mono small">{{.Version}}</td>
+        <td class="muted small">{{.DeviceCount}}</td>
+        <td class="small">
+          {{if .ReleaseID}}
+            <a href="/updates/{{.ReleaseID}}" class="link-detail"><span class="status-badge {{releaseStatusClass .ReleaseStatus}}">{{.ReleaseStatus}}</span></a>
+            {{if .ReleaseHidden}}<span class="status-badge muted">hidden</span>{{end}}
+          {{else}}
+            <span class="status-badge muted" title="No matching release in the registry">unmanaged</span>
+          {{end}}
+        </td>
+        <td>
+          <div style="display:flex;flex-wrap:wrap;gap:4px 8px;">
+            {{range .Serials}}<a href="/devices/{{.}}" class="link-detail mono small">{{.}}</a>{{end}}
+          </div>
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+
+{{if .HiddenReleases}}
+<div class="card dv-rise-1" style="margin-top:16px;">
+  <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="this.classList.toggle('open');var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
+    <h3>Hidden releases <span class="muted small">{{len .HiddenReleases}}</span></h3>
+  </div>
+  <div class="collapsible-body" style="display:none;">
+    <table class="table">
+      <thead><tr><th>Version</th><th>Name</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {{range .HiddenReleases}}
+        <tr style="opacity:0.7;">
+          <td class="mono small">{{.Version}}</td>
+          <td class="small">{{if .Name}}{{.Name}}{{else}}<span class="muted">—</span>{{end}}</td>
+          <td><span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span></td>
+          <td style="white-space:nowrap;">
+            <a href="/updates/{{.ID}}" class="link-detail">View</a>
+            {{if eq $.Role "admin"}}
+            <form action="/updates/{{.ID}}/hide" method="POST" style="display:inline;">
+              <input type="hidden" name="hidden" value="0">
+              <button type="submit" class="btn-outline" title="Show this release again">Unhide</button>
+            </form>
+            <form action="/updates/{{.ID}}/delete" method="POST" style="display:inline;"
+                  onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')">
+              <button type="submit" class="btn-danger-sm">Delete</button>
+            </form>
+            {{end}}
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+</div>
+{{end}}
+
 {{if eq .Role "admin"}}
 <!-- Create Release Modal: creates the first package, which creates the release. -->
 <div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
@@ -72,9 +157,9 @@
     <div class="modal-body">
       <form action="/updates" method="POST" class="command-form" style="padding:0;">
         <div class="form-row">
-          <label class="form-label">Release Build ID</label>
+          <label class="form-label">Release version</label>
           <input type="text" name="version" class="form-input" placeholder="e.g. 2026.06.01-release" required autofocus>
-          <div class="form-hint">The build devices will be on after this release. This is the unique release identifier.</div>
+          <div class="form-hint">The version devices will report after this release. This is the unique release identifier.</div>
         </div>
         <div class="form-row">
           <label class="form-label">Name <span class="muted small">(optional)</span></label>
