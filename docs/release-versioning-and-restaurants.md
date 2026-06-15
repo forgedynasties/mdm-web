@@ -202,12 +202,22 @@ The system already **is** a proper release-management system with changelog:
   scheduling, targets, retry/cancel/add-targets), per-device artifact resolution, RBAC.
 - Changelog is captured on the create form and rendered on the release detail page.
 
-**Gaps found (not blockers; Part-1 rename still pending):**
-1. `name`/`changelog` are set at create time only — `SetReleaseMeta` exists in the DB layer
-   but there is **no edit route/form** to change them after creation. Add `GET/POST
-   /updates/{id}/meta` + an edit form to make changelog truly editable.
-2. The device→release **coupling** and the "Build ID → Release version" UI relabel (Part 1)
-   are **not yet implemented** — still the recommended next slice (non-breaking).
+**Gaps found — both now closed (see Part 1 below):**
+1. ~~`name`/`changelog` set at create time only — no edit route/form.~~ **Done:** `POST
+   /updates/{id}/meta` (`ReleaseEditMeta` → `SetReleaseMeta`) + edit form on the release page.
+2. ~~device→release coupling + "Build ID → Release version" relabel not implemented.~~ **Done.**
+
+### Part 1 (Release version rename + coupling) — IMPLEMENTED 2026-06-15
+Non-breaking: no DB column rename, no API/JSON key change, no client change (`build_id`
+stays the wire/column name). Build + gofmt clean; all templates parse.
+
+- **Coupling (read-side):** device detail resolves its reported build to a known release via
+  the existing `GetReleaseByVersion` (`release.version == device.build_id`), showing the
+  release name + lifecycle status, or an **`unmanaged`** badge when no release matches.
+- **Relabel:** device-facing "Build ID" → "Release version" across device detail/history/
+  modal, the devices list, group/restaurant/production member tables, overview, settings, and
+  export. OTA package target/source build ids (image artifacts) keep their build wording.
+- **Editable changelog:** name + changelog editable after creation on the release detail page.
 
 ### Part 2 (Restaurant object) — IMPLEMENTED 2026-06-15
 Branch work landed in `server/`. Build + vet + gofmt clean; all templates parse. Not yet
