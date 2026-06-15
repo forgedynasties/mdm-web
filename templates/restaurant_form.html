@@ -13,6 +13,12 @@
 .rf-req{color:#d82747;}
 .rf-hint{color:var(--muted);font-size:12px;}
 .rf-actions{display:flex;gap:10px;align-items:center;padding-top:20px;border-top:1px solid var(--border-soft);margin-top:4px;}
+.tz-combo{position:relative;max-width:380px;}
+.tz-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;z-index:40;max-height:280px;overflow:auto;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-lg);display:none;}
+.tz-combo.open .tz-list{display:block;}
+.tz-opt{padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;}
+.tz-opt.hidden{display:none;}
+.tz-opt.active,.tz-opt:hover{background:var(--accent-soft);}
 </style>
 
 <a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" class="back-link">← Back</a>
@@ -62,12 +68,17 @@
       </div>
       <div class="rf-field">
         <label>Timezone</label>
-        <select name="timezone" class="form-input" style="max-width:380px;">
-          <option value="" {{if eq $tz ""}}selected{{end}}>Use each device's reported timezone</option>
-          {{range $.Timezones}}
-          <option value="{{.Value}}" {{if eq $tz .Value}}selected{{end}}>{{.Label}}</option>
-          {{end}}
-        </select>
+        <div class="tz-combo" id="tz-combo">
+          <input type="hidden" name="timezone" id="tz-value" value="{{$tz}}">
+          <input type="text" id="tz-search" class="form-input" autocomplete="off" spellcheck="false"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search a city or GMT offset…">
+          <div class="tz-list" id="tz-list" role="listbox">
+            <div class="tz-opt" data-value="" data-search="use each device reported timezone none default">Use each device's reported timezone</div>
+            {{range $.Timezones}}
+            <div class="tz-opt" data-value="{{.Value}}" data-search="{{.Label}}">{{.Label}}</div>
+            {{end}}
+          </div>
+        </div>
         <span class="rf-hint">Drives this venue's service-hours alerts (DST-aware). Blank uses each device's own timezone.</span>
       </div>
     </div>
@@ -115,6 +126,57 @@
   lat.addEventListener('input', syncLink);
   lng.addEventListener('input', syncLink);
   syncLink();
+})();
+
+// Searchable type-ahead timezone combobox. Filters the list as you type; stores the
+// IANA value in the hidden #tz-value field that the form submits.
+(function () {
+  var combo = document.getElementById('tz-combo');
+  if (!combo) return;
+  var input = document.getElementById('tz-search');
+  var hidden = document.getElementById('tz-value');
+  var opts = [].slice.call(combo.querySelectorAll('.tz-opt'));
+  var active = -1;
+
+  function labelFor(val) {
+    for (var i = 0; i < opts.length; i++) {
+      if (opts[i].getAttribute('data-value') === val) return opts[i].textContent.trim();
+    }
+    return '';
+  }
+  input.value = labelFor(hidden.value); // prefill current selection
+
+  function open() { combo.classList.add('open'); input.setAttribute('aria-expanded', 'true'); }
+  function close() { combo.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); active = -1; paintActive(); }
+  function visible() { return opts.filter(function (o) { return !o.classList.contains('hidden'); }); }
+  function paintActive() {
+    var vis = visible();
+    opts.forEach(function (o) { o.classList.remove('active'); });
+    if (active >= 0 && active < vis.length) { vis[active].classList.add('active'); vis[active].scrollIntoView({ block: 'nearest' }); }
+  }
+  function filter(q) {
+    q = q.trim().toLowerCase();
+    opts.forEach(function (o) {
+      var s = o.getAttribute('data-search').toLowerCase();
+      o.classList.toggle('hidden', q !== '' && s.indexOf(q) === -1);
+    });
+    active = -1; paintActive();
+  }
+  function choose(o) { hidden.value = o.getAttribute('data-value'); input.value = o.textContent.trim(); close(); }
+
+  input.addEventListener('focus', function () { filter(''); open(); input.select(); });
+  input.addEventListener('input', function () { filter(input.value); open(); });
+  input.addEventListener('keydown', function (e) {
+    var vis = visible();
+    if (e.key === 'ArrowDown') { e.preventDefault(); open(); active = Math.min(active + 1, vis.length - 1); paintActive(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); paintActive(); }
+    else if (e.key === 'Enter') { if (combo.classList.contains('open')) { e.preventDefault(); if (active >= 0) choose(vis[active]); } }
+    else if (e.key === 'Escape') { input.value = labelFor(hidden.value); close(); }
+  });
+  opts.forEach(function (o) { o.addEventListener('mousedown', function (e) { e.preventDefault(); choose(o); }); });
+  document.addEventListener('click', function (e) {
+    if (!combo.contains(e.target)) { input.value = labelFor(hidden.value); close(); }
+  });
 })();
 </script>
 
