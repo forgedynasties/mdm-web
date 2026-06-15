@@ -4790,6 +4790,64 @@ func (d *DB) GetFleetVersions(ctx context.Context) ([]FleetVersion, error) {
 	return out, rows.Err()
 }
 
+// AdoptionPoint is one day of "how many devices were on this version".
+type AdoptionPoint struct {
+	Day         time.Time `json:"day"`
+	DeviceCount int       `json:"device_count"`
+}
+
+// GetReleaseAdoption returns the per-day count of devices reporting a version, from the
+// daily rollup (device_daily_stats.build_id = last build seen that day), oldest first.
+func (d *DB) GetReleaseAdoption(ctx context.Context, version string, days int) ([]AdoptionPoint, error) {
+	if days <= 0 {
+		days = 30
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT day, COUNT(DISTINCT device_id)::int
+		FROM device_daily_stats
+		WHERE build_id = $1 AND day >= CURRENT_DATE - ($2::int - 1)
+		GROUP BY day ORDER BY day
+	`, version, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AdoptionPoint
+	for rows.Next() {
+		var p AdoptionPoint
+		if err := rows.Scan(&p.Day, &p.DeviceCount); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// ListDevicesByVersion returns the non-hidden devices currently reporting a build version,
+// for the release-adoption panel.
+func (d *DB) ListDevicesByVersion(ctx context.Context, version string) ([]Device, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.serial_number, d.latest_battery_pct, d.last_seen_at, COALESCE(rest.name, '')
+		FROM devices d
+		LEFT JOIN restaurants rest ON rest.id = d.restaurant_id
+		WHERE NOT d.hidden AND d.build_id = $1
+		ORDER BY d.serial_number
+	`, version)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Device
+	for rows.Next() {
+		var dev Device
+		if err := rows.Scan(&dev.SerialNumber, &dev.BatteryPct, &dev.LastSeenAt, &dev.RestaurantName); err != nil {
+			return nil, err
+		}
+		out = append(out, dev)
+	}
+	return out, rows.Err()
+}
+
 // SetReleaseStatus moves a release through its lifecycle; publishing stamps
 // published_at the first time.
 func (d *DB) SetReleaseStatus(ctx context.Context, id int, status string) error {

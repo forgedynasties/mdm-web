@@ -3209,29 +3209,126 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 
 // ── OTA Packages & Deployments ────────────────────────────────────────────────
 
+// versionRow is one row of the unified releases-and-versions table: a release version,
+// whether it's a tracked release (with lifecycle) or only seen on devices, and how many
+// devices report it.
+type versionRow struct {
+	Version      string
+	ReleaseID    *int
+	Name         string
+	Status       string // "" when not tracked
+	Tracked      bool
+	Hidden       bool
+	DeviceCount  int
+	PackageCount int
+	DeployCount  int
+}
+
 func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	releases, err := h.db.ListReleases(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// Release tracking: the versions devices actually report in the field, with the
-	// devices on each (managed or not).
-	fleetVersions, _ := h.db.GetFleetVersions(r.Context())
-	var active, hidden []db.Release
+	// Merge tracked releases with the versions devices actually report, into one
+	// version-centric table (fleet versions come pre-sorted by adoption desc).
+	fleet, _ := h.db.GetFleetVersions(r.Context())
+	relByVersion := make(map[string]db.Release, len(releases))
 	for _, rel := range releases {
-		if rel.Hidden {
-			hidden = append(hidden, rel)
-		} else {
-			active = append(active, rel)
+		relByVersion[rel.Version] = rel
+	}
+	var active, hidden []versionRow
+	var trackedCount, notTrackedCount int
+	seen := make(map[string]bool)
+	addRow := func(row versionRow) {
+		if row.Hidden {
+			hidden = append(hidden, row)
+			return
 		}
+		if row.Tracked {
+			trackedCount++
+		} else {
+			notTrackedCount++
+		}
+		active = append(active, row)
+	}
+	for _, fv := range fleet {
+		seen[fv.Version] = true
+		row := versionRow{Version: fv.Version, DeviceCount: fv.DeviceCount}
+		if rel, ok := relByVersion[fv.Version]; ok {
+			id := rel.ID
+			row.Tracked, row.ReleaseID, row.Name = true, &id, rel.Name
+			row.Status, row.Hidden = rel.Status, rel.Hidden
+			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
+		}
+		addRow(row)
+	}
+	// Tracked releases nobody is running yet (not in the fleet list).
+	for _, rel := range releases {
+		if seen[rel.Version] {
+			continue
+		}
+		id := rel.ID
+		addRow(versionRow{
+			Version: rel.Version, Tracked: true, ReleaseID: &id, Name: rel.Name,
+			Status: rel.Status, Hidden: rel.Hidden,
+			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount,
+		})
 	}
 	h.render(w, r, "releases.html", map[string]any{
-		"Title":          "Releases",
-		"Releases":       active,
-		"HiddenReleases": hidden,
-		"FleetVersions":  fleetVersions,
+		"Title":           "Releases",
+		"Versions":        active,
+		"HiddenReleases":  hidden,
+		"TrackedCount":    trackedCount,
+		"NotTrackedCount": notTrackedCount,
 	})
+}
+
+// ReleaseTrack starts tracking a device-reported version: it creates (or finds) a draft
+// release for that version and drops the user on its detail page to add changelog/packages.
+func (h *Handler) ReleaseTrack(w http.ResponseWriter, r *http.Request) {
+	version := strings.TrimSpace(r.FormValue("version"))
+	if version == "" {
+		http.Redirect(w, r, "/updates", http.StatusSeeOther)
+		return
+	}
+	rel, err := h.db.GetOrCreateRelease(r.Context(), version)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.track", version, "")
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", rel.ID), http.StatusSeeOther)
+}
+
+// ReleaseAdoptionJSON powers the adoption-over-time chart on the release detail page.
+func (h *Handler) ReleaseAdoptionJSON(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	rel, err := h.db.GetRelease(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	days := 30
+	if v := r.URL.Query().Get("days"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 365 {
+			days = n
+		}
+	}
+	points, err := h.db.GetReleaseAdoption(r.Context(), rel.Version, days)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if points == nil {
+		points = []db.AdoptionPoint{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(points)
 }
 
 // ReleaseSetHidden hides/unhides a release from the main list (irrelevant releases).
@@ -3377,6 +3474,8 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	deployments, _ := h.db.ListDeploymentsByRelease(r.Context(), id)
 	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
+	// Adoption: which devices are currently on this version (the artifact's real-world reach).
+	devicesOnVersion, _ := h.db.ListDevicesByVersion(r.Context(), rel.Version)
 
 	hasFull := false
 	for _, p := range packages {
@@ -3387,13 +3486,14 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "release_detail.html", map[string]any{
-		"Title":       "Release " + rel.Version,
-		"Release":     rel,
-		"Packages":    packages,
-		"Deployments": deployments,
-		"Devices":     devices,
-		"Groups":      groups,
-		"HasFull":     hasFull,
+		"Title":            "Release " + rel.Version,
+		"Release":          rel,
+		"Packages":         packages,
+		"Deployments":      deployments,
+		"Devices":          devices,
+		"Groups":           groups,
+		"HasFull":          hasFull,
+		"DevicesOnVersion": devicesOnVersion,
 	})
 }
 
@@ -5908,6 +6008,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.ReleaseDetail))
 	post("POST /updates/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /updates/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
+	post("POST /updates/track", h.requireAdmin(h.ReleaseTrack))
+	mux.HandleFunc("GET /updates/{id}/adoption", h.requireAuth(h.ReleaseAdoptionJSON))
 	post("POST /updates/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
 	post("POST /updates/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
 	post("POST /updates/{id}/delete", h.requireAdmin(h.ReleaseDelete))
