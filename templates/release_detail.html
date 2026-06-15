@@ -58,7 +58,22 @@
   </div>
 </div>
 
-{{if $rel.Changelog}}
+{{if eq .Role "admin"}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Name &amp; changelog</h3><span class="muted small">editable any time</span></div>
+  <form action="/updates/{{$rel.ID}}/meta" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+    <div class="form-row">
+      <label class="form-label">Name <span class="muted small">(optional)</span></label>
+      <input type="text" name="name" class="form-input" placeholder="e.g. June security update" value="{{$rel.Name}}">
+    </div>
+    <div class="form-row">
+      <label class="form-label">Changelog</label>
+      <textarea name="changelog" class="form-textarea" rows="6" style="resize:vertical;" placeholder="What changed in this release…">{{$rel.Changelog}}</textarea>
+    </div>
+    <div><button type="submit" class="btn-primary">Save changelog</button></div>
+  </form>
+</div>
+{{else if $rel.Changelog}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Changelog</h3></div>
   <div style="padding:12px 16px;white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$rel.Changelog}}</div>

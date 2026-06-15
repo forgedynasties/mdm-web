@@ -1479,9 +1479,16 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	if h.role(r) == "admin" {
 		restaurants, _ = h.db.ListRestaurants(r.Context())
 	}
+	// Couple the device's reported build to a known release (release.version ==
+	// device.build_id). nil = the device runs a build with no matching release.
+	var release *db.Release
+	if device.BuildID != "" {
+		release, _ = h.db.GetReleaseByVersion(r.Context(), device.BuildID)
+	}
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
+		"Release":             release,
 		"Online":              h.hub.IsConnected(device.ID),
 		"ChartCheckins":       chartCheckins,
 		"Commands":            commands,
@@ -3406,6 +3413,25 @@ func (h *Handler) ReleasePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.publish", strconv.Itoa(id), "")
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+}
+
+// ReleaseEditMeta updates a release's editable metadata (name + changelog) after
+// creation, so the changelog stays maintainable through the release lifecycle.
+func (h *Handler) ReleaseEditMeta(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	changelog := strings.TrimSpace(r.FormValue("changelog"))
+	if err := h.db.SetReleaseMeta(r.Context(), id, name, changelog); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.edit_meta", strconv.Itoa(id), name)
 	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
 }
 
@@ -5888,6 +5914,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.ReleaseDetail))
 	post("POST /updates/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /updates/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
+	post("POST /updates/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
 	post("POST /updates/{id}/publish", h.requireAdmin(h.ReleasePublish))
 	post("POST /updates/{id}/yank", h.requireAdmin(h.ReleaseYank))
 	post("POST /updates/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
