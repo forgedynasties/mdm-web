@@ -4912,6 +4912,14 @@ func (d *DB) GetReleaseAdoption(ctx context.Context, version string, days int) (
 	return out, rows.Err()
 }
 
+// CountDevicesByVersion returns how many non-hidden devices currently report a version.
+func (d *DB) CountDevicesByVersion(ctx context.Context, version string) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM devices WHERE NOT hidden AND build_id = $1`, version).Scan(&n)
+	return n, err
+}
+
 // ListDevicesByVersion returns the non-hidden devices currently reporting a build version,
 // for the release-adoption panel.
 func (d *DB) ListDevicesByVersion(ctx context.Context, version string) ([]Device, error) {

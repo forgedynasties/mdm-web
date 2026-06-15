@@ -3420,6 +3420,13 @@ func (h *Handler) ReleaseDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
+	// A release that devices are still running can't be deleted — yank or hide it instead.
+	if rel, err := h.db.GetRelease(r.Context(), id); err == nil {
+		if n, err := h.db.CountDevicesByVersion(r.Context(), rel.Version); err == nil && n > 0 {
+			http.Error(w, fmt.Sprintf("Cannot delete: %d device(s) are still running %s. Yank it to stop delivery (keeps the changelog) or hide it.", n, rel.Version), http.StatusConflict)
+			return
+		}
+	}
 	if err := h.db.DeleteRelease(r.Context(), id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
