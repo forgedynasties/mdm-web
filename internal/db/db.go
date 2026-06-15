@@ -112,10 +112,22 @@ type Release struct {
 	Name         string     `json:"name"`
 	Changelog    string     `json:"changelog"`
 	Status       string     `json:"status"` // "draft" | "published" | "yanked"
+	Hidden       bool       `json:"hidden"` // hidden from the main releases list (irrelevant)
 	CreatedAt    time.Time  `json:"created_at"`
 	PublishedAt  *time.Time `json:"published_at"`
 	PackageCount int        `json:"package_count,omitempty"` // populated by ListReleases
 	DeployCount  int        `json:"deploy_count,omitempty"`  // populated by ListReleases
+}
+
+// FleetVersion is one release version actually reported by devices in the field, with the
+// devices on it and a link to the managed release (if any). Powers release tracking.
+type FleetVersion struct {
+	Version       string   `json:"version"`
+	DeviceCount   int      `json:"device_count"`
+	Serials       []string `json:"serials"`
+	ReleaseID     *int     `json:"release_id"`     // non-nil when this version is a managed release
+	ReleaseStatus string   `json:"release_status"` // "" when unmanaged
+	ReleaseHidden bool     `json:"release_hidden"`
 }
 
 type Update struct {
@@ -4608,6 +4620,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_service_windows_fleet_default
     ON service_windows ((1)) WHERE group_id IS NULL AND restaurant_id IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_service_windows_restaurant
     ON service_windows (restaurant_id) WHERE restaurant_id IS NOT NULL;
+
+-- Release tracking: hide irrelevant releases from the main list (reversible), and let a
+-- hard delete cascade to the release's packages and deployments so it can be fully removed.
+-- (DROP+ADD makes the on-delete behavior idempotent across restarts.)
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS hidden BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE ota_packages DROP CONSTRAINT IF EXISTS ota_packages_release_id_fkey;
+ALTER TABLE ota_packages ADD CONSTRAINT ota_packages_release_id_fkey
+    FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE;
+ALTER TABLE updates DROP CONSTRAINT IF EXISTS updates_release_id_fkey;
+ALTER TABLE updates ADD CONSTRAINT updates_release_id_fkey
+    FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -4722,7 +4745,7 @@ func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 
 func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT r.id, r.version, r.name, r.changelog, r.status, r.created_at, r.published_at,
+		SELECT r.id, r.version, r.name, r.changelog, r.status, r.hidden, r.created_at, r.published_at,
 		       COUNT(DISTINCT p.id) AS package_count,
 		       COUNT(DISTINCT u.id) AS deploy_count
 		FROM releases r
@@ -4738,10 +4761,52 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.CreatedAt, &r.PublishedAt, &r.PackageCount, &r.DeployCount); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.PackageCount, &r.DeployCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
+// SetReleaseHidden hides/unhides a release from the main list (irrelevant releases).
+func (d *DB) SetReleaseHidden(ctx context.Context, id int, hidden bool) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET hidden = $2 WHERE id = $1`, id, hidden)
+	return err
+}
+
+// DeleteRelease hard-deletes a release. The release_id FKs cascade, so its packages and
+// deployments (and their per-device rows) go with it.
+func (d *DB) DeleteRelease(ctx context.Context, id int) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM releases WHERE id = $1`, id)
+	return err
+}
+
+// GetFleetVersions returns every release version actually reported by non-hidden devices,
+// with the devices on each and a link to the managed release (if one exists). This is the
+// "what's really running in the field" view for release tracking.
+func (d *DB) GetFleetVersions(ctx context.Context) ([]FleetVersion, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.build_id, COUNT(*)::int,
+		       array_agg(d.serial_number ORDER BY d.serial_number),
+		       rel.id, COALESCE(rel.status, ''), COALESCE(rel.hidden, false)
+		FROM devices d
+		LEFT JOIN releases rel ON rel.version = d.build_id
+		WHERE NOT d.hidden AND d.build_id <> ''
+		GROUP BY d.build_id, rel.id, rel.status, rel.hidden
+		ORDER BY COUNT(*) DESC, d.build_id
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FleetVersion
+	for rows.Next() {
+		var v FleetVersion
+		if err := rows.Scan(&v.Version, &v.DeviceCount, &v.Serials, &v.ReleaseID, &v.ReleaseStatus, &v.ReleaseHidden); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
 	}
 	return out, rows.Err()
 }

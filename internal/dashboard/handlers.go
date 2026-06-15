@@ -3267,10 +3267,58 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Release tracking: the versions devices actually report in the field, with the
+	// devices on each (managed or not).
+	fleetVersions, _ := h.db.GetFleetVersions(r.Context())
+	var active, hidden []db.Release
+	for _, rel := range releases {
+		if rel.Hidden {
+			hidden = append(hidden, rel)
+		} else {
+			active = append(active, rel)
+		}
+	}
 	h.render(w, r, "releases.html", map[string]any{
-		"Title":    "Releases",
-		"Releases": releases,
+		"Title":          "Releases",
+		"Releases":       active,
+		"HiddenReleases": hidden,
+		"FleetVersions":  fleetVersions,
 	})
+}
+
+// ReleaseSetHidden hides/unhides a release from the main list (irrelevant releases).
+func (h *Handler) ReleaseSetHidden(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	hidden := r.FormValue("hidden") == "1"
+	if err := h.db.SetReleaseHidden(r.Context(), id, hidden); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	state := "unhidden"
+	if hidden {
+		state = "hidden"
+	}
+	h.audit(r, "release.hide", strconv.Itoa(id), state)
+	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+}
+
+// ReleaseDelete hard-deletes a release (cascades to its packages + deployments).
+func (h *Handler) ReleaseDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteRelease(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.delete", strconv.Itoa(id), "")
+	http.Redirect(w, r, "/updates", http.StatusSeeOther)
 }
 
 // createPackageFromForm parses the package form, decodes the base64 update_url
@@ -5915,6 +5963,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /updates/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /updates/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
 	post("POST /updates/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
+	post("POST /updates/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
+	post("POST /updates/{id}/delete", h.requireAdmin(h.ReleaseDelete))
 	post("POST /updates/{id}/publish", h.requireAdmin(h.ReleasePublish))
 	post("POST /updates/{id}/yank", h.requireAdmin(h.ReleaseYank))
 	post("POST /updates/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
