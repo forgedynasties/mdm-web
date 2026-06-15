@@ -1,71 +1,96 @@
 {{define "restaurant_form.html"}}
 {{template "header" .}}
 
+<style>
+.rf-card{max-width:720px;}
+.rf-body{padding:4px 22px 22px;}
+.rf-section{padding:18px 0;border-top:1px solid var(--border-soft);}
+.rf-section:first-of-type{border-top:none;}
+.rf-section-title{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);margin-bottom:14px;}
+.rf-field{display:flex;flex-direction:column;gap:5px;margin-bottom:16px;}
+.rf-field:last-child{margin-bottom:0;}
+.rf-field>label{font-size:13px;font-weight:500;}
+.rf-req{color:#d82747;}
+.rf-hint{color:var(--muted);font-size:12px;}
+.rf-actions{display:flex;gap:10px;align-items:center;padding-top:20px;border-top:1px solid var(--border-soft);margin-top:4px;}
+</style>
+
 <a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" class="back-link">← Back</a>
 <div class="ov-greet">
   <h1 class="ov-title">{{.Title}}</h1>
+  <span class="ov-date">{{if .Restaurant}}edit venue details{{else}}add a venue your devices live in{{end}}</span>
 </div>
 
-<div class="card" style="max-width:660px;">
-  <form action="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" method="POST"
-        style="padding:20px;display:flex;flex-direction:column;gap:16px;">
-    <div class="form-row">
-      <label class="form-label">Name</label>
-      <input type="text" name="name" class="form-input" required autofocus
-             placeholder="e.g. Downtown Diner — 5th Ave"
-             value="{{with .Restaurant}}{{.Name}}{{end}}">
-    </div>
-    <div class="form-row">
-      <label class="form-label">Address <span class="muted small">(optional)</span></label>
-      <input type="text" name="address" class="form-input"
-             placeholder="Street, city"
-             value="{{with .Restaurant}}{{.Address}}{{end}}">
-    </div>
-    <div class="form-row">
-      <label class="form-label">Location <span class="muted small">(optional)</span></label>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="display:flex;flex-direction:column;gap:3px;">
-          <span class="muted small">Latitude</span>
-          <input type="number" id="rest-lat" name="latitude" class="form-input" step="any" min="-90" max="90" placeholder="37.7749"
-                 style="width:150px;" value="{{with .Restaurant}}{{with .Latitude}}{{.}}{{end}}{{end}}">
-        </div>
-        <div style="display:flex;flex-direction:column;gap:3px;">
-          <span class="muted small">Longitude</span>
-          <input type="number" id="rest-lng" name="longitude" class="form-input" step="any" min="-180" max="180" placeholder="-122.4194"
-                 style="width:150px;" value="{{with .Restaurant}}{{with .Longitude}}{{.}}{{end}}{{end}}">
-        </div>
-        <a id="rest-map-link" href="#" target="_blank" rel="noopener" class="btn-outline" style="display:none;">Open in maps ↗</a>
+{{$tz := ""}}{{with .Restaurant}}{{$tz = .Timezone}}{{end}}
+<form action="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" method="POST" class="card rf-card">
+  <div class="rf-body">
+
+    <!-- Basics -->
+    <div class="rf-section">
+      <div class="rf-section-title">Basics</div>
+      <div class="rf-field">
+        <label>Name <span class="rf-req">*</span></label>
+        <input type="text" name="name" class="form-input" required autofocus
+               placeholder="e.g. Downtown Diner — 5th Ave"
+               value="{{with .Restaurant}}{{.Name}}{{end}}">
       </div>
-      <div class="muted small" style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span>Paste coordinates to fill both:</span>
-        <input type="text" id="rest-coord-paste" class="form-input" placeholder="37.7749, -122.4194" style="max-width:220px;">
-        <a href="https://www.google.com/maps" target="_blank" rel="noopener" class="link">Find coordinates ↗</a>
+      <div class="rf-field">
+        <label>Address</label>
+        <input type="text" name="address" class="form-input" placeholder="Street, city"
+               value="{{with .Restaurant}}{{.Address}}{{end}}">
+        <span class="rf-hint">Optional — handy for the techs you dispatch.</span>
       </div>
     </div>
-    {{$tz := ""}}{{with .Restaurant}}{{$tz = .Timezone}}{{end}}
-    <div class="form-row">
-      <label class="form-label">Timezone <span class="muted small">(optional — used for this venue's service hours)</span></label>
-      <select name="timezone" class="form-input">
-        <option value="" {{if eq $tz ""}}selected{{end}}>Use each device's reported timezone</option>
-        {{range $.Timezones}}
-        <optgroup label="{{.Region}}">
-          {{range .Zones}}
-          <option value="{{.Value}}" {{if eq $tz .Value}}selected{{end}}>{{.Label}}</option>
+
+    <!-- Location & timezone -->
+    <div class="rf-section">
+      <div class="rf-section-title">Location &amp; service timezone</div>
+      <div class="rf-field">
+        <label>Coordinates</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <input type="number" id="rest-lat" name="latitude" class="form-input" step="any" min="-90" max="90" placeholder="Latitude · 37.7749"
+                 style="width:190px;" value="{{with .Restaurant}}{{with .Latitude}}{{.}}{{end}}{{end}}">
+          <input type="number" id="rest-lng" name="longitude" class="form-input" step="any" min="-180" max="180" placeholder="Longitude · -122.4194"
+                 style="width:190px;" value="{{with .Restaurant}}{{with .Longitude}}{{.}}{{end}}{{end}}">
+          <a id="rest-map-link" href="#" target="_blank" rel="noopener" class="btn-outline" style="display:none;">Open in maps ↗</a>
+        </div>
+        <div class="rf-hint" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+          <span>Paste “lat, lng” to fill both:</span>
+          <input type="text" id="rest-coord-paste" class="form-input" placeholder="37.7749, -122.4194" style="max-width:220px;">
+          <a href="https://www.google.com/maps" target="_blank" rel="noopener" class="link">Find coordinates ↗</a>
+        </div>
+      </div>
+      <div class="rf-field">
+        <label>Timezone</label>
+        <select name="timezone" class="form-input" style="max-width:340px;">
+          <option value="" {{if eq $tz ""}}selected{{end}}>Use each device's reported timezone</option>
+          {{range $.Timezones}}
+          <optgroup label="{{.Region}}">
+            {{range .Zones}}
+            <option value="{{.Value}}" {{if eq $tz .Value}}selected{{end}}>{{.Label}}</option>
+            {{end}}
+          </optgroup>
           {{end}}
-        </optgroup>
-        {{end}}
-      </select>
+        </select>
+        <span class="rf-hint">Drives this venue's service-hours alerts (DST-aware). Blank uses each device's own timezone.</span>
+      </div>
     </div>
-    <div class="form-row">
-      <label class="form-label">Notes <span class="muted small">(optional)</span></label>
-      <textarea name="notes" class="form-textarea" rows="3" style="resize:vertical;"
-                placeholder="Anything ops should know about this venue…">{{with .Restaurant}}{{.Notes}}{{end}}</textarea>
+
+    <!-- Notes -->
+    <div class="rf-section">
+      <div class="rf-section-title">Notes</div>
+      <div class="rf-field">
+        <textarea name="notes" class="form-textarea" rows="3" style="resize:vertical;"
+                  placeholder="Anything ops should know about this venue…">{{with .Restaurant}}{{.Notes}}{{end}}</textarea>
+      </div>
     </div>
-    <div>
+
+    <div class="rf-actions">
       <button type="submit" class="btn-primary">{{if .Restaurant}}Save changes{{else}}Create restaurant{{end}}</button>
+      <a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" class="btn-outline">Cancel</a>
     </div>
-  </form>
-</div>
+  </div>
+</form>
 
 <script>
 (function () {
