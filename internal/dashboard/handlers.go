@@ -2768,6 +2768,71 @@ func parseFloatPtr(s string) *float64 {
 	return &f
 }
 
+// tzOption / tzGroup back a professional timezone picker on the restaurant form. Values
+// are IANA names (DST-aware via localTime); a trailing "GMT offsets" group covers manual
+// offsets and preserves any legacy GMT± value. Curated to the common venue timezones.
+type tzOption struct{ Value, Label string }
+type tzGroup struct {
+	Region string
+	Zones  []tzOption
+}
+
+var restaurantTimezones = []tzGroup{
+	{"Americas", []tzOption{
+		{"Pacific/Honolulu", "Honolulu — Hawaii"},
+		{"America/Anchorage", "Anchorage — Alaska"},
+		{"America/Los_Angeles", "Los Angeles — Pacific"},
+		{"America/Phoenix", "Phoenix — Arizona (no DST)"},
+		{"America/Denver", "Denver — Mountain"},
+		{"America/Chicago", "Chicago — Central"},
+		{"America/New_York", "New York — Eastern"},
+		{"America/Toronto", "Toronto"},
+		{"America/Mexico_City", "Mexico City"},
+		{"America/Bogota", "Bogotá"},
+		{"America/Sao_Paulo", "São Paulo"},
+	}},
+	{"Europe & Africa", []tzOption{
+		{"Europe/London", "London"},
+		{"Europe/Paris", "Paris"},
+		{"Europe/Berlin", "Berlin"},
+		{"Europe/Madrid", "Madrid"},
+		{"Europe/Rome", "Rome"},
+		{"Europe/Athens", "Athens"},
+		{"Europe/Moscow", "Moscow"},
+		{"Africa/Cairo", "Cairo"},
+		{"Africa/Lagos", "Lagos"},
+		{"Africa/Johannesburg", "Johannesburg"},
+	}},
+	{"Asia & Middle East", []tzOption{
+		{"Asia/Dubai", "Dubai"},
+		{"Asia/Karachi", "Karachi"},
+		{"Asia/Kolkata", "Kolkata — India"},
+		{"Asia/Dhaka", "Dhaka"},
+		{"Asia/Bangkok", "Bangkok"},
+		{"Asia/Singapore", "Singapore"},
+		{"Asia/Hong_Kong", "Hong Kong"},
+		{"Asia/Shanghai", "Shanghai"},
+		{"Asia/Tokyo", "Tokyo"},
+		{"Asia/Seoul", "Seoul"},
+		{"Asia/Jerusalem", "Jerusalem"},
+	}},
+	{"Oceania", []tzOption{
+		{"Australia/Perth", "Perth"},
+		{"Australia/Sydney", "Sydney"},
+		{"Pacific/Auckland", "Auckland"},
+	}},
+	{"UTC / GMT offsets", []tzOption{
+		{"UTC", "UTC"},
+		{"GMT-12", "GMT-12"}, {"GMT-11", "GMT-11"}, {"GMT-10", "GMT-10"}, {"GMT-9", "GMT-9"},
+		{"GMT-8", "GMT-8"}, {"GMT-7", "GMT-7"}, {"GMT-6", "GMT-6"}, {"GMT-5", "GMT-5"},
+		{"GMT-4", "GMT-4"}, {"GMT-3", "GMT-3"}, {"GMT-2", "GMT-2"}, {"GMT-1", "GMT-1"},
+		{"GMT+0", "GMT+0"}, {"GMT+1", "GMT+1"}, {"GMT+2", "GMT+2"}, {"GMT+3", "GMT+3"},
+		{"GMT+4", "GMT+4"}, {"GMT+5", "GMT+5"}, {"GMT+6", "GMT+6"}, {"GMT+7", "GMT+7"},
+		{"GMT+8", "GMT+8"}, {"GMT+9", "GMT+9"}, {"GMT+10", "GMT+10"}, {"GMT+11", "GMT+11"},
+		{"GMT+12", "GMT+12"}, {"GMT+13", "GMT+13"}, {"GMT+14", "GMT+14"},
+	}},
+}
+
 func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 	restaurants, err := h.db.ListRestaurants(r.Context())
 	if err != nil {
@@ -2789,7 +2854,8 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "restaurant_form.html", map[string]any{
-		"Title": "New restaurant",
+		"Title":     "New restaurant",
+		"Timezones": restaurantTimezones,
 	})
 }
 
@@ -2855,6 +2921,7 @@ func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "restaurant_form.html", map[string]any{
 		"Title":      "Edit " + rest.Name,
 		"Restaurant": rest,
+		"Timezones":  restaurantTimezones,
 	})
 }
 
