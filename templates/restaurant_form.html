@@ -21,16 +21,25 @@
              placeholder="Street, city"
              value="{{with .Restaurant}}{{.Address}}{{end}}">
     </div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;">
-      <div class="form-row" style="flex:1;min-width:140px;">
-        <label class="form-label">Latitude <span class="muted small">(optional)</span></label>
-        <input type="text" name="latitude" class="form-input" placeholder="e.g. 37.7749"
-               value="{{with .Restaurant}}{{with .Latitude}}{{.}}{{end}}{{end}}">
+    <div class="form-row">
+      <label class="form-label">Location <span class="muted small">(optional)</span></label>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <span class="muted small">Latitude</span>
+          <input type="number" id="rest-lat" name="latitude" class="form-input" step="any" min="-90" max="90" placeholder="37.7749"
+                 style="width:150px;" value="{{with .Restaurant}}{{with .Latitude}}{{.}}{{end}}{{end}}">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:3px;">
+          <span class="muted small">Longitude</span>
+          <input type="number" id="rest-lng" name="longitude" class="form-input" step="any" min="-180" max="180" placeholder="-122.4194"
+                 style="width:150px;" value="{{with .Restaurant}}{{with .Longitude}}{{.}}{{end}}{{end}}">
+        </div>
+        <a id="rest-map-link" href="#" target="_blank" rel="noopener" class="btn-outline" style="display:none;">Open in maps ↗</a>
       </div>
-      <div class="form-row" style="flex:1;min-width:140px;">
-        <label class="form-label">Longitude <span class="muted small">(optional)</span></label>
-        <input type="text" name="longitude" class="form-input" placeholder="e.g. -122.4194"
-               value="{{with .Restaurant}}{{with .Longitude}}{{.}}{{end}}{{end}}">
+      <div class="muted small" style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span>Paste coordinates to fill both:</span>
+        <input type="text" id="rest-coord-paste" class="form-input" placeholder="37.7749, -122.4194" style="max-width:220px;">
+        <a href="https://www.google.com/maps" target="_blank" rel="noopener" class="link">Find coordinates ↗</a>
       </div>
     </div>
     {{$tz := ""}}{{with .Restaurant}}{{$tz = .Timezone}}{{end}}
@@ -38,8 +47,12 @@
       <label class="form-label">Timezone <span class="muted small">(optional — used for this venue's service hours)</span></label>
       <select name="timezone" class="form-input">
         <option value="" {{if eq $tz ""}}selected{{end}}>Use each device's reported timezone</option>
-        {{range iter -12 14}}
-        <option value="GMT{{if ge . 0}}+{{end}}{{.}}" {{if eq $tz (printf "GMT%+d" .)}}selected{{end}}>GMT{{if ge . 0}}+{{end}}{{.}}{{if eq . 0}} (UTC){{end}}</option>
+        {{range $.Timezones}}
+        <optgroup label="{{.Region}}">
+          {{range .Zones}}
+          <option value="{{.Value}}" {{if eq $tz .Value}}selected{{end}}>{{.Label}}</option>
+          {{end}}
+        </optgroup>
         {{end}}
       </select>
     </div>
@@ -53,6 +66,36 @@
     </div>
   </form>
 </div>
+
+<script>
+(function () {
+  var lat = document.getElementById('rest-lat');
+  var lng = document.getElementById('rest-lng');
+  var paste = document.getElementById('rest-coord-paste');
+  var link = document.getElementById('rest-map-link');
+  if (!lat || !lng) return;
+  function syncLink() {
+    if (lat.value !== '' && lng.value !== '') {
+      link.href = 'https://www.google.com/maps?q=' + encodeURIComponent(lat.value + ',' + lng.value);
+      link.style.display = '';
+    } else {
+      link.style.display = 'none';
+    }
+  }
+  if (paste) {
+    paste.addEventListener('input', function () {
+      var m = paste.value.split(',');
+      if (m.length === 2) {
+        var a = parseFloat(m[0].trim()), b = parseFloat(m[1].trim());
+        if (!isNaN(a) && !isNaN(b)) { lat.value = a; lng.value = b; syncLink(); }
+      }
+    });
+  }
+  lat.addEventListener('input', syncLink);
+  lng.addEventListener('input', syncLink);
+  syncLink();
+})();
+</script>
 
 {{template "footer" .}}
 {{end}}
