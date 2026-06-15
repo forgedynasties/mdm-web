@@ -3076,6 +3076,18 @@ func gmtOffset(tz string) int {
 	return n
 }
 
+// localTime converts UTC now to the venue's/device's local time. It accepts an IANA
+// zone name ("America/New_York", DST-aware) or a legacy "GMT±h" offset; unknown or
+// empty falls back to UTC. (tzdata is embedded via the time/tzdata import in main.)
+func localTime(now time.Time, tz string) time.Time {
+	if tz != "" && !strings.HasPrefix(tz, "GMT") {
+		if loc, err := time.LoadLocation(tz); err == nil {
+			return now.In(loc)
+		}
+	}
+	return now.UTC().Add(time.Duration(gmtOffset(tz)) * time.Hour)
+}
+
 // inQuiet reports whether local hour h falls in the [start,end) quiet window,
 // supporting windows that wrap past midnight (e.g. 22→6). start==end means "never".
 func inQuiet(h, start, end int) bool {
@@ -3125,8 +3137,8 @@ func inActiveWindow(now time.Time, devTZ string, w ServiceWindow, aw string) boo
 	if tz == "" {
 		tz = devTZ
 	}
-	localMin := ((now.UTC().Hour()*60+now.UTC().Minute())+gmtOffset(tz)*60)%1440 + 1440
-	localMin %= 1440
+	lt := localTime(now, tz)
+	localMin := lt.Hour()*60 + lt.Minute()
 	switch aw {
 	case "service":
 		return inMinWindow(localMin, w.OpenMin, w.CloseMin)
@@ -3382,7 +3394,7 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 				return nil, "critical", err
 			}
 			// Skip devices in their local quiet/overnight window (expected offline).
-			localHour := ((now.Hour()+gmtOffset(tz))%24 + 24) % 24
+			localHour := localTime(now, tz).Hour()
 			if inQuiet(localHour, qs, qe) {
 				continue
 			}
