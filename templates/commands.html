@@ -14,6 +14,9 @@
 .cmd2-body .payload-section{display:none;}
 .cmd2-body .payload-section.is-active{display:block;}
 .cmd2-body .payload-empty{color:var(--muted);font-size:13px;}
+/* inputs default to ~200px; make them fill the column in the builder. */
+.cmd2-body .form-input,.cmd2-body .form-textarea{width:100%;box-sizing:border-box;}
+.cmd2-body .form-textarea{min-height:80px;}
 .cmd2-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 12px;}
 .cmd2-review{position:sticky;top:74px;}
 @media (max-width:920px){.cmd2-review{position:static;}}
