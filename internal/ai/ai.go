@@ -62,7 +62,7 @@ Focus ONLY on these four signals, judged against the configured cutoffs:
 Do NOT raise offline/connectivity as an issue.
 
 Deployment rules — read these carefully:
-- The snapshot tells you how many units are DEPLOYED (live in a restaurant) vs in the LAB, and each group is flagged deployed or lab.
+- The snapshot tells you how many units are DEPLOYED (assigned to a restaurant) vs in the LAB (no restaurant). A device is deployed iff it's assigned to a restaurant.
 - Only DEPLOYED units may drive "watch" or "at_risk" status or appear as issues. A lab unit hitting a cutoff is expected bench behavior — do not list it as an issue and do not let it raise the status.
 - If nothing is deployed yet, status stays "ok" — there's no restaurant-risk to invent — but still report on the lab. The units are undergoing testing, so give a real read on them: how many are under test, how their hardware (battery, charging, heat, memory) is holding up across the testing, and call out any genuine hardware fault worth a second look as an informational note (not as a "watch"/"at_risk" issue). Don't reduce it to "nothing to act on."
 
