@@ -27,19 +27,18 @@ type Device struct {
 	KioskPackage   string          `json:"kiosk_package"`
 	LatestExtra    json.RawMessage `json:"latest_extra,omitempty"`
 	Hidden         bool            `json:"hidden"`
-	// Deployed is the per-device deployment override: nil = inherit from the device's
-	// restaurant, &true = forced deployed, &false = forced lab. DeployedEffective is the
-	// resolved value (override, else the device's restaurant is deployed, else false).
-	Deployed          *bool `json:"deployed,omitempty"`
-	DeployedEffective bool  `json:"deployed_effective"`
 	// RestaurantID is the venue the device physically lives in (nil = lab/bench unit).
-	// RestaurantName is joined for display.
+	// RestaurantName is joined for display. A device is "deployed" iff it has a restaurant.
 	RestaurantID   *uuid.UUID `json:"restaurant_id,omitempty"`
 	RestaurantName string     `json:"restaurant_name,omitempty"`
+	// DeployedEffective is true when the device is live in a restaurant (RestaurantID set);
+	// false = lab/bench unit. There is no separate deployed flag — assignment is the signal.
+	DeployedEffective bool `json:"deployed_effective"`
 }
 
 // Restaurant is a real venue a device physically lives in. It owns the venue semantics
-// (deployed flag, service window, health, AI bucketing). See docs/release-versioning-and-restaurants.md.
+// (service window, health, AI bucketing). A device assigned to a restaurant is "deployed";
+// unassigned = lab/bench. See docs/release-versioning-and-restaurants.md.
 type Restaurant struct {
 	ID          uuid.UUID `json:"id"`
 	Name        string    `json:"name"`
@@ -47,7 +46,6 @@ type Restaurant struct {
 	Latitude    *float64  `json:"latitude"`
 	Longitude   *float64  `json:"longitude"`
 	Timezone    string    `json:"timezone"`
-	Deployed    bool      `json:"deployed"`
 	Notes       string    `json:"notes"`
 	CreatedAt   time.Time `json:"created_at"`
 	DeviceCount int       `json:"device_count"` // populated by List/Get
@@ -87,7 +85,6 @@ type Group struct {
 	Name        string    `json:"name"`
 	DeviceCount int       `json:"device_count"`
 	CreatedAt   time.Time `json:"created_at"`
-	Deployed    bool      `json:"deployed"` // whole restaurant is live (devices inherit unless overridden)
 }
 
 type OTAPackage struct {
@@ -785,14 +782,13 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
 			d.latest_extra AS latest_extra,
-			d.deployed,
-			COALESCE(d.deployed, r.deployed, false) AS deployed_effective,
-			d.restaurant_id, COALESCE(r.name, '')
+			d.restaurant_id, COALESCE(r.name, ''),
+			(d.restaurant_id IS NOT NULL) AS deployed_effective
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Deployed, &dev.DeployedEffective, &dev.RestaurantID, &dev.RestaurantName)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -820,22 +816,14 @@ func (d *DB) GetDeviceByID(ctx context.Context, id uuid.UUID) (*Device, error) {
 	return &dev, nil
 }
 
-// SetDeviceDeployed sets the per-device deployment override: deployed=nil clears it
-// (the device inherits from its restaurant), &true/&false force the value.
-func (d *DB) SetDeviceDeployed(ctx context.Context, serial string, deployed *bool) error {
-	_, err := d.pool.Exec(ctx, `UPDATE devices SET deployed = $2 WHERE serial_number = $1`, serial, deployed)
-	return err
-}
-
-// DeploymentCounts returns how many non-hidden devices resolve to deployed vs. lab,
-// using each device's override and falling back to whether its restaurant is live.
+// DeploymentCounts returns how many non-hidden devices are deployed (assigned to a
+// restaurant) vs. in the lab (unassigned).
 func (d *DB) DeploymentCounts(ctx context.Context) (deployed, lab int, err error) {
 	err = d.pool.QueryRow(ctx, `
 		SELECT
-			COUNT(*) FILTER (WHERE COALESCE(d.deployed, r.deployed, false)),
-			COUNT(*) FILTER (WHERE NOT COALESCE(d.deployed, r.deployed, false))
+			COUNT(*) FILTER (WHERE d.restaurant_id IS NOT NULL),
+			COUNT(*) FILTER (WHERE d.restaurant_id IS NULL)
 		FROM devices d
-		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE NOT d.hidden
 	`).Scan(&deployed, &lab)
 	return deployed, lab, err
@@ -1012,10 +1000,10 @@ func (d *DB) CreateGroup(ctx context.Context, name string) (*Group, error) {
 
 func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count, g.deployed
+		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
-		GROUP BY g.id, g.name, g.created_at, g.deployed
+		GROUP BY g.id, g.name, g.created_at
 		ORDER BY g.name
 	`)
 	if err != nil {
@@ -1026,7 +1014,7 @@ func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	var groups []Group
 	for rows.Next() {
 		var g Group
-		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount, &g.Deployed); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount); err != nil {
 			return nil, err
 		}
 		groups = append(groups, g)
@@ -1037,12 +1025,12 @@ func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 func (d *DB) GetGroup(ctx context.Context, id uuid.UUID) (*Group, error) {
 	var g Group
 	err := d.pool.QueryRow(ctx, `
-		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count, g.deployed
+		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count
 		FROM groups g
 		LEFT JOIN device_groups dg ON dg.group_id = g.id
 		WHERE g.id = $1
-		GROUP BY g.id, g.name, g.created_at, g.deployed
-	`, id).Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount, &g.Deployed)
+		GROUP BY g.id, g.name, g.created_at
+	`, id).Scan(&g.ID, &g.Name, &g.CreatedAt, &g.DeviceCount)
 	if err != nil {
 		return nil, err
 	}
@@ -1124,11 +1112,11 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 func (d *DB) CreateRestaurant(ctx context.Context, r Restaurant) (*Restaurant, error) {
 	var out Restaurant
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO restaurants (name, address, latitude, longitude, timezone, deployed, notes)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING id, name, address, latitude, longitude, timezone, deployed, notes, created_at
-	`, r.Name, r.Address, r.Latitude, r.Longitude, r.Timezone, r.Deployed, r.Notes).
-		Scan(&out.ID, &out.Name, &out.Address, &out.Latitude, &out.Longitude, &out.Timezone, &out.Deployed, &out.Notes, &out.CreatedAt)
+		INSERT INTO restaurants (name, address, latitude, longitude, timezone, notes)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, name, address, latitude, longitude, timezone, notes, created_at
+	`, r.Name, r.Address, r.Latitude, r.Longitude, r.Timezone, r.Notes).
+		Scan(&out.ID, &out.Name, &out.Address, &out.Latitude, &out.Longitude, &out.Timezone, &out.Notes, &out.CreatedAt)
 	return &out, err
 }
 
@@ -1141,13 +1129,6 @@ func (d *DB) UpdateRestaurant(ctx context.Context, r Restaurant) error {
 	return err
 }
 
-// SetRestaurantDeployed marks a whole restaurant live or back to lab. Its devices inherit
-// this unless they carry their own per-device override.
-func (d *DB) SetRestaurantDeployed(ctx context.Context, id uuid.UUID, deployed bool) error {
-	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET deployed = $2 WHERE id = $1`, id, deployed)
-	return err
-}
-
 func (d *DB) DeleteRestaurant(ctx context.Context, id uuid.UUID) error {
 	// devices.restaurant_id ON DELETE SET NULL unassigns members automatically.
 	_, err := d.pool.Exec(ctx, `DELETE FROM restaurants WHERE id = $1`, id)
@@ -1156,7 +1137,7 @@ func (d *DB) DeleteRestaurant(ctx context.Context, id uuid.UUID) error {
 
 func (d *DB) ListRestaurants(ctx context.Context) ([]Restaurant, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT r.id, r.name, r.address, r.latitude, r.longitude, r.timezone, r.deployed,
+		SELECT r.id, r.name, r.address, r.latitude, r.longitude, r.timezone,
 		       r.notes, r.created_at, COUNT(d.id) AS device_count
 		FROM restaurants r
 		LEFT JOIN devices d ON d.restaurant_id = r.id AND NOT d.hidden
@@ -1171,7 +1152,7 @@ func (d *DB) ListRestaurants(ctx context.Context) ([]Restaurant, error) {
 	for rows.Next() {
 		var r Restaurant
 		if err := rows.Scan(&r.ID, &r.Name, &r.Address, &r.Latitude, &r.Longitude, &r.Timezone,
-			&r.Deployed, &r.Notes, &r.CreatedAt, &r.DeviceCount); err != nil {
+			&r.Notes, &r.CreatedAt, &r.DeviceCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -1182,14 +1163,14 @@ func (d *DB) ListRestaurants(ctx context.Context) ([]Restaurant, error) {
 func (d *DB) GetRestaurant(ctx context.Context, id uuid.UUID) (*Restaurant, error) {
 	var r Restaurant
 	err := d.pool.QueryRow(ctx, `
-		SELECT r.id, r.name, r.address, r.latitude, r.longitude, r.timezone, r.deployed,
+		SELECT r.id, r.name, r.address, r.latitude, r.longitude, r.timezone,
 		       r.notes, r.created_at, COUNT(d.id) AS device_count
 		FROM restaurants r
 		LEFT JOIN devices d ON d.restaurant_id = r.id AND NOT d.hidden
 		WHERE r.id = $1
 		GROUP BY r.id
 	`, id).Scan(&r.ID, &r.Name, &r.Address, &r.Latitude, &r.Longitude, &r.Timezone,
-		&r.Deployed, &r.Notes, &r.CreatedAt, &r.DeviceCount)
+		&r.Notes, &r.CreatedAt, &r.DeviceCount)
 	if err != nil {
 		return nil, err
 	}
@@ -1299,10 +1280,9 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs int) ([]GroupHe
 			SELECT d.restaurant_id,
 				COUNT(*) AS device_count,
 				COUNT(*) FILTER (WHERE d.last_seen_at < NOW() - ($1 * INTERVAL '1 second')) AS offline_count,
-				COUNT(*) FILTER (WHERE COALESCE(d.deployed, rr.deployed, false)) AS deployed_count
+				COUNT(*) AS deployed_count  -- every device in a restaurant is deployed
 			FROM devices d
-			JOIN restaurants rr ON rr.id = d.restaurant_id
-			WHERE NOT d.hidden
+			WHERE NOT d.hidden AND d.restaurant_id IS NOT NULL
 			GROUP BY d.restaurant_id
 		),
 		al AS (
@@ -1319,7 +1299,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs int) ([]GroupHe
 			COALESCE(al.crit, 0), COALESCE(al.warn, 0),
 			recent.battery_avg, (recent.battery_avg - prior.battery_avg),
 			recent.charging_avg, recent.temp_max, COALESCE(recent.builds, 0),
-			r.deployed, COALESCE(devs.deployed_count, 0)
+			true, COALESCE(devs.deployed_count, 0)  -- a restaurant is a live venue by definition
 		FROM restaurants r
 		LEFT JOIN devs   ON devs.restaurant_id   = r.id
 		LEFT JOIN recent ON recent.restaurant_id = r.id
@@ -2615,8 +2595,8 @@ type GroupHealth struct {
 	ChargingAvg    *float64  `json:"charging_avg"`  // recent avg charging coverage (0-1)
 	TempMax        *float64  `json:"temp_max"`      // hottest device in the window
 	DistinctBuilds int       `json:"distinct_builds"`
-	Deployed       bool      `json:"deployed"`       // restaurant is marked live
-	DeployedCount  int       `json:"deployed_count"` // devices in the group resolving to deployed
+	Deployed       bool      `json:"deployed"`       // true for restaurants (a venue); false for tag-groups
+	DeployedCount  int       `json:"deployed_count"` // devices that are deployed (assigned to a restaurant)
 	Score          int       `json:"score"`          // 0-100, higher is healthier
 	ScoreClass     string    `json:"score_class"`    // ok | warn | danger (for badge styling)
 }
@@ -2690,10 +2670,9 @@ func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth,
 			SELECT dg.group_id,
 				COUNT(*) AS device_count,
 				COUNT(*) FILTER (WHERE d.last_seen_at < NOW() - ($1 * INTERVAL '1 second')) AS offline_count,
-				COUNT(*) FILTER (WHERE COALESCE(d.deployed, g.deployed, false)) AS deployed_count
+				COUNT(*) FILTER (WHERE d.restaurant_id IS NOT NULL) AS deployed_count
 			FROM device_groups dg
 			JOIN devices d ON d.id = dg.device_id AND NOT d.hidden
-			JOIN groups g ON g.id = dg.group_id
 			GROUP BY dg.group_id
 		),
 		al AS (
@@ -2710,7 +2689,7 @@ func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth,
 			COALESCE(al.crit, 0), COALESCE(al.warn, 0),
 			recent.battery_avg, (recent.battery_avg - prior.battery_avg),
 			recent.charging_avg, recent.temp_max, COALESCE(recent.builds, 0),
-			g.deployed, COALESCE(devs.deployed_count, 0)
+			false, COALESCE(devs.deployed_count, 0)  -- a group is a tag, not a venue
 		FROM groups g
 		LEFT JOIN devs   ON devs.group_id   = g.id
 		LEFT JOIN recent ON recent.group_id = g.id
@@ -3279,17 +3258,15 @@ func (d *DB) effectiveWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow,
 	return out, rows.Err()
 }
 
-// deployedDeviceSet returns the IDs of devices that are effectively deployed (live in a
-// restaurant): COALESCE(device.deployed, restaurant.deployed, false). Operational
-// service-window rules from the T7 matrix only apply to these — a bench/lab unit that is
-// idle or unplugged during the default day window is expected, not an alert. Hardware
-// rules (storage_low, temp_elevated, overheating) still fire fleet-wide so genuine lab
-// faults surface. Mirrors the effective-deployed logic in the schema comment.
+// deployedDeviceSet returns the IDs of devices that are deployed — i.e. assigned to a
+// restaurant. Operational service-window rules from the T7 matrix only apply to these: a
+// bench/lab unit (no restaurant) idle or unplugged during the default day window is
+// expected, not an alert. Hardware rules (storage_low, temp_elevated, overheating) still
+// fire fleet-wide so genuine lab faults surface. Restaurant assignment IS the deploy signal.
 func (d *DB) deployedDeviceSet(ctx context.Context) (map[uuid.UUID]bool, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT d.id, COALESCE(d.deployed, r.deployed, false)
+		SELECT d.id, (d.restaurant_id IS NOT NULL)
 		FROM devices d
-		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE NOT d.hidden`)
 	if err != nil {
 		return nil, err
@@ -4473,13 +4450,9 @@ BEGIN
     END IF;
 END $$;
 
--- Deployment flag: is a unit actually live in a restaurant, or still on the bench in
--- our lab? groups.deployed marks a whole restaurant as live; devices.deployed is a
--- nullable per-device override (NULL = inherit from the device's groups). Effective
--- deployed = COALESCE(device.deployed, bool_or(group.deployed), false). This drives
--- the AI report framing so idle lab units aren't judged as failing restaurant units.
-ALTER TABLE groups  ADD COLUMN IF NOT EXISTS deployed BOOLEAN NOT NULL DEFAULT false;
-ALTER TABLE devices ADD COLUMN IF NOT EXISTS deployed BOOLEAN;
+-- (The legacy deployed flags on groups/devices/restaurants are dropped further down:
+-- a device is now "deployed" iff it is assigned to a restaurant — see the DROP COLUMN
+-- statements at the end of this migration.)
 
 -- Server-side dashboard sessions (GB-04/GB-08). The cookie carries only the
 -- opaque session id; identity, role and validity live here so logout and admin
@@ -4602,7 +4575,6 @@ CREATE TABLE IF NOT EXISTS restaurants (
     latitude    DOUBLE PRECISION,
     longitude   DOUBLE PRECISION,
     timezone    TEXT NOT NULL DEFAULT '',       -- IANA tz / GMT offset; '' = use device-reported
-    deployed    BOOLEAN NOT NULL DEFAULT false, -- whole venue is live (devices inherit unless overridden)
     notes       TEXT NOT NULL DEFAULT '',
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -4631,6 +4603,13 @@ ALTER TABLE ota_packages ADD CONSTRAINT ota_packages_release_id_fkey
 ALTER TABLE updates DROP CONSTRAINT IF EXISTS updates_release_id_fkey;
 ALTER TABLE updates ADD CONSTRAINT updates_release_id_fkey
     FOREIGN KEY (release_id) REFERENCES releases(id) ON DELETE CASCADE;
+
+-- Retire the deployed flag entirely: a device is "deployed" iff it is assigned to a
+-- restaurant (devices.restaurant_id IS NOT NULL). No more per-device / per-group /
+-- per-restaurant deployed booleans.
+ALTER TABLE devices     DROP COLUMN IF EXISTS deployed;
+ALTER TABLE groups      DROP COLUMN IF EXISTS deployed;
+ALTER TABLE restaurants DROP COLUMN IF EXISTS deployed;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

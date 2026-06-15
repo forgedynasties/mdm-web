@@ -2899,26 +2899,6 @@ func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/restaurants", http.StatusFound)
 }
 
-// RestaurantSetDeployment marks a whole restaurant live (deployed) or back to lab.
-func (h *Handler) RestaurantSetDeployment(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
-		return
-	}
-	deployed := r.FormValue("deployed") == "1"
-	if err := h.db.SetRestaurantDeployed(r.Context(), id, deployed); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	state := "lab"
-	if deployed {
-		state = "deployed"
-	}
-	h.audit(r, "restaurant.deployment", id.String(), state)
-	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
-}
-
 // RestaurantAssignDevices assigns one or more devices (by serial) to this restaurant.
 func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
@@ -3144,38 +3124,6 @@ func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "device.hide", serial, "")
 	http.Redirect(w, r, "/devices", http.StatusSeeOther)
-}
-
-// DeviceSetDeployment sets the per-device deployment override from the settings tab:
-// "inherit" clears it (follow the group), "deployed"/"lab" force the value.
-func (h *Handler) DeviceSetDeployment(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	var override *bool
-	switch r.FormValue("deployment") {
-	case "deployed":
-		v := true
-		override = &v
-	case "lab":
-		v := false
-		override = &v
-	case "inherit":
-		override = nil
-	default:
-		http.Error(w, "Invalid deployment value", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.SetDeviceDeployed(r.Context(), serial, override); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.hub.PublishDeviceUpdate(device.ID)
-	h.audit(r, "device.deployment", serial, r.FormValue("deployment"))
-	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
 func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
@@ -5864,7 +5812,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
-	post("POST /devices/{serial}/deployment", h.requireAdmin(h.DeviceSetDeployment))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAuth(h.DeviceRemote))
 	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
@@ -5903,7 +5850,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
 	post("POST /restaurants/{id}", h.requireAdmin(h.RestaurantUpdate))
 	post("POST /restaurants/{id}/delete", h.requireAdmin(h.RestaurantDelete))
-	post("POST /restaurants/{id}/deployment", h.requireAdmin(h.RestaurantSetDeployment))
 	post("POST /restaurants/{id}/devices", h.requireAdmin(h.RestaurantAssignDevices))
 	post("POST /restaurants/{id}/devices/{serial}/remove", h.requireAdmin(h.RestaurantRemoveDevice))
 	post("POST /restaurants/{id}/service-window", h.requireAdmin(h.RestaurantSetServiceWindow))
