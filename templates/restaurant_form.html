@@ -62,14 +62,10 @@
       </div>
       <div class="rf-field">
         <label>Timezone</label>
-        <select name="timezone" class="form-input" style="max-width:340px;">
+        <select name="timezone" class="form-input" style="max-width:380px;">
           <option value="" {{if eq $tz ""}}selected{{end}}>Use each device's reported timezone</option>
           {{range $.Timezones}}
-          <optgroup label="{{.Region}}">
-            {{range .Zones}}
-            <option value="{{.Value}}" {{if eq $tz .Value}}selected{{end}}>{{.Label}}</option>
-            {{end}}
-          </optgroup>
+          <option value="{{.Value}}" {{if eq $tz .Value}}selected{{end}}>{{.Label}}</option>
           {{end}}
         </select>
         <span class="rf-hint">Drives this venue's service-hours alerts (DST-aware). Blank uses each device's own timezone.</span>

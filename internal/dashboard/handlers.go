@@ -2768,69 +2768,44 @@ func parseFloatPtr(s string) *float64 {
 	return &f
 }
 
-// tzOption / tzGroup back a professional timezone picker on the restaurant form. Values
-// are IANA names (DST-aware via localTime); a trailing "GMT offsets" group covers manual
-// offsets and preserves any legacy GMT± value. Curated to the common venue timezones.
+// restaurantTimezones backs the timezone picker on the restaurant form, in the familiar
+// "(GMT±HH:MM) City" style used by Google/Windows, ordered west→east. Values are IANA
+// names so resolution is DST-aware (localTime); the offset shown is standard time.
 type tzOption struct{ Value, Label string }
-type tzGroup struct {
-	Region string
-	Zones  []tzOption
-}
 
-var restaurantTimezones = []tzGroup{
-	{"Americas", []tzOption{
-		{"Pacific/Honolulu", "Honolulu — Hawaii"},
-		{"America/Anchorage", "Anchorage — Alaska"},
-		{"America/Los_Angeles", "Los Angeles — Pacific"},
-		{"America/Phoenix", "Phoenix — Arizona (no DST)"},
-		{"America/Denver", "Denver — Mountain"},
-		{"America/Chicago", "Chicago — Central"},
-		{"America/New_York", "New York — Eastern"},
-		{"America/Toronto", "Toronto"},
-		{"America/Mexico_City", "Mexico City"},
-		{"America/Bogota", "Bogotá"},
-		{"America/Sao_Paulo", "São Paulo"},
-	}},
-	{"Europe & Africa", []tzOption{
-		{"Europe/London", "London"},
-		{"Europe/Paris", "Paris"},
-		{"Europe/Berlin", "Berlin"},
-		{"Europe/Madrid", "Madrid"},
-		{"Europe/Rome", "Rome"},
-		{"Europe/Athens", "Athens"},
-		{"Europe/Moscow", "Moscow"},
-		{"Africa/Cairo", "Cairo"},
-		{"Africa/Lagos", "Lagos"},
-		{"Africa/Johannesburg", "Johannesburg"},
-	}},
-	{"Asia & Middle East", []tzOption{
-		{"Asia/Dubai", "Dubai"},
-		{"Asia/Karachi", "Karachi"},
-		{"Asia/Kolkata", "Kolkata — India"},
-		{"Asia/Dhaka", "Dhaka"},
-		{"Asia/Bangkok", "Bangkok"},
-		{"Asia/Singapore", "Singapore"},
-		{"Asia/Hong_Kong", "Hong Kong"},
-		{"Asia/Shanghai", "Shanghai"},
-		{"Asia/Tokyo", "Tokyo"},
-		{"Asia/Seoul", "Seoul"},
-		{"Asia/Jerusalem", "Jerusalem"},
-	}},
-	{"Oceania", []tzOption{
-		{"Australia/Perth", "Perth"},
-		{"Australia/Sydney", "Sydney"},
-		{"Pacific/Auckland", "Auckland"},
-	}},
-	{"UTC / GMT offsets", []tzOption{
-		{"UTC", "UTC"},
-		{"GMT-12", "GMT-12"}, {"GMT-11", "GMT-11"}, {"GMT-10", "GMT-10"}, {"GMT-9", "GMT-9"},
-		{"GMT-8", "GMT-8"}, {"GMT-7", "GMT-7"}, {"GMT-6", "GMT-6"}, {"GMT-5", "GMT-5"},
-		{"GMT-4", "GMT-4"}, {"GMT-3", "GMT-3"}, {"GMT-2", "GMT-2"}, {"GMT-1", "GMT-1"},
-		{"GMT+0", "GMT+0"}, {"GMT+1", "GMT+1"}, {"GMT+2", "GMT+2"}, {"GMT+3", "GMT+3"},
-		{"GMT+4", "GMT+4"}, {"GMT+5", "GMT+5"}, {"GMT+6", "GMT+6"}, {"GMT+7", "GMT+7"},
-		{"GMT+8", "GMT+8"}, {"GMT+9", "GMT+9"}, {"GMT+10", "GMT+10"}, {"GMT+11", "GMT+11"},
-		{"GMT+12", "GMT+12"}, {"GMT+13", "GMT+13"}, {"GMT+14", "GMT+14"},
-	}},
+var restaurantTimezones = []tzOption{
+	{"Pacific/Honolulu", "(GMT-10:00) Hawaii"},
+	{"America/Anchorage", "(GMT-09:00) Alaska"},
+	{"America/Los_Angeles", "(GMT-08:00) Pacific Time — Los Angeles, Vancouver"},
+	{"America/Phoenix", "(GMT-07:00) Arizona — Phoenix"},
+	{"America/Denver", "(GMT-07:00) Mountain Time — Denver"},
+	{"America/Chicago", "(GMT-06:00) Central Time — Chicago"},
+	{"America/Mexico_City", "(GMT-06:00) Mexico City"},
+	{"America/New_York", "(GMT-05:00) Eastern Time — New York, Toronto"},
+	{"America/Bogota", "(GMT-05:00) Bogotá, Lima"},
+	{"America/Sao_Paulo", "(GMT-03:00) São Paulo"},
+	{"UTC", "(GMT+00:00) UTC"},
+	{"Europe/London", "(GMT+00:00) London, Dublin, Lisbon"},
+	{"Africa/Lagos", "(GMT+01:00) West Africa — Lagos"},
+	{"Europe/Paris", "(GMT+01:00) Paris, Madrid, Rome, Berlin"},
+	{"Africa/Cairo", "(GMT+02:00) Cairo"},
+	{"Africa/Johannesburg", "(GMT+02:00) Johannesburg"},
+	{"Europe/Athens", "(GMT+02:00) Athens, Helsinki"},
+	{"Asia/Jerusalem", "(GMT+02:00) Jerusalem"},
+	{"Europe/Moscow", "(GMT+03:00) Moscow, Istanbul"},
+	{"Asia/Dubai", "(GMT+04:00) Dubai, Abu Dhabi"},
+	{"Asia/Karachi", "(GMT+05:00) Karachi, Tashkent"},
+	{"Asia/Kolkata", "(GMT+05:30) India — Mumbai, Delhi, Kolkata"},
+	{"Asia/Dhaka", "(GMT+06:00) Dhaka"},
+	{"Asia/Bangkok", "(GMT+07:00) Bangkok, Jakarta, Hanoi"},
+	{"Asia/Singapore", "(GMT+08:00) Singapore, Kuala Lumpur"},
+	{"Asia/Hong_Kong", "(GMT+08:00) Hong Kong"},
+	{"Asia/Shanghai", "(GMT+08:00) Beijing, Shanghai"},
+	{"Australia/Perth", "(GMT+08:00) Perth"},
+	{"Asia/Tokyo", "(GMT+09:00) Tokyo, Osaka"},
+	{"Asia/Seoul", "(GMT+09:00) Seoul"},
+	{"Australia/Sydney", "(GMT+10:00) Sydney, Melbourne"},
+	{"Pacific/Auckland", "(GMT+12:00) Auckland"},
 }
 
 func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
