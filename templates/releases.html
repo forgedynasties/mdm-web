@@ -47,10 +47,14 @@
             <input type="hidden" name="hidden" value="1">
             <button type="submit" class="btn-outline" title="Hide from the list">Hide</button>
           </form>
+          {{if eq .DeviceCount 0}}
           <form action="/updates/{{.ReleaseID}}/delete" method="POST" style="display:inline;"
                 onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')">
             <button type="submit" class="btn-danger-sm">Delete</button>
           </form>
+          {{else}}
+          <button type="button" class="btn-danger-sm" disabled style="opacity:0.45;cursor:not-allowed;" title="{{.DeviceCount}} device(s) still running this version — yank or hide it instead">Delete</button>
+          {{end}}
           {{end}}
           {{else if eq $.Role "admin"}}
           <form action="/updates/track" method="POST" style="display:inline;">
@@ -110,10 +114,14 @@
               <input type="hidden" name="hidden" value="0">
               <button type="submit" class="btn-outline" title="Show again">Unhide</button>
             </form>
+            {{if eq .DeviceCount 0}}
             <form action="/updates/{{.ReleaseID}}/delete" method="POST" style="display:inline;"
                   onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')">
               <button type="submit" class="btn-danger-sm">Delete</button>
             </form>
+            {{else}}
+            <button type="button" class="btn-danger-sm" disabled style="opacity:0.45;cursor:not-allowed;" title="{{.DeviceCount}} device(s) still running this version — yank or hide it instead">Delete</button>
+            {{end}}
             {{end}}
             {{else if eq $.Role "admin"}}
             <form action="/updates/version/unhide" method="POST" style="display:inline;">
