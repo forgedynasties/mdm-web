@@ -1183,6 +1183,15 @@ func (d *DB) AssignDeviceToRestaurant(ctx context.Context, serial string, restau
 	return err
 }
 
+// AssignDevicesToRestaurant assigns many devices (by serial) to a restaurant at once.
+func (d *DB) AssignDevicesToRestaurant(ctx context.Context, serials []string, restaurantID uuid.UUID) error {
+	if len(serials) == 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET restaurant_id = $2 WHERE serial_number = ANY($1)`, serials, restaurantID)
+	return err
+}
+
 func (d *DB) ListRestaurantDevices(ctx context.Context, restaurantID uuid.UUID) ([]Device, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT
