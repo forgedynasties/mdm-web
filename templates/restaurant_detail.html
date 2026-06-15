@@ -79,17 +79,50 @@
 
 <!-- Assign devices -->
 {{if eq .Role "admin"}}
+<style>
+.rd-results{border:1px solid var(--border);border-radius:var(--r-3);max-height:300px;overflow:auto;margin-top:8px;}
+.rd-row{display:flex;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid var(--border-soft);font-size:13px;}
+.rd-row:last-child{border-bottom:none;}
+.rd-row .sn{font-family:var(--mono);font-weight:500;}
+.rd-row .meta{color:var(--muted);font-size:12px;margin-left:auto;display:flex;gap:14px;align-items:center;white-space:nowrap;}
+.rd-row.added{opacity:.5;}
+.rd-where{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--surface2);color:var(--muted);}
+.rd-where.lab{background:var(--accent-soft);color:var(--accent);}
+.rd-chips{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;}
+.rd-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:14px;background:var(--accent-soft);color:var(--text);font-size:12px;font-family:var(--mono);}
+.rd-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px;}
+</style>
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Assign devices</h3></div>
-  <form action="/restaurants/{{.Restaurant.ID}}/devices" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
-    <div class="form-row">
-      <label class="form-label">Serial numbers</label>
-      <textarea name="serials" class="form-textarea" placeholder="Type or paste serials, one per line" style="min-height:70px;"></textarea>
-      <span class="muted small">Each device is moved to this restaurant (and away from any previous one).</span>
-    </div>
-    <div><button type="submit" class="btn-primary">Assign</button></div>
+  <div class="card-header"><h3>Assign devices</h3><span class="muted small">unassigned (lab) devices shown first</span></div>
+  <form action="/restaurants/{{.Restaurant.ID}}/devices" method="POST" style="padding:16px 20px;">
+    <input type="text" id="rd-search" class="form-input" autocomplete="off" placeholder="Search devices by serial…" style="width:100%;box-sizing:border-box;"
+           hx-get="/restaurants/{{.Restaurant.ID}}/device-picker" hx-trigger="load, keyup changed delay:200ms, focus" hx-target="#rd-results">
+    <div id="rd-results" class="rd-results"></div>
+    <div id="rd-chips" class="rd-chips"></div>
+    <textarea name="serials" id="rd-serials" style="display:none;"></textarea>
+    <button type="submit" id="rd-assign" class="btn-primary" disabled style="opacity:.5;">Assign devices</button>
   </form>
 </div>
+<script>
+function rdSerials(){ return document.getElementById('rd-serials').value.split('\n').map(function(s){return s.trim();}).filter(Boolean); }
+function rdSync(){
+  var box=document.getElementById('rd-chips'); box.innerHTML='';
+  var list=rdSerials();
+  list.forEach(function(s){
+    var c=document.createElement('span'); c.className='rd-chip'; c.appendChild(document.createTextNode(s));
+    var b=document.createElement('button'); b.type='button'; b.textContent='×'; b.onclick=function(){ rdRemove(s); };
+    c.appendChild(b); box.appendChild(c);
+  });
+  var btn=document.getElementById('rd-assign');
+  btn.disabled = list.length===0; btn.style.opacity = list.length? '1':'.5';
+  btn.textContent = list.length ? ('Assign '+list.length+' device'+(list.length!==1?'s':'')) : 'Assign devices';
+  // dim rows already added
+  document.querySelectorAll('#rd-results .rd-row').forEach(function(r){ r.classList.toggle('added', list.indexOf(r.getAttribute('data-serial'))!==-1); });
+}
+function rdAdd(s){ if(!s) return; var l=rdSerials(); if(l.indexOf(s)===-1){ l.push(s); document.getElementById('rd-serials').value=l.join('\n'); rdSync(); } }
+function rdRemove(s){ document.getElementById('rd-serials').value=rdSerials().filter(function(x){return x!==s;}).join('\n'); rdSync(); }
+document.body.addEventListener('htmx:afterSwap', function(e){ if(e.target && e.target.id==='rd-results') rdSync(); });
+</script>
 {{end}}
 
 <!-- Members -->
@@ -196,4 +229,22 @@
 </script>
 
 {{template "footer" .}}
+{{end}}
+
+{{define "restaurant-device-picker"}}
+{{if .Devices}}
+  {{range .Devices}}
+  <div class="rd-row" data-serial="{{.SerialNumber}}">
+    <span class="sn">{{.SerialNumber}}</span>
+    {{if .RestaurantName}}<span class="rd-where">{{.RestaurantName}}</span>{{else}}<span class="rd-where lab">lab</span>{{end}}
+    <span class="meta">
+      <span>{{.BatteryPct}}%</span>
+      <span>{{timeSince .LastSeenAt}}</span>
+      <button type="button" class="btn-outline" style="font-size:12px;padding:3px 10px;" onclick="rdAdd(this.closest('.rd-row').getAttribute('data-serial'))">Add</button>
+    </span>
+  </div>
+  {{end}}
+{{else}}
+  <div class="rd-row muted small">{{if .Query}}No devices match “{{.Query}}”.{{else}}No assignable devices.{{end}}</div>
+{{end}}
 {{end}}
