@@ -4094,6 +4094,43 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Clone: ?clone=<id> prefills the builder from an existing command, so the detail
+	// page's "Duplicate & edit" opens the builder ready to tweak and re-send.
+	prefill := template.JS("null")
+	if cid := r.URL.Query().Get("clone"); cid != "" {
+		if id, perr := uuid.Parse(cid); perr == nil {
+			if c, gerr := h.db.GetCommand(r.Context(), id); gerr == nil {
+				pf := map[string]any{"type": c.Type, "target": c.TargetType}
+				if c.ApkURL != "" {
+					pf["apk_url"] = c.ApkURL
+				}
+				if c.Type == "shell" {
+					var p struct {
+						Cmd string `json:"cmd"`
+					}
+					_ = json.Unmarshal(c.Payload, &p)
+					pf["shell_cmd"] = p.Cmd
+				}
+				if c.TargetType == "devices" {
+					if ser, e := h.db.GetCommandTargetSerials(r.Context(), id); e == nil {
+						pf["serials"] = ser
+					}
+				} else if c.TargetType == "groups" {
+					if gids, e := h.db.GetCommandTargetIDs(r.Context(), id); e == nil {
+						gs := make([]string, len(gids))
+						for i, g := range gids {
+							gs[i] = g.String()
+						}
+						pf["groups"] = gs
+					}
+				}
+				if b, e := json.Marshal(pf); e == nil {
+					prefill = template.JS(b)
+				}
+			}
+		}
+	}
+
 	// Pagination
 	const pageSize = 25
 	total := len(cmds)
@@ -4118,6 +4155,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		pagedCmds = cmds[start:end]
 	}
 
+	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context())
 	targetSerials := make(map[uuid.UUID][]string)
 	for _, c := range pagedCmds {
@@ -4134,6 +4172,9 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Apps":          apps,
 		"Summaries":     summaries,
 		"TargetSerials": targetSerials,
+		"ShellRecent":   shellRecent,
+		"ShellPopular":  shellPopular,
+		"Prefill":       prefill,
 		"Page":          page,
 		"PageSize":      pageSize,
 		"Total":         total,

@@ -46,6 +46,11 @@
 .cmd-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:14px;background:var(--accent-soft);color:var(--text);font-size:12px;font-family:var(--mono);}
 .cmd-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px;}
 .cmd-chip button:hover{color:#d82747;}
+.shell-suggest{margin-top:12px;}
+.suggest-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:10px 0 5px;}
+.suggest-row{display:flex;flex-wrap:wrap;gap:6px;}
+.suggest-chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:4px 9px;cursor:pointer;color:var(--text);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.suggest-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
 </style>
 
 {{if or (eq .Role "admin") (eq .Role "operator")}}
@@ -105,6 +110,18 @@
           <div id="shell-fields" class="payload-section">
             <input type="text" name="shell_cmd" id="shell-cmd-input" class="form-input" placeholder="ls /sdcard" oninput="updatePreview()" style="font-family:var(--mono);">
             <div class="muted small" style="margin-top:6px;">Legacy devices only. Runs via checkin response. Expires after 5 minutes.</div>
+            {{if or .ShellRecent .ShellPopular}}
+            <div class="shell-suggest">
+              {{if .ShellRecent}}
+              <div class="suggest-lbl">Recent</div>
+              <div class="suggest-row">{{range .ShellRecent}}<button type="button" class="suggest-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>
+              {{end}}
+              {{if .ShellPopular}}
+              <div class="suggest-lbl">Popular</div>
+              <div class="suggest-row">{{range .ShellPopular}}<button type="button" class="suggest-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>
+              {{end}}
+            </div>
+            {{end}}
           </div>
           <div id="screenshot-hint" class="payload-section">
             <div class="payload-empty">→ device captures screen on next checkin (5 min window)</div>
@@ -195,7 +212,7 @@
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
           <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
         </svg>
-        <input type="search" id="cmd-search" class="form-input" style="width:180px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Search serial…" oninput="filterCommands()">
+        <input type="search" id="cmd-search" class="form-input" style="width:180px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Search type, command, serial…" oninput="filterCommands()">
       </div>
       <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="filterCommands()">
         <option value="">All Types</option>
@@ -227,7 +244,7 @@
         {{range .Commands}}
         {{$summary := index $.Summaries .ID}}
         {{$serials := index $.TargetSerials .ID}}
-        <tr data-cmd-type="{{.Type}}" data-cmd-target="{{.TargetType}}" data-cmd-serials="{{range $serials}}{{.}},{{end}}">
+        <tr data-cmd-type="{{.Type}}" data-cmd-target="{{.TargetType}}" data-cmd-serials="{{range $serials}}{{.}},{{end}}" data-cmd-search="{{cmdLabel .Type}} {{cmdDetail .}} {{range $serials}}{{.}} {{end}}">
           <td>
             <span style="display:inline-flex;align-items:center;gap:6px;">
               <span class="ui-icon" style="width:14px;height:14px;color:var(--accent);">
@@ -366,7 +383,7 @@ function filterCommands() {
   rows.forEach(function(r) {
     var typeMatch = !ft || r.dataset.cmdType === ft;
     var targetMatch = !fg || r.dataset.cmdTarget === fg;
-    var searchMatch = !q || (r.dataset.cmdSerials || '').toLowerCase().indexOf(q) !== -1;
+    var searchMatch = !q || (r.dataset.cmdSearch || '').toLowerCase().indexOf(q) !== -1;
     r.style.display = typeMatch && targetMatch && searchMatch ? '' : 'none';
   });
 }
@@ -447,6 +464,13 @@ function filterCmdGroups() {
 }
 // The device-lookup partial's Add button calls this.
 function pickCommandSerial(serial) { cmdAddSerial(serial); }
+
+// Fill the shell input from a recent/popular suggestion chip.
+function cmdFillShell(s) {
+  var i = document.getElementById('shell-cmd-input');
+  if (!i) return;
+  i.value = s; i.focus(); updatePreview();
+}
 
 // Drives the right-hand Review pane and the Send button's validity.
 function updatePreview() {
@@ -570,20 +594,32 @@ async function saveNewApp() {
   closeAppModal();
 }
 
-// Auto-fill serials from query param (bulk action from devices page)
+window.CMD_PREFILL = {{.Prefill}};
+
+// Initialise the builder: default action, optional ?serials (bulk from devices page),
+// and optional clone-prefill (Duplicate & edit from a command's detail page).
 (function() {
-  var params = new URLSearchParams(window.location.search);
-  var serials = params.get('serials');
-  if (serials) {
-    var ta = document.querySelector('textarea[name="target_serials"]');
-    if (ta) ta.value = serials.split(',').join('\n');
-    var pill = document.querySelector('.target-pill[data-target="devices"]');
-    if (pill) selectTarget('devices', pill);
-  }
-  cmdRenderChips();
-  // Initial preview render with current type colors applied
   var firstCard = document.querySelector('.cr-rail-item.on') || document.querySelector('.cr-rail-item');
   if (firstCard) selectType(firstCard.dataset.type, firstCard);
+
+  var serials = new URLSearchParams(window.location.search).get('serials');
+  if (serials) {
+    var pill = document.querySelector('.target-pill[data-target="devices"]');
+    if (pill) selectTarget('devices', pill);
+    cmdSetSerials(serials.split(','));
+  }
+
+  var pf = window.CMD_PREFILL;
+  if (pf) {
+    if (pf.type) { var rail = document.querySelector('.cr-rail-item[data-type="' + pf.type + '"]'); if (rail) selectType(pf.type, rail); }
+    if (pf.apk_url) { var sel = document.getElementById('apk-select'); if (sel) sel.value = pf.apk_url; }
+    if (typeof pf.shell_cmd === 'string') { var si = document.getElementById('shell-cmd-input'); if (si) si.value = pf.shell_cmd; }
+    if (pf.target) { var tp = document.querySelector('.target-pill[data-target="' + pf.target + '"]'); if (tp) selectTarget(pf.target, tp); }
+    if (pf.serials && pf.serials.length) cmdSetSerials(pf.serials);
+    if (pf.groups && pf.groups.length) pf.groups.forEach(function (g) { var cb = document.querySelector('input[name="target_groups"][value="' + g + '"]'); if (cb) cb.checked = true; });
+  }
+  cmdRenderChips();
+  updatePreview();
 })();
 </script>
 

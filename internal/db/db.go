@@ -1599,6 +1599,53 @@ func (d *DB) ListCommands(ctx context.Context) ([]Command, error) {
 	return cmds, rows.Err()
 }
 
+// ShellCommandSuggestions returns previously-sent shell commands for quick re-use in the
+// builder: the most recently used (distinct, newest first) and the most frequently used.
+func (d *DB) ShellCommandSuggestions(ctx context.Context, limit int) (recent, popular []string, err error) {
+	if limit <= 0 {
+		limit = 6
+	}
+	collect := func(q string) ([]string, error) {
+		rows, err := d.pool.Query(ctx, q, limit)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		var out []string
+		for rows.Next() {
+			var s string
+			if err := rows.Scan(&s); err != nil {
+				return nil, err
+			}
+			out = append(out, s)
+		}
+		return out, rows.Err()
+	}
+	recent, err = collect(`
+		SELECT cmd FROM (
+			SELECT payload->>'cmd' AS cmd, MAX(created_at) AS last
+			FROM commands
+			WHERE type = 'shell' AND COALESCE(payload->>'cmd','') <> ''
+			GROUP BY payload->>'cmd'
+			ORDER BY last DESC
+			LIMIT $1
+		) t`)
+	if err != nil {
+		return nil, nil, err
+	}
+	popular, err = collect(`
+		SELECT payload->>'cmd' AS cmd
+		FROM commands
+		WHERE type = 'shell' AND COALESCE(payload->>'cmd','') <> ''
+		GROUP BY payload->>'cmd'
+		ORDER BY COUNT(*) DESC, MAX(created_at) DESC
+		LIMIT $1`)
+	if err != nil {
+		return nil, nil, err
+	}
+	return recent, popular, nil
+}
+
 func (d *DB) GetCommand(ctx context.Context, id uuid.UUID) (*Command, error) {
 	var c Command
 	err := d.pool.QueryRow(ctx, `
