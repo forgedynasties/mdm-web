@@ -731,6 +731,40 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			}
 			return out
 		},
+		// pageList returns a windowed page sequence for pagers: first, last, and the
+		// current page ±1, with 0 marking an ellipsis gap (so we don't render every page).
+		"pageList": func(cur, total int) []int {
+			if total < 1 {
+				return nil
+			}
+			if total <= 7 {
+				out := make([]int, total)
+				for i := range out {
+					out[i] = i + 1
+				}
+				return out
+			}
+			want := map[int]bool{1: true, total: true, cur: true}
+			if cur-1 >= 1 {
+				want[cur-1] = true
+			}
+			if cur+1 <= total {
+				want[cur+1] = true
+			}
+			var out []int
+			prev := 0
+			for p := 1; p <= total; p++ {
+				if !want[p] {
+					continue
+				}
+				if prev != 0 && p-prev > 1 {
+					out = append(out, 0) // ellipsis
+				}
+				out = append(out, p)
+				prev = p
+			}
+			return out
+		},
 	}
 
 	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob("templates/*.html"))
@@ -3107,6 +3141,22 @@ func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
 		"Devices": devices,
 		"GroupID": id,
 	})
+}
+
+// DeviceSearch is a generic serial type-ahead (not scoped to a group), used by the
+// command builder's "specific devices" target to look devices up instead of typing serials.
+func (h *Handler) DeviceSearch(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		h.tmpl.ExecuteTemplate(w, "device-search-results", map[string]any{"Query": "", "Devices": []db.Device{}})
+		return
+	}
+	devices, err := h.db.SearchDevicesBySerial(r.Context(), query, 8)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "device-search-results", map[string]any{"Query": query, "Devices": devices})
 }
 
 func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
@@ -6020,6 +6070,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.Overview))
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))
+	mux.HandleFunc("GET /devices/search", h.requireAuth(h.DeviceSearch))
 	mux.HandleFunc("GET /demo", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/demo/main1", http.StatusFound)
 	}))

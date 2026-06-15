@@ -129,8 +129,10 @@
   {{end}}
 
   <div class="page-numbers">
-    {{range iter 1 .TotalPages}}
-      {{if eq . $.Page}}
+    {{range pageList .Page .TotalPages}}
+      {{if eq . 0}}
+        <span class="page-num disabled">…</span>
+      {{else if eq . $.Page}}
         <span class="page-num active">{{.}}</span>
       {{else}}
         <a class="page-num page-nav" data-page="{{.}}">{{.}}</a>
