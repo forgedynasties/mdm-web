@@ -274,7 +274,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   </select>
 
   <select id="filter-build" class="filter-select {{if .FilterBuild}}active{{end}}" onchange="applyFilters()">
-    <option value="">All builds</option>
+    <option value="">All releases</option>
     {{range .Builds}}
       <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
     {{end}}
