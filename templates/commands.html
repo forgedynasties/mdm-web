@@ -135,7 +135,11 @@
         </div>
 
         <div id="target-devices" class="target-detail">
-          <textarea name="target_serials" class="form-textarea" placeholder="One serial number per line&#10;DEVICE001&#10;DEVICE002" oninput="updatePreview()" style="font-family:var(--mono);font-size:12px;"></textarea>
+          <input type="text" name="q" class="form-input" autocomplete="off" placeholder="Search a serial to add…"
+                 hx-get="/devices/search" hx-trigger="keyup changed delay:200ms, focus"
+                 hx-target="#cmd-device-results" style="margin-bottom:8px;">
+          <div id="cmd-device-results"></div>
+          <textarea name="target_serials" class="form-textarea" placeholder="…or paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="updatePreview()" style="font-family:var(--mono);font-size:12px;"></textarea>
         </div>
 
       </div>
@@ -268,8 +272,10 @@
     {{end}}
 
     <div class="page-numbers">
-      {{range iter 1 .TotalPages}}
-        {{if eq . $.Page}}
+      {{range pageList .Page .TotalPages}}
+        {{if eq . 0}}
+          <span class="page-num disabled">…</span>
+        {{else if eq . $.Page}}
           <span class="page-num active">{{.}}</span>
         {{else}}
           <a class="page-num" href="?page={{.}}">{{.}}</a>
@@ -358,6 +364,16 @@ function selectTarget(val, btn) {
   document.querySelectorAll('.target-pill').forEach(function(p) { p.classList.toggle('is-active', p.dataset.target === val); });
   document.getElementById('target-groups').classList.toggle('is-active', val === 'groups');
   document.getElementById('target-devices').classList.toggle('is-active', val === 'devices');
+  updatePreview();
+}
+
+// Add a serial picked from the device lookup to the target_serials textarea (deduped).
+function pickCommandSerial(serial) {
+  var ta = document.querySelector('#target-devices textarea[name="target_serials"]');
+  if (!ta) return;
+  var lines = ta.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+  if (lines.indexOf(serial) === -1) lines.push(serial);
+  ta.value = lines.join('\n');
   updatePreview();
 }
 
@@ -484,4 +500,26 @@ async function saveNewApp() {
 </script>
 
 {{template "footer" .}}
+{{end}}
+
+{{define "device-search-results"}}
+{{if .Query}}
+  {{if .Devices}}
+  <div class="lookup-results compact" style="margin-bottom:8px;">
+    {{range .Devices}}
+    <div class="lookup-row">
+      <div>
+        <div class="mono">{{.SerialNumber}}</div>
+        <div class="muted small">{{if .BuildID}}{{.BuildID}} · {{end}}{{timeSince .LastSeenAt}}</div>
+      </div>
+      <button type="button" class="btn-outline" onclick="pickCommandSerial('{{.SerialNumber}}')">Add</button>
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="lookup-results lookup-empty compact" style="margin-bottom:8px;">
+    <div class="muted small">No device matched “{{.Query}}”.</div>
+  </div>
+  {{end}}
+{{end}}
 {{end}}
