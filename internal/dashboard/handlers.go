@@ -904,6 +904,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "devices"
 	case strings.HasPrefix(path, "/groups"):
 		data["ActivePage"] = "groups"
+	case strings.HasPrefix(path, "/restaurants"):
+		data["ActivePage"] = "restaurants"
 	case strings.HasPrefix(path, "/productions"):
 		data["ActivePage"] = "productions"
 	case strings.HasPrefix(path, "/commands"):
@@ -1335,7 +1337,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	groups, _ := h.db.GetGroupHealth(ctx, activeSecs)
+	groups, _ := h.db.GetRestaurantHealth(ctx, activeSecs)
 	hot, _ := h.db.CountHotDevices(ctx)
 	daily, _ := h.db.GetFleetDailyStats(ctx, 7)
 	openAlerts, _ := h.db.ListAlerts(ctx, "open", 5)
@@ -1473,6 +1475,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var restaurants []db.Restaurant
+	if h.role(r) == "admin" {
+		restaurants, _ = h.db.ListRestaurants(r.Context())
+	}
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
@@ -1486,6 +1492,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
 		"RemoteEnabled":       h.cfg.RemoteEnabled(),
+		"Restaurants":         restaurants,
 	})
 }
 
@@ -2095,7 +2102,7 @@ func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status
 // button on the hourly-report card points here.
 func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, err := h.db.GetGroupHealth(r.Context(), activeSecs)
+	groups, err := h.db.GetRestaurantHealth(r.Context(), activeSecs)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -2734,16 +2741,166 @@ func (h *Handler) GroupDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/groups", http.StatusFound)
 }
 
-// GroupSetDeployment marks a whole restaurant (group) live or back to lab. Devices in
-// the group inherit this unless they carry their own override.
-func (h *Handler) GroupSetDeployment(w http.ResponseWriter, r *http.Request) {
+// ── Restaurants ─────────────────────────────────────────────────────────────────
+//
+// A restaurant is the venue a device physically lives in. Unlike free-form groups,
+// each device belongs to at most one restaurant, and restaurants own the venue
+// semantics (deployed flag, service window, health). See the design doc.
+
+// parseFloatPtr parses an optional float form field; "" yields nil.
+func parseFloatPtr(s string) *float64 {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return nil
+	}
+	return &f
+}
+
+func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
+	restaurants, err := h.db.ListRestaurants(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	health := make(map[uuid.UUID]db.GroupHealth)
+	if rhs, err := h.db.GetRestaurantHealth(r.Context(), h.cfg.CheckinInterval()*3); err == nil {
+		for _, rh := range rhs {
+			health[rh.GroupID] = rh // GroupHealth.GroupID carries the restaurant id
+		}
+	}
+	h.render(w, r, "restaurants.html", map[string]any{
+		"Title":       "Restaurants",
+		"Restaurants": restaurants,
+		"Health":      health,
+	})
+}
+
+func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
+	h.render(w, r, "restaurant_form.html", map[string]any{
+		"Title": "New restaurant",
+	})
+}
+
+func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Redirect(w, r, "/restaurants", http.StatusFound)
+		return
+	}
+	rest, err := h.db.CreateRestaurant(r.Context(), db.Restaurant{
+		Name:      name,
+		Address:   strings.TrimSpace(r.FormValue("address")),
+		Latitude:  parseFloatPtr(r.FormValue("latitude")),
+		Longitude: parseFloatPtr(r.FormValue("longitude")),
+		Timezone:  strings.TrimSpace(r.FormValue("timezone")),
+		Notes:     strings.TrimSpace(r.FormValue("notes")),
+	})
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "restaurant.create", rest.ID.String(), name)
+	http.Redirect(w, r, "/restaurants/"+rest.ID.String(), http.StatusFound)
+}
+
+func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	rest, err := h.db.GetRestaurant(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		return
+	}
+	devices, err := h.db.ListRestaurantDevices(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	win, hasOwn, _ := h.db.GetRestaurantServiceWindow(r.Context(), id)
+	h.render(w, r, "restaurant_detail.html", map[string]any{
+		"Title":         rest.Name,
+		"Restaurant":    rest,
+		"Devices":       devices,
+		"ServiceWindow": windowView(id.String(), rest.Name, win, hasOwn),
+	})
+}
+
+func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	rest, err := h.db.GetRestaurant(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		return
+	}
+	h.render(w, r, "restaurant_form.html", map[string]any{
+		"Title":      "Edit " + rest.Name,
+		"Restaurant": rest,
+	})
+}
+
+func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "Name required", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.UpdateRestaurant(r.Context(), db.Restaurant{
+		ID:        id,
+		Name:      name,
+		Address:   strings.TrimSpace(r.FormValue("address")),
+		Latitude:  parseFloatPtr(r.FormValue("latitude")),
+		Longitude: parseFloatPtr(r.FormValue("longitude")),
+		Timezone:  strings.TrimSpace(r.FormValue("timezone")),
+		Notes:     strings.TrimSpace(r.FormValue("notes")),
+	}); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "restaurant.update", id.String(), name)
+	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+}
+
+func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteRestaurant(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "restaurant.delete", id.String(), "")
+	http.Redirect(w, r, "/restaurants", http.StatusFound)
+}
+
+// RestaurantSetDeployment marks a whole restaurant live (deployed) or back to lab.
+func (h *Handler) RestaurantSetDeployment(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
 		return
 	}
 	deployed := r.FormValue("deployed") == "1"
-	if err := h.db.SetGroupDeployed(r.Context(), id, deployed); err != nil {
+	if err := h.db.SetRestaurantDeployed(r.Context(), id, deployed); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -2751,8 +2908,120 @@ func (h *Handler) GroupSetDeployment(w http.ResponseWriter, r *http.Request) {
 	if deployed {
 		state = "deployed"
 	}
-	h.audit(r, "group.deployment", id.String(), state)
-	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+	h.audit(r, "restaurant.deployment", id.String(), state)
+	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+}
+
+// RestaurantAssignDevices assigns one or more devices (by serial) to this restaurant.
+func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	serials := parseSerialsField(r.Form["serials"])
+	for _, s := range serials {
+		if err := h.db.AssignDeviceToRestaurant(r.Context(), s, &id); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+	}
+	h.audit(r, "restaurant.assign", id.String(), strings.Join(serials, ","))
+	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+}
+
+// RestaurantRemoveDevice unassigns a device from this restaurant (back to lab).
+func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	serial := r.PathValue("serial")
+	if err := h.db.AssignDeviceToRestaurant(r.Context(), serial, nil); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "restaurant.unassign", id.String(), serial)
+	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+}
+
+// RestaurantSetServiceWindow upserts (or resets) this restaurant's service window.
+func (h *Handler) RestaurantSetServiceWindow(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	if r.FormValue("action") == "reset" {
+		_ = h.db.DeleteServiceWindow(r.Context(), id)
+		h.audit(r, "restaurant.service_window", id.String(), "reset")
+		http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+		return
+	}
+	sw := db.ServiceWindow{
+		RestaurantID:  &id,
+		OpenMin:       parseHHMM(r.FormValue("open"), 420),
+		CloseMin:      parseHHMM(r.FormValue("close"), 1380),
+		NightOpenMin:  parseHHMM(r.FormValue("night_open"), 1410),
+		NightCloseMin: parseHHMM(r.FormValue("night_close"), 360),
+		TZ:            strings.TrimSpace(r.FormValue("timezone")),
+	}
+	if err := h.db.SetServiceWindow(r.Context(), sw); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "restaurant.service_window", id.String(), "")
+	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+}
+
+// RestaurantDailyStatsJSON powers the restaurant Trends chart.
+func (h *Handler) RestaurantDailyStatsJSON(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	days := 30
+	if d := r.URL.Query().Get("days"); d != "" {
+		if n, err := strconv.Atoi(d); err == nil && n > 0 {
+			days = n
+		}
+	}
+	stats, err := h.db.GetRestaurantDailyStats(r.Context(), id, days)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if stats == nil {
+		stats = []db.GroupDailyStat{}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+// DeviceSetRestaurant assigns/clears a single device's restaurant from the device page.
+func (h *Handler) DeviceSetRestaurant(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	r.ParseForm()
+	ridStr := strings.TrimSpace(r.FormValue("restaurant_id"))
+	var rid *uuid.UUID
+	if ridStr != "" {
+		id, err := uuid.Parse(ridStr)
+		if err != nil {
+			http.Error(w, "Invalid restaurant", http.StatusBadRequest)
+			return
+		}
+		rid = &id
+	}
+	if err := h.db.AssignDeviceToRestaurant(r.Context(), serial, rid); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.restaurant", serial, ridStr)
+	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
 func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
@@ -4299,7 +4568,7 @@ func (h *Handler) refreshFleetSummary(ctx context.Context) {
 // usage, caches the result, and returns it. Always generates — callers gate freshness.
 func (h *Handler) generateFleetSummary(ctx context.Context) (db.AISummary, error) {
 	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, err := h.db.GetGroupHealth(ctx, activeSecs)
+	groups, err := h.db.GetRestaurantHealth(ctx, activeSecs)
 	if err != nil {
 		return db.AISummary{}, err
 	}
@@ -4363,7 +4632,7 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 		return
 	}
 	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, err := h.db.GetGroupHealth(ctx, activeSecs)
+	groups, err := h.db.GetRestaurantHealth(ctx, activeSecs)
 	if err != nil {
 		log.Printf("[digest] group health: %v", err)
 		return
@@ -4475,37 +4744,38 @@ func parseHHMM(s string, def int) int {
 
 // serviceWindowView is one editable service window (fleet default or a group's).
 type serviceWindowView struct {
-	GroupID, GroupName                 string // GroupID "" = fleet default
+	GroupID, GroupName                 string // GroupID "" = fleet default; otherwise a restaurant id
 	Open, Close, NightOpen, NightClose string // HH:MM
 	TZ                                 string
-	HasOwn                             bool // group has its own row (vs inheriting fleet)
+	HasOwn                             bool // restaurant has its own row (vs inheriting fleet)
 }
 
-func windowView(groupID, name string, w db.ServiceWindow, hasOwn bool) serviceWindowView {
+func windowView(restaurantID, name string, w db.ServiceWindow, hasOwn bool) serviceWindowView {
 	return serviceWindowView{
-		GroupID: groupID, GroupName: name,
+		GroupID: restaurantID, GroupName: name,
 		Open: hhmm(w.OpenMin), Close: hhmm(w.CloseMin),
 		NightOpen: hhmm(w.NightOpenMin), NightClose: hhmm(w.NightCloseMin),
 		TZ: w.TZ, HasOwn: hasOwn,
 	}
 }
 
-// buildServiceWindowViews returns the fleet default plus each group's window for the
+// buildServiceWindowViews returns the fleet default plus each restaurant's window for the
 // Settings "Service hours" card.
 func (h *Handler) buildServiceWindowViews(ctx context.Context) (serviceWindowView, []serviceWindowView) {
 	fleet, _ := h.db.GetFleetServiceWindow(ctx)
 	fleetView := windowView("", "", fleet, true)
-	groups, _ := h.db.ListGroups(ctx)
+	restaurants, _ := h.db.ListRestaurants(ctx)
 	var out []serviceWindowView
-	for _, g := range groups {
-		w, ok, _ := h.db.GetGroupServiceWindow(ctx, g.ID)
-		out = append(out, windowView(g.ID.String(), g.Name, w, ok))
+	for _, rest := range restaurants {
+		w, ok, _ := h.db.GetRestaurantServiceWindow(ctx, rest.ID)
+		out = append(out, windowView(rest.ID.String(), rest.Name, w, ok))
 	}
 	return fleetView, out
 }
 
 // SettingsSetServiceWindow upserts a service window from the Settings form. An empty
-// group_id sets the fleet default; "reset" on a group deletes its row (inherit fleet).
+// group_id sets the fleet default; "reset" on a restaurant deletes its row (inherit fleet).
+// The form field is named group_id for back-compat but carries a restaurant id.
 func (h *Handler) SettingsSetServiceWindow(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	gidStr := strings.TrimSpace(r.FormValue("group_id"))
@@ -4526,9 +4796,9 @@ func (h *Handler) SettingsSetServiceWindow(w http.ResponseWriter, r *http.Reques
 	}
 	if gidStr != "" {
 		if gid, err := uuid.Parse(gidStr); err == nil {
-			sw.GroupID = &gid
+			sw.RestaurantID = &gid
 		} else {
-			http.Error(w, "Invalid group", http.StatusBadRequest)
+			http.Error(w, "Invalid restaurant", http.StatusBadRequest)
 			return
 		}
 	}
@@ -5548,8 +5818,22 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	post("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
 	post("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))
-	post("POST /groups/{id}/deployment", h.requireAdmin(h.GroupSetDeployment))
 	post("POST /groups/{id}/devices", h.requireAdmin(h.GroupAddDevice))
+
+	// Restaurants (venue object). Static sub-paths registered before /{id}.
+	mux.HandleFunc("GET /restaurants/new", h.requireAdmin(h.RestaurantNew))
+	mux.HandleFunc("GET /restaurants", h.requireAuth(h.RestaurantList))
+	post("POST /restaurants", h.requireAdmin(h.RestaurantCreate))
+	mux.HandleFunc("GET /restaurants/{id}", h.requireAuth(h.RestaurantDetail))
+	mux.HandleFunc("GET /restaurants/{id}/edit", h.requireAdmin(h.RestaurantEdit))
+	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
+	post("POST /restaurants/{id}", h.requireAdmin(h.RestaurantUpdate))
+	post("POST /restaurants/{id}/delete", h.requireAdmin(h.RestaurantDelete))
+	post("POST /restaurants/{id}/deployment", h.requireAdmin(h.RestaurantSetDeployment))
+	post("POST /restaurants/{id}/devices", h.requireAdmin(h.RestaurantAssignDevices))
+	post("POST /restaurants/{id}/devices/{serial}/remove", h.requireAdmin(h.RestaurantRemoveDevice))
+	post("POST /restaurants/{id}/service-window", h.requireAdmin(h.RestaurantSetServiceWindow))
+	post("POST /devices/{serial}/restaurant", h.requireAdmin(h.DeviceSetRestaurant))
 	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdmin(h.GroupRemoveDevice))
 	post("POST /groups/{id}/commands", h.requireAdmin(h.GroupCommandCreate))
 

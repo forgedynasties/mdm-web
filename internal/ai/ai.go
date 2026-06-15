@@ -355,10 +355,10 @@ func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, tota
 	}
 	b.WriteByte('\n')
 	if len(groups) == 0 {
-		b.WriteString("No groups configured.\n")
+		b.WriteString("No restaurants configured.\n")
 	} else {
-		b.WriteString("Per-group health (worst score first). Score is 0-100 (higher = healthier). The 'where' column says whether the group is a live restaurant or a lab group, and how many of its devices resolve to deployed.\n")
-		b.WriteString("group | where | score | devices | offline | crit/warn alerts | avg peak battery % | Δ vs prior wk | charging coverage | max temp °C | distinct builds\n")
+		b.WriteString("Per-restaurant health (worst score first). Score is 0-100 (higher = healthier). The 'where' column says whether the restaurant is live (deployed) or still a lab venue, and how many of its devices resolve to deployed.\n")
+		b.WriteString("restaurant | where | score | devices | offline | crit/warn alerts | avg peak battery % | Δ vs prior wk | charging coverage | max temp °C | distinct builds\n")
 		for _, g := range groups {
 			where := "lab"
 			if g.Deployed || g.DeployedCount > 0 {
