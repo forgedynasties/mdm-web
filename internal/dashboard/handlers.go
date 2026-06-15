@@ -3233,6 +3233,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	// Merge tracked releases with the versions devices actually report, into one
 	// version-centric table (fleet versions come pre-sorted by adoption desc).
 	fleet, _ := h.db.GetFleetVersions(r.Context())
+	hiddenVersions, _ := h.db.ListHiddenVersions(r.Context())
 	relByVersion := make(map[string]db.Release, len(releases))
 	for _, rel := range releases {
 		relByVersion[rel.Version] = rel
@@ -3260,6 +3261,8 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.Tracked, row.ReleaseID, row.Name = true, &id, rel.Name
 			row.Status, row.Hidden = rel.Status, rel.Hidden
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
+		} else {
+			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
 		}
 		addRow(row)
 	}
@@ -3299,6 +3302,32 @@ func (h *Handler) ReleaseTrack(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "release.track", version, "")
 	http.Redirect(w, r, fmt.Sprintf("/updates/%d", rel.ID), http.StatusSeeOther)
+}
+
+// VersionHide dismisses a not-tracked device-reported version from the releases list
+// (and from the "Add as release" options). VersionUnhide brings it back.
+func (h *Handler) VersionHide(w http.ResponseWriter, r *http.Request) {
+	version := strings.TrimSpace(r.FormValue("version"))
+	if version != "" {
+		if err := h.db.HideVersion(r.Context(), version); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.audit(r, "version.hide", version, "")
+	}
+	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+}
+
+func (h *Handler) VersionUnhide(w http.ResponseWriter, r *http.Request) {
+	version := strings.TrimSpace(r.FormValue("version"))
+	if version != "" {
+		if err := h.db.UnhideVersion(r.Context(), version); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.audit(r, "version.unhide", version, "")
+	}
+	http.Redirect(w, r, "/updates", http.StatusSeeOther)
 }
 
 // ReleaseAdoptionJSON powers the adoption-over-time chart on the release detail page.
@@ -6009,6 +6038,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /updates/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /updates/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
 	post("POST /updates/track", h.requireAdmin(h.ReleaseTrack))
+	post("POST /updates/version/hide", h.requireAdmin(h.VersionHide))
+	post("POST /updates/version/unhide", h.requireAdmin(h.VersionUnhide))
 	mux.HandleFunc("GET /updates/{id}/adoption", h.requireAuth(h.ReleaseAdoptionJSON))
 	post("POST /updates/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
 	post("POST /updates/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))

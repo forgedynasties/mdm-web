@@ -55,6 +55,10 @@
             <input type="hidden" name="version" value="{{.Version}}">
             <button type="submit" class="btn-primary" title="Create a draft release for this version and add a changelog / packages">+ Add as release</button>
           </form>
+          <form action="/updates/version/hide" method="POST" style="display:inline;">
+            <input type="hidden" name="version" value="{{.Version}}">
+            <button type="submit" class="btn-outline" title="Dismiss this version from the list and from Add-as-release">Hide</button>
+          </form>
           {{end}}
         </td>
       </tr>
@@ -88,15 +92,16 @@
   </div>
   <div class="collapsible-body" style="display:none;">
     <table class="table">
-      <thead><tr><th>Version</th><th>Name</th><th>Status</th><th>Devices</th><th></th></tr></thead>
+      <thead><tr><th>Version</th><th>Tracking</th><th>Name</th><th>Devices</th><th></th></tr></thead>
       <tbody>
         {{range .HiddenReleases}}
         <tr style="opacity:0.7;">
           <td class="mono small">{{.Version}}</td>
+          <td>{{if .Tracked}}<span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>{{else}}<span class="status-badge muted">not tracked</span>{{end}}</td>
           <td class="small">{{if .Name}}{{.Name}}{{else}}<span class="muted">—</span>{{end}}</td>
-          <td><span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span></td>
           <td class="muted small">{{.DeviceCount}}</td>
           <td style="white-space:nowrap;text-align:right;">
+            {{if .Tracked}}
             <a href="/updates/{{.ReleaseID}}" class="link-detail">View</a>
             {{if eq $.Role "admin"}}
             <form action="/updates/{{.ReleaseID}}/hide" method="POST" style="display:inline;">
@@ -106,6 +111,12 @@
             <form action="/updates/{{.ReleaseID}}/delete" method="POST" style="display:inline;"
                   onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')">
               <button type="submit" class="btn-danger-sm">Delete</button>
+            </form>
+            {{end}}
+            {{else if eq $.Role "admin"}}
+            <form action="/updates/version/unhide" method="POST" style="display:inline;">
+              <input type="hidden" name="version" value="{{.Version}}">
+              <button type="submit" class="btn-outline" title="Show again">Unhide</button>
             </form>
             {{end}}
           </td>
