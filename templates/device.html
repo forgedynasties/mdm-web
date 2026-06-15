@@ -113,7 +113,7 @@
         <th>Time</th>
         <th>Battery</th>
         <th>Temp</th>
-        <th>Build ID</th>
+        <th>Release version</th>
         <th>RAM Used</th>
         <th>RAM Total</th>
         <th>Storage Free</th>
@@ -192,7 +192,7 @@
   <a href="/" class="dd-close" title="All devices" aria-label="All devices"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></a>
   <div class="dd-avatar" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 19h2"/></svg></div>
   <div class="dd-titlewrap">
-    {{if .Device.BuildID}}<div class="dd-eyebrow">Build {{.Device.BuildID}}</div>{{end}}
+    {{if .Device.BuildID}}<div class="dd-eyebrow">Release {{.Device.BuildID}}</div>{{end}}
     <h1 class="dd-title mono">{{.Device.SerialNumber}}</h1>
   </div>
   <div class="dd-header-meta">
@@ -210,7 +210,7 @@
       {{if .Online}}<span id="ws-badge" class="ws-badge online" title="WebSocket connected"><span class="ws-dot online"></span>online</span>{{else}}<span id="ws-badge" class="ws-badge offline" title="No WebSocket connection"><span class="ws-dot"></span>offline</span>{{end}}
     </div>
     <div class="dd-row"><span class="dd-row-label">Serial number</span><span class="dd-row-val mono">{{.Device.SerialNumber}}</span></div>
-    <div class="dd-row"><span class="dd-row-label">Build ID</span><span class="dd-row-val mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
+    <div class="dd-row"><span class="dd-row-label">Release version</span><span class="dd-row-val mono">{{if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}{{if .Release}} <span class="status-badge {{releaseStatusClass .Release.Status}}">{{.Release.Status}}</span>{{if .Release.Name}} <span class="muted small">{{.Release.Name}}</span>{{end}}{{else if .Device.BuildID}} <span class="status-badge muted" title="No matching release in the registry — device is on an unmanaged build">unmanaged</span>{{end}}</span></div>
     <div class="dd-row"><span class="dd-row-label">Battery</span><span class="dd-row-val">{{.Device.BatteryPct}}%{{if and (charging .Device.LatestExtra) (notStale .Device.LastSeenAt .ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span></div>
     <div class="dd-row"><span class="dd-row-label">Temperature</span><span class="dd-row-val">{{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}{{$t}}{{else}}—{{end}}</span></div>
     <div class="dd-row"><span class="dd-row-label">Onboarded</span><span class="dd-row-val">{{timeSince .Device.CreatedAt}}</span></div>
@@ -1706,7 +1706,7 @@ async function saveNewApp() {
         <span id="modal-battery" class="modal-value"></span>
       </div>
       <div class="modal-row">
-        <span class="modal-label">Build ID</span>
+        <span class="modal-label">Release version</span>
         <span id="modal-build" class="modal-value mono small"></span>
       </div>
       <div class="modal-row">

@@ -52,7 +52,7 @@
       {{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
     </select>
     <select id="group-filter-build" class="filter-select" onchange="reloadDevices()">
-      <option value="">Build</option>
+      <option value="">Release</option>
       {{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}
     </select>
     <select id="group-filter-battery" class="filter-select" onchange="reloadDevices()">
@@ -200,7 +200,7 @@ updateSelectedUI();
     <tr>
       <th style="width:36px;"></th>
       <th>Serial Number</th>
-      <th>Build ID</th>
+      <th>Release version</th>
       <th>Battery</th>
       <th>Last Seen</th>
     </tr>
