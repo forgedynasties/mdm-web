@@ -4130,11 +4130,15 @@ type DBStats struct {
 
 func (d *DB) TableStats(ctx context.Context) (DBStats, error) {
 	var s DBStats
+	// Exact counts for the small tables; instant planner estimates (pg_class.reltuples,
+	// maintained by autovacuum/ANALYZE) for the large high-churn ones — an exact
+	// count(*) on checkins/logcat_results full-scans millions of rows and was making the
+	// Settings page take seconds to load. Estimates are fine for a stats readout.
 	err := d.pool.QueryRow(ctx, `
 		SELECT (SELECT count(*) FROM devices),
-		       (SELECT count(*) FROM checkins),
+		       (SELECT GREATEST(reltuples, 0)::bigint FROM pg_class WHERE oid = 'checkins'::regclass),
 		       (SELECT count(*) FROM commands),
-		       (SELECT count(*) FROM logcat_results)
+		       (SELECT GREATEST(reltuples, 0)::bigint FROM pg_class WHERE oid = 'logcat_results'::regclass)
 	`).Scan(&s.Devices, &s.Checkins, &s.Commands, &s.LogcatResults)
 	return s, err
 }
