@@ -6,6 +6,18 @@
   <span class="ov-date">send and track commands across devices</span>
 </div>
 
+<style>
+/* Sticky send/summary bar — override the card's overflow:hidden, keep rounded corners. */
+.cmd-builder{overflow:visible;}
+.cmd-builder-head{border-top-left-radius:var(--r-4);border-top-right-radius:var(--r-4);}
+.cmd-builder-foot{position:sticky;bottom:0;z-index:5;border-bottom-left-radius:var(--r-4);border-bottom-right-radius:var(--r-4);box-shadow:0 -6px 16px -12px rgba(0,0,0,.4);}
+.builder-section-label{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 8px;}
+.cmd-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
+.cmd-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:14px;background:var(--accent-soft);color:var(--text);font-size:12px;font-family:var(--mono);}
+.cmd-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px;}
+.cmd-chip button:hover{color:#d82747;}
+</style>
+
 {{if or (eq .Role "admin") (eq .Role "operator")}}
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data">
   <div class="cmd-builder dv-rise-1" id="cmd-builder">
@@ -27,6 +39,7 @@
 
       <div style="padding:18px 20px 0;">
 
+        <div class="builder-section-label">Command type</div>
         <div class="type-grid">
           <button type="button" class="type-card is-active" data-type="install_apk" onclick="selectType('install_apk', this)">
             <span class="type-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
@@ -123,9 +136,12 @@
         </div>
 
         <div id="target-groups" class="target-detail">
-          <div class="checkbox-group">
+          {{if .Groups}}
+          <input type="text" id="cmd-group-filter" class="form-input" autocomplete="off" placeholder="Filter groups…" oninput="filterCmdGroups()" style="margin-bottom:8px;">
+          {{end}}
+          <div class="checkbox-group" id="cmd-group-list">
             {{range .Groups}}
-            <label class="checkbox-label">
+            <label class="checkbox-label" data-name="{{.Name}}">
               <input type="checkbox" name="target_groups" value="{{.ID}}" onchange="updatePreview()"> {{.Name}} ({{.DeviceCount}} devices)
             </label>
             {{else}}
@@ -135,11 +151,14 @@
         </div>
 
         <div id="target-devices" class="target-detail">
-          <input type="text" name="q" class="form-input" autocomplete="off" placeholder="Search a serial to add…"
+          <input type="text" id="cmd-serial-input" name="q" class="form-input" autocomplete="off"
+                 placeholder="Search or type a serial, Enter to add…"
                  hx-get="/devices/search" hx-trigger="keyup changed delay:200ms, focus"
-                 hx-target="#cmd-device-results" style="margin-bottom:8px;">
+                 hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
           <div id="cmd-device-results"></div>
-          <textarea name="target_serials" class="form-textarea" placeholder="…or paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="updatePreview()" style="font-family:var(--mono);font-size:12px;"></textarea>
+          <div id="cmd-chips" class="cmd-chips"></div>
+          <textarea name="target_serials" id="cmd-serials" class="form-textarea" placeholder="paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="cmdRenderChips();updatePreview()" style="display:none;font-family:var(--mono);font-size:12px;"></textarea>
+          <button type="button" class="btn-link small" id="cmd-edit-list" onclick="cmdToggleList()">Edit as list ▾</button>
         </div>
 
       </div>
@@ -367,15 +386,59 @@ function selectTarget(val, btn) {
   updatePreview();
 }
 
-// Add a serial picked from the device lookup to the target_serials textarea (deduped).
-function pickCommandSerial(serial) {
-  var ta = document.querySelector('#target-devices textarea[name="target_serials"]');
-  if (!ta) return;
-  var lines = ta.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
-  if (lines.indexOf(serial) === -1) lines.push(serial);
-  ta.value = lines.join('\n');
+// ── Specific-devices target: serial chips backed by the hidden textarea ──
+function cmdSerials() {
+  return document.getElementById('cmd-serials').value.split(/[\n,]/).map(function (s) { return s.trim(); }).filter(Boolean);
+}
+function cmdSetSerials(list) {
+  var seen = {}, out = [];
+  list.forEach(function (s) { s = s.trim(); if (s && !seen[s]) { seen[s] = 1; out.push(s); } });
+  document.getElementById('cmd-serials').value = out.join('\n');
+  cmdRenderChips();
   updatePreview();
 }
+function cmdAddSerial(raw) {
+  if (!raw) return;
+  cmdSetSerials(cmdSerials().concat(String(raw).split(/[\s,]+/)));
+  var inp = document.getElementById('cmd-serial-input');
+  if (inp) inp.value = '';
+  var res = document.getElementById('cmd-device-results');
+  if (res) res.innerHTML = '';
+}
+function cmdRemoveSerial(s) {
+  cmdSetSerials(cmdSerials().filter(function (x) { return x !== s; }));
+}
+function cmdRenderChips() {
+  var box = document.getElementById('cmd-chips');
+  if (!box) return;
+  box.innerHTML = '';
+  cmdSerials().forEach(function (s) {
+    var chip = document.createElement('span');
+    chip.className = 'cmd-chip';
+    chip.appendChild(document.createTextNode(s));
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Remove ' + s);
+    b.onclick = function () { cmdRemoveSerial(s); };
+    chip.appendChild(b);
+    box.appendChild(chip);
+  });
+}
+function cmdToggleList() {
+  var ta = document.getElementById('cmd-serials');
+  var on = ta.style.display === 'none';
+  ta.style.display = on ? '' : 'none';
+  var btn = document.getElementById('cmd-edit-list');
+  if (btn) btn.textContent = on ? 'Hide list ▴' : 'Edit as list ▾';
+}
+function filterCmdGroups() {
+  var q = (document.getElementById('cmd-group-filter').value || '').toLowerCase();
+  document.querySelectorAll('#cmd-group-list .checkbox-label').forEach(function (l) {
+    var n = (l.getAttribute('data-name') || '').toLowerCase();
+    l.style.display = (!q || n.indexOf(q) !== -1) ? '' : 'none';
+  });
+}
+// The device-lookup partial's Add button calls this.
+function pickCommandSerial(serial) { cmdAddSerial(serial); }
 
 function updatePreview() {
   var type = document.getElementById('cmd-type-input').value;
@@ -493,6 +556,7 @@ async function saveNewApp() {
     var pill = document.querySelector('.target-pill[data-target="devices"]');
     if (pill) selectTarget('devices', pill);
   }
+  cmdRenderChips();
   // Initial preview render with current type colors applied
   var firstCard = document.querySelector('.type-card.is-active') || document.querySelector('.type-card');
   if (firstCard) selectType(firstCard.dataset.type, firstCard);
