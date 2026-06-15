@@ -361,9 +361,10 @@
   <div style="padding:16px;">
     <div class="muted small">
       Database: <strong>{{.DBStats.Devices}}</strong> devices ·
-      <strong>{{.DBStats.Checkins}}</strong> check-ins ·
+      <strong>≈{{.DBStats.Checkins}}</strong> check-ins ·
       <strong>{{.DBStats.Commands}}</strong> commands ·
-      <strong>{{.DBStats.LogcatResults}}</strong> logcat results
+      <strong>≈{{.DBStats.LogcatResults}}</strong> logcat results
+      <span class="muted" style="opacity:0.7;">(check-in / logcat counts are estimates)</span>
     </div>
   </div>
 </div>
