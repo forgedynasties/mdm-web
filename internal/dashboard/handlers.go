@@ -34,6 +34,7 @@ import (
 	"mdm/internal/notify"
 	"mdm/internal/ratelimit"
 	"mdm/internal/shell"
+	"mdm/internal/version"
 	"mdm/internal/ws"
 )
 
@@ -905,6 +906,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	data["CurrentUser"] = h.currentUsername(r)
 	data["Brand"] = h.cfg.BrandName()
 	data["Use24Hour"] = h.cfg.Use24Hour()
+	data["Version"] = version.Current()
 	if role != "" {
 		if n, err := h.db.CountOpenAlerts(r.Context()); err == nil {
 			data["AlertsOpenCount"] = n
@@ -939,12 +941,22 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "audit"
 	case strings.HasPrefix(path, "/users"):
 		data["ActivePage"] = "users"
+	case strings.HasPrefix(path, "/changelog"):
+		data["ActivePage"] = "changelog"
 	}
 	return data
 }
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data map[string]any) {
 	h.tmpl.ExecuteTemplate(w, name, h.withRole(r, data))
+}
+
+// Changelog renders the "What's new" page from the in-binary version.Changelog.
+func (h *Handler) Changelog(w http.ResponseWriter, r *http.Request) {
+	h.render(w, r, "changelog.html", map[string]any{
+		"Title":     "What's new",
+		"Changelog": version.Changelog,
+	})
 }
 
 func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
@@ -6264,6 +6276,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/max-targets", h.requireAdmin(h.SettingsSetMaxTargets))
 	post("POST /settings/operator-perms", h.requireAdmin(h.SettingsSetOperatorPerms))
 	mux.HandleFunc("GET /audit", h.requireAdmin(h.AuditPage))
+	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
 	post("POST /settings/require-reason", h.requireAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
 	post("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
