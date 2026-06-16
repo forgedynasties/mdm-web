@@ -6,6 +6,7 @@
   <div class="ota-rollup-summary small" style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
     <span class="muted">{{.SummaryDone}}/{{.SummaryTotal}} installed</span>
     {{range .Summary}} <span class="status-badge {{deployStatusClass .Status}}">{{.Count}} {{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
+    {{if ge .AvgDuration 0}}<span class="muted">· avg update time {{dur .AvgDuration}} ({{.DoneCount}} device{{if ne .DoneCount 1}}s{{end}})</span>{{end}}
   </div>
 </div>
 {{end}}
@@ -15,6 +16,7 @@
       <th>Serial Number</th>
       <th>Current Build</th>
       <th>Status</th>
+      <th>Time taken</th>
       <th>Updated</th>
     </tr>
   </thead>
@@ -48,11 +50,12 @@
             </form>
           {{end}}
         </td>
+        <td class="small muted" title="time from download start to installed">{{dur .DurationSeconds}}</td>
         <td class="small muted reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></td>
       </tr>
       {{end}}
     {{else}}
-      <tr><td colspan="4" class="empty">No devices targeted yet.</td></tr>
+      <tr><td colspan="5" class="empty">No devices targeted yet.</td></tr>
     {{end}}
   </tbody>
 </table>
