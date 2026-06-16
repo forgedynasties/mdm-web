@@ -1324,6 +1324,13 @@ input[type="checkbox"]:hover {
   background: var(--accent);
   color: var(--accent-ink);
 }
+.seg-btn:disabled,
+.seg-btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  color: var(--muted);
+}
+.seg-btn:disabled:hover { color: var(--muted); }
 
 /* ── App selector ────────────────────────────────── */
 .app-select-wrap {
