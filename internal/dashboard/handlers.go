@@ -4574,6 +4574,7 @@ const (
 var commandRoles = map[string][]string{
 	"screenshot":    {"admin", "operator", "viewer"},
 	"install_apk":   {"admin", "operator"},
+	"uninstall":     {"admin", "operator"},
 	"reboot":        {"admin", "operator"},
 	"shell":         {"admin", "operator"},
 	"ota":           {"admin"},
@@ -4759,6 +4760,9 @@ func buildPayload(cmdType string, r *http.Request) json.RawMessage {
 	case "shell":
 		cmd := strings.TrimSpace(r.FormValue("shell_cmd"))
 		b, _ := json.Marshal(map[string]string{"cmd": cmd})
+		return json.RawMessage(b)
+	case "uninstall":
+		b, _ := json.Marshal(map[string]string{"package": strings.TrimSpace(r.FormValue("package"))})
 		return json.RawMessage(b)
 	case "update_splash":
 		// Client downloads url (a splash.img: 0x4000 zero filler + BMP), validates

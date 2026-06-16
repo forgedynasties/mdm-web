@@ -23,6 +23,7 @@ var Changelog = []Entry{
 			"Test team: a new “Tester” account type and a per-release QA checklist.",
 			"Admins keep a library of standard test cases (checked every release) and can add release-specific ones.",
 			"Testers mark each case pass/fail/blocked/skip with notes; the release shows the QA summary and warns before publishing if not everything passed.",
+			"Uninstall an app from a device directly from its installed-packages list.",
 		},
 	},
 	{
