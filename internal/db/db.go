@@ -104,16 +104,17 @@ type OTAPackage struct {
 // Release groups the packages for one target build version under a single
 // lifecycle. Version equals the target build id.
 type Release struct {
-	ID           int        `json:"id"`
-	Version      string     `json:"version"`
-	Name         string     `json:"name"`
-	Changelog    string     `json:"changelog"`
-	Status       string     `json:"status"` // "draft" | "published" | "yanked"
-	Hidden       bool       `json:"hidden"` // hidden from the main releases list (irrelevant)
-	CreatedAt    time.Time  `json:"created_at"`
-	PublishedAt  *time.Time `json:"published_at"`
-	PackageCount int        `json:"package_count,omitempty"` // populated by ListReleases
-	DeployCount  int        `json:"deploy_count,omitempty"`  // populated by ListReleases
+	ID            int        `json:"id"`
+	Version       string     `json:"version"`
+	Name          string     `json:"name"`
+	Changelog     string     `json:"changelog"`
+	Status        string     `json:"status"`          // "draft" | "published" | "yanked"
+	Hidden        bool       `json:"hidden"`          // hidden from the main releases list (irrelevant)
+	SkipBaseTests bool       `json:"skip_base_tests"` // QA tests only release-specific cases, not base
+	CreatedAt     time.Time  `json:"created_at"`
+	PublishedAt   *time.Time `json:"published_at"`
+	PackageCount  int        `json:"package_count,omitempty"` // populated by ListReleases
+	DeployCount   int        `json:"deploy_count,omitempty"`  // populated by ListReleases
 }
 
 // FleetVersion is one release version actually reported by devices in the field, with the
@@ -4990,6 +4991,10 @@ CREATE TABLE IF NOT EXISTS release_test_results (
     tested_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (release_id, test_case_id)
 );
+
+-- When true, the release's QA checklist skips base (standard) cases and only its
+-- own release-specific cases apply.
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS skip_base_tests BOOLEAN NOT NULL DEFAULT false;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -5093,9 +5098,9 @@ func (d *DB) GetReleaseByVersion(ctx context.Context, version string) (*Release,
 func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 	var r Release
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, version, name, changelog, status, created_at, published_at
+		SELECT id, version, name, changelog, status, skip_base_tests, created_at, published_at
 		FROM releases WHERE id = $1
-	`, id).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.CreatedAt, &r.PublishedAt)
+	`, id).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.CreatedAt, &r.PublishedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -5324,6 +5329,13 @@ func (d *DB) SetReleaseStatus(ctx context.Context, id int, status string) error 
 // SetReleaseMeta updates the editable release fields (name, changelog).
 func (d *DB) SetReleaseMeta(ctx context.Context, id int, name, changelog string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE releases SET name = $2, changelog = $3 WHERE id = $1`, id, name, changelog)
+	return err
+}
+
+// SetReleaseSkipBaseTests sets whether a release's QA skips base (standard) cases,
+// testing only its release-specific cases.
+func (d *DB) SetReleaseSkipBaseTests(ctx context.Context, id int, skip bool) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET skip_base_tests = $2 WHERE id = $1`, id, skip)
 	return err
 }
 
@@ -5937,7 +5949,8 @@ func (d *DB) GetReleaseChecklist(ctx context.Context, releaseID int) ([]Checklis
 		       COALESCE(r.status, 'untested'), COALESCE(r.notes, ''), COALESCE(r.tested_by, ''), r.tested_at
 		FROM test_cases tc
 		LEFT JOIN release_test_results r ON r.test_case_id = tc.id AND r.release_id = $1
-		WHERE tc.active AND (tc.base OR tc.release_id = $1)
+		WHERE tc.active AND (tc.release_id = $1
+		      OR (tc.base AND NOT COALESCE((SELECT skip_base_tests FROM releases WHERE id = $1), false)))
 		ORDER BY tc.base DESC, tc.area, tc.title`, releaseID)
 	if err != nil {
 		return nil, err
@@ -5982,7 +5995,8 @@ func (d *DB) ReleaseQASummary(ctx context.Context, releaseID int) (QASummary, er
 			SELECT COALESCE(r.status, 'untested') AS status
 			FROM test_cases tc
 			LEFT JOIN release_test_results r ON r.test_case_id = tc.id AND r.release_id = $1
-			WHERE tc.active AND (tc.base OR tc.release_id = $1)
+			WHERE tc.active AND (tc.release_id = $1
+			      OR (tc.base AND NOT COALESCE((SELECT skip_base_tests FROM releases WHERE id = $1), false)))
 		) c`, releaseID).Scan(&s.Total, &s.Pass, &s.Fail, &s.Blocked, &s.Skip, &s.Untested)
 	return s, err
 }

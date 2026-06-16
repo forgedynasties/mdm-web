@@ -84,7 +84,7 @@
     </div>
     <div class="form-row">
       <label class="form-label">Changelog</label>
-      <textarea name="changelog" class="form-textarea" rows="14" style="resize:vertical;min-height:280px;" placeholder="What changed in this release…">{{$rel.Changelog}}</textarea>
+      <textarea name="changelog" class="form-textarea" rows="22" style="resize:vertical;min-height:460px;" placeholder="What changed in this release…">{{$rel.Changelog}}</textarea>
     </div>
     <div><button type="submit" class="btn-primary">Save changelog</button></div>
   </form>
@@ -270,6 +270,18 @@
       {{else}}no test cases{{end}}
     </span>
   </div>
+
+  {{if eq $role "admin"}}
+  <form action="/updates/{{$rel.ID}}/qa-base" method="POST" style="padding:10px 18px 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <label class="checkbox-label small" style="display:flex;align-items:center;gap:6px;margin:0;">
+      <input type="checkbox" name="skip_base_tests" {{if $rel.SkipBaseTests}}checked{{end}} onchange="this.form.submit()">
+      Skip base test cases — test only this release's own cases
+    </label>
+    <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
+  </form>
+  {{else if $rel.SkipBaseTests}}
+  <div class="small muted" style="padding:10px 18px 4px;">Base test cases are skipped for this release — only its specific cases apply.</div>
+  {{end}}
 
   {{if and (gt .QA.Total 0) (not .QA.Passed)}}
   <div class="small" style="padding:0 18px 6px;color:var(--warn,#f59e0b);">Not all cases have passed — publishing will warn.</div>

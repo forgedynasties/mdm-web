@@ -3869,6 +3869,27 @@ func (h *Handler) ReleaseEditMeta(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
 }
 
+// ReleaseSetSkipBase toggles whether this release's QA skips the base (standard)
+// test cases and only checks its release-specific cases.
+func (h *Handler) ReleaseSetSkipBase(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	skip := r.FormValue("skip_base_tests") == "on"
+	if err := h.db.SetReleaseSkipBaseTests(r.Context(), id, skip); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	state := "base+specific"
+	if skip {
+		state = "specific-only"
+	}
+	h.audit(r, "release.qa_scope", strconv.Itoa(id), state)
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+}
+
 // ReleaseYank toggles a release between yanked and published.
 func (h *Handler) ReleaseYank(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
@@ -6461,6 +6482,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /updates/version/hide", h.requireAdmin(h.VersionHide))
 	post("POST /updates/version/unhide", h.requireAdmin(h.VersionUnhide))
 	post("POST /updates/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
+	post("POST /updates/{id}/qa-base", h.requireAdmin(h.ReleaseSetSkipBase))
 	post("POST /updates/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
 	post("POST /updates/{id}/delete", h.requireAdmin(h.ReleaseDelete))
 	post("POST /updates/{id}/publish", h.requireAdmin(h.ReleasePublish))
