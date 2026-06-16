@@ -151,6 +151,18 @@ type UpdateTarget struct {
 	Status       string    `json:"status"`        // "pending", "downloading", "installing", "installed"
 	ErrorCode    string    `json:"error_code"`    // device-reported code when status == "failed"
 	UpdatedAt    time.Time `json:"updated_at"`    // when this row last changed state
+
+	StartedAt   *time.Time `json:"started_at"`   // when the device began downloading (nil if not yet)
+	CompletedAt *time.Time `json:"completed_at"` // when the device reported installed (nil if not yet)
+}
+
+// DurationSeconds returns how long this device took to update (download → installed),
+// or -1 if it hasn't both started and completed.
+func (t UpdateTarget) DurationSeconds() int {
+	if t.StartedAt == nil || t.CompletedAt == nil {
+		return -1
+	}
+	return int(t.CompletedAt.Sub(*t.StartedAt).Seconds())
 }
 
 type Command struct {
@@ -2037,6 +2049,14 @@ type LogcatRequest struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// LogcatPreset is a distinct (level, lines, tag) combination previously requested,
+// for the "recent"/"frequent" quick-rerun chips on the logcat page.
+type LogcatPreset struct {
+	Level string `json:"level"`
+	Lines int    `json:"lines"`
+	Tag   string `json:"tag"`
+}
+
 type LogcatResult struct {
 	ID        uuid.UUID `json:"id"`
 	RequestID uuid.UUID `json:"request_id"`
@@ -2169,6 +2189,54 @@ func (d *DB) GetLogcatEntriesForDevice(ctx context.Context, deviceID uuid.UUID, 
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// LogcatSuggestions returns a device's previously-requested logcat presets for quick
+// re-run: the most recently used (distinct level/lines/tag, newest first) and the most
+// frequently used. Mirrors ShellCommandSuggestions but keyed by the request parameters.
+func (d *DB) LogcatSuggestions(ctx context.Context, deviceID uuid.UUID, limit int) (recent, frequent []LogcatPreset, err error) {
+	if limit <= 0 {
+		limit = 6
+	}
+	collect := func(q string) ([]LogcatPreset, error) {
+		rows, err := d.pool.Query(ctx, q, deviceID, limit)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		var out []LogcatPreset
+		for rows.Next() {
+			var p LogcatPreset
+			if err := rows.Scan(&p.Level, &p.Lines, &p.Tag); err != nil {
+				return nil, err
+			}
+			out = append(out, p)
+		}
+		return out, rows.Err()
+	}
+	recent, err = collect(`
+		SELECT level, lines, tag FROM (
+			SELECT level, lines, tag, MAX(created_at) AS last
+			FROM logcat_requests
+			WHERE device_id = $1
+			GROUP BY level, lines, tag
+			ORDER BY last DESC
+			LIMIT $2
+		) t`)
+	if err != nil {
+		return nil, nil, err
+	}
+	frequent, err = collect(`
+		SELECT level, lines, tag
+		FROM logcat_requests
+		WHERE device_id = $1
+		GROUP BY level, lines, tag
+		ORDER BY COUNT(*) DESC, MAX(created_at) DESC
+		LIMIT $2`)
+	if err != nil {
+		return nil, nil, err
+	}
+	return recent, frequent, nil
 }
 
 // ── Device Packages ───────────────────────────────────────────────────────────
@@ -4733,6 +4801,11 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 -- error_code the device reported on failure (to show why it failed).
 ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS error_code TEXT        NOT NULL DEFAULT '';
+-- Update timing: started_at is stamped when the device begins downloading and
+-- completed_at when it reports installed, so we can show per-device "time taken"
+-- and the deployment's average. Both set once (never bumped by later transitions).
+ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS started_at   TIMESTAMPTZ;
+ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 
 -- Releases group the packages for one target build version (the full image plus
 -- its incrementals) under a single lifecycle (draft -> published -> yanked).
@@ -5489,7 +5562,9 @@ func (d *DB) ListDueScheduledReboots(ctx context.Context) ([]DueReboot, error) {
 // from a failure (e.g. on retry) doesn't keep showing a stale reason.
 func (d *DB) SetUpdateDeviceStatus(ctx context.Context, updateID int, deviceID uuid.UUID, status string) error {
 	_, err := d.pool.Exec(ctx, `
-		UPDATE update_devices SET status = $3, error_code = '', updated_at = NOW()
+		UPDATE update_devices SET status = $3, error_code = '', updated_at = NOW(),
+			started_at   = CASE WHEN $3 = 'downloading' AND started_at   IS NULL THEN NOW() ELSE started_at   END,
+			completed_at = CASE WHEN $3 = 'installed'   AND completed_at IS NULL THEN NOW() ELSE completed_at END
 		WHERE update_id = $1 AND device_id = $2
 	`, updateID, deviceID, status)
 	return err
@@ -5537,7 +5612,8 @@ func (d *DB) CancelDeployment(ctx context.Context, updateID int) error {
 // GetUpdateTargets returns the device targets for an update.
 func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT ud.update_id, ud.device_id, d.serial_number, d.build_id, ud.status, ud.error_code, ud.updated_at
+		SELECT ud.update_id, ud.device_id, d.serial_number, d.build_id, ud.status, ud.error_code, ud.updated_at,
+		       ud.started_at, ud.completed_at
 		FROM update_devices ud
 		JOIN devices d ON d.id = ud.device_id
 		WHERE ud.update_id = $1
@@ -5551,7 +5627,7 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 	var out []UpdateTarget
 	for rows.Next() {
 		var t UpdateTarget
-		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt, &t.StartedAt, &t.CompletedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
