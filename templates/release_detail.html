@@ -2,26 +2,29 @@
 {{template "header" .}}
 
 {{$rel := .Release}}
+{{$role := .Role}}
 
 <a href="/updates" class="back-link">← Releases</a>
+
 <div class="ov-greet">
   <h1 class="ov-title">
     <span class="status-badge {{releaseStatusClass $rel.Status}}" style="font-size:12px;vertical-align:middle;">{{$rel.Status}}</span>
-    {{$rel.Version}}
+    <span class="mono">{{$rel.Version}}</span>
   </h1>
-  {{if eq .Role "admin"}}
+  {{if $rel.Name}}<span class="ov-date">{{$rel.Name}}</span>{{end}}
+  {{if eq $role "admin"}}
   <span class="acts">
     {{if ne $rel.Status "published"}}
     <form action="/updates/{{$rel.ID}}/publish" method="POST" style="display:inline;">
-      <button type="submit" class="btn-primary" style="padding:5px 12px;font-size:13px;"
+      <button type="submit" class="btn-primary btn-sm"
         {{if and (gt .QA.Total 0) (not .QA.Passed)}}onclick="return confirm('QA is not complete — {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}}, {{.QA.Fail}} failed{{end}}{{if gt .QA.Untested 0}}, {{.QA.Untested}} untested{{end}}. Publish anyway?')"{{end}}>Publish</button>
     </form>
     {{end}}
     <form action="/updates/{{$rel.ID}}/yank" method="POST" style="display:inline;">
       {{if eq $rel.Status "yanked"}}
-        <button type="submit" class="btn-outline" style="padding:5px 12px;font-size:13px;">Restore</button>
+        <button type="submit" class="btn-outline btn-sm">Restore</button>
       {{else}}
-        <button type="submit" class="btn-outline" style="padding:5px 12px;font-size:13px;"
+        <button type="submit" class="btn-outline btn-sm"
                 onclick="return confirm('Yank this release? It will stop being delivered to devices and cannot be deployed.')">Yank</button>
       {{end}}
     </form>
@@ -31,7 +34,7 @@
 
 {{if eq $rel.Status "draft"}}
 <div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg,#2a2010);border:1px solid var(--warn,#f59e0b);color:var(--warn,#f59e0b);font-size:13px;">
-  This release is a draft. Add its packages, then <strong>Publish</strong> it before deploying.
+  This release is a draft. Add its full package, then <strong>Publish</strong> it before deploying.
 </div>
 {{else if eq $rel.Status "yanked"}}
 <div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg,#2a2010);border:1px solid var(--warn,#f59e0b);color:var(--warn,#f59e0b);font-size:13px;">
@@ -39,18 +42,29 @@
 </div>
 {{end}}
 
+<!-- At-a-glance -->
 <div class="stats-grid" style="margin-bottom:16px;">
-  <div class="stat-card">
-    <div class="stat-label">Version</div>
-    <div class="stat-value small mono">{{$rel.Version}}</div>
-  </div>
   <div class="stat-card">
     <div class="stat-label">Packages</div>
     <div class="stat-value">{{len .Packages}}</div>
+    <div class="stat-sub">{{if .HasFull}}full image ready{{else}}no full image yet{{end}}</div>
   </div>
   <div class="stat-card">
     <div class="stat-label">Deployments</div>
     <div class="stat-value">{{len .Deployments}}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Devices on version</div>
+    <div class="stat-value">{{len .DevicesOnVersion}}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">QA</div>
+    {{if gt .QA.Total 0}}
+    <div class="stat-value small">{{.QA.Pass}}/{{.QA.Total}} passed</div>
+    <div class="stat-sub">{{if gt .QA.Fail 0}}{{.QA.Fail}} failed · {{end}}{{.QA.Untested}} untested</div>
+    {{else}}
+    <div class="stat-value small muted">no cases</div>
+    {{end}}
   </div>
   <div class="stat-card">
     <div class="stat-label">Created</div>
@@ -59,7 +73,8 @@
   </div>
 </div>
 
-{{if eq .Role "admin"}}
+<!-- Changelog -->
+{{if eq $role "admin"}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Name &amp; changelog</h3><span class="muted small">editable any time</span></div>
   <form action="/updates/{{$rel.ID}}/meta" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
@@ -81,50 +96,11 @@
 </div>
 {{end}}
 
-<!-- Adoption: which devices are on this version, now and over time. -->
-<script src="/static/vendor/chart.umd.min.js"></script>
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Adoption</h3>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <span class="muted small">{{len .DevicesOnVersion}} device{{if ne (len .DevicesOnVersion) 1}}s{{end}} on this version</span>
-      <div class="dur-btns" id="adopt-range">
-        <button class="dur-btn" data-days="7">7d</button>
-        <button class="dur-btn active" data-days="30">30d</button>
-        <button class="dur-btn" data-days="90">90d</button>
-      </div>
-    </div>
-  </div>
-  <div class="chart-wrap"><canvas id="adoptChart"></canvas></div>
-  {{if .DevicesOnVersion}}
-  <div class="collapsible-body" style="display:none;border-top:1px solid var(--border-soft);">
-    <table class="table">
-      <thead><tr><th>Serial Number</th><th>Restaurant</th><th>Battery</th><th>Last Seen</th></tr></thead>
-      <tbody>
-        {{range .DevicesOnVersion}}
-        <tr>
-          <td class="mono small"><a href="/devices/{{.SerialNumber}}" class="link-detail mono">{{.SerialNumber}}</a></td>
-          <td class="small">{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">lab</span>{{end}}</td>
-          <td class="small">{{.BatteryPct}}%</td>
-          <td class="muted small">{{timeSince .LastSeenAt}}</td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
-  <div style="padding:10px 16px;">
-    <button type="button" class="btn-outline" onclick="var b=this.parentElement.previousElementSibling;var open=b.style.display!=='none';b.style.display=open?'none':'';this.textContent=open?'Show devices ({{len .DevicesOnVersion}})':'Hide devices';">Show devices ({{len .DevicesOnVersion}})</button>
-  </div>
-  {{else}}
-  <div style="padding:12px 16px;" class="muted small">No devices are currently reporting this version.</div>
-  {{end}}
-</div>
-
 <!-- Packages in this release -->
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>Packages</h3>
-    <span class="muted small">The full image and any incrementals. The server picks the right one per device.</span>
+    <span class="muted small">One full image (the baseline) plus any incrementals. The server picks the right one per device.</span>
   </div>
   {{if .Packages}}
   <table class="table">
@@ -141,7 +117,7 @@
         </td>
         <td class="muted small">{{localTime .CreatedAt}}</td>
         <td style="white-space:nowrap;">
-          {{if eq $.Role "admin"}}
+          {{if eq $role "admin"}}
           <form action="/updates/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="display:inline;"
                 onsubmit="return confirm('Delete this package from the release?')">
             <button type="submit" class="btn-outline btn-sm">Delete</button>
@@ -155,39 +131,42 @@
   {{else}}
   <div class="empty" style="padding:16px;">No packages yet — add the full image below.</div>
   {{end}}
-</div>
 
-{{if eq .Role "admin"}}
-<!-- Add a package to this release -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Add Package</h3><span class="muted small">Add the full image or an incremental for version {{$rel.Version}}</span></div>
-  <form id="add-pkg-form" action="/updates/{{$rel.ID}}/packages" method="POST" class="command-form">
-    <div class="form-row">
-      <label class="form-label">Type</label>
-      <div class="seg-control">
-        <button type="button" class="seg-btn active" data-mode="full"        onclick="setPkgType('full')">Full</button>
-        <button type="button" class="seg-btn"        data-mode="incremental" onclick="setPkgType('incremental')">Incremental</button>
+  {{if eq $role "admin"}}
+  <!-- Add a package to this release -->
+  <div style="padding:16px 20px;border-top:1px solid var(--border-soft);">
+    <div class="form-label" style="margin-bottom:10px;">Add package <span class="muted small">for {{$rel.Version}}</span></div>
+    <form id="add-pkg-form" action="/updates/{{$rel.ID}}/packages" method="POST" class="command-form" style="padding:0;">
+      <div class="form-row">
+        <label class="form-label">Type</label>
+        <div class="seg-control">
+          <button type="button" class="seg-btn{{if not .HasFull}} active{{end}}" data-mode="full"
+                  {{if .HasFull}}disabled title="This release already has a full package"{{end}}
+                  onclick="setPkgType('full')">Full</button>
+          <button type="button" class="seg-btn{{if .HasFull}} active{{end}}" data-mode="incremental" onclick="setPkgType('incremental')">Incremental</button>
+        </div>
+        <input type="hidden" name="type" id="pkg-type-input" value="{{if .HasFull}}incremental{{else}}full{{end}}">
+        {{if .HasFull}}<div class="form-hint">A full image already exists — only one is allowed. Add an incremental instead.</div>{{end}}
       </div>
-      <input type="hidden" name="type" id="pkg-type-input" value="full">
-    </div>
-    <div class="form-row" id="source-build-row" style="display:none;">
-      <label class="form-label">Source Build ID</label>
-      <input type="text" name="source_build_id" id="pkg-source-build" class="form-input" placeholder="e.g. 2026.05.01-release">
-      <div class="form-hint">Only devices currently on this build will receive this incremental.</div>
-    </div>
-    <div class="form-row">
-      <label class="form-label">Package URL</label>
-      <input type="url" name="update_url" id="pkg-update-url" class="form-input" placeholder="https://..." required>
-      <input type="hidden" name="update_url_b64" id="pkg-update-url-b64">
-      <div class="form-hint">External URL where the OTA zip is hosted.</div>
-    </div>
-    <button type="submit" class="btn-primary">Add Package</button>
-  </form>
+      <div class="form-row" id="source-build-row" style="display:{{if .HasFull}}block{{else}}none{{end}};">
+        <label class="form-label">Source Build ID</label>
+        <input type="text" name="source_build_id" id="pkg-source-build" class="form-input" placeholder="e.g. 2026.05.01-release" {{if .HasFull}}required{{end}}>
+        <div class="form-hint">Only devices currently on this build will receive this incremental.</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Package URL</label>
+        <input type="url" name="update_url" id="pkg-update-url" class="form-input" placeholder="https://..." required>
+        <input type="hidden" name="update_url_b64" id="pkg-update-url-b64">
+        <div class="form-hint">External URL where the OTA zip is hosted.</div>
+      </div>
+      <button type="submit" class="btn-primary">Add Package</button>
+    </form>
+  </div>
+  {{end}}
 </div>
-{{end}}
 
 <!-- Push update -->
-{{if eq .Role "admin"}}
+{{if eq $role "admin"}}
 {{if eq $rel.Status "published"}}
 {{if not .HasFull}}
 <div class="card" style="margin-bottom:16px;">
@@ -281,8 +260,82 @@
 {{end}}
 {{end}}
 
+<!-- Testing / QA -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Testing / QA</h3>
+    <span class="muted small">
+      {{if gt .QA.Total 0}}
+        {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}} · {{.QA.Fail}} failed{{end}}{{if gt .QA.Blocked 0}} · {{.QA.Blocked}} blocked{{end}}{{if gt .QA.Skip 0}} · {{.QA.Skip}} skipped{{end}}{{if gt .QA.Untested 0}} · {{.QA.Untested}} untested{{end}}
+      {{else}}no test cases{{end}}
+    </span>
+  </div>
+
+  {{if and (gt .QA.Total 0) (not .QA.Passed)}}
+  <div class="small" style="padding:0 18px 6px;color:var(--warn,#f59e0b);">Not all cases have passed — publishing will warn.</div>
+  {{end}}
+  {{if and (gt .QA.Total 0) (not .CanRecord)}}
+  <div class="small muted" style="padding:0 18px 6px;">Results are read-only — only the tester role can mark cases.</div>
+  {{end}}
+
+  {{if .Checklist}}
+  <table class="table">
+    <thead>
+      <tr><th>Area</th><th>Test case</th><th>Status</th>{{if .CanRecord}}<th>Record</th>{{else}}<th>Tested by</th>{{end}}</tr>
+    </thead>
+    <tbody>
+      {{$canRecord := .CanRecord}}
+      {{$relID := $rel.ID}}
+      {{range .Checklist}}
+      {{$st := .Status}}
+      <tr>
+        <td class="small muted">{{if .Base}}<span title="standard case (every release)">★</span> {{end}}{{.Area}}</td>
+        <td>{{.Title}}{{if .Steps}}<div class="muted small">{{.Steps}}</div>{{end}}{{if .Expected}}<div class="muted small">Expected: {{.Expected}}</div>{{end}}</td>
+        <td>
+          <span class="status-badge {{if eq $st "pass"}}ok{{else if eq $st "fail"}}danger{{else if eq $st "blocked"}}warn{{else}}muted{{end}}">{{$st}}</span>
+        </td>
+        {{if $canRecord}}
+        <td>
+          <form action="/updates/{{$relID}}/test-results" method="POST" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="hidden" name="test_case_id" value="{{.ID}}">
+            <select name="status" class="form-input" style="width:auto;padding:3px 6px;">
+              <option value="untested" {{if eq $st "untested"}}selected{{end}}>untested</option>
+              <option value="pass" {{if eq $st "pass"}}selected{{end}}>pass</option>
+              <option value="fail" {{if eq $st "fail"}}selected{{end}}>fail</option>
+              <option value="blocked" {{if eq $st "blocked"}}selected{{end}}>blocked</option>
+              <option value="skip" {{if eq $st "skip"}}selected{{end}}>skip</option>
+            </select>
+            <input name="notes" class="form-input" value="{{.Notes}}" placeholder="notes" style="width:160px;padding:3px 6px;">
+            <button type="submit" class="btn-outline btn-sm">Save</button>
+          </form>
+          {{if .TestedBy}}<div class="muted small">{{.TestedBy}}</div>{{end}}
+        </td>
+        {{else}}
+        <td class="small muted">{{if .TestedBy}}{{.TestedBy}}{{if .Notes}} — {{.Notes}}{{end}}{{else}}—{{end}}</td>
+        {{end}}
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty" style="padding:14px 18px;">No test cases apply to this release yet.</div>
+  {{end}}
+
+  {{if eq $role "admin"}}
+  <div style="padding:14px 18px;border-top:1px solid var(--border);">
+    <div class="muted small" style="margin-bottom:8px;">Add a release-specific test case (applies to this release only)</div>
+    <form action="/test-cases" method="POST" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input type="hidden" name="release_id" value="{{$rel.ID}}">
+      <input name="title" class="form-input" placeholder="Title" required style="min-width:240px;">
+      <input name="area" class="form-input" placeholder="Area" style="width:160px;">
+      <button type="submit" class="btn-outline btn-sm">Add case</button>
+    </form>
+  </div>
+  {{end}}
+</div>
+
 <!-- Deployments list -->
-<div class="card">
+<div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>Deployments</h3>
     <span class="muted small">{{len .Deployments}} total</span>
@@ -317,12 +370,39 @@
   {{end}}
 </div>
 
+<!-- Devices currently on this version -->
+<div class="card">
+  <div class="card-header">
+    <h3>Devices on this version</h3>
+    <span class="muted small">{{len .DevicesOnVersion}} device{{if ne (len .DevicesOnVersion) 1}}s{{end}} currently reporting {{$rel.Version}}</span>
+  </div>
+  {{if .DevicesOnVersion}}
+  <table class="table">
+    <thead><tr><th>Serial Number</th><th>Restaurant</th><th>Battery</th><th>Last Seen</th></tr></thead>
+    <tbody>
+      {{range .DevicesOnVersion}}
+      <tr>
+        <td class="mono small"><a href="/devices/{{.SerialNumber}}" class="link-detail mono">{{.SerialNumber}}</a></td>
+        <td class="small">{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">lab</span>{{end}}</td>
+        <td class="small">{{.BatteryPct}}%</td>
+        <td class="muted small">{{timeSince .LastSeenAt}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty" style="padding:16px;">No devices are currently reporting this version.</div>
+  {{end}}
+</div>
+
 <script>
 function setPkgType(mode) {
+  var fullBtn = document.querySelector('#add-pkg-form .seg-btn[data-mode="full"]');
+  if (mode === 'full' && fullBtn && fullBtn.disabled) return; // only one full per release
   document.getElementById('pkg-type-input').value = mode;
   var srcRow = document.getElementById('source-build-row');
   var srcInput = document.getElementById('pkg-source-build');
-  if (srcRow) srcRow.style.display = mode === 'incremental' ? '' : 'none';
+  if (srcRow) srcRow.style.display = mode === 'incremental' ? 'block' : 'none';
   if (srcInput) srcInput.required = mode === 'incremental';
   document.querySelectorAll('#add-pkg-form .seg-btn').forEach(function(b) {
     b.classList.toggle('active', b.dataset.mode === mode);
@@ -375,123 +455,7 @@ function toggleAll(master, name) {
     urlInput.removeAttribute('name');
   });
 })();
-
-// Adoption-over-time chart: devices reporting this version per day.
-(function () {
-  var relID = '{{$rel.ID}}';
-  var canvas = document.getElementById('adoptChart');
-  if (!relID || !canvas || typeof Chart === 'undefined') return;
-  var chart = null, days = 30;
-  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function fmtDay(d) { var p = d.split('-'); return MONTHS[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10); }
-  function render(rows) {
-    var data = {
-      labels: rows.map(function (r) { return fmtDay(r.day); }),
-      datasets: [{
-        label: 'Devices on this version',
-        data: rows.map(function (r) { return r.device_count; }),
-        borderColor: '#d82747', backgroundColor: 'rgba(216,39,71,0.12)',
-        borderWidth: 2, pointRadius: 0, fill: true, tension: 0.3
-      }]
-    };
-    var opts = {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-      plugins: { legend: { display: false } }
-    };
-    if (chart) { chart.data = data; chart.options = opts; chart.update(); }
-    else { chart = new Chart(canvas.getContext('2d'), { type: 'line', data: data, options: opts }); }
-  }
-  function load() {
-    fetch('/updates/' + encodeURIComponent(relID) + '/adoption?days=' + days)
-      .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (rows) { render(rows || []); })
-      .catch(function () {});
-  }
-  var rangeEl = document.getElementById('adopt-range');
-  if (rangeEl) {
-    rangeEl.addEventListener('click', function (e) {
-      var btn = e.target.closest('.dur-btn');
-      if (!btn) return;
-      days = parseInt(btn.getAttribute('data-days'), 10) || 30;
-      rangeEl.querySelectorAll('.dur-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
-      load();
-    });
-  }
-  load();
-})();
 </script>
-
-<!-- Testing / QA -->
-<div class="card" style="margin-top:16px;">
-  <div class="card-header">
-    <h3>Testing / QA</h3>
-    <span class="muted small">
-      {{if gt .QA.Total 0}}
-        {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}} · {{.QA.Fail}} failed{{end}}{{if gt .QA.Blocked 0}} · {{.QA.Blocked}} blocked{{end}}{{if gt .QA.Skip 0}} · {{.QA.Skip}} skipped{{end}}{{if gt .QA.Untested 0}} · {{.QA.Untested}} untested{{end}}
-      {{else}}no test cases{{end}}
-    </span>
-  </div>
-
-  {{if and (gt .QA.Total 0) (not .QA.Passed)}}
-  <div class="small" style="padding:0 18px 6px;color:var(--warn,#f59e0b);">Not all cases have passed — publishing will warn.</div>
-  {{end}}
-
-  {{if .Checklist}}
-  <table class="table">
-    <thead>
-      <tr><th>Area</th><th>Test case</th><th>Status</th>{{if .CanRecord}}<th>Record</th>{{else}}<th>By</th>{{end}}</tr>
-    </thead>
-    <tbody>
-      {{$canRecord := .CanRecord}}
-      {{range .Checklist}}
-      <tr>
-        <td class="small muted">{{if .Base}}<span title="standard case (every release)">★</span> {{end}}{{.Area}}</td>
-        <td>{{.Title}}{{if .Steps}}<div class="muted small">{{.Steps}}</div>{{end}}{{if .Expected}}<div class="muted small">Expected: {{.Expected}}</div>{{end}}</td>
-        <td>
-          <span class="status-badge {{if eq .Status "pass"}}ok{{else if eq .Status "fail"}}danger{{else if eq .Status "blocked"}}warn{{end}}">{{.Status}}</span>
-        </td>
-        {{if $canRecord}}
-        <td>
-          <form action="/updates/{{$rel.ID}}/test-results" method="POST" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <input type="hidden" name="test_case_id" value="{{.ID}}">
-            <select name="status" class="form-input" style="width:auto;padding:3px 6px;">
-              {{$s := .Status}}
-              <option value="untested" {{if eq $s "untested"}}selected{{end}}>untested</option>
-              <option value="pass" {{if eq $s "pass"}}selected{{end}}>pass</option>
-              <option value="fail" {{if eq $s "fail"}}selected{{end}}>fail</option>
-              <option value="blocked" {{if eq $s "blocked"}}selected{{end}}>blocked</option>
-              <option value="skip" {{if eq $s "skip"}}selected{{end}}>skip</option>
-            </select>
-            <input name="notes" class="form-input" value="{{.Notes}}" placeholder="notes" style="width:160px;padding:3px 6px;">
-            <button type="submit" class="btn-outline btn-sm">Save</button>
-          </form>
-          {{if .TestedBy}}<div class="muted small">{{.TestedBy}}</div>{{end}}
-        </td>
-        {{else}}
-        <td class="small muted">{{if .TestedBy}}{{.TestedBy}}{{if .Notes}} — {{.Notes}}{{end}}{{else}}—{{end}}</td>
-        {{end}}
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty" style="padding:14px 18px;">No test cases apply to this release yet.</div>
-  {{end}}
-
-  {{if eq .Role "admin"}}
-  <div style="padding:14px 18px;border-top:1px solid var(--border);">
-    <div class="muted small" style="margin-bottom:8px;">Add a release-specific test case (applies to this release only)</div>
-    <form action="/test-cases" method="POST" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <input type="hidden" name="release_id" value="{{.Release.ID}}">
-      <input name="title" class="form-input" placeholder="Title" required style="min-width:240px;">
-      <input name="area" class="form-input" placeholder="Area" style="width:160px;">
-      <button type="submit" class="btn-outline btn-sm">Add case</button>
-    </form>
-  </div>
-  {{end}}
-</div>
 
 {{template "footer" .}}
 {{end}}

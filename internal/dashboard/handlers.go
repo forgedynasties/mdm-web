@@ -957,10 +957,6 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "users"
 	case strings.HasPrefix(path, "/changelog"):
 		data["ActivePage"] = "changelog"
-	case strings.HasPrefix(path, "/testing"):
-		data["ActivePage"] = "testing"
-	case strings.HasPrefix(path, "/test-cases"):
-		data["ActivePage"] = "testcases"
 	}
 	return data
 }
@@ -1023,15 +1019,17 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 	}
 }
 
-// requireTesterOrAdmin gates the QA result-recording routes to test-team and admin users.
-func (h *Handler) requireTesterOrAdmin(next http.HandlerFunc) http.HandlerFunc {
+// requireTester gates QA result-marking to the tester role only. Managing test
+// cases stays admin-only; recording pass/fail is the tester's job and nobody
+// else's (viewer/operator/admin all see results read-only).
+func (h *Handler) requireTester(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "admin" && s.Role != "tester" {
+		if s.Role != "tester" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -3461,12 +3459,19 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		}
 		return active[i].Version < active[j].Version
 	})
+	// Base ("standard, every release") test cases are managed inline on this page
+	// by admins, so the Testing/Test-cases tabs can go away.
+	var baseCases []db.TestCase
+	if h.role(r) == "admin" {
+		baseCases, _ = h.db.ListBaseTestCases(r.Context(), false)
+	}
 	h.render(w, r, "releases.html", map[string]any{
 		"Title":           "Releases",
 		"Versions":        active,
 		"HiddenReleases":  hidden,
 		"TrackedCount":    trackedCount,
 		"NotTrackedCount": notTrackedCount,
+		"BaseCases":       baseCases,
 	})
 }
 
@@ -3529,36 +3534,6 @@ func (h *Handler) VersionUnhide(w http.ResponseWriter, r *http.Request) {
 		h.audit(r, "version.unhide", version, "")
 	}
 	http.Redirect(w, r, "/updates", http.StatusSeeOther)
-}
-
-// ReleaseAdoptionJSON powers the adoption-over-time chart on the release detail page.
-func (h *Handler) ReleaseAdoptionJSON(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	rel, err := h.db.GetRelease(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Release not found", http.StatusNotFound)
-		return
-	}
-	days := 30
-	if v := r.URL.Query().Get("days"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 365 {
-			days = n
-		}
-	}
-	points, err := h.db.GetReleaseAdoption(r.Context(), rel.Version, days)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	if points == nil {
-		points = []db.AdoptionPoint{}
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(points)
 }
 
 // ReleaseSetHidden hides/unhides a release from the main list (irrelevant releases).
@@ -3690,6 +3665,18 @@ func (h *Handler) ReleaseAddPackage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
+	// A release may hold exactly one full image (the baseline); additional
+	// packages must be incrementals. Reject a second full server-side — the UI
+	// also greys out the Full button once one exists.
+	if r.FormValue("type") == "full" {
+		pkgs, _ := h.db.ListPackagesByRelease(r.Context(), id)
+		for _, p := range pkgs {
+			if p.Type == "full" && p.Status == "active" {
+				http.Error(w, "This release already has a full package. Add an incremental instead.", http.StatusBadRequest)
+				return
+			}
+		}
+	}
 	if _, ok := h.createPackageFromForm(w, r, rel.Version); !ok {
 		return
 	}
@@ -3737,7 +3724,7 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"DevicesOnVersion": devicesOnVersion,
 		"Checklist":        checklist,
 		"QA":               qa,
-		"CanRecord":        role == "tester" || role == "admin",
+		"CanRecord":        role == "tester",
 	})
 }
 
@@ -3762,16 +3749,7 @@ var validTestStatuses = map[string]bool{
 	"untested": true, "pass": true, "fail": true, "blocked": true, "skip": true,
 }
 
-// TestCasesPage lists the base (standard) test-case library for admins to manage.
-func (h *Handler) TestCasesPage(w http.ResponseWriter, r *http.Request) {
-	cases, _ := h.db.ListBaseTestCases(r.Context(), false)
-	h.render(w, r, "test_cases.html", map[string]any{
-		"Title": "Test cases",
-		"Cases": cases,
-	})
-}
-
-// TestCaseCreate adds a base case (from /test-cases) or a release-specific case (when
+// TestCaseCreate adds a base case (from the Releases page) or a release-specific case (when
 // release_id is set, e.g. from the release detail page).
 func (h *Handler) TestCaseCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
@@ -3786,7 +3764,7 @@ func (h *Handler) TestCaseCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Title required", http.StatusBadRequest)
 		return
 	}
-	redirect := "/test-cases"
+	redirect := "/updates"
 	if rid := strings.TrimSpace(r.FormValue("release_id")); rid != "" {
 		if id, err := strconv.Atoi(rid); err == nil {
 			tc.ReleaseID = &id
@@ -3824,7 +3802,7 @@ func (h *Handler) TestCaseUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "testcase.update", id.String(), "")
-	http.Redirect(w, r, "/test-cases", http.StatusSeeOther)
+	http.Redirect(w, r, "/updates", http.StatusSeeOther)
 }
 
 // TestCaseDelete removes a test case (and its results).
@@ -3836,7 +3814,7 @@ func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	redirect := r.FormValue("redirect")
 	if redirect == "" {
-		redirect = "/test-cases"
+		redirect = "/updates"
 	}
 	if err := h.db.DeleteTestCase(r.Context(), id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -3844,24 +3822,6 @@ func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "testcase.delete", id.String(), "")
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
-}
-
-// TestingList shows releases with their QA progress for the test team.
-func (h *Handler) TestingList(w http.ResponseWriter, r *http.Request) {
-	releases, _ := h.db.ListReleases(r.Context())
-	type row struct {
-		Release db.Release
-		QA      db.QASummary
-	}
-	var rows []row
-	for _, rel := range releases {
-		qa, _ := h.db.ReleaseQASummary(r.Context(), rel.ID)
-		rows = append(rows, row{Release: rel, QA: qa})
-	}
-	h.render(w, r, "testing.html", map[string]any{
-		"Title": "Testing",
-		"Rows":  rows,
-	})
 }
 
 // ReleaseSetTestResult records a tester's outcome for one case on a release.
@@ -6500,18 +6460,16 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /updates/order", h.requireAdmin(h.ReorderVersions))
 	post("POST /updates/version/hide", h.requireAdmin(h.VersionHide))
 	post("POST /updates/version/unhide", h.requireAdmin(h.VersionUnhide))
-	mux.HandleFunc("GET /updates/{id}/adoption", h.requireAuth(h.ReleaseAdoptionJSON))
 	post("POST /updates/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
 	post("POST /updates/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
 	post("POST /updates/{id}/delete", h.requireAdmin(h.ReleaseDelete))
 	post("POST /updates/{id}/publish", h.requireAdmin(h.ReleasePublish))
 	post("POST /updates/{id}/yank", h.requireAdmin(h.ReleaseYank))
 	post("POST /updates/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
-	post("POST /updates/{id}/test-results", h.requireTesterOrAdmin(h.ReleaseSetTestResult))
+	post("POST /updates/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
 
-	// Test team / QA
-	mux.HandleFunc("GET /testing", h.requireAuth(h.TestingList))
-	mux.HandleFunc("GET /test-cases", h.requireAdmin(h.TestCasesPage))
+	// Test team / QA — base cases are managed inline on the Releases page (admin),
+	// testers mark results per-release. No standalone Testing/Test-cases pages.
 	post("POST /test-cases", h.requireAdmin(h.TestCaseCreate))
 	post("POST /test-cases/{id}/edit", h.requireAdmin(h.TestCaseUpdate))
 	post("POST /test-cases/{id}/delete", h.requireAdmin(h.TestCaseDelete))
