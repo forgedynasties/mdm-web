@@ -223,7 +223,7 @@
        {{if eq $dep.Status "active"}}
        hx-get="/updates/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets"
        hx-trigger="every 3s"
-       hx-swap="innerHTML"
+       hx-swap="innerHTML transition:true"
        {{end}}>
     {{template "deployment-targets" .}}
   </div>
