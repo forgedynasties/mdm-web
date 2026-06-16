@@ -3897,9 +3897,11 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		"SummaryPct":   pct,
 	}
 
-	// HTMX polling target: just the device-status table, re-rendered live.
+	// HTMX polling target: just the device-status table. Use the ETag/304 helper so an
+	// unchanged poll short-circuits and htmx skips the swap — otherwise the every-3s
+	// poll re-renders the table on every tick and the section visibly flickers.
 	if r.URL.Query().Get("partial") == "targets" {
-		h.tmpl.ExecuteTemplate(w, "deployment-targets", h.withRole(r, data))
+		h.renderCachedHTML(w, r, "deployment-targets", h.withRole(r, data))
 		return
 	}
 
