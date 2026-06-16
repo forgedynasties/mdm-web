@@ -17,19 +17,89 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
-		Version: "1.1.0",
+		Version: "1.9.0",
 		Date:    "2026-06-16",
 		Changes: []string{
-			"New device health alerts: battery wear, app crashes and freezes, weak Wi-Fi, and kiosk exits.",
+			"New device-health alerts: battery wear, app crashes and freezes, weak Wi-Fi, and someone leaving kiosk mode.",
 			"Device-offline alerts are now on by default.",
-			"Cleaner software-update screen — no more flickering, and downloads in progress are no longer wrongly marked “stalled”.",
+			"Software-update screen: no more flickering, downloads in progress are no longer wrongly marked “stalled”, and it now shows how long each device took plus the deployment average.",
+			"Logcat: quick chips to re-run your recent and most-used log requests.",
+			"Added this “What's new” page.",
+		},
+	},
+	{
+		Version: "1.8.0",
+		Date:    "2026-06-15",
+		Changes: []string{
+			"Restaurants: organise devices by venue, with a searchable picker and bulk assign.",
+			"Per-venue service hours, so alerts only fire during opening times.",
+			"Rebuilt the Send Command screen — searchable, with duplicate-and-edit and recent/frequent shortcuts.",
+		},
+	},
+	{
+		Version: "1.7.0",
+		Date:    "2026-06-13",
+		Changes: []string{
+			"Software updates (OTA): roll out a new build to devices with live progress, retry, and cancel.",
+			"Releases: manage build versions and see how many devices are on each.",
+			"Renamed the product to AIO MDM.",
+		},
+	},
+	{
+		Version: "1.6.0",
+		Date:    "2026-06-12",
+		Changes: []string{
+			"New home overview: fleet status at a glance with key vitals and quick actions.",
+			"Refreshed look and feel across the dashboard, with light and dark themes.",
+		},
+	},
+	{
+		Version: "1.5.0",
+		Date:    "2026-06-11",
+		Changes: []string{
+			"Security hardening: safer sign-in sessions, login rate-limiting, and stricter request checks.",
+			"All assets are now served by the MDM itself (no third-party CDNs).",
+		},
+	},
+	{
+		Version: "1.4.0",
+		Date:    "2026-06-10",
+		Changes: []string{
+			"AI fleet report: a plain-language hourly summary of how the fleet is doing.",
+			"On-demand AI analysis for a single device, the whole fleet, or settings.",
+		},
+	},
+	{
+		Version: "1.3.0",
+		Date:    "2026-06-09",
+		Changes: []string{
+			"Alerts: rules for overheating, charging problems and more, with a dedicated Alerts page.",
+			"Get notified in Slack, Discord, or Microsoft Teams when something needs attention.",
+			"Fleet Health page scoring each group worst-first.",
+		},
+	},
+	{
+		Version: "1.2.0",
+		Date:    "2026-06-09",
+		Changes: []string{
+			"Trends: 30-day battery and charging charts for each device and group.",
+		},
+	},
+	{
+		Version: "1.1.0",
+		Date:    "2026-06-08",
+		Changes: []string{
+			"Settings & controls: kill-switches for shell and remote control, command approval rules, and an audit log.",
+			"Automatic clean-up of old data on a schedule.",
 		},
 	},
 	{
 		Version: "1.0.0",
-		Date:    "2026-06-01",
+		Date:    "2026-03-06",
 		Changes: []string{
-			"First release of the MDM dashboard: device monitoring, groups, restaurants, software updates, and alerts.",
+			"First release: monitor devices, view battery and status, and organise them into groups.",
+			"Remote control basics — shell, screenshots, reboot, kiosk mode, and app/package inventory.",
+			"Logcat and guest charging-pad status.",
 		},
 	},
 }
