@@ -70,6 +70,14 @@
 .rule-item.off .rule-title{color:var(--muted);}
 .rule-group-head{margin:16px 0 2px;font-size:11px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:var(--muted);}
 .rule-group-head:first-child{margin-top:4px;}
+/* Alert-rule category sub-tabs (inside the Alert rules card). */
+.alert-cat-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:10px 16px 0;border-bottom:1px solid var(--border-soft);}
+.alert-cat-tab{appearance:none;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:13px;font-weight:500;color:var(--muted);padding:8px 12px;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;}
+.alert-cat-tab:hover{color:var(--text);}
+.alert-cat-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600;}
+.alert-cat-tab .pill{font-size:11px;font-weight:600;color:var(--muted);}
+.alert-cat-panel{display:none;}
+.alert-cat-panel.active{display:block;}
 .collapsible-header .collapse-caret{transition:transform .15s;display:inline-block;}
 .collapsible-header.open .collapse-caret{transform:rotate(90deg);}
 </style>
@@ -260,10 +268,15 @@
   <section class="settings-tab" data-tab="alerts">
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Alert rules</h3><span class="muted small">toggle what fires · Edit to tune thresholds</span></div>
+  <div class="alert-cat-tabs" id="alert-cat-tabs">
+    {{range $i, $g := .AlertRules}}
+    <button type="button" class="alert-cat-tab{{if eq $i 0}} active{{end}}" data-cat="{{$i}}">{{$g.Category}} <span class="pill">{{$g.EnabledCount}}/{{len $g.Rules}}</span></button>
+    {{end}}
+  </div>
   <div style="padding:6px 16px 14px;">
-    {{range .AlertRules}}
-    <div class="rule-group-head">{{.Category}} <span class="muted small" style="font-weight:400;">· {{.EnabledCount}}/{{len .Rules}} on</span></div>
-    {{range .Rules}}
+    {{range $i, $g := .AlertRules}}
+    <div class="alert-cat-panel{{if eq $i 0}} active{{end}}" data-cat="{{$i}}">
+    {{range $g.Rules}}
     <form action="/settings/alert-rules/{{.ID}}" method="POST" class="rule-item{{if not .Enabled}} off{{end}}">
       <input type="hidden" name="type" value="{{.Type}}">
       <div class="rule-head">
@@ -294,6 +307,7 @@
       </div>
     </form>
     {{end}}
+    </div>
     {{end}}
     <div class="muted small" style="margin-top:12px;">Operational (windowed) rules apply to deployed units only. Alerts are evaluated hourly during housekeeping.</div>
   </div>
@@ -471,6 +485,22 @@ window.__initAIChart = function () {
   var initial = (location.hash || '').replace('#', '');
   if (initial === 'channels') initial = 'alerts'; // legacy deep-link
   if (!initial || !show(initial)) show('general');
+})();
+</script>
+<script>
+// Alert-rule category sub-tabs (within the Alerts tab).
+(function () {
+  var tabs = document.getElementById('alert-cat-tabs');
+  if (!tabs) return;
+  var btns = tabs.querySelectorAll('.alert-cat-tab');
+  var panels = document.querySelectorAll('.alert-cat-panel');
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var k = b.getAttribute('data-cat');
+      btns.forEach(function (x) { x.classList.toggle('active', x === b); });
+      panels.forEach(function (p) { p.classList.toggle('active', p.getAttribute('data-cat') === k); });
+    });
+  });
 })();
 </script>
 
