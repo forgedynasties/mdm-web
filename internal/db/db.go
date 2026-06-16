@@ -2868,6 +2868,17 @@ var defaultAlertRules = []struct {
 	{"unexpected_reboot", "Unexpected reboot", `{"window_minutes":30}`, "service", true},
 	{"memory_low", "Memory low (available)", `{"avail_mb":400}`, "always", true},
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
+	// Battery lifecycle (sysfs health %/cycles from the client).
+	{"battery_health_low", "Battery health degraded", `{"warn_pct":85,"crit_pct":80}`, "always", true},
+	{"battery_health_critical", "Battery health critical", `{"crit_pct":80}`, "always", true},
+	{"battery_cycles_high", "High charge cycle count", `{"cycles":400}`, "always", true},
+	// Connectivity stability.
+	{"wifi_disconnects", "Frequent Wi-Fi disconnects", `{"max_per_hr":3}`, "always", true},
+	// App / kiosk.
+	{"app_not_foreground", "Ordering app not in foreground", `{}`, "service", true},
+	{"kiosk_disabled", "Kiosk mode disabled", `{}`, "always", true},
+	{"app_crash", "Repeated app crashes", `{"crashes":2}`, "service", true},
+	{"app_anr", "App not responding (ANR)", `{"anr":1}`, "always", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
@@ -3681,19 +3692,27 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 
 // recentRuleTypes is the set of rule types evaluated by the recent tier.
 var recentRuleTypes = map[string]bool{
-	"offline":                true,
-	"soc_low_service":        true,
-	"soc_low_guest_charging": true,
-	"pad_disconnected":       true,
-	"storage_low":            true,
-	"temp_elevated":          true,
-	"discharge_rate_idle":    true,
-	"discharge_rate_active":  true,
-	"overnight_not_charging": true,
-	"overnight_slow_charge":  true,
-	"unexpected_reboot":      true,
-	"memory_low":             true,
-	"wifi_weak":              true,
+	"offline":                 true,
+	"soc_low_service":         true,
+	"soc_low_guest_charging":  true,
+	"pad_disconnected":        true,
+	"storage_low":             true,
+	"temp_elevated":           true,
+	"discharge_rate_idle":     true,
+	"discharge_rate_active":   true,
+	"overnight_not_charging":  true,
+	"overnight_slow_charge":   true,
+	"unexpected_reboot":       true,
+	"memory_low":              true,
+	"wifi_weak":               true,
+	"battery_health_low":      true,
+	"battery_health_critical": true,
+	"battery_cycles_high":     true,
+	"wifi_disconnects":        true,
+	"app_not_foreground":      true,
+	"kiosk_disabled":          true,
+	"app_crash":               true,
+	"app_anr":                 true,
 }
 
 func isRecentType(typ string) bool { return recentRuleTypes[typ] }
@@ -3703,7 +3722,8 @@ func isRecentType(typ string) bool { return recentRuleTypes[typ] }
 func defaultActiveWindow(typ string) string {
 	switch typ {
 	case "offline", "soc_low_service", "soc_low_guest_charging", "pad_disconnected",
-		"discharge_rate_idle", "discharge_rate_active", "unexpected_reboot":
+		"discharge_rate_idle", "discharge_rate_active", "unexpected_reboot",
+		"app_not_foreground", "app_crash":
 		return "service"
 	case "overnight_not_charging", "overnight_slow_charge":
 		return "overnight"
@@ -4014,6 +4034,52 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				map[string]any{"rssi_dbm": best, "limit_dbm": thr}})
 		}
 		return hits, "warning", rows.Err()
+
+	case "battery_health_critical":
+		crit := param(p, "crit_pct", 80)
+		return d.latestNumHits(ctx, "critical", "d.latest_extra->>'battery_health_pct'", "< $1", crit,
+			func(v float64) string { return fmt.Sprintf("Battery health %.0f%% — replace now", v) }, "battery_health_pct")
+
+	case "battery_health_low":
+		warn := param(p, "warn_pct", 85)
+		crit := param(p, "crit_pct", 80)
+		// Warn band only: below warn but not yet critical (battery_health_critical fires there).
+		cmp := fmt.Sprintf("< $1 AND (d.latest_extra->>'battery_health_pct')::numeric >= %g", crit)
+		return d.latestNumHits(ctx, "warning", "d.latest_extra->>'battery_health_pct'", cmp, warn,
+			func(v float64) string { return fmt.Sprintf("Battery health %.0f%% — plan replacement", v) }, "battery_health_pct")
+
+	case "battery_cycles_high":
+		cycles := param(p, "cycles", 400)
+		return d.latestNumHits(ctx, "info", "d.latest_extra->>'battery_cycle_count'", ">= $1", cycles,
+			func(v float64) string { return fmt.Sprintf("%.0f charge cycles — plan a proactive swap", v) }, "battery_cycle_count")
+
+	case "wifi_disconnects":
+		maxPerHr := param(p, "max_per_hr", 3)
+		return d.latestNumHits(ctx, "warning", "d.latest_extra->>'wifi_disconnects_1h'", "> $1", maxPerHr,
+			func(v float64) string { return fmt.Sprintf("%.0f Wi-Fi disconnects in the last hour", v) }, "wifi_disconnects_1h")
+
+	case "app_crash":
+		maxCrash := param(p, "crashes", 2)
+		return d.latestNumHits(ctx, "warning", "d.latest_extra->>'crash_count_4h'", "> $1", maxCrash,
+			func(v float64) string { return fmt.Sprintf("%.0f app crashes in the last 4h", v) }, "crash_count_4h")
+
+	case "app_anr":
+		minAnr := param(p, "anr", 1)
+		return d.latestNumHits(ctx, "warning", "d.latest_extra->>'anr_count_4h'", ">= $1", minAnr,
+			func(v float64) string { return fmt.Sprintf("App not responding — %.0f ANR(s) in the last 4h", v) }, "anr_count_4h")
+
+	case "app_not_foreground":
+		return d.latestBoolHits(ctx, "critical",
+			`COALESCE((d.latest_extra->>'kiosk_expected')::boolean, false)
+			 AND d.latest_extra->>'kiosk_package' IS NOT NULL
+			 AND d.latest_extra->>'foreground_pkg' IS DISTINCT FROM d.latest_extra->>'kiosk_package'`,
+			"Ordering app not in foreground")
+
+	case "kiosk_disabled":
+		return d.latestBoolHits(ctx, "warning",
+			`COALESCE((d.latest_extra->>'kiosk_expected')::boolean, false)
+			 AND COALESCE((d.latest_extra->>'kiosk_active')::boolean, false) = false`,
+			"Kiosk / lock-task mode is not active")
 	}
 	return nil, "warning", nil
 }
@@ -4041,6 +4107,57 @@ func (d *DB) latestExtraHits(ctx context.Context, severity, cond string, summary
 		}
 		hits = append(hits, alertHit{id, serial, summary(pct),
 			map[string]any{"battery_pct": pct}})
+	}
+	return hits, severity, rows.Err()
+}
+
+// latestNumHits flags devices whose latest_extra numeric field (valExpr, a JSON text
+// extraction) satisfies cmp against the threshold, e.g. "< $1" / ">= $1" / "> $1".
+// NULL/absent values never match. summary formats the value; detailKey labels it.
+func (d *DB) latestNumHits(ctx context.Context, severity, valExpr, cmp string, threshold float64, summary func(v float64) string, detailKey string) ([]alertHit, string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, d.serial_number, (`+valExpr+`)::numeric
+		FROM devices d
+		WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+		  AND (`+valExpr+`) IS NOT NULL AND (`+valExpr+`)::numeric `+cmp, threshold)
+	if err != nil {
+		return nil, severity, err
+	}
+	defer rows.Close()
+	var hits []alertHit
+	for rows.Next() {
+		var id uuid.UUID
+		var serial string
+		var v float64
+		if err := rows.Scan(&id, &serial, &v); err != nil {
+			return nil, severity, err
+		}
+		hits = append(hits, alertHit{id, serial, summary(v),
+			map[string]any{detailKey: v, "limit": threshold}})
+	}
+	return hits, severity, rows.Err()
+}
+
+// latestBoolHits flags devices matching a parameterless boolean cond over latest_extra
+// (alias d), attaching a fixed summary. Used by the kiosk/foreground rules.
+func (d *DB) latestBoolHits(ctx context.Context, severity, cond, summary string) ([]alertHit, string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, d.serial_number
+		FROM devices d
+		WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+		  AND (`+cond+`)`)
+	if err != nil {
+		return nil, severity, err
+	}
+	defer rows.Close()
+	var hits []alertHit
+	for rows.Next() {
+		var id uuid.UUID
+		var serial string
+		if err := rows.Scan(&id, &serial); err != nil {
+			return nil, severity, err
+		}
+		hits = append(hits, alertHit{id, serial, summary, map[string]any{}})
 	}
 	return hits, severity, rows.Err()
 }

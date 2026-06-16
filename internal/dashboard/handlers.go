@@ -5305,6 +5305,16 @@ var alertRuleDefs = []struct {
 		{"drop_pct", "Decline threshold", "%", 1, 15},
 		{"window_days", "Comparison window", "days", 1, 7},
 	}, false, false},
+	{"battery_health_low", "Battery health degraded", "Fires when reported battery health falls into the warning band (below the warn floor but not yet critical). Advance notice before replacement.", "Battery", []alertParamField{
+		{"warn_pct", "Warn floor", "%", 1, 85},
+		{"crit_pct", "Critical floor", "%", 1, 80},
+	}, false, true},
+	{"battery_health_critical", "Battery health critical", "Fires when reported battery health drops below the critical floor — schedule replacement now.", "Battery", []alertParamField{
+		{"crit_pct", "Critical floor", "%", 1, 80},
+	}, false, true},
+	{"battery_cycles_high", "High charge cycle count", "Informational: flags devices past the charge-cycle count where a proactive battery swap should be planned.", "Battery", []alertParamField{
+		{"cycles", "Cycle flag", "cycles", 10, 400},
+	}, false, true},
 	// ── Guest charging pad ──
 	{"pad_disconnected", "Guest charging pad disconnected", "Fires when the guest charging pad reports disconnected during service. Deployed units only.", "Charging pad", nil, true, true},
 	{"pad_unused", "Guest pad unused all day", "Informational: the pad was available all day but no guest device ever used it. Deployed units only.", "Charging pad", nil, false, false},
@@ -5323,6 +5333,18 @@ var alertRuleDefs = []struct {
 	{"wifi_weak", "Weak Wi-Fi signal", "Fires when the connected Wi-Fi RSSI holds below the floor for the sustain window — packet loss territory for voice/payment APIs.", "Connectivity", []alertParamField{
 		{"rssi_dbm", "Signal floor", "dBm", 1, -75},
 		{"sustain_min", "Sustained for", "min", 1, 10},
+	}, false, true},
+	{"wifi_disconnects", "Frequent Wi-Fi disconnects", "Fires when the device reports more than the allowed number of Wi-Fi disconnects in the trailing hour — weak signal, DHCP, or AP handoff trouble.", "Connectivity", []alertParamField{
+		{"max_per_hr", "Max per hour", "/h", 1, 3},
+	}, false, true},
+	// ── App / kiosk ──
+	{"app_not_foreground", "Ordering app not in foreground", "Fires when the pinned ordering app is not the foreground app during service hours. Deployed units only.", "App / kiosk", nil, true, true},
+	{"kiosk_disabled", "Kiosk mode disabled", "Fires when a device configured for kiosk is no longer in lock-task mode — accidental or intentional bypass.", "App / kiosk", nil, false, true},
+	{"app_crash", "Repeated app crashes", "Fires when the ordering app records more than the allowed crashes in a 4-hour window. Deployed units only.", "App / kiosk", []alertParamField{
+		{"crashes", "Max crashes / 4h", "", 1, 2},
+	}, true, true},
+	{"app_anr", "App not responding (ANR)", "Fires when the ordering app records an ANR (UI frozen >5s) in the last 4 hours.", "App / kiosk", []alertParamField{
+		{"anr", "Min ANRs / 4h", "", 1, 1},
 	}, false, true},
 	// ── Storage ──
 	{"storage_low", "Storage critically low", "Fires when free storage falls below the critical floor.", "Storage", []alertParamField{
