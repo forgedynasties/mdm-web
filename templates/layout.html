@@ -50,6 +50,10 @@
       <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
       <span class="ui-icon theme-icon-dark"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
     </button>
+    <a href="/changelog" title="What's new"
+       style="display:block;padding:6px 12px;font-size:12px;text-decoration:none;color:var(--muted);{{if eq .ActivePage "changelog"}}font-weight:600;color:var(--accent);{{end}}">
+      What's new · v{{.Version}}
+    </a>
     <div class="navbar-user">
       <div class="navbar-user-name">{{if .CurrentUser}}{{.CurrentUser}}{{else}}Unknown User{{end}}</div>
       <div class="navbar-user-role">{{if .Role}}{{.Role}}{{else}}unknown{{end}}</div>
