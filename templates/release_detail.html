@@ -13,7 +13,8 @@
   <span class="acts">
     {{if ne $rel.Status "published"}}
     <form action="/updates/{{$rel.ID}}/publish" method="POST" style="display:inline;">
-      <button type="submit" class="btn-primary" style="padding:5px 12px;font-size:13px;">Publish</button>
+      <button type="submit" class="btn-primary" style="padding:5px 12px;font-size:13px;"
+        {{if and (gt .QA.Total 0) (not .QA.Passed)}}onclick="return confirm('QA is not complete — {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}}, {{.QA.Fail}} failed{{end}}{{if gt .QA.Untested 0}}, {{.QA.Untested}} untested{{end}}. Publish anyway?')"{{end}}>Publish</button>
     </form>
     {{end}}
     <form action="/updates/{{$rel.ID}}/yank" method="POST" style="display:inline;">
@@ -421,6 +422,76 @@ function toggleAll(master, name) {
   load();
 })();
 </script>
+
+<!-- Testing / QA -->
+<div class="card" style="margin-top:16px;">
+  <div class="card-header">
+    <h3>Testing / QA</h3>
+    <span class="muted small">
+      {{if gt .QA.Total 0}}
+        {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}} · {{.QA.Fail}} failed{{end}}{{if gt .QA.Blocked 0}} · {{.QA.Blocked}} blocked{{end}}{{if gt .QA.Skip 0}} · {{.QA.Skip}} skipped{{end}}{{if gt .QA.Untested 0}} · {{.QA.Untested}} untested{{end}}
+      {{else}}no test cases{{end}}
+    </span>
+  </div>
+
+  {{if and (gt .QA.Total 0) (not .QA.Passed)}}
+  <div class="small" style="padding:0 18px 6px;color:var(--warn,#f59e0b);">Not all cases have passed — publishing will warn.</div>
+  {{end}}
+
+  {{if .Checklist}}
+  <table class="table">
+    <thead>
+      <tr><th>Area</th><th>Test case</th><th>Status</th>{{if .CanRecord}}<th>Record</th>{{else}}<th>By</th>{{end}}</tr>
+    </thead>
+    <tbody>
+      {{$canRecord := .CanRecord}}
+      {{range .Checklist}}
+      <tr>
+        <td class="small muted">{{if .Base}}<span title="standard case (every release)">★</span> {{end}}{{.Area}}</td>
+        <td>{{.Title}}{{if .Steps}}<div class="muted small">{{.Steps}}</div>{{end}}{{if .Expected}}<div class="muted small">Expected: {{.Expected}}</div>{{end}}</td>
+        <td>
+          <span class="status-badge {{if eq .Status "pass"}}ok{{else if eq .Status "fail"}}danger{{else if eq .Status "blocked"}}warn{{end}}">{{.Status}}</span>
+        </td>
+        {{if $canRecord}}
+        <td>
+          <form action="/updates/{{$rel.ID}}/test-results" method="POST" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="hidden" name="test_case_id" value="{{.ID}}">
+            <select name="status" class="form-input" style="width:auto;padding:3px 6px;">
+              {{$s := .Status}}
+              <option value="untested" {{if eq $s "untested"}}selected{{end}}>untested</option>
+              <option value="pass" {{if eq $s "pass"}}selected{{end}}>pass</option>
+              <option value="fail" {{if eq $s "fail"}}selected{{end}}>fail</option>
+              <option value="blocked" {{if eq $s "blocked"}}selected{{end}}>blocked</option>
+              <option value="skip" {{if eq $s "skip"}}selected{{end}}>skip</option>
+            </select>
+            <input name="notes" class="form-input" value="{{.Notes}}" placeholder="notes" style="width:160px;padding:3px 6px;">
+            <button type="submit" class="btn-outline btn-sm">Save</button>
+          </form>
+          {{if .TestedBy}}<div class="muted small">{{.TestedBy}}</div>{{end}}
+        </td>
+        {{else}}
+        <td class="small muted">{{if .TestedBy}}{{.TestedBy}}{{if .Notes}} — {{.Notes}}{{end}}{{else}}—{{end}}</td>
+        {{end}}
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty" style="padding:14px 18px;">No test cases apply to this release yet.</div>
+  {{end}}
+
+  {{if eq .Role "admin"}}
+  <div style="padding:14px 18px;border-top:1px solid var(--border);">
+    <div class="muted small" style="margin-bottom:8px;">Add a release-specific test case (applies to this release only)</div>
+    <form action="/test-cases" method="POST" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <input type="hidden" name="release_id" value="{{.Release.ID}}">
+      <input name="title" class="form-input" placeholder="Title" required style="min-width:240px;">
+      <input name="area" class="form-input" placeholder="Area" style="width:160px;">
+      <button type="submit" class="btn-outline btn-sm">Add case</button>
+    </form>
+  </div>
+  {{end}}
+</div>
 
 {{template "footer" .}}
 {{end}}

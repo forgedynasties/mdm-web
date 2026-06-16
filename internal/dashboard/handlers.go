@@ -957,6 +957,10 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "users"
 	case strings.HasPrefix(path, "/changelog"):
 		data["ActivePage"] = "changelog"
+	case strings.HasPrefix(path, "/testing"):
+		data["ActivePage"] = "testing"
+	case strings.HasPrefix(path, "/test-cases"):
+		data["ActivePage"] = "testcases"
 	}
 	return data
 }
@@ -1011,6 +1015,23 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 			return
 		}
 		if s.Role != "admin" && s.Role != "operator" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		h.touchSession(r)
+		next(w, r)
+	}
+}
+
+// requireTesterOrAdmin gates the QA result-recording routes to test-team and admin users.
+func (h *Handler) requireTesterOrAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if s.Role != "admin" && s.Role != "tester" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -3701,6 +3722,10 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	checklist, _ := h.db.GetReleaseChecklist(r.Context(), id)
+	qa, _ := h.db.ReleaseQASummary(r.Context(), id)
+	role := h.role(r)
+
 	h.render(w, r, "release_detail.html", map[string]any{
 		"Title":            "Release " + rel.Version,
 		"Release":          rel,
@@ -3710,6 +3735,9 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"Groups":           groups,
 		"HasFull":          hasFull,
 		"DevicesOnVersion": devicesOnVersion,
+		"Checklist":        checklist,
+		"QA":               qa,
+		"CanRecord":        role == "tester" || role == "admin",
 	})
 }
 
@@ -3725,6 +3753,140 @@ func (h *Handler) ReleasePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.publish", strconv.Itoa(id), "")
+	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+}
+
+// ── Test team / QA handlers ──────────────────────────────────────────────────
+
+var validTestStatuses = map[string]bool{
+	"untested": true, "pass": true, "fail": true, "blocked": true, "skip": true,
+}
+
+// TestCasesPage lists the base (standard) test-case library for admins to manage.
+func (h *Handler) TestCasesPage(w http.ResponseWriter, r *http.Request) {
+	cases, _ := h.db.ListBaseTestCases(r.Context(), false)
+	h.render(w, r, "test_cases.html", map[string]any{
+		"Title": "Test cases",
+		"Cases": cases,
+	})
+}
+
+// TestCaseCreate adds a base case (from /test-cases) or a release-specific case (when
+// release_id is set, e.g. from the release detail page).
+func (h *Handler) TestCaseCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	tc := db.TestCase{
+		Title:     strings.TrimSpace(r.FormValue("title")),
+		Area:      strings.TrimSpace(r.FormValue("area")),
+		Steps:     strings.TrimSpace(r.FormValue("steps")),
+		Expected:  strings.TrimSpace(r.FormValue("expected")),
+		CreatedBy: h.currentUsername(r),
+	}
+	if tc.Title == "" {
+		http.Error(w, "Title required", http.StatusBadRequest)
+		return
+	}
+	redirect := "/test-cases"
+	if rid := strings.TrimSpace(r.FormValue("release_id")); rid != "" {
+		if id, err := strconv.Atoi(rid); err == nil {
+			tc.ReleaseID = &id
+			redirect = fmt.Sprintf("/updates/%d", id)
+		}
+	} else {
+		tc.Base = true // a library case applies to every release
+	}
+	if _, err := h.db.CreateTestCase(r.Context(), tc); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "testcase.create", tc.Title, "")
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
+}
+
+// TestCaseUpdate edits a base case's content / active flag.
+func (h *Handler) TestCaseUpdate(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	title := strings.TrimSpace(r.FormValue("title"))
+	if title == "" {
+		http.Error(w, "Title required", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.UpdateTestCase(r.Context(), id,
+		title, strings.TrimSpace(r.FormValue("area")),
+		strings.TrimSpace(r.FormValue("steps")), strings.TrimSpace(r.FormValue("expected")),
+		r.FormValue("active") == "on"); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "testcase.update", id.String(), "")
+	http.Redirect(w, r, "/test-cases", http.StatusSeeOther)
+}
+
+// TestCaseDelete removes a test case (and its results).
+func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	redirect := r.FormValue("redirect")
+	if redirect == "" {
+		redirect = "/test-cases"
+	}
+	if err := h.db.DeleteTestCase(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "testcase.delete", id.String(), "")
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
+}
+
+// TestingList shows releases with their QA progress for the test team.
+func (h *Handler) TestingList(w http.ResponseWriter, r *http.Request) {
+	releases, _ := h.db.ListReleases(r.Context())
+	type row struct {
+		Release db.Release
+		QA      db.QASummary
+	}
+	var rows []row
+	for _, rel := range releases {
+		qa, _ := h.db.ReleaseQASummary(r.Context(), rel.ID)
+		rows = append(rows, row{Release: rel, QA: qa})
+	}
+	h.render(w, r, "testing.html", map[string]any{
+		"Title": "Testing",
+		"Rows":  rows,
+	})
+}
+
+// ReleaseSetTestResult records a tester's outcome for one case on a release.
+func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	caseID, err := uuid.Parse(r.FormValue("test_case_id"))
+	if err != nil {
+		http.Error(w, "Invalid test case", http.StatusBadRequest)
+		return
+	}
+	status := r.FormValue("status")
+	if !validTestStatuses[status] {
+		http.Error(w, "Invalid status", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetTestResult(r.Context(), id, caseID, status, strings.TrimSpace(r.FormValue("notes")), h.currentUsername(r)); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "testresult.set", fmt.Sprintf("release %d / %s = %s", id, caseID, status), "")
 	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
 }
 
@@ -6163,7 +6325,7 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	password := r.FormValue("password")
 	role := r.FormValue("role")
 
-	if username == "" || password == "" || (role != "viewer" && role != "operator") {
+	if username == "" || password == "" || (role != "viewer" && role != "operator" && role != "tester") {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
@@ -6341,6 +6503,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /updates/{id}/publish", h.requireAdmin(h.ReleasePublish))
 	post("POST /updates/{id}/yank", h.requireAdmin(h.ReleaseYank))
 	post("POST /updates/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
+	post("POST /updates/{id}/test-results", h.requireTesterOrAdmin(h.ReleaseSetTestResult))
+
+	// Test team / QA
+	mux.HandleFunc("GET /testing", h.requireAuth(h.TestingList))
+	mux.HandleFunc("GET /test-cases", h.requireAdmin(h.TestCasesPage))
+	post("POST /test-cases", h.requireAdmin(h.TestCaseCreate))
+	post("POST /test-cases/{id}/edit", h.requireAdmin(h.TestCaseUpdate))
+	post("POST /test-cases/{id}/delete", h.requireAdmin(h.TestCaseDelete))
 	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
 	post("POST /updates/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
 	post("POST /updates/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))

@@ -17,6 +17,15 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.10.0",
+		Date:    "2026-06-16",
+		Changes: []string{
+			"Test team: a new “Tester” account type and a per-release QA checklist.",
+			"Admins keep a library of standard test cases (checked every release) and can add release-specific ones.",
+			"Testers mark each case pass/fail/blocked/skip with notes; the release shows the QA summary and warns before publishing if not everything passed.",
+		},
+	},
+	{
 		Version: "1.9.0",
 		Date:    "2026-06-16",
 		Changes: []string{

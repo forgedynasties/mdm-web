@@ -1,0 +1,59 @@
+{{define "test_cases.html"}}
+{{template "header" .}}
+
+<div class="ov-greet">
+  <h1 class="ov-title">Test cases</h1>
+  <span class="ov-date">Standard cases checked on every release · release-specific cases are added from a release</span>
+</div>
+
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Add base test case</h3></div>
+  <form action="/test-cases" method="POST" style="padding:16px 20px;display:grid;gap:10px;max-width:680px;">
+    <input name="title" class="form-input" placeholder="Title (e.g. Bluetooth pairing works)" required>
+    <input name="area" class="form-input" placeholder="Area (e.g. Connectivity)">
+    <textarea name="steps" class="form-input" rows="2" placeholder="Steps (optional)"></textarea>
+    <textarea name="expected" class="form-input" rows="2" placeholder="Expected result (optional)"></textarea>
+    <button type="submit" class="btn-primary" style="justify-self:start;">Add test case</button>
+  </form>
+</div>
+
+<div class="card">
+  <div class="card-header"><h3>Base test cases</h3><span class="muted small">{{len .Cases}} total</span></div>
+  <table class="table">
+    <thead>
+      <tr><th>Title</th><th>Area</th><th>Active</th><th></th></tr>
+    </thead>
+    <tbody>
+      {{range .Cases}}
+      <tr>
+        <td>{{.Title}}{{if .Steps}}<div class="muted small">{{.Steps}}</div>{{end}}</td>
+        <td class="small">{{.Area}}</td>
+        <td>{{if .Active}}<span class="status-badge ok">active</span>{{else}}<span class="status-badge">archived</span>{{end}}</td>
+        <td style="white-space:nowrap;">
+          <button type="button" class="btn-outline btn-sm" onclick="var e=document.getElementById('edit-{{.ID}}');e.style.display=e.style.display==='table-row'?'none':'table-row';">Edit</button>
+          <form action="/test-cases/{{.ID}}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this test case and its results?');">
+            <button type="submit" class="btn-danger-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+      <tr id="edit-{{.ID}}" style="display:none;">
+        <td colspan="4">
+          <form action="/test-cases/{{.ID}}/edit" method="POST" style="display:grid;gap:8px;padding:8px 0;max-width:680px;">
+            <input name="title" class="form-input" value="{{.Title}}" required>
+            <input name="area" class="form-input" value="{{.Area}}" placeholder="Area">
+            <textarea name="steps" class="form-input" rows="2" placeholder="Steps">{{.Steps}}</textarea>
+            <textarea name="expected" class="form-input" rows="2" placeholder="Expected result">{{.Expected}}</textarea>
+            <label class="small"><input type="checkbox" name="active" {{if .Active}}checked{{end}}> Active</label>
+            <button type="submit" class="btn-primary btn-sm" style="justify-self:start;">Save</button>
+          </form>
+        </td>
+      </tr>
+      {{else}}
+      <tr><td colspan="4" class="empty">No base test cases yet.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+
+{{template "footer" .}}
+{{end}}
