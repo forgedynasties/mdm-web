@@ -5320,6 +5320,10 @@ var alertRuleDefs = []struct {
 	{"offline", "Device offline during service", "Fires when a device is silent longer than the threshold during service hours. Deployed units only.", "Connectivity", []alertParamField{
 		{"offline_minutes", "Offline after", "min", 1, 5},
 	}, true, true},
+	{"wifi_weak", "Weak Wi-Fi signal", "Fires when the connected Wi-Fi RSSI holds below the floor for the sustain window — packet loss territory for voice/payment APIs.", "Connectivity", []alertParamField{
+		{"rssi_dbm", "Signal floor", "dBm", 1, -75},
+		{"sustain_min", "Sustained for", "min", 1, 10},
+	}, false, true},
 	// ── Storage ──
 	{"storage_low", "Storage critically low", "Fires when free storage falls below the critical floor.", "Storage", []alertParamField{
 		{"free_gb", "Free floor", "GB", 0.1, 0.5},
