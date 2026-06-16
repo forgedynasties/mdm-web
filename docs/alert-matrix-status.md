@@ -7,6 +7,11 @@
 >
 > **Last audited:** 2026-06-15 (against `server/internal/db/db.go`, `cmd/server/main.go`,
 > `internal/api/handlers.go`, `client/src/com/aioapp/mdm/MdmService.java`).
+>
+> **Update 2026-06-16:** Phase 2 implemented — new client telemetry + rules added.
+> 25 of 26 alerts now wired (only #25 OS compliance deferred to release tracking).
+> Live rule/field mapping moved to [`alert-matrix.md`](./alert-matrix.md); the
+> sections below are the original pre-Phase-2 audit, kept for history.
 
 ---
 
