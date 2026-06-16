@@ -62,17 +62,11 @@
 {{template "header" .}}
 
 <style>
-  /* The live OTA phase pill (downloading/verifying/installing): enlarged and pulsing
-     to signal the update is actively in progress. Inline so it ships with the page
-     HTML rather than the immutable-cached style.css. */
-  @keyframes ota-phase-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
-  .phase-badge {
-    display: inline-block;
-    transform: scale(1.35);
-    transform-origin: left center;
-    margin: 4px 12px 4px 2px;
-    animation: ota-phase-pulse 1.4s ease-in-out infinite;
-  }
+  /* The live OTA phase pill (downloading/verifying/installing): a normal-sized badge
+     with a subtle pulse to signal the update is actively in progress. Inline so it
+     ships with the page HTML rather than the immutable-cached style.css. */
+  @keyframes ota-phase-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .65; } }
+  .phase-badge { animation: ota-phase-pulse 1.6s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) { .phase-badge { animation: none; } }
 </style>
 
@@ -222,7 +216,7 @@
        {{if eq $dep.Status "active"}}
        hx-get="/updates/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets"
        hx-trigger="every 3s"
-       hx-swap="innerHTML transition:true"
+       hx-swap="innerHTML"
        {{end}}>
     {{template "deployment-targets" .}}
   </div>
@@ -237,10 +231,13 @@
 
   // Skip the swap when the polled HTML is identical to what's on screen — otherwise
   // the table would re-render every 3s (and the browser can mask the server's 304).
-  var lastHtml = box.innerHTML;
+  // Fail open: only cancel on a real, non-empty response that matches the last one,
+  // so a missing/empty body can never suppress swaps and hide the table/progress bar.
+  var lastHtml = null;
   document.body.addEventListener('htmx:beforeSwap', function (e) {
     if (!e.target || e.target.id !== 'deployment-targets') return;
-    var html = e.detail.serverResponse;
+    var html = e.detail && e.detail.serverResponse;
+    if (typeof html !== 'string' || html === '') return; // let htmx swap as usual
     if (html === lastHtml) { e.detail.shouldSwap = false; }
     else { lastHtml = html; }
   });
