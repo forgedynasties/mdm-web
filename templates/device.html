@@ -976,7 +976,7 @@
   <div class="card">
     <div class="card-header"><h3>Installed Applications</h3><span class="muted small">{{len .InstalledPackages}} packages</span></div>
     <table class="table">
-      <thead><tr><th>App Name</th><th>Package Name</th><th>Version</th><th>Last Updated</th></tr></thead>
+      <thead><tr><th>App Name</th><th>Package Name</th><th>Version</th><th>Last Updated</th><th></th></tr></thead>
       <tbody>
         {{if .InstalledPackages}}
           {{range .InstalledPackages}}
@@ -985,11 +985,21 @@
             <td class="mono small">{{.PackageName}}</td>
             <td class="small">{{if .VersionName}}{{.VersionName}}{{else}}<span class="muted">—</span>{{end}}</td>
             <td class="muted small"><span class="js-local-time" data-utc="{{timeISO .UpdatedAt}}" data-format="full">{{localTime .UpdatedAt}}</span></td>
+            <td>
+              {{if or (eq $.Role "admin") (eq $.Role "operator")}}
+              <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST" style="display:inline;"
+                    onsubmit="return confirm('Uninstall {{.PackageName}} from this device?');">
+                <input type="hidden" name="type" value="uninstall">
+                <input type="hidden" name="package" value="{{.PackageName}}">
+                <button type="submit" class="btn-danger-sm">Uninstall</button>
+              </form>
+              {{end}}
+            </td>
           </tr>
           {{end}}
         {{else}}
           <tr>
-            <td colspan="4">
+            <td colspan="5">
               <div class="empty-state">
                 <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
                 <div class="empty-state-copy">
