@@ -705,9 +705,23 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 			}
 			return string(runes[:n]) + "…"
 		},
-		"add":    func(a, b int) int { return a + b },
-		"sub":    func(a, b int) int { return a - b },
-		"div":    func(a, b int) int { return a / b },
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+		"div": func(a, b int) int { return a / b },
+		// dur formats a duration in seconds as a compact "1h 2m" / "4m 23s" / "45s".
+		// Negative means "not available" and renders as an em dash.
+		"dur": func(sec int) string {
+			if sec < 0 {
+				return "—"
+			}
+			if sec < 60 {
+				return fmt.Sprintf("%ds", sec)
+			}
+			if sec < 3600 {
+				return fmt.Sprintf("%dm %ds", sec/60, sec%60)
+			}
+			return fmt.Sprintf("%dh %dm", sec/3600, (sec%3600)/60)
+		},
 		"hasBit": func(mask, bit int) bool { return mask&bit != 0 },
 		"iter": func(start, end int) []int {
 			var out []int
@@ -3859,6 +3873,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	otaProgress := make(map[string]any)
 	counts := make(map[string]int)
 	done := 0
+	durSum, durCount := 0, 0
 	for _, t := range targets {
 		if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
 			otaProgress[t.DeviceID.String()] = p
@@ -3868,6 +3883,14 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		case "installed", "awaiting_reboot", "reboot_sent":
 			done++ // applied to the inactive slot or beyond
 		}
+		if d := t.DurationSeconds(); d >= 0 {
+			durSum += d
+			durCount++
+		}
+	}
+	avgDuration := -1
+	if durCount > 0 {
+		avgDuration = durSum / durCount
 	}
 	// Ordered, non-zero status buckets for the rollup line (map iteration order
 	// is unstable, so build a fixed-order slice for the template).
@@ -3891,6 +3914,8 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		"SummaryDone":  done,
 		"SummaryTotal": len(targets),
 		"SummaryPct":   pct,
+		"AvgDuration":  avgDuration, // seconds, or -1 if no device finished yet
+		"DoneCount":    durCount,    // devices with a measured duration
 	}
 
 	// HTMX polling target: just the device-status table. Use the ETag/304 helper so an
@@ -5740,11 +5765,15 @@ func (h *Handler) LogcatPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	logcatRecent, logcatFrequent, _ := h.db.LogcatSuggestions(r.Context(), device.ID, 6)
+
 	h.render(w, r, "logcat.html", map[string]any{
-		"Title":      device.SerialNumber + " — Logcat",
-		"Device":     device,
-		"Entries":    entries,
-		"HasPending": hasPending,
+		"Title":          device.SerialNumber + " — Logcat",
+		"Device":         device,
+		"Entries":        entries,
+		"HasPending":     hasPending,
+		"LogcatRecent":   logcatRecent,
+		"LogcatFrequent": logcatFrequent,
 	})
 }
 
