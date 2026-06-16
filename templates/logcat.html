@@ -12,12 +12,19 @@
   </span>
 </div>
 
+<style>
+.shell-suggest{margin-top:12px;}
+.suggest-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:10px 0 5px;}
+.suggest-row{display:flex;flex-wrap:wrap;gap:6px;}
+.suggest-chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:4px 9px;cursor:pointer;color:var(--text);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.suggest-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
+</style>
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Request Logs</h3></div>
   <form action="/devices/{{.Device.SerialNumber}}/logcat" method="POST" class="command-form">
     <div class="form-row">
       <label class="form-label">Level</label>
-      <select name="level" class="form-input" style="width:auto;">
+      <select name="level" id="lc-level" class="form-input" style="width:auto;">
         <option value="E">E — Error only</option>
         <option value="W" selected>W — Warning+</option>
         <option value="I">I — Info+</option>
@@ -27,15 +34,35 @@
     </div>
     <div class="form-row">
       <label class="form-label">Lines</label>
-      <input type="number" name="lines" class="form-input" value="500" min="50" max="5000" style="width:100px;">
+      <input type="number" name="lines" id="lc-lines" class="form-input" value="500" min="50" max="5000" style="width:100px;">
     </div>
     <div class="form-row">
       <label class="form-label">Tag filter <span class="muted small">(optional)</span></label>
-      <input type="text" name="tag" class="form-input" placeholder="e.g. MyApp" style="width:200px;">
+      <input type="text" name="tag" id="lc-tag" class="form-input" placeholder="e.g. MyApp" style="width:200px;">
     </div>
     <button type="submit" class="btn-primary">Request Logs</button>
   </form>
+  {{if or .LogcatRecent .LogcatFrequent}}
+  <div class="shell-suggest" style="padding:0 16px 14px;">
+    {{if .LogcatRecent}}
+    <div class="suggest-lbl">Recent</div>
+    <div class="suggest-row">{{range .LogcatRecent}}<button type="button" class="suggest-chip" onclick="lcFill('{{.Level}}',{{.Lines}},'{{.Tag}}')" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>
+    {{end}}
+    {{if .LogcatFrequent}}
+    <div class="suggest-lbl">Frequent</div>
+    <div class="suggest-row">{{range .LogcatFrequent}}<button type="button" class="suggest-chip" onclick="lcFill('{{.Level}}',{{.Lines}},'{{.Tag}}')" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>
+    {{end}}
+  </div>
+  {{end}}
 </div>
+
+<script>
+function lcFill(level, lines, tag) {
+  var l = document.getElementById('lc-level'); if (l) l.value = level;
+  var n = document.getElementById('lc-lines'); if (n) n.value = lines;
+  var t = document.getElementById('lc-tag');   if (t) t.value = tag || '';
+}
+</script>
 
 {{template "logcat-entries" .}}
 
