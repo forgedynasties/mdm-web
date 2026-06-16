@@ -25,6 +25,7 @@ var Changelog = []Entry{
 			"Only the Tester account can now mark QA results; everyone else sees them read-only.",
 			"A release can hold only one full image — the add option is disabled once one exists, so incrementals are added instead.",
 			"Removed the per-release adoption chart; the list of devices on each version stays.",
+			"Settings → Alerts: alert rules are now split into tabs by category for easier browsing.",
 		},
 	},
 	{
