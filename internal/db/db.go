@@ -4955,6 +4955,41 @@ CREATE TABLE IF NOT EXISTS version_order (
     version  TEXT PRIMARY KEY,
     position INTEGER NOT NULL
 );
+
+-- Test team (QA): widen the user role check to allow a 'tester' account. Drop-then-add
+-- keeps it idempotent across restarts (the inline constraint is auto-named users_role_check).
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester'));
+
+-- Test cases: a reusable library plus per-release cases. base=true cases are checked on
+-- every release; base=false cases belong to one release (release_id set). active=false
+-- archives a case without deleting its history.
+CREATE TABLE IF NOT EXISTS test_cases (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title           TEXT NOT NULL,
+    area            TEXT NOT NULL DEFAULT '',
+    steps           TEXT NOT NULL DEFAULT '',
+    expected_result TEXT NOT NULL DEFAULT '',
+    base            BOOLEAN NOT NULL DEFAULT false,
+    release_id      INTEGER REFERENCES releases(id) ON DELETE CASCADE,
+    active          BOOLEAN NOT NULL DEFAULT true,
+    created_by      TEXT NOT NULL DEFAULT '',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_test_cases_release ON test_cases(release_id);
+
+-- Per-release test outcomes. The applicable checklist is computed (active base cases plus
+-- this release's own cases); a row is written only once a tester records a status, so a
+-- fresh release starts all-untested by absence.
+CREATE TABLE IF NOT EXISTS release_test_results (
+    release_id   INTEGER NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+    test_case_id UUID    NOT NULL REFERENCES test_cases(id) ON DELETE CASCADE,
+    status       TEXT    NOT NULL DEFAULT 'untested', -- untested|pass|fail|blocked|skip
+    notes        TEXT    NOT NULL DEFAULT '',
+    tested_by    TEXT    NOT NULL DEFAULT '',
+    tested_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (release_id, test_case_id)
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -5794,4 +5829,160 @@ func (d *DB) CountHotDevices(ctx context.Context) (int, error) {
 		SELECT COUNT(*) FROM devices
 		WHERE NOT hidden AND COALESCE((latest_extra->>'battery_temp_c')::numeric, 0) >= 45`).Scan(&n)
 	return n, err
+}
+
+// ── Test team / QA ──────────────────────────────────────────────────────────────
+
+// TestCase is a single thing to verify. Base cases apply to every release; cases with a
+// ReleaseID apply only to that release.
+type TestCase struct {
+	ID        uuid.UUID `json:"id"`
+	Title     string    `json:"title"`
+	Area      string    `json:"area"`
+	Steps     string    `json:"steps"`
+	Expected  string    `json:"expected_result"`
+	Base      bool      `json:"base"`
+	ReleaseID *int      `json:"release_id"`
+	Active    bool      `json:"active"`
+	CreatedBy string    `json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ChecklistItem is one test case joined with its result for a given release.
+type ChecklistItem struct {
+	TestCase
+	Status   string     `json:"status"` // untested|pass|fail|blocked|skip
+	Notes    string     `json:"notes"`
+	TestedBy string     `json:"tested_by"`
+	TestedAt *time.Time `json:"tested_at"`
+}
+
+// QASummary holds the per-release status counts.
+type QASummary struct {
+	Total, Pass, Fail, Blocked, Skip, Untested int
+}
+
+// Passed reports whether every applicable case passed (and there is at least one).
+func (q QASummary) Passed() bool { return q.Total > 0 && q.Pass == q.Total }
+
+// CreateTestCase inserts a base (releaseID nil) or release-specific test case.
+func (d *DB) CreateTestCase(ctx context.Context, tc TestCase) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO test_cases (title, area, steps, expected_result, base, release_id, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		tc.Title, tc.Area, tc.Steps, tc.Expected, tc.Base, tc.ReleaseID, tc.CreatedBy).Scan(&id)
+	return id, err
+}
+
+// UpdateTestCase edits an existing case's content and active flag.
+func (d *DB) UpdateTestCase(ctx context.Context, id uuid.UUID, title, area, steps, expected string, active bool) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE test_cases SET title=$2, area=$3, steps=$4, expected_result=$5, active=$6 WHERE id=$1`,
+		id, title, area, steps, expected, active)
+	return err
+}
+
+// DeleteTestCase removes a case (and its results, via FK cascade).
+func (d *DB) DeleteTestCase(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM test_cases WHERE id=$1`, id)
+	return err
+}
+
+func scanTestCases(rows pgx.Rows) ([]TestCase, error) {
+	defer rows.Close()
+	var out []TestCase
+	for rows.Next() {
+		var t TestCase
+		if err := rows.Scan(&t.ID, &t.Title, &t.Area, &t.Steps, &t.Expected, &t.Base, &t.ReleaseID, &t.Active, &t.CreatedBy, &t.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// ListBaseTestCases returns the standard cases (optionally only active ones).
+func (d *DB) ListBaseTestCases(ctx context.Context, onlyActive bool) ([]TestCase, error) {
+	q := `SELECT id, title, area, steps, expected_result, base, release_id, active, created_by, created_at
+	      FROM test_cases WHERE base = true`
+	if onlyActive {
+		q += ` AND active = true`
+	}
+	q += ` ORDER BY area, title`
+	rows, err := d.pool.Query(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	return scanTestCases(rows)
+}
+
+// ListReleaseTestCases returns the cases specific to one release.
+func (d *DB) ListReleaseTestCases(ctx context.Context, releaseID int) ([]TestCase, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, title, area, steps, expected_result, base, release_id, active, created_by, created_at
+		FROM test_cases WHERE release_id = $1 ORDER BY area, title`, releaseID)
+	if err != nil {
+		return nil, err
+	}
+	return scanTestCases(rows)
+}
+
+// GetReleaseChecklist returns the applicable cases for a release (active base cases plus
+// this release's own cases) joined with any recorded result.
+func (d *DB) GetReleaseChecklist(ctx context.Context, releaseID int) ([]ChecklistItem, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT tc.id, tc.title, tc.area, tc.steps, tc.expected_result, tc.base, tc.release_id,
+		       tc.active, tc.created_by, tc.created_at,
+		       COALESCE(r.status, 'untested'), COALESCE(r.notes, ''), COALESCE(r.tested_by, ''), r.tested_at
+		FROM test_cases tc
+		LEFT JOIN release_test_results r ON r.test_case_id = tc.id AND r.release_id = $1
+		WHERE tc.active AND (tc.base OR tc.release_id = $1)
+		ORDER BY tc.base DESC, tc.area, tc.title`, releaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ChecklistItem
+	for rows.Next() {
+		var c ChecklistItem
+		if err := rows.Scan(&c.ID, &c.Title, &c.Area, &c.Steps, &c.Expected, &c.Base, &c.ReleaseID,
+			&c.Active, &c.CreatedBy, &c.CreatedAt,
+			&c.Status, &c.Notes, &c.TestedBy, &c.TestedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// SetTestResult records (upserts) a tester's outcome for one case on one release.
+func (d *DB) SetTestResult(ctx context.Context, releaseID int, testCaseID uuid.UUID, status, notes, testedBy string) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO release_test_results (release_id, test_case_id, status, notes, tested_by, tested_at)
+		VALUES ($1, $2, $3, $4, $5, NOW())
+		ON CONFLICT (release_id, test_case_id)
+		DO UPDATE SET status = $3, notes = $4, tested_by = $5, tested_at = NOW()`,
+		releaseID, testCaseID, status, notes, testedBy)
+	return err
+}
+
+// ReleaseQASummary computes the status counts for a release's checklist.
+func (d *DB) ReleaseQASummary(ctx context.Context, releaseID int) (QASummary, error) {
+	var s QASummary
+	err := d.pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*),
+			COUNT(*) FILTER (WHERE status='pass'),
+			COUNT(*) FILTER (WHERE status='fail'),
+			COUNT(*) FILTER (WHERE status='blocked'),
+			COUNT(*) FILTER (WHERE status='skip'),
+			COUNT(*) FILTER (WHERE status='untested')
+		FROM (
+			SELECT COALESCE(r.status, 'untested') AS status
+			FROM test_cases tc
+			LEFT JOIN release_test_results r ON r.test_case_id = tc.id AND r.release_id = $1
+			WHERE tc.active AND (tc.base OR tc.release_id = $1)
+		) c`, releaseID).Scan(&s.Total, &s.Pass, &s.Fail, &s.Blocked, &s.Skip, &s.Untested)
+	return s, err
 }
