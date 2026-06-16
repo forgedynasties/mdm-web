@@ -31,7 +31,6 @@
           {{else}}
             <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
           {{end}}
-          {{if otaStalled .Status .UpdatedAt $progress}}<span class="status-badge warn" title="No progress for over 10 minutes — the device may be offline or stuck.">stalled</span>{{end}}
           {{if $progress}}
             <div class="ota-progress-panel" style="padding:8px 10px;margin:6px 0 2px;max-width:300px;">
               <div class="ota-progress-bar">
@@ -49,7 +48,7 @@
             </form>
           {{end}}
         </td>
-        <td class="small muted" title="{{localTime .UpdatedAt}}">{{timeSince .UpdatedAt}}</td>
+        <td class="small muted reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></td>
       </tr>
       {{end}}
     {{else}}
@@ -230,6 +229,43 @@
 </div>
 
 <script>
+// Live device-status section: the 3s poll only swaps when something actually
+// changed, and the "Updated" column ticks locally so an idle poll stays byte-stable.
+(function () {
+  var box = document.getElementById('deployment-targets');
+  if (!box) return;
+
+  // Skip the swap when the polled HTML is identical to what's on screen — otherwise
+  // the table would re-render every 3s (and the browser can mask the server's 304).
+  var lastHtml = box.innerHTML;
+  document.body.addEventListener('htmx:beforeSwap', function (e) {
+    if (!e.target || e.target.id !== 'deployment-targets') return;
+    var html = e.detail.serverResponse;
+    if (html === lastHtml) { e.detail.shouldSwap = false; }
+    else { lastHtml = html; }
+  });
+
+  // Relative "x ago" rendered client-side so the server HTML carries only a stable
+  // timestamp (keeps the partial unchanged between real status/progress changes).
+  function ago(sec) {
+    var d = Math.max(0, Math.floor(Date.now() / 1000) - sec);
+    if (d < 60) return d + 's ago';
+    if (d < 3600) return Math.floor(d / 60) + 'm ago';
+    if (d < 86400) return Math.floor(d / 3600) + 'h ago';
+    return Math.floor(d / 86400) + 'd ago';
+  }
+  function tick() {
+    box.querySelectorAll('.reltime[data-ts]').forEach(function (el) {
+      el.textContent = ago(parseInt(el.dataset.ts, 10) || 0);
+    });
+  }
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (e.target && e.target.id === 'deployment-targets') tick();
+  });
+  setInterval(tick, 1000);
+  tick();
+})();
+
 function setReboot(mode) {
   document.getElementById('reboot-input').value = mode;
   document.getElementById('scheduled-time-row').style.display = mode === 'scheduled' ? '' : 'none';
