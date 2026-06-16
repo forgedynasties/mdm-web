@@ -2854,8 +2854,8 @@ var defaultAlertRules = []struct {
 	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
 	{"pad_unused", "Guest pad unused all day", `{}`, "always", true},
 	{"storage_filling", "Storage filling fast", `{"low_gb":1.5,"drop_gb":0.2}`, "always", true},
-	// Recent-tier rules (T7 matrix). Offline stays de-prioritized → seeded disabled.
-	{"offline", "Device offline during service", `{"offline_minutes":5}`, "service", false},
+	// Recent-tier rules (T7 matrix).
+	{"offline", "Device offline during service", `{"offline_minutes":5}`, "service", true},
 	{"soc_low_service", "SoC low during service", `{"soc_pct":20}`, "service", true},
 	{"soc_low_guest_charging", "SoC low while charging a guest", `{"soc_pct":20}`, "service", true},
 	{"pad_disconnected", "Guest charging pad disconnected", `{}`, "service", true},
@@ -2867,6 +2867,7 @@ var defaultAlertRules = []struct {
 	{"overnight_slow_charge", "Charging too slowly overnight", `{"gain_pct":15,"min_pct":95}`, "overnight", true},
 	{"unexpected_reboot", "Unexpected reboot", `{"window_minutes":30}`, "service", true},
 	{"memory_low", "Memory low (available)", `{"avail_mb":400}`, "always", true},
+	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
@@ -3692,6 +3693,7 @@ var recentRuleTypes = map[string]bool{
 	"overnight_slow_charge":  true,
 	"unexpected_reboot":      true,
 	"memory_low":             true,
+	"wifi_weak":              true,
 }
 
 func isRecentType(typ string) bool { return recentRuleTypes[typ] }
@@ -3980,6 +3982,38 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				map[string]any{"avail_mb": avail, "limit_mb": availMB}})
 		}
 		return hits, "critical", rows.Err()
+
+	case "wifi_weak":
+		thr := param(p, "rssi_dbm", -75)
+		sustain := param(p, "sustain_min", 10)
+		// Sustained weak connected-link RSSI: even the strongest reading in the window
+		// stays below (more negative than) the floor, spanning ≥ sustain_min. RSSI is the
+		// connected AP's signal (extra.wifi_rssi), not the scan list. Always-on rule.
+		rows, err := d.pool.Query(ctx, `
+			SELECT c.device_id, dv.serial_number, MAX(c.rssi) FROM (
+				SELECT device_id, (extra->>'wifi_rssi')::numeric AS rssi, created_at
+				FROM checkins WHERE created_at > NOW() - INTERVAL '15 minutes'
+			) c JOIN devices dv ON dv.id = c.device_id
+			WHERE c.rssi IS NOT NULL AND NOT dv.hidden
+			GROUP BY c.device_id, dv.serial_number
+			HAVING MAX(c.rssi) < $1 AND (MAX(c.created_at) - MIN(c.created_at)) >= ($2 * INTERVAL '1 minute')`, thr, sustain)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var best float64
+			if err := rows.Scan(&id, &serial, &best); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Wi-Fi signal held below %.0f dBm for >%.0f min (best %.0f dBm)", thr, sustain, best),
+				map[string]any{"rssi_dbm": best, "limit_dbm": thr}})
+		}
+		return hits, "warning", rows.Err()
 	}
 	return nil, "warning", nil
 }
