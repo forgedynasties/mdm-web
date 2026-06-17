@@ -378,6 +378,20 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	h.recordCheckinOtaProgress(deviceID, &req)
 	h.hub.PublishDeviceUpdate(deviceID)
 
+	// Reconcile completion first, independently of the resolver: if the device is
+	// now running a deployment's target build, mark it installed. For an
+	// incremental-only release ResolveUpdateForDevice returns nil once the device
+	// leaves the source build, so without this the row would stay stuck at
+	// reboot_sent and the OTA could be re-sent. Doing it before the resolver also
+	// means an installed row is excluded below, preventing the re-send.
+	if doneIDs, err := h.db.CompleteUpdatesAtTargetBuild(r.Context(), deviceID, req.BuildID); err != nil {
+		log.Printf("[checkin] CompleteUpdatesAtTargetBuild error: %v", err)
+	} else {
+		for _, uid := range doneIDs {
+			_ = h.db.CheckAndCompleteUpdate(r.Context(), uid)
+		}
+	}
+
 	// OTA check: resolve update from update_devices table.
 	if upd, err := h.db.ResolveUpdateForDevice(r.Context(), deviceID); err != nil {
 		log.Printf("[checkin] ResolveUpdateForDevice error: %v", err)
@@ -653,6 +667,15 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 
 	h.recordCheckinOtaProgress(id, &req)
 	h.hub.PublishDeviceUpdate(id)
+
+	// Reconcile completion by target build before resolving — see HTTP Checkin.
+	if doneIDs, err := h.db.CompleteUpdatesAtTargetBuild(ctx, id, req.BuildID); err != nil {
+		log.Printf("[ws-telemetry] CompleteUpdatesAtTargetBuild error: %v", err)
+	} else {
+		for _, uid := range doneIDs {
+			_ = h.db.CheckAndCompleteUpdate(ctx, uid)
+		}
+	}
 
 	// OTA check — same logic as HTTP Checkin.
 	if upd, err := h.db.ResolveUpdateForDevice(ctx, id); err != nil {

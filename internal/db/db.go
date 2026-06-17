@@ -5617,6 +5617,52 @@ func (d *DB) SetUpdateDeviceStatus(ctx context.Context, updateID int, deviceID u
 	return err
 }
 
+// CompleteUpdatesAtTargetBuild marks installed every active, not-yet-terminal
+// deployment row for this device whose release ships a package targeting the
+// device's current build. This is the authoritative "the device is now running
+// the new build" reconciliation, and it deliberately does NOT go through
+// ResolveUpdateForDevice: that resolver only returns a row while an active
+// package still matches the device's *current* build (source_build_id for an
+// incremental), so once a device updates off the source build onto the target
+// it resolves to nil — leaving the row stuck at reboot_sent and, worse, letting
+// the OTA be re-sent. Matching on target_build_id closes both gaps. Returns the
+// affected update IDs so the caller can complete the deployment and refresh it.
+func (d *DB) CompleteUpdatesAtTargetBuild(ctx context.Context, deviceID uuid.UUID, buildID string) ([]int, error) {
+	if buildID == "" {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		UPDATE update_devices ud
+		SET status = 'installed', error_code = '', updated_at = NOW(),
+		    completed_at = COALESCE(ud.completed_at, NOW())
+		FROM updates u
+		WHERE ud.update_id = u.id
+		  AND ud.device_id = $1
+		  AND u.status = 'active'
+		  AND ud.status NOT IN ('installed', 'canceled')
+		  AND EXISTS (
+		      SELECT 1 FROM ota_packages pk
+		      WHERE pk.release_id = u.release_id
+		        AND pk.status = 'active'
+		        AND pk.target_build_id = $2
+		  )
+		RETURNING ud.update_id
+	`, deviceID, buildID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []int
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // SetUpdateDeviceFailed marks a device's deployment row failed and records the
 // error_code it reported, so the deployment view can show why it failed.
 func (d *DB) SetUpdateDeviceFailed(ctx context.Context, updateID int, deviceID uuid.UUID, errorCode string) error {
