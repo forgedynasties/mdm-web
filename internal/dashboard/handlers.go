@@ -1010,7 +1010,7 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "admin" && s.Role != "operator" {
+		if s.Role != "admin" && s.Role != "operator" && s.Role != "tester" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -4633,12 +4633,16 @@ const (
 // persisted, and dispatched from the lowest-privilege role (GB-01/GB-02). The
 // admin JSON API (internal/api) independently gates the same set behind the
 // admin key. Keep the two lists in sync when adding a command type.
+// Testers get the same operational command set as operators (plus their
+// exclusive QA recording elsewhere), so they're listed alongside "operator" on
+// every operator-allowed type — but never on the admin-only types (ota,
+// update_splash). They're also subject to the same OperatorAllows restriction.
 var commandRoles = map[string][]string{
-	"screenshot":    {"admin", "operator", "viewer"},
-	"install_apk":   {"admin", "operator"},
-	"uninstall":     {"admin", "operator"},
-	"reboot":        {"admin", "operator"},
-	"shell":         {"admin", "operator"},
+	"screenshot":    {"admin", "operator", "tester", "viewer"},
+	"install_apk":   {"admin", "operator", "tester"},
+	"uninstall":     {"admin", "operator", "tester"},
+	"reboot":        {"admin", "operator", "tester"},
+	"shell":         {"admin", "operator", "tester"},
 	"ota":           {"admin"},
 	"update_splash": {"admin"},
 }
@@ -4660,7 +4664,7 @@ func (h *Handler) authorizeCommand(role, cmdType string) cmdAuthz {
 	if !allowed {
 		return cmdAuthzForbidden
 	}
-	if role == "operator" && !h.cfg.OperatorAllows(cmdType) {
+	if (role == "operator" || role == "tester") && !h.cfg.OperatorAllows(cmdType) {
 		return cmdAuthzForbidden
 	}
 	return cmdAuthzOK
@@ -4692,7 +4696,9 @@ func (h *Handler) commandTypeAllowed(role, cmdType string) bool {
 // which embed the object-store bucket name. Only operational roles need them;
 // viewers must not see them, so the bucket name is not disclosed via command
 // reads (GB-05).
-func canSeeCommandURLs(role string) bool { return role == "admin" || role == "operator" }
+func canSeeCommandURLs(role string) bool {
+	return role == "admin" || role == "operator" || role == "tester"
+}
 
 // redactDeviceCommandURLs blanks the APK/OTA URL on a command-history slice for
 // roles that may not see it. The template falls back to the command label.
@@ -6423,6 +6429,26 @@ func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
+// UserSetRole changes an existing user's role. Admin is never assignable from
+// the UI (the admin account comes from env), matching UserCreate.
+func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+	role := r.FormValue("role")
+	if role != "viewer" && role != "operator" && role != "tester" {
+		http.Error(w, "Invalid role", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.UpdateUserRole(r.Context(), id, role); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/users", http.StatusFound)
+}
+
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// post registers a state-changing route behind the same-origin (CSRF) guard.
 	// Use it for every POST so cross-site requests can't drive an authenticated
@@ -6585,6 +6611,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /users", h.requireAdmin(h.UserList))
 	post("POST /users", h.requireAdmin(h.UserCreate))
+	post("POST /users/{id}/role", h.requireAdmin(h.UserSetRole))
 	post("POST /users/{id}/delete", h.requireAdmin(h.UserDelete))
 
 	// Command output SSE

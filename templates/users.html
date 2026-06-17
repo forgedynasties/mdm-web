@@ -3,7 +3,7 @@
 
 <div class="ov-greet">
   <h1 class="ov-title">Users</h1>
-  <span class="ov-date">viewers are read-only; operators can also send shell and reboot commands</span>
+  <span class="ov-date">viewers are read-only; operators can also send shell and reboot commands; testers get operator access plus QA recording</span>
 </div>
 
 <div class="card dv-rise-1" style="margin-bottom:16px;">
@@ -24,11 +24,24 @@
           <td class="mono">{{.Username}}</td>
           <td><span class="badge badge-{{.Role}}">{{.Role}}</span></td>
           <td class="muted small">{{localTime .CreatedAt}}</td>
-          <td>
+          <td style="white-space:nowrap;">
+            {{if eq .Role "admin"}}
+            <span class="muted small">admin — fixed</span>
+            {{else}}
+            <form action="/users/{{.ID}}/role" method="POST" style="display:inline;">
+              <select name="role" class="form-input" style="width:auto;display:inline-block;padding:4px 8px;"
+                      onchange="this.form.submit()" title="Change role">
+                <option value="viewer"{{if eq .Role "viewer"}} selected{{end}}>Viewer</option>
+                <option value="operator"{{if eq .Role "operator"}} selected{{end}}>Operator</option>
+                <option value="tester"{{if eq .Role "tester"}} selected{{end}}>Tester</option>
+              </select>
+              <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
+            </form>
             <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;"
                   onsubmit="return confirm('Delete user {{.Username}}?')">
               <button type="submit" class="btn-danger-sm">Delete</button>
             </form>
+            {{end}}
           </td>
         </tr>
         {{end}}
@@ -57,7 +70,7 @@
       <select name="role" class="form-input">
         <option value="viewer">Viewer — read-only + screenshot + logcat</option>
         <option value="operator">Operator — viewer + shell + reboot</option>
-        <option value="tester">Tester — record release QA results</option>
+        <option value="tester">Tester — operator access + record release QA results</option>
       </select>
     </div>
     <button type="submit" class="btn-primary">
