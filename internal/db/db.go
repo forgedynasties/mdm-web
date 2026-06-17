@@ -320,6 +320,12 @@ func (d *DB) DeleteUser(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// UpdateUserRole changes a user's role. The caller validates the role value.
+func (d *DB) UpdateUserRole(ctx context.Context, id uuid.UUID, role string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE users SET role = $2 WHERE id = $1`, id, role)
+	return err
+}
+
 // ProductionDevice is a device row augmented with connection status for production detail view.
 type ProductionDevice struct {
 	Serial           string    `json:"serial"`
