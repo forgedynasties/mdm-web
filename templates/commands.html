@@ -66,6 +66,9 @@
       <div class="cr-rail-item on" data-type="install_apk" onclick="selectType('install_apk', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install APK
       </div>
+      <div class="cr-rail-item" data-type="uninstall" onclick="selectType('uninstall', this)">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall
+      </div>
       <div class="cr-rail-item" data-type="shell" onclick="selectType('shell', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell
       </div>
@@ -104,6 +107,20 @@
                 No apps in library. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>
                 <input type="hidden" name="apk_url" id="cmd-apk-url">
               </div>
+            {{end}}
+          </div>
+          <div id="uninstall-fields" class="payload-section">
+            {{if .FleetPackages}}
+              <input type="text" id="uninstall-filter" class="form-input" placeholder="Search apps…" oninput="filterUninstallApps(this.value)" style="margin-bottom:8px;">
+              <select name="package" class="form-input" id="uninstall-select" onchange="updatePreview()" disabled>
+                <option value="" disabled selected>Select an app to uninstall…</option>
+                {{range .FleetPackages}}
+                <option value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-pkg="{{.PackageName}}">{{if .AppName}}{{.AppName}} — {{end}}{{.PackageName}} ({{.DeviceCount}})</option>
+                {{end}}
+              </select>
+              <div class="muted small" style="margin-top:6px;">Lists every app seen across all devices; the count is how many devices report it. The uninstall only affects targeted devices that actually have the package.</div>
+            {{else}}
+              <div class="payload-empty">No package data reported by any device yet.</div>
             {{end}}
           </div>
           <div id="shell-fields" class="payload-section">
@@ -215,6 +232,7 @@
       <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="filterCommands()">
         <option value="">All Types</option>
         <option value="install_apk">Install APK</option>
+        <option value="uninstall">Uninstall</option>
         <option value="shell">Shell</option>
         <option value="screenshot">Screenshot</option>
         <option value="reboot">Reboot</option>
@@ -389,15 +407,17 @@ function filterCommands() {
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
   document.querySelectorAll('.cr-rail-item').forEach(function(c) { c.classList.toggle('on', c.dataset.type === val); });
-  ['apk-fields','shell-fields','screenshot-hint','reboot-hint','splash-fields'].forEach(function(id) {
+  ['apk-fields','uninstall-fields','shell-fields','screenshot-hint','reboot-hint','splash-fields'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('is-active');
   });
-  var sectionId = ({ install_apk:'apk-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', update_splash:'splash-fields' })[val];
+  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', update_splash:'splash-fields' })[val];
   var section = document.getElementById(sectionId);
   if (section) section.classList.add('is-active');
   var apkSel = document.getElementById('apk-select');
   if (apkSel) apkSel.disabled = (val !== 'install_apk');
+  var unSel = document.getElementById('uninstall-select');
+  if (unSel) unSel.disabled = (val !== 'uninstall');
   updatePreview();
 }
 
@@ -460,6 +480,25 @@ function filterCmdGroups() {
     l.style.display = (!q || n.indexOf(q) !== -1) ? '' : 'none';
   });
 }
+// Filter the Uninstall package dropdown by app name or package name.
+function filterUninstallApps(q) {
+  q = (q || '').toLowerCase();
+  var sel = document.getElementById('uninstall-select');
+  if (!sel) return;
+  for (var i = 0; i < sel.options.length; i++) {
+    var o = sel.options[i];
+    if (!o.value) continue; // keep the placeholder
+    var name = (o.dataset.name || '').toLowerCase();
+    var pkg = (o.dataset.pkg || '').toLowerCase();
+    o.hidden = !(name.indexOf(q) !== -1 || pkg.indexOf(q) !== -1);
+  }
+  // If the current selection got filtered out, drop back to the placeholder.
+  if (sel.selectedIndex > 0 && sel.options[sel.selectedIndex].hidden) {
+    sel.selectedIndex = 0;
+    updatePreview();
+  }
+}
+
 // The device-lookup partial's Add button calls this.
 function pickCommandSerial(serial) { cmdAddSerial(serial); }
 
@@ -476,7 +515,7 @@ function updatePreview() {
   var target = document.getElementById('target-type-input').value;
   var warn = [];
 
-  var NAMES = { install_apk: 'Install APK', shell: 'Shell command', screenshot: 'Screenshot', reboot: 'Reboot', update_splash: 'Boot logo' };
+  var NAMES = { install_apk: 'Install APK', uninstall: 'Uninstall app', shell: 'Shell command', screenshot: 'Screenshot', reboot: 'Reboot', update_splash: 'Boot logo' };
   document.getElementById('rv-action').textContent = NAMES[type] || type;
 
   var pk = document.getElementById('rv-payload-k');
@@ -488,6 +527,13 @@ function updatePreview() {
     var v = (opt && opt.value) ? (opt.dataset.name || opt.value) : '';
     pv.textContent = v || '—';
     if (!v) warn.push('Choose an app to install.');
+  } else if (type === 'uninstall') {
+    pk.textContent = 'Package';
+    var usel = document.getElementById('uninstall-select');
+    var uopt = usel && usel.options[usel.selectedIndex];
+    var uv = (uopt && uopt.value) ? (uopt.dataset.name || uopt.value) : '';
+    pv.textContent = uv || '—';
+    if (!uv) warn.push('Choose an app to uninstall.');
   } else if (type === 'shell') {
     pk.textContent = 'Command';
     var s = (document.getElementById('shell-cmd-input').value || '').trim();
