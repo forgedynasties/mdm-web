@@ -29,6 +29,7 @@ import (
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 	"mdm/internal/ai"
+	"mdm/internal/alerts"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/notify"
@@ -69,6 +70,7 @@ type Handler struct {
 	password    string
 	cfg         *config.Config
 	adminAPIKey string
+	alerts      *alerts.Dispatcher
 
 	// publicOrigins is the set of trusted browser-facing origins (scheme://host)
 	// for CSRF checks, e.g. ["https://udm.dev.aioapp.com",
@@ -778,6 +780,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 		password:      password,
 		cfg:           cfg,
 		adminAPIKey:   adminAPIKey,
+		alerts:        alerts.NewDispatcher(d, cfg),
 		publicOrigins: parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
 		loginFails:    ratelimit.New(15 * time.Minute),
 	}
@@ -5034,77 +5037,11 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	h.dispatchAlertNotifications(ctx, created)
 }
 
-// dispatchAlertNotifications routes freshly-created alerts to every matching enabled
-// channel: severity ≥ the channel's minimum, realtime mode, and the channel's active
-// window currently open (fleet-default window). Falls back to the legacy single
-// AlertWebhookURL when no channels are configured, so upgrades keep working.
+// dispatchAlertNotifications routes freshly-created alerts to the configured
+// channels. The routing logic is shared with the device API (new-device alerts)
+// via internal/alerts.
 func (h *Handler) dispatchAlertNotifications(ctx context.Context, created []db.AlertNotification) {
-	if len(created) == 0 {
-		return
-	}
-	channels, err := h.db.ListAlertChannels(ctx, true)
-	if err != nil {
-		log.Printf("[alert] list channels: %v", err)
-		return
-	}
-	// Back-compat: no channels yet → use the legacy single webhook for everything.
-	if len(channels) == 0 {
-		if url := h.cfg.AlertWebhookURL(); url != "" {
-			for _, n := range created {
-				if err := notify.SendWebhook(ctx, url, formatAlert(n)); err != nil {
-					log.Printf("[alert] webhook failed: %v", err)
-				}
-			}
-		}
-		return
-	}
-	for _, c := range channels {
-		if c.URL == "" || c.Mode != "realtime" {
-			continue // digest channels are handled by the daily digest
-		}
-		if !h.db.FleetWindowActive(ctx, c.ActiveWindow) {
-			continue
-		}
-		min := db.SeverityRank(c.MinSeverity)
-		for _, n := range created {
-			if db.SeverityRank(n.Severity) < min {
-				continue
-			}
-			if err := sendToChannel(ctx, c, n); err != nil {
-				log.Printf("[alert] channel %q (%s) failed: %v", c.Name, c.Kind, err)
-			}
-		}
-	}
-}
-
-// sendToChannel delivers one notification to a channel using the right payload shape
-// for its kind: Microsoft Teams gets an Adaptive Card; everything else (Slack / Discord
-// / Mattermost) gets the {"text":...} webhook.
-func sendToChannel(ctx context.Context, c db.AlertChannel, n db.AlertNotification) error {
-	if c.Kind == "teams" {
-		emoji := "🔵"
-		switch n.Severity {
-		case "critical":
-			emoji = "🔴"
-		case "warning":
-			emoji = "🟠"
-		}
-		title := fmt.Sprintf("%s %s — %s", emoji, strings.ToUpper(n.Severity), n.Serial)
-		return notify.SendTeams(ctx, c.URL, title, n.Summary, n.Severity)
-	}
-	return notify.SendWebhook(ctx, c.URL, formatAlert(n))
-}
-
-// formatAlert renders a notification line with a severity emoji/prefix.
-func formatAlert(n db.AlertNotification) string {
-	emoji := "🔵"
-	switch n.Severity {
-	case "critical":
-		emoji = "🔴"
-	case "warning":
-		emoji = "🟠"
-	}
-	return fmt.Sprintf("%s [%s] %s — %s", emoji, strings.ToUpper(n.Severity), n.Serial, n.Summary)
+	h.alerts.Dispatch(ctx, created)
 }
 
 // RunHousekeeping applies the configured auto-hide and retention policies.
@@ -5500,7 +5437,7 @@ func (h *Handler) SettingsTestChannel(w http.ResponseWriter, r *http.Request) {
 		Summary: "Test alert from AIO MDM — this channel is wired up correctly.",
 	}
 	result := "ok"
-	if err := sendToChannel(r.Context(), c, sample); err != nil {
+	if err := alerts.SendToChannel(r.Context(), c, sample); err != nil {
 		log.Printf("[alert] test channel %q failed: %v", c.Name, err)
 		result = "fail"
 	}
