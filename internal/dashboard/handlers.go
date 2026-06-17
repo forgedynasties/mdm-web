@@ -3389,6 +3389,7 @@ type versionRow struct {
 	DeviceCount  int
 	PackageCount int
 	DeployCount  int
+	QA           db.QASummary // QA/test status; zero value (Total 0) when not tracked
 }
 
 func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
@@ -3428,6 +3429,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.Tracked, row.ReleaseID, row.Name = true, &id, rel.Name
 			row.Status, row.Hidden = rel.Status, rel.Hidden
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
+			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
 		} else {
 			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
 		}
@@ -3439,10 +3441,11 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		id := rel.ID
+		qa, _ := h.db.ReleaseQASummary(r.Context(), rel.ID)
 		addRow(versionRow{
 			Version: rel.Version, Tracked: true, ReleaseID: &id, Name: rel.Name,
 			Status: rel.Status, Hidden: rel.Hidden,
-			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount,
+			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
 		})
 	}
 	// Default order is alphabetical by version; any saved manual (drag) order takes
@@ -3461,9 +3464,15 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	})
 	// Base ("standard, every release") test cases are managed inline on this page
 	// by admins, so the Testing/Test-cases tabs can go away.
+	role := h.role(r)
 	var baseCases []db.TestCase
-	if h.role(r) == "admin" {
+	if role == "admin" {
 		baseCases, _ = h.db.ListBaseTestCases(r.Context(), false)
+	}
+	// Hidden releases are admin-only housekeeping — don't surface them (or the
+	// "N hidden" count) to operators/testers.
+	if role != "admin" {
+		hidden = nil
 	}
 	h.render(w, r, "releases.html", map[string]any{
 		"Title":           "Releases",
