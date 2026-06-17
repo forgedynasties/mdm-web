@@ -181,7 +181,7 @@
   </div>
   {{if not .HasFull}}
   <div style="padding:0 16px 12px;" class="muted small">
-    No full image in this release — only devices currently on a matching <strong>source build</strong> will receive an incremental. Others are skipped.
+    No full image in this release — the device list below is limited to devices currently on a matching <strong>source build</strong>; only those receive the incremental. Devices reached via a group that are not on a source build are skipped.
   </div>
   {{end}}
   <form action="/updates/{{$rel.ID}}/deploy" method="POST" class="command-form">
