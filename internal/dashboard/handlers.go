@@ -4119,15 +4119,23 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 			sourceBuilds[p.SourceBuildID] = true
 		}
 	}
-	if !hasFull {
-		eligible := devices[:0]
-		for _, d := range devices {
-			if sourceBuilds[d.BuildID] {
-				eligible = append(eligible, d)
-			}
-		}
-		devices = eligible
+	// Devices already in this deployment shouldn't appear in the "add more"
+	// picker — they're already receiving (or have received) this update.
+	existing := make(map[uuid.UUID]bool, len(targets))
+	for _, t := range targets {
+		existing[t.DeviceID] = true
 	}
+	eligible := devices[:0]
+	for _, d := range devices {
+		if existing[d.ID] {
+			continue
+		}
+		if !hasFull && !sourceBuilds[d.BuildID] {
+			continue
+		}
+		eligible = append(eligible, d)
+	}
+	devices = eligible
 
 	data["Devices"] = devices
 	data["Groups"] = groups
