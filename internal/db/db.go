@@ -364,21 +364,22 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	return err
 }
 
-// UpsertCheckin upserts the device record, inserts a checkin row, and returns
-// the device UUID and poll interval so the caller can query pending commands.
-func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct int, extra json.RawMessage) (uuid.UUID, int, error) {
+// UpsertCheckin records a checkin, creating the device row on first contact.
+// The returned isNew is true only when the device row was inserted by this call
+// (the device's very first checkin), so callers can fire onboarding side-effects
+// exactly once. It relies on the Postgres convention that xmax = 0 on a freshly
+// inserted tuple and non-zero on a row touched by ON CONFLICT DO UPDATE.
+func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct int, extra json.RawMessage) (deviceID uuid.UUID, pollIntervalMs int, isNew bool, err error) {
 	if len(extra) == 0 {
 		extra = json.RawMessage("{}")
 	}
 
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
-		return uuid.Nil, 0, err
+		return uuid.Nil, 0, false, err
 	}
 	defer tx.Rollback(ctx)
 
-	var deviceID uuid.UUID
-	var pollIntervalMs int
 	err = tx.QueryRow(ctx, `
 		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra)
 		VALUES ($1, $2, NOW(), $3, $4)
@@ -388,10 +389,10 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    latest_battery_pct = EXCLUDED.latest_battery_pct,
 			    latest_extra       = EXCLUDED.latest_extra,
 			    hidden             = false
-		RETURNING id, poll_interval_ms
-	`, serial, buildID, batteryPct, extra).Scan(&deviceID, &pollIntervalMs)
+		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new
+	`, serial, buildID, batteryPct, extra).Scan(&deviceID, &pollIntervalMs, &isNew)
 	if err != nil {
-		return uuid.Nil, 0, err
+		return uuid.Nil, 0, false, err
 	}
 
 	_, err = tx.Exec(ctx, `
@@ -399,10 +400,10 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		VALUES ($1, $2, $3, $4)
 	`, deviceID, batteryPct, buildID, extra)
 	if err != nil {
-		return uuid.Nil, 0, err
+		return uuid.Nil, 0, false, err
 	}
 
-	return deviceID, pollIntervalMs, tx.Commit(ctx)
+	return deviceID, pollIntervalMs, isNew, tx.Commit(ctx)
 }
 
 func (d *DB) GetSummary(ctx context.Context, activeSecs int) (Summary, error) {
@@ -2921,6 +2922,8 @@ var defaultAlertRules = []struct {
 	Type, Name, Params, ActiveWindow string
 	Enabled                          bool
 }{
+	// Lifecycle.
+	{"new_device", "New device onboarded", `{}`, "always", true},
 	// Daily-tier rules.
 	{"overheating", "Battery overheating", `{"temp_c":45}`, "always", true},
 	{"no_overnight_charge", "Did not charge overnight", `{"min_full_pct":90,"max_charge_frac":0.3}`, "always", true},
@@ -2968,6 +2971,22 @@ func (d *DB) EnsureDefaultRules(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// EnabledRuleIDByType returns the id of the enabled alert rule of the given
+// type. ok is false when no such rule exists or it is disabled, so callers can
+// skip firing the alert when the admin has turned the rule off.
+func (d *DB) EnabledRuleIDByType(ctx context.Context, typ string) (id uuid.UUID, ok bool, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT id FROM alert_rules WHERE type = $1 AND enabled LIMIT 1
+	`, typ).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	return id, true, nil
 }
 
 // ListAlertRules returns alert rules, optionally only the enabled ones.
