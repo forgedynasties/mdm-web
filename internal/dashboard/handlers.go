@@ -945,8 +945,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "productions"
 	case strings.HasPrefix(path, "/commands"):
 		data["ActivePage"] = "commands"
-	case strings.HasPrefix(path, "/updates"):
-		data["ActivePage"] = "updates"
+	case strings.HasPrefix(path, "/releases"):
+		data["ActivePage"] = "releases"
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
@@ -3480,7 +3480,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ReleaseTrack(w http.ResponseWriter, r *http.Request) {
 	version := strings.TrimSpace(r.FormValue("version"))
 	if version == "" {
-		http.Redirect(w, r, "/updates", http.StatusSeeOther)
+		http.Redirect(w, r, "/releases", http.StatusSeeOther)
 		return
 	}
 	rel, err := h.db.GetOrCreateRelease(r.Context(), version)
@@ -3489,7 +3489,7 @@ func (h *Handler) ReleaseTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.track", version, "")
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", rel.ID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", rel.ID), http.StatusSeeOther)
 }
 
 // ReorderVersions saves the drag-and-drop order of the releases list (JSON body
@@ -3521,7 +3521,7 @@ func (h *Handler) VersionHide(w http.ResponseWriter, r *http.Request) {
 		}
 		h.audit(r, "version.hide", version, "")
 	}
-	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+	http.Redirect(w, r, "/releases", http.StatusSeeOther)
 }
 
 func (h *Handler) VersionUnhide(w http.ResponseWriter, r *http.Request) {
@@ -3533,7 +3533,7 @@ func (h *Handler) VersionUnhide(w http.ResponseWriter, r *http.Request) {
 		}
 		h.audit(r, "version.unhide", version, "")
 	}
-	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+	http.Redirect(w, r, "/releases", http.StatusSeeOther)
 }
 
 // ReleaseSetHidden hides/unhides a release from the main list (irrelevant releases).
@@ -3553,7 +3553,7 @@ func (h *Handler) ReleaseSetHidden(w http.ResponseWriter, r *http.Request) {
 		state = "hidden"
 	}
 	h.audit(r, "release.hide", strconv.Itoa(id), state)
-	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+	http.Redirect(w, r, "/releases", http.StatusSeeOther)
 }
 
 // ReleaseDelete hard-deletes a release (cascades to its packages + deployments).
@@ -3575,7 +3575,7 @@ func (h *Handler) ReleaseDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.delete", strconv.Itoa(id), "")
-	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+	http.Redirect(w, r, "/releases", http.StatusSeeOther)
 }
 
 // createPackageFromForm parses the package form, decodes the base64 update_url
@@ -3649,7 +3649,7 @@ func (h *Handler) ReleaseCreate(w http.ResponseWriter, r *http.Request) {
 		_ = h.db.SetReleaseMeta(r.Context(), rel.ID, name, changelog)
 	}
 	h.audit(r, "release.create", version, "")
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", rel.ID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", rel.ID), http.StatusSeeOther)
 }
 
 // ReleaseAddPackage adds another package (e.g. an incremental) to an existing
@@ -3680,7 +3680,7 @@ func (h *Handler) ReleaseAddPackage(w http.ResponseWriter, r *http.Request) {
 	if _, ok := h.createPackageFromForm(w, r, rel.Version); !ok {
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
 func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
@@ -3767,7 +3767,7 @@ func (h *Handler) ReleasePublish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.publish", strconv.Itoa(id), "")
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
 // ── Test team / QA handlers ──────────────────────────────────────────────────
@@ -3791,11 +3791,11 @@ func (h *Handler) TestCaseCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Title required", http.StatusBadRequest)
 		return
 	}
-	redirect := "/updates"
+	redirect := "/releases"
 	if rid := strings.TrimSpace(r.FormValue("release_id")); rid != "" {
 		if id, err := strconv.Atoi(rid); err == nil {
 			tc.ReleaseID = &id
-			redirect = fmt.Sprintf("/updates/%d", id)
+			redirect = fmt.Sprintf("/releases/%d", id)
 		}
 	} else {
 		tc.Base = true // a library case applies to every release
@@ -3829,7 +3829,7 @@ func (h *Handler) TestCaseUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "testcase.update", id.String(), "")
-	http.Redirect(w, r, "/updates", http.StatusSeeOther)
+	http.Redirect(w, r, "/releases", http.StatusSeeOther)
 }
 
 // TestCaseDelete removes a test case (and its results).
@@ -3841,7 +3841,7 @@ func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	redirect := r.FormValue("redirect")
 	if redirect == "" {
-		redirect = "/updates"
+		redirect = "/releases"
 	}
 	if err := h.db.DeleteTestCase(r.Context(), id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -3874,7 +3874,7 @@ func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "testresult.set", fmt.Sprintf("release %d / %s = %s", id, caseID, status), "")
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
 // ReleaseEditMeta updates a release's editable metadata (name + changelog) after
@@ -3893,7 +3893,7 @@ func (h *Handler) ReleaseEditMeta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.edit_meta", strconv.Itoa(id), name)
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
 // ReleaseSetSkipBase toggles whether this release's QA skips the base (standard)
@@ -3914,7 +3914,7 @@ func (h *Handler) ReleaseSetSkipBase(w http.ResponseWriter, r *http.Request) {
 		state = "specific-only"
 	}
 	h.audit(r, "release.qa_scope", strconv.Itoa(id), state)
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
 // ReleaseYank toggles a release between yanked and published.
@@ -3938,7 +3938,7 @@ func (h *Handler) ReleaseYank(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.status", strconv.Itoa(id), newStatus)
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
 // PackageDelete removes a single package from a release.
@@ -3957,7 +3957,7 @@ func (h *Handler) PackageDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", relID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", relID), http.StatusSeeOther)
 }
 
 // ReleaseDeploy deploys a whole release; the per-device artifact (full vs
@@ -4020,7 +4020,7 @@ func (h *Handler) ReleaseDeploy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.audit(r, "release.deploy", rel.Version, strconv.Itoa(len(eligible)))
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, deployment.ID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, deployment.ID), http.StatusSeeOther)
 }
 
 func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
@@ -4173,7 +4173,7 @@ func (h *Handler) DeploymentUpdateSettings(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, did), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
 }
 
 func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
@@ -4191,7 +4191,7 @@ func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d", relID), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", relID), http.StatusSeeOther)
 }
 
 // DeploymentCancel stops an active deployment from reaching devices that
@@ -4217,7 +4217,7 @@ func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "deployment.cancel", strconv.Itoa(did), "")
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, did), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
 }
 
 // DeploymentRetryDevice re-arms one failed device on a deployment: it clears the
@@ -4251,7 +4251,7 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "pending")
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.audit(r, "deployment.retry", r.PathValue("serial"), strconv.Itoa(did))
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, did), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
 }
 
 // DeploymentAddTargets widens an existing deployment by adding more devices or
@@ -4286,7 +4286,7 @@ func (h *Handler) DeploymentAddTargets(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.audit(r, "deployment.add_targets", strconv.Itoa(did), strconv.Itoa(len(eligible)))
-	http.Redirect(w, r, fmt.Sprintf("/updates/%d/deployments/%d", relID, did), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
 }
 
 func parseScheduledUTC(raw, rebootBehavior string) *time.Time {
@@ -6544,35 +6544,35 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 
-	mux.HandleFunc("GET /updates", h.requireAuth(h.ReleaseList))
-	post("POST /updates", h.requireAdmin(h.ReleaseCreate))
-	mux.HandleFunc("GET /updates/{id}", h.requireAuth(h.ReleaseDetail))
-	post("POST /updates/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
-	post("POST /updates/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
-	post("POST /updates/track", h.requireAdmin(h.ReleaseTrack))
-	post("POST /updates/order", h.requireAdmin(h.ReorderVersions))
-	post("POST /updates/version/hide", h.requireAdmin(h.VersionHide))
-	post("POST /updates/version/unhide", h.requireAdmin(h.VersionUnhide))
-	post("POST /updates/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
-	post("POST /updates/{id}/qa-base", h.requireAdmin(h.ReleaseSetSkipBase))
-	post("POST /updates/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
-	post("POST /updates/{id}/delete", h.requireAdmin(h.ReleaseDelete))
-	post("POST /updates/{id}/publish", h.requireAdmin(h.ReleasePublish))
-	post("POST /updates/{id}/yank", h.requireAdmin(h.ReleaseYank))
-	post("POST /updates/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
-	post("POST /updates/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
+	mux.HandleFunc("GET /releases", h.requireAuth(h.ReleaseList))
+	post("POST /releases", h.requireAdmin(h.ReleaseCreate))
+	mux.HandleFunc("GET /releases/{id}", h.requireAuth(h.ReleaseDetail))
+	post("POST /releases/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
+	post("POST /releases/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
+	post("POST /releases/track", h.requireAdmin(h.ReleaseTrack))
+	post("POST /releases/order", h.requireAdmin(h.ReorderVersions))
+	post("POST /releases/version/hide", h.requireAdmin(h.VersionHide))
+	post("POST /releases/version/unhide", h.requireAdmin(h.VersionUnhide))
+	post("POST /releases/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
+	post("POST /releases/{id}/qa-base", h.requireAdmin(h.ReleaseSetSkipBase))
+	post("POST /releases/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
+	post("POST /releases/{id}/delete", h.requireAdmin(h.ReleaseDelete))
+	post("POST /releases/{id}/publish", h.requireAdmin(h.ReleasePublish))
+	post("POST /releases/{id}/yank", h.requireAdmin(h.ReleaseYank))
+	post("POST /releases/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
+	post("POST /releases/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
 
 	// Test team / QA — base cases are managed inline on the Releases page (admin),
 	// testers mark results per-release. No standalone Testing/Test-cases pages.
 	post("POST /test-cases", h.requireAdmin(h.TestCaseCreate))
 	post("POST /test-cases/{id}/edit", h.requireAdmin(h.TestCaseUpdate))
 	post("POST /test-cases/{id}/delete", h.requireAdmin(h.TestCaseDelete))
-	mux.HandleFunc("GET /updates/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
-	post("POST /updates/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
-	post("POST /updates/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
-	post("POST /updates/{id}/deployments/{did}/add-targets", h.requireOperatorOrAdmin(h.DeploymentAddTargets))
-	post("POST /updates/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
-	post("POST /updates/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
+	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAuth(h.DeploymentDetail))
+	post("POST /releases/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
+	post("POST /releases/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
+	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireOperatorOrAdmin(h.DeploymentAddTargets))
+	post("POST /releases/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
+	post("POST /releases/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 
 	mux.HandleFunc("GET /users", h.requireAdmin(h.UserList))
 	post("POST /users", h.requireAdmin(h.UserCreate))

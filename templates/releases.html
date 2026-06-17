@@ -31,7 +31,7 @@
       {{range .Versions}}
       <tr data-version="{{.Version}}" {{if eq $.Role "admin"}}draggable="true"{{end}} {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
         {{if eq $.Role "admin"}}<td class="drag-handle" style="cursor:grab;color:var(--muted);text-align:center;user-select:none;" title="Drag to reorder">⠿</td>{{end}}
-        <td class="mono small">{{if .Tracked}}<a href="/updates/{{.ReleaseID}}" class="link-detail">{{.Version}}</a>{{else}}{{.Version}}{{end}}</td>
+        <td class="mono small">{{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="link-detail">{{.Version}}</a>{{else}}{{.Version}}{{end}}</td>
         <td>
           {{if .Tracked}}<span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>
           {{else}}<span class="status-badge muted" title="Seen on devices but not a managed release">not tracked</span>{{end}}
@@ -41,14 +41,14 @@
         <td class="muted small">{{if .Tracked}}{{.PackageCount}} / {{.DeployCount}}{{else}}—{{end}}</td>
         <td style="white-space:nowrap;text-align:right;">
           {{if .Tracked}}
-          <a href="/updates/{{.ReleaseID}}" class="link-detail">View</a>
+          <a href="/releases/{{.ReleaseID}}" class="link-detail">View</a>
           {{if eq $.Role "admin"}}
-          <form action="/updates/{{.ReleaseID}}/hide" method="POST" style="display:inline;">
+          <form action="/releases/{{.ReleaseID}}/hide" method="POST" style="display:inline;">
             <input type="hidden" name="hidden" value="1">
             <button type="submit" class="btn-outline" title="Hide from the list">Hide</button>
           </form>
           {{if eq .DeviceCount 0}}
-          <form action="/updates/{{.ReleaseID}}/delete" method="POST" style="display:inline;"
+          <form action="/releases/{{.ReleaseID}}/delete" method="POST" style="display:inline;"
                 onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')">
             <button type="submit" class="btn-danger-sm">Delete</button>
           </form>
@@ -57,11 +57,11 @@
           {{end}}
           {{end}}
           {{else if eq $.Role "admin"}}
-          <form action="/updates/track" method="POST" style="display:inline;">
+          <form action="/releases/track" method="POST" style="display:inline;">
             <input type="hidden" name="version" value="{{.Version}}">
             <button type="submit" class="btn-primary" title="Create a draft release for this version and add a changelog / packages">+ Add as release</button>
           </form>
-          <form action="/updates/version/hide" method="POST" style="display:inline;">
+          <form action="/releases/version/hide" method="POST" style="display:inline;">
             <input type="hidden" name="version" value="{{.Version}}">
             <button type="submit" class="btn-outline" title="Dismiss this version from the list and from Add-as-release">Hide</button>
           </form>
@@ -108,14 +108,14 @@
           <td class="muted small">{{.DeviceCount}}</td>
           <td style="white-space:nowrap;text-align:right;">
             {{if .Tracked}}
-            <a href="/updates/{{.ReleaseID}}" class="link-detail">View</a>
+            <a href="/releases/{{.ReleaseID}}" class="link-detail">View</a>
             {{if eq $.Role "admin"}}
-            <form action="/updates/{{.ReleaseID}}/hide" method="POST" style="display:inline;">
+            <form action="/releases/{{.ReleaseID}}/hide" method="POST" style="display:inline;">
               <input type="hidden" name="hidden" value="0">
               <button type="submit" class="btn-outline" title="Show again">Unhide</button>
             </form>
             {{if eq .DeviceCount 0}}
-            <form action="/updates/{{.ReleaseID}}/delete" method="POST" style="display:inline;"
+            <form action="/releases/{{.ReleaseID}}/delete" method="POST" style="display:inline;"
                   onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')">
               <button type="submit" class="btn-danger-sm">Delete</button>
             </form>
@@ -124,7 +124,7 @@
             {{end}}
             {{end}}
             {{else if eq $.Role "admin"}}
-            <form action="/updates/version/unhide" method="POST" style="display:inline;">
+            <form action="/releases/version/unhide" method="POST" style="display:inline;">
               <input type="hidden" name="version" value="{{.Version}}">
               <button type="submit" class="btn-outline" title="Show again">Unhide</button>
             </form>
@@ -172,7 +172,7 @@
           <td style="white-space:nowrap;">
             <button type="button" class="btn-outline btn-sm" onclick="var e=document.getElementById('bc-edit-{{.ID}}');e.style.display=e.style.display==='table-row'?'none':'table-row';">Edit</button>
             <form action="/test-cases/{{.ID}}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this base test case and its results?');">
-              <input type="hidden" name="redirect" value="/updates">
+              <input type="hidden" name="redirect" value="/releases">
               <button type="submit" class="btn-danger-sm">Delete</button>
             </form>
           </td>
@@ -206,7 +206,7 @@
       <button class="modal-close" aria-label="Close" type="button" onclick="document.getElementById('create-pkg-modal').classList.remove('modal-open')">&times;</button>
     </div>
     <div class="modal-body">
-      <form action="/updates" method="POST" class="command-form" style="padding:0;">
+      <form action="/releases" method="POST" class="command-form" style="padding:0;">
         <div class="form-row">
           <label class="form-label">Release version</label>
           <input type="text" name="version" class="form-input" placeholder="e.g. 2026.06.01-release" required autofocus>
@@ -257,7 +257,7 @@ document.addEventListener('keydown', function(e) {
   function saveOrder() {
     var versions = [].slice.call(tbody.querySelectorAll('tr[draggable="true"]'))
       .map(function (r) { return r.getAttribute('data-version'); });
-    fetch('/updates/order', {
+    fetch('/releases/order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ versions: versions })

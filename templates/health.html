@@ -18,7 +18,7 @@
   <a class="ov-vital" href="/devices?status=online"><div class="k">Online</div><div class="v ok">{{.OnlineDevices}}</div></a>
   <a class="ov-vital{{if gt .OfflineDevices 0}} alerty{{end}}" href="/devices?status=offline"><div class="k">Offline</div><div class="v{{if gt .OfflineDevices 0}} bad{{end}}">{{.OfflineDevices}}</div></a>
   <a class="ov-vital" href="/alerts?status=open"><div class="k">Open alerts</div><div class="v{{if gt .OpenAlerts 0}} warn{{end}}">{{.OpenAlerts}}</div></a>
-  <a class="ov-vital" href="/updates"><div class="k">Builds</div><div class="v">{{.UniqueBuilds}}</div></a>
+  <a class="ov-vital" href="/releases"><div class="k">Builds</div><div class="v">{{.UniqueBuilds}}</div></a>
 </div>
 
 <div class="card" style="margin-bottom:16px;">
