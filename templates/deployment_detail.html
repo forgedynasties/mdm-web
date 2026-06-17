@@ -45,7 +45,7 @@
             <div class="muted small" style="margin-top:6px;">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
           {{end}}
           {{if and (eq .Status "failed") (or (eq $.Role "admin") (eq $.Role "operator"))}}
-            <form action="/updates/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" style="display:inline;margin-top:6px;">
+            <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" style="display:inline;margin-top:6px;">
               <button type="submit" class="btn-outline btn-sm">Retry</button>
             </form>
           {{end}}
@@ -76,17 +76,17 @@
 {{$dep := .Deployment}}
 {{$rel := .Release}}
 
-<a href="/updates/{{$rel.ID}}" class="back-link">← {{$rel.Version}}</a>
+<a href="/releases/{{$rel.ID}}" class="back-link">← {{$rel.Version}}</a>
 <div class="ov-greet">
   <h1 class="ov-title">Deployment #{{$dep.ID}}</h1>
   <span class="acts">
     {{if and (eq $dep.Status "active") (or (eq .Role "admin") (eq .Role "operator"))}}
-    <form action="/updates/{{$rel.ID}}/deployments/{{$dep.ID}}/cancel" method="POST" style="display:inline;"
+    <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/cancel" method="POST" style="display:inline;"
           onsubmit="return confirm('Cancel this deployment? Devices that have not started yet will be skipped; devices already updating will finish.')">
       <button type="submit" class="btn-outline">Cancel deployment</button>
     </form>
     {{end}}
-    <form action="/updates/{{$rel.ID}}/deployments/{{$dep.ID}}/delete" method="POST" style="display:inline;"
+    <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/delete" method="POST" style="display:inline;"
           onsubmit="return confirm('Delete this deployment record? This will not undo any updates already applied.')">
       <button type="submit" class="btn-danger">Delete</button>
     </form>
@@ -126,7 +126,7 @@
     <h3>Edit Reboot Settings</h3>
     <span class="muted small">Changes apply to this deployment without updating the Android client.</span>
   </div>
-  <form action="/updates/{{$rel.ID}}/deployments/{{$dep.ID}}/settings" method="POST" class="command-form">
+  <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/settings" method="POST" class="command-form">
     <div class="form-row">
       <label class="form-label">Reboot After Install</label>
       <div class="seg-control" id="reboot-seg">
@@ -152,7 +152,7 @@
     <h3>Push to more devices</h3>
     <span class="muted small">Add devices or groups to this deployment — they inherit its reboot setting.</span>
   </div>
-  <form action="/updates/{{$rel.ID}}/deployments/{{$dep.ID}}/add-targets" method="POST" class="command-form">
+  <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/add-targets" method="POST" class="command-form">
     <div class="form-row">
       <label class="form-label">Targets</label>
       <div class="seg-control" id="target-seg">
@@ -217,7 +217,7 @@
   </div>
   <div id="deployment-targets"
        {{if eq $dep.Status "active"}}
-       hx-get="/updates/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets"
+       hx-get="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets"
        hx-trigger="every 3s"
        hx-swap="innerHTML"
        {{end}}>

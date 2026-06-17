@@ -4,7 +4,7 @@
 {{$rel := .Release}}
 {{$role := .Role}}
 
-<a href="/updates" class="back-link">← Releases</a>
+<a href="/releases" class="back-link">← Releases</a>
 
 <div class="ov-greet">
   <h1 class="ov-title">
@@ -15,12 +15,12 @@
   {{if eq $role "admin"}}
   <span class="acts">
     {{if ne $rel.Status "published"}}
-    <form action="/updates/{{$rel.ID}}/publish" method="POST" style="display:inline;">
+    <form action="/releases/{{$rel.ID}}/publish" method="POST" style="display:inline;">
       <button type="submit" class="btn-primary btn-sm"
         {{if and (gt .QA.Total 0) (not .QA.Passed)}}onclick="return confirm('QA is not complete — {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}}, {{.QA.Fail}} failed{{end}}{{if gt .QA.Untested 0}}, {{.QA.Untested}} untested{{end}}. Publish anyway?')"{{end}}>Publish</button>
     </form>
     {{end}}
-    <form action="/updates/{{$rel.ID}}/yank" method="POST" style="display:inline;">
+    <form action="/releases/{{$rel.ID}}/yank" method="POST" style="display:inline;">
       {{if eq $rel.Status "yanked"}}
         <button type="submit" class="btn-outline btn-sm">Restore</button>
       {{else}}
@@ -77,7 +77,7 @@
 {{if eq $role "admin"}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Name &amp; changelog</h3><span class="muted small">editable any time</span></div>
-  <form action="/updates/{{$rel.ID}}/meta" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+  <form action="/releases/{{$rel.ID}}/meta" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
     <div class="form-row">
       <label class="form-label">Name <span class="muted small">(optional)</span></label>
       <input type="text" name="name" class="form-input" placeholder="e.g. June security update" value="{{$rel.Name}}">
@@ -118,7 +118,7 @@
         <td class="muted small">{{localTime .CreatedAt}}</td>
         <td style="white-space:nowrap;">
           {{if eq $role "admin"}}
-          <form action="/updates/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="display:inline;"
+          <form action="/releases/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="display:inline;"
                 onsubmit="return confirm('Delete this package from the release?')">
             <button type="submit" class="btn-outline btn-sm">Delete</button>
           </form>
@@ -136,7 +136,7 @@
   <!-- Add a package to this release -->
   <div style="padding:16px 20px;border-top:1px solid var(--border-soft);">
     <div class="form-label" style="margin-bottom:10px;">Add package <span class="muted small">for {{$rel.Version}}</span></div>
-    <form id="add-pkg-form" action="/updates/{{$rel.ID}}/packages" method="POST" class="command-form" style="padding:0;">
+    <form id="add-pkg-form" action="/releases/{{$rel.ID}}/packages" method="POST" class="command-form" style="padding:0;">
       <div class="form-row">
         <label class="form-label">Type</label>
         <div class="seg-control">
@@ -184,7 +184,7 @@
     No full image in this release — the device list below is limited to devices currently on a matching <strong>source build</strong>; only those receive the incremental. Devices reached via a group that are not on a source build are skipped.
   </div>
   {{end}}
-  <form action="/updates/{{$rel.ID}}/deploy" method="POST" class="command-form">
+  <form action="/releases/{{$rel.ID}}/deploy" method="POST" class="command-form">
     <div class="form-row">
       <label class="form-label">Reboot After Install</label>
       <div class="seg-control" id="reboot-seg">
@@ -277,7 +277,7 @@
   </div>
 
   {{if eq $role "admin"}}
-  <form action="/updates/{{$rel.ID}}/qa-base" method="POST" style="padding:10px 18px 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+  <form action="/releases/{{$rel.ID}}/qa-base" method="POST" style="padding:10px 18px 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <label class="checkbox-label small" style="display:flex;align-items:center;gap:6px;margin:0;">
       <input type="checkbox" name="skip_base_tests" {{if $rel.SkipBaseTests}}checked{{end}} onchange="this.form.submit()">
       Skip base test cases — test only this release's own cases
@@ -313,7 +313,7 @@
         </td>
         {{if $canRecord}}
         <td>
-          <form action="/updates/{{$relID}}/test-results" method="POST" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <form action="/releases/{{$relID}}/test-results" method="POST" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
             <input type="hidden" name="test_case_id" value="{{.ID}}">
             <select name="status" class="form-input" style="width:auto;padding:3px 6px;">
               <option value="untested" {{if eq $st "untested"}}selected{{end}}>untested</option>
@@ -377,7 +377,7 @@
           {{end}}
         </td>
         <td class="muted small">{{timeSince .CreatedAt}}</td>
-        <td style="white-space:nowrap;"><a href="/updates/{{$rel.ID}}/deployments/{{.ID}}" class="link-detail">View</a></td>
+        <td style="white-space:nowrap;"><a href="/releases/{{$rel.ID}}/deployments/{{.ID}}" class="link-detail">View</a></td>
       </tr>
       {{end}}
     </tbody>
