@@ -6532,12 +6532,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdmin(h.GroupRemoveDevice))
 	post("POST /groups/{id}/commands", h.requireAdmin(h.GroupCommandCreate))
 
-	mux.HandleFunc("GET /productions", h.requireAuth(h.ProductionList))
-	mux.HandleFunc("GET /productions/new", h.requireOperatorOrAdmin(h.ProductionNew))
-	post("POST /productions", h.requireOperatorOrAdmin(h.ProductionCreate))
-	mux.HandleFunc("GET /productions/preview-serial", h.requireAuth(h.ProductionPreviewSerial))
-	mux.HandleFunc("GET /productions/{id}", h.requireAuth(h.ProductionDetail))
-	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAuth(h.ProductionExportCSV))
+	// Productions is an admin-only area (nav link is admin-gated too).
+	mux.HandleFunc("GET /productions", h.requireAdmin(h.ProductionList))
+	mux.HandleFunc("GET /productions/new", h.requireAdmin(h.ProductionNew))
+	post("POST /productions", h.requireAdmin(h.ProductionCreate))
+	mux.HandleFunc("GET /productions/preview-serial", h.requireAdmin(h.ProductionPreviewSerial))
+	mux.HandleFunc("GET /productions/{id}", h.requireAdmin(h.ProductionDetail))
+	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdmin(h.ProductionExportCSV))
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
