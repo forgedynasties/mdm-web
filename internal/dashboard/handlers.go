@@ -3707,6 +3707,7 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	// whose current build matches its source_build_id.
 	hasFull := false
 	canPush := false
+	sourceBuilds := map[string]bool{}
 	for _, p := range packages {
 		if p.Status != "active" {
 			continue
@@ -3714,7 +3715,24 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		canPush = true
 		if p.Type == "full" {
 			hasFull = true
+		} else if p.SourceBuildID != "" {
+			sourceBuilds[p.SourceBuildID] = true
 		}
+	}
+
+	// Mirror the resolver's eligibility in the Push Update device list: a full
+	// image can go to any device, but an incremental only reaches devices whose
+	// current build matches its source_build_id. Without a full image, hide
+	// devices that wouldn't receive anything (e.g. a 1.96→1.97 incremental only
+	// lists devices currently on 1.96).
+	if !hasFull {
+		eligible := devices[:0]
+		for _, d := range devices {
+			if sourceBuilds[d.BuildID] {
+				eligible = append(eligible, d)
+			}
+		}
+		devices = eligible
 	}
 
 	checklist, _ := h.db.GetReleaseChecklist(r.Context(), id)
