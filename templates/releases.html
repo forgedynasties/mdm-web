@@ -24,6 +24,7 @@
         <th>Name</th>
         <th>Devices</th>
         <th>Pkg / Dep</th>
+        <th>Test</th>
         <th></th>
       </tr>
     </thead>
@@ -39,6 +40,14 @@
         <td class="small">{{if .Name}}{{.Name}}{{else}}<span class="muted">—</span>{{end}}</td>
         <td class="small">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="link-detail">{{.DeviceCount}}</a>{{else}}<span class="muted">0</span>{{end}}</td>
         <td class="muted small">{{if .Tracked}}{{.PackageCount}} / {{.DeployCount}}{{else}}—{{end}}</td>
+        <td class="small">
+          {{if .Tracked}}
+            {{if gt .QA.Total 0}}
+            <span class="status-badge {{if .QA.Passed}}ok{{else if gt .QA.Fail 0}}danger{{else}}warn{{end}}"
+                  title="{{.QA.Pass}} passed · {{.QA.Fail}} failed · {{.QA.Untested}} untested of {{.QA.Total}}">{{.QA.Pass}}/{{.QA.Total}}</span>
+            {{else}}<span class="muted">no cases</span>{{end}}
+          {{else}}<span class="muted">—</span>{{end}}
+        </td>
         <td style="white-space:nowrap;text-align:right;">
           {{if .Tracked}}
           <a href="/releases/{{.ReleaseID}}" class="link-detail">View</a>
