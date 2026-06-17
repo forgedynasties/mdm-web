@@ -34,7 +34,9 @@
       <a href="/devices" class="nav-link{{if eq .ActivePage "devices"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Devices</a>
       <a href="/groups" class="nav-link{{if eq .ActivePage "groups"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>Groups</a>
       <a href="/restaurants" class="nav-link{{if eq .ActivePage "restaurants"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>Restaurants</a>
+      {{if eq .Role "admin"}}
       <a href="/productions" class="nav-link{{if eq .ActivePage "productions"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>Productions</a>
+      {{end}}
       <a href="/commands" class="nav-link{{if eq .ActivePage "commands"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>Commands</a>
       <a href="/releases" class="nav-link{{if eq .ActivePage "releases"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>Releases</a>
       <a href="/fleet-health" class="nav-link{{if eq .ActivePage "health"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span>Health</a>
