@@ -975,7 +975,12 @@
 <section class="dd-panel" data-dd-panel="apps" hidden>
   <div class="card">
     <div class="card-header"><h3>Installed Applications</h3><span class="muted small">{{len .InstalledPackages}} packages</span></div>
-    <table class="table">
+    {{if .InstalledPackages}}
+    <div style="padding:0 0 12px;">
+      <input type="text" id="apps-filter" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)">
+    </div>
+    {{end}}
+    <table class="table" id="apps-table">
       <thead><tr><th>App Name</th><th>Package Name</th><th>Version</th><th>Last Updated</th><th></th></tr></thead>
       <tbody>
         {{if .InstalledPackages}}
@@ -1012,8 +1017,28 @@
         {{end}}
       </tbody>
     </table>
+    {{if .InstalledPackages}}
+    <div id="apps-no-match" class="empty" style="display:none;padding:16px;">No apps match your search.</div>
+    {{end}}
   </div>
 </section>
+
+<script>
+function filterInstalledApps(q) {
+  q = q.toLowerCase();
+  const rows = document.querySelectorAll('#apps-table tbody tr');
+  let visible = 0;
+  rows.forEach(row => {
+    const appName = row.cells[0] ? row.cells[0].textContent.toLowerCase() : '';
+    const name = row.cells[1] ? row.cells[1].textContent.toLowerCase() : '';
+    const show = appName.includes(q) || name.includes(q);
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  const noMatch = document.getElementById('apps-no-match');
+  if (noMatch) noMatch.style.display = (rows.length > 0 && visible === 0) ? '' : 'none';
+}
+</script>
 
 <section class="dd-panel" data-dd-panel="controls" hidden>
 {{$ctrlDefault := "screenshot"}}{{if or (eq .Role "admin") (eq .Role "operator")}}{{$ctrlDefault = "install"}}{{end}}

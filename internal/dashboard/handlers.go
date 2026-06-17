@@ -3701,11 +3701,19 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	// Adoption: which devices are currently on this version (the artifact's real-world reach).
 	devicesOnVersion, _ := h.db.ListDevicesByVersion(r.Context(), rel.Version)
 
+	// hasFull gates the "Add full package" form constraints; canPush gates the
+	// Push Update form. An incremental-only release is pushable — the per-device
+	// resolver (ResolveUpdateForDevice) sends each incremental only to devices
+	// whose current build matches its source_build_id.
 	hasFull := false
+	canPush := false
 	for _, p := range packages {
-		if p.Type == "full" && p.Status == "active" {
+		if p.Status != "active" {
+			continue
+		}
+		canPush = true
+		if p.Type == "full" {
 			hasFull = true
-			break
 		}
 	}
 
@@ -3721,6 +3729,7 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"Devices":          devices,
 		"Groups":           groups,
 		"HasFull":          hasFull,
+		"CanPush":          canPush,
 		"DevicesOnVersion": devicesOnVersion,
 		"Checklist":        checklist,
 		"QA":               qa,
@@ -3950,18 +3959,20 @@ func (h *Handler) ReleaseDeploy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Release must be published before it can be deployed.", http.StatusBadRequest)
 		return
 	}
-	// A push needs a full image as the baseline — a device not on one of the
-	// incremental source builds has nothing to apply otherwise.
+	// A push needs at least one active package. A full image covers any device;
+	// an incremental-only release is still pushable — the per-device resolver
+	// (ResolveUpdateForDevice) hands each incremental only to devices whose
+	// current build matches its source_build_id, and skips the rest.
 	pkgs, _ := h.db.ListPackagesByRelease(r.Context(), relID)
-	hasFull := false
+	hasActive := false
 	for _, p := range pkgs {
-		if p.Type == "full" && p.Status == "active" {
-			hasFull = true
+		if p.Status == "active" {
+			hasActive = true
 			break
 		}
 	}
-	if !hasFull {
-		http.Error(w, "Add a full OTA package to this release before pushing.", http.StatusBadRequest)
+	if !hasActive {
+		http.Error(w, "Add an OTA package to this release before pushing.", http.StatusBadRequest)
 		return
 	}
 	r.ParseForm()
@@ -4304,6 +4315,12 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Distinct packages seen across all devices — populates the Uninstall dropdown.
+	fleetPackages, err := h.db.SearchFleetPackages(r.Context(), "")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
 
 	// Clone: ?clone=<id> prefills the builder from an existing command, so the detail
 	// page's "Duplicate & edit" opens the builder ready to tweak and re-send.
@@ -4381,6 +4398,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Commands":      pagedCmds,
 		"Groups":        groups,
 		"Apps":          apps,
+		"FleetPackages": fleetPackages,
 		"Summaries":     summaries,
 		"TargetSerials": targetSerials,
 		"ShellRecent":   shellRecent,
