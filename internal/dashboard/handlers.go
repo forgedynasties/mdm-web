@@ -4101,6 +4101,34 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// Only the full page needs the device/group lists for the "add targets" picker.
 	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
+
+	// Mirror the resolver's eligibility (see ReleaseDetail): an incremental-only
+	// release only reaches devices whose current build matches an active
+	// incremental's source_build_id, so limit the "add targets" device list to
+	// those. A full image can flash any device, so leave the list unfiltered.
+	packages, _ := h.db.ListPackagesByRelease(r.Context(), relID)
+	hasFull := false
+	sourceBuilds := map[string]bool{}
+	for _, p := range packages {
+		if p.Status != "active" {
+			continue
+		}
+		if p.Type == "full" {
+			hasFull = true
+		} else if p.SourceBuildID != "" {
+			sourceBuilds[p.SourceBuildID] = true
+		}
+	}
+	if !hasFull {
+		eligible := devices[:0]
+		for _, d := range devices {
+			if sourceBuilds[d.BuildID] {
+				eligible = append(eligible, d)
+			}
+		}
+		devices = eligible
+	}
+
 	data["Devices"] = devices
 	data["Groups"] = groups
 
