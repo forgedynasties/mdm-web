@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"mdm/internal/alerts"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
@@ -27,10 +29,11 @@ type Handler struct {
 	geolocate   *geolocate.Resolver
 	remote      *remote.Manager
 	adminAPIKey string
+	alerts      *alerts.Dispatcher
 }
 
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, rm *remote.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, remote: rm, adminAPIKey: adminAPIKey}
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, remote: rm, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg)}
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -353,10 +356,13 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 
 	req.Extra = h.enrichLocation(r.Context(), req.Extra)
 
-	deviceID, _, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
+	deviceID, _, isNew, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
+	}
+	if isNew {
+		h.notifyDeviceOnboarded(r.Context(), deviceID, req.SerialNumber)
 	}
 
 	log.Printf("[checkin] serial=%s packages_count=%d", req.SerialNumber, len(req.InstalledApps))
@@ -475,6 +481,33 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 			"checkin_interval_seconds": h.cfg.CheckinInterval(),
 		},
 	})
+}
+
+// notifyDeviceOnboarded records a persistent "new_device" alert and dispatches it
+// to the configured outbound channels when a device checks in for the first time.
+// Best-effort: failures are logged and never block the checkin response. Runs in
+// its own goroutine with an independent context so a slow webhook can't stall the
+// device's checkin.
+func (h *Handler) notifyDeviceOnboarded(ctx context.Context, deviceID uuid.UUID, serial string) {
+	ruleID, ok, err := h.db.EnabledRuleIDByType(ctx, "new_device")
+	if err != nil {
+		log.Printf("[onboard] lookup new_device rule: %v", err)
+		return
+	}
+	if !ok {
+		return // rule disabled — admin opted out of onboarding notifications
+	}
+	summary := fmt.Sprintf("New device onboarded: %s", serial)
+	created, err := h.db.CreateAlertIfAbsent(ctx, &ruleID, "new_device", deviceID, "info", summary, nil)
+	if err != nil {
+		log.Printf("[onboard] create alert for %s: %v", serial, err)
+		return
+	}
+	if !created {
+		return // already recorded (e.g. concurrent first checkins)
+	}
+	n := db.AlertNotification{Type: "new_device", Severity: "info", Summary: summary, Serial: serial}
+	go h.alerts.Dispatch(context.WithoutCancel(ctx), []db.AlertNotification{n})
 }
 
 // HandleWsCommandAck processes a "command_ack" message from a device over WS.
@@ -643,10 +676,15 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 
 	req.Extra = h.enrichLocation(ctx, req.Extra)
 
-	id, _, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
+	id, _, isNew, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
 	if err != nil {
 		log.Printf("[ws-telemetry] UpsertCheckin error: %v", err)
 		return
+	}
+	if isNew {
+		// A device must already exist to open its WS, so this is rare, but keep
+		// onboarding parity with the HTTP checkin path.
+		h.notifyDeviceOnboarded(ctx, id, req.SerialNumber)
 	}
 
 	log.Printf("[ws-telemetry] serial=%s packages_count=%d", req.SerialNumber, len(req.InstalledApps))
