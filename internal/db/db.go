@@ -362,8 +362,32 @@ func (d *DB) Ping(ctx context.Context) error {
 }
 
 func (d *DB) RunMigrations(ctx context.Context) error {
-	_, err := d.pool.Exec(ctx, migrationSQL)
-	return err
+	// Run on a single connection inside one transaction so SET LOCAL lock_timeout
+	// scopes to the migration only. The lock_timeout makes a schema statement
+	// fail fast rather than block indefinitely when another session holds a
+	// conflicting lock — typically the previous container still draining during a
+	// deploy. A fast failure exits the process, Docker (restart: unless-stopped)
+	// retries, and by then the lock is gone; without it the migration hangs before
+	// the server ever listens, which the proxy surfaces as a 502.
+	conn, err := d.pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+
+	tx, err := conn.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if _, err := tx.Exec(ctx, "SET LOCAL lock_timeout = '15s'"); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, migrationSQL); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // UpsertCheckin records a checkin, creating the device row on first contact.
@@ -5031,21 +5055,6 @@ ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','ope
 -- Dev sign-off on a release ("smoke-tested by dev, OK for QA to pick up").
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_by TEXT        NOT NULL DEFAULT '';
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_at TIMESTAMPTZ;
-
--- Self-heal stranded deployments: a device retried/re-added under a deployment
--- that was already marked 'complete' leaves the update 'complete' while the
--- device sits in a non-terminal state, so ResolveUpdateForDevice (status='active'
--- only) never serves it and it sits at "pending" forever. Reactivate any such
--- deployment so its check-in resumes. Idempotent — once the device installs,
--- CheckAndCompleteUpdate marks it complete again. (Excludes failed/canceled so
--- they are not silently re-pushed.)
-UPDATE updates u SET status = 'active'
-WHERE u.status = 'complete'
-  AND EXISTS (
-    SELECT 1 FROM update_devices ud
-    WHERE ud.update_id = u.id
-      AND ud.status NOT IN ('installed', 'canceled', 'failed')
-  );
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -5761,6 +5770,29 @@ func (d *DB) CheckAndCompleteUpdate(ctx context.Context, updateID int) error {
 func (d *DB) ReactivateUpdate(ctx context.Context, updateID int) error {
 	_, err := d.pool.Exec(ctx, `UPDATE updates SET status = 'active' WHERE id = $1 AND status = 'complete'`, updateID)
 	return err
+}
+
+// ReconcileStrandedUpdates reactivates any deployment that was marked 'complete'
+// while it still has a device in a non-terminal state (e.g. one re-pended by a
+// retry). Such devices are never served by ResolveUpdateForDevice (status='active'
+// only) and sit at "pending" forever. Best-effort: called once at startup, NOT
+// part of RunMigrations — a data reconciliation must never crash the server. It
+// is idempotent (once the device installs, CheckAndCompleteUpdate completes it
+// again) and excludes failed/canceled rows so they are not silently re-pushed.
+func (d *DB) ReconcileStrandedUpdates(ctx context.Context) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE updates u SET status = 'active'
+		WHERE u.status = 'complete'
+		  AND EXISTS (
+		    SELECT 1 FROM update_devices ud
+		    WHERE ud.update_id = u.id
+		      AND ud.status NOT IN ('installed', 'canceled', 'failed')
+		  )
+	`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
 }
 
 // CancelDeployment stops an active deployment: devices that haven't started yet
