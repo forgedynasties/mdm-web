@@ -188,10 +188,13 @@
           </div>
 
           <div id="target-devices" class="target-detail" style="margin-top:12px;">
-            <input type="text" id="cmd-serial-input" name="q" class="form-input" autocomplete="off"
-                   placeholder="Search or type a serial, Enter to add…"
-                   hx-get="/devices/search" hx-trigger="keyup changed delay:200ms, focus"
-                   hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
+            <div class="filter-search" style="width:100%;box-sizing:border-box;">
+              <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+              <input type="search" id="cmd-serial-input" name="q" class="filter-search-input" autocomplete="off"
+                     placeholder="Search or type a serial, Enter to add…"
+                     hx-get="/devices/search" hx-trigger="keyup changed delay:200ms, focus"
+                     hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
+            </div>
             <div id="cmd-device-results"></div>
             <div id="cmd-chips" class="cmd-chips"></div>
             <textarea name="target_serials" id="cmd-serials" class="form-textarea" placeholder="paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="cmdRenderChips();updatePreview()" style="display:none;font-family:var(--mono);font-size:12px;"></textarea>
@@ -678,7 +681,7 @@ window.CMD_PREFILL = {{.Prefill}};
     {{range .Devices}}
     <div class="lookup-row">
       <div>
-        <div class="mono">{{.SerialNumber}}</div>
+        <div class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail" target="_blank" rel="noopener">{{.SerialNumber}}</a></div>
         <div class="muted small">{{if .BuildID}}{{.BuildID}} · {{end}}{{timeSince .LastSeenAt}}</div>
       </div>
       <button type="button" class="btn-outline" onclick="pickCommandSerial('{{.SerialNumber}}')">Add</button>

@@ -61,7 +61,7 @@
       <tr class="{{rowClasses .}}" data-serial="{{.SerialNumber}}">
         <td><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" onchange="updateBulkBar()"></td>
         <td class="mono" style="white-space:nowrap;">
-          <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}WebSocket connected{{else}}offline{{end}}"></span>{{.SerialNumber}}
+          <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}WebSocket connected{{else}}offline{{end}}"></span><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a>
         </td>
         <td class="mono small">{{.BuildID}}</td>
         <td>
