@@ -3089,7 +3089,9 @@ func (h *Handler) RestaurantDevicePicker(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	devices, err := h.db.ListAssignableDevices(r.Context(), id, q, 25)
+	status := r.URL.Query().Get("status")
+	battery := r.URL.Query().Get("battery")
+	devices, err := h.db.ListAssignableDevices(r.Context(), id, q, status, battery, 25, h.cfg.CheckinInterval()*3)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -3801,12 +3803,19 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	qa, _ := h.db.ReleaseQASummary(r.Context(), id)
 	role := h.role(r)
 
+	connected := h.hub.ConnectedIDs()
+	online := make(map[uuid.UUID]bool, len(connected))
+	for cid := range connected {
+		online[cid] = true
+	}
+
 	h.render(w, r, "release_detail.html", map[string]any{
 		"Title":            "Release " + rel.Version,
 		"Release":          rel,
 		"Packages":         packages,
 		"Deployments":      deployments,
 		"Devices":          devices,
+		"Online":           online,
 		"Groups":           groups,
 		"HasFull":          hasFull,
 		"CanPush":          canPush,
@@ -4230,7 +4239,13 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	devices = eligible
 
+	connected := h.hub.ConnectedIDs()
+	online := make(map[uuid.UUID]bool, len(connected))
+	for cid := range connected {
+		online[cid] = true
+	}
 	data["Devices"] = devices
+	data["Online"] = online
 	data["Groups"] = groups
 
 	h.render(w, r, "deployment_detail.html", data)
