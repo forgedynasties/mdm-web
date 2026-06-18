@@ -21,6 +21,7 @@ var Changelog = []Entry{
 		Date:    "2026-06-18",
 		Changes: []string{
 			"Send a command by filter: the command builder's device picker now has the same filters as the Devices list (status, group, production, release, battery) plus “Select all matching”, so you can target every device that matches.",
+			"The device pickers for OTA deploy / add-targets and restaurant assignment gained matching status/battery filters too, so device selection works the same everywhere.",
 			"New Logs page: recent logcat captures across the whole fleet, plus your most-used capture presets.",
 			"Capture logs from the New Command page — pull logcat from all devices, a group, or specific serials at once, with quick chips for recent and frequent presets.",
 			"Retry any past log capture in one click from a device's Logcat page.",

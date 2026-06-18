@@ -1270,20 +1270,40 @@ func (d *DB) ListRestaurantDevices(ctx context.Context, restaurantID uuid.UUID) 
 // non-hidden device NOT already in this restaurant, optionally filtered by serial, with
 // its current restaurant name. Unassigned (lab) devices sort first, then most-recently
 // seen. Powers the restaurant device picker.
-func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, query string, limit int) ([]Device, error) {
+func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, query, status, battery string, limit, activeThresholdSecs int) ([]Device, error) {
 	if limit <= 0 {
 		limit = 20
 	}
-	rows, err := d.pool.Query(ctx, `
+	if activeThresholdSecs <= 0 {
+		activeThresholdSecs = 180
+	}
+	args := []any{restaurantID, query}
+	q := `
 		SELECT d.serial_number, d.latest_battery_pct, d.last_seen_at, COALESCE(r.name, '')
 		FROM devices d
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE NOT d.hidden
 		  AND d.restaurant_id IS DISTINCT FROM $1
-		  AND ($2 = '' OR d.serial_number ILIKE '%' || $2 || '%')
-		ORDER BY (d.restaurant_id IS NULL) DESC, d.last_seen_at DESC
-		LIMIT $3
-	`, restaurantID, query, limit)
+		  AND ($2 = '' OR d.serial_number ILIKE '%' || $2 || '%')`
+	if status == "online" || status == "offline" {
+		args = append(args, activeThresholdSecs)
+		op := ">"
+		if status == "offline" {
+			op = "<="
+		}
+		q += fmt.Sprintf(" AND d.last_seen_at %s NOW() - ($%d * INTERVAL '1 second')", op, len(args))
+	}
+	switch battery {
+	case "low":
+		q += " AND d.latest_battery_pct < 20"
+	case "mid":
+		q += " AND d.latest_battery_pct BETWEEN 20 AND 49"
+	case "ok":
+		q += " AND d.latest_battery_pct >= 50"
+	}
+	args = append(args, limit)
+	q += fmt.Sprintf(" ORDER BY (d.restaurant_id IS NULL) DESC, d.last_seen_at DESC LIMIT $%d", len(args))
+	rows, err := d.pool.Query(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

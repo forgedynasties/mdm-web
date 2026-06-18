@@ -100,7 +100,11 @@
         <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
       </svg>
       <input type="search" id="rd-search" name="q" class="filter-search-input" autocomplete="off" placeholder="Search devices by serial…"
-             hx-get="/restaurants/{{.Restaurant.ID}}/device-picker" hx-trigger="load, keyup changed delay:200ms, search, focus" hx-target="#rd-results">
+             hx-get="/restaurants/{{.Restaurant.ID}}/device-picker" hx-trigger="load, keyup changed delay:200ms, search, focus" hx-target="#rd-results" hx-include="#rd-status, #rd-batt">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+      <select id="rd-status" name="status" class="filter-select" hx-get="/restaurants/{{.Restaurant.ID}}/device-picker" hx-trigger="change" hx-target="#rd-results" hx-include="#rd-search, #rd-batt"><option value="">Status</option><option value="online">Online</option><option value="offline">Offline</option></select>
+      <select id="rd-batt" name="battery" class="filter-select" hx-get="/restaurants/{{.Restaurant.ID}}/device-picker" hx-trigger="change" hx-target="#rd-results" hx-include="#rd-search, #rd-status"><option value="">Battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select>
     </div>
     <div id="rd-results" class="rd-results"></div>
     <div id="rd-chips" class="rd-chips"></div>
