@@ -2382,6 +2382,53 @@ func (d *DB) FleetLogcatFrequent(ctx context.Context, limit int) ([]LogcatPreset
 	return out, rows.Err()
 }
 
+// FleetLogcatSuggestions returns capture presets across the whole fleet for the
+// command-builder quick-fill chips: the most recently used (distinct level/lines/tag,
+// newest first) and the most frequently used. Mirrors LogcatSuggestions but not
+// scoped to a single device.
+func (d *DB) FleetLogcatSuggestions(ctx context.Context, limit int) (recent, frequent []LogcatPreset, err error) {
+	if limit <= 0 {
+		limit = 6
+	}
+	collect := func(q string) ([]LogcatPreset, error) {
+		rows, err := d.pool.Query(ctx, q, limit)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+		var out []LogcatPreset
+		for rows.Next() {
+			var p LogcatPreset
+			if err := rows.Scan(&p.Level, &p.Lines, &p.Tag); err != nil {
+				return nil, err
+			}
+			out = append(out, p)
+		}
+		return out, rows.Err()
+	}
+	recent, err = collect(`
+		SELECT level, lines, tag FROM (
+			SELECT level, lines, tag, MAX(created_at) AS last
+			FROM logcat_requests
+			GROUP BY level, lines, tag
+			ORDER BY last DESC
+			LIMIT $1
+		) t`)
+	if err != nil {
+		return nil, nil, err
+	}
+	frequent, err = collect(`
+		SELECT level, lines, tag
+		FROM logcat_requests
+		GROUP BY level, lines, tag
+		ORDER BY COUNT(*) DESC, MAX(created_at) DESC
+		LIMIT $1`)
+	if err != nil {
+		return nil, nil, err
+	}
+	return recent, frequent, nil
+}
+
 // ── Device Packages ───────────────────────────────────────────────────────────
 
 type DevicePackage struct {

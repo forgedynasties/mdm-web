@@ -164,6 +164,18 @@
                 <input type="text" name="tag" id="lc-cmd-tag" class="form-input" placeholder="e.g. MyApp" style="width:180px;" oninput="updatePreview()"></div>
             </div>
             <div class="muted small" style="margin-top:6px;">Requests a logcat capture from each targeted device on its next check-in. Results appear on each device's Logcat page and the fleet <a href="/logs" class="link-detail">Logs</a> page.</div>
+            {{if or .LogcatRecent .LogcatFrequent}}
+            <div class="shell-suggest">
+              {{if .LogcatRecent}}
+              <div class="suggest-lbl">Recent</div>
+              <div class="suggest-row">{{range .LogcatRecent}}<button type="button" class="suggest-chip" data-level="{{.Level}}" data-lines="{{.Lines}}" data-tag="{{.Tag}}" onclick="lcCmdFill(this)" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>
+              {{end}}
+              {{if .LogcatFrequent}}
+              <div class="suggest-lbl">Frequent</div>
+              <div class="suggest-row">{{range .LogcatFrequent}}<button type="button" class="suggest-chip" data-level="{{.Level}}" data-lines="{{.Lines}}" data-tag="{{.Tag}}" onclick="lcCmdFill(this)" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>
+              {{end}}
+            </div>
+            {{end}}
           </div>
           <div id="splash-fields" class="payload-section">
             <input type="file" name="splash_file" id="splash-file-input" class="form-input" accept="image/bmp,image/png,image/jpeg,.bmp,.png,.jpg,.jpeg" onchange="updatePreview()">
@@ -530,6 +542,13 @@ function cmdFillShell(s) {
   var i = document.getElementById('shell-cmd-input');
   if (!i) return;
   i.value = s; i.focus(); updatePreview();
+}
+
+function lcCmdFill(btn) {
+  var l = document.getElementById('lc-cmd-level'); if (l) l.value = btn.dataset.level;
+  var n = document.getElementById('lc-cmd-lines'); if (n) n.value = btn.dataset.lines;
+  var t = document.getElementById('lc-cmd-tag');   if (t) t.value = btn.dataset.tag || '';
+  updatePreview();
 }
 
 // Drives the right-hand Review pane and the Send button's validity.
