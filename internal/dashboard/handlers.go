@@ -4535,6 +4535,8 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 
 	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
 	logcatRecent, logcatFrequent, _ := h.db.FleetLogcatSuggestions(r.Context(), 8)
+	productions, _ := h.db.ListProductions(r.Context())
+	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context())
 	targetSerials := make(map[uuid.UUID][]string)
 	for _, c := range pagedCmds {
@@ -4548,6 +4550,8 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Title":          "Commands",
 		"Commands":       pagedCmds,
 		"Groups":         groups,
+		"Productions":    productions,
+		"Builds":         builds,
 		"Apps":           apps,
 		"FleetPackages":  fleetPackages,
 		"Summaries":      summaries,
@@ -4561,6 +4565,45 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"PageSize":       pageSize,
 		"Total":          total,
 		"TotalPages":     totalPages,
+	})
+}
+
+// CommandBrowseDevices renders the filtered device picker for the command builder's
+// "Specific" target — the same filters as the Devices list and the new-group browser
+// (search, status, group, production, build, battery). Checking rows feeds the target
+// serial chips; "Select all matching" turns the current filter into the target set.
+func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
+	filter := db.DeviceFilter{
+		Search:              r.URL.Query().Get("q"),
+		Online:              r.URL.Query().Get("status"),
+		BuildID:             r.URL.Query().Get("build"),
+		Battery:             r.URL.Query().Get("battery"),
+		Kiosk:               r.URL.Query().Get("kiosk"),
+		ActiveThresholdSecs: h.cfg.CheckinInterval() * 3,
+	}
+	if gid := r.URL.Query().Get("group"); gid != "" {
+		if id, err := uuid.Parse(gid); err == nil {
+			filter.GroupID = id
+		}
+	}
+	if pid := r.URL.Query().Get("production"); pid != "" {
+		if id, err := uuid.Parse(pid); err == nil {
+			filter.ProductionID = id
+		}
+	}
+	devices, err := h.db.ListDevices(r.Context(), filter, 0, 500, "", "")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	connected := h.hub.ConnectedIDs()
+	online := make(map[uuid.UUID]bool, len(connected))
+	for id := range connected {
+		online[id] = true
+	}
+	h.tmpl.ExecuteTemplate(w, "cmd-device-browser", map[string]any{
+		"Devices": devices,
+		"Online":  online,
 	})
 }
 
@@ -6661,6 +6704,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
+	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	post("POST /commands", h.requireAuth(h.CommandCreate))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
