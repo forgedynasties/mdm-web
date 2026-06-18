@@ -31,7 +31,7 @@
       {{if .Deliveries}}
         {{range .Deliveries}}
         <tr>
-          <td class="mono">{{.SerialNumber}}</td>
+          <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
           <td style="white-space:nowrap;">
             <span class="status-badge {{statusClass .Status}}">{{.Status}}</span>
             {{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered"))}}
