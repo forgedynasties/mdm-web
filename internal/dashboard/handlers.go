@@ -4534,6 +4534,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
+	logcatRecent, logcatFrequent, _ := h.db.FleetLogcatSuggestions(r.Context(), 8)
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context())
 	targetSerials := make(map[uuid.UUID][]string)
 	for _, c := range pagedCmds {
@@ -4544,20 +4545,22 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.render(w, r, "commands.html", map[string]any{
-		"Title":         "Commands",
-		"Commands":      pagedCmds,
-		"Groups":        groups,
-		"Apps":          apps,
-		"FleetPackages": fleetPackages,
-		"Summaries":     summaries,
-		"TargetSerials": targetSerials,
-		"ShellRecent":   shellRecent,
-		"ShellPopular":  shellPopular,
-		"Prefill":       prefill,
-		"Page":          page,
-		"PageSize":      pageSize,
-		"Total":         total,
-		"TotalPages":    totalPages,
+		"Title":          "Commands",
+		"Commands":       pagedCmds,
+		"Groups":         groups,
+		"Apps":           apps,
+		"FleetPackages":  fleetPackages,
+		"Summaries":      summaries,
+		"TargetSerials":  targetSerials,
+		"ShellRecent":    shellRecent,
+		"ShellPopular":   shellPopular,
+		"LogcatRecent":   logcatRecent,
+		"LogcatFrequent": logcatFrequent,
+		"Prefill":        prefill,
+		"Page":           page,
+		"PageSize":       pageSize,
+		"Total":          total,
+		"TotalPages":     totalPages,
 	})
 }
 
