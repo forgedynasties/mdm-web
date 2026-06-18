@@ -4340,6 +4340,9 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "pending")
+	// If the deployment was already marked complete, re-pending one device would
+	// otherwise strand it (ResolveUpdateForDevice only serves status='active').
+	_ = h.db.ReactivateUpdate(r.Context(), did)
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.audit(r, "deployment.retry", r.PathValue("serial"), strconv.Itoa(did))
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)

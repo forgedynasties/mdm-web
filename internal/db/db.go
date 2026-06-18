@@ -5031,6 +5031,21 @@ ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','ope
 -- Dev sign-off on a release ("smoke-tested by dev, OK for QA to pick up").
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_by TEXT        NOT NULL DEFAULT '';
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_at TIMESTAMPTZ;
+
+-- Self-heal stranded deployments: a device retried/re-added under a deployment
+-- that was already marked 'complete' leaves the update 'complete' while the
+-- device sits in a non-terminal state, so ResolveUpdateForDevice (status='active'
+-- only) never serves it and it sits at "pending" forever. Reactivate any such
+-- deployment so its check-in resumes. Idempotent — once the device installs,
+-- CheckAndCompleteUpdate marks it complete again. (Excludes failed/canceled so
+-- they are not silently re-pushed.)
+UPDATE updates u SET status = 'active'
+WHERE u.status = 'complete'
+  AND EXISTS (
+    SELECT 1 FROM update_devices ud
+    WHERE ud.update_id = u.id
+      AND ud.status NOT IN ('installed', 'canceled', 'failed')
+  );
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -5565,7 +5580,10 @@ func (d *DB) SendUpdateToDevices(ctx context.Context, updateID int, deviceIDs []
 			ON CONFLICT DO NOTHING
 		`, updateID, did)
 	}
-	_, err := d.pool.Exec(ctx, `UPDATE updates SET status = 'active' WHERE id = $1 AND status = 'pending'`, updateID)
+	// Activate the deployment. Reactivate a 'complete' one too: adding targets to
+	// a finished deployment must re-arm it, or the new pending rows are stranded
+	// (ResolveUpdateForDevice only serves status='active').
+	_, err := d.pool.Exec(ctx, `UPDATE updates SET status = 'active' WHERE id = $1 AND status IN ('pending', 'complete')`, updateID)
 	return err
 }
 
@@ -5732,6 +5750,16 @@ func (d *DB) CheckAndCompleteUpdate(ctx context.Context, updateID int) error {
 			SELECT 1 FROM update_devices WHERE update_id = $1 AND status != 'installed'
 		)
 	`, updateID)
+	return err
+}
+
+// ReactivateUpdate flips a previously-completed update back to 'active'. Needed
+// when a device is retried or newly added under a deployment that
+// CheckAndCompleteUpdate already marked complete — otherwise
+// ResolveUpdateForDevice (which requires status='active') would never serve the
+// re-pending device and it would sit at "pending" forever.
+func (d *DB) ReactivateUpdate(ctx context.Context, updateID int) error {
+	_, err := d.pool.Exec(ctx, `UPDATE updates SET status = 'active' WHERE id = $1 AND status = 'complete'`, updateID)
 	return err
 }
 
