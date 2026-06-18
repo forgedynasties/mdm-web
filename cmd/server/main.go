@@ -79,6 +79,20 @@ func main() {
 		log.Printf("seed default alert rules: %v", err)
 	}
 
+	// Best-effort, non-fatal: heal deployments stranded 'complete' with a device
+	// still pending (so they resume on this device's next check-in). Kept out of
+	// RunMigrations so a data-reconciliation hiccup can never crash startup, and
+	// time-bounded so it can never stall startup waiting on a row lock (e.g. while
+	// the previous container is still draining during a deploy) — that stall is
+	// what turns into a 502 at the proxy. If it times out, the next boot retries.
+	recCtx, recCancel := context.WithTimeout(ctx, 10*time.Second)
+	if n, err := database.ReconcileStrandedUpdates(recCtx); err != nil {
+		log.Printf("reconcile stranded updates (skipped, non-fatal): %v", err)
+	} else if n > 0 {
+		log.Printf("reconcile stranded updates: reactivated %d deployment(s)", n)
+	}
+	recCancel()
+
 	hub := ws.NewHub()
 	shellMgr := shell.NewManager()
 	remoteMgr := remote.New(hub)
