@@ -327,6 +327,10 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 	store.MaxAge(cfg.SessionTimeout())
 
 	funcMap := template.FuncMap{
+		// canAdmin reports whether a role has operational admin power in the UI:
+		// both "admin" and "dev" do. Used to gate operational buttons/links;
+		// settings and user-management UI stay on a literal `eq .Role "admin"`.
+		"canAdmin": func(role string) bool { return role == "admin" || role == "dev" },
 		"batteryClass": func(pct int) string {
 			switch {
 			case pct < 20:
@@ -987,6 +991,10 @@ func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// requireAdmin guards operational admin routes (releases, OTA, productions,
+// restaurants, devices, commands, …). Both "admin" and "dev" pass: a dev has
+// full operational power and differs from admin only in being barred from
+// settings and user management — those use requireStrictAdmin instead.
 func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// An anonymous caller is redirected to login like any other protected
@@ -997,7 +1005,43 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
+		if s.Role != "admin" && s.Role != "dev" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		h.touchSession(r)
+		next(w, r)
+	}
+}
+
+// requireStrictAdmin guards the two areas a dev must never reach: settings and
+// user management. Only the env-configured "admin" passes.
+func (h *Handler) requireStrictAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
 		if s.Role != "admin" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		h.touchSession(r)
+		next(w, r)
+	}
+}
+
+// requireDev gates the release sign-off to the "dev" role only — the sign-off
+// asserts the developers tested the build at their end, so only a dev may set it.
+func (h *Handler) requireDev(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if s.Role != "dev" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -1013,7 +1057,7 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "admin" && s.Role != "operator" && s.Role != "tester" {
+		if s.Role != "admin" && s.Role != "dev" && s.Role != "operator" && s.Role != "tester" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -3393,6 +3437,8 @@ type versionRow struct {
 	PackageCount int
 	DeployCount  int
 	QA           db.QASummary // QA/test status; zero value (Total 0) when not tracked
+	SignedOffBy  string       // dev who signed off ("" = not signed off)
+	SignedOffAt  *time.Time
 }
 
 func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
@@ -3432,6 +3478,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.Tracked, row.ReleaseID, row.Name = true, &id, rel.Name
 			row.Status, row.Hidden = rel.Status, rel.Hidden
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
+			row.SignedOffBy, row.SignedOffAt = rel.SignedOffBy, rel.SignedOffAt
 			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
 		} else {
 			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
@@ -3449,6 +3496,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			Version: rel.Version, Tracked: true, ReleaseID: &id, Name: rel.Name,
 			Status: rel.Status, Hidden: rel.Hidden,
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
+			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
 		})
 	}
 	// Default order is alphabetical by version; any saved manual (drag) order takes
@@ -3780,6 +3828,37 @@ func (h *Handler) ReleasePublish(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "release.publish", strconv.Itoa(id), "")
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+}
+
+// ReleaseSignOff records the current dev's smoke-test sign-off on a release
+// ("tested at our end, OK for QA to pick up"). Dev-only (see requireDev).
+func (h *Handler) ReleaseSignOff(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetReleaseSignOff(r.Context(), id, h.currentUsername(r)); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.sign_off", strconv.Itoa(id), "")
+	http.Redirect(w, r, "/releases", http.StatusSeeOther)
+}
+
+// ReleaseClearSignOff revokes a previously recorded dev sign-off. Dev-only.
+func (h *Handler) ReleaseClearSignOff(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.ClearReleaseSignOff(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.sign_off_clear", strconv.Itoa(id), "")
+	http.Redirect(w, r, "/releases", http.StatusSeeOther)
 }
 
 // ── Test team / QA handlers ──────────────────────────────────────────────────
@@ -4641,13 +4720,13 @@ const (
 // every operator-allowed type — but never on the admin-only types (ota,
 // update_splash). They're also subject to the same OperatorAllows restriction.
 var commandRoles = map[string][]string{
-	"screenshot":    {"admin", "operator", "tester", "viewer"},
-	"install_apk":   {"admin", "operator", "tester"},
-	"uninstall":     {"admin", "operator", "tester"},
-	"reboot":        {"admin", "operator", "tester"},
-	"shell":         {"admin", "operator", "tester"},
-	"ota":           {"admin"},
-	"update_splash": {"admin"},
+	"screenshot":    {"admin", "dev", "operator", "tester", "viewer"},
+	"install_apk":   {"admin", "dev", "operator", "tester"},
+	"uninstall":     {"admin", "dev", "operator", "tester"},
+	"reboot":        {"admin", "dev", "operator", "tester"},
+	"shell":         {"admin", "dev", "operator", "tester"},
+	"ota":           {"admin", "dev"},
+	"update_splash": {"admin", "dev"},
 }
 
 // authorizeCommand reports whether role may issue a command of cmdType.
@@ -4700,7 +4779,7 @@ func (h *Handler) commandTypeAllowed(role, cmdType string) bool {
 // viewers must not see them, so the bucket name is not disclosed via command
 // reads (GB-05).
 func canSeeCommandURLs(role string) bool {
-	return role == "admin" || role == "operator" || role == "tester"
+	return role == "admin" || role == "dev" || role == "operator" || role == "tester"
 }
 
 // redactDeviceCommandURLs blanks the APK/OTA URL on a command-history slice for
@@ -6328,13 +6407,23 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// validUserRole reports whether role is a role an admin may assign to a DB user.
+// "admin" is excluded — it is env-configured only, never a DB user.
+func validUserRole(role string) bool {
+	switch role {
+	case "viewer", "operator", "tester", "dev":
+		return true
+	}
+	return false
+}
+
 func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
 	role := r.FormValue("role")
 
-	if username == "" || password == "" || (role != "viewer" && role != "operator" && role != "tester") {
+	if username == "" || password == "" || !validUserRole(role) {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
@@ -6375,7 +6464,7 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role := r.FormValue("role")
-	if role != "viewer" && role != "operator" && role != "tester" {
+	if !validUserRole(role) {
 		http.Error(w, "Invalid role", http.StatusBadRequest)
 		return
 	}
@@ -6487,30 +6576,30 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
 	post("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
 
-	mux.HandleFunc("GET /settings", h.requireAdmin(h.SettingsPage))
-	post("POST /settings/columns/add", h.requireAdmin(h.SettingsAddColumn))
-	post("POST /settings/columns/{key}/remove", h.requireAdmin(h.SettingsRemoveColumn))
-	post("POST /settings/legacy-checkin/toggle", h.requireAdmin(h.SettingsToggleLegacyCheckin))
-	post("POST /settings/shell/toggle", h.requireAdmin(h.SettingsToggleShell))
-	post("POST /settings/remote/toggle", h.requireAdmin(h.SettingsToggleRemote))
-	post("POST /settings/command-expiry", h.requireAdmin(h.SettingsSetCommandExpiry))
-	post("POST /settings/max-targets", h.requireAdmin(h.SettingsSetMaxTargets))
-	post("POST /settings/operator-perms", h.requireAdmin(h.SettingsSetOperatorPerms))
+	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
+	post("POST /settings/columns/add", h.requireStrictAdmin(h.SettingsAddColumn))
+	post("POST /settings/columns/{key}/remove", h.requireStrictAdmin(h.SettingsRemoveColumn))
+	post("POST /settings/legacy-checkin/toggle", h.requireStrictAdmin(h.SettingsToggleLegacyCheckin))
+	post("POST /settings/shell/toggle", h.requireStrictAdmin(h.SettingsToggleShell))
+	post("POST /settings/remote/toggle", h.requireStrictAdmin(h.SettingsToggleRemote))
+	post("POST /settings/command-expiry", h.requireStrictAdmin(h.SettingsSetCommandExpiry))
+	post("POST /settings/max-targets", h.requireStrictAdmin(h.SettingsSetMaxTargets))
+	post("POST /settings/operator-perms", h.requireStrictAdmin(h.SettingsSetOperatorPerms))
 	mux.HandleFunc("GET /audit", h.requireAdmin(h.AuditPage))
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
-	post("POST /settings/require-reason", h.requireAdmin(h.SettingsToggleRequireReason))
-	post("POST /settings/dashboard", h.requireAdmin(h.SettingsSetDashboard))
-	post("POST /settings/alert-webhook", h.requireAdmin(h.SettingsSetAlertWebhook))
-	post("POST /settings/alert-rules/{id}", h.requireAdmin(h.SettingsUpdateAlertRule))
-	post("POST /settings/service-window", h.requireAdmin(h.SettingsSetServiceWindow))
-	post("POST /settings/alert-channels", h.requireAdmin(h.SettingsSaveChannel))
-	post("POST /settings/alert-channels/{id}/test", h.requireAdmin(h.SettingsTestChannel))
-	post("POST /settings/alert-channels/{id}/delete", h.requireAdmin(h.SettingsDeleteChannel))
-	post("POST /settings/ai", h.requireAdmin(h.SettingsSetAI))
-	post("POST /settings/retention", h.requireAdmin(h.SettingsSetRetention))
-	post("POST /settings/session-timeout", h.requireAdmin(h.SettingsSetSessionTimeout))
-	post("POST /settings/logout-all", h.requireAdmin(h.SettingsLogoutAll))
-	post("POST /settings/checkin-interval", h.requireAdmin(h.SettingsSetCheckinInterval))
+	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
+	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))
+	post("POST /settings/alert-webhook", h.requireStrictAdmin(h.SettingsSetAlertWebhook))
+	post("POST /settings/alert-rules/{id}", h.requireStrictAdmin(h.SettingsUpdateAlertRule))
+	post("POST /settings/service-window", h.requireStrictAdmin(h.SettingsSetServiceWindow))
+	post("POST /settings/alert-channels", h.requireStrictAdmin(h.SettingsSaveChannel))
+	post("POST /settings/alert-channels/{id}/test", h.requireStrictAdmin(h.SettingsTestChannel))
+	post("POST /settings/alert-channels/{id}/delete", h.requireStrictAdmin(h.SettingsDeleteChannel))
+	post("POST /settings/ai", h.requireStrictAdmin(h.SettingsSetAI))
+	post("POST /settings/retention", h.requireStrictAdmin(h.SettingsSetRetention))
+	post("POST /settings/session-timeout", h.requireStrictAdmin(h.SettingsSetSessionTimeout))
+	post("POST /settings/logout-all", h.requireStrictAdmin(h.SettingsLogoutAll))
+	post("POST /settings/checkin-interval", h.requireStrictAdmin(h.SettingsSetCheckinInterval))
 
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
@@ -6533,6 +6622,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/publish", h.requireAdmin(h.ReleasePublish))
 	post("POST /releases/{id}/yank", h.requireAdmin(h.ReleaseYank))
 	post("POST /releases/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
+	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
+	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
 	post("POST /releases/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
 
 	// Test team / QA — base cases are managed inline on the Releases page (admin),
@@ -6547,10 +6638,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
 	post("POST /releases/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 
-	mux.HandleFunc("GET /users", h.requireAdmin(h.UserList))
-	post("POST /users", h.requireAdmin(h.UserCreate))
-	post("POST /users/{id}/role", h.requireAdmin(h.UserSetRole))
-	post("POST /users/{id}/delete", h.requireAdmin(h.UserDelete))
+	mux.HandleFunc("GET /users", h.requireStrictAdmin(h.UserList))
+	post("POST /users", h.requireStrictAdmin(h.UserCreate))
+	post("POST /users/{id}/role", h.requireStrictAdmin(h.UserSetRole))
+	post("POST /users/{id}/delete", h.requireStrictAdmin(h.UserDelete))
 
 	// Command output SSE
 	mux.HandleFunc("GET /commands/{id}/output/{serial}/stream", h.requireAuth(h.CommandOutputStream))

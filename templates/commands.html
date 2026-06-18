@@ -53,7 +53,7 @@
 .suggest-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
 </style>
 
-{{if or (eq .Role "admin") (eq .Role "operator")}}
+{{if or (canAdmin .Role) (eq .Role "operator")}}
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data">
   <div class="cmd-rail3 dv-rise-1">
 
@@ -78,7 +78,7 @@
       <div class="cr-rail-item" data-type="reboot" onclick="selectType('reboot', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot
       </div>
-      {{if eq .Role "admin"}}
+      {{if canAdmin .Role}}
       <div class="cr-rail-item" data-type="update_splash" onclick="selectType('update_splash', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo
       </div>
@@ -299,7 +299,7 @@
           <td class="muted small">{{timeSince .CreatedAt}}</td>
           <td style="display:flex;gap:8px;align-items:center;">
             <a href="/commands/{{.ID}}" class="link-detail">View</a>
-            {{if eq $.Role "admin"}}
+            {{if canAdmin $.Role}}
             <form action="/commands/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
               <button type="submit" class="btn-link" style="color:var(--danger);">Delete</button>
             </form>

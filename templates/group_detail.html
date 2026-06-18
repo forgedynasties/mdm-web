@@ -28,7 +28,7 @@
   <div class="chart-wrap chart-wrap--tall"><canvas id="gtrendsChart"></canvas></div>
 </div>
 
-{{if eq .Role "admin"}}
+{{if canAdmin .Role}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this);}" style="cursor:pointer;user-select:none;">
     <div style="display:flex;align-items:center;gap:8px;">
@@ -88,7 +88,7 @@
         <th>Release version</th>
         <th>Battery</th>
         <th>Last Seen</th>
-        {{if eq .Role "admin"}}<th></th>{{end}}
+        {{if canAdmin .Role}}<th></th>{{end}}
       </tr>
     </thead>
     <tbody>
@@ -106,7 +106,7 @@
             </div>
           </td>
           <td class="muted">{{timeSince .LastSeenAt}}</td>
-          {{if eq $.Role "admin"}}
+          {{if canAdmin $.Role}}
           <td>
             <form action="/groups/{{$.Group.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline">
               <button type="submit" class="btn-danger-sm">Remove</button>
