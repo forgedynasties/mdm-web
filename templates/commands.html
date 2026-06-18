@@ -231,6 +231,27 @@
             <div id="cmd-chips" class="cmd-chips"></div>
             <textarea name="target_serials" id="cmd-serials" class="form-textarea" placeholder="paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="cmdRenderChips();updatePreview()" style="display:none;font-family:var(--mono);font-size:12px;"></textarea>
             <button type="button" class="btn-link small" id="cmd-edit-list" onclick="cmdToggleList()">Edit as list ▾</button>
+
+            <div class="cmd-browse" style="margin-top:14px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span class="cr-sec-title" style="margin:0;">Browse &amp; filter</span>
+                <button type="button" class="btn-outline btn-sm" onclick="cmdSelectAllMatching()">Select all matching</button>
+              </div>
+              <div class="filter-bar" style="margin:0;border-bottom:none;flex-wrap:wrap;gap:8px;">
+                <div class="filter-search" style="min-width:150px;">
+                  <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+                  <input type="search" id="cmd-browse-q" class="filter-search-input" placeholder="Search serial..." oninput="cmdBrowseDebounced()">
+                </div>
+                <select id="cmd-browse-status" class="filter-select" onchange="cmdBrowseReload()"><option value="">Status</option><option value="online">Online</option><option value="offline">Offline</option></select>
+                <select id="cmd-browse-group" class="filter-select" onchange="cmdBrowseReload()"><option value="">Group</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+                <select id="cmd-browse-production" class="filter-select" onchange="cmdBrowseReload()"><option value="">Production</option>{{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+                <select id="cmd-browse-build" class="filter-select" onchange="cmdBrowseReload()"><option value="">Release</option>{{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+                <select id="cmd-browse-battery" class="filter-select" onchange="cmdBrowseReload()"><option value="">Battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select>
+                <button type="button" class="filter-clear" onclick="cmdBrowseClear()">Clear</button>
+              </div>
+              <div id="cmd-device-browser" style="max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:var(--r-3);margin-top:8px;"
+                   hx-get="/commands/browse-devices" hx-trigger="load" hx-target="#cmd-device-browser" hx-swap="innerHTML"></div>
+            </div>
           </div>
         </div>
 
@@ -500,7 +521,38 @@ function cmdRenderChips() {
     chip.appendChild(b);
     box.appendChild(chip);
   });
+  cmdSyncBrowserChecks();
 }
+
+// ── Filtered device browser (same filters as the Devices list / new-group browse) ──
+var cmdBrowseTimer;
+function cmdBrowseDebounced() { clearTimeout(cmdBrowseTimer); cmdBrowseTimer = setTimeout(cmdBrowseReload, 300); }
+function cmdBrowseParams() {
+  var map = { q:'cmd-browse-q', status:'cmd-browse-status', group:'cmd-browse-group', production:'cmd-browse-production', build:'cmd-browse-build', battery:'cmd-browse-battery' };
+  var p = new URLSearchParams();
+  for (var k in map) { var el = document.getElementById(map[k]); if (el && el.value) p.set(k, el.value); }
+  return p;
+}
+function cmdBrowseReload() { if (window.htmx) htmx.ajax('GET', '/commands/browse-devices?' + cmdBrowseParams().toString(), '#cmd-device-browser'); }
+function cmdBrowseClear() {
+  ['cmd-browse-q','cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'].forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
+  cmdBrowseReload();
+}
+function cmdToggleDevice(cb) {
+  if (cb.checked) cmdAddSerial(cb.value);
+  else cmdSetSerials(cmdSerials().filter(function (s) { return s !== cb.value; }));
+}
+function cmdSelectAllMatching() {
+  var add = [];
+  document.querySelectorAll('#cmd-device-browser .cmd-browse-cb').forEach(function (cb) { cb.checked = true; add.push(cb.value); });
+  cmdSetSerials(cmdSerials().concat(add));
+}
+function cmdSyncBrowserChecks() {
+  var sel = {}; cmdSerials().forEach(function (s) { sel[s] = 1; });
+  document.querySelectorAll('#cmd-device-browser .cmd-browse-cb').forEach(function (cb) { cb.checked = !!sel[cb.value]; });
+}
+document.body.addEventListener('htmx:afterSwap', function (e) { if (e.target && e.target.id === 'cmd-device-browser') cmdSyncBrowserChecks(); });
+
 function cmdToggleList() {
   var ta = document.getElementById('cmd-serials');
   var on = ta.style.display === 'none';
@@ -754,4 +806,25 @@ window.CMD_PREFILL = {{.Prefill}};
   </div>
   {{end}}
 {{end}}
+{{end}}
+
+{{define "cmd-device-browser"}}
+<table class="table" style="margin:0;">
+  <thead><tr><th style="width:34px;"></th><th>Serial</th><th>Release</th><th>Battery</th><th>Last seen</th></tr></thead>
+  <tbody>
+    {{if .Devices}}
+      {{range .Devices}}
+      <tr>
+        <td><input type="checkbox" class="cmd-browse-cb" value="{{.SerialNumber}}" onchange="cmdToggleDevice(this)"></td>
+        <td class="mono" style="white-space:nowrap;"><span class="ws-dot {{if index $.Online .ID}}online{{end}}"></span><a href="/devices/{{.SerialNumber}}" class="link-detail" target="_blank" rel="noopener">{{.SerialNumber}}</a></td>
+        <td class="mono small">{{.BuildID}}</td>
+        <td class="small">{{if .BatteryPct}}{{.BatteryPct}}%{{else}}<span class="muted">—</span>{{end}}</td>
+        <td class="muted small" style="white-space:nowrap;">{{timeSince .LastSeenAt}}</td>
+      </tr>
+      {{end}}
+    {{else}}
+      <tr><td colspan="5" class="muted small" style="padding:14px;">No devices match these filters.</td></tr>
+    {{end}}
+  </tbody>
+</table>
 {{end}}
