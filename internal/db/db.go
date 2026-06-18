@@ -5010,8 +5010,12 @@ CREATE TABLE IF NOT EXISTS version_order (
 
 -- Test team (QA): widen the user role check to allow a 'tester' account. Drop-then-add
 -- keeps it idempotent across restarts (the inline constraint is auto-named users_role_check).
+-- NOTE: this re-ADD re-validates every existing row on every boot, so its role list
+-- must contain EVERY role that can exist in the table — including ones added by later
+-- statements (e.g. 'dev' below). A narrower list here fails validation against a row a
+-- later statement legitimately allows, crashing the migration. Keep this the full set.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','dev'));
 
 -- Test cases: a reusable library plus per-release cases. base=true cases are checked on
 -- every release; base=false cases belong to one release (release_id set). active=false
