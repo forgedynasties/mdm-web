@@ -109,11 +109,11 @@
       <button type="submit" class="btn-outline">Resend to All Targets</button>
     </form>
     {{end}}
-    {{if or (eq .Role "admin") (eq .Role "operator")}}
+    {{if or (canAdmin .Role) (eq .Role "operator")}}
     <a href="/commands?clone={{.Command.ID}}" class="btn-outline" title="Open the builder prefilled with this command — tweak and send a new one">Duplicate &amp; edit</a>
     <a href="/commands" class="btn-outline">New command</a>
     {{end}}
-    {{if eq .Role "admin"}}
+    {{if canAdmin .Role}}
     <form action="/commands/{{.Command.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
       <button type="submit" class="btn-danger">Delete Command</button>
     </form>

@@ -47,7 +47,7 @@
         <th>Alert</th>
         <th>When</th>
         <th>Status</th>
-        {{if or (eq .Role "admin") (eq .Role "operator")}}<th></th>{{end}}
+        {{if or (canAdmin .Role) (eq .Role "operator")}}<th></th>{{end}}
       </tr>
     </thead>
     <tbody>
@@ -67,7 +67,7 @@
         <td>
           <span class="status-badge {{if eq .Status "open"}}warn{{else if eq .Status "resolved"}}ok{{else}}muted{{end}}">{{.Status}}</span>
         </td>
-        {{if or (eq $.Role "admin") (eq $.Role "operator")}}
+        {{if or (canAdmin $.Role) (eq $.Role "operator")}}
         <td style="white-space:nowrap;">
           {{if eq .Status "open"}}
           <form action="/alerts/{{.ID}}/ack" method="POST" style="display:inline">

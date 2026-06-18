@@ -113,6 +113,8 @@ type Release struct {
 	SkipBaseTests bool       `json:"skip_base_tests"` // QA tests only release-specific cases, not base
 	CreatedAt     time.Time  `json:"created_at"`
 	PublishedAt   *time.Time `json:"published_at"`
+	SignedOffBy   string     `json:"signed_off_by"` // dev who smoke-tested; "" when not signed off
+	SignedOffAt   *time.Time `json:"signed_off_at"`
 	PackageCount  int        `json:"package_count,omitempty"` // populated by ListReleases
 	DeployCount   int        `json:"deploy_count,omitempty"`  // populated by ListReleases
 }
@@ -5020,6 +5022,15 @@ CREATE TABLE IF NOT EXISTS release_test_results (
 -- When true, the release's QA checklist skips base (standard) cases and only its
 -- own release-specific cases apply.
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS skip_base_tests BOOLEAN NOT NULL DEFAULT false;
+
+-- 'dev' role: full operational access (releases, OTA, devices, …) but NOT settings
+-- or user management; it is also the only role allowed to sign off a release.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','dev'));
+
+-- Dev sign-off on a release ("smoke-tested by dev, OK for QA to pick up").
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_by TEXT        NOT NULL DEFAULT '';
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_at TIMESTAMPTZ;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -5135,6 +5146,7 @@ func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT r.id, r.version, r.name, r.changelog, r.status, r.hidden, r.created_at, r.published_at,
+		       r.signed_off_by, r.signed_off_at,
 		       COUNT(DISTINCT p.id) AS package_count,
 		       COUNT(DISTINCT u.id) AS deploy_count
 		FROM releases r
@@ -5150,7 +5162,7 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.PackageCount, &r.DeployCount); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.PackageCount, &r.DeployCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -5348,6 +5360,19 @@ func (d *DB) SetReleaseStatus(ctx context.Context, id int, status string) error 
 		    published_at = CASE WHEN $2 = 'published' AND published_at IS NULL THEN NOW() ELSE published_at END
 		WHERE id = $1
 	`, id, status)
+	return err
+}
+
+// SetReleaseSignOff records a dev's smoke-test sign-off on a release (the
+// "tested at our end, OK for QA" gate). signer is the dev's username.
+func (d *DB) SetReleaseSignOff(ctx context.Context, id int, signer string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET signed_off_by = $2, signed_off_at = NOW() WHERE id = $1`, id, signer)
+	return err
+}
+
+// ClearReleaseSignOff revokes a previously recorded dev sign-off.
+func (d *DB) ClearReleaseSignOff(ctx context.Context, id int) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET signed_off_by = '', signed_off_at = NULL WHERE id = $1`, id)
 	return err
 }
 

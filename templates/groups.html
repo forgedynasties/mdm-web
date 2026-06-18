@@ -4,7 +4,7 @@
 <div class="ov-greet">
   <h1 class="ov-title">Groups</h1>
   <span class="ov-date">{{len .Groups}} group{{if ne (len .Groups) 1}}s{{end}} · device cohorts</span>
-  {{if and .Groups (eq .Role "admin")}}
+  {{if and .Groups (canAdmin .Role)}}
   <a href="/groups/new" class="btn-outline btn-plus" style="margin-left:auto;" title="New Group"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></a>
   {{end}}
 </div>
@@ -17,7 +17,7 @@
       <div class="empty-state-title">No groups yet</div>
       <div class="empty-state-text">Create a group to target commands and exports faster.</div>
     </div>
-    {{if eq .Role "admin"}}
+    {{if canAdmin .Role}}
     <div class="empty-state-actions">
       <a href="/groups/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</a>
     </div>
@@ -47,7 +47,7 @@
       <span>created {{localTime .CreatedAt}}</span>
       {{if gt $h.DeployedCount 0}}<span class="gp-chip">{{$h.DeployedCount}} deployed</span>{{end}}
     </div>
-    {{if eq $.Role "admin"}}
+    {{if canAdmin $.Role}}
     <form action="/groups/{{.ID}}/delete" method="POST" class="gp-del"
           onsubmit="return confirm('Delete group {{.Name}}?')">
       <button type="submit" class="btn-danger-sm" title="Delete group">x</button>

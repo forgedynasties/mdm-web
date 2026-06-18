@@ -138,7 +138,7 @@
         <a class="ov-qact" href="/devices">
           <span class="qi c2"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><rect x="4" y="15" width="16" height="6" rx="2"/></svg></span>
           <span class="qt">Export fleet</span><span class="qd">select devices, export CSV</span></a>
-        {{if eq .Role "admin"}}
+        {{if canAdmin .Role}}
         <a class="ov-qact" href="/audit">
           <span class="qi c3"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v4"/><path d="M21 12h-4"/></svg></span>
           <span class="qt">Audit log</span><span class="qd">who did what, when</span></a>
