@@ -240,7 +240,7 @@ document.body.addEventListener('htmx:afterSwap', function(e){ if(e.target && e.t
 {{if .Devices}}
   {{range .Devices}}
   <div class="rd-row" data-serial="{{.SerialNumber}}">
-    <span class="sn">{{.SerialNumber}}</span>
+    <span class="sn"><a href="/devices/{{.SerialNumber}}" class="link-detail" target="_blank" rel="noopener">{{.SerialNumber}}</a></span>
     {{if .RestaurantName}}<span class="rd-where">{{.RestaurantName}}</span>{{else}}<span class="rd-where lab">lab</span>{{end}}
     <span class="meta">
       <span>{{.BatteryPct}}%</span>

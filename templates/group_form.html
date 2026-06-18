@@ -211,7 +211,7 @@ updateSelectedUI();
       <tr>
         <td><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" onchange="toggleDeviceInGroup(this)"></td>
         <td class="mono" style="white-space:nowrap;">
-          <span class="ws-dot {{if index $.Online .ID}}online{{end}}"></span>{{.SerialNumber}}
+          <span class="ws-dot {{if index $.Online .ID}}online{{end}}"></span><a href="/devices/{{.SerialNumber}}" class="link-detail" target="_blank" rel="noopener">{{.SerialNumber}}</a>
         </td>
         <td class="mono small">{{.BuildID}}</td>
         <td>

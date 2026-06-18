@@ -49,7 +49,7 @@
   <div class="shell-nav">
     <a href="/devices/{{.Serial}}" class="dd-icon-btn" title="Back to device" aria-label="Back to device"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></a>
     <span class="shell-title"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Interactive Shell</span>
-    <span class="shell-serial">{{.Serial}}</span>
+    <span class="shell-serial"><a href="/devices/{{.Serial}}" class="link-detail">{{.Serial}}</a></span>
     <span id="status" class="shell-status connecting">connecting…</span>
   </div>
   <div id="terminal-wrap">

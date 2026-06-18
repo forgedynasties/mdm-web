@@ -63,7 +63,7 @@
 
   <div id="remote-screen">
     <div id="remote-placeholder" class="remote-disconnected">
-      <h3>{{.Serial}}</h3>
+      <h3><a href="/devices/{{.Serial}}" class="link-detail">{{.Serial}}</a></h3>
       {{if .Online}}
       <p>Connecting…</p>
       {{else}}
