@@ -17,6 +17,20 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.12.0",
+		Date:    "2026-06-18",
+		Changes: []string{
+			"New Logs page: recent logcat captures across the whole fleet, plus your most-used capture presets.",
+			"Capture logs from the New Command page — pull logcat from all devices, a group, or specific serials at once, with quick chips for recent and frequent presets.",
+			"Retry any past log capture in one click from a device's Logcat page.",
+			"Every device serial across the dashboard is now clickable and jumps straight to that device.",
+			"Device search boxes now look and behave the same everywhere (and the restaurant device-assignment search filters as you type again).",
+			"New Dev account type: full access to releases, OTA, devices and commands, but not settings or user management.",
+			"Releases now carry a developer sign-off — a dev marks a build “smoke-tested, OK for QA”, shown as a badge on the Releases list.",
+			"Fixed OTA updates that could stay stuck on “pending” after a retry, and a deploy hiccup that could briefly show a 502.",
+		},
+	},
+	{
 		Version: "1.11.0",
 		Date:    "2026-06-16",
 		Changes: []string{
