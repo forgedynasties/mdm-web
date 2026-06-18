@@ -7,7 +7,7 @@
   <span class="ov-date"><span class="mono">{{.Production.FirstSerial}}</span> → <span class="mono">{{.Production.LastSerial}}</span></span>
   <span class="acts">
     <a href="/productions/{{.Production.ID}}/export.csv" class="btn-outline">Export CSV</a>
-    {{if eq .Role "admin"}}
+    {{if canAdmin .Role}}
     <form action="/productions/{{.Production.ID}}/delete" method="POST" onsubmit="return confirm('Delete this production? This cannot be undone.');">
       <button type="submit" class="btn-danger">Delete</button>
     </form>

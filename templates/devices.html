@@ -5,7 +5,7 @@
   </label>
   <div class="bulk-actions" id="bulk-bar" style="display:none;">
     <span class="bulk-count" id="bulk-count">0 selected</span>
-    {{if eq .Role "admin"}}
+    {{if canAdmin .Role}}
     <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
           onsubmit="return confirmBulkHide(event)">
       <button type="submit" class="btn-danger-sm">Hide Selected</button>
@@ -96,7 +96,7 @@
         <td class="muted small">{{localTime .CreatedAt}}</td>
         <td style="white-space:nowrap;">
           <a href="/devices/{{.SerialNumber}}" class="link-detail">View</a>
-          {{if eq $.Role "admin"}}
+          {{if canAdmin $.Role}}
           <form action="/devices/{{.SerialNumber}}/hide" method="POST" style="display:inline;margin-left:6px;"
                 onsubmit="return confirm('Hide {{.SerialNumber}}? It will reappear on next check-in.')">
             <button type="submit" class="btn-danger-sm" title="Hide device">x</button>

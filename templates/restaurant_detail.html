@@ -9,7 +9,7 @@
     {{if .Restaurant.Address}} · {{.Restaurant.Address}}{{end}}
     {{if .Restaurant.Timezone}} · {{.Restaurant.Timezone}}{{end}}
   </span>
-  {{if eq .Role "admin"}}
+  {{if canAdmin .Role}}
   <span class="acts" style="margin-left:auto;display:flex;gap:8px;">
     <a href="/restaurants/{{.Restaurant.ID}}/edit" class="btn-outline">Edit</a>
     <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST"
@@ -28,7 +28,7 @@
 {{end}}
 
 <!-- Service hours -->
-{{if eq .Role "admin"}}
+{{if canAdmin .Role}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>Service hours</h3>
@@ -78,7 +78,7 @@
 </div>
 
 <!-- Assign devices -->
-{{if eq .Role "admin"}}
+{{if canAdmin .Role}}
 <style>
 .rd-results{border:1px solid var(--border);border-radius:var(--r-3);max-height:300px;overflow:auto;margin-top:8px;}
 .rd-row{display:flex;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid var(--border-soft);font-size:13px;}
@@ -95,8 +95,13 @@
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Assign devices</h3><span class="muted small">unassigned (lab) devices shown first</span></div>
   <form action="/restaurants/{{.Restaurant.ID}}/devices" method="POST" style="padding:16px 20px;">
-    <input type="text" id="rd-search" class="form-input" autocomplete="off" placeholder="Search devices by serial…" style="width:100%;box-sizing:border-box;"
-           hx-get="/restaurants/{{.Restaurant.ID}}/device-picker" hx-trigger="load, keyup changed delay:200ms, focus" hx-target="#rd-results">
+    <div class="filter-search" style="width:100%;box-sizing:border-box;">
+      <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+      </svg>
+      <input type="search" id="rd-search" name="q" class="filter-search-input" autocomplete="off" placeholder="Search devices by serial…"
+             hx-get="/restaurants/{{.Restaurant.ID}}/device-picker" hx-trigger="load, keyup changed delay:200ms, search, focus" hx-target="#rd-results">
+    </div>
     <div id="rd-results" class="rd-results"></div>
     <div id="rd-chips" class="rd-chips"></div>
     <textarea name="serials" id="rd-serials" style="display:none;"></textarea>
@@ -138,7 +143,7 @@ document.body.addEventListener('htmx:afterSwap', function(e){ if(e.target && e.t
   {{else}}
   <table class="table">
     <thead>
-      <tr><th>Serial Number</th><th>Release version</th><th>Battery</th><th>Last Seen</th>{{if eq .Role "admin"}}<th></th>{{end}}</tr>
+      <tr><th>Serial Number</th><th>Release version</th><th>Battery</th><th>Last Seen</th>{{if canAdmin .Role}}<th></th>{{end}}</tr>
     </thead>
     <tbody>
       {{range .Devices}}
@@ -152,7 +157,7 @@ document.body.addEventListener('htmx:afterSwap', function(e){ if(e.target && e.t
           </div>
         </td>
         <td class="muted">{{timeSince .LastSeenAt}}</td>
-        {{if eq $.Role "admin"}}
+        {{if canAdmin $.Role}}
         <td>
           <form action="/restaurants/{{$.Restaurant.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline">
             <button type="submit" class="btn-danger-sm">Remove</button>

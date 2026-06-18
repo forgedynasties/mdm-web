@@ -4,7 +4,7 @@
 <div class="ov-greet">
   <h1 class="ov-title">Productions</h1>
   <span class="ov-date">{{len .Productions}} production run{{if ne (len .Productions) 1}}s{{end}}</span>
-  {{if and .Productions (or (eq .Role "admin") (eq .Role "operator"))}}<span class="acts"><a href="/productions/new" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Production</a></span>{{end}}
+  {{if and .Productions (or (canAdmin .Role) (eq .Role "operator"))}}<span class="acts"><a href="/productions/new" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Production</a></span>{{end}}
 </div>
 
 <div class="card dv-rise-1">
@@ -15,7 +15,7 @@
       <div class="empty-state-title">No productions yet</div>
       <div class="empty-state-text">Create a production run to track serial number ranges and monitor which units have connected to AIO MDM.</div>
     </div>
-    {{if or (eq .Role "admin") (eq .Role "operator")}}
+    {{if or (canAdmin .Role) (eq .Role "operator")}}
     <div class="empty-state-actions">
       <a href="/productions/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Production</a>
     </div>
@@ -68,7 +68,7 @@
         <td class="muted small">{{localTime .CreatedAt}}</td>
         <td style="display:flex;gap:8px;justify-content:flex-end;">
           <a href="/productions/{{.ID}}/export.csv" class="btn-outline-sm">Export CSV</a>
-          {{if eq $.Role "admin"}}
+          {{if canAdmin $.Role}}
           <form action="/productions/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this production? This cannot be undone.');">
             <button type="submit" class="btn-danger-sm">Delete</button>
           </form>

@@ -4,7 +4,7 @@
 <div class="ov-greet">
   <h1 class="ov-title">Releases</h1>
   <span class="ov-date">{{.TrackedCount}} tracked · {{.NotTrackedCount}} not tracked{{if .HiddenReleases}} · {{len .HiddenReleases}} hidden{{end}}</span>
-  {{if eq .Role "admin"}}
+  {{if canAdmin .Role}}
   <span class="acts">
     <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
       + New Release
@@ -18,20 +18,21 @@
   <table class="table">
     <thead>
       <tr>
-        {{if eq .Role "admin"}}<th style="width:22px;"></th>{{end}}
+        {{if canAdmin .Role}}<th style="width:22px;"></th>{{end}}
         <th>Version</th>
         <th>Tracking</th>
         <th>Name</th>
         <th>Devices</th>
         <th>Pkg / Dep</th>
         <th>Test</th>
+        <th>Sign-off</th>
         <th></th>
       </tr>
     </thead>
     <tbody id="versions-tbody">
       {{range .Versions}}
-      <tr data-version="{{.Version}}" {{if eq $.Role "admin"}}draggable="true"{{end}} {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
-        {{if eq $.Role "admin"}}<td class="drag-handle" style="cursor:grab;color:var(--muted);text-align:center;user-select:none;" title="Drag to reorder">⠿</td>{{end}}
+      <tr data-version="{{.Version}}" {{if canAdmin $.Role}}draggable="true"{{end}} {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
+        {{if canAdmin $.Role}}<td class="drag-handle" style="cursor:grab;color:var(--muted);text-align:center;user-select:none;" title="Drag to reorder">⠿</td>{{end}}
         <td class="mono small">{{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="link-detail">{{.Version}}</a>{{else}}{{.Version}}{{end}}</td>
         <td>
           {{if .Tracked}}<span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>
@@ -48,10 +49,28 @@
             {{else}}<span class="muted">no cases</span>{{end}}
           {{else}}<span class="muted">—</span>{{end}}
         </td>
+        <td class="small">
+          {{if .Tracked}}
+            {{if .SignedOffBy}}
+            <span class="status-badge ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>
+            {{if eq $.Role "dev"}}
+            <form action="/releases/{{.ReleaseID}}/sign-off/clear" method="POST" style="display:inline;">
+              <button type="submit" class="btn-outline btn-sm" title="Revoke this dev sign-off">Revoke</button>
+            </form>
+            {{end}}
+            {{else}}
+            {{if eq $.Role "dev"}}
+            <form action="/releases/{{.ReleaseID}}/sign-off" method="POST" style="display:inline;">
+              <button type="submit" class="btn-primary btn-sm" title="Mark as smoke-tested by dev — signals QA it's OK to pick up">Sign off</button>
+            </form>
+            {{else}}<span class="status-badge warn" title="Awaiting dev sign-off before QA">pending</span>{{end}}
+            {{end}}
+          {{else}}<span class="muted">—</span>{{end}}
+        </td>
         <td style="white-space:nowrap;text-align:right;">
           {{if .Tracked}}
           <a href="/releases/{{.ReleaseID}}" class="link-detail">View</a>
-          {{if eq $.Role "admin"}}
+          {{if canAdmin $.Role}}
           <form action="/releases/{{.ReleaseID}}/hide" method="POST" style="display:inline;">
             <input type="hidden" name="hidden" value="1">
             <button type="submit" class="btn-outline" title="Hide from the list">Hide</button>
@@ -65,7 +84,7 @@
           <button type="button" class="btn-danger-sm" disabled style="opacity:0.45;cursor:not-allowed;" title="{{.DeviceCount}} device(s) still running this version — yank or hide it instead">Delete</button>
           {{end}}
           {{end}}
-          {{else if eq $.Role "admin"}}
+          {{else if canAdmin $.Role}}
           <form action="/releases/track" method="POST" style="display:inline;">
             <input type="hidden" name="version" value="{{.Version}}">
             <button type="submit" class="btn-primary" title="Create a draft release for this version and add a changelog / packages">+ Add as release</button>
@@ -89,7 +108,7 @@
       <div class="empty-state-title">No releases or device versions yet</div>
       <div class="empty-state-text">Create a release to manage firmware, or versions will appear here as devices report them.</div>
     </div>
-    {{if eq .Role "admin"}}
+    {{if canAdmin .Role}}
     <div class="empty-state-actions">
       <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Release
@@ -118,7 +137,7 @@
           <td style="white-space:nowrap;text-align:right;">
             {{if .Tracked}}
             <a href="/releases/{{.ReleaseID}}" class="link-detail">View</a>
-            {{if eq $.Role "admin"}}
+            {{if canAdmin $.Role}}
             <form action="/releases/{{.ReleaseID}}/hide" method="POST" style="display:inline;">
               <input type="hidden" name="hidden" value="0">
               <button type="submit" class="btn-outline" title="Show again">Unhide</button>
@@ -132,7 +151,7 @@
             <button type="button" class="btn-danger-sm" disabled style="opacity:0.45;cursor:not-allowed;" title="{{.DeviceCount}} device(s) still running this version — yank or hide it instead">Delete</button>
             {{end}}
             {{end}}
-            {{else if eq $.Role "admin"}}
+            {{else if canAdmin $.Role}}
             <form action="/releases/version/unhide" method="POST" style="display:inline;">
               <input type="hidden" name="version" value="{{.Version}}">
               <button type="submit" class="btn-outline" title="Show again">Unhide</button>
@@ -147,7 +166,7 @@
 </div>
 {{end}}
 
-{{if eq .Role "admin"}}
+{{if canAdmin .Role}}
 <!-- Base (standard) test cases — checked on every release. Managed inline here so
      there's no separate Testing/Test-cases tab. -->
 <div class="card dv-rise-1" style="margin-top:16px;">
