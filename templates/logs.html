@@ -1,0 +1,66 @@
+{{define "logs.html"}}
+{{template "header" .}}
+
+<div class="ov-greet">
+  <h1 class="ov-title">Logs</h1>
+  <span class="ov-date">Recent logcat captures across the fleet</span>
+  {{if canAdmin .Role}}
+  <span class="acts" style="margin-left:auto;">
+    <a href="/commands?ctype=logcat" class="btn-primary">
+      <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Capture logs
+    </a>
+  </span>
+  {{end}}
+</div>
+
+{{if .Frequent}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Frequent capture presets</h3><span class="muted small">across all devices{{if canAdmin .Role}} · click to capture{{end}}</span></div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px;">
+    {{range .Frequent}}
+    {{if canAdmin $.Role}}
+    <a href="/commands?ctype=logcat&amp;level={{.Level}}&amp;lines={{.Lines}}&amp;tag={{urlquery .Tag}}"
+       title="Capture with level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}"
+       style="display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:5px 10px;text-decoration:none;color:var(--text);">
+      <span>{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</span>
+      <span class="muted small">{{.Count}}×</span>
+    </a>
+    {{else}}
+    <span style="display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:5px 10px;color:var(--text);">
+      <span>{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</span>
+      <span class="muted small">{{.Count}}×</span>
+    </span>
+    {{end}}
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+<div class="card">
+  <div class="card-header"><h3>Recent captures</h3></div>
+  {{if not .Recent}}
+  <div class="empty" style="padding:24px;">No logcat captures yet. Use “Capture logs” to request logs from devices, or open any device's Logcat page.</div>
+  {{else}}
+  <table class="table">
+    <thead>
+      <tr><th>When</th><th>Device</th><th>Level</th><th>Lines</th><th>Tag</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody>
+      {{range .Recent}}
+      <tr>
+        <td class="muted small" style="white-space:nowrap;">{{timeSince .CreatedAt}}</td>
+        <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
+        <td><span class="status-badge logcat-level-{{.Level}}">{{.Level}}</span></td>
+        <td class="muted small">{{.Lines}}</td>
+        <td class="mono small">{{if .Tag}}{{.Tag}}{{else}}<span class="muted">—</span>{{end}}</td>
+        <td><span class="status-badge {{logcatStatusClass .Status}}">{{.Status}}</span></td>
+        <td style="text-align:right;"><a href="/devices/{{.SerialNumber}}/logcat" class="link-detail">view</a></td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}

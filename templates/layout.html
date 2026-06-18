@@ -39,6 +39,7 @@
       {{end}}
       <a href="/commands" class="nav-link{{if eq .ActivePage "commands"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>Commands</a>
       <a href="/releases" class="nav-link{{if eq .ActivePage "releases"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>Releases</a>
+      <a href="/logs" class="nav-link{{if eq .ActivePage "logs"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v4H4z"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Logs</a>
       <a href="/fleet-health" class="nav-link{{if eq .ActivePage "health"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span>Health</a>
       <a href="/alerts" class="nav-link{{if eq .ActivePage "alerts"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>Alerts{{if gt .AlertsOpenCount 0}}<span class="nav-badge">{{.AlertsOpenCount}}</span>{{end}}</a>
       {{if canAdmin .Role}}

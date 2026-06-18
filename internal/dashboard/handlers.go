@@ -958,6 +958,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
 		data["ActivePage"] = "settings"
+	case strings.HasPrefix(path, "/logs"):
+		data["ActivePage"] = "logs"
 	case strings.HasPrefix(path, "/audit"):
 		data["ActivePage"] = "audit"
 	case strings.HasPrefix(path, "/users"):
@@ -4730,6 +4732,7 @@ var commandRoles = map[string][]string{
 	"shell":         {"admin", "dev", "operator", "tester"},
 	"ota":           {"admin", "dev"},
 	"update_splash": {"admin", "dev"},
+	"logcat":        {"admin", "dev"},
 }
 
 // authorizeCommand reports whether role may issue a command of cmdType.
@@ -4827,6 +4830,13 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	targetType := r.FormValue("target_type")
 	if targetType != "all" && targetType != "devices" && targetType != "groups" {
 		http.Redirect(w, r, "/commands", http.StatusFound)
+		return
+	}
+
+	// "logcat" is not a real device command — it fans a log capture out to the
+	// selected targets via the logcat_requests mechanism and returns to /logs.
+	if cmdType == "logcat" {
+		h.captureLogsForTargets(w, r, targetType)
 		return
 	}
 
@@ -6068,15 +6078,7 @@ func (h *Handler) LogcatRequestCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.ParseForm()
-	level := r.FormValue("level")
-	if level != "V" && level != "D" && level != "I" && level != "W" && level != "E" {
-		level = "W"
-	}
-	lines := 500
-	if n, err := strconv.Atoi(r.FormValue("lines")); err == nil && n > 0 && n <= 5000 {
-		lines = n
-	}
-	tag := strings.TrimSpace(r.FormValue("tag"))
+	level, lines, tag := parseLogcatParams(r)
 
 	req, err := h.db.CreateLogcatRequest(r.Context(), device.ID, level, lines, tag)
 	if err != nil {
@@ -6086,6 +6088,90 @@ func (h *Handler) LogcatRequestCreate(w http.ResponseWriter, r *http.Request) {
 	h.pushLogcatRequest(r.Context(), req)
 
 	http.Redirect(w, r, "/devices/"+serial+"/logcat", http.StatusFound)
+}
+
+// parseLogcatParams reads and clamps the level/lines/tag capture parameters from a
+// form, shared by the per-device request and the fleet "log capture" command.
+func parseLogcatParams(r *http.Request) (level string, lines int, tag string) {
+	level = r.FormValue("level")
+	if level != "V" && level != "D" && level != "I" && level != "W" && level != "E" {
+		level = "W"
+	}
+	lines = 500
+	if n, err := strconv.Atoi(r.FormValue("lines")); err == nil && n > 0 && n <= 5000 {
+		lines = n
+	}
+	tag = strings.TrimSpace(r.FormValue("tag"))
+	return
+}
+
+// LogcatFleetPage renders the fleet-wide Logs page: recent logcat captures across
+// every device plus the most frequently used capture presets.
+func (h *Handler) LogcatFleetPage(w http.ResponseWriter, r *http.Request) {
+	recent, err := h.db.ListRecentLogcatCaptures(r.Context(), 60)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	frequent, _ := h.db.FleetLogcatFrequent(r.Context(), 12)
+	h.render(w, r, "logs.html", map[string]any{
+		"Title":    "Logs",
+		"Recent":   recent,
+		"Frequent": frequent,
+	})
+}
+
+// captureLogsForTargets fans a single logcat capture out to many devices (the
+// "log capture" command type). It resolves the command builder's target selection
+// to concrete device IDs and creates one logcat request per device.
+func (h *Handler) captureLogsForTargets(w http.ResponseWriter, r *http.Request, targetType string) {
+	level, lines, tag := parseLogcatParams(r)
+	var deviceIDs []uuid.UUID
+	switch targetType {
+	case "all":
+		ids, err := h.db.GetAllDeviceIDs(r.Context())
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		deviceIDs = ids
+	case "devices":
+		serials := db.ParseSerials(r.FormValue("target_serials"))
+		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		deviceIDs = ids
+	case "groups":
+		var gids []uuid.UUID
+		for _, g := range r.Form["target_groups"] {
+			if id, err := uuid.Parse(g); err == nil {
+				gids = append(gids, id)
+			}
+		}
+		ids, err := h.db.GetDeviceIDsInGroups(r.Context(), gids)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		deviceIDs = ids
+	}
+	if max := h.cfg.MaxTargets(); max > 0 && len(deviceIDs) > max {
+		http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(deviceIDs), max), http.StatusBadRequest)
+		return
+	}
+	n := 0
+	for _, did := range deviceIDs {
+		req, err := h.db.CreateLogcatRequest(r.Context(), did, level, lines, tag)
+		if err != nil {
+			continue
+		}
+		h.pushLogcatRequest(r.Context(), req)
+		n++
+	}
+	h.audit(r, "logcat.capture", fmt.Sprintf("level=%s lines=%d tag=%s", level, lines, tag), fmt.Sprintf("target=%s, devices=%d", targetType, n))
+	http.Redirect(w, r, "/logs", http.StatusFound)
 }
 
 func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
@@ -6534,6 +6620,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
+	mux.HandleFunc("GET /logs", h.requireAuth(h.LogcatFleetPage))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
