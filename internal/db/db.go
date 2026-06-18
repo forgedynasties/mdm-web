@@ -1625,6 +1625,29 @@ func (d *DB) GetAllDeviceIDs(ctx context.Context) ([]uuid.UUID, error) {
 	return ids, rows.Err()
 }
 
+// GetDeviceIDsInGroups expands a set of group IDs into the distinct device IDs that
+// belong to any of them. Used to target ad-hoc actions (e.g. a fleet log capture)
+// at whole groups while operating on concrete devices.
+func (d *DB) GetDeviceIDsInGroups(ctx context.Context, groupIDs []uuid.UUID) ([]uuid.UUID, error) {
+	if len(groupIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `SELECT DISTINCT device_id FROM device_groups WHERE group_id = ANY($1)`, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 // CreateCommand creates a command. For target_type "devices", targetIDs are device UUIDs.
@@ -2271,6 +2294,92 @@ func (d *DB) LogcatSuggestions(ctx context.Context, deviceID uuid.UUID, limit in
 		return nil, nil, err
 	}
 	return recent, frequent, nil
+}
+
+// FleetLogcatCapture is one recent logcat request across the whole fleet, with the
+// owning device's serial — powers the fleet-wide Logs page.
+type FleetLogcatCapture struct {
+	RequestID    uuid.UUID `json:"request_id"`
+	SerialNumber string    `json:"serial_number"`
+	Level        string    `json:"level"`
+	Lines        int       `json:"lines"`
+	Tag          string    `json:"tag"`
+	Status       string    `json:"status"`
+	HasResult    bool      `json:"has_result"`
+	CreatedAt    time.Time `json:"created_at"`
+}
+
+// LogcatPresetStat is a fleet-wide capture preset (level/lines/tag) with how often
+// it has been requested across all devices.
+type LogcatPresetStat struct {
+	Level    string    `json:"level"`
+	Lines    int       `json:"lines"`
+	Tag      string    `json:"tag"`
+	Count    int       `json:"count"`
+	LastUsed time.Time `json:"last_used"`
+}
+
+// ListRecentLogcatCaptures returns the most recent logcat requests across the whole
+// fleet (newest first), each joined to its device serial, for the Logs page.
+func (d *DB) ListRecentLogcatCaptures(ctx context.Context, limit int) ([]FleetLogcatCapture, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT lr.id, dev.serial_number, lr.level, lr.lines, lr.tag,
+		       CASE
+		         WHEN lr.status = 'pending' AND lr.created_at <= NOW() - INTERVAL '5 minutes' THEN 'expired'
+		         ELSE lr.status
+		       END AS status,
+		       (lres.id IS NOT NULL) AS has_result,
+		       lr.created_at
+		FROM logcat_requests lr
+		JOIN devices dev ON dev.id = lr.device_id
+		LEFT JOIN logcat_results lres ON lres.request_id = lr.id
+		ORDER BY lr.created_at DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FleetLogcatCapture
+	for rows.Next() {
+		var c FleetLogcatCapture
+		if err := rows.Scan(&c.RequestID, &c.SerialNumber, &c.Level, &c.Lines, &c.Tag, &c.Status, &c.HasResult, &c.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// FleetLogcatFrequent returns the most frequently requested capture presets across
+// the whole fleet, with usage counts, for the Logs page.
+func (d *DB) FleetLogcatFrequent(ctx context.Context, limit int) ([]LogcatPresetStat, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT level, lines, tag, COUNT(*) AS cnt, MAX(created_at) AS last
+		FROM logcat_requests
+		GROUP BY level, lines, tag
+		ORDER BY cnt DESC, last DESC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []LogcatPresetStat
+	for rows.Next() {
+		var p LogcatPresetStat
+		if err := rows.Scan(&p.Level, &p.Lines, &p.Tag, &p.Count, &p.LastUsed); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
 }
 
 // ── Device Packages ───────────────────────────────────────────────────────────
