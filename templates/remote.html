@@ -163,6 +163,7 @@
     var pointerId = null;
 
     el.addEventListener('pointerdown', function(e) {
+      if (e.button > 0) return;  // non-primary (e.g. right) button handled by contextmenu
       pointerId = e.pointerId;
       el.setPointerCapture(pointerId);
       sendInput('touch', e, 'down');
@@ -186,6 +187,14 @@
       if (e.pointerId !== pointerId) return;
       sendInput('touch', e, 'up');
       pointerId = null;
+    });
+
+    // Right-click wakes the device screen instead of injecting a touch.
+    el.addEventListener('contextmenu', function(e) {
+      e.preventDefault();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'wake_screen' }));
+      }
     });
 
     // Keyboard events — forwarded for text input
