@@ -299,6 +299,13 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     <option value="disabled" {{if eq .FilterKiosk "disabled"}}selected{{end}}>Kiosk disabled</option>
   </select>
 
+  <select id="filter-timezone" class="filter-select {{if .FilterTimezone}}active{{end}}" onchange="applyFilters()">
+    <option value="">Any timezone</option>
+    {{range .Timezones}}
+      <option value="{{.}}" {{if eq . $.FilterTimezone}}selected{{end}}>{{.}}</option>
+    {{end}}
+  </select>
+
   <div style="flex:1;"></div>
 
   {{/* ── Visibility toggle ── */}}
@@ -310,7 +317,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 
   <button type="button" class="filter-pill density-toggle" id="density-toggle" onclick="toggleDensity()" title="Toggle compact view"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3h12M2 8h12M2 13h12"/></svg></button>
 
-  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery .FilterKiosk .FilterHidden .Query}}
+  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery .FilterKiosk .FilterTimezone .FilterHidden .Query}}
     <button class="filter-clear" onclick="clearFilters()">Clear</button>
   {{end}}
 </div>
@@ -329,6 +336,7 @@ function getFilterVals(overrides) {
     build: p.get('build') || '',
     battery: p.get('battery') || '',
     kiosk: p.get('kiosk') || '',
+    timezone: p.get('timezone') || '',
     hidden: p.get('hidden') || ''
   };
   var fg = document.getElementById('filter-group');
@@ -337,6 +345,7 @@ function getFilterVals(overrides) {
   var fb = document.getElementById('filter-build');
   var fbt = document.getElementById('filter-battery');
   var fk = document.getElementById('filter-kiosk');
+  var ftz = document.getElementById('filter-timezone');
   var sq = document.getElementById('search-input');
   if (fg) vals.group = fg.value;
   if (fp) vals.production = fp.value;
@@ -344,6 +353,7 @@ function getFilterVals(overrides) {
   if (fb) vals.build = fb.value;
   if (fbt) vals.battery = fbt.value;
   if (fk) vals.kiosk = fk.value;
+  if (ftz) vals.timezone = ftz.value;
   if (sq) vals.q = sq.value;
   if (overrides) {
     for (var k in overrides) vals[k] = overrides[k];
@@ -378,8 +388,10 @@ function clearFilters() {
   document.getElementById('filter-battery').value = '';
   var fk = document.getElementById('filter-kiosk');
   if (fk) fk.value = '';
+  var ftz = document.getElementById('filter-timezone');
+  if (ftz) ftz.value = '';
   document.getElementById('search-input').value = '';
-  navigateDevices({page: '1', q: '', group: '', production: '', status: '', build: '', battery: '', kiosk: '', hidden: ''});
+  navigateDevices({page: '1', q: '', group: '', production: '', status: '', build: '', battery: '', kiosk: '', timezone: '', hidden: ''});
   document.querySelectorAll('.filter-pill').forEach(function(p) { p.classList.remove('active'); });
   document.querySelector('.filter-pill').classList.add('active');
 }
@@ -387,12 +399,12 @@ function clearFilters() {
 // Clicking a summary tile clears existing filters and applies a single one.
 // Pass field=null to just reset to the default "all active" view.
 function tileFilter(field, value) {
-  ['filter-group', 'filter-production', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk'].forEach(function(id) {
+  ['filter-group', 'filter-production', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-timezone'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.value = '';
   });
   document.getElementById('search-input').value = '';
-  var ov = {page: '1', q: '', group: '', production: '', status: '', build: '', battery: '', kiosk: '', hidden: ''};
+  var ov = {page: '1', q: '', group: '', production: '', status: '', build: '', battery: '', kiosk: '', timezone: '', hidden: ''};
   if (field) {
     ov[field] = value;
     var el = document.getElementById('filter-' + field);
