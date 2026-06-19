@@ -208,6 +208,7 @@ type DeviceFilter struct {
 	BuildID             string    // exact build_id match, or "" (no filter)
 	Battery             string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
 	Kiosk               string    // "enabled" (kiosk on), "disabled" (kiosk off), or "" (no filter)
+	Timezone            string    // exact timezone match (latest_extra->>'timezone'), or "" (no filter)
 	Hidden              string    // "include" (show all), "only" (hidden only), or "" (active only)
 	ActiveThresholdSecs int       // seconds before a device is considered offline (0 = default 180)
 }
@@ -538,6 +539,12 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, "NOT EXISTS (SELECT 1 FROM device_config dck WHERE dck.device_id = d.id AND dck.kiosk_enabled = true)")
 	}
 
+	if f.Timezone != "" {
+		wheres = append(wheres, fmt.Sprintf("d.latest_extra->>'timezone' = $%d", argN))
+		args = append(args, f.Timezone)
+		argN++
+	}
+
 	if selectRows {
 		base := `SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
@@ -664,6 +671,29 @@ func (d *DB) GetDistinctBuildIDs(ctx context.Context) ([]string, error) {
 		builds = append(builds, b)
 	}
 	return builds, rows.Err()
+}
+
+// GetDistinctTimezones returns all distinct non-empty timezone values
+// (from latest_extra->>'timezone') for non-hidden devices.
+func (d *DB) GetDistinctTimezones(ctx context.Context) ([]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT latest_extra->>'timezone' AS tz FROM devices
+		WHERE NOT hidden AND COALESCE(latest_extra->>'timezone', '') != ''
+		ORDER BY tz
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var tzs []string
+	for rows.Next() {
+		var tz string
+		if err := rows.Scan(&tz); err != nil {
+			return nil, err
+		}
+		tzs = append(tzs, tz)
+	}
+	return tzs, rows.Err()
 }
 
 // StreamExportCheckins runs the same query as ExportCheckins but invokes

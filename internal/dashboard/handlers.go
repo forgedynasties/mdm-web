@@ -1301,6 +1301,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		BuildID:             r.URL.Query().Get("build"),
 		Battery:             r.URL.Query().Get("battery"),
 		Kiosk:               r.URL.Query().Get("kiosk"),
+		Timezone:            r.URL.Query().Get("timezone"),
 		Hidden:              r.URL.Query().Get("hidden"),
 		ActiveThresholdSecs: activeThreshold,
 	}
@@ -1312,10 +1313,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		groups      []db.Group
 		productions []db.Production
 		builds      []string
+		timezones   []string
 		restaurants []db.Restaurant
 	)
 
-	errCh := make(chan error, 7)
+	errCh := make(chan error, 8)
 	var wg sync.WaitGroup
 	run := func(fn func() error) {
 		wg.Add(1)
@@ -1355,6 +1357,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	run(func() error {
 		var err error
 		builds, err = h.db.GetDistinctBuildIDs(r.Context())
+		return err
+	})
+	run(func() error {
+		var err error
+		timezones, err = h.db.GetDistinctTimezones(r.Context())
 		return err
 	})
 	run(func() error {
@@ -1399,12 +1406,14 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Restaurants":          restaurants,
 		"Productions":          productions,
 		"Builds":               builds,
+		"Timezones":            timezones,
 		"FilterGroup":          r.URL.Query().Get("group"),
 		"FilterProduction":     r.URL.Query().Get("production"),
 		"FilterStatus":         r.URL.Query().Get("status"),
 		"FilterBuild":          r.URL.Query().Get("build"),
 		"FilterBattery":        r.URL.Query().Get("battery"),
 		"FilterKiosk":          r.URL.Query().Get("kiosk"),
+		"FilterTimezone":       r.URL.Query().Get("timezone"),
 		"FilterHidden":         r.URL.Query().Get("hidden"),
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
