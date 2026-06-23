@@ -541,6 +541,14 @@ func (h *Handler) afterOtaTerminal(ctx context.Context, deviceID uuid.UUID, stat
 	if status == "error" {
 		if upd != nil {
 			_ = h.db.SetUpdateDeviceFailed(ctx, upd.ID, deviceID, errorCode)
+			// An incremental is a block diff against an exact source image; if it
+			// failed (e.g. update_engine error 29, source partition mismatch) it can
+			// never apply to this device. Pin the row to the full image so the next
+			// attempt serves the guaranteed-applicable package instead of retrying
+			// the same failing diff.
+			if upd.OtaPackage != nil && upd.OtaPackage.Type == "incremental" {
+				_ = h.db.SetUpdateDeviceForceFull(ctx, upd.ID, deviceID)
+			}
 		}
 		return
 	}
