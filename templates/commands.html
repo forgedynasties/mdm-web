@@ -163,7 +163,7 @@
               <div><label class="form-label">Tag <span class="muted small">(optional)</span></label>
                 <input type="text" name="tag" id="lc-cmd-tag" class="form-input" placeholder="e.g. MyApp" style="width:180px;" oninput="updatePreview()"></div>
             </div>
-            <div class="muted small" style="margin-top:6px;">Requests a logcat capture from each targeted device on its next check-in. Results appear on each device's Logcat page and the fleet <a href="/logs" class="link-detail">Logs</a> page.</div>
+            <div class="muted small" style="margin-top:6px;">Requests a logcat capture from each targeted device on its next check-in. Results appear on each device's Logcat page.</div>
             {{if or .LogcatRecent .LogcatFrequent}}
             <div class="shell-suggest">
               {{if .LogcatRecent}}
