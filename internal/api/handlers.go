@@ -481,6 +481,7 @@ func (h *Handler) notifyDeviceOnboarded(ctx context.Context, deviceID uuid.UUID,
 	}
 	n := db.AlertNotification{Type: "new_device", Severity: "info", Summary: summary, Serial: serial}
 	go h.alerts.Dispatch(context.WithoutCancel(ctx), []db.AlertNotification{n})
+	h.hub.PublishAlertUpdate() // refresh the dashboard's live open-alert counter
 }
 
 // HandleWsCommandAck processes a "command_ack" message from a device over WS.

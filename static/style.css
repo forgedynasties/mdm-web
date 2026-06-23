@@ -500,6 +500,15 @@ a:hover { color: var(--accent-h); }
 .admin-tool-text strong { font-size: var(--t-13); font-weight: var(--fw-semibold); }
 .admin-tool-go { color: var(--muted); flex: 0 0 auto; }
 
+/* Reserve volatile columns so constant check-in updates never reflow the
+ * roster: fixed-width digits everywhere, and min-widths on the cells whose
+ * text length swings (battery %, RAM, temp, last seen). */
+#device-table-container .table td { font-variant-numeric: tabular-nums; }
+#device-table-container .table td:nth-child(5),
+#device-table-container .table td:nth-child(6) { min-width: 52px; }
+#device-table-container .table td:nth-child(7) { min-width: 100px; }
+.battery-label { display: inline-block; min-width: 2.8ch; font-variant-numeric: tabular-nums; }
+
 /* ── Devices split-pane + inspector ──────────────────
  * The roster (left) keeps its place while a compact inspector (right) shows a
  * single device at a glance. On narrow viewports the inspector becomes a
@@ -603,6 +612,15 @@ a:hover { color: var(--accent-h); }
 @media (prefers-reduced-motion: reduce) {
   .device-inspector { animation: none; }
 }
+
+/* One-shot pulse when the live alert count rises (reduced-motion safe). */
+@keyframes nav-badge-pulse {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+.nav-badge-pulse { animation: nav-badge-pulse 600ms var(--ease); transform-origin: center; }
+@media (prefers-reduced-motion: reduce) { .nav-badge-pulse { animation: none; } }
 
 /* ── Icons ───────────────────────────────────────────
  * Single rule normalizes every inline <svg> in .ui-icon.

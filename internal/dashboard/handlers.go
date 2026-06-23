@@ -1970,6 +1970,22 @@ func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
 	defer heartbeat.Stop()
 
 	ctx := r.Context()
+
+	// emitCount sends the current open-alert count so every connected client (the
+	// global nav badge and the alerts list) can update without each re-querying.
+	emitCount := func() {
+		n, err := h.db.CountOpenAlerts(ctx)
+		if err != nil {
+			return
+		}
+		fmt.Fprintf(w, "event: alert-update\ndata: %d\n\n", n)
+		flusher.Flush()
+	}
+
+	// Send the count once on connect so a freshly-loaded page syncs its badge
+	// immediately rather than waiting for the next change.
+	emitCount()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -1981,8 +1997,7 @@ func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
-			fmt.Fprint(w, "event: alert-update\ndata: refresh\n\n")
-			flusher.Flush()
+			emitCount()
 		}
 	}
 }
@@ -5345,6 +5360,7 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 	}
 	if len(created) > 0 || resolved > 0 {
 		log.Printf("[recent-alerts] %d new, %d resolved", len(created), resolved)
+		h.hub.PublishAlertUpdate()
 	}
 	h.dispatchAlertNotifications(ctx, created)
 }
@@ -5373,6 +5389,7 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	} else {
 		if len(created) > 0 || resolved > 0 {
 			log.Printf("[housekeeping] alerts: %d new, %d resolved", len(created), resolved)
+			h.hub.PublishAlertUpdate()
 		}
 		h.dispatchAlertNotifications(ctx, created)
 	}

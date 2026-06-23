@@ -758,6 +758,54 @@
     });
   })();
   </script>
+  <script>
+  // ── Live alerts counter ──────────────────────────────────────────────────
+  // One EventSource per page owns the alerts feed: it keeps the sidebar's open
+  // alert badge current and re-dispatches a DOM event so the alerts list (when
+  // open) refreshes from the same signal — one connection, and never a toast.
+  // The badge pulses only when the count rises (a new actionable event), staying
+  // quiet when alerts are resolved.
+  (function () {
+    if (!window.EventSource) return;
+    var navLink = document.querySelector('.navbar-links a[href="/alerts"]');
+    var known = null; // last displayed count; null until the first sync
+
+    function setBadge(n) {
+      if (!navLink) return;
+      var badge = navLink.querySelector('.nav-badge');
+      if (n > 0) {
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'nav-badge';
+          navLink.appendChild(badge);
+        }
+        badge.textContent = n;
+      } else if (badge) {
+        badge.remove();
+      }
+    }
+
+    function pulse() {
+      if (!navLink) return;
+      var badge = navLink.querySelector('.nav-badge');
+      if (!badge) return;
+      badge.classList.remove('nav-badge-pulse');
+      void badge.offsetWidth; // restart the animation
+      badge.classList.add('nav-badge-pulse');
+    }
+
+    var es = new EventSource('/alerts/events');
+    es.addEventListener('alert-update', function (e) {
+      var n = parseInt(e.data, 10);
+      if (isNaN(n)) return;
+      var rose = known !== null && n > known;
+      setBadge(n);
+      if (rose) pulse();
+      known = n;
+      document.dispatchEvent(new CustomEvent('mdm:alerts-update', { detail: { count: n } }));
+    });
+  })();
+  </script>
 </body>
 </html>
 {{end}}
