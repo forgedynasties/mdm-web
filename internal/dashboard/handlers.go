@@ -4488,6 +4488,11 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Retry with the full image: a failed device has almost always tripped on an
+	// incremental that can't apply to its source build, and the full package is
+	// guaranteed-applicable. Pinning here also recovers devices that failed before
+	// the auto-fallback existed.
+	_ = h.db.SetUpdateDeviceForceFull(r.Context(), did, device.ID)
 	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "pending")
 	// If the deployment was already marked complete, re-pending one device would
 	// otherwise strand it (ResolveUpdateForDevice only serves status='active').

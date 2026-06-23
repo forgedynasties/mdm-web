@@ -5284,6 +5284,13 @@ ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','ope
 -- Dev sign-off on a release ("smoke-tested by dev, OK for QA to pick up").
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_by TEXT        NOT NULL DEFAULT '';
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_at TIMESTAMPTZ;
+
+-- Force the full OTA image for this device on its deployment, bypassing any
+-- matching incremental. Set when an incremental fails (a block diff can't apply
+-- to a source image that isn't byte-identical — update_engine error 29) or when
+-- an operator retries a failed device, so the guaranteed-applicable full image
+-- is served instead of re-attempting the same failing incremental.
+ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS force_full BOOLEAN NOT NULL DEFAULT false;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -5857,8 +5864,9 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 		JOIN LATERAL (
 			SELECT pk.* FROM ota_packages pk
 			WHERE pk.release_id = u.release_id AND pk.status = 'active'
-			  AND (pk.type = 'full' OR (pk.type = 'incremental' AND pk.source_build_id = d.build_id))
-			ORDER BY (pk.type = 'incremental' AND pk.source_build_id = d.build_id) DESC, pk.created_at DESC
+			  AND (pk.type = 'full'
+			       OR (pk.type = 'incremental' AND NOT ud.force_full AND pk.source_build_id = d.build_id))
+			ORDER BY (pk.type = 'incremental' AND NOT ud.force_full AND pk.source_build_id = d.build_id) DESC, pk.created_at DESC
 			LIMIT 1
 		) p ON true
 		WHERE ud.device_id = $1 AND u.status = 'active' AND ud.status != 'installed' AND rel.status = 'published'
@@ -5991,6 +5999,17 @@ func (d *DB) SetUpdateDeviceFailed(ctx context.Context, updateID int, deviceID u
 		UPDATE update_devices SET status = 'failed', error_code = $3, updated_at = NOW()
 		WHERE update_id = $1 AND device_id = $2
 	`, updateID, deviceID, errorCode)
+	return err
+}
+
+// SetUpdateDeviceForceFull pins a device's deployment row to the full OTA image,
+// so ResolveUpdateForDevice stops offering a matching incremental. Used after an
+// incremental fails on the device, and on operator retry.
+func (d *DB) SetUpdateDeviceForceFull(ctx context.Context, updateID int, deviceID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE update_devices SET force_full = true, updated_at = NOW()
+		WHERE update_id = $1 AND device_id = $2
+	`, updateID, deviceID)
 	return err
 }
 
