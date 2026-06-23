@@ -474,6 +474,110 @@ a:hover { color: var(--accent-h); }
   .cmdk-backdrop.open .cmdk-panel { transform: none; }
 }
 
+/* ── Devices split-pane + inspector ──────────────────
+ * The roster (left) keeps its place while a compact inspector (right) shows a
+ * single device at a glance. On narrow viewports the inspector becomes a
+ * right-edge drawer that overlays the list.
+ */
+.dv-split {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-4);
+}
+.dv-split > #device-table-container { flex: 1 1 auto; min-width: 0; }
+
+.device-inspector {
+  flex: 0 0 340px;
+  position: sticky;
+  top: 16px;
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  animation: dvp-in var(--dur-slow) var(--ease);
+}
+@keyframes dvp-in { from { opacity: 0; transform: translateX(6px); } to { opacity: 1; transform: none; } }
+
+.dvp-loading { padding: 20px 16px; }
+
+.dvp { padding: 14px 16px 16px; }
+.dvp-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-2); }
+.dvp-id { display: flex; align-items: center; gap: var(--s-2); min-width: 0; }
+.dvp-serial {
+  font-size: var(--t-15, 15px);
+  font-weight: var(--fw-semibold);
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dvp-id .kiosk-lock { color: var(--muted); flex: 0 0 auto; display: inline-flex; }
+.dvp-close {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: var(--r-2);
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.dvp-close:hover { color: var(--text); background: var(--hover); }
+
+.dvp-status { display: flex; gap: 6px; font-size: var(--t-12); margin-top: 5px; }
+
+.dvp-vitals {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 16px;
+}
+.dvp-vital-wide { grid-column: 1 / -1; }
+.dvp-k {
+  font-size: var(--t-10);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.dvp-v { font-size: var(--t-13); color: var(--text); }
+.dvp-v .battery-wrap { margin: 0; }
+
+.dvp-actions { margin-top: 18px; display: flex; flex-direction: column; gap: var(--s-2); }
+.dvp-actions-row { display: flex; gap: var(--s-2); }
+.dvp-actions .btn-primary,
+.dvp-actions .btn-outline { width: 100%; justify-content: center; }
+.dvp-actions-row .btn-outline { flex: 1; }
+.dvp-open { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* Selected row in the roster */
+#device-table-container tr.row-selected > td { background: var(--accent-soft); }
+#device-table-container tr.row-selected > td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* Narrow viewports: inspector slides in as a right-edge drawer */
+@media (max-width: 1024px) {
+  .dv-split { display: block; }
+  .device-inspector {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    flex-basis: auto;
+    width: min(360px, 92vw);
+    border-radius: 0;
+    border-top: none; border-bottom: none; border-right: none;
+    box-shadow: var(--shadow-lg);
+    z-index: 50;
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .device-inspector { animation: none; }
+}
+
 /* ── Icons ───────────────────────────────────────────
  * Single rule normalizes every inline <svg> in .ui-icon.
  * Variants: .ui-icon-sm (12px) | .ui-icon-lg (20px) | .ui-icon-xl (28px)

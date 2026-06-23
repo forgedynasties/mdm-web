@@ -1,0 +1,84 @@
+{{define "device-panel"}}
+{{with .Device}}
+<div class="dvp" data-serial="{{.SerialNumber}}">
+  <div class="dvp-head">
+    <div class="dvp-id">
+      <span class="ws-dot {{if $.Online}}online{{end}}" title="{{if $.Online}}WebSocket connected{{else}}offline{{end}}"></span>
+      <span class="mono dvp-serial" title="{{.SerialNumber}}">{{.SerialNumber}}</span>
+      {{if .KioskEnabled}}<span class="kiosk-lock" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
+    </div>
+    <button type="button" class="dvp-close" onclick="window.mdmCloseInspector && window.mdmCloseInspector()" aria-label="Close inspector">&times;</button>
+  </div>
+
+  <div class="dvp-status">
+    <span class="{{if $.Online}}ok{{else}}muted{{end}}">{{if $.Online}}Online{{else}}Offline{{end}}</span>
+    <span class="muted">· seen {{timeSince .LastSeenAt}}</span>
+  </div>
+
+  <div class="dvp-vitals">
+    <div class="dvp-vital">
+      <div class="dvp-k">Battery</div>
+      <div class="dvp-v">
+        <div class="battery-wrap">
+          <div class="battery-track">
+            <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
+          </div>
+          <span class="battery-label">{{.BatteryPct}}%{{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dvp-vital">
+      <div class="dvp-k">Memory</div>
+      <div class="dvp-v">
+        {{$ram := ramUsage .LatestExtra}}
+        {{if $ram}}{{$p := ramPct $ram}}<span class="{{if ge $p 80}}danger{{else if ge $p 60}}warn{{else}}ok{{end}}">{{$p}}%</span>{{else}}<span class="muted">—</span>{{end}}
+      </div>
+    </div>
+
+    <div class="dvp-vital">
+      <div class="dvp-k">Temp</div>
+      <div class="dvp-v">
+        {{$t := batteryTemp .LatestExtra}}
+        {{if ne $t ""}}<span class="{{tempClass .LatestExtra}}">{{$t}}</span>{{else}}<span class="muted">—</span>{{end}}
+      </div>
+    </div>
+
+    <div class="dvp-vital">
+      <div class="dvp-k">Release</div>
+      <div class="dvp-v mono small">{{if .BuildID}}{{.BuildID}}{{else}}<span class="muted">—</span>{{end}}</div>
+    </div>
+
+    {{if .RestaurantName}}
+    <div class="dvp-vital dvp-vital-wide">
+      <div class="dvp-k">Restaurant</div>
+      <div class="dvp-v"><a href="/restaurants/{{.RestaurantID}}" class="link-detail">{{.RestaurantName}}</a></div>
+    </div>
+    {{end}}
+
+    <div class="dvp-vital">
+      <div class="dvp-k">First seen</div>
+      <div class="dvp-v small muted js-local-time" data-utc="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{localTime .CreatedAt}}</div>
+    </div>
+
+    {{if .KioskEnabled}}
+    <div class="dvp-vital">
+      <div class="dvp-k">Kiosk package</div>
+      <div class="dvp-v mono small">{{if .KioskPackage}}{{.KioskPackage}}{{else}}<span class="muted">—</span>{{end}}</div>
+    </div>
+    {{end}}
+  </div>
+
+  <div class="dvp-actions">
+    <a href="/devices/{{.SerialNumber}}" class="btn-primary dvp-open">
+      Open full device
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+    </a>
+    <div class="dvp-actions-row">
+      <a href="/devices/{{.SerialNumber}}/logcat" class="btn-outline">Logs</a>
+      <a href="/commands?serials={{.SerialNumber}}" class="btn-outline">Send command</a>
+    </div>
+  </div>
+</div>
+{{end}}
+{{end}}
