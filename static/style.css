@@ -395,6 +395,9 @@ a:hover { color: var(--accent-h); }
   opacity: 0;
   transition: opacity var(--dur) var(--ease);
 }
+/* The `hidden` attribute must win over display:flex, or the invisible
+   overlay would sit on top of the page and swallow every click. */
+.cmdk-backdrop[hidden] { display: none; }
 .cmdk-backdrop.open { opacity: 1; }
 .cmdk-panel {
   width: 100%;
@@ -418,14 +421,18 @@ a:hover { color: var(--accent-h); }
 .cmdk-input-icon { color: var(--muted); flex: 0 0 14px; }
 .cmdk-input {
   flex: 1;
+  min-width: 0;
   border: none;
   background: none;
   color: var(--text);
   font-family: var(--font);
   font-size: var(--t-15, 15px);
-  padding: 0;
+  padding: 4px 2px;
 }
-.cmdk-input:focus { outline: none; }
+/* The field is the bordered row; suppress the global focus ring on the bare
+   input so it doesn't hug the text. */
+.cmdk-input:focus,
+.cmdk-input:focus-visible { outline: none; box-shadow: none; }
 .cmdk-input::placeholder { color: var(--muted); }
 .cmdk-list {
   list-style: none;

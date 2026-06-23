@@ -19,7 +19,7 @@
   <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
   <script src="/static/vendor/htmx.min.js"></script>
 </head>
 <body class="has-sidebar"{{if .Use24Hour}} data-time24="1"{{end}}>

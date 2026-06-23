@@ -74,6 +74,12 @@ type Handler struct {
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 
+	// assetVer is a cache-busting token appended to the stylesheet URL, derived
+	// from style.css's mtime at startup. Static assets are served `immutable`
+	// with a long max-age, so without a changing URL a CSS edit would never
+	// reach a browser that already cached the old file. Recomputed each restart.
+	assetVer string
+
 	// publicOrigins is the set of trusted browser-facing origins (scheme://host)
 	// for CSRF checks, e.g. ["https://udm.dev.aioapp.com",
 	// "https://mdm.dev.aioapp.com"]. Parsed from the comma-separated PUBLIC_ORIGIN
@@ -778,7 +784,18 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		alerts:        alerts.NewDispatcher(d, cfg),
 		publicOrigins: parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
 		loginFails:    ratelimit.New(15 * time.Minute),
+		assetVer:      assetVersion("static/style.css"),
 	}
+}
+
+// assetVersion returns a short cache-busting token for a static asset, derived
+// from its modification time and size. Falls back to the build version if the
+// file can't be stat'd, so the URL is always well-formed.
+func assetVersion(path string) string {
+	if fi, err := os.Stat(path); err == nil {
+		return fmt.Sprintf("%x-%x", fi.ModTime().UnixNano(), fi.Size())
+	}
+	return version.Current()
 }
 
 // parseOrigins splits the comma-separated PUBLIC_ORIGIN env into a normalized
@@ -919,6 +936,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	data["Brand"] = h.cfg.BrandName()
 	data["Use24Hour"] = h.cfg.Use24Hour()
 	data["Version"] = version.Current()
+	data["AssetVer"] = h.assetVer
 	if role != "" {
 		if n, err := h.db.CountOpenAlerts(r.Context()); err == nil {
 			data["AlertsOpenCount"] = n
@@ -1137,7 +1155,7 @@ func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Brand": h.cfg.BrandName()})
+	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Brand": h.cfg.BrandName(), "AssetVer": h.assetVer})
 }
 
 func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
