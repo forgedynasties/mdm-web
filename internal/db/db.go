@@ -5905,6 +5905,21 @@ func (d *DB) SetUpdateDeviceStatus(ctx context.Context, updateID int, deviceID u
 	return err
 }
 
+// RemoveDeviceFromUpdate drops a device's row from a deployment, but only while it
+// is still 'pending' — i.e. nothing has been sent to the device yet. Returns true if
+// a row was actually removed (false when the device already moved past pending or was
+// not a target). Once a device has started downloading it can no longer be removed.
+func (d *DB) RemoveDeviceFromUpdate(ctx context.Context, updateID int, deviceID uuid.UUID) (bool, error) {
+	tag, err := d.pool.Exec(ctx, `
+		DELETE FROM update_devices
+		WHERE update_id = $1 AND device_id = $2 AND status = 'pending'
+	`, updateID, deviceID)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 // CompleteUpdatesAtTargetBuild marks installed every active, not-yet-terminal
 // deployment row for this device whose release ships a package targeting the
 // device's current build. This is the authoritative "the device is now running
