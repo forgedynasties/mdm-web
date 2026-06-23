@@ -4,12 +4,6 @@
 <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
 <div class="ov-greet">
   <h1 class="ov-title">Logcat</h1>
-  <span class="acts logcat-toolbar">
-    <span id="logcat-poll-state" class="muted small"></span>
-    <div class="logcat-pause">
-      <button type="button" id="logcat-pause-btn" class="btn-outline" onclick="toggleLogcatPolling()">Pause</button>
-    </div>
-  </span>
 </div>
 
 <style>
@@ -67,53 +61,6 @@ function lcFill(level, lines, tag) {
 {{template "logcat-entries" .}}
 
 <script>
-function logcatPauseKey() {
-  return 'logcat-pause:{{.Device.SerialNumber}}';
-}
-
-function syncLogcatPolling() {
-  var panel = document.getElementById('logcat-entries');
-  var btn = document.getElementById('logcat-pause-btn');
-  var state = document.getElementById('logcat-poll-state');
-  if (!panel || !btn || !state) return;
-
-  var canPoll = panel.dataset.canPoll === 'true';
-  var paused = localStorage.getItem(logcatPauseKey()) === '1';
-
-  if (!canPoll) {
-    panel.setAttribute('hx-trigger', 'logcat-refresh');
-    btn.disabled = true;
-    btn.setAttribute('aria-pressed', 'false');
-    btn.textContent = 'Pause';
-    state.textContent = 'No pending logcat polling';
-  } else if (paused) {
-    panel.setAttribute('hx-trigger', 'logcat-refresh');
-    btn.disabled = false;
-    btn.setAttribute('aria-pressed', 'true');
-    btn.textContent = 'Play';
-    state.textContent = 'Polling paused';
-  } else {
-    panel.setAttribute('hx-trigger', 'logcat-refresh, ' + (panel.dataset.pollTrigger || 'every 15s'));
-    btn.disabled = false;
-    btn.setAttribute('aria-pressed', 'false');
-    btn.textContent = 'Pause';
-    state.textContent = 'Polling every 15s';
-  }
-
-  if (window.htmx) htmx.process(panel);
-}
-
-function toggleLogcatPolling() {
-  var paused = localStorage.getItem(logcatPauseKey()) === '1';
-  localStorage.setItem(logcatPauseKey(), paused ? '0' : '1');
-  syncLogcatPolling();
-}
-
-document.body.addEventListener('htmx:afterSwap', function(evt) {
-  if (evt.detail.target.id === 'logcat-entries') syncLogcatPolling();
-});
-syncLogcatPolling();
-
 (function () {
   if (!window.EventSource) return;
   var es = new EventSource('/devices/{{.Device.SerialNumber}}/logcat/events');
