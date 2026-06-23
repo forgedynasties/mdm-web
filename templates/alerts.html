@@ -91,11 +91,10 @@
 </div><!-- /#alerts-live -->
 
 <script>
-// Live refresh: an ack/resolve by any user broadcasts an alert-update event; re-fetch
+// Live refresh: the global layout listener owns the alerts EventSource and
+// dispatches 'mdm:alerts-update' on any change (create / ack / resolve). Re-fetch
 // the current (filter-preserving) URL and swap just the alerts region.
 (function () {
-  if (!window.EventSource) return;
-  var es = new EventSource('/alerts/events');
   var pending = false;
   function refresh() {
     if (pending) return;
@@ -111,7 +110,7 @@
       })
       .catch(function () { pending = false; });
   }
-  es.addEventListener('alert-update', refresh);
+  document.addEventListener('mdm:alerts-update', refresh);
 })();
 </script>
 
