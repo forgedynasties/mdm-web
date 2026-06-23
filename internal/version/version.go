@@ -17,6 +17,20 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.13.0",
+		Date:    "2026-06-23",
+		Changes: []string{
+			"The dashboard now updates live when devices are hidden, assigned to a restaurant or group, or sent a command — no need to refresh to see the change.",
+			"Adding a single device to a group from the search box now works; previously the device you picked was silently dropped.",
+			"The Alerts page refreshes on its own when anyone acknowledges or resolves an alert.",
+			"Software updates: remove a device that's still “pending” from a rollout so it won't receive that update.",
+			"Remote control is more secure — the access key is no longer put in the page address.",
+			"New production runs now check the product code, so you can't create a run that silently matches no devices.",
+			"Assigning several devices to a restaurant is now all-or-nothing, and rebooting a device respects the “reason required” setting.",
+			"Devices last longer on battery: the on-device agent scans Wi-Fi far less and wakes up less often. (Device Wi-Fi location has been removed.)",
+		},
+	},
+	{
 		Version: "1.12.0",
 		Date:    "2026-06-18",
 		Changes: []string{
