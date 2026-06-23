@@ -329,6 +329,144 @@ a:hover { color: var(--accent-h); }
   line-height: 1;
 }
 
+/* ── Nav sections ────────────────────────────────────
+ * The sidebar is grouped into labelled domains (Monitor / Inventory /
+ * Deploy / Admin) so a 14-item list reads as four short ones.
+ */
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav-section + .nav-section { margin-top: 14px; }
+.nav-section-label {
+  margin: 0 0 4px;
+  padding: 0 10px;
+  font-size: var(--t-10);
+  font-weight: var(--fw-semibold);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  user-select: none;
+}
+
+/* ── Command palette trigger (sidebar) ──────────────── */
+.nav-cmdk {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 7px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: var(--t-12);
+  cursor: pointer;
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.nav-cmdk:hover { color: var(--text); border-color: var(--rule-2); background: var(--surface); }
+.nav-cmdk .ui-icon { flex: 0 0 12px; }
+.nav-cmdk-label { flex: 1; text-align: left; }
+.nav-cmdk-kbd,
+.cmdk-esc {
+  font-family: var(--mono);
+  font-size: var(--t-10);
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-1);
+  padding: 1px 5px;
+  line-height: 1.4;
+}
+
+/* ── Command palette overlay ───────────────────────── */
+.cmdk-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12vh 16px 16px;
+  background: rgba(16, 24, 40, 0.32);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+.cmdk-backdrop.open { opacity: 1; }
+.cmdk-panel {
+  width: 100%;
+  max-width: 560px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  transform: translateY(-6px);
+  transition: transform var(--dur) var(--ease);
+}
+.cmdk-backdrop.open .cmdk-panel { transform: translateY(0); }
+.cmdk-input-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.cmdk-input-icon { color: var(--muted); flex: 0 0 14px; }
+.cmdk-input {
+  flex: 1;
+  border: none;
+  background: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--t-15, 15px);
+  padding: 0;
+}
+.cmdk-input:focus { outline: none; }
+.cmdk-input::placeholder { color: var(--muted); }
+.cmdk-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: 9px 10px;
+  border-radius: var(--r-2);
+  cursor: pointer;
+  color: var(--text);
+}
+.cmdk-item.active { background: var(--accent-soft); }
+.cmdk-item.active .cmdk-item-label { color: var(--accent); font-weight: var(--fw-medium); }
+.cmdk-item-label { font-size: var(--t-13); }
+.cmdk-item-sub {
+  font-size: var(--t-10);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex: 0 0 auto;
+}
+.cmdk-item-sub-device { color: var(--accent); }
+.cmdk-empty {
+  padding: 18px 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--t-13);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cmdk-backdrop, .cmdk-panel { transition: none; }
+  .cmdk-backdrop.open .cmdk-panel { transform: none; }
+}
+
 /* ── Icons ───────────────────────────────────────────
  * Single rule normalizes every inline <svg> in .ui-icon.
  * Variants: .ui-icon-sm (12px) | .ui-icon-lg (20px) | .ui-icon-xl (28px)
