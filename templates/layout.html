@@ -30,27 +30,48 @@
       <span></span><span></span><span></span>
     </button>
     <div class="navbar-links">
-      <a href="/" class="nav-link{{if eq .ActivePage "overview"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span>Overview</a>
-      <a href="/devices" class="nav-link{{if eq .ActivePage "devices"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Devices</a>
-      <a href="/groups" class="nav-link{{if eq .ActivePage "groups"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>Groups</a>
-      <a href="/restaurants" class="nav-link{{if eq .ActivePage "restaurants"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>Restaurants</a>
+      <button type="button" class="nav-cmdk" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search and commands" aria-keyshortcuts="Meta+K Control+K">
+        <span class="ui-icon ui-icon-sm"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+        <span class="nav-cmdk-label">Search…</span>
+        <kbd class="nav-cmdk-kbd">⌘K</kbd>
+      </button>
+
+      <div class="nav-section">
+        <p class="nav-section-label">Monitor</p>
+        <a href="/" class="nav-link{{if eq .ActivePage "overview"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span>Overview</a>
+        <a href="/alerts" class="nav-link{{if eq .ActivePage "alerts"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>Alerts{{if gt .AlertsOpenCount 0}}<span class="nav-badge">{{.AlertsOpenCount}}</span>{{end}}</a>
+        <a href="/fleet-health" class="nav-link{{if eq .ActivePage "health"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span>Health</a>
+        <a href="/logs" class="nav-link{{if eq .ActivePage "logs"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v4H4z"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Logs</a>
+      </div>
+
+      <div class="nav-section">
+        <p class="nav-section-label">Inventory</p>
+        <a href="/devices" class="nav-link{{if eq .ActivePage "devices"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Devices</a>
+        <a href="/groups" class="nav-link{{if eq .ActivePage "groups"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>Groups</a>
+        <a href="/restaurants" class="nav-link{{if eq .ActivePage "restaurants"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>Restaurants</a>
+        {{if canAdmin .Role}}
+        <a href="/productions" class="nav-link{{if eq .ActivePage "productions"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>Productions</a>
+        {{end}}
+      </div>
+
+      <div class="nav-section">
+        <p class="nav-section-label">Deploy</p>
+        <a href="/commands" class="nav-link{{if eq .ActivePage "commands"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>Commands</a>
+        <a href="/releases" class="nav-link{{if eq .ActivePage "releases"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>Releases</a>
+        {{if canAdmin .Role}}
+        <a href="/setup" class="nav-link{{if eq .ActivePage "setup"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M7 4v6"/><path d="M17 4v6"/><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M8 12h8"/><path d="M8 16h5"/></svg></span>Apps</a>
+        {{end}}
+      </div>
+
       {{if canAdmin .Role}}
-      <a href="/productions" class="nav-link{{if eq .ActivePage "productions"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>Productions</a>
-      {{end}}
-      <a href="/commands" class="nav-link{{if eq .ActivePage "commands"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>Commands</a>
-      <a href="/releases" class="nav-link{{if eq .ActivePage "releases"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>Releases</a>
-      <a href="/logs" class="nav-link{{if eq .ActivePage "logs"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v4H4z"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Logs</a>
-      <a href="/fleet-health" class="nav-link{{if eq .ActivePage "health"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span>Health</a>
-      <a href="/alerts" class="nav-link{{if eq .ActivePage "alerts"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>Alerts{{if gt .AlertsOpenCount 0}}<span class="nav-badge">{{.AlertsOpenCount}}</span>{{end}}</a>
-      {{if canAdmin .Role}}
-      <a href="/setup" class="nav-link{{if eq .ActivePage "setup"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M7 4v6"/><path d="M17 4v6"/><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M8 12h8"/><path d="M8 16h5"/></svg></span>Apps</a>
-      {{end}}
-      {{if eq .Role "admin"}}
-      <a href="/settings" class="nav-link{{if eq .ActivePage "settings"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z"/></svg></span>Settings</a>
-      <a href="/users" class="nav-link{{if eq .ActivePage "users"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Users</a>
-      {{end}}
-      {{if canAdmin .Role}}
-      <a href="/audit" class="nav-link{{if eq .ActivePage "audit"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v4"/><path d="M21 12h-4"/></svg></span>Audit</a>
+      <div class="nav-section">
+        <p class="nav-section-label">Admin</p>
+        {{if eq .Role "admin"}}
+        <a href="/settings" class="nav-link{{if eq .ActivePage "settings"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z"/></svg></span>Settings</a>
+        <a href="/users" class="nav-link{{if eq .ActivePage "users"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>Users</a>
+        {{end}}
+        <a href="/audit" class="nav-link{{if eq .ActivePage "audit"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v4"/><path d="M21 12h-4"/></svg></span>Audit</a>
+      </div>
       {{end}}
     </div>
     <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
@@ -70,6 +91,19 @@
     </form>
   </nav>
   <div id="toast" class="toast" aria-live="polite"></div>
+  <div id="cmdk" class="cmdk-backdrop" hidden>
+    <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="Search and commands">
+      <div class="cmdk-input-row">
+        <span class="ui-icon ui-icon-sm cmdk-input-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+        <input id="cmdk-input" class="cmdk-input" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Jump to a page, or type a device serial…" aria-label="Search pages and devices"
+               role="combobox" aria-controls="cmdk-list" aria-expanded="true" aria-autocomplete="list">
+        <kbd class="cmdk-esc">esc</kbd>
+      </div>
+      <ul id="cmdk-list" class="cmdk-list" role="listbox" aria-label="Results"></ul>
+      <div class="cmdk-empty" id="cmdk-empty" hidden>No matches.</div>
+    </div>
+  </div>
   <main class="container">
     <button type="button" class="page-back" onclick="history.back()" title="Back to previous page" aria-label="Back to previous page"
             style="display:none;align-items:center;gap:6px;background:none;border:none;color:var(--muted);cursor:pointer;font:inherit;font-size:13px;padding:4px 0;margin-bottom:8px;">
@@ -571,6 +605,152 @@
     document.body.addEventListener('htmx:afterSettle', function (evt) {
       var root = (evt.detail && evt.detail.target) || document;
       if (root.querySelectorAll) root.querySelectorAll('.modal-backdrop').forEach(initModal);
+    });
+  })();
+  </script>
+  <script>
+  // ── Command palette (⌘K / Ctrl+K) ───────────────────────────────────────────
+  // A keyboard-first jump bar. Destinations are read from the rendered sidebar,
+  // so whatever the current user is allowed to see is exactly what the palette
+  // offers — no separate, drift-prone route list, and role gating is automatic.
+  // Any non-empty query also offers a direct "Open device {serial}" jump.
+  (function () {
+    var backdrop = document.getElementById('cmdk');
+    var input = document.getElementById('cmdk-input');
+    var list = document.getElementById('cmdk-list');
+    var empty = document.getElementById('cmdk-empty');
+    if (!backdrop || !input || !list) return;
+
+    var dests = [];   // {label, sub, url, type}
+    var items = [];   // current filtered results, in render order
+    var active = 0;   // index into items
+    var lastFocus = null;
+
+    function collectDests() {
+      dests = [];
+      document.querySelectorAll('.navbar-links a.nav-link').forEach(function (a) {
+        var section = a.closest('.nav-section');
+        var label = (a.textContent || '').replace(/\s+/g, ' ').trim();
+        // Drop a trailing alert count so "Alerts3" doesn't pollute matching.
+        var badge = a.querySelector('.nav-badge');
+        if (badge) label = label.replace(badge.textContent, '').trim();
+        dests.push({
+          label: label,
+          sub: section ? (section.querySelector('.nav-section-label') || {}).textContent || '' : '',
+          url: a.getAttribute('href'),
+          type: 'page'
+        });
+      });
+    }
+
+    function render() {
+      list.innerHTML = '';
+      items.forEach(function (it, i) {
+        var li = document.createElement('li');
+        li.className = 'cmdk-item' + (i === active ? ' active' : '');
+        li.setAttribute('role', 'option');
+        li.id = 'cmdk-opt-' + i;
+        li.setAttribute('aria-selected', i === active ? 'true' : 'false');
+        var main = document.createElement('span');
+        main.className = 'cmdk-item-label';
+        main.textContent = it.label;
+        li.appendChild(main);
+        var tag = document.createElement('span');
+        tag.className = 'cmdk-item-sub' + (it.type === 'device' ? ' cmdk-item-sub-device' : '');
+        tag.textContent = it.type === 'device' ? 'Device' : it.sub;
+        li.appendChild(tag);
+        li.addEventListener('mousemove', function () { setActive(i); });
+        li.addEventListener('click', function () { choose(i); });
+        list.appendChild(li);
+      });
+      empty.hidden = items.length > 0;
+      input.setAttribute('aria-activedescendant', items.length ? 'cmdk-opt-' + active : '');
+    }
+
+    function filter(q) {
+      q = q.trim();
+      var ql = q.toLowerCase();
+      var pages = dests.filter(function (d) {
+        return !ql || d.label.toLowerCase().indexOf(ql) !== -1 || d.sub.toLowerCase().indexOf(ql) !== -1;
+      });
+      items = pages.slice();
+      // A serial is a single token with no spaces; offer a direct device jump.
+      if (q && !/\s/.test(q)) {
+        items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device' });
+      }
+      active = 0;
+      render();
+    }
+
+    function setActive(i) {
+      if (i === active) return;
+      active = i;
+      Array.prototype.forEach.call(list.children, function (li, idx) {
+        var on = idx === active;
+        li.classList.toggle('active', on);
+        li.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      input.setAttribute('aria-activedescendant', items.length ? 'cmdk-opt-' + active : '');
+    }
+
+    function move(delta) {
+      if (!items.length) return;
+      var n = items.length;
+      setActive((active + delta + n) % n);
+      var el = list.children[active];
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+    }
+
+    function choose(i) {
+      var it = items[i];
+      if (!it) return;
+      close();
+      window.location.href = it.url;
+    }
+
+    function open() {
+      if (!backdrop.hidden) return;
+      lastFocus = document.activeElement;
+      collectDests();
+      input.value = '';
+      filter('');
+      backdrop.hidden = false;
+      requestAnimationFrame(function () {
+        backdrop.classList.add('open');
+        input.focus();
+      });
+    }
+
+    function close() {
+      if (backdrop.hidden) return;
+      backdrop.classList.remove('open');
+      backdrop.hidden = true;
+      if (lastFocus && typeof lastFocus.focus === 'function') lastFocus.focus();
+    }
+
+    window.mdmOpenPalette = open;
+
+    input.addEventListener('input', function () { filter(input.value); });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+      else if (e.key === 'Enter') { e.preventDefault(); choose(active); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+
+    // Click the dimmed backdrop (but not the panel) to dismiss.
+    backdrop.addEventListener('mousedown', function (e) {
+      if (e.target === backdrop) close();
+    });
+
+    // Global shortcut: ⌘K (mac) / Ctrl+K (win/linux), and "/" when not typing.
+    document.addEventListener('keydown', function (e) {
+      var k = e.key.toLowerCase();
+      if ((e.metaKey || e.ctrlKey) && k === 'k') {
+        e.preventDefault();
+        backdrop.hidden ? open() : close();
+      }
     });
   })();
   </script>
