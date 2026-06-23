@@ -22,16 +22,6 @@
     {{$tz := extraField .Device.LatestExtra "timezone"}}
     <span class="dd-row-val mono">{{if $tz}}{{$tz}}{{else}}—{{end}}</span>
   </div>
-  <div class="dd-drow">
-    <span class="dd-row-label">Location</span>
-    {{$lat := extraField .Device.LatestExtra "latitude"}}
-    {{$lon := extraField .Device.LatestExtra "longitude"}}
-    {{if and $lat $lon}}
-      <span class="dd-row-val"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{$lat}}, {{$lon}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if $acc}} <span class="muted">±{{$acc}}m</span>{{end}}</span>
-    {{else}}
-      <span class="dd-row-val muted">—</span>
-    {{end}}
-  </div>
 </div>
 {{end}}
 

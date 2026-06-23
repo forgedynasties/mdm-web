@@ -164,8 +164,6 @@ type DeviceRowJSON struct {
 	Hidden       bool    `json:"hidden"` // true once hidden; tells the live row patch to drop the row
 	Charging     bool    `json:"charging"`
 	RowClasses   string  `json:"row_classes"`
-	Latitude     float64 `json:"latitude,omitempty"`
-	Longitude    float64 `json:"longitude,omitempty"`
 }
 
 func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) DeviceRowJSON {
@@ -208,18 +206,6 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 				var b bool
 				if json.Unmarshal(v, &b) == nil && (staleThreshold == 0 || time.Since(dev.LastSeenAt) <= staleThreshold) {
 					r.Charging = b
-				}
-			}
-			if v, ok := extra["latitude"]; ok {
-				var lat float64
-				if json.Unmarshal(v, &lat) == nil {
-					r.Latitude = lat
-				}
-			}
-			if v, ok := extra["longitude"]; ok {
-				var lon float64
-				if json.Unmarshal(v, &lon) == nil {
-					r.Longitude = lon
 				}
 			}
 		}
@@ -1861,8 +1847,6 @@ type deviceEventPayload struct {
 	TempC      *float64 `json:"temp_c"`   // nil = no data
 	RamPct     *float64 `json:"ram_pct"`  // nil = no data
 	Charging   *bool    `json:"charging"` // nil = no data
-	Latitude   *float64 `json:"latitude,omitempty"`
-	Longitude  *float64 `json:"longitude,omitempty"`
 }
 
 func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
@@ -1890,18 +1874,6 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 				if json.Unmarshal(v, &ram) == nil && ram["total"] > 0 {
 					pct := float64(ram["used"]) * 100 / float64(ram["total"])
 					p.RamPct = &pct
-				}
-			}
-			if v, ok := extra["latitude"]; ok {
-				var lat float64
-				if json.Unmarshal(v, &lat) == nil {
-					p.Latitude = &lat
-				}
-			}
-			if v, ok := extra["longitude"]; ok {
-				var lon float64
-				if json.Unmarshal(v, &lon) == nil {
-					p.Longitude = &lon
 				}
 			}
 		}
@@ -2602,7 +2574,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	}
 	colOrder := []string{"battery_pct", "battery_temp_c", "build_id", "wifi", "ip_address",
 		"ram_used_mb", "ram_total_mb", "storage_free_gb", "uptime_seconds", "wlc_status", "timezone",
-		"latitude", "longitude", "last_seen"}
+		"last_seen"}
 
 	header := []string{"serial_number", "timestamp"}
 	for _, c := range colOrder {
@@ -2657,10 +2629,6 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 				rec = append(rec, extraInt(row.Extra, "wlc_status"))
 			case "timezone":
 				rec = append(rec, extraString(row.Extra, "timezone"))
-			case "latitude":
-				rec = append(rec, extraFloat(row.Extra, "latitude"))
-			case "longitude":
-				rec = append(rec, extraFloat(row.Extra, "longitude"))
 			case "last_seen":
 				rec = append(rec, row.LastSeenAt.Format(time.RFC3339))
 			}
