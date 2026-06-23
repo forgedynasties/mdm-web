@@ -124,15 +124,17 @@
     <script>
       // Show the global Back control only when there's an in-app previous page to
       // return to (came from this origin, and the history stack has an entry), and
-      // only when the page doesn't already provide its own back affordance (the
-      // device detail page has a dedicated close button). Defer the in-page check
-      // to DOMContentLoaded since the page body isn't parsed yet at this point.
+      // only when the page doesn't already provide its own back affordance — detail
+      // pages render a labelled `.back-link` ("← Releases", "← AT0031"), and the
+      // device page a `.dd-close`. Those are more informative than a generic Back,
+      // so we defer to them. The in-page check waits for DOMContentLoaded since the
+      // page body isn't parsed yet at this point.
       (function () {
         var b = document.currentScript.previousElementSibling;
         function show() {
           if (b && history.length > 1 && document.referrer &&
               document.referrer.indexOf(location.origin) === 0 &&
-              !document.querySelector('.dd-close')) {
+              !document.querySelector('.dd-close, .back-link')) {
             b.style.display = 'inline-flex';
           }
         }
