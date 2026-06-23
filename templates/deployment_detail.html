@@ -49,6 +49,12 @@
               <button type="submit" class="btn-outline btn-sm">Retry</button>
             </form>
           {{end}}
+          {{if and (eq .Status "pending") (or (canAdmin $.Role) (eq $.Role "operator"))}}
+            <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline;margin-top:6px;"
+                  onsubmit="return confirm('Remove {{.SerialNumber}} from this deployment? It will not receive the update.')">
+              <button type="submit" class="btn-outline btn-sm">Remove</button>
+            </form>
+          {{end}}
         </td>
         <td class="small muted" title="time from download start to installed">{{dur .DurationSeconds}}</td>
         <td class="small muted reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></td>

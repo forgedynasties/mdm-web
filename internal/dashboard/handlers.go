@@ -4442,6 +4442,45 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
 }
 
+// DeploymentRemoveDevice drops a still-pending device from a deployment so it will
+// never receive the update. Only 'pending' rows can be removed (nothing has been
+// sent yet); once a device has started downloading the request is a no-op.
+func (h *Handler) DeploymentRemoveDevice(w http.ResponseWriter, r *http.Request) {
+	relID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), did)
+	if err != nil || upd.ReleaseID != relID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	removed, err := h.db.RemoveDeviceFromUpdate(r.Context(), did, device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if removed {
+		// Clear any guard so a queued OTA can't still reach the device, and refresh
+		// the dashboard — mirrors the retry/clear-OTA path.
+		_ = h.db.ClearPendingOTACommands(r.Context(), device.ID)
+		h.hub.PublishDeviceUpdate(device.ID)
+		h.audit(r, "deployment.remove_device", r.PathValue("serial"), strconv.Itoa(did))
+	}
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
+}
+
 // DeploymentAddTargets widens an existing deployment by adding more devices or
 // groups to it, instead of creating a separate deployment. Eligible devices
 // (not already on an active update) are appended to the same update.
@@ -6898,6 +6937,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
 	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireOperatorOrAdmin(h.DeploymentAddTargets))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
+	post("POST /releases/{id}/deployments/{did}/devices/{serial}/remove", h.requireOperatorOrAdmin(h.DeploymentRemoveDevice))
 	post("POST /releases/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 
 	mux.HandleFunc("GET /users", h.requireStrictAdmin(h.UserList))
