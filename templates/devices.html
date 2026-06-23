@@ -95,7 +95,7 @@
         </td>
         <td class="muted small">{{localTime .CreatedAt}}</td>
         <td style="white-space:nowrap;">
-          <a href="/devices/{{.SerialNumber}}" class="link-detail">View</a>
+          <a href="/devices/{{.SerialNumber}}" class="link-detail" data-full="1" title="Open full device page">View</a>
           {{if canAdmin $.Role}}
           <form action="/devices/{{.SerialNumber}}/hide" method="POST" style="display:inline;margin-left:6px;"
                 onsubmit="return confirm('Hide {{.SerialNumber}}? It will reappear on next check-in.')">
@@ -825,6 +825,9 @@ document.addEventListener('keydown', function(e) {
       if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       var a = e.target.closest && e.target.closest('#device-table-container a.link-detail[href^="/devices/"]');
       if (!a) return;
+      // Links marked data-full open the full device page directly (the row's
+      // "View" action), bypassing the inspector.
+      if (a.dataset.full === '1') return;
       var m = a.getAttribute('href').match(/^\/devices\/([^\/?#]+)$/);
       if (!m) return;
       e.preventDefault();
