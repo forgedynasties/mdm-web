@@ -98,7 +98,7 @@
           <a href="/devices/{{.SerialNumber}}" class="link-detail" data-full="1" title="Open full device page">View</a>
           {{if canAdmin $.Role}}
           <form action="/devices/{{.SerialNumber}}/hide" method="POST" style="display:inline;margin-left:6px;"
-                onsubmit="return confirm('Hide {{.SerialNumber}}? It will reappear on next check-in.')">
+                onsubmit="return mdmConfirmSubmit(event, {title:'Hide device', body:'Hide {{.SerialNumber}}?', scope:'It reappears on next check-in.', tier:'danger', confirmLabel:'Hide'})">
             <button type="submit" class="btn-danger-sm" title="Hide device">x</button>
           </form>
           {{end}}
@@ -850,6 +850,30 @@ document.addEventListener('keydown', function(e) {
         highlight(selected);
       }
     });
+
+    // Guarded quick-actions exposed for the panel's Reboot / Hide buttons.
+    window.mdmInspectorReboot = function (serial) {
+      if (!serial || !window.mdmConfirm) return;
+      window.mdmConfirm({
+        title: 'Reboot device',
+        body: 'Reboot ' + serial + '?',
+        scope: 'The device reboots on its next check-in.',
+        tier: 'danger', confirmLabel: 'Reboot'
+      }).then(function (ok) {
+        if (ok) window.mdmPostForm('/commands', { type: 'reboot', target_type: 'devices', target_serials: serial, apk_url: '' });
+      });
+    };
+    window.mdmInspectorHide = function (serial) {
+      if (!serial || !window.mdmConfirm) return;
+      window.mdmConfirm({
+        title: 'Hide device',
+        body: 'Hide ' + serial + ' from the roster?',
+        scope: 'It reappears automatically on its next check-in.',
+        tier: 'danger', confirmLabel: 'Hide'
+      }).then(function (ok) {
+        if (ok) window.mdmPostForm('/devices/' + encodeURIComponent(serial) + '/hide', {});
+      });
+    };
 
     // Deep link: ?device=SERIAL opens the inspector on load.
     var initial = new URLSearchParams(location.search).get('device');

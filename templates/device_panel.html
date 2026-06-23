@@ -78,6 +78,12 @@
       <a href="/devices/{{.SerialNumber}}/logcat" class="btn-outline">Logs</a>
       <a href="/commands?serials={{.SerialNumber}}" class="btn-outline">Send command</a>
     </div>
+    {{if canAdmin $.Role}}
+    <div class="dvp-actions-row dvp-admin-row">
+      <button type="button" class="btn-outline" data-serial="{{.SerialNumber}}" onclick="window.mdmInspectorReboot && window.mdmInspectorReboot(this.dataset.serial)">Reboot</button>
+      <button type="button" class="btn-danger-sm" data-serial="{{.SerialNumber}}" onclick="window.mdmInspectorHide && window.mdmInspectorHide(this.dataset.serial)">Hide</button>
+    </div>
+    {{end}}
   </div>
 </div>
 {{end}}

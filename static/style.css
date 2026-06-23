@@ -482,6 +482,20 @@ a:hover { color: var(--accent-h); }
   .cmdk-backdrop.open .cmdk-panel { transform: none; }
 }
 
+/* ── Tiered confirm dialog ───────────────────────────── */
+.mdm-confirm-body { margin: 0; font-size: var(--t-14, 14px); color: var(--text); line-height: 1.5; }
+.mdm-confirm-scope {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-2);
+  background: var(--surface2);
+  color: var(--muted);
+  font-size: var(--t-13);
+  line-height: 1.45;
+}
+.mdm-confirm-type { margin-top: 12px; }
+.mdm-confirm-actions { display: flex; justify-content: flex-end; gap: var(--s-2); margin-top: 18px; }
+
 /* ── Admin tools links (Settings) ────────────────────── */
 .admin-tool {
   display: flex;
@@ -586,7 +600,9 @@ a:hover { color: var(--accent-h); }
 .dvp-actions-row { display: flex; gap: var(--s-2); }
 .dvp-actions .btn-primary,
 .dvp-actions .btn-outline { width: 100%; justify-content: center; }
-.dvp-actions-row .btn-outline { flex: 1; }
+.dvp-actions-row .btn-outline,
+.dvp-actions-row .btn-danger-sm { flex: 1; justify-content: center; }
+.dvp-admin-row { margin-top: 2px; }
 .dvp-open { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 
 /* Selected row in the roster */
