@@ -96,6 +96,26 @@
       <div class="cmdk-empty" id="cmdk-empty" hidden>No matches.</div>
     </div>
   </div>
+  <div id="mdm-confirm" class="modal-backdrop">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="mdm-confirm-title">Confirm</span>
+        <button class="modal-close" type="button" data-confirm-cancel aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="mdm-confirm-body" id="mdm-confirm-body"></p>
+        <div class="mdm-confirm-scope" id="mdm-confirm-scope" hidden></div>
+        <div class="form-row mdm-confirm-type" id="mdm-confirm-type" hidden>
+          <label class="form-label" id="mdm-confirm-type-label" for="mdm-confirm-type-input"></label>
+          <input type="text" id="mdm-confirm-type-input" class="form-input" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="mdm-confirm-actions">
+          <button type="button" class="btn-outline" data-confirm-cancel>Cancel</button>
+          <button type="button" class="btn-primary" id="mdm-confirm-ok">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <main class="container">
     <button type="button" class="page-back" onclick="history.back()" title="Back to previous page" aria-label="Back to previous page"
             style="display:none;align-items:center;gap:6px;background:none;border:none;color:var(--muted);cursor:pointer;font:inherit;font-size:13px;padding:4px 0;margin-bottom:8px;">
@@ -804,6 +824,101 @@
       known = n;
       document.dispatchEvent(new CustomEvent('mdm:alerts-update', { detail: { count: n } }));
     });
+  })();
+  </script>
+  <script>
+  // ── Tiered confirmation ──────────────────────────────────────────────────
+  // One dialog for every guarded action, so confirmations look and behave the
+  // same everywhere. Tiers: 'normal' (low stakes), 'danger' (red confirm),
+  // 'type' (must type a token to enable confirm — for destructive, irreversible
+  // actions). Returns a Promise<boolean>. Reuses the global modal a11y (Tab trap
+  // + dialog semantics); focus lands on Cancel (never the confirm) by default.
+  (function () {
+    var modal = document.getElementById('mdm-confirm');
+    if (!modal) { window.mdmConfirm = function () { return Promise.resolve(window.confirm('Are you sure?')); }; }
+    if (!modal) return;
+    var titleEl = document.getElementById('mdm-confirm-title');
+    var bodyEl = document.getElementById('mdm-confirm-body');
+    var scopeEl = document.getElementById('mdm-confirm-scope');
+    var typeWrap = document.getElementById('mdm-confirm-type');
+    var typeLabel = document.getElementById('mdm-confirm-type-label');
+    var typeInput = document.getElementById('mdm-confirm-type-input');
+    var okBtn = document.getElementById('mdm-confirm-ok');
+    var cancels = modal.querySelectorAll('[data-confirm-cancel]');
+    var active = null;
+
+    function close(result) {
+      if (!active) return;
+      var resolve = active; active = null;
+      modal.classList.remove('modal-open');
+      okBtn.onclick = null;
+      typeInput.oninput = null;
+      document.removeEventListener('keydown', onKey, true);
+      modal.removeEventListener('mousedown', onBackdrop);
+      resolve(result);
+    }
+    function onKey(e) { if (e.key === 'Escape') { e.preventDefault(); close(false); } }
+    function onBackdrop(e) { if (e.target === modal) close(false); }
+
+    window.mdmConfirm = function (opts) {
+      opts = opts || {};
+      if (active) close(false);
+      return new Promise(function (resolve) {
+        active = resolve;
+        titleEl.textContent = opts.title || 'Confirm';
+        bodyEl.textContent = opts.body || '';
+        bodyEl.hidden = !opts.body;
+        if (opts.scope) { scopeEl.textContent = opts.scope; scopeEl.hidden = false; } else { scopeEl.hidden = true; }
+        var danger = opts.tier === 'danger' || opts.tier === 'type';
+        okBtn.className = danger ? 'btn-danger' : 'btn-primary';
+        okBtn.textContent = opts.confirmLabel || 'Confirm';
+        var token = opts.tier === 'type' ? String(opts.typeToken == null ? '' : opts.typeToken) : '';
+        if (token) {
+          typeWrap.hidden = false;
+          typeLabel.textContent = opts.typeLabel || ('Type ' + token + ' to confirm');
+          typeInput.value = '';
+          okBtn.disabled = true;
+          typeInput.oninput = function () { okBtn.disabled = typeInput.value.trim() !== token; };
+        } else {
+          typeWrap.hidden = true;
+          okBtn.disabled = false;
+        }
+        okBtn.onclick = function () { if (!okBtn.disabled) close(true); };
+        cancels.forEach(function (c) { c.onclick = function () { close(false); }; });
+        document.addEventListener('keydown', onKey, true);
+        modal.addEventListener('mousedown', onBackdrop);
+        modal.classList.add('modal-open');
+        // Nested rAF so this runs *after* the global modal helper's own
+        // focus-first-focusable pass; land focus on the field (type tier) or
+        // Cancel — never the confirm button.
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            (token ? typeInput : modal.querySelector('.mdm-confirm-actions [data-confirm-cancel]')).focus();
+          });
+        });
+      });
+    };
+
+    // Drop-in for `onsubmit="return confirm(...)"`:
+    // `onsubmit="return mdmConfirmSubmit(event, {title, body, tier, ...})"`.
+    window.mdmConfirmSubmit = function (event, opts) {
+      event.preventDefault();
+      var form = event.currentTarget || event.target;
+      window.mdmConfirm(opts).then(function (ok) { if (ok) form.submit(); });
+      return false;
+    };
+
+    // Build + submit a POST form for a JS-triggered guarded action.
+    window.mdmPostForm = function (action, fields) {
+      var f = document.createElement('form');
+      f.method = 'POST'; f.action = action;
+      Object.keys(fields || {}).forEach(function (k) {
+        var i = document.createElement('input');
+        i.type = 'hidden'; i.name = k; i.value = fields[k];
+        f.appendChild(i);
+      });
+      document.body.appendChild(f); f.submit();
+    };
   })();
   </script>
 </body>
