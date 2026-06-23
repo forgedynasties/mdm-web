@@ -139,6 +139,7 @@ document.body.addEventListener('htmx:afterSwap', function(e){ if(e.target && e.t
   <div class="card-header"><h3>Devices</h3></div>
   {{if not .Devices}}
   <div class="empty-state">
+    <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
     <div class="empty-state-copy">
       <div class="empty-state-title">No devices assigned yet</div>
       <div class="empty-state-text">Assign devices above, or set a device's restaurant from its detail page.</div>

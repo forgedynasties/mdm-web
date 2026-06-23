@@ -39,6 +39,9 @@ func main() {
 	dashUser := getEnv("DASHBOARD_USER", "admin")
 	dashPass := mustEnv("DASHBOARD_PASSWORD")
 	sessionSecret := getEnv("SESSION_SECRET", deviceAPIKey)
+	if len(sessionSecret) < 32 {
+		log.Fatalf("SESSION_SECRET (or DEVICE_API_KEY, used as the fallback) must be at least 32 bytes for secure session cookie encryption")
+	}
 	configPath := getEnv("CONFIG_PATH", "config/display.json")
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
@@ -216,7 +219,7 @@ func main() {
 	mux.Handle("POST /api/v1/commands", adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
 	mux.Handle("GET /api/v1/commands/{id}", adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 
-	dash := dashboard.NewHandler(database, hub, shellMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
+	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
 	dash.RegisterRoutes(mux)
 
 	// One-time backfill of daily stats for any historical days not yet rolled up.

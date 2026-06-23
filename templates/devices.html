@@ -676,6 +676,9 @@ document.addEventListener('keydown', function(e) {
       var tr = document.querySelector('tr[data-serial="' + d.serial + '"]');
       if (!tr) return;
 
+      // A device that just became hidden should leave the (hidden-excluded) fleet view.
+      if (d.hidden) { tr.remove(); return; }
+
       var cells = tr.cells;
 
       // col 1: ws-dot + serial (dot class only)

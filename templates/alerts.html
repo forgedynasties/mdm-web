@@ -1,6 +1,7 @@
 {{define "alerts.html"}}
 {{template "header" .}}
 
+<div id="alerts-live">
 <div class="ov-greet">
   <h1 class="ov-title">Alerts</h1>
   <span class="ov-date">{{len .Alerts}} alert{{if ne (len .Alerts) 1}}s{{end}}{{if .Filter}} · {{.Filter}}{{end}}</span>
@@ -87,6 +88,32 @@
   </table>
   {{end}}
 </div>
+</div><!-- /#alerts-live -->
+
+<script>
+// Live refresh: an ack/resolve by any user broadcasts an alert-update event; re-fetch
+// the current (filter-preserving) URL and swap just the alerts region.
+(function () {
+  if (!window.EventSource) return;
+  var es = new EventSource('/alerts/events');
+  var pending = false;
+  function refresh() {
+    if (pending) return;
+    pending = true;
+    fetch(location.href, { credentials: 'same-origin' })
+      .then(function (r) { return r.text(); })
+      .then(function (html) {
+        pending = false;
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var fresh = doc.getElementById('alerts-live');
+        var cur = document.getElementById('alerts-live');
+        if (fresh && cur) cur.innerHTML = fresh.innerHTML;
+      })
+      .catch(function () { pending = false; });
+  }
+  es.addEventListener('alert-update', refresh);
+})();
+</script>
 
 {{template "footer" .}}
 {{end}}

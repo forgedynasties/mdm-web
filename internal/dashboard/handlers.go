@@ -34,6 +34,7 @@ import (
 	"mdm/internal/db"
 	"mdm/internal/notify"
 	"mdm/internal/ratelimit"
+	"mdm/internal/remote"
 	"mdm/internal/shell"
 	"mdm/internal/version"
 	"mdm/internal/ws"
@@ -64,6 +65,7 @@ type Handler struct {
 	db          *db.DB
 	hub         *ws.Hub
 	shell       *shell.Manager
+	remote      *remote.Manager
 	store       *sessions.CookieStore
 	tmpl        *template.Template
 	user        string
@@ -159,6 +161,7 @@ type DeviceRowJSON struct {
 	PollInterval int     `json:"poll_interval_ms"`
 	KioskEnabled bool    `json:"kiosk_enabled"`
 	KioskPackage string  `json:"kiosk_package"`
+	Hidden       bool    `json:"hidden"` // true once hidden; tells the live row patch to drop the row
 	Charging     bool    `json:"charging"`
 	RowClasses   string  `json:"row_classes"`
 	Latitude     float64 `json:"latitude,omitempty"`
@@ -175,6 +178,7 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 		PollInterval: dev.PollIntervalMs,
 		KioskEnabled: dev.KioskEnabled,
 		KioskPackage: dev.KioskPackage,
+		Hidden:       dev.Hidden,
 		RowClasses:   deviceRowClasses(dev),
 	}
 
@@ -310,7 +314,7 @@ var updateEngineErrors = map[string]string{
 	"62": "Package excluded for this device.",
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey string) *Handler {
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remote.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey string) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -778,6 +782,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, sessionSecret, u
 		db:            d,
 		hub:           hub,
 		shell:         shellMgr,
+		remote:        remoteMgr,
 		store:         store,
 		tmpl:          tmpl,
 		user:          user,
@@ -1648,7 +1653,9 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		"Title":  "Remote — " + device.SerialNumber,
 		"Serial": device.SerialNumber,
 		"Online": h.hub.IsConnected(device.ID),
-		"APIKey": h.adminAPIKey,
+		// Single-use, short-lived token instead of the admin API key (which must
+		// never reach the browser). The control WebSocket redeems it server-side.
+		"Token": h.remote.IssueToken(device.ID, 2*time.Minute),
 	})
 }
 
@@ -1953,6 +1960,47 @@ func (h *Handler) CommandEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// AlertEvents streams SSE notifications to the alerts page so an ack/resolve by
+// any user refreshes every open alerts view in real time.
+func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	fmt.Fprint(w, ": connected\n\n")
+	flusher.Flush()
+
+	sub := h.hub.SubscribeAlertUpdates()
+	defer h.hub.UnsubscribeAlertUpdates(sub)
+
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": keep-alive\n\n")
+			flusher.Flush()
+		case _, ok := <-sub:
+			if !ok {
+				return
+			}
+			fmt.Fprint(w, "event: alert-update\ndata: refresh\n\n")
+			flusher.Flush()
+		}
+	}
+}
+
 // DeviceEvents streams SSE notifications for a single device detail page.
 func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -2206,6 +2254,7 @@ func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status 
 		return
 	}
 	h.audit(r, "alert."+status, id.String(), "")
+	h.hub.PublishAlertUpdate()
 	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
 }
 
@@ -2225,6 +2274,7 @@ func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status
 		return
 	}
 	h.audit(r, "alert."+status+"_all", "", strconv.FormatInt(n, 10))
+	h.hub.PublishAlertUpdate()
 	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
 }
 
@@ -3079,13 +3129,21 @@ func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request
 	}
 	r.ParseForm()
 	serials := parseSerialsField(r.Form["serials"])
-	for _, s := range serials {
-		if err := h.db.AssignDeviceToRestaurant(r.Context(), s, &id); err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
+	if len(serials) == 0 {
+		http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+		return
+	}
+	// Atomic bulk assign: avoids leaving a partial set assigned if one row errors.
+	if err := h.db.AssignDevicesToRestaurant(r.Context(), serials, id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "restaurant.assign", id.String(), fmt.Sprintf("%d devices", len(serials)))
+	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
+		for _, did := range ids {
+			h.hub.PublishDeviceUpdate(did)
 		}
 	}
-	h.audit(r, "restaurant.assign", id.String(), strings.Join(serials, ","))
 	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 }
 
@@ -3124,6 +3182,9 @@ func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	h.audit(r, "restaurant.unassign", id.String(), serial)
+	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
+		h.hub.PublishDeviceUpdate(device.ID)
+	}
 	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 }
 
@@ -3201,6 +3262,9 @@ func (h *Handler) DeviceSetRestaurant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "device.restaurant", serial, ridStr)
+	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
+		h.hub.PublishDeviceUpdate(device.ID)
+	}
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
@@ -3224,6 +3288,11 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.AddDevicesToGroup(r.Context(), serials, id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
+		for _, did := range ids {
+			h.hub.PublishDeviceUpdate(did)
+		}
 	}
 	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
 }
@@ -3286,6 +3355,9 @@ func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
+		h.hub.PublishDeviceUpdate(device.ID)
+	}
 	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
 }
 
@@ -3307,6 +3379,11 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
 		return
 	}
+	reason := strings.TrimSpace(r.FormValue("reason"))
+	if isDestructiveCmd(cmdType) && h.cfg.RequireReason() && reason == "" {
+		http.Error(w, "A reason is required for this command.", http.StatusBadRequest)
+		return
+	}
 
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	if cmdType == "install_apk" && apkURL == "" {
@@ -3322,16 +3399,27 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushCommand(r.Context(), cmd, "groups", []uuid.UUID{id})
+	detail := "target=groups, group=" + id.String()
+	if reason != "" {
+		detail += ", reason=" + reason
+	}
+	h.audit(r, "command.send", cmdType, detail)
 	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
 }
 
 func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
 	if err := h.db.HideDevice(r.Context(), serial); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	h.audit(r, "device.hide", serial, "")
+	h.hub.PublishDeviceUpdate(device.ID)
 	http.Redirect(w, r, "/devices", http.StatusSeeOther)
 }
 
@@ -3346,6 +3434,7 @@ func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.hub.PublishDeviceUpdate(device.ID)
 	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
 }
 
@@ -3359,6 +3448,12 @@ func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.BulkHideDevices(r.Context(), serials); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	h.audit(r, "device.bulk_hide", strings.Join(serials, ","), fmt.Sprintf("%d devices", len(serials)))
+	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
+		for _, id := range ids {
+			h.hub.PublishDeviceUpdate(id)
+		}
 	}
 	http.Redirect(w, r, "/devices", http.StatusSeeOther)
 }
@@ -3377,7 +3472,12 @@ func (h *Handler) BulkAssignRestaurant(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.audit(r, "restaurant.assign", rid.String(), strings.Join(serials, ","))
+	h.audit(r, "restaurant.assign", rid.String(), fmt.Sprintf("%d devices", len(serials)))
+	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
+		for _, id := range ids {
+			h.hub.PublishDeviceUpdate(id)
+		}
+	}
 	http.Redirect(w, r, "/restaurants/"+rid.String(), http.StatusSeeOther)
 }
 
@@ -4459,7 +4559,10 @@ func (h *Handler) resolveEligibleDevices(r *http.Request) ([]uuid.UUID, error) {
 	var eligible []uuid.UUID
 	for _, did := range unique {
 		has, err := h.db.DeviceHasActiveUpdate(r.Context(), did)
-		if err != nil || !has {
+		if err != nil {
+			return nil, err
+		}
+		if !has {
 			eligible = append(eligible, did)
 		}
 	}
@@ -6140,6 +6243,11 @@ func (h *Handler) LogcatRefresh(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) LogcatRequestCreate(w http.ResponseWriter, r *http.Request) {
+	// Authorize the logcat capability (role-keyed allowlist) before touching the
+	// device, matching DeviceCommandCreate and keeping log access role-gated.
+	if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), "logcat")) {
+		return
+	}
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
@@ -6261,6 +6369,11 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
 		return
 	}
+	reason := strings.TrimSpace(r.FormValue("reason"))
+	if isDestructiveCmd(cmdType) && h.cfg.RequireReason() && reason == "" {
+		http.Error(w, "A reason is required for this command.", http.StatusBadRequest)
+		return
+	}
 
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
@@ -6282,7 +6395,11 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
-	h.audit(r, "command.send", cmdType, "device="+serial)
+	detail := "device=" + serial
+	if reason != "" {
+		detail += ", reason=" + reason
+	}
+	h.audit(r, "command.send", cmdType, detail)
 	if r.Header.Get("Accept") == "application/json" {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"id": cmd.ID.String()})
@@ -6299,13 +6416,16 @@ func (h *Handler) DeviceSetPollInterval(w http.ResponseWriter, r *http.Request) 
 	serial := r.PathValue("serial")
 	r.ParseForm()
 	ms, err := strconv.Atoi(r.FormValue("poll_interval_ms"))
-	if err != nil || ms < 5000 {
-		http.Error(w, "poll_interval_ms must be >= 5000", http.StatusBadRequest)
+	if err != nil || ms < 5000 || ms > 3600000 {
+		http.Error(w, "poll_interval_ms must be between 5000 and 3600000 (5s–1h)", http.StatusBadRequest)
 		return
 	}
 	if err := h.db.SetDevicePollInterval(r.Context(), serial, ms); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
+		h.hub.PublishDeviceUpdate(device.ID)
 	}
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
@@ -6398,9 +6518,14 @@ func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
 	if variant == "" {
 		variant = "0"
 	}
-	sku := strings.ToUpper(r.FormValue("sku"))
+	sku := strings.ToUpper(strings.TrimSpace(r.FormValue("sku")))
 	if sku == "" {
 		sku = "AA"
+	}
+	// Model code is the zero-padded integer part of the model size; accept a single
+	// digit ("6") and pad it to two ("06") to match the field's documented contract.
+	if len(modelCode) == 1 {
+		modelCode = "0" + modelCode
 	}
 	batchMonth, _ := strconv.Atoi(r.FormValue("batch_month"))
 	batchYear, _ := strconv.Atoi(r.FormValue("batch_year"))
@@ -6412,6 +6537,13 @@ func (h *Handler) ProductionCreate(w http.ResponseWriter, r *http.Request) {
 		batchMonth < 1 || batchMonth > 12 || batchYear < 0 || batchYear > 99 ||
 		startSeq < 1 || quantity < 1 {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
+		return
+	}
+	// The serial schema is a fixed 9-char prefix + 5-digit sequence = 14 chars, and the
+	// device-matching queries hard-code LENGTH(serial)=14. Reject any component length
+	// that would produce a serial that can never match a device.
+	if len(productCode) != 2 || len(modelCode) != 2 || len(variant) != 1 || len(sku) != 2 {
+		http.Error(w, "Product code and SKU must be exactly 2 characters, model code 2 digits, variant 1 character.", http.StatusBadRequest)
 		return
 	}
 
@@ -6694,6 +6826,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
+	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
 	post("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
 	post("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
 	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
@@ -6867,6 +7000,7 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 	switch targetType {
 	case "all":
 		h.hub.Broadcast(msg)
+		h.hub.PublishCommandUpdate(cmd.ID)
 		return
 	case "groups":
 		ids, err := h.db.GetDeviceIDsByGroupIDs(ctx, targetIDs)
@@ -6886,6 +7020,9 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
 		}
 	}
+	// Surface the new delivery/ack state on the command detail page in real time
+	// instead of waiting for its 30s polling fallback.
+	h.hub.PublishCommandUpdate(cmd.ID)
 }
 
 func (h *Handler) pushLogcatRequest(ctx context.Context, req *db.LogcatRequest) {
