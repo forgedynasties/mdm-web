@@ -494,7 +494,10 @@ a:hover { color: var(--accent-h); }
   line-height: 1.45;
 }
 .mdm-confirm-type { margin-top: 12px; }
-.mdm-confirm-actions { display: flex; justify-content: flex-end; gap: var(--s-2); margin-top: 18px; }
+/* .form-row sets display:flex, which would override the `hidden` attribute, so
+   the type-to-confirm field must be hidden explicitly when not in use. */
+.mdm-confirm-type[hidden] { display: none; }
+.mdm-confirm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--s-2); margin-top: 18px; }
 
 /* ── Admin tools links (Settings) ────────────────────── */
 .admin-tool {
