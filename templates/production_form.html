@@ -20,9 +20,9 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
       <div class="form-row">
         <label class="form-label">Product Code</label>
-        <input type="text" name="product_code" id="f-product" class="form-input mono" placeholder="AK" maxlength="3" required
+        <input type="text" name="product_code" id="f-product" class="form-input mono" placeholder="AK" maxlength="2" minlength="2" required
                oninput="this.value=this.value.toUpperCase(); refreshPreview()">
-        <span class="muted small">2–3 letter product prefix (e.g. AK, AT, AM, AP, FS, WM, CS)</span>
+        <span class="muted small">2-letter product prefix (e.g. AK, AT, AM, AP, FS, WM, CS)</span>
       </div>
       <div class="form-row">
         <label class="form-label">Model Code</label>

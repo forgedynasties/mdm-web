@@ -132,20 +132,28 @@ func (h *Handler) PingDevice(w http.ResponseWriter, r *http.Request) {
 // binary frames from the device to the dashboard, and relays input events back.
 func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[remote] ConnectRemote called from %s", r.RemoteAddr)
-	if r.URL.Query().Get("key") != h.adminAPIKey {
+	// Auth is a single-use token minted by the (session-authenticated) dashboard,
+	// not the admin API key — the key must never reach the browser / WS URL.
+	tokenDeviceID, ok := h.remote.RedeemToken(r.URL.Query().Get("token"))
+	if !ok {
 		log.Printf("[remote] auth failed for %s", r.RemoteAddr)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 	serial := strings.TrimSpace(r.PathValue("serial"))
 	if serial == "" {
-		http.Error(w, "serial query parameter required", http.StatusBadRequest)
+		http.Error(w, "device serial missing from URL path", http.StatusBadRequest)
 		return
 	}
 
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
 		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	if device.ID != tokenDeviceID {
+		// Token was issued for a different device than the URL names.
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
@@ -275,6 +283,8 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
 		}
 	}
+	// Notify the dashboard's command detail page of the new delivery/ack state.
+	h.hub.PublishCommandUpdate(cmd.ID)
 }
 
 // enrichLocation resolves WiFi scan data to geographic coordinates and merges

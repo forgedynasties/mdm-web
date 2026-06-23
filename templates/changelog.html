@@ -19,6 +19,14 @@
 
 <div class="card">
   <div class="changelog">
+    {{if not .Changelog}}
+    <div class="empty-state">
+      <div class="empty-state-copy">
+        <div class="empty-state-title">No changelog entries</div>
+        <div class="empty-state-text">Release notes will appear here as new versions ship.</div>
+      </div>
+    </div>
+    {{end}}
     {{range .Changelog}}
     <div class="cl-entry">
       <div class="cl-head">

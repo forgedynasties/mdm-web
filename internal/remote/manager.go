@@ -1,9 +1,12 @@
 package remote
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"mdm/internal/ws"
@@ -18,19 +21,71 @@ type Session struct {
 	closeOnce   sync.Once
 }
 
+// remoteToken is a single-use, short-lived authorization for one device's remote
+// session. The dashboard (which is session-authenticated) mints one and hands it to
+// the browser; the device API redeems it when the control WebSocket connects. This
+// replaces embedding the admin API key in the page / WebSocket URL.
+type remoteToken struct {
+	deviceID uuid.UUID
+	expires  time.Time
+}
+
 // Manager tracks active remote-control sessions and relays frames and input
 // events between device WebSocket connections and dashboard WebSocket connections.
 type Manager struct {
 	mu       sync.Mutex
 	sessions map[uuid.UUID]*Session
 	hub      *ws.Hub
+
+	tokenMu sync.Mutex
+	tokens  map[string]remoteToken
 }
 
 func New(hub *ws.Hub) *Manager {
 	return &Manager{
 		sessions: make(map[uuid.UUID]*Session),
 		hub:      hub,
+		tokens:   make(map[string]remoteToken),
 	}
+}
+
+// IssueToken mints a single-use token authorizing a remote session for deviceID,
+// valid for ttl. Returns "" only if the system RNG fails.
+func (m *Manager) IssueToken(deviceID uuid.UUID, ttl time.Duration) string {
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		return ""
+	}
+	tok := hex.EncodeToString(buf)
+	now := time.Now()
+	m.tokenMu.Lock()
+	m.tokens[tok] = remoteToken{deviceID: deviceID, expires: now.Add(ttl)}
+	for k, v := range m.tokens { // opportunistic sweep of expired entries
+		if now.After(v.expires) {
+			delete(m.tokens, k)
+		}
+	}
+	m.tokenMu.Unlock()
+	return tok
+}
+
+// RedeemToken consumes a token (single use) and returns the device it authorizes.
+// Returns false if the token is unknown or expired.
+func (m *Manager) RedeemToken(tok string) (uuid.UUID, bool) {
+	if tok == "" {
+		return uuid.Nil, false
+	}
+	m.tokenMu.Lock()
+	defer m.tokenMu.Unlock()
+	e, ok := m.tokens[tok]
+	if !ok {
+		return uuid.Nil, false
+	}
+	delete(m.tokens, tok)
+	if time.Now().After(e.expires) {
+		return uuid.Nil, false
+	}
+	return e.deviceID, true
 }
 
 // Start creates a session for the device. Returns an error if a session is

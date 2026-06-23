@@ -93,39 +93,27 @@
       </tr>
     </thead>
     <tbody>
-      {{if .Devices}}
-        {{range .Devices}}
-        <tr>
-          <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
-          <td class="mono small">{{.BuildID}}</td>
-          <td>
-            <div class="battery-wrap">
-              <div class="battery-track">
-                <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
-              </div>
-              <span class="battery-label">{{.BatteryPct}}%</span>
+      {{range .Devices}}
+      <tr>
+        <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
+        <td class="mono small">{{.BuildID}}</td>
+        <td>
+          <div class="battery-wrap">
+            <div class="battery-track">
+              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
             </div>
-          </td>
-          <td class="muted">{{timeSince .LastSeenAt}}</td>
-          {{if canAdmin $.Role}}
-          <td>
-            <form action="/groups/{{$.Group.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline">
-              <button type="submit" class="btn-danger-sm">Remove</button>
-            </form>
-          </td>
-          {{end}}
-        </tr>
+            <span class="battery-label">{{.BatteryPct}}%</span>
+          </div>
+        </td>
+        <td class="muted">{{timeSince .LastSeenAt}}</td>
+        {{if canAdmin $.Role}}
+        <td>
+          <form action="/groups/{{$.Group.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline">
+            <button type="submit" class="btn-danger-sm">Remove</button>
+          </form>
+        </td>
         {{end}}
-      {{else}}
-        <tr>
-          <td colspan="5">
-            <div class="empty-state">
-              <div class="empty-state-copy">
-                <div class="empty-state-title">No devices in this group yet</div>
-              </div>
-            </div>
-          </td>
-        </tr>
+      </tr>
       {{end}}
     </tbody>
   </table>
@@ -148,10 +136,21 @@ function toggleSection(header) {
 }
 
 function pickGroupSerial(serial) {
+  // Append the picked serial to the "serials" textarea — that is the field the
+  // GroupAddDevice handler actually reads. (The search box is name="q" and is never
+  // submitted, so writing the serial back into it silently dropped the selection.)
+  var textarea = document.querySelector('textarea[name="serials"]');
+  if (textarea) {
+    var existing = textarea.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+    if (existing.indexOf(serial) === -1) existing.push(serial);
+    textarea.value = existing.join('\n');
+  }
   var input = document.getElementById('group-serial-input');
-  if (!input) return;
-  input.value = serial;
-  input.focus();
+  if (input) {
+    input.value = '';
+    document.getElementById('group-device-search-results').innerHTML = '';
+    input.focus();
+  }
 }
 
 // Group trends chart — aggregated daily stats across the group's devices.

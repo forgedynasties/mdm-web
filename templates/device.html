@@ -1172,6 +1172,9 @@ function filterInstalledApps(q) {
               onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')">
           <input type="hidden" name="type" value="reboot">
           <div class="device-action-note">The device restarts on its next check-in. In-progress activity may be interrupted.</div>
+          <div class="form-row">
+            <input type="text" name="reason" class="form-input" placeholder="Reason (required when reason-logging is on)">
+          </div>
           <div>
             <button type="submit" class="btn-danger"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v6"/><path d="M5.5 7a8 8 0 1 0 13 0"/></svg></span>Reboot Device</button>
           </div>

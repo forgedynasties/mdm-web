@@ -46,6 +46,10 @@ type LogcatUpdateEvent struct {
 	DeviceID uuid.UUID
 }
 
+// AlertUpdateEvent is emitted when an alert's status changes (ack/resolve). It
+// carries no payload — the alerts page just re-fetches the current list.
+type AlertUpdateEvent struct{}
+
 // Hub maintains the set of active WebSocket clients keyed by device ID.
 type Hub struct {
 	mu              sync.RWMutex
@@ -60,6 +64,8 @@ type Hub struct {
 	cmdUpdates      map[chan CommandUpdateEvent]struct{}
 	logcatMu        sync.RWMutex
 	logcatUpdates   map[chan LogcatUpdateEvent]struct{}
+	alertMu         sync.RWMutex
+	alertUpdates    map[chan AlertUpdateEvent]struct{}
 	pingMu          sync.Mutex
 	pingWaiters     map[string]chan struct{}
 }
@@ -91,6 +97,7 @@ func NewHub() *Hub {
 		updates:       make(map[chan DeviceUpdateEvent]struct{}),
 		cmdUpdates:    make(map[chan CommandUpdateEvent]struct{}),
 		logcatUpdates: make(map[chan LogcatUpdateEvent]struct{}),
+		alertUpdates:  make(map[chan AlertUpdateEvent]struct{}),
 		pingWaiters:   make(map[string]chan struct{}),
 	}
 }
@@ -152,6 +159,37 @@ func (h *Hub) PublishCommandUpdate(commandID uuid.UUID) {
 	for ch := range h.cmdUpdates {
 		select {
 		case ch <- ev:
+		default:
+		}
+	}
+}
+
+// SubscribeAlertUpdates returns a channel that receives alert update events.
+func (h *Hub) SubscribeAlertUpdates() chan AlertUpdateEvent {
+	ch := make(chan AlertUpdateEvent, 32)
+	h.alertMu.Lock()
+	h.alertUpdates[ch] = struct{}{}
+	h.alertMu.Unlock()
+	return ch
+}
+
+// UnsubscribeAlertUpdates closes the channel and removes it from the subscriber set.
+func (h *Hub) UnsubscribeAlertUpdates(ch chan AlertUpdateEvent) {
+	h.alertMu.Lock()
+	if _, ok := h.alertUpdates[ch]; ok {
+		delete(h.alertUpdates, ch)
+		close(ch)
+	}
+	h.alertMu.Unlock()
+}
+
+// PublishAlertUpdate notifies subscribers that an alert's status changed.
+func (h *Hub) PublishAlertUpdate() {
+	h.alertMu.RLock()
+	defer h.alertMu.RUnlock()
+	for ch := range h.alertUpdates {
+		select {
+		case ch <- AlertUpdateEvent{}:
 		default:
 		}
 	}
