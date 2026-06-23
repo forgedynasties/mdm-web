@@ -16,7 +16,6 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
-	"mdm/internal/geolocate"
 	"mdm/internal/middleware"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
@@ -152,12 +151,7 @@ func main() {
 		log.Printf("seed default alert channel: %v", err)
 	}
 
-	var geo *geolocate.Resolver
-	if os.Getenv("GEOLOCATE_ENABLED") == "true" {
-		geo = geolocate.New()
-		log.Println("Geolocation resolver enabled (BeaconDB)")
-	}
-	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, remoteMgr, adminAPIKey)
+	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, remoteMgr, adminAPIKey)
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
 		var peek struct {
 			Type string `json:"type"`
