@@ -249,13 +249,21 @@ a:hover { color: var(--accent-h); }
 }
 .navbar > form { width: 100%; }
 
+.navbar-top {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin-bottom: 10px;
+}
 .navbar-brand {
   font-family: var(--font);
   font-weight: var(--fw-semibold);
   font-size: 16px;
   letter-spacing: .04em;
   color: var(--text);
-  padding: 6px 10px 16px;
+  padding: 6px 10px;
+  flex: 1 1 auto;
+  min-width: 0;
   transition: color var(--dur) var(--ease);
 }
 .navbar-brand:hover { color: var(--text-2); }
@@ -474,6 +482,24 @@ a:hover { color: var(--accent-h); }
   .cmdk-backdrop.open .cmdk-panel { transform: none; }
 }
 
+/* ── Admin tools links (Settings) ────────────────────── */
+.admin-tool {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  text-decoration: none;
+  color: var(--text);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.admin-tool:hover { border-color: var(--rule-2); background: var(--hover); }
+.admin-tool > .ui-icon { color: var(--muted); flex: 0 0 16px; }
+.admin-tool-text { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
+.admin-tool-text strong { font-size: var(--t-13); font-weight: var(--fw-semibold); }
+.admin-tool-go { color: var(--muted); flex: 0 0 auto; }
+
 /* ── Devices split-pane + inspector ──────────────────
  * The roster (left) keeps its place while a compact inspector (right) shows a
  * single device at a glance. On narrow viewports the inspector becomes a
@@ -669,9 +695,7 @@ a:hover { color: var(--accent-h); }
   padding: 6px;
   border-radius: var(--r-2);
   cursor: pointer;
-  margin-top: auto;
-  align-self: flex-start;
-  margin-bottom: 8px;
+  flex: 0 0 auto;
   transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .theme-toggle:hover { color: var(--text); background: var(--hover); border-color: var(--rule-2); }
@@ -2894,6 +2918,7 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
     z-index: 10;
   }
   .navbar > form { width: auto; }
+  .navbar-top { width: 100%; margin-bottom: 0; gap: var(--s-3); }
   .navbar-brand { padding: 0; }
   .nav-toggle { display: flex; }
   .navbar-links {

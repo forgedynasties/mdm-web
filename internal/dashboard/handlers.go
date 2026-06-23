@@ -967,10 +967,6 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
 		data["ActivePage"] = "settings"
-	case strings.HasPrefix(path, "/logs"):
-		data["ActivePage"] = "logs"
-	case strings.HasPrefix(path, "/audit"):
-		data["ActivePage"] = "audit"
 	case strings.HasPrefix(path, "/users"):
 		data["ActivePage"] = "users"
 	case strings.HasPrefix(path, "/changelog"):
@@ -5567,15 +5563,6 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
-func (h *Handler) AuditPage(w http.ResponseWriter, r *http.Request) {
-	entries, err := h.db.ListAudit(r.Context(), 200)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.render(w, r, "audit.html", map[string]any{"Title": "Audit Log", "Entries": entries})
-}
-
 func (h *Handler) SettingsToggleRequireReason(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetRequireReason(!h.cfg.RequireReason())
 	http.Redirect(w, r, "/settings", http.StatusFound)
@@ -6334,22 +6321,6 @@ func parseLogcatParams(r *http.Request) (level string, lines int, tag string) {
 	return
 }
 
-// LogcatFleetPage renders the fleet-wide Logs page: recent logcat captures across
-// every device plus the most frequently used capture presets.
-func (h *Handler) LogcatFleetPage(w http.ResponseWriter, r *http.Request) {
-	recent, err := h.db.ListRecentLogcatCaptures(r.Context(), 60)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	frequent, _ := h.db.FleetLogcatFrequent(r.Context(), 12)
-	h.render(w, r, "logs.html", map[string]any{
-		"Title":    "Logs",
-		"Recent":   recent,
-		"Frequent": frequent,
-	})
-}
-
 // captureLogsForTargets fans a single logcat capture out to many devices (the
 // "log capture" command type). It resolves the command builder's target selection
 // to concrete device IDs and creates one logcat request per device.
@@ -6874,7 +6845,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
-	mux.HandleFunc("GET /logs", h.requireAuth(h.LogcatFleetPage))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
@@ -6931,7 +6901,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/command-expiry", h.requireStrictAdmin(h.SettingsSetCommandExpiry))
 	post("POST /settings/max-targets", h.requireStrictAdmin(h.SettingsSetMaxTargets))
 	post("POST /settings/operator-perms", h.requireStrictAdmin(h.SettingsSetOperatorPerms))
-	mux.HandleFunc("GET /audit", h.requireAdmin(h.AuditPage))
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))

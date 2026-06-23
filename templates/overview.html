@@ -138,21 +138,15 @@
         <a class="ov-qact" href="/devices">
           <span class="qi c2"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><rect x="4" y="15" width="16" height="6" rx="2"/></svg></span>
           <span class="qt">Export fleet</span><span class="qd">select devices, export CSV</span></a>
-        {{if canAdmin .Role}}
-        <a class="ov-qact" href="/audit">
-          <span class="qi c3"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2"/><path d="M12 3a9 9 0 1 0 9 9"/><path d="M12 3v4"/><path d="M21 12h-4"/></svg></span>
-          <span class="qt">Audit log</span><span class="qd">who did what, when</span></a>
-        {{else}}
         <a class="ov-qact" href="/alerts">
           <span class="qi c4"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
           <span class="qt">Alerts</span><span class="qd">open &amp; recent alerts</span></a>
-        {{end}}
       </div>
     </div>
 
     {{if .Audit}}
     <div class="card">
-      <div class="card-header"><h3>Recent activity</h3><a href="/audit" class="link small">all →</a></div>
+      <div class="card-header"><h3>Recent activity</h3></div>
       <div class="ov-ract">
         {{range .Audit}}
         <div class="ov-ra">
