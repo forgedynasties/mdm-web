@@ -881,11 +881,12 @@ func (d *DB) GetDeviceByID(ctx context.Context, id uuid.UUID) (*Device, error) {
 			d.poll_interval_ms,
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
-			d.latest_extra AS latest_extra
+			d.latest_extra AS latest_extra,
+			d.hidden
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.id = $1
-	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra)
+	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}

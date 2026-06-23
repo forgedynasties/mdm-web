@@ -81,7 +81,7 @@
   if (!online) return;
 
   var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial) + '?key=' + encodeURIComponent('{{.APIKey}}');
+  var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial) + '?token=' + encodeURIComponent('{{.Token}}');
 
   var ws;
   var img = null;
