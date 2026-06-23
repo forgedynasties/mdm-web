@@ -643,15 +643,20 @@ document.addEventListener('keydown', function(e) {
 });
 </script>
 
-<div class="card dv-rise-2"
-     id="device-table-container"
-     hx-get="/devices"
-     hx-trigger="refresh-devices from:body"
-     hx-target="#device-table-container"
-     hx-swap="innerHTML"
-     hx-indicator="#refresh-indicator"
-     hx-vals='js:getFilterVals()'>
-  {{template "device-table" .}}
+<div class="dv-split" id="dv-split">
+  <div class="card dv-rise-2"
+       id="device-table-container"
+       hx-get="/devices"
+       hx-trigger="refresh-devices from:body"
+       hx-target="#device-table-container"
+       hx-swap="innerHTML"
+       hx-indicator="#refresh-indicator"
+       hx-vals='js:getFilterVals()'>
+    {{template "device-table" .}}
+  </div>
+  <aside class="device-inspector" id="device-inspector" aria-label="Device inspector" hidden>
+    <div class="device-inspector-body" id="device-inspector-body"></div>
+  </aside>
 </div>
 
 <script>
@@ -737,8 +742,10 @@ document.addEventListener('keydown', function(e) {
       cells[6].innerHTML = seenHtml;
       if (window.localizeTimes) window.localizeTimes(cells[6]);
 
-      // row-level alert classes
-      tr.className = d.row_classes;
+      // row-level alert classes (preserve inspector selection, which lives in a
+      // class the patch would otherwise clobber)
+      var keepSel = window.mdmInspectorSelected && window.mdmInspectorSelected() === d.serial;
+      tr.className = d.row_classes + (keepSel ? ' row-selected' : '');
       tr.setAttribute('data-serial', d.serial);
     }
 
@@ -749,6 +756,101 @@ document.addEventListener('keydown', function(e) {
     es.onerror = function () {
       // browser will auto-reconnect; no action needed
     };
+  })();
+</script>
+
+<script>
+  // ── Split-pane inspector ─────────────────────────────────────────────────
+  // Clicking a device opens a compact panel beside the roster instead of
+  // navigating away, so you never lose your place in the list. Deep work still
+  // lives on the full /devices/{serial} page, linked from the panel.
+  (function () {
+    var split = document.getElementById('dv-split');
+    var aside = document.getElementById('device-inspector');
+    var body = document.getElementById('device-inspector-body');
+    if (!split || !aside || !body) return;
+    var selected = null;
+
+    function esc(s) { return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/"/g, '\\"'); }
+
+    function highlight(serial) {
+      document.querySelectorAll('#device-table-container tr.row-selected')
+        .forEach(function (tr) { tr.classList.remove('row-selected'); });
+      if (serial) {
+        var tr = document.querySelector('#device-table-container tr[data-serial="' + esc(serial) + '"]');
+        if (tr) tr.classList.add('row-selected');
+      }
+    }
+
+    function reflectUrl(serial) {
+      try {
+        var u = new URL(location.href);
+        if (serial) u.searchParams.set('device', serial); else u.searchParams.delete('device');
+        history.replaceState(null, '', u);
+      } catch (e) {}
+    }
+
+    window.mdmInspectorSelected = function () { return selected; };
+
+    window.mdmOpenInspector = function (serial) {
+      if (!serial) return;
+      selected = serial;
+      split.classList.add('inspector-open');
+      aside.hidden = false;
+      highlight(serial);
+      reflectUrl(serial);
+      body.innerHTML = '<div class="dvp-loading muted small">Loading…</div>';
+      if (window.htmx) {
+        htmx.ajax('GET', '/devices/' + encodeURIComponent(serial) + '/panel',
+          { target: '#device-inspector-body', swap: 'innerHTML' })
+          .then(function () {
+            var c = body.querySelector('.dvp-close');
+            if (c) c.focus();
+          });
+      }
+    };
+
+    window.mdmCloseInspector = function () {
+      selected = null;
+      split.classList.remove('inspector-open');
+      aside.hidden = true;
+      body.innerHTML = '';
+      highlight(null);
+      reflectUrl(null);
+    };
+
+    // Intercept clicks on a device's serial / View link → open panel in place.
+    // Modifier- and middle-clicks fall through so "open in new tab" still works.
+    document.addEventListener('click', function (e) {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var a = e.target.closest && e.target.closest('#device-table-container a.link-detail[href^="/devices/"]');
+      if (!a) return;
+      var m = a.getAttribute('href').match(/^\/devices\/([^\/?#]+)$/);
+      if (!m) return;
+      e.preventDefault();
+      window.mdmOpenInspector(decodeURIComponent(m[1]));
+    });
+
+    // Esc closes the inspector — unless a modal or the command palette owns Esc.
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' || !split.classList.contains('inspector-open')) return;
+      if (document.querySelector('.modal-backdrop.modal-open')) return;
+      var cmdk = document.getElementById('cmdk');
+      if (cmdk && !cmdk.hidden) return;
+      window.mdmCloseInspector();
+    });
+
+    // Re-apply the selection highlight after the table is swapped (filter / sort
+    // / paginate). The panel itself stays open and independent of the list.
+    document.body.addEventListener('htmx:afterSwap', function (evt) {
+      if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container') {
+        highlight(selected);
+      }
+    });
+
+    // Deep link: ?device=SERIAL opens the inspector on load.
+    var initial = new URLSearchParams(location.search).get('device');
+    if (initial) window.mdmOpenInspector(initial);
   })();
 </script>
 
