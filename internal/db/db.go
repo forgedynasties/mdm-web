@@ -2068,25 +2068,43 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 	if expirySec <= 0 {
 		expirySec = 300
 	}
+	// Build the full set of targeted devices — explicit device targets and the members
+	// of any targeted groups — then LEFT JOIN command_status so devices that haven't
+	// received the command yet (offline / not checked in) still show as 'pending'.
+	// "all" broadcasts aren't enumerable, so for those we fall back to status rows.
 	rows, err := d.pool.Query(ctx, fmt.Sprintf(`
-		SELECT cs.device_id,
+		WITH target_devices AS (
+			SELECT ct.target_id AS device_id
+			FROM command_targets ct
+			JOIN commands c ON c.id = ct.command_id
+			WHERE ct.command_id = $1 AND c.target_type = 'devices'
+			UNION
+			SELECT dg.device_id
+			FROM command_targets ct
+			JOIN commands c ON c.id = ct.command_id
+			JOIN device_groups dg ON dg.group_id = ct.target_id
+			WHERE ct.command_id = $1 AND c.target_type = 'groups'
+			UNION
+			SELECT cs.device_id FROM command_status cs WHERE cs.command_id = $1
+		)
+		SELECT td.device_id,
 		       d.serial_number,
 		       CASE
 		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
-		              AND cs.status IN ('pending', 'delivered')
+		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds'
 		           THEN 'expired'
-		         ELSE cs.status
+		         ELSE COALESCE(cs.status, 'pending')
 		       END AS status,
-		       cs.updated_at,
+		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
 		       COALESCE(cr.output, '') AS output,
 		       d.last_seen_at
-		FROM command_status cs
-		JOIN devices d ON d.id = cs.device_id
-		JOIN commands c ON c.id = cs.command_id
-		LEFT JOIN command_results cr ON cr.command_id = cs.command_id AND cr.device_id = cs.device_id
-		WHERE cs.command_id = $1
-		ORDER BY cs.updated_at DESC
+		FROM target_devices td
+		JOIN devices d ON d.id = td.device_id
+		JOIN commands c ON c.id = $1
+		LEFT JOIN command_status cs ON cs.command_id = $1 AND cs.device_id = td.device_id
+		LEFT JOIN command_results cr ON cr.command_id = $1 AND cr.device_id = td.device_id
+		ORDER BY COALESCE(cs.updated_at, c.created_at) DESC, d.serial_number
 	`, expirySec), commandID)
 	if err != nil {
 		return nil, err
