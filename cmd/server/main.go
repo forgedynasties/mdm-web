@@ -256,7 +256,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:        ":" + port,
-		Handler:     middleware.SecurityHeaders(mux),
+		Handler:     middleware.SecurityHeaders(middleware.DecompressRequest(mux)),
 		IdleTimeout: 120 * time.Second,
 	}
 
