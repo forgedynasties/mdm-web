@@ -2681,6 +2681,32 @@ func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DeviceInspectorPanel renders the compact "inspector" card for a single
+// device, loaded into the split-pane drawer on the devices list so an operator
+// can glance at a unit without leaving the 1,000-row roster. It deliberately
+// mirrors the at-a-glance vitals only; deep work still happens on the full
+// /devices/{serial} page, linked from the panel.
+func (h *Handler) DeviceInspectorPanel(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	var release *db.Release
+	if device.BuildID != "" {
+		release, _ = h.db.GetReleaseByVersion(r.Context(), device.BuildID)
+	}
+	h.renderCachedHTML(w, r, "device-panel", map[string]any{
+		"Device":              device,
+		"Online":              h.hub.IsConnected(device.ID),
+		"Release":             release,
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+		"ShellEnabled":        h.cfg.ShellEnabled(),
+		"Role":                h.role(r),
+	})
+}
+
 func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -6817,6 +6843,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.DeviceOnlineStatus))
 	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(h.DevicePresenceStream))
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))
+	mux.HandleFunc("GET /devices/{serial}/panel", h.requireAuth(h.DeviceInspectorPanel))
 	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.DeviceBatteryCSV))
 	mux.HandleFunc("GET /devices/{serial}/daily-stats", h.requireAuth(h.DeviceDailyStatsJSON))
 	post("POST /devices/{serial}/ai-analysis", h.requireAuth(h.DeviceAIAnalysis))
