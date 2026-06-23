@@ -46,7 +46,7 @@
           {{end}}
           {{if and (eq .Status "failed") (or (canAdmin $.Role) (eq $.Role "operator"))}}
             <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" style="display:inline;margin-top:6px;">
-              <button type="submit" class="btn-outline btn-sm">Retry</button>
+              <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
             </form>
           {{end}}
           {{if and (eq .Status "pending") (or (canAdmin $.Role) (eq $.Role "operator"))}}
