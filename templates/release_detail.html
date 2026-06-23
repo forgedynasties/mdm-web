@@ -307,7 +307,15 @@
       {{$st := .Status}}
       <tr>
         <td class="small muted">{{if .Base}}<span title="standard case (every release)">★</span> {{end}}{{.Area}}</td>
-        <td>{{.Title}}{{if .Steps}}<div class="muted small">{{.Steps}}</div>{{end}}{{if .Expected}}<div class="muted small">Expected: {{.Expected}}</div>{{end}}</td>
+        <td>{{.Title}}{{if .Steps}}<div class="muted small">{{.Steps}}</div>{{end}}{{if .Expected}}<div class="muted small">Expected: {{.Expected}}</div>{{end}}
+          {{if and (not .Base) (eq $role "admin")}}
+          <form action="/test-cases/{{.ID}}/delete" method="POST" style="display:inline;margin-top:4px;"
+                onsubmit="return confirm('Remove this test case from this release?')">
+            <input type="hidden" name="redirect" value="/releases/{{$relID}}">
+            <button type="submit" class="btn-danger-sm">Remove</button>
+          </form>
+          {{end}}
+        </td>
         <td>
           <span class="status-badge {{if eq $st "pass"}}ok{{else if eq $st "fail"}}danger{{else if eq $st "blocked"}}warn{{else}}muted{{end}}">{{$st}}</span>
         </td>
