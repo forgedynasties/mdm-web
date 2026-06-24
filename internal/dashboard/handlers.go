@@ -5931,9 +5931,9 @@ var alertRuleDefs = []struct {
 	{"pad_disconnected", "Guest charging pad disconnected", "Fires when the guest charging pad reports disconnected during service. Deployed units only.", "Charging pad", nil, true, true},
 	{"pad_unused", "Guest pad unused all day", "Informational: the pad was available all day but no guest device ever used it. Deployed units only.", "Charging pad", nil, false, false},
 	// ── Thermal ──
-	{"overheating", "Device overheating", "Fires when a device's max daily device temperature exceeds the threshold.", "Thermal", []alertParamField{
+	{"overheating", "Device overheating", "Fires within ~1 minute when a device's current temperature is at or above the threshold; auto-resolves once it cools.", "Thermal", []alertParamField{
 		{"temp_c", "Temperature", "°C", 1, 45},
-	}, false, false},
+	}, false, true},
 	{"temp_elevated", "Temperature elevated", "Fires when device temperature holds in the elevated band for >15 min (trending toward throttle).", "Thermal", []alertParamField{
 		{"temp_min", "Band low", "°C", 1, 38},
 		{"temp_max", "Band high", "°C", 1, 45},
