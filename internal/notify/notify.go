@@ -22,14 +22,22 @@ func SendWebhook(ctx context.Context, url, text string) error {
 // SendTeams POSTs a Microsoft Teams Adaptive Card to a Teams webhook URL (the
 // "Post to a channel when a webhook request is received" Workflows trigger). Teams
 // doesn't render Slack's {"text":...} shape, so it gets its own payload. severity
-// drives the title colour. Best-effort, never retried.
-func SendTeams(ctx context.Context, url, title, text, severity string) error {
+// drives the title colour. when, if non-empty, is shown as a "🕒 <when>" line for the
+// time the problem happened. Best-effort, never retried.
+func SendTeams(ctx context.Context, url, title, text, severity, when string) error {
 	color := "accent" // info
 	switch severity {
 	case "critical":
 		color = "attention"
 	case "warning":
 		color = "warning"
+	}
+	body := []any{
+		map[string]any{"type": "TextBlock", "text": title, "weight": "Bolder", "size": "Medium", "color": color, "wrap": true},
+		map[string]any{"type": "TextBlock", "text": text, "wrap": true, "isSubtle": true},
+	}
+	if when != "" {
+		body = append(body, map[string]any{"type": "TextBlock", "text": "🕒 " + when, "wrap": true, "isSubtle": true, "spacing": "Small"})
 	}
 	card := map[string]any{
 		"type": "message",
@@ -39,10 +47,7 @@ func SendTeams(ctx context.Context, url, title, text, severity string) error {
 				"$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
 				"type":    "AdaptiveCard",
 				"version": "1.4",
-				"body": []any{
-					map[string]any{"type": "TextBlock", "text": title, "weight": "Bolder", "size": "Medium", "color": color, "wrap": true},
-					map[string]any{"type": "TextBlock", "text": text, "wrap": true, "isSubtle": true},
-				},
+				"body":    body,
 			},
 		}},
 	}

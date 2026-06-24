@@ -479,7 +479,7 @@ func (h *Handler) notifyDeviceOnboarded(ctx context.Context, deviceID uuid.UUID,
 	if !created {
 		return // already recorded (e.g. concurrent first checkins)
 	}
-	n := db.AlertNotification{Type: "new_device", Severity: "info", Summary: summary, Serial: serial}
+	n := db.AlertNotification{Type: "new_device", Severity: "info", Summary: summary, Serial: serial, EventAt: time.Now().UTC()}
 	go h.alerts.Dispatch(context.WithoutCancel(ctx), []db.AlertNotification{n})
 	h.hub.PublishAlertUpdate() // refresh the dashboard's live open-alert counter
 }
