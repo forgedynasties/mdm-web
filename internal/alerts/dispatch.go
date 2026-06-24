@@ -63,6 +63,9 @@ func (dp *Dispatcher) Dispatch(ctx context.Context, created []db.AlertNotificati
 			if db.SeverityRank(n.Severity) < min {
 				continue
 			}
+			if !c.AllowsType(n.Type) {
+				continue // this channel opted out of this alert type
+			}
 			if err := SendToChannel(ctx, c, n); err != nil {
 				log.Printf("[alert] channel %q (%s) failed: %v", c.Name, c.Kind, err)
 			}

@@ -21,6 +21,21 @@
       </select>
       <label class="muted small" style="display:flex;align-items:center;gap:4px;white-space:nowrap;"><input type="checkbox" name="enabled"{{if .Enabled}} checked{{end}}> On</label>
       <label class="muted small" style="display:flex;align-items:center;gap:4px;white-space:nowrap;" title="Post a line when an alert auto-resolves"><input type="checkbox" name="notify_resolve"{{if .NotifyResolve}} checked{{end}}> Resolve msgs</label>
+      {{$sel := .AlertTypes}}
+      <details class="chan-types" style="flex-basis:100%;margin-top:2px;">
+        <summary class="muted small" style="cursor:pointer;">Alert types{{if $sel}} — {{len $sel}} selected{{else}} — all{{end}}</summary>
+        <div class="chan-types-grid" style="display:flex;flex-wrap:wrap;gap:16px;padding:8px 2px 2px;">
+          {{range $g := alertTypeGroups}}
+          <div class="chan-type-group" style="min-width:190px;">
+            <label class="small" style="display:flex;align-items:center;gap:5px;font-weight:600;"><input type="checkbox" class="chan-type-cat" onchange="chanToggleCat(this)"> {{$g.Category}}</label>
+            {{range $t := $g.Types}}
+            {{$checked := true}}{{if $sel}}{{$checked = hasStr $sel $t.Type}}{{end}}
+            <label class="muted small" style="display:flex;align-items:center;gap:5px;padding-left:12px;"><input type="checkbox" name="alert_types" value="{{$t.Type}}" onchange="chanSyncCat(this)"{{if $checked}} checked{{end}}> {{$t.Label}}</label>
+            {{end}}
+          </div>
+          {{end}}
+        </div>
+      </details>
 {{end}}
 
 {{define "swrow"}}
@@ -348,6 +363,28 @@
     </form>
   </div>
 </div>
+<script>
+  // Per-channel alert-type filter: keep each category's master checkbox in sync with
+  // its children (checked / unchecked / indeterminate), and let it toggle them.
+  function chanTypeKids(group) { return group.querySelectorAll('input[name="alert_types"]'); }
+  function chanRefreshCat(group) {
+    var cat = group.querySelector('.chan-type-cat');
+    if (!cat) return;
+    var kids = chanTypeKids(group), on = 0;
+    kids.forEach(function (c) { if (c.checked) on++; });
+    cat.checked = on === kids.length;
+    cat.indeterminate = on > 0 && on < kids.length;
+  }
+  function chanToggleCat(cat) {
+    var group = cat.closest('.chan-type-group');
+    chanTypeKids(group).forEach(function (c) { c.checked = cat.checked; });
+    cat.indeterminate = false;
+  }
+  function chanSyncCat(kid) { chanRefreshCat(kid.closest('.chan-type-group')); }
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.chan-type-group').forEach(chanRefreshCat);
+  });
+</script>
 
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header collapsible-header" role="button" tabindex="0" onclick="this.classList.toggle('open');var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
