@@ -3210,7 +3210,7 @@ var defaultAlertRules = []struct {
 	// Lifecycle.
 	{"new_device", "New device onboarded", `{}`, "always", true},
 	// Daily-tier rules.
-	{"overheating", "Battery overheating", `{"temp_c":45}`, "always", true},
+	{"overheating", "Device overheating", `{"temp_c":45}`, "always", true},
 	{"no_overnight_charge", "Did not charge overnight", `{"min_full_pct":90,"max_charge_frac":0.3}`, "always", true},
 	{"battery_health_decline", "Battery health declining (proxy)", `{"drop_pct":15,"window_days":7}`, "always", true},
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
@@ -3904,7 +3904,7 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 				return nil, "critical", err
 			}
 			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("Battery reached %.0f°C today (limit %.0f°C)", temp, limit),
+				fmt.Sprintf("Device temperature reached %.0f°C today (limit %.0f°C)", temp, limit),
 				map[string]any{"temp_c": temp, "limit_c": limit}})
 		}
 		return hits, "critical", rows.Err()
@@ -4628,7 +4628,24 @@ type AlertChannel struct {
 	ActiveWindow  string    `json:"active_window"` // "" | service | overnight
 	Enabled       bool      `json:"enabled"`
 	NotifyResolve bool      `json:"notify_resolve"`
-	CreatedAt     time.Time `json:"created_at"`
+	// AlertTypes is the allowlist of alert type keys this channel delivers. Empty/nil
+	// means all types (back-compat with channels created before per-type filtering).
+	AlertTypes []string  `json:"alert_types,omitempty"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// AllowsType reports whether this channel should deliver an alert of the given type.
+// An empty allowlist means "all types".
+func (c AlertChannel) AllowsType(t string) bool {
+	if len(c.AlertTypes) == 0 {
+		return true
+	}
+	for _, a := range c.AlertTypes {
+		if a == t {
+			return true
+		}
+	}
+	return false
 }
 
 // SeverityRank maps a severity to a comparable level (info<warning<critical). Unknown
@@ -4646,7 +4663,7 @@ func SeverityRank(sev string) int {
 
 // ListAlertChannels returns channels, optionally only the enabled ones, newest first.
 func (d *DB) ListAlertChannels(ctx context.Context, onlyEnabled bool) ([]AlertChannel, error) {
-	q := `SELECT id, name, kind, url, min_severity, mode, active_window, enabled, notify_resolve, created_at
+	q := `SELECT id, name, kind, url, min_severity, mode, active_window, enabled, notify_resolve, alert_types, created_at
 	      FROM alert_channels`
 	if onlyEnabled {
 		q += ` WHERE enabled`
@@ -4661,7 +4678,7 @@ func (d *DB) ListAlertChannels(ctx context.Context, onlyEnabled bool) ([]AlertCh
 	for rows.Next() {
 		var c AlertChannel
 		if err := rows.Scan(&c.ID, &c.Name, &c.Kind, &c.URL, &c.MinSeverity, &c.Mode,
-			&c.ActiveWindow, &c.Enabled, &c.NotifyResolve, &c.CreatedAt); err != nil {
+			&c.ActiveWindow, &c.Enabled, &c.NotifyResolve, &c.AlertTypes, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
@@ -4673,10 +4690,10 @@ func (d *DB) ListAlertChannels(ctx context.Context, onlyEnabled bool) ([]AlertCh
 func (d *DB) GetAlertChannel(ctx context.Context, id uuid.UUID) (AlertChannel, error) {
 	var c AlertChannel
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, name, kind, url, min_severity, mode, active_window, enabled, notify_resolve, created_at
+		SELECT id, name, kind, url, min_severity, mode, active_window, enabled, notify_resolve, alert_types, created_at
 		FROM alert_channels WHERE id = $1`, id).Scan(
 		&c.ID, &c.Name, &c.Kind, &c.URL, &c.MinSeverity, &c.Mode,
-		&c.ActiveWindow, &c.Enabled, &c.NotifyResolve, &c.CreatedAt)
+		&c.ActiveWindow, &c.Enabled, &c.NotifyResolve, &c.AlertTypes, &c.CreatedAt)
 	return c, err
 }
 
@@ -4684,10 +4701,10 @@ func (d *DB) GetAlertChannel(ctx context.Context, id uuid.UUID) (AlertChannel, e
 func (d *DB) CreateAlertChannel(ctx context.Context, c AlertChannel) (uuid.UUID, error) {
 	var id uuid.UUID
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO alert_channels (name, kind, url, min_severity, mode, active_window, enabled, notify_resolve)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		INSERT INTO alert_channels (name, kind, url, min_severity, mode, active_window, enabled, notify_resolve, alert_types)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
 		c.Name, nz(c.Kind, "webhook"), c.URL, nz(c.MinSeverity, "warning"), nz(c.Mode, "realtime"),
-		c.ActiveWindow, c.Enabled, c.NotifyResolve).Scan(&id)
+		c.ActiveWindow, c.Enabled, c.NotifyResolve, nilIfEmpty(c.AlertTypes)).Scan(&id)
 	return id, err
 }
 
@@ -4695,10 +4712,18 @@ func (d *DB) CreateAlertChannel(ctx context.Context, c AlertChannel) (uuid.UUID,
 func (d *DB) UpdateAlertChannel(ctx context.Context, c AlertChannel) error {
 	_, err := d.pool.Exec(ctx, `
 		UPDATE alert_channels SET name=$2, url=$3, min_severity=$4, mode=$5,
-			active_window=$6, enabled=$7, notify_resolve=$8, kind=$9 WHERE id=$1`,
+			active_window=$6, enabled=$7, notify_resolve=$8, kind=$9, alert_types=$10 WHERE id=$1`,
 		c.ID, c.Name, c.URL, nz(c.MinSeverity, "warning"), nz(c.Mode, "realtime"),
-		c.ActiveWindow, c.Enabled, c.NotifyResolve, nz(c.Kind, "webhook"))
+		c.ActiveWindow, c.Enabled, c.NotifyResolve, nz(c.Kind, "webhook"), nilIfEmpty(c.AlertTypes))
 	return err
+}
+
+// nilIfEmpty returns nil for an empty slice so it stores as SQL NULL (= "all types").
+func nilIfEmpty(s []string) []string {
+	if len(s) == 0 {
+		return nil
+	}
+	return s
 }
 
 // DeleteAlertChannel removes a channel.
@@ -5325,6 +5350,10 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_at TIMESTAMPTZ;
 -- an operator retries a failed device, so the guaranteed-applicable full image
 -- is served instead of re-attempting the same failing incremental.
 ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS force_full BOOLEAN NOT NULL DEFAULT false;
+
+-- Per-channel alert-type allowlist. NULL = deliver all types (back-compat); a
+-- non-empty array restricts the channel to those alert type keys.
+ALTER TABLE alert_channels ADD COLUMN IF NOT EXISTS alert_types TEXT[];
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -6287,7 +6316,7 @@ func (d *DB) GetFleetDailyStats(ctx context.Context, days int) ([]FleetDailyStat
 }
 
 // CountHotDevices returns how many non-hidden devices are currently reporting a
-// battery temperature at or above 45°C (the dashboard's warn threshold).
+// device temperature at or above 45°C (the dashboard's warn threshold).
 func (d *DB) CountHotDevices(ctx context.Context) (int, error) {
 	var n int
 	err := d.pool.QueryRow(ctx, `
