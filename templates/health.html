@@ -51,7 +51,13 @@
 </div>
 
 <div class="card">
-  <div class="card-header"><h3>Restaurants by health</h3></div>
+  <div class="card-header">
+    <h3>Restaurants by health</h3>
+    <div class="dur-btns" title="Aggregation window">
+      <a class="dur-btn{{if ne .WindowDays 1}} active{{end}}" href="/fleet-health?days=7">Last 7 days</a>
+      <a class="dur-btn{{if eq .WindowDays 1}} active{{end}}" href="/fleet-health?days=1">1 day only</a>
+    </div>
+  </div>
   {{if not .Groups}}
   <div class="empty-state">
     <div class="empty-state-copy">
@@ -68,10 +74,10 @@
         <th>Devices</th>
         <th>Offline</th>
         <th>Alerts</th>
-        <th title="Recent average daily peak battery">Battery</th>
-        <th title="Change vs the prior week">Δ wk</th>
+        <th title="Average daily peak battery over the window">Battery</th>
+        <th title="Change vs the prior period">{{if eq .WindowDays 1}}Δ day{{else}}Δ wk{{end}}</th>
         <th title="Average charging coverage">Charging</th>
-        <th title="Hottest device this week">Max °C</th>
+        <th title="Hottest device in the window">Max °C{{if eq .WindowDays 1}} <span class="muted">(today)</span>{{end}}</th>
         <th title="Distinct firmware builds in the restaurant">Builds</th>
       </tr>
     </thead>
