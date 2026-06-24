@@ -1694,9 +1694,35 @@ input[type="checkbox"]:hover {
 
 .custom-range-inputs {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 6px;
 }
+.cr-presets, .cr-fields { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cr-preset {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.cr-preset:hover { border-color: var(--accent); color: var(--accent); }
+.cr-nudge {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 7px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.cr-nudge:hover { border-color: var(--accent); color: var(--accent); }
+.cr-error { color: var(--danger, #e74c3c); font-size: 11px; }
 .range-input {
   background: var(--card);
   border: 1px solid var(--border);
@@ -1705,7 +1731,37 @@ input[type="checkbox"]:hover {
   padding: 2px 6px;
   border-radius: 4px;
 }
+.range-input:focus { outline: none; border-color: var(--accent); }
 .range-input::-webkit-calendar-picker-indicator { filter: invert(0.7); }
+
+.active-range-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--fg);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 4px 2px 10px;
+  font-variant-numeric: tabular-nums;
+}
+.active-range-chip button {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 50%;
+}
+.active-range-chip button:hover { color: var(--accent); }
+
+@media (max-width: 760px) {
+  .card-header .dur-btns { flex-wrap: wrap; }
+  .custom-range-inputs { width: 100%; }
+}
 
 .btn-link {
   background: none;
