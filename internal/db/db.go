@@ -1414,10 +1414,15 @@ func (d *DB) GetRestaurantDailyStats(ctx context.Context, restaurantID uuid.UUID
 
 // GetRestaurantHealth returns a health scorecard per restaurant, worst score first.
 // Reuses the GroupHealth struct (GroupID carries the restaurant id, Name the restaurant
-// name). activeSecs is the offline threshold; recent window is 7 days vs the prior 7.
-func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs int) ([]GroupHealth, error) {
+// name). activeSecs is the offline threshold. windowDays sizes the recent aggregation
+// window and the equal-length prior window used for the delta: pass 7 for the dashboard's
+// week-over-week view, or 1 for the Daily Report (today vs yesterday).
+func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs, windowDays int) ([]GroupHealth, error) {
 	if activeSecs <= 0 {
 		activeSecs = 180
+	}
+	if windowDays <= 0 {
+		windowDays = 7
 	}
 	rows, err := d.pool.Query(ctx, `
 		WITH recent AS (
@@ -1428,14 +1433,14 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs int) ([]GroupHe
 				COUNT(DISTINCT NULLIF(s.build_id, '')) AS builds
 			FROM device_daily_stats s
 			JOIN devices d ON d.id = s.device_id
-			WHERE s.day > CURRENT_DATE - 7 AND d.restaurant_id IS NOT NULL
+			WHERE s.day > CURRENT_DATE - $2 AND d.restaurant_id IS NOT NULL
 			GROUP BY d.restaurant_id
 		),
 		prior AS (
 			SELECT d.restaurant_id, AVG(s.battery_max) AS battery_avg
 			FROM device_daily_stats s
 			JOIN devices d ON d.id = s.device_id
-			WHERE s.day <= CURRENT_DATE - 7 AND s.day > CURRENT_DATE - 14 AND d.restaurant_id IS NOT NULL
+			WHERE s.day <= CURRENT_DATE - $2 AND s.day > CURRENT_DATE - ($2 * 2) AND d.restaurant_id IS NOT NULL
 			GROUP BY d.restaurant_id
 		),
 		hottest AS (
@@ -1444,7 +1449,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs int) ([]GroupHe
 			SELECT DISTINCT ON (d.restaurant_id) d.restaurant_id, d.serial_number AS hot_serial
 			FROM device_daily_stats s
 			JOIN devices d ON d.id = s.device_id
-			WHERE s.day > CURRENT_DATE - 7 AND d.restaurant_id IS NOT NULL AND s.temp_max IS NOT NULL
+			WHERE s.day > CURRENT_DATE - $2 AND d.restaurant_id IS NOT NULL AND s.temp_max IS NOT NULL
 			ORDER BY d.restaurant_id, s.temp_max DESC
 		),
 		devs AS (
@@ -1477,7 +1482,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs int) ([]GroupHe
 		LEFT JOIN prior   ON prior.restaurant_id   = r.id
 		LEFT JOIN hottest ON hottest.restaurant_id = r.id
 		LEFT JOIN al      ON al.restaurant_id      = r.id
-		ORDER BY r.name`, activeSecs)
+		ORDER BY r.name`, activeSecs, windowDays)
 	if err != nil {
 		return nil, err
 	}
