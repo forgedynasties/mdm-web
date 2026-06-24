@@ -3538,6 +3538,26 @@ type AlertNotification struct {
 	Severity string
 	Summary  string
 	Serial   string
+	// EventAt is when the underlying problem occurred (e.g. the peak-temperature
+	// reading); falls back to the detection time. Timezone is the device's reported
+	// IANA zone for rendering EventAt locally ("" → UTC).
+	EventAt  time.Time
+	Timezone string
+}
+
+// notifyTimeFrom pulls an event time and timezone out of an alert's detail map for
+// the notification. It prefers an explicit event_at/last_seen/peak_at timestamp the
+// evaluator recorded; otherwise the alert fired now. Timezone is the device's zone.
+func notifyTimeFrom(detail map[string]any) (time.Time, string) {
+	at := time.Now().UTC()
+	for _, k := range []string{"event_at", "last_seen", "peak_at"} {
+		if v, ok := detail[k].(time.Time); ok && !v.IsZero() {
+			at = v
+			break
+		}
+	}
+	tz, _ := detail["timezone"].(string)
+	return at, tz
 }
 
 // param reads a numeric threshold from a rule's params JSON, falling back to def.
@@ -3837,7 +3857,8 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, r
 				return created, resolved, e
 			}
 			if ok {
-				created = append(created, AlertNotification{r.Type, severity, h.Summary, h.Serial})
+				at, tz := notifyTimeFrom(h.Detail)
+				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, EventAt: at, Timezone: tz})
 			}
 		}
 		// Resolve any open alert of this type whose device is no longer violating.
@@ -3892,9 +3913,20 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 
 	case "overheating":
 		limit := param(p, "temp_c", 45)
+		// pk = the check-in that recorded today's hottest reading, so the alert can say
+		// when the peak happened (and in which timezone).
 		rows, err := d.pool.Query(ctx, `
-			SELECT s.device_id, dv.serial_number, s.temp_max
-			FROM device_daily_stats s JOIN devices dv ON dv.id = s.device_id
+			SELECT s.device_id, dv.serial_number, s.temp_max, pk.created_at, pk.tz
+			FROM device_daily_stats s
+			JOIN devices dv ON dv.id = s.device_id
+			LEFT JOIN LATERAL (
+				SELECT c.created_at, c.extra->>'timezone' AS tz
+				FROM checkins c
+				WHERE c.device_id = s.device_id AND c.created_at >= CURRENT_DATE
+				  AND (c.extra->>'battery_temp_c') IS NOT NULL
+				ORDER BY (c.extra->>'battery_temp_c')::numeric DESC, c.created_at DESC
+				LIMIT 1
+			) pk ON true
 			WHERE s.day = CURRENT_DATE AND s.temp_max >= $1`, limit)
 		if err != nil {
 			return nil, "critical", err
@@ -3905,12 +3937,21 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 			var id uuid.UUID
 			var serial string
 			var temp float32
-			if err := rows.Scan(&id, &serial, &temp); err != nil {
+			var peakAt *time.Time
+			var tz *string
+			if err := rows.Scan(&id, &serial, &temp, &peakAt, &tz); err != nil {
 				return nil, "critical", err
+			}
+			detail := map[string]any{"temp_c": temp, "limit_c": limit}
+			if peakAt != nil {
+				detail["event_at"] = *peakAt
+			}
+			if tz != nil && *tz != "" {
+				detail["timezone"] = *tz
 			}
 			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Device temperature reached %.0f°C today (limit %.0f°C)", temp, limit),
-				map[string]any{"temp_c": temp, "limit_c": limit}})
+				detail})
 		}
 		return hits, "critical", rows.Err()
 
@@ -4169,7 +4210,8 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 				return created, resolved, e
 			}
 			if ok {
-				created = append(created, AlertNotification{r.Type, severity, h.Summary, h.Serial})
+				at, tz := notifyTimeFrom(h.Detail)
+				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, EventAt: at, Timezone: tz})
 			}
 		}
 		tag, e := d.pool.Exec(ctx, `
