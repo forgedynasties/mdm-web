@@ -1415,6 +1415,15 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs int) ([]GroupHe
 			WHERE s.day <= CURRENT_DATE - 7 AND s.day > CURRENT_DATE - 14 AND d.restaurant_id IS NOT NULL
 			GROUP BY d.restaurant_id
 		),
+		hottest AS (
+			-- the single device that drove each restaurant's MAX(temp_max) in the window,
+			-- so the report can name the unit instead of just citing the peak number.
+			SELECT DISTINCT ON (d.restaurant_id) d.restaurant_id, d.serial_number AS hot_serial
+			FROM device_daily_stats s
+			JOIN devices d ON d.id = s.device_id
+			WHERE s.day > CURRENT_DATE - 7 AND d.restaurant_id IS NOT NULL AND s.temp_max IS NOT NULL
+			ORDER BY d.restaurant_id, s.temp_max DESC
+		),
 		devs AS (
 			SELECT d.restaurant_id,
 				COUNT(*) AS device_count,
@@ -1437,13 +1446,14 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs int) ([]GroupHe
 			COALESCE(devs.device_count, 0), COALESCE(devs.offline_count, 0),
 			COALESCE(al.crit, 0), COALESCE(al.warn, 0),
 			recent.battery_avg, (recent.battery_avg - prior.battery_avg),
-			recent.charging_avg, recent.temp_max, COALESCE(recent.builds, 0),
+			recent.charging_avg, recent.temp_max, hottest.hot_serial, COALESCE(recent.builds, 0),
 			true, COALESCE(devs.deployed_count, 0)  -- a restaurant is a live venue by definition
 		FROM restaurants r
-		LEFT JOIN devs   ON devs.restaurant_id   = r.id
-		LEFT JOIN recent ON recent.restaurant_id = r.id
-		LEFT JOIN prior  ON prior.restaurant_id  = r.id
-		LEFT JOIN al     ON al.restaurant_id     = r.id
+		LEFT JOIN devs    ON devs.restaurant_id    = r.id
+		LEFT JOIN recent  ON recent.restaurant_id  = r.id
+		LEFT JOIN prior   ON prior.restaurant_id   = r.id
+		LEFT JOIN hottest ON hottest.restaurant_id = r.id
+		LEFT JOIN al      ON al.restaurant_id      = r.id
 		ORDER BY r.name`, activeSecs)
 	if err != nil {
 		return nil, err
@@ -1454,7 +1464,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs int) ([]GroupHe
 		var g GroupHealth
 		if err := rows.Scan(&g.GroupID, &g.Name, &g.DeviceCount, &g.OfflineCount,
 			&g.OpenCritical, &g.OpenWarning, &g.BatteryAvg, &g.BatteryDelta,
-			&g.ChargingAvg, &g.TempMax, &g.DistinctBuilds, &g.Deployed, &g.DeployedCount); err != nil {
+			&g.ChargingAvg, &g.TempMax, &g.TempMaxSerial, &g.DistinctBuilds, &g.Deployed, &g.DeployedCount); err != nil {
 			return nil, err
 		}
 		g.computeScore()
@@ -3009,7 +3019,8 @@ type GroupHealth struct {
 	BatteryAvg     *float64  `json:"battery_avg"`   // recent avg daily peak battery (overnight fullness)
 	BatteryDelta   *float64  `json:"battery_delta"` // recent minus prior week (negative = declining)
 	ChargingAvg    *float64  `json:"charging_avg"`  // recent avg charging coverage (0-1)
-	TempMax        *float64  `json:"temp_max"`      // hottest device in the window
+	TempMax        *float64  `json:"temp_max"`        // hottest device in the window
+	TempMaxSerial  *string   `json:"temp_max_serial"` // serial of the device that hit TempMax
 	DistinctBuilds int       `json:"distinct_builds"`
 	Deployed       bool      `json:"deployed"`       // true for restaurants (a venue); false for tag-groups
 	DeployedCount  int       `json:"deployed_count"` // devices that are deployed (assigned to a restaurant)
