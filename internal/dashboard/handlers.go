@@ -2320,7 +2320,12 @@ func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status
 // button on the hourly-report card points here.
 func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, err := h.db.GetRestaurantHealth(r.Context(), activeSecs, 1) // Daily Report detail: one day
+	// Scorecard window: 7 days by default, or 1 day (today vs yesterday) via ?days=1.
+	windowDays := 7
+	if r.URL.Query().Get("days") == "1" {
+		windowDays = 1
+	}
+	groups, err := h.db.GetRestaurantHealth(r.Context(), activeSecs, windowDays)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -2341,6 +2346,7 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		"OpenAlertsCount": len(alerts),
 		"DeviceSerials":   serialsJSON(serials),
 		"HotSerials":      serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(r.Context()).TempC)),
+		"WindowDays":      windowDays,
 	}
 	// Show the same cached fleet report as the main page (latest of hourly or manual).
 	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
