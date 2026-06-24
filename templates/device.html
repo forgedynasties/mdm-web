@@ -247,11 +247,27 @@
         <button class="dur-btn" data-ms="172800000">48h</button>
         <button class="dur-btn" id="custom-range-btn">Custom</button>
       </div>
+      <span id="active-range-chip" class="active-range-chip" hidden>
+        <span id="active-range-text"></span>
+        <button type="button" id="active-range-clear" title="Clear custom range" aria-label="Clear custom range">&times;</button>
+      </span>
       <div id="custom-range-inputs" class="custom-range-inputs" style="display:none;">
-        <input type="datetime-local" id="range-start" class="range-input">
-        <span class="muted small">to</span>
-        <input type="datetime-local" id="range-end" class="range-input">
-        <button class="btn-outline" id="apply-range-btn" style="font-size:11px;padding:2px 8px;">Apply</button>
+        <div class="cr-presets">
+          <button type="button" class="cr-preset" data-preset="1h">Last hour</button>
+          <button type="button" class="cr-preset" data-preset="today">Today</button>
+          <button type="button" class="cr-preset" data-preset="yesterday">Yesterday</button>
+          <button type="button" class="cr-preset" data-preset="7d">Last 7d</button>
+        </div>
+        <div class="cr-fields">
+          <input type="datetime-local" id="range-start" class="range-input" aria-label="Range start">
+          <span class="muted small">to</span>
+          <input type="datetime-local" id="range-end" class="range-input" aria-label="Range end">
+          <button type="button" class="cr-nudge" id="range-prev" title="Shift window earlier" aria-label="Shift window earlier">&lsaquo;</button>
+          <button type="button" class="cr-nudge" id="range-next" title="Shift window later" aria-label="Shift window later">&rsaquo;</button>
+          <button class="btn-outline" id="apply-range-btn" style="font-size:11px;padding:2px 8px;">Apply</button>
+          <button type="button" class="btn-outline" id="reset-range-btn" style="font-size:11px;padding:2px 8px;">Reset</button>
+        </div>
+        <div id="range-error" class="cr-error" role="alert" hidden></div>
       </div>
       <button type="button" id="toggle-markers-btn" class="btn-outline" style="font-size:12px;padding:4px 10px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M6 8h12"/><path d="M8 12h8"/><path d="M10 16h4"/></svg></span><span class="toggle-markers-label">Hide Markers</span></button>
       <a id="csv-export" href="/export?serials={{.Device.SerialNumber}}" class="btn-outline" style="font-size:12px;padding:4px 10px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Export CSV</a>
@@ -429,12 +445,18 @@
   function updateCharts() {
     const { pts } = filterWindow(allBattery);
     const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
+    const chip = document.getElementById("active-range-chip");
     if (customMin !== null && customMax !== null) {
-      document.getElementById("chart-info").textContent =
-        fmtDate(customMin) + " \u2013 " + fmtDate(customMax);
+      // Custom range: surface it as a clearable chip; keep the preset label blank.
+      document.getElementById("chart-info").textContent = "";
+      if (chip) {
+        chip.hidden = false;
+        document.getElementById("active-range-text").textContent =
+          fmtDate(customMin) + " \u2013 " + fmtDate(customMax);
+      }
     } else {
-      document.getElementById("chart-info").textContent =
-        "Last " + (labels[currentDuration] || "");
+      document.getElementById("chart-info").textContent = "Last " + (labels[currentDuration] || "");
+      if (chip) chip.hidden = true;
     }
 
     if (batteryChart) applyData(batteryChart, allBattery);
@@ -892,6 +914,7 @@
       customMin = null;
       customMax = null;
       document.getElementById("custom-range-inputs").style.display = "none";
+      showRangeError("");
       document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentDuration = +btn.dataset.ms;
@@ -904,24 +927,84 @@
     var visible = inputs.style.display !== "none";
     inputs.style.display = visible ? "none" : "flex";
     if (!visible) {
-      // Pre-fill with current window
-      var now = new Date();
-      var start = new Date(now.getTime() - currentDuration);
-      document.getElementById("range-start").value = toLocalISO(start);
-      document.getElementById("range-end").value = toLocalISO(now);
+      showRangeError("");
+      // Pre-fill with the currently shown window so the inputs start from context.
+      var hasCustom = customMin !== null && customMax !== null;
+      var endMs = hasCustom ? customMax : Date.now();
+      var startMs = hasCustom ? customMin : (endMs - currentDuration);
+      document.getElementById("range-start").value = toLocalISO(new Date(startMs));
+      document.getElementById("range-end").value = toLocalISO(new Date(endMs));
     }
   });
 
-  document.getElementById("apply-range-btn").addEventListener("click", () => {
+  function showRangeError(msg) {
+    var el = document.getElementById("range-error");
+    if (!el) return;
+    if (msg) { el.textContent = msg; el.hidden = false; }
+    else { el.textContent = ""; el.hidden = true; }
+  }
+
+  // Validate + apply the two datetime inputs. Empty → error; reversed → auto-swap.
+  function applyCustomRange() {
     var s = document.getElementById("range-start").value;
     var e = document.getElementById("range-end").value;
-    if (!s || !e) return;
-    customMin = new Date(s).getTime();
-    customMax = new Date(e).getTime();
-    if (customMin >= customMax) return;
+    if (!s || !e) { showRangeError("Pick both a start and end time."); return false; }
+    var a = new Date(s).getTime(), b = new Date(e).getTime();
+    if (a === b) { showRangeError("Start and end can't be the same time."); return false; }
+    if (a > b) { // reversed — swap silently and reflect it back into the inputs
+      var t = a; a = b; b = t;
+      document.getElementById("range-start").value = toLocalISO(new Date(a));
+      document.getElementById("range-end").value = toLocalISO(new Date(b));
+    }
+    showRangeError("");
+    customMin = a; customMax = b;
     document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("custom-range-btn").classList.add("active");
     updateCharts();
+    return true;
+  }
+
+  function presetRange(preset) {
+    var now = new Date(), start = new Date(now), end = now;
+    if (preset === "1h") { start = new Date(now.getTime() - 3600000); }
+    else if (preset === "today") { start.setHours(0, 0, 0, 0); }
+    else if (preset === "yesterday") {
+      start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
+      end = new Date(start); end.setHours(23, 59, 59, 999);
+    } else if (preset === "7d") { start = new Date(now.getTime() - 7 * 86400000); }
+    document.getElementById("range-start").value = toLocalISO(start);
+    document.getElementById("range-end").value = toLocalISO(new Date(end));
+    applyCustomRange();
+  }
+
+  // Slide the active custom window left/right by its own width.
+  function nudgeRange(dir) {
+    if (customMin === null || customMax === null) return;
+    var span = customMax - customMin;
+    customMin += dir * span; customMax += dir * span;
+    document.getElementById("range-start").value = toLocalISO(new Date(customMin));
+    document.getElementById("range-end").value = toLocalISO(new Date(customMax));
+    updateCharts();
+  }
+
+  function resetCustomRange() {
+    customMin = null; customMax = null;
+    showRangeError("");
+    document.getElementById("custom-range-inputs").style.display = "none";
+    document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
+    var def = document.querySelector('.dur-btn[data-ms="21600000"]');
+    if (def) def.classList.add("active");
+    currentDuration = 6 * 3600 * 1000;
+    updateCharts();
+  }
+
+  document.getElementById("apply-range-btn").addEventListener("click", applyCustomRange);
+  document.getElementById("reset-range-btn").addEventListener("click", resetCustomRange);
+  document.getElementById("range-prev").addEventListener("click", () => nudgeRange(-1));
+  document.getElementById("range-next").addEventListener("click", () => nudgeRange(1));
+  document.getElementById("active-range-clear").addEventListener("click", resetCustomRange);
+  document.querySelectorAll(".cr-preset").forEach(function (btn) {
+    btn.addEventListener("click", function () { presetRange(btn.dataset.preset); });
   });
 
   function toLocalISO(d) {
@@ -931,9 +1014,40 @@
     return y+"-"+m+"-"+day+"T"+h+":"+min;
   }
 
+  // When opened via a deep link like ?focus=temp (a heat call-out), zoom the chart to
+  // a 1-hour window around that metric's peak and switch to its tab. ?window=<min>
+  // overrides the width. Returns the chart tab to show, or null when no focus applies.
+  function applyFocusFromURL() {
+    var params = new URLSearchParams(location.search);
+    var f = params.get("focus");
+    if (!f) return null;
+    var byMetric = { temp: allTemp, battery: allBattery, ram: allRam };
+    var data = byMetric[f];
+    if (!data || !data.length) return null;
+    var peak = null;
+    for (var i = 0; i < data.length; i++) {
+      if (data[i].y == null) continue;
+      if (peak === null || data[i].y > peak.y) peak = data[i];
+    }
+    if (!peak) return null;
+    var win = parseInt(params.get("window"), 10);
+    if (!(win > 0)) win = 60; // minutes
+    var half = win * 60 * 1000 / 2;
+    customMin = peak.x - half;
+    customMax = peak.x + half;
+    document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
+    document.getElementById("custom-range-btn").classList.add("active");
+    // Reveal the selector primed with the focused window so it's easy to widen/shift.
+    document.getElementById("custom-range-inputs").style.display = "flex";
+    document.getElementById("range-start").value = toLocalISO(new Date(customMin));
+    document.getElementById("range-end").value = toLocalISO(new Date(customMax));
+    return f === "battery" ? "battery" : f === "ram" ? "ram" : "temp";
+  }
+
+  var focusTab = applyFocusFromURL();
   updateCharts();
   syncMarkerToggle();
-  setChartTab(activeTab);
+  setChartTab(focusTab || activeTab);
   window.mdmChart = { allBattery, allTemp, allRam, updateCharts };
 
   // Recolor chart grid/ticks live when the theme is toggled.

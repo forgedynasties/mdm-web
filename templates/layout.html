@@ -218,8 +218,19 @@
     mdmSerials._cache = arr;
     return arr;
   }
+  // Serials the report flags for heat (each restaurant's hottest unit). Their links
+  // deep-link to the temperature spike so the device page opens zoomed to the incident.
+  function mdmHotSerials() {
+    if (mdmHotSerials._cache) return mdmHotSerials._cache;
+    var el = document.getElementById('ai-sum-hot-serials'), set = {};
+    if (el) { try { (JSON.parse(el.textContent) || []).forEach(function (s) { set[s] = true; }); } catch (e) {} }
+    mdmHotSerials._cache = set;
+    return set;
+  }
   function mdmDevLink(serial, text) {
-    return '<a href="/devices/' + encodeURIComponent(serial) + '" class="link-detail mono">' + (text || serial) + '</a>';
+    var href = '/devices/' + encodeURIComponent(serial);
+    if (mdmHotSerials()[serial]) href += '?focus=temp';
+    return '<a href="' + href + '" class="link-detail mono">' + (text || serial) + '</a>';
   }
   function mdmLinkifySerials(html) {
     var serials = mdmSerials();

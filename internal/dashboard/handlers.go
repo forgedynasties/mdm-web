@@ -1565,6 +1565,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		if serials, err := h.db.ListAllSerials(ctx); err == nil {
 			data["DeviceSerials"] = serialsJSON(serials)
 		}
+		data["HotSerials"] = serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(ctx).TempC))
 	}
 
 	h.render(w, r, "overview.html", data)
@@ -1578,7 +1579,26 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	chartCheckins, err := h.db.GetCheckinsForDuration(r.Context(), device.ID, device.LastSeenAt.Add(-48*time.Hour))
+	// The chart normally loads the recent window. When the page is opened to focus a
+	// past incident (e.g. a heat call-out deep-links ?focus=temp), center the fetch on
+	// the day of that metric's extreme so the spike is in range — but bounded to ~2
+	// days, since these devices can check in every few seconds and a multi-day pull
+	// would bloat the page. The client then zooms to a 1-hour window around the peak.
+	var chartCheckins []db.Checkin
+	focus := r.URL.Query().Get("focus")
+	var peakDay time.Time
+	var havePeak bool
+	if focus != "" {
+		if stats, err := h.db.GetDeviceDailyStats(r.Context(), device.ID, 8); err == nil {
+			peakDay, havePeak = peakDayForFocus(stats, focus)
+		}
+	}
+	if havePeak {
+		chartCheckins, err = h.db.GetCheckinsBetween(r.Context(), device.ID,
+			peakDay.Add(-12*time.Hour), peakDay.Add(36*time.Hour))
+	} else {
+		chartCheckins, err = h.db.GetCheckinsForDuration(r.Context(), device.ID, device.LastSeenAt.Add(-48*time.Hour))
+	}
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -2309,6 +2329,7 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		"Evidence":        groupAlertsBySignal(alerts),
 		"OpenAlertsCount": len(alerts),
 		"DeviceSerials":   serialsJSON(serials),
+		"HotSerials":      serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(r.Context()).TempC)),
 	}
 	// Show the same cached fleet report as the main page (latest of hourly or manual).
 	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
@@ -2358,6 +2379,48 @@ func groupAlertsBySignal(alerts []db.Alert) []reportEvidence {
 		evidence = append(evidence, reportEvidence{sig.Key, sig.Label, matched})
 	}
 	return evidence
+}
+
+// hotSerialsFromHealth returns the serial of each restaurant's hottest unit whose
+// window max temp reached the overheating threshold. These are exactly the devices a
+// heat call-out names, so the report card deep-links their serials straight to the
+// spike (?focus=temp) instead of the device's default recent window.
+func hotSerialsFromHealth(groups []db.GroupHealth, tempC float64) []string {
+	var out []string
+	for _, g := range groups {
+		if g.TempMax != nil && *g.TempMax >= tempC && g.TempMaxSerial != nil && *g.TempMaxSerial != "" {
+			out = append(out, *g.TempMaxSerial)
+		}
+	}
+	return out
+}
+
+// peakDayForFocus returns the rolled-up day holding the extreme of the focused metric
+// (hottest temp, highest RAM, lowest battery), so the device chart can be centered on
+// the incident. ok is false when no day has data for that metric.
+func peakDayForFocus(stats []db.DeviceDailyStat, focus string) (time.Time, bool) {
+	var best *db.DeviceDailyStat
+	for i := range stats {
+		s := &stats[i]
+		switch focus {
+		case "ram":
+			if s.RAMPctPeak != nil && (best == nil || *s.RAMPctPeak > *best.RAMPctPeak) {
+				best = s
+			}
+		case "battery":
+			if s.BatteryMin != nil && (best == nil || *s.BatteryMin < *best.BatteryMin) {
+				best = s
+			}
+		default: // temp
+			if s.TempMax != nil && (best == nil || *s.TempMax > *best.TempMax) {
+				best = s
+			}
+		}
+	}
+	if best == nil {
+		return time.Time{}, false
+	}
+	return best.Day, true
 }
 
 // serialsJSON marshals the device serial list for the report card's client-side
