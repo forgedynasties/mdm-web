@@ -57,7 +57,7 @@ func fleetSystem(t Thresholds) string {
 Focus ONLY on these four signals, judged against the configured cutoffs:
 - Battery health: a weekly peak-battery drop of about %.0f points or more.
 - Charging: didn't reach ~%.0f%% or charged less than %.0f%% of the day.
-- Overheating: running at ~%.0f°C or hotter.
+- Overheating: running at ~%.0f°C or hotter. When you flag heat, name the specific unit from the row's "hottest unit" column (it's the device that drove that restaurant's max temp) rather than just citing the peak number.
 - Memory pressure: peak RAM hit ~%.0f%% or more.
 Do NOT raise offline/connectivity as an issue.
 
@@ -358,17 +358,17 @@ func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, tota
 		b.WriteString("No restaurants configured.\n")
 	} else {
 		b.WriteString("Per-restaurant health (worst score first). Score is 0-100 (higher = healthier). The 'where' column says whether the restaurant is live (deployed) or still a lab venue, and how many of its devices resolve to deployed.\n")
-		b.WriteString("restaurant | where | score | devices | offline | crit/warn alerts | avg peak battery % | Δ vs prior wk | charging coverage | max temp °C | distinct builds\n")
+		b.WriteString("restaurant | where | score | devices | offline | crit/warn alerts | avg peak battery % | Δ vs prior wk | charging coverage | max temp °C | hottest unit | distinct builds\n")
 		for _, g := range groups {
 			where := "lab"
 			if g.Deployed || g.DeployedCount > 0 {
 				where = fmt.Sprintf("DEPLOYED (%d/%d live)", g.DeployedCount, g.DeviceCount)
 			}
-			fmt.Fprintf(&b, "%s | %s | %d | %d | %d | %d/%d | %s | %s | %s | %s | %d\n",
+			fmt.Fprintf(&b, "%s | %s | %d | %d | %d | %d/%d | %s | %s | %s | %s | %s | %d\n",
 				g.Name, where, g.Score, g.DeviceCount, g.OfflineCount,
 				g.OpenCritical, g.OpenWarning,
 				f64ptr(g.BatteryAvg), f64delta(g.BatteryDelta),
-				pct64ptr(g.ChargingAvg), f64ptr(g.TempMax), g.DistinctBuilds)
+				pct64ptr(g.ChargingAvg), f64ptr(g.TempMax), dash(strptr(g.TempMaxSerial)), g.DistinctBuilds)
 		}
 	}
 	// Cap the alert list so a noisy fleet doesn't blow the prompt size.
@@ -447,4 +447,12 @@ func dash(s string) string {
 		return "—"
 	}
 	return s
+}
+
+// strptr dereferences a *string to its value, or "" if nil.
+func strptr(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }
