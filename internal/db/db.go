@@ -3911,50 +3911,6 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		}
 		return hits, "critical", rows.Err()
 
-	case "overheating":
-		limit := param(p, "temp_c", 45)
-		// pk = the check-in that recorded today's hottest reading, so the alert can say
-		// when the peak happened (and in which timezone).
-		rows, err := d.pool.Query(ctx, `
-			SELECT s.device_id, dv.serial_number, s.temp_max, pk.created_at, pk.tz
-			FROM device_daily_stats s
-			JOIN devices dv ON dv.id = s.device_id
-			LEFT JOIN LATERAL (
-				SELECT c.created_at, c.extra->>'timezone' AS tz
-				FROM checkins c
-				WHERE c.device_id = s.device_id AND c.created_at >= CURRENT_DATE
-				  AND (c.extra->>'battery_temp_c') IS NOT NULL
-				ORDER BY (c.extra->>'battery_temp_c')::numeric DESC, c.created_at DESC
-				LIMIT 1
-			) pk ON true
-			WHERE s.day = CURRENT_DATE AND s.temp_max >= $1`, limit)
-		if err != nil {
-			return nil, "critical", err
-		}
-		defer rows.Close()
-		var hits []alertHit
-		for rows.Next() {
-			var id uuid.UUID
-			var serial string
-			var temp float32
-			var peakAt *time.Time
-			var tz *string
-			if err := rows.Scan(&id, &serial, &temp, &peakAt, &tz); err != nil {
-				return nil, "critical", err
-			}
-			detail := map[string]any{"temp_c": temp, "limit_c": limit}
-			if peakAt != nil {
-				detail["event_at"] = *peakAt
-			}
-			if tz != nil && *tz != "" {
-				detail["timezone"] = *tz
-			}
-			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("Device temperature reached %.0f°C today (limit %.0f°C)", temp, limit),
-				detail})
-		}
-		return hits, "critical", rows.Err()
-
 	case "no_overnight_charge":
 		minFull := param(p, "min_full_pct", 90)
 		maxFrac := param(p, "max_charge_frac", 0.3)
@@ -4118,6 +4074,7 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 // recentRuleTypes is the set of rule types evaluated by the recent tier.
 var recentRuleTypes = map[string]bool{
 	"offline":                 true,
+	"overheating":             true,
 	"soc_low_service":         true,
 	"soc_low_guest_charging":  true,
 	"pad_disconnected":        true,
@@ -4302,6 +4259,41 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Only %.0f MB storage free", free*1024),
 				map[string]any{"storage_free_gb": free, "limit_gb": freeGB}})
+		}
+		return hits, "critical", rows.Err()
+
+	case "overheating":
+		limit := param(p, "temp_c", 45)
+		// Point-in-time: the device's most recent reading is at/over the limit. EventAt is
+		// the check-in that reported it, so the alert lands within ~1 min of the spike and
+		// auto-resolves once it cools.
+		rows, err := d.pool.Query(ctx, `
+			SELECT d.id, d.serial_number, (d.latest_extra->>'battery_temp_c')::numeric,
+			       d.last_seen_at, d.latest_extra->>'timezone'
+			FROM devices d
+			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+			  AND (d.latest_extra->>'battery_temp_c')::numeric >= $1`, limit)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var temp float64
+			var seen time.Time
+			var tz *string
+			if err := rows.Scan(&id, &serial, &temp, &seen, &tz); err != nil {
+				return nil, "critical", err
+			}
+			detail := map[string]any{"temp_c": temp, "limit_c": limit, "event_at": seen}
+			if tz != nil && *tz != "" {
+				detail["timezone"] = *tz
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Device temperature is %.0f°C (limit %.0f°C)", temp, limit),
+				detail})
 		}
 		return hits, "critical", rows.Err()
 
