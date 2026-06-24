@@ -327,6 +327,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// both "admin" and "dev" do. Used to gate operational buttons/links;
 		// settings and user-management UI stay on a literal `eq .Role "admin"`.
 		"canAdmin": func(role string) bool { return role == "admin" || role == "dev" },
+		// alertTypeGroups feeds the per-channel alert-type filter in settings.
+		"alertTypeGroups": alertTypeCatalog,
+		// hasStr reports membership of s in list (template helper for checkbox state).
+		"hasStr": func(list []string, s string) bool {
+			for _, x := range list {
+				if x == s {
+					return true
+				}
+			}
+			return false
+		},
 		"batteryClass": func(pct int) string {
 			switch {
 			case pct < 20:
@@ -5789,6 +5800,18 @@ func (h *Handler) SettingsSaveChannel(w http.ResponseWriter, r *http.Request) {
 	if c.ActiveWindow != "service" && c.ActiveWindow != "overnight" {
 		c.ActiveWindow = ""
 	}
+	// Per-type allowlist: keep only known types, de-duped. If every type is selected,
+	// store nothing so the channel stays "all types" (back-compat and tidy).
+	seen := map[string]bool{}
+	for _, t := range r.Form["alert_types"] {
+		if validAlertType(t) && !seen[t] {
+			seen[t] = true
+			c.AlertTypes = append(c.AlertTypes, t)
+		}
+	}
+	if len(c.AlertTypes) >= countAlertTypes() {
+		c.AlertTypes = nil
+	}
 	var err error
 	if idStr := r.FormValue("id"); idStr != "" {
 		if c.ID, err = uuid.Parse(idStr); err != nil {
@@ -5901,10 +5924,10 @@ var alertRuleDefs = []struct {
 	{"pad_disconnected", "Guest charging pad disconnected", "Fires when the guest charging pad reports disconnected during service. Deployed units only.", "Charging pad", nil, true, true},
 	{"pad_unused", "Guest pad unused all day", "Informational: the pad was available all day but no guest device ever used it. Deployed units only.", "Charging pad", nil, false, false},
 	// ── Thermal ──
-	{"overheating", "Battery overheating", "Fires when a device's max daily battery temperature exceeds the threshold.", "Thermal", []alertParamField{
+	{"overheating", "Device overheating", "Fires when a device's max daily device temperature exceeds the threshold.", "Thermal", []alertParamField{
 		{"temp_c", "Temperature", "°C", 1, 45},
 	}, false, false},
-	{"temp_elevated", "Temperature elevated", "Fires when battery temperature holds in the elevated band for >15 min (trending toward throttle).", "Thermal", []alertParamField{
+	{"temp_elevated", "Temperature elevated", "Fires when device temperature holds in the elevated band for >15 min (trending toward throttle).", "Thermal", []alertParamField{
 		{"temp_min", "Band low", "°C", 1, 38},
 		{"temp_max", "Band high", "°C", 1, 45},
 	}, false, true},
@@ -5950,6 +5973,60 @@ var alertRuleDefs = []struct {
 	{"unexpected_reboot", "Unexpected reboot", "Fires when a device's uptime resets (rebooted) during service hours. Deployed units only.", "System", []alertParamField{
 		{"window_minutes", "Look-back", "min", 1, 30},
 	}, true, true},
+}
+
+// alertTypeOption / alertTypeGroup back the per-channel alert-type filter UI.
+type alertTypeOption struct{ Type, Label string }
+type alertTypeGroup struct {
+	Category string
+	Types    []alertTypeOption
+}
+
+// alertTypeCatalog groups every dispatchable alert type by category for the
+// per-channel filter. It is built from alertRuleDefs plus the dispatchable types
+// that aren't threshold-configurable rules (so a filtered channel can still keep
+// them rather than silently dropping them).
+func alertTypeCatalog() []alertTypeGroup {
+	var order []string
+	byCat := map[string][]alertTypeOption{}
+	add := func(cat, typ, label string) {
+		if _, ok := byCat[cat]; !ok {
+			order = append(order, cat)
+		}
+		byCat[cat] = append(byCat[cat], alertTypeOption{typ, label})
+	}
+	for _, d := range alertRuleDefs {
+		add(d.Category, d.Type, d.Label)
+	}
+	add("Connectivity", "wifi_disconnects", "Frequent Wi-Fi disconnects")
+	add("Lifecycle", "new_device", "New device onboarded")
+	groups := make([]alertTypeGroup, 0, len(order))
+	for _, c := range order {
+		groups = append(groups, alertTypeGroup{c, byCat[c]})
+	}
+	return groups
+}
+
+// validAlertType reports whether t is a known dispatchable alert type.
+func validAlertType(t string) bool {
+	for _, g := range alertTypeCatalog() {
+		for _, o := range g.Types {
+			if o.Type == t {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// countAlertTypes is the total number of selectable types (used to collapse a
+// fully-selected allowlist back to "all").
+func countAlertTypes() int {
+	n := 0
+	for _, g := range alertTypeCatalog() {
+		n += len(g.Types)
+	}
+	return n
 }
 
 type alertFieldView struct {
