@@ -227,12 +227,18 @@
     mdmHotSerials._cache = set;
     return set;
   }
-  function mdmDevLink(serial, text) {
+  // mdmDevLink builds a device link. focus controls the chart deep-link:
+  //   undefined → hot-unit fallback (the headline's hottest unit deep-links to temp)
+  //   a metric string ("temp"/"ram") → force ?focus=<metric>
+  //   null → plain link, no focus
+  function mdmDevLink(serial, text, focus) {
+    var f = focus;
+    if (f === undefined) f = mdmHotSerials()[serial] ? 'temp' : null;
     var href = '/devices/' + encodeURIComponent(serial);
-    if (mdmHotSerials()[serial]) href += '?focus=temp';
+    if (f) href += '?focus=' + encodeURIComponent(f);
     return '<a href="' + href + '" class="link-detail mono">' + (text || serial) + '</a>';
   }
-  function mdmLinkifySerials(html) {
+  function mdmLinkifySerials(html, focus) {
     var serials = mdmSerials();
     if (!serials.length) return html;
     var known = {};
@@ -246,40 +252,49 @@
     // it lands on a real device, so we never fabricate a link.
     var re = new RegExp('\\b(' + esc.join('|') + ')((?:\\/[0-9A-Za-z]+)+)?', 'g');
     return html.replace(re, function (whole, full, tail) {
-      var out = mdmDevLink(full);
+      var out = mdmDevLink(full, null, focus);
       if (!tail) return out;
       tail.split('/').forEach(function (ab) {
         if (!ab) return;
         var cand = full.slice(0, Math.max(0, full.length - ab.length)) + ab;
-        out += '/' + (known[cand] ? mdmDevLink(cand) : ab);
+        out += '/' + (known[cand] ? mdmDevLink(cand, null, focus) : ab);
       });
       return out;
     });
   }
+  // Map a report issue's area to the chart metric worth zooming to. Only signals with
+  // a meaningful single-moment spike map; battery decline / charging are trends, so
+  // their serials stay plain links (open the device at its default view).
+  var mdmAreaFocus = { heat: 'temp', memory: 'ram' };
   function mdmReportPreview(rep) { return mdmStatusWord(rep.status) + '<span class="rep-headline">' + mdmLinkifySerials(mdmEsc(rep.headline)) + '</span>'; }
   function mdmReportBody(rep) {
     var h = '';
     if (rep.metrics && rep.metrics.length) {
-      h += '<div class="rep-tiles">';
-      rep.metrics.forEach(function (m) { h += '<div class="rep-tile"><div class="v">' + mdmEsc(m.value) + '</div><div class="l">' + mdmEsc(m.label) + '</div></div>'; });
-      h += '</div>';
+      var tiles = '<div class="rep-tiles">';
+      rep.metrics.forEach(function (m) { tiles += '<div class="rep-tile"><div class="v">' + mdmEsc(m.value) + '</div><div class="l">' + mdmEsc(m.label) + '</div></div>'; });
+      tiles += '</div>';
+      h += mdmLinkifySerials(tiles); // headline metrics: hottest-unit fallback
     }
     if (rep.issues && rep.issues.length) {
       h += '<div class="rep-rows">';
       rep.issues.forEach(function (is) {
         var sev = is.severity === 'critical' ? 'danger' : 'warn';
-        h += '<div class="rep-row rep-' + sev + '"><span class="ind"></span><div class="meta">'
-          + '<div class="line">' + (is.area ? '<span class="rep-uplabel">' + mdmEsc(is.area) + '</span> ' : '')
+        // Each issue is linkified with its own area focus, so a unit named in a heat
+        // call-out deep-links to its temp spike even if it isn't the single hottest —
+        // and the same serial in a charging line stays a plain link.
+        var focus = mdmAreaFocus.hasOwnProperty(is.area) ? mdmAreaFocus[is.area] : null;
+        var body = '<div class="line">' + (is.area ? '<span class="rep-uplabel">' + mdmEsc(is.area) + '</span> ' : '')
           + '<span class="scope">' + mdmEsc(is.scope) + '</span>' + (is.detail ? ' — ' + mdmEsc(is.detail) : '') + '</div>'
-          + (is.action ? '<div class="action">→ ' + mdmEsc(is.action) + '</div>' : '')
-          + '</div></div>';
+          + (is.action ? '<div class="action">→ ' + mdmEsc(is.action) + '</div>' : '');
+        h += '<div class="rep-row rep-' + sev + '"><span class="ind"></span><div class="meta">'
+          + mdmLinkifySerials(body, focus) + '</div></div>';
       });
       h += '</div>';
     }
     if (rep.good && rep.good.length) {
       h += '<div class="rep-good">' + rep.good.map(mdmEsc).join(', ') + ' look fine</div>';
     }
-    return mdmLinkifySerials(h) || '<div class="muted small">No further detail.</div>';
+    return h || '<div class="muted small">No further detail.</div>';
   }
   function mdmParseReport(raw) {
     try { var o = JSON.parse(raw); if (o && (o.headline || o.status)) return o; } catch (e) {}

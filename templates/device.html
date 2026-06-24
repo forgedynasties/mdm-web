@@ -408,9 +408,11 @@
     });
   }
 
-  window.setChartTab = function setChartTab(tab) {
+  window.setChartTab = function setChartTab(tab, persist) {
     activeTab = tab;
-    localStorage.setItem(tabStorageKey, tab);
+    // A focus deep-link forces a tab for this visit only; don't clobber the user's
+    // saved preference (persist defaults to true for explicit tab clicks).
+    if (persist !== false) localStorage.setItem(tabStorageKey, tab);
     ['battery','temp','ram','all'].forEach(function(t) {
       document.getElementById('chart-panel-' + t).style.display = t === tab ? '' : 'none';
       var btn = document.querySelector('[data-chart-tab="' + t + '"]');
@@ -1047,7 +1049,7 @@
   var focusTab = applyFocusFromURL();
   updateCharts();
   syncMarkerToggle();
-  setChartTab(focusTab || activeTab);
+  setChartTab(focusTab || activeTab, !focusTab);
   window.mdmChart = { allBattery, allTemp, allRam, updateCharts };
 
   // Recolor chart grid/ticks live when the theme is toggled.
