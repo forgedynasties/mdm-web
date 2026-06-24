@@ -1433,14 +1433,14 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs, windowDays int
 				COUNT(DISTINCT NULLIF(s.build_id, '')) AS builds
 			FROM device_daily_stats s
 			JOIN devices d ON d.id = s.device_id
-			WHERE s.day > CURRENT_DATE - $2 AND d.restaurant_id IS NOT NULL
+			WHERE s.day > CURRENT_DATE - $2::int AND d.restaurant_id IS NOT NULL
 			GROUP BY d.restaurant_id
 		),
 		prior AS (
 			SELECT d.restaurant_id, AVG(s.battery_max) AS battery_avg
 			FROM device_daily_stats s
 			JOIN devices d ON d.id = s.device_id
-			WHERE s.day <= CURRENT_DATE - $2 AND s.day > CURRENT_DATE - ($2 * 2) AND d.restaurant_id IS NOT NULL
+			WHERE s.day <= CURRENT_DATE - $2::int AND s.day > CURRENT_DATE - ($2::int * 2) AND d.restaurant_id IS NOT NULL
 			GROUP BY d.restaurant_id
 		),
 		hottest AS (
@@ -1449,7 +1449,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs, windowDays int
 			SELECT DISTINCT ON (d.restaurant_id) d.restaurant_id, d.serial_number AS hot_serial
 			FROM device_daily_stats s
 			JOIN devices d ON d.id = s.device_id
-			WHERE s.day > CURRENT_DATE - $2 AND d.restaurant_id IS NOT NULL AND s.temp_max IS NOT NULL
+			WHERE s.day > CURRENT_DATE - $2::int AND d.restaurant_id IS NOT NULL AND s.temp_max IS NOT NULL
 			ORDER BY d.restaurant_id, s.temp_max DESC
 		),
 		devs AS (
