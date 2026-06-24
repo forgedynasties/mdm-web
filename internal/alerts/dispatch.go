@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"mdm/internal/config"
 	"mdm/internal/db"
@@ -86,7 +87,7 @@ func SendToChannel(ctx context.Context, c db.AlertChannel, n db.AlertNotificatio
 			emoji = "🟠"
 		}
 		title := fmt.Sprintf("%s %s — %s", emoji, strings.ToUpper(n.Severity), n.Serial)
-		return notify.SendTeams(ctx, c.URL, title, n.Summary, n.Severity)
+		return notify.SendTeams(ctx, c.URL, title, n.Summary, n.Severity, formatWhen(n.EventAt, n.Timezone))
 	}
 	return notify.SendWebhook(ctx, c.URL, FormatAlert(n))
 }
@@ -100,5 +101,24 @@ func FormatAlert(n db.AlertNotification) string {
 	case "warning":
 		emoji = "🟠"
 	}
-	return fmt.Sprintf("%s [%s] %s — %s", emoji, strings.ToUpper(n.Severity), n.Serial, n.Summary)
+	line := fmt.Sprintf("%s [%s] %s — %s", emoji, strings.ToUpper(n.Severity), n.Serial, n.Summary)
+	if w := formatWhen(n.EventAt, n.Timezone); w != "" {
+		line += " · 🕒 " + w
+	}
+	return line
+}
+
+// formatWhen renders an event time in the device's local timezone (falling back to
+// UTC when the zone is empty or unknown). Returns "" for a zero time.
+func formatWhen(at time.Time, tz string) string {
+	if at.IsZero() {
+		return ""
+	}
+	loc := time.UTC
+	if tz != "" {
+		if l, err := time.LoadLocation(tz); err == nil {
+			loc = l
+		}
+	}
+	return at.In(loc).Format("Mon 2 Jan 3:04 PM MST")
 }

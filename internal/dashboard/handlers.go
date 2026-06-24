@@ -5852,6 +5852,7 @@ func (h *Handler) SettingsTestChannel(w http.ResponseWriter, r *http.Request) {
 	sample := db.AlertNotification{
 		Type: "test", Severity: "info", Serial: "TEST-DEVICE",
 		Summary: "Test alert from AIO MDM — this channel is wired up correctly.",
+		EventAt: time.Now().UTC(),
 	}
 	result := "ok"
 	if err := alerts.SendToChannel(r.Context(), c, sample); err != nil {
