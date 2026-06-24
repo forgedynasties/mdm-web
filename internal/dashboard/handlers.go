@@ -1482,7 +1482,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	groups, _ := h.db.GetRestaurantHealth(ctx, activeSecs)
+	groups, _ := h.db.GetRestaurantHealth(ctx, activeSecs, 7)
 	hot, _ := h.db.CountHotDevices(ctx)
 	daily, _ := h.db.GetFleetDailyStats(ctx, 7)
 	openAlerts, _ := h.db.ListAlerts(ctx, "open", 5)
@@ -2320,7 +2320,7 @@ func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status
 // button on the hourly-report card points here.
 func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, err := h.db.GetRestaurantHealth(r.Context(), activeSecs)
+	groups, err := h.db.GetRestaurantHealth(r.Context(), activeSecs, 1) // Daily Report detail: one day
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -3090,7 +3090,7 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	health := make(map[uuid.UUID]db.GroupHealth)
-	if rhs, err := h.db.GetRestaurantHealth(r.Context(), h.cfg.CheckinInterval()*3); err == nil {
+	if rhs, err := h.db.GetRestaurantHealth(r.Context(), h.cfg.CheckinInterval()*3, 7); err == nil {
 		for _, rh := range rhs {
 			health[rh.GroupID] = rh // GroupHealth.GroupID carries the restaurant id
 		}
@@ -5539,7 +5539,7 @@ func (h *Handler) refreshFleetSummary(ctx context.Context) {
 // usage, caches the result, and returns it. Always generates — callers gate freshness.
 func (h *Handler) generateFleetSummary(ctx context.Context) (db.AISummary, error) {
 	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, err := h.db.GetRestaurantHealth(ctx, activeSecs)
+	groups, err := h.db.GetRestaurantHealth(ctx, activeSecs, 1) // Daily Report: one day
 	if err != nil {
 		return db.AISummary{}, err
 	}
@@ -5603,7 +5603,7 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 		return
 	}
 	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, err := h.db.GetRestaurantHealth(ctx, activeSecs)
+	groups, err := h.db.GetRestaurantHealth(ctx, activeSecs, 1) // Daily Report: one day
 	if err != nil {
 		log.Printf("[digest] group health: %v", err)
 		return
@@ -5964,7 +5964,7 @@ var alertRuleDefs = []struct {
 		{"min_full_pct", "Min overnight battery", "%", 1, 90},
 		{"max_charge_frac", "Max charging coverage", "0–1", 0.05, 0.3},
 	}, false, false},
-	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Hourly Report uses for memory.", "System", []alertParamField{
+	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Daily Report uses for memory.", "System", []alertParamField{
 		{"ram_pct", "RAM usage", "%", 1, 85},
 	}, false, false},
 	{"memory_low", "Memory low (available)", "Fires when available RAM (total − used) holds below the floor for >8 min — Android's low-memory killer territory.", "System", []alertParamField{

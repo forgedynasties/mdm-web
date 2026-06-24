@@ -54,8 +54,10 @@ type Thresholds struct {
 func fleetSystem(t Thresholds) string {
 	return personaContext + fmt.Sprintf(`
 
+This is a DAILY report: every number you're given covers TODAY only (the current day's check-ins). Read it as today's snapshot, not a multi-day trend — don't cite values from earlier days or call something a weeks-long pattern.
+
 Focus ONLY on these four signals, judged against the configured cutoffs:
-- Battery health: a weekly peak-battery drop of about %.0f points or more.
+- Battery health: a peak-battery drop of about %.0f points or more day-over-day (today vs yesterday).
 - Charging: didn't reach ~%.0f%% or charged less than %.0f%% of the day.
 - Overheating: running at ~%.0f°C or hotter. When you flag heat, name the specific unit from the row's "hottest unit" column (it's the device that drove that restaurant's max temp) rather than just citing the peak number.
 - Memory pressure: peak RAM hit ~%.0f%% or more.
@@ -357,8 +359,8 @@ func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, tota
 	if len(groups) == 0 {
 		b.WriteString("No restaurants configured.\n")
 	} else {
-		b.WriteString("Per-restaurant health (worst score first). Score is 0-100 (higher = healthier). The 'where' column says whether the restaurant is live (deployed) or still a lab venue, and how many of its devices resolve to deployed.\n")
-		b.WriteString("restaurant | where | score | devices | offline | crit/warn alerts | avg peak battery % | Δ vs prior wk | charging coverage | max temp °C | hottest unit | distinct builds\n")
+		b.WriteString("Per-restaurant health (worst score first). Score is 0-100 (higher = healthier). All metrics below are for TODAY only (the day's check-ins so far); the Δ column compares today against yesterday. The 'where' column says whether the restaurant is live (deployed) or still a lab venue, and how many of its devices resolve to deployed.\n")
+		b.WriteString("restaurant | where | score | devices | offline | crit/warn alerts | avg peak battery % | Δ vs yesterday | charging coverage | max temp °C | hottest unit | distinct builds\n")
 		for _, g := range groups {
 			where := "lab"
 			if g.Deployed || g.DeployedCount > 0 {
