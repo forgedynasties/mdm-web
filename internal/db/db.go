@@ -1011,6 +1011,29 @@ func (d *DB) GetCheckinsForDuration(ctx context.Context, deviceID uuid.UUID, sin
 	}
 	defer rows.Close()
 
+	return scanCheckins(rows)
+}
+
+// GetCheckinsBetween returns a device's check-ins within [from, until]. Used to load a
+// bounded window around a past incident (e.g. a heat spike days ago) without pulling
+// every check-in since then — these devices can check in every few seconds.
+func (d *DB) GetCheckinsBetween(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]Checkin, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, device_id, battery_pct, build_id, extra, created_at
+		FROM checkins
+		WHERE device_id = $1 AND created_at >= $2 AND created_at <= $3
+		ORDER BY created_at DESC
+	`, deviceID, from, until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return scanCheckins(rows)
+}
+
+// scanCheckins materializes check-in rows, defaulting empty extra to "{}".
+func scanCheckins(rows pgx.Rows) ([]Checkin, error) {
 	var checkins []Checkin
 	for rows.Next() {
 		var c Checkin
