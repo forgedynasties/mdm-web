@@ -1,5 +1,12 @@
 # T7 Alert Matrix — Status & Plan (Done / Left)
 
+> **⚠️ 2026-06-25 — alert set trimmed.** Battery-health (`battery_health_low`,
+> `battery_health_critical`, `battery_cycles_high`, `battery_health_decline`), Wi-Fi
+> disconnect counting (`wifi_disconnects`), and the app/kiosk rules (`app_not_foreground`,
+> `kiosk_disabled`, `app_crash`, `app_anr`) were **removed** server- and client-side. The
+> rows below that reference those types are historical. See
+> [`alert-matrix.md`](./alert-matrix.md) for the current set.
+>
 > **Scope:** the QA/test team's 26-alert matrix for the **T7 tableside device**.
 > This is the focused done/left/plan sheet. The full design rationale lives in
 > [`analytics-and-alerting.md`](./analytics-and-alerting.md) §8–§11; this doc is the

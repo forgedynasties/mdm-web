@@ -4,7 +4,14 @@
 > telemetry into decisions, alerts, and trends. We add to this as we go — it is the
 > source of truth for the analytics program, not a one-time writeup.
 >
-> **Last updated:** 2026-06-13
+> **Last updated:** 2026-06-25
+>
+> **⚠️ 2026-06-25 — alert set trimmed.** Battery-health (incl. the `battery_health_decline`
+> proxy and the sysfs health/cycle rules), Wi-Fi disconnect counting (`wifi_disconnects`),
+> and the app/kiosk rules (`app_not_foreground`, `kiosk_disabled`, `app_crash`, `app_anr`)
+> were removed server- and client-side. Sections below that propose or describe those rules
+> are historical rationale; the current implemented set lives in
+> [`alert-matrix.md`](./alert-matrix.md).
 
 ---
 

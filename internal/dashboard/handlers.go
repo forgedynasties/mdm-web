@@ -2367,7 +2367,6 @@ var reportSignals = []struct {
 }{
 	{"heat", "Overheating", []string{"overheating"}},
 	{"charging", "Charging", []string{"no_overnight_charge"}},
-	{"battery", "Battery health", []string{"battery_health_decline"}},
 	{"memory", "Memory pressure", []string{"memory_pressure"}},
 }
 
@@ -5913,20 +5912,6 @@ var alertRuleDefs = []struct {
 	{"discharge_rate_active", "Abnormal discharge — pad active", "Battery dropping faster than expected while reverse-charging a guest. Deployed units only.", "Battery", []alertParamField{
 		{"rate_pct_per_hr", "Max drain", "%/h", 1, 14},
 	}, true, true},
-	{"battery_health_decline", "Battery health declining (proxy)", "Fires when the overnight-full to shift-end battery drop grows week over week.", "Battery", []alertParamField{
-		{"drop_pct", "Decline threshold", "%", 1, 15},
-		{"window_days", "Comparison window", "days", 1, 7},
-	}, false, false},
-	{"battery_health_low", "Battery health degraded", "Fires when reported battery health falls into the warning band (below the warn floor but not yet critical). Advance notice before replacement.", "Battery", []alertParamField{
-		{"warn_pct", "Warn floor", "%", 1, 85},
-		{"crit_pct", "Critical floor", "%", 1, 80},
-	}, false, true},
-	{"battery_health_critical", "Battery health critical", "Fires when reported battery health drops below the critical floor — schedule replacement now.", "Battery", []alertParamField{
-		{"crit_pct", "Critical floor", "%", 1, 80},
-	}, false, true},
-	{"battery_cycles_high", "High charge cycle count", "Informational: flags devices past the charge-cycle count where a proactive battery swap should be planned.", "Battery", []alertParamField{
-		{"cycles", "Cycle flag", "cycles", 10, 400},
-	}, false, true},
 	// ── Guest charging pad ──
 	{"pad_disconnected", "Guest charging pad disconnected", "Fires when the guest charging pad reports disconnected during service. Deployed units only.", "Charging pad", nil, true, true},
 	{"pad_unused", "Guest pad unused all day", "Informational: the pad was available all day but no guest device ever used it. Deployed units only.", "Charging pad", nil, false, false},
@@ -5945,18 +5930,6 @@ var alertRuleDefs = []struct {
 	{"wifi_weak", "Weak Wi-Fi signal", "Fires when the connected Wi-Fi RSSI holds below the floor for the sustain window — packet loss territory for voice/payment APIs.", "Connectivity", []alertParamField{
 		{"rssi_dbm", "Signal floor", "dBm", 1, -75},
 		{"sustain_min", "Sustained for", "min", 1, 10},
-	}, false, true},
-	{"wifi_disconnects", "Frequent Wi-Fi disconnects", "Fires when the device reports more than the allowed number of Wi-Fi disconnects in the trailing hour — weak signal, DHCP, or AP handoff trouble.", "Connectivity", []alertParamField{
-		{"max_per_hr", "Max per hour", "/h", 1, 3},
-	}, false, true},
-	// ── App / kiosk ──
-	{"app_not_foreground", "Ordering app not in foreground", "Fires when the pinned ordering app is not the foreground app during service hours. Deployed units only.", "App / kiosk", nil, true, true},
-	{"kiosk_disabled", "Kiosk mode disabled", "Fires when a device configured for kiosk is no longer in lock-task mode — accidental or intentional bypass.", "App / kiosk", nil, false, true},
-	{"app_crash", "Repeated app crashes", "Fires when the ordering app records more than the allowed crashes in a 4-hour window. Deployed units only.", "App / kiosk", []alertParamField{
-		{"crashes", "Max crashes / 4h", "", 1, 2},
-	}, true, true},
-	{"app_anr", "App not responding (ANR)", "Fires when the ordering app records an ANR (UI frozen >5s) in the last 4 hours.", "App / kiosk", []alertParamField{
-		{"anr", "Min ANRs / 4h", "", 1, 1},
 	}, false, true},
 	// ── Storage ──
 	{"storage_low", "Storage critically low", "Fires when free storage falls below the critical floor.", "Storage", []alertParamField{
@@ -6005,7 +5978,6 @@ func alertTypeCatalog() []alertTypeGroup {
 	for _, d := range alertRuleDefs {
 		add(d.Category, d.Type, d.Label)
 	}
-	add("Connectivity", "wifi_disconnects", "Frequent Wi-Fi disconnects")
 	add("Lifecycle", "new_device", "New device onboarded")
 	groups := make([]alertTypeGroup, 0, len(order))
 	for _, c := range order {
@@ -6110,7 +6082,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 // alertThresholds reads the configurable cutoffs from the alert rules so the fleet
 // report judges problems against the same numbers (defaults if a rule is missing).
 func (h *Handler) alertThresholds(ctx context.Context) ai.Thresholds {
-	t := ai.Thresholds{TempC: 45, MinFullPct: 90, MaxChargeFrac: 0.3, DropPct: 15, WindowDays: 7, RAMPct: 85}
+	t := ai.Thresholds{TempC: 45, MinFullPct: 90, MaxChargeFrac: 0.3, RAMPct: 85}
 	rules, err := h.db.ListAlertRules(ctx, false)
 	if err != nil {
 		return t
@@ -6130,9 +6102,6 @@ func (h *Handler) alertThresholds(ctx context.Context) ai.Thresholds {
 		case "no_overnight_charge":
 			t.MinFullPct = get("min_full_pct", t.MinFullPct)
 			t.MaxChargeFrac = get("max_charge_frac", t.MaxChargeFrac)
-		case "battery_health_decline":
-			t.DropPct = get("drop_pct", t.DropPct)
-			t.WindowDays = get("window_days", t.WindowDays)
 		case "memory_pressure":
 			t.RAMPct = get("ram_pct", t.RAMPct)
 		}
