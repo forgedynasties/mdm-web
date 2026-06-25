@@ -391,12 +391,17 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 	return tx.Commit(ctx)
 }
 
-// UpsertCheckin records a checkin, creating the device row on first contact.
-// The returned isNew is true only when the device row was inserted by this call
-// (the device's very first checkin), so callers can fire onboarding side-effects
-// exactly once. It relies on the Postgres convention that xmax = 0 on a freshly
-// inserted tuple and non-zero on a row touched by ON CONFLICT DO UPDATE.
-func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct int, extra json.RawMessage) (deviceID uuid.UUID, pollIntervalMs int, isNew bool, err error) {
+// UpsertCheckin records a check-in, creating the device row on first contact. The returned
+// isNew is true only when the device row was inserted by this call (xmax = 0 on a freshly
+// inserted tuple), so callers can fire onboarding side-effects exactly once.
+// mergeExtra controls how the incoming extra combines
+// with the stored snapshot: false (HTTP keyframe / full snapshot) REPLACES latest_extra,
+// clearing any stale keys; true (WS delta frame) shallow-merges (JSONB ||) so only the
+// changed fields are overwritten and unchanged ones are preserved. battery_pct is a pointer:
+// when nil (omitted from a delta) the prior value is carried forward. RETURNING the resolved
+// extra + battery makes the checkins history row a full snapshot regardless of frame type
+// (windowed alerts + daily rollups read checkins.extra).
+func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct *int, extra json.RawMessage, mergeExtra bool) (deviceID uuid.UUID, pollIntervalMs int, isNew bool, err error) {
 	if len(extra) == 0 {
 		extra = json.RawMessage("{}")
 	}
@@ -407,17 +412,23 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	}
 	defer tx.Rollback(ctx)
 
-	err = tx.QueryRow(ctx, `
+	extraExpr := "EXCLUDED.latest_extra"
+	if mergeExtra {
+		extraExpr = "COALESCE(devices.latest_extra, '{}'::jsonb) || EXCLUDED.latest_extra"
+	}
+	var merged json.RawMessage
+	var battery int
+	err = tx.QueryRow(ctx, fmt.Sprintf(`
 		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra)
-		VALUES ($1, $2, NOW(), $3, $4)
+		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4)
 		ON CONFLICT (serial_number) DO UPDATE
 			SET build_id           = EXCLUDED.build_id,
 			    last_seen_at       = NOW(),
-			    latest_battery_pct = EXCLUDED.latest_battery_pct,
-			    latest_extra       = EXCLUDED.latest_extra,
+			    latest_battery_pct = COALESCE($3, devices.latest_battery_pct),
+			    latest_extra       = %s,
 			    hidden             = false
-		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new
-	`, serial, buildID, batteryPct, extra).Scan(&deviceID, &pollIntervalMs, &isNew)
+		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
+	`, extraExpr), serial, buildID, batteryPct, extra).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
 	if err != nil {
 		return uuid.Nil, 0, false, err
 	}
@@ -425,7 +436,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	_, err = tx.Exec(ctx, `
 		INSERT INTO checkins (device_id, battery_pct, build_id, extra)
 		VALUES ($1, $2, $3, $4)
-	`, deviceID, batteryPct, buildID, extra)
+	`, deviceID, battery, buildID, merged)
 	if err != nil {
 		return uuid.Nil, 0, false, err
 	}
