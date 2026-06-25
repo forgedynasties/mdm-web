@@ -31,18 +31,17 @@ Implementation reference for the T7 fleet alerting system. Brief but complete.
 | 4 | Weak Wi-Fi signal | `wifi_weak` | recent | warn | always | `wifi_rssi` |
 | 5 | Storage critically low | `storage_low` | recent | crit | always | `storage_free_gb` |
 | 6 | Storage filling fast | `storage_filling` | daily | warn | always | `storage_free_gb` |
-| 7 | Unexpected reboot | `unexpected_reboot` | recent | warn | service | `uptime_seconds` (+ `boot_reason`) |
-| 8 | Memory pressure | `memory_low` | recent | crit | always | `ram_usage_mb` |
-| 9 | OS out of compliance | *(deferred)* | — | info | — | — → future **release tracking** |
+| 7 | Memory pressure | `memory_low` | recent | crit | always | `ram_usage_mb` |
+| 8 | OS out of compliance | *(deferred)* | — | info | — | — → future **release tracking** |
 
-Defaults: `wifi_weak` −75 dBm sustained 10 min, `storage_low` <0.5 GB, `memory_low` <400 MB avail, `unexpected_reboot` 30-min look-back. `memory_pressure` (daily `ram_pct`, seeded **disabled**) supplies the Daily Report's RAM cutoff; `memory_low` is the live alert.
+Defaults: `wifi_weak` −75 dBm sustained 10 min, `storage_low` <0.5 GB, `memory_low` <400 MB avail. `memory_pressure` (daily `ram_pct`, seeded **disabled**) supplies the Daily Report's RAM cutoff; `memory_low` is the live alert.
 
-> **Charging/SoC and charging-pad alerts removed.** `soc_low_service`,
+> **Charging/SoC, charging-pad, and reboot alerts removed.** `soc_low_service`,
 > `soc_low_guest_charging`, `overnight_not_charging`, `overnight_slow_charge`,
 > `discharge_rate_idle`, `discharge_rate_active`, `no_overnight_charge`, `pad_disconnected`,
-> and `pad_unused` were dropped — battery state-of-charge, charge/discharge behaviour, and
-> guest-pad state are no longer alerted on. `wlc_status` telemetry and the daily
-> pad-utilisation metric (`wlc_guest_frac`) are retained for the device page / analytics.
+> `pad_unused`, and `unexpected_reboot` were dropped. `wlc_status`/`uptime_seconds`/`boot_reason`
+> telemetry and the daily pad-utilisation metric (`wlc_guest_frac`) are retained for the
+> device page / analytics.
 
 ## Client telemetry (`MdmService.buildCheckinPayload`)
 
@@ -56,6 +55,6 @@ Core fields: `battery_pct`, `charging`, `battery_temp_c`, `wlc_status`, `storage
 ## Notes / caveats
 
 - ¹ **`offline` is fleet-wide** (deployed *and* bench/lab units), not gated to service hours or deployment. It self-suppresses overnight via its own `quiet_start`/`quiet_end` window (default 00:00–06:00 local), so it doesn't use the `service` active window. `migrationSQL` flips legacy `service`-windowed rows to `always` on startup.
-- **`boot_reason`** is reported but not yet surfaced in the `unexpected_reboot` alert detail (follow-up to classify user vs system reboots).
-- **#9 OS compliance** intentionally deferred to release tracking (release string, not SDK).
-- **Removed rules** (battery-health: `battery_health_low`/`_critical`, `battery_cycles_high`, `battery_health_decline`; connectivity: `wifi_disconnects`; app/kiosk: `app_not_foreground`, `kiosk_disabled`, `app_crash`, `app_anr`; charging/SoC: `soc_low_service`, `soc_low_guest_charging`, `overnight_not_charging`, `overnight_slow_charge`, `discharge_rate_idle`, `discharge_rate_active`, `no_overnight_charge`; charging-pad: `pad_disconnected`, `pad_unused`) are purged from `alert_rules` on existing DBs by an idempotent `DELETE` in `migrationSQL`, which also scrubs them from per-channel `alert_types` allowlists.
+- **#8 OS compliance** intentionally deferred to release tracking (release string, not SDK).
+- **All current rules are `always`-window / fleet-wide.** The service/overnight + deployed-only window machinery remains in `EvaluateRecentAlerts` for future use, but no seeded rule uses it.
+- **Removed rules** (battery-health: `battery_health_low`/`_critical`, `battery_cycles_high`, `battery_health_decline`; connectivity: `wifi_disconnects`; app/kiosk: `app_not_foreground`, `kiosk_disabled`, `app_crash`, `app_anr`; charging/SoC: `soc_low_service`, `soc_low_guest_charging`, `overnight_not_charging`, `overnight_slow_charge`, `discharge_rate_idle`, `discharge_rate_active`, `no_overnight_charge`; charging-pad: `pad_disconnected`, `pad_unused`; system: `unexpected_reboot`) are purged from `alert_rules` on existing DBs by an idempotent `DELETE` in `migrationSQL`, which also scrubs them from per-channel `alert_types` allowlists.
