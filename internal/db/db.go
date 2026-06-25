@@ -3222,7 +3222,7 @@ var defaultAlertRules = []struct {
 	{"pad_unused", "Guest pad unused all day", `{}`, "always", true},
 	{"storage_filling", "Storage filling fast", `{"low_gb":1.5,"drop_gb":0.2}`, "always", true},
 	// Recent-tier rules (T7 matrix).
-	{"offline", "Device offline during service", `{"offline_minutes":5}`, "service", true},
+	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
 	{"soc_low_service", "SoC low during service", `{"soc_pct":20}`, "service", true},
 	{"soc_low_guest_charging", "SoC low while charging a guest", `{"soc_pct":20}`, "service", true},
 	{"pad_disconnected", "Guest charging pad disconnected", `{}`, "service", true},
@@ -4050,7 +4050,7 @@ func isRecentType(typ string) bool { return recentRuleTypes[typ] }
 // column is unset, so the matrix's intent holds even for rules seeded before the column.
 func defaultActiveWindow(typ string) string {
 	switch typ {
-	case "offline", "soc_low_service", "soc_low_guest_charging", "pad_disconnected",
+	case "soc_low_service", "soc_low_guest_charging", "pad_disconnected",
 		"discharge_rate_idle", "discharge_rate_active", "unexpected_reboot":
 		return "service"
 	case "overnight_not_charging", "overnight_slow_charge":
@@ -5254,6 +5254,12 @@ DELETE FROM alert_rules WHERE type IN (
 	'battery_health_decline','battery_health_low','battery_health_critical',
 	'battery_cycles_high','wifi_disconnects','app_not_foreground','kiosk_disabled',
 	'app_crash','app_anr');
+
+-- offline is a fleet-wide device-health alert (fires on lab/bench units too), not a
+-- deployed-only operational rule. It self-suppresses overnight via its own quiet
+-- window (quiet_start/quiet_end), so the service window is unnecessary. Flip legacy
+-- rows off the old service-window default so they stop being gated to deployed units.
+UPDATE alert_rules SET active_window = 'always' WHERE type = 'offline' AND active_window = 'service';
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
