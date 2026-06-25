@@ -2839,38 +2839,55 @@ func (d *DB) PruneCheckins(ctx context.Context, days int) (int64, error) {
 // number of device-day rows written. `day` is interpreted at date granularity.
 func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error) {
 	dayStr := day.Format("2006-01-02")
+	// Telemetry is change-gated, so check-ins are irregular in time. Average/fraction/
+	// duration aggregates are therefore TIME-WEIGHTED: each sample is weighted by the gap to
+	// the next sample (LEAD), capped at 600 s so a long silent/offline stretch can't dominate.
+	// The day's last sample has no successor (NULL gap → weight 0); when all weights are 0
+	// (e.g. a single sample) we fall back to the plain row average. MAX/MIN/last-value
+	// aggregates are insensitive to sampling cadence and stay as-is.
 	tag, err := d.pool.Exec(ctx, `
+		WITH samples AS (
+			SELECT c.device_id, c.battery_pct, c.build_id, c.created_at, c.extra,
+				COALESCE(LEAST(EXTRACT(EPOCH FROM (
+					LEAD(c.created_at) OVER (PARTITION BY c.device_id ORDER BY c.created_at)
+					- c.created_at)), 600), 0) AS w
+			FROM checkins c
+			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
+		)
 		INSERT INTO device_daily_stats AS s (
 			device_id, day, checkin_count, battery_min, battery_max, battery_avg,
 			temp_max, ram_pct_peak, charging_frac, online_minutes, build_id,
 			first_seen_at, last_seen_at,
 			wlc_guest_frac, pad_readable, storage_free_last_gb, computed_at)
 		SELECT
-			c.device_id,
+			device_id,
 			$1::date,
 			COUNT(*),
-			MIN(c.battery_pct),
-			MAX(c.battery_pct),
-			AVG(c.battery_pct)::real,
-			MAX((c.extra->>'battery_temp_c')::numeric)::real,
+			MIN(battery_pct),
+			MAX(battery_pct),
+			COALESCE((SUM(battery_pct * w) / NULLIF(SUM(w), 0))::real, AVG(battery_pct)::real),
+			MAX((extra->>'battery_temp_c')::numeric)::real,
 			MAX(COALESCE(
-				((c.extra->'ram_usage_mb'->>'used')::numeric * 100)
-					/ NULLIF((c.extra->'ram_usage_mb'->>'total')::numeric, 0),
+				((extra->'ram_usage_mb'->>'used')::numeric * 100)
+					/ NULLIF((extra->'ram_usage_mb'->>'total')::numeric, 0),
 				0))::smallint,
-			AVG(CASE WHEN (c.extra->>'charging')::boolean THEN 1 ELSE 0 END)::real,
-			COUNT(DISTINCT date_trunc('minute', c.created_at)),
-			(ARRAY_AGG(c.build_id ORDER BY c.created_at DESC))[1],
-			MIN(c.created_at),
-			MAX(c.created_at),
-			-- T7 pad utilisation: fraction of checkins with a guest device on the pad,
+			COALESCE(
+				(SUM(CASE WHEN (extra->>'charging')::boolean THEN w ELSE 0 END) / NULLIF(SUM(w), 0))::real,
+				AVG(CASE WHEN (extra->>'charging')::boolean THEN 1 ELSE 0 END)::real),
+			(SUM(w) / 60.0)::int,
+			(ARRAY_AGG(build_id ORDER BY created_at DESC))[1],
+			MIN(created_at),
+			MAX(created_at),
+			-- T7 pad utilisation: time-weighted fraction with a guest device on the pad,
 			-- whether the pad was readable at all that day, and the day's last storage reading.
-			AVG(CASE WHEN c.extra->>'wlc_status' = '1' THEN 1 ELSE 0 END)::real,
-			bool_or(c.extra->>'wlc_status' IS NOT NULL AND c.extra->>'wlc_status' <> '-1'),
-			(ARRAY_AGG((c.extra->>'storage_free_gb')::numeric ORDER BY c.created_at DESC))[1]::real,
+			COALESCE(
+				(SUM(CASE WHEN extra->>'wlc_status' = '1' THEN w ELSE 0 END) / NULLIF(SUM(w), 0))::real,
+				AVG(CASE WHEN extra->>'wlc_status' = '1' THEN 1 ELSE 0 END)::real),
+			bool_or(extra->>'wlc_status' IS NOT NULL AND extra->>'wlc_status' <> '-1'),
+			(ARRAY_AGG((extra->>'storage_free_gb')::numeric ORDER BY created_at DESC))[1]::real,
 			NOW()
-		FROM checkins c
-		WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
-		GROUP BY c.device_id
+		FROM samples
+		GROUP BY device_id
 		ON CONFLICT (device_id, day) DO UPDATE SET
 			checkin_count  = EXCLUDED.checkin_count,
 			battery_min    = EXCLUDED.battery_min,
