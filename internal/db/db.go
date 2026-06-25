@@ -3423,6 +3423,17 @@ func (d *DB) BulkSetAlertStatus(ctx context.Context, status string) (int64, erro
 	return tag.RowsAffected(), nil
 }
 
+// DeleteAllAlerts removes every alert row (fired instances), returning the number
+// deleted. Rule definitions in alert_rules are untouched, so alerts re-fire on the
+// next evaluation if their conditions still hold.
+func (d *DB) DeleteAllAlerts(ctx context.Context) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `DELETE FROM alerts`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // SetAlertStatus transitions a single alert (acknowledged/resolved). resolved sets
 // resolved_at; other statuses clear it.
 func (d *DB) SetAlertStatus(ctx context.Context, id uuid.UUID, status string) error {

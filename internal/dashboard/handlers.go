@@ -2299,6 +2299,19 @@ func (h *Handler) AlertResolveAll(w http.ResponseWriter, r *http.Request) {
 	h.bulkAlertStatus(w, r, "resolved")
 }
 
+// AlertClearAll deletes every alert row (admin only). Rules are untouched, so any
+// alert whose condition still holds re-fires on the next evaluation.
+func (h *Handler) AlertClearAll(w http.ResponseWriter, r *http.Request) {
+	n, err := h.db.DeleteAllAlerts(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "alert.clear_all", "", strconv.FormatInt(n, 10))
+	h.hub.PublishAlertUpdate()
+	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
+}
+
 func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status string) {
 	n, err := h.db.BulkSetAlertStatus(r.Context(), status)
 	if err != nil {
@@ -6955,6 +6968,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
 	post("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
 	post("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
+	post("POST /alerts/clear-all", h.requireAdmin(h.AlertClearAll))
 	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	post("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
 	post("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))
