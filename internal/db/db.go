@@ -3216,22 +3216,15 @@ var defaultAlertRules = []struct {
 	{"new_device", "New device onboarded", `{}`, "always", true},
 	// Daily-tier rules.
 	{"overheating", "Device overheating", `{"temp_c":45}`, "always", true},
-	{"no_overnight_charge", "Did not charge overnight", `{"min_full_pct":90,"max_charge_frac":0.3}`, "always", true},
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
 	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
 	{"pad_unused", "Guest pad unused all day", `{}`, "always", true},
 	{"storage_filling", "Storage filling fast", `{"low_gb":1.5,"drop_gb":0.2}`, "always", true},
 	// Recent-tier rules (T7 matrix).
 	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
-	{"soc_low_service", "SoC low during service", `{"soc_pct":20}`, "service", true},
-	{"soc_low_guest_charging", "SoC low while charging a guest", `{"soc_pct":20}`, "service", true},
 	{"pad_disconnected", "Guest charging pad disconnected", `{}`, "service", true},
 	{"storage_low", "Storage critically low", `{"free_gb":0.5}`, "always", true},
 	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", true},
-	{"discharge_rate_idle", "Abnormal discharge — pad idle", `{"rate_pct_per_hr":5}`, "service", true},
-	{"discharge_rate_active", "Abnormal discharge — pad active", `{"rate_pct_per_hr":14}`, "service", true},
-	{"overnight_not_charging", "Not charging overnight", `{"min_pct":95}`, "overnight", true},
-	{"overnight_slow_charge", "Charging too slowly overnight", `{"gain_pct":15,"min_pct":95}`, "overnight", true},
 	{"unexpected_reboot", "Unexpected reboot", `{"window_minutes":30}`, "service", true},
 	{"memory_low", "Memory low (available)", `{"avail_mb":400}`, "always", true},
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
@@ -3899,33 +3892,6 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		}
 		return hits, "critical", rows.Err()
 
-	case "no_overnight_charge":
-		minFull := param(p, "min_full_pct", 90)
-		maxFrac := param(p, "max_charge_frac", 0.3)
-		rows, err := d.pool.Query(ctx, `
-			SELECT s.device_id, dv.serial_number, s.battery_max, s.charging_frac
-			FROM device_daily_stats s JOIN devices dv ON dv.id = s.device_id
-			WHERE s.day = CURRENT_DATE - 1 AND s.battery_max < $1 AND COALESCE(s.charging_frac, 0) < $2`,
-			minFull, maxFrac)
-		if err != nil {
-			return nil, "warning", err
-		}
-		defer rows.Close()
-		var hits []alertHit
-		for rows.Next() {
-			var id uuid.UUID
-			var serial string
-			var bmax int
-			var frac float32
-			if err := rows.Scan(&id, &serial, &bmax, &frac); err != nil {
-				return nil, "warning", err
-			}
-			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("Only reached %d%% and charged %.0f%% of yesterday", bmax, frac*100),
-				map[string]any{"battery_max": bmax, "charging_frac": frac}})
-		}
-		return hits, "warning", rows.Err()
-
 	case "memory_pressure":
 		limit := param(p, "ram_pct", 85)
 		rows, err := d.pool.Query(ctx, `
@@ -4028,20 +3994,14 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 
 // recentRuleTypes is the set of rule types evaluated by the recent tier.
 var recentRuleTypes = map[string]bool{
-	"offline":                 true,
-	"overheating":             true,
-	"soc_low_service":         true,
-	"soc_low_guest_charging":  true,
-	"pad_disconnected":        true,
-	"storage_low":             true,
-	"temp_elevated":           true,
-	"discharge_rate_idle":     true,
-	"discharge_rate_active":   true,
-	"overnight_not_charging":  true,
-	"overnight_slow_charge":   true,
-	"unexpected_reboot":       true,
-	"memory_low":              true,
-	"wifi_weak":               true,
+	"offline":           true,
+	"overheating":       true,
+	"pad_disconnected":  true,
+	"storage_low":       true,
+	"temp_elevated":     true,
+	"unexpected_reboot": true,
+	"memory_low":        true,
+	"wifi_weak":         true,
 }
 
 func isRecentType(typ string) bool { return recentRuleTypes[typ] }
@@ -4050,11 +4010,8 @@ func isRecentType(typ string) bool { return recentRuleTypes[typ] }
 // column is unset, so the matrix's intent holds even for rules seeded before the column.
 func defaultActiveWindow(typ string) string {
 	switch typ {
-	case "soc_low_service", "soc_low_guest_charging", "pad_disconnected",
-		"discharge_rate_idle", "discharge_rate_active", "unexpected_reboot":
+	case "pad_disconnected", "unexpected_reboot":
 		return "service"
-	case "overnight_not_charging", "overnight_slow_charge":
-		return "overnight"
 	}
 	return "always"
 }
@@ -4162,22 +4119,6 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		}
 		return hits, "critical", rows.Err()
 
-	case "soc_low_service":
-		soc := param(p, "soc_pct", 20)
-		return d.latestExtraHits(ctx, "critical",
-			`d.latest_battery_pct < $1
-			 AND COALESCE((d.latest_extra->>'charging')::boolean, false) = false`,
-			func(pct int) string { return fmt.Sprintf("Battery %d%% and unplugged during service", pct) },
-			soc)
-
-	case "soc_low_guest_charging":
-		soc := param(p, "soc_pct", 20)
-		return d.latestExtraHits(ctx, "critical",
-			`d.latest_battery_pct < $1
-			 AND COALESCE((d.latest_extra->>'wlc_status')::int, 0) = 1`,
-			func(pct int) string { return fmt.Sprintf("Battery %d%% while reverse-charging a guest", pct) },
-			soc)
-
 	case "pad_disconnected":
 		return d.latestExtraHits(ctx, "warning",
 			`COALESCE((d.latest_extra->>'wlc_status')::int, 0) = 2 AND $1 = $1`,
@@ -4273,32 +4214,6 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				map[string]any{"temp_min": lo, "temp_max": hi, "peak_c": tmax}})
 		}
 		return hits, "warning", rows.Err()
-
-	case "discharge_rate_idle":
-		rate := param(p, "rate_pct_per_hr", 5)
-		return d.dischargeRateHits(ctx, rate,
-			`COALESCE((dv.latest_extra->>'charging')::boolean,false) = false
-			 AND COALESCE((dv.latest_extra->>'wlc_status')::int, 0) <> 1`,
-			"%.0f%%/hr while idle (no guest on pad)")
-
-	case "discharge_rate_active":
-		rate := param(p, "rate_pct_per_hr", 14)
-		return d.dischargeRateHits(ctx, rate,
-			`COALESCE((dv.latest_extra->>'wlc_status')::int, 0) = 1`,
-			"%.0f%%/hr while reverse-charging a guest")
-
-	case "overnight_not_charging":
-		minPct := param(p, "min_pct", 95)
-		// Plugged in, below full, but battery flat or falling over the last ~60 min.
-		return d.overnightChargeHits(ctx, "60 minutes", 3000, minPct, 0, "critical",
-			"Plugged in overnight but battery flat at %d%%")
-
-	case "overnight_slow_charge":
-		minPct := param(p, "min_pct", 95)
-		gain := param(p, "gain_pct", 15)
-		// Plugged in, below full, gained less than gain_pct over the last ~2 h.
-		return d.overnightChargeHits(ctx, "2 hours", 6600, minPct, gain, "critical",
-			fmt.Sprintf("Charging slowly: +%%d%%%% over 2h overnight (need %.0f%%)", gain))
 
 	case "unexpected_reboot":
 		win := int(param(p, "window_minutes", 30))
@@ -4425,79 +4340,6 @@ func (d *DB) latestExtraHits(ctx context.Context, severity, cond string, summary
 		}
 		hits = append(hits, alertHit{id, serial, summary(pct),
 			map[string]any{"battery_pct": pct}})
-	}
-	return hits, severity, rows.Err()
-}
-
-// dischargeRateHits flags devices whose battery is dropping faster than rate %/hr over
-// the last ~hour, with at least 30 min of data, subject to an extra condition (alias dv).
-func (d *DB) dischargeRateHits(ctx context.Context, rate float64, cond, summaryRate string) ([]alertHit, string, error) {
-	rows, err := d.pool.Query(ctx, `
-		WITH w AS (
-			SELECT device_id,
-				(array_agg(battery_pct ORDER BY created_at))[1]      AS first_pct,
-				(array_agg(battery_pct ORDER BY created_at DESC))[1] AS last_pct,
-				EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) AS span_s
-			FROM checkins WHERE created_at > NOW() - INTERVAL '70 minutes'
-			GROUP BY device_id
-		)
-		SELECT w.device_id, dv.serial_number,
-			(w.first_pct - w.last_pct) / (w.span_s / 3600.0) AS rate
-		FROM w JOIN devices dv ON dv.id = w.device_id
-		WHERE NOT dv.hidden AND w.span_s >= 1800 AND w.first_pct > w.last_pct
-		  AND (w.first_pct - w.last_pct) / (w.span_s / 3600.0) > $1
-		  AND (`+cond+`)`, rate)
-	if err != nil {
-		return nil, "warning", err
-	}
-	defer rows.Close()
-	var hits []alertHit
-	for rows.Next() {
-		var id uuid.UUID
-		var serial string
-		var r float64
-		if err := rows.Scan(&id, &serial, &r); err != nil {
-			return nil, "warning", err
-		}
-		hits = append(hits, alertHit{id, serial,
-			"Battery dropping " + fmt.Sprintf(summaryRate, r),
-			map[string]any{"rate_pct_per_hr": r, "limit_pct_per_hr": rate}})
-	}
-	return hits, "warning", rows.Err()
-}
-
-// overnightChargeHits flags devices that are plugged in and below min_pct but gained no
-// more than maxGain percentage points over the trailing window (≥minSpanSec of data).
-func (d *DB) overnightChargeHits(ctx context.Context, window string, minSpanSec int, minPct, maxGain float64, severity, summaryFmt string) ([]alertHit, string, error) {
-	rows, err := d.pool.Query(ctx, `
-		WITH w AS (
-			SELECT device_id,
-				(array_agg(battery_pct ORDER BY created_at))[1]      AS first_pct,
-				(array_agg(battery_pct ORDER BY created_at DESC))[1] AS last_pct,
-				EXTRACT(EPOCH FROM (MAX(created_at) - MIN(created_at))) AS span_s
-			FROM checkins WHERE created_at > NOW() - INTERVAL '`+window+`'
-			GROUP BY device_id
-		)
-		SELECT w.device_id, dv.serial_number, w.last_pct
-		FROM w JOIN devices dv ON dv.id = w.device_id
-		WHERE NOT dv.hidden AND w.span_s >= $1
-		  AND COALESCE((dv.latest_extra->>'charging')::boolean, false) = true
-		  AND w.last_pct < $2
-		  AND (w.last_pct - w.first_pct) < $3`, minSpanSec, minPct, maxGain)
-	if err != nil {
-		return nil, severity, err
-	}
-	defer rows.Close()
-	var hits []alertHit
-	for rows.Next() {
-		var id uuid.UUID
-		var serial string
-		var last int
-		if err := rows.Scan(&id, &serial, &last); err != nil {
-			return nil, severity, err
-		}
-		hits = append(hits, alertHit{id, serial, fmt.Sprintf(summaryFmt, last),
-			map[string]any{"battery_pct": last, "min_pct": minPct, "max_gain": maxGain}})
 	}
 	return hits, severity, rows.Err()
 }
@@ -4936,7 +4778,7 @@ CREATE INDEX IF NOT EXISTS idx_device_daily_stats_day ON device_daily_stats(day 
 -- evaluator (RunHousekeeping) reads enabled rules and fires alerts against them.
 CREATE TABLE IF NOT EXISTS alert_rules (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    type       TEXT NOT NULL,                 -- overheating | no_overnight_charge | soc_low_service | ...
+    type       TEXT NOT NULL,                 -- overheating | temp_elevated | offline | storage_low | ...
     name       TEXT NOT NULL DEFAULT '',
     enabled    BOOLEAN NOT NULL DEFAULT true,
     params     JSONB NOT NULL DEFAULT '{}',   -- thresholds, e.g. {"temp_c":45}
@@ -5249,11 +5091,15 @@ ALTER TABLE alert_channels ADD COLUMN IF NOT EXISTS alert_types TEXT[];
 DELETE FROM alerts WHERE type IN (
 	'battery_health_decline','battery_health_low','battery_health_critical',
 	'battery_cycles_high','wifi_disconnects','app_not_foreground','kiosk_disabled',
-	'app_crash','app_anr');
+	'app_crash','app_anr',
+	'no_overnight_charge','soc_low_service','soc_low_guest_charging',
+	'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active');
 DELETE FROM alert_rules WHERE type IN (
 	'battery_health_decline','battery_health_low','battery_health_critical',
 	'battery_cycles_high','wifi_disconnects','app_not_foreground','kiosk_disabled',
-	'app_crash','app_anr');
+	'app_crash','app_anr',
+	'no_overnight_charge','soc_low_service','soc_low_guest_charging',
+	'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active');
 
 -- offline is a fleet-wide device-health alert (fires on lab/bench units too), not a
 -- deployed-only operational rule. It self-suppresses overnight via its own quiet
