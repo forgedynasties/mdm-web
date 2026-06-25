@@ -37,7 +37,7 @@ Implementation reference for the T7 fleet alerting system. Brief but complete.
 | 10 | Pad utilisation / shift | *(metric, no alert)* | daily | — | — | `device_daily_stats.wlc_guest_frac` |
 | 11 | Overheating (>45°C) | `overheating` | daily+recent | crit | always | `battery_temp_c` |
 | 12 | Temperature elevated | `temp_elevated` | recent | warn | always | `battery_temp_c` |
-| 13 | Device offline | `offline` | recent | crit | service | `last_seen_at` (heartbeat) |
+| 13 | Device offline | `offline` | recent | crit | always¹ | `last_seen_at` (heartbeat) |
 | 14 | Weak Wi-Fi signal | `wifi_weak` | recent | warn | always | `wifi_rssi` |
 | 15 | Storage critically low | `storage_low` | recent | crit | always | `storage_free_gb` |
 | 16 | Storage filling fast | `storage_filling` | daily | warn | always | `storage_free_gb` |
@@ -58,7 +58,7 @@ Core fields: `battery_pct`, `charging`, `battery_temp_c`, `wlc_status`, `storage
 
 ## Notes / caveats
 
-- **`offline` on existing DBs**: seed is enabled now, but `EnsureDefaultRules` only inserts when absent — pre-existing rows need a one-time enable in Settings.
+- ¹ **`offline` is fleet-wide** (deployed *and* bench/lab units), not gated to service hours or deployment. It self-suppresses overnight via its own `quiet_start`/`quiet_end` window (default 00:00–06:00 local), so it doesn't use the `service` active window. `migrationSQL` flips legacy `service`-windowed rows to `always` on startup.
 - **`boot_reason`** is reported but not yet surfaced in the `unexpected_reboot` alert detail (follow-up to classify user vs system reboots).
 - **#19 OS compliance** intentionally deferred to release tracking (release string, not SDK).
 - **Removed rules** (`battery_health_low`/`_critical`, `battery_cycles_high`, `battery_health_decline`, `wifi_disconnects`, `app_not_foreground`, `kiosk_disabled`, `app_crash`, `app_anr`) are purged from `alert_rules` on existing DBs by an idempotent `DELETE` in `migrationSQL`.
