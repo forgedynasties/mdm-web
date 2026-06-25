@@ -13,6 +13,11 @@
     <form action="/alerts/resolve-all" method="POST" style="display:inline" onsubmit="return confirm('Resolve all open and acknowledged alerts?')">
       <button type="submit" class="btn-primary">Resolve all</button>
     </form>
+    {{if canAdmin .Role}}
+    <form action="/alerts/clear-all" method="POST" style="display:inline" onsubmit="return confirm('Delete ALL alerts? This removes every alert row; any whose condition still holds will re-fire on the next check.')">
+      <button type="submit" class="btn-danger">Clear all</button>
+    </form>
+    {{end}}
   </span>
   {{end}}
 </div>
