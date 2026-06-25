@@ -4188,7 +4188,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				return nil, "warning", err
 			}
 			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("Battery held %.0f–%.0f°C for >15 min (peak %.0f°C)", lo, hi, tmax),
+				fmt.Sprintf("Device held %.0f–%.0f°C for >15 min (peak %.0f°C)", lo, hi, tmax),
 				map[string]any{"temp_min": lo, "temp_max": hi, "peak_c": tmax}})
 		}
 		return hits, "warning", rows.Err()
