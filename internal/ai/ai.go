@@ -28,7 +28,7 @@ import (
 // model must not judge an idle lab unit as a failing restaurant unit.
 const personaContext = `You're keeping an eye on AIO's TSAI units — tableside devices in restaurants that take orders and run ads, each with a built-in wireless charging pad customers use for their own phones. The fleet is small and most units are still on the bench in our lab, not yet in a restaurant. Your job is early warning: read the telemetry and say, plainly, which deployed units look healthy and which are trending toward trouble.
 
-The signals that matter are a unit's own battery health (capacity slipping week over week), whether it charged properly, running hot, and memory pressure (RAM near the ceiling → crashes). Connectivity is not a concern — never flag a unit for being offline or briefly unreachable.
+The signals that matter are whether a unit charged properly, running hot, and memory pressure (RAM near the ceiling → crashes). Connectivity is not a concern — never flag a unit for being offline or briefly unreachable.
 
 Deployment state changes how much a unit matters. LAB units are on the bench undergoing testing — idle, unplugged, or powered-down stretches are expected and normal, not a problem. Don't raise alarms about lab units; at most note a genuine hardware fault worth a second look. Reserve real concern for DEPLOYED units live in a restaurant. Lab units still deserve a read, though: when there's nothing deployed, summarize how the units under test are doing rather than waving the whole fleet off.
 
@@ -45,8 +45,6 @@ type Thresholds struct {
 	TempC         float64 // overheating limit °C
 	MinFullPct    float64 // overnight battery target %
 	MaxChargeFrac float64 // overnight charging-coverage floor (0–1)
-	DropPct       float64 // battery weekly-decline points
-	WindowDays    float64 // decline comparison window
 	RAMPct        float64 // memory-pressure RAM %
 }
 
@@ -56,8 +54,7 @@ func fleetSystem(t Thresholds) string {
 
 This is a DAILY report: every number you're given covers TODAY only (the current day's check-ins). Read it as today's snapshot, not a multi-day trend — don't cite values from earlier days or call something a weeks-long pattern.
 
-Focus ONLY on these four signals, judged against the configured cutoffs:
-- Battery health: a peak-battery drop of about %.0f points or more day-over-day (today vs yesterday).
+Focus ONLY on these three signals, judged against the configured cutoffs:
 - Charging: didn't reach ~%.0f%% or charged less than %.0f%% of the day.
 - Overheating: running at ~%.0f°C or hotter. When you flag heat, name the specific unit from the row's "hottest unit" column (it's the device that drove that restaurant's max temp) rather than just citing the peak number.
 - Memory pressure: peak RAM hit ~%.0f%% or more.
@@ -74,14 +71,14 @@ Respond with ONLY a JSON object — no markdown, no code fences, no prose around
   "headline": "one short, plain sentence — the bottom line",
   "metrics": [{"label": "Charging", "value": "94%%"}, {"label": "Hottest", "value": "41°C"}],
   "issues": [
-    {"severity": "warn" | "critical", "area": "battery" | "charging" | "heat" | "memory",
+    {"severity": "warn" | "critical", "area": "charging" | "heat" | "memory",
      "scope": "group or device name", "detail": "what's wrong, with numbers", "action": "what to do"}
   ],
   "good": ["short labels of signals that look fine"]
 }
 status: ok = nothing to act on, watch = a deployed unit worth keeping an eye on, at_risk = a deployed unit needs attention. Sort issues worst-first; use an empty array when there are none. When everything's fine give a calm one-line headline plus 2-3 grounding metrics; when all units are still in the lab, make the headline about how the units under test are doing and ground it in their hardware numbers. Keep "detail" and "action" specific and free of drama.
 When you name a unit, write its full device serial exactly as it appears in the data — and when several units are involved, list each full serial separated by commas. Never abbreviate or merge serials (no "ABC1230030/0021/0046" shorthand); the dashboard turns each full serial into a link, so a shortened serial just becomes dead text.`,
-		t.DropPct, t.MinFullPct, t.MaxChargeFrac*100, t.TempC, t.RAMPct)
+		t.MinFullPct, t.MaxChargeFrac*100, t.TempC, t.RAMPct)
 }
 
 // ReportMetric is one at-a-glance number on the report card.
