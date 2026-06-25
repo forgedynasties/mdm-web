@@ -5924,9 +5924,9 @@ var alertRuleDefs = []struct {
 		{"temp_max", "Band high", "°C", 1, 45},
 	}, false, true},
 	// ── Connectivity ──
-	{"offline", "Device offline during service", "Fires when a device is silent longer than the threshold during service hours. Deployed units only.", "Connectivity", []alertParamField{
+	{"offline", "Device offline", "Fires when any device (deployed or bench) is silent longer than the threshold. Self-suppresses overnight via its own quiet window.", "Connectivity", []alertParamField{
 		{"offline_minutes", "Offline after", "min", 1, 5},
-	}, true, true},
+	}, false, true},
 	{"wifi_weak", "Weak Wi-Fi signal", "Fires when the connected Wi-Fi RSSI holds below the floor for the sustain window — packet loss territory for voice/payment APIs.", "Connectivity", []alertParamField{
 		{"rssi_dbm", "Signal floor", "dBm", 1, -75},
 		{"sustain_min", "Sustained for", "min", 1, 10},
