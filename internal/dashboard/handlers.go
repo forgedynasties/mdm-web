@@ -5891,9 +5891,6 @@ var alertRuleDefs = []struct {
 	Fields                      []alertParamField
 	Windowed, Recent            bool
 }{
-	// ── Guest charging pad ──
-	{"pad_disconnected", "Guest charging pad disconnected", "Fires when the guest charging pad reports disconnected during service. Deployed units only.", "Charging pad", nil, true, true},
-	{"pad_unused", "Guest pad unused all day", "Informational: the pad was available all day but no guest device ever used it. Deployed units only.", "Charging pad", nil, false, false},
 	// ── Thermal ──
 	{"overheating", "Device overheating", "Fires within ~1 minute when a device's current temperature is at or above the threshold; auto-resolves once it cools.", "Thermal", []alertParamField{
 		{"temp_c", "Temperature", "°C", 1, 45},

@@ -3218,11 +3218,9 @@ var defaultAlertRules = []struct {
 	{"overheating", "Device overheating", `{"temp_c":45}`, "always", true},
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
 	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
-	{"pad_unused", "Guest pad unused all day", `{}`, "always", true},
 	{"storage_filling", "Storage filling fast", `{"low_gb":1.5,"drop_gb":0.2}`, "always", true},
 	// Recent-tier rules (T7 matrix).
 	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
-	{"pad_disconnected", "Guest charging pad disconnected", `{}`, "service", true},
 	{"storage_low", "Storage critically low", `{"free_gb":0.5}`, "always", true},
 	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", true},
 	{"unexpected_reboot", "Unexpected reboot", `{"window_minutes":30}`, "service", true},
@@ -3801,9 +3799,6 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, r
 	if err != nil {
 		return nil, 0, err
 	}
-	// Operational daily rules (pad utilisation) only matter for live restaurant units,
-	// like the window-gated recent rules — keep lab-bench noise out (see §9).
-	var deployed map[uuid.UUID]bool
 	for _, r := range rules {
 		if r.ScopeType != "fleet" {
 			continue // group/device scoping not implemented yet
@@ -3819,19 +3814,10 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, r
 		if e != nil {
 			return created, resolved, e
 		}
-		deployedOnly := r.Type == "pad_unused"
-		if deployedOnly && deployed == nil {
-			if deployed, e = d.deployedDeviceSet(ctx); e != nil {
-				return created, resolved, e
-			}
-		}
 
 		ids := make([]uuid.UUID, 0, len(hits))
 		ruleID := r.ID
 		for _, h := range hits {
-			if deployedOnly && !deployed[h.DeviceID] {
-				continue
-			}
 			ids = append(ids, h.DeviceID)
 			ok, e := d.CreateAlertIfAbsent(ctx, &ruleID, r.Type, h.DeviceID, severity, h.Summary, h.Detail)
 			if e != nil {
@@ -3916,31 +3902,6 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		}
 		return hits, "warning", rows.Err()
 
-	case "pad_unused":
-		// Yesterday the pad was readable all day but no guest device ever used it.
-		// Informational utilisation signal (T7 matrix #11). Gated to deployed units.
-		rows, err := d.pool.Query(ctx, `
-			SELECT s.device_id, dv.serial_number
-			FROM device_daily_stats s JOIN devices dv ON dv.id = s.device_id
-			WHERE s.day = CURRENT_DATE - 1 AND s.pad_readable = true
-			  AND COALESCE(s.wlc_guest_frac, 0) = 0`)
-		if err != nil {
-			return nil, "info", err
-		}
-		defer rows.Close()
-		var hits []alertHit
-		for rows.Next() {
-			var id uuid.UUID
-			var serial string
-			if err := rows.Scan(&id, &serial); err != nil {
-				return nil, "info", err
-			}
-			hits = append(hits, alertHit{id, serial,
-				"Charging pad available all day but no guest device used it",
-				map[string]any{"day": "yesterday"}})
-		}
-		return hits, "info", rows.Err()
-
 	case "storage_filling":
 		lowGB := param(p, "low_gb", 1.5)
 		dropGB := param(p, "drop_gb", 0.2)
@@ -3996,7 +3957,6 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 var recentRuleTypes = map[string]bool{
 	"offline":           true,
 	"overheating":       true,
-	"pad_disconnected":  true,
 	"storage_low":       true,
 	"temp_elevated":     true,
 	"unexpected_reboot": true,
@@ -4010,7 +3970,7 @@ func isRecentType(typ string) bool { return recentRuleTypes[typ] }
 // column is unset, so the matrix's intent holds even for rules seeded before the column.
 func defaultActiveWindow(typ string) string {
 	switch typ {
-	case "pad_disconnected", "unexpected_reboot":
+	case "unexpected_reboot":
 		return "service"
 	}
 	return "always"
@@ -4118,11 +4078,6 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				map[string]any{"offline_minutes": down, "last_seen": last}})
 		}
 		return hits, "critical", rows.Err()
-
-	case "pad_disconnected":
-		return d.latestExtraHits(ctx, "warning",
-			`COALESCE((d.latest_extra->>'wlc_status')::int, 0) = 2 AND $1 = $1`,
-			func(int) string { return "Guest charging pad disconnected" }, 0)
 
 	case "storage_low":
 		freeGB := param(p, "free_gb", 0.5)
@@ -4315,33 +4270,6 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		return hits, "warning", rows.Err()
 	}
 	return nil, "warning", nil
-}
-
-// latestExtraHits runs a one-row-per-device query over devices+latest_extra for the
-// point-in-time rules. cond is an extra WHERE fragment referencing alias d and using $1
-// as its single numeric parameter (threshold); summary formats latest_battery_pct.
-func (d *DB) latestExtraHits(ctx context.Context, severity, cond string, summary func(pct int) string, threshold float64) ([]alertHit, string, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT d.id, d.serial_number, COALESCE(d.latest_battery_pct, 0)
-		FROM devices d
-		WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
-		  AND (`+cond+`)`, threshold)
-	if err != nil {
-		return nil, severity, err
-	}
-	defer rows.Close()
-	var hits []alertHit
-	for rows.Next() {
-		var id uuid.UUID
-		var serial string
-		var pct int
-		if err := rows.Scan(&id, &serial, &pct); err != nil {
-			return nil, severity, err
-		}
-		hits = append(hits, alertHit{id, serial, summary(pct),
-			map[string]any{"battery_pct": pct}})
-	}
-	return hits, severity, rows.Err()
 }
 
 // ── Alert channels (Tier 5 §11) ─────────────────────────────────────────────────
@@ -5093,13 +5021,30 @@ DELETE FROM alerts WHERE type IN (
 	'battery_cycles_high','wifi_disconnects','app_not_foreground','kiosk_disabled',
 	'app_crash','app_anr',
 	'no_overnight_charge','soc_low_service','soc_low_guest_charging',
-	'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active');
+	'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active',
+	'pad_disconnected','pad_unused');
 DELETE FROM alert_rules WHERE type IN (
 	'battery_health_decline','battery_health_low','battery_health_critical',
 	'battery_cycles_high','wifi_disconnects','app_not_foreground','kiosk_disabled',
 	'app_crash','app_anr',
 	'no_overnight_charge','soc_low_service','soc_low_guest_charging',
-	'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active');
+	'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active',
+	'pad_disconnected','pad_unused');
+
+-- Scrub removed alert types from per-channel allowlists so the "Alert types"
+-- selector count reflects the lean set (a channel that had "select all" stored the
+-- full old list). array_agg over the filtered elements yields NULL when nothing is
+-- left, which the dispatcher treats as "all current types" — the intended default.
+UPDATE alert_channels SET alert_types = (
+	SELECT array_agg(t) FROM unnest(alert_types) AS t
+	WHERE t NOT IN (
+		'battery_health_decline','battery_health_low','battery_health_critical',
+		'battery_cycles_high','wifi_disconnects','app_not_foreground','kiosk_disabled',
+		'app_crash','app_anr',
+		'no_overnight_charge','soc_low_service','soc_low_guest_charging',
+		'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active',
+		'pad_disconnected','pad_unused')
+) WHERE alert_types IS NOT NULL;
 
 -- offline is a fleet-wide device-health alert (fires on lab/bench units too), not a
 -- deployed-only operational rule. It self-suppresses overnight via its own quiet
