@@ -2366,7 +2366,6 @@ var reportSignals = []struct {
 	Types      []string
 }{
 	{"heat", "Overheating", []string{"overheating"}},
-	{"charging", "Charging", []string{"no_overnight_charge"}},
 	{"memory", "Memory pressure", []string{"memory_pressure"}},
 }
 
@@ -5892,26 +5891,6 @@ var alertRuleDefs = []struct {
 	Fields                      []alertParamField
 	Windowed, Recent            bool
 }{
-	// ── Battery — state of charge (T7 matrix) ──
-	{"soc_low_service", "SoC low during service", "Battery below the floor and unplugged during service hours. Deployed units only.", "Battery", []alertParamField{
-		{"soc_pct", "Battery floor", "%", 1, 20},
-	}, true, true},
-	{"soc_low_guest_charging", "SoC low while charging a guest", "Battery below the floor while reverse-charging a guest device on the pad. Deployed units only.", "Battery", []alertParamField{
-		{"soc_pct", "Battery floor", "%", 1, 20},
-	}, true, true},
-	{"overnight_not_charging", "Not charging overnight", "Plugged in overnight but battery is flat or falling. Deployed units only.", "Battery", []alertParamField{
-		{"min_pct", "Only below", "%", 1, 95},
-	}, true, true},
-	{"overnight_slow_charge", "Charging too slowly overnight", "Plugged in overnight but gained less than the target over ~2 h. Deployed units only.", "Battery", []alertParamField{
-		{"gain_pct", "Min 2h gain", "%", 1, 15},
-		{"min_pct", "Only below", "%", 1, 95},
-	}, true, true},
-	{"discharge_rate_idle", "Abnormal discharge — pad idle", "Battery dropping faster than expected while idle (no guest on pad). Deployed units only.", "Battery", []alertParamField{
-		{"rate_pct_per_hr", "Max drain", "%/h", 1, 5},
-	}, true, true},
-	{"discharge_rate_active", "Abnormal discharge — pad active", "Battery dropping faster than expected while reverse-charging a guest. Deployed units only.", "Battery", []alertParamField{
-		{"rate_pct_per_hr", "Max drain", "%/h", 1, 14},
-	}, true, true},
 	// ── Guest charging pad ──
 	{"pad_disconnected", "Guest charging pad disconnected", "Fires when the guest charging pad reports disconnected during service. Deployed units only.", "Charging pad", nil, true, true},
 	{"pad_unused", "Guest pad unused all day", "Informational: the pad was available all day but no guest device ever used it. Deployed units only.", "Charging pad", nil, false, false},
@@ -5940,10 +5919,6 @@ var alertRuleDefs = []struct {
 		{"drop_gb", "24h drop", "GB", 0.1, 0.2},
 	}, false, false},
 	// ── System health ──
-	{"no_overnight_charge", "Did not charge overnight", "Fires when a device didn't reach the target overnight battery level or charging coverage.", "System", []alertParamField{
-		{"min_full_pct", "Min overnight battery", "%", 1, 90},
-		{"max_charge_frac", "Max charging coverage", "0–1", 0.05, 0.3},
-	}, false, false},
 	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Daily Report uses for memory.", "System", []alertParamField{
 		{"ram_pct", "RAM usage", "%", 1, 85},
 	}, false, false},
@@ -6099,9 +6074,6 @@ func (h *Handler) alertThresholds(ctx context.Context) ai.Thresholds {
 		switch r.Type {
 		case "overheating":
 			t.TempC = get("temp_c", t.TempC)
-		case "no_overnight_charge":
-			t.MinFullPct = get("min_full_pct", t.MinFullPct)
-			t.MaxChargeFrac = get("max_charge_frac", t.MaxChargeFrac)
 		case "memory_pressure":
 			t.RAMPct = get("ram_pct", t.RAMPct)
 		}
