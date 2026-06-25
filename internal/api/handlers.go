@@ -290,7 +290,9 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 type checkinRequest struct {
 	SerialNumber  string          `json:"serial_number"`
 	BuildID       string          `json:"build_id"`
-	BatteryPct    int             `json:"battery_pct"`
+	// Pointer so a delta telemetry frame that omits an unchanged battery_pct is
+	// distinguishable from a real 0 — the server keeps the prior value in that case.
+	BatteryPct    *int            `json:"battery_pct"`
 	Extra         json.RawMessage `json:"extra,omitempty"`
 	InstalledApps []struct {
 		Package     string `json:"package"`
@@ -324,12 +326,13 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and build_id are required"})
 		return
 	}
-	if req.BatteryPct < 0 || req.BatteryPct > 100 {
+	if req.BatteryPct != nil && (*req.BatteryPct < 0 || *req.BatteryPct > 100) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "battery_pct must be 0-100"})
 		return
 	}
 
-	deviceID, _, isNew, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
+	// HTTP check-in is the periodic full keyframe → replace latest_extra (clears stale keys).
+	deviceID, _, isNew, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, false)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -656,7 +659,8 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		return
 	}
 
-	id, _, isNew, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra)
+	// WS telemetry frames are deltas → merge into the stored snapshot.
+	id, _, isNew, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, true)
 	if err != nil {
 		log.Printf("[ws-telemetry] UpsertCheckin error: %v", err)
 		return
