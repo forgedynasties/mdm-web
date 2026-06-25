@@ -5922,9 +5922,6 @@ var alertRuleDefs = []struct {
 	{"memory_low", "Memory low (available)", "Fires when available RAM (total − used) holds below the floor for >8 min — Android's low-memory killer territory.", "System", []alertParamField{
 		{"avail_mb", "Available floor", "MB", 10, 400},
 	}, false, true},
-	{"unexpected_reboot", "Unexpected reboot", "Fires when a device's uptime resets (rebooted) during service hours. Deployed units only.", "System", []alertParamField{
-		{"window_minutes", "Look-back", "min", 1, 30},
-	}, true, true},
 }
 
 // alertTypeOption / alertTypeGroup back the per-channel alert-type filter UI.

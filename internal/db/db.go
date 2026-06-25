@@ -3223,7 +3223,6 @@ var defaultAlertRules = []struct {
 	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
 	{"storage_low", "Storage critically low", `{"free_gb":0.5}`, "always", true},
 	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", true},
-	{"unexpected_reboot", "Unexpected reboot", `{"window_minutes":30}`, "service", true},
 	{"memory_low", "Memory low (available)", `{"avail_mb":400}`, "always", true},
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
 }
@@ -3955,24 +3954,20 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 
 // recentRuleTypes is the set of rule types evaluated by the recent tier.
 var recentRuleTypes = map[string]bool{
-	"offline":           true,
-	"overheating":       true,
-	"storage_low":       true,
-	"temp_elevated":     true,
-	"unexpected_reboot": true,
-	"memory_low":        true,
-	"wifi_weak":         true,
+	"offline":       true,
+	"overheating":   true,
+	"storage_low":   true,
+	"temp_elevated": true,
+	"memory_low":    true,
+	"wifi_weak":     true,
 }
 
 func isRecentType(typ string) bool { return recentRuleTypes[typ] }
 
 // defaultActiveWindow is the window a recent rule is gated to when its active_window
-// column is unset, so the matrix's intent holds even for rules seeded before the column.
+// column is unset. All current rules are fleet-wide ("always"); the window machinery
+// (service/overnight, deployed-only) stays in EvaluateRecentAlerts for future rules.
 func defaultActiveWindow(typ string) string {
-	switch typ {
-	case "unexpected_reboot":
-		return "service"
-	}
 	return "always"
 }
 
@@ -4167,41 +4162,6 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Battery held %.0f–%.0f°C for >15 min (peak %.0f°C)", lo, hi, tmax),
 				map[string]any{"temp_min": lo, "temp_max": hi, "peak_c": tmax}})
-		}
-		return hits, "warning", rows.Err()
-
-	case "unexpected_reboot":
-		win := int(param(p, "window_minutes", 30))
-		// uptime is monotonic; if the latest reading is below an earlier one in the
-		// window, the device rebooted. Auto-resolves once the window no longer straddles
-		// the reboot (so it fires/notifies once, then clears).
-		rows, err := d.pool.Query(ctx, fmt.Sprintf(`
-			WITH w AS (
-				SELECT device_id,
-					(array_agg((extra->>'uptime_seconds')::bigint ORDER BY created_at))[1]      AS first_up,
-					(array_agg((extra->>'uptime_seconds')::bigint ORDER BY created_at DESC))[1] AS last_up
-				FROM checkins
-				WHERE created_at > NOW() - INTERVAL '%d minutes' AND extra ? 'uptime_seconds'
-				GROUP BY device_id
-			)
-			SELECT w.device_id, dv.serial_number, w.last_up
-			FROM w JOIN devices dv ON dv.id = w.device_id
-			WHERE NOT dv.hidden AND w.last_up < w.first_up`, win))
-		if err != nil {
-			return nil, "warning", err
-		}
-		defer rows.Close()
-		var hits []alertHit
-		for rows.Next() {
-			var id uuid.UUID
-			var serial string
-			var up int64
-			if err := rows.Scan(&id, &serial, &up); err != nil {
-				return nil, "warning", err
-			}
-			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("Unexpected reboot — back up %dm ago", up/60),
-				map[string]any{"uptime_seconds": up}})
 		}
 		return hits, "warning", rows.Err()
 
@@ -5022,14 +4982,14 @@ DELETE FROM alerts WHERE type IN (
 	'app_crash','app_anr',
 	'no_overnight_charge','soc_low_service','soc_low_guest_charging',
 	'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active',
-	'pad_disconnected','pad_unused');
+	'pad_disconnected','pad_unused','unexpected_reboot');
 DELETE FROM alert_rules WHERE type IN (
 	'battery_health_decline','battery_health_low','battery_health_critical',
 	'battery_cycles_high','wifi_disconnects','app_not_foreground','kiosk_disabled',
 	'app_crash','app_anr',
 	'no_overnight_charge','soc_low_service','soc_low_guest_charging',
 	'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active',
-	'pad_disconnected','pad_unused');
+	'pad_disconnected','pad_unused','unexpected_reboot');
 
 -- Scrub removed alert types from per-channel allowlists so the "Alert types"
 -- selector count reflects the lean set (a channel that had "select all" stored the
@@ -5043,7 +5003,7 @@ UPDATE alert_channels SET alert_types = (
 		'app_crash','app_anr',
 		'no_overnight_charge','soc_low_service','soc_low_guest_charging',
 		'overnight_not_charging','overnight_slow_charge','discharge_rate_idle','discharge_rate_active',
-		'pad_disconnected','pad_unused')
+		'pad_disconnected','pad_unused','unexpected_reboot')
 ) WHERE alert_types IS NOT NULL;
 
 -- offline is a fleet-wide device-health alert (fires on lab/bench units too), not a
