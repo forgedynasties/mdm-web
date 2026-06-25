@@ -110,6 +110,7 @@
         <th>Uptime</th>
         <th>Timezone</th>
         <th>WiFi</th>
+        <th>WiFi Signal</th>
         <th>IP Address</th>
       </tr>
     </thead>
@@ -135,12 +136,13 @@
           <td class="small">{{or (extraField $extra "uptime_seconds") "—"}}</td>
           <td class="small">{{or (extraField $extra "timezone") "—"}}</td>
           <td class="small">{{or (extraField $extra "wifi") "—"}}</td>
+          <td class="small">{{$rssi := extraField $extra "wifi_rssi"}}{{if $rssi}}{{$rssi}} dBm{{else}}<span class="muted">—</span>{{end}}</td>
           <td class="mono small">{{or (extraField $extra "ip_address") "—"}}</td>
         </tr>
         {{end}}
       {{else}}
         <tr>
-          <td colspan="11">
+          <td colspan="12">
             <div class="empty-state">
               <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l2 2"/></svg></span>
               <div class="empty-state-copy">
