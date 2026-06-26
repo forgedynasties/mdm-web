@@ -4650,3 +4650,10 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .ss-frame:hover { box-shadow: 0 10px 26px rgba(0,0,0,.16); }
 .ss-dl { font-size: 12px; padding: 5px 11px; display: inline-flex; align-items: center; gap: 6px; }
 .ss-dl .ui-icon { width: 13px; height: 13px; }
+
+/* command-history type filters (device detail) */
+.ch-filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.ch-pill { font: inherit; font-size: 12px; font-weight: 600; padding: 4px 11px; border-radius: 99px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
+.ch-pill:hover { color: var(--text); }
+.ch-pill.on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
