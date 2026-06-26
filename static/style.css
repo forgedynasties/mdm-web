@@ -4327,7 +4327,15 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 /* ════════════════════════════════════════════════════════
    FLEET · device list as cards (C2 row cards) + sort control
    ════════════════════════════════════════════════════════ */
-.dl-list { display: flex; flex-direction: column; container-type: inline-size; }
+#device-table-container { container-type: inline-size; }
+.dl-list { display: flex; flex-direction: column; }
+/* Two-column toggle button: hidden unless the list is wide enough for it. */
+.cols-toggle { display: none; margin-left: auto; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  color: var(--muted); cursor: pointer; }
+.cols-toggle:hover { border-color: var(--rule-2); }
+.cols-toggle.on { background: var(--accent-soft); border-color: var(--accent-edge); color: var(--accent); }
+.cols-toggle svg { width: 16px; height: 16px; }
 .dl-card { display: grid; grid-template-columns: 18px auto minmax(0, 1.4fr) auto auto auto;
   align-items: center; gap: 18px; padding: 11px 16px; border-bottom: 1px solid var(--border-soft);
   background: var(--surface); transition: background var(--dur) var(--ease); }
@@ -4336,16 +4344,15 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .dl-card > .device-cb { width: 15px; height: 15px; }
 
-/* battery (% centered inside the ring) */
-.dl-bat { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex: none; }
-.dl-bat-ring { position: absolute; inset: 0; width: 34px; height: 34px; }
+/* battery (ring with the % centered below it) */
+.dl-bat { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; }
+.dl-bat-ring { width: 30px; height: 30px; flex: none; }
 .dl-bat-ring .trk { fill: none; stroke: var(--surface-3); stroke-width: 4; }
 .dl-bat-ring .val { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset var(--dur) var(--ease); }
 .dl-bat-ring .val.battery-ok { stroke: var(--ok); }
 .dl-bat-ring .val.battery-mid { stroke: var(--warn); }
 .dl-bat-ring .val.battery-low { stroke: var(--danger); }
-.dl-bat .battery-label { position: relative; font-size: 9.5px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
-.dl-bat .charging-bolt { display: none; }
+.dl-bat .battery-label { font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
 .dl-bat:has(.battery-mid) .battery-label { color: var(--warn); }
 .dl-bat:has(.battery-low) .battery-label { color: var(--danger); }
 
@@ -4392,6 +4399,17 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
   .dl-card { grid-template-columns: 18px auto minmax(0, 1fr) auto auto; gap: 14px; }
   .dl-metrics { display: none; }
   .dl-rel, .dl-onboard { display: none; }
+}
+/* Wide enough for two columns: offer the toggle, and when on, lay the cards
+   out two-up in their compact form. */
+@container (min-width: 760px) {
+  .cols-toggle { display: inline-flex; }
+  .dl-list.cols-2 { display: grid; grid-template-columns: 1fr 1fr; }
+  .dl-list.cols-2 .dl-card { grid-template-columns: 18px auto minmax(0, 1fr) auto auto; gap: 14px; }
+  .dl-list.cols-2 .dl-metrics { display: none; }
+  .dl-list.cols-2 .dl-rel, .dl-list.cols-2 .dl-onboard { display: none; }
+  .dl-list.cols-2 .dl-card:nth-child(odd) { border-right: 1px solid var(--border-soft); }
+  .dl-list.cols-2 .dl-card:nth-child(2) { border-top: 1px solid var(--border-soft); }
 }
 
 /* Sort popover (reuses .fleet-fwrap / .fleet-pop) */

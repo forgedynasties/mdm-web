@@ -36,6 +36,9 @@
     {{end}}
     <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
   </div>
+  <button type="button" class="cols-toggle" id="cols-toggle" onclick="toggleCols()" title="Two-column view" aria-label="Toggle two-column view">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg>
+  </button>
 </div>
 
 <div class="dl-list">
@@ -554,6 +557,31 @@ function syncFilterUI() {
   // plain links and full-page navigation), so nothing to sync here.
 }
 document.addEventListener('DOMContentLoaded', syncFilterUI);
+
+// Two-column view toggle (persisted). The 2-col layout + the toggle button
+// only take effect when the list is wide enough (a container query) — below
+// that the class is inert and the list stays single-column.
+function toggleCols() {
+  var list = document.querySelector('.dl-list');
+  if (!list) return;
+  var on = list.classList.toggle('cols-2');
+  try { localStorage.setItem('mdm-cols', on ? '2' : '1'); } catch (e) {}
+  var btn = document.getElementById('cols-toggle');
+  if (btn) btn.classList.toggle('on', on);
+}
+function applyCols() {
+  var list = document.querySelector('.dl-list');
+  if (!list) return;
+  var on = false;
+  try { on = localStorage.getItem('mdm-cols') === '2'; } catch (e) {}
+  list.classList.toggle('cols-2', on);
+  var btn = document.getElementById('cols-toggle');
+  if (btn) btn.classList.toggle('on', on);
+}
+document.addEventListener('DOMContentLoaded', applyCols);
+document.body.addEventListener('htmx:afterSwap', function (evt) {
+  if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container') applyCols();
+});
 
 // Search with debounce
 var searchTimer;
