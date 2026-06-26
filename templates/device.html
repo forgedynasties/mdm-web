@@ -35,50 +35,21 @@
   hx-trigger="device-updated from:body, every 60s"
   hx-swap="outerHTML"
   {{end}}>
-  <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key===&apos;Enter&apos;||event.key===&apos; &apos;){event.preventDefault();toggleSection(this);}" style="cursor:pointer;user-select:none;">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span class="collapse-arrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
-      <h3>Command History</h3>
-      <span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span>
-    </div>
-  </div>
-  <div class="collapsible-body" style="display:none;">
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Type / APK</th>
-        <th>Target</th>
-        <th>Sent</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {{if .Commands}}
-        {{range .Commands}}
-        <tr>
-          <td class="mono small">{{if .ApkURL}}{{.ApkURL}}{{else}}{{cmdLabel .Type}}{{end}}</td>
-          <td class="muted small">{{.TargetType}}</td>
-          <td class="muted small">{{localTime .CreatedAt}}</td>
-          <td><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></td>
-          <td><a href="/commands/{{.ID}}" class="link-detail">Detail</a></td>
-        </tr>
-        {{end}}
-      {{else}}
-        <tr>
-          <td colspan="5">
-            <div class="empty-state">
-              <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
-              <div class="empty-state-copy">
-                <div class="empty-state-title">No commands yet</div>
-                <div class="empty-state-text">Send a command from the actions panel above.</div>
-              </div>
-            </div>
-          </td>
-        </tr>
+  <div class="card-header"><h3>Command history</h3><span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span></div>
+  <div style="padding:6px 18px 12px;">
+    {{if .Commands}}
+    <div class="ddc-activity">
+      {{range .Commands}}
+      <a class="ddc-tl ddc-tl-link" href="/commands/{{.ID}}">
+        <span class="dot {{if eq .Status "success"}}ok{{else if or (eq .Status "failed") (eq .Status "expired")}}err{{else if eq .Status "pending"}}warn{{end}}"></span>
+        <span class="ddc-tl-main"><b>{{if .ApkURL}}Install app{{else}}{{cmdLabel .Type}}{{end}}</b> · {{.Status}}{{if .TargetType}} <span class="muted">· {{.TargetType}}</span>{{end}}</span>
+        <span class="when">{{timeSince .CreatedAt}}</span>
+      </a>
       {{end}}
-    </tbody>
-  </table>
+    </div>
+    {{else}}
+    <div class="muted small" style="padding:8px 0;">No commands sent to this device yet.</div>
+    {{end}}
   </div>
 </div>
 {{end}}
@@ -1003,55 +974,51 @@
   {{end}}
 </div>
 
+<div class="card" style="margin-top:16px;">
+  <div class="card-header">
+    <h3>AI analysis</h3>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span id="dev-ai-meta" class="muted small"></span>
+      <button type="button" id="dev-ai-btn" class="btn-primary" style="font-size:12px;padding:5px 14px;" onclick="runDeviceAI()">Analyze with AI</button>
+    </div>
+  </div>
+  <div style="padding:14px 20px;"><div id="dev-ai-text" class="ai-text small" style="line-height:1.5;"><span class="muted">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action. Click to run.</span></div></div>
+</div>
+
 </section><!-- /summary -->
 
 <section class="dd-panel" data-dd-panel="apps" hidden>
   <div class="card">
-    <div class="card-header"><h3>Installed Applications</h3><span class="muted small">{{len .InstalledPackages}} packages</span></div>
+    <div class="card-header"><h3>Installed applications</h3><span class="muted small">{{len .InstalledPackages}} packages</span></div>
     {{if .InstalledPackages}}
-    <div style="padding:0 0 12px;">
-      <input type="text" id="apps-filter" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)">
-    </div>
-    {{end}}
-    <table class="table" id="apps-table">
-      <thead><tr><th>App Name</th><th>Package Name</th><th>Version</th><th>Last Updated</th><th></th></tr></thead>
-      <tbody>
-        {{if .InstalledPackages}}
-          {{range .InstalledPackages}}
-          <tr>
-            <td class="small">{{if .AppName}}{{.AppName}}{{else}}<span class="muted">—</span>{{end}}</td>
-            <td class="mono small">{{.PackageName}}</td>
-            <td class="small">{{if .VersionName}}{{.VersionName}}{{else}}<span class="muted">—</span>{{end}}</td>
-            <td class="muted small"><span class="js-local-time" data-utc="{{timeISO .UpdatedAt}}" data-format="full">{{localTime .UpdatedAt}}</span></td>
-            <td>
-              {{if or (canAdmin $.Role) (eq $.Role "operator")}}
-              <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST" style="display:inline;"
-                    onsubmit="return confirm('Uninstall {{.PackageName}} from this device?');">
-                <input type="hidden" name="type" value="uninstall">
-                <input type="hidden" name="package" value="{{.PackageName}}">
-                <button type="submit" class="btn-danger-sm">Uninstall</button>
-              </form>
-              {{end}}
-            </td>
-          </tr>
-          {{end}}
-        {{else}}
-          <tr>
-            <td colspan="5">
-              <div class="empty-state">
-                <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
-                <div class="empty-state-copy">
-                  <div class="empty-state-title">No package data</div>
-                  <div class="empty-state-text">The device client must include <code>packages</code> in its checkin payload.</div>
-                </div>
-              </div>
-            </td>
-          </tr>
+    <div class="app-search"><input type="text" id="apps-filter" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>
+    <div class="app-list" id="apps-table">
+      {{range .InstalledPackages}}
+      <div class="app-row" data-app="{{.AppName}} {{.PackageName}}">
+        <div class="app-id">
+          <div class="app-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</div>
+          <div class="app-pkg mono">{{.PackageName}}{{if .VersionName}} · v{{.VersionName}}{{end}}</div>
+        </div>
+        {{if or (canAdmin $.Role) (eq $.Role "operator")}}
+        <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST"
+              onsubmit="return confirm('Uninstall {{.PackageName}} from this device?');">
+          <input type="hidden" name="type" value="uninstall">
+          <input type="hidden" name="package" value="{{.PackageName}}">
+          <button type="submit" class="app-uninstall">Uninstall</button>
+        </form>
         {{end}}
-      </tbody>
-    </table>
-    {{if .InstalledPackages}}
-    <div id="apps-no-match" class="empty" style="display:none;padding:16px;">No apps match your search.</div>
+      </div>
+      {{end}}
+    </div>
+    <div id="apps-no-match" class="muted small" style="display:none;padding:16px 18px;">No apps match your search.</div>
+    {{else}}
+    <div class="empty-state" style="padding:28px 18px;">
+      <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
+      <div class="empty-state-copy">
+        <div class="empty-state-title">No package data</div>
+        <div class="empty-state-text">The device client must include <code>packages</code> in its checkin payload.</div>
+      </div>
+    </div>
     {{end}}
   </div>
 </section>
@@ -1059,12 +1026,11 @@
 <script>
 function filterInstalledApps(q) {
   q = q.toLowerCase();
-  const rows = document.querySelectorAll('#apps-table tbody tr');
+  const rows = document.querySelectorAll('#apps-table .app-row');
   let visible = 0;
   rows.forEach(row => {
-    const appName = row.cells[0] ? row.cells[0].textContent.toLowerCase() : '';
-    const name = row.cells[1] ? row.cells[1].textContent.toLowerCase() : '';
-    const show = appName.includes(q) || name.includes(q);
+    const hay = (row.getAttribute('data-app') || '').toLowerCase();
+    const show = hay.includes(q);
     row.style.display = show ? '' : 'none';
     if (show) visible++;
   });
@@ -1362,35 +1328,6 @@ function filterInstalledApps(q) {
 </section><!-- /settings -->
 
 <section class="dd-panel" data-dd-panel="history" hidden>
-  <div class="card chart-card">
-    <div class="card-header">
-      <h3>Daily trends</h3>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span id="trends-info" class="muted small"></span>
-        <div class="dur-btns" id="trends-range">
-          <button class="dur-btn" data-days="7">7d</button>
-          <button class="dur-btn active" data-days="30">30d</button>
-          <button class="dur-btn" data-days="90">90d</button>
-        </div>
-      </div>
-    </div>
-    <p class="muted small" style="margin:0;padding:14px 20px 0;">
-      Rolled up from check-ins, one point per day. Band shows daily battery min–max; the
-      line is the daily average. Charging coverage is the share of the day the device
-      reported charging — low values overnight can mean a bad dock or a dying battery.
-    </p>
-    <div class="chart-wrap chart-wrap--tall"><canvas id="trendsChart"></canvas></div>
-  </div>
-  <div class="card chart-card" style="margin-top:16px;">
-    <div class="card-header">
-      <h3>AI analysis</h3>
-      <div style="display:flex;align-items:center;gap:10px;">
-        <span id="dev-ai-meta" class="muted small"></span>
-        <button type="button" id="dev-ai-btn" class="btn-primary" style="font-size:12px;padding:4px 14px;" onclick="runDeviceAI()">Analyze with AI</button>
-      </div>
-    </div>
-    <div style="padding:14px 20px;"><div id="dev-ai-text" class="ai-text small" style="line-height:1.5;"><span class="muted">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action. Click to run.</span></div></div>
-  </div>
   {{template "device-commands" .}}
 </section><!-- /history -->
 <script>
@@ -1431,7 +1368,6 @@ function runDeviceAI() {
     if (name === 'summary' && window.mdmChart) {
       requestAnimationFrame(function () { window.dispatchEvent(new Event('resize')); });
     }
-    if (name === 'history' && window.loadTrends) { window.loadTrends(); }
   }
   window.setDeviceTab = setDeviceTab;
 
@@ -1459,77 +1395,6 @@ function runDeviceAI() {
     if (!saved || saved === 'summary') return;
     var btn = document.querySelector('.dd-tab[data-dd-tab="' + saved + '"]');
     if (btn) setDeviceTab(saved, btn);
-  })();
-</script>
-
-<script>
-  // Trends tab: daily-stats line chart, lazy-loaded on first view + on range change.
-  (function () {
-    var serial = '{{.Device.SerialNumber}}';
-    var chart = null, loaded = false, days = 30;
-    var info = document.getElementById('trends-info');
-    var CRIMSON = '#d82747';
-
-    var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    function fmtDay(d) { var p = d.split('-'); return MONTHS[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10); } // 2026-06-09 -> Jun 9
-
-    function render(rows) {
-      var labels = rows.map(function (r) { return fmtDay(r.day); });
-      var avg = rows.map(function (r) { return r.battery_avg; });
-      var min = rows.map(function (r) { return r.battery_min; });
-      var max = rows.map(function (r) { return r.battery_max; });
-      var chg = rows.map(function (r) { return r.charging_frac == null ? null : Math.round(r.charging_frac * 100); });
-
-      var data = {
-        labels: labels,
-        datasets: [
-          { label: 'Battery max', data: max, borderColor: 'rgba(120,144,170,0.5)', backgroundColor: 'rgba(120,144,170,0.12)',
-            borderWidth: 1, pointRadius: 0, fill: '+1', tension: 0.3, yAxisID: 'y' },
-          { label: 'Battery min', data: min, borderColor: 'rgba(120,144,170,0.5)',
-            borderWidth: 1, pointRadius: 0, fill: false, tension: 0.3, yAxisID: 'y' },
-          { label: 'Battery avg %', data: avg, borderColor: CRIMSON, backgroundColor: CRIMSON,
-            borderWidth: 2, pointRadius: 0, tension: 0.3, yAxisID: 'y' },
-          { label: 'Charging coverage %', data: chg, borderColor: '#1f8a4c', backgroundColor: '#1f8a4c',
-            borderWidth: 2, borderDash: [4, 3], pointRadius: 0, tension: 0.3, yAxisID: 'y' }
-        ]
-      };
-      var opts = {
-        responsive: true, maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        scales: {
-          y: { min: 0, max: 100, title: { display: true, text: '% (battery / charging)' } }
-        },
-        plugins: { legend: { labels: { filter: function (i) { return i.text !== 'Battery min'; } } } }
-      };
-      if (chart) { chart.data = data; chart.options = opts; chart.update(); }
-      else { chart = new Chart(document.getElementById('trendsChart').getContext('2d'), { type: 'line', data: data, options: opts }); }
-    }
-
-    function load() {
-      if (!serial) return;
-      if (info) info.textContent = 'Loading…';
-      fetch('/devices/' + encodeURIComponent(serial) + '/daily-stats?days=' + days)
-        .then(function (r) { return r.ok ? r.json() : []; })
-        .then(function (rows) {
-          loaded = true;
-          if (!rows.length) { if (info) info.textContent = 'No data yet'; return; }
-          if (info) info.textContent = rows.length + ' day(s)';
-          render(rows);
-        })
-        .catch(function () { if (info) info.textContent = 'Failed to load'; });
-    }
-    window.loadTrends = function () { if (!loaded) load(); };
-
-    var rangeEl = document.getElementById('trends-range');
-    if (rangeEl) {
-      rangeEl.addEventListener('click', function (e) {
-        var btn = e.target.closest('.dur-btn');
-        if (!btn) return;
-        days = parseInt(btn.getAttribute('data-days'), 10) || 30;
-        rangeEl.querySelectorAll('.dur-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
-        load();
-      });
-    }
   })();
 </script>
 
