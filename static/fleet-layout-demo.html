@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet layout — design options</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { background: var(--bg); }
+  .fl-wrap { max-width: 1120px; margin: 0 auto; padding: 34px 28px 80px; }
+  .fl-h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+  .fl-lead { color: var(--muted); font-size: 14px; margin: 6px 0 30px; max-width: 800px; }
+  .fl-lead b { color: var(--text-2); }
+  .fl-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 24px; }
+  .fl-card-h { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .fl-card-h h2 { font-size: 18px; font-weight: 700; }
+  .fl-code { margin-left: auto; font: 12px var(--mono); color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; }
+  .fl-note { font-size: 12.5px; color: var(--muted); margin: 0 0 16px; line-height: 1.55; }
+  .fl-note b { color: var(--text-2); }
+
+  /* shared mini bits */
+  .fl-views { display: flex; gap: 7px; flex-wrap: wrap; }
+  .fl-view { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+  .fl-view .n { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); }
+  .fl-view.on { background: var(--accent-soft); border-color: var(--accent-edge); color: var(--accent); }
+  .fl-view.on .n { color: var(--accent); }
+  .fl-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; }
+  .fl-dot.ok { background: var(--ok); } .fl-dot.warn { background: var(--warn); } .fl-dot.bad { background: var(--danger); }
+  table.fl-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.fl-tbl th { text-align: left; padding: 7px 10px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); border-bottom: 1px solid var(--border); font-weight: 600; }
+  table.fl-tbl td { padding: 9px 10px; border-bottom: 1px solid var(--border-soft); }
+  .fl-mono { font-family: var(--mono); font-size: 12px; }
+  .fl-bat { display: inline-flex; align-items: center; gap: 7px; }
+  .fl-bat-t { width: 40px; height: 6px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+  .fl-bat-f { height: 100%; border-radius: 4px; }
+  .fl-pill-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+
+  /* A — master/detail */
+  .fl-md { display: grid; grid-template-columns: 232px 1fr; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .fl-rail { background: var(--bg); border-right: 1px solid var(--border); padding: 12px 10px; }
+  .fl-rail-cap { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); margin: 14px 8px 6px; }
+  .fl-rail-cap:first-child { margin-top: 4px; }
+  .fl-rail-item { display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 9px; font-size: 13px; color: var(--text-2); cursor: default; }
+  .fl-rail-item .nm { font-weight: 600; }
+  .fl-rail-item .ct { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .fl-rail-item.on { background: var(--accent-soft); color: var(--accent); }
+  .fl-rail-item.on .ct { color: var(--accent); }
+  .fl-pane { padding: 16px; min-width: 0; }
+  .fl-pane-h { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .fl-pane-h .t { font-size: 15px; font-weight: 700; }
+  .fl-pane-h .s { font-size: 12px; color: var(--muted); }
+
+  /* B — group by */
+  .fl-gbbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .fl-gbbar .lbl { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+  .fl-gbsel { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border: 1px solid var(--accent-edge); background: var(--accent-soft); color: var(--accent); border-radius: 9px; font-size: 12.5px; font-weight: 600; }
+  .fl-sec { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+  .fl-sec-h { display: flex; align-items: center; gap: 11px; padding: 11px 14px; background: var(--bg); cursor: default; }
+  .fl-sec-h .chev { color: var(--text-faint); }
+  .fl-sec-h .nm { font-weight: 700; font-size: 13.5px; }
+  .fl-sec-h .score { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; }
+  .fl-sec-h .score.ok { background: var(--ok-bg); color: var(--ok); }
+  .fl-sec-h .score.warn { background: var(--warn-bg); color: var(--warn); }
+  .fl-sec-h .ct { margin-left: auto; font-size: 12px; color: var(--muted); }
+  .fl-sec.collapsed table { display: none; }
+  .fl-sec table.fl-tbl td { padding-left: 14px; }
+
+  /* C — hub */
+  .fl-vitals { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px; }
+  .fl-vital { border: 1px solid var(--border); border-radius: 12px; padding: 13px 15px; }
+  .fl-vital .v { font-size: 24px; font-weight: 700; }
+  .fl-vital .k { font-size: 11.5px; color: var(--text-faint); margin-top: 2px; }
+  .fl-coll-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+
+  /* shared collection cards (C & D) */
+  .fl-cc { border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .fl-cc.alerty { border-color: var(--danger-edge); }
+  .fl-cc-top { display: flex; align-items: center; justify-content: space-between; }
+  .fl-cc-nm { font-weight: 700; font-size: 14px; }
+  .fl-cc-score { font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 7px; }
+  .fl-cc-score.ok { background: var(--ok-bg); color: var(--ok); } .fl-cc-score.warn { background: var(--warn-bg); color: var(--warn); }
+  .fl-cc-meta { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .fl-cc-type { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; padding: 2px 7px; border-radius: 999px; background: var(--surface2); color: var(--muted); margin-top: 9px; }
+
+  /* D — merged tabs + chips */
+  .fl-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .fl-tab { padding: 0 2px 11px; font-size: 14px; font-weight: 600; color: var(--muted); position: relative; }
+  .fl-tab.on { color: var(--accent); }
+  .fl-tab.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); }
+  .fl-tab .n { font-family: var(--mono); font-size: 11px; color: var(--text-faint); margin-left: 5px; }
+  .fl-typechips { display: flex; gap: 7px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+<div class="fl-wrap">
+  <div class="fl-h1">Fleet layout — design options</div>
+  <p class="fl-lead">Alternatives to the three tabs (Devices / Restaurants / Groups). The insight: you have <b>one list of devices</b> and <b>two near-identical “collection” grids</b>. Each card mocks a different way to organize that. Tell me a code (e.g. <b>“L-A”</b>) and I'll build it. Sample data throughout.</p>
+
+  <!-- A -->
+  <div class="fl-card">
+    <div class="fl-card-h"><h2>Master–detail browser</h2><span class="fl-code">L-A · recommended</span></div>
+    <p class="fl-note">A left rail lists <b>All devices</b> + every restaurant and group (with a health dot + count). Click one → the roster on the right filters to it, reusing the quick-views/Filters we just built. Three tabs collapse into <b>one screen</b>; you never lose the roster.</p>
+    <div class="fl-md">
+      <div class="fl-rail">
+        <div class="fl-rail-cap">Fleet</div>
+        <div class="fl-rail-item on"><span class="fl-dot ok"></span><span class="nm">All devices</span><span class="ct">312</span></div>
+        <div class="fl-rail-cap">Restaurants</div>
+        <div class="fl-rail-item"><span class="fl-dot ok"></span><span class="nm">Downtown Diner</span><span class="ct">42</span></div>
+        <div class="fl-rail-item"><span class="fl-dot bad"></span><span class="nm">Harbor Grill</span><span class="ct">28</span></div>
+        <div class="fl-rail-item"><span class="fl-dot ok"></span><span class="nm">Airport Kiosk</span><span class="ct">15</span></div>
+        <div class="fl-rail-cap">Groups</div>
+        <div class="fl-rail-item"><span class="fl-dot ok"></span><span class="nm">Lobby</span><span class="ct">60</span></div>
+        <div class="fl-rail-item"><span class="fl-dot warn"></span><span class="nm">Drive-thru</span><span class="ct">33</span></div>
+        <div class="fl-rail-item"><span class="fl-dot ok"></span><span class="nm">Back office</span><span class="ct">21</span></div>
+      </div>
+      <div class="fl-pane">
+        <div class="fl-pane-h"><span class="t">All devices</span><span class="s">· 312 enrolled</span></div>
+        <div class="fl-views" style="margin-bottom:12px;">
+          <span class="fl-view on">All <span class="n">312</span></span>
+          <span class="fl-view">Online <span class="n">287</span></span>
+          <span class="fl-view">Offline <span class="n">25</span></span>
+          <span class="fl-view">Low battery <span class="n">6</span></span>
+        </div>
+        <table class="fl-tbl">
+          <thead><tr><th>Serial</th><th>Release</th><th>Battery</th><th>Last seen</th></tr></thead>
+          <tbody>
+            <tr><td class="fl-mono"><span class="fl-pill-dot" style="background:var(--ok)"></span>AT070AABU00169</td><td class="fl-mono">3.1.mdm</td><td><span class="fl-bat"><span class="fl-bat-t"><span class="fl-bat-f" style="width:84%;background:var(--ok)"></span></span>84%</span></td><td style="color:var(--muted)">2m ago</td></tr>
+            <tr><td class="fl-mono"><span class="fl-pill-dot" style="background:var(--text-faint)"></span>AT070AABU00862</td><td class="fl-mono">3.1.mdm</td><td><span class="fl-bat"><span class="fl-bat-t"><span class="fl-bat-f" style="width:18%;background:var(--danger)"></span></span>18%</span></td><td style="color:var(--muted)">1h ago</td></tr>
+            <tr><td class="fl-mono"><span class="fl-pill-dot" style="background:var(--ok)"></span>AT070AA2600039</td><td class="fl-mono">3.0.mdm</td><td><span class="fl-bat"><span class="fl-bat-t"><span class="fl-bat-f" style="width:56%;background:var(--warn)"></span></span>56%</span></td><td style="color:var(--muted)">5m ago</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- B -->
+  <div class="fl-card">
+    <div class="fl-card-h"><h2>“Group by” pivot</h2><span class="fl-code">L-B · cleanest model</span></div>
+    <p class="fl-note">One roster, with a <b>Group by</b> control. Pick “Restaurant” and the table folds into expandable sections — each with the venue's health + count. Restaurants and Groups stop being separate pages; they're <b>pivots of the same list</b>.</p>
+    <div class="fl-gbbar">
+      <span class="lbl">Group by</span>
+      <span class="fl-gbsel">Restaurant
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>
+      <span class="fl-note" style="margin:0;">· None · Restaurant · Group · Release · Status</span>
+    </div>
+    <div class="fl-sec">
+      <div class="fl-sec-h"><span class="chev">▾</span><span class="nm">Downtown Diner</span><span class="score ok">91</span><span class="ct">42 devices · 0 offline</span></div>
+      <table class="fl-tbl">
+        <tbody>
+          <tr><td class="fl-mono" style="width:40%"><span class="fl-pill-dot" style="background:var(--ok)"></span>AT070AABU00169</td><td class="fl-mono">3.1.mdm</td><td><span class="fl-bat"><span class="fl-bat-t"><span class="fl-bat-f" style="width:84%;background:var(--ok)"></span></span>84%</span></td><td style="color:var(--muted)">2m ago</td></tr>
+          <tr><td class="fl-mono"><span class="fl-pill-dot" style="background:var(--ok)"></span>AT070AABU00482</td><td class="fl-mono">3.1.mdm</td><td><span class="fl-bat"><span class="fl-bat-t"><span class="fl-bat-f" style="width:91%;background:var(--ok)"></span></span>91%</span></td><td style="color:var(--muted)">3m ago</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="fl-sec">
+      <div class="fl-sec-h"><span class="chev">▾</span><span class="nm">Harbor Grill</span><span class="score warn">73</span><span class="ct">28 devices · 3 offline</span></div>
+      <table class="fl-tbl">
+        <tbody>
+          <tr><td class="fl-mono" style="width:40%"><span class="fl-pill-dot" style="background:var(--text-faint)"></span>AT070AABU00862</td><td class="fl-mono">3.1.mdm</td><td><span class="fl-bat"><span class="fl-bat-t"><span class="fl-bat-f" style="width:18%;background:var(--danger)"></span></span>18%</span></td><td style="color:var(--muted)">1h ago</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="fl-sec collapsed">
+      <div class="fl-sec-h"><span class="chev">▸</span><span class="nm">Airport Kiosk</span><span class="score ok">88</span><span class="ct">15 devices · 0 offline</span></div>
+      <table class="fl-tbl"><tbody><tr><td>…</td></tr></tbody></table>
+    </div>
+  </div>
+
+  <!-- C -->
+  <div class="fl-card">
+    <div class="fl-card-h"><h2>Fleet hub / landing</h2><span class="fl-code">L-C</span></div>
+    <p class="fl-note">Fleet opens on a summary: vitals + a <b>Collections</b> band of health cards, then a jump into the full roster. Great for orientation, but overlaps the Overview and adds a surface rather than removing one.</p>
+    <div class="fl-vitals">
+      <div class="fl-vital"><div class="v">312</div><div class="k">Total devices</div></div>
+      <div class="fl-vital"><div class="v" style="color:var(--ok)">287</div><div class="k">Online</div></div>
+      <div class="fl-vital"><div class="v" style="color:var(--danger)">25</div><div class="k">Offline</div></div>
+      <div class="fl-vital"><div class="v">11</div><div class="k">Collections</div></div>
+    </div>
+    <div class="fl-coll-grid">
+      <div class="fl-cc"><div class="fl-cc-top"><span class="fl-cc-nm">Downtown Diner</span><span class="fl-cc-score ok">91</span></div><div class="fl-cc-meta">42 devices · 0 offline</div><span class="fl-cc-type">Restaurant</span></div>
+      <div class="fl-cc alerty"><div class="fl-cc-top"><span class="fl-cc-nm">Harbor Grill</span><span class="fl-cc-score warn">73</span></div><div class="fl-cc-meta">28 devices · <span style="color:var(--danger)">3 offline</span></div><span class="fl-cc-type">Restaurant</span></div>
+      <div class="fl-cc"><div class="fl-cc-top"><span class="fl-cc-nm">Lobby</span><span class="fl-cc-score ok">84</span></div><div class="fl-cc-meta">60 devices · 1 offline</div><span class="fl-cc-type">Group</span></div>
+    </div>
+  </div>
+
+  <!-- D -->
+  <div class="fl-card">
+    <div class="fl-card-h"><h2>Merge into one “Collections” tab</h2><span class="fl-code">L-D · cheapest</span></div>
+    <p class="fl-note">Restaurants and Groups are already the same card grid, so combine them: two tabs (<b>Devices · Collections</b>) with a type chip. Removes the redundant third tab with minimal restructuring.</p>
+    <div class="fl-tabs">
+      <span class="fl-tab">Devices <span class="n">312</span></span>
+      <span class="fl-tab on">Collections <span class="n">11</span></span>
+    </div>
+    <div class="fl-typechips">
+      <span class="fl-view on">All <span class="n">11</span></span>
+      <span class="fl-view">Restaurants <span class="n">3</span></span>
+      <span class="fl-view">Groups <span class="n">8</span></span>
+    </div>
+    <div class="fl-coll-grid">
+      <div class="fl-cc"><div class="fl-cc-top"><span class="fl-cc-nm">Downtown Diner</span><span class="fl-cc-score ok">91</span></div><div class="fl-cc-meta">42 devices</div><span class="fl-cc-type">Restaurant</span></div>
+      <div class="fl-cc alerty"><div class="fl-cc-top"><span class="fl-cc-nm">Harbor Grill</span><span class="fl-cc-score warn">73</span></div><div class="fl-cc-meta">28 devices · <span style="color:var(--danger)">3 offline</span></div><span class="fl-cc-type">Restaurant</span></div>
+      <div class="fl-cc"><div class="fl-cc-top"><span class="fl-cc-nm">Lobby</span><span class="fl-cc-score ok">84</span></div><div class="fl-cc-meta">60 devices</div><span class="fl-cc-type">Group</span></div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
