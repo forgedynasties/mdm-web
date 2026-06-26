@@ -1792,6 +1792,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	if h.role(r) == "admin" {
 		restaurants, _ = h.db.ListRestaurants(r.Context())
 	}
+	deviceGroups, _ := h.db.ListDeviceGroups(r.Context(), device.ID)
 	// Couple the device's reported build to a known release (release.version ==
 	// device.build_id). nil = the device runs a build with no matching release.
 	var release *db.Release
@@ -1813,6 +1814,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ShellEnabled":        h.cfg.ShellEnabled(),
 		"RemoteEnabled":       h.cfg.RemoteEnabled(),
 		"Restaurants":         restaurants,
+		"DeviceGroups":        deviceGroups,
 	})
 }
 
