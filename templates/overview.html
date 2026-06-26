@@ -6,7 +6,7 @@
   {{/* ── Greeting bar ── */}}
   <header class="ovx-top">
     <div class="ovx-hello">
-      <h1>{{.Greeting}} <span class="ovx-wave">👋</span></h1>
+      <h1>{{.Greeting}}</h1>
       <p>{{.DateLine}} · here's how your fleet is doing</p>
     </div>
     <div class="ovx-tools">
@@ -34,7 +34,7 @@
         </a>
         <a class="ovx-stat" href="/devices?status=online">
           <span class="ovx-ico i-green"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span>
-          <span class="ovx-big ok">{{.Summary.RecentlyActive}}</span>
+          <span class="ovx-big">{{.Summary.RecentlyActive}}</span>
           <span class="ovx-lbl">Online now</span>
           <span class="ovx-sub">active last {{.ActiveThresholdLabel}}</span>
         </a>
@@ -126,8 +126,9 @@
     {{/* ─────────────── SIDE COLUMN ─────────────── */}}
     <div class="ovx-side">
 
+      {{$status := "Healthy"}}{{if eq .ScoreClass "warn"}}{{$status = "Watch"}}{{else if eq .ScoreClass "danger"}}{{$status = "At risk"}}{{end}}
       <div class="ovx-pulse is-{{.ScoreClass}}">
-        <div class="ovx-pulse-head"><span class="d"></span>FLEET PULSE</div>
+        <div class="ovx-pulse-head"><span class="d"></span>FLEET PULSE<span class="ovx-chip">{{$status}}</span></div>
         <div class="ovx-ring-row">
           <svg class="ovx-ring" viewBox="0 0 104 104">
             <circle class="trk" cx="52" cy="52" r="44"/>
