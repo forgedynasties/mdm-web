@@ -4349,8 +4349,22 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-rel { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .dl-metrics { display: flex; align-items: center; gap: 20px; }
-.dl-bat { display: flex; align-items: center; gap: 8px; min-width: 120px; }
-.dl-bat .battery-track { flex: 1; min-width: 44px; }
+.dl-bat { display: flex; align-items: center; gap: 9px; }
+.dl-bat-ring { width: 30px; height: 30px; flex: none; }
+.dl-bat-ring .trk { fill: none; stroke: var(--surface-3); stroke-width: 4; }
+.dl-bat-ring .val { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset var(--dur) var(--ease); }
+.dl-bat-ring .val.battery-ok { stroke: var(--ok); }
+.dl-bat-ring .val.battery-mid { stroke: var(--warn); }
+.dl-bat-ring .val.battery-low { stroke: var(--danger); }
+.dl-bat .battery-label { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dl-bat:has(.battery-mid) .battery-label { color: var(--warn); }
+.dl-bat:has(.battery-low) .battery-label { color: var(--danger); }
+
+/* status (online/offline) folded into the meta line */
+.dl-status { font-weight: 600; }
+.dl-status i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
+.dl-status.on { color: var(--ok); } .dl-status.on i { background: var(--ok); }
+.dl-status.off { color: var(--muted); } .dl-status.off i { background: var(--text-faint); }
 .dl-m { display: flex; flex-direction: column; gap: 1px; }
 .dl-m .k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); }
 .dl-m .v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -4366,15 +4380,12 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-unhide:hover { border-color: var(--accent-edge); color: var(--accent); }
 
 /* Reflow based on the list's own width (handles the narrow inspector pane,
-   not just the viewport): stack the metrics under the identity. */
+   not just the viewport): stay one line, dropping the secondary info but
+   keeping status, serial and battery. */
 @container (max-width: 680px) {
-  .dl-card { grid-template-columns: 18px 1fr auto;
-    grid-template-areas: "chk id act" "met met met"; gap: 8px 14px; }
-  .dl-card > .device-cb { grid-area: chk; }
-  .dl-id { grid-area: id; }
-  .dl-act { grid-area: act; }
-  .dl-metrics { grid-area: met; flex-wrap: wrap; gap: 12px 20px; padding-top: 2px; }
+  .dl-card { grid-template-columns: 18px minmax(0, 1fr) auto auto; gap: 12px; }
   .dl-rel { display: none; }
+  .dl-metrics .dl-m { display: none; }
 }
 
 /* Sort popover (reuses .fleet-fwrap / .fleet-pop) */
