@@ -1,0 +1,249 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MDM Dashboard — Design options</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#f6f5f2;--card:#fff;--bd:#e7e3dc;--bd2:#d8d2c8;--ink:#1b1a18;--ink2:#54504a;--mut:#8a847b}
+body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);padding:38px 40px 60px;line-height:1.45}
+.page{font-family:'Fraunces',Georgia,serif;font-size:32px;font-weight:600;letter-spacing:-.01em}
+.lead{color:var(--mut);font-size:14px;margin:6px 0 30px;max-width:760px}
+.lead b{color:var(--ink2)}
+section{margin:0 0 38px}
+.sec-h{display:flex;align-items:baseline;gap:12px;margin-bottom:16px;padding-bottom:9px;border-bottom:1px solid var(--bd)}
+.sec-h h2{font-family:'Fraunces',serif;font-size:21px;font-weight:600}
+.sec-h .tag{font-size:12.5px;color:var(--mut)}
+.grid{display:grid;gap:16px}
+.g3{grid-template-columns:repeat(3,1fr)}
+.opt{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px}
+.opt-h{display:flex;align-items:center;gap:9px;font-weight:600;font-size:13.5px;margin-bottom:14px}
+.opt-h code{margin-left:auto;font:12px ui-monospace,'JetBrains Mono',monospace;color:var(--mut)}
+.opt-h .sw{width:16px;height:16px;border-radius:5px;flex:none}
+.pick{font:12px ui-monospace,monospace;color:var(--mut)}
+.pick b{color:var(--ink);background:#efe9df;border-radius:5px;padding:1px 6px}
+.note{font-size:11.5px;color:var(--mut);margin-top:11px;line-height:1.4}
+.svgico svg,svg{}
+.opt-h svg,.k-pill svg,.sb svg,.s-ico svg{width:16px;height:16px}
+
+/* Accent kit */
+.kit{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.k-btn{background:var(--a);color:#fff;border:none;border-radius:999px;padding:9px 15px;font:600 13px 'IBM Plex Sans';cursor:pointer}
+.k-pill{display:inline-flex;align-items:center;gap:8px;background:var(--a);color:#fff;border-radius:11px;padding:8px 13px;font:600 13px 'IBM Plex Sans'}
+.k-pill svg{stroke:#fff}
+.k-ring{width:46px;height:46px;flex:none}
+.k-ring .t{fill:none;stroke:var(--bd2);stroke-width:6}
+.k-ring .v{fill:none;stroke:var(--a);stroke-width:6;stroke-linecap:round}
+.k-bars{display:flex;align-items:flex-end;gap:5px;height:44px}
+.k-bars i{width:10px;background:#d9d3c8;border-radius:4px}
+.k-bars i:nth-child(1){height:55%}.k-bars i:nth-child(2){height:78%}.k-bars i:nth-child(3){height:64%}
+.k-bars i.cur{height:100%;background:var(--a)}
+.k-chip{font:700 11px 'IBM Plex Sans';text-transform:uppercase;letter-spacing:.04em;padding:4px 9px;border-radius:999px;background:color-mix(in srgb,var(--a) 13%,#fff);color:var(--a)}
+
+/* Sidebar */
+.sb{width:210px;background:#fff;border:1px solid var(--bd);border-radius:16px;padding:14px}
+.sb .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:14px;margin-bottom:13px;color:var(--ink)}
+.sb .brand .m{width:26px;height:26px;border-radius:8px;background:var(--a);flex:none}
+.sb a{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;color:var(--ink2);font-size:13px;font-weight:500;text-decoration:none;margin-bottom:2px}
+.sb a svg{stroke:currentColor;opacity:.85}
+.sbA a.on{background:var(--a);color:#fff}
+.sbB a.on{background:color-mix(in srgb,var(--a) 11%,#fff);color:var(--a);font-weight:600}
+.sbC a.on{color:var(--a);box-shadow:inset 2.5px 0 0 var(--a);font-weight:600;border-radius:0 10px 10px 0}
+
+/* Pulse */
+.pulse{border:1px solid var(--bd);border-radius:18px;padding:20px}
+.pulse.pWhite{background:#fff}
+.pulse.pTint{background:color-mix(in srgb,var(--a) 7%,#fff);border-color:color-mix(in srgb,var(--a) 22%,#fff)}
+.pulse.pOutline{background:#fff;border-width:1.5px}
+.p-head{display:flex;align-items:center;gap:8px;font:600 11px ui-monospace,monospace;letter-spacing:.1em;color:var(--mut)}
+.p-head .d{width:7px;height:7px;border-radius:50%;background:var(--a)}
+.p-chip{margin-left:auto;font:700 10px 'IBM Plex Sans';text-transform:uppercase;letter-spacing:.04em;padding:3px 8px;border-radius:999px;background:color-mix(in srgb,var(--a) 13%,#fff);color:var(--a)}
+.p-row{display:flex;align-items:center;gap:15px;margin:16px 0 12px}
+.p-ring{width:78px;height:78px;flex:none}
+.p-ring .t{fill:none;stroke:var(--bd2);stroke-width:6}
+.p-ring .v{fill:none;stroke:var(--a);stroke-width:6;stroke-linecap:round}
+.p-score b{font-family:'Fraunces',serif;font-size:38px;font-weight:600;line-height:1;display:block}
+.p-score span{font-size:11px;color:var(--mut);display:block;margin-top:5px;line-height:1.4}
+.p-verdict{font-size:12.5px;color:var(--ink2);margin:0 0 14px;line-height:1.5}
+.p-cta{display:inline-flex;align-items:center;justify-content:center;background:var(--a);color:#fff;font:700 12.5px 'IBM Plex Sans';padding:10px 15px;border-radius:999px;text-decoration:none}
+.pulse.pOutline .p-cta{background:transparent;color:var(--a);border:1.5px solid color-mix(in srgb,var(--a) 45%,#fff)}
+
+/* Stat */
+.stat{display:flex;flex-direction:column;background:#fff;border:1px solid var(--bd);border-radius:16px;padding:18px;min-height:140px}
+.s-ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--a) 12%,#fff);color:var(--a)}
+.s-irow{display:flex;align-items:center;gap:12px}
+.s-num{font-family:'Fraunces',serif;font-size:31px;font-weight:600;line-height:1;letter-spacing:-.02em;margin-top:14px}
+.s-inline .s-num,.s-minimal .s-num{margin-top:0}
+.s-num.accent{color:var(--a)}
+.s-lbl{font-size:13px;font-weight:600;color:var(--ink2);margin-top:7px}
+.s-sub{font-size:11.5px;color:var(--mut);margin-top:2px}
+.s-minimal{justify-content:center}
+
+/* Heading */
+.head-row{display:flex;gap:16px}
+.head-opt{flex:1;background:#fff;border:1px solid var(--bd);border-radius:16px;padding:22px}
+.h-serif{font-family:'Fraunces',serif;font-size:30px;font-weight:600;letter-spacing:-.01em}
+.h-sans{font-family:'IBM Plex Sans',sans-serif;font-size:30px;font-weight:700;letter-spacing:-.02em}
+.h-sub{color:var(--mut);font-size:13px;margin-top:5px}
+</style></head>
+<body>
+<div class="page">MDM dashboard — design options</div>
+<p class="lead">Pick one from each row and tell me the codes (e.g. <b>“A3, sidebar B, pulse White, stat A, heading Sans”</b>) — I'll apply them across the dashboard. Everything here is light-themed; no green. Where a row shows an accent color, it's just illustrative — the real accent is row 1.</p>
+
+<section>
+  <div class="sec-h"><h2>1 · Accent color</h2><span class="tag">drives buttons, the active nav item, rings, the highlighted bar and chips</span></div>
+  <div class="grid g3">
+    <div class="opt">
+      <div class="opt-h"><span class="sw" style="background:#6366f1"></span>Indigo<code>#6366f1</code></div>
+      <div class="kit" style="--a:#6366f1">
+        <button class="k-btn">Push update</button>
+        <div class="k-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></div>
+        <svg class="k-ring" viewBox="0 0 44 44"><circle class="t" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"/></svg>
+        <div class="k-bars"><i></i><i></i><i></i><i class="cur"></i></div>
+        <span class="k-chip">Healthy</span>
+      </div>
+      <div class="pick">choice <b>A1</b></div>
+    </div>
+    <div class="opt">
+      <div class="opt-h"><span class="sw" style="background:#2563eb"></span>Royal blue<code>#2563eb</code></div>
+      <div class="kit" style="--a:#2563eb">
+        <button class="k-btn">Push update</button>
+        <div class="k-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></div>
+        <svg class="k-ring" viewBox="0 0 44 44"><circle class="t" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"/></svg>
+        <div class="k-bars"><i></i><i></i><i></i><i class="cur"></i></div>
+        <span class="k-chip">Healthy</span>
+      </div>
+      <div class="pick">choice <b>A2</b></div>
+    </div>
+    <div class="opt">
+      <div class="opt-h"><span class="sw" style="background:#d82747"></span>Crimson (current brand)<code>#d82747</code></div>
+      <div class="kit" style="--a:#d82747">
+        <button class="k-btn">Push update</button>
+        <div class="k-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></div>
+        <svg class="k-ring" viewBox="0 0 44 44"><circle class="t" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"/></svg>
+        <div class="k-bars"><i></i><i></i><i></i><i class="cur"></i></div>
+        <span class="k-chip">Healthy</span>
+      </div>
+      <div class="pick">choice <b>A3</b></div>
+    </div>
+    <div class="opt">
+      <div class="opt-h"><span class="sw" style="background:#7c3aed"></span>Violet<code>#7c3aed</code></div>
+      <div class="kit" style="--a:#7c3aed">
+        <button class="k-btn">Push update</button>
+        <div class="k-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></div>
+        <svg class="k-ring" viewBox="0 0 44 44"><circle class="t" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"/></svg>
+        <div class="k-bars"><i></i><i></i><i></i><i class="cur"></i></div>
+        <span class="k-chip">Healthy</span>
+      </div>
+      <div class="pick">choice <b>A4</b></div>
+    </div>
+    <div class="opt">
+      <div class="opt-h"><span class="sw" style="background:#0d9488"></span>Teal<code>#0d9488</code></div>
+      <div class="kit" style="--a:#0d9488">
+        <button class="k-btn">Push update</button>
+        <div class="k-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></div>
+        <svg class="k-ring" viewBox="0 0 44 44"><circle class="t" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"/></svg>
+        <div class="k-bars"><i></i><i></i><i></i><i class="cur"></i></div>
+        <span class="k-chip">Healthy</span>
+      </div>
+      <div class="pick">choice <b>A5</b></div>
+    </div>
+    <div class="opt">
+      <div class="opt-h"><span class="sw" style="background:#ea580c"></span>Sunset<code>#ea580c</code></div>
+      <div class="kit" style="--a:#ea580c">
+        <button class="k-btn">Push update</button>
+        <div class="k-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></div>
+        <svg class="k-ring" viewBox="0 0 44 44"><circle class="t" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"/></svg>
+        <div class="k-bars"><i></i><i></i><i></i><i class="cur"></i></div>
+        <span class="k-chip">Healthy</span>
+      </div>
+      <div class="pick">choice <b>A6</b></div>
+    </div></div>
+</section>
+
+<section>
+  <div class="sec-h"><h2>2 · Sidebar (light)</h2><span class="tag">how the active item is marked — color is decision 1</span></div>
+  <div class="grid g3">
+    
+    <div class="opt">
+      <div class="opt-h">Filled pill<span class="pick" style="margin-left:auto">choice <b>B-fill</b></span></div>
+      <div class="sb sbA" style="--a:#6366f1">
+        <div class="brand"><span class="m"></span>AIO MDM</div>
+        <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></a><a class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Fleet</span></a><a class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Commands</span></a><a class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Releases</span></a>
+      </div>
+      <div class="note">Active item is a solid accent pill. Boldest, most like an app you click through.</div>
+    </div>
+    
+    <div class="opt">
+      <div class="opt-h">Soft tint<span class="pick" style="margin-left:auto">choice <b>B-soft</b></span></div>
+      <div class="sb sbB" style="--a:#6366f1">
+        <div class="brand"><span class="m"></span>AIO MDM</div>
+        <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></a><a class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Fleet</span></a><a class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Commands</span></a><a class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Releases</span></a>
+      </div>
+      <div class="note">Active item gets a light accent wash + accent text. Calm, easy on the eyes.</div>
+    </div>
+    
+    <div class="opt">
+      <div class="opt-h">Edge marker<span class="pick" style="margin-left:auto">choice <b>B-edge</b></span></div>
+      <div class="sb sbC" style="--a:#6366f1">
+        <div class="brand"><span class="m"></span>AIO MDM</div>
+        <a class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></a><a class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Fleet</span></a><a class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Commands</span></a><a class=""><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Releases</span></a>
+      </div>
+      <div class="note">Active item marked by a left accent bar only. Most minimal / understated.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h"><h2>3 · Fleet Pulse card</h2><span class="tag">the health hero on the right — all light, no dark card</span></div>
+  <div class="grid g3">
+    
+    <div class="opt">
+      <div class="opt-h">White card<span class="pick" style="margin-left:auto">choice <b>P-white</b></span></div>
+      <div class="pulse pWhite" style="--a:#6366f1"><div class="p-head"><span class="d"></span>FLEET PULSE<span class="p-chip">Healthy</span></div><div class="p-row"><svg class="p-ring" viewBox="0 0 44 44"><circle class="t" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"/></svg>
+        <div class="p-score"><b>90</b><span>fleet health<br>last 7 days</span></div></div><p class="p-verdict">Fleet is healthy — a few units need a look</p><a class="p-cta">View fleet health →</a></div>
+    </div>
+    
+    <div class="opt">
+      <div class="opt-h">Accent tint<span class="pick" style="margin-left:auto">choice <b>P-tint</b></span></div>
+      <div class="pulse pTint" style="--a:#6366f1"><div class="p-head"><span class="d"></span>FLEET PULSE<span class="p-chip">Healthy</span></div><div class="p-row"><svg class="p-ring" viewBox="0 0 44 44"><circle class="t" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"/></svg>
+        <div class="p-score"><b>90</b><span>fleet health<br>last 7 days</span></div></div><p class="p-verdict">Fleet is healthy — a few units need a look</p><a class="p-cta">View fleet health →</a></div>
+    </div>
+    
+    <div class="opt">
+      <div class="opt-h">Outlined / ghost CTA<span class="pick" style="margin-left:auto">choice <b>P-ghost</b></span></div>
+      <div class="pulse pOutline" style="--a:#6366f1"><div class="p-head"><span class="d"></span>FLEET PULSE<span class="p-chip">Healthy</span></div><div class="p-row"><svg class="p-ring" viewBox="0 0 44 44"><circle class="t" cx="22" cy="22" r="18"/><circle class="v" cx="22" cy="22" r="18" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"/></svg>
+        <div class="p-score"><b>90</b><span>fleet health<br>last 7 days</span></div></div><p class="p-verdict">Fleet is healthy — a few units need a look</p><a class="p-cta">View fleet health →</a></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h"><h2>4 · Stat card layout</h2><span class="tag">the “Fleet at a glance” tiles</span></div>
+  <div class="grid g3">
+    
+    <div class="opt">
+      <div class="opt-h">Icon on top<span class="pick" style="margin-left:auto">choice <b>S-top</b></span></div>
+      <div class="stat s-top" style="--a:#6366f1"><span class="s-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="s-num">47</span><span class="s-lbl">Online now</span><span class="s-sub">active last 15 min</span></div>
+    </div>
+    
+    <div class="opt">
+      <div class="opt-h">Icon + number inline<span class="pick" style="margin-left:auto">choice <b>S-inline</b></span></div>
+      <div class="stat s-inline" style="--a:#6366f1"><div class="s-irow"><span class="s-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="s-num">47</span></div><span class="s-lbl">Online now</span><span class="s-sub">active last 15 min</span></div>
+    </div>
+    
+    <div class="opt">
+      <div class="opt-h">Minimal, accent number<span class="pick" style="margin-left:auto">choice <b>S-min</b></span></div>
+      <div class="stat s-minimal" style="--a:#6366f1"><span class="s-num accent">47</span><span class="s-lbl">Online now</span><span class="s-sub">active last 15 min</span></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="sec-h"><h2>5 · Heading font</h2><span class="tag">the “Good morning” greeting</span></div>
+  <div class="head-row">
+    <div class="head-opt"><div class="h-serif">Good morning</div><div class="h-sub">Fraunces serif — warm, editorial &nbsp;·&nbsp; choice <b>H-serif</b></div></div>
+    <div class="head-opt"><div class="h-sans">Good morning</div><div class="h-sub">IBM Plex Sans bold — clean, product &nbsp;·&nbsp; choice <b>H-sans</b></div></div>
+  </div>
+</section>
+
+</body></html>

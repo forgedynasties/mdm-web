@@ -3688,11 +3688,10 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .ovx {
   --ovx-r: 20px;          /* card radius */
   --ovx-pad: 20px;
-  --ovx-lime: #c6f24e;    /* fill accent — pills, CTAs, the active bar */
-  --ovx-lime-ink: #14160c;
-  --ovx-green: #3f7d12;   /* readable green for text links on light cards */
+  --ovx-lime: var(--accent);   /* interim: brand crimson, pending design pick */
+  --ovx-lime-ink: var(--accent-ink);
+  --ovx-green: var(--accent);  /* interim: brand crimson */
 }
-html[data-theme="dark"] .ovx { --ovx-green: #9bd44a; }
 .ovx :is(.ovx-ico, .ovx-qact .qi, .ovx-strip .ic) svg,
 .ovx .ovx-search svg, .ovx .ovx-empty svg, .ovx .ovx-bars-empty svg {
   fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
@@ -3815,30 +3814,28 @@ html[data-theme="dark"] .ovx { --ovx-green: #9bd44a; }
 .ovx-qact .qt { font-size: 13.5px; font-weight: 600; color: var(--text); }
 .ovx-qact .qd { font-size: 11.5px; color: var(--text-faint); line-height: 1.4; margin-top: -6px; }
 
-/* ── Fleet pulse (dark hero) ── */
+/* ── Fleet pulse (light hero card, matches the others) ── */
 .ovx-pulse { position: relative; overflow: hidden; border-radius: var(--ovx-r); padding: 22px;
-  background: linear-gradient(155deg, #20242c 0%, #14161b 100%); color: #f4f5f7; box-shadow: var(--shadow-md); }
-.ovx-pulse::after { content: ""; position: absolute; right: -60px; top: -60px; width: 180px; height: 180px;
-  border-radius: 50%; background: radial-gradient(circle, rgba(198,242,78,0.18), transparent 70%); }
+  background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
 .ovx-pulse-head { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px;
-  letter-spacing: 0.12em; color: rgba(244,245,247,0.6); }
-.ovx-pulse-head .d { width: 7px; height: 7px; border-radius: 50%; background: var(--ovx-lime); }
+  letter-spacing: 0.12em; color: var(--muted); }
+.ovx-pulse-head .d { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 .ovx-ring-row { display: flex; align-items: center; gap: 16px; margin: 18px 0 14px; }
 .ovx-ring { width: 96px; height: 96px; flex: none; }
-.ovx-ring .trk { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 9; }
-.ovx-ring .val { fill: none; stroke: var(--ovx-lime); stroke-width: 9; stroke-linecap: round; }
-.ovx-pulse.is-warn .val { stroke: #f7c948; }
-.ovx-pulse.is-danger .val { stroke: #ff6b6b; }
-.ovx-pulse.is-warn .ovx-pulse-head .d { background: #f7c948; }
-.ovx-pulse.is-danger .ovx-pulse-head .d { background: #ff6b6b; }
+.ovx-ring .trk { fill: none; stroke: var(--bg); stroke-width: 9; }
+.ovx-ring .val { fill: none; stroke: var(--accent); stroke-width: 9; stroke-linecap: round; }
+.ovx-pulse.is-warn .val { stroke: var(--warn); }
+.ovx-pulse.is-danger .val { stroke: var(--danger); }
+.ovx-pulse.is-warn .ovx-pulse-head .d { background: var(--warn); }
+.ovx-pulse.is-danger .ovx-pulse-head .d { background: var(--danger); }
 .ovx-score b { font-family: var(--font-display); font-size: 46px; font-weight: 600; line-height: 1;
-  letter-spacing: -0.02em; display: block; }
-.ovx-score span { font-size: 11.5px; color: rgba(244,245,247,0.55); line-height: 1.45; display: block; margin-top: 6px; }
-.ovx-verdict { font-size: 13px; color: rgba(244,245,247,0.82); line-height: 1.5; margin: 0 0 16px; }
+  letter-spacing: -0.02em; display: block; color: var(--text); }
+.ovx-score span { font-size: 11.5px; color: var(--text-faint); line-height: 1.45; display: block; margin-top: 6px; }
+.ovx-verdict { font-size: 13px; color: var(--text-2); line-height: 1.5; margin: 0 0 16px; }
 .ovx-cta { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  background: var(--ovx-lime); color: var(--ovx-lime-ink); font-size: 13px; font-weight: 700;
-  padding: 10px 16px; border-radius: 999px; transition: filter var(--dur) var(--ease), transform var(--dur) var(--ease); }
-.ovx-cta:hover { filter: brightness(1.05); transform: translateY(-1px); color: var(--ovx-lime-ink); }
+  background: var(--accent); color: var(--accent-ink); font-size: 13px; font-weight: 700;
+  padding: 10px 16px; border-radius: 999px; transition: background var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.ovx-cta:hover { background: var(--accent-h); color: var(--accent-ink); transform: translateY(-1px); }
 
 /* ── Snapshot tiles ── */
 .ovx-snap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px var(--ovx-pad) var(--ovx-pad); }
@@ -4125,74 +4122,7 @@ html[data-theme="dark"] .ovx { --ovx-green: #9bd44a; }
 
 /* ── Fleet Pulse status chip (on the dark hero card) ── */
 .ovx-pulse-head .ovx-chip { margin-left: auto; font-size: 10.5px; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px; color: var(--ovx-lime-ink); background: var(--ovx-lime); }
-.ovx-pulse.is-warn .ovx-chip { background: #f7c948; color: #3a2c05; }
-.ovx-pulse.is-danger .ovx-chip { background: #ff6b6b; color: #3a0d0d; }
-
-/* ════════════════════════════════════════════════════════
-   SIDEBAR · reference revamp — a dark, floating, rounded rail
-   with a lime active pill and a promo card. Always dark
-   (independent of the light/dark page theme), like the
-   reference. Appended last so these win the cascade.
-   ════════════════════════════════════════════════════════ */
-body.has-sidebar { padding-left: 244px; }
-.navbar {
-  top: 14px; left: 14px; bottom: 14px;
-  width: 216px; padding: 18px 14px; gap: 4px;
-  background: linear-gradient(180deg, #1c2027 0%, #141619 100%);
-  border-right: none; border-radius: 22px;
-  box-shadow: 0 14px 36px rgba(8, 10, 14, 0.22);
-}
-.navbar-brand { display: flex; align-items: center; gap: 10px; padding: 4px 6px 10px;
-  color: #f4f6f8; font-weight: 700; letter-spacing: 0.02em; font-size: 15px; }
-.navbar-brand::before { content: ""; width: 30px; height: 30px; border-radius: 10px; flex: none;
-  background: var(--ovx-lime, #c6f24e); box-shadow: 0 0 0 1px rgba(255,255,255,0.06), inset 0 -8px 12px rgba(0,0,0,0.12); }
-.navbar-brand:hover { color: #fff; }
-
-.navbar-links { gap: 3px; margin-top: 4px; }
-.nav-section { gap: 3px; }
-.nav-link { color: #9aa1ad; font-size: 13.5px; font-weight: 500; padding: 10px 12px; border-radius: 12px; gap: 11px; }
-.nav-link .ui-icon svg { stroke: currentColor; }
-.nav-link:hover { color: #f3f4f6; background: rgba(255,255,255,0.06); }
-.nav-link.active { color: var(--ovx-lime-ink, #16180c); background: var(--ovx-lime, #c6f24e); font-weight: 600; box-shadow: none; }
-.nav-link.active:hover { color: var(--ovx-lime-ink, #16180c); filter: brightness(1.03); }
-
-.nav-cmdk { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: #9aa1ad; }
-.nav-cmdk:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.14); }
-.nav-cmdk .nav-cmdk-kbd { color: #7e8694; background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
-.nav-cmdk .ui-icon svg { stroke: #9aa1ad; }
-
-.theme-toggle { color: #9aa1ad; }
-.theme-toggle:hover { background: rgba(255,255,255,0.08); color: #fff; }
-.theme-toggle svg { stroke: currentColor; }
-.nav-toggle span { background: #9aa1ad; }
-.nav-toggle:hover span { background: #fff; }
-
-.nav-promo { margin-top: auto; display: flex; align-items: center; gap: 10px; text-decoration: none;
-  background: linear-gradient(150deg, #c6f24e 0%, #a6e039 100%); border-radius: 16px; padding: 13px 14px;
-  color: #16180c; box-shadow: 0 6px 18px rgba(166,224,57,0.18);
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
-.nav-promo:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(166,224,57,0.28); color: #16180c; }
-.nav-promo-txt { display: flex; flex-direction: column; line-height: 1.25; flex: 1; min-width: 0; }
-.nav-promo-txt b { font-size: 13px; font-weight: 700; }
-.nav-promo-txt span { font-family: var(--mono); font-size: 11px; opacity: 0.7; }
-.nav-promo-arrow { width: 30px; height: 30px; border-radius: 50%; flex: none; display: flex;
-  align-items: center; justify-content: center; background: #16180c; }
-.nav-promo-arrow svg { width: 15px; height: 15px; stroke: #c6f24e; }
-
-.navbar-user { padding: 12px 6px 6px; }
-.navbar-user-name { color: #e7e9ee; }
-.navbar-user-role { color: #8b909b; }
-.btn-logout { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); color: #c8ccd4; }
-.btn-logout:hover { background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2); }
-
-/* Mobile: flatten the floating rail back into a dark top bar */
-@media (max-width: 860px) {
-  body.has-sidebar { padding-left: 0; }
-  .navbar { top: 0; left: 0; right: 0; bottom: auto; border-radius: 0; box-shadow: none; }
-  .nav-link.active { background: var(--ovx-lime, #c6f24e); border-left: none; padding-left: 12px; }
-  .nav-promo { margin-top: 0; }
-}
-@media (max-width: 640px) {
-  .nav-link.active { background: var(--ovx-lime, #c6f24e); border-left: none; padding-left: var(--s-3); }
-}
+  letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px; color: var(--text-2);
+  background: var(--surface2); border: 1px solid var(--border); }
+.ovx-pulse.is-warn .ovx-chip { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-edge); }
+.ovx-pulse.is-danger .ovx-chip { color: var(--danger); background: var(--danger-bg); border-color: var(--danger-edge); }
