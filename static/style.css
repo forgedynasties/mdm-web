@@ -3854,3 +3854,21 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 @media (max-width: 760px) {
   .alerts-indicator { top: 12px; right: 56px; }
 }
+
+/* ── Fleet tab strip (Devices / Restaurants / Groups unified surface) ── */
+.fleet-tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin-bottom:18px; }
+.fleet-tab {
+  display:flex; align-items:center; gap:8px;
+  padding:9px 18px; margin-bottom:-1px;
+  font-size:14px; font-weight:var(--fw-medium); color:var(--muted);
+  text-decoration:none; border-bottom:2px solid transparent;
+  transition:color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.fleet-tab:hover { color:var(--text-2); }
+.fleet-tab.cur { color:var(--accent); border-bottom-color:var(--accent); }
+.fleet-tab .pill {
+  font-family:var(--mono); font-size:var(--t-11);
+  background:var(--surface2); color:var(--muted);
+  border:1px solid var(--border); border-radius:999px; padding:0 7px; line-height:1.5;
+}
+.fleet-tab.cur .pill { color:var(--accent); border-color:var(--accent-edge); background:var(--accent-soft); }

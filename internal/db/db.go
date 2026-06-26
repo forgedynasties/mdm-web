@@ -1109,6 +1109,25 @@ func (d *DB) CreateGroup(ctx context.Context, name string) (*Group, error) {
 	return &g, err
 }
 
+// FleetCounts holds the headline totals shown in the unified Fleet tab strip
+// (Devices / Restaurants / Groups), fetched in one round-trip.
+type FleetCounts struct {
+	Devices     int `json:"devices"`
+	Restaurants int `json:"restaurants"`
+	Groups      int `json:"groups"`
+}
+
+// FleetCounts returns visible-device, restaurant, and group totals in one query.
+func (d *DB) FleetCounts(ctx context.Context) (FleetCounts, error) {
+	var c FleetCounts
+	err := d.pool.QueryRow(ctx, `
+		SELECT (SELECT COUNT(*) FROM devices WHERE NOT hidden),
+		       (SELECT COUNT(*) FROM restaurants),
+		       (SELECT COUNT(*) FROM groups)
+	`).Scan(&c.Devices, &c.Restaurants, &c.Groups)
+	return c, err
+}
+
 func (d *DB) ListGroups(ctx context.Context) ([]Group, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT g.id, g.name, g.created_at, COUNT(dg.device_id) AS device_count
