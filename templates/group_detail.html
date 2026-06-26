@@ -1,7 +1,7 @@
 {{define "group_detail.html"}}
 {{template "header" .}}
 
-<a href="/groups" class="back-link">← Groups</a>
+<a href="/devices?view=groups" class="back-link">← Groups</a>
 <div class="ov-greet">
   <h1 class="ov-title">{{.Group.Name}}</h1>
   <span class="ov-date">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}} · tag</span>

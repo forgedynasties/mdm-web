@@ -47,7 +47,7 @@
       </div>
 
       <div class="nav-section">
-        <a href="/commands" class="nav-link{{if eq .ActivePage "commands"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>Commands</a>
+        {{if canAdmin .Role}}<a href="/commands" class="nav-link{{if eq .ActivePage "commands"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>Commands</a>{{end}}
         <a href="/releases" class="nav-link{{if eq .ActivePage "releases"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>Releases</a>
       </div>
 

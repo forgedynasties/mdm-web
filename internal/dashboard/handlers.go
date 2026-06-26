@@ -3111,6 +3111,11 @@ func (h *Handler) GroupNewDevices(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
+	// The standalone list is retired — Groups now live in the Fleet collections
+	// rail / in-shell grid. Redirect any old links/bookmarks there.
+	http.Redirect(w, r, "/devices?view=groups", http.StatusFound)
+	return
+
 	groups, err := h.db.ListGroups(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -3269,6 +3274,11 @@ var restaurantTimezones = []tzOption{
 }
 
 func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
+	// The standalone list is retired — Restaurants now live in the Fleet
+	// collections rail / in-shell grid. Redirect old links/bookmarks there.
+	http.Redirect(w, r, "/devices?view=restaurants", http.StatusFound)
+	return
+
 	restaurants, err := h.db.ListRestaurants(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -3705,6 +3715,22 @@ func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices", http.StatusSeeOther)
 }
 
+func (h *Handler) DeviceUnhide(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if err := h.db.UnhideDevice(r.Context(), serial); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.unhide", serial, "")
+	h.hub.PublishDeviceUpdate(device.ID)
+	http.Redirect(w, r, "/devices?hidden=only", http.StatusSeeOther)
+}
+
 func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -3738,6 +3764,26 @@ func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.Redirect(w, r, "/devices", http.StatusSeeOther)
+}
+
+func (h *Handler) BulkUnhideDevices(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	serials := r.Form["serials"]
+	if len(serials) == 0 {
+		http.Redirect(w, r, "/devices?hidden=only", http.StatusSeeOther)
+		return
+	}
+	if err := h.db.BulkUnhideDevices(r.Context(), serials); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.bulk_unhide", strings.Join(serials, ","), fmt.Sprintf("%d devices", len(serials)))
+	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
+		for _, id := range ids {
+			h.hub.PublishDeviceUpdate(id)
+		}
+	}
+	http.Redirect(w, r, "/devices?hidden=only", http.StatusSeeOther)
 }
 
 // BulkAssignRestaurant assigns the selected devices to a restaurant from the devices-page
@@ -7127,9 +7173,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
+	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAuth(h.DeviceRemote))
 	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
+	post("POST /devices/bulk-unhide", h.requireAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
