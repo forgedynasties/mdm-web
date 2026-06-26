@@ -4323,3 +4323,59 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dt-stat { border: 1px solid var(--border); border-radius: 12px; padding: 12px 15px; background: var(--surface); }
 .dt-stat .v { font-size: 22px; font-weight: 700; }
 .dt-stat .k { font-size: 11.5px; color: var(--text-faint); margin-top: 2px; }
+
+/* ════════════════════════════════════════════════════════
+   FLEET · device list as cards (C2 row cards) + sort control
+   ════════════════════════════════════════════════════════ */
+.dl-list { display: flex; flex-direction: column; gap: 9px; padding: 14px 16px 16px; }
+.dl-card { display: grid; grid-template-columns: 18px minmax(0, 1.5fr) minmax(0, 0.85fr) auto auto auto;
+  align-items: center; gap: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
+  background: var(--surface); transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.dl-card:hover { border-color: var(--rule-2); box-shadow: var(--shadow-sm); }
+.dl-card.row-selected { border-color: var(--accent-edge); background: var(--accent-soft); }
+.dl-card > .device-cb { width: 15px; height: 15px; }
+
+.dl-id { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.dl-id-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dl-serial { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); }
+.dl-kiosk { color: var(--muted); vertical-align: middle; }
+.dl-hidden-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  color: var(--muted); background: var(--surface2); border-radius: 4px; padding: 1px 5px; vertical-align: middle; }
+.dl-seen { font-size: 11.5px; color: var(--text-faint); }
+.dl-rel { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.dl-metrics { display: flex; align-items: center; gap: 20px; }
+.dl-bat { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.dl-bat .battery-track { flex: 1; min-width: 44px; }
+.dl-m { display: flex; flex-direction: column; gap: 1px; }
+.dl-m .k, .dl-onboard .k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); }
+.dl-m .v, .dl-onboard .v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dl-m .v.muted, .dl-onboard .v.muted { color: var(--text-faint); font-weight: 500; }
+.dl-onboard { display: flex; flex-direction: column; gap: 1px; white-space: nowrap; }
+.dl-onboard .v { font-weight: 500; color: var(--text-2); }
+
+.dl-act { display: flex; align-items: center; gap: 10px; justify-self: end; }
+.dl-view { font-size: 12.5px; font-weight: 600; color: var(--accent); }
+.dl-x { width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
+  color: var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; }
+.dl-x:hover { border-color: var(--danger-edge); color: var(--danger); }
+.dl-unhide:hover { border-color: var(--accent-edge); color: var(--accent); }
+
+@media (max-width: 1000px) {
+  .dl-card { grid-template-columns: 18px 1fr auto;
+    grid-template-areas: "chk id act" "met met met"; gap: 10px 14px; }
+  .dl-card > .device-cb { grid-area: chk; }
+  .dl-id { grid-area: id; }
+  .dl-act { grid-area: act; }
+  .dl-metrics { grid-area: met; flex-wrap: wrap; gap: 14px 20px; padding-top: 2px; }
+  .dl-rel, .dl-onboard { display: none; }
+}
+
+/* Sort popover (reuses .fleet-fwrap / .fleet-pop) */
+.fleet-sortpop { width: 230px; }
+.sortpop { display: flex; flex-direction: column; gap: 2px; }
+.sortopt { display: flex; align-items: center; justify-content: space-between; padding: 9px 11px; border: 0;
+  background: none; border-radius: 8px; font: inherit; font-size: 13px; color: var(--text-2); cursor: pointer; text-align: left; }
+.sortopt:hover { background: var(--hover); }
+.sortopt.on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.sortopt .dir { font-family: var(--mono); font-size: 13px; min-width: 12px; text-align: right; }
