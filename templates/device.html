@@ -47,15 +47,16 @@
       <button type="button" class="ch-pill" data-ct="reboot" onclick="cmdHistFilter('reboot',this)">Reboot</button>
       <button type="button" class="ch-pill" data-ct="logcat" onclick="cmdHistFilter('logcat',this)">Logcat</button>
     </div>
-    <div class="ddc-activity" id="ch-list">
-      {{range .Commands}}
-      <a class="ddc-tl ddc-tl-link" data-ct="{{.Type}}" href="/commands/{{.ID}}">
-        <span class="dot {{if eq .Status "success"}}ok{{else if or (eq .Status "failed") (eq .Status "expired")}}err{{else if eq .Status "pending"}}warn{{end}}"></span>
-        <span class="ddc-tl-main"><b>{{if .ApkURL}}Install app{{else}}{{cmdLabel .Type}}{{end}}</b> · {{.Status}}{{if .TargetType}} <span class="muted">· {{.TargetType}}</span>{{end}}</span>
-        <span class="when">{{timeSince .CreatedAt}}</span>
+    <div class="ddc-activity{{if gt (len .Commands) 10}} ch-collapsed{{end}}" id="ch-list">
+      {{range $i, $c := .Commands}}
+      <a class="ddc-tl ddc-tl-link{{if ge $i 10}} ch-extra{{end}}" data-ct="{{$c.Type}}" href="/commands/{{$c.ID}}">
+        <span class="dot {{if eq $c.Status "success"}}ok{{else if or (eq $c.Status "failed") (eq $c.Status "expired")}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
+        <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{$c.Status}}{{if $c.TargetType}} <span class="muted">· {{$c.TargetType}}</span>{{end}}</span>
+        <span class="when">{{timeSince $c.CreatedAt}}</span>
       </a>
       {{end}}
     </div>
+    {{if gt (len .Commands) 10}}<button type="button" id="ch-more" class="app-more" onclick="chShowAll()">Show all {{len .Commands}} commands</button>{{end}}
     <div id="ch-empty" class="muted small" style="display:none;padding:8px 0;">No commands of that type.</div>
     {{else}}
     <div class="muted small" style="padding:8px 0;">No commands sent to this device yet.</div>
@@ -189,7 +190,6 @@
         </div>
         <div id="range-error" class="cr-error" role="alert" hidden></div>
       </div>
-      <button type="button" id="toggle-markers-btn" class="btn-outline" style="font-size:12px;padding:4px 10px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M6 8h12"/><path d="M8 12h8"/><path d="M10 16h4"/></svg></span><span class="toggle-markers-label">Hide Markers</span></button>
       <a id="csv-export" href="/export?serials={{.Device.SerialNumber}}" class="btn-outline" style="font-size:12px;padding:4px 10px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Export CSV</a>
     </div>
   </div>
@@ -820,7 +820,8 @@
   unifiedChart._commandMarkers = commandMarkers;
   unifiedChart._accent = 'battery';
 
-  document.getElementById("toggle-markers-btn").addEventListener("click", function () {
+  var _markBtn = document.getElementById("toggle-markers-btn");
+  if (_markBtn) _markBtn.addEventListener("click", function () {
     showMarkers = !showMarkers;
     localStorage.setItem(markerStorageKey, showMarkers ? 'visible' : 'hidden');
     syncMarkerToggle();
@@ -1455,9 +1456,14 @@ function filterInstalledApps(q) {
 
   // Opening a device always lands on Overview (no last-tab restore).
 
+  window.chShowAll = function () {
+    var l = document.getElementById('ch-list'); if (l) l.classList.remove('ch-collapsed');
+    var b = document.getElementById('ch-more'); if (b) b.style.display = 'none';
+  };
   // Command-history type filters (client-side, in the History tab).
   window.cmdHistFilter = function (ct, btn) {
     document.querySelectorAll('#ch-filters .ch-pill').forEach(function (p) { p.classList.toggle('on', p === btn); });
+    if (ct) chShowAll(); // filtering by a type looks across all commands, not just the first 10
     var vis = 0;
     document.querySelectorAll('#ch-list .ddc-tl').forEach(function (r) {
       var show = !ct || r.getAttribute('data-ct') === ct;
