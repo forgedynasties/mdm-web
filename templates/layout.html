@@ -16,7 +16,7 @@
       }
     })();
   </script>
-  <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO Hub{{end}}</title>
+  <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
@@ -27,7 +27,7 @@
   <div id="htmx-progress"></div>
   <nav class="navbar">
     <div class="navbar-top">
-      <a href="/" class="navbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO Hub{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">Hub</span>{{end}}</a>
+      <a href="/" class="navbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</a>
       <button type="button" class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
         <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
         <span class="ui-icon theme-icon-dark"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>

@@ -20,7 +20,7 @@ var Changelog = []Entry{
 		Version: "1.14.0",
 		Date:    "2026-06-26",
 		Changes: []string{
-			"Fresh new look across the dashboard, built around the AIO Hub brand — softer cards, clearer colours, and a search box in the top-right of every page.",
+			"Fresh new look across the dashboard, built around the AIO MDM brand — softer cards, clearer colours, and a search box in the top-right of every page.",
 			"Redesigned home page: see your fleet at a glance with device counts, an overall health score, a 7-day activity chart, open alerts, and one-click quick actions.",
 			"Redesigned Fleet page: a collections sidebar lists All devices plus every restaurant and group — click one to filter the list to it, or open it to see its devices and health. Restaurants and groups are now managed right inside Fleet.",
 			"The device list is now easy-to-scan cards instead of a wide table, so it reads clearly and no longer gets cut off on narrower screens.",
