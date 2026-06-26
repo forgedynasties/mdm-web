@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Device row — battery, status & compressed</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { background: var(--bg); }
+  .sd-wrap { max-width: 1100px; margin: 0 auto; padding: 32px 28px 80px; }
+  .sd-h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+  .sd-lead { color: var(--muted); font-size: 14px; margin: 6px 0 26px; max-width: 820px; }
+  .sd-lead b { color: var(--text-2); }
+  .sd-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 24px; }
+  .sd-card-h { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .sd-card-h h2 { font-size: 18px; font-weight: 700; }
+  .sd-code { margin-left: auto; font: 12px var(--mono); color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; }
+  .sd-note { font-size: 12.5px; color: var(--muted); margin: 0 0 14px; line-height: 1.55; }
+  .sd-note b { color: var(--text-2); }
+  .sd-sub { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); margin: 16px 0 8px; }
+  .sd-rows { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .sd-row { display: flex; align-items: center; gap: 18px; padding: 12px 14px; border-bottom: 1px solid var(--border-soft); }
+  .sd-row:last-child { border-bottom: 0; }
+  .sd-serial { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); min-width: 150px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--danger); } .hot { color: var(--chart-temp); }
+
+  /* ── battery: bar ── */
+  .bat-bar { display: flex; align-items: center; gap: 9px; min-width: 130px; }
+  .bat-bar .t { flex: 1; height: 7px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+  .bat-bar .f { height: 100%; border-radius: 4px; }
+  .bat-bar .v { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 34px; }
+  /* ── battery: ring ── */
+  .bat-ring { display: inline-flex; align-items: center; gap: 9px; }
+  .bat-ring svg { width: 30px; height: 30px; }
+  .bat-ring .trk { fill: none; stroke: var(--surface-3); stroke-width: 4; }
+  .bat-ring .val { fill: none; stroke-width: 4; stroke-linecap: round; }
+  .bat-ring .v { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  /* ── battery: chip ── */
+  .bat-chip { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; padding: 3px 10px; border-radius: 999px; }
+  .bat-chip.ok { background: var(--ok-bg); color: var(--ok); }
+  .bat-chip.warn { background: var(--warn-bg); color: var(--warn); }
+  .bat-chip.bad { background: var(--danger-bg); color: var(--danger); }
+  /* ── battery: glyph ── */
+  .bat-glyph { display: inline-flex; align-items: center; gap: 8px; }
+  .bat-glyph .shell { position: relative; width: 30px; height: 15px; border: 1.5px solid var(--rule-2); border-radius: 3px; padding: 2px; }
+  .bat-glyph .shell::after { content: ""; position: absolute; right: -4px; top: 4px; width: 2.5px; height: 5px; background: var(--rule-2); border-radius: 0 2px 2px 0; }
+  .bat-glyph .fill { height: 100%; border-radius: 1px; }
+  .bat-glyph .v { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* ── status: dot + label ── */
+  .st-label { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; }
+  .st-label .d { width: 8px; height: 8px; border-radius: 50%; }
+  .st-label.online { color: var(--ok); } .st-label.online .d { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+  .st-label.offline { color: var(--muted); } .st-label.offline .d { background: var(--text-faint); }
+  /* ── status: pill ── */
+  .st-pill { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; padding: 3px 9px; border-radius: 999px; }
+  .st-pill.online { background: var(--ok-bg); color: var(--ok); }
+  .st-pill.offline { background: var(--surface2); color: var(--muted); }
+  /* ── status: shape ── */
+  .st-shape { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  .st-shape.online { background: var(--ok); box-shadow: 0 0 0 3px var(--ok-bg); }
+  .st-shape.offline { background: transparent; border: 2px solid var(--rule-2); }
+
+  /* compressed mock — fixed narrow frames */
+  .sd-narrow-grid { display: flex; gap: 18px; flex-wrap: wrap; }
+  .sd-frame { width: 340px; border: 1px dashed var(--rule-2); border-radius: 12px; overflow: hidden; }
+  .sd-frame-cap { font-size: 11px; color: var(--text-faint); padding: 6px 10px; background: var(--bg); border-bottom: 1px solid var(--border-soft); font-weight: 600; }
+  .cr { display: flex; align-items: center; gap: 11px; padding: 11px 12px; border-bottom: 1px solid var(--border-soft); background: var(--surface); }
+  .cr:last-child { border-bottom: 0; }
+  .cr .chk { width: 15px; height: 15px; border: 1.5px solid var(--rule-2); border-radius: 4px; flex: none; }
+  .cr-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  .cr-id .s { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cr-id .m { font-size: 11px; color: var(--text-faint); white-space: nowrap; }
+  .cr-open { width: 28px; height: 28px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); flex: none; }
+  .cr-open svg { width: 15px; height: 15px; }
+  .cr-metrics { display: flex; gap: 14px; padding: 4px 12px 11px; font-size: 11.5px; }
+  .cr-metrics .m { display: inline-flex; align-items: baseline; gap: 4px; }
+  .cr-metrics .k { font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint); }
+  .cr-metrics .v { font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="sd-wrap">
+  <div class="sd-h1">Device row — battery, status &amp; compressed</div>
+  <p class="sd-lead">Pick a <b>battery</b> style, a <b>status</b> style, and a <b>compressed</b> behaviour (what to do when the row gets narrow, e.g. the inspector is open). Tell me the codes, e.g. <b>“ring · label · compact-1”</b>.</p>
+
+  <!-- BATTERY -->
+  <div class="sd-card">
+    <div class="sd-card-h"><h2>Battery</h2><span class="sd-code">B-bar / B-ring / B-chip / B-glyph</span></div>
+    <div class="sd-sub">B-bar — horizontal bar (current)</div>
+    <div class="sd-rows">
+      <div class="sd-row"><span class="sd-serial">AT070AABU00169</span><span class="bat-bar"><span class="t"><span class="f" style="width:99%;background:var(--ok)"></span></span><span class="v ok">99%</span></span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AA2600099</span><span class="bat-bar"><span class="t"><span class="f" style="width:34%;background:var(--warn)"></span></span><span class="v warn">34%</span></span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AABU00501</span><span class="bat-bar"><span class="t"><span class="f" style="width:12%;background:var(--danger)"></span></span><span class="v bad">12%</span></span></div>
+    </div>
+    <div class="sd-sub">B-ring — circular gauge (matches the Fleet-Pulse ring)</div>
+    <div class="sd-rows">
+      <div class="sd-row"><span class="sd-serial">AT070AABU00169</span><span class="bat-ring"><svg viewBox="0 0 32 32"><circle class="trk" cx="16" cy="16" r="13"/><circle class="val" cx="16" cy="16" r="13" stroke="var(--ok)" stroke-dasharray="81.7" stroke-dashoffset="0.8" transform="rotate(-90 16 16)"/></svg><span class="v ok">99%</span></span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AA2600099</span><span class="bat-ring"><svg viewBox="0 0 32 32"><circle class="trk" cx="16" cy="16" r="13"/><circle class="val" cx="16" cy="16" r="13" stroke="var(--warn)" stroke-dasharray="81.7" stroke-dashoffset="53.9" transform="rotate(-90 16 16)"/></svg><span class="v warn">34%</span></span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AABU00501</span><span class="bat-ring"><svg viewBox="0 0 32 32"><circle class="trk" cx="16" cy="16" r="13"/><circle class="val" cx="16" cy="16" r="13" stroke="var(--danger)" stroke-dasharray="81.7" stroke-dashoffset="71.9" transform="rotate(-90 16 16)"/></svg><span class="v bad">12%</span></span></div>
+    </div>
+    <div class="sd-sub">B-chip — just a colour-coded number (most compact)</div>
+    <div class="sd-rows">
+      <div class="sd-row"><span class="sd-serial">AT070AABU00169</span><span class="bat-chip ok">99%</span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AA2600099</span><span class="bat-chip warn">34%</span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AABU00501</span><span class="bat-chip bad">12%</span></div>
+    </div>
+    <div class="sd-sub">B-glyph — battery shape that fills</div>
+    <div class="sd-rows">
+      <div class="sd-row"><span class="sd-serial">AT070AABU00169</span><span class="bat-glyph"><span class="shell"><span class="fill" style="width:99%;background:var(--ok)"></span></span><span class="v ok">99%</span></span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AA2600099</span><span class="bat-glyph"><span class="shell"><span class="fill" style="width:34%;background:var(--warn)"></span></span><span class="v warn">34%</span></span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AABU00501</span><span class="bat-glyph"><span class="shell"><span class="fill" style="width:12%;background:var(--danger)"></span></span><span class="v bad">12%</span></span></div>
+    </div>
+  </div>
+
+  <!-- STATUS -->
+  <div class="sd-card">
+    <div class="sd-card-h"><h2>Online / offline</h2><span class="sd-code">S-label / S-pill / S-shape</span></div>
+    <p class="sd-note">Today it's a tiny green-vs-grey dot — too similar at 8px. These make it obvious.</p>
+    <div class="sd-sub">S-label — dot + word (my lean; folds into the meta line)</div>
+    <div class="sd-rows">
+      <div class="sd-row"><span class="sd-serial">AT070AABU00169</span><span class="st-label online"><span class="d"></span>Online</span><span class="muted small" style="color:var(--text-faint)">· 2m ago</span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AABU00501</span><span class="st-label offline"><span class="d"></span>Offline</span><span class="muted small" style="color:var(--text-faint)">· 2h ago</span></div>
+    </div>
+    <div class="sd-sub">S-pill — badge next to the serial</div>
+    <div class="sd-rows">
+      <div class="sd-row"><span class="sd-serial">AT070AABU00169</span><span class="st-pill online">Online</span></div>
+      <div class="sd-row"><span class="sd-serial">AT070AABU00501</span><span class="st-pill offline">Offline</span></div>
+    </div>
+    <div class="sd-sub">S-shape — different shapes, not just colour (filled dot vs hollow ring)</div>
+    <div class="sd-rows">
+      <div class="sd-row"><span class="st-shape online"></span><span class="sd-serial" style="min-width:0">AT070AABU00169</span><span class="muted small" style="color:var(--text-faint)">online</span></div>
+      <div class="sd-row"><span class="st-shape offline"></span><span class="sd-serial" style="min-width:0">AT070AABU00501</span><span class="muted small" style="color:var(--text-faint)">offline</span></div>
+    </div>
+  </div>
+
+  <!-- COMPRESSED -->
+  <div class="sd-card">
+    <div class="sd-card-h"><h2>When the row is narrow</h2><span class="sd-code">compact-1 / compact-2 / stack</span></div>
+    <p class="sd-note">When the inspector is open the list gets narrow. Instead of stacking everything, we can <b>hide secondary info</b>. (Frames below are a fixed 340px to simulate it.)</p>
+    <div class="sd-narrow-grid">
+      <div class="sd-frame">
+        <div class="sd-frame-cap">compact-1 · one line, drop metrics (keep battery)</div>
+        <div class="cr"><span class="chk"></span><span class="st-shape online" style="flex:none"></span><div class="cr-id"><span class="s">AT070AABU00169</span><span class="m">Online · 2m ago</span></div><span class="bat-chip ok">99%</span><span class="cr-open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div>
+        <div class="cr"><span class="chk"></span><span class="st-shape offline" style="flex:none"></span><div class="cr-id"><span class="s">AT070AABU00501</span><span class="m">Offline · 2h ago</span></div><span class="bat-chip bad">12%</span><span class="cr-open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div>
+      </div>
+      <div class="sd-frame">
+        <div class="sd-frame-cap">compact-2 · two lines, key metrics only</div>
+        <div style="background:var(--surface);border-bottom:1px solid var(--border-soft)">
+          <div class="cr" style="border:0;padding-bottom:4px"><span class="chk"></span><span class="st-shape online" style="flex:none"></span><div class="cr-id"><span class="s">AT070AABU00169</span><span class="m">Online · 2m ago</span></div><span class="cr-open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div>
+          <div class="cr-metrics"><span class="m"><span class="bat-chip ok">99%</span></span><span class="m"><span class="k">RAM</span><span class="v ok">47%</span></span><span class="m"><span class="k">Temp</span><span class="v ok">29.7°</span></span></div>
+        </div>
+        <div style="background:var(--surface)">
+          <div class="cr" style="border:0;padding-bottom:4px"><span class="chk"></span><span class="st-shape offline" style="flex:none"></span><div class="cr-id"><span class="s">AT070AABU00501</span><span class="m">Offline · 2h ago</span></div><span class="cr-open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div>
+          <div class="cr-metrics"><span class="m"><span class="bat-chip bad">12%</span></span><span class="m"><span class="k">RAM</span><span class="v bad">88%</span></span><span class="m"><span class="k">Temp</span><span class="v hot">47°</span></span></div>
+        </div>
+      </div>
+      <div class="sd-frame">
+        <div class="sd-frame-cap">stack · current (everything wraps)</div>
+        <div style="background:var(--surface);border-bottom:1px solid var(--border-soft);padding-bottom:8px">
+          <div class="cr" style="border:0;padding-bottom:4px"><span class="chk"></span><span class="st-shape online" style="flex:none"></span><div class="cr-id"><span class="s">AT070AABU00169</span><span class="m">2m ago · synced 05:48 PM</span><span class="m" style="font-size:10px">Onboarded Jun 19, 2026</span></div><span class="cr-open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span></div>
+          <div class="cr-metrics"><span class="bat-bar" style="min-width:110px"><span class="t"><span class="f" style="width:99%;background:var(--ok)"></span></span><span class="v ok">99%</span></span><span class="m"><span class="k">RAM</span><span class="v ok">47%</span></span><span class="m"><span class="k">Temp</span><span class="v ok">29.7°</span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
