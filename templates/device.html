@@ -308,15 +308,20 @@
 
   // Smooth integer battery check-in points so the line reads as a trend.
   // Keeps timestamp and metadata intact; only y is softened for rendering.
-  function smoothBatterySeries(points, alpha) {
-    if (!points || points.length < 3) return points;
-    const a = (typeof alpha === 'number' ? alpha : 0.35);
-    let prev = null;
-    return points.map(function (p) {
-      if (p.y == null) { prev = null; return p; }   // gap break — reset the filter
-      if (prev === null) { prev = p.y; return p; }
-      prev = (a * p.y) + ((1 - a) * prev);
-      return Object.assign({}, p, { y: Math.max(0, Math.min(100, Number(prev.toFixed(2)))) });
+  // Smooths an integer-quantised series (battery %) with a centred moving average so
+  // the 1%-step staircase reads as a flowing curve. No lag (centred), and gaps (null y)
+  // are preserved + skipped rather than resetting the filter, so there are no jumps.
+  function smoothBatterySeries(points) {
+    if (!points || points.length < 5) return points;
+    const w = Math.max(2, Math.min(8, Math.floor(points.length / 30))); // adaptive half-window
+    const ys = points.map(p => (p && p.y != null) ? p.y : null);
+    return points.map(function (p, i) {
+      if (!p || p.y == null) return p;
+      let sum = 0, n = 0;
+      for (let j = i - w; j <= i + w; j++) {
+        if (j >= 0 && j < ys.length && ys[j] != null) { sum += ys[j]; n++; }
+      }
+      return n ? Object.assign({}, p, { y: Number((sum / n).toFixed(2)) }) : p;
     });
   }
 
@@ -332,7 +337,7 @@
 
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
-    chart.data.datasets[0].data = insertGaps(pts);
+    chart.data.datasets[0].data = (chart === batteryChart) ? smoothBatterySeries(insertGaps(pts)) : insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
     chart.update();
@@ -345,7 +350,7 @@
   function applyUnifiedData() {
     if (!unifiedChart) return;
     const { pts: bPts, minX, lastX } = filterWindow(allBattery);
-    unifiedChart.data.datasets[0].data = insertGaps(bPts);
+    unifiedChart.data.datasets[0].data = smoothBatterySeries(insertGaps(bPts));
     unifiedChart.data.datasets[1].data = insertGaps(filterWindow(allTemp).pts);
     unifiedChart.data.datasets[2].data = insertGaps(filterWindow(allRam).pts);
     unifiedChart.options.scales.x.min = minX;
