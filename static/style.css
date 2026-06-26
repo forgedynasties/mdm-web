@@ -3681,3 +3681,173 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
   .ov-vitals { grid-template-columns: repeat(2, 1fr); }
   .ov-cols { grid-template-columns: 1fr; }
 }
+
+/* ── Alerts page ─────────────────────────────────────
+ * Summary cards, sticky control bar, severity cells, row expansion. */
+.alert-stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  margin: 14px 0 16px;
+}
+.alert-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  background: var(--surface);
+  text-decoration: none;
+  position: relative;
+  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
+}
+.alert-stat:hover { background: var(--surface2); transform: translateY(-1px); }
+.alert-stat.is-active { border-color: var(--accent-edge); background: var(--accent-soft); }
+.alert-stat-num {
+  font-family: var(--mono);
+  font-size: 24px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: -.02em;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.alert-stat-label {
+  font-size: var(--t-11);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--muted);
+}
+.alert-stat-icon { position: absolute; top: 12px; right: 12px; width: 16px; height: 16px; opacity: .85; }
+.alert-stat-icon svg { width: 16px; height: 16px; }
+.alert-stat.sev-crit .alert-stat-num, .alert-stat.sev-crit .alert-stat-icon { color: var(--danger); }
+.alert-stat.sev-warn .alert-stat-num, .alert-stat.sev-warn .alert-stat-icon { color: var(--warn); }
+.alert-stat.sev-info .alert-stat-num, .alert-stat.sev-info .alert-stat-icon { color: var(--info); }
+.alert-stat.sev-ok   .alert-stat-num { color: var(--ok); }
+
+/* Sticky control bar (search + grouped filters). */
+.alert-controls {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  margin-bottom: 14px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border-soft);
+}
+.alert-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 260px;
+  min-width: 220px;
+}
+.alert-search .ui-icon { position: absolute; left: 10px; color: var(--text-faint); pointer-events: none; }
+.alert-search .search-input { padding-left: 32px; }
+.alert-filter-group { display: flex; align-items: center; gap: 8px; }
+.alert-filter-label {
+  font-size: var(--t-11);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+
+/* On this page the sticky control bar owns the top edge; keep headers in flow. */
+.alerts-table thead th { position: static; }
+.alerts-table td { padding-top: 11px; padding-bottom: 11px; vertical-align: top; }
+.alerts-table tbody tr.alert-row { cursor: default; }
+
+/* Severity cell: icon + label, color-coded. */
+.sev-cell { display: inline-flex; align-items: center; gap: 7px; font-weight: var(--fw-medium); text-transform: capitalize; }
+.sev-cell .sev-icon { width: 16px; height: 16px; flex: 0 0 16px; }
+.sev-cell .sev-icon svg { width: 16px; height: 16px; }
+.sev-cell.sev-critical { color: var(--danger); }
+.sev-cell.sev-warning  { color: var(--warn); }
+.sev-cell.sev-info     { color: var(--info); }
+.sev-text { font-size: var(--t-13); }
+
+/* Occurrence multiplier badge. */
+.occ-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 6px;
+  font-family: var(--mono);
+  font-size: var(--t-11);
+  font-weight: var(--fw-semibold);
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-edge);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
+/* Expandable alert cell. */
+.alert-expand-cell { cursor: pointer; }
+.alert-caret {
+  display: inline-block;
+  color: var(--text-faint);
+  font-size: 10px;
+  margin-right: 5px;
+  transition: transform var(--dur) var(--ease);
+}
+.alert-row.is-expanded .alert-caret { transform: rotate(90deg); }
+.alert-summary { font-weight: var(--fw-medium); color: var(--text); }
+
+/* Detail expansion row. */
+.alert-detail-row > td { background: var(--surface2); padding: 0 16px; }
+.alert-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  padding: 12px 4px 14px 20px;
+}
+.alert-detail-item { display: flex; flex-direction: column; gap: 2px; }
+.alert-detail-item.alert-detail-raw { flex-basis: 100%; }
+.alert-detail-k {
+  font-size: var(--t-11);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  color: var(--text-faint);
+}
+.alert-detail-v { font-size: var(--t-13); color: var(--text); }
+.alert-detail-json {
+  font-family: var(--mono);
+  font-size: var(--t-12);
+  color: var(--text-2);
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-2);
+  padding: 6px 10px;
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* De-emphasized destructive text button (Clear all). */
+.btn-link-danger {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: var(--t-12);
+  cursor: pointer;
+  padding: 3px 6px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.btn-link-danger:hover { color: var(--danger); }
+
+@media (max-width: 1100px) {
+  .alert-stats { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 640px) {
+  .alert-stats { grid-template-columns: repeat(2, 1fr); }
+  .alert-controls { flex-direction: column; align-items: stretch; }
+}
