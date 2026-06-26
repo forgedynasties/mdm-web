@@ -79,9 +79,12 @@
           {{if eq $cmd.Type "screenshot"}}
           <td>
             {{if .Output}}
-            <a href="data:image/png;base64,{{.Output}}" target="_blank">
-              <img src="data:image/png;base64,{{.Output}}" class="screenshot-thumb" alt="screenshot">
-            </a>
+            <div class="ss-result">
+              <a href="data:image/png;base64,{{.Output}}" target="_blank" class="ss-frame" title="Open full size">
+                <img src="data:image/png;base64,{{.Output}}" alt="screenshot">
+              </a>
+              <a href="data:image/png;base64,{{.Output}}" download="screenshot-{{.SerialNumber}}.png" class="btn-outline ss-dl"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Download</a>
+            </div>
             {{else}}<span class="muted small">—</span>{{end}}
           </td>
           {{end}}
