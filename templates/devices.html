@@ -24,6 +24,9 @@
           onsubmit="return confirmBulkHide(event)">
       <button type="submit" class="btn-danger-sm">Hide Selected</button>
     </form>
+    <form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
+      <button type="submit" class="btn-outline" style="padding:3px 10px;font-size:12px;">Unhide Selected</button>
+    </form>
     <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
     <button type="button" class="btn-outline" onclick="openBulkRestaurantModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>Add to Restaurant</button>
     <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
@@ -34,106 +37,55 @@
   </div>
 </div>
 
-<table class="table">
-  <thead>
-    <tr>
-      <th style="width:36px;"></th>
-      <th class="sortable-th {{if eq .Sort "serial"}}sorted{{end}}" data-sort-key="serial">
-        Serial Number
-        {{if eq .Sort "serial"}}<span class="sort-arrow">{{if eq .SortDir "desc"}}&#9660;{{else}}&#9650;{{end}}</span>{{end}}
-      </th>
-      <th class="sortable-th {{if eq .Sort "build"}}sorted{{end}}" data-sort-key="build">
-        Release version
-        {{if eq .Sort "build"}}<span class="sort-arrow">{{if eq .SortDir "desc"}}&#9660;{{else}}&#9650;{{end}}</span>{{end}}
-      </th>
-      <th class="sortable-th {{if eq .Sort "battery"}}sorted{{end}}" data-sort-key="battery">
-        Battery
-        {{if eq .Sort "battery"}}<span class="sort-arrow">{{if eq .SortDir "desc"}}&#9660;{{else}}&#9650;{{end}}</span>{{end}}
-      </th>
-      <th class="sortable-th {{if eq .Sort "ram"}}sorted{{end}}" data-sort-key="ram">
-        RAM
-        {{if eq .Sort "ram"}}<span class="sort-arrow">{{if eq .SortDir "desc"}}&#9660;{{else}}&#9650;{{end}}</span>{{end}}
-      </th>
-      <th class="sortable-th {{if eq .Sort "temp"}}sorted{{end}}" data-sort-key="temp">
-        Temp
-        {{if eq .Sort "temp"}}<span class="sort-arrow">{{if eq .SortDir "desc"}}&#9660;{{else}}&#9650;{{end}}</span>{{end}}
-      </th>
-      <th class="sortable-th {{if or (not .Sort) (eq .Sort "last_seen")}}sorted{{end}}" data-sort-key="last_seen">
-        Last Seen
-        {{if or (not .Sort) (eq .Sort "last_seen")}}<span class="sort-arrow">{{if eq .SortDir "asc"}}&#9650;{{else}}&#9660;{{end}}</span>{{end}}
-      </th>
-      <th class="sortable-th {{if eq .Sort "created_at"}}sorted{{end}}" data-sort-key="created_at">
-        First Seen
-        {{if eq .Sort "created_at"}}<span class="sort-arrow">{{if eq .SortDir "asc"}}&#9650;{{else}}&#9660;{{end}}</span>{{end}}
-      </th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    {{if .Devices}}
-      {{range .Devices}}
-      <tr class="{{rowClasses .}}" data-serial="{{.SerialNumber}}">
-        <td><input type="checkbox" class="device-cb" value="{{.SerialNumber}}" onchange="updateBulkBar()"></td>
-        <td class="mono" style="white-space:nowrap;">
-          <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}WebSocket connected{{else}}offline{{end}}"></span><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="kiosk-lock" title="Kiosk mode" aria-label="Kiosk mode" style="vertical-align:middle;color:var(--muted);"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
-        </td>
-        <td class="mono small">{{.BuildID}}</td>
-        <td>
-          <div class="battery-wrap">
-            <div class="battery-track">
-              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
-            </div>
-            <span class="battery-label">{{.BatteryPct}}%{{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging" aria-label="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span>
-          </div>
-        </td>
-        <td>
-          {{$ram := ramUsage .LatestExtra}}
-          {{if $ram}}
-            {{$pct := ramPct $ram}}
-            <span class="{{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>
+<div class="dl-list">
+  {{if .Devices}}
+    {{range .Devices}}
+    <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}">
+      <input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">
+      <div class="dl-id">
+        <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}Connected{{else}}Offline{{end}}"></span>
+        <div class="dl-id-meta">
+          <a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">hidden</span>{{end}}
+          <span class="dl-seen">{{timeSince .LastSeenAt}}{{if gt .PollIntervalMs 0}} · synced {{localShortTime .LastSeenAt}}{{end}}</span>
+        </div>
+      </div>
+      <span class="dl-rel mono small">{{.BuildID}}</span>
+      <div class="dl-metrics">
+        <div class="dl-bat">
+          <div class="battery-track"><div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div></div>
+          <span class="battery-label">{{.BatteryPct}}%{{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span>
+        </div>
+        <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+        <span class="dl-m" data-m="temp"><span class="k">Temp</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      </div>
+      <span class="dl-onboard"><span class="k">Onboarded</span><span class="v">{{shortDate .CreatedAt}}</span></span>
+      <div class="dl-act">
+        <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" title="Open full device page">View</a>
+        {{if canAdmin $.Role}}
+          {{if .Hidden}}
+          <form action="/devices/{{.SerialNumber}}/unhide" method="POST" style="display:inline;">
+            <button type="submit" class="dl-x dl-unhide" title="Unhide device" aria-label="Unhide {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></button>
+          </form>
           {{else}}
-            <span class="muted small">—</span>
-          {{end}}
-        </td>
-        <td>
-          {{$temp := batteryTemp .LatestExtra}}
-          {{if ne $temp ""}}
-            <span class="{{tempClass .LatestExtra}}">{{$temp}}</span>
-          {{else}}
-            <span class="muted small">—</span>
-          {{end}}
-        </td>
-        <td class="muted">
-          {{timeSince .LastSeenAt}}
-          {{if gt .PollIntervalMs 0}}<span class="last-synced">synced {{localShortTime .LastSeenAt}}</span>{{end}}
-        </td>
-        <td class="muted small">{{localTime .CreatedAt}}</td>
-        <td style="white-space:nowrap;">
-          <a href="/devices/{{.SerialNumber}}" class="link-detail" data-full="1" title="Open full device page">View</a>
-          {{if canAdmin $.Role}}
-          <form action="/devices/{{.SerialNumber}}/hide" method="POST" style="display:inline;margin-left:6px;"
+          <form action="/devices/{{.SerialNumber}}/hide" method="POST" style="display:inline;"
                 onsubmit="return mdmConfirmSubmit(event, {title:'Hide device', body:'Hide {{.SerialNumber}}?', scope:'It reappears on next check-in.', tier:'danger', confirmLabel:'Hide'})">
-            <button type="submit" class="btn-danger-sm" title="Hide device">x</button>
+            <button type="submit" class="dl-x" title="Hide device" aria-label="Hide {{.SerialNumber}}">×</button>
           </form>
           {{end}}
-        </td>
-      </tr>
-      {{end}}
-    {{else}}
-      <tr>
-        <td colspan="9">
-          <div class="empty-state">
-            <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
-            <div class="empty-state-copy">
-              <div class="empty-state-title">{{if .Query}}No devices match "{{.Query}}"{{else}}No devices yet{{end}}</div>
-              <div class="empty-state-text">{{if .Query}}Try a different search term or clear filters.{{else}}Devices will appear here after their first check-in.{{end}}</div>
-            </div>
-          </div>
-        </td>
-      </tr>
+        {{end}}
+      </div>
+    </div>
     {{end}}
-  </tbody>
-</table>
+  {{else}}
+    <div class="empty-state" style="padding:40px 20px;">
+      <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
+      <div class="empty-state-copy">
+        <div class="empty-state-title">{{if .Query}}No devices match "{{.Query}}"{{else}}No devices yet{{end}}</div>
+        <div class="empty-state-text">{{if .Query}}Try a different search term or clear filters.{{else}}Devices will appear here after their first check-in.{{end}}</div>
+      </div>
+    </div>
+  {{end}}
+</div>
 
 {{if gt .TotalPages 1}}
 <div class="pagination">
@@ -182,25 +134,6 @@
 </div>
 
 <script>
-// Bind sortable column headers
-document.querySelectorAll('.sortable-th').forEach(function(th) {
-  th.addEventListener('click', function() {
-    var key = th.dataset.sortKey;
-    var p = new URLSearchParams(location.search);
-    var curSort = p.get('sort') || '';
-    var curDir = p.get('dir') || '';
-    var nextDir;
-    if (curSort === key) {
-      nextDir = curDir === 'desc' ? 'asc' : 'desc';
-    } else if (key === 'last_seen' || key === 'created_at') {
-      nextDir = 'desc';
-    } else {
-      nextDir = 'asc';
-    }
-    navigateDevices({page: '1', sort: key, dir: nextDir});
-  });
-});
-
 // Bind pagination
 document.querySelectorAll('.page-nav').forEach(function(btn) {
   btn.addEventListener('click', function() {
@@ -410,6 +343,25 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       </div>
     </div>
   </div>
+
+  {{/* ── Sort control (replaces the sortable column headers) ── */}}
+  <div class="fleet-fwrap" id="sort-wrap">
+    <button type="button" class="fleet-fbtn" id="sort-btn" onclick="toggleSort(event)" aria-haspopup="true" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h5"/></svg>
+      Sort
+    </button>
+    <div class="fleet-pop fleet-sortpop" id="sort-pop" hidden>
+      <div class="fp-cap">Sort devices by</div>
+      <div class="sortpop">
+        <button type="button" class="sortopt" data-sort="last_seen" onclick="sortBy('last_seen')"><span>Last seen</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" data-sort="battery" onclick="sortBy('battery')"><span>Battery</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" data-sort="temp" onclick="sortBy('temp')"><span>Temperature</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" data-sort="ram" onclick="sortBy('ram')"><span>RAM</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" data-sort="serial" onclick="sortBy('serial')"><span>Serial</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" data-sort="created_at" onclick="sortBy('created_at')"><span>Onboarded</span><span class="dir"></span></button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -531,11 +483,52 @@ function closeFilters() {
   var btn = document.getElementById('filters-btn');
   if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); }
 }
+// Sort control: a popover next to Filters that sets sort/dir (replaces the
+// old sortable column headers). Active option + direction are synced from URL.
+function toggleSort(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  var pop = document.getElementById('sort-pop');
+  var btn = document.getElementById('sort-btn');
+  if (!pop) return;
+  var willOpen = pop.hasAttribute('hidden');
+  if (willOpen) { pop.removeAttribute('hidden'); } else { pop.setAttribute('hidden', ''); }
+  if (btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.classList.toggle('open', willOpen); }
+}
+function closeSort() {
+  var pop = document.getElementById('sort-pop');
+  if (!pop || pop.hasAttribute('hidden')) return;
+  pop.setAttribute('hidden', '');
+  var btn = document.getElementById('sort-btn');
+  if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); }
+}
+function sortBy(key) {
+  var p = new URLSearchParams(location.search);
+  var cur = p.get('sort') || 'last_seen';
+  var dir = p.get('dir') || 'desc';
+  // Re-selecting the active field flips direction; a new field defaults to a
+  // sensible direction (serial A→Z, everything else high→low).
+  var nextDir = (cur === key) ? (dir === 'desc' ? 'asc' : 'desc') : (key === 'serial' ? 'asc' : 'desc');
+  navigateDevices({page: '1', sort: key, dir: nextDir});
+  closeSort();
+}
+function syncSortUI() {
+  var p = new URLSearchParams(location.search);
+  var sort = p.get('sort') || 'last_seen', dir = p.get('dir') || 'desc';
+  document.querySelectorAll('.sortopt').forEach(function(b) {
+    var on = b.dataset.sort === sort;
+    b.classList.toggle('on', on);
+    var d = b.querySelector('.dir');
+    if (d) d.textContent = on ? (dir === 'asc' ? '↑' : '↓') : '';
+  });
+}
+
 document.addEventListener('click', function(e) {
-  var wrap = document.getElementById('filters-wrap');
-  if (wrap && !wrap.contains(e.target)) closeFilters();
+  var fw = document.getElementById('filters-wrap');
+  if (fw && !fw.contains(e.target)) closeFilters();
+  var sw = document.getElementById('sort-wrap');
+  if (sw && !sw.contains(e.target)) closeSort();
 });
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeFilters(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeFilters(); closeSort(); } });
 
 // Recompute the lightweight filter UI (view pills, Filters badge, visibility
 // segment) from the URL after each navigation. Chips + table are server-rendered.
@@ -558,6 +551,7 @@ function syncFilterUI() {
     if (badge) { badge.textContent = cnt; if (cnt > 0) badge.removeAttribute('hidden'); else badge.setAttribute('hidden', ''); }
   }
   document.querySelectorAll('.fleet-seg [data-vis]').forEach(function(b) { b.classList.toggle('on', b.dataset.vis === hidden); });
+  syncSortUI();
   // The collections rail + roster heading are server-rendered (the rail uses
   // plain links and full-page navigation), so nothing to sync here.
 }
@@ -586,13 +580,23 @@ function updateBulkBar() {
   bar.style.display = serials.length > 0 ? 'flex' : 'none';
   count.textContent = serials.length + ' selected';
 
-  var form = document.getElementById('bulk-hide-form');
-  form.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
-  serials.forEach(function(s) {
-    var inp = document.createElement('input');
-    inp.type = 'hidden'; inp.name = 'serials'; inp.value = s;
-    form.appendChild(inp);
+  // Inject the current selection into the bulk hide/unhide forms.
+  [['bulk-hide-form', null], ['bulk-unhide-form', null]].forEach(function(pair) {
+    var f = document.getElementById(pair[0]);
+    if (!f) return;
+    f.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
+    serials.forEach(function(s) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'serials'; inp.value = s;
+      f.appendChild(inp);
+    });
   });
+  // "Unhide Selected" appears only when the selection includes hidden devices.
+  var uform = document.getElementById('bulk-unhide-form');
+  if (uform) {
+    var anyHidden = Array.prototype.some.call(document.querySelectorAll('.device-cb:checked'), function(cb) { return cb.dataset.hidden === 'true'; });
+    uform.style.display = (serials.length > 0 && anyHidden) ? 'inline' : 'none';
+  }
 
   if (allBoxes.length > 0 && serials.length === allBoxes.length) {
     allCb.checked = true; allCb.indeterminate = false;
@@ -819,75 +823,60 @@ document.addEventListener('keydown', function(e) {
     if (!window.EventSource) return;
 
     function patchRow(d) {
-      var tr = document.querySelector('tr[data-serial="' + d.serial + '"]');
-      if (!tr) return;
+      var card = document.querySelector('.dl-card[data-serial="' + d.serial + '"]');
+      if (!card) return;
 
       // A device that just became hidden should leave the (hidden-excluded) fleet view.
-      if (d.hidden) { tr.remove(); return; }
+      if (d.hidden) { card.remove(); return; }
 
-      var cells = tr.cells;
-
-      // col 1: ws-dot + serial (dot class only)
-      var dot = cells[1].querySelector('.ws-dot');
+      var dot = card.querySelector('.ws-dot');
       if (dot) {
         dot.className = 'ws-dot' + (d.online ? ' online' : '');
-        dot.title = d.online ? 'WebSocket connected' : 'offline';
+        dot.title = d.online ? 'Connected' : 'Offline';
       }
 
-      // col 2: build_id
-      cells[2].textContent = d.build_id;
+      var rel = card.querySelector('.dl-rel');
+      if (rel) rel.textContent = d.build_id;
 
-      // col 3: battery
-      var bar = cells[3].querySelector('.battery-bar');
-      if (bar) {
-        bar.className = 'battery-bar ' + d.battery_class;
-        bar.style.width = d.battery_width;
-      }
-      var label = cells[3].querySelector('.battery-label');
+      var bar = card.querySelector('.battery-bar');
+      if (bar) { bar.className = 'battery-bar ' + d.battery_class; bar.style.width = d.battery_width; }
+      var label = card.querySelector('.battery-label');
       if (label) {
-        var existingBolt = label.querySelector('.charging-bolt');
         label.textContent = d.battery_pct + '%';
         if (d.charging) {
-          var span = existingBolt || document.createElement('span');
-          span.className = 'charging-bolt';
-          span.title = 'Charging';
-          span.setAttribute('aria-label', 'Charging');
+          var span = document.createElement('span');
+          span.className = 'charging-bolt'; span.title = 'Charging';
           span.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
-          label.appendChild(document.createTextNode(' '));
-          label.appendChild(span);
+          label.appendChild(document.createTextNode(' ')); label.appendChild(span);
         }
       }
 
-      // col 4: ram
-      if (d.has_ram) {
-        var cls = d.ram_pct >= 80 ? 'danger' : d.ram_pct >= 60 ? 'warn' : 'ok';
-        cells[4].innerHTML = '<span class="' + cls + '">' + d.ram_pct + '%</span>';
-      } else {
-        cells[4].innerHTML = '<span class="muted small">—</span>';
+      var ram = card.querySelector('[data-m="ram"] .v');
+      if (ram) {
+        if (d.has_ram) { ram.className = 'v ' + (d.ram_pct >= 80 ? 'danger' : d.ram_pct >= 60 ? 'warn' : 'ok'); ram.textContent = d.ram_pct + '%'; }
+        else { ram.className = 'v muted'; ram.textContent = '—'; }
       }
 
-      // col 5: temp
-      if (d.temp_str) {
-        cells[5].innerHTML = '<span class="' + d.temp_class + '">' + d.temp_str + '</span>';
-      } else {
-        cells[5].innerHTML = '<span class="muted small">—</span>';
+      var temp = card.querySelector('[data-m="temp"] .v');
+      if (temp) {
+        if (d.temp_str) { temp.className = 'v ' + d.temp_class; temp.textContent = d.temp_str; }
+        else { temp.className = 'v muted'; temp.textContent = '—'; }
       }
 
-      // col 6: last seen
-      var seenHtml = d.time_since;
-      if (d.poll_interval_ms > 0 && d.last_seen_iso) {
-        var fallback = d.last_seen_iso.replace('T', ' ').replace('Z', ' UTC').slice(0, 19) + ' UTC';
-        seenHtml += ' <span class="last-synced">synced <span class="js-local-time" data-utc="' + d.last_seen_iso + '" data-format="short">' + fallback + '</span></span>';
+      var seen = card.querySelector('.dl-seen');
+      if (seen) {
+        var seenHtml = d.time_since;
+        if (d.poll_interval_ms > 0 && d.last_seen_iso) {
+          var fallback = d.last_seen_iso.replace('T', ' ').replace('Z', ' UTC').slice(0, 19) + ' UTC';
+          seenHtml += ' · synced <span class="js-local-time" data-utc="' + d.last_seen_iso + '" data-format="short">' + fallback + '</span>';
+        }
+        seen.innerHTML = seenHtml;
+        if (window.localizeTimes) window.localizeTimes(seen);
       }
-      cells[6].className = 'muted';
-      cells[6].innerHTML = seenHtml;
-      if (window.localizeTimes) window.localizeTimes(cells[6]);
 
-      // row-level alert classes (preserve inspector selection, which lives in a
-      // class the patch would otherwise clobber)
+      // Preserve inspector selection, which lives in a class the patch would clobber.
       var keepSel = window.mdmInspectorSelected && window.mdmInspectorSelected() === d.serial;
-      tr.className = d.row_classes + (keepSel ? ' row-selected' : '');
-      tr.setAttribute('data-serial', d.serial);
+      card.className = 'dl-card ' + d.row_classes + (keepSel ? ' row-selected' : '');
     }
 
     var es = new EventSource('/events/devices');
@@ -915,11 +904,11 @@ document.addEventListener('keydown', function(e) {
     function esc(s) { return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/"/g, '\\"'); }
 
     function highlight(serial) {
-      document.querySelectorAll('#device-table-container tr.row-selected')
-        .forEach(function (tr) { tr.classList.remove('row-selected'); });
+      document.querySelectorAll('#device-table-container .dl-card.row-selected')
+        .forEach(function (el) { el.classList.remove('row-selected'); });
       if (serial) {
-        var tr = document.querySelector('#device-table-container tr[data-serial="' + esc(serial) + '"]');
-        if (tr) tr.classList.add('row-selected');
+        var card = document.querySelector('#device-table-container .dl-card[data-serial="' + esc(serial) + '"]');
+        if (card) card.classList.add('row-selected');
       }
     }
 
