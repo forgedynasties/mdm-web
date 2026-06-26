@@ -1324,6 +1324,21 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Right-pane mode: "" = roster, "restaurants"/"groups" = collections grid,
+	// "restaurant"/"group" = one collection's detail (scopes the device list).
+	view := r.URL.Query().Get("view")
+	viewID := r.URL.Query().Get("id")
+	if view == "restaurant" && viewID != "" {
+		if parsed, err := uuid.Parse(viewID); err == nil {
+			restaurantID = parsed
+		}
+	}
+	if view == "group" && viewID != "" {
+		if parsed, err := uuid.Parse(viewID); err == nil {
+			groupID = parsed
+		}
+	}
+
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
 	filter := db.DeviceFilter{
@@ -1446,20 +1461,41 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Name of the rail collection currently scoping the roster.
+	// Name + size of the rail collection currently scoping the roster (heading)
+	// and which rail item to mark active.
 	selectedCollection := "All devices"
+	selectedCount := summary.Total
+	activeRestaurant, activeGroup := "", ""
 	if restaurantID != uuid.Nil {
+		activeRestaurant = restaurantID.String()
 		for _, rr := range railRests {
 			if rr.GroupID == restaurantID {
-				selectedCollection = rr.Name
+				selectedCollection, selectedCount = rr.Name, rr.DeviceCount
 				break
 			}
 		}
 	} else if groupID != uuid.Nil {
+		activeGroup = groupID.String()
 		for _, g := range railGroups {
 			if g.GroupID == groupID {
-				selectedCollection = g.Name
+				selectedCollection, selectedCount = g.Name, g.DeviceCount
 				break
+			}
+		}
+	}
+
+	// For a detail view, the active collection's health entry (header + stats).
+	var viewColl *db.GroupHealth
+	if view == "restaurant" {
+		for i := range railRests {
+			if railRests[i].GroupID == restaurantID {
+				viewColl = &railRests[i]
+			}
+		}
+	} else if view == "group" {
+		for i := range railGroups {
+			if railGroups[i].GroupID == groupID {
+				viewColl = &railGroups[i]
 			}
 		}
 	}
@@ -1473,6 +1509,12 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"RailRestaurants":      railRests,
 		"FilterRestaurant":     qv.Get("restaurant"),
 		"SelectedCollection":   selectedCollection,
+		"SelectedCount":        selectedCount,
+		"ActiveRestaurant":     activeRestaurant,
+		"ActiveGroup":          activeGroup,
+		"View":                 view,
+		"ViewID":               viewID,
+		"ViewColl":             viewColl,
 		"Page":                 page,
 		"TotalPages":           totalPages,
 		"Query":                q,
