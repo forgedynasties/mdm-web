@@ -4599,7 +4599,8 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 
 /* searchable package combobox (kiosk settings) */
 .pkg-combo { position: relative; max-width: 420px; }
-.pkg-list { position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px; z-index: 40; max-height: 260px; overflow: auto;
+.pkg-combo.open { z-index: 200; }
+.pkg-list { position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px; z-index: 200; max-height: 260px; overflow: auto;
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); display: none; }
 .pkg-combo.open .pkg-list { display: block; }
 .pkg-opt { display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; cursor: pointer; }
