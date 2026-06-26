@@ -4728,3 +4728,6 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .cmd-dp { grid-template-columns: 1fr 280px; }
 .cmd-dp .filter-select { font-size: 12px; }
 @media (max-width: 860px) { .cmd-dp { grid-template-columns: 1fr; } }
+
+/* command-history show-more (device detail History tab) */
+.ch-collapsed .ch-extra { display: none; }
