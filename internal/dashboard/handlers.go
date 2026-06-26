@@ -3015,52 +3015,6 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-func (h *Handler) DeviceCheckinsPartial(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-
-	const pageSize = 25
-	page := 1
-	if p := r.URL.Query().Get("page"); p != "" {
-		if n, err := strconv.Atoi(p); err == nil && n > 0 {
-			page = n
-		}
-	}
-	offset := (page - 1) * pageSize
-
-	total, err := h.db.GetCheckinsCount(r.Context(), device.ID)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	totalPages := (total + pageSize - 1) / pageSize
-	if totalPages == 0 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-		offset = (page - 1) * pageSize
-	}
-
-	checkins, err := h.db.GetCheckinsPaged(r.Context(), device.ID, pageSize, offset)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	h.renderCachedHTML(w, r, "device-checkins", map[string]any{
-		"Device":       device,
-		"Checkins":     checkins,
-		"ExtraColumns": h.cfg.Columns(),
-		"CheckinPage":  page,
-		"CheckinPages": totalPages,
-		"CheckinTotal": total,
-	})
-}
 
 // ── Groups ────────────────────────────────────────────────────────────────────
 
@@ -7188,7 +7142,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/ai-analysis", h.requireAuth(h.DeviceAIAnalysis))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireOperatorOrAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
-	mux.HandleFunc("GET /devices/{serial}/checkins-live", h.requireAuth(h.DeviceCheckinsPartial))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
