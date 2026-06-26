@@ -36,9 +36,11 @@
     {{end}}
     <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
   </div>
-  <button type="button" class="cols-toggle" id="cols-toggle" onclick="toggleCols()" title="Two-column view" aria-label="Toggle two-column view">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg>
-  </button>
+  <div class="cols-seg" role="group" aria-label="Column layout">
+    <button type="button" data-cols="1" onclick="setCols(1)" title="1 column" aria-label="One column"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1"/></svg></button>
+    <button type="button" data-cols="2" onclick="setCols(2)" title="2 columns" aria-label="Two columns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="6.5" height="14" rx="1"/><rect x="13.5" y="5" width="6.5" height="14" rx="1"/></svg></button>
+    <button type="button" data-cols="3" onclick="setCols(3)" title="3 columns" aria-label="Three columns"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="5" width="4.5" height="14" rx="1"/><rect x="9.75" y="5" width="4.5" height="14" rx="1"/><rect x="16.5" y="5" width="4.5" height="14" rx="1"/></svg></button>
+  </div>
 </div>
 
 <div class="dl-list">
@@ -47,8 +49,8 @@
     <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}">
       <input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">
       <div class="dl-bat">
-        <span class="dl-ring-wrap">
-          <svg class="dl-bat-ring" viewBox="0 0 32 32" aria-hidden="true"><circle class="trk" cx="16" cy="16" r="13"/><circle class="val {{batteryClass .BatteryPct}}" cx="16" cy="16" r="13" pathLength="100" stroke-dasharray="100" stroke-dashoffset="{{sub 100 .BatteryPct}}" transform="rotate(-90 16 16)"/></svg>
+        <span class="dl-bat-bar" role="img" aria-label="Battery {{.BatteryPct}}%">
+          <span class="fill {{batteryClass .BatteryPct}}" style="height:{{.BatteryPct}}%"></span>
           {{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}}<span class="charging-bolt" title="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}
         </span>
         <span class="battery-label">{{.BatteryPct}}%</span>
@@ -561,27 +563,41 @@ function syncFilterUI() {
 }
 document.addEventListener('DOMContentLoaded', syncFilterUI);
 
-// Two-column view toggle (persisted). The 2-col layout + the toggle button
-// only take effect when the list is wide enough (a container query) — below
-// that the class is inert and the list stays single-column.
-function toggleCols() {
+// Column-count control (1/2/3, persisted). The chosen count is remembered, but
+// only takes effect when the list is wide enough (container queries) — a wider
+// choice gracefully falls back to fewer columns when space is tight. The active
+// highlight reflects the *rendered* column count, not just the saved preference.
+function applyColsClass(n) {
   var list = document.querySelector('.dl-list');
   if (!list) return;
-  var on = list.classList.toggle('cols-2');
-  try { localStorage.setItem('mdm-cols', on ? '2' : '1'); } catch (e) {}
-  var btn = document.getElementById('cols-toggle');
-  if (btn) btn.classList.toggle('on', on);
+  list.classList.remove('cols-2', 'cols-3');
+  if (n === 2) list.classList.add('cols-2');
+  else if (n === 3) list.classList.add('cols-3');
+}
+function renderedCols() {
+  var list = document.querySelector('.dl-list');
+  if (!list) return 1;
+  var gtc = getComputedStyle(list).gridTemplateColumns;
+  if (!gtc || gtc === 'none') return 1;
+  return gtc.split(' ').filter(Boolean).length;
+}
+function syncColsUI() {
+  var n = renderedCols();
+  document.querySelectorAll('.cols-seg button').forEach(function (b) { b.classList.toggle('on', String(n) === b.dataset.cols); });
+}
+function setCols(n) {
+  applyColsClass(n);
+  try { localStorage.setItem('mdm-cols', String(n)); } catch (e) {}
+  syncColsUI();
 }
 function applyCols() {
-  var list = document.querySelector('.dl-list');
-  if (!list) return;
-  var on = false;
-  try { on = localStorage.getItem('mdm-cols') === '2'; } catch (e) {}
-  list.classList.toggle('cols-2', on);
-  var btn = document.getElementById('cols-toggle');
-  if (btn) btn.classList.toggle('on', on);
+  var n = 1;
+  try { n = parseInt(localStorage.getItem('mdm-cols') || '1', 10) || 1; } catch (e) {}
+  applyColsClass(n);
+  syncColsUI();
 }
 document.addEventListener('DOMContentLoaded', applyCols);
+window.addEventListener('resize', syncColsUI);
 document.body.addEventListener('htmx:afterSwap', function (evt) {
   if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container') applyCols();
 });
@@ -861,17 +877,17 @@ document.addEventListener('keydown', function(e) {
       var rel = card.querySelector('.dl-rel');
       if (rel) rel.textContent = d.build_id;
 
-      var ring = card.querySelector('.dl-bat-ring .val');
-      if (ring) { ring.setAttribute('class', 'val ' + d.battery_class); ring.setAttribute('stroke-dashoffset', String(100 - d.battery_pct)); }
+      var fill = card.querySelector('.dl-bat-bar .fill');
+      if (fill) { fill.className = 'fill ' + d.battery_class; fill.style.height = d.battery_pct + '%'; }
       var label = card.querySelector('.battery-label');
       if (label) label.textContent = d.battery_pct + '%';
-      var wrap = card.querySelector('.dl-ring-wrap');
-      if (wrap) {
-        var bolt = wrap.querySelector('.charging-bolt');
+      var bar = card.querySelector('.dl-bat-bar');
+      if (bar) {
+        var bolt = bar.querySelector('.charging-bolt');
         if (d.charging && !bolt) {
           bolt = document.createElement('span'); bolt.className = 'charging-bolt'; bolt.title = 'Charging';
           bolt.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
-          wrap.appendChild(bolt);
+          bar.appendChild(bolt);
         } else if (!d.charging && bolt) { bolt.remove(); }
       }
 
