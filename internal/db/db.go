@@ -209,6 +209,7 @@ type DeviceFilter struct {
 	BuildID             string    // exact build_id match, or "" (no filter)
 	Battery             string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
 	Kiosk               string    // "enabled" (kiosk on), "disabled" (kiosk off), or "" (no filter)
+	Charging            string    // "yes" (charging), "no" (not charging), or "" (no filter)
 	Timezone            string    // exact timezone match (latest_extra->>'timezone'), or "" (no filter)
 	Hidden              string    // "include" (show all), "only" (hidden only), or "" (active only)
 	ActiveThresholdSecs int       // seconds before a device is considered offline (0 = default 180)
@@ -561,6 +562,12 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, fmt.Sprintf("d.latest_extra->>'timezone' = $%d", argN))
 		args = append(args, f.Timezone)
 		argN++
+	}
+
+	if f.Charging == "yes" {
+		wheres = append(wheres, "COALESCE((d.latest_extra->>'charging')::boolean, false) = true")
+	} else if f.Charging == "no" {
+		wheres = append(wheres, "COALESCE((d.latest_extra->>'charging')::boolean, false) = false")
 	}
 
 	if selectRows {

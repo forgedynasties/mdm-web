@@ -1357,6 +1357,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		BuildID:             r.URL.Query().Get("build"),
 		Battery:             r.URL.Query().Get("battery"),
 		Kiosk:               r.URL.Query().Get("kiosk"),
+		Charging:            r.URL.Query().Get("charging"),
 		Timezone:            r.URL.Query().Get("timezone"),
 		Hidden:              r.URL.Query().Get("hidden"),
 		ActiveThresholdSecs: activeThreshold,
@@ -1462,7 +1463,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// Group/restaurant are excluded — those are driven by the collections rail.
 	qv := r.URL.Query()
 	filterCount := 0
-	for _, k := range []string{"status", "production", "build", "battery", "kiosk", "timezone"} {
+	for _, k := range []string{"status", "production", "build", "battery", "kiosk", "charging", "timezone"} {
 		if qv.Get(k) != "" {
 			filterCount++
 		}
@@ -1541,6 +1542,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterBuild":          r.URL.Query().Get("build"),
 		"FilterBattery":        r.URL.Query().Get("battery"),
 		"FilterKiosk":          r.URL.Query().Get("kiosk"),
+		"FilterCharging":       r.URL.Query().Get("charging"),
 		"FilterTimezone":       r.URL.Query().Get("timezone"),
 		"FilterHidden":         r.URL.Query().Get("hidden"),
 		"ActiveThresholdSecs":  activeThreshold,

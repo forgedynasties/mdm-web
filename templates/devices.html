@@ -1,5 +1,5 @@
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterTimezone .FilterHidden}}
+{{if or .Query .FilterStatus .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden}}
 <div class="fleet-chips">
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
   {{if .FilterStatus}}<span class="fchip"><span class="k">Status</span> {{if eq .FilterStatus "online"}}Online{{else}}Offline{{end}} <button type="button" class="x" onclick="clearOne('filter-status')" aria-label="Clear status">×</button></span>{{end}}
@@ -7,6 +7,7 @@
   {{if .FilterBuild}}<span class="fchip"><span class="k">Release</span> {{.FilterBuild}} <button type="button" class="x" onclick="clearOne('filter-build')" aria-label="Clear release">×</button></span>{{end}}
   {{if .FilterBattery}}<span class="fchip"><span class="k">Battery</span> {{if eq .FilterBattery "low"}}Critical &lt;20%{{else if eq .FilterBattery "mid"}}Low 20–49%{{else}}Healthy 50%+{{end}} <button type="button" class="x" onclick="clearOne('filter-battery')" aria-label="Clear battery">×</button></span>{{end}}
   {{if .FilterKiosk}}<span class="fchip"><span class="k">Kiosk</span> {{if eq .FilterKiosk "enabled"}}Enabled{{else}}Disabled{{end}} <button type="button" class="x" onclick="clearOne('filter-kiosk')" aria-label="Clear kiosk">×</button></span>{{end}}
+  {{if .FilterCharging}}<span class="fchip"><span class="k">Charging</span> {{if eq .FilterCharging "yes"}}Charging{{else}}Not charging{{end}} <button type="button" class="x" onclick="clearOne('filter-charging')" aria-label="Clear charging">×</button></span>{{end}}
   {{if .FilterTimezone}}<span class="fchip"><span class="k">Timezone</span> {{.FilterTimezone}} <button type="button" class="x" onclick="clearOne('filter-timezone')" aria-label="Clear timezone">×</button></span>{{end}}
   {{if eq .FilterHidden "only"}}<span class="fchip"><span class="k">Visibility</span> Hidden only <button type="button" class="x" onclick="setHidden('')" aria-label="Clear visibility">×</button></span>{{end}}
   {{if eq .FilterHidden "include"}}<span class="fchip"><span class="k">Visibility</span> Incl. hidden <button type="button" class="x" onclick="setHidden('')" aria-label="Clear visibility">×</button></span>{{end}}
@@ -313,6 +314,12 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
             <option value="enabled" {{if eq .FilterKiosk "enabled"}}selected{{end}}>Enabled</option>
             <option value="disabled" {{if eq .FilterKiosk "disabled"}}selected{{end}}>Disabled</option>
           </select></label>
+        <label class="fp-field"><span>Charging</span>
+          <select id="filter-charging" onchange="applyFilters()">
+            <option value="">Any</option>
+            <option value="yes" {{if eq .FilterCharging "yes"}}selected{{end}}>Charging</option>
+            <option value="no" {{if eq .FilterCharging "no"}}selected{{end}}>Not charging</option>
+          </select></label>
         <label class="fp-field"><span>Timezone</span>
           <select id="filter-timezone" onchange="applyFilters()">
             <option value="">Any timezone</option>
@@ -367,6 +374,7 @@ function getFilterVals(overrides) {
     build: p.get('build') || '',
     battery: p.get('battery') || '',
     kiosk: p.get('kiosk') || '',
+    charging: p.get('charging') || '',
     timezone: p.get('timezone') || '',
     hidden: p.get('hidden') || ''
   };
@@ -376,6 +384,7 @@ function getFilterVals(overrides) {
   var fb = document.getElementById('filter-build');
   var fbt = document.getElementById('filter-battery');
   var fk = document.getElementById('filter-kiosk');
+  var fch = document.getElementById('filter-charging');
   var ftz = document.getElementById('filter-timezone');
   var sq = document.getElementById('search-input');
   if (fg) vals.group = fg.value;
@@ -384,6 +393,7 @@ function getFilterVals(overrides) {
   if (fb) vals.build = fb.value;
   if (fbt) vals.battery = fbt.value;
   if (fk) vals.kiosk = fk.value;
+  if (fch) vals.charging = fch.value;
   if (ftz) vals.timezone = ftz.value;
   if (sq) vals.q = sq.value;
   if (overrides) {
@@ -425,9 +435,9 @@ function setHidden(val) {
 function clearFilters() {
   // Clears the popover filters + search + visibility, but keeps the rail
   // collection (group/restaurant) in scope.
-  ['filter-production', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-timezone'].forEach(function(id) { setSel(id, ''); });
+  ['filter-production', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-charging', 'filter-timezone'].forEach(function(id) { setSel(id, ''); });
   setSel('search-input', '');
-  navigateDevices({page: '1', q: '', production: '', status: '', build: '', battery: '', kiosk: '', timezone: '', hidden: ''});
+  navigateDevices({page: '1', q: '', production: '', status: '', build: '', battery: '', kiosk: '', charging: '', timezone: '', hidden: ''});
 }
 
 // Collections rail: scope the roster to one collection, clearing the opposite.
@@ -531,7 +541,7 @@ function syncFilterUI() {
   else if (status === 'offline') view = 'offline';
   document.querySelectorAll('.fleet-view').forEach(function(b) { b.classList.toggle('on', b.dataset.view === view); });
   // Filters badge: popover filters only (group/restaurant are the rail's job).
-  var cnt = 0; ['status', 'production', 'build', 'battery', 'kiosk', 'timezone'].forEach(function(k) { if (p.get(k)) cnt++; });
+  var cnt = 0; ['status', 'production', 'build', 'battery', 'kiosk', 'charging', 'timezone'].forEach(function(k) { if (p.get(k)) cnt++; });
   var btn = document.getElementById('filters-btn');
   if (btn) {
     btn.classList.toggle('has', cnt > 0);
