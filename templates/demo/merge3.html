@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merge demo 3 — Devices + 'View by' switcher</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { background: var(--bg); color: var(--text); }
+  .demo-switch { display:flex; align-items:center; gap:14px; padding:9px 18px; background:var(--surface2);
+    border-bottom:1px solid var(--border); font-size:13px; color:var(--muted); flex-wrap:wrap; }
+  .demo-switch a { color:var(--text-2); text-decoration:none; padding:3px 10px; border:1px solid var(--border); border-radius:999px; }
+  .demo-switch a.cur { background:var(--accent-soft); border-color:var(--accent-edge); color:var(--accent); font-weight:600; }
+  .demo-wrap { padding:20px 24px 60px; max-width:1180px; margin:0 auto; }
+  .mrg-head { display:flex; align-items:baseline; gap:12px; margin-bottom:14px; flex-wrap:wrap; }
+  .mrg-head h1 { margin:0; font-size:24px; }
+  .viewby { margin-left:auto; display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
+  .seg { display:inline-flex; border:1px solid var(--border); border-radius:999px; overflow:hidden; }
+  .seg button { background:var(--surface); border:none; padding:5px 14px; font-size:13px; color:var(--text-2); cursor:pointer; }
+  .seg button.cur { background:var(--accent-soft); color:var(--accent); font-weight:600; }
+  .ws-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--text-faint); margin-right:6px; }
+  .ws-dot.online { background:var(--ok); }
+  .loc-pill { font-size:var(--t-11); padding:1px 8px; border-radius:999px; border:1px solid var(--border); color:var(--text-2); }
+  .loc-pill.lab { color:var(--muted); }
+  .view { display:none; }
+  .view.cur { display:block; }
+  .grp-sec { border:1px solid var(--border); border-radius:var(--r-3); margin-bottom:12px; overflow:hidden; background:var(--surface); }
+  .grp-hd { display:flex; align-items:center; gap:12px; padding:11px 14px; cursor:pointer; background:var(--surface2); }
+  .grp-hd:hover { background:var(--surface3,var(--surface2)); }
+  .grp-hd .caret { color:var(--text-faint); font-size:11px; transition:transform var(--dur) var(--ease); }
+  .grp-sec.open .grp-hd .caret { transform:rotate(90deg); }
+  .grp-hd .name { font-weight:600; }
+  .grp-hd .meta { margin-left:auto; display:flex; gap:18px; color:var(--muted); font-size:12px; }
+  .grp-hd .meta b { font-family:var(--mono); color:var(--text-2); font-weight:600; }
+  .grp-body { display:none; }
+  .grp-sec.open .grp-body { display:block; }
+  .grp-body table { margin:0; }
+</style>
+</head>
+<body data-theme="light">
+<div class="demo-switch">
+  <strong style="color:var(--text);">Merge concept</strong>
+  <a href="/demo/merge1">1 · Hub + rail</a>
+  <a href="/demo/merge2">2 · Tabs</a>
+  <a href="/demo/merge3" class="cur">3 · View-by</a>
+  <span style="margin-left:auto;">synthetic data — nothing here is wired to the real fleet</span>
+</div>
+
+<div class="demo-wrap">
+  <div class="mrg-head">
+    <h1>Fleet</h1><span class="muted small">8 devices</span>
+    <div class="viewby">View by
+      <div class="seg">
+        <button class="cur" onclick="view(this,'device')">Device</button>
+        <button onclick="view(this,'restaurant')">Restaurant</button>
+        <button onclick="view(this,'group')">Group</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flat device view -->
+  <div class="view cur" id="view-device">
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Serial</th><th>Release</th><th>Battery</th><th>Temp</th><th>Last seen</th><th>Location</th></tr></thead>
+        <tbody>
+          <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00077</td><td class="mono small">1.4.2</td><td>82%</td><td>41°C</td><td class="muted small">2m ago</td><td><span class="loc-pill">Downtown</span></td></tr>
+          <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00142</td><td class="mono small">1.4.2</td><td>64%</td><td>39°C</td><td class="muted small">5m ago</td><td><span class="loc-pill">Downtown</span></td></tr>
+          <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00281</td><td class="mono small">1.4.1</td><td><span class="danger">18%</span></td><td><span class="danger">52°C</span></td><td class="muted small">1m ago</td><td><span class="loc-pill">Downtown</span></td></tr>
+          <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00387</td><td class="mono small">1.4.2</td><td>91%</td><td>37°C</td><td class="muted small">3m ago</td><td><span class="loc-pill">Downtown</span></td></tr>
+          <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00464</td><td class="mono small">1.4.2</td><td>55%</td><td>44°C</td><td class="muted small">8m ago</td><td><span class="loc-pill">Airport</span></td></tr>
+          <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00512</td><td class="mono small">1.4.0</td><td>73%</td><td>40°C</td><td class="muted small">12m ago</td><td><span class="loc-pill">Airport</span></td></tr>
+          <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00633</td><td class="mono small">1.4.2</td><td>39%</td><td><span class="warn">46°C</span></td><td class="muted small">22m ago</td><td><span class="loc-pill lab">Lab</span></td></tr>
+          <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00701</td><td class="mono small">1.3.9</td><td><span class="danger">12%</span></td><td>35°C</td><td class="muted small">2h ago</td><td><span class="loc-pill lab">Lab</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Grouped by restaurant -->
+  <div class="view" id="view-restaurant">
+    <div class="grp-sec open">
+      <div class="grp-hd" onclick="this.parentElement.classList.toggle('open')">
+        <span class="caret">▸</span><span class="name">Downtown</span>
+        <span class="meta"><span>avg <b>64%</b></span><span><b>1</b> offline</span><span><b>4</b> devices</span></span>
+      </div>
+      <div class="grp-body"><table class="table"><tbody>
+        <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00077</td><td class="mono small">1.4.2</td><td>82%</td><td>41°C</td><td class="muted small">2m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00142</td><td class="mono small">1.4.2</td><td>64%</td><td>39°C</td><td class="muted small">5m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00281</td><td class="mono small">1.4.1</td><td><span class="danger">18%</span></td><td><span class="danger">52°C</span></td><td class="muted small">1m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00387</td><td class="mono small">1.4.2</td><td>91%</td><td>37°C</td><td class="muted small">3m ago</td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="grp-sec">
+      <div class="grp-hd" onclick="this.parentElement.classList.toggle('open')">
+        <span class="caret">▸</span><span class="name">Airport</span>
+        <span class="meta"><span>avg <b>64%</b></span><span><b>1</b> offline</span><span><b>2</b> devices</span></span>
+      </div>
+      <div class="grp-body"><table class="table"><tbody>
+        <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00464</td><td class="mono small">1.4.2</td><td>55%</td><td>44°C</td><td class="muted small">8m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00512</td><td class="mono small">1.4.0</td><td>73%</td><td>40°C</td><td class="muted small">12m ago</td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="grp-sec">
+      <div class="grp-hd" onclick="this.parentElement.classList.toggle('open')">
+        <span class="caret">▸</span><span class="name">Lab / unassigned</span>
+        <span class="meta"><span><b>2</b> devices</span></span>
+      </div>
+      <div class="grp-body"><table class="table"><tbody>
+        <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00633</td><td class="mono small">1.4.2</td><td>39%</td><td><span class="warn">46°C</span></td><td class="muted small">22m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00701</td><td class="mono small">1.3.9</td><td><span class="danger">12%</span></td><td>35°C</td><td class="muted small">2h ago</td></tr>
+      </tbody></table></div>
+    </div>
+  </div>
+
+  <!-- Grouped by group (note: a device can appear under several groups) -->
+  <div class="view" id="view-group">
+    <div class="grp-sec open">
+      <div class="grp-hd" onclick="this.parentElement.classList.toggle('open')">
+        <span class="caret">▸</span><span class="name">Kiosk fleet</span>
+        <span class="meta"><span>health <b>88</b></span><span><b>1</b> offline</span><span><b>5</b> devices</span></span>
+      </div>
+      <div class="grp-body"><table class="table"><tbody>
+        <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00077</td><td class="mono small">1.4.2</td><td>82%</td><td>41°C</td><td class="muted small">2m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00142</td><td class="mono small">1.4.2</td><td>64%</td><td>39°C</td><td class="muted small">5m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00281</td><td class="mono small">1.4.1</td><td><span class="danger">18%</span></td><td><span class="danger">52°C</span></td><td class="muted small">1m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00387</td><td class="mono small">1.4.2</td><td>91%</td><td>37°C</td><td class="muted small">3m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00464</td><td class="mono small">1.4.2</td><td>55%</td><td>44°C</td><td class="muted small">8m ago</td></tr>
+      </tbody></table></div>
+    </div>
+    <div class="grp-sec">
+      <div class="grp-hd" onclick="this.parentElement.classList.toggle('open')">
+        <span class="caret">▸</span><span class="name">QA bench</span>
+        <span class="meta"><span>health <b>61</b></span><span><b>2</b> offline</span><span><b>3</b> devices</span></span>
+      </div>
+      <div class="grp-body"><table class="table"><tbody>
+        <tr><td class="mono"><span class="ws-dot online"></span>AT070AABU00281</td><td class="mono small">1.4.1</td><td><span class="danger">18%</span></td><td><span class="danger">52°C</span></td><td class="muted small">1m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00512</td><td class="mono small">1.4.0</td><td>73%</td><td>40°C</td><td class="muted small">12m ago</td></tr>
+        <tr><td class="mono"><span class="ws-dot"></span>AT070AABU00701</td><td class="mono small">1.3.9</td><td><span class="danger">12%</span></td><td>35°C</td><td class="muted small">2h ago</td></tr>
+      </tbody></table></div>
+    </div>
+    <p class="muted small">Note: in this view a device can appear under more than one group (e.g. AT070AABU00281 is in both Kiosk fleet and QA bench) — that’s the N:M nature of groups, unlike the 1:1 restaurant assignment above.</p>
+  </div>
+
+  <p class="muted small" style="margin-top:18px;">Idea: one table, one route; a switcher regroups the same devices by venue or tag. No separate rail or tabs — collections are expandable section headers.</p>
+</div>
+
+<script>
+  function view(btn, name) {
+    document.querySelectorAll('.viewby .seg button').forEach(b => b.classList.remove('cur'));
+    btn.classList.add('cur');
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('cur'));
+    document.getElementById('view-' + name).classList.add('cur');
+  }
+</script>
+</body>
+</html>

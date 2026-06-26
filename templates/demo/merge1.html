@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merge demo 1 — Devices hub + collections rail</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { background: var(--bg); color: var(--text); }
+  .demo-switch { display:flex; align-items:center; gap:14px; padding:9px 18px; background:var(--surface2);
+    border-bottom:1px solid var(--border); font-size:13px; color:var(--muted); flex-wrap:wrap; }
+  .demo-switch a { color:var(--text-2); text-decoration:none; padding:3px 10px; border:1px solid var(--border); border-radius:999px; }
+  .demo-switch a.cur { background:var(--accent-soft); border-color:var(--accent-edge); color:var(--accent); font-weight:600; }
+  .demo-wrap { padding:20px 24px 60px; }
+  .mrg-grid { display:grid; grid-template-columns:230px 1fr; gap:20px; align-items:start; }
+  .mrg-rail { border:1px solid var(--border); border-radius:var(--r-4); background:var(--surface); overflow:hidden; position:sticky; top:14px; }
+  .mrg-rail-sec { padding:10px 0 6px; }
+  .mrg-rail-label { font-size:var(--t-11); text-transform:uppercase; letter-spacing:.06em; color:var(--text-faint);
+    font-weight:var(--fw-semibold); padding:4px 14px; display:flex; justify-content:space-between; align-items:center; }
+  .mrg-rail-label a { color:var(--accent); text-decoration:none; font-size:16px; line-height:1; }
+  .mrg-coll { display:flex; align-items:center; gap:8px; padding:7px 14px; cursor:pointer; font-size:13px; color:var(--text-2);
+    border-left:2px solid transparent; }
+  .mrg-coll:hover { background:var(--surface2); }
+  .mrg-coll.cur { background:var(--accent-soft); border-left-color:var(--accent); color:var(--text); font-weight:500; }
+  .mrg-coll .cnt { margin-left:auto; font-family:var(--mono); font-size:var(--t-11); color:var(--muted); }
+  .mrg-coll .dot { width:8px; height:8px; border-radius:50%; flex:0 0 8px; }
+  .mrg-divider { border-top:1px solid var(--border-soft); }
+  .mrg-head { display:flex; align-items:baseline; gap:12px; margin-bottom:12px; }
+  .mrg-head h1 { margin:0; font-size:24px; }
+  .mrg-toolbar { display:flex; align-items:center; gap:12px; margin-bottom:12px; flex-wrap:wrap; }
+  .mrg-toolbar .search-input { max-width:280px; }
+  .ws-dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--text-faint); margin-right:6px; }
+  .ws-dot.online { background:var(--ok); }
+  .loc-pill { font-size:var(--t-11); padding:1px 8px; border-radius:999px; border:1px solid var(--border); color:var(--text-2); }
+  .loc-pill.lab { color:var(--muted); }
+  .selbar { display:none; align-items:center; gap:10px; padding:8px 12px; margin-bottom:10px; border:1px solid var(--accent-edge);
+    background:var(--accent-soft); border-radius:var(--r-3); }
+  .selbar.on { display:flex; }
+  .selbar .bulk-count { color:var(--accent); }
+</style>
+</head>
+<body data-theme="light">
+<div class="demo-switch">
+  <strong style="color:var(--text);">Merge concept</strong>
+  <a href="/demo/merge1" class="cur">1 · Hub + rail</a>
+  <a href="/demo/merge2">2 · Tabs</a>
+  <a href="/demo/merge3">3 · View-by</a>
+  <span style="margin-left:auto;">synthetic data — nothing here is wired to the real fleet</span>
+</div>
+
+<div class="demo-wrap">
+  <div class="mrg-grid">
+    <!-- ── Collections rail ── -->
+    <aside class="mrg-rail">
+      <div class="mrg-rail-sec">
+        <div class="mrg-coll cur" data-filter="all" onclick="pick(this,'all')">All devices <span class="cnt">8</span></div>
+        <div class="mrg-coll" data-filter="lab" onclick="pick(this,'lab')">Lab / unassigned <span class="cnt">2</span></div>
+      </div>
+      <div class="mrg-divider"></div>
+      <div class="mrg-rail-sec">
+        <div class="mrg-rail-label">Restaurants <a href="#" title="New restaurant">＋</a></div>
+        <div class="mrg-coll" data-filter="loc:downtown" onclick="pick(this,'loc:downtown')"><span class="dot" style="background:var(--ok)"></span>Downtown <span class="cnt">4</span></div>
+        <div class="mrg-coll" data-filter="loc:airport" onclick="pick(this,'loc:airport')"><span class="dot" style="background:var(--warn)"></span>Airport <span class="cnt">2</span></div>
+      </div>
+      <div class="mrg-divider"></div>
+      <div class="mrg-rail-sec">
+        <div class="mrg-rail-label">Groups <a href="#" title="New group">＋</a></div>
+        <div class="mrg-coll" data-filter="grp:kiosk" onclick="pick(this,'grp:kiosk')">Kiosk fleet <span class="cnt">5</span></div>
+        <div class="mrg-coll" data-filter="grp:qa" onclick="pick(this,'grp:qa')">QA bench <span class="cnt">3</span></div>
+      </div>
+    </aside>
+
+    <!-- ── Devices table (the hub) ── -->
+    <section>
+      <div class="mrg-head">
+        <h1 id="scope-title">All devices</h1>
+        <span class="muted small" id="scope-sub">8 devices</span>
+      </div>
+      <div class="mrg-toolbar">
+        <input type="text" class="search-input" placeholder="Search serial…" oninput="search(this.value)">
+        <div class="filter-pills">
+          <span class="filter-pill active">All</span>
+          <span class="filter-pill">Online</span>
+          <span class="filter-pill">Offline</span>
+        </div>
+      </div>
+
+      <div class="selbar" id="selbar">
+        <span class="bulk-count" id="selcount">0 selected</span>
+        <button class="btn-outline" style="padding:3px 12px;font-size:12px;">Assign to restaurant ▾</button>
+        <button class="btn-outline" style="padding:3px 12px;font-size:12px;">Add to group ▾</button>
+        <button class="btn-outline" style="padding:3px 12px;font-size:12px;">Kiosk ▾</button>
+        <button class="btn-outline" style="padding:3px 12px;font-size:12px;">Reboot</button>
+        <button class="btn-outline" style="padding:3px 12px;font-size:12px;margin-left:auto;">Export</button>
+      </div>
+
+      <div class="card">
+        <table class="table">
+          <thead>
+            <tr><th style="width:32px;"></th><th>Serial</th><th>Release</th><th>Battery</th><th>Temp</th><th>Last seen</th><th>Location</th></tr>
+          </thead>
+          <tbody id="rows">
+            <!-- rows: data-loc, data-grp, data-online -->
+            <tr data-serial="AT070AABU00077" data-loc="downtown" data-grp="kiosk" data-online="1">
+              <td><input type="checkbox" class="cb" onchange="upd()"></td>
+              <td class="mono"><span class="ws-dot online"></span>AT070AABU00077</td><td class="mono small">1.4.2</td>
+              <td>82%</td><td>41°C</td><td class="muted small">2m ago</td><td><span class="loc-pill">Downtown</span></td></tr>
+            <tr data-serial="AT070AABU00142" data-loc="downtown" data-grp="kiosk" data-online="1">
+              <td><input type="checkbox" class="cb" onchange="upd()"></td>
+              <td class="mono"><span class="ws-dot online"></span>AT070AABU00142</td><td class="mono small">1.4.2</td>
+              <td>64%</td><td>39°C</td><td class="muted small">5m ago</td><td><span class="loc-pill">Downtown</span></td></tr>
+            <tr data-serial="AT070AABU00281" data-loc="downtown" data-grp="kiosk qa" data-online="1">
+              <td><input type="checkbox" class="cb" onchange="upd()"></td>
+              <td class="mono"><span class="ws-dot online"></span>AT070AABU00281</td><td class="mono small">1.4.1</td>
+              <td><span class="danger">18%</span></td><td><span class="danger">52°C</span></td><td class="muted small">1m ago</td><td><span class="loc-pill">Downtown</span></td></tr>
+            <tr data-serial="AT070AABU00387" data-loc="downtown" data-grp="kiosk" data-online="0">
+              <td><input type="checkbox" class="cb" onchange="upd()"></td>
+              <td class="mono"><span class="ws-dot"></span>AT070AABU00387</td><td class="mono small">1.4.2</td>
+              <td>91%</td><td>37°C</td><td class="muted small">3m ago</td><td><span class="loc-pill">Downtown</span></td></tr>
+            <tr data-serial="AT070AABU00464" data-loc="airport" data-grp="kiosk" data-online="1">
+              <td><input type="checkbox" class="cb" onchange="upd()"></td>
+              <td class="mono"><span class="ws-dot online"></span>AT070AABU00464</td><td class="mono small">1.4.2</td>
+              <td>55%</td><td>44°C</td><td class="muted small">8m ago</td><td><span class="loc-pill">Airport</span></td></tr>
+            <tr data-serial="AT070AABU00512" data-loc="airport" data-grp="qa" data-online="0">
+              <td><input type="checkbox" class="cb" onchange="upd()"></td>
+              <td class="mono"><span class="ws-dot"></span>AT070AABU00512</td><td class="mono small">1.4.0</td>
+              <td>73%</td><td>40°C</td><td class="muted small">12m ago</td><td><span class="loc-pill">Airport</span></td></tr>
+            <tr data-serial="AT070AABU00633" data-loc="lab" data-grp="" data-online="0">
+              <td><input type="checkbox" class="cb" onchange="upd()"></td>
+              <td class="mono"><span class="ws-dot"></span>AT070AABU00633</td><td class="mono small">1.4.2</td>
+              <td>39%</td><td><span class="warn">46°C</span></td><td class="muted small">22m ago</td><td><span class="loc-pill lab">Lab</span></td></tr>
+            <tr data-serial="AT070AABU00701" data-loc="lab" data-grp="qa" data-online="0">
+              <td><input type="checkbox" class="cb" onchange="upd()"></td>
+              <td class="mono"><span class="ws-dot"></span>AT070AABU00701</td><td class="mono small">1.3.9</td>
+              <td><span class="danger">12%</span></td><td>35°C</td><td class="muted small">2h ago</td><td><span class="loc-pill lab">Lab</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="muted small" style="margin-top:14px;">Idea: the device table is the single source of truth. Restaurants &amp; groups live in the rail as filters <em>and</em> drop targets — select rows, then “Assign to restaurant” / “Add to group”. Clicking a collection scopes the table to it.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+  function pick(el, f) {
+    document.querySelectorAll('.mrg-coll').forEach(c => c.classList.remove('cur'));
+    el.classList.add('cur');
+    var rows = document.querySelectorAll('#rows tr'), shown = 0;
+    rows.forEach(function (r) {
+      var ok = f === 'all'
+        || (f === 'lab' && r.dataset.loc === 'lab')
+        || (f.startsWith('loc:') && r.dataset.loc === f.slice(4))
+        || (f.startsWith('grp:') && (' ' + r.dataset.grp + ' ').indexOf(' ' + f.slice(4) + ' ') !== -1);
+      r.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    });
+    document.getElementById('scope-title').textContent = el.textContent.replace(/\s*\d+$/, '').trim();
+    document.getElementById('scope-sub').textContent = shown + ' devices';
+  }
+  function search(q) {
+    q = q.trim().toLowerCase();
+    document.querySelectorAll('#rows tr').forEach(function (r) {
+      r.style.display = (!q || r.dataset.serial.toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+    });
+  }
+  function upd() {
+    var n = document.querySelectorAll('#rows .cb:checked').length;
+    document.getElementById('selcount').textContent = n + ' selected';
+    document.getElementById('selbar').classList.toggle('on', n > 0);
+  }
+</script>
+</body>
+</html>

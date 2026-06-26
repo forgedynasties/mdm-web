@@ -5435,7 +5435,7 @@ func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Req
 // are throwaway design demos with synthetic data, not wired to the real fleet.
 func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 	switch r.PathValue("n") {
-	case "5", "8", "main1", "main2":
+	case "5", "8", "main1", "main2", "merge1", "merge2", "merge3":
 	default:
 		http.NotFound(w, r)
 		return
