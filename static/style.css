@@ -4618,3 +4618,26 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
   font-weight: 500; color: var(--text); text-align: left; background: none; border: 0; cursor: pointer; width: 100%; }
 .pl-pop-opt:hover { background: var(--hover); }
 .pl-pop-save { width: 100%; margin-top: 8px; font-size: 13px; padding: 8px; }
+
+/* AI sparkle button + analysis modal (device detail) */
+.ddc-btn-ai { border-color: transparent; background: var(--accent-soft); color: var(--accent); }
+.ddc-btn-ai:hover { background: var(--accent-soft); filter: brightness(.97); }
+.ddc-btn-ai svg { width: 15px; height: 15px; }
+.ai-modal-box { max-width: 600px; width: 100%; padding: 0; overflow: hidden; }
+.ai-modal-h { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; border-bottom: 1px solid var(--border-soft); }
+.ai-modal-title { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; }
+.ai-spark { width: 16px; height: 16px; flex: none; }
+.ai-grad { background: var(--brand-grad, linear-gradient(90deg,#7a80f6,#f9674e)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.ai-modal-body { padding: 16px 18px 18px; }
+.ai-result { border: 1px solid var(--border); border-radius: 11px; padding: 14px 15px; font-size: 13.5px; line-height: 1.6; max-height: 320px; overflow: auto; }
+.ai-result p:first-child { margin-top: 0; } .ai-result p:last-child { margin-bottom: 0; }
+.ai-modal-foot { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.ai-run { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; }
+.ai-run .ai-spark { width: 14px; height: 14px; }
+.ai-prev-wrap { margin-top: 18px; }
+.ai-prev-h { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 8px; }
+.ai-prev-list { display: flex; flex-direction: column; gap: 7px; max-height: 220px; overflow: auto; }
+.ai-prev-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left;
+  padding: 9px 11px; border: 1px solid var(--border-soft); border-radius: 9px; background: var(--surface); cursor: pointer; font: inherit; font-size: 12.5px; }
+.ai-prev-row:hover { background: var(--hover); }
+.ai-prev-snip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
