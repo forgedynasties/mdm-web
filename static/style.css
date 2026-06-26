@@ -4731,3 +4731,30 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 
 /* command-history show-more (device detail History tab) */
 .ch-collapsed .ch-extra { display: none; }
+
+/* users page */
+.users-wrap { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
+@media (max-width: 880px) { .users-wrap { grid-template-columns: 1fr; } }
+.user-list { display: flex; flex-direction: column; }
+.user-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; gap: 14px; align-items: center;
+  padding: 12px 18px; border-top: 1px solid var(--border-soft); }
+.user-row:first-child { border-top: 0; }
+.user-row:hover { background: var(--hover); }
+.user-av { width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px; text-transform: uppercase; color: #fff; background: var(--accent-2); }
+.role-av-admin { background: var(--accent); } .role-av-dev { background: var(--accent-2); }
+.role-av-tester { background: var(--ok); } .role-av-operator { background: var(--warn); } .role-av-viewer { background: var(--text-faint); }
+.user-id { min-width: 0; }
+.user-name { font-weight: 600; font-size: 14px; }
+.user-meta { margin-top: 1px; }
+.role-chip { display: inline-flex; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 700; text-transform: capitalize; }
+.role-admin { background: var(--accent-soft); color: var(--accent); }
+.role-dev { background: rgba(122,128,246,.14); color: #4b50c4; }
+.role-tester { background: rgba(43,182,115,.13); color: #1c7d50; }
+.role-operator { background: rgba(232,161,58,.15); color: #9a6512; }
+.role-viewer { background: var(--surface2); color: var(--muted); }
+html[data-theme="dark"] .role-dev { color: #a9adfb; }
+.user-act { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.user-role-sel { width: auto; padding: 5px 9px; font-size: 12px; }
+.user-del { border: 0; background: none; color: var(--text-faint); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.user-del:hover { color: var(--danger); }
