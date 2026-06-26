@@ -258,7 +258,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   {{/* ── Status & Group ── */}}
   <span class="filter-select-ic">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>
-    <select id="filter-status" class="filter-select {{if .FilterStatus}}active{{end}}" onchange="applyFilters()">
+    <button type="button" class="fchip-x" title="Clear status filter" aria-label="Clear status filter" onclick="event.stopPropagation();clearOne('filter-status')">✕</button>
+    <select id="filter-status" title="Filter by status" class="filter-select {{if .FilterStatus}}active{{end}}" onchange="applyFilters()">
       <option value="">All statuses</option>
       <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
       <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
@@ -267,7 +268,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 
   <span class="filter-select-ic">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
-    <select id="filter-group" class="filter-select {{if .FilterGroup}}active{{end}}" onchange="applyFilters()">
+    <button type="button" class="fchip-x" title="Clear group filter" aria-label="Clear group filter" onclick="event.stopPropagation();clearOne('filter-group')">✕</button>
+    <select id="filter-group" title="Filter by group" class="filter-select {{if .FilterGroup}}active{{end}}" onchange="applyFilters()">
       <option value="">All groups</option>
       {{range .Groups}}
         <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
@@ -277,7 +279,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 
   <span class="filter-select-ic">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>
-    <select id="filter-production" class="filter-select {{if .FilterProduction}}active{{end}}" onchange="applyFilters()">
+    <button type="button" class="fchip-x" title="Clear production filter" aria-label="Clear production filter" onclick="event.stopPropagation();clearOne('filter-production')">✕</button>
+    <select id="filter-production" title="Filter by production" class="filter-select {{if .FilterProduction}}active{{end}}" onchange="applyFilters()">
       <option value="">All productions</option>
       {{range .Productions}}
         <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterProduction}}selected{{end}}>{{.Name}}</option>
@@ -287,7 +290,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 
   <span class="filter-select-ic">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
-    <select id="filter-build" class="filter-select {{if .FilterBuild}}active{{end}}" onchange="applyFilters()">
+    <button type="button" class="fchip-x" title="Clear release filter" aria-label="Clear release filter" onclick="event.stopPropagation();clearOne('filter-build')">✕</button>
+    <select id="filter-build" title="Filter by release" class="filter-select {{if .FilterBuild}}active{{end}}" onchange="applyFilters()">
       <option value="">All releases</option>
       {{range .Builds}}
         <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
@@ -300,7 +304,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   {{/* ── Alerts / Health ── */}}
   <span class="filter-select-ic">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>
-    <select id="filter-battery" class="filter-select {{if .FilterBattery}}active{{end}}" onchange="applyFilters()">
+    <button type="button" class="fchip-x" title="Clear battery filter" aria-label="Clear battery filter" onclick="event.stopPropagation();clearOne('filter-battery')">✕</button>
+    <select id="filter-battery" title="Filter by battery" class="filter-select {{if .FilterBattery}}active{{end}}" onchange="applyFilters()">
       <option value="">Any battery</option>
       <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical &lt;20%</option>
       <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low 20-49%</option>
@@ -310,7 +315,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 
   <span class="filter-select-ic">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-    <select id="filter-kiosk" class="filter-select {{if .FilterKiosk}}active{{end}}" onchange="applyFilters()">
+    <button type="button" class="fchip-x" title="Clear kiosk filter" aria-label="Clear kiosk filter" onclick="event.stopPropagation();clearOne('filter-kiosk')">✕</button>
+    <select id="filter-kiosk" title="Filter by kiosk" class="filter-select {{if .FilterKiosk}}active{{end}}" onchange="applyFilters()">
       <option value="">Any kiosk</option>
       <option value="enabled" {{if eq .FilterKiosk "enabled"}}selected{{end}}>Kiosk enabled</option>
       <option value="disabled" {{if eq .FilterKiosk "disabled"}}selected{{end}}>Kiosk disabled</option>
@@ -319,7 +325,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 
   <span class="filter-select-ic">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-    <select id="filter-timezone" class="filter-select {{if .FilterTimezone}}active{{end}}" onchange="applyFilters()">
+    <button type="button" class="fchip-x" title="Clear timezone filter" aria-label="Clear timezone filter" onclick="event.stopPropagation();clearOne('filter-timezone')">✕</button>
+    <select id="filter-timezone" title="Filter by timezone" class="filter-select {{if .FilterTimezone}}active{{end}}" onchange="applyFilters()">
       <option value="">Any timezone</option>
       {{range .Timezones}}
         <option value="{{.}}" {{if eq . $.FilterTimezone}}selected{{end}}>{{.}}</option>
@@ -392,6 +399,12 @@ function navigateDevices(overrides) {
 
 function applyFilters() {
   navigateDevices({page: '1'});
+}
+
+// Clear a single filter from its chip ✕; the :has() CSS recollapses it to an icon.
+function clearOne(id) {
+  var s = document.getElementById(id);
+  if (s) { s.value = ''; applyFilters(); }
 }
 
 function setHidden(val) {

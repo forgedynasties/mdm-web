@@ -2564,6 +2564,51 @@ input[type="checkbox"]:hover {
 .filter-select-ic > .filter-select { padding-left: 28px; }
 .filter-select-ic:has(.filter-select.active) > svg { color: var(--accent); }
 
+/* Compact: when a filter is unset (its empty "All/Any" option is selected),
+   collapse it to an icon-only button. When set, it expands to icon + value.
+   Pure CSS so it stays live without touching applyFilters(). */
+.filter-select-ic:has(.filter-select option:checked[value=""]) > .filter-select {
+  width: 36px;
+  padding: 6px 0;
+  color: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.filter-select-ic:has(.filter-select option:checked[value=""]) > svg { left: 11px; }
+
+/* Active: a value is chosen → accent chip (icon + value) with a clear ✕. */
+.filter-select-ic:has(.filter-select option:checked:not([value=""])) > .filter-select {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  padding-right: 26px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.filter-select-ic:has(.filter-select option:checked:not([value=""])) > svg { color: var(--accent); }
+.fchip-x {
+  display: none;
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: var(--accent);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.fchip-x:hover { background: var(--accent); color: #fff; }
+.filter-select-ic:has(.filter-select option:checked:not([value=""])) > .fchip-x { display: inline-flex; }
+
 .filter-pills {
   display: inline-flex;
   background: var(--surface2);
