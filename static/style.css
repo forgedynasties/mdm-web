@@ -4604,3 +4604,14 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .pkg-opt.active, .pkg-opt:hover { background: var(--accent-soft); }
 .pkg-opt-name { font-size: 13px; font-weight: 600; }
 .pkg-opt-pkg { font-size: 11px; color: var(--muted); }
+
+/* placement popovers (device detail) */
+.pl-pop-wrap { position: relative; display: inline-flex; }
+.pl-pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 50; width: 230px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 11px; box-shadow: var(--shadow-lg); padding: 8px; }
+.pl-pop-h { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-faint); padding: 4px 8px 8px; }
+.pl-pop-list { display: flex; flex-direction: column; gap: 1px; max-height: 240px; overflow: auto; }
+.pl-pop-opt { display: flex; align-items: center; gap: 8px; padding: 8px 9px; border-radius: 8px; font: inherit; font-size: 13px;
+  font-weight: 500; color: var(--text); text-align: left; background: none; border: 0; cursor: pointer; width: 100%; }
+.pl-pop-opt:hover { background: var(--hover); }
+.pl-pop-save { width: 100%; margin-top: 8px; font-size: 13px; padding: 8px; }
