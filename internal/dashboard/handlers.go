@@ -1826,6 +1826,21 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		restaurants, _ = h.db.ListRestaurants(r.Context())
 	}
 	deviceGroups, _ := h.db.ListDeviceGroups(r.Context(), device.ID)
+	// Groups the device is NOT yet in — for the placement "+ group" picker.
+	var addableGroups []db.Group
+	if h.role(r) == "admin" {
+		inGroup := make(map[uuid.UUID]bool, len(deviceGroups))
+		for _, g := range deviceGroups {
+			inGroup[g.ID] = true
+		}
+		if allGroups, err := h.db.ListGroups(r.Context()); err == nil {
+			for _, g := range allGroups {
+				if !inGroup[g.ID] {
+					addableGroups = append(addableGroups, g)
+				}
+			}
+		}
+	}
 	// Couple the device's reported build to a known release (release.version ==
 	// device.build_id). nil = the device runs a build with no matching release.
 	var release *db.Release
@@ -1848,6 +1863,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"RemoteEnabled":       h.cfg.RemoteEnabled(),
 		"Restaurants":         restaurants,
 		"DeviceGroups":        deviceGroups,
+		"AddableGroups":       addableGroups,
 	})
 }
 
