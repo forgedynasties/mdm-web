@@ -2564,17 +2564,8 @@ input[type="checkbox"]:hover {
 .filter-select-ic > .filter-select { padding-left: 28px; }
 .filter-select-ic:has(.filter-select.active) > svg { color: var(--accent); }
 
-/* Compact: when a filter is unset (its empty "All/Any" option is selected),
-   collapse it to an icon-only button. When set, it expands to icon + value.
-   Pure CSS so it stays live without touching applyFilters(). */
-.filter-select-ic:has(.filter-select option:checked[value=""]) > .filter-select {
-  width: 36px;
-  padding: 6px 0;
-  color: transparent;
-  -webkit-appearance: none;
-  appearance: none;
-}
-.filter-select-ic:has(.filter-select option:checked[value=""]) > svg { left: 11px; }
+/* Unset filters show a short label next to the icon (muted); set filters become an
+   accent chip with a clear ✕ — all driven live by :has(option:checked). */
 
 /* Active: a value is chosen → accent chip (icon + value) with a clear ✕. */
 .filter-select-ic:has(.filter-select option:checked:not([value=""])) > .filter-select {
