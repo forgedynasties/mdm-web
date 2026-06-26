@@ -1,9 +1,8 @@
 {{define "device-table"}}
-{{if or .Query .FilterStatus .FilterGroup .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterTimezone .FilterHidden}}
+{{if or .Query .FilterStatus .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterTimezone .FilterHidden}}
 <div class="fleet-chips">
   {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
   {{if .FilterStatus}}<span class="fchip"><span class="k">Status</span> {{if eq .FilterStatus "online"}}Online{{else}}Offline{{end}} <button type="button" class="x" onclick="clearOne('filter-status')" aria-label="Clear status">×</button></span>{{end}}
-  {{if .FilterGroup}}<span class="fchip"><span class="k">Group</span> {{range $.Groups}}{{if eq (printf "%s" .ID) $.FilterGroup}}{{.Name}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-group')" aria-label="Clear group">×</button></span>{{end}}
   {{if .FilterProduction}}<span class="fchip"><span class="k">Production</span> {{range $.Productions}}{{if eq (printf "%s" .ID) $.FilterProduction}}{{.Name}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-production')" aria-label="Clear production">×</button></span>{{end}}
   {{if .FilterBuild}}<span class="fchip"><span class="k">Release</span> {{.FilterBuild}} <button type="button" class="x" onclick="clearOne('filter-build')" aria-label="Clear release">×</button></span>{{end}}
   {{if .FilterBattery}}<span class="fchip"><span class="k">Battery</span> {{if eq .FilterBattery "low"}}Critical &lt;20%{{else if eq .FilterBattery "mid"}}Low 20–49%{{else}}Healthy 50%+{{end}} <button type="button" class="x" onclick="clearOne('filter-battery')" aria-label="Clear battery">×</button></span>{{end}}
@@ -215,26 +214,61 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 {{define "devices.html"}}
 {{template "header" .}}
 
-{{template "fleet-tabs" .}}
-<div class="ov-greet">
-  <span class="ov-date">{{.Summary.Total}} enrolled · fleet roster</span>
-  <span class="ov-live"><i></i>live</span>
-  <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
-  <button type="button" class="btn-outline" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list">
-    <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Refresh
-  </button>
+{{/* ── Fleet header (title only — keeps clear of the fixed top-right search) ── */}}
+<div class="ov-greet" style="margin-bottom:14px;">
+  <h1 class="ov-title">Fleet</h1>
 </div>
 
-{{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
-<div class="fleet-views dv-rise-1">
-  <button type="button" class="fleet-view" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
-  <button type="button" class="fleet-view" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
-  <button type="button" class="fleet-view" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
-  <button type="button" class="fleet-view" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
-  <button type="button" class="fleet-view" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
-  <button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Hidden</button>
-</div>
+<div class="fleet-md dv-rise-1">
+  {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
+  <aside class="fleet-rail" aria-label="Collections">
+    <button type="button" class="fleet-rail-item{{if and (not .FilterRestaurant) (not .FilterGroup)}} on{{end}}"
+            data-coll="all" data-name="All devices" data-count="{{.Summary.Total}}" onclick="selectCollection('all','')">
+      <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.Summary.Total}}</span>
+    </button>
 
+    {{if .RailRestaurants}}
+    <div class="fleet-rail-cap"><a href="/restaurants">Restaurants</a>{{if canAdmin .Role}}<a href="/restaurants/new" class="add" title="New restaurant">+</a>{{end}}</div>
+    {{range .RailRestaurants}}
+    <button type="button" class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.FilterRestaurant}} on{{end}}"
+            data-coll="restaurant" data-id="{{.GroupID}}" data-name="{{.Name}}" data-count="{{.DeviceCount}}" onclick="selectCollection('restaurant','{{.GroupID}}')">
+      <span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span>
+    </button>
+    {{end}}
+    {{end}}
+
+    {{if .RailGroups}}
+    <div class="fleet-rail-cap"><a href="/groups">Groups</a>{{if canAdmin .Role}}<a href="/groups/new" class="add" title="New group">+</a>{{end}}</div>
+    {{range .RailGroups}}
+    <button type="button" class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.FilterGroup}} on{{end}}"
+            data-coll="group" data-id="{{.GroupID}}" data-name="{{.Name}}" data-count="{{.DeviceCount}}" onclick="selectCollection('group','{{.GroupID}}')">
+      <span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span>
+    </button>
+    {{end}}
+    {{end}}
+  </aside>
+
+  {{/* ── Roster pane ── */}}
+  <div class="fleet-roster">
+    <div class="fleet-pane-head">
+      <span class="t" id="roster-title">{{.SelectedCollection}}</span>
+      <span class="c" id="roster-count">{{.Total}} device{{if ne .Total 1}}s{{end}}</span>
+      <span class="ov-live" style="margin-left:auto;"><i></i>live</span>
+      <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
+      <button type="button" class="btn-outline" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Refresh
+      </button>
+    </div>
+
+    {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
+    <div class="fleet-views">
+      <button type="button" class="fleet-view" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
+      <button type="button" class="fleet-view" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
+      <button type="button" class="fleet-view" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
+      <button type="button" class="fleet-view" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
+      <button type="button" class="fleet-view" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
+      <button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Hidden</button>
+    </div>
 
 
 <div class="fleet-bar dv-rise-1">
@@ -258,11 +292,6 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
             <option value="">Any status</option>
             <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
             <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
-          </select></label>
-        <label class="fp-field"><span>Group</span>
-          <select id="filter-group" onchange="applyFilters()">
-            <option value="">Any group</option>
-            {{range .Groups}}<option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>{{end}}
           </select></label>
         <label class="fp-field"><span>Production</span>
           <select id="filter-production" onchange="applyFilters()">
@@ -308,8 +337,6 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       </div>
     </div>
   </div>
-
-  <button type="button" class="fleet-iconbtn density-toggle" id="density-toggle" onclick="toggleDensity()" title="Toggle compact view" aria-label="Toggle compact view"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3h12M2 8h12M2 13h12"/></svg></button>
 </div>
 
 <script>
@@ -321,6 +348,7 @@ function getFilterVals(overrides) {
     dir: p.get('dir') || '',
     page: p.get('page') || '1',
     group: p.get('group') || '',
+    restaurant: p.get('restaurant') || '',
     production: p.get('production') || '',
     status: p.get('status') || '',
     build: p.get('build') || '',
@@ -382,9 +410,19 @@ function setHidden(val) {
 }
 
 function clearFilters() {
-  ['filter-group', 'filter-production', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-timezone'].forEach(function(id) { setSel(id, ''); });
+  // Clears the popover filters + search + visibility, but keeps the rail
+  // collection (group/restaurant) in scope.
+  ['filter-production', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-timezone'].forEach(function(id) { setSel(id, ''); });
   setSel('search-input', '');
-  navigateDevices({page: '1', q: '', group: '', production: '', status: '', build: '', battery: '', kiosk: '', timezone: '', hidden: ''});
+  navigateDevices({page: '1', q: '', production: '', status: '', build: '', battery: '', kiosk: '', timezone: '', hidden: ''});
+}
+
+// Collections rail: scope the roster to one collection, clearing the opposite.
+function selectCollection(type, id) {
+  var ov = {page: '1', group: '', restaurant: ''};
+  if (type === 'group') ov.group = id;
+  else if (type === 'restaurant') ov.restaurant = id;
+  navigateDevices(ov);
 }
 
 // Quick views are mutually-exclusive shortcuts: each clears the other view
@@ -438,7 +476,8 @@ function syncFilterUI() {
   else if (status === 'online') view = 'online';
   else if (status === 'offline') view = 'offline';
   document.querySelectorAll('.fleet-view').forEach(function(b) { b.classList.toggle('on', b.dataset.view === view); });
-  var cnt = 0; ['status', 'group', 'production', 'build', 'battery', 'kiosk', 'timezone'].forEach(function(k) { if (p.get(k)) cnt++; });
+  // Filters badge: popover filters only (group/restaurant are the rail's job).
+  var cnt = 0; ['status', 'production', 'build', 'battery', 'kiosk', 'timezone'].forEach(function(k) { if (p.get(k)) cnt++; });
   var btn = document.getElementById('filters-btn');
   if (btn) {
     btn.classList.toggle('has', cnt > 0);
@@ -446,6 +485,21 @@ function syncFilterUI() {
     if (badge) { badge.textContent = cnt; if (cnt > 0) badge.removeAttribute('hidden'); else badge.setAttribute('hidden', ''); }
   }
   document.querySelectorAll('.fleet-seg [data-vis]').forEach(function(b) { b.classList.toggle('on', b.dataset.vis === hidden); });
+
+  // Collections rail highlight + roster heading.
+  var group = p.get('group') || '', restaurant = p.get('restaurant') || '';
+  var activeColl = 'all', activeId = '';
+  if (restaurant) { activeColl = 'restaurant'; activeId = restaurant; }
+  else if (group) { activeColl = 'group'; activeId = group; }
+  var title = 'All devices', count = null;
+  document.querySelectorAll('.fleet-rail-item').forEach(function(b) {
+    var on = (b.dataset.coll === 'all' && activeColl === 'all') || (b.dataset.coll === activeColl && b.dataset.id === activeId);
+    b.classList.toggle('on', on);
+    if (on) { title = b.dataset.name || title; count = b.dataset.count; }
+  });
+  var rt = document.getElementById('roster-title'); if (rt) rt.textContent = title;
+  var rc = document.getElementById('roster-count');
+  if (rc && count != null) rc.textContent = count + (count === '1' ? ' device' : ' devices');
 }
 document.addEventListener('DOMContentLoaded', syncFilterUI);
 
@@ -604,20 +658,11 @@ function closeBulkKioskModal(event) {
   }
 }
 
-// Density toggle
-function toggleDensity() {
-  var el = document.getElementById('device-table-container');
-  var compact = el.classList.toggle('compact');
-  localStorage.setItem('mdm-density', compact ? 'compact' : 'comfortable');
-  document.getElementById('density-toggle').classList.toggle('active', compact);
-}
+// Apply the saved table density on load (the compact-view toggle was removed).
 (function() {
-  var density = localStorage.getItem('mdm-density') || '{{.Density}}';
-  if (density === 'compact') {
-    document.getElementById('device-table-container').classList.add('compact');
-    document.getElementById('density-toggle').classList.add('active');
-  } else {
-    document.getElementById('density-toggle').classList.remove('active');
+  if ((localStorage.getItem('mdm-density') || '{{.Density}}') === 'compact') {
+    var el = document.getElementById('device-table-container');
+    if (el) el.classList.add('compact');
   }
 })();
 document.body.addEventListener('htmx:afterSwap', function(evt) {
@@ -691,6 +736,8 @@ document.addEventListener('keydown', function(e) {
     <div class="device-inspector-body" id="device-inspector-body"></div>
   </aside>
 </div>
+  </div>{{/* .fleet-roster */}}
+</div>{{/* .fleet-md */}}
 
 <script>
   // Manual refresh (used by refresh button and visibility change).

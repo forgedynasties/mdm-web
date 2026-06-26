@@ -4226,3 +4226,40 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
   .fp-grid { grid-template-columns: 1fr; }
   .fleet-pop { width: 340px; }
 }
+
+/* ════════════════════════════════════════════════════════
+   FLEET page · master–detail (L-A) — collections rail + roster
+   ════════════════════════════════════════════════════════ */
+.fleet-md { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 20px; align-items: start; }
+.fleet-rail { position: sticky; top: 16px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 14px; padding: 10px 8px; max-height: calc(100vh - 32px); overflow-y: auto; }
+.fleet-rail-cap { display: flex; align-items: center; gap: 6px; margin: 15px 8px 5px; font-size: 10px;
+  font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
+.fleet-rail-cap:first-child { margin-top: 4px; }
+.fleet-rail-cap a:first-child { color: var(--text-faint); }
+.fleet-rail-cap a:first-child:hover { color: var(--accent); }
+.fleet-rail-cap .add { margin-left: auto; width: 18px; height: 18px; display: inline-flex; align-items: center;
+  justify-content: center; border-radius: 6px; font-size: 15px; line-height: 1; color: var(--muted); }
+.fleet-rail-cap .add:hover { background: var(--accent-soft); color: var(--accent); }
+.fleet-rail-item { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 9px; border: 0;
+  background: none; border-radius: 9px; font: inherit; font-size: 13px; color: var(--text-2); cursor: pointer; text-align: left; }
+.fleet-rail-item:hover { background: var(--hover); }
+.fleet-rail-item.on { background: var(--accent-soft); color: var(--accent); }
+.fleet-rail-item .nm { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fleet-rail-item .ct { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+.fleet-rail-item.on .ct { color: var(--accent); }
+.fleet-rail-item .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.fleet-rail-item .dot.ok { background: var(--ok); }
+.fleet-rail-item .dot.warn { background: var(--warn); }
+.fleet-rail-item .dot.bad { background: var(--danger); }
+.fleet-rail-item .dot.muted { background: var(--text-faint); }
+
+.fleet-roster { min-width: 0; }
+.fleet-pane-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.fleet-pane-head .t { font-size: 17px; font-weight: 700; }
+.fleet-pane-head .c { font-size: 13px; color: var(--muted); }
+
+@media (max-width: 920px) {
+  .fleet-md { grid-template-columns: 1fr; }
+  .fleet-rail { position: static; max-height: none; }
+}

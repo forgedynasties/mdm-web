@@ -1317,11 +1317,19 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var restaurantID uuid.UUID
+	if rid := r.URL.Query().Get("restaurant"); rid != "" {
+		if parsed, err := uuid.Parse(rid); err == nil {
+			restaurantID = parsed
+		}
+	}
+
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
 	filter := db.DeviceFilter{
 		Search:              q,
 		GroupID:             groupID,
+		RestaurantID:        restaurantID,
 		ProductionID:        productionID,
 		Online:              r.URL.Query().Get("status"),
 		BuildID:             r.URL.Query().Get("build"),
@@ -1341,9 +1349,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		builds      []string
 		timezones   []string
 		restaurants []db.Restaurant
+		railGroups  []db.GroupHealth
+		railRests   []db.GroupHealth
 	)
 
-	errCh := make(chan error, 8)
+	errCh := make(chan error, 10)
 	var wg sync.WaitGroup
 	run := func(fn func() error) {
 		wg.Add(1)
@@ -1395,6 +1405,16 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		restaurants, err = h.db.ListRestaurants(r.Context())
 		return err
 	})
+	run(func() error {
+		var err error
+		railGroups, err = h.db.GetGroupHealth(r.Context(), activeThreshold)
+		return err
+	})
+	run(func() error {
+		var err error
+		railRests, err = h.db.GetRestaurantHealth(r.Context(), activeThreshold, 7)
+		return err
+	})
 
 	wg.Wait()
 	close(errCh)
@@ -1417,11 +1437,30 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Count of active dropdown filters (drives the "Filters" button badge).
+	// Group/restaurant are excluded — those are driven by the collections rail.
 	qv := r.URL.Query()
 	filterCount := 0
-	for _, k := range []string{"status", "group", "production", "build", "battery", "kiosk", "timezone"} {
+	for _, k := range []string{"status", "production", "build", "battery", "kiosk", "timezone"} {
 		if qv.Get(k) != "" {
 			filterCount++
+		}
+	}
+
+	// Name of the rail collection currently scoping the roster.
+	selectedCollection := "All devices"
+	if restaurantID != uuid.Nil {
+		for _, rr := range railRests {
+			if rr.GroupID == restaurantID {
+				selectedCollection = rr.Name
+				break
+			}
+		}
+	} else if groupID != uuid.Nil {
+		for _, g := range railGroups {
+			if g.GroupID == groupID {
+				selectedCollection = g.Name
+				break
+			}
 		}
 	}
 
@@ -1430,6 +1469,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Devices":              devices,
 		"Total":                total,
 		"FilterCount":          filterCount,
+		"RailGroups":           railGroups,
+		"RailRestaurants":      railRests,
+		"FilterRestaurant":     qv.Get("restaurant"),
+		"SelectedCollection":   selectedCollection,
 		"Page":                 page,
 		"TotalPages":           totalPages,
 		"Query":                q,
