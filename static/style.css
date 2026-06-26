@@ -3465,31 +3465,34 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 
 /* Tab bar */
 .dd-tabs {
-  display: flex;
-  gap: 26px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 22px;
+  display: inline-flex;
+  gap: 3px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  margin-bottom: 18px;
+  max-width: 100%;
   overflow-x: auto;
 }
 .dd-tab {
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  padding: 0 0 12px;
+  border-radius: 9px;
+  padding: 8px 16px;
   font-family: var(--font);
-  font-size: 15px;
-  font-weight: var(--fw-medium);
+  font-size: 13.5px;
+  font-weight: var(--fw-semibold);
   color: var(--muted);
   cursor: pointer;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
 }
 .dd-tab:hover { color: var(--text); }
-.dd-tab.active { color: var(--text); font-weight: var(--fw-semibold); border-bottom-color: var(--accent); }
+.dd-tab.active { color: var(--accent); background: var(--surface); box-shadow: var(--shadow-sm); }
 .pill-beta {
   font-size: 10px;
   font-weight: var(--fw-semibold);
