@@ -74,6 +74,7 @@
       {{if .ShellEnabled}}<a href="/devices/{{.Device.SerialNumber}}/shell" class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
       <button type="button" class="ddc-btn" title="Screenshot" onclick="ddHeroAction('screenshot')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</button>
       <a href="/devices/{{.Device.SerialNumber}}/logcat" class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg>Logcat</a>
+      <button type="button" class="ddc-btn ddc-btn-ai" title="Analyze with AI" onclick="aiOpen()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze with AI</button>
       <button type="button" class="ddc-btn ddc-btn-icon" title="More — open Controls" onclick="document.querySelector('.dd-tab[data-dd-tab=controls]').click()" aria-label="More actions">⋯</button>
     </div>
   </div>
@@ -996,17 +997,6 @@
   {{end}}
 </div>
 
-<div class="card" style="margin-top:16px;">
-  <div class="card-header">
-    <h3>AI analysis</h3>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <span id="dev-ai-meta" class="muted small"></span>
-      <button type="button" id="dev-ai-btn" class="btn-primary" style="font-size:12px;padding:5px 14px;" onclick="runDeviceAI()">Analyze with AI</button>
-    </div>
-  </div>
-  <div style="padding:14px 20px;"><div id="dev-ai-text" class="ai-text small" style="line-height:1.5;"><span class="muted">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action. Click to run.</span></div></div>
-</div>
-
 </section><!-- /summary -->
 
 <section class="dd-panel" data-dd-panel="apps" hidden>
@@ -1342,23 +1332,54 @@ function filterInstalledApps(q) {
   {{template "device-commands" .}}
 </section><!-- /history -->
 <script>
-function runDeviceAI() {
-  var serial = '{{.Device.SerialNumber}}';
-  var btn = document.getElementById('dev-ai-btn'),
-      out = document.getElementById('dev-ai-text'),
-      meta = document.getElementById('dev-ai-meta');
-  btn.disabled = true; var label = btn.textContent; btn.textContent = 'Analyzing…';
-  out.textContent = 'Reading 30 days of telemetry…'; meta.textContent = '';
-  fetch('/devices/' + encodeURIComponent(serial) + '/ai-analysis', { method: 'POST' })
-    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-    .then(function (res) {
-      if (!res.ok) { out.textContent = res.j.error || 'Analysis failed.'; return; }
-      out.innerHTML = window.mdmRenderMarkdown(res.j.text);
-      meta.textContent = res.j.model + ' · ' + new Date(res.j.generated_at).toLocaleString();
-    })
-    .catch(function () { out.textContent = 'Network error.'; })
-    .finally(function () { btn.disabled = false; btn.textContent = label; });
-}
+(function () {
+  var SERIAL = '{{.Device.SerialNumber}}';
+  var cache = {};
+  function el(id) { return document.getElementById(id); }
+  function fmtDate(s) { try { return new Date(s).toLocaleString(); } catch (e) { return s; } }
+
+  window.aiOpen = function () { el('ai-modal').classList.add('modal-open'); aiLoadPrev(); };
+  window.aiClose = function () { el('ai-modal').classList.remove('modal-open'); };
+  window.aiBackdrop = function (e) { if (e.target.id === 'ai-modal') aiClose(); };
+
+  function aiLoadPrev() {
+    var box = el('ai-prev'); box.innerHTML = '<div class="muted small">Loading…</div>';
+    fetch('/devices/' + encodeURIComponent(SERIAL) + '/ai-analyses')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var list = (j && j.analyses) || []; cache = {};
+        if (!list.length) { box.innerHTML = '<div class="muted small">No previous analyses yet.</div>'; return; }
+        box.innerHTML = list.map(function (a) {
+          cache[a.id] = a;
+          var snip = (a.text || '').replace(/[#*`>_]/g, '').replace(/\s+/g, ' ').trim().slice(0, 80);
+          return '<button type="button" class="ai-prev-row" onclick="aiShowPrev(' + a.id + ')"><span class="ai-prev-snip">' + snip + '…</span><span class="muted small">' + fmtDate(a.created_at) + '</span></button>';
+        }).join('');
+      })
+      .catch(function () { box.innerHTML = '<div class="muted small">Couldn\'t load history.</div>'; });
+  }
+
+  window.aiShowPrev = function (id) {
+    var a = cache[id]; if (!a) return;
+    el('ai-result').innerHTML = window.mdmRenderMarkdown(a.text);
+    el('ai-meta').textContent = a.model + ' · ' + fmtDate(a.created_at);
+  };
+
+  window.aiRun = function () {
+    var btn = el('ai-run-btn'), out = el('ai-result'), meta = el('ai-meta');
+    btn.disabled = true; var label = btn.innerHTML; btn.innerHTML = 'Analyzing…';
+    out.innerHTML = '<span class="muted">Reading 30 days of telemetry…</span>'; meta.textContent = '';
+    fetch('/devices/' + encodeURIComponent(SERIAL) + '/ai-analysis', { method: 'POST' })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) { out.innerHTML = '<span class="muted">' + (res.j.error || 'Analysis failed.') + '</span>'; return; }
+        out.innerHTML = window.mdmRenderMarkdown(res.j.text);
+        meta.textContent = res.j.model + ' · ' + fmtDate(res.j.generated_at);
+        aiLoadPrev();
+      })
+      .catch(function () { out.innerHTML = '<span class="muted">Network error.</span>'; })
+      .finally(function () { btn.disabled = false; btn.innerHTML = label; });
+  };
+})();
 </script>
 </div><!-- /ddc-main -->
 </div><!-- /ddc-body -->
@@ -1707,6 +1728,27 @@ async function saveNewApp() {
   document.addEventListener('click', function (e) { if (!combo.contains(e.target)) { input.value = labelFor(hidden.value); close(); } });
 })();
 </script>
+
+<div id="ai-modal" class="modal-backdrop" onclick="aiBackdrop(event)">
+  <div class="modal-box ai-modal-box">
+    <div class="ai-modal-h">
+      <span class="ai-modal-title"><svg class="ai-spark" viewBox="0 0 24 24" fill="#7a80f6"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg><span class="ai-grad">AI analysis</span><span class="muted mono" style="font-weight:500;font-size:13px"> · {{.Device.SerialNumber}}</span></span>
+      <button type="button" class="modal-close" aria-label="Close" onclick="aiClose()">&times;</button>
+    </div>
+    <div class="ai-modal-body">
+      <div id="ai-result" class="ai-result"><span class="muted">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action.</span></div>
+      <div class="ai-modal-foot">
+        <span id="ai-meta" class="muted small"></span>
+        <span style="flex:1"></span>
+        <button type="button" id="ai-run-btn" class="btn-primary ai-run" onclick="aiRun()"><svg class="ai-spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</button>
+      </div>
+      <div class="ai-prev-wrap">
+        <div class="ai-prev-h">Previous analyses</div>
+        <div id="ai-prev" class="ai-prev-list"><div class="muted small">Loading…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
 
 {{template "footer" .}}
 {{end}}

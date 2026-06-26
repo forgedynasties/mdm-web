@@ -6461,6 +6461,7 @@ func (h *Handler) DeviceAIAnalysis(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusNotFound, "Device not found")
 		return
 	}
+	var resultText, resultModel string
 	h.writeAIResult(w, r, func(ctx context.Context, c *ai.Client) (string, ai.Usage, error) {
 		stats, err := h.db.GetDeviceDailyStats(ctx, device.ID, 30)
 		if err != nil {
@@ -6474,9 +6475,35 @@ func (h *Handler) DeviceAIAnalysis(w http.ResponseWriter, r *http.Request) {
 				devAlerts = append(devAlerts, a)
 			}
 		}
-		return c.AnalyzeDevice(ctx, serial, device.DeployedEffective, stats, devAlerts)
+		text, usage, err := c.AnalyzeDevice(ctx, serial, device.DeployedEffective, stats, devAlerts)
+		if err == nil {
+			resultText, resultModel = text, c.Model()
+		}
+		return text, usage, err
 	})
+	if resultText != "" {
+		if err := h.db.SaveDeviceAIAnalysis(r.Context(), device.ID, resultModel, resultText); err != nil {
+			log.Printf("[ai] save device analysis: %v", err)
+		}
+	}
 	h.audit(r, "ai.device", serial, "")
+}
+
+// DeviceAIAnalysesList returns a device's stored AI analyses (newest first) as JSON.
+func (h *Handler) DeviceAIAnalysesList(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		writeJSONError(w, http.StatusNotFound, "Device not found")
+		return
+	}
+	list, err := h.db.ListDeviceAIAnalyses(r.Context(), device.ID, 20)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, "Failed to load analyses")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{"analyses": list})
 }
 
 func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Request) {
@@ -7189,6 +7216,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.DeviceBatteryCSV))
 	mux.HandleFunc("GET /devices/{serial}/daily-stats", h.requireAuth(h.DeviceDailyStatsJSON))
 	post("POST /devices/{serial}/ai-analysis", h.requireAuth(h.DeviceAIAnalysis))
+	mux.HandleFunc("GET /devices/{serial}/ai-analyses", h.requireAuth(h.DeviceAIAnalysesList))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireOperatorOrAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))

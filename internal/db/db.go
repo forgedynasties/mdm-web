@@ -3598,6 +3598,53 @@ type AIUsageTotals struct {
 	OutputTokens int64 `json:"output_tokens"`
 }
 
+// DeviceAIAnalysis is one stored AI reading of a device.
+type DeviceAIAnalysis struct {
+	ID        int64     `json:"id"`
+	Model     string    `json:"model"`
+	Text      string    `json:"text"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// SaveDeviceAIAnalysis records one analysis; old rows beyond the most recent 20
+// per device are trimmed so the history stays small.
+func (d *DB) SaveDeviceAIAnalysis(ctx context.Context, deviceID uuid.UUID, model, text string) error {
+	if _, err := d.pool.Exec(ctx,
+		`INSERT INTO device_ai_analyses (device_id, model, text) VALUES ($1, $2, $3)`,
+		deviceID, model, text); err != nil {
+		return err
+	}
+	_, _ = d.pool.Exec(ctx, `
+		DELETE FROM device_ai_analyses
+		WHERE device_id = $1 AND id NOT IN (
+			SELECT id FROM device_ai_analyses WHERE device_id = $1 ORDER BY created_at DESC LIMIT 20
+		)`, deviceID)
+	return nil
+}
+
+// ListDeviceAIAnalyses returns a device's recent analyses, newest first.
+func (d *DB) ListDeviceAIAnalyses(ctx context.Context, deviceID uuid.UUID, limit int) ([]DeviceAIAnalysis, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := d.pool.Query(ctx,
+		`SELECT id, model, text, created_at FROM device_ai_analyses
+		 WHERE device_id = $1 ORDER BY created_at DESC LIMIT $2`, deviceID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DeviceAIAnalysis
+	for rows.Next() {
+		var a DeviceAIAnalysis
+		if err := rows.Scan(&a.ID, &a.Model, &a.Text, &a.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
 // RecordAIUsage adds one call's token counts to today's ai_usage row (upsert).
 func (d *DB) RecordAIUsage(ctx context.Context, inputTokens, outputTokens int64) error {
 	_, err := d.pool.Exec(ctx, `
@@ -4886,6 +4933,17 @@ CREATE TABLE IF NOT EXISTS ai_summary (
     model        TEXT NOT NULL DEFAULT '',
     generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Per-device AI analyses, kept as a short history so the device page can show
+-- past readings alongside a fresh one.
+CREATE TABLE IF NOT EXISTS device_ai_analyses (
+    id         BIGSERIAL PRIMARY KEY,
+    device_id  UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    model      TEXT NOT NULL DEFAULT '',
+    text       TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_device_ai_analyses_device ON device_ai_analyses (device_id, created_at DESC);
 
 -- One-time data migrations that must run exactly once (no versioned migration tool).
 CREATE TABLE IF NOT EXISTS app_flags (
