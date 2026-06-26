@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device detail — directions · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --accent:#f9674e;--accent-2:#7a80f6;--grad:linear-gradient(90deg,#7a80f6,#f9674e);
+  --ok:#2bb673;--warn:#e8a13a;--low:#e5484d;
+  --ink:#1c2024;--muted:#62677a;--faint:#9aa0b0;
+  --surface:#fff;--bg:#f6f7f9;--border:#e7e8ee;--soft:#eceef3;--hover:#f7f8fa;
+  --accent-soft:rgba(249,103,78,.1);
+}
+*{box-sizing:border-box}
+body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:32px 40px 90px;line-height:1.45}
+.mono{font-family:'IBM Plex Mono','SF Mono',ui-monospace,monospace}
+h1{font-size:21px;margin:0 0 2px}.demo-sub{color:var(--muted);font-size:13px;margin:0 0 26px;max-width:720px}
+.dirtag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:var(--grad);padding:4px 10px;border-radius:7px;margin:34px 0 4px}
+.dirname{font-weight:700;font-size:15px;margin:0 0 2px}.dirdesc{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+.frame{background:var(--bg);border:1px solid var(--border);border-radius:18px;padding:22px;max-width:1080px}
+
+/* chips & bits */
+.chip{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;background:#fff;border:1px solid var(--border)}
+.chip svg{display:block}
+.bat-ok{background:rgba(43,182,115,.13);color:#1c7d50;border:0}.bat-mid{background:rgba(232,161,58,.15);color:#9a6512;border:0}.bat-low{background:rgba(229,72,77,.13);color:#b4282d;border:0}
+.status{display:inline-flex;align-items:center;gap:7px;font-weight:600;font-size:13px}
+.status i{width:8px;height:8px;border-radius:50%}
+.on{color:var(--ok)}.on i{background:var(--ok);box-shadow:0 0 0 3px rgba(43,182,115,.18)}
+.off{color:var(--muted)}.off i{background:var(--faint)}
+.btn{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);background:#fff;color:var(--ink);padding:8px 13px;border-radius:10px;cursor:pointer}
+.btn:hover{background:var(--hover)}
+.btn.prim{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn svg{width:15px;height:15px}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:600;text-decoration:none;margin-bottom:14px}
+
+/* ===== Direction A — Cockpit ===== */
+.hero{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px}
+.hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.hero-id{display:flex;flex-direction:column;gap:4px}
+.hero-serial{font-size:24px;font-weight:700;letter-spacing:-.01em}
+.hero-meta{color:var(--muted);font-size:12.5px}
+.hero-actions{display:flex;gap:8px;flex-wrap:wrap}
+.vitals{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px;padding-top:16px;border-top:1px solid var(--soft)}
+.body2{display:grid;grid-template-columns:300px 1fr;gap:16px;margin-top:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 17px}
+.card+.card{margin-top:14px}
+.card-t{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin:0 0 12px}
+.kv{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px;padding:5px 0}
+.kv+.kv{border-top:1px solid var(--soft)}
+.kv .k{color:var(--muted)}.kv .v{font-weight:600;text-align:right}
+.linkish{color:var(--accent);font-weight:600;text-decoration:none}
+.tagrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.gtag{display:inline-flex;align-items:center;gap:6px;background:rgba(122,128,246,.12);color:#4b50c4;font-size:12px;font-weight:600;padding:4px 9px;border-radius:7px}
+.gtag .x{color:#4b50c4;opacity:.6;cursor:pointer}
+.addmini{border:1px dashed var(--border);color:var(--muted);background:none;border-radius:7px;font:inherit;font-size:12px;font-weight:600;padding:4px 9px;cursor:pointer}
+.subtabs{display:flex;gap:4px;border-bottom:1px solid var(--soft);margin-bottom:14px}
+.subtab{font:inherit;font-size:13px;font-weight:600;color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:8px 12px;cursor:pointer;margin-bottom:-1px}
+.subtab.sel{color:var(--accent);border-bottom-color:var(--accent)}
+.chart-ph{height:170px;border-radius:12px;background:
+  linear-gradient(180deg,rgba(249,103,78,.10),rgba(249,103,78,0)),
+  repeating-linear-gradient(90deg,var(--soft) 0 1px,transparent 1px 64px);
+  position:relative;border:1px solid var(--soft)}
+.chart-ph svg{position:absolute;inset:0;width:100%;height:100%}
+.chart-tabs{display:flex;gap:6px;margin-bottom:10px}
+.ctab{font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--muted);cursor:pointer}
+.ctab.sel{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.timeline{display:flex;flex-direction:column;gap:0;margin-top:6px}
+.tl{display:grid;grid-template-columns:18px 1fr auto;gap:10px;align-items:start;padding:9px 0;font-size:13px}
+.tl+.tl{border-top:1px solid var(--soft)}
+.tl .dot{width:9px;height:9px;border-radius:50%;margin-top:4px}
+.tl .when{color:var(--faint);font-size:11.5px;white-space:nowrap}
+.tl b{font-weight:600}
+.dg{background:var(--ok)}.dr{background:var(--low)}.db{background:var(--accent-2)}.dm{background:var(--warn)}
+
+/* ===== Direction B — Stat board ===== */
+.statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:15px 16px;position:relative;overflow:hidden}
+.stat .lab{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+.stat .big{font-size:27px;font-weight:700;margin-top:6px;font-variant-numeric:tabular-nums}
+.stat .sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.spark{position:absolute;left:0;right:0;bottom:0;height:34px;opacity:.5}
+.segnav{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:4px;gap:2px;margin-top:18px}
+.segnav button{font:inherit;font-size:13px;font-weight:600;color:var(--muted);background:none;border:0;padding:7px 15px;border-radius:8px;cursor:pointer}
+.segnav button.sel{background:var(--accent);color:#fff}
+.placebar{display:flex;gap:24px;flex-wrap:wrap;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 18px;margin-top:16px}
+.pb-item{display:flex;flex-direction:column;gap:3px}
+.pb-item .k{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+.pb-item .v{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+</style></head>
+<body>
+<h1>Device detail — two directions</h1>
+<p class="demo-sub">Both drop the redundant legacy history tables, lift the key vitals up top, and surface placement (restaurant + groups) as a first-class, inline-editable block — tying the page to the add-to-group / add-to-restaurant flows. Sample device: <span class="mono">AT070AABU00169</span>.</p>
+
+<!-- ============ DIRECTION A ============ -->
+<div class="dirtag">Direction A</div>
+<div class="dirname">Cockpit — vitals hero + action toolbar + 2-column body</div>
+<p class="dirdesc">A telemetry-forward header you can act from immediately; placement & hardware on the left rail, charts + a live activity timeline on the right.</p>
+<div class="frame">
+  <a class="back" href="#">‹ Back to Fleet</a>
+  <div class="hero">
+    <div class="hero-top">
+      <div class="hero-id">
+        <span class="status on"><i></i>Online</span>
+        <span class="hero-serial mono">AT070AABU00169</span>
+        <span class="hero-meta">A15-v1.62-user · Onboarded Jun 19, 2026 · Synced 1m ago</span>
+      </div>
+      <div class="hero-actions">
+        <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.5 9a9 9 0 0114.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0020.5 15"/></svg>Reboot</button>
+        <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 17 6-6-6-6M12 19h8"/></svg>Shell</button>
+        <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Screenshot</button>
+        <button class="btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v12H4z"/><path d="M8 20h8"/></svg>Logcat</button>
+        <button class="btn">⋯</button>
+      </div>
+    </div>
+    <div class="vitals">
+      <span class="chip bat-ok"><svg viewBox="0 0 30 15" width="18" height="11"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="15" height="9" rx="1.5" fill="currentColor"/></svg>82%</span>
+      <span class="chip"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>29.6°C</span>
+      <span class="chip">RAM 49%</span>
+      <span class="chip">↑ 6d 4h uptime</span>
+      <span class="chip"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>AIO-Kitchen · −52dBm</span>
+      <span class="chip">Kiosk on</span>
+    </div>
+  </div>
+  <div class="body2">
+    <div>
+      <div class="card">
+        <div class="card-t">Placement</div>
+        <div class="kv"><span class="k">Restaurant</span><span class="v"><a class="linkish" href="#">Downtown Diner</a> ✎</span></div>
+        <div class="kv"><span class="k">Groups</span><span class="v tagrow"><span class="gtag">Lobby <span class="x">×</span></span><button class="addmini">+ group</button></span></div>
+      </div>
+      <div class="card">
+        <div class="card-t">Hardware</div>
+        <div class="kv"><span class="k">Storage free</span><span class="v">21.4 GB</span></div>
+        <div class="kv"><span class="k">Total RAM</span><span class="v">3.8 GB</span></div>
+        <div class="kv"><span class="k">Timezone</span><span class="v">America/New_York</span></div>
+        <div class="kv"><span class="k">IP</span><span class="v mono">10.0.4.18</span></div>
+      </div>
+      <div class="card">
+        <div class="card-t">Software</div>
+        <div class="kv"><span class="k">Build</span><span class="v"><a class="linkish" href="#">A15-v1.62</a></span></div>
+        <div class="kv"><span class="k">Kiosk app</span><span class="v mono">com.aioapp.pos</span></div>
+        <div class="kv"><span class="k">Poll interval</span><span class="v">60s</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="subtabs">
+        <button class="subtab sel">Overview</button>
+        <button class="subtab">Applications</button>
+        <button class="subtab">Controls</button>
+        <button class="subtab">History</button>
+      </div>
+      <div class="chart-tabs"><button class="ctab sel">Battery</button><button class="ctab">Temp</button><button class="ctab">RAM</button></div>
+      <div class="chart-ph"><svg viewBox="0 0 600 170" preserveAspectRatio="none"><polyline fill="none" stroke="#f9674e" stroke-width="2.5" points="0,120 60,110 120,118 180,90 240,96 300,70 360,80 420,52 480,60 540,40 600,46"/></svg></div>
+      <div class="card-t" style="margin:18px 0 4px">Recent activity</div>
+      <div class="timeline">
+        <div class="tl"><span class="dot dg"></span><span><b>Screenshot</b> captured · delivered</span><span class="when">2m ago</span></div>
+        <div class="tl"><span class="dot db"></span><span><b>Checked in</b> · battery 82%, temp 29.6°C</span><span class="when">2m ago</span></div>
+        <div class="tl"><span class="dot dm"></span><span><b>Kiosk</b> re-enabled by claude</span><span class="when">1h ago</span></div>
+        <div class="tl"><span class="dot dg"></span><span><b>App installed</b> · com.aioapp.pos v4.2</span><span class="when">3h ago</span></div>
+        <div class="tl"><span class="dot dr"></span><span><b>Low battery</b> alert cleared (was 14%)</span><span class="when">Yesterday</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DIRECTION B ============ -->
+<div class="dirtag">Direction B</div>
+<div class="dirname">Stat-board — big metric tiles + segmented section nav + placement bar</div>
+<p class="dirdesc">Each vital is a tile with a sparkline you can scan in a glance; a single placement bar sits above a segmented section switcher. Calmer, more dashboard-like.</p>
+<div class="frame">
+  <a class="back" href="#">‹ Back to Fleet</a>
+  <div class="hero-top" style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px 20px">
+    <div class="hero-id">
+      <span class="hero-serial mono" style="font-size:21px">AT070AABU00169</span>
+      <span class="hero-meta"><span class="status on" style="font-size:12px"><i></i>Online</span> · A15-v1.62-user · Synced 1m ago</span>
+    </div>
+    <div class="hero-actions">
+      <button class="btn prim">Send command</button>
+      <button class="btn">Shell</button>
+      <button class="btn">⋯</button>
+    </div>
+  </div>
+  <div class="statgrid">
+    <div class="stat"><div class="lab">Battery</div><div class="big" style="color:#1c7d50">82%</div><div class="sub">charging · healthy</div><svg class="spark" viewBox="0 0 120 34" preserveAspectRatio="none"><polyline fill="none" stroke="#2bb673" stroke-width="2" points="0,28 20,24 40,26 60,18 80,20 100,10 120,12"/></svg></div>
+    <div class="stat"><div class="lab">Temperature</div><div class="big" style="color:#9a6512">29.6°</div><div class="sub">normal range</div><svg class="spark" viewBox="0 0 120 34" preserveAspectRatio="none"><polyline fill="none" stroke="#e8a13a" stroke-width="2" points="0,20 20,18 40,22 60,16 80,24 100,18 120,20"/></svg></div>
+    <div class="stat"><div class="lab">Memory</div><div class="big">49%</div><div class="sub">1.9 / 3.8 GB</div><svg class="spark" viewBox="0 0 120 34" preserveAspectRatio="none"><polyline fill="none" stroke="#7a80f6" stroke-width="2" points="0,22 20,20 40,24 60,22 80,18 100,22 120,20"/></svg></div>
+    <div class="stat"><div class="lab">Storage</div><div class="big">21.4<span style="font-size:14px">GB</span></div><div class="sub">free of 32 GB</div><svg class="spark" viewBox="0 0 120 34" preserveAspectRatio="none"><polyline fill="none" stroke="#9aa0b0" stroke-width="2" points="0,16 20,16 40,17 60,18 80,18 100,20 120,21"/></svg></div>
+  </div>
+  <div class="placebar">
+    <div class="pb-item"><span class="k">Restaurant</span><span class="v"><a class="linkish" href="#">Downtown Diner</a><button class="addmini">change</button></span></div>
+    <div class="pb-item"><span class="k">Groups</span><span class="v tagrow"><span class="gtag">Lobby <span class="x">×</span></span><button class="addmini">+ add</button></span></div>
+    <div class="pb-item"><span class="k">Kiosk</span><span class="v">On · com.aioapp.pos</span></div>
+    <div class="pb-item"><span class="k">Poll</span><span class="v">every 60s</span></div>
+  </div>
+  <div class="segnav"><button class="sel">Overview</button><button>Applications</button><button>Controls</button><button>Settings</button><button>History</button></div>
+  <div class="card" style="margin-top:14px">
+    <div class="chart-tabs"><button class="ctab sel">Battery</button><button class="ctab">Temp</button><button class="ctab">RAM</button><button class="ctab">All</button></div>
+    <div class="chart-ph"><svg viewBox="0 0 600 170" preserveAspectRatio="none"><polyline fill="none" stroke="#f9674e" stroke-width="2.5" points="0,120 60,110 120,118 180,90 240,96 300,70 360,80 420,52 480,60 540,40 600,46"/></svg></div>
+  </div>
+</div>
+</body></html>

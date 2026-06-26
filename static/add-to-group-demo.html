@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Add to group — directions · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --accent:#f9674e;--accent-2:#7a80f6;--grad:linear-gradient(90deg,#7a80f6,#f9674e);
+  --ok:#2bb673;--warn:#e8a13a;--low:#e5484d;
+  --ink:#1c2024;--muted:#62677a;--faint:#9aa0b0;
+  --surface:#fff;--bg:#f6f7f9;--border:#e7e8ee;--soft:#eceef3;--hover:#f7f8fa;
+  --accent-soft:rgba(249,103,78,.1);--peri-soft:rgba(122,128,246,.12);
+}
+*{box-sizing:border-box}
+body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:32px 40px 90px;line-height:1.45}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+h1{font-size:21px;margin:0 0 2px}.demo-sub{color:var(--muted);font-size:13px;margin:0 0 26px;max-width:740px}
+.dirtag{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:var(--grad);padding:4px 10px;border-radius:7px;margin:34px 0 4px}
+.dirname{font-weight:700;font-size:15px;margin:0 0 2px}.dirdesc{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+.frame{background:var(--bg);border:1px solid var(--border);border-radius:18px;padding:22px;max-width:1040px}
+
+.ph-head{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.ph-head h2{font-size:18px;margin:0;font-weight:700}
+.ctx{display:inline-flex;align-items:center;gap:7px;background:var(--peri-soft);color:#4b50c4;font-weight:700;font-size:13px;padding:6px 12px;border-radius:9px}
+.ctx svg{width:14px;height:14px}
+
+.btn{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);background:#fff;color:var(--ink);padding:9px 14px;border-radius:10px;cursor:pointer}
+.btn:hover{background:var(--hover)}
+.btn.prim{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.prim:disabled{background:#f3c8c0;border-color:#f3c8c0;cursor:not-allowed}
+.btn.ghost{border:0;background:none;color:var(--muted)}
+
+/* two-pane */
+.tp{display:grid;grid-template-columns:1fr 340px;gap:16px}
+.pane{background:var(--surface);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+.pane-h{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--soft)}
+.pane-h .t{font-weight:700;font-size:13.5px}
+.pane-h .n{color:var(--faint);font-size:12px;font-weight:600}
+.search{margin:12px 16px 0;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:10px;padding:8px 12px;color:var(--faint)}
+.search input{border:0;outline:0;font:inherit;font-size:13px;flex:1;background:none;color:var(--ink)}
+.pills{display:flex;gap:6px;flex-wrap:wrap;padding:12px 16px 4px}
+.pill{font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:#fff;color:var(--muted);cursor:pointer}
+.pill.sel{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.rows{padding:6px 8px;overflow:auto;max-height:360px}
+.row{display:grid;grid-template-columns:auto 1fr auto auto;gap:12px;align-items:center;padding:9px 10px;border-radius:10px}
+.row:hover{background:var(--hover)}
+.row.added{opacity:.5}
+.bchip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.bchip svg{display:block}
+.b-ok{background:rgba(43,182,115,.13);color:#1c7d50}.b-mid{background:rgba(232,161,58,.15);color:#9a6512}.b-low{background:rgba(229,72,77,.13);color:#b4282d}
+.r-id{min-width:0}.r-serial{font-weight:600;font-size:13px}.r-sub{color:var(--muted);font-size:11.5px}
+.r-where{font-size:11.5px;color:var(--muted)}.r-where.lab{color:var(--accent-2);font-weight:600}
+.r-st{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.r-st i{width:7px;height:7px;border-radius:50%;background:var(--faint)}.r-st.on i{background:var(--ok)}
+.addbtn{width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--accent);font-size:17px;line-height:1;cursor:pointer}
+.addbtn:hover{background:var(--accent-soft);border-color:transparent}
+.added-tick{color:var(--ok);font-weight:700;font-size:13px}
+
+/* staging basket */
+.basket{padding:8px;overflow:auto;flex:1;min-height:200px}
+.bk-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--faint);font-size:13px;height:200px;text-align:center;padding:0 30px}
+.bk-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px}
+.bk-row:hover{background:var(--hover)}
+.bk-row .x{margin-left:auto;color:var(--faint);cursor:pointer;font-size:16px;border:0;background:none}
+.pane-f{padding:13px 16px;border-top:1px solid var(--soft);display:flex;gap:10px;align-items:center}
+.warn{background:rgba(232,161,58,.12);color:#8a5d12;font-size:12px;padding:8px 12px;border-radius:9px;margin:0 16px 12px}
+
+/* variant B */
+.rosterB{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.rowB{display:grid;grid-template-columns:22px auto 1fr auto auto;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--soft)}
+.rowB:hover{background:var(--hover)}
+.rowB.sel{background:var(--accent-soft)}
+.cbx{width:17px;height:17px;border-radius:5px;border:1.5px solid var(--border);display:inline-flex;align-items:center;justify-content:center}
+.rowB.sel .cbx{background:var(--accent);border-color:var(--accent);color:#fff;font-size:11px}
+.stickybar{position:sticky;bottom:0;display:flex;align-items:center;gap:14px;background:#1c2024;color:#fff;border-radius:12px;padding:12px 18px;margin-top:14px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+.stickybar .cnt{font-weight:700}.stickybar .sp{flex:1}
+.stickybar .btn{background:transparent;border-color:#3a3f48;color:#fff}
+.stickybar .btn.prim{background:var(--accent);border-color:var(--accent)}
+</style></head>
+<body>
+<h1>Add devices to a group — two directions</h1>
+<p class="demo-sub">Replaces the confusing paste-a-textarea-or-search dual input with one clear picker: search + quick filters on the left, a live staging basket with dedup and a count on the right. Same brand language as Fleet (battery chips, status dots, filter pills). Group context: <b>Lobby</b>.</p>
+
+<!-- ===== Variant A — two-pane transfer ===== -->
+<div class="dirtag">Direction A</div>
+<div class="dirname">Two-pane transfer — Available ▸ Staging basket</div>
+<div class="dirdesc">Browse/filter candidates on the left, tap + to stage them on the right. Dedup is automatic (staged rows dim in the list), and you see exactly what you're about to add before committing.</div>
+<div class="frame">
+  <div class="ph-head">
+    <h2>Add devices to</h2>
+    <span class="ctx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Lobby</span>
+  </div>
+  <div class="tp">
+    <div class="pane">
+      <div class="pane-h"><span class="t">Available devices</span><span class="n">288 not in Lobby</span></div>
+      <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search serial…"></div>
+      <div class="pills"><button class="pill sel">All</button><button class="pill">Online</button><button class="pill">Offline</button><button class="pill">Unassigned</button><button class="pill">Low battery</button></div>
+      <div class="rows">
+        <div class="row"><span class="bchip b-ok"><svg viewBox="0 0 30 15" width="16" height="10"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="15" height="9" rx="1.5" fill="currentColor"/></svg>82%</span><div class="r-id"><div class="r-serial mono">AT070AA2C0042</div><div class="r-sub">A15-v1.62 · 2m ago</div></div><span class="r-where">Downtown Diner</span><button class="addbtn">+</button></div>
+        <div class="row added"><span class="bchip b-ok">91%</span><div class="r-id"><div class="r-serial mono">AT070AAX91120</div><div class="r-sub">A15-v1.60 · 5m ago</div></div><span class="added-tick">✓ staged</span><span></span></div>
+        <div class="row"><span class="bchip b-mid"><svg viewBox="0 0 30 15" width="16" height="10"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="8" height="9" rx="1.5" fill="currentColor"/></svg>45%</span><div class="r-id"><div class="r-serial mono">AT070AAB70388</div><div class="r-sub">A15-v1.62 · 1h ago</div></div><span class="r-where lab">lab</span><button class="addbtn">+</button></div>
+        <div class="row"><span class="bchip b-low">14%</span><div class="r-id"><div class="r-serial mono">AT070AABU00482</div><div class="r-sub">A15-v1.62 · 3h ago</div></div><span class="r-where">Harbor Grill</span><button class="addbtn">+</button></div>
+        <div class="row"><span class="bchip b-ok">76%</span><div class="r-id"><div class="r-serial mono">AT070AA2600039</div><div class="r-sub">A15-v1.62 · 1m ago</div></div><span class="r-where lab">lab</span><button class="addbtn">+</button></div>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="pane-h"><span class="t">Staging</span><span class="n">3 selected</span></div>
+      <div class="basket">
+        <div class="bk-row"><span class="bchip b-ok">91%</span><span class="r-serial mono">AT070AAX91120</span><button class="x">×</button></div>
+        <div class="bk-row"><span class="bchip b-ok">88%</span><span class="r-serial mono">AT070AABU00169</span><button class="x">×</button></div>
+        <div class="bk-row"><span class="bchip b-mid">52%</span><span class="r-serial mono">AT070AA2600027</span><button class="x">×</button></div>
+      </div>
+      <div class="pane-f"><button class="btn ghost">Clear</button><span style="flex:1"></span><button class="btn prim">Add 3 to Lobby</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Variant B — checklist + sticky action bar ===== -->
+<div class="dirtag">Direction B</div>
+<div class="dirname">Inline checklist — multi-select roster + sticky action bar</div>
+<div class="dirdesc">The familiar Fleet roster with leading checkboxes; a sticky bar slides up as you select, mirroring the bulk-action pattern already on the Fleet page. One surface, no second pane.</div>
+<div class="frame">
+  <div class="ph-head"><h2>Add devices to</h2><span class="ctx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Lobby</span></div>
+  <div class="search" style="margin:0 0 12px;background:#fff"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search serial…"><span class="pills" style="padding:0"><button class="pill sel">All</button><button class="pill">Online</button><button class="pill">Unassigned</button><button class="pill">Low battery</button></span></div>
+  <div class="rosterB">
+    <div class="rowB sel"><span class="cbx">✓</span><span class="bchip b-ok">91%</span><div class="r-id"><div class="r-serial mono">AT070AAX91120</div><div class="r-sub">A15-v1.60 · 5m ago</div></div><span class="r-where lab">lab</span><span class="r-st on"><i></i>Online</span></div>
+    <div class="rowB"><span class="cbx"></span><span class="bchip b-ok">82%</span><div class="r-id"><div class="r-serial mono">AT070AA2C0042</div><div class="r-sub">A15-v1.62 · 2m ago</div></div><span class="r-where">Downtown Diner</span><span class="r-st on"><i></i>Online</span></div>
+    <div class="rowB sel"><span class="cbx">✓</span><span class="bchip b-mid">45%</span><div class="r-id"><div class="r-serial mono">AT070AAB70388</div><div class="r-sub">A15-v1.62 · 1h ago</div></div><span class="r-where lab">lab</span><span class="r-st"><i></i>Offline</span></div>
+    <div class="rowB"><span class="cbx"></span><span class="bchip b-low">14%</span><div class="r-id"><div class="r-serial mono">AT070AABU00482</div><div class="r-sub">A15-v1.62 · 3h ago</div></div><span class="r-where">Harbor Grill</span><span class="r-st"><i></i>Offline</span></div>
+    <div class="rowB"><span class="cbx"></span><span class="bchip b-ok">76%</span><div class="r-id"><div class="r-serial mono">AT070AA2600039</div><div class="r-sub">A15-v1.62 · 1m ago</div></div><span class="r-where lab">lab</span><span class="r-st on"><i></i>Online</span></div>
+  </div>
+  <div class="stickybar"><span class="cnt">2 devices selected</span><span class="sp"></span><button class="btn ghost" style="color:#aeb3bd">Clear</button><button class="btn prim">Add to Lobby</button></div>
+</div>
+</body></html>
