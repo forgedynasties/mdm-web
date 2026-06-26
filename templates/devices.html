@@ -47,6 +47,7 @@
         <div class="dl-id-meta">
           <a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">hidden</span>{{end}}
           <span class="dl-seen">{{timeSince .LastSeenAt}}{{if gt .PollIntervalMs 0}} · synced {{localShortTime .LastSeenAt}}{{end}}</span>
+          <span class="dl-onboard">Onboarded {{shortDate .CreatedAt}}</span>
         </div>
       </div>
       <span class="dl-rel mono small">{{.BuildID}}</span>
@@ -58,7 +59,6 @@
         <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
         <span class="dl-m" data-m="temp"><span class="k">Temp</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
       </div>
-      <span class="dl-onboard"><span class="k">Onboarded</span><span class="v">{{shortDate .CreatedAt}}</span></span>
       <div class="dl-act">
         <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" title="Open full device page">View</a>
         {{if canAdmin $.Role}}
