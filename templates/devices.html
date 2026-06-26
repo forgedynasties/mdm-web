@@ -227,7 +227,6 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.Summary.Total}}</span>
     </button>
 
-    {{if .RailRestaurants}}
     <div class="fleet-rail-cap"><a href="/restaurants">Restaurants</a>{{if canAdmin .Role}}<a href="/restaurants/new" class="add" title="New restaurant">+</a>{{end}}</div>
     {{range .RailRestaurants}}
     <button type="button" class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.FilterRestaurant}} on{{end}}"
@@ -235,9 +234,10 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       <span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span>
     </button>
     {{end}}
+    {{if not .RailRestaurants}}
+    <div class="fleet-rail-empty">{{if canAdmin .Role}}<a href="/restaurants/new">+ Add restaurant</a>{{else}}None yet{{end}}</div>
     {{end}}
 
-    {{if .RailGroups}}
     <div class="fleet-rail-cap"><a href="/groups">Groups</a>{{if canAdmin .Role}}<a href="/groups/new" class="add" title="New group">+</a>{{end}}</div>
     {{range .RailGroups}}
     <button type="button" class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.FilterGroup}} on{{end}}"
@@ -245,6 +245,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       <span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span>
     </button>
     {{end}}
+    {{if not .RailGroups}}
+    <div class="fleet-rail-empty">{{if canAdmin .Role}}<a href="/groups/new">+ Add group</a>{{else}}None yet{{end}}</div>
     {{end}}
   </aside>
 
