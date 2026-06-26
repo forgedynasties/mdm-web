@@ -13,22 +13,28 @@
   {{end}}
 </div>
 
-{{if .Versions}}
+{{if or .Versions .HiddenReleases}}
+<div class="rel-tabs">
+  <button type="button" class="rel-tab on" data-g="tracked" onclick="relTab('tracked',this)">Tracked <span class="rel-tab-n">{{.TrackedCount}}</span></button>
+  <button type="button" class="rel-tab" data-g="nottracked" onclick="relTab('nottracked',this)">Not tracked <span class="rel-tab-n">{{.NotTrackedCount}}</span></button>
+  {{if .HiddenReleases}}<button type="button" class="rel-tab" data-g="hidden" onclick="relTab('hidden',this)">Hidden <span class="rel-tab-n">{{len .HiddenReleases}}</span></button>{{end}}
+</div>
 <div class="card dv-rise-1">
   <div class="rel-list" id="versions-tbody">
     {{range .Versions}}
-    <div class="rel-row" data-version="{{.Version}}" {{if canAdmin $.Role}}draggable="true"{{end}} {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
-      {{if canAdmin $.Role}}<span class="rel-drag drag-handle" title="Drag to reorder">⠿</span>{{end}}
+    {{$pct := pctOf .DeviceCount $.FleetTotal}}
+    <div class="rel-row" data-rel-group="{{if .Tracked}}tracked{{else}}nottracked{{end}}" data-version="{{.Version}}" {{if and (canAdmin $.Role) .Tracked}}draggable="true"{{end}} {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
+      {{if canAdmin $.Role}}<span class="rel-drag drag-handle" title="Drag to reorder" {{if not .Tracked}}style="visibility:hidden"{{end}}>⠿</span>{{end}}
       <div class="rel-id">
         <div class="rel-ver">
           {{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="link-detail mono">{{.Version}}</a><span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>
           {{else}}<span class="mono">{{.Version}}</span><span class="status-badge muted" title="Seen on devices but not a managed release">not tracked</span>{{end}}
         </div>
-        <div class="rel-sub">{{if .Name}}{{.Name}}{{if .Tracked}} · {{end}}{{end}}{{if .Tracked}}{{.PackageCount}} pkg · {{.DeployCount}} deploy{{end}}</div>
+        <div class="rel-sub">{{if .Name}}{{.Name}}{{if .Tracked}} · {{end}}{{end}}{{if .Tracked}}{{.PackageCount}} pkg · {{.DeployCount}} deploy{{else}}seen on devices{{end}}</div>
       </div>
       <div class="rel-roll">
-        <div class="rel-bar"><i class="{{if eq .Status "yanked"}}warn{{end}}" style="width:{{pctOf .DeviceCount $.FleetTotal}}%"></i></div>
-        <div class="rel-rollnum">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="link-detail">{{.DeviceCount}}</a>{{else}}0{{end}}{{if gt $.FleetTotal 0}} / {{$.FleetTotal}}{{end}} devices</div>
+        <div class="rel-bar-row"><div class="rel-bar"><i class="{{if eq .Status "yanked"}}warn{{end}}{{if not .Tracked}} faint{{end}}" style="width:{{$pct}}%"></i></div><span class="rel-pct">{{$pct}}%</span></div>
+        <div class="rel-rollnum">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rel-dlink">{{.DeviceCount}}</a>{{else}}0{{end}} of {{$.FleetTotal}} devices</div>
       </div>
       <div class="rel-meta">
         {{if .Tracked}}
@@ -48,6 +54,25 @@
           <form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Create a draft release for this version">+ Add as release</button></form>
           <form action="/releases/version/hide" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-outline btn-sm" title="Dismiss this version">Hide</button></form>
         {{end}}
+      </div>
+    </div>
+    {{end}}
+    {{range .HiddenReleases}}
+    {{$pct := pctOf .DeviceCount $.FleetTotal}}
+    <div class="rel-row" data-rel-group="hidden" style="display:none;opacity:.85;">
+      {{if canAdmin $.Role}}<span class="rel-drag" style="visibility:hidden">⠿</span>{{end}}
+      <div class="rel-id">
+        <div class="rel-ver">{{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="link-detail mono">{{.Version}}</a><span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>{{else}}<span class="mono">{{.Version}}</span><span class="status-badge muted">not tracked</span>{{end}}</div>
+        <div class="rel-sub">{{if .Name}}{{.Name}}{{else}}hidden{{end}}</div>
+      </div>
+      <div class="rel-roll">
+        <div class="rel-bar-row"><div class="rel-bar"><i class="faint" style="width:{{$pct}}%"></i></div><span class="rel-pct">{{$pct}}%</span></div>
+        <div class="rel-rollnum">{{.DeviceCount}} of {{$.FleetTotal}} devices</div>
+      </div>
+      <div class="rel-meta"></div>
+      <div class="rel-act">
+        {{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="btn-outline btn-sm">View</a>{{if canAdmin $.Role}}<form action="/releases/{{.ReleaseID}}/hide" method="POST"><input type="hidden" name="hidden" value="0"><button type="submit" class="btn-outline btn-sm" title="Show again">Unhide</button></form>{{if eq .DeviceCount 0}}<form action="/releases/{{.ReleaseID}}/delete" method="POST" onsubmit="return confirm('Delete release {{.Version}}?')"><button type="submit" class="btn-danger-sm">Delete</button></form>{{end}}{{end}}
+        {{else if canAdmin $.Role}}<form action="/releases/version/unhide" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-outline btn-sm" title="Show again">Unhide</button></form>{{end}}
       </div>
     </div>
     {{end}}
@@ -72,52 +97,6 @@
 </div>
 {{end}}
 
-{{if .HiddenReleases}}
-<div class="card dv-rise-1" style="margin-top:16px;">
-  <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" onclick="this.classList.toggle('open');var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
-    <h3>Hidden releases <span class="muted small">{{len .HiddenReleases}}</span></h3>
-  </div>
-  <div class="collapsible-body" style="display:none;">
-    <table class="table">
-      <thead><tr><th>Version</th><th>Tracking</th><th>Name</th><th>Devices</th><th></th></tr></thead>
-      <tbody>
-        {{range .HiddenReleases}}
-        <tr style="opacity:0.7;">
-          <td class="mono small">{{.Version}}</td>
-          <td>{{if .Tracked}}<span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>{{else}}<span class="status-badge muted">not tracked</span>{{end}}</td>
-          <td class="small">{{if .Name}}{{.Name}}{{else}}<span class="muted">—</span>{{end}}</td>
-          <td class="muted small">{{.DeviceCount}}</td>
-          <td style="white-space:nowrap;text-align:right;">
-            {{if .Tracked}}
-            <a href="/releases/{{.ReleaseID}}" class="link-detail">View</a>
-            {{if canAdmin $.Role}}
-            <form action="/releases/{{.ReleaseID}}/hide" method="POST" style="display:inline;">
-              <input type="hidden" name="hidden" value="0">
-              <button type="submit" class="btn-outline" title="Show again">Unhide</button>
-            </form>
-            {{if eq .DeviceCount 0}}
-            <form action="/releases/{{.ReleaseID}}/delete" method="POST" style="display:inline;"
-                  onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')">
-              <button type="submit" class="btn-danger-sm">Delete</button>
-            </form>
-            {{else}}
-            <button type="button" class="btn-danger-sm" disabled style="opacity:0.45;cursor:not-allowed;" title="{{.DeviceCount}} device(s) still running this version — yank or hide it instead">Delete</button>
-            {{end}}
-            {{end}}
-            {{else if canAdmin $.Role}}
-            <form action="/releases/version/unhide" method="POST" style="display:inline;">
-              <input type="hidden" name="version" value="{{.Version}}">
-              <button type="submit" class="btn-outline" title="Show again">Unhide</button>
-            </form>
-            {{end}}
-          </td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
-</div>
-{{end}}
 
 {{if canAdmin .Role}}
 <!-- Base (standard) test cases — checked on every release. Managed inline here so
@@ -214,6 +193,16 @@ document.addEventListener('keydown', function(e) {
 });
 </script>
 {{end}}
+
+<script>
+// Releases tab filter (Tracked / Not tracked / Hidden).
+function relTab(group, btn) {
+  document.querySelectorAll('.rel-tab').forEach(function (t) { t.classList.toggle('on', t === btn); });
+  document.querySelectorAll('#versions-tbody .rel-row').forEach(function (r) {
+    r.style.display = (r.getAttribute('data-rel-group') === group) ? '' : 'none';
+  });
+}
+</script>
 
 <script>
 // Drag-to-reorder the releases list; saves the order (by version) to the server.
