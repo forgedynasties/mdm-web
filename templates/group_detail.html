@@ -30,43 +30,39 @@
 
 {{if canAdmin .Role}}
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="true" onclick="toggleSection(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleSection(this);}" style="cursor:pointer;user-select:none;">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span class="collapse-arrow"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></span>
-      <h3>Add Devices</h3>
-    </div>
-  </div>
-  <div class="collapsible-body">
-    <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:14px;">
-      <div class="form-row">
-        <label class="form-label">Serial Numbers</label>
-        <textarea name="serials" class="form-textarea"
-                  placeholder="Type or paste serials, one per line"
-                  style="min-height:80px;"></textarea>
-        <span class="muted small">Add multiple devices at once. Each line should contain one serial number.</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span style="flex:1;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);">Or add a single device</span>
-        <div class="filter-search" style="flex:2;box-sizing:border-box;">
-          <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-          <input type="search"
-               name="q"
-               id="group-serial-input"
-               placeholder="Search by serial number"
-               class="filter-search-input"
-               autocomplete="off"
-               hx-get="/groups/{{.Group.ID}}/device-search"
-               hx-trigger="input changed delay:200ms, search"
-               hx-target="#group-device-search-results">
+  <div class="card-header"><h3>Add devices</h3></div>
+  <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:14px 20px 18px;">
+    <div class="dp-tp">
+      <div class="dp-pane">
+        <div class="dp-pane-h"><span class="t">Available devices</span><span class="n">not in this group</span></div>
+        <div class="dp-search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+          <input type="search" id="dp-q" placeholder="Search serial…" autocomplete="off" oninput="dpReloadDebounced()">
         </div>
+        <div class="dp-pills">
+          <button type="button" class="dp-pill sel" onclick="dpPill(this)">All</button>
+          <button type="button" class="dp-pill" data-status="online" onclick="dpPill(this)">Online</button>
+          <button type="button" class="dp-pill" data-status="offline" onclick="dpPill(this)">Offline</button>
+          <button type="button" class="dp-pill" data-battery="low" onclick="dpPill(this)">Low battery</button>
+        </div>
+        <div id="dp-rows" class="dp-rows" data-endpoint="/groups/{{.Group.ID}}/device-search"
+             hx-get="/groups/{{.Group.ID}}/device-search" hx-trigger="load" hx-target="#dp-rows" hx-swap="innerHTML"></div>
       </div>
-      <div id="group-device-search-results" style="width:100%;"></div>
-      <div>
-        <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add Devices</button>
+      <div class="dp-pane">
+        <div class="dp-pane-h"><span class="t">In this group</span><span class="n"><span data-dp-count>0</span> staged</span></div>
+        <div id="dp-basket" class="dp-basket"></div>
       </div>
-    </form>
-  </div>
+    </div>
+    <input type="hidden" name="serials" id="dp-serials">
+    <div class="dp-bar">
+      <span class="summary">Adding <b data-dp-count>0</b> device(s) to <b>{{.Group.Name}}</b></span>
+      <span style="flex:1"></span>
+      <button type="button" class="btn-outline" onclick="dpClear()">Clear</button>
+      <button type="submit" class="btn-primary" data-dp-submit disabled>Add devices</button>
+    </div>
+  </form>
 </div>
+<script src="/static/device-picker.js"></script>
 {{end}}
 
 <div class="card">
@@ -135,24 +131,6 @@ function toggleSection(header) {
   }
 }
 
-function pickGroupSerial(serial) {
-  // Append the picked serial to the "serials" textarea — that is the field the
-  // GroupAddDevice handler actually reads. (The search box is name="q" and is never
-  // submitted, so writing the serial back into it silently dropped the selection.)
-  var textarea = document.querySelector('textarea[name="serials"]');
-  if (textarea) {
-    var existing = textarea.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
-    if (existing.indexOf(serial) === -1) existing.push(serial);
-    textarea.value = existing.join('\n');
-  }
-  var input = document.getElementById('group-serial-input');
-  if (input) {
-    input.value = '';
-    document.getElementById('group-device-search-results').innerHTML = '';
-    input.focus();
-  }
-}
-
 // Group trends chart — aggregated daily stats across the group's devices.
 (function () {
   var groupID = '{{.Group.ID}}';
@@ -216,28 +194,4 @@ function pickGroupSerial(serial) {
 </script>
 
 {{template "footer" .}}
-{{end}}
-
-{{define "group-device-search-results"}}
-{{if .Query}}
-  {{if .Devices}}
-  <div class="lookup-results compact">
-    <div class="lookup-title">Matches for "{{.Query}}"</div>
-    {{range .Devices}}
-    <div class="lookup-row">
-      <div>
-        <div class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail" target="_blank" rel="noopener">{{.SerialNumber}}</a></div>
-        <div class="muted small">Build {{.BuildID}} · {{timeSince .LastSeenAt}}</div>
-      </div>
-      <button type="button" class="btn-outline" onclick="pickGroupSerial('{{.SerialNumber}}')">Use</button>
-    </div>
-    {{end}}
-  </div>
-  {{else}}
-  <div class="lookup-results lookup-empty compact">
-    <div class="lookup-title">No device found</div>
-    <div class="muted small">No serial matched "{{.Query}}".</div>
-  </div>
-  {{end}}
-{{end}}
 {{end}}
