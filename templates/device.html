@@ -107,7 +107,8 @@
   <div class="ddc-card">
     <div class="ddc-card-t">Software</div>
     <div class="ddc-kv"><span class="k">Build</span><span class="v">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v mono">{{if .KioskConfig.KioskPackage}}{{.KioskConfig.KioskPackage}}{{else}}—{{end}}</span></div>
+    {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
+    <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Poll interval</span><span class="v">{{div .Device.PollIntervalMs 1000}}s</span></div>
   </div>
 </aside>
@@ -1246,18 +1247,18 @@ function filterInstalledApps(q) {
           <div class="form-row">
             <label class="form-label">Kiosk Package</label>
             {{if .InstalledPackages}}
-              <select name="kiosk_package" class="form-input">
-                <option value="" {{if eq .KioskConfig.KioskPackage ""}}selected{{end}}>Select a package…</option>
-                {{$current := .KioskConfig.KioskPackage}}
-                {{$found := false}}
-                {{range .InstalledPackages}}
-                  {{if eq .PackageName $current}}{{$found = true}}{{end}}
-                  <option value="{{.PackageName}}" {{if eq .PackageName $current}}selected{{end}}>{{if .AppName}}{{.AppName}} — {{end}}{{.PackageName}}</option>
-                {{end}}
-                {{if and (ne $current "") (not $found)}}
-                  <option value="{{$current}}" selected>{{$current}} (not installed)</option>
-                {{end}}
-              </select>
+              {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
+              <div class="pkg-combo" id="kiosk-pkg-combo">
+                <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{$current}}">
+                <input type="text" id="kiosk-pkg-search" class="form-input" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search installed apps…">
+                <div class="pkg-list" id="kiosk-pkg-list" role="listbox">
+                  <div class="pkg-opt" data-value="" data-search="none release clear launcher"><span class="pkg-opt-name">— None (release to launcher) —</span></div>
+                  {{range .InstalledPackages}}{{if eq .PackageName $current}}{{$found = true}}{{end}}
+                  <div class="pkg-opt" data-value="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}"><span class="pkg-opt-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pkg-opt-pkg mono">{{.PackageName}}</span></div>
+                  {{end}}
+                  {{if and (ne $current "") (not $found)}}<div class="pkg-opt" data-value="{{$current}}" data-search="{{$current}}"><span class="pkg-opt-name mono">{{$current}}</span><span class="pkg-opt-pkg">not installed</span></div>{{end}}
+                </div>
+              </div>
             {{else}}
               <input type="text" name="kiosk_package" class="form-input" value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
               <span class="muted small">No packages reported by this device yet — enter a package name manually.</span>
@@ -1619,6 +1620,60 @@ async function saveNewApp() {
 
   closeAppModal();
 }
+</script>
+
+<script>
+// Searchable Kiosk Package picker: type to filter installed apps; the chosen
+// package id is stored in the hidden #kiosk-pkg-value the form submits.
+(function () {
+  var combo = document.getElementById('kiosk-pkg-combo');
+  if (!combo) return;
+  var input = document.getElementById('kiosk-pkg-search');
+  var hidden = document.getElementById('kiosk-pkg-value');
+  var opts = [].slice.call(combo.querySelectorAll('.pkg-opt'));
+  var active = -1;
+
+  function labelFor(val) {
+    for (var i = 0; i < opts.length; i++) {
+      if (opts[i].getAttribute('data-value') === val) {
+        var n = opts[i].querySelector('.pkg-opt-name');
+        return n ? n.textContent.trim() : opts[i].textContent.trim();
+      }
+    }
+    return '';
+  }
+  input.value = labelFor(hidden.value);
+
+  function open() { combo.classList.add('open'); input.setAttribute('aria-expanded', 'true'); }
+  function close() { combo.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); active = -1; paint(); }
+  function visible() { return opts.filter(function (o) { return !o.classList.contains('hidden'); }); }
+  function paint() {
+    opts.forEach(function (o) { o.classList.remove('active'); });
+    var vis = visible();
+    if (active >= 0 && active < vis.length) { vis[active].classList.add('active'); vis[active].scrollIntoView({ block: 'nearest' }); }
+  }
+  function filter(q) {
+    q = q.trim().toLowerCase();
+    opts.forEach(function (o) {
+      var s = (o.getAttribute('data-search') || '').toLowerCase();
+      o.classList.toggle('hidden', q !== '' && s.indexOf(q) === -1);
+    });
+    active = -1; paint();
+  }
+  function choose(o) { hidden.value = o.getAttribute('data-value'); input.value = (o.querySelector('.pkg-opt-name') || o).textContent.trim(); close(); }
+
+  input.addEventListener('focus', function () { filter(''); open(); input.select(); });
+  input.addEventListener('input', function () { filter(input.value); open(); });
+  input.addEventListener('keydown', function (e) {
+    var vis = visible();
+    if (e.key === 'ArrowDown') { e.preventDefault(); open(); active = Math.min(active + 1, vis.length - 1); paint(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); paint(); }
+    else if (e.key === 'Enter') { if (combo.classList.contains('open')) { e.preventDefault(); if (active >= 0) choose(vis[active]); } }
+    else if (e.key === 'Escape') { input.value = labelFor(hidden.value); close(); }
+  });
+  opts.forEach(function (o) { o.addEventListener('mousedown', function (e) { e.preventDefault(); choose(o); }); });
+  document.addEventListener('click', function (e) { if (!combo.contains(e.target)) { input.value = labelFor(hidden.value); close(); } });
+})();
 </script>
 
 {{template "footer" .}}
