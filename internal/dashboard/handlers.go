@@ -670,6 +670,39 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return template.JS(strconv.Itoa(n))
 		},
+		"mbToGB": func(mb int) string { return fmt.Sprintf("%.1f GB", float64(mb)/1024) },
+		// uptimeShort formats latest_extra.uptime_seconds as "6d 4h" / "4h 20m" / "12m".
+		"uptimeShort": func(raw []byte) string {
+			var m map[string]json.RawMessage
+			if json.Unmarshal(raw, &m) != nil {
+				return ""
+			}
+			v, ok := m["uptime_seconds"]
+			if !ok {
+				return ""
+			}
+			var sec int64
+			if json.Unmarshal(v, &sec) != nil {
+				var s string
+				if json.Unmarshal(v, &s) == nil {
+					sec, _ = strconv.ParseInt(s, 10, 64)
+				}
+			}
+			if sec <= 0 {
+				return ""
+			}
+			d := sec / 86400
+			h := (sec % 86400) / 3600
+			mn := (sec % 3600) / 60
+			switch {
+			case d > 0:
+				return fmt.Sprintf("%dd %dh", d, h)
+			case h > 0:
+				return fmt.Sprintf("%dh %dm", h, mn)
+			default:
+				return fmt.Sprintf("%dm", mn)
+			}
+		},
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
 			if err := json.Unmarshal(raw, &m); err != nil {
