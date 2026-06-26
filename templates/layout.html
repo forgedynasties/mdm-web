@@ -66,9 +66,9 @@
       </div>
       {{end}}
     </div>
-    <a href="/changelog" class="nav-promo{{if eq .ActivePage "changelog"}} cur{{end}}" title="What's new">
-      <span class="nav-promo-txt"><b>What's new</b><span>v{{.Version}}</span></span>
-      <span class="nav-promo-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg></span>
+    <a href="/changelog" title="What's new"
+       style="display:block;margin-top:auto;padding:6px 12px;font-size:12px;text-decoration:none;color:var(--muted);{{if eq .ActivePage "changelog"}}font-weight:600;color:var(--accent);{{end}}">
+      What's new · v{{.Version}}
     </a>
     <div class="navbar-user">
       <div class="navbar-user-name">{{if .CurrentUser}}{{.CurrentUser}}{{else}}Unknown User{{end}}</div>
