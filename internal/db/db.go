@@ -3072,9 +3072,9 @@ type GroupHealth struct {
 	OfflineCount   int       `json:"offline_count"`
 	OpenCritical   int       `json:"open_critical"`
 	OpenWarning    int       `json:"open_warning"`
-	BatteryAvg     *float64  `json:"battery_avg"`   // recent avg daily peak battery (overnight fullness)
-	BatteryDelta   *float64  `json:"battery_delta"` // recent minus prior week (negative = declining)
-	ChargingAvg    *float64  `json:"charging_avg"`  // recent avg charging coverage (0-1)
+	BatteryAvg     *float64  `json:"battery_avg"`     // recent avg daily peak battery (overnight fullness)
+	BatteryDelta   *float64  `json:"battery_delta"`   // recent minus prior week (negative = declining)
+	ChargingAvg    *float64  `json:"charging_avg"`    // recent avg charging coverage (0-1)
 	TempMax        *float64  `json:"temp_max"`        // hottest device in the window
 	TempMaxSerial  *string   `json:"temp_max_serial"` // serial of the device that hit TempMax
 	DistinctBuilds int       `json:"distinct_builds"`
@@ -3220,18 +3220,33 @@ type AlertRule struct {
 
 // Alert is a fired alert instance. Serial is joined from devices for display.
 type Alert struct {
-	ID         uuid.UUID       `json:"id"`
-	RuleID     *uuid.UUID      `json:"rule_id"`
-	Type       string          `json:"type"`
-	DeviceID   *uuid.UUID      `json:"device_id"`
-	Serial     string          `json:"serial"`
-	Severity   string          `json:"severity"`
-	Status     string          `json:"status"`
-	Summary    string          `json:"summary"`
-	Detail     json.RawMessage `json:"detail"`
-	FiredAt    time.Time       `json:"fired_at"`
-	ResolvedAt *time.Time      `json:"resolved_at"`
-	UpdatedAt  time.Time       `json:"updated_at"`
+	ID             uuid.UUID       `json:"id"`
+	RuleID         *uuid.UUID      `json:"rule_id"`
+	Type           string          `json:"type"`
+	DeviceID       *uuid.UUID      `json:"device_id"`
+	Serial         string          `json:"serial"`
+	RestaurantName string          `json:"restaurant_name,omitempty"`
+	Severity       string          `json:"severity"`
+	Status         string          `json:"status"`
+	Summary        string          `json:"summary"`
+	Detail         json.RawMessage `json:"detail"`
+	Occurrences    int             `json:"occurrences"`
+	FiredAt        time.Time       `json:"fired_at"`
+	LastSeenAt     time.Time       `json:"last_seen_at"`
+	ResolvedAt     *time.Time      `json:"resolved_at"`
+	UpdatedAt      time.Time       `json:"updated_at"`
+}
+
+// AlertSummary holds dashboard headline counts. Severity counts cover only
+// non-resolved alerts (what still needs attention); Total/Resolved cover all rows.
+type AlertSummary struct {
+	Total        int `json:"total"`
+	Open         int `json:"open"`
+	Acknowledged int `json:"acknowledged"`
+	Resolved     int `json:"resolved"`
+	Critical     int `json:"critical"`
+	Warning      int `json:"warning"`
+	Info         int `json:"info"`
 }
 
 // defaultAlertRules are seeded once (per type) by EnsureDefaultRules so alerting
@@ -3336,20 +3351,27 @@ func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ str
 		}
 		detailJSON = b
 	}
-	var id uuid.UUID
+	// On a re-fire of the same open (type, device) condition, bump the occurrence
+	// count and refresh the summary/detail/last-seen instead of dropping the row.
+	// The (xmax = 0) flag is true only for a genuine INSERT, so callers still
+	// broadcast/notify exactly once per distinct occurrence (not on every re-fire).
+	var inserted bool
 	err := d.pool.QueryRow(ctx, `
 		INSERT INTO alerts (rule_id, type, device_id, severity, summary, detail)
 		VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-		ON CONFLICT (type, device_id) WHERE status <> 'resolved' DO NOTHING
-		RETURNING id
-	`, ruleID, typ, deviceID, severity, summary, detailJSON).Scan(&id)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return false, nil
-	}
+		ON CONFLICT (type, device_id) WHERE status <> 'resolved'
+		DO UPDATE SET occurrences  = alerts.occurrences + 1,
+		              last_seen_at  = NOW(),
+		              severity      = EXCLUDED.severity,
+		              summary       = EXCLUDED.summary,
+		              detail        = EXCLUDED.detail,
+		              updated_at    = NOW()
+		RETURNING (xmax = 0)
+	`, ruleID, typ, deviceID, severity, summary, detailJSON).Scan(&inserted)
 	if err != nil {
 		return false, err
 	}
-	return true, nil
+	return inserted, nil
 }
 
 // ResolveOpenAlert resolves any non-resolved alert for (type, device); used when a
@@ -3373,9 +3395,11 @@ func (d *DB) ListAlerts(ctx context.Context, status string, limit int) ([]Alert,
 	}
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
-		       a.severity, a.status, a.summary, a.detail, a.fired_at, a.resolved_at, a.updated_at
+		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
+		       a.occurrences, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
 		FROM alerts a
 		LEFT JOIN devices d ON d.id = a.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE ($1 = '' OR a.status = $1)
 		ORDER BY a.fired_at DESC
 		LIMIT $2
@@ -3388,12 +3412,29 @@ func (d *DB) ListAlerts(ctx context.Context, status string, limit int) ([]Alert,
 	for rows.Next() {
 		var a Alert
 		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
-			&a.Severity, &a.Status, &a.Summary, &a.Detail, &a.FiredAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
+			&a.Occurrences, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// AlertSummaryCounts returns headline counts for the alerts page in a single query.
+func (d *DB) AlertSummaryCounts(ctx context.Context) (AlertSummary, error) {
+	var s AlertSummary
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*),
+		       COUNT(*) FILTER (WHERE status = 'open'),
+		       COUNT(*) FILTER (WHERE status = 'acknowledged'),
+		       COUNT(*) FILTER (WHERE status = 'resolved'),
+		       COUNT(*) FILTER (WHERE severity = 'critical' AND status <> 'resolved'),
+		       COUNT(*) FILTER (WHERE severity = 'warning'  AND status <> 'resolved'),
+		       COUNT(*) FILTER (WHERE severity = 'info'     AND status <> 'resolved')
+		FROM alerts
+	`).Scan(&s.Total, &s.Open, &s.Acknowledged, &s.Resolved, &s.Critical, &s.Warning, &s.Info)
+	return s, err
 }
 
 // CountOpenAlerts returns the number of alerts in the 'open' status (for nav badge).
@@ -3417,6 +3458,25 @@ func (d *DB) BulkSetAlertStatus(ctx context.Context, status string) (int64, erro
 		    resolved_at = CASE WHEN $1 = 'resolved' THEN NOW() ELSE resolved_at END,
 		    updated_at = NOW()
 		WHERE `+where, status)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// BulkSetAlertStatusByIDs transitions the given alerts to status (used by the
+// selection-based bulk actions on the alerts page). resolved sets resolved_at.
+func (d *DB) BulkSetAlertStatusByIDs(ctx context.Context, ids []uuid.UUID, status string) (int64, error) {
+	if len(ids) == 0 {
+		return 0, nil
+	}
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts
+		SET status = $2,
+		    resolved_at = CASE WHEN $2 = 'resolved' THEN NOW() ELSE resolved_at END,
+		    updated_at = NOW()
+		WHERE id = ANY($1)
+	`, ids, status)
 	if err != nil {
 		return 0, err
 	}
@@ -5050,6 +5110,11 @@ UPDATE alert_channels SET alert_types = (
 -- window (quiet_start/quiet_end), so the service window is unnecessary. Flip legacy
 -- rows off the old service-window default so they stop being gated to deployed units.
 UPDATE alert_rules SET active_window = 'always' WHERE type = 'offline' AND active_window = 'service';
+
+-- Alert occurrence tracking: count re-fires of the same open (type, device) condition
+-- instead of suppressing them silently, and record when the condition was last seen.
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS occurrences INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE alerts ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

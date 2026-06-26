@@ -152,24 +152,24 @@ func deviceRowClasses(dev db.Device) string {
 
 // DeviceRowJSON holds the pre-computed, JSON-serialisable data for one fleet table row.
 type DeviceRowJSON struct {
-	Serial       string  `json:"serial"`
-	BuildID      string  `json:"build_id"`
-	Online       bool    `json:"online"`
-	BatteryPct   int     `json:"battery_pct"`
-	BatteryClass string  `json:"battery_class"`
-	BatteryWidth string  `json:"battery_width"`
-	RamPct       int     `json:"ram_pct"` // 0 = no data
-	HasRam       bool    `json:"has_ram"`
-	TempStr      string  `json:"temp_str"` // "" = no data
-	TempClass    string  `json:"temp_class"`
-	LastSeenISO  string  `json:"last_seen_iso"` // RFC3339, empty if zero
-	TimeSince    string  `json:"time_since"`
-	PollInterval int     `json:"poll_interval_ms"`
-	KioskEnabled bool    `json:"kiosk_enabled"`
-	KioskPackage string  `json:"kiosk_package"`
-	Hidden       bool    `json:"hidden"` // true once hidden; tells the live row patch to drop the row
-	Charging     bool    `json:"charging"`
-	RowClasses   string  `json:"row_classes"`
+	Serial       string `json:"serial"`
+	BuildID      string `json:"build_id"`
+	Online       bool   `json:"online"`
+	BatteryPct   int    `json:"battery_pct"`
+	BatteryClass string `json:"battery_class"`
+	BatteryWidth string `json:"battery_width"`
+	RamPct       int    `json:"ram_pct"` // 0 = no data
+	HasRam       bool   `json:"has_ram"`
+	TempStr      string `json:"temp_str"` // "" = no data
+	TempClass    string `json:"temp_class"`
+	LastSeenISO  string `json:"last_seen_iso"` // RFC3339, empty if zero
+	TimeSince    string `json:"time_since"`
+	PollInterval int    `json:"poll_interval_ms"`
+	KioskEnabled bool   `json:"kiosk_enabled"`
+	KioskPackage string `json:"kiosk_package"`
+	Hidden       bool   `json:"hidden"` // true once hidden; tells the live row patch to drop the row
+	Charging     bool   `json:"charging"`
+	RowClasses   string `json:"row_classes"`
 }
 
 func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) DeviceRowJSON {
@@ -329,6 +329,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canAdmin": func(role string) bool { return role == "admin" || role == "dev" },
 		// alertTypeGroups feeds the per-channel alert-type filter in settings.
 		"alertTypeGroups": alertTypeCatalog,
+		// alertTypeLabel maps a raw alert type to its friendly catalog label
+		// (falls back to the raw type when unknown).
+		"alertTypeLabel": alertTypeLabel,
 		// hasStr reports membership of s in list (template helper for checkbox state).
 		"hasStr": func(list []string, s string) bool {
 			for _, x := range list {
@@ -2259,12 +2262,49 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	default:
 		severity = ""
 	}
+	summary, err := h.db.AlertSummaryCounts(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
 	h.render(w, r, "alerts.html", map[string]any{
 		"Title":    "Alerts",
 		"Alerts":   alerts,
+		"Summary":  summary,
 		"Filter":   status,
 		"Severity": severity,
 	})
+}
+
+// AlertBulk applies an action (acknowledge|resolve) to the alert IDs selected via
+// checkboxes on the alerts page.
+func (h *Handler) AlertBulk(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	var status string
+	switch r.FormValue("action") {
+	case "acknowledge":
+		status = "acknowledged"
+	case "resolve":
+		status = "resolved"
+	default:
+		http.Redirect(w, r, "/alerts", http.StatusSeeOther)
+		return
+	}
+	var ids []uuid.UUID
+	for _, s := range r.Form["ids"] {
+		if id, err := uuid.Parse(s); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	if len(ids) > 0 {
+		if _, err := h.db.BulkSetAlertStatusByIDs(r.Context(), ids, status); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.audit(r, "alert."+status+"_selected", "", strconv.Itoa(len(ids)))
+		h.hub.PublishAlertUpdate()
+	}
+	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
 }
 
 // AlertAck marks an alert acknowledged. AlertResolve resolves it.
@@ -5972,6 +6012,19 @@ func alertTypeCatalog() []alertTypeGroup {
 	return groups
 }
 
+// alertTypeLabel returns the friendly catalog label for an alert type, falling
+// back to the raw type string when it isn't a known catalog entry.
+func alertTypeLabel(t string) string {
+	for _, g := range alertTypeCatalog() {
+		for _, o := range g.Types {
+			if o.Type == t {
+				return o.Label
+			}
+		}
+	}
+	return t
+}
+
 // validAlertType reports whether t is a known dispatchable alert type.
 func validAlertType(t string) bool {
 	for _, g := range alertTypeCatalog() {
@@ -6970,6 +7023,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
+	post("POST /alerts/bulk", h.requireOperatorOrAdmin(h.AlertBulk))
 	post("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
 	post("POST /alerts/resolve-all", h.requireOperatorOrAdmin(h.AlertResolveAll))
 	post("POST /alerts/clear-all", h.requireAdmin(h.AlertClearAll))
