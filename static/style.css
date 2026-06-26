@@ -277,9 +277,11 @@ a:hover { color: var(--accent-h); }
   transition: opacity var(--dur) var(--ease);
 }
 .navbar-brand:hover { opacity: 0.85; }
-/* Wordmark: "AIO" in the brand gradient, "Hub" in a calm grey. */
+/* Wordmark: AIO Hub in Poppins (the brand font) — "AIO" in the brand
+   gradient, "Hub" in a calm grey. */
+.brand-aio, .brand-hub { font-family: 'Poppins', var(--font); letter-spacing: -0.01em; }
 .brand-aio {
-  font-weight: 800;
+  font-weight: 700;
   background: var(--brand-grad);
   -webkit-background-clip: text;
   background-clip: text;
