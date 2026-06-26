@@ -782,22 +782,21 @@ window.CMD_PREFILL = {{.Prefill}};
 {{end}}
 
 {{define "cmd-device-browser"}}
-<table class="table" style="margin:0;">
-  <thead><tr><th style="width:34px;"></th><th>Serial</th><th>Release</th><th>Battery</th><th>Last seen</th></tr></thead>
-  <tbody>
-    {{if .Devices}}
-      {{range .Devices}}
-      <tr>
-        <td><input type="checkbox" class="cmd-browse-cb" value="{{.SerialNumber}}" onchange="cmdToggleDevice(this)"></td>
-        <td class="mono" style="white-space:nowrap;"><span class="ws-dot {{if index $.Online .ID}}online{{end}}"></span><a href="/devices/{{.SerialNumber}}" class="link-detail" target="_blank" rel="noopener">{{.SerialNumber}}</a></td>
-        <td class="mono small">{{.BuildID}}</td>
-        <td class="small">{{if .BatteryPct}}{{.BatteryPct}}%{{else}}<span class="muted">—</span>{{end}}</td>
-        <td class="muted small" style="white-space:nowrap;">{{timeSince .LastSeenAt}}</td>
-      </tr>
-      {{end}}
-    {{else}}
-      <tr><td colspan="5" class="muted small" style="padding:14px;">No devices match these filters.</td></tr>
-    {{end}}
-  </tbody>
-</table>
+{{if .Devices}}
+<div class="cb-list">
+  {{range .Devices}}
+  <label class="cb-row">
+    <input type="checkbox" class="cmd-browse-cb" value="{{.SerialNumber}}" onchange="cmdToggleDevice(this)">
+    {{if .BatteryPct}}<span class="dp-bchip {{batteryClass .BatteryPct}}">{{.BatteryPct}}%</span>{{else}}<span class="dp-bchip cb-bat-na">—</span>{{end}}
+    <span class="cb-id">
+      <span class="cb-serial mono">{{.SerialNumber}}</span>
+      <span class="cb-sub">{{.BuildID}} · {{timeSince .LastSeenAt}}</span>
+    </span>
+    <span class="cb-status" title="{{if index $.Online .ID}}Online{{else}}Offline{{end}}"><i class="{{if index $.Online .ID}}on{{end}}"></i></span>
+  </label>
+  {{end}}
+</div>
+{{else}}
+<div class="muted small" style="padding:14px 12px;">No devices match these filters.</div>
+{{end}}
 {{end}}
