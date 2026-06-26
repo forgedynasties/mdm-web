@@ -36,17 +36,27 @@
   hx-swap="outerHTML"
   {{end}}>
   <div class="card-header"><h3>Command history</h3><span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span></div>
-  <div style="padding:6px 18px 12px;">
+  <div style="padding:10px 18px 12px;">
     {{if .Commands}}
-    <div class="ddc-activity">
+    <div class="ch-filters" id="ch-filters">
+      <button type="button" class="ch-pill on" data-ct="" onclick="cmdHistFilter('',this)">All</button>
+      <button type="button" class="ch-pill" data-ct="install_apk" onclick="cmdHistFilter('install_apk',this)">Install</button>
+      <button type="button" class="ch-pill" data-ct="uninstall" onclick="cmdHistFilter('uninstall',this)">Uninstall</button>
+      <button type="button" class="ch-pill" data-ct="shell" onclick="cmdHistFilter('shell',this)">Shell</button>
+      <button type="button" class="ch-pill" data-ct="screenshot" onclick="cmdHistFilter('screenshot',this)">Screenshot</button>
+      <button type="button" class="ch-pill" data-ct="reboot" onclick="cmdHistFilter('reboot',this)">Reboot</button>
+      <button type="button" class="ch-pill" data-ct="logcat" onclick="cmdHistFilter('logcat',this)">Logcat</button>
+    </div>
+    <div class="ddc-activity" id="ch-list">
       {{range .Commands}}
-      <a class="ddc-tl ddc-tl-link" href="/commands/{{.ID}}">
+      <a class="ddc-tl ddc-tl-link" data-ct="{{.Type}}" href="/commands/{{.ID}}">
         <span class="dot {{if eq .Status "success"}}ok{{else if or (eq .Status "failed") (eq .Status "expired")}}err{{else if eq .Status "pending"}}warn{{end}}"></span>
         <span class="ddc-tl-main"><b>{{if .ApkURL}}Install app{{else}}{{cmdLabel .Type}}{{end}}</b> · {{.Status}}{{if .TargetType}} <span class="muted">· {{.TargetType}}</span>{{end}}</span>
         <span class="when">{{timeSince .CreatedAt}}</span>
       </a>
       {{end}}
     </div>
+    <div id="ch-empty" class="muted small" style="display:none;padding:8px 0;">No commands of that type.</div>
     {{else}}
     <div class="muted small" style="padding:8px 0;">No commands sent to this device yet.</div>
     {{end}}
@@ -1004,9 +1014,9 @@
     <div class="card-header"><h3>Installed applications</h3><span class="muted small">{{len .InstalledPackages}} packages</span></div>
     {{if .InstalledPackages}}
     <div class="app-search"><input type="text" id="apps-filter" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>
-    <div class="app-list{{if gt (len .InstalledPackages) 10}} collapsed{{end}}" id="apps-table">
+    <div class="app-list{{if gt (len .InstalledPackages) 6}} collapsed{{end}}" id="apps-table">
       {{range $i, $p := .InstalledPackages}}
-      <div class="app-row{{if ge $i 10}} app-extra{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}">
+      <div class="app-row{{if ge $i 6}} app-extra{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}">
         <div class="app-id">
           <div class="app-name">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
           <div class="app-pkg mono">{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}</div>
@@ -1022,7 +1032,7 @@
       </div>
       {{end}}
     </div>
-    {{if gt (len .InstalledPackages) 10}}
+    {{if gt (len .InstalledPackages) 6}}
     <button type="button" id="apps-more" class="app-more" onclick="appsShowAll()">Show all {{len .InstalledPackages}} apps</button>
     {{end}}
     <div id="apps-no-match" class="muted small" style="display:none;padding:16px 18px;">No apps match your search.</div>
@@ -1443,13 +1453,18 @@ function filterInstalledApps(q) {
     }
   });
 
-  // Restore the last-used tab on load (any reload, server- or user-triggered).
-  (function () {
-    var saved; try { saved = localStorage.getItem(ddTabKey); } catch (e) {}
-    if (!saved || saved === 'summary') return;
-    var btn = document.querySelector('.dd-tab[data-dd-tab="' + saved + '"]');
-    if (btn) setDeviceTab(saved, btn);
-  })();
+  // Opening a device always lands on Overview (no last-tab restore).
+
+  // Command-history type filters (client-side, in the History tab).
+  window.cmdHistFilter = function (ct, btn) {
+    document.querySelectorAll('#ch-filters .ch-pill').forEach(function (p) { p.classList.toggle('on', p === btn); });
+    var vis = 0;
+    document.querySelectorAll('#ch-list .ddc-tl').forEach(function (r) {
+      var show = !ct || r.getAttribute('data-ct') === ct;
+      r.style.display = show ? '' : 'none'; if (show) vis++;
+    });
+    var e = document.getElementById('ch-empty'); if (e) e.style.display = vis ? 'none' : '';
+  };
 </script>
 
 <script>
