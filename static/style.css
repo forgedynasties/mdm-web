@@ -4162,7 +4162,8 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .fleet-view.on { background: var(--accent-soft); border-color: var(--accent-edge); color: var(--accent); }
 .fleet-view.on .n { color: var(--accent); }
 
-.fleet-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+.fleet-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;
+  position: relative; z-index: 40; }
 .fleet-search { flex: 1; min-width: 220px; display: flex; align-items: center; gap: 9px; height: 40px;
   padding: 0 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; color: var(--muted); }
 .fleet-search svg { width: 16px; height: 16px; flex: none; }
@@ -4185,7 +4186,7 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
   background: var(--surface); border: 1px solid var(--border); border-radius: 11px; color: var(--text-2); cursor: pointer; }
 .fleet-iconbtn:hover { border-color: var(--rule-2); }
 
-.fleet-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 50; width: 520px; max-width: 92vw;
+.fleet-pop { position: absolute; top: calc(100% + 8px); right: 0; z-index: 60; width: 520px; max-width: 92vw;
   background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-pop);
   padding: 18px; animation: ov-rise 0.16s var(--ease) both; }
 .fleet-pop[hidden] { display: none; }
