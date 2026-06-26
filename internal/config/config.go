@@ -389,8 +389,18 @@ func (c *Config) BrandName() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if c.BrandNameVal == "" {
-		return "AIO MDM"
+		return "AIO Hub"
 	}
+	return c.BrandNameVal
+}
+
+// CustomBrand returns the operator-configured brand override, or "" when unset.
+// Templates treat the empty case as "render the default styled AIO Hub
+// wordmark" — so feed this (not BrandName) into the dashboard's .Brand var,
+// otherwise a non-empty default would replace the styled wordmark with plain text.
+func (c *Config) CustomBrand() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.BrandNameVal
 }
 
