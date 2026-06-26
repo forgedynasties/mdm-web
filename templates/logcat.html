@@ -7,52 +7,51 @@
 </div>
 
 <style>
-.shell-suggest{margin-top:12px;}
-.suggest-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:10px 0 5px;}
+.lc-form{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;padding:16px 18px;}
+.lc-field{display:flex;flex-direction:column;gap:5px;}
+.lc-lbl{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
+.lc-levels{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px;}
+.lc-lv{width:32px;height:29px;border:0;border-radius:6px;background:none;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;}
+.lc-lv.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm);}
+.lc-suggest{padding:0 18px 14px;}
+.suggest-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-faint);margin:8px 0 5px;}
 .suggest-row{display:flex;flex-wrap:wrap;gap:6px;}
-.suggest-chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-2);padding:4px 9px;cursor:pointer;color:var(--text);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.suggest-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
+.suggest-chip{font-family:var(--mono);font-size:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:4px 9px;cursor:pointer;color:var(--muted);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.suggest-chip:hover{border-color:var(--accent);color:var(--accent);}
 </style>
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Request Logs</h3></div>
-  <form action="/devices/{{.Device.SerialNumber}}/logcat" method="POST" class="command-form">
-    <div class="form-row">
-      <label class="form-label">Level</label>
-      <select name="level" id="lc-level" class="form-input" style="width:auto;">
-        <option value="E">E — Error only</option>
-        <option value="W" selected>W — Warning+</option>
-        <option value="I">I — Info+</option>
-        <option value="D">D — Debug+</option>
-        <option value="V">V — Verbose (all)</option>
-      </select>
+  <div class="card-header"><h3>Request logs</h3></div>
+  <form action="/devices/{{.Device.SerialNumber}}/logcat" method="POST" class="lc-form">
+    <input type="hidden" name="level" id="lc-level" value="W">
+    <div class="lc-field">
+      <label class="lc-lbl">Level</label>
+      <div class="lc-levels">
+        <button type="button" class="lc-lv" data-lv="E" onclick="lcSetLevel('E',this)" title="Error only">E</button>
+        <button type="button" class="lc-lv on" data-lv="W" onclick="lcSetLevel('W',this)" title="Warning+">W</button>
+        <button type="button" class="lc-lv" data-lv="I" onclick="lcSetLevel('I',this)" title="Info+">I</button>
+        <button type="button" class="lc-lv" data-lv="D" onclick="lcSetLevel('D',this)" title="Debug+">D</button>
+        <button type="button" class="lc-lv" data-lv="V" onclick="lcSetLevel('V',this)" title="Verbose (all)">V</button>
+      </div>
     </div>
-    <div class="form-row">
-      <label class="form-label">Lines</label>
-      <input type="number" name="lines" id="lc-lines" class="form-input" value="500" min="50" max="5000" style="width:100px;">
-    </div>
-    <div class="form-row">
-      <label class="form-label">Tag filter <span class="muted small">(optional)</span></label>
-      <input type="text" name="tag" id="lc-tag" class="form-input" placeholder="e.g. MyApp" style="width:200px;">
-    </div>
-    <button type="submit" class="btn-primary">Request Logs</button>
+    <div class="lc-field"><label class="lc-lbl">Lines</label><input type="number" name="lines" id="lc-lines" class="form-input" value="500" min="50" max="5000" style="width:90px;"></div>
+    <div class="lc-field"><label class="lc-lbl">Tag filter</label><input type="text" name="tag" id="lc-tag" class="form-input" placeholder="optional" style="width:170px;"></div>
+    <button type="submit" class="btn-primary">Request logs</button>
   </form>
   {{if or .LogcatRecent .LogcatFrequent}}
-  <div class="shell-suggest" style="padding:0 16px 14px;">
-    {{if .LogcatRecent}}
-    <div class="suggest-lbl">Recent</div>
-    <div class="suggest-row">{{range .LogcatRecent}}<button type="button" class="suggest-chip" onclick="lcFill('{{.Level}}',{{.Lines}},'{{.Tag}}')" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>
-    {{end}}
-    {{if .LogcatFrequent}}
-    <div class="suggest-lbl">Frequent</div>
-    <div class="suggest-row">{{range .LogcatFrequent}}<button type="button" class="suggest-chip" onclick="lcFill('{{.Level}}',{{.Lines}},'{{.Tag}}')" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>
-    {{end}}
+  <div class="lc-suggest">
+    {{if .LogcatRecent}}<div class="suggest-lbl">Recent</div><div class="suggest-row">{{range .LogcatRecent}}<button type="button" class="suggest-chip" onclick="lcFill('{{.Level}}',{{.Lines}},'{{.Tag}}')" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>{{end}}
+    {{if .LogcatFrequent}}<div class="suggest-lbl">Frequent</div><div class="suggest-row">{{range .LogcatFrequent}}<button type="button" class="suggest-chip" onclick="lcFill('{{.Level}}',{{.Lines}},'{{.Tag}}')" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>{{end}}
   </div>
   {{end}}
 </div>
 
 <script>
+function lcSetLevel(lv, btn) {
+  document.getElementById('lc-level').value = lv;
+  document.querySelectorAll('.lc-lv').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-lv') === lv); });
+}
 function lcFill(level, lines, tag) {
-  var l = document.getElementById('lc-level'); if (l) l.value = level;
+  lcSetLevel(level, null);
   var n = document.getElementById('lc-lines'); if (n) n.value = lines;
   var t = document.getElementById('lc-tag');   if (t) t.value = tag || '';
 }
