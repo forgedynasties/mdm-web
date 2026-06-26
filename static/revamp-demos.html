@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Revamp demos — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --accent:#f9674e;--accent-2:#7a80f6;--grad:linear-gradient(90deg,#7a80f6,#f9674e);
+  --ok:#2bb673;--warn:#e8a13a;--low:#e5484d;
+  --ink:#1c2024;--muted:#62677a;--faint:#9aa0b0;
+  --surface:#fff;--bg:#f6f7f9;--border:#e7e8ee;--soft:#eceef3;--hover:#f7f8fa;
+  --accent-soft:rgba(249,103,78,.1);--peri-soft:rgba(122,128,246,.12);--ink2:#11161c;
+}
+*{box-sizing:border-box}
+body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);margin:0;line-height:1.45}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+header.top{padding:30px 40px 18px;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:20}
+.brand{font-family:'Poppins',sans-serif;font-weight:700;font-size:20px}
+.brand .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.brand .b{color:var(--muted);font-weight:600}
+h1{font-size:22px;margin:10px 0 2px}.lead{color:var(--muted);font-size:13.5px;margin:0;max-width:760px}
+.toc{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.toc a{font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none;border:1px solid var(--border);border-radius:99px;padding:5px 12px}
+.toc a:hover{color:var(--accent);border-color:var(--accent)}
+main{padding:14px 40px 90px;max-width:1140px;margin:0 auto}
+section.demo{padding:30px 0;border-bottom:1px dashed var(--border)}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--grad);padding:4px 10px;border-radius:7px}
+h2{font-size:18px;margin:10px 0 3px}.desc{color:var(--muted);font-size:13px;margin:0 0 18px;max-width:820px}
+.frame{background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:20px}
+.frame+.frame{margin-top:14px}
+.opt-tag{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:8px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.ch{padding:13px 18px;border-bottom:1px solid var(--soft);display:flex;justify-content:space-between;align-items:center}
+.ch h3{margin:0;font-size:14px}
+.btn{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);background:#fff;color:var(--ink);padding:8px 13px;border-radius:10px;cursor:pointer}
+.btn.prim{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn svg{width:15px;height:15px}
+.muted{color:var(--muted)}.small{font-size:12px}
+.pill{font-size:12px;font-weight:600;padding:5px 12px;border-radius:99px;border:1px solid var(--border);background:#fff;color:var(--muted)}
+.pill.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11.5px;font-weight:600}
+.b-ok{background:rgba(43,182,115,.13);color:#1c7d50}.b-mid{background:rgba(232,161,58,.15);color:#9a6512}.b-low{background:rgba(229,72,77,.13);color:#b4282d}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}.d-ok{background:var(--ok)}.d-warn{background:var(--warn)}.d-err{background:var(--low)}.d-peri{background:var(--accent-2)}
+.row{display:grid;align-items:center;gap:12px;padding:11px 16px;border-top:1px solid var(--soft)}
+.terminal{background:var(--ink2);border-radius:12px;padding:14px 16px;color:#cdd3da;font-family:'IBM Plex Mono',monospace;font-size:12.5px;line-height:1.7}
+.terminal .pr{color:#7ad19a}.terminal .cm{color:#e8e8e8}.terminal .mut{color:#7a828c}
+.star{width:15px;height:15px}
+/* AI modal mock */
+.modal-mock{position:relative;background:rgba(20,22,28,.32);border-radius:14px;padding:26px;display:flex;justify-content:center}
+.ai-modal{width:560px;max-width:100%;background:var(--surface);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.25);overflow:hidden}
+.ai-h{display:flex;align-items:center;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--soft)}
+.ai-title{display:flex;align-items:center;gap:9px;font-weight:700;font-size:15px}
+.ai-title .sp{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.ai-body{padding:16px 18px}
+.ai-card{border:1px solid var(--border);border-radius:11px;padding:13px 14px;font-size:13px;line-height:1.55}
+.ai-prev{margin-top:14px}
+.ai-prev-h{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+.ai-prev-row{display:flex;justify-content:space-between;gap:10px;padding:9px 11px;border:1px solid var(--soft);border-radius:9px;margin-bottom:7px;cursor:pointer;font-size:12.5px}
+.ai-prev-row:hover{background:var(--hover)}
+.kbd{font-family:'IBM Plex Mono',monospace;font-size:11px;background:var(--soft);border-radius:5px;padding:1px 6px;color:var(--muted)}
+.log-line{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:3px 12px;display:flex;gap:10px;border-radius:6px}
+.log-line .lvl{font-weight:700;width:16px;flex:none;text-align:center}
+.log-E{color:#e5484d}.log-W{color:#c98a00}.log-I{color:#2b8a3e}.log-D{color:#5566d6}
+</style></head>
+<body>
+<header class="top">
+  <div class="brand"><span class="a">AIO</span> <span class="b">MDM</span> · revamp demos</div>
+  <h1>Pick what to build next</h1>
+  <p class="lead">Concept mockups for every surface that hasn't been revamped yet. Tell me which option you want for each — or “skip” anything you’re happy with. Nothing here is wired up; it’s for choosing direction.</p>
+  <nav class="toc">
+    <a href="#tabs">Device tabs area</a>
+    <a href="#ai">AI analysis popup</a>
+    <a href="#shell">Shell</a>
+    <a href="#logcat">Logcat</a>
+    <a href="#screenshot">Screenshot</a>
+    <a href="#commands">Commands</a>
+    <a href="#releases">Releases</a>
+    <a href="#settings">Settings</a>
+  </nav>
+</header>
+<main>
+
+<!-- ============ TABS AREA ============ -->
+<section class="demo" id="tabs">
+  <span class="eyebrow">Device detail · 01</span>
+  <h2>Replace the tabs area</h2>
+  <p class="desc">Two ways to drop the underline tabs for the content under the hero. Both keep Overview / Apps / Controls / History but feel less like a browser tab strip.</p>
+
+  <div class="frame">
+    <div class="opt-tag">Option A — Segmented switcher (pill group, sticky)</div>
+    <div style="display:inline-flex;gap:3px;background:var(--soft);border-radius:11px;padding:4px;margin-bottom:14px">
+      <button class="pill on" style="border:0">Overview</button>
+      <button class="pill" style="border:0;background:none">Applications</button>
+      <button class="pill" style="border:0;background:none">Controls</button>
+      <button class="pill" style="border:0;background:none">History</button>
+    </div>
+    <div class="card"><div class="ch"><h3>Overview</h3><span class="muted small">battery · temp · ram</span></div><div style="height:120px;background:linear-gradient(180deg,rgba(249,103,78,.08),transparent)"></div></div>
+  </div>
+
+  <div class="frame">
+    <div class="opt-tag">Option B — Left section rail (no tabs; everything scannable)</div>
+    <div style="display:grid;grid-template-columns:150px 1fr;gap:14px">
+      <div class="card" style="padding:8px">
+        <div style="padding:9px 11px;border-radius:9px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:13px">Overview</div>
+        <div style="padding:9px 11px;color:var(--muted);font-size:13px;font-weight:500">Applications</div>
+        <div style="padding:9px 11px;color:var(--muted);font-size:13px;font-weight:500">Controls</div>
+        <div style="padding:9px 11px;color:var(--muted);font-size:13px;font-weight:500">History</div>
+      </div>
+      <div class="card"><div class="ch"><h3>Overview</h3></div><div style="height:110px;background:linear-gradient(180deg,rgba(122,128,246,.07),transparent)"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ AI POPUP ============ -->
+<section class="demo" id="ai">
+  <span class="eyebrow">AI analysis · 02</span>
+  <h2>“Analyze with AI” as a header button + popup</h2>
+  <p class="desc">A small sparkle button sits in the hero toolbar after Logcat. Clicking opens a popup that runs a fresh analysis and lists previous ones (click to reopen). This is the layout — wiring the saved-history needs a small store on the backend.</p>
+  <div class="frame">
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:14px">
+      <button class="btn">Reboot</button><button class="btn">Shell</button><button class="btn">Logcat</button>
+      <button class="btn prim"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze with AI</button>
+    </div>
+    <div class="modal-mock">
+      <div class="ai-modal">
+        <div class="ai-h">
+          <span class="ai-title"><svg class="star" viewBox="0 0 24 24" fill="#7a80f6"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg><span class="sp">AI analysis</span> · AT070AABU00169</span>
+          <button class="btn" style="padding:6px 9px">✕</button>
+        </div>
+        <div class="ai-body">
+          <div class="ai-card">
+            <b>Healthy.</b> Battery has held 80–100% over 30 days with consistent overnight charging. Temperature peaked at 31°C (normal). No stale check-ins. <span class="muted">No action needed.</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+            <span class="muted small">claude-opus · just now</span>
+            <button class="btn prim" style="font-size:12px;padding:6px 12px"><svg class="star" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Re-run</button>
+          </div>
+          <div class="ai-prev">
+            <div class="ai-prev-h">Previous analyses</div>
+            <div class="ai-prev-row"><span>Flagged low overnight charging coverage</span><span class="muted">Jun 22</span></div>
+            <div class="ai-prev-row"><span>Battery healthy, no action</span><span class="muted">Jun 14</span></div>
+            <div class="ai-prev-row"><span>Recommended dock check (14% low)</span><span class="muted">Jun 2</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SHELL ============ -->
+<section class="demo" id="shell">
+  <span class="eyebrow">Shell · 03</span>
+  <h2>Interactive shell</h2>
+  <p class="desc">A focused terminal card: connection status, the live session, and a command bar with history. Quick-command chips for common tasks.</p>
+  <div class="frame">
+    <div class="card" style="overflow:hidden">
+      <div class="ch"><h3 style="display:flex;align-items:center;gap:8px"><span class="dot d-ok"></span>Shell · AT070AABU00169</h3><span class="muted small mono">session 2m 14s</span></div>
+      <div style="padding:14px">
+        <div class="terminal">
+          <div><span class="pr">device:/ $</span> <span class="cm">getprop ro.build.version.release</span></div>
+          <div class="mut">15</div>
+          <div><span class="pr">device:/ $</span> <span class="cm">dumpsys battery | grep level</span></div>
+          <div class="mut">  level: 82</div>
+          <div><span class="pr">device:/ $</span> <span style="border-left:2px solid #cdd3da;animation:none">&nbsp;</span></div>
+        </div>
+        <div style="display:flex;gap:6px;margin:12px 0 10px;flex-wrap:wrap">
+          <span class="pill">pm list packages</span><span class="pill">getprop</span><span class="pill">df -h</span><span class="pill">logcat -d -t 50</span>
+        </div>
+        <div style="display:flex;gap:8px"><input class="form-input mono" placeholder="Type a command…" style="flex:1;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:13px"><button class="btn prim">Run</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LOGCAT ============ -->
+<section class="demo" id="logcat">
+  <span class="eyebrow">Logcat · 04</span>
+  <h2>Log viewer</h2>
+  <p class="desc">Severity-coloured stream with level filters, search, tag chips and follow/pause — readable instead of a raw dump.</p>
+  <div class="frame">
+    <div class="card" style="overflow:hidden">
+      <div class="ch"><h3>Logcat</h3><div style="display:flex;gap:6px"><span class="pill on">All</span><span class="pill">Error</span><span class="pill">Warn</span><span class="pill">Info</span><span class="btn small" style="padding:5px 10px">⏸ Follow</span></div></div>
+      <div style="padding:8px 6px;background:#fcfbfa">
+        <div class="log-line"><span class="lvl log-E">E</span><span class="muted">10:04:21.331</span><span class="mono" style="color:#9a6512">ActivityManager</span><span>ANR in com.aioapp.pos</span></div>
+        <div class="log-line"><span class="lvl log-W">W</span><span class="muted">10:04:20.118</span><span class="mono" style="color:#9a6512">WindowManager</span><span>Slow operation took 412ms</span></div>
+        <div class="log-line"><span class="lvl log-I">I</span><span class="muted">10:04:19.902</span><span class="mono" style="color:#9a6512">MdmService</span><span>Check-in OK · battery 82%</span></div>
+        <div class="log-line"><span class="lvl log-D">D</span><span class="muted">10:04:19.880</span><span class="mono" style="color:#9a6512">KioskManager</span><span>Lock-task verified for com.aioapp.pos</span></div>
+        <div class="log-line"><span class="lvl log-I">I</span><span class="muted">10:04:18.040</span><span class="mono" style="color:#9a6512">Wifi</span><span>Connected to AIO-Kitchen rssi -52</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCREENSHOT ============ -->
+<section class="demo" id="screenshot">
+  <span class="eyebrow">Screenshot · 05</span>
+  <h2>Screenshot result</h2>
+  <p class="desc">When a screenshot command completes, show the image in a clean viewer with device framing, timestamp, and download / re-capture.</p>
+  <div class="frame">
+    <div class="card">
+      <div class="ch"><h3>Screenshot · AT070AABU00169</h3><span class="muted small">captured 2m ago</span></div>
+      <div style="padding:18px;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
+        <div style="width:150px;height:266px;border-radius:18px;border:6px solid var(--ink2);background:linear-gradient(160deg,#7a80f6,#f9674e);flex:none;position:relative">
+          <div style="position:absolute;left:50%;top:9px;transform:translateX(-50%);width:40px;height:5px;border-radius:3px;background:rgba(0,0,0,.3)"></div>
+        </div>
+        <div style="flex:1;min-width:200px">
+          <div class="muted small">Resolution</div><div style="font-weight:600;margin-bottom:10px">1080 × 1920</div>
+          <div class="muted small">Captured</div><div style="font-weight:600;margin-bottom:14px">Jun 26, 11:44 AM</div>
+          <div style="display:flex;gap:8px"><button class="btn">⤓ Download</button><button class="btn prim">Re-capture</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMMANDS ============ -->
+<section class="demo" id="commands">
+  <span class="eyebrow">Commands · 06</span>
+  <h2>Commands page</h2>
+  <p class="desc">A scannable list (not a wide table): status dot, command + target, who sent it, and progress — with quick filters by status.</p>
+  <div class="frame">
+    <div class="card">
+      <div class="ch"><h3>Commands</h3><div style="display:flex;gap:6px"><span class="pill on">All</span><span class="pill">Pending</span><span class="pill">Failed</span></div></div>
+      <div class="row" style="grid-template-columns:auto 1fr auto auto"><span class="dot d-warn"></span><div><div style="font-weight:600;font-size:13.5px">Reboot</div><div class="muted small">Group · Lobby (12 devices)</div></div><span class="chip b-mid">7 / 12 delivered</span><span class="muted small">2m ago</span></div>
+      <div class="row" style="grid-template-columns:auto 1fr auto auto"><span class="dot d-ok"></span><div><div style="font-weight:600;font-size:13.5px">Install app · com.aioapp.pos</div><div class="muted small">Single · AT070AABU00169</div></div><span class="chip b-ok">success</span><span class="muted small">1h ago</span></div>
+      <div class="row" style="grid-template-columns:auto 1fr auto auto"><span class="dot d-err"></span><div><div style="font-weight:600;font-size:13.5px">Screenshot</div><div class="muted small">Single · AT070AABU00482</div></div><span class="chip b-low">failed · offline</span><span class="muted small">3h ago</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ RELEASES ============ -->
+<section class="demo" id="releases">
+  <span class="eyebrow">Releases · 07</span>
+  <h2>Releases — list &amp; detail</h2>
+  <p class="desc">Release cards with rollout coverage at a glance; detail shows the version, adoption bar across the fleet, and OTA packages.</p>
+  <div class="frame">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="card" style="padding:15px 16px"><div style="display:flex;justify-content:space-between"><div style="font-weight:700;font-size:15px" class="mono">A15-v1.62</div><span class="chip b-ok">current</span></div><div class="muted small" style="margin:4px 0 10px">Released Jun 18 · 2 OTA packages</div><div style="height:7px;border-radius:99px;background:var(--soft);overflow:hidden"><div style="width:78%;height:100%;background:var(--ok)"></div></div><div class="muted small" style="margin-top:6px">243 / 312 devices on this build</div></div>
+      <div class="card" style="padding:15px 16px"><div style="display:flex;justify-content:space-between"><div style="font-weight:700;font-size:15px" class="mono">A15-v1.60</div><span class="chip" style="background:var(--soft);color:var(--muted)">superseded</span></div><div class="muted small" style="margin:4px 0 10px">Released May 30 · 1 OTA package</div><div style="height:7px;border-radius:99px;background:var(--soft);overflow:hidden"><div style="width:18%;height:100%;background:var(--warn)"></div></div><div class="muted small" style="margin-top:6px">57 / 312 devices still on this build</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SETTINGS ============ -->
+<section class="demo" id="settings">
+  <span class="eyebrow">Settings · 08</span>
+  <h2>Settings</h2>
+  <p class="desc">Grouped settings with a left section nav, clean cards and inline toggles — instead of one long form.</p>
+  <div class="frame">
+    <div style="display:grid;grid-template-columns:170px 1fr;gap:14px">
+      <div class="card" style="padding:8px">
+        <div style="padding:9px 11px;border-radius:9px;background:var(--accent-soft);color:var(--accent);font-weight:600;font-size:13px">General</div>
+        <div style="padding:9px 11px;color:var(--muted);font-size:13px;font-weight:500">Security</div>
+        <div style="padding:9px 11px;color:var(--muted);font-size:13px;font-weight:500">Alerts &amp; AI</div>
+        <div style="padding:9px 11px;color:var(--muted);font-size:13px;font-weight:500">Data retention</div>
+        <div style="padding:9px 11px;color:var(--muted);font-size:13px;font-weight:500">Branding</div>
+      </div>
+      <div class="card">
+        <div class="ch"><h3>General</h3></div>
+        <div style="padding:6px 18px">
+          <div class="row" style="grid-template-columns:1fr auto;border-top:0"><div><div style="font-weight:600;font-size:13.5px">Check-in interval</div><div class="muted small">How often devices report in</div></div><span class="kbd">60s</span></div>
+          <div class="row" style="grid-template-columns:1fr auto"><div><div style="font-weight:600;font-size:13.5px">Default page size</div><div class="muted small">Rows per fleet page</div></div><span class="kbd">25</span></div>
+          <div class="row" style="grid-template-columns:1fr auto"><div><div style="font-weight:600;font-size:13.5px">Interactive shell</div><div class="muted small">Allow live terminal sessions</div></div><span style="width:38px;height:22px;border-radius:99px;background:var(--ok);position:relative"><span style="position:absolute;right:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff"></span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+</body></html>
