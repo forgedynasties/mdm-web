@@ -802,7 +802,7 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
   padding: 14px 20px;
   border-bottom: 1px solid var(--border);
 }
-.card-header h3 { font-size: 15px; font-weight: 600; }
+.card-header h3 { font-family: var(--font-display); font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; }
 .card-header-actions {
   display: inline-flex;
   align-items: center;
@@ -3707,7 +3707,7 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 
 /* ── Greeting bar ── */
 .ovx-top { display: flex; align-items: flex-end; gap: 18px; margin-bottom: 24px; flex-wrap: wrap; }
-.ovx-hello h1 { font-family: var(--font); font-size: 29px; font-weight: 700;
+.ovx-hello h1 { font-family: var(--font-display); font-size: 30px; font-weight: 600;
   letter-spacing: -0.02em; line-height: 1.1; margin: 0; }
 .ovx-hello p { font-size: 13.5px; color: var(--text-faint); margin: 6px 0 0; }
 .ovx-tools { margin-left: auto; display: flex; align-items: center; gap: 12px; }
@@ -3731,7 +3731,7 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .ovx-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .ovx-side { display: flex; flex-direction: column; gap: 18px; }
 .ovx-sec { display: flex; align-items: baseline; justify-content: space-between; margin: 4px 2px -4px; }
-.ovx-sec h2 { font-family: var(--font); font-size: 16px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+.ovx-sec h2 { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
 .ovx-sec a { font-size: 12.5px; font-weight: 600; color: var(--muted); }
 .ovx-sec a:hover { color: var(--ovx-green); }
 
@@ -3739,7 +3739,7 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .ovx-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--ovx-r);
   box-shadow: var(--shadow-sm); overflow: hidden; }
 .ovx-ch { display: flex; align-items: center; justify-content: space-between; padding: 16px var(--ovx-pad) 0; }
-.ovx-ch h3 { font-size: 14.5px; font-weight: 600; margin: 0; }
+.ovx-ch h3 { font-family: var(--font-display); font-size: 15px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
 .ovx-ch a, .ovx-tag { font-size: 12px; font-weight: 600; color: var(--muted); }
 .ovx-ch a:hover { color: var(--ovx-green); }
 .ovx-tag { font-family: var(--mono); font-weight: 500; font-size: 11px; color: var(--text-faint); }
@@ -4111,8 +4111,15 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
   min-width: 18px;
   border-radius: 9px;
 }
-@media (max-width: 760px) {
-  .alerts-indicator { top: 12px; right: 56px; }
+/* ── Global top-right bar: search + alerts, shown on every page ── */
+.topbar { position: fixed; top: 14px; right: 18px; z-index: 60; display: flex; align-items: center; gap: 10px; }
+.topbar .alerts-indicator { position: static; }
+.topbar-search { height: 38px; }
+@media (max-width: 860px) {
+  /* Clear the mobile top-bar's hamburger; collapse the search to an icon. */
+  .topbar { top: 9px; right: 56px; }
+  .topbar-search span, .topbar-search kbd { display: none; }
+  .topbar-search { width: 38px; min-width: 38px; padding: 0; justify-content: center; }
 }
 
 /* ── Fleet tab strip (Devices / Restaurants / Groups unified surface) ── */
