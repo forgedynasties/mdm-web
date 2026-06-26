@@ -2714,6 +2714,7 @@ func (h *Handler) DeviceShellPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "device_shell.html", map[string]any{
 		"Title":  "Shell · " + serial,
 		"Device": device,
+		"Online": h.hub.IsConnected(device.ID),
 	})
 }
 
