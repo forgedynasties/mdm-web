@@ -351,6 +351,14 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return "battery-ok"
 			}
 		},
+		// width (in the 0..18 viewBox-unit range) of the battery glyph's inner fill
+		"batteryFillW": func(pct int) int {
+			w := pct * 18 / 100
+			if w < 2 {
+				w = 2
+			}
+			return w
+		},
 		"formatTime": func(t time.Time) string {
 			return t.UTC().Format("2006-01-02 15:04:05 UTC")
 		},
