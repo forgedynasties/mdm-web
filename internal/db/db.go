@@ -1236,6 +1236,29 @@ func (d *DB) RemoveDeviceFromGroup(ctx context.Context, serial string, groupID u
 	return err
 }
 
+// ListDeviceGroups returns the groups a single device belongs to (for the device
+// detail page's placement block).
+func (d *DB) ListDeviceGroups(ctx context.Context, deviceID uuid.UUID) ([]Group, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT g.id, g.name, g.created_at
+		FROM groups g JOIN device_groups dg ON dg.group_id = g.id
+		WHERE dg.device_id = $1
+		ORDER BY g.name`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Group
+	for rows.Next() {
+		var g Group
+		if err := rows.Scan(&g.ID, &g.Name, &g.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, g)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT
