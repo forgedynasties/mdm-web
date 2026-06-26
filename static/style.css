@@ -4348,7 +4348,7 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-card > .device-cb { width: 15px; height: 15px; }
 
 /* battery (vertical bar that fills bottom-up, % centered below it) */
-.dl-bat { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; }
+.dl-bat { display: flex; flex-direction: row; align-items: center; gap: 10px; flex: none; }
 .dl-bat-bar { position: relative; width: 13px; height: 30px; flex: none; border-radius: 4px;
   background: var(--surface-3); overflow: hidden; }
 .dl-bat-bar .fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 4px;
@@ -4358,7 +4358,7 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-bat-bar .fill.battery-low { background: var(--danger); }
 .dl-bat-bar .charging-bolt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .dl-bat-bar .charging-bolt svg { width: 9px; height: 9px; }
-.dl-bat .battery-label { font-size: 10px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+.dl-bat .battery-label { font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
 .dl-bat:has(.battery-mid) .battery-label { color: var(--warn); }
 .dl-bat:has(.battery-low) .battery-label { color: var(--danger); }
 
