@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>New restaurant — demo · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --accent:#f9674e;--accent-2:#7a80f6;--grad:linear-gradient(90deg,#7a80f6,#f9674e);
+  --ok:#2bb673;--warn:#e8a13a;--low:#e5484d;
+  --ink:#1c2024;--muted:#62677a;--faint:#9aa0b0;
+  --surface:#fff;--bg:#f6f7f9;--border:#e7e8ee;--soft:#eceef3;--hover:#f7f8fa;
+  --accent-soft:rgba(249,103,78,.1);--warm-soft:rgba(232,161,58,.12);
+}
+*{box-sizing:border-box}
+body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:32px 40px 90px;line-height:1.45}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+h1{font-size:21px;margin:0 0 2px}.demo-sub{color:var(--muted);font-size:13px;margin:0 0 26px;max-width:780px}
+.frame{background:var(--bg);border:1px solid var(--border);border-radius:18px;padding:24px;max-width:1040px}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:13px;font-weight:600;text-decoration:none;margin-bottom:14px}
+.title{font-size:23px;font-weight:700;margin:0 0 2px}.subtitle{color:var(--muted);font-size:13px;margin:0 0 20px}
+.steps{display:flex;gap:8px;align-items:center;margin:0 0 18px;font-size:12.5px;font-weight:600}
+.step{display:inline-flex;align-items:center;gap:7px;color:var(--muted)}
+.step .n{width:20px;height:20px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:11px}
+.step.on{color:var(--accent)}.step.on .n{background:var(--accent);border-color:var(--accent);color:#fff}
+.step .ln{width:26px;height:1px;background:var(--border)}
+
+.btn{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);background:#fff;color:var(--ink);padding:9px 14px;border-radius:10px;cursor:pointer}
+.btn:hover{background:var(--hover)}.btn.prim{background:var(--accent);border-color:var(--accent);color:#fff}.btn.ghost{border:0;background:none;color:var(--muted)}
+
+.grid2{display:grid;grid-template-columns:1fr 320px;gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.cbody{padding:6px 20px 18px}
+.sec{padding:16px 0;border-top:1px solid var(--soft)}.sec:first-child{border-top:0}
+.sec-t{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin:0 0 14px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}.field:last-child{margin-bottom:0}
+.field label{font-size:12.5px;font-weight:600}.req{color:var(--accent)}
+.inp{border:1px solid var(--border);border-radius:10px;padding:10px 13px;font:inherit;font-size:14px;outline:0;width:100%}
+.inp:focus{border-color:var(--accent-2)}
+.hint{color:var(--muted);font-size:11.5px}
+.two{display:flex;gap:10px}.two .inp{width:auto;flex:1}
+
+/* venue preview */
+.vprev{position:sticky;top:20px}
+.vp-map{height:140px;border-radius:12px;background:
+  linear-gradient(rgba(122,128,246,.06),rgba(249,103,78,.06)),
+  repeating-linear-gradient(0deg,var(--soft) 0 1px,transparent 1px 28px),
+  repeating-linear-gradient(90deg,var(--soft) 0 1px,transparent 1px 28px);
+  position:relative;border:1px solid var(--soft);margin-bottom:14px}
+.vp-pin{position:absolute;left:54%;top:46%;transform:translate(-50%,-100%);color:var(--accent)}
+.vp-name{font-size:16px;font-weight:700}
+.vp-line{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px;margin-top:6px}
+.vp-line svg{width:14px;height:14px;color:var(--faint);flex:none}
+
+/* picker (shared) */
+.picker-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 0}
+.picker-head .t{font-weight:700;font-size:14px}.picker-head .opt{font-size:11.5px;color:var(--faint);font-weight:600}
+.tp{display:grid;grid-template-columns:1fr 320px;gap:16px;padding:14px 20px 4px}
+.pane{background:var(--bg);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+.pane-h{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--soft)}
+.pane-h .t{font-weight:700;font-size:12.5px}.pane-h .n{color:var(--faint);font-size:11.5px;font-weight:600}
+.search{margin:11px 14px 0;display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;padding:7px 11px;color:var(--faint);background:#fff}
+.search input{border:0;outline:0;font:inherit;font-size:13px;flex:1;background:none;color:var(--ink)}
+.pills{display:flex;gap:6px;flex-wrap:wrap;padding:11px 14px 4px}
+.pill{font:inherit;font-size:11.5px;font-weight:600;padding:5px 10px;border-radius:99px;border:1px solid var(--border);background:#fff;color:var(--muted);cursor:pointer}
+.pill.sel{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.rows{padding:5px 7px;overflow:auto;max-height:280px}
+.row{display:grid;grid-template-columns:auto 1fr auto auto;gap:11px;align-items:center;padding:8px 9px;border-radius:9px}
+.row:hover{background:#fff}.row.added{opacity:.5}
+.bchip{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:99px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.bchip svg{display:block}
+.b-ok{background:rgba(43,182,115,.13);color:#1c7d50}.b-mid{background:rgba(232,161,58,.15);color:#9a6512}.b-low{background:rgba(229,72,77,.13);color:#b4282d}
+.r-serial{font-weight:600;font-size:13px}.r-sub{color:var(--muted);font-size:11px}
+.r-where{font-size:11px;color:var(--muted)}.r-where.lab{color:var(--accent-2);font-weight:600}
+.r-where.elsewhere{color:#8a5d12;background:var(--warm-soft);padding:2px 7px;border-radius:6px;font-weight:600}
+.addbtn{width:27px;height:27px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--accent);font-size:16px;line-height:1;cursor:pointer}
+.addbtn:hover{background:var(--accent-soft);border-color:transparent}
+.added-tick{color:var(--ok);font-weight:700;font-size:12.5px}
+.basket{padding:7px;overflow:auto;flex:1;min-height:160px;background:#fff}
+.bk-row{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;padding:7px 9px;border-radius:8px}
+.bk-row:hover{background:var(--bg)}.bk-row .x{color:var(--faint);cursor:pointer;font-size:15px;border:0;background:none}
+.bk-move{font-size:10.5px;color:#8a5d12;display:flex;align-items:center;gap:4px}
+.movebanner{display:flex;align-items:center;gap:8px;background:var(--warm-soft);color:#8a5d12;font-size:12px;padding:9px 13px;border-radius:9px;margin:0 14px}
+.movebanner svg{width:15px;height:15px;flex:none}
+.create-bar{display:flex;align-items:center;gap:14px;padding:16px 20px;border-top:1px solid var(--soft);margin-top:8px}
+.create-bar .summary{font-size:13px;color:var(--muted)}.create-bar .summary b{color:var(--ink)}
+</style></head>
+<body>
+<h1>New restaurant — creation flow</h1>
+<p class="demo-sub">Venue details on the left with a live preview card (map + address + timezone) on the right; below, the same relocation-aware two-pane picker you chose for "add to restaurant", so you can deploy devices as you create the venue. Deploying is optional.</p>
+
+<div class="frame">
+  <a class="back" href="#">‹ Restaurants</a>
+  <h2 class="title">New restaurant</h2>
+  <p class="subtitle">Add a venue your devices live in.</p>
+  <div class="steps">
+    <span class="step on"><span class="n">1</span>Venue details</span><span class="ln"></span>
+    <span class="step on"><span class="n">2</span>Deploy devices</span>
+  </div>
+
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card">
+      <div class="cbody">
+        <div class="sec">
+          <div class="sec-t">Basics</div>
+          <div class="field"><label>Name <span class="req">*</span></label><input class="inp" value="Downtown Diner — 5th Ave" placeholder="e.g. Downtown Diner — 5th Ave"></div>
+          <div class="field"><label>Address</label><input class="inp" value="412 5th Ave, New York, NY" placeholder="Street, city"><span class="hint">Optional — handy for the techs you dispatch.</span></div>
+        </div>
+        <div class="sec">
+          <div class="sec-t">Location &amp; service timezone</div>
+          <div class="field"><label>Coordinates</label><div class="two"><input class="inp" value="40.7448" placeholder="Latitude"><input class="inp" value="-73.9867" placeholder="Longitude"></div><span class="hint">Paste "lat, lng" to fill both.</span></div>
+          <div class="field"><label>Timezone</label><input class="inp" value="America/New_York — GMT−4" placeholder="Search a city or GMT offset…"><span class="hint">Drives this venue's service-hours alerts (DST-aware).</span></div>
+        </div>
+        <div class="sec">
+          <div class="sec-t">Notes</div>
+          <div class="field"><textarea class="inp" rows="2" placeholder="Anything ops should know about this venue…" style="resize:vertical"></textarea></div>
+        </div>
+      </div>
+    </div>
+    <div class="vprev">
+      <div class="card" style="padding:16px 17px">
+        <div class="vp-map"><svg class="vp-pin" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg></div>
+        <div class="vp-name">Downtown Diner — 5th Ave</div>
+        <div class="vp-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>412 5th Ave, New York, NY</div>
+        <div class="vp-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>America/New_York · GMT−4</div>
+        <div class="vp-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>2 devices to deploy</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="picker-head"><span class="t">Deploy devices</span><span class="opt">optional · a device lives at one venue, so adding moves it here</span></div>
+    <div class="tp">
+      <div class="pane">
+        <div class="pane-h"><span class="t">Available devices</span><span class="n">lab first</span></div>
+        <div class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search serial…"></div>
+        <div class="pills"><button class="pill sel">Lab / unassigned</button><button class="pill">All</button><button class="pill">Online</button></div>
+        <div class="rows">
+          <div class="row added"><span class="bchip b-ok">76%</span><div><div class="r-serial mono">AT070AA2600039</div><div class="r-sub">A15-v1.62 · 1m ago</div></div><span class="added-tick">✓ staged</span><span></span></div>
+          <div class="row"><span class="bchip b-ok"><svg viewBox="0 0 30 15" width="16" height="10"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="16" height="9" rx="1.5" fill="currentColor"/></svg>88%</span><div><div class="r-serial mono">AT070AABU00701</div><div class="r-sub">A15-v1.62 · 4m ago</div></div><span class="r-where lab">lab</span><button class="addbtn">+</button></div>
+          <div class="row"><span class="bchip b-low">14%</span><div><div class="r-serial mono">AT070AABU00482</div><div class="r-sub">A15-v1.62 · 3h ago</div></div><span class="r-where elsewhere">Harbor Grill</span><button class="addbtn">+</button></div>
+        </div>
+      </div>
+      <div class="pane">
+        <div class="pane-h"><span class="t">Deploying here</span><span class="n">2 devices</span></div>
+        <div class="movebanner" style="margin:12px 14px 0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>1 will be moved from another venue.</div>
+        <div class="basket">
+          <div class="bk-row"><span class="bchip b-ok">76%</span><span class="r-serial mono">AT070AA2600039</span><button class="x">×</button></div>
+          <div class="bk-row"><div><span class="r-serial mono">AT070AABU00482</span><div class="bk-move"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>moving from Harbor Grill</div></div><span class="bchip b-low">14%</span><button class="x">×</button></div>
+        </div>
+      </div>
+    </div>
+    <div class="create-bar">
+      <span class="summary">Creating <b>Downtown Diner</b> · deploying <b>2 devices</b></span>
+      <span style="flex:1"></span>
+      <button class="btn ghost">Cancel</button>
+      <button class="btn prim">Create restaurant</button>
+    </div>
+  </div>
+</div>
+</body></html>
