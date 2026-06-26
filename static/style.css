@@ -346,7 +346,7 @@ a:hover { color: var(--accent-h); }
   flex-direction: column;
   gap: 2px;
 }
-.nav-section + .nav-section { margin-top: 14px; }
+.nav-section + .nav-section { margin-top: 2px; }
 .nav-section-label {
   margin: 0 0 4px;
   padding: 0 10px;
