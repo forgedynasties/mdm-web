@@ -4344,9 +4344,12 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .dl-card > .device-cb { width: 15px; height: 15px; }
 
-/* battery (ring with the % centered below it) */
+/* battery (ring with the % centered below it; charging bolt inside the ring) */
 .dl-bat { display: flex; flex-direction: column; align-items: center; gap: 3px; flex: none; }
+.dl-ring-wrap { position: relative; width: 30px; height: 30px; display: inline-flex; }
 .dl-bat-ring { width: 30px; height: 30px; flex: none; }
+.dl-ring-wrap .charging-bolt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.dl-ring-wrap .charging-bolt svg { width: 12px; height: 12px; }
 .dl-bat-ring .trk { fill: none; stroke: var(--surface-3); stroke-width: 4; }
 .dl-bat-ring .val { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset var(--dur) var(--ease); }
 .dl-bat-ring .val.battery-ok { stroke: var(--ok); }
