@@ -962,7 +962,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	role := h.role(r)
 	data["Role"] = role
 	data["CurrentUser"] = h.currentUsername(r)
-	data["Brand"] = h.cfg.BrandName()
+	data["Brand"] = h.cfg.CustomBrand()
 	data["Use24Hour"] = h.cfg.Use24Hour()
 	data["Version"] = version.Current()
 	data["AssetVer"] = h.assetVer
@@ -1187,7 +1187,7 @@ func (h *Handler) LoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Brand": h.cfg.BrandName(), "AssetVer": h.assetVer})
+	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
 }
 
 func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
@@ -1205,7 +1205,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusTooManyRequests)
 			h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{
 				"Error": fmt.Sprintf("Too many failed attempts. Try again in %d minute(s).", mins),
-				"Brand": h.cfg.BrandName(),
+				"Brand": h.cfg.CustomBrand(),
 			})
 			return
 		}
@@ -1247,7 +1247,7 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	// Failed attempt — count it against both the IP and the account.
 	h.loginFails.Hit(ip)
 	h.loginFails.Hit(userKey)
-	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": "Invalid credentials", "Brand": h.cfg.BrandName()})
+	h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{"Error": "Invalid credentials", "Brand": h.cfg.CustomBrand()})
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {

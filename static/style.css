@@ -4340,16 +4340,22 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .cols-seg button svg { width: 15px; height: 15px; }
 .cols-seg [data-cols="3"] { display: none; }
 .dl-card { display: grid; grid-template-columns: 18px auto minmax(0, 1.4fr) auto auto auto;
+  grid-template-areas: "cb bat id metrics status act";
   align-items: center; gap: 18px; padding: 11px 16px; border-bottom: 1px solid var(--border-soft);
   background: var(--surface); transition: background var(--dur) var(--ease); }
 .dl-card:first-child { border-top: 1px solid var(--border-soft); }
 .dl-card:hover { background: var(--hover); }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
-.dl-card > .device-cb { width: 15px; height: 15px; }
+.dl-card > .device-cb { width: 15px; height: 15px; grid-area: cb; }
+.dl-card > .dl-bat { grid-area: bat; }
+.dl-card > .dl-id { grid-area: id; }
+.dl-card > .dl-metrics { grid-area: metrics; }
+.dl-card > .dl-status-col { grid-area: status; }
+.dl-card > .dl-act { grid-area: act; }
 
 /* battery — tinted chip: glyph + % on a level-tinted pill */
 .dl-bat { display: flex; align-items: center; flex: none; }
-.dl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 99px;
+.dl-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 9px; border-radius: 99px;
   font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
 .dl-chip .bat-glyph { display: inline-flex; }
 .dl-chip .bat-glyph svg { display: block; }
@@ -4400,7 +4406,13 @@ html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22
    not just the viewport): stay one line, dropping the secondary info but
    keeping status, serial and battery. */
 @container (max-width: 680px) {
-  .dl-card { grid-template-columns: 18px auto minmax(0, 1fr) auto auto; gap: 14px; }
+  .dl-card {
+    grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "cb id  status act"
+      "cb bat status act";
+    gap: 5px 14px;
+  }
   .dl-metrics { display: none; }
   .dl-rel, .dl-onboard { display: none; }
 }
@@ -4410,7 +4422,13 @@ html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22
 @container (min-width: 640px) {
   .cols-seg { display: inline-flex; }
   .dl-list.cols-2, .dl-list.cols-3 { display: grid; grid-template-columns: 1fr 1fr; }
-  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card { grid-template-columns: 18px auto minmax(0, 1fr) auto auto; gap: 14px; }
+  .dl-list.cols-2 .dl-card, .dl-list.cols-3 .dl-card {
+    grid-template-columns: 18px minmax(0, 1fr) auto auto;
+    grid-template-areas:
+      "cb id  status act"
+      "cb bat status act";
+    gap: 5px 14px;
+  }
   .dl-list.cols-2 .dl-metrics, .dl-list.cols-3 .dl-metrics { display: none; }
   .dl-list.cols-2 .dl-rel, .dl-list.cols-2 .dl-onboard,
   .dl-list.cols-3 .dl-rel, .dl-list.cols-3 .dl-onboard { display: none; }
