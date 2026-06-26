@@ -3613,27 +3613,22 @@ func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
-	if query == "" {
-		query = strings.TrimSpace(r.URL.Query().Get("serial_number"))
+	filter := db.DeviceFilter{
+		Search:              query,
+		ExcludeGroupID:      id,
+		Online:              r.URL.Query().Get("status"),
+		Battery:             r.URL.Query().Get("battery"),
+		ActiveThresholdSecs: h.cfg.CheckinInterval() * 3,
 	}
-	if query == "" {
-		h.tmpl.ExecuteTemplate(w, "group-device-search-results", map[string]any{
-			"Query":   "",
-			"Devices": []db.Device{},
-			"GroupID": id,
-		})
-		return
-	}
-
-	devices, err := h.db.SearchDevicesBySerial(r.Context(), query, 8)
+	devices, err := h.db.ListDevices(r.Context(), filter, 0, 60, "", "")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "group-device-search-results", map[string]any{
-		"Query":   query,
-		"Devices": devices,
-		"GroupID": id,
+	h.tmpl.ExecuteTemplate(w, "device-picker-rows", map[string]any{
+		"Query":    query,
+		"Devices":  devices,
+		"Relocate": false,
 	})
 }
 
