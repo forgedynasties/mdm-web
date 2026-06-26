@@ -4254,6 +4254,10 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .fleet-rail-item .dot.bad { background: var(--danger); }
 .fleet-rail-item .dot.muted { background: var(--text-faint); }
 
+.fleet-rail-empty { padding: 5px 9px 6px; font-size: 12px; color: var(--text-faint); }
+.fleet-rail-empty a { font-weight: 600; color: var(--muted); }
+.fleet-rail-empty a:hover { color: var(--accent); }
+
 .fleet-roster { min-width: 0; }
 .fleet-pane-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .fleet-pane-head .t { font-size: 17px; font-weight: 700; }
