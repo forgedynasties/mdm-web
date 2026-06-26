@@ -27,26 +27,34 @@
       <div class="ovx-sec"><h2>Fleet at a glance</h2><a href="/devices">View all</a></div>
       <div class="ovx-stats">
         <a class="ovx-stat" href="/devices">
-          <span class="ovx-ico i-violet"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
-          <span class="ovx-big">{{.Summary.Total}}</span>
+          <div class="ovx-stat-top">
+            <span class="ovx-ico i-violet"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
+            <span class="ovx-big">{{.Summary.Total}}</span>
+          </div>
           <span class="ovx-lbl">Total devices</span>
           <span class="ovx-sub">{{.GroupsCount}} group{{if ne .GroupsCount 1}}s{{end}} enrolled</span>
         </a>
         <a class="ovx-stat" href="/devices?status=online">
-          <span class="ovx-ico i-blue"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span>
-          <span class="ovx-big">{{.Summary.RecentlyActive}}</span>
+          <div class="ovx-stat-top">
+            <span class="ovx-ico i-blue"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span>
+            <span class="ovx-big">{{.Summary.RecentlyActive}}</span>
+          </div>
           <span class="ovx-lbl">Online now</span>
           <span class="ovx-sub">active last {{.ActiveThresholdLabel}}</span>
         </a>
         <a class="ovx-stat{{if gt .Offline 0}} alerty{{end}}" href="/devices?status=offline">
-          <span class="ovx-ico i-rose"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M2 2l20 20M12 2a9 9 0 0 1 9 9"/></svg></span>
-          <span class="ovx-big{{if gt .Offline 0}} bad{{end}}">{{.Offline}}</span>
+          <div class="ovx-stat-top">
+            <span class="ovx-ico i-rose"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M2 2l20 20M12 2a9 9 0 0 1 9 9"/></svg></span>
+            <span class="ovx-big{{if gt .Offline 0}} bad{{end}}">{{.Offline}}</span>
+          </div>
           <span class="ovx-lbl">Offline</span>
           <span class="ovx-sub">silent &gt; {{.ActiveThresholdLabel}}</span>
         </a>
         <a class="ovx-stat" href="/devices?battery=low">
-          <span class="ovx-ico i-amber"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/><path d="M5 10v4"/></svg></span>
-          <span class="ovx-big{{if gt .Summary.LowBattery 0}} warn{{end}}">{{.Summary.LowBattery}}</span>
+          <div class="ovx-stat-top">
+            <span class="ovx-ico i-amber"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/><path d="M5 10v4"/></svg></span>
+            <span class="ovx-big{{if gt .Summary.LowBattery 0}} warn{{end}}">{{.Summary.LowBattery}}</span>
+          </div>
           <span class="ovx-lbl">Low battery</span>
           <span class="ovx-sub">under 20%</span>
         </a>
