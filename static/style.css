@@ -4658,3 +4658,23 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
   border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
 .ch-pill:hover { color: var(--text); }
 .ch-pill.on { background: var(--accent-soft); border-color: transparent; color: var(--accent); }
+
+/* commands page — scannable list */
+.cmd-list { display: flex; flex-direction: column; }
+.cmd-row { display: grid; grid-template-columns: auto auto minmax(0,1fr) auto auto auto; gap: 13px; align-items: center;
+  padding: 11px 18px; border-top: 1px solid var(--border-soft); }
+.cmd-row:hover { background: var(--hover); }
+.cmd-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-faint); }
+.cmd-dot.ok { background: var(--ok); } .cmd-dot.warn { background: var(--warn); } .cmd-dot.err { background: var(--danger); }
+.cmd-ic { width: 15px; height: 15px; color: var(--accent); display: inline-flex; }
+.cmd-ic svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
+.cmd-main { min-width: 0; text-decoration: none; color: inherit; }
+.cmd-name { font-weight: 600; font-size: 13.5px; }
+.cmd-sub { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd-chip { display: inline-flex; padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cmd-chip.ok { background: rgba(43,182,115,.13); color: #1c7d50; }
+.cmd-chip.mid { background: rgba(232,161,58,.15); color: #9a6512; }
+.cmd-chip.low { background: rgba(229,72,77,.13); color: #b4282d; }
+.cmd-when { white-space: nowrap; }
+.cmd-del { border: 0; background: none; color: var(--text-faint); font-size: 17px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.cmd-del:hover { color: var(--danger); }
