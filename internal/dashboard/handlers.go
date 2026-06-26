@@ -3115,15 +3115,10 @@ func (h *Handler) GroupNewDevices(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	connected := h.hub.ConnectedIDs()
-	online := make(map[uuid.UUID]bool)
-	for id := range connected {
-		online[id] = true
-	}
-	h.renderCachedHTML(w, r, "group-device-browser", map[string]any{
-		"Devices": devices,
-		"Online":  online,
-		"Query":   q,
+	h.renderCachedHTML(w, r, "device-picker-rows", map[string]any{
+		"Devices":  devices,
+		"Query":    q,
+		"Relocate": false,
 	})
 }
 
