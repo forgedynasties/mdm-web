@@ -226,7 +226,7 @@ func main() {
 		}
 	}()
 
-	// Periodic housekeeping: daily-stats rollup + auto-hide stale devices + retention pruning.
+	// Periodic housekeeping: daily-stats rollup + retention pruning.
 	go func() {
 		t := time.NewTicker(1 * time.Hour)
 		defer t.Stop()

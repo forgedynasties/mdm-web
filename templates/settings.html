@@ -189,10 +189,6 @@
   <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small">Background housekeeping runs hourly. Leave a field blank to disable that policy (keep forever).</div>
     <div class="form-group">
-      <label>Auto-hide devices not seen in (days)</label>
-      <input type="number" name="auto_hide_days" value="{{if .AutoHideDays}}{{.AutoHideDays}}{{end}}" min="0" step="1" placeholder="Off — never auto-hide" class="form-input">
-    </div>
-    <div class="form-group">
       <label>Delete check-ins older than (days)</label>
       <input type="number" name="checkin_retention_days" value="{{if .CheckinRetentionDays}}{{.CheckinRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
     </div>
