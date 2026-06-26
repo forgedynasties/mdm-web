@@ -3336,7 +3336,36 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "restaurant.create", rest.ID.String(), name)
+	// Deploy any devices staged in the creation picker (moves them to this venue).
+	if serials := parseSerialsField(r.Form["serials"]); len(serials) > 0 {
+		if err := h.db.AssignDevicesToRestaurant(r.Context(), serials, rest.ID); err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
+			for _, did := range ids {
+				h.hub.PublishDeviceUpdate(did)
+			}
+		}
+	}
 	http.Redirect(w, r, "/restaurants/"+rest.ID.String(), http.StatusFound)
+}
+
+// RestaurantNewDevices powers the deploy picker on the create form (no venue id yet):
+// every assignable device, lab/unassigned shown first, deployed-elsewhere flagged.
+func (h *Handler) RestaurantNewDevices(w http.ResponseWriter, r *http.Request) {
+	q := strings.TrimSpace(r.URL.Query().Get("q"))
+	devices, err := h.db.ListAssignableDevices(r.Context(), uuid.Nil, q,
+		r.URL.Query().Get("status"), r.URL.Query().Get("battery"), 60, h.cfg.CheckinInterval()*3)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "device-picker-rows", map[string]any{
+		"Devices":  devices,
+		"Query":    q,
+		"Relocate": true,
+	})
 }
 
 func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
@@ -7199,6 +7228,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	// Restaurants (venue object). Static sub-paths registered before /{id}.
 	mux.HandleFunc("GET /restaurants/new", h.requireAdmin(h.RestaurantNew))
+	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdmin(h.RestaurantNewDevices))
 	mux.HandleFunc("GET /restaurants", h.requireAuth(h.RestaurantList))
 	post("POST /restaurants", h.requireAdmin(h.RestaurantCreate))
 	mux.HandleFunc("GET /restaurants/{id}", h.requireAuth(h.RestaurantDetail))

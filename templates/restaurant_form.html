@@ -3,6 +3,9 @@
 
 <style>
 .rf-card{max-width:720px;}
+.rf-layout:not(.solo) .rf-card{max-width:none;}
+.rf-layout{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;margin-bottom:16px;}
+.rf-layout.solo{display:block;}
 .rf-body{padding:4px 22px 22px;}
 .rf-section{padding:18px 0;border-top:1px solid var(--border-soft);}
 .rf-section:first-of-type{border-top:none;}
@@ -10,7 +13,7 @@
 .rf-field{display:flex;flex-direction:column;gap:5px;margin-bottom:16px;}
 .rf-field:last-child{margin-bottom:0;}
 .rf-field>label{font-size:13px;font-weight:500;}
-.rf-req{color:#d82747;}
+.rf-req{color:var(--accent);}
 .rf-hint{color:var(--muted);font-size:12px;}
 .rf-actions{display:flex;gap:10px;align-items:center;padding-top:20px;border-top:1px solid var(--border-soft);margin-top:4px;}
 .tz-combo{position:relative;max-width:380px;}
@@ -19,84 +22,161 @@
 .tz-opt{padding:8px 12px;font-size:13px;color:var(--text);cursor:pointer;white-space:nowrap;}
 .tz-opt.hidden{display:none;}
 .tz-opt.active,.tz-opt:hover{background:var(--accent-soft);}
+/* create-flow extras */
+.rf-steps{display:flex;gap:8px;align-items:center;margin:0 0 16px;font-size:12.5px;font-weight:600;}
+.rf-step{display:inline-flex;align-items:center;gap:7px;color:var(--accent);}
+.rf-step .n{width:20px;height:20px;border-radius:50%;background:var(--accent);border:1px solid var(--accent);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;}
+.rf-step .ln{width:26px;height:1px;background:var(--border);}
+.rf-prev{position:sticky;top:16px;padding:16px 17px;}
+.pv-map{height:130px;border-radius:12px;border:1px solid var(--border-soft);position:relative;margin-bottom:14px;
+  background:linear-gradient(rgba(122,128,246,.06),rgba(249,103,78,.06)),
+  repeating-linear-gradient(0deg,var(--border-soft) 0 1px,transparent 1px 26px),
+  repeating-linear-gradient(90deg,var(--border-soft) 0 1px,transparent 1px 26px);}
+.pv-pin{position:absolute;left:52%;top:48%;transform:translate(-50%,-100%);color:var(--accent);}
+.pv-name{font-size:16px;font-weight:700;}
+.pv-line{font-size:12.5px;color:var(--muted);display:flex;align-items:center;gap:7px;margin-top:7px;}
+.pv-line svg{width:14px;height:14px;color:var(--text-faint);flex:none;}
+.rf-bottom{display:flex;gap:12px;align-items:center;border-top:1px solid var(--border-soft);margin-top:14px;}
 </style>
 
-<a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" class="back-link">← Back</a>
+<a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/devices?view=restaurants{{end}}" class="back-link">← Back</a>
 <div class="ov-greet">
   <h1 class="ov-title">{{.Title}}</h1>
   <span class="ov-date">{{if .Restaurant}}edit venue details{{else}}add a venue your devices live in{{end}}</span>
 </div>
 
 {{$tz := ""}}{{with .Restaurant}}{{$tz = .Timezone}}{{end}}
-<form action="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" method="POST" class="card rf-card">
-  <div class="rf-body">
+<form action="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" method="POST">
 
-    <!-- Basics -->
-    <div class="rf-section">
-      <div class="rf-section-title">Basics</div>
-      <div class="rf-field">
-        <label>Name <span class="rf-req">*</span></label>
-        <input type="text" name="name" class="form-input" required autofocus
-               placeholder="e.g. Downtown Diner — 5th Ave"
-               value="{{with .Restaurant}}{{.Name}}{{end}}">
-      </div>
-      <div class="rf-field">
-        <label>Address</label>
-        <input type="text" name="address" class="form-input" placeholder="Street, city"
-               value="{{with .Restaurant}}{{.Address}}{{end}}">
-        <span class="rf-hint">Optional — handy for the techs you dispatch.</span>
-      </div>
-    </div>
+  {{if not .Restaurant}}
+  <div class="rf-steps">
+    <span class="rf-step"><span class="n">1</span>Venue details</span><span class="ln"></span>
+    <span class="rf-step"><span class="n">2</span>Deploy devices</span>
+  </div>
+  {{end}}
 
-    <!-- Location & timezone -->
-    <div class="rf-section">
-      <div class="rf-section-title">Location &amp; service timezone</div>
-      <div class="rf-field">
-        <label>Coordinates</label>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-          <input type="number" id="rest-lat" name="latitude" class="form-input" step="any" min="-90" max="90" placeholder="Latitude · 37.7749"
-                 style="width:190px;" value="{{with .Restaurant}}{{with .Latitude}}{{.}}{{end}}{{end}}">
-          <input type="number" id="rest-lng" name="longitude" class="form-input" step="any" min="-180" max="180" placeholder="Longitude · -122.4194"
-                 style="width:190px;" value="{{with .Restaurant}}{{with .Longitude}}{{.}}{{end}}{{end}}">
-          <a id="rest-map-link" href="#" target="_blank" rel="noopener" class="btn-outline" style="display:none;">Open in maps ↗</a>
-        </div>
-        <div class="rf-hint" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
-          <span>Paste “lat, lng” to fill both:</span>
-          <input type="text" id="rest-coord-paste" class="form-input" placeholder="37.7749, -122.4194" style="max-width:220px;">
-          <a href="https://www.google.com/maps" target="_blank" rel="noopener" class="link">Find coordinates ↗</a>
-        </div>
-      </div>
-      <div class="rf-field">
-        <label>Timezone</label>
-        <div class="tz-combo" id="tz-combo">
-          <input type="hidden" name="timezone" id="tz-value" value="{{$tz}}">
-          <input type="text" id="tz-search" class="form-input" autocomplete="off" spellcheck="false"
-                 role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search a city or GMT offset…">
-          <div class="tz-list" id="tz-list" role="listbox">
-            <div class="tz-opt" data-value="" data-search="use each device reported timezone none default">Use each device's reported timezone</div>
-            {{range $.Timezones}}
-            <div class="tz-opt" data-value="{{.Value}}" data-search="{{.Label}}">{{.Label}}</div>
-            {{end}}
+  <div class="rf-layout{{if .Restaurant}} solo{{end}}">
+    <div class="card rf-card">
+      <div class="rf-body">
+
+        <div class="rf-section">
+          <div class="rf-section-title">Basics</div>
+          <div class="rf-field">
+            <label>Name <span class="rf-req">*</span></label>
+            <input type="text" name="name" id="rf-name" class="form-input" required autofocus
+                   placeholder="e.g. Downtown Diner — 5th Ave"
+                   value="{{with .Restaurant}}{{.Name}}{{end}}" oninput="rfPrev()">
+          </div>
+          <div class="rf-field">
+            <label>Address</label>
+            <input type="text" name="address" id="rf-address" class="form-input" placeholder="Street, city"
+                   value="{{with .Restaurant}}{{.Address}}{{end}}" oninput="rfPrev()">
+            <span class="rf-hint">Optional — handy for the techs you dispatch.</span>
           </div>
         </div>
-        <span class="rf-hint">Drives this venue's service-hours alerts (DST-aware). Blank uses each device's own timezone.</span>
+
+        <div class="rf-section">
+          <div class="rf-section-title">Location &amp; service timezone</div>
+          <div class="rf-field">
+            <label>Coordinates</label>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <input type="number" id="rest-lat" name="latitude" class="form-input" step="any" min="-90" max="90" placeholder="Latitude · 37.7749"
+                     style="width:190px;" value="{{with .Restaurant}}{{with .Latitude}}{{.}}{{end}}{{end}}">
+              <input type="number" id="rest-lng" name="longitude" class="form-input" step="any" min="-180" max="180" placeholder="Longitude · -122.4194"
+                     style="width:190px;" value="{{with .Restaurant}}{{with .Longitude}}{{.}}{{end}}{{end}}">
+              <a id="rest-map-link" href="#" target="_blank" rel="noopener" class="btn-outline" style="display:none;">Open in maps ↗</a>
+            </div>
+            <div class="rf-hint" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
+              <span>Paste “lat, lng” to fill both:</span>
+              <input type="text" id="rest-coord-paste" class="form-input" placeholder="37.7749, -122.4194" style="max-width:220px;">
+              <a href="https://www.google.com/maps" target="_blank" rel="noopener" class="link">Find coordinates ↗</a>
+            </div>
+          </div>
+          <div class="rf-field">
+            <label>Timezone</label>
+            <div class="tz-combo" id="tz-combo">
+              <input type="hidden" name="timezone" id="tz-value" value="{{$tz}}">
+              <input type="text" id="tz-search" class="form-input" autocomplete="off" spellcheck="false"
+                     role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search a city or GMT offset…">
+              <div class="tz-list" id="tz-list" role="listbox">
+                <div class="tz-opt" data-value="" data-search="use each device reported timezone none default">Use each device's reported timezone</div>
+                {{range $.Timezones}}
+                <div class="tz-opt" data-value="{{.Value}}" data-search="{{.Label}}">{{.Label}}</div>
+                {{end}}
+              </div>
+            </div>
+            <span class="rf-hint">Drives this venue's service-hours alerts (DST-aware). Blank uses each device's own timezone.</span>
+          </div>
+        </div>
+
+        <div class="rf-section">
+          <div class="rf-section-title">Notes</div>
+          <div class="rf-field">
+            <textarea name="notes" class="form-textarea" rows="3" style="resize:vertical;"
+                      placeholder="Anything ops should know about this venue…">{{with .Restaurant}}{{.Notes}}{{end}}</textarea>
+          </div>
+        </div>
+
+        {{if .Restaurant}}
+        <div class="rf-actions">
+          <button type="submit" class="btn-primary">Save changes</button>
+          <a href="/restaurants/{{.Restaurant.ID}}" class="btn-outline">Cancel</a>
+        </div>
+        {{end}}
       </div>
     </div>
 
-    <!-- Notes -->
-    <div class="rf-section">
-      <div class="rf-section-title">Notes</div>
-      <div class="rf-field">
-        <textarea name="notes" class="form-textarea" rows="3" style="resize:vertical;"
-                  placeholder="Anything ops should know about this venue…">{{with .Restaurant}}{{.Notes}}{{end}}</textarea>
+    {{if not .Restaurant}}
+    <aside class="card rf-prev">
+      <div class="pv-map"><svg class="pv-pin" width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg></div>
+      <div class="pv-name" id="pv-name">New venue</div>
+      <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 0-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 0 0-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg><span id="pv-addr">No address yet</span></div>
+      <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="pv-tz">Per-device timezone</span></div>
+      <div class="pv-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span data-dp-count>0</span> device(s) to deploy</div>
+    </aside>
+    {{end}}
+  </div>
+
+  {{if not .Restaurant}}
+  <div class="card">
+    <div class="card-header"><h3>Deploy devices</h3><span class="muted small">optional · a device lives at one venue, so adding moves it here</span></div>
+    <div style="padding:14px 20px 0;">
+      <div class="dp-tp">
+        <div class="dp-pane">
+          <div class="dp-pane-h"><span class="t">Available devices</span><span class="n">lab shown first</span></div>
+          <div class="dp-search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="search" id="dp-q" placeholder="Search serial…" autocomplete="off" oninput="dpReloadDebounced()">
+          </div>
+          <div class="dp-pills">
+            <button type="button" class="dp-pill sel" onclick="dpPill(this)">All</button>
+            <button type="button" class="dp-pill" data-status="online" onclick="dpPill(this)">Online</button>
+            <button type="button" class="dp-pill" data-status="offline" onclick="dpPill(this)">Offline</button>
+            <button type="button" class="dp-pill" data-battery="low" onclick="dpPill(this)">Low battery</button>
+          </div>
+          <div id="dp-rows" class="dp-rows" data-endpoint="/restaurants/new/device-picker"
+               hx-get="/restaurants/new/device-picker" hx-trigger="load" hx-target="#dp-rows" hx-swap="innerHTML"></div>
+        </div>
+        <div class="dp-pane">
+          <div class="dp-pane-h"><span class="t">Deploying here</span><span class="n"><span data-dp-count>0</span> staged</span></div>
+          <div class="dp-moves" data-dp-moves style="display:none;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            <span><b data-dp-moves-n>0</b> will be moved from another venue.</span>
+          </div>
+          <div id="dp-basket" class="dp-basket"></div>
+        </div>
       </div>
     </div>
-
-    <div class="rf-actions">
-      <button type="submit" class="btn-primary">{{if .Restaurant}}Save changes{{else}}Create restaurant{{end}}</button>
-      <a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" class="btn-outline">Cancel</a>
+    <input type="hidden" name="serials" id="dp-serials">
+    <div class="rf-bottom" style="padding:16px 20px;">
+      <span class="muted small">Creating <b id="rf-sum-name" style="color:var(--text);">a new venue</b> · deploying <b data-dp-count style="color:var(--text);">0</b> device(s)</span>
+      <span style="flex:1;"></span>
+      <a href="/devices?view=restaurants" class="btn-outline">Cancel</a>
+      <button type="submit" class="btn-primary" id="rf-create-btn" disabled>Create restaurant</button>
     </div>
   </div>
+  <script src="/static/device-picker.js"></script>
+  {{end}}
 </form>
 
 <script>
@@ -162,10 +242,10 @@
     });
     active = -1; paintActive();
   }
-  function choose(o) { hidden.value = o.getAttribute('data-value'); input.value = o.textContent.trim(); close(); }
+  function choose(o) { hidden.value = o.getAttribute('data-value'); input.value = o.textContent.trim(); close(); if (window.rfPrev) rfPrev(); }
 
   input.addEventListener('focus', function () { filter(''); open(); input.select(); });
-  input.addEventListener('input', function () { filter(input.value); open(); });
+  input.addEventListener('input', function () { filter(input.value); open(); if (window.rfPrev) rfPrev(); });
   input.addEventListener('keydown', function (e) {
     var vis = visible();
     if (e.key === 'ArrowDown') { e.preventDefault(); open(); active = Math.min(active + 1, vis.length - 1); paintActive(); }
@@ -178,6 +258,21 @@
     if (!combo.contains(e.target)) { input.value = labelFor(hidden.value); close(); }
   });
 })();
+
+// Live venue preview + name-gated create button (create flow only).
+function rfPrev() {
+  var name = document.getElementById('rf-name');
+  if (!name || !document.getElementById('pv-name')) return;
+  var n = name.value.trim();
+  document.getElementById('pv-name').textContent = n || 'New venue';
+  var addr = (document.getElementById('rf-address') || {}).value || '';
+  document.getElementById('pv-addr').textContent = addr.trim() || 'No address yet';
+  var tz = (document.getElementById('tz-search') || {}).value || '';
+  document.getElementById('pv-tz').textContent = tz.trim() || 'Per-device timezone';
+  var sum = document.getElementById('rf-sum-name'); if (sum) sum.textContent = n || 'a new venue';
+  var btn = document.getElementById('rf-create-btn'); if (btn) btn.disabled = n === '';
+}
+rfPrev();
 </script>
 
 {{template "footer" .}}
