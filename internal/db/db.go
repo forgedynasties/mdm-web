@@ -1397,7 +1397,7 @@ func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, 
 	}
 	args := []any{restaurantID, query}
 	q := `
-		SELECT d.serial_number, d.latest_battery_pct, d.last_seen_at, COALESCE(r.name, '')
+		SELECT d.serial_number, d.build_id, d.latest_battery_pct, d.last_seen_at, COALESCE(r.name, '')
 		FROM devices d
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE NOT d.hidden
@@ -1429,7 +1429,7 @@ func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, 
 	var out []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.SerialNumber, &dev.BatteryPct, &dev.LastSeenAt, &dev.RestaurantName); err != nil {
+		if err := rows.Scan(&dev.SerialNumber, &dev.BuildID, &dev.BatteryPct, &dev.LastSeenAt, &dev.RestaurantName); err != nil {
 			return nil, err
 		}
 		out = append(out, dev)
