@@ -4357,7 +4357,9 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-m .v.muted { color: var(--text-faint); font-weight: 500; }
 
 .dl-act { display: flex; align-items: center; gap: 10px; justify-self: end; }
-.dl-view { font-size: 12.5px; font-weight: 600; color: var(--accent); }
+.dl-view { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  padding: 0; border: 0; border-radius: 8px; color: var(--muted); transition: background var(--dur) var(--ease), color var(--dur) var(--ease); }
+.dl-view:hover { background: var(--accent-soft); color: var(--accent); }
 .dl-x { width: 24px; height: 24px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface);
   color: var(--muted); display: inline-flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; }
 .dl-x:hover { border-color: var(--danger-edge); color: var(--danger); }
