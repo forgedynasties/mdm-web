@@ -43,17 +43,16 @@
     <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}">
       <input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">
       <div class="dl-id">
-        <span class="ws-dot {{if index $.Online .ID}}online{{end}}" title="{{if index $.Online .ID}}Connected{{else}}Offline{{end}}"></span>
         <div class="dl-id-meta">
           <a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">hidden</span>{{end}}
-          <span class="dl-seen">{{timeSince .LastSeenAt}}{{if gt .PollIntervalMs 0}} · synced {{localShortTime .LastSeenAt}}{{end}}</span>
+          <span class="dl-seen">{{if index $.Online .ID}}<span class="dl-status on"><i></i>Online</span>{{else}}<span class="dl-status off"><i></i>Offline</span>{{end}} · {{timeSince .LastSeenAt}}{{if gt .PollIntervalMs 0}} · synced {{localShortTime .LastSeenAt}}{{end}}</span>
           <span class="dl-onboard">Onboarded {{shortDate .CreatedAt}}</span>
         </div>
       </div>
       <span class="dl-rel mono small">{{.BuildID}}</span>
       <div class="dl-metrics">
         <div class="dl-bat">
-          <div class="battery-track"><div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div></div>
+          <svg class="dl-bat-ring" viewBox="0 0 32 32" aria-hidden="true"><circle class="trk" cx="16" cy="16" r="13"/><circle class="val {{batteryClass .BatteryPct}}" cx="16" cy="16" r="13" pathLength="100" stroke-dasharray="100" stroke-dashoffset="{{sub 100 .BatteryPct}}" transform="rotate(-90 16 16)"/></svg>
           <span class="battery-label">{{.BatteryPct}}%{{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span>
         </div>
         <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
@@ -817,17 +816,11 @@ document.addEventListener('keydown', function(e) {
       // A device that just became hidden should leave the (hidden-excluded) fleet view.
       if (d.hidden) { card.remove(); return; }
 
-      var dot = card.querySelector('.ws-dot');
-      if (dot) {
-        dot.className = 'ws-dot' + (d.online ? ' online' : '');
-        dot.title = d.online ? 'Connected' : 'Offline';
-      }
-
       var rel = card.querySelector('.dl-rel');
       if (rel) rel.textContent = d.build_id;
 
-      var bar = card.querySelector('.battery-bar');
-      if (bar) { bar.className = 'battery-bar ' + d.battery_class; bar.style.width = d.battery_width; }
+      var ring = card.querySelector('.dl-bat-ring .val');
+      if (ring) { ring.setAttribute('class', 'val ' + d.battery_class); ring.setAttribute('stroke-dashoffset', String(100 - d.battery_pct)); }
       var label = card.querySelector('.battery-label');
       if (label) {
         label.textContent = d.battery_pct + '%';
@@ -853,7 +846,8 @@ document.addEventListener('keydown', function(e) {
 
       var seen = card.querySelector('.dl-seen');
       if (seen) {
-        var seenHtml = d.time_since;
+        var statusHtml = d.online ? '<span class="dl-status on"><i></i>Online</span>' : '<span class="dl-status off"><i></i>Offline</span>';
+        var seenHtml = statusHtml + ' · ' + d.time_since;
         if (d.poll_interval_ms > 0 && d.last_seen_iso) {
           var fallback = d.last_seen_iso.replace('T', ' ').replace('Z', ' UTC').slice(0, 19) + ' UTC';
           seenHtml += ' · synced <span class="js-local-time" data-utc="' + d.last_seen_iso + '" data-format="short">' + fallback + '</span>';
