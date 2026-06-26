@@ -4710,3 +4710,16 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .rel-act { display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 .rel-act form { display: inline; }
 @media (max-width: 820px) { .rel-row { grid-template-columns: 1fr auto; } .rel-roll, .rel-meta { grid-column: 1 / -1; } }
+
+/* fleet-app picker (commands · uninstall) */
+.fleet-app-list { max-height: 240px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+.fleet-app { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left;
+  padding: 9px 12px; border: 0; border-top: 1px solid var(--border-soft); background: var(--surface); cursor: pointer; font: inherit; }
+.fleet-app:first-child { border-top: 0; }
+.fleet-app:hover { background: var(--hover); }
+.fleet-app.sel { background: var(--accent-soft); }
+.fa-id { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.fa-name { font-weight: 600; font-size: 13px; }
+.fa-pkg { font-size: 11px; color: var(--muted); }
+.fa-cnt { font-size: 11px; color: var(--text-faint); font-weight: 600; white-space: nowrap; }
+.fleet-app.sel .fa-cnt { color: var(--accent); }
