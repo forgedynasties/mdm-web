@@ -4347,20 +4347,18 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .dl-card > .device-cb { width: 15px; height: 15px; }
 
-/* battery (vertical bar that fills bottom-up, % centered below it) */
-.dl-bat { display: flex; flex-direction: row; align-items: center; gap: 10px; flex: none; }
-.dl-bat-bar { position: relative; width: 13px; height: 30px; flex: none; border-radius: 4px;
-  background: var(--surface-3); overflow: hidden; }
-.dl-bat-bar .fill { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 4px;
-  transition: height var(--dur) var(--ease); }
-.dl-bat-bar .fill.battery-ok { background: var(--ok); }
-.dl-bat-bar .fill.battery-mid { background: var(--warn); }
-.dl-bat-bar .fill.battery-low { background: var(--danger); }
-.dl-bat-bar .charging-bolt { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-.dl-bat-bar .charging-bolt svg { width: 9px; height: 9px; }
-.dl-bat .battery-label { font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
-.dl-bat:has(.battery-mid) .battery-label { color: var(--warn); }
-.dl-bat:has(.battery-low) .battery-label { color: var(--danger); }
+/* battery — tinted chip: glyph + % on a level-tinted pill */
+.dl-bat { display: flex; align-items: center; flex: none; }
+.dl-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 99px;
+  font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+.dl-chip .bat-glyph { display: inline-flex; }
+.dl-chip .bat-glyph svg { display: block; }
+.dl-chip.battery-ok { background: rgba(43, 182, 115, .13); color: #1c7d50; }
+.dl-chip.battery-mid { background: rgba(232, 161, 58, .15); color: #9a6512; }
+.dl-chip.battery-low { background: rgba(229, 72, 77, .13); color: #b4282d; }
+html[data-theme="dark"] .dl-chip.battery-ok { background: rgba(43, 182, 115, .2); color: #5fd49a; }
+html[data-theme="dark"] .dl-chip.battery-mid { background: rgba(232, 161, 58, .22); color: #f0b765; }
+html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22); color: #f08a8d; }
 
 /* identity column: serial / release / onboarded */
 .dl-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
