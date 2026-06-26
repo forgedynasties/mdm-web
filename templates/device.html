@@ -85,6 +85,7 @@
       {{if .ShellEnabled}}<a href="/devices/{{.Device.SerialNumber}}/shell" class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
       <button type="button" class="ddc-btn" title="Screenshot" onclick="ddHeroAction('screenshot')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</button>
       <a href="/devices/{{.Device.SerialNumber}}/logcat" class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg>Logcat</a>
+      <a href="/export?serials={{.Device.SerialNumber}}" class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Export CSV</a>
       <button type="button" class="ddc-btn ddc-btn-ai" title="Analyze with AI" onclick="aiOpen()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze with AI</button>
       <button type="button" class="ddc-btn ddc-btn-icon" title="More — open Controls" onclick="document.querySelector('.dd-tab[data-dd-tab=controls]').click()" aria-label="More actions">⋯</button>
     </div>
@@ -190,7 +191,6 @@
         </div>
         <div id="range-error" class="cr-error" role="alert" hidden></div>
       </div>
-      <a id="csv-export" href="/export?serials={{.Device.SerialNumber}}" class="btn-outline" style="font-size:12px;padding:4px 10px;"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Export CSV</a>
     </div>
   </div>
   <div class="chart-tabs">
@@ -210,15 +210,6 @@
 
   <!-- Battery -->
   <div id="chart-panel-battery">
-    <div style="padding:8px 16px 0;">
-      <div class="chart-legend">
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
-        <span class="chart-legend-item"><span class="chart-legend-line command-marker"></span> Command</span>
-      </div>
-    </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
   </div>
 
@@ -236,10 +227,9 @@
   <div id="chart-panel-all" style="display:none;">
     <div style="padding:8px 16px 0;">
       <div class="chart-legend">
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6387d2;"></span> Battery %</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#ff9800;"></span> Temp °C</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#4caf50;"></span> RAM %</span>
-        <span class="chart-legend-item"><span class="chart-legend-line command-marker"></span> Command</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f9674e;"></span> Battery %</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e8a13a;"></span> Temp °C</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#7a80f6;"></span> RAM %</span>
       </div>
     </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="unifiedChart"></canvas></div>
@@ -620,23 +610,22 @@
       datasets: [{
         label: "Battery %",
         data: [],
+        cubicInterpolationMode: "monotone",
         tension: 0.4,
         fill: true,
         pointRadius: 0,
         pointHoverRadius: 0,
-        borderWidth: 2,
-        segment: {
-          borderColor: ctx => segColor(ctx),
-          borderDash: ctx => ctx.p1.raw.y < ctx.p0.raw.y ? [5, 3] : [],
-        },
+        borderWidth: 2.5,
+        borderColor: "#f9674e",
+        borderCapStyle: "round",
+        borderJoinStyle: "round",
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
           if (!chartArea) return "transparent";
           const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0,   "rgba(99,135,210,0.18)");
-          gradient.addColorStop(0.5, "rgba(99,135,210,0.08)");
-          gradient.addColorStop(1,   "rgba(99,135,210,0.02)");
+          gradient.addColorStop(0, "rgba(249,103,78,0.28)");
+          gradient.addColorStop(1, "rgba(249,103,78,0)");
           return gradient;
         },
       }],
@@ -672,21 +661,23 @@
       datasets: [{
         label: "Temperature",
         data: [],
+        cubicInterpolationMode: "monotone",
         tension: 0.4,
         fill: true,
-        borderColor: "#ff9800",
-        pointBackgroundColor: "#ff9800",
+        borderColor: "#e8a13a",
+        pointBackgroundColor: "#e8a13a",
         pointRadius: 0,
         pointHoverRadius: 0,
-        borderWidth: 2,
+        borderWidth: 2.5,
+        borderCapStyle: "round",
+        borderJoinStyle: "round",
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
           if (!chartArea) return "transparent";
           const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0,   "rgba(255,152,0,0.18)");
-          gradient.addColorStop(0.5, "rgba(255,152,0,0.08)");
-          gradient.addColorStop(1,   "rgba(255,152,0,0.02)");
+          gradient.addColorStop(0, "rgba(232,161,58,0.28)");
+          gradient.addColorStop(1, "rgba(232,161,58,0)");
           return gradient;
         },
       }],
@@ -717,21 +708,23 @@
       datasets: [{
         label: "RAM %",
         data: [],
+        cubicInterpolationMode: "monotone",
         tension: 0.4,
         fill: true,
-        borderColor: "#4caf50",
-        pointBackgroundColor: "#4caf50",
+        borderColor: "#7a80f6",
+        pointBackgroundColor: "#7a80f6",
         pointRadius: 0,
         pointHoverRadius: 0,
-        borderWidth: 2,
+        borderWidth: 2.5,
+        borderCapStyle: "round",
+        borderJoinStyle: "round",
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
           if (!chartArea) return "transparent";
           const gradient = c.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-          gradient.addColorStop(0,   "rgba(76,175,80,0.18)");
-          gradient.addColorStop(0.5, "rgba(76,175,80,0.08)");
-          gradient.addColorStop(1,   "rgba(76,175,80,0.02)");
+          gradient.addColorStop(0, "rgba(122,128,246,0.28)");
+          gradient.addColorStop(1, "rgba(122,128,246,0)");
           return gradient;
         },
       }],
@@ -773,20 +766,24 @@
       datasets: [
         {
           label: 'Battery %', data: [], yAxisID: 'yPct',
-          borderColor: '#6387d2', backgroundColor: 'rgba(99,135,210,0.12)',
-          borderWidth: 1.5, pointRadius: 0, spanGaps: false, tension: 0,
-          fill: false,
+          borderColor: '#f9674e', backgroundColor: 'rgba(249,103,78,0.10)',
+          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          cubicInterpolationMode: 'monotone', tension: 0.4,
+          borderCapStyle: 'round', borderJoinStyle: 'round', fill: true,
         },
         {
           label: 'Temp °C', data: [], yAxisID: 'yTemp',
-          borderColor: '#ff9800', backgroundColor: 'transparent',
-          borderWidth: 1.5, pointRadius: 0, spanGaps: false, tension: 0,
+          borderColor: '#e8a13a', backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          cubicInterpolationMode: 'monotone', tension: 0.4,
+          borderCapStyle: 'round', borderJoinStyle: 'round',
         },
         {
           label: 'RAM %', data: [], yAxisID: 'yPct',
-          borderColor: '#4caf50', backgroundColor: 'transparent',
-          borderWidth: 1.5, pointRadius: 0, spanGaps: false, tension: 0,
-          borderDash: [4, 3],
+          borderColor: '#7a80f6', backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          cubicInterpolationMode: 'monotone', tension: 0.4,
+          borderCapStyle: 'round', borderJoinStyle: 'round',
         },
       ],
     },
