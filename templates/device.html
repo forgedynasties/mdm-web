@@ -993,24 +993,27 @@
     <div class="card-header"><h3>Installed applications</h3><span class="muted small">{{len .InstalledPackages}} packages</span></div>
     {{if .InstalledPackages}}
     <div class="app-search"><input type="text" id="apps-filter" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>
-    <div class="app-list" id="apps-table">
-      {{range .InstalledPackages}}
-      <div class="app-row" data-app="{{.AppName}} {{.PackageName}}">
+    <div class="app-list{{if gt (len .InstalledPackages) 10}} collapsed{{end}}" id="apps-table">
+      {{range $i, $p := .InstalledPackages}}
+      <div class="app-row{{if ge $i 10}} app-extra{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}">
         <div class="app-id">
-          <div class="app-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</div>
-          <div class="app-pkg mono">{{.PackageName}}{{if .VersionName}} · v{{.VersionName}}{{end}}</div>
+          <div class="app-name">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
+          <div class="app-pkg mono">{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}</div>
         </div>
         {{if or (canAdmin $.Role) (eq $.Role "operator")}}
         <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST"
-              onsubmit="return confirm('Uninstall {{.PackageName}} from this device?');">
+              onsubmit="return confirm('Uninstall {{$p.PackageName}} from this device?');">
           <input type="hidden" name="type" value="uninstall">
-          <input type="hidden" name="package" value="{{.PackageName}}">
+          <input type="hidden" name="package" value="{{$p.PackageName}}">
           <button type="submit" class="app-uninstall">Uninstall</button>
         </form>
         {{end}}
       </div>
       {{end}}
     </div>
+    {{if gt (len .InstalledPackages) 10}}
+    <button type="button" id="apps-more" class="app-more" onclick="appsShowAll()">Show all {{len .InstalledPackages}} apps</button>
+    {{end}}
     <div id="apps-no-match" class="muted small" style="display:none;padding:16px 18px;">No apps match your search.</div>
     {{else}}
     <div class="empty-state" style="padding:28px 18px;">
@@ -1025,8 +1028,15 @@
 </section>
 
 <script>
+function appsShowAll() {
+  var list = document.getElementById('apps-table');
+  if (list) list.classList.remove('collapsed');
+  var btn = document.getElementById('apps-more');
+  if (btn) btn.style.display = 'none';
+}
 function filterInstalledApps(q) {
   q = q.toLowerCase();
+  if (q !== '') appsShowAll(); // searching looks across every app, not just the first 10
   const rows = document.querySelectorAll('#apps-table .app-row');
   let visible = 0;
   rows.forEach(row => {
