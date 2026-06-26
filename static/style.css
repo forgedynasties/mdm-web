@@ -268,15 +268,25 @@ a:hover { color: var(--accent-h); }
 .navbar-brand {
   font-family: var(--font);
   font-weight: var(--fw-semibold);
-  font-size: 16px;
-  letter-spacing: .04em;
+  font-size: 19px;
+  letter-spacing: -0.01em;
   color: var(--text);
   padding: 6px 10px;
   flex: 1 1 auto;
   min-width: 0;
-  transition: color var(--dur) var(--ease);
+  transition: opacity var(--dur) var(--ease);
 }
-.navbar-brand:hover { color: var(--text-2); }
+.navbar-brand:hover { opacity: 0.85; }
+/* Wordmark: "AIO" in the brand gradient, "Hub" in a calm grey. */
+.brand-aio {
+  font-weight: 800;
+  background: var(--brand-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.brand-hub { font-weight: 600; color: var(--muted); }
 
 .nav-toggle {
   display: none;

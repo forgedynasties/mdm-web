@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Collections (Restaurants / Groups) — design options</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { background: var(--bg); }
+  .cd-wrap { max-width: 1180px; margin: 0 auto; padding: 32px 28px 80px; }
+  .cd-h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+  .cd-lead { color: var(--muted); font-size: 14px; margin: 6px 0 28px; max-width: 820px; }
+  .cd-lead b { color: var(--text-2); }
+  .cd-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 24px; }
+  .cd-card-h { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .cd-card-h h2 { font-size: 18px; font-weight: 700; }
+  .cd-code { margin-left: auto; font: 12px var(--mono); color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; }
+  .cd-note { font-size: 12.5px; color: var(--muted); margin: 0 0 16px; line-height: 1.55; }
+  .cd-note b { color: var(--text-2); }
+  .cd-sub { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-faint); margin: 6px 0 10px; }
+
+  /* the demo "shell" mimics the real master-detail (rail + pane) but boxed */
+  .cd-shell { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; display: grid; grid-template-columns: 220px 1fr; }
+  .cd-rail { background: var(--bg); border-right: 1px solid var(--border); padding: 10px 8px; }
+  .cd-rail-cap { display: flex; align-items: center; gap: 6px; margin: 14px 8px 5px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text-faint); }
+  .cd-rail-cap:first-child { margin-top: 4px; }
+  .cd-rail-cap.on a:first-child { color: var(--accent); }
+  .cd-rail-cap .add { margin-left: auto; color: var(--muted); font-size: 15px; }
+  .cd-ri { display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 9px; font-size: 13px; color: var(--text-2); cursor: default; }
+  .cd-ri:hover, .cd-ri.hov { background: var(--hover); }
+  .cd-ri.on { background: var(--accent-soft); color: var(--accent); }
+  .cd-ri .nm { font-weight: 600; flex: 1; min-width: 0; }
+  .cd-ri .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .cd-ri .dot.ok { background: var(--ok); } .cd-ri .dot.warn { background: var(--warn); } .cd-ri .dot.bad { background: var(--danger); }
+  .cd-ri .ct { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .cd-ri .go { opacity: 0; width: 22px; height: 22px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); background: var(--surface); border: 1px solid var(--border); font-size: 12px; }
+  .cd-ri:hover .go, .cd-ri.hov .go { opacity: 1; }
+  .cd-pane { padding: 16px 18px; min-width: 0; }
+  .cd-pane-h { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .cd-pane-h .t { font-size: 16px; font-weight: 700; }
+  .cd-pane-h .c { font-size: 12.5px; color: var(--muted); }
+  .cd-btn { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 9px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .cd-btn.pri { background: var(--accent); color: #fff; border: 0; }
+  .cd-btn.out { background: var(--surface); border: 1px solid var(--border); color: var(--text-2); }
+  .cd-back { font-size: 12.5px; font-weight: 600; color: var(--muted); margin-bottom: 12px; display: inline-block; }
+
+  /* restyled collection cards (shared by A & B) */
+  .cl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+  .cl-card { border: 1px solid var(--border); border-radius: 14px; padding: 15px; background: var(--surface); cursor: pointer;
+    transition: border-color .14s, box-shadow .14s, transform .14s; }
+  .cl-card:hover { border-color: var(--accent-edge); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .cl-card.alerty { border-color: var(--danger-edge); }
+  .cl-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .cl-name { font-weight: 700; font-size: 14.5px; }
+  .cl-score { font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 7px; }
+  .cl-score.ok { background: var(--ok-bg); color: var(--ok); } .cl-score.warn { background: var(--warn-bg); color: var(--warn); } .cl-score.bad { background: var(--danger-bg); color: var(--danger); }
+  .cl-meta { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .cl-foot { display: flex; align-items: center; gap: 14px; margin-top: 13px; padding-top: 11px; border-top: 1px solid var(--border-soft); font-size: 12px; font-weight: 600; }
+  .cl-foot a { color: var(--muted); } .cl-foot a.danger { color: var(--danger); margin-left: auto; }
+
+  /* detail mock */
+  .dt-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .dt-head .nm { font-size: 19px; font-weight: 700; }
+  .dt-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
+  .dt-stat { border: 1px solid var(--border); border-radius: 11px; padding: 12px 14px; }
+  .dt-stat .v { font-size: 21px; font-weight: 700; } .dt-stat .k { font-size: 11.5px; color: var(--text-faint); margin-top: 2px; }
+  table.dt-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.dt-tbl th { text-align: left; padding: 7px 10px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); border-bottom: 1px solid var(--border); }
+  table.dt-tbl td { padding: 9px 10px; border-bottom: 1px solid var(--border-soft); }
+  .dt-mono { font-family: var(--mono); font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="cd-wrap">
+  <div class="cd-h1">Collections — Restaurants &amp; Groups</div>
+  <p class="cd-lead">What clicking a rail <b>label</b> ("Restaurants" / "Groups") opens, two ways. Both bake in the detail paths you picked: a <b>card</b> opens detail, and rail items get a <b>hover “→”</b> that jumps straight to detail. Sample data throughout. Tell me <b>A</b> or <b>B</b>.</p>
+
+  <!-- Option A -->
+  <div class="cd-card">
+    <div class="cd-card-h"><h2>Option A — in the master-detail shell</h2><span class="cd-code">A</span></div>
+    <p class="cd-note">Clicking the <b>Restaurants</b> label keeps the rail and swaps the right pane to the collections grid. Click a card (or a rail item's hover “→”) and the detail loads in the same pane. One screen, rail always your spine.</p>
+
+    <div class="cd-sub">A1 · right pane = collections grid</div>
+    <div class="cd-shell" style="margin-bottom:18px;">
+      <div class="cd-rail">
+        <div class="cd-ri"><span class="dot ok"></span><span class="nm">All devices</span><span class="ct">312</span></div>
+        <div class="cd-rail-cap on"><a href="#">Restaurants</a><a class="add">+</a></div>
+        <div class="cd-ri hov"><span class="dot ok"></span><span class="nm">Downtown Diner</span><span class="go">→</span><span class="ct">42</span></div>
+        <div class="cd-ri"><span class="dot bad"></span><span class="nm">Harbor Grill</span><span class="ct">28</span></div>
+        <div class="cd-ri"><span class="dot ok"></span><span class="nm">Airport Kiosk</span><span class="ct">15</span></div>
+        <div class="cd-rail-cap"><a href="#">Groups</a><a class="add">+</a></div>
+        <div class="cd-ri"><span class="dot ok"></span><span class="nm">Lobby</span><span class="ct">60</span></div>
+        <div class="cd-ri"><span class="dot warn"></span><span class="nm">Drive-thru</span><span class="ct">33</span></div>
+      </div>
+      <div class="cd-pane">
+        <div class="cd-pane-h"><span class="t">Restaurants</span><span class="c">· 3 venues</span><span style="margin-left:auto"></span><button class="cd-btn pri">+ New restaurant</button></div>
+        <div class="cl-grid">
+          <div class="cl-card"><div class="cl-top"><span class="cl-name">Downtown Diner</span><span class="cl-score ok">91</span></div><div class="cl-meta">42 devices · 0 offline</div><div class="cl-foot"><a>View</a><a>Edit</a><a class="danger">Delete</a></div></div>
+          <div class="cl-card alerty"><div class="cl-top"><span class="cl-name">Harbor Grill</span><span class="cl-score warn">73</span></div><div class="cl-meta">28 devices · <span style="color:var(--danger)">3 offline</span></div><div class="cl-foot"><a>View</a><a>Edit</a><a class="danger">Delete</a></div></div>
+          <div class="cl-card"><div class="cl-top"><span class="cl-name">Airport Kiosk</span><span class="cl-score ok">88</span></div><div class="cl-meta">15 devices · 0 offline</div><div class="cl-foot"><a>View</a><a>Edit</a><a class="danger">Delete</a></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cd-sub">A2 · right pane = one collection's detail (after clicking a card or rail “→”)</div>
+    <div class="cd-shell">
+      <div class="cd-rail">
+        <div class="cd-ri"><span class="dot ok"></span><span class="nm">All devices</span><span class="ct">312</span></div>
+        <div class="cd-rail-cap"><a href="#">Restaurants</a><a class="add">+</a></div>
+        <div class="cd-ri"><span class="dot ok"></span><span class="nm">Downtown Diner</span><span class="ct">42</span></div>
+        <div class="cd-ri on"><span class="dot bad"></span><span class="nm">Harbor Grill</span><span class="ct">28</span></div>
+        <div class="cd-ri"><span class="dot ok"></span><span class="nm">Airport Kiosk</span><span class="ct">15</span></div>
+        <div class="cd-rail-cap"><a href="#">Groups</a><a class="add">+</a></div>
+        <div class="cd-ri"><span class="dot ok"></span><span class="nm">Lobby</span><span class="ct">60</span></div>
+      </div>
+      <div class="cd-pane">
+        <a class="cd-back">← Restaurants</a>
+        <div class="dt-head"><span class="cl-score warn">73</span><span class="nm">Harbor Grill</span><span style="margin-left:auto"></span><button class="cd-btn out">Filter roster</button><button class="cd-btn out">Edit</button></div>
+        <div class="dt-stats">
+          <div class="dt-stat"><div class="v">28</div><div class="k">Devices</div></div>
+          <div class="dt-stat"><div class="v" style="color:var(--danger)">3</div><div class="k">Offline</div></div>
+          <div class="dt-stat"><div class="v" style="color:var(--ok)">25</div><div class="k">Online</div></div>
+        </div>
+        <table class="dt-tbl"><thead><tr><th>Serial</th><th>Release</th><th>Battery</th><th>Last seen</th></tr></thead>
+          <tbody>
+            <tr><td class="dt-mono">AT070AABU00862</td><td class="dt-mono">3.1.mdm</td><td>18%</td><td style="color:var(--muted)">1h ago</td></tr>
+            <tr><td class="dt-mono">AT070AA2600039</td><td class="dt-mono">3.0.mdm</td><td>56%</td><td style="color:var(--muted)">5m ago</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B -->
+  <div class="cd-card">
+    <div class="cd-card-h"><h2>Option B — standalone page, restyled</h2><span class="cd-code">B</span></div>
+    <p class="cd-note">The label links to a full-width <b>/restaurants</b> page — same restyled cards, but you leave the rail. A “← Fleet” link brings you back. Cards and the rail “→” still open detail (its own restyled page). Simplest, lowest risk.</p>
+    <div style="border:1px solid var(--border); border-radius:14px; padding:18px; background:var(--surface2);">
+      <a class="cd-back">← Fleet</a>
+      <div class="cd-pane-h"><span class="t" style="font-size:19px;">Restaurants</span><span class="c">· 3 venues</span><span style="margin-left:auto"></span><button class="cd-btn pri">+ New restaurant</button></div>
+      <div class="cl-grid">
+        <div class="cl-card"><div class="cl-top"><span class="cl-name">Downtown Diner</span><span class="cl-score ok">91</span></div><div class="cl-meta">42 devices · 0 offline</div><div class="cl-foot"><a>View</a><a>Edit</a><a class="danger">Delete</a></div></div>
+        <div class="cl-card alerty"><div class="cl-top"><span class="cl-name">Harbor Grill</span><span class="cl-score warn">73</span></div><div class="cl-meta">28 devices · <span style="color:var(--danger)">3 offline</span></div><div class="cl-foot"><a>View</a><a>Edit</a><a class="danger">Delete</a></div></div>
+        <div class="cl-card"><div class="cl-top"><span class="cl-name">Airport Kiosk</span><span class="cl-score ok">88</span></div><div class="cl-meta">15 devices · 0 offline</div><div class="cl-foot"><a>View</a><a>Edit</a><a class="danger">Delete</a></div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
