@@ -3472,9 +3472,10 @@ func (h *Handler) RestaurantDevicePicker(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "restaurant-device-picker", map[string]any{
-		"Devices": devices,
-		"Query":   q,
+	h.tmpl.ExecuteTemplate(w, "device-picker-rows", map[string]any{
+		"Devices":  devices,
+		"Query":    q,
+		"Relocate": true,
 	})
 }
 
