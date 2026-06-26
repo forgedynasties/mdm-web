@@ -3,83 +3,74 @@
 
 <div class="ov-greet">
   <h1 class="ov-title">Users</h1>
-  <span class="ov-date">viewers are read-only; operators can also send shell and reboot commands; testers get operator access plus QA recording</span>
+  <span class="ov-date">viewers are read-only; operators can also send shell and reboot; testers add QA recording; devs get full ops + release sign-off</span>
 </div>
 
-<div class="card dv-rise-1" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Existing Users</h3></div>
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Username</th>
-        <th>Role</th>
-        <th>Created</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {{if .Users}}
-        {{range .Users}}
-        <tr>
-          <td class="mono">{{.Username}}</td>
-          <td><span class="badge badge-{{.Role}}">{{.Role}}</span></td>
-          <td class="muted small">{{localTime .CreatedAt}}</td>
-          <td style="white-space:nowrap;">
-            {{if eq .Role "admin"}}
-            <span class="muted small">admin — fixed</span>
-            {{else}}
-            <form action="/users/{{.ID}}/role" method="POST" style="display:inline;">
-              <select name="role" class="form-input" style="width:auto;display:inline-block;padding:4px 8px;"
-                      onchange="this.form.submit()" title="Change role">
-                <option value="viewer"{{if eq .Role "viewer"}} selected{{end}}>Viewer</option>
-                <option value="operator"{{if eq .Role "operator"}} selected{{end}}>Operator</option>
-                <option value="tester"{{if eq .Role "tester"}} selected{{end}}>Tester</option>
-                <option value="dev"{{if eq .Role "dev"}} selected{{end}}>Dev</option>
-              </select>
-              <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
-            </form>
-            <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;"
-                  onsubmit="return confirm('Delete user {{.Username}}?')">
-              <button type="submit" class="btn-danger-sm">Delete</button>
-            </form>
-            {{end}}
-          </td>
-        </tr>
-        {{end}}
-      {{else}}
-        <tr>
-          <td colspan="4" class="empty">No users yet.</td>
-        </tr>
+<div class="users-wrap">
+  <div class="card dv-rise-1">
+    <div class="card-header"><h3>Team</h3><span class="muted small">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}}</span></div>
+    {{if .Users}}
+    <div class="user-list">
+      {{range .Users}}
+      <div class="user-row">
+        <span class="user-av role-av-{{.Role}}">{{slice .Username 0 1}}</span>
+        <div class="user-id">
+          <div class="user-name mono">{{.Username}}</div>
+          <div class="user-meta muted small">Joined {{shortDate .CreatedAt}}</div>
+        </div>
+        <span class="role-chip role-{{.Role}}">{{.Role}}</span>
+        <div class="user-act">
+          {{if eq .Role "admin"}}
+          <span class="muted small">admin · fixed</span>
+          {{else}}
+          <form action="/users/{{.ID}}/role" method="POST" style="display:inline;">
+            <select name="role" class="form-input user-role-sel" onchange="this.form.submit()" title="Change role">
+              <option value="viewer"{{if eq .Role "viewer"}} selected{{end}}>Viewer</option>
+              <option value="operator"{{if eq .Role "operator"}} selected{{end}}>Operator</option>
+              <option value="tester"{{if eq .Role "tester"}} selected{{end}}>Tester</option>
+              <option value="dev"{{if eq .Role "dev"}} selected{{end}}>Dev</option>
+            </select>
+            <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
+          </form>
+          <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete user {{.Username}}?')">
+            <button type="submit" class="user-del" title="Delete user" aria-label="Delete">&times;</button>
+          </form>
+          {{end}}
+        </div>
+      </div>
       {{end}}
-    </tbody>
-  </table>
-</div>
+    </div>
+    {{else}}
+    <div class="empty-state" style="padding:28px 18px;"><div class="empty-state-copy"><div class="empty-state-title">No users yet</div><div class="empty-state-text">Create the first one on the right.</div></div></div>
+    {{end}}
+  </div>
 
-<div class="card" style="max-width:480px;">
-  <div class="card-header"><h3>Create User</h3></div>
-  <form action="/users" method="POST" class="command-form">
-    <div class="form-row">
-      <label class="form-label">Username</label>
-      <input type="text" name="username" class="form-input" required autocomplete="off">
-    </div>
-    <div class="form-row">
-      <label class="form-label">Password</label>
-      <input type="password" name="password" class="form-input" required autocomplete="new-password">
-    </div>
-    <div class="form-row">
-      <label class="form-label">Role</label>
-      <select name="role" class="form-input">
-        <option value="viewer">Viewer — read-only + screenshot + logcat</option>
-        <option value="operator">Operator — viewer + shell + reboot</option>
-        <option value="tester">Tester — operator access + record release QA results</option>
-        <option value="dev">Dev — full operational access + release sign-off (no settings/users)</option>
-      </select>
-    </div>
-    <button type="submit" class="btn-primary">
-      <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
-      Create User
-    </button>
-  </form>
+  <div class="card user-create">
+    <div class="card-header"><h3>Add user</h3></div>
+    <form action="/users" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
+      <div class="form-row">
+        <label class="form-label">Username</label>
+        <input type="text" name="username" class="form-input" required autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" class="form-input" required autocomplete="new-password">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Role</label>
+        <select name="role" class="form-input">
+          <option value="viewer">Viewer — read-only + screenshot + logcat</option>
+          <option value="operator">Operator — viewer + shell + reboot</option>
+          <option value="tester">Tester — operator + record release QA</option>
+          <option value="dev">Dev — full ops + release sign-off (no settings/users)</option>
+        </select>
+      </div>
+      <button type="submit" class="btn-primary" style="justify-self:start;">
+        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+        Create user
+      </button>
+    </form>
+  </div>
 </div>
 
 {{template "footer" .}}
