@@ -50,7 +50,7 @@
       <input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">
       <div class="dl-bat">
         <span class="dl-chip {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%">
-          {{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}}<span class="bat-glyph" title="Charging"><svg viewBox="0 0 24 24" width="9" height="9" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{else}}<span class="bat-glyph"><svg viewBox="0 0 30 15" width="14" height="9" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg></span>{{end}}
+          {{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}}<span class="bat-glyph" title="Charging"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{else}}<span class="bat-glyph"><svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg></span>{{end}}
           <span class="battery-label">{{.BatteryPct}}%</span>
         </span>
       </div>
@@ -881,8 +881,8 @@ document.addEventListener('keydown', function(e) {
         chip.className = 'dl-chip ' + d.battery_class;
         chip.setAttribute('aria-label', 'Battery ' + d.battery_pct + '%');
         var glyph = d.charging
-          ? '<span class="bat-glyph" title="Charging"><svg viewBox="0 0 24 24" width="9" height="9" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>'
-          : '<span class="bat-glyph"><svg viewBox="0 0 30 15" width="14" height="9" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="' + Math.max(2, Math.round(d.battery_pct * 18 / 100)) + '" height="9" rx="1.5" fill="currentColor"/></svg></span>';
+          ? '<span class="bat-glyph" title="Charging"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>'
+          : '<span class="bat-glyph"><svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="' + Math.max(2, Math.round(d.battery_pct * 18 / 100)) + '" height="9" rx="1.5" fill="currentColor"/></svg></span>';
         chip.innerHTML = glyph + '<span class="battery-label">' + d.battery_pct + '%</span>';
       }
 
