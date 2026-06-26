@@ -200,8 +200,8 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 {{define "devices.html"}}
 {{template "header" .}}
 
+{{template "fleet-tabs" .}}
 <div class="ov-greet">
-  <h1 class="ov-title">Devices</h1>
   <span class="ov-date">{{.Summary.Total}} enrolled · fleet roster</span>
   <span class="ov-live"><i></i>live</span>
   <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>

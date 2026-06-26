@@ -986,6 +986,13 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	case strings.HasPrefix(path, "/changelog"):
 		data["ActivePage"] = "changelog"
 	}
+	// The unified Fleet surface (Devices/Restaurants/Groups tabs) needs all three
+	// counts for its tab strip; fetch them only on those pages.
+	if ap, _ := data["ActivePage"].(string); ap == "devices" || ap == "groups" || ap == "restaurants" {
+		if fc, err := h.db.FleetCounts(r.Context()); err == nil {
+			data["FleetCounts"] = fc
+		}
+	}
 	return data
 }
 

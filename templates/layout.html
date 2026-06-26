@@ -49,9 +49,7 @@
 
       <div class="nav-section">
         <p class="nav-section-label">Inventory</p>
-        <a href="/devices" class="nav-link{{if eq .ActivePage "devices"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Devices</a>
-        <a href="/groups" class="nav-link{{if eq .ActivePage "groups"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="3"/><circle cx="16" cy="9" r="3"/><path d="M4 19c0-2.2 1.8-4 4-4"/><path d="M20 19c0-2.2-1.8-4-4-4"/><path d="M8 19c0-2.8 1.8-5 4-5s4 2.2 4 5"/></svg></span>Groups</a>
-        <a href="/restaurants" class="nav-link{{if eq .ActivePage "restaurants"}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>Restaurants</a>
+        <a href="/devices" class="nav-link{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants")}} active{{end}}"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Fleet</a>
       </div>
 
       <div class="nav-section">
@@ -953,4 +951,15 @@
   </script>
 </body>
 </html>
+{{end}}
+
+{{/* Unified Fleet tab strip — shared by the Devices, Restaurants and Groups pages
+     so the three read as one tabbed surface. Counts come from .FleetCounts. */}}
+{{define "fleet-tabs"}}
+<div class="ov-greet" style="margin-bottom:10px;"><h1 class="ov-title">Fleet</h1></div>
+<div class="fleet-tabs">
+  <a href="/devices" class="fleet-tab{{if eq .ActivePage "devices"}} cur{{end}}">Devices{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Devices}}</span>{{end}}</a>
+  <a href="/restaurants" class="fleet-tab{{if eq .ActivePage "restaurants"}} cur{{end}}">Restaurants{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Restaurants}}</span>{{end}}</a>
+  <a href="/groups" class="fleet-tab{{if eq .ActivePage "groups"}} cur{{end}}">Groups{{if .FleetCounts}} <span class="pill">{{.FleetCounts.Groups}}</span>{{end}}</a>
+</div>
 {{end}}

@@ -1,8 +1,8 @@
 {{define "groups.html"}}
 {{template "header" .}}
 
+{{template "fleet-tabs" .}}
 <div class="ov-greet">
-  <h1 class="ov-title">Groups</h1>
   <span class="ov-date">{{len .Groups}} group{{if ne (len .Groups) 1}}s{{end}} · device cohorts</span>
   {{if and .Groups (canAdmin .Role)}}
   <a href="/groups/new" class="btn-outline btn-plus" style="margin-left:auto;" title="New Group"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></a>

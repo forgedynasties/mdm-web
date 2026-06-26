@@ -1,8 +1,8 @@
 {{define "restaurants.html"}}
 {{template "header" .}}
 
+{{template "fleet-tabs" .}}
 <div class="ov-greet">
-  <h1 class="ov-title">Restaurants</h1>
   <span class="ov-date">{{len .Restaurants}} restaurant{{if ne (len .Restaurants) 1}}s{{end}} · venues</span>
   {{if and .Restaurants (canAdmin .Role)}}
   <a href="/restaurants/new" class="btn-outline btn-plus" style="margin-left:auto;" title="New restaurant"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></a>
