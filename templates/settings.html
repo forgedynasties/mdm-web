@@ -67,13 +67,17 @@
 
 <style>
 .settings-wrap{display:flex;gap:22px;align-items:flex-start;}
-.settings-nav{display:flex;flex-direction:column;gap:2px;min-width:178px;flex-shrink:0;position:sticky;top:74px;}
-.settings-nav button{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:transparent;border-radius:8px;cursor:pointer;color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;}
-.settings-nav button:hover{background:var(--border-soft);color:var(--text);}
-.settings-nav button.active{background:var(--border-soft);color:var(--text);font-weight:600;}
+.settings-nav{display:flex;flex-direction:column;gap:2px;min-width:184px;flex-shrink:0;position:sticky;top:74px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;}
+.settings-nav button{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:transparent;border-radius:9px;cursor:pointer;color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;}
+.settings-nav button:hover{background:var(--hover);color:var(--text);}
+.settings-nav button.active{background:var(--accent-soft);color:var(--accent);font-weight:600;}
 .settings-panels{flex:1;min-width:0;}
 .settings-tab{display:none;}
 .settings-tab.active{display:block;}
+.sw-toggle{width:42px;height:24px;border-radius:99px;border:0;background:var(--surface2);position:relative;cursor:pointer;padding:0;flex:none;transition:background .15s;}
+.sw-toggle.on{background:var(--ok);}
+.sw-knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.25);}
+.sw-toggle.on .sw-knob{left:21px;}
 @media (max-width:760px){.settings-wrap{flex-direction:column;}.settings-nav{position:static;flex-direction:row;flex-wrap:wrap;min-width:0;}}
 /* Compact alert-rule rows: one line each, expand to edit thresholds. */
 .rule-item{padding:9px 0;border-bottom:1px solid var(--border-soft);}
@@ -177,9 +181,7 @@
       <div class="muted small">Deliver pending commands via checkin response for devices not connected over WebSocket.</div>
     </div>
     <form action="/settings/legacy-checkin/toggle" method="POST">
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">
-        {{if .LegacyCheckin}}Disable{{else}}Enable{{end}}
-      </button>
+      <button type="submit" class="sw-toggle{{if .LegacyCheckin}} on{{end}}" title="{{if .LegacyCheckin}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .LegacyCheckin}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
     </form>
   </div>
 </div>
@@ -220,7 +222,7 @@
       <div class="muted small">Reboot / OTA / boot-logo commands must include a reason, recorded in the audit log.</div>
     </div>
     <form action="/settings/require-reason" method="POST">
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">{{if .RequireReason}}Disable{{else}}Enable{{end}}</button>
+      <button type="submit" class="sw-toggle{{if .RequireReason}} on{{end}}" title="{{if .RequireReason}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .RequireReason}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
     </form>
   </div>
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
@@ -261,7 +263,7 @@
       <div class="muted small">Allow operators to send one-off shell commands to devices. When off, the shell action is hidden and shell commands are rejected.</div>
     </div>
     <form action="/settings/shell/toggle" method="POST">
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">{{if .ShellEnabled}}Disable{{else}}Enable{{end}}</button>
+      <button type="submit" class="sw-toggle{{if .ShellEnabled}} on{{end}}" title="{{if .ShellEnabled}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .ShellEnabled}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
     </form>
   </div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
@@ -270,7 +272,7 @@
       <div class="muted small">Allow viewing and controlling device screens in real time. When off, the remote screen is blocked.</div>
     </div>
     <form action="/settings/remote/toggle" method="POST">
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">{{if .RemoteEnabled}}Disable{{else}}Enable{{end}}</button>
+      <button type="submit" class="sw-toggle{{if .RemoteEnabled}} on{{end}}" title="{{if .RemoteEnabled}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .RemoteEnabled}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
     </form>
   </div>
 </div>
