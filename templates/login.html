@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
+  <title>{{if .Brand}}{{.Brand}}{{else}}AIO Hub{{end}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/fonts/fonts.css">
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
@@ -22,7 +22,7 @@
         <line x1="22" y1="26" x2="22" y2="42"/>
       </svg>
     </div>
-    <h1 class="login-title">{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</h1>
+    <h1 class="login-title">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">Hub</span>{{end}}</h1>
     <p class="login-subtitle">Device management dashboard</p>
 
     {{if .Error}}
