@@ -18,7 +18,8 @@
   </script>
   <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO Hub{{end}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/static/fonts/fonts.css">
+  <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
   <script src="/static/vendor/htmx.min.js"></script>
 </head>
