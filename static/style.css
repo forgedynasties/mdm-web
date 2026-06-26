@@ -2127,8 +2127,8 @@ input[type="checkbox"]:hover {
 .device-action-tile {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-2);
-  padding: var(--s-3) var(--s-4);
+  border-radius: 12px;
+  padding: 12px 14px;
   display: grid;
   gap: 6px;
   text-align: left;
@@ -2138,22 +2138,15 @@ input[type="checkbox"]:hover {
 }
 
 .device-action-tile:hover {
-  border-color: var(--rule-2);
-  background: var(--surface2);
+  border-color: var(--text-faint);
+  background: var(--hover);
 }
 
 .device-action-tile.active {
-  border-color: var(--accent-edge);
+  border-color: transparent;
   background: var(--accent-soft);
 }
-.device-action-tile.active::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 0; bottom: 0;
-  width: 2px;
-  background: var(--accent);
-}
-.device-action-tile { position: relative; }
+.device-action-tile.active .device-action-tile-title { color: var(--accent); }
 
 .device-action-tile .ui-icon {
   width: 16px;
@@ -2181,7 +2174,7 @@ input[type="checkbox"]:hover {
 .device-action-panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-2);
+  border-radius: 12px;
   overflow: hidden;
 }
 
