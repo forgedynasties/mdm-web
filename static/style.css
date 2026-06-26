@@ -4723,3 +4723,8 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .fa-pkg { font-size: 11px; color: var(--muted); }
 .fa-cnt { font-size: 11px; color: var(--text-faint); font-weight: 600; white-space: nowrap; }
 .fleet-app.sel .fa-cnt { color: var(--accent); }
+
+/* commands target two-pane: available column wider than the default picker */
+.cmd-dp { grid-template-columns: 1fr 280px; }
+.cmd-dp .filter-select { font-size: 12px; }
+@media (max-width: 860px) { .cmd-dp { grid-template-columns: 1fr; } }

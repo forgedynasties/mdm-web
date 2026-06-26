@@ -224,37 +224,35 @@
           </div>
 
           <div id="target-devices" class="target-detail" style="margin-top:12px;">
-            <div class="filter-search" style="width:100%;box-sizing:border-box;">
-              <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-              <input type="search" id="cmd-serial-input" name="q" class="filter-search-input" autocomplete="off"
-                     placeholder="Search or type a serial, Enter to add…"
-                     hx-get="/devices/search" hx-trigger="keyup changed delay:200ms, focus"
-                     hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
-            </div>
-            <div id="cmd-device-results"></div>
-            <div id="cmd-chips" class="cmd-chips"></div>
-            <textarea name="target_serials" id="cmd-serials" class="form-textarea" placeholder="paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="cmdRenderChips();updatePreview()" style="display:none;font-family:var(--mono);font-size:12px;"></textarea>
-            <button type="button" class="btn-link small" id="cmd-edit-list" onclick="cmdToggleList()">Edit as list ▾</button>
-
-            <div class="cmd-browse" style="margin-top:14px;">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                <span class="cr-sec-title" style="margin:0;">Browse &amp; filter</span>
-                <button type="button" class="btn-outline btn-sm" onclick="cmdSelectAllMatching()">Select all matching</button>
-              </div>
-              <div class="filter-bar" style="margin:0;border-bottom:none;flex-wrap:wrap;gap:8px;">
-                <div class="filter-search" style="min-width:150px;">
+            <div class="dp-tp cmd-dp">
+              <div class="dp-pane">
+                <div class="dp-pane-h"><span class="t">Available devices</span><button type="button" class="btn-link" onclick="cmdSelectAllMatching()" style="font-size:12px;font-weight:600;">Select all matching</button></div>
+                <div class="filter-search" style="margin:11px 12px 0;box-sizing:border-box;">
                   <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-                  <input type="search" id="cmd-browse-q" class="filter-search-input" placeholder="Search serial..." oninput="cmdBrowseDebounced()">
+                  <input type="search" id="cmd-serial-input" name="q" class="filter-search-input" autocomplete="off"
+                         placeholder="Search serial · Enter to add…"
+                         hx-get="/devices/search" hx-trigger="keyup changed delay:200ms, focus"
+                         hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
                 </div>
-                <select id="cmd-browse-status" class="filter-select" onchange="cmdBrowseReload()"><option value="">Status</option><option value="online">Online</option><option value="offline">Offline</option></select>
-                <select id="cmd-browse-group" class="filter-select" onchange="cmdBrowseReload()"><option value="">Group</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
-                <select id="cmd-browse-production" class="filter-select" onchange="cmdBrowseReload()"><option value="">Production</option>{{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
-                <select id="cmd-browse-build" class="filter-select" onchange="cmdBrowseReload()"><option value="">Release</option>{{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}</select>
-                <select id="cmd-browse-battery" class="filter-select" onchange="cmdBrowseReload()"><option value="">Battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select>
-                <button type="button" class="filter-clear" onclick="cmdBrowseClear()">Clear</button>
+                <div id="cmd-device-results"></div>
+                <div class="filter-bar" style="margin:8px 12px 0;border-bottom:none;flex-wrap:wrap;gap:6px;padding:0;">
+                  <select id="cmd-browse-status" class="filter-select" onchange="cmdBrowseReload()"><option value="">Status</option><option value="online">Online</option><option value="offline">Offline</option></select>
+                  <select id="cmd-browse-group" class="filter-select" onchange="cmdBrowseReload()"><option value="">Group</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+                  <select id="cmd-browse-production" class="filter-select" onchange="cmdBrowseReload()"><option value="">Production</option>{{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+                  <select id="cmd-browse-build" class="filter-select" onchange="cmdBrowseReload()"><option value="">Release</option>{{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}</select>
+                  <select id="cmd-browse-battery" class="filter-select" onchange="cmdBrowseReload()"><option value="">Battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select>
+                  <input type="search" id="cmd-browse-q" class="filter-select" placeholder="Filter serial…" oninput="cmdBrowseDebounced()" style="min-width:120px;">
+                  <button type="button" class="filter-clear" onclick="cmdBrowseClear()">Clear</button>
+                </div>
+                <div id="cmd-device-browser" style="max-height:260px;overflow:auto;margin:8px 8px 6px;"
+                     hx-get="/commands/browse-devices" hx-trigger="load" hx-target="#cmd-device-browser" hx-swap="innerHTML"></div>
               </div>
-              <div id="cmd-device-browser" style="max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:var(--r-3);margin-top:8px;"
-                   hx-get="/commands/browse-devices" hx-trigger="load" hx-target="#cmd-device-browser" hx-swap="innerHTML"></div>
+              <div class="dp-pane">
+                <div class="dp-pane-h"><span class="t">Selected</span><span class="n"><span id="cmd-sel-count">0</span> device(s)</span></div>
+                <div id="cmd-chips" class="cmd-chips" style="padding:10px 12px;flex:1;overflow:auto;align-content:flex-start;min-height:150px;"></div>
+                <textarea name="target_serials" id="cmd-serials" class="form-textarea" placeholder="paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="cmdRenderChips();updatePreview()" style="display:none;font-family:var(--mono);font-size:12px;margin:0 12px;"></textarea>
+                <button type="button" class="btn-link small" id="cmd-edit-list" onclick="cmdToggleList()" style="margin:0 12px 10px;font-size:12px;">Edit as list ▾</button>
+              </div>
             </div>
           </div>
         </div>
@@ -482,16 +480,22 @@ function cmdRenderChips() {
   var box = document.getElementById('cmd-chips');
   if (!box) return;
   box.innerHTML = '';
-  cmdSerials().forEach(function (s) {
-    var chip = document.createElement('span');
-    chip.className = 'cmd-chip';
-    chip.appendChild(document.createTextNode(s));
-    var b = document.createElement('button');
-    b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Remove ' + s);
-    b.onclick = function () { cmdRemoveSerial(s); };
-    chip.appendChild(b);
-    box.appendChild(chip);
-  });
+  var serials = cmdSerials();
+  if (!serials.length) {
+    box.innerHTML = '<div class="muted small" style="padding:6px 2px;">No devices selected. Add them from the left.</div>';
+  } else {
+    serials.forEach(function (s) {
+      var chip = document.createElement('span');
+      chip.className = 'cmd-chip';
+      chip.appendChild(document.createTextNode(s));
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Remove ' + s);
+      b.onclick = function () { cmdRemoveSerial(s); };
+      chip.appendChild(b);
+      box.appendChild(chip);
+    });
+  }
+  var c = document.getElementById('cmd-sel-count'); if (c) c.textContent = serials.length;
   cmdSyncBrowserChecks();
 }
 
