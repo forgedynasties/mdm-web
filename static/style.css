@@ -4641,3 +4641,12 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
   padding: 9px 11px; border: 1px solid var(--border-soft); border-radius: 9px; background: var(--surface); cursor: pointer; font: inherit; font-size: 12.5px; }
 .ai-prev-row:hover { background: var(--hover); }
 .ai-prev-snip { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* screenshot command result — framed preview + download */
+.ss-result { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.ss-frame { display: inline-block; border: 4px solid #11161c; border-radius: 16px; overflow: hidden; line-height: 0;
+  background: #11161c; box-shadow: var(--shadow-sm); transition: box-shadow var(--dur) var(--ease); }
+.ss-frame img { display: block; max-width: 150px; height: auto; border-radius: 9px; }
+.ss-frame:hover { box-shadow: 0 10px 26px rgba(0,0,0,.16); }
+.ss-dl { font-size: 12px; padding: 5px 11px; display: inline-flex; align-items: center; gap: 6px; }
+.ss-dl .ui-icon { width: 13px; height: 13px; }
