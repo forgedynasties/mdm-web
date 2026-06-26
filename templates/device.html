@@ -212,6 +212,7 @@
     <div class="dd-card-title">Connection</div>
     <div class="dd-row"><span class="dd-row-label">Last check-in</span><span class="dd-row-val">{{timeSince .Device.LastSeenAt}}</span></div>
     <div class="dd-row"><span class="dd-row-label">WiFi</span><span class="dd-row-val">{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if $wifi}}{{$wifi}}{{else}}—{{end}}</span></div>
+    <div class="dd-row"><span class="dd-row-label">WiFi Signal</span><span class="dd-row-val">{{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{if $rssi}}{{$rssi}} dBm{{else}}—{{end}}</span></div>
     <div class="dd-row"><span class="dd-row-label">Poll interval</span><span class="dd-row-val">{{div .Device.PollIntervalMs 1000}}s</span></div>
     <div class="dd-row"><span class="dd-row-label">Kiosk mode</span><span class="dd-row-val">{{if .KioskConfig.KioskEnabled}}On{{else}}Off{{end}}</span></div>
     <div class="dd-row"><span class="dd-row-label">Deployment</span><span class="dd-row-val">{{if .Device.DeployedEffective}}<span class="status-badge ok">Deployed</span> <span class="muted small">{{.Device.RestaurantName}}</span>{{else}}<span class="status-badge muted">In lab</span> <span class="muted small">(no restaurant)</span>{{end}}</span></div>
