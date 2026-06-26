@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device graphs — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{--accent:#f9674e;--accent-2:#7a80f6;--ok:#2bb673;--warn:#e8a13a;--low:#e5484d;
+  --ink:#1c2024;--muted:#62677a;--faint:#9aa0b0;--surface:#fff;--bg:#f6f7f9;--border:#e7e8ee;--soft:#eceef3;--hover:#f7f8fa;--accent-soft:rgba(249,103,78,.1);}
+*{box-sizing:border-box}
+body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:30px 40px 80px;line-height:1.45}
+h1{font-size:21px;margin:0 0 2px}.lead{color:var(--muted);font-size:13px;margin:0 0 24px;max-width:720px}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:30px 0 4px}
+.dname{font-weight:700;font-size:15px;margin:8px 0 2px}.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+.frame{max-width:780px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.ch{display:flex;justify-content:space-between;align-items:center;padding:13px 18px;border-bottom:1px solid var(--soft)}
+.ch h3{margin:0;font-size:14px}
+.muted{color:var(--muted)}.small{font-size:12px}
+.tabs{display:inline-flex;gap:6px;margin:12px 16px 0}
+.tab{font:inherit;font-size:12px;font-weight:600;padding:6px 13px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--muted);cursor:pointer}
+.tab.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.dur{display:inline-flex;gap:2px;background:var(--soft);border-radius:8px;padding:3px}
+.dur button{border:0;background:none;font:inherit;font-size:11.5px;font-weight:600;color:var(--muted);padding:4px 9px;border-radius:6px;cursor:pointer}
+.dur button.on{background:#fff;color:var(--accent)}
+.axis{font-size:10px;fill:var(--faint);font-family:'IBM Plex Mono',monospace}
+.tile{background:var(--surface);border:1px solid var(--border);border-radius:13px;padding:13px 15px;margin-bottom:12px}
+.tile-h{display:flex;justify-content:space-between;align-items:baseline}
+.tile-lab{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+.tile-val{font-weight:700;font-size:17px;font-variant-numeric:tabular-nums}
+</style></head>
+<body>
+<h1>Device graphs — style demos</h1>
+<p class="lead">Same battery curve, three treatments. Pick one (you can mix — e.g. “Declutter + Brand colours”). All keep the time-range buttons &amp; CSV export.</p>
+
+<!-- shared chart geometry: viewBox 0 0 600 200, padding for axis -->
+<!-- ============ A · DECLUTTER ============ -->
+<div class="eyebrow">Option A</div>
+<div class="dname">Declutter — thin line, faint grid, light fill</div>
+<div class="ddesc">Same chart, calmer. 1px line, very faint horizontal gridlines, a barely-there fill, no charging/WLC legend.</div>
+<div class="frame"><div class="card">
+  <div class="ch"><h3>Device graphs</h3><div class="dur"><button>1h</button><button class="on">6h</button><button>12h</button><button>24h</button><button>48h</button></div></div>
+  <div class="tabs"><button class="tab on">Battery</button><button class="tab">Temp</button><button class="tab">RAM</button><button class="tab">All</button></div>
+  <div style="padding:8px 16px 14px">
+    <svg viewBox="0 0 600 200" width="100%" height="200">
+      <g stroke="#eceef3" stroke-width="1">
+        <line x1="40" y1="20" x2="590" y2="20"/><line x1="40" y1="65" x2="590" y2="65"/><line x1="40" y1="110" x2="590" y2="110"/><line x1="40" y1="155" x2="590" y2="155"/>
+      </g>
+      <text class="axis" x="6" y="24">100</text><text class="axis" x="12" y="114">50</text><text class="axis" x="18" y="159">0</text>
+      <defs><linearGradient id="fa" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f9674e" stop-opacity=".10"/><stop offset="1" stop-color="#f9674e" stop-opacity="0"/></linearGradient></defs>
+      <path d="M40,70 110,60 180,72 250,45 320,52 390,30 460,40 530,22 590,30 L590,155 40,155 Z" fill="url(#fa)"/>
+      <polyline points="40,70 110,60 180,72 250,45 320,52 390,30 460,40 530,22 590,30" fill="none" stroke="#f9674e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+</div></div>
+
+<!-- ============ B · BRAND ============ -->
+<div class="eyebrow">Option B</div>
+<div class="dname">Brand colours — gradient area, rounded caps</div>
+<div class="ddesc">Coral battery with a soft gradient fill; temp = amber, ram = periwinkle (on the All view). Bolder, on-brand.</div>
+<div class="frame"><div class="card">
+  <div class="ch"><h3>Device graphs</h3><div class="dur"><button>1h</button><button class="on">6h</button><button>12h</button><button>24h</button><button>48h</button></div></div>
+  <div class="tabs"><button class="tab on">Battery</button><button class="tab">Temp</button><button class="tab">RAM</button><button class="tab">All</button></div>
+  <div style="padding:8px 16px 14px">
+    <svg viewBox="0 0 600 200" width="100%" height="200">
+      <g stroke="#f3eee8" stroke-width="1"><line x1="40" y1="20" x2="590" y2="20"/><line x1="40" y1="110" x2="590" y2="110"/></g>
+      <text class="axis" x="6" y="24">100</text><text class="axis" x="12" y="114">50</text><text class="axis" x="18" y="159">0</text>
+      <defs><linearGradient id="fb" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#f9674e" stop-opacity=".28"/><stop offset="1" stop-color="#f9674e" stop-opacity="0"/></linearGradient></defs>
+      <path d="M40,70 110,60 180,72 250,45 320,52 390,30 460,40 530,22 590,30 L590,155 40,155 Z" fill="url(#fb)"/>
+      <polyline points="40,70 110,60 180,72 250,45 320,52 390,30 460,40 530,22 590,30" fill="none" stroke="#f9674e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="530" cy="22" r="3.5" fill="#f9674e"/>
+    </svg>
+  </div>
+</div></div>
+
+<!-- ============ C · TILES ============ -->
+<div class="eyebrow">Option C</div>
+<div class="dname">Separate metric tiles — all three at once</div>
+<div class="ddesc">No tabs: Battery, Temperature and Memory each get their own mini-chart with the current value, so you see everything in one glance.</div>
+<div class="frame">
+  <div class="tile">
+    <div class="tile-h"><span class="tile-lab">Battery</span><span class="tile-val" style="color:#1c7d50">82%</span></div>
+    <svg viewBox="0 0 600 70" width="100%" height="70" style="margin-top:6px">
+      <defs><linearGradient id="tg1" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#2bb673" stop-opacity=".22"/><stop offset="1" stop-color="#2bb673" stop-opacity="0"/></linearGradient></defs>
+      <path d="M0,40 70,34 140,42 210,26 280,30 350,18 420,24 490,12 560,18 600,16 L600,70 0,70 Z" fill="url(#tg1)"/>
+      <polyline points="0,40 70,34 140,42 210,26 280,30 350,18 420,24 490,12 560,18 600,16" fill="none" stroke="#2bb673" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="tile">
+    <div class="tile-h"><span class="tile-lab">Temperature</span><span class="tile-val" style="color:#9a6512">29.6°C</span></div>
+    <svg viewBox="0 0 600 70" width="100%" height="70" style="margin-top:6px">
+      <defs><linearGradient id="tg2" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#e8a13a" stop-opacity=".22"/><stop offset="1" stop-color="#e8a13a" stop-opacity="0"/></linearGradient></defs>
+      <path d="M0,40 70,42 140,38 210,44 280,34 350,40 420,36 490,42 560,38 600,40 L600,70 0,70 Z" fill="url(#tg2)"/>
+      <polyline points="0,40 70,42 140,38 210,44 280,34 350,40 420,36 490,42 560,38 600,40" fill="none" stroke="#e8a13a" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="tile">
+    <div class="tile-h"><span class="tile-lab">Memory</span><span class="tile-val" style="color:#4b50c4">49%</span></div>
+    <svg viewBox="0 0 600 70" width="100%" height="70" style="margin-top:6px">
+      <defs><linearGradient id="tg3" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7a80f6" stop-opacity=".22"/><stop offset="1" stop-color="#7a80f6" stop-opacity="0"/></linearGradient></defs>
+      <path d="M0,38 70,40 140,36 210,38 280,42 350,38 420,40 490,36 560,40 600,38 L600,70 0,70 Z" fill="url(#tg3)"/>
+      <polyline points="0,38 70,40 140,36 210,38 280,42 350,38 420,40 490,36 560,40 600,38" fill="none" stroke="#7a80f6" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
+</div>
+
+</body></html>
