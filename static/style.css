@@ -282,7 +282,8 @@ a:hover { color: var(--accent-h); }
 .brand-aio, .brand-hub { font-family: 'Poppins', var(--font); letter-spacing: -0.01em; }
 .brand-aio {
   font-weight: 700;
-  background: var(--brand-grad);
+  /* periwinkle → coral, matching the AIO Hub logo */
+  background: linear-gradient(90deg, #7a80f6 0%, #f9674e 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
