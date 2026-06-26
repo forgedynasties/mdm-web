@@ -17,6 +17,19 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.14.0",
+		Date:    "2026-06-26",
+		Changes: []string{
+			"Fresh new look across the dashboard, built around the AIO Hub brand — softer cards, clearer colours, and a search box in the top-right of every page.",
+			"Redesigned home page: see your fleet at a glance with device counts, an overall health score, a 7-day activity chart, open alerts, and one-click quick actions.",
+			"Redesigned Fleet page: a collections sidebar lists All devices plus every restaurant and group — click one to filter the list to it, or open it to see its devices and health. Restaurants and groups are now managed right inside Fleet.",
+			"The device list is now easy-to-scan cards instead of a wide table, so it reads clearly and no longer gets cut off on narrower screens.",
+			"New “Sort” control for the device list — order by last seen, battery, temperature, memory, serial, or onboarding date.",
+			"You can now bring hidden devices back: hidden devices show an “unhide” button, and selecting one or more hidden devices reveals “Unhide Selected”.",
+			"Viewers no longer see the Commands menu.",
+		},
+	},
+	{
 		Version: "1.13.0",
 		Date:    "2026-06-23",
 		Changes: []string{
