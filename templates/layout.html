@@ -116,6 +116,8 @@
     </div>
   </div>
   <main class="container">
+    {{/* The overview is the home page — no Back affordance there. */}}
+    {{if ne .ActivePage "overview"}}
     <button type="button" class="page-back" onclick="history.back()" title="Back to previous page" aria-label="Back to previous page"
             style="display:none;align-items:center;gap:6px;background:none;border:none;color:var(--muted);cursor:pointer;font:inherit;font-size:13px;padding:4px 0;margin-bottom:8px;">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Back
@@ -144,6 +146,7 @@
         }
       })();
     </script>
+    {{end}}
 {{end}}
 
 {{define "footer"}}
