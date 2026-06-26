@@ -395,6 +395,13 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"shortTime": func(t time.Time) string {
 			return t.UTC().Format("15:04")
 		},
+		// shortDate: compact date for the device onboarding column, e.g. "Jun 20, 2026".
+		"shortDate": func(t time.Time) string {
+			if t.IsZero() {
+				return "—"
+			}
+			return t.Format("Jan 2, 2006")
+		},
 		"minuteOfDay": func(t time.Time) int {
 			u := t.UTC()
 			return u.Hour()*60 + u.Minute()
