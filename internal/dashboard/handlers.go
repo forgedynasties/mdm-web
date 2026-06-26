@@ -5712,22 +5712,7 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	}
 	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
-	h.applyAutoHide(ctx)
 	h.applyPrunes(ctx)
-}
-
-// applyAutoHide hides devices not seen within the configured window (no-op when
-// disabled). Reversible: a hidden device is un-hidden on its next check-in.
-func (h *Handler) applyAutoHide(ctx context.Context) {
-	d := h.cfg.AutoHideDays()
-	if d <= 0 {
-		return
-	}
-	if n, err := h.db.HideStaleDevices(ctx, d); err != nil {
-		log.Printf("[retention] hide stale: %v", err)
-	} else if n > 0 {
-		log.Printf("[retention] hid %d device(s) not seen in %dd", n, d)
-	}
 }
 
 // applyPrunes deletes check-ins and logcat results past their retention windows
@@ -5888,11 +5873,7 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 		atoiNonNeg(r.FormValue("checkin_retention_days")),
 		atoiNonNeg(r.FormValue("logcat_retention_days")),
 	)
-	// Apply immediately so the policy takes effect on Save rather than waiting for
-	// the next hourly housekeeping run. Auto-hide is a fast, reversible UPDATE — run
-	// it inline so it's reflected on reload. Prunes can delete many rows, so run them
-	// in the background to keep the Save snappy.
-	h.applyAutoHide(r.Context())
+	// Prunes can delete many rows, so run them in the background to keep Save snappy.
 	go h.applyPrunes(context.Background())
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
