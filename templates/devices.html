@@ -47,8 +47,11 @@
     <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}">
       <input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">
       <div class="dl-bat">
-        <svg class="dl-bat-ring" viewBox="0 0 32 32" aria-hidden="true"><circle class="trk" cx="16" cy="16" r="13"/><circle class="val {{batteryClass .BatteryPct}}" cx="16" cy="16" r="13" pathLength="100" stroke-dasharray="100" stroke-dashoffset="{{sub 100 .BatteryPct}}" transform="rotate(-90 16 16)"/></svg>
-        <span class="battery-label">{{.BatteryPct}}%{{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}} <span class="charging-bolt" title="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}</span>
+        <span class="dl-ring-wrap">
+          <svg class="dl-bat-ring" viewBox="0 0 32 32" aria-hidden="true"><circle class="trk" cx="16" cy="16" r="13"/><circle class="val {{batteryClass .BatteryPct}}" cx="16" cy="16" r="13" pathLength="100" stroke-dasharray="100" stroke-dashoffset="{{sub 100 .BatteryPct}}" transform="rotate(-90 16 16)"/></svg>
+          {{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}}<span class="charging-bolt" title="Charging"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{end}}
+        </span>
+        <span class="battery-label">{{.BatteryPct}}%</span>
       </div>
       <div class="dl-id">
         <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">hidden</span>{{end}}</div>
@@ -861,14 +864,15 @@ document.addEventListener('keydown', function(e) {
       var ring = card.querySelector('.dl-bat-ring .val');
       if (ring) { ring.setAttribute('class', 'val ' + d.battery_class); ring.setAttribute('stroke-dashoffset', String(100 - d.battery_pct)); }
       var label = card.querySelector('.battery-label');
-      if (label) {
-        label.textContent = d.battery_pct + '%';
-        if (d.charging) {
-          var span = document.createElement('span');
-          span.className = 'charging-bolt'; span.title = 'Charging';
-          span.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
-          label.appendChild(document.createTextNode(' ')); label.appendChild(span);
-        }
+      if (label) label.textContent = d.battery_pct + '%';
+      var wrap = card.querySelector('.dl-ring-wrap');
+      if (wrap) {
+        var bolt = wrap.querySelector('.charging-bolt');
+        if (d.charging && !bolt) {
+          bolt = document.createElement('span'); bolt.className = 'charging-bolt'; bolt.title = 'Charging';
+          bolt.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
+          wrap.appendChild(bolt);
+        } else if (!d.charging && bolt) { bolt.remove(); }
       }
 
       var ram = card.querySelector('[data-m="ram"] .v');
