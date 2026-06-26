@@ -222,39 +222,110 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 <div class="fleet-md dv-rise-1">
   {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
   <aside class="fleet-rail" aria-label="Collections">
-    <button type="button" class="fleet-rail-item{{if and (not .FilterRestaurant) (not .FilterGroup)}} on{{end}}"
-            data-coll="all" data-name="All devices" data-count="{{.Summary.Total}}" onclick="selectCollection('all','')">
+    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View)}} on{{end}}" href="/devices">
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.Summary.Total}}</span>
-    </button>
+    </a>
 
-    <div class="fleet-rail-cap"><a href="/restaurants">Restaurants</a>{{if canAdmin .Role}}<a href="/restaurants/new" class="add" title="New restaurant">+</a>{{end}}</div>
+    <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a>{{if canAdmin .Role}}<a href="/restaurants/new" class="add" title="New restaurant">+</a>{{end}}</div>
     {{range .RailRestaurants}}
-    <button type="button" class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.FilterRestaurant}} on{{end}}"
-            data-coll="restaurant" data-id="{{.GroupID}}" data-name="{{.Name}}" data-count="{{.DeviceCount}}" onclick="selectCollection('restaurant','{{.GroupID}}')">
-      <span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span>
-    </button>
+    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}">
+      <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
+      <a class="ri-go" href="/devices?view=restaurant&id={{.GroupID}}" title="Open {{.Name}}" aria-label="Open {{.Name}} detail">→</a>
+      <span class="ct">{{.DeviceCount}}</span>
+    </div>
     {{end}}
     {{if not .RailRestaurants}}
     <div class="fleet-rail-empty">{{if canAdmin .Role}}<a href="/restaurants/new">+ Add restaurant</a>{{else}}None yet{{end}}</div>
     {{end}}
 
-    <div class="fleet-rail-cap"><a href="/groups">Groups</a>{{if canAdmin .Role}}<a href="/groups/new" class="add" title="New group">+</a>{{end}}</div>
+    <div class="fleet-rail-cap"><a href="/devices?view=groups"{{if eq .View "groups"}} class="on"{{end}}>Groups</a>{{if canAdmin .Role}}<a href="/groups/new" class="add" title="New group">+</a>{{end}}</div>
     {{range .RailGroups}}
-    <button type="button" class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.FilterGroup}} on{{end}}"
-            data-coll="group" data-id="{{.GroupID}}" data-name="{{.Name}}" data-count="{{.DeviceCount}}" onclick="selectCollection('group','{{.GroupID}}')">
-      <span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span>
-    </button>
+    <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}">
+      <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
+      <a class="ri-go" href="/devices?view=group&id={{.GroupID}}" title="Open {{.Name}}" aria-label="Open {{.Name}} detail">→</a>
+      <span class="ct">{{.DeviceCount}}</span>
+    </div>
     {{end}}
     {{if not .RailGroups}}
     <div class="fleet-rail-empty">{{if canAdmin .Role}}<a href="/groups/new">+ Add group</a>{{else}}None yet{{end}}</div>
     {{end}}
   </aside>
 
-  {{/* ── Roster pane ── */}}
-  <div class="fleet-roster">
+  {{/* ── Right pane: roster (default) · collections grid · collection detail ── */}}
+  <div class="fleet-roster" id="fleet-pane">
+  {{if or (eq .View "restaurants") (eq .View "groups")}}
+    {{/* ───────── Collections grid ───────── */}}
+    {{$isRest := eq .View "restaurants"}}
+    <div class="fleet-pane-head">
+      <span class="t">{{if $isRest}}Restaurants{{else}}Groups{{end}}</span>
+      <span class="c">· {{if $isRest}}{{len .RailRestaurants}} venue{{if ne (len .RailRestaurants) 1}}s{{end}}{{else}}{{len .RailGroups}} group{{if ne (len .RailGroups) 1}}s{{end}}{{end}}</span>
+      {{if canAdmin .Role}}<a class="btn-primary" style="margin-left:auto;" href="{{if $isRest}}/restaurants/new{{else}}/groups/new{{end}}">+ New {{if $isRest}}restaurant{{else}}group{{end}}</a>{{end}}
+    </div>
+    {{$items := .RailRestaurants}}{{if not $isRest}}{{$items = .RailGroups}}{{end}}
+    {{if $items}}
+    <div class="cl-grid">
+      {{range $items}}
+      <div class="cl-card{{if gt .OpenCritical 0}} alerty{{end}}">
+        <div class="cl-top">
+          <a class="cl-name" href="/devices?view={{if $isRest}}restaurant{{else}}group{{end}}&id={{.GroupID}}">{{.Name}}</a>
+          {{if gt .DeviceCount 0}}<span class="cl-score {{if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}">{{.Score}}</span>{{else}}<span class="cl-score is-empty">—</span>{{end}}
+        </div>
+        <div class="cl-meta">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}{{if gt .OfflineCount 0}} · <span class="danger">{{.OfflineCount}} offline</span>{{end}}{{if gt .OpenCritical 0}} · <span class="danger">{{.OpenCritical}} critical</span>{{end}}</div>
+        <div class="cl-foot">
+          <a href="/devices?view={{if $isRest}}restaurant{{else}}group{{end}}&id={{.GroupID}}">Open</a>
+          {{if canAdmin $.Role}}
+          {{if $isRest}}<a href="/restaurants/{{.GroupID}}/edit">Edit</a>{{end}}
+          <form action="/{{if $isRest}}restaurants{{else}}groups{{end}}/{{.GroupID}}/delete" method="POST" class="cl-delform" onsubmit="return mdmConfirmSubmit(event, {title:'Delete {{if $isRest}}restaurant{{else}}group{{end}}', body:'Delete {{.Name}}?', tier:'danger', confirmLabel:'Delete'})"><button type="submit" class="cl-del">Delete</button></form>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="ovx-card" style="padding:30px;text-align:center;color:var(--muted);">No {{if $isRest}}restaurants{{else}}groups{{end}} yet.{{if canAdmin .Role}} <a href="/{{if $isRest}}restaurants{{else}}groups{{end}}/new">Create one →</a>{{end}}</div>
+    {{end}}
+
+  {{else if .ViewColl}}
+    {{/* ───────── Collection detail ───────── */}}
+    {{$isRest := eq .View "restaurant"}}
+    <a class="back-link" href="/devices?view={{if $isRest}}restaurants{{else}}groups{{end}}">← {{if $isRest}}Restaurants{{else}}Groups{{end}}</a>
+    {{with .ViewColl}}
+    <div class="dt-head">
+      <span class="cl-score {{if le .DeviceCount 0}}is-empty{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}">{{if gt .DeviceCount 0}}{{.Score}}{{else}}—{{end}}</span>
+      <span class="dt-name">{{.Name}}</span>
+      <span style="margin-left:auto;"></span>
+      <a class="btn-outline" href="/devices?{{if $isRest}}restaurant{{else}}group{{end}}={{$.ViewID}}">Filter in roster</a>
+      <a class="btn-outline" href="/{{if $isRest}}restaurants{{else}}groups{{end}}/{{$.ViewID}}">Manage →</a>
+    </div>
+    <div class="dt-stats">
+      <div class="dt-stat"><div class="v">{{.DeviceCount}}</div><div class="k">Devices</div></div>
+      <div class="dt-stat"><div class="v"{{if gt .OfflineCount 0}} style="color:var(--danger)"{{end}}>{{.OfflineCount}}</div><div class="k">Offline</div></div>
+      <div class="dt-stat"><div class="v" style="color:var(--ok)">{{sub .DeviceCount .OfflineCount}}</div><div class="k">Online</div></div>
+    </div>
+    {{end}}
+    <div class="ovx-card" style="overflow:hidden;">
+      <table class="table">
+        <thead><tr><th>Serial</th><th>Release</th><th>Battery</th><th>Last seen</th></tr></thead>
+        <tbody>
+          {{range .Devices}}
+          <tr>
+            <td class="mono" style="white-space:nowrap;"><span class="ws-dot {{if index $.Online .ID}}online{{end}}"></span><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
+            <td class="mono small">{{.BuildID}}</td>
+            <td>{{.BatteryPct}}%</td>
+            <td class="muted">{{timeSince .LastSeenAt}}</td>
+          </tr>
+          {{else}}
+          <tr><td colspan="4" class="muted" style="padding:20px;text-align:center;">No devices in this {{if $isRest}}restaurant{{else}}group{{end}} yet.</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+
+  {{else}}
+    {{/* ───────── Device roster (default) ───────── */}}
     <div class="fleet-pane-head">
       <span class="t" id="roster-title">{{.SelectedCollection}}</span>
-      <span class="c" id="roster-count">{{.Total}} device{{if ne .Total 1}}s{{end}}</span>
+      <span class="c" id="roster-count">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
       <span class="ov-live" style="margin-left:auto;"><i></i>live</span>
       <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
       <button type="button" class="btn-outline" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list">
@@ -487,21 +558,8 @@ function syncFilterUI() {
     if (badge) { badge.textContent = cnt; if (cnt > 0) badge.removeAttribute('hidden'); else badge.setAttribute('hidden', ''); }
   }
   document.querySelectorAll('.fleet-seg [data-vis]').forEach(function(b) { b.classList.toggle('on', b.dataset.vis === hidden); });
-
-  // Collections rail highlight + roster heading.
-  var group = p.get('group') || '', restaurant = p.get('restaurant') || '';
-  var activeColl = 'all', activeId = '';
-  if (restaurant) { activeColl = 'restaurant'; activeId = restaurant; }
-  else if (group) { activeColl = 'group'; activeId = group; }
-  var title = 'All devices', count = null;
-  document.querySelectorAll('.fleet-rail-item').forEach(function(b) {
-    var on = (b.dataset.coll === 'all' && activeColl === 'all') || (b.dataset.coll === activeColl && b.dataset.id === activeId);
-    b.classList.toggle('on', on);
-    if (on) { title = b.dataset.name || title; count = b.dataset.count; }
-  });
-  var rt = document.getElementById('roster-title'); if (rt) rt.textContent = title;
-  var rc = document.getElementById('roster-count');
-  if (rc && count != null) rc.textContent = count + (count === '1' ? ' device' : ' devices');
+  // The collections rail + roster heading are server-rendered (the rail uses
+  // plain links and full-page navigation), so nothing to sync here.
 }
 document.addEventListener('DOMContentLoaded', syncFilterUI);
 
@@ -738,6 +796,7 @@ document.addEventListener('keydown', function(e) {
     <div class="device-inspector-body" id="device-inspector-body"></div>
   </aside>
 </div>
+  {{end}}{{/* end right-pane mode switch */}}
   </div>{{/* .fleet-roster */}}
 </div>{{/* .fleet-md */}}
 
