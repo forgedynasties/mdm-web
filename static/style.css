@@ -3683,50 +3683,15 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 }
 
 /* ── Alerts page ─────────────────────────────────────
- * Summary cards, sticky control bar, severity cells, row expansion. */
-.alert-stats {
-  display: grid;
+ * Summary cards reuse the overview .ov-vital style; below: sticky control bar,
+ * severity cells, row expansion. */
+.alert-vitals {
   grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+  grid-template-rows: none;
   margin: 14px 0 16px;
 }
-.alert-stat {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--r-3);
-  background: var(--surface);
-  text-decoration: none;
-  position: relative;
-  transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease), transform var(--dur) var(--ease);
-}
-.alert-stat:hover { background: var(--surface2); transform: translateY(-1px); }
-.alert-stat.is-active { border-color: var(--accent-edge); background: var(--accent-soft); }
-.alert-stat-num {
-  font-family: var(--mono);
-  font-size: 24px;
-  font-weight: var(--fw-semibold);
-  letter-spacing: -.02em;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-}
-.alert-stat-label {
-  font-size: var(--t-11);
-  font-weight: var(--fw-medium);
-  text-transform: uppercase;
-  letter-spacing: .05em;
-  color: var(--muted);
-}
-.alert-stat-icon { position: absolute; top: 12px; right: 12px; width: 16px; height: 16px; opacity: .85; }
-.alert-stat-icon svg { width: 16px; height: 16px; }
-.alert-stat.sev-crit .alert-stat-num, .alert-stat.sev-crit .alert-stat-icon { color: var(--danger); }
-.alert-stat.sev-warn .alert-stat-num, .alert-stat.sev-warn .alert-stat-icon { color: var(--warn); }
-.alert-stat.sev-info .alert-stat-num, .alert-stat.sev-info .alert-stat-icon { color: var(--info); }
-.alert-stat.sev-ok   .alert-stat-num { color: var(--ok); }
+.alert-vitals .ov-vital .v.info { color: var(--info); }
+.alert-vitals .ov-vital.is-active { border-color: var(--accent-edge); background: var(--accent-soft); }
 
 /* Sticky control bar (search + grouped filters). */
 .alert-controls {

@@ -10,30 +10,27 @@
   <span class="ov-date">{{.Summary.Total}} alert{{if ne .Summary.Total 1}}s{{end}} total</span>
 </div>
 
-<!-- Summary cards: active counts by severity + lifecycle. Each links to its filtered view. -->
-<div class="alert-stats">
-  <a href="/alerts?status=open" class="alert-stat {{if eq .Filter "open"}}is-active{{end}}">
-    <span class="alert-stat-num">{{.Summary.Open}}</span>
-    <span class="alert-stat-label">Open</span>
+<!-- Summary cards (overview .ov-vital style): active counts by severity + lifecycle. -->
+<div class="ov-vitals alert-vitals">
+  <a class="ov-vital{{if eq .Filter "open"}} is-active{{end}}" href="/alerts?status=open">
+    <div class="k">Open</div><div class="v{{if gt .Summary.Open 0}} warn{{end}}">{{.Summary.Open}}</div>
+    <div class="d">awaiting action</div>
   </a>
-  <a href="/alerts?severity=critical" class="alert-stat sev-crit {{if eq .Severity "critical"}}is-active{{end}}">
-    <span class="alert-stat-icon">{{template "sev-icon-critical"}}</span>
-    <span class="alert-stat-num">{{.Summary.Critical}}</span>
-    <span class="alert-stat-label">Critical</span>
+  <a class="ov-vital{{if gt .Summary.Critical 0}} alerty{{end}}{{if eq .Severity "critical"}} is-active{{end}}" href="/alerts?severity=critical">
+    <div class="k">Critical</div><div class="v{{if gt .Summary.Critical 0}} bad{{end}}">{{.Summary.Critical}}</div>
+    <div class="d">active now</div>
   </a>
-  <a href="/alerts?severity=warning" class="alert-stat sev-warn {{if eq .Severity "warning"}}is-active{{end}}">
-    <span class="alert-stat-icon">{{template "sev-icon-warning"}}</span>
-    <span class="alert-stat-num">{{.Summary.Warning}}</span>
-    <span class="alert-stat-label">Warning</span>
+  <a class="ov-vital{{if eq .Severity "warning"}} is-active{{end}}" href="/alerts?severity=warning">
+    <div class="k">Warning</div><div class="v{{if gt .Summary.Warning 0}} warn{{end}}">{{.Summary.Warning}}</div>
+    <div class="d">active now</div>
   </a>
-  <a href="/alerts?severity=info" class="alert-stat sev-info {{if eq .Severity "info"}}is-active{{end}}">
-    <span class="alert-stat-icon">{{template "sev-icon-info"}}</span>
-    <span class="alert-stat-num">{{.Summary.Info}}</span>
-    <span class="alert-stat-label">Info</span>
+  <a class="ov-vital{{if eq .Severity "info"}} is-active{{end}}" href="/alerts?severity=info">
+    <div class="k">Info</div><div class="v{{if gt .Summary.Info 0}} info{{end}}">{{.Summary.Info}}</div>
+    <div class="d">active now</div>
   </a>
-  <a href="/alerts?status=resolved" class="alert-stat sev-ok {{if eq .Filter "resolved"}}is-active{{end}}">
-    <span class="alert-stat-num">{{.Summary.Resolved}}</span>
-    <span class="alert-stat-label">Resolved</span>
+  <a class="ov-vital{{if eq .Filter "resolved"}} is-active{{end}}" href="/alerts?status=resolved">
+    <div class="k">Resolved</div><div class="v ok">{{.Summary.Resolved}}</div>
+    <div class="d">cleared</div>
   </a>
 </div>
 
