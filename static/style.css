@@ -4758,3 +4758,16 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .user-role-sel { width: auto; padding: 5px 9px; font-size: 12px; }
 .user-del { border: 0; background: none; color: var(--text-faint); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
 .user-del:hover { color: var(--danger); }
+
+/* commands browse list (Available pane) — Fleet-style rows */
+.cb-list { padding: 4px 6px; }
+.cb-row { display: grid; grid-template-columns: auto auto minmax(0,1fr) auto; gap: 11px; align-items: center;
+  padding: 8px 9px; border-radius: 9px; cursor: pointer; }
+.cb-row:hover { background: var(--hover); }
+.cb-row input[type=checkbox] { width: 15px; height: 15px; flex: none; }
+.cb-bat-na { background: var(--surface2); color: var(--muted); }
+.cb-id { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.cb-serial { font-weight: 600; font-size: 13px; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); display: inline-block; }
+.cb-status i.on { background: var(--ok); }
