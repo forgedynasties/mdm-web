@@ -4328,27 +4328,15 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
    FLEET · device list as cards (C2 row cards) + sort control
    ════════════════════════════════════════════════════════ */
 .dl-list { display: flex; flex-direction: column; container-type: inline-size; }
-.dl-card { display: grid; grid-template-columns: 18px minmax(0, 1.6fr) minmax(0, 0.8fr) auto auto;
-  align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft);
+.dl-card { display: grid; grid-template-columns: 18px auto minmax(0, 1.4fr) auto auto auto;
+  align-items: center; gap: 18px; padding: 11px 16px; border-bottom: 1px solid var(--border-soft);
   background: var(--surface); transition: background var(--dur) var(--ease); }
 .dl-card:first-child { border-top: 1px solid var(--border-soft); }
 .dl-card:hover { background: var(--hover); }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .dl-card > .device-cb { width: 15px; height: 15px; }
 
-.dl-id { display: flex; align-items: center; gap: 9px; min-width: 0; }
-.dl-id-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.dl-serial { display: inline; font-family: var(--mono); font-size: 13px; font-weight: 600;
-  color: var(--accent); padding: 0; border: 0; border-radius: 0; }
-.dl-serial:hover { color: var(--accent-h); text-decoration: underline; }
-.dl-kiosk { color: var(--muted); vertical-align: middle; }
-.dl-hidden-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-  color: var(--muted); background: var(--surface2); border-radius: 4px; padding: 1px 5px; vertical-align: middle; }
-.dl-seen { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.dl-onboard { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
-.dl-rel { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.dl-metrics { display: flex; align-items: center; gap: 20px; }
+/* battery (ring + %) */
 .dl-bat { display: flex; align-items: center; gap: 9px; }
 .dl-bat-ring { width: 30px; height: 30px; flex: none; }
 .dl-bat-ring .trk { fill: none; stroke: var(--surface-3); stroke-width: 4; }
@@ -4356,18 +4344,35 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-bat-ring .val.battery-ok { stroke: var(--ok); }
 .dl-bat-ring .val.battery-mid { stroke: var(--warn); }
 .dl-bat-ring .val.battery-low { stroke: var(--danger); }
-.dl-bat .battery-label { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dl-bat .battery-label { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 34px; }
 .dl-bat:has(.battery-mid) .battery-label { color: var(--warn); }
 .dl-bat:has(.battery-low) .battery-label { color: var(--danger); }
 
-/* status (online/offline) folded into the meta line */
-.dl-status { font-weight: 600; }
+/* identity column: serial / release / onboarded */
+.dl-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dl-id-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.dl-serial { display: inline; font-family: var(--mono); font-size: 13px; font-weight: 600;
+  color: var(--accent); padding: 0; border: 0; border-radius: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-serial:hover { color: var(--accent-h); text-decoration: underline; }
+.dl-kiosk { color: var(--muted); display: inline-flex; flex: none; }
+.dl-hidden-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; flex: none;
+  color: var(--muted); background: var(--surface2); border-radius: 4px; padding: 1px 5px; }
+.dl-rel { font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dl-onboard { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
+
+/* status column: online/offline + last sync */
+.dl-status-col { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+.dl-status { font-size: 12.5px; font-weight: 600; }
 .dl-status i { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 .dl-status.on { color: var(--ok); } .dl-status.on i { background: var(--ok); }
 .dl-status.off { color: var(--muted); } .dl-status.off i { background: var(--text-faint); }
-.dl-m { display: flex; flex-direction: column; gap: 1px; }
-.dl-m .k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); }
-.dl-m .v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dl-synced { font-size: 11px; color: var(--text-faint); }
+
+/* metrics column: RAM / Temp stacked */
+.dl-metrics { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
+.dl-m { display: flex; align-items: baseline; gap: 6px; font-size: 12px; }
+.dl-m .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-faint); min-width: 30px; }
+.dl-m .v { font-weight: 600; font-variant-numeric: tabular-nums; }
 .dl-m .v.muted { color: var(--text-faint); font-weight: 500; }
 
 .dl-act { display: flex; align-items: center; gap: 10px; justify-self: end; }
@@ -4383,9 +4388,9 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
    not just the viewport): stay one line, dropping the secondary info but
    keeping status, serial and battery. */
 @container (max-width: 680px) {
-  .dl-card { grid-template-columns: 18px minmax(0, 1fr) auto auto; gap: 12px; }
-  .dl-rel { display: none; }
-  .dl-metrics .dl-m { display: none; }
+  .dl-card { grid-template-columns: 18px auto minmax(0, 1fr) auto auto; gap: 14px; }
+  .dl-metrics { display: none; }
+  .dl-rel, .dl-onboard { display: none; }
 }
 
 /* Sort popover (reuses .fleet-fwrap / .fleet-pop) */
