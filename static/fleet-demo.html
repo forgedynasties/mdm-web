@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet filters — design options</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  body { background: var(--bg); }
+  .fd-wrap { max-width: 1080px; margin: 0 auto; padding: 34px 28px 70px; }
+  .fd-h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; }
+  .fd-lead { color: var(--muted); font-size: 14px; margin: 6px 0 30px; max-width: 760px; }
+  .fd-lead b { color: var(--text-2); }
+  .fd-card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px; margin-bottom: 22px; }
+  .fd-card-h { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .fd-card-h h2 { font-size: 17px; font-weight: 700; }
+  .fd-code { margin-left: auto; font: 12px var(--mono); color: var(--text); background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; }
+  .fd-note { font-size: 12.5px; color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
+  .fd-note b { color: var(--text-2); }
+
+  /* ── shared filter components ── */
+  .fd-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px; background: var(--bg); border: 1px solid var(--border-soft); border-radius: 14px; }
+  .fd-search { flex: 1; min-width: 200px; display: flex; align-items: center; gap: 9px; height: 38px; padding: 0 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--muted); }
+  .fd-search svg { width: 15px; height: 15px; flex: none; }
+  .fd-search input { border: 0; background: none; outline: none; font: inherit; font-size: 13px; color: var(--text); width: 100%; }
+  .fd-btn { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; font: inherit; font-size: 13px; font-weight: 600; color: var(--text-2); cursor: pointer; }
+  .fd-btn:hover { border-color: var(--rule-2); }
+  .fd-btn svg { width: 15px; height: 15px; }
+  .fd-btn .cnt { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 11px; font-weight: 700; }
+  .fd-icon-btn { width: 38px; height: 38px; padding: 0; justify-content: center; }
+  .fd-spacer { flex: 1; }
+
+  /* quick-view segmented tabs */
+  .fd-views { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .fd-view { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 13px; font-weight: 600; color: var(--text-2); cursor: pointer; }
+  .fd-view .n { font-family: var(--mono); font-size: 11px; color: var(--text-faint); }
+  .fd-view:hover { border-color: var(--rule-2); }
+  .fd-view.on { background: var(--accent-soft); border-color: var(--accent-edge); color: var(--accent); }
+  .fd-view.on .n { color: var(--accent); }
+
+  /* active filter chips */
+  .fd-chips { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .fd-chips.inbar { margin-top: 0; }
+  .fd-chip { display: inline-flex; align-items: center; gap: 7px; height: 30px; padding: 0 6px 0 11px; border-radius: 999px; background: var(--accent-soft); border: 1px solid var(--accent-edge); color: var(--accent); font-size: 12.5px; font-weight: 600; }
+  .fd-chip .k { color: var(--accent); opacity: .72; font-weight: 600; }
+  .fd-chip .x { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 50%; background: color-mix(in srgb, var(--accent) 18%, transparent); cursor: pointer; font-size: 12px; line-height: 1; }
+  .fd-clear { font-size: 12.5px; font-weight: 600; color: var(--muted); cursor: pointer; background: none; border: 0; }
+  .fd-clear:hover { color: var(--accent); }
+  .fd-chip.ghost { background: var(--surface); border-style: dashed; border-color: var(--rule-2); color: var(--text-2); padding: 0 12px; cursor: pointer; }
+
+  /* popover panel (shown open for the demo) */
+  .fd-pop { margin-top: 12px; border: 1px solid var(--border); border-radius: 14px; padding: 16px; background: var(--surface); box-shadow: var(--shadow-md); max-width: 560px; }
+  .fd-pop-cap { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: var(--text-faint); margin: 0 0 9px; }
+  .fd-pop-cap:not(:first-child) { margin-top: 16px; }
+  .fd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .fd-field { display: flex; flex-direction: column; gap: 4px; }
+  .fd-field label { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+  .fd-field select { height: 36px; padding: 0 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); font: inherit; font-size: 13px; color: var(--text); }
+  .fd-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .fd-seg button { padding: 7px 14px; border: 0; background: var(--surface); font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-2); cursor: pointer; }
+  .fd-seg button.on { background: var(--accent-soft); color: var(--accent); }
+  .fd-seg button + button { border-left: 1px solid var(--border); }
+
+  /* dropdown menu (add-filter / more) */
+  .fd-menu { margin-top: 10px; width: 230px; border: 1px solid var(--border); border-radius: 12px; padding: 6px; background: var(--surface); box-shadow: var(--shadow-md); }
+  .fd-menu-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 8px; font-size: 13px; color: var(--text-2); cursor: pointer; }
+  .fd-menu-item:hover { background: var(--hover); color: var(--text); }
+  .fd-menu-item svg { width: 15px; height: 15px; color: var(--muted); }
+
+  .fd-hint { font-size: 11.5px; color: var(--text-faint); margin-top: 8px; font-style: italic; }
+
+  /* sample table */
+  .fd-tbl-wrap { margin-top: 20px; }
+  table.fd-tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.fd-tbl th { text-align: left; padding: 9px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); border-bottom: 1px solid var(--border); font-weight: 600; }
+  table.fd-tbl td { padding: 11px 12px; border-bottom: 1px solid var(--border-soft); }
+  .fd-mono { font-family: var(--mono); font-size: 12.5px; }
+  .fd-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 7px; vertical-align: middle; }
+  .fd-dot.off { background: var(--text-faint); }
+  .fd-bat { display: inline-flex; align-items: center; gap: 8px; }
+  .fd-bat-track { width: 46px; height: 7px; border-radius: 4px; background: var(--surface-3); overflow: hidden; }
+  .fd-bat-fill { height: 100%; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="fd-wrap">
+  <div class="fd-h1">Fleet filters — design options</div>
+  <p class="fd-lead">Same idea as the main-page demo. Each card mocks a way to reorganize the <b>seven inline filters</b>. Popovers/menus are shown <b>open</b> so you can see what's inside. Tell me the code (e.g. <b>“F1”</b>) and I'll build it on the real page. The sample table at the bottom is shared by all.</p>
+
+  <!-- F1 -->
+  <div class="fd-card">
+    <div class="fd-card-h"><h2>Quick views + Filters popover</h2><span class="fd-code">F1 · recommended</span></div>
+    <p class="fd-note">One-click <b>views</b> cover the common cases (they map to the overview's deep-links). A single <b>Filters</b> button holds the rest; whatever you apply shows as a removable chip. The bar stays calm.</p>
+
+    <div class="fd-views">
+      <button class="fd-view on">All <span class="n">312</span></button>
+      <button class="fd-view">Online <span class="n">287</span></button>
+      <button class="fd-view">Offline <span class="n">25</span></button>
+      <button class="fd-view">Low battery <span class="n">6</span></button>
+      <button class="fd-view">Out of kiosk <span class="n">14</span></button>
+      <button class="fd-view">Hidden <span class="n">3</span></button>
+    </div>
+
+    <div class="fd-bar">
+      <div class="fd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="Search serial…"></div>
+      <button class="fd-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Filters <span class="cnt">2</span></button>
+      <button class="fd-btn fd-icon-btn" title="Columns / density"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    </div>
+    <div class="fd-chips">
+      <span class="fd-chip"><span class="k">Group:</span> Lobby <span class="x">×</span></span>
+      <span class="fd-chip"><span class="k">Release:</span> 3.1.mdm <span class="x">×</span></span>
+      <button class="fd-clear">Clear all</button>
+    </div>
+
+    <div class="fd-pop">
+      <p class="fd-pop-cap">Identity</p>
+      <div class="fd-grid">
+        <div class="fd-field"><label>Status</label><select><option>Any status</option><option>Online</option><option>Offline</option></select></div>
+        <div class="fd-field"><label>Group</label><select><option selected>Lobby</option><option>Any group</option></select></div>
+        <div class="fd-field"><label>Production</label><select><option>Any production</option></select></div>
+        <div class="fd-field"><label>Release</label><select><option selected>3.1.mdm</option><option>Any release</option></select></div>
+      </div>
+      <p class="fd-pop-cap">Health</p>
+      <div class="fd-grid">
+        <div class="fd-field"><label>Battery</label><select><option>Any battery</option><option>Critical &lt;20%</option></select></div>
+        <div class="fd-field"><label>Kiosk</label><select><option>Any</option><option>Enabled</option><option>Disabled</option></select></div>
+        <div class="fd-field"><label>Timezone</label><select><option>Any timezone</option></select></div>
+      </div>
+      <p class="fd-pop-cap">Visibility</p>
+      <div class="fd-seg"><button class="on">Active</button><button>All</button><button>Hidden</button></div>
+      <p class="fd-hint">▲ this panel is the popover, shown open. Normally it's behind the “Filters” button.</p>
+    </div>
+  </div>
+
+  <!-- F2 -->
+  <div class="fd-card">
+    <div class="fd-card-h"><h2>Filters popover + chips</h2><span class="fd-code">F2</span></div>
+    <p class="fd-note">Same popover + chips, but <b>no view tabs</b> — just search and one Filters button. Simplest; relies on the popover for everything.</p>
+    <div class="fd-bar">
+      <div class="fd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="Search serial…"></div>
+      <button class="fd-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>Filters <span class="cnt">2</span></button>
+      <button class="fd-btn fd-icon-btn" title="Columns / density"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    </div>
+    <div class="fd-chips">
+      <span class="fd-chip"><span class="k">Status:</span> Online <span class="x">×</span></span>
+      <span class="fd-chip"><span class="k">Battery:</span> &lt;20% <span class="x">×</span></span>
+      <button class="fd-clear">Clear all</button>
+    </div>
+  </div>
+
+  <!-- F3 -->
+  <div class="fd-card">
+    <div class="fd-card-h"><h2>“+ Add filter” chips (Linear-style)</h2><span class="fd-code">F3</span></div>
+    <p class="fd-note">Bar starts empty. You <b>add filters one at a time</b> from a menu; each becomes its own editable chip. Only what you've added is ever on screen — scales to any number of filter types.</p>
+    <div class="fd-bar">
+      <div class="fd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="Search serial…"></div>
+      <span class="fd-chip"><span class="k">Status:</span> Online <span class="x">×</span></span>
+      <span class="fd-chip"><span class="k">Battery:</span> &lt;20% <span class="x">×</span></span>
+      <span class="fd-chip ghost">+ Add filter</span>
+      <div class="fd-spacer"></div>
+      <button class="fd-btn fd-icon-btn" title="Columns / density"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg></button>
+    </div>
+    <div class="fd-menu">
+      <div class="fd-menu-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>Status</div>
+      <div class="fd-menu-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="3"/><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/></svg>Group</div>
+      <div class="fd-menu-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8"/></svg>Production</div>
+      <div class="fd-menu-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12M7 11l5 5 5-5"/></svg>Release</div>
+      <div class="fd-menu-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/></svg>Battery · Kiosk · Timezone…</div>
+      <p class="fd-hint" style="padding:6px 10px 2px;">▲ the “+ Add filter” menu, shown open.</p>
+    </div>
+  </div>
+
+  <!-- F4 -->
+  <div class="fd-card">
+    <div class="fd-card-h"><h2>Promote 2, collapse the rest</h2><span class="fd-code">F4 · lightest</span></div>
+    <p class="fd-note">Smallest change: keep <b>Status + Group</b> visible inline, move the other five under one <b>More</b> dropdown. Least disruptive if you'd rather a gentle tidy than a rework.</p>
+    <div class="fd-bar">
+      <div class="fd-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="Search serial…"></div>
+      <div class="fd-field" style="min-width:120px"><select style="height:38px;padding:0 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font:inherit;font-size:13px;color:var(--text)"><option>Status</option><option>Online</option></select></div>
+      <div class="fd-field" style="min-width:120px"><select style="height:38px;padding:0 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font:inherit;font-size:13px;color:var(--text)"><option>Group</option></select></div>
+      <button class="fd-btn">More <span class="cnt">5</span></button>
+      <div class="fd-spacer"></div>
+      <div class="fd-seg"><button class="on">Active</button><button>All</button><button>Hidden</button></div>
+    </div>
+    <div class="fd-menu" style="width:210px">
+      <div class="fd-menu-item">Production</div>
+      <div class="fd-menu-item">Release</div>
+      <div class="fd-menu-item">Battery</div>
+      <div class="fd-menu-item">Kiosk</div>
+      <div class="fd-menu-item">Timezone</div>
+      <p class="fd-hint" style="padding:6px 10px 2px;">▲ the “More” dropdown, shown open.</p>
+    </div>
+  </div>
+
+  <!-- shared sample table -->
+  <div class="fd-card">
+    <div class="fd-card-h"><h2>Sample result table</h2><span class="fd-code">shared</span></div>
+    <p class="fd-note">Unchanged by the choice above — shown so the filters read in context.</p>
+    <div class="fd-tbl-wrap">
+      <table class="fd-tbl">
+        <thead><tr><th>Serial</th><th>Release</th><th>Battery</th><th>RAM</th><th>Temp</th><th>Last seen</th></tr></thead>
+        <tbody>
+          <tr><td class="fd-mono"><span class="fd-dot"></span>AT070AABU00169</td><td class="fd-mono">3.1.mdm</td><td><span class="fd-bat"><span class="fd-bat-track"><span class="fd-bat-fill" style="width:84%;background:var(--ok)"></span></span>84%</span></td><td>41%</td><td>32°C</td><td style="color:var(--muted)">2m ago</td></tr>
+          <tr><td class="fd-mono"><span class="fd-dot off"></span>AT070AABU00862</td><td class="fd-mono">3.1.mdm</td><td><span class="fd-bat"><span class="fd-bat-track"><span class="fd-bat-fill" style="width:18%;background:var(--danger)"></span></span>18%</span></td><td style="color:var(--danger)">73%</td><td style="color:var(--chart-temp)">47°C</td><td style="color:var(--muted)">1h ago</td></tr>
+          <tr><td class="fd-mono"><span class="fd-dot"></span>AT070AA2600039</td><td class="fd-mono">3.0.mdm</td><td><span class="fd-bat"><span class="fd-bat-track"><span class="fd-bat-fill" style="width:56%;background:var(--warn)"></span></span>56%</span></td><td>60%</td><td>38°C</td><td style="color:var(--muted)">5m ago</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
