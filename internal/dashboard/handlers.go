@@ -671,6 +671,16 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			return template.JS(strconv.Itoa(n))
 		},
 		"mbToGB": func(mb int) string { return fmt.Sprintf("%.1f GB", float64(mb)/1024) },
+		"pctOf": func(n, total int) int {
+			if total <= 0 {
+				return 0
+			}
+			p := n * 100 / total
+			if p > 100 {
+				p = 100
+			}
+			return p
+		},
 		// uptimeShort formats latest_extra.uptime_seconds as "6d 4h" / "4h 20m" / "12m".
 		"uptimeShort": func(raw []byte) string {
 			var m map[string]json.RawMessage
@@ -4009,12 +4019,14 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	if role != "admin" {
 		hidden = nil
 	}
+	fleetTotal, _ := h.db.CountDevices(r.Context(), db.DeviceFilter{})
 	h.render(w, r, "releases.html", map[string]any{
 		"Title":           "Releases",
 		"Versions":        active,
 		"HiddenReleases":  hidden,
 		"TrackedCount":    trackedCount,
 		"NotTrackedCount": notTrackedCount,
+		"FleetTotal":      fleetTotal,
 		"BaseCases":       baseCases,
 	})
 }

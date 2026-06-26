@@ -15,90 +15,43 @@
 
 {{if .Versions}}
 <div class="card dv-rise-1">
-  <table class="table">
-    <thead>
-      <tr>
-        {{if canAdmin .Role}}<th style="width:22px;"></th>{{end}}
-        <th>Version</th>
-        <th>Tracking</th>
-        <th>Name</th>
-        <th>Devices</th>
-        <th>Pkg / Dep</th>
-        <th>Test</th>
-        <th>Sign-off</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody id="versions-tbody">
-      {{range .Versions}}
-      <tr data-version="{{.Version}}" {{if canAdmin $.Role}}draggable="true"{{end}} {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
-        {{if canAdmin $.Role}}<td class="drag-handle" style="cursor:grab;color:var(--muted);text-align:center;user-select:none;" title="Drag to reorder">⠿</td>{{end}}
-        <td class="mono small">{{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="link-detail">{{.Version}}</a>{{else}}{{.Version}}{{end}}</td>
-        <td>
-          {{if .Tracked}}<span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>
-          {{else}}<span class="status-badge muted" title="Seen on devices but not a managed release">not tracked</span>{{end}}
-        </td>
-        <td class="small">{{if .Name}}{{.Name}}{{else}}<span class="muted">—</span>{{end}}</td>
-        <td class="small">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="link-detail">{{.DeviceCount}}</a>{{else}}<span class="muted">0</span>{{end}}</td>
-        <td class="muted small">{{if .Tracked}}{{.PackageCount}} / {{.DeployCount}}{{else}}—{{end}}</td>
-        <td class="small">
-          {{if .Tracked}}
-            {{if gt .QA.Total 0}}
-            <span class="status-badge {{if .QA.Passed}}ok{{else if gt .QA.Fail 0}}danger{{else}}warn{{end}}"
-                  title="{{.QA.Pass}} passed · {{.QA.Fail}} failed · {{.QA.Untested}} untested of {{.QA.Total}}">{{.QA.Pass}}/{{.QA.Total}}</span>
-            {{else}}<span class="muted">no cases</span>{{end}}
-          {{else}}<span class="muted">—</span>{{end}}
-        </td>
-        <td class="small">
-          {{if .Tracked}}
-            {{if .SignedOffBy}}
-            <span class="status-badge ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>
-            {{if eq $.Role "dev"}}
-            <form action="/releases/{{.ReleaseID}}/sign-off/clear" method="POST" style="display:inline;">
-              <button type="submit" class="btn-outline btn-sm" title="Revoke this dev sign-off">Revoke</button>
-            </form>
-            {{end}}
-            {{else}}
-            {{if eq $.Role "dev"}}
-            <form action="/releases/{{.ReleaseID}}/sign-off" method="POST" style="display:inline;">
-              <button type="submit" class="btn-primary btn-sm" title="Mark as smoke-tested by dev — signals QA it's OK to pick up">Sign off</button>
-            </form>
-            {{else}}<span class="status-badge warn" title="Awaiting dev sign-off before QA">pending</span>{{end}}
-            {{end}}
-          {{else}}<span class="muted">—</span>{{end}}
-        </td>
-        <td style="white-space:nowrap;text-align:right;">
-          {{if .Tracked}}
-          <a href="/releases/{{.ReleaseID}}" class="link-detail">View</a>
+  <div class="rel-list" id="versions-tbody">
+    {{range .Versions}}
+    <div class="rel-row" data-version="{{.Version}}" {{if canAdmin $.Role}}draggable="true"{{end}} {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
+      {{if canAdmin $.Role}}<span class="rel-drag drag-handle" title="Drag to reorder">⠿</span>{{end}}
+      <div class="rel-id">
+        <div class="rel-ver">
+          {{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="link-detail mono">{{.Version}}</a><span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>
+          {{else}}<span class="mono">{{.Version}}</span><span class="status-badge muted" title="Seen on devices but not a managed release">not tracked</span>{{end}}
+        </div>
+        <div class="rel-sub">{{if .Name}}{{.Name}}{{if .Tracked}} · {{end}}{{end}}{{if .Tracked}}{{.PackageCount}} pkg · {{.DeployCount}} deploy{{end}}</div>
+      </div>
+      <div class="rel-roll">
+        <div class="rel-bar"><i class="{{if eq .Status "yanked"}}warn{{end}}" style="width:{{pctOf .DeviceCount $.FleetTotal}}%"></i></div>
+        <div class="rel-rollnum">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="link-detail">{{.DeviceCount}}</a>{{else}}0{{end}}{{if gt $.FleetTotal 0}} / {{$.FleetTotal}}{{end}} devices</div>
+      </div>
+      <div class="rel-meta">
+        {{if .Tracked}}
+          {{if gt .QA.Total 0}}<span class="status-badge {{if .QA.Passed}}ok{{else if gt .QA.Fail 0}}danger{{else}}warn{{end}}" title="{{.QA.Pass}} passed · {{.QA.Fail}} failed · {{.QA.Untested}} untested of {{.QA.Total}}">QA {{.QA.Pass}}/{{.QA.Total}}</span>{{end}}
+          {{if .SignedOffBy}}<span class="status-badge ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="status-badge warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
+        {{end}}
+      </div>
+      <div class="rel-act">
+        {{if .Tracked}}
+          {{if eq $.Role "dev"}}{{if .SignedOffBy}}<form action="/releases/{{.ReleaseID}}/sign-off/clear" method="POST"><button type="submit" class="btn-outline btn-sm" title="Revoke this dev sign-off">Revoke</button></form>{{else}}<form action="/releases/{{.ReleaseID}}/sign-off" method="POST"><button type="submit" class="btn-primary btn-sm" title="Mark as smoke-tested by dev">Sign off</button></form>{{end}}{{end}}
+          <a href="/releases/{{.ReleaseID}}" class="btn-outline btn-sm">View</a>
           {{if canAdmin $.Role}}
-          <form action="/releases/{{.ReleaseID}}/hide" method="POST" style="display:inline;">
-            <input type="hidden" name="hidden" value="1">
-            <button type="submit" class="btn-outline" title="Hide from the list">Hide</button>
-          </form>
-          {{if eq .DeviceCount 0}}
-          <form action="/releases/{{.ReleaseID}}/delete" method="POST" style="display:inline;"
-                onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')">
-            <button type="submit" class="btn-danger-sm">Delete</button>
-          </form>
-          {{else}}
-          <button type="button" class="btn-danger-sm" disabled style="opacity:0.45;cursor:not-allowed;" title="{{.DeviceCount}} device(s) still running this version — yank or hide it instead">Delete</button>
+          <form action="/releases/{{.ReleaseID}}/hide" method="POST"><input type="hidden" name="hidden" value="1"><button type="submit" class="btn-outline btn-sm" title="Hide from the list">Hide</button></form>
+          {{if eq .DeviceCount 0}}<form action="/releases/{{.ReleaseID}}/delete" method="POST" onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')"><button type="submit" class="btn-danger-sm">Delete</button></form>{{end}}
           {{end}}
-          {{end}}
-          {{else if canAdmin $.Role}}
-          <form action="/releases/track" method="POST" style="display:inline;">
-            <input type="hidden" name="version" value="{{.Version}}">
-            <button type="submit" class="btn-primary" title="Create a draft release for this version and add a changelog / packages">+ Add as release</button>
-          </form>
-          <form action="/releases/version/hide" method="POST" style="display:inline;">
-            <input type="hidden" name="version" value="{{.Version}}">
-            <button type="submit" class="btn-outline" title="Dismiss this version from the list and from Add-as-release">Hide</button>
-          </form>
-          {{end}}
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+        {{else if canAdmin $.Role}}
+          <form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Create a draft release for this version">+ Add as release</button></form>
+          <form action="/releases/version/hide" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-outline btn-sm" title="Dismiss this version">Hide</button></form>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
 </div>
 {{else}}
 <div class="card">
@@ -267,12 +220,12 @@ document.addEventListener('keydown', function(e) {
 (function () {
   var tbody = document.getElementById('versions-tbody');
   if (!tbody) return;
-  var rows = tbody.querySelectorAll('tr[draggable="true"]');
+  var rows = tbody.querySelectorAll('[draggable="true"]');
   if (!rows.length) return;
   var dragEl = null;
 
   function afterElement(y) {
-    var els = [].slice.call(tbody.querySelectorAll('tr[draggable="true"]:not(.dragging)'));
+    var els = [].slice.call(tbody.querySelectorAll('[draggable="true"]:not(.dragging)'));
     var best = { offset: -Infinity, el: null };
     els.forEach(function (el) {
       var box = el.getBoundingClientRect();
@@ -283,7 +236,7 @@ document.addEventListener('keydown', function(e) {
   }
 
   function saveOrder() {
-    var versions = [].slice.call(tbody.querySelectorAll('tr[draggable="true"]'))
+    var versions = [].slice.call(tbody.querySelectorAll('[draggable="true"]'))
       .map(function (r) { return r.getAttribute('data-version'); });
     fetch('/releases/order', {
       method: 'POST',
