@@ -4771,3 +4771,4 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .cb-sub { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cb-status i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-faint); display: inline-block; }
 .cb-status i.on { background: var(--ok); }
+.cmd-hint { color: var(--text-2, var(--text)); font-weight: 600; }
