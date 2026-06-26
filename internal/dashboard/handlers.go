@@ -5797,9 +5797,13 @@ func (h *Handler) SettingsSaveChannel(w http.ResponseWriter, r *http.Request) {
 		kind = "webhook"
 	}
 	c := db.AlertChannel{
-		Name:          strings.TrimSpace(r.FormValue("name")),
-		Kind:          kind,
-		URL:           strings.TrimSpace(r.FormValue("url")),
+		Name: strings.TrimSpace(r.FormValue("name")),
+		Kind: kind,
+		// Unescape HTML entities (e.g. "&amp;" -> "&") before storing: a webhook
+		// URL pasted from a rendered HTML source, or re-saved from this page where
+		// the value renders escaped, would otherwise persist a mangled query string
+		// (sp/sv/sig become amp;sp/...), silently breaking all delivery.
+		URL:           html.UnescapeString(strings.TrimSpace(r.FormValue("url"))),
 		MinSeverity:   r.FormValue("min_severity"),
 		Mode:          r.FormValue("mode"),
 		ActiveWindow:  r.FormValue("active_window"),
