@@ -1416,10 +1416,20 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		online[id] = true
 	}
 
+	// Count of active dropdown filters (drives the "Filters" button badge).
+	qv := r.URL.Query()
+	filterCount := 0
+	for _, k := range []string{"status", "group", "production", "build", "battery", "kiosk", "timezone"} {
+		if qv.Get(k) != "" {
+			filterCount++
+		}
+	}
+
 	data := map[string]any{
 		"Title":                "Devices",
 		"Devices":              devices,
 		"Total":                total,
+		"FilterCount":          filterCount,
 		"Page":                 page,
 		"TotalPages":           totalPages,
 		"Query":                q,

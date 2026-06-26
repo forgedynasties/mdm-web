@@ -1,4 +1,19 @@
 {{define "device-table"}}
+{{if or .Query .FilterStatus .FilterGroup .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterTimezone .FilterHidden}}
+<div class="fleet-chips">
+  {{if .Query}}<span class="fchip"><span class="k">Search</span> {{.Query}} <button type="button" class="x" onclick="clearSearch()" aria-label="Clear search">×</button></span>{{end}}
+  {{if .FilterStatus}}<span class="fchip"><span class="k">Status</span> {{if eq .FilterStatus "online"}}Online{{else}}Offline{{end}} <button type="button" class="x" onclick="clearOne('filter-status')" aria-label="Clear status">×</button></span>{{end}}
+  {{if .FilterGroup}}<span class="fchip"><span class="k">Group</span> {{range $.Groups}}{{if eq (printf "%s" .ID) $.FilterGroup}}{{.Name}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-group')" aria-label="Clear group">×</button></span>{{end}}
+  {{if .FilterProduction}}<span class="fchip"><span class="k">Production</span> {{range $.Productions}}{{if eq (printf "%s" .ID) $.FilterProduction}}{{.Name}}{{end}}{{end}} <button type="button" class="x" onclick="clearOne('filter-production')" aria-label="Clear production">×</button></span>{{end}}
+  {{if .FilterBuild}}<span class="fchip"><span class="k">Release</span> {{.FilterBuild}} <button type="button" class="x" onclick="clearOne('filter-build')" aria-label="Clear release">×</button></span>{{end}}
+  {{if .FilterBattery}}<span class="fchip"><span class="k">Battery</span> {{if eq .FilterBattery "low"}}Critical &lt;20%{{else if eq .FilterBattery "mid"}}Low 20–49%{{else}}Healthy 50%+{{end}} <button type="button" class="x" onclick="clearOne('filter-battery')" aria-label="Clear battery">×</button></span>{{end}}
+  {{if .FilterKiosk}}<span class="fchip"><span class="k">Kiosk</span> {{if eq .FilterKiosk "enabled"}}Enabled{{else}}Disabled{{end}} <button type="button" class="x" onclick="clearOne('filter-kiosk')" aria-label="Clear kiosk">×</button></span>{{end}}
+  {{if .FilterTimezone}}<span class="fchip"><span class="k">Timezone</span> {{.FilterTimezone}} <button type="button" class="x" onclick="clearOne('filter-timezone')" aria-label="Clear timezone">×</button></span>{{end}}
+  {{if eq .FilterHidden "only"}}<span class="fchip"><span class="k">Visibility</span> Hidden only <button type="button" class="x" onclick="setHidden('')" aria-label="Clear visibility">×</button></span>{{end}}
+  {{if eq .FilterHidden "include"}}<span class="fchip"><span class="k">Visibility</span> Incl. hidden <button type="button" class="x" onclick="setHidden('')" aria-label="Clear visibility">×</button></span>{{end}}
+  <button type="button" class="fchip-clear" onclick="clearFilters()">Clear all</button>
+</div>
+{{end}}
 <div class="table-toolbar">
   <label class="checkbox-label" style="gap:8px;font-size:13px;color:var(--muted);">
     <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"> Select All
@@ -210,144 +225,91 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   </button>
 </div>
 
-{{with .Summary}}
-<div class="ov-vitals dv-vitals">
-  <div class="ov-vital" role="button" tabindex="0" onclick="tileFilter(null)"
-       onkeydown="if(event.key==='Enter')this.click()" title="Show all active devices">
-    <div class="k">Total devices</div><div class="v">{{.Total}}</div>
-    <div class="d">registered with the fleet</div>
-  </div>
-  <div class="ov-vital" role="button" tabindex="0" onclick="tileFilter('status', 'online')"
-       onkeydown="if(event.key==='Enter')this.click()" title="Filter to online devices">
-    <div class="k">Online now</div><div class="v ok">{{.RecentlyActive}}</div>
-    <div class="d">active last {{$.ActiveThresholdLabel}}</div>
-  </div>
-  <div class="ov-vital{{if gt .LowBattery 0}} alerty{{end}}" role="button" tabindex="0" onclick="tileFilter('battery', 'low')"
-       onkeydown="if(event.key==='Enter')this.click()" title="Filter to low-battery devices">
-    <div class="k">Low battery</div><div class="v{{if gt .LowBattery 0}} warn{{end}}">{{.LowBattery}}</div>
-    <div class="d">&lt; 20 %</div>
-  </div>
-  <div class="ov-vital" role="button" tabindex="0" onclick="tileFilter('kiosk', 'enabled')"
-       onkeydown="if(event.key==='Enter')this.click()" title="Filter to kiosk-mode devices">
-    <div class="k">In kiosk mode</div><div class="v">{{.KioskCount}}</div>
-    <div class="d">of {{.Total}} enrolled</div>
-  </div>
+{{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
+<div class="fleet-views dv-rise-1">
+  <button type="button" class="fleet-view" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
+  <button type="button" class="fleet-view" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
+  <button type="button" class="fleet-view" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
+  <button type="button" class="fleet-view" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
+  <button type="button" class="fleet-view" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
+  <button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Hidden</button>
 </div>
-{{end}}
 
 
 
-<div class="filter-bar dv-rise-1">
+<div class="fleet-bar dv-rise-1">
   {{/* ── Search ── */}}
-  <div class="filter-search">
-    <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-      <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
-    </svg>
-    <input
-      type="search"
-      id="search-input"
-      name="q"
-      value="{{.Query}}"
-      placeholder="Search serial..."
-      class="filter-search-input"
-    >
+  <div class="fleet-search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+    <input type="search" id="search-input" name="q" value="{{.Query}}" placeholder="Search serial…">
   </div>
 
-  <div class="filter-divider"></div>
-
-  {{/* ── Status & Group ── */}}
-  <span class="filter-select-ic">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg>
-    <button type="button" class="fchip-x" title="Clear status filter" aria-label="Clear status filter" onclick="event.stopPropagation();clearOne('filter-status')">✕</button>
-    <select id="filter-status" title="Filter by status" class="filter-select {{if .FilterStatus}}active{{end}}" onchange="applyFilters()">
-      <option value="">Status</option>
-      <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
-      <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
-    </select>
-  </span>
-
-  <span class="filter-select-ic">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="3"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>
-    <button type="button" class="fchip-x" title="Clear group filter" aria-label="Clear group filter" onclick="event.stopPropagation();clearOne('filter-group')">✕</button>
-    <select id="filter-group" title="Filter by group" class="filter-select {{if .FilterGroup}}active{{end}}" onchange="applyFilters()">
-      <option value="">Group</option>
-      {{range .Groups}}
-        <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>
-      {{end}}
-    </select>
-  </span>
-
-  <span class="filter-select-ic">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5M12 22V12"/></svg>
-    <button type="button" class="fchip-x" title="Clear production filter" aria-label="Clear production filter" onclick="event.stopPropagation();clearOne('filter-production')">✕</button>
-    <select id="filter-production" title="Filter by production" class="filter-select {{if .FilterProduction}}active{{end}}" onchange="applyFilters()">
-      <option value="">Production</option>
-      {{range .Productions}}
-        <option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterProduction}}selected{{end}}>{{.Name}}</option>
-      {{end}}
-    </select>
-  </span>
-
-  <span class="filter-select-ic">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
-    <button type="button" class="fchip-x" title="Clear release filter" aria-label="Clear release filter" onclick="event.stopPropagation();clearOne('filter-build')">✕</button>
-    <select id="filter-build" title="Filter by release" class="filter-select {{if .FilterBuild}}active{{end}}" onchange="applyFilters()">
-      <option value="">Release</option>
-      {{range .Builds}}
-        <option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>
-      {{end}}
-    </select>
-  </span>
-
-  <div class="filter-divider"></div>
-
-  {{/* ── Alerts / Health ── */}}
-  <span class="filter-select-ic">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>
-    <button type="button" class="fchip-x" title="Clear battery filter" aria-label="Clear battery filter" onclick="event.stopPropagation();clearOne('filter-battery')">✕</button>
-    <select id="filter-battery" title="Filter by battery" class="filter-select {{if .FilterBattery}}active{{end}}" onchange="applyFilters()">
-      <option value="">Battery</option>
-      <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical &lt;20%</option>
-      <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low 20-49%</option>
-      <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Healthy 50%+</option>
-    </select>
-  </span>
-
-  <span class="filter-select-ic">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
-    <button type="button" class="fchip-x" title="Clear kiosk filter" aria-label="Clear kiosk filter" onclick="event.stopPropagation();clearOne('filter-kiosk')">✕</button>
-    <select id="filter-kiosk" title="Filter by kiosk" class="filter-select {{if .FilterKiosk}}active{{end}}" onchange="applyFilters()">
-      <option value="">Kiosk</option>
-      <option value="enabled" {{if eq .FilterKiosk "enabled"}}selected{{end}}>Kiosk enabled</option>
-      <option value="disabled" {{if eq .FilterKiosk "disabled"}}selected{{end}}>Kiosk disabled</option>
-    </select>
-  </span>
-
-  <span class="filter-select-ic">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-    <button type="button" class="fchip-x" title="Clear timezone filter" aria-label="Clear timezone filter" onclick="event.stopPropagation();clearOne('filter-timezone')">✕</button>
-    <select id="filter-timezone" title="Filter by timezone" class="filter-select {{if .FilterTimezone}}active{{end}}" onchange="applyFilters()">
-      <option value="">Timezone</option>
-      {{range .Timezones}}
-        <option value="{{.}}" {{if eq . $.FilterTimezone}}selected{{end}}>{{.}}</option>
-      {{end}}
-    </select>
-  </span>
-
-  <div style="flex:1;"></div>
-
-  {{/* ── Visibility toggle ── */}}
-  <div class="filter-pills">
-    <button type="button" class="filter-pill {{if not .FilterHidden}}active{{end}}" onclick="setHidden('')">Active</button>
-    <button type="button" class="filter-pill {{if eq .FilterHidden "include"}}active{{end}}" onclick="setHidden('include')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>All</button>
-    <button type="button" class="filter-pill {{if eq .FilterHidden "only"}}active{{end}}" onclick="setHidden('only')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.2A9.5 9.5 0 0 1 12 4c6.5 0 10 7 10 7a16 16 0 0 1-3.2 4M6.6 6.6A16 16 0 0 0 2 11s3.5 7 10 7a9.5 9.5 0 0 0 4-.9"/><path d="M3 3l18 18"/></svg>Hidden</button>
+  {{/* ── Filters popover: the seven dropdowns live here, grouped ── */}}
+  <div class="fleet-fwrap" id="filters-wrap">
+    <button type="button" class="fleet-fbtn{{if .FilterCount}} has{{end}}" id="filters-btn" onclick="toggleFilters(event)" aria-expanded="false" aria-haspopup="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+      Filters <span class="cnt"{{if not .FilterCount}} hidden{{end}}>{{.FilterCount}}</span>
+    </button>
+    <div class="fleet-pop" id="filters-pop" hidden>
+      <div class="fp-cap">Identity</div>
+      <div class="fp-grid">
+        <label class="fp-field"><span>Status</span>
+          <select id="filter-status" onchange="applyFilters()">
+            <option value="">Any status</option>
+            <option value="online" {{if eq .FilterStatus "online"}}selected{{end}}>Online</option>
+            <option value="offline" {{if eq .FilterStatus "offline"}}selected{{end}}>Offline</option>
+          </select></label>
+        <label class="fp-field"><span>Group</span>
+          <select id="filter-group" onchange="applyFilters()">
+            <option value="">Any group</option>
+            {{range .Groups}}<option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterGroup}}selected{{end}}>{{.Name}} ({{.DeviceCount}})</option>{{end}}
+          </select></label>
+        <label class="fp-field"><span>Production</span>
+          <select id="filter-production" onchange="applyFilters()">
+            <option value="">Any production</option>
+            {{range .Productions}}<option value="{{.ID}}" {{if eq (printf "%s" .ID) $.FilterProduction}}selected{{end}}>{{.Name}}</option>{{end}}
+          </select></label>
+        <label class="fp-field"><span>Release</span>
+          <select id="filter-build" onchange="applyFilters()">
+            <option value="">Any release</option>
+            {{range .Builds}}<option value="{{.}}" {{if eq . $.FilterBuild}}selected{{end}}>{{.}}</option>{{end}}
+          </select></label>
+      </div>
+      <div class="fp-cap">Health</div>
+      <div class="fp-grid">
+        <label class="fp-field"><span>Battery</span>
+          <select id="filter-battery" onchange="applyFilters()">
+            <option value="">Any battery</option>
+            <option value="low" {{if eq .FilterBattery "low"}}selected{{end}}>Critical &lt;20%</option>
+            <option value="mid" {{if eq .FilterBattery "mid"}}selected{{end}}>Low 20–49%</option>
+            <option value="ok" {{if eq .FilterBattery "ok"}}selected{{end}}>Healthy 50%+</option>
+          </select></label>
+        <label class="fp-field"><span>Kiosk</span>
+          <select id="filter-kiosk" onchange="applyFilters()">
+            <option value="">Any</option>
+            <option value="enabled" {{if eq .FilterKiosk "enabled"}}selected{{end}}>Enabled</option>
+            <option value="disabled" {{if eq .FilterKiosk "disabled"}}selected{{end}}>Disabled</option>
+          </select></label>
+        <label class="fp-field"><span>Timezone</span>
+          <select id="filter-timezone" onchange="applyFilters()">
+            <option value="">Any timezone</option>
+            {{range .Timezones}}<option value="{{.}}" {{if eq . $.FilterTimezone}}selected{{end}}>{{.}}</option>{{end}}
+          </select></label>
+      </div>
+      <div class="fp-cap">Visibility</div>
+      <div class="fleet-seg">
+        <button type="button" data-vis="" class="{{if not .FilterHidden}}on{{end}}" onclick="setHidden('')">Active</button>
+        <button type="button" data-vis="include" class="{{if eq .FilterHidden "include"}}on{{end}}" onclick="setHidden('include')">All</button>
+        <button type="button" data-vis="only" class="{{if eq .FilterHidden "only"}}on{{end}}" onclick="setHidden('only')">Hidden</button>
+      </div>
+      <div class="fp-foot">
+        <button type="button" class="fp-clear" onclick="clearFilters()">Clear all filters</button>
+        <button type="button" class="btn-primary fp-done" onclick="toggleFilters(event)">Done</button>
+      </div>
+    </div>
   </div>
 
-  <button type="button" class="filter-pill density-toggle" id="density-toggle" onclick="toggleDensity()" title="Toggle compact view"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3h12M2 8h12M2 13h12"/></svg></button>
-
-  {{if or .FilterGroup .FilterStatus .FilterBuild .FilterBattery .FilterKiosk .FilterTimezone .FilterHidden .Query}}
-    <button class="filter-clear" onclick="clearFilters()">Clear</button>
-  {{end}}
+  <button type="button" class="fleet-iconbtn density-toggle" id="density-toggle" onclick="toggleDensity()" title="Toggle compact view" aria-label="Toggle compact view"><svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3h12M2 8h12M2 13h12"/></svg></button>
 </div>
 
 <script>
@@ -394,6 +356,7 @@ function navigateDevices(overrides) {
   var url = '/devices?' + new URLSearchParams(vals).toString();
   htmx.ajax('GET', url, '#device-table-container').then(function() {
     history.pushState(null, '', url);
+    syncFilterUI();
   });
 }
 
@@ -401,54 +364,90 @@ function applyFilters() {
   navigateDevices({page: '1'});
 }
 
-// Clear a single filter from its chip ✕; the :has() CSS recollapses it to an icon.
+function setSel(id, val) { var el = document.getElementById(id); if (el) el.value = val; }
+
+// Clear a single dropdown filter (called from a chip's ✕).
 function clearOne(id) {
-  var s = document.getElementById(id);
-  if (s) { s.value = ''; applyFilters(); }
+  setSel(id, '');
+  applyFilters();
+}
+
+function clearSearch() {
+  setSel('search-input', '');
+  navigateDevices({page: '1', q: ''});
 }
 
 function setHidden(val) {
   navigateDevices({page: '1', hidden: val});
-  // Update pill active state immediately
-  document.querySelectorAll('.filter-pill').forEach(function(p) { p.classList.remove('active'); });
-  event.target.classList.add('active');
 }
 
 function clearFilters() {
-  document.getElementById('filter-group').value = '';
-  document.getElementById('filter-production').value = '';
-  document.getElementById('filter-status').value = '';
-  document.getElementById('filter-build').value = '';
-  document.getElementById('filter-battery').value = '';
-  var fk = document.getElementById('filter-kiosk');
-  if (fk) fk.value = '';
-  var ftz = document.getElementById('filter-timezone');
-  if (ftz) ftz.value = '';
-  document.getElementById('search-input').value = '';
+  ['filter-group', 'filter-production', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-timezone'].forEach(function(id) { setSel(id, ''); });
+  setSel('search-input', '');
   navigateDevices({page: '1', q: '', group: '', production: '', status: '', build: '', battery: '', kiosk: '', timezone: '', hidden: ''});
-  document.querySelectorAll('.filter-pill').forEach(function(p) { p.classList.remove('active'); });
-  document.querySelector('.filter-pill').classList.add('active');
 }
 
-// Clicking a summary tile clears existing filters and applies a single one.
-// Pass field=null to just reset to the default "all active" view.
-function tileFilter(field, value) {
-  ['filter-group', 'filter-production', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-timezone'].forEach(function(id) {
-    var el = document.getElementById(id);
-    if (el) el.value = '';
-  });
-  document.getElementById('search-input').value = '';
-  var ov = {page: '1', q: '', group: '', production: '', status: '', build: '', battery: '', kiosk: '', timezone: '', hidden: ''};
-  if (field) {
-    ov[field] = value;
-    var el = document.getElementById('filter-' + field);
-    if (el) el.value = value;
-  }
+// Quick views are mutually-exclusive shortcuts: each clears the other view
+// params (status/battery/kiosk/hidden) but keeps group/production/release/
+// timezone/search intact.
+function setView(view) {
+  var ov = {page: '1', status: '', battery: '', kiosk: '', hidden: ''};
+  if (view === 'online') ov.status = 'online';
+  else if (view === 'offline') ov.status = 'offline';
+  else if (view === 'lowbatt') ov.battery = 'low';
+  else if (view === 'nokiosk') ov.kiosk = 'disabled';
+  else if (view === 'hidden') ov.hidden = 'only';
+  setSel('filter-status', ov.status);
+  setSel('filter-battery', ov.battery);
+  setSel('filter-kiosk', ov.kiosk);
   navigateDevices(ov);
-  // Reset visibility pills to "Active"
-  document.querySelectorAll('.filter-pill').forEach(function(p) { p.classList.remove('active'); });
-  document.querySelector('.filter-pill').classList.add('active');
 }
+
+// Toggle the Filters popover; close on outside-click or Escape.
+function toggleFilters(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  var pop = document.getElementById('filters-pop');
+  var btn = document.getElementById('filters-btn');
+  if (!pop) return;
+  var willOpen = pop.hasAttribute('hidden');
+  if (willOpen) { pop.removeAttribute('hidden'); } else { pop.setAttribute('hidden', ''); }
+  if (btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.classList.toggle('open', willOpen); }
+}
+function closeFilters() {
+  var pop = document.getElementById('filters-pop');
+  if (!pop || pop.hasAttribute('hidden')) return;
+  pop.setAttribute('hidden', '');
+  var btn = document.getElementById('filters-btn');
+  if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); }
+}
+document.addEventListener('click', function(e) {
+  var wrap = document.getElementById('filters-wrap');
+  if (wrap && !wrap.contains(e.target)) closeFilters();
+});
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeFilters(); });
+
+// Recompute the lightweight filter UI (view pills, Filters badge, visibility
+// segment) from the URL after each navigation. Chips + table are server-rendered.
+function syncFilterUI() {
+  var p = new URLSearchParams(location.search);
+  var status = p.get('status') || '', battery = p.get('battery') || '', kiosk = p.get('kiosk') || '', hidden = p.get('hidden') || '';
+  var view = 'all';
+  if (hidden === 'only') view = 'hidden';
+  else if (battery === 'low') view = 'lowbatt';
+  else if (kiosk === 'disabled') view = 'nokiosk';
+  else if (status === 'online') view = 'online';
+  else if (status === 'offline') view = 'offline';
+  document.querySelectorAll('.fleet-view').forEach(function(b) { b.classList.toggle('on', b.dataset.view === view); });
+  var cnt = 0; ['status', 'group', 'production', 'build', 'battery', 'kiosk', 'timezone'].forEach(function(k) { if (p.get(k)) cnt++; });
+  var btn = document.getElementById('filters-btn');
+  if (btn) {
+    btn.classList.toggle('has', cnt > 0);
+    var badge = btn.querySelector('.cnt');
+    if (badge) { badge.textContent = cnt; if (cnt > 0) badge.removeAttribute('hidden'); else badge.setAttribute('hidden', ''); }
+  }
+  document.querySelectorAll('.fleet-seg [data-vis]').forEach(function(b) { b.classList.toggle('on', b.dataset.vis === hidden); });
+}
+document.addEventListener('DOMContentLoaded', syncFilterUI);
 
 // Search with debounce
 var searchTimer;
