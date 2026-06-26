@@ -4327,17 +4327,20 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 /* ════════════════════════════════════════════════════════
    FLEET · device list as cards (C2 row cards) + sort control
    ════════════════════════════════════════════════════════ */
-.dl-list { display: flex; flex-direction: column; gap: 9px; padding: 14px 16px 16px; }
+.dl-list { display: flex; flex-direction: column; }
 .dl-card { display: grid; grid-template-columns: 18px minmax(0, 1.5fr) minmax(0, 0.85fr) auto auto auto;
-  align-items: center; gap: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px;
-  background: var(--surface); transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
-.dl-card:hover { border-color: var(--rule-2); box-shadow: var(--shadow-sm); }
-.dl-card.row-selected { border-color: var(--accent-edge); background: var(--accent-soft); }
+  align-items: center; gap: 16px; padding: 13px 16px; border-bottom: 1px solid var(--border-soft);
+  background: var(--surface); transition: background var(--dur) var(--ease); }
+.dl-card:last-child { border-bottom: 0; }
+.dl-card:hover { background: var(--hover); }
+.dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .dl-card > .device-cb { width: 15px; height: 15px; }
 
 .dl-id { display: flex; align-items: center; gap: 9px; min-width: 0; }
 .dl-id-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.dl-serial { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); }
+.dl-serial { display: inline; font-family: var(--mono); font-size: 13px; font-weight: 600;
+  color: var(--accent); padding: 0; border: 0; border-radius: 0; }
+.dl-serial:hover { color: var(--accent-h); text-decoration: underline; }
 .dl-kiosk { color: var(--muted); vertical-align: middle; }
 .dl-hidden-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   color: var(--muted); background: var(--surface2); border-radius: 4px; padding: 1px 5px; vertical-align: middle; }
