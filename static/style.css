@@ -277,12 +277,12 @@ a:hover { color: var(--accent-h); }
   transition: opacity var(--dur) var(--ease);
 }
 .navbar-brand:hover { opacity: 0.85; }
-/* Wordmark: AIO Hub in Poppins (the brand font) — "AIO" in the brand
+/* Wordmark: AIO MDM in Poppins (the brand font) — "AIO" in the brand
    gradient, "Hub" in a calm grey. */
 .brand-aio, .brand-hub { font-family: 'Poppins', var(--font); letter-spacing: -0.01em; }
 .brand-aio {
   font-weight: 700;
-  /* periwinkle → coral, matching the AIO Hub logo */
+  /* periwinkle → coral, matching the AIO MDM logo */
   background: linear-gradient(90deg, #7a80f6 0%, #f9674e 100%);
   -webkit-background-clip: text;
   background-clip: text;
