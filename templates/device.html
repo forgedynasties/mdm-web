@@ -308,20 +308,31 @@
 
   // Smooth integer battery check-in points so the line reads as a trend.
   // Keeps timestamp and metadata intact; only y is softened for rendering.
-  // Smooths an integer-quantised series (battery %) with a centred moving average so
-  // the 1%-step staircase reads as a flowing curve. No lag (centred), and gaps (null y)
-  // are preserved + skipped rather than resetting the filter, so there are no jumps.
+  // Turns dense, integer-quantised battery % into a smooth flowing curve. Battery is
+  // monotonic over long charge/discharge runs, so plotting every 1%-step point — even
+  // smoothed — reads as a choppy polyline (and monotone interpolation makes it worse).
+  // Fix: bucket the readings into ~70 evenly-spaced averages, then a light centred MA;
+  // few well-spaced points + plain-cubic interpolation render smooth at any zoom.
   function smoothBatterySeries(points) {
-    if (!points || points.length < 5) return points;
-    const w = Math.max(4, Math.min(30, Math.floor(points.length / 12))); // adaptive half-window
-    const ys = points.map(p => (p && p.y != null) ? p.y : null);
-    return points.map(function (p, i) {
-      if (!p || p.y == null) return p;
-      let sum = 0, n = 0;
-      for (let j = i - w; j <= i + w; j++) {
-        if (j >= 0 && j < ys.length && ys[j] != null) { sum += ys[j]; n++; }
-      }
-      return n ? Object.assign({}, p, { y: Number((sum / n).toFixed(2)) }) : p;
+    if (!points) return points;
+    const valid = points.filter(p => p && p.y != null);
+    if (valid.length < 5) return points;
+    const x0 = valid[0].x, x1 = valid[valid.length - 1].x, span = (x1 - x0) || 1;
+    const target = Math.min(70, valid.length);
+    const buckets = Array.from({ length: target }, () => ({ s: 0, n: 0 }));
+    valid.forEach(p => {
+      const i = Math.min(target - 1, Math.floor((p.x - x0) / span * target));
+      buckets[i].s += p.y; buckets[i].n++;
+    });
+    const reduced = [];
+    for (let k = 0; k < target; k++) {
+      if (buckets[k].n > 0) reduced.push({ x: x0 + (k + 0.5) / target * span, y: buckets[k].s / buckets[k].n });
+    }
+    const w = 2, ys = reduced.map(p => p.y);
+    return reduced.map((p, i) => {
+      let s = 0, n = 0;
+      for (let j = i - w; j <= i + w; j++) { if (j >= 0 && j < ys.length) { s += ys[j]; n++; } }
+      return { x: p.x, y: Number((s / n).toFixed(2)) };
     });
   }
 
@@ -615,8 +626,7 @@
       datasets: [{
         label: "Battery %",
         data: [],
-        cubicInterpolationMode: "monotone",
-        tension: 0.4,
+        tension: 0.45,
         fill: true,
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -776,7 +786,7 @@
           label: 'Battery %', data: [], yAxisID: 'yPct',
           borderColor: '#f9674e', backgroundColor: 'rgba(249,103,78,0.10)',
           borderWidth: 2, pointRadius: 0, spanGaps: true,
-          cubicInterpolationMode: 'monotone', tension: 0.4,
+          tension: 0.45,
           borderCapStyle: 'round', borderJoinStyle: 'round', fill: true,
         },
         {
