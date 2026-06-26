@@ -203,6 +203,7 @@ type CommandDelivery struct {
 type DeviceFilter struct {
 	Search              string    // search by serial substring
 	GroupID             uuid.UUID // filter by group membership (uuid.Nil = no filter)
+	RestaurantID        uuid.UUID // filter by restaurant/venue (uuid.Nil = no filter)
 	ProductionID        uuid.UUID // filter by production (uuid.Nil = no filter)
 	Online              string    // "online", "offline", or "" (no filter)
 	BuildID             string    // exact build_id match, or "" (no filter)
@@ -515,6 +516,12 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	if f.GroupID != uuid.Nil {
 		joins = append(joins, fmt.Sprintf("JOIN device_groups dg ON dg.device_id = d.id AND dg.group_id = $%d", argN))
 		args = append(args, f.GroupID)
+		argN++
+	}
+
+	if f.RestaurantID != uuid.Nil {
+		wheres = append(wheres, fmt.Sprintf("d.restaurant_id = $%d", argN))
+		args = append(args, f.RestaurantID)
 		argN++
 	}
 
