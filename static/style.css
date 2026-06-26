@@ -2555,6 +2555,15 @@ input[type="checkbox"]:hover {
 }
 .filter-select option { background: var(--surface2); color: var(--text); }
 
+/* Leading icon inside a filter dropdown (mirrors .filter-search). */
+.filter-select-ic { position: relative; display: inline-flex; align-items: center; }
+.filter-select-ic > svg {
+  position: absolute; left: 9px; width: 14px; height: 14px;
+  color: var(--muted); pointer-events: none;
+}
+.filter-select-ic > .filter-select { padding-left: 28px; }
+.filter-select-ic:has(.filter-select.active) > svg { color: var(--accent); }
+
 .filter-pills {
   display: inline-flex;
   background: var(--surface2);
@@ -2565,6 +2574,9 @@ input[type="checkbox"]:hover {
 }
 
 .filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   background: transparent;
   border: none;
   color: var(--muted);
@@ -2576,6 +2588,7 @@ input[type="checkbox"]:hover {
   transition: background 0.15s, color 0.15s;
   white-space: nowrap;
 }
+.filter-pill svg { width: 13px; height: 13px; }
 .filter-pill:hover { color: var(--text); }
 .filter-pill.active {
   background: var(--surface);
