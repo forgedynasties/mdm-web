@@ -117,7 +117,8 @@
   .sh-bar { display: flex; align-items: center; gap: 10px; border: 1px solid var(--border); border-radius: 11px; padding: 6px 6px 6px 13px; }
   .sh-bar:focus-within { border-color: var(--accent-2); }
   .sh-sign { color: var(--accent); font-weight: 700; }
-  .sh-input { flex: 1; border: 0; outline: 0; background: none; font-size: 13.5px; color: var(--text); }
+  .sh-bar .sh-input { flex: 1; border: 0; outline: 0; box-shadow: none; background: none; font-size: 13.5px; color: var(--text); }
+  .sh-bar .sh-input:focus { border: 0; outline: 0; box-shadow: none; }
 </style>
 
 {{template "footer" .}}
