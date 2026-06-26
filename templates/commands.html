@@ -114,14 +114,18 @@
           </div>
           <div id="uninstall-fields" class="payload-section">
             {{if .FleetPackages}}
-              <input type="text" id="uninstall-filter" class="form-input" placeholder="Search apps…" oninput="filterUninstallApps(this.value)" style="margin-bottom:8px;">
-              <select name="package" class="form-input" id="uninstall-select" onchange="updatePreview()" disabled>
-                <option value="" disabled selected>Select an app to uninstall…</option>
+              <input type="hidden" name="package" id="uninstall-pkg" value="">
+              <input type="text" id="uninstall-filter" class="form-input" placeholder="Search apps across the fleet…" autocomplete="off" oninput="filterUninstallApps(this.value)" style="margin-bottom:8px;">
+              <div class="fleet-app-list" id="uninstall-list">
                 {{range .FleetPackages}}
-                <option value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-pkg="{{.PackageName}}">{{if .AppName}}{{.AppName}} — {{end}}{{.PackageName}} ({{.DeviceCount}})</option>
+                <button type="button" class="fleet-app" data-pkg="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickUninstall(this)">
+                  <span class="fa-id"><span class="fa-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="fa-pkg mono">{{.PackageName}}</span></span>
+                  <span class="fa-cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
+                </button>
                 {{end}}
-              </select>
-              <div class="muted small" style="margin-top:6px;">Lists every app seen across all devices; the count is how many devices report it. The uninstall only affects targeted devices that actually have the package.</div>
+              </div>
+              <div id="uninstall-nomatch" class="muted small" style="display:none;padding:8px 2px;">No apps match.</div>
+              <div class="muted small" style="margin-top:6px;">Every app seen across all devices; the count is how many report it. The uninstall is skipped on targeted devices that don't have the package.</div>
             {{else}}
               <div class="payload-empty">No package data reported by any device yet.</div>
             {{end}}
@@ -441,8 +445,6 @@ function selectType(val, btn) {
   if (section) section.classList.add('is-active');
   var apkSel = document.getElementById('apk-select');
   if (apkSel) apkSel.disabled = (val !== 'install_apk');
-  var unSel = document.getElementById('uninstall-select');
-  if (unSel) unSel.disabled = (val !== 'uninstall');
   updatePreview();
 }
 
@@ -539,20 +541,19 @@ function filterCmdGroups() {
 // Filter the Uninstall package dropdown by app name or package name.
 function filterUninstallApps(q) {
   q = (q || '').toLowerCase();
-  var sel = document.getElementById('uninstall-select');
-  if (!sel) return;
-  for (var i = 0; i < sel.options.length; i++) {
-    var o = sel.options[i];
-    if (!o.value) continue; // keep the placeholder
-    var name = (o.dataset.name || '').toLowerCase();
-    var pkg = (o.dataset.pkg || '').toLowerCase();
-    o.hidden = !(name.indexOf(q) !== -1 || pkg.indexOf(q) !== -1);
-  }
-  // If the current selection got filtered out, drop back to the placeholder.
-  if (sel.selectedIndex > 0 && sel.options[sel.selectedIndex].hidden) {
-    sel.selectedIndex = 0;
-    updatePreview();
-  }
+  var vis = 0;
+  document.querySelectorAll('#uninstall-list .fleet-app').forEach(function (a) {
+    var show = (a.getAttribute('data-search') || '').toLowerCase().indexOf(q) !== -1;
+    a.style.display = show ? '' : 'none'; if (show) vis++;
+  });
+  var nm = document.getElementById('uninstall-nomatch'); if (nm) nm.style.display = vis ? 'none' : '';
+}
+function pickUninstall(btn) {
+  var h = document.getElementById('uninstall-pkg');
+  h.value = btn.getAttribute('data-pkg');
+  h.setAttribute('data-name', btn.getAttribute('data-name') || btn.getAttribute('data-pkg'));
+  document.querySelectorAll('#uninstall-list .fleet-app').forEach(function (a) { a.classList.toggle('sel', a === btn); });
+  updatePreview();
 }
 
 // The device-lookup partial's Add button calls this.
@@ -592,9 +593,8 @@ function updatePreview() {
     if (!v) warn.push('Choose an app to install.');
   } else if (type === 'uninstall') {
     pk.textContent = 'Package';
-    var usel = document.getElementById('uninstall-select');
-    var uopt = usel && usel.options[usel.selectedIndex];
-    var uv = (uopt && uopt.value) ? (uopt.dataset.name || uopt.value) : '';
+    var uh = document.getElementById('uninstall-pkg');
+    var uv = uh && uh.value ? (uh.getAttribute('data-name') || uh.value) : '';
     pv.textContent = uv || '—';
     if (!uv) warn.push('Choose an app to uninstall.');
   } else if (type === 'shell') {
