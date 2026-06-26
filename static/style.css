@@ -4327,11 +4327,11 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 /* ════════════════════════════════════════════════════════
    FLEET · device list as cards (C2 row cards) + sort control
    ════════════════════════════════════════════════════════ */
-.dl-list { display: flex; flex-direction: column; }
-.dl-card { display: grid; grid-template-columns: 18px minmax(0, 1.5fr) minmax(0, 0.85fr) auto auto auto;
-  align-items: center; gap: 16px; padding: 13px 16px; border-bottom: 1px solid var(--border-soft);
+.dl-list { display: flex; flex-direction: column; container-type: inline-size; }
+.dl-card { display: grid; grid-template-columns: 18px minmax(0, 1.6fr) minmax(0, 0.8fr) auto auto;
+  align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft);
   background: var(--surface); transition: background var(--dur) var(--ease); }
-.dl-card:last-child { border-bottom: 0; }
+.dl-card:first-child { border-top: 1px solid var(--border-soft); }
 .dl-card:hover { background: var(--hover); }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .dl-card > .device-cb { width: 15px; height: 15px; }
@@ -4344,18 +4344,17 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-kiosk { color: var(--muted); vertical-align: middle; }
 .dl-hidden-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   color: var(--muted); background: var(--surface2); border-radius: 4px; padding: 1px 5px; vertical-align: middle; }
-.dl-seen { font-size: 11.5px; color: var(--text-faint); }
+.dl-seen { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.dl-onboard { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
 .dl-rel { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .dl-metrics { display: flex; align-items: center; gap: 20px; }
 .dl-bat { display: flex; align-items: center; gap: 8px; min-width: 120px; }
 .dl-bat .battery-track { flex: 1; min-width: 44px; }
 .dl-m { display: flex; flex-direction: column; gap: 1px; }
-.dl-m .k, .dl-onboard .k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); }
-.dl-m .v, .dl-onboard .v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
-.dl-m .v.muted, .dl-onboard .v.muted { color: var(--text-faint); font-weight: 500; }
-.dl-onboard { display: flex; flex-direction: column; gap: 1px; white-space: nowrap; }
-.dl-onboard .v { font-weight: 500; color: var(--text-2); }
+.dl-m .k { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); }
+.dl-m .v { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dl-m .v.muted { color: var(--text-faint); font-weight: 500; }
 
 .dl-act { display: flex; align-items: center; gap: 10px; justify-self: end; }
 .dl-view { font-size: 12.5px; font-weight: 600; color: var(--accent); }
@@ -4364,14 +4363,16 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-x:hover { border-color: var(--danger-edge); color: var(--danger); }
 .dl-unhide:hover { border-color: var(--accent-edge); color: var(--accent); }
 
-@media (max-width: 1000px) {
+/* Reflow based on the list's own width (handles the narrow inspector pane,
+   not just the viewport): stack the metrics under the identity. */
+@container (max-width: 680px) {
   .dl-card { grid-template-columns: 18px 1fr auto;
-    grid-template-areas: "chk id act" "met met met"; gap: 10px 14px; }
+    grid-template-areas: "chk id act" "met met met"; gap: 8px 14px; }
   .dl-card > .device-cb { grid-area: chk; }
   .dl-id { grid-area: id; }
   .dl-act { grid-area: act; }
-  .dl-metrics { grid-area: met; flex-wrap: wrap; gap: 14px 20px; padding-top: 2px; }
-  .dl-rel, .dl-onboard { display: none; }
+  .dl-metrics { grid-area: met; flex-wrap: wrap; gap: 12px 20px; padding-top: 2px; }
+  .dl-rel { display: none; }
 }
 
 /* Sort popover (reuses .fleet-fwrap / .fleet-pop) */
