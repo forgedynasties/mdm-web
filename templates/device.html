@@ -332,7 +332,7 @@
 
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
-    chart.data.datasets[0].data = (chart === batteryChart) ? smoothBatterySeries(insertGaps(pts), 0.32) : insertGaps(pts);
+    chart.data.datasets[0].data = insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
     chart.update();
@@ -345,7 +345,7 @@
   function applyUnifiedData() {
     if (!unifiedChart) return;
     const { pts: bPts, minX, lastX } = filterWindow(allBattery);
-    unifiedChart.data.datasets[0].data = smoothBatterySeries(insertGaps(bPts), 0.32);
+    unifiedChart.data.datasets[0].data = insertGaps(bPts);
     unifiedChart.data.datasets[1].data = insertGaps(filterWindow(allTemp).pts);
     unifiedChart.data.datasets[2].data = insertGaps(filterWindow(allRam).pts);
     unifiedChart.options.scales.x.min = minX;
@@ -619,6 +619,7 @@
         borderColor: "#f9674e",
         borderCapStyle: "round",
         borderJoinStyle: "round",
+        spanGaps: true,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
@@ -671,6 +672,7 @@
         borderWidth: 2.5,
         borderCapStyle: "round",
         borderJoinStyle: "round",
+        spanGaps: true,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
@@ -718,6 +720,7 @@
         borderWidth: 2.5,
         borderCapStyle: "round",
         borderJoinStyle: "round",
+        spanGaps: true,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
@@ -767,21 +770,21 @@
         {
           label: 'Battery %', data: [], yAxisID: 'yPct',
           borderColor: '#f9674e', backgroundColor: 'rgba(249,103,78,0.10)',
-          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          borderWidth: 2, pointRadius: 0, spanGaps: true,
           cubicInterpolationMode: 'monotone', tension: 0.4,
           borderCapStyle: 'round', borderJoinStyle: 'round', fill: true,
         },
         {
           label: 'Temp °C', data: [], yAxisID: 'yTemp',
           borderColor: '#e8a13a', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          borderWidth: 2, pointRadius: 0, spanGaps: true,
           cubicInterpolationMode: 'monotone', tension: 0.4,
           borderCapStyle: 'round', borderJoinStyle: 'round',
         },
         {
           label: 'RAM %', data: [], yAxisID: 'yPct',
           borderColor: '#7a80f6', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          borderWidth: 2, pointRadius: 0, spanGaps: true,
           cubicInterpolationMode: 'monotone', tension: 0.4,
           borderCapStyle: 'round', borderJoinStyle: 'round',
         },
