@@ -301,83 +301,52 @@
       </select>
     </div>
   </div>
-  <table class="table" id="cmd-history-table">
-    <thead>
-      <tr>
-        <th>Type</th>
-        <th>Target</th>
-        <th>Status</th>
-        <th>Sent</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {{if .Commands}}
-        {{range .Commands}}
-        {{$summary := index $.Summaries .ID}}
-        {{$serials := index $.TargetSerials .ID}}
-        <tr data-cmd-type="{{.Type}}" data-cmd-target="{{.TargetType}}" data-cmd-serials="{{range $serials}}{{.}},{{end}}" data-cmd-search="{{cmdLabel .Type}} {{cmdDetail .}} {{range $serials}}{{.}} {{end}}">
-          <td>
-            <span style="display:inline-flex;align-items:center;gap:6px;">
-              <span class="ui-icon" style="width:14px;height:14px;color:var(--accent);">
-                {{if eq .Type "install_apk"}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg>
-                {{else if eq .Type "shell"}}<svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>
-                {{else if eq .Type "screenshot"}}<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg>
-                {{else if eq .Type "reboot"}}<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>
-                {{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>{{end}}
-              </span>
-              {{cmdLabel .Type}}
-            </span>
-          </td>
-          <td>
-            {{if eq .TargetType "devices"}}
-              {{if eq (len $serials) 1}}
-                <a href="/devices/{{index $serials 0}}" class="mono link-detail" style="font-size:11px;">{{index $serials 0}}</a>
-              {{else}}
-                <span class="muted small">{{len $serials}} devices</span>
-              {{end}}
-            {{else if eq .TargetType "groups"}}
-              <span class="muted small">groups</span>
-            {{else}}
-              <span class="muted small">all devices</span>
-            {{end}}
-          </td>
-          <td>
-            {{if $summary}}
-              {{if gt $summary.Completed 0}}<span class="ok" style="font-size:12px;font-weight:600;">{{$summary.Completed}}</span>{{end}}
-              {{if gt $summary.Failed 0}}<span class="danger" style="font-size:12px;font-weight:600;">{{$summary.Failed}}</span>{{end}}
-              {{if gt $summary.Pending 0}}<span class="muted" style="font-size:12px;">{{$summary.Pending}}</span>{{end}}
-              {{if gt $summary.Delivered 0}}<span style="color:var(--accent-h);font-size:12px;">{{$summary.Delivered}}</span>{{end}}
-            {{else}}
-              <span class="muted small">—</span>
-            {{end}}
-          </td>
-          <td class="muted small">{{timeSince .CreatedAt}}</td>
-          <td style="display:flex;gap:8px;align-items:center;">
-            <a href="/commands/{{.ID}}" class="link-detail">View</a>
-            {{if canAdmin $.Role}}
-            <form action="/commands/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
-              <button type="submit" class="btn-link" style="color:var(--danger);">Delete</button>
-            </form>
-            {{end}}
-          </td>
-        </tr>
-        {{end}}
-      {{else}}
-        <tr>
-          <td colspan="5">
-            <div class="empty-state">
-              <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
-              <div class="empty-state-copy">
-                <div class="empty-state-title">No commands sent yet</div>
-                <div class="empty-state-text">Use the form above to send your first command.</div>
-              </div>
-            </div>
-          </td>
-        </tr>
+  <div class="cmd-list" id="cmd-history-table">
+    {{if .Commands}}
+      {{range .Commands}}
+      {{$summary := index $.Summaries .ID}}
+      {{$serials := index $.TargetSerials .ID}}
+      <div class="cmd-row" data-cmd-type="{{.Type}}" data-cmd-target="{{.TargetType}}" data-cmd-serials="{{range $serials}}{{.}},{{end}}" data-cmd-search="{{cmdLabel .Type}} {{cmdDetail .}} {{range $serials}}{{.}} {{end}}">
+        <span class="cmd-dot {{if $summary}}{{if gt $summary.Failed 0}}err{{else if or (gt $summary.Pending 0) (gt $summary.Delivered 0)}}warn{{else}}ok{{end}}{{end}}"></span>
+        <span class="cmd-ic">
+          {{if eq .Type "install_apk"}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg>
+          {{else if eq .Type "shell"}}<svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>
+          {{else if eq .Type "screenshot"}}<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg>
+          {{else if eq .Type "reboot"}}<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>
+          {{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>{{end}}
+        </span>
+        <a class="cmd-main" href="/commands/{{.ID}}">
+          <div class="cmd-name">{{cmdLabel .Type}}</div>
+          <div class="cmd-sub">{{if eq .TargetType "devices"}}{{if eq (len $serials) 1}}<span class="mono">{{index $serials 0}}</span>{{else}}{{len $serials}} devices{{end}}{{else if eq .TargetType "groups"}}Group target{{else}}All devices{{end}}</div>
+        </a>
+        <span class="cmd-prog">
+          {{if $summary}}
+            {{$total := add (add $summary.Completed $summary.Failed) (add $summary.Pending $summary.Delivered)}}
+            {{if gt $summary.Failed 0}}<span class="cmd-chip low">{{$summary.Failed}} failed</span>
+            {{else if or (gt $summary.Pending 0) (gt $summary.Delivered 0)}}<span class="cmd-chip mid">{{$summary.Completed}}/{{$total}} done</span>
+            {{else}}<span class="cmd-chip ok">{{if gt $summary.Completed 1}}{{$summary.Completed}} ok{{else}}success{{end}}</span>{{end}}
+          {{else}}<span class="muted small">—</span>{{end}}
+        </span>
+        <span class="cmd-when muted small">{{timeSince .CreatedAt}}</span>
+        <span class="cmd-act">
+          {{if canAdmin $.Role}}
+          <form action="/commands/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
+            <button type="submit" class="cmd-del" title="Delete command" aria-label="Delete">&times;</button>
+          </form>
+          {{end}}
+        </span>
+      </div>
       {{end}}
-    </tbody>
-  </table>
+    {{else}}
+      <div class="empty-state" style="padding:28px 18px;">
+        <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
+        <div class="empty-state-copy">
+          <div class="empty-state-title">No commands sent yet</div>
+          <div class="empty-state-text">Use the form above to send your first command.</div>
+        </div>
+      </div>
+    {{end}}
+  </div>
 
   {{if gt .TotalPages 1}}
   <div class="pagination">
@@ -451,7 +420,7 @@ function filterCommands() {
   var q = (document.getElementById('cmd-search').value || '').toLowerCase();
   var ft = document.getElementById('filter-type').value;
   var fg = document.getElementById('filter-target').value;
-  var rows = document.querySelectorAll('#cmd-history-table tbody tr[data-cmd-type]');
+  var rows = document.querySelectorAll('#cmd-history-table .cmd-row[data-cmd-type]');
   rows.forEach(function(r) {
     var typeMatch = !ft || r.dataset.cmdType === ft;
     var targetMatch = !fg || r.dataset.cmdTarget === fg;
