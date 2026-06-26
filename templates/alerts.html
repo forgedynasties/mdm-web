@@ -129,9 +129,7 @@
         </td>
         <td class="muted small" title="{{localTime .FiredAt}}">{{timeSince .FiredAt}}</td>
         <td>
-          <span class="status-badge {{if eq .Status "open"}}danger{{else if eq .Status "acknowledged"}}warn{{else}}ok{{end}}">
-            {{if eq .Status "open"}}● {{else if eq .Status "acknowledged"}}◐ {{else}}✓ {{end}}{{.Status}}
-          </span>
+          <span class="status-badge {{if eq .Status "open"}}danger{{else if eq .Status "acknowledged"}}warn{{else}}ok{{end}}" style="white-space:nowrap;">{{if eq .Status "open"}}●{{else if eq .Status "acknowledged"}}◐{{else}}✓{{end}} {{.Status}}</span>
         </td>
         <td style="white-space:nowrap;text-align:right;">
           {{if $canAct}}
