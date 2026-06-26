@@ -4336,15 +4336,15 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .dl-card > .device-cb { width: 15px; height: 15px; }
 
-/* battery (ring + %) */
-.dl-bat { display: flex; align-items: center; gap: 9px; }
+/* battery (ring with % below) */
+.dl-bat { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .dl-bat-ring { width: 30px; height: 30px; flex: none; }
 .dl-bat-ring .trk { fill: none; stroke: var(--surface-3); stroke-width: 4; }
 .dl-bat-ring .val { fill: none; stroke-width: 4; stroke-linecap: round; transition: stroke-dashoffset var(--dur) var(--ease); }
 .dl-bat-ring .val.battery-ok { stroke: var(--ok); }
 .dl-bat-ring .val.battery-mid { stroke: var(--warn); }
 .dl-bat-ring .val.battery-low { stroke: var(--danger); }
-.dl-bat .battery-label { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; min-width: 34px; }
+.dl-bat .battery-label { font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
 .dl-bat:has(.battery-mid) .battery-label { color: var(--warn); }
 .dl-bat:has(.battery-low) .battery-label { color: var(--danger); }
 
