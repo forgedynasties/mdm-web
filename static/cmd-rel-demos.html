@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Commands &amp; Releases — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --accent:#f9674e;--accent-2:#7a80f6;--grad:linear-gradient(90deg,#7a80f6,#f9674e);
+  --ok:#2bb673;--warn:#e8a13a;--low:#e5484d;
+  --ink:#1c2024;--muted:#62677a;--faint:#9aa0b0;
+  --surface:#fff;--bg:#f6f7f9;--border:#e7e8ee;--soft:#eceef3;--hover:#f7f8fa;
+  --accent-soft:rgba(249,103,78,.1);--peri-soft:rgba(122,128,246,.12);
+}
+*{box-sizing:border-box}
+body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg);color:var(--ink);margin:0;line-height:1.45}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+header.top{padding:28px 40px 16px;border-bottom:1px solid var(--border);background:var(--surface)}
+.brand{font-family:'Poppins',sans-serif;font-weight:700;font-size:19px}
+.brand .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.brand .b{color:var(--muted)}
+h1{font-size:21px;margin:9px 0 2px}.lead{color:var(--muted);font-size:13px;margin:0;max-width:760px}
+main{padding:14px 40px 90px;max-width:1100px;margin:0 auto}
+section.demo{padding:28px 0;border-bottom:1px dashed var(--border)}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--grad);padding:4px 10px;border-radius:7px}
+h2{font-size:18px;margin:10px 0 3px}.desc{color:var(--muted);font-size:13px;margin:0 0 16px;max-width:820px}
+.frame{background:var(--bg);border:1px solid var(--border);border-radius:16px;padding:20px}
+.frame+.frame{margin-top:14px}
+.opt-tag{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:10px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px}
+.ch{padding:12px 16px;border-bottom:1px solid var(--soft);font-weight:700;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:13px;font-weight:600;border:1px solid var(--border);background:#fff;color:var(--ink);padding:8px 13px;border-radius:10px;cursor:pointer}
+.btn.prim{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.sm{font-size:12px;padding:6px 11px}
+.muted{color:var(--muted)}.small{font-size:12px}
+.pill{font:inherit;font-size:12px;font-weight:600;padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:#fff;color:var(--muted);cursor:pointer}
+.pill.on{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.seg{display:inline-flex;gap:3px;background:var(--soft);border-radius:10px;padding:3px}
+.seg button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 13px;border-radius:8px;cursor:pointer}
+.seg button.on{background:#fff;color:var(--accent);box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11.5px;font-weight:600}
+.b-ok{background:rgba(43,182,115,.13);color:#1c7d50}.b-mid{background:rgba(232,161,58,.15);color:#9a6512}.b-low{background:rgba(229,72,77,.13);color:#b4282d}
+.gtag{display:inline-flex;align-items:center;gap:6px;background:var(--peri-soft);color:#4b50c4;font-size:12px;font-weight:600;padding:4px 9px;border-radius:7px}
+.field-lbl{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin:0 0 6px}
+.inp{border:1px solid var(--border);border-radius:9px;padding:8px 11px;font:inherit;font-size:13px;width:100%}
+.search{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;padding:7px 11px;color:var(--faint)}
+.search input{border:0;outline:0;font:inherit;font-size:13px;flex:1;background:none}
+/* picker */
+.dp{display:grid;grid-template-columns:1fr 300px;gap:14px}
+.pane{background:var(--bg);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden}
+.pane-h{display:flex;justify-content:space-between;padding:10px 13px;border-bottom:1px solid var(--soft);font-size:12.5px;font-weight:700}
+.pane-h .n{color:var(--faint);font-weight:600;font-size:11.5px}
+.rows{padding:5px 7px}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:center;padding:8px 9px;border-radius:9px}
+.row:hover{background:#fff}.row.added{opacity:.5}
+.bchip{padding:3px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.serial{font-weight:600;font-size:13px}.sub{font-size:11px;color:var(--muted)}
+.add{width:26px;height:26px;border-radius:8px;border:1px solid var(--border);background:#fff;color:var(--accent);font-size:16px;cursor:pointer}
+.basket{padding:7px;min-height:150px;background:#fff;flex:1}
+.bk{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:8px}.bk .x{margin-left:auto;color:var(--faint);border:0;background:none;cursor:pointer;font-size:15px}
+.applist{max-height:200px;overflow:auto;border:1px solid var(--border);border-radius:10px;margin-top:8px}
+.approw{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-top:1px solid var(--soft);cursor:pointer}
+.approw:first-child{border-top:0}.approw:hover{background:var(--hover)}.approw.sel{background:var(--accent-soft)}
+.appname{font-weight:600;font-size:13px}.apppkg{font-size:11px;color:var(--muted)}
+.cnt{font-size:11px;color:var(--faint);font-weight:600}
+.bar{display:flex;align-items:center;gap:12px;padding:14px 0 0;margin-top:14px;border-top:1px solid var(--soft)}
+.step{display:flex;gap:8px;align-items:center;font-size:12.5px;font-weight:600;margin-bottom:14px}
+.step .n{width:20px;height:20px;border-radius:50%;background:#fff;border:1px solid var(--border);display:inline-flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted)}
+.step .on .n,.step .n.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.step .seg-i{color:var(--muted)} .step .seg-i.on{color:var(--accent)}
+.step .ln{width:22px;height:1px;background:var(--border)}
+/* releases */
+.rel{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(160px,1fr) auto auto;gap:16px;align-items:center;padding:14px 16px;border-top:1px solid var(--soft)}
+.rel:first-child{border-top:0}
+.rel-ver{display:flex;align-items:center;gap:8px;font-weight:700}
+.rel-ver .v{font-family:'IBM Plex Mono',monospace;font-size:13.5px}
+.rel-sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+.roll{display:flex;align-items:center;gap:10px}
+.roll .track{flex:1;height:8px;border-radius:99px;background:var(--soft);overflow:hidden}
+.roll .track i{display:block;height:100%;border-radius:99px;background:var(--ok)}
+.roll .pctnum{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;min-width:38px;text-align:right}
+.roll .dn{font-size:11px;color:var(--muted)}
+.relmeta{display:flex;gap:6px;justify-content:flex-end}
+.relact{display:flex;gap:6px;justify-content:flex-end}
+</style></head>
+<body>
+<header class="top">
+  <div class="brand"><span class="a">AIO</span> <span class="b">MDM</span> · commands &amp; releases</div>
+  <h1>Pick a direction</h1>
+  <p class="lead">Two demos for the Commands builder (target + payload selection like the group/restaurant picker) and two for the Releases list. Choose one of each.</p>
+</header>
+<main>
+
+<!-- ===== COMMANDS ===== -->
+<section class="demo" id="commands">
+  <span class="eyebrow">Commands builder · 01</span>
+  <h2>Target &amp; payload selection</h2>
+  <p class="desc">Both reuse the two-pane device picker from add-to-group/restaurant for choosing targets, and a searchable fleet-app picker (superset of every app seen across devices, with device counts) for Uninstall.</p>
+
+  <div class="frame">
+    <div class="opt-tag">Option A — Two-column: payload (what) on the left, targets (who) on the right</div>
+    <div style="display:grid;grid-template-columns:320px 1fr;gap:16px">
+      <div class="card" style="padding:15px 16px">
+        <div class="field-lbl">Command</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"><button class="pill">Install</button><button class="pill on">Uninstall</button><button class="pill">Shell</button><button class="pill">Screenshot</button><button class="pill">Reboot</button></div>
+        <div class="field-lbl">App to uninstall</div>
+        <div class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search apps across the fleet…"></div>
+        <div class="applist">
+          <div class="approw sel"><div><div class="appname">Chrome</div><div class="apppkg mono">com.android.chrome</div></div><span class="cnt">218 devices</span></div>
+          <div class="approw"><div><div class="appname">TeamViewer</div><div class="apppkg mono">com.teamviewer.host</div></div><span class="cnt">96 devices</span></div>
+          <div class="approw"><div><div class="appname">Sound Recorder</div><div class="apppkg mono">com.android.soundrecorder</div></div><span class="cnt">312 devices</span></div>
+        </div>
+      </div>
+      <div class="card" style="padding:15px 16px">
+        <div class="field-lbl">Targets</div>
+        <div class="seg" style="margin-bottom:12px"><button class="on">Devices</button><button>Groups</button><button>All devices</button></div>
+        <div class="dp">
+          <div class="pane">
+            <div class="pane-h"><span>Available</span><span class="n">312</span></div>
+            <div class="search" style="margin:10px 12px 0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search serial…"></div>
+            <div style="display:flex;gap:6px;padding:10px 12px 2px"><button class="pill on">All</button><button class="pill">Online</button><button class="pill">Low batt</button></div>
+            <div class="rows">
+              <div class="row added"><span class="bchip b-ok">82%</span><div><div class="serial mono">AT070AA2C0042</div><div class="sub">A15-v1.62 · 2m</div></div><span class="chip b-ok" style="background:none;color:var(--ok)">✓</span></div>
+              <div class="row"><span class="bchip b-mid">45%</span><div><div class="serial mono">AT070AAB70388</div><div class="sub">A15-v1.62 · 1h</div></div><button class="add">+</button></div>
+              <div class="row"><span class="bchip b-low">14%</span><div><div class="serial mono">AT070AABU00482</div><div class="sub">A15-v1.62 · 3h</div></div><button class="add">+</button></div>
+            </div>
+          </div>
+          <div class="pane">
+            <div class="pane-h"><span>Targets</span><span class="n">2</span></div>
+            <div class="basket">
+              <div class="bk"><span class="bchip b-ok">82%</span><span class="serial mono">AT070AA2C0042</span><button class="x">×</button></div>
+              <div class="bk"><span class="bchip b-ok">91%</span><span class="serial mono">AT070AAX91120</span><button class="x">×</button></div>
+            </div>
+          </div>
+        </div>
+        <div class="bar"><span class="muted small">Uninstall <b style="color:var(--ink)">com.android.chrome</b> from <b style="color:var(--ink)">2 devices</b></span><span style="flex:1"></span><button class="btn">Cancel</button><button class="btn prim">Send command</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="opt-tag">Option B — Guided steps: Command → Configure → Targets → Send</div>
+    <div class="step">
+      <span class="seg-i"><span class="n">1</span> Command</span><span class="ln"></span>
+      <span class="seg-i on"><span class="n on">2</span> Targets</span><span class="ln"></span>
+      <span class="seg-i"><span class="n">3</span> Review &amp; send</span>
+    </div>
+    <div class="card" style="padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-weight:700;font-size:14px">Who should get <span class="chip b-low" style="background:var(--accent-soft);color:var(--accent)">Uninstall · Chrome</span>?</div><div class="seg"><button class="on">Devices</button><button>Groups</button><button>All</button></div></div>
+      <div class="dp">
+        <div class="pane">
+          <div class="pane-h"><span>Available devices</span><span class="n">312</span></div>
+          <div class="rows">
+            <div class="row"><span class="bchip b-ok">82%</span><div><div class="serial mono">AT070AA2C0042</div><div class="sub">Downtown Diner</div></div><button class="add">+</button></div>
+            <div class="row"><span class="bchip b-mid">45%</span><div><div class="serial mono">AT070AAB70388</div><div class="sub">lab</div></div><button class="add">+</button></div>
+          </div>
+        </div>
+        <div class="pane">
+          <div class="pane-h"><span>Selected</span><span class="n">3</span></div>
+          <div class="basket"><div class="bk"><span class="serial mono">AT070AAX91120</span><button class="x">×</button></div><div class="bk"><span class="serial mono">AT070AABU00169</span><button class="x">×</button></div><div class="bk"><span class="gtag">Lobby · 12</span><button class="x">×</button></div></div>
+        </div>
+      </div>
+      <div class="bar"><button class="btn">‹ Back</button><span style="flex:1"></span><span class="muted small">3 targets</span><button class="btn prim">Next: review ›</button></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== RELEASES ===== -->
+<section class="demo" id="releases">
+  <span class="eyebrow">Releases · 02</span>
+  <h2>Releases list</h2>
+  <p class="desc">Fixes the cramped/boxed look: a bigger rollout bar with a % label, the device count as plain text, and tidy status / QA / sign-off chips.</p>
+
+  <div class="frame">
+    <div class="opt-tag">Option A — Clean rows (rollout bar + % + chips)</div>
+    <div class="card">
+      <div class="rel">
+        <div><div class="rel-ver"><span class="v" style="color:var(--accent)">A15-v1.62-user</span><span class="chip b-ok">published</span></div><div class="rel-sub">Production release v1.0 · 0 pkg · 0 deploy</div></div>
+        <div><div class="roll"><div class="track"><i style="width:50%"></i></div><span class="pctnum">50%</span></div><div class="dn">51 of 101 devices</div></div>
+        <div class="relmeta"><span class="chip b-ok">QA 6/6</span><span class="chip b-ok">✓ ali</span></div>
+        <div class="relact"><a class="btn sm">View</a><button class="btn sm">Hide</button></div>
+      </div>
+      <div class="rel">
+        <div><div class="rel-ver"><span class="v" style="color:var(--accent)">1.97</span><span class="chip b-ok">published</span></div><div class="rel-sub">1 pkg · 1 deploy</div></div>
+        <div><div class="roll"><div class="track"><i style="width:4%"></i></div><span class="pctnum">4%</span></div><div class="dn">4 of 101 devices</div></div>
+        <div class="relmeta"><span class="chip b-mid">QA 0/8</span><span class="chip b-ok">✓ ali</span></div>
+        <div class="relact"><a class="btn sm">View</a><button class="btn sm">Hide</button></div>
+      </div>
+      <div class="rel">
+        <div><div class="rel-ver"><span class="v">A15-v1.61</span><span class="chip" style="background:var(--soft);color:var(--muted)">not tracked</span></div><div class="rel-sub muted">seen on devices</div></div>
+        <div><div class="roll"><div class="track"><i style="width:1%;background:var(--faint)"></i></div><span class="pctnum">1%</span></div><div class="dn">1 of 101 devices</div></div>
+        <div class="relmeta"></div>
+        <div class="relact"><button class="btn prim sm">+ Add as release</button><button class="btn sm">Hide</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="frame">
+    <div class="opt-tag">Option B — Tracked vs Not-tracked tabs, big rollout cards</div>
+    <div class="seg" style="margin-bottom:14px"><button class="on">Tracked · 4</button><button>Not tracked · 2</button><button>Hidden · 10</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div class="card" style="padding:16px 17px">
+        <div style="display:flex;justify-content:space-between"><div class="rel-ver"><span class="v" style="color:var(--accent);font-size:15px">A15-v1.62-user</span></div><span class="chip b-ok">published</span></div>
+        <div class="rel-sub" style="margin:4px 0 12px">Production release v1.0 · QA 6/6 · ✓ ali</div>
+        <div class="roll"><div class="track" style="height:10px"><i style="width:50%"></i></div><span class="pctnum">50%</span></div>
+        <div class="dn" style="margin-top:6px">51 of 101 devices on this build</div>
+      </div>
+      <div class="card" style="padding:16px 17px">
+        <div style="display:flex;justify-content:space-between"><div class="rel-ver"><span class="v" style="color:var(--accent);font-size:15px">1.99</span></div><span class="chip b-ok">published</span></div>
+        <div class="rel-sub" style="margin:4px 0 12px">2 pkg · 2 deploy · QA 0/11 · ✓ ali</div>
+        <div class="roll"><div class="track" style="height:10px"><i style="width:4%"></i></div><span class="pctnum">4%</span></div>
+        <div class="dn" style="margin-top:6px">4 of 101 devices on this build</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+</body></html>
