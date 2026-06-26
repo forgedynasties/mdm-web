@@ -319,7 +319,7 @@
         </span>
         <a class="cmd-main" href="/commands/{{.ID}}">
           <div class="cmd-name">{{cmdLabel .Type}}</div>
-          <div class="cmd-sub">{{if eq .TargetType "devices"}}{{if eq (len $serials) 1}}<span class="mono">{{index $serials 0}}</span>{{else}}{{len $serials}} devices{{end}}{{else if eq .TargetType "groups"}}Group target{{else}}All devices{{end}}</div>
+          <div class="cmd-sub">{{$hint := cmdHint .}}{{if $hint}}<span class="cmd-hint mono">{{$hint}}</span> · {{end}}{{if eq .TargetType "devices"}}{{if eq (len $serials) 1}}<span class="mono">{{index $serials 0}}</span>{{else}}{{len $serials}} devices{{end}}{{else if eq .TargetType "groups"}}Group target{{else}}All devices{{end}}</div>
         </a>
         <span class="cmd-prog">
           {{if $summary}}
