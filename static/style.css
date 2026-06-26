@@ -3680,6 +3680,206 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .ov-alrs-empty svg { width: 16px; height: 16px; flex: none; stroke: var(--ok); fill: none;
   stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
+/* ════════════════════════════════════════════════════════
+   OVERVIEW · revamp (".ovx") — soft, rounded, card-forward
+   dashboard. Self-contained; nothing outside the main page
+   references these classes.
+   ════════════════════════════════════════════════════════ */
+.ovx {
+  --ovx-r: 20px;          /* card radius */
+  --ovx-pad: 20px;
+  --ovx-lime: #c6f24e;    /* highlight accent (echoes the reference) */
+  --ovx-lime-ink: #14160c;
+}
+.ovx :is(.ovx-ico, .ovx-qact .qi, .ovx-strip .ic) svg,
+.ovx .ovx-search svg, .ovx .ovx-empty svg, .ovx .ovx-bars-empty svg {
+  fill: none; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* ── Greeting bar ── */
+.ovx-top { display: flex; align-items: flex-end; gap: 18px; margin-bottom: 24px; flex-wrap: wrap; }
+.ovx-hello h1 { font-family: var(--font-display); font-size: 30px; font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1.1; margin: 0; }
+.ovx-wave { display: inline-block; }
+.ovx-hello p { font-size: 13.5px; color: var(--text-faint); margin: 6px 0 0; }
+.ovx-tools { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.ovx-search { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+  color: var(--muted); font: inherit; font-size: 13px; cursor: pointer; box-shadow: var(--shadow-sm);
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease); }
+.ovx-search:hover { border-color: var(--rule-2); box-shadow: var(--shadow-md); }
+.ovx-search svg { width: 16px; height: 16px; stroke: var(--muted); }
+.ovx-search span { min-width: 110px; text-align: left; }
+.ovx-search kbd { font-family: var(--mono); font-size: 10.5px; color: var(--text-faint);
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; }
+.ovx-live { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono);
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.ovx-live i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok);
+  box-shadow: 0 0 0 4px var(--ok-bg); animation: ovx-pulse 2.2s var(--ease) infinite; }
+@keyframes ovx-pulse { 0%,100% { box-shadow: 0 0 0 3px var(--ok-bg); } 50% { box-shadow: 0 0 0 6px transparent; } }
+
+/* ── Layout grid ── */
+.ovx-grid { display: grid; grid-template-columns: 1fr 320px; gap: 22px; align-items: start; }
+.ovx-main { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.ovx-side { display: flex; flex-direction: column; gap: 18px; }
+.ovx-sec { display: flex; align-items: baseline; justify-content: space-between; margin: 4px 2px -4px; }
+.ovx-sec h2 { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+.ovx-sec a { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.ovx-sec a:hover { color: var(--accent); }
+
+/* ── Shared card shell ── */
+.ovx-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--ovx-r);
+  box-shadow: var(--shadow-sm); overflow: hidden; }
+.ovx-ch { display: flex; align-items: center; justify-content: space-between; padding: 16px var(--ovx-pad) 0; }
+.ovx-ch h3 { font-size: 14.5px; font-weight: 600; margin: 0; }
+.ovx-ch a, .ovx-tag { font-size: 12px; font-weight: 600; color: var(--muted); }
+.ovx-ch a:hover { color: var(--accent); }
+.ovx-tag { font-family: var(--mono); font-weight: 500; font-size: 11px; color: var(--text-faint); }
+
+/* ── Pastel icon tiles ── */
+.ovx-ico, .ovx-qact .qi { width: 40px; height: 40px; border-radius: 13px; flex: none;
+  display: flex; align-items: center; justify-content: center; }
+.ovx-ico svg, .ovx-qact .qi svg { width: 19px; height: 19px; }
+.i-violet { background: rgba(124,58,237,0.12); } .i-violet svg { stroke: #7c3aed; }
+.i-green  { background: var(--ok-bg); }          .i-green svg  { stroke: var(--ok); }
+.i-rose   { background: var(--danger-bg); }      .i-rose svg   { stroke: var(--danger); }
+.i-amber  { background: var(--warn-bg); }        .i-amber svg  { stroke: var(--warn); }
+.i-blue   { background: var(--info-bg); }        .i-blue svg   { stroke: var(--info); }
+
+/* ── Stat cards ── */
+.ovx-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.ovx-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--ovx-r);
+  padding: var(--ovx-pad); display: flex; flex-direction: column; box-shadow: var(--shadow-sm);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.ovx-stat:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--rule-2); }
+.ovx-stat.alerty { border-color: var(--danger-edge); }
+.ovx-stat .ovx-big { font-family: var(--font-display); font-size: 32px; font-weight: 600;
+  letter-spacing: -0.02em; line-height: 1; margin: 16px 0 0; color: var(--text); }
+.ovx-big.ok { color: var(--ok); } .ovx-big.bad { color: var(--danger); } .ovx-big.warn { color: var(--warn); }
+.ovx-stat .ovx-lbl { font-size: 13px; font-weight: 600; color: var(--text-2); margin-top: 6px; }
+.ovx-stat .ovx-sub { font-size: 11.5px; color: var(--text-faint); margin-top: 2px; }
+
+/* ── Attention strip ── */
+.ovx-strip { display: flex; align-items: center; gap: 13px; padding: 13px 18px;
+  background: var(--danger-bg); border: 1px solid var(--danger-edge); border-radius: var(--ovx-r); }
+.ovx-strip .ic { width: 34px; height: 34px; border-radius: 11px; flex: none; background: var(--danger);
+  display: flex; align-items: center; justify-content: center; }
+.ovx-strip .ic svg { width: 17px; height: 17px; stroke: #fff; }
+.ovx-strip .tx { font-size: 13px; color: var(--text-2); }
+.ovx-strip .tx b { color: var(--text); }
+.ovx-strip .go { margin-left: auto; font-size: 12.5px; font-weight: 700; color: var(--danger); white-space: nowrap; }
+.ovx-strip:hover .go { text-decoration: underline; }
+
+/* ── Activity + alerts two-up ── */
+.ovx-two { display: grid; grid-template-columns: 1.25fr 1fr; gap: 18px; align-items: stretch; }
+.ovx-activity, .ovx-alerts { display: flex; flex-direction: column; }
+.ovx-bars { display: flex; align-items: flex-end; gap: 8px; padding: 18px var(--ovx-pad) 16px; flex: 1; min-height: 168px; }
+.ovx-bar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 9px; height: 100%; }
+.ovx-bar .track { width: 100%; max-width: 30px; flex: 1; display: flex; align-items: flex-end;
+  background: var(--bg); border-radius: 9px; }
+.ovx-bar .fill { width: 100%; min-height: 6px; border-radius: 9px; background: var(--rule-2);
+  position: relative; transition: filter var(--dur) var(--ease); animation: ovx-grow 0.6s var(--ease) both; transform-origin: bottom; }
+.ovx-bar.cur .fill { background: var(--ovx-lime); }
+.ovx-bar .cap { position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+  font-family: var(--mono); font-size: 10.5px; font-weight: 600; color: var(--text); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 6px; padding: 1px 5px; opacity: 0;
+  transition: opacity var(--dur) var(--ease); white-space: nowrap; box-shadow: var(--shadow-sm); }
+.ovx-bar.cur .cap, .ovx-bar:hover .cap { opacity: 1; }
+.ovx-bar .day { font-size: 11px; color: var(--text-faint); font-weight: 500; }
+.ovx-bar.cur .day { color: var(--text-2); font-weight: 700; }
+@keyframes ovx-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.ovx-bars-empty { margin: auto; color: var(--text-faint); font-size: 13px; }
+
+.ovx-alist { padding: 10px var(--ovx-pad) 14px; display: flex; flex-direction: column; }
+.ovx-al { display: flex; align-items: flex-start; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--border-soft); }
+.ovx-al:last-child { border-bottom: 0; }
+.ovx-al .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 4px; flex: none; background: var(--muted); }
+.ovx-al .dot.danger { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-bg); }
+.ovx-al .dot.warn { background: var(--warn); box-shadow: 0 0 0 3px var(--warn-bg); }
+.ovx-al .body { min-width: 0; }
+.ovx-al .t1 { font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ovx-al .t2 { font-size: 11.5px; color: var(--text-faint); margin-top: 2px; }
+.ovx-al .t2 .mono { font-family: var(--mono); color: var(--muted); }
+.ovx-al-more { display: block; padding-top: 10px; font-size: 12.5px; font-weight: 600; color: var(--accent); }
+.ovx-al-more:hover { text-decoration: underline; }
+.ovx-empty { display: flex; align-items: center; gap: 10px; padding: 22px var(--ovx-pad); color: var(--muted); font-size: 13px; }
+.ovx-empty svg { width: 17px; height: 17px; flex: none; stroke: var(--ok); }
+
+/* ── Quick actions ── */
+.ovx-qa { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.ovx-qact { background: var(--surface); border: 1px solid var(--border); border-radius: var(--ovx-r);
+  padding: 18px; display: flex; flex-direction: column; gap: 11px; box-shadow: var(--shadow-sm);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.ovx-qact:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: var(--rule-2); }
+.ovx-qact .qt { font-size: 13.5px; font-weight: 600; color: var(--text); }
+.ovx-qact .qd { font-size: 11.5px; color: var(--text-faint); line-height: 1.4; margin-top: -6px; }
+
+/* ── Fleet pulse (dark hero) ── */
+.ovx-pulse { position: relative; overflow: hidden; border-radius: var(--ovx-r); padding: 22px;
+  background: linear-gradient(155deg, #20242c 0%, #14161b 100%); color: #f4f5f7; box-shadow: var(--shadow-md); }
+.ovx-pulse::after { content: ""; position: absolute; right: -60px; top: -60px; width: 180px; height: 180px;
+  border-radius: 50%; background: radial-gradient(circle, rgba(198,242,78,0.18), transparent 70%); }
+.ovx-pulse-head { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.12em; color: rgba(244,245,247,0.6); }
+.ovx-pulse-head .d { width: 7px; height: 7px; border-radius: 50%; background: var(--ovx-lime); }
+.ovx-ring-row { display: flex; align-items: center; gap: 16px; margin: 18px 0 14px; }
+.ovx-ring { width: 96px; height: 96px; flex: none; }
+.ovx-ring .trk { fill: none; stroke: rgba(255,255,255,0.12); stroke-width: 9; }
+.ovx-ring .val { fill: none; stroke: var(--ovx-lime); stroke-width: 9; stroke-linecap: round; }
+.ovx-pulse.is-warn .val { stroke: #f7c948; }
+.ovx-pulse.is-danger .val { stroke: #ff6b6b; }
+.ovx-pulse.is-warn .ovx-pulse-head .d { background: #f7c948; }
+.ovx-pulse.is-danger .ovx-pulse-head .d { background: #ff6b6b; }
+.ovx-score b { font-family: var(--font-display); font-size: 46px; font-weight: 600; line-height: 1;
+  letter-spacing: -0.02em; display: block; }
+.ovx-score span { font-size: 11.5px; color: rgba(244,245,247,0.55); line-height: 1.45; display: block; margin-top: 6px; }
+.ovx-verdict { font-size: 13px; color: rgba(244,245,247,0.82); line-height: 1.5; margin: 0 0 16px; }
+.ovx-cta { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  background: var(--ovx-lime); color: var(--ovx-lime-ink); font-size: 13px; font-weight: 700;
+  padding: 10px 16px; border-radius: 999px; transition: filter var(--dur) var(--ease), transform var(--dur) var(--ease); }
+.ovx-cta:hover { filter: brightness(1.05); transform: translateY(-1px); color: var(--ovx-lime-ink); }
+
+/* ── Snapshot tiles ── */
+.ovx-snap-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px var(--ovx-pad) var(--ovx-pad); }
+.ovx-snap-grid .snap { background: var(--bg); border: 1px solid var(--border-soft); border-radius: 13px;
+  padding: 13px 14px; display: flex; flex-direction: column; gap: 2px;
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); }
+.ovx-snap-grid .snap:hover { border-color: var(--rule-2); background: var(--surface); }
+.ovx-snap-grid .v { font-family: var(--font-display); font-size: 23px; font-weight: 600; line-height: 1; color: var(--text); }
+.ovx-snap-grid .v.hot { color: var(--chart-temp); } .ovx-snap-grid .v.warn { color: var(--warn); }
+.ovx-snap-grid .k { font-size: 11.5px; color: var(--text-faint); }
+
+/* ── Recent activity ── */
+.ovx-rlist { padding: 8px var(--ovx-pad) 14px; }
+.ovx-r { display: flex; align-items: flex-start; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--border-soft); }
+.ovx-r:last-child { border-bottom: 0; }
+.ovx-r .av { width: 28px; height: 28px; border-radius: 50%; flex: none; display: flex; align-items: center;
+  justify-content: center; background: var(--accent-soft); color: var(--accent); font-size: 12px;
+  font-weight: 700; text-transform: uppercase; }
+.ovx-r .body { min-width: 0; }
+.ovx-r .t1 { font-size: 12.5px; color: var(--text-2); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ovx-r .t1 b { color: var(--text); font-weight: 600; }
+.ovx-r .t2 { font-size: 11px; color: var(--text-faint); margin-top: 1px; }
+.ovx-r .t2 .mono { font-family: var(--mono); color: var(--muted); }
+
+/* ── Entrance ── */
+.ovx-top, .ovx-grid { animation: ov-rise 0.45s var(--ease) both; }
+.ovx-grid { animation-delay: 0.08s; }
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .ovx-grid { grid-template-columns: 1fr; }
+  .ovx-side { flex-direction: row; flex-wrap: wrap; }
+  .ovx-side > * { flex: 1 1 240px; }
+}
+@media (max-width: 720px) {
+  .ovx-stats, .ovx-qa { grid-template-columns: 1fr 1fr; }
+  .ovx-two { grid-template-columns: 1fr; }
+  .ovx-hello h1 { font-size: 25px; }
+  .ovx-tools { width: 100%; }
+  .ovx-search { flex: 1; }
+}
+
 @keyframes ov-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 .ov-hero, .ov-strip, .ov-cols { animation: ov-rise 0.45s var(--ease) both; }
 .ov-strip { animation-delay: 0.08s; }

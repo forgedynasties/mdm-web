@@ -1543,6 +1543,30 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		hotS = append(hotS, float64(ds.Hot))
 	}
 
+	// Activity bars for the overview chart: one bar per day, height relative to
+	// the busiest day. The most recent day is flagged so the chart highlights it.
+	var peak int
+	for _, ds := range daily {
+		if ds.Active > peak {
+			peak = ds.Active
+		}
+	}
+	activityBars := make([]map[string]any, 0, len(daily))
+	for i, ds := range daily {
+		pct := 4
+		if peak > 0 {
+			if pct = ds.Active * 100 / peak; pct < 4 {
+				pct = 4
+			}
+		}
+		activityBars = append(activityBars, map[string]any{
+			"Label": ds.Day.Format("Mon")[:2],
+			"Val":   ds.Active,
+			"Pct":   pct,
+			"Cur":   i == len(daily)-1,
+		})
+	}
+
 	hour := time.Now().Hour()
 	greeting := "Good evening"
 	if hour < 12 {
@@ -1572,6 +1596,8 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		"SparkOff":             sparkPoints(offS),
 		"SparkLow":             sparkPoints(lowS),
 		"SparkHot":             sparkPoints(hotS),
+		"ActivityBars":         activityBars,
+		"ActivityPeak":         peak,
 		"Audit":                audit,
 		"OpenAlerts":           openAlerts,
 		"ActiveThresholdLabel": fmt.Sprintf("%d min", activeSecs/60),
