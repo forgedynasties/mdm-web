@@ -236,8 +236,9 @@ body > .modal-backdrop {
   z-index: 1;
 }
 
-/* Sidebar layout: shift page content right of the fixed sidebar */
-body.has-sidebar { padding-left: 220px; }
+/* Dock layout: full-width canvas; leave room at the bottom for the floating dock. */
+body.has-dock { padding-left: 0; }
+body.has-dock .container { padding-bottom: 104px; }
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-h); }
@@ -4793,3 +4794,121 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .wlc-toggle.on .wlc-sw { background: var(--accent); }
 .wlc-knob { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; transition: left var(--dur) var(--ease); box-shadow: 0 1px 2px rgba(0,0,0,.25); }
 .wlc-toggle.on .wlc-knob { left: 16px; }
+
+/* ============================================================================
+   Global chrome v2 — top app bar + floating bottom dock (replaces the sidebar)
+   ============================================================================ */
+.appbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 12px 24px;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-soft);
+}
+.appbar-brand {
+  font-family: var(--font); font-weight: var(--fw-semibold); font-size: 18px;
+  letter-spacing: -0.01em; color: var(--text); flex: none;
+}
+.appbar-brand:hover { opacity: 0.85; }
+.appbar-right { display: flex; align-items: center; gap: 10px; }
+
+.appbar-icon {
+  position: relative; width: 38px; height: 38px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 11px; border: 1px solid var(--border); background: var(--surface);
+  color: var(--text-2); cursor: pointer; transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.appbar-icon:hover { border-color: var(--rule-2); color: var(--text); }
+.appbar-icon .ui-icon, .appbar-icon .ui-icon svg { width: 18px; height: 18px; }
+.appbar-icon .nav-badge {
+  position: absolute; top: -5px; right: -5px; min-width: 17px; height: 17px;
+  padding: 0 4px; border-radius: 9px; border: 2px solid var(--bg); margin: 0;
+}
+
+.appbar-acct {
+  display: flex; align-items: center; gap: 9px; height: 38px; padding: 0 6px 0 12px;
+  border-radius: 11px; border: 1px solid var(--border); background: var(--surface); cursor: pointer;
+  transition: border-color var(--dur) var(--ease);
+}
+.appbar-acct:hover { border-color: var(--rule-2); }
+.appbar-acct .who { display: flex; flex-direction: column; text-align: right; line-height: 1.15; }
+.appbar-acct .who .n { font-size: 12.5px; font-weight: var(--fw-semibold); color: var(--text); }
+.appbar-acct .who .r { font-size: 10.5px; color: var(--muted); text-transform: capitalize; }
+.appbar-acct .av {
+  width: 26px; height: 26px; border-radius: 8px; flex: none;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #7a80f6, #f9674e); color: #fff;
+  font-weight: 700; font-size: 12px; text-transform: uppercase;
+}
+
+/* dropdown shells */
+.nbar-wrap { position: relative; }
+.nbar-pop {
+  position: absolute; top: calc(100% + 9px); right: 0; z-index: 50; width: 250px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  box-shadow: var(--shadow-pop); padding: 7px;
+  animation: ov-rise 0.14s var(--ease) both;
+}
+.nbar-pop[hidden] { display: none; }
+.nbar-mhead { padding: 9px 11px 9px; border-bottom: 1px solid var(--border-soft); margin-bottom: 6px; }
+.nbar-mhead .n { font-weight: var(--fw-semibold); font-size: 13px; color: var(--text); }
+.nbar-mhead .e { font-size: 11.5px; color: var(--muted); text-transform: capitalize; }
+.nbar-mi {
+  width: 100%; display: flex; align-items: center; gap: 11px; padding: 9px 11px;
+  border: 0; background: none; border-radius: 9px; font: inherit; font-size: 13px;
+  color: var(--text); cursor: pointer; text-align: left; text-decoration: none;
+}
+.nbar-mi:hover { background: var(--surface2); color: var(--text); }
+.nbar-mi .ui-icon, .nbar-mi .ui-icon svg { width: 16px; height: 16px; color: var(--muted); }
+.nbar-mi .nbar-mi-label { flex: 1; }
+.nbar-mi .nbar-mi-rt, .nbar-mi .nbar-theme-state { margin-left: auto; font-size: 11px; color: var(--text-faint); }
+.nbar-mi.danger, .nbar-mi.danger .ui-icon { color: var(--danger); }
+.nbar-mi.danger:hover { background: var(--danger-bg); }
+.nbar-sep { height: 1px; background: var(--border-soft); margin: 6px 4px; }
+/* theme icon swap inside the menu item — show the icon for the theme you'd switch to */
+.nbar-mi .theme-icon-light, .nbar-mi .theme-icon-dark { width: 16px; height: 16px; }
+.nbar-mi .theme-icon-light { display: none; }
+.nbar-mi .theme-icon-dark { display: inline-flex; }
+html[data-theme="dark"] .nbar-mi .theme-icon-light { display: inline-flex; }
+html[data-theme="dark"] .nbar-mi .theme-icon-dark { display: none; }
+
+/* alerts dropdown list */
+.nbar-alerts { width: 322px; }
+.nbar-pop-h { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); padding: 7px 9px 8px; }
+.nbar-al { display: flex; gap: 10px; padding: 9px 9px; border-radius: 9px; text-decoration: none; }
+.nbar-al:hover { background: var(--surface2); }
+.nbar-al-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; background: var(--muted); }
+.nbar-al-dot.sev-critical { background: var(--danger); }
+.nbar-al-dot.sev-warning { background: var(--warn); }
+.nbar-al-dot.sev-info { background: var(--accent-2, #7a80f6); }
+.nbar-al-main { min-width: 0; }
+.nbar-al-t { display: block; font-size: 12.5px; font-weight: var(--fw-semibold); color: var(--text); }
+.nbar-al-s { display: block; font-size: 11.5px; color: var(--muted); }
+.nbar-al-all { display: block; text-align: center; font-size: 12px; font-weight: var(--fw-semibold); color: var(--accent); padding: 9px; border-top: 1px solid var(--border-soft); margin-top: 4px; text-decoration: none; }
+.nbar-al-empty { padding: 16px 11px; text-align: center; color: var(--muted); font-size: 12.5px; }
+
+/* ── floating bottom-center dock ── */
+.dock {
+  position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 45;
+  display: flex; gap: 4px; padding: 7px;
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--border); border-radius: 16px;
+  box-shadow: 0 12px 36px rgba(20, 22, 40, .16);
+}
+.dock .nav-link {
+  display: inline-flex; align-items: center; gap: 9px; padding: 10px 16px;
+  border-radius: 11px; font-size: 13.5px; font-weight: var(--fw-semibold); color: var(--muted);
+}
+.dock .nav-link:hover { background: var(--surface2); color: var(--text); }
+.dock .nav-link.active { background: var(--accent-soft); color: var(--accent); }
+.dock .nav-link .ui-icon, .dock .nav-link .ui-icon svg { width: 17px; height: 17px; }
+
+@media (max-width: 640px) {
+  .appbar { padding: 10px 16px; }
+  .dock { left: 12px; right: 12px; transform: none; justify-content: space-around; bottom: 14px; }
+  .dock .nav-link { padding: 9px 10px; flex-direction: column; gap: 3px; font-size: 11px; }
+  .appbar-acct .who { display: none; }
+  .appbar-acct { padding: 0 6px; }
+}

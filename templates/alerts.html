@@ -260,3 +260,21 @@ function alertUpdateBulk() {
 {{define "sev-icon-critical"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>{{end}}
 {{define "sev-icon-warning"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>{{end}}
 {{define "sev-icon-info"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>{{end}}
+
+{{/* Compact recent-alerts list for the top-bar bell dropdown (lazy-loaded via htmx). */}}
+{{define "alerts-recent"}}
+{{if .Alerts}}
+{{range .Alerts}}
+<a class="nbar-al" href="/alerts">
+  <span class="nbar-al-dot sev-{{.Severity}}"></span>
+  <span class="nbar-al-main">
+    <span class="nbar-al-t">{{.Summary}}</span>
+    <span class="nbar-al-s">{{if .Serial}}<span class="mono">{{.Serial}}</span> · {{end}}{{timeSince .FiredAt}}{{if gt .Occurrences 1}} · ×{{.Occurrences}}{{end}}</span>
+  </span>
+</a>
+{{end}}
+<a class="nbar-al-all" href="/alerts">View all alerts →</a>
+{{else}}
+<div class="nbar-al-empty">No open alerts.</div>
+{{end}}
+{{end}}
