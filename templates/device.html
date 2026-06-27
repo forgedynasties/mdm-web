@@ -1189,9 +1189,18 @@
       </form>
     </div>
     {{end}}
-    {{if .InstalledPackages}}
-    <div class="app-search"><input type="text" id="apps-filter" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>
+    {{if or .InstalledPackages .PendingInstalls}}
+    {{if .InstalledPackages}}<div class="app-search"><input type="text" id="apps-filter" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>{{end}}
     <div class="app-list{{if gt (len .InstalledPackages) 6}} collapsed{{end}}" id="apps-table">
+      {{range .PendingInstalls}}
+      <div class="app-row app-installing" data-app="{{.Name}} {{.ApkURL}}">
+        <div class="app-id">
+          <div class="app-name">{{.Name}}</div>
+          <div class="app-pkg mono">queued · installs on next check-in</div>
+        </div>
+        <span class="app-installing-tag"><span class="app-spin"></span>installing</span>
+      </div>
+      {{end}}
       {{range $i, $p := .InstalledPackages}}
       <div class="app-row{{if ge $i 6}} app-extra{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}">
         <div class="app-id">
