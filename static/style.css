@@ -4958,3 +4958,6 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .dp-av.sel { background: var(--accent-soft); }
 .dp-av.sel .dp-check { background: var(--accent); border-color: var(--accent); }
 .dp-av.sel .dp-check::after { content: ''; position: absolute; left: 5px; top: 2px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
+
+/* device detail: system-app tag (no uninstall) */
+.app-systag { font-size: 10.5px; font-weight: 600; color: var(--text-faint); border: 1px solid var(--border); border-radius: 99px; padding: 2px 8px; white-space: nowrap; }
