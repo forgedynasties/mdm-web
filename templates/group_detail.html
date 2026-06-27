@@ -78,41 +78,8 @@
     </div>
   </div>
   {{else}}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Serial Number</th>
-        <th>Release version</th>
-        <th>Battery</th>
-        <th>Last Seen</th>
-        {{if canAdmin .Role}}<th></th>{{end}}
-      </tr>
-    </thead>
-    <tbody>
-      {{range .Devices}}
-      <tr>
-        <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
-        <td class="mono small">{{.BuildID}}</td>
-        <td>
-          <div class="battery-wrap">
-            <div class="battery-track">
-              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
-            </div>
-            <span class="battery-label">{{.BatteryPct}}%</span>
-          </div>
-        </td>
-        <td class="muted">{{timeSince .LastSeenAt}}</td>
-        {{if canAdmin $.Role}}
-        <td>
-          <form action="/groups/{{$.Group.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline">
-            <button type="submit" class="btn-danger-sm">Remove</button>
-          </form>
-        </td>
-        {{end}}
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+  {{$rm := ""}}{{if canAdmin .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{end}}
+  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm)}}
   {{end}}
 </div>
 

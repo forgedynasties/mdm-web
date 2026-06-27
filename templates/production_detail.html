@@ -92,49 +92,7 @@
     </div>
   </div>
   {{else}}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Status</th>
-        <th>Serial Number</th>
-        <th>Release version</th>
-        <th>Battery</th>
-        <th>Last Seen</th>
-        <th>First Seen</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{range .Devices}}
-      <tr class="{{if eq .ConnectionStatus "online"}}row-online{{else if eq .ConnectionStatus "offline"}}row-stale{{end}}">
-        <td>
-          {{if eq .ConnectionStatus "online"}}
-            <span class="status-dot dot-online" title="Online"></span>
-          {{else}}
-            <span class="status-dot dot-offline" title="Offline"></span>
-          {{end}}
-        </td>
-        <td>
-          <a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>
-        </td>
-        <td class="mono small">{{.BuildID}}</td>
-        <td>
-          {{if gt .BatteryPct 0}}
-          <div class="battery-wrap">
-            <div class="battery-track">
-              <div class="battery-bar {{batteryClass .BatteryPct}}" style="width:{{batteryWidth .BatteryPct}}"></div>
-            </div>
-            <span class="battery-label">{{.BatteryPct}}%</span>
-          </div>
-          {{else}}
-          <span class="muted">—</span>
-          {{end}}
-        </td>
-        <td class="muted">{{timeSince .LastSeenAt}}</td>
-        <td class="muted small">{{localTime .CreatedAt}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs)}}
   {{end}}
 </div>
 
