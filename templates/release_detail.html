@@ -46,33 +46,46 @@
 {{end}}
 
 <!-- At-a-glance -->
-<div class="stats-grid" style="margin-bottom:16px;">
-  <div class="stat-card">
-    <div class="stat-label">Packages</div>
-    <div class="stat-value">{{len .Packages}}</div>
-    <div class="stat-sub">{{if .HasFull}}full image ready{{else}}no full image yet{{end}}</div>
+<div class="rel-vitals" style="margin-bottom:16px;">
+  <div class="ovx-stat">
+    <div class="ovx-stat-top">
+      <span class="ovx-ico i-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
+      <span class="ovx-big">{{len .Packages}}</span>
+    </div>
+    <span class="ovx-lbl">Packages</span>
+    <span class="ovx-sub">{{if .HasFull}}full image ready{{else}}no full image yet{{end}}</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Updates</div>
-    <div class="stat-value">{{len .Deployments}}</div>
+  <div class="ovx-stat">
+    <div class="ovx-stat-top">
+      <span class="ovx-ico i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+      <span class="ovx-big">{{len .Deployments}}</span>
+    </div>
+    <span class="ovx-lbl">Updates</span>
+    <span class="ovx-sub">rollouts pushed</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Devices on version</div>
-    <div class="stat-value">{{len .DevicesOnVersion}}</div>
+  <div class="ovx-stat">
+    <div class="ovx-stat-top">
+      <span class="ovx-ico i-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
+      <span class="ovx-big">{{len .DevicesOnVersion}}</span>
+    </div>
+    <span class="ovx-lbl">On this version</span>
+    <span class="ovx-sub">reporting now</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">QA</div>
-    {{if gt .QA.Total 0}}
-    <div class="stat-value small">{{.QA.Pass}}/{{.QA.Total}} passed</div>
-    <div class="stat-sub">{{if gt .QA.Fail 0}}{{.QA.Fail}} failed · {{end}}{{.QA.Untested}} untested</div>
-    {{else}}
-    <div class="stat-value small muted">no cases</div>
-    {{end}}
+  <div class="ovx-stat">
+    <div class="ovx-stat-top">
+      <span class="ovx-ico i-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+      {{if gt .QA.Total 0}}<span class="ovx-big{{if .QA.Passed}} ok{{else if gt .QA.Fail 0}} bad{{else}} warn{{end}}" style="font-size:24px;">{{.QA.Pass}}/{{.QA.Total}}</span>{{else}}<span class="ovx-big muted" style="font-size:22px;">—</span>{{end}}
+    </div>
+    <span class="ovx-lbl">QA passed</span>
+    <span class="ovx-sub">{{if gt .QA.Total 0}}{{if gt .QA.Fail 0}}{{.QA.Fail}} failed · {{end}}{{.QA.Untested}} untested{{else}}no test cases{{end}}</span>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Created</div>
-    <div class="stat-value small">{{timeSince $rel.CreatedAt}}</div>
-    <div class="stat-sub">{{localTime $rel.CreatedAt}}</div>
+  <div class="ovx-stat">
+    <div class="ovx-stat-top">
+      <span class="ovx-ico i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+      <span class="ovx-big" style="font-size:19px;">{{timeSince $rel.CreatedAt}}</span>
+    </div>
+    <span class="ovx-lbl">Created</span>
+    <span class="ovx-sub">{{localTime $rel.CreatedAt}}</span>
   </div>
 </div>
 
