@@ -4329,7 +4329,9 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
 	// Adoption: which devices are currently on this version (the artifact's real-world reach).
-	devicesOnVersion, _ := h.db.ListDevicesByVersion(r.Context(), rel.Version)
+	// Full device rows so the roster renders with the same fleet card as /devices.
+	activeThreshold := h.cfg.CheckinInterval() * 3
+	devicesOnVersion, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{BuildID: rel.Version}, 0, 500, "serial", "asc")
 
 	// hasFull gates the "Add full package" form constraints; canPush gates the
 	// Push Update form. An incremental-only release is pushable — the per-device
@@ -4385,10 +4387,11 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"Groups":           groups,
 		"HasFull":          hasFull,
 		"CanPush":          canPush,
-		"DevicesOnVersion": devicesOnVersion,
-		"Checklist":        checklist,
-		"QA":               qa,
-		"CanRecord":        role == "tester",
+		"DevicesOnVersion":    devicesOnVersion,
+		"ActiveThresholdSecs": activeThreshold,
+		"Checklist":           checklist,
+		"QA":                  qa,
+		"CanRecord":           role == "tester",
 	})
 }
 

@@ -1,3 +1,38 @@
+{{/* Reusable fleet-style device card list. Context: Devices (full db.Device list),
+     Online (map id→bool), ActiveThresholdSecs, optional Selectable (show checkbox).
+     Used by the fleet table and by device rosters on other pages. */}}
+{{define "device-cards"}}
+<div class="dl-list">
+  {{range .Devices}}
+  <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}">
+    {{if $.Selectable}}<input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">{{else}}<span class="dl-cb-spacer" aria-hidden="true"></span>{{end}}
+    <div class="dl-bat">
+      <span class="dl-chip {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%">
+        {{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}}<span class="bat-glyph" title="Charging"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{else}}<span class="bat-glyph"><svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg></span>{{end}}
+        <span class="battery-label">{{.BatteryPct}}%</span>
+      </span>
+    </div>
+    <div class="dl-id">
+      <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">hidden</span>{{end}}</div>
+      <span class="dl-rel">{{.BuildID}}</span>
+      <span class="dl-onboard">Onboarded {{shortDate .CreatedAt}}</span>
+    </div>
+    <div class="dl-metrics">
+      <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      <span class="dl-m" data-m="temp"><span class="k">Temp</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+    </div>
+    <div class="dl-status-col">
+      {{if index $.Online .ID}}<span class="dl-status on"><i></i>Online</span>{{else}}<span class="dl-status off"><i></i>Offline</span>{{end}}
+      <span class="dl-synced">Synced {{timeSince .LastSeenAt}}</span>
+    </div>
+    <div class="dl-act">
+      <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
 {{define "device-table"}}
 {{if or .Query .FilterStatus .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden}}
 <div class="fleet-chips">
@@ -43,45 +78,19 @@
   </div>
 </div>
 
+{{if .Devices}}
+{{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "Selectable" true)}}
+{{else}}
 <div class="dl-list">
-  {{if .Devices}}
-    {{range .Devices}}
-    <div class="dl-card {{rowClasses .}}" data-serial="{{.SerialNumber}}">
-      <input type="checkbox" class="device-cb" value="{{.SerialNumber}}" data-hidden="{{.Hidden}}" onchange="updateBulkBar()" aria-label="Select {{.SerialNumber}}">
-      <div class="dl-bat">
-        <span class="dl-chip {{batteryClass .BatteryPct}}" role="img" aria-label="Battery {{.BatteryPct}}%">
-          {{if and (charging .LatestExtra) (notStale .LastSeenAt $.ActiveThresholdSecs)}}<span class="bat-glyph" title="Charging"><svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span>{{else}}<span class="bat-glyph"><svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg></span>{{end}}
-          <span class="battery-label">{{.BatteryPct}}%</span>
-        </span>
-      </div>
-      <div class="dl-id">
-        <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">hidden</span>{{end}}</div>
-        <span class="dl-rel">{{.BuildID}}</span>
-        <span class="dl-onboard">Onboarded {{shortDate .CreatedAt}}</span>
-      </div>
-      <div class="dl-metrics">
-        <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
-        <span class="dl-m" data-m="temp"><span class="k">Temp</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
-      </div>
-      <div class="dl-status-col">
-        {{if index $.Online .ID}}<span class="dl-status on"><i></i>Online</span>{{else}}<span class="dl-status off"><i></i>Offline</span>{{end}}
-        <span class="dl-synced">Synced {{timeSince .LastSeenAt}}</span>
-      </div>
-      <div class="dl-act">
-        <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
-      </div>
+  <div class="empty-state" style="padding:40px 20px;">
+    <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
+    <div class="empty-state-copy">
+      <div class="empty-state-title">{{if .Query}}No devices match "{{.Query}}"{{else}}No devices yet{{end}}</div>
+      <div class="empty-state-text">{{if .Query}}Try a different search term or clear filters.{{else}}Devices will appear here after their first check-in.{{end}}</div>
     </div>
-    {{end}}
-  {{else}}
-    <div class="empty-state" style="padding:40px 20px;">
-      <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
-      <div class="empty-state-copy">
-        <div class="empty-state-title">{{if .Query}}No devices match "{{.Query}}"{{else}}No devices yet{{end}}</div>
-        <div class="empty-state-text">{{if .Query}}Try a different search term or clear filters.{{else}}Devices will appear here after their first check-in.{{end}}</div>
-      </div>
-    </div>
-  {{end}}
+  </div>
 </div>
+{{end}}
 
 {{if gt .TotalPages 1}}
 <div class="pagination">
