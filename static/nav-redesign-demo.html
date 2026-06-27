@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shell redesign — bottom dock · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+:root{--dockh:60px;}
+body{background:var(--bg,#f6f7f9);margin:0;min-height:100vh;}
+.page{max-width:1080px;margin:0 auto;padding:70px 28px 130px;}
+
+/* ── top bar: brand left, admin cluster right ── */
+.topbar{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;
+  padding:14px 26px;background:rgba(246,247,249,.82);backdrop-filter:blur(10px);border-bottom:1px solid var(--border-soft);}
+.brand{font-family:'Poppins',sans-serif;font-weight:700;font-size:18px;letter-spacing:-.01em;}
+.brand .a{background:linear-gradient(90deg,#7a80f6,#f9674e);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.brand .m{color:var(--muted);}
+.tr{display:flex;align-items:center;gap:10px;}
+.iconbtn{position:relative;width:38px;height:38px;border-radius:11px;border:1px solid var(--border);background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text-2);}
+.iconbtn:hover{border-color:var(--rule-2,#d6d8e0);}
+.iconbtn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;}
+.iconbtn .dot{position:absolute;top:-5px;right:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--accent);color:#fff;font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg,#f6f7f9);}
+.acct{display:flex;align-items:center;gap:9px;height:38px;padding:0 6px 0 12px;border-radius:11px;border:1px solid var(--border);background:#fff;cursor:pointer;}
+.acct .who{text-align:right;line-height:1.15;display:flex;flex-direction:column;}
+.acct .who .n{font-size:12.5px;font-weight:700;}
+.acct .who .r{font-size:10.5px;color:var(--muted);text-transform:capitalize;}
+.acct .av{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#7a80f6,#f9674e);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;}
+
+/* ── dropdown menus ── */
+.menu{position:absolute;top:54px;right:26px;z-index:50;width:248px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop,0 18px 50px rgba(20,22,40,.16));padding:7px;display:none;}
+.menu.open{display:block;}
+.menu .mhead{padding:9px 11px 8px;border-bottom:1px solid var(--border-soft);margin-bottom:6px;}
+.menu .mhead .n{font-weight:700;font-size:13px;}
+.menu .mhead .e{font-size:11.5px;color:var(--muted);}
+.mi{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:9px;font-size:13px;color:var(--text);cursor:pointer;text-decoration:none;}
+.mi:hover{background:var(--surface2,#eef0f4);}
+.mi svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;color:var(--muted);}
+.mi.danger{color:#d6354a;}.mi.danger svg{color:#d6354a;}
+.mi .rt{margin-left:auto;font-size:11px;color:var(--faint,#9aa0b0);}
+.msep{height:1px;background:var(--border-soft);margin:6px 4px;}
+.toggle{margin-left:auto;width:34px;height:20px;border-radius:99px;background:var(--accent);position:relative;}
+.toggle i{position:absolute;top:2px;left:16px;width:16px;height:16px;border-radius:50%;background:#fff;}
+
+/* alerts menu wider */
+.menu.alerts{width:320px;right:74px;}
+.al{display:flex;gap:10px;padding:10px 11px;border-radius:9px;}
+.al:hover{background:var(--surface2,#eef0f4);}
+.al .ad{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none;}
+.al .ad.hi{background:#e5484d;}.al .ad.md{background:#e8a13a;}
+.al .at{font-size:12.5px;font-weight:600;}
+.al .as{font-size:11.5px;color:var(--muted);}
+.viewall{display:block;text-align:center;font-size:12px;font-weight:600;color:var(--accent);padding:9px;border-top:1px solid var(--border-soft);margin-top:4px;text-decoration:none;}
+
+/* ── bottom-center dock ── */
+.dock{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:45;display:flex;gap:4px;
+  background:rgba(255,255,255,.9);backdrop-filter:blur(14px);border:1px solid var(--border);border-radius:16px;
+  box-shadow:0 12px 36px rgba(20,22,40,.16);padding:7px;}
+.dock a{display:flex;align-items:center;gap:9px;padding:10px 16px;border-radius:11px;font-size:13.5px;font-weight:600;color:var(--muted);text-decoration:none;}
+.dock a:hover{background:var(--surface2,#eef0f4);color:var(--text);}
+.dock a.on{background:var(--accent-soft);color:var(--accent);}
+.dock a svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;}
+
+/* faux page content */
+.hello{font-size:23px;font-weight:700;margin:0 0 2px;}
+.sub{color:var(--muted);font-size:13px;margin:0 0 22px;}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px;}
+.stat{background:#fff;border:1px solid var(--border);border-radius:14px;padding:16px 18px;}
+.stat .k{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint,#9aa0b0);}
+.stat .v{font-size:26px;font-weight:700;margin-top:6px;}
+.wide{background:#fff;border:1px solid var(--border);border-radius:14px;height:200px;}
+.hint{position:fixed;left:18px;bottom:20px;font-size:11px;color:var(--faint,#9aa0b0);}
+</style></head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span class="a">AIO</span> <span class="m">MDM</span></div>
+  <div class="tr">
+    <button class="iconbtn" onclick="toggle('alerts')" title="Alerts"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dot">3</span></button>
+    <button class="acct" onclick="toggle('acct')">
+      <span class="who"><span class="n">hwadmin</span><span class="r">admin</span></span>
+      <span class="av">H</span>
+    </button>
+  </div>
+</div>
+
+<!-- alerts dropdown -->
+<div class="menu alerts" id="m-alerts">
+  <div class="al"><span class="ad hi"></span><div><div class="at">Battery critical · AT070AABU00280</div><div class="as">34% and falling · 6m ago</div></div></div>
+  <div class="al"><span class="ad md"></span><div><div class="at">Device offline · AT070AABU00settings</div><div class="as">No check-in for 2h · 41m ago</div></div></div>
+  <div class="al"><span class="ad md"></span><div><div class="at">Install failed · POS Terminal 1.9</div><div class="as">3 devices · 1h ago</div></div></div>
+  <a class="viewall" href="#">View all alerts →</a>
+</div>
+
+<!-- account dropdown -->
+<div class="menu" id="m-acct">
+  <div class="mhead"><div class="n">hwadmin</div><div class="e">claude-hw@aioapp.com</div></div>
+  <div class="mi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></svg>Theme<span class="toggle"><i></i></span></div>
+  <div class="msep"></div>
+  <a class="mi"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8z"/></svg>Settings</a>
+  <a class="mi"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg>Users</a>
+  <div class="msep"></div>
+  <a class="mi danger"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg>Sign out</a>
+</div>
+
+<div class="page">
+  <h1 class="hello">Good afternoon</h1>
+  <p class="sub">Full-width canvas — the left rail is gone; primary nav lives in the dock below.</p>
+  <div class="grid">
+    <div class="stat"><div class="k">Devices</div><div class="v">312</div></div>
+    <div class="stat"><div class="k">Online</div><div class="v">298</div></div>
+    <div class="stat"><div class="k">Alerts</div><div class="v">3</div></div>
+    <div class="stat"><div class="k">Releases</div><div class="v">7</div></div>
+  </div>
+  <div class="wide"></div>
+</div>
+
+<!-- bottom-center dock -->
+<div class="dock">
+  <a><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"/></svg>Overview</a>
+  <a><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg>Fleet</a>
+  <a class="on"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</a>
+  <a><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>Releases</a>
+</div>
+
+<div class="hint">demo · static mock</div>
+<script>
+function toggle(which){
+  var a=document.getElementById('m-acct'),b=document.getElementById('m-alerts');
+  if(which==='acct'){a.classList.toggle('open');b.classList.remove('open');}
+  else{b.classList.toggle('open');a.classList.remove('open');}
+}
+if(location.hash==='#acct')document.getElementById('m-acct').classList.add('open');
+if(location.hash==='#alerts')document.getElementById('m-alerts').classList.add('open');
+</script>
+</body></html>
