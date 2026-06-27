@@ -17,6 +17,7 @@ import (
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
 	"mdm/internal/middleware"
+	"mdm/internal/logstream"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
@@ -98,6 +99,7 @@ func main() {
 	hub := ws.NewHub()
 	shellMgr := shell.NewManager()
 	remoteMgr := remote.New(hub)
+	logMgr := logstream.NewManager()
 	hub.SetOnBinaryMessage(remoteMgr.RelayFrame)
 
 	mux := http.NewServeMux()
@@ -172,6 +174,8 @@ func main() {
 			}
 			_ = json.Unmarshal(raw, &p)
 			hub.SignalPong(p.Nonce)
+		case "logcat_stream", "logcat_stream_end":
+			logMgr.HandleDeviceMessage(raw)
 		default:
 			shellMgr.HandleDeviceMessage(deviceID, raw)
 		}
@@ -213,7 +217,7 @@ func main() {
 	mux.Handle("POST /api/v1/commands", adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
 	mux.Handle("GET /api/v1/commands/{id}", adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 
-	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
+	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
 	dash.RegisterRoutes(mux)
 
 	// One-time backfill of daily stats for any historical days not yet rolled up.

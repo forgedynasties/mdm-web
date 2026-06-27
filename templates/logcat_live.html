@@ -1,0 +1,191 @@
+{{define "logcat_live.html"}}
+{{template "header" .}}
+
+<a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
+<div class="ov-greet">
+  <h1 class="ov-title">Live logs</h1>
+  <span class="ov-date mono">{{.Device.SerialNumber}}</span>
+</div>
+
+<style>
+.llc-bar{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--border-soft);}
+.llc-field{display:flex;flex-direction:column;gap:5px;}
+.llc-lbl{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
+.llc-levels{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px;}
+.llc-lv{width:34px;height:30px;border:0;border-radius:6px;background:none;font:inherit;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;}
+.llc-lv.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm);}
+.llc-bar .form-input,.llc-bar select.form-input{height:36px;}
+.llc-spacer{flex:1;}
+.llc-status{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;}
+.llc-status i{width:8px;height:8px;border-radius:50%;background:var(--text-faint);}
+.llc-status.live i{background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 25%,transparent);}
+.llc-status.err i{background:var(--danger);}
+.llc-toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap;}
+.llc-toolbar .chk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer;}
+.llc-count{font-size:11.5px;color:var(--text-faint);margin-left:auto;}
+.llc-console{margin:0;height:60vh;min-height:360px;overflow:auto;background:#0e1116;color:#c9d1d9;
+  font-family:var(--mono);font-size:12px;line-height:1.55;padding:12px 14px;white-space:pre;}
+.llc-console.wrap{white-space:pre-wrap;word-break:break-word;}
+.llc-line{display:block;}
+.llc-V{color:#7d8590;} .llc-D{color:#79c0ff;} .llc-I{color:#3fb950;}
+.llc-W{color:#d29922;} .llc-E{color:#f85149;} .llc-F{color:#ff7b72;font-weight:700;}
+.llc-empty{color:#586069;}
+</style>
+
+<div class="card dv-rise-1" style="overflow:hidden;">
+  <div class="llc-bar">
+    <div class="llc-field">
+      <span class="llc-lbl">Min level</span>
+      <div class="llc-levels" id="llc-levels">
+        <button type="button" class="llc-lv on" data-lv="V">V</button>
+        <button type="button" class="llc-lv" data-lv="D">D</button>
+        <button type="button" class="llc-lv" data-lv="I">I</button>
+        <button type="button" class="llc-lv" data-lv="W">W</button>
+        <button type="button" class="llc-lv" data-lv="E">E</button>
+      </div>
+    </div>
+    <div class="llc-field">
+      <span class="llc-lbl">Buffer</span>
+      <select class="form-input" id="llc-buffer" style="width:140px;">
+        <option value="main">main</option>
+        <option value="system">system</option>
+        <option value="crash">crash</option>
+        <option value="radio">radio</option>
+        <option value="events">events</option>
+        <option value="all">all</option>
+      </select>
+    </div>
+    <div class="llc-field">
+      <span class="llc-lbl">Tag</span>
+      <input type="text" class="form-input" id="llc-tag" placeholder="e.g. MdmService" style="width:160px;" autocomplete="off">
+    </div>
+    <div class="llc-field">
+      <span class="llc-lbl">Filter (regex)</span>
+      <input type="text" class="form-input" id="llc-grep" placeholder="optional" style="width:160px;" autocomplete="off">
+    </div>
+    <div class="llc-field">
+      <span class="llc-lbl">Backlog</span>
+      <input type="number" class="form-input" id="llc-tail" value="200" min="0" max="5000" style="width:90px;">
+    </div>
+    <div class="llc-spacer"></div>
+    <span class="llc-status" id="llc-status"><i></i><span id="llc-status-text">Idle</span></span>
+  </div>
+
+  <div class="llc-toolbar">
+    <button type="button" class="btn-primary btn-sm" id="llc-toggle" onclick="llcToggle()">Start</button>
+    <button type="button" class="btn-outline btn-sm" onclick="llcClear()">Clear</button>
+    <label class="chk"><input type="checkbox" id="llc-autoscroll" checked> Autoscroll</label>
+    <label class="chk"><input type="checkbox" id="llc-wrap" onchange="document.getElementById('llc-console').classList.toggle('wrap', this.checked)"> Wrap</label>
+    <span class="llc-count" id="llc-count">0 lines</span>
+  </div>
+
+  <pre class="llc-console" id="llc-console"><span class="llc-empty">Press Start to begin streaming logs{{if not .Online}} — device is currently offline{{end}}.</span></pre>
+</div>
+
+<script>
+(function () {
+  var es = null, running = false, lineCount = 0, pending = '';
+  var MAX_LINES = 5000;
+  var serial = {{.Device.SerialNumber}};
+  var console = document.getElementById('llc-console');
+  var countEl = document.getElementById('llc-count');
+  var statusEl = document.getElementById('llc-status');
+  var statusText = document.getElementById('llc-status-text');
+  var toggleBtn = document.getElementById('llc-toggle');
+  var level = 'V';
+
+  document.querySelectorAll('#llc-levels .llc-lv').forEach(function (b) {
+    b.onclick = function () {
+      document.querySelectorAll('#llc-levels .llc-lv').forEach(function (x) { x.classList.toggle('on', x === b); });
+      level = b.dataset.lv;
+      if (running) restart();
+    };
+  });
+  ['llc-buffer','llc-tag','llc-grep','llc-tail'].forEach(function (id) {
+    var el = document.getElementById(id);
+    el.addEventListener('change', function () { if (running) restart(); });
+  });
+
+  function setStatus(state, text) {
+    statusEl.className = 'llc-status' + (state ? ' ' + state : '');
+    statusText.textContent = text;
+  }
+
+  function streamURL() {
+    var p = new URLSearchParams();
+    p.set('level', level);
+    p.set('buffer', document.getElementById('llc-buffer').value);
+    var tag = document.getElementById('llc-tag').value.trim(); if (tag) p.set('tag', tag);
+    var grep = document.getElementById('llc-grep').value.trim(); if (grep) p.set('grep', grep);
+    p.set('tail', document.getElementById('llc-tail').value || '200');
+    return '/devices/' + encodeURIComponent(serial) + '/logcat/stream?' + p.toString();
+  }
+
+  // Parse the level char out of a `-v threadtime` line and wrap it for coloring.
+  function renderLine(raw) {
+    var span = document.createElement('span');
+    span.className = 'llc-line';
+    var m = raw.match(/^\d\d-\d\d \d\d:\d\d:\d\d\.\d+\s+\d+\s+\d+\s+([VDIWEF])\s/);
+    if (m) span.classList.add('llc-' + m[1]);
+    span.textContent = raw + '\n';
+    return span;
+  }
+
+  function append(text) {
+    pending += text;
+    var idx = pending.lastIndexOf('\n');
+    if (idx === -1) return;
+    var complete = pending.slice(0, idx);
+    pending = pending.slice(idx + 1);
+    var lines = complete.split('\n');
+    var frag = document.createDocumentFragment();
+    for (var i = 0; i < lines.length; i++) frag.appendChild(renderLine(lines[i]));
+    console.appendChild(frag);
+    lineCount += lines.length;
+    // Trim from the top to cap memory.
+    while (lineCount > MAX_LINES && console.firstChild) {
+      console.removeChild(console.firstChild);
+      lineCount--;
+    }
+    countEl.textContent = lineCount.toLocaleString() + ' lines';
+    if (document.getElementById('llc-autoscroll').checked) console.scrollTop = console.scrollHeight;
+  }
+
+  function start() {
+    if (running) return;
+    var empty = console.querySelector('.llc-empty');
+    if (empty) console.innerHTML = '';
+    running = true;
+    toggleBtn.textContent = 'Stop';
+    toggleBtn.classList.remove('btn-primary'); toggleBtn.classList.add('btn-danger');
+    setStatus('', 'Connecting…');
+    es = new EventSource(streamURL());
+    es.onopen = function () { setStatus('live', 'Live'); };
+    es.onmessage = function (e) { try { append(JSON.parse(e.data)); } catch (x) {} };
+    es.addEventListener('end', function () { setStatus('err', 'Stream ended'); stop(true); });
+    es.onerror = function () {
+      // EventSource auto-retries; surface the state but keep the connection object.
+      setStatus('err', running ? 'Reconnecting…' : 'Disconnected');
+    };
+  }
+
+  function stop(keepStatus) {
+    running = false;
+    if (es) { es.close(); es = null; }
+    toggleBtn.textContent = 'Start';
+    toggleBtn.classList.add('btn-primary'); toggleBtn.classList.remove('btn-danger');
+    if (!keepStatus) setStatus('', 'Stopped');
+  }
+
+  function restart() { stop(true); start(); }
+
+  window.llcToggle = function () { if (running) stop(); else start(); };
+  window.llcClear = function () { console.innerHTML = ''; lineCount = 0; pending = ''; countEl.textContent = '0 lines'; };
+
+  // Stop the device-side stream cleanly when leaving the page.
+  window.addEventListener('beforeunload', function () { if (es) es.close(); });
+})();
+</script>
+
+{{template "footer" .}}
+{{end}}
