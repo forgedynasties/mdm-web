@@ -4866,12 +4866,6 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .nbar-mi.danger, .nbar-mi.danger .ui-icon { color: var(--danger); }
 .nbar-mi.danger:hover { background: var(--danger-bg); }
 .nbar-sep { height: 1px; background: var(--border-soft); margin: 6px 4px; }
-/* theme icon swap inside the menu item — show the icon for the theme you'd switch to */
-.nbar-mi .theme-icon-light, .nbar-mi .theme-icon-dark { width: 16px; height: 16px; }
-.nbar-mi .theme-icon-light { display: none; }
-.nbar-mi .theme-icon-dark { display: inline-flex; }
-html[data-theme="dark"] .nbar-mi .theme-icon-light { display: inline-flex; }
-html[data-theme="dark"] .nbar-mi .theme-icon-dark { display: none; }
 
 /* alerts dropdown list */
 .nbar-alerts { width: 322px; }
