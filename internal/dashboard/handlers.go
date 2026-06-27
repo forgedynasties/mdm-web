@@ -333,6 +333,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canAct": func(role string) bool {
 			return role == "admin" || role == "dev" || role == "operator" || role == "tester"
 		},
+		// canOperate reports operator-level UI power: operators and testers both
+		// have it, plus admin/dev. Mirrors requireOperatorOrAdmin on the server so
+		// the dashboard shows the same actions those roles can actually perform.
+		"canOperate": func(role string) bool {
+			return role == "admin" || role == "dev" || role == "operator" || role == "tester"
+		},
 		// alertTypeGroups feeds the per-channel alert-type filter in settings.
 		"alertTypeGroups": alertTypeCatalog,
 		// alertTypeLabel maps a raw alert type to its friendly catalog label
