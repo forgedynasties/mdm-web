@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device controls — declutter demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1000px;}
+h1{font-size:21px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 6px;max-width:780px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:6px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 14px;max-width:780px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+
+/* primary action accent */
+.ddc-btn.prim{background:var(--accent);border-color:transparent;color:#fff;}
+.ddc-btn.prim:hover{background:var(--accent-h,#e0573f);}
+.ddc-btn-ai{color:var(--accent);border-color:var(--accent-edge);}
+.ddc-btn svg{flex:none;}
+
+/* icon-only variant */
+.ddc-ico{width:38px;height:38px;padding:0;justify-content:center;}
+.ddc-ico svg{width:17px;height:17px;}
+.ddc-sep{width:1px;align-self:stretch;background:var(--border);margin:0 4px;}
+
+/* dropdown */
+.menu-wrap{position:relative;}
+.ddc-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:10;width:230px;background:var(--surface);border:1px solid var(--border);
+  border-radius:13px;box-shadow:var(--shadow-pop,0 18px 50px rgba(20,22,40,.16));padding:7px;}
+.ddc-mcap{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint,#9aa0b0);padding:9px 10px 5px;}
+.ddc-mi{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:9px;font-size:13px;color:var(--text);text-decoration:none;cursor:pointer;}
+.ddc-mi:hover{background:var(--surface2);}
+.ddc-mi svg{width:16px;height:16px;color:var(--muted);flex:none;}
+.ddc-mi.danger,.ddc-mi.danger svg{color:var(--danger);}
+.ddc-msep{height:1px;background:var(--border-soft);margin:5px 4px;}
+.caret{width:13px;height:13px;}
+</style></head>
+<body><div class="wrap">
+
+<h1>Device controls — declutter the hero toolbar</h1>
+<p class="lead">Today there are <b>9 buttons</b> jammed in one row (Reboot · Shell · Screenshot · Logcat · Live logs · Remote Control · Export · Analyze · ⋯). Three ways to calm it down — each keeps every action one or two clicks away.</p>
+
+<!-- reference -->
+<div class="eyebrow">Today</div>
+<div class="dname">The problem — 9 equal buttons</div>
+<div class="ddc-hero">
+  <div class="ddc-top">
+    <div class="ddc-id"><span class="ddc-status on"><i></i>Online</span><span class="ddc-serial mono">AT070AA2600039</span></div>
+    <div class="ddc-actions">
+      <span class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</span>
+      <span class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</span>
+      <span class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</span>
+      <span class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h16M17 10l3 2-3 2"/></svg>Logcat</span>
+      <span class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor"/></svg>Live logs</span>
+      <span class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</span>
+      <span class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export CSV</span>
+      <span class="ddc-btn ddc-btn-ai"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze with AI</span>
+      <span class="ddc-btn ddc-btn-icon" style="width:38px;height:38px;justify-content:center;padding:0;">⋯</span>
+    </div>
+  </div>
+  <div class="ddc-vitals"><span class="ddc-chip battery-ok">94%</span><span class="ddc-chip">29.6°C</span><span class="ddc-chip"><span class="k">RAM</span>48%</span></div>
+</div>
+
+<!-- A -->
+<div class="eyebrow">Option A</div>
+<div class="dname">Two primary actions + one “Actions ▾” menu <span class="rec">recommended</span></div>
+<div class="ddesc">Surface only what you reach for most — <b>Remote Control</b> and <b>Analyze with AI</b> — and tuck everything else into a single grouped menu. Calmest result; every action is two clicks.</div>
+<div class="ddc-hero">
+  <div class="ddc-top">
+    <div class="ddc-id"><span class="ddc-status on"><i></i>Online</span><span class="ddc-serial mono">AT070AA2600039</span></div>
+    <div class="ddc-actions">
+      <span class="ddc-btn prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</span>
+      <span class="ddc-btn ddc-btn-ai"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</span>
+      <span class="menu-wrap">
+        <span class="ddc-btn">Actions <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+        <div class="ddc-menu">
+          <div class="ddc-mcap">Diagnostics</div>
+          <a class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor"/></svg>Live logs</a>
+          <a class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h16M17 10l3 2-3 2"/></svg>Logcat (pull)</a>
+          <a class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</a>
+          <div class="ddc-msep"></div>
+          <div class="ddc-mcap">Device</div>
+          <a class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>
+          <a class="ddc-mi danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</a>
+          <div class="ddc-msep"></div>
+          <a class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export CSV</a>
+        </div>
+      </span>
+    </div>
+  </div>
+  <div class="ddc-vitals"><span class="ddc-chip battery-ok">94%</span><span class="ddc-chip">29.6°C</span><span class="ddc-chip"><span class="k">RAM</span>48%</span></div>
+</div>
+
+<!-- B -->
+<div class="eyebrow">Option B</div>
+<div class="dname">Grouped dropdowns — Diagnostics ▾ · Manage ▾</div>
+<div class="ddesc">Two category menus instead of one. A little more visible structure; good if you use both diagnostics and device controls a lot.</div>
+<div class="ddc-hero">
+  <div class="ddc-top">
+    <div class="ddc-id"><span class="ddc-status on"><i></i>Online</span><span class="ddc-serial mono">AT070AA2600039</span></div>
+    <div class="ddc-actions">
+      <span class="ddc-btn prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</span>
+      <span class="ddc-btn">Diagnostics <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+      <span class="menu-wrap">
+        <span class="ddc-btn">Manage <svg class="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></span>
+        <div class="ddc-menu" style="width:200px;">
+          <a class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>
+          <a class="ddc-mi danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</a>
+          <div class="ddc-msep"></div>
+          <a class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export CSV</a>
+        </div>
+      </span>
+      <span class="ddc-btn ddc-btn-ai"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</span>
+    </div>
+  </div>
+  <div class="ddc-vitals"><span class="ddc-chip battery-ok">94%</span><span class="ddc-chip">29.6°C</span><span class="ddc-chip"><span class="k">RAM</span>48%</span></div>
+</div>
+
+<!-- C -->
+<div class="eyebrow">Option C</div>
+<div class="dname">Compact icon rail — icons + tooltips</div>
+<div class="ddesc">Keep everything one-click but drop the labels to icons (hover for the name), with the two primary actions still labelled. Most compact; relies on recognisable icons.</div>
+<div class="ddc-hero">
+  <div class="ddc-top">
+    <div class="ddc-id"><span class="ddc-status on"><i></i>Online</span><span class="ddc-serial mono">AT070AA2600039</span></div>
+    <div class="ddc-actions" style="align-items:center;">
+      <span class="ddc-btn prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</span>
+      <span class="ddc-btn ddc-btn-ai"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</span>
+      <span class="ddc-sep"></span>
+      <span class="ddc-btn ddc-ico" title="Live logs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor"/></svg></span>
+      <span class="ddc-btn ddc-ico" title="Logcat (pull)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h16M17 10l3 2-3 2"/></svg></span>
+      <span class="ddc-btn ddc-ico" title="Screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></span>
+      <span class="ddc-btn ddc-ico" title="Shell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg></span>
+      <span class="ddc-btn ddc-ico" title="Reboot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>
+      <span class="ddc-btn ddc-ico" title="Export CSV"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
+    </div>
+  </div>
+  <div class="ddc-vitals"><span class="ddc-chip battery-ok">94%</span><span class="ddc-chip">29.6°C</span><span class="ddc-chip"><span class="k">RAM</span>48%</span></div>
+</div>
+
+</div></body></html>
