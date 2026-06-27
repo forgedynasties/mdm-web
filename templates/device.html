@@ -81,6 +81,10 @@
       <span class="ddc-meta">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}} · Onboarded {{shortDate .Device.CreatedAt}} · Synced {{timeSince .Device.LastSeenAt}}</span>
     </div>
     <div class="ddc-actions">
+      {{if or (canAdmin .Role) (eq .Role "operator")}}<form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="display:contents" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="ddc-btn" title="Reboot device"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>{{end}}
+      {{if and (or (canAdmin .Role) (eq .Role "operator")) .ShellEnabled}}<a href="/devices/{{.Device.SerialNumber}}/shell" class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
+      <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="display:contents"><input type="hidden" name="type" value="screenshot"><button type="submit" class="ddc-btn" title="Capture screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</button></form>
+      <a href="/devices/{{.Device.SerialNumber}}/logcat" class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg>Logcat</a>
       {{if and (or (canAdmin .Role) (eq .Role "operator")) .RemoteEnabled}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       <a href="/export?serials={{.Device.SerialNumber}}" class="ddc-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Export CSV</a>
       <button type="button" class="ddc-btn ddc-btn-ai" title="Analyze with AI" onclick="aiOpen()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze with AI</button>
@@ -1122,7 +1126,8 @@ function filterInstalledApps(q) {
 </script>
 
 <section class="dd-panel" data-dd-panel="controls" hidden>
-{{$ctrlDefault := "screenshot"}}{{if or (canAdmin .Role) (eq .Role "operator")}}{{$ctrlDefault = "install"}}{{end}}
+{{$ctrlDefault := "install"}}
+{{if or (canAdmin .Role) (eq .Role "operator")}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Controls</h3></div>
   <div class="device-actions">
@@ -1142,42 +1147,11 @@ function filterInstalledApps(q) {
         <div class="device-action-tile-copy">Choose an APK from the repository and queue it for the next check-in.</div>
       </button>
       {{end}}
-      <button type="button" class="device-action-tile{{if eq $ctrlDefault "screenshot"}} active{{end}}" data-device-action="screenshot" onclick="selectDeviceAction('screenshot', this)">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>
-        <div class="device-action-tile-title">Capture Screenshot</div>
-        <div class="device-action-tile-copy">Request a fresh screenshot and review it from the command status screen.</div>
-      </button>
-      {{if and (or (canAdmin .Role) (eq .Role "operator")) .RemoteEnabled}}
-      <a href="/devices/{{.Device.SerialNumber}}/remote" class="device-action-tile" style="text-decoration:none;color:inherit;">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg></span>
-        <div class="device-action-tile-title">Remote Control</div>
-        <div class="device-action-tile-copy">View and control the device screen in real time over WebSocket.</div>
-      </a>
-      {{end}}
-      {{if and (or (canAdmin .Role) (eq .Role "operator")) .ShellEnabled}}
-      <a href="/devices/{{.Device.SerialNumber}}/shell" class="device-action-tile" style="text-decoration:none;color:inherit;">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3"/><path d="M13 15h4"/></svg></span>
-        <div class="device-action-tile-title">Interactive Shell</div>
-        <div class="device-action-tile-copy">Open a live terminal and keep sending commands in one session.</div>
-      </a>
-      {{end}}
-      <a href="/devices/{{.Device.SerialNumber}}/logcat" class="device-action-tile" style="text-decoration:none;color:inherit;">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h16"/><path d="M4 15h10"/><path d="M4 20h7"/></svg></span>
-        <div class="device-action-tile-title">Logcat</div>
-        <div class="device-action-tile-copy">Pull a filtered slice of the device's logs for diagnostics.</div>
-      </a>
       {{if and (or (canAdmin .Role) (eq .Role "operator")) .ShellEnabled}}
       <button type="button" class="device-action-tile" data-device-action="shell" onclick="selectDeviceAction('shell', this)">
         <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
         <div class="device-action-tile-title">Run Shell Command</div>
         <div class="device-action-tile-copy">Send a one-off shell command to older devices that still use check-in responses.</div>
-      </button>
-      {{end}}
-      {{if or (canAdmin .Role) (eq .Role "operator")}}
-      <button type="button" class="device-action-tile" data-device-action="reboot" onclick="selectDeviceAction('reboot', this)">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v6"/><path d="M5.5 7a8 8 0 1 0 13 0"/></svg></span>
-        <div class="device-action-tile-title">Reboot Device</div>
-        <div class="device-action-tile-copy">Queue a restart that the device applies on its next check-in.</div>
       </button>
       {{end}}
     </div>
@@ -1221,16 +1195,6 @@ function filterInstalledApps(q) {
       </div>
       {{end}}
 
-      <div class="device-action-body" data-action="screenshot"{{if ne $ctrlDefault "screenshot"}} style="display:none;"{{end}}>
-        <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
-          <input type="hidden" name="type" value="screenshot">
-          <div class="device-action-note">The device captures the screen on its next check-in. After sending, you'll land on the command detail page to follow progress.</div>
-          <div>
-            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><path d="M8 7l1.5-2h5L16 7"/><circle cx="12" cy="13" r="3"/></svg></span>Request Screenshot</button>
-          </div>
-        </form>
-      </div>
-
       {{if and (or (canAdmin .Role) (eq .Role "operator")) .ShellEnabled}}
       <div class="device-action-body" data-action="shell" style="display:none;">
         <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
@@ -1238,7 +1202,7 @@ function filterInstalledApps(q) {
           <div class="form-row">
             <label class="form-label">Shell Command</label>
             <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required>
-            <span class="muted small">Best for quick diagnostics on legacy devices. For a live session, use Interactive Shell above.</span>
+            <span class="muted small">Best for quick diagnostics on legacy devices. For a live session, use the Shell button in the top bar.</span>
           </div>
           <div>
             <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Run Command</button>
@@ -1246,25 +1210,10 @@ function filterInstalledApps(q) {
         </form>
       </div>
       {{end}}
-
-      {{if or (canAdmin .Role) (eq .Role "operator")}}
-      <div class="device-action-body" data-action="reboot" style="display:none;">
-        <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form"
-              onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')">
-          <input type="hidden" name="type" value="reboot">
-          <div class="device-action-note">The device restarts on its next check-in. In-progress activity may be interrupted.</div>
-          <div class="form-row">
-            <input type="text" name="reason" class="form-input" placeholder="Reason (required when reason-logging is on)">
-          </div>
-          <div>
-            <button type="submit" class="btn-danger"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v6"/><path d="M5.5 7a8 8 0 1 0 13 0"/></svg></span>Reboot Device</button>
-          </div>
-        </form>
-      </div>
-      {{end}}
     </div>
   </div>
 </div>
+{{end}}
 </section><!-- /controls -->
 
 <section class="dd-panel" data-dd-panel="controls" hidden>
@@ -1442,16 +1391,6 @@ function filterInstalledApps(q) {
   }
   window.setDeviceTab = setDeviceTab;
 
-  // Hero quick-actions: jump to the Controls tab with the action pre-selected
-  // (so a reboot/screenshot is still a deliberate confirm-and-send, not one-click).
-  window.ddHeroAction = function (name) {
-    var tab = document.querySelector('.dd-tab[data-dd-tab=controls]');
-    if (tab) tab.click();
-    if (window.selectDeviceAction) {
-      var tile = document.querySelector('[data-device-action="' + name + '"]');
-      if (tile) selectDeviceAction(name, tile);
-    }
-  };
   // Remove this device from a group inline (no navigation).
   window.ddRemoveGroup = function (btn, gid, serial) {
     if (!confirm('Remove this device from the group?')) return;
@@ -1589,20 +1528,10 @@ var deviceActionConfig = {
     copy: 'Choose an app from your repository and queue it for the next check-in.',
     meta: ''
   },
-  screenshot: {
-    title: 'Capture Screenshot',
-    copy: 'Request a fresh screenshot and follow delivery from the command detail page.',
-    meta: 'Heads to status page'
-  },
   shell: {
     title: 'Run Shell Command',
     copy: 'Send a one-off shell command to a legacy device and inspect output afterward.',
     meta: 'Legacy only'
-  },
-  reboot: {
-    title: 'Reboot Device',
-    copy: 'Queue a restart the device applies on its next check-in.',
-    meta: 'Destructive'
   },
   poll: {
     title: 'Set Poll Interval',
