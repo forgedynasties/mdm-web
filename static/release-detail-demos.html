@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Release detail — tabbed revamp demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1000px;}
+h1{font-size:21px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 6px;max-width:800px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:6px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 14px;max-width:800px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+
+.hero{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;margin-bottom:14px;}
+.hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.hero-ver{font-size:22px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:10px;}
+.hero-sub{color:var(--muted);font-size:12.5px;margin-top:5px;}
+.hero-vitals{display:flex;gap:26px;margin-top:18px;flex-wrap:wrap;}
+.hv .k{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint,#9aa0b0);}
+.hv .v{font-size:20px;font-weight:700;margin-top:3px;}
+.card2{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:14px;}
+.card2 .h{padding:13px 16px;border-bottom:1px solid var(--border-soft);font-weight:650;font-size:14px;display:flex;justify-content:space-between;align-items:center;}
+.card2 .b{padding:14px 16px;font-size:13px;color:var(--text-2);line-height:1.7;}
+.subgrid{display:grid;grid-template-columns:1fr 320px;gap:14px;align-items:start;}
+.pkg-line{display:flex;align-items:center;gap:9px;font-size:12.5px;padding:5px 0;color:var(--text-2);}
+.pkg-line svg{width:15px;height:15px;color:var(--muted);flex:none;}
+.upd-row{display:grid;grid-template-columns:auto 1fr 150px auto;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border-soft);font-size:13px;}
+.upd-row:last-child{border-bottom:0;}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;}
+.dot.ok{background:var(--ok);}.dot.run{background:var(--accent);}.dot.warn{background:var(--warn);}
+.bar{height:6px;border-radius:99px;background:var(--surface3,#e6e8ee);overflow:hidden;}
+.bar i{display:block;height:100%;background:var(--ok);}
+.bar i.run{background:var(--accent);}
+.tabnote{font-size:12px;color:var(--muted);background:#fff;border:1px dashed var(--border);border-radius:10px;padding:11px 13px;margin-top:8px;}
+</style></head>
+<body><div class="wrap">
+
+<h1>Release detail — tabbed revamp</h1>
+<p class="lead">Split the long scroll into <b>Overview · Updates · QA</b>, and rename <b>Deployments → Updates</b> (pairs with the existing “Push Update”). Overview = what the release <i>is</i>; Updates = rolling it out; QA = sign-off.</p>
+
+<!-- shared tab bar -->
+<div class="eyebrow">Overview tab</div>
+<div class="dname">What the release is — hero, changelog, packages <span class="rec">recommended</span></div>
+<div class="ddesc">A clear hero with vitals, the changelog, and packages. The headline action “Push update” sits in the hero and jumps to the Updates tab.</div>
+
+<div class="hero">
+  <div class="hero-top">
+    <div>
+      <div class="hero-ver mono">2026.06.01-release <span class="status-badge ok">published</span></div>
+      <div class="hero-sub">June security update · created Jun 24 by alex</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-primary">Push update</button>
+      <button class="btn-outline">Edit</button>
+      <button class="btn-outline">Yank</button>
+    </div>
+  </div>
+  <div class="hero-vitals">
+    <div class="hv"><div class="k">Rollout</div><div class="v">78%</div></div>
+    <div class="hv"><div class="k">On this build</div><div class="v">243</div></div>
+    <div class="hv"><div class="k">Updates</div><div class="v">2</div></div>
+    <div class="hv"><div class="k">QA</div><div class="v">8/8</div></div>
+    <div class="hv"><div class="k">Sign-off</div><div class="v" style="font-size:15px;color:#1c7d50;padding-top:4px;">✓ alex</div></div>
+  </div>
+</div>
+
+<div class="dd-tabs" role="tablist" style="margin-bottom:14px;">
+  <button class="dd-tab active" type="button">Overview</button>
+  <button class="dd-tab" type="button">Updates <span class="pill" style="margin-left:4px;">2</span></button>
+  <button class="dd-tab" type="button">QA</button>
+</div>
+
+<div class="subgrid">
+  <div class="card2"><div class="h">Changelog</div><div class="b">
+    • Hardened OTA verification (CVE-2026-1234)<br>• Battery drain fix on idle<br>• Kiosk lock-task reliability<br>• Updated WebView to 124.0
+  </div></div>
+  <div class="card2"><div class="h">Packages</div><div class="b" style="padding:8px 16px;">
+    <div class="pkg-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>Full OTA · <span class="mono">v2026.06.01</span></div>
+    <div class="pkg-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 17 17 7M8 7h9v9"/></svg>Incremental from rc2 · <span class="mono">+12 MB</span></div>
+    <div class="pkg-line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>Boot logo · <span class="mono">splash.img</span></div>
+  </div></div>
+</div>
+<div class="tabnote">Name &amp; changelog editing moves behind the hero’s <b>Edit</b> button (a small modal), so the page isn’t two changelog cards stacked.</div>
+
+<!-- UPDATES TAB -->
+<div class="eyebrow">Updates tab</div>
+<div class="dname">Roll it out — push a new update + the list of updates</div>
+<div class="ddesc">The two-pane Push picker lives here behind a <b>New update</b> button, followed by every update (rollout) with live progress. “Devices on this version” folds in as a filter link.</div>
+
+<div class="dd-tabs" role="tablist" style="margin-bottom:14px;">
+  <button class="dd-tab" type="button">Overview</button>
+  <button class="dd-tab active" type="button">Updates <span class="pill" style="margin-left:4px;">2</span></button>
+  <button class="dd-tab" type="button">QA</button>
+</div>
+
+<div class="card2">
+  <div class="h">Updates <span class="muted small" style="font-weight:400;">2 total · 243 of 312 devices on this build</span>
+    <button class="btn-primary btn-sm">+ New update</button>
+  </div>
+  <div class="upd-row">
+    <span class="dot ok"></span>
+    <div><div style="font-weight:600;">Wave 2 · All devices</div><div class="muted small">started 2d ago · immediate reboot</div></div>
+    <div class="bar"><i style="width:100%"></i></div>
+    <a class="link-detail">View</a>
+  </div>
+  <div class="upd-row">
+    <span class="dot run"></span>
+    <div><div style="font-weight:600;">Wave 1 · Kitchen group</div><div class="muted small">started 2h ago · 41/64 installed</div></div>
+    <div class="bar"><i class="run" style="width:64%"></i></div>
+    <a class="link-detail">View</a>
+  </div>
+</div>
+<div class="tabnote"><b>“New update”</b> opens the two-pane device/group picker (the one we just built) inline or in a sheet — so pushing and tracking live on the same tab, separate from the release’s identity.</div>
+
+</div></body></html>
