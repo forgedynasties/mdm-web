@@ -1,7 +1,7 @@
 {{define "alerts.html"}}
 {{template "header" .}}
 
-{{$canAct := or (canAdmin .Role) (eq .Role "operator")}}
+{{$canAct := canOperate .Role}}
 
 <div id="alerts-live" data-can-act="{{if $canAct}}1{{else}}0{{end}}">
 

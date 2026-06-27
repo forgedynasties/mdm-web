@@ -112,7 +112,7 @@
       <button type="submit" class="btn-outline">Resend to All Targets</button>
     </form>
     {{end}}
-    {{if or (canAdmin .Role) (eq .Role "operator")}}
+    {{if canOperate .Role}}
     <a href="/commands?clone={{.Command.ID}}" class="btn-outline" title="Open the builder prefilled with this command — tweak and send a new one">Duplicate &amp; edit</a>
     <a href="/commands" class="btn-outline">New action</a>
     {{end}}
