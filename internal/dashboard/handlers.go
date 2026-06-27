@@ -327,6 +327,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// both "admin" and "dev" do. Used to gate operational buttons/links;
 		// settings and user-management UI stay on a literal `eq .Role "admin"`.
 		"canAdmin": func(role string) bool { return role == "admin" || role == "dev" },
+		// canAct reports whether a role may reach the Actions builder at all
+		// (admin/dev fully; operator/tester for the action types allowed to them).
+		// Viewers cannot, so the Actions dock item is hidden for them.
+		"canAct": func(role string) bool {
+			return role == "admin" || role == "dev" || role == "operator" || role == "tester"
+		},
 		// alertTypeGroups feeds the per-channel alert-type filter in settings.
 		"alertTypeGroups": alertTypeCatalog,
 		// alertTypeLabel maps a raw alert type to its friendly catalog label
@@ -2528,6 +2534,17 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"Filter":   status,
 		"Severity": severity,
 	})
+}
+
+// AlertsRecent renders a compact list of the latest open alerts for the top-bar
+// bell dropdown (lazy-loaded via htmx when the dropdown opens).
+func (h *Handler) AlertsRecent(w http.ResponseWriter, r *http.Request) {
+	alerts, err := h.db.ListAlerts(r.Context(), "open", 6)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "alerts-recent", map[string]any{"Alerts": alerts})
 }
 
 // AlertBulk applies an action (acknowledge|resolve) to the alert IDs selected via
@@ -7309,6 +7326,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
+	mux.HandleFunc("GET /alerts/recent", h.requireAuth(h.AlertsRecent))
 	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
 	post("POST /alerts/bulk", h.requireOperatorOrAdmin(h.AlertBulk))
 	post("POST /alerts/ack-all", h.requireOperatorOrAdmin(h.AlertAckAll))
