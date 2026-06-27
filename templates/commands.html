@@ -49,7 +49,7 @@
 .suggest-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
 </style>
 
-{{if or (canAdmin .Role) (eq .Role "operator")}}
+{{if canOperate .Role}}
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data">
   <div class="cmd-rail3 dv-rise-1">
 

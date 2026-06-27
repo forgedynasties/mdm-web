@@ -44,12 +44,12 @@
           {{if and (eq .Status "failed") .ErrorCode}}
             <div class="muted small" style="margin-top:6px;">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
           {{end}}
-          {{if and (eq .Status "failed") (or (canAdmin $.Role) (eq $.Role "operator"))}}
+          {{if and (eq .Status "failed") (canOperate $.Role)}}
             <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" style="display:inline;margin-top:6px;">
               <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
             </form>
           {{end}}
-          {{if and (eq .Status "pending") (or (canAdmin $.Role) (eq $.Role "operator"))}}
+          {{if and (eq .Status "pending") (canOperate $.Role)}}
             <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline;margin-top:6px;"
                   onsubmit="return confirm('Remove {{.SerialNumber}} from this deployment? It will not receive the update.')">
               <button type="submit" class="btn-outline btn-sm">Remove</button>
@@ -86,7 +86,7 @@
 <div class="ov-greet">
   <h1 class="ov-title">Deployment #{{$dep.ID}}</h1>
   <span class="acts">
-    {{if and (eq $dep.Status "active") (or (canAdmin .Role) (eq .Role "operator"))}}
+    {{if and (eq $dep.Status "active") (canOperate .Role)}}
     <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/cancel" method="POST" style="display:inline;"
           onsubmit="return confirm('Cancel this deployment? Devices that have not started yet will be skipped; devices already updating will finish.')">
       <button type="submit" class="btn-outline">Cancel deployment</button>
@@ -126,7 +126,7 @@
   </div>
 </div>
 
-{{if or (canAdmin .Role) (eq .Role "operator")}}
+{{if canOperate .Role}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>Edit Reboot Settings</h3>
@@ -152,7 +152,7 @@
 </div>
 {{end}}
 
-{{if and (ne $dep.Status "canceled") (or (canAdmin .Role) (eq .Role "operator"))}}
+{{if and (ne $dep.Status "canceled") (canOperate .Role)}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>Push to more devices</h3>
