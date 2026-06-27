@@ -93,7 +93,8 @@
           {{if canOperate .Role}}
           <div class="ddc-msep"></div>
           <div class="ddc-mcap">Device</div>
-          {{if .ShellEnabled}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Shell</a>{{end}}
+          {{if .ShellEnabled}}<a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/shell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg>Interactive shell</a>
+          <button type="button" class="ddc-mi" onclick="ddRunShell()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>Run shell command…</button>{{end}}
           <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;" onsubmit="return confirm('Reboot {{.Device.SerialNumber}}?')"><input type="hidden" name="type" value="reboot"><button type="submit" class="ddc-mi danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Reboot</button></form>
           {{end}}
           <div class="ddc-msep"></div>
@@ -137,8 +138,23 @@
       menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
     }
   });
+  // One-off "Run shell command" (legacy check-in shell) — prompt then POST.
+  window.ddRunShell = function () {
+    var f = document.getElementById('dd-shell-form');
+    if (!f) return;
+    var cmd = window.prompt('Run a one-off shell command on this device:');
+    if (cmd === null) return;
+    cmd = cmd.trim();
+    if (!cmd) return;
+    f.querySelector('input[name="shell_cmd"]').value = cmd;
+    f.submit();
+  };
 })();
 </script>
+<form id="dd-shell-form" method="POST" action="/devices/{{.Device.SerialNumber}}/commands" hidden>
+  <input type="hidden" name="type" value="shell">
+  <input type="hidden" name="shell_cmd" value="">
+</form>
 
 <div class="ddc-body">
 <aside class="ddc-side">
@@ -1185,13 +1201,6 @@ function filterInstalledApps(q) {
         <div class="device-action-tile-copy">Choose an APK from the repository and queue it for the next check-in.</div>
       </button>
       {{end}}
-      {{if and (canOperate .Role) .ShellEnabled}}
-      <button type="button" class="device-action-tile" data-device-action="shell" onclick="selectDeviceAction('shell', this)">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>
-        <div class="device-action-tile-title">Run Shell Command</div>
-        <div class="device-action-tile-copy">Send a one-off shell command to older devices that still use check-in responses.</div>
-      </button>
-      {{end}}
     </div>
 
     <div class="device-action-panel">
@@ -1233,21 +1242,6 @@ function filterInstalledApps(q) {
       </div>
       {{end}}
 
-      {{if and (canOperate .Role) .ShellEnabled}}
-      <div class="device-action-body" data-action="shell" style="display:none;">
-        <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
-          <input type="hidden" name="type" value="shell">
-          <div class="form-row">
-            <label class="form-label">Shell Command</label>
-            <input type="text" name="shell_cmd" class="form-input" placeholder="e.g. ls /sdcard" required>
-            <span class="muted small">Best for quick diagnostics on legacy devices. For a live session, use the Shell button in the top bar.</span>
-          </div>
-          <div>
-            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Run Command</button>
-          </div>
-        </form>
-      </div>
-      {{end}}
     </div>
   </div>
 </div>
@@ -1565,11 +1559,6 @@ var deviceActionConfig = {
     title: 'Install App',
     copy: 'Choose an app from your repository and queue it for the next check-in.',
     meta: ''
-  },
-  shell: {
-    title: 'Run Shell Command',
-    copy: 'Send a one-off shell command to a legacy device and inspect output afterward.',
-    meta: 'Legacy only'
   },
   poll: {
     title: 'Set Poll Interval',
