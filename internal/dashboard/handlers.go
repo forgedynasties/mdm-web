@@ -1836,6 +1836,46 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "overview.html", data)
 }
 
+// pendingInstallRows returns "installing" rows (resolved app name + apk url) for
+// install_apk commands not yet completed/failed — shown in the device Applications list.
+func pendingInstallRows(commands []db.DeviceCommand, apps []db.App) []map[string]string {
+	name := make(map[string]string, len(apps))
+	for _, a := range apps {
+		name[a.ApkURL] = a.Name
+	}
+	var out []map[string]string
+	for _, c := range commands {
+		if c.Type == "install_apk" && (c.Status == "pending" || c.Status == "delivered") {
+			n := name[c.ApkURL]
+			if n == "" {
+				n = c.ApkURL
+			}
+			out = append(out, map[string]string{"Name": n, "ApkURL": c.ApkURL})
+		}
+	}
+	return out
+}
+
+// DeviceAppsList renders just the installed-apps list region for the device page,
+// refreshed live via HTMX when the device checks in (so a freshly installed app
+// shows up without a manual reload).
+func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	installedPkgs, _ := h.db.GetDevicePackages(r.Context(), device.ID)
+	commands, _ := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
+	apps, _ := h.db.ListApps(r.Context())
+	h.tmpl.ExecuteTemplate(w, "device-apps-list", map[string]any{
+		"Device":            device,
+		"Role":              h.role(r),
+		"InstalledPackages": installedPkgs,
+		"PendingInstalls":   pendingInstallRows(commands, apps),
+	})
+}
+
 func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -1890,20 +1930,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 
 	// In-flight installs: install_apk commands not yet completed/failed, so the
 	// Applications list can show them as "installing" until the device reports them.
-	appName := make(map[string]string, len(apps))
-	for _, a := range apps {
-		appName[a.ApkURL] = a.Name
-	}
-	var pendingInstalls []map[string]string
-	for _, c := range commands {
-		if c.Type == "install_apk" && (c.Status == "pending" || c.Status == "delivered") {
-			name := appName[c.ApkURL]
-			if name == "" {
-				name = c.ApkURL
-			}
-			pendingInstalls = append(pendingInstalls, map[string]string{"Name": name, "ApkURL": c.ApkURL})
-		}
-	}
+	pendingInstalls := pendingInstallRows(commands, apps)
 
 	kioskCfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID)
 	if err != nil {
@@ -7379,6 +7406,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
+	mux.HandleFunc("GET /devices/{serial}/apps-list", h.requireAuth(h.DeviceAppsList))
 	mux.HandleFunc("GET /packages", h.requireStrictAdmin(h.FleetPackages))
 	post("POST /packages/flag", h.requireStrictAdmin(h.PackageFlag))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
