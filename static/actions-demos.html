@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rename "Commands" — concepts · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1000px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 8px;max-width:760px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:34px 0 6px;}
+.dname{font-weight:700;font-size:15.5px;margin:6px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 14px;max-width:760px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+
+/* name shortlist */
+.names{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0 6px;}
+.namecard{border:1px solid var(--border);border-radius:12px;background:#fff;padding:14px 16px;}
+.namecard .n{font-size:15px;font-weight:700;}
+.namecard .why{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5;}
+.navchip{display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--accent);border-radius:9px;padding:7px 12px;font-size:13px;font-weight:600;margin-top:10px;}
+.navchip svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;}
+
+/* builder shell (copied from commands.html) */
+.cmd-rail3{display:grid;grid-template-columns:212px 1fr;background:var(--surface,#fff);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);overflow:hidden;margin:6px 0 4px;}
+.cr-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
+.cr-head h3{margin:0;font-size:15px;font-weight:650;}
+.cr-rail{border-right:1px solid var(--border-soft);padding:10px;}
+.cr-rail-group{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint,#9aa0b0);padding:12px 12px 5px;}
+.cr-rail-group:first-child{padding-top:4px;}
+.cr-rail-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;font-size:13px;color:var(--text-2);user-select:none;}
+.cr-rail-item .ic{width:16px;height:16px;flex:none;color:var(--muted);}
+.cr-rail-item .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;}
+.cr-rail-item.on{background:var(--accent-soft);color:var(--text);font-weight:600;}
+.cr-rail-item.on .ic{color:var(--accent);}
+.cr-config{padding:22px 24px;min-width:0;}
+.cr-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+.cfg-lead{font-size:13px;color:var(--muted);margin:0 0 16px;}
+
+/* category launcher (Option C) */
+.cat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:6px 0 0;}
+.cat{border:1px solid var(--border);border-radius:13px;background:#fff;padding:15px 15px 14px;cursor:pointer;}
+.cat.on{border-color:transparent;background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent);}
+.cat .ci{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--surface2,#eef0f4);margin-bottom:10px;}
+.cat.on .ci{background:#fff;}
+.cat .ci svg{width:17px;height:17px;fill:none;stroke:var(--accent);stroke-width:1.8;}
+.cat .ct{font-size:13.5px;font-weight:700;}
+.cat .cs{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4;}
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.actchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:99px;padding:7px 13px;font-size:12.5px;font-weight:600;background:#fff;cursor:pointer;}
+.actchip.on{border-color:transparent;background:var(--accent-soft);color:var(--accent);}
+.actchip svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;}
+.note{font-size:12px;color:var(--muted);background:#fff;border:1px dashed var(--border);border-radius:10px;padding:11px 13px;margin-top:10px;line-height:1.55;}
+</style></head>
+<body><div class="wrap">
+
+<h1>Renaming “Commands” — concepts</h1>
+<p class="lead">The page sends remote actions to devices: install/uninstall apps, screenshot, pull logs, run shell, reboot — and set a boot logo. “Commands” reads as a developer term, and a <b>boot logo</b> (branding, not an imperative) feels homeless in it. Two fixes, shown together: a clearer <b>name</b>, and a <b>grouped</b> builder so every action has an obvious home.</p>
+
+<!-- ============ NAME SHORTLIST ============ -->
+<div class="eyebrow">Step 1 · the name</div>
+<div class="dname">Shortlist</div>
+<div class="names">
+  <div class="namecard">
+    <div class="n">Actions <span class="rec">recommended</span></div>
+    <div class="why">Plain English, covers everything you can <i>do</i> to a device — installing, rebooting, screenshotting, branding. Mirrors the device page’s “Controls”. Short enough for the nav.</div>
+    <div class="navchip"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</div>
+  </div>
+  <div class="namecard">
+    <div class="n">Operations</div>
+    <div class="why">More fleet-ops / enterprise tone. Good if you think of these as bulk operations across many devices. Slightly longer; “Ops” as a short form.</div>
+    <div class="navchip"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Operations</div>
+  </div>
+  <div class="namecard">
+    <div class="n">Manage</div>
+    <div class="why">Verb-first, friendly. Reads well with the object (“Manage devices”). A touch generic, can blur with Settings.</div>
+    <div class="navchip"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Manage</div>
+  </div>
+  <div class="namecard">
+    <div class="n">Tasks</div>
+    <div class="why">Honest about the model — actions queue and run on next check-in. But “tasks” can read as a to-do list rather than something you fire now.</div>
+    <div class="navchip"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Tasks</div>
+  </div>
+</div>
+
+<!-- ============ A · GROUPED RAIL ============ -->
+<div class="eyebrow">Step 2 · Option A</div>
+<div class="dname">“Actions” with a grouped rail <span class="rec">recommended</span></div>
+<div class="ddesc">Minimal change to the current two-pane builder — the flat list becomes labelled groups. Boot logo now lives under <b>Customization</b>, where it reads naturally.</div>
+<div class="cmd-rail3">
+  <div class="cr-head"><h3>New action</h3></div>
+  <div class="cr-rail">
+    <div class="cr-rail-group">Apps</div>
+    <div class="cr-rail-item on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></span>Uninstall</div>
+    <div class="cr-rail-group">Diagnostics</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Log capture</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell</div>
+    <div class="cr-rail-group">Power</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot</div>
+    <div class="cr-rail-group">Customization</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo</div>
+  </div>
+  <div class="cr-config">
+    <div class="cr-sec-title">Install app</div>
+    <p class="cfg-lead">Choose an APK from the repository and queue it for the next check-in. Pick a target on the right, then Send.</p>
+    <div class="note">The rest of the config form is unchanged — only the rail gained group headers, so “Boot logo” reads as a customization action rather than a loose command.</div>
+  </div>
+</div>
+
+<!-- ============ B · CATEGORY LAUNCHER ============ -->
+<div class="eyebrow">Step 2 · Option B</div>
+<div class="dname">“Actions” with a category launcher</div>
+<div class="ddesc">A bolder take: pick a <b>category</b> first (four cards), then the specific action as a chip. Scales better as you add actions and makes the branding/customization split obvious at a glance.</div>
+<div class="cmd-rail3"><div style="grid-column:1/-1;padding:20px 22px;">
+  <div class="cr-sec-title">What do you want to do?</div>
+  <div class="cat-row">
+    <div class="cat on"><div class="ci"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></div><div class="ct">Apps</div><div class="cs">Install or remove packages</div></div>
+    <div class="cat"><div class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></div><div class="ct">Diagnostics</div><div class="cs">Screenshot, logs, shell</div></div>
+    <div class="cat"><div class="ci"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/></svg></div><div class="ct">Power</div><div class="cs">Reboot devices</div></div>
+    <div class="cat"><div class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></div><div class="ct">Customization</div><div class="cs">Boot logo &amp; branding</div></div>
+  </div>
+  <div class="chiprow">
+    <span class="actchip on"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/></svg>Install app</span>
+    <span class="actchip"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M6 6l1 14h10l1-14"/></svg>Uninstall</span>
+  </div>
+  <div class="note" style="margin-top:16px;">Selecting a category reveals its actions as chips and the matching config form below. “Customization” cleanly contains Boot logo (and anything branding-related you add later, e.g. wallpaper).</div>
+</div></div>
+
+<!-- ============ C · alternative: move it out ============ -->
+<div class="eyebrow">Alternative</div>
+<div class="dname">Or: move Boot logo out entirely</div>
+<div class="ddesc">If branding shouldn’t share a page with operational actions at all, Boot logo can move to a small <b>Branding</b> area (its own page, or a card under Settings / the device’s Controls). Then “Actions” stays purely operational. I lean against this — it’s an extra place to look — but it’s on the table.</div>
+<div class="note">Recommendation: <b>rename to “Actions”</b> + <b>Option A (grouped rail)</b>. Lowest-risk, keeps everything one click away, and gives Boot logo an intuitive “Customization” home without a new page.</div>
+
+</div></body></html>
