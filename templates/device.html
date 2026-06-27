@@ -238,14 +238,12 @@
     <div class="ddc-kv"><span class="k">Build</span><span class="v">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
     {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
     <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Poll interval</span><span class="v">{{div .Device.PollIntervalMs 1000}}s</span></div>
   </div>
 </aside>
 <div class="ddc-main">
 <div class="dd-tabs" role="tablist">
   <button class="dd-tab active" role="tab" type="button" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
   <button class="dd-tab" role="tab" type="button" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>
-  <button class="dd-tab" role="tab" type="button" data-dd-tab="controls" onclick="setDeviceTab('controls', this)">Settings</button>
   <button class="dd-tab" role="tab" type="button" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>
 </div>
 
@@ -1267,28 +1265,6 @@ function filterInstalledApps(q) {
 }
 </script>
 
-<section class="dd-panel" data-dd-panel="controls" hidden>
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Device settings</h3><span class="status-badge muted">Target: {{.Device.SerialNumber}}</span></div>
-  {{if canAdmin .Role}}
-  <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" style="padding:16px 18px;">
-    <div class="form-row" style="margin:0;">
-      <label class="form-label">Poll interval (ms)</label>
-      <div class="device-action-inline">
-        <input type="number" name="poll_interval_ms" class="form-input" value="{{.Device.PollIntervalMs}}" min="5000" step="1000" style="max-width:180px;" required>
-        <span class="device-action-meta">Current: {{div .Device.PollIntervalMs 1000}}s</span>
-        <button type="submit" class="btn-primary">Save</button>
-      </div>
-      <span class="muted small">How often the device checks in for commands and telemetry. Returned on the next successful check-in.</span>
-    </div>
-  </form>
-  <div style="padding:0 18px 16px;" class="muted small">Kiosk mode is configured from the <strong>Kiosk</strong> pill in the header above.</div>
-  {{else}}
-  <div class="device-action-note" style="margin:16px 18px;">You don't have permission to change this device's settings.</div>
-  {{end}}
-</div>
-
-</section><!-- /settings -->
 
 <section class="dd-panel" data-dd-panel="history" hidden>
   {{template "device-commands" .}}
