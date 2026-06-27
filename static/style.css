@@ -5063,3 +5063,11 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .kiosk-sw input:checked + .kiosk-sw-tr { background: var(--accent); }
 .kiosk-sw input:checked + .kiosk-sw-tr .kiosk-sw-kn { left: 21px; }
 .kiosk-need { border-color: var(--accent) !important; box-shadow: var(--ring); }
+
+/* device detail: app being installed (in-flight) */
+.app-row.app-installing { background: var(--accent-soft); }
+.app-installing-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600;
+  color: var(--accent); white-space: nowrap; }
+.app-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent-edge); border-top-color: var(--accent);
+  animation: app-spin 0.7s linear infinite; flex: none; }
+@keyframes app-spin { to { transform: rotate(360deg); } }
