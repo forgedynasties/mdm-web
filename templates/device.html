@@ -111,7 +111,48 @@
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
     {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</span>{{end}}
+    {{if canAdmin .Role}}
+    <span class="ddc-kpop-wrap">
+      <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskPopToggle(event)" aria-haspopup="true" aria-expanded="false" title="Configure kiosk mode">
+        <span class="k">Kiosk</span>{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}} <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="ddc-kpop" id="kiosk-pop" hidden>
+        <div class="ddc-kpop-h">Kiosk mode</div>
+        <form action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST">
+          <div class="form-row">
+            <label class="form-label">Status</label>
+            <select name="kiosk_enabled" class="form-input">
+              <option value="0" {{if not .KioskConfig.KioskEnabled}}selected{{end}}>Disabled</option>
+              <option value="1" {{if .KioskConfig.KioskEnabled}}selected{{end}}>Enabled</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Locked app</label>
+            {{if .InstalledPackages}}
+              {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
+              <div class="pkg-combo" id="kiosk-pkg-combo">
+                <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{$current}}">
+                <input type="text" id="kiosk-pkg-search" class="form-input" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search installed apps…">
+                <div class="pkg-list" id="kiosk-pkg-list" role="listbox">
+                  <div class="pkg-opt" data-value="" data-search="none release clear launcher"><span class="pkg-opt-name">— None (release to launcher) —</span></div>
+                  {{range .InstalledPackages}}{{if eq .PackageName $current}}{{$found = true}}{{end}}
+                  <div class="pkg-opt" data-value="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}"><span class="pkg-opt-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pkg-opt-pkg mono">{{.PackageName}}</span></div>
+                  {{end}}
+                  {{if and (ne $current "") (not $found)}}<div class="pkg-opt" data-value="{{$current}}" data-search="{{$current}}"><span class="pkg-opt-name mono">{{$current}}</span><span class="pkg-opt-pkg">not installed</span></div>{{end}}
+                </div>
+              </div>
+            {{else}}
+              <input type="text" name="kiosk_package" class="form-input" value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
+            {{end}}
+            <span class="muted small">Required when enabling — the device locks to this app on the next check-in.</span>
+          </div>
+          <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">Save kiosk config</button>
+        </form>
+      </div>
+    </span>
+    {{else}}
     <span class="ddc-chip"><span class="k">Kiosk</span>{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
+    {{end}}
   </div>
 </div>
 <script>
@@ -204,7 +245,7 @@
 <div class="dd-tabs" role="tablist">
   <button class="dd-tab active" role="tab" type="button" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
   <button class="dd-tab" role="tab" type="button" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>
-  <button class="dd-tab" role="tab" type="button" data-dd-tab="controls" onclick="setDeviceTab('controls', this)">Controls</button>
+  <button class="dd-tab" role="tab" type="button" data-dd-tab="controls" onclick="setDeviceTab('controls', this)">Settings</button>
   <button class="dd-tab" role="tab" type="button" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>
 </div>
 
@@ -1118,7 +1159,38 @@
 
 <section class="dd-panel" data-dd-panel="apps" hidden>
   <div class="card">
-    <div class="card-header"><h3>Installed applications</h3><span class="muted small">{{len .InstalledPackages}} packages</span></div>
+    <div class="card-header">
+      <h3>Installed applications</h3>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="muted small">{{len .InstalledPackages}} packages</span>
+        {{if canOperate .Role}}<button type="button" class="btn-primary btn-sm" onclick="toggleInstallForm()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Install app</button>{{end}}
+      </div>
+    </div>
+    {{if canOperate .Role}}
+    <div class="app-install" id="install-form" hidden>
+      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form" style="padding:14px 18px;">
+        <input type="hidden" name="type" value="install_apk">
+        {{if .Apps}}
+        <div class="form-row" style="margin:0;">
+          <label class="form-label">Repository app</label>
+          <div class="device-action-inline">
+            <select name="apk_url" class="form-input" required>
+              <option value="" disabled selected>Select an app…</option>
+              {{range .Apps}}<option value="{{.ApkURL}}">{{.Name}}</option>{{end}}
+            </select>
+            <button type="button" class="btn-outline btn-plus" onclick="openAppModal()" title="New App"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></button>
+            <button type="submit" class="btn-primary">Install</button>
+          </div>
+          <span class="muted small">Queued and delivered on the device's next check-in.</span>
+        </div>
+        {{else}}
+        <div class="device-action-note">No apps are in the repository yet. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>, then install it here.
+          <input type="hidden" name="apk_url" id="cmd-apk-url">
+        </div>
+        {{end}}
+      </form>
+    </div>
+    {{end}}
     {{if .InstalledPackages}}
     <div class="app-search"><input type="text" id="apps-filter" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>
     <div class="app-list{{if gt (len .InstalledPackages) 6}} collapsed{{end}}" id="apps-table">
@@ -1157,6 +1229,12 @@
 </section>
 
 <script>
+function toggleInstallForm() {
+  var f = document.getElementById('install-form');
+  if (!f) return;
+  if (f.hasAttribute('hidden')) { f.removeAttribute('hidden'); var s = f.querySelector('select,input'); if (s) s.focus(); }
+  else f.setAttribute('hidden', '');
+}
 function appsShowAll() {
   var list = document.getElementById('apps-table');
   if (list) list.classList.remove('collapsed');
@@ -1164,186 +1242,50 @@ function appsShowAll() {
   if (btn) btn.style.display = 'none';
 }
 function filterInstalledApps(q) {
-  q = q.toLowerCase();
-  if (q !== '') appsShowAll(); // searching looks across every app, not just the first 10
-  const rows = document.querySelectorAll('#apps-table .app-row');
-  let visible = 0;
-  rows.forEach(row => {
-    const hay = (row.getAttribute('data-app') || '').toLowerCase();
-    const show = hay.includes(q);
+  q = q.trim().toLowerCase();
+  var rows = document.querySelectorAll('#apps-table .app-row');
+  var list = document.getElementById('apps-table');
+  var btn = document.getElementById('apps-more');
+  var noMatch = document.getElementById('apps-no-match');
+  if (q === '') {
+    // Cleared: restore every row and the collapsed "show all" view.
+    rows.forEach(function (row) { row.style.display = ''; });
+    if (btn) { if (list) list.classList.add('collapsed'); btn.style.display = ''; }
+    if (noMatch) noMatch.style.display = 'none';
+    return;
+  }
+  // Searching: look across every app (no collapse) and hide "show all".
+  if (list) list.classList.remove('collapsed');
+  if (btn) btn.style.display = 'none';
+  var visible = 0;
+  rows.forEach(function (row) {
+    var show = (row.getAttribute('data-app') || '').toLowerCase().includes(q);
     row.style.display = show ? '' : 'none';
     if (show) visible++;
   });
-  const noMatch = document.getElementById('apps-no-match');
   if (noMatch) noMatch.style.display = (rows.length > 0 && visible === 0) ? '' : 'none';
 }
 </script>
 
 <section class="dd-panel" data-dd-panel="controls" hidden>
-{{$ctrlDefault := "install"}}
-{{if canOperate .Role}}
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Controls</h3></div>
-  <div class="device-actions">
-    <div class="device-actions-header">
-      <div>
-        <div class="device-actions-title">Act on this device, one focused step at a time</div>
-        <div class="device-actions-subtitle">Pick an action below, fill only the fields you need, and send it.</div>
+  <div class="card-header"><h3>Device settings</h3><span class="status-badge muted">Target: {{.Device.SerialNumber}}</span></div>
+  {{if canAdmin .Role}}
+  <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" style="padding:16px 18px;">
+    <div class="form-row" style="margin:0;">
+      <label class="form-label">Poll interval (ms)</label>
+      <div class="device-action-inline">
+        <input type="number" name="poll_interval_ms" class="form-input" value="{{.Device.PollIntervalMs}}" min="5000" step="1000" style="max-width:180px;" required>
+        <span class="device-action-meta">Current: {{div .Device.PollIntervalMs 1000}}s</span>
+        <button type="submit" class="btn-primary">Save</button>
       </div>
-      <span class="status-badge muted">Target: {{.Device.SerialNumber}}</span>
+      <span class="muted small">How often the device checks in for commands and telemetry. Returned on the next successful check-in.</span>
     </div>
-
-    <div class="device-action-picker">
-      {{if canOperate .Role}}
-      <button type="button" class="device-action-tile{{if eq $ctrlDefault "install"}} active{{end}}" data-device-action="install" onclick="selectDeviceAction('install', this)">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
-        <div class="device-action-tile-title">Install App</div>
-        <div class="device-action-tile-copy">Choose an APK from the repository and queue it for the next check-in.</div>
-      </button>
-      {{end}}
-    </div>
-
-    <div class="device-action-panel">
-      <div class="device-action-panel-head">
-        <div>
-          <div class="device-action-panel-title js-da-title">Install App</div>
-          <div class="device-action-panel-copy js-da-copy">Choose an app from your repository and send it to this device.</div>
-        </div>
-        <span class="device-action-meta js-da-meta"></span>
-      </div>
-
-      {{if canOperate .Role}}
-      <div class="device-action-body" data-action="install"{{if ne $ctrlDefault "install"}} style="display:none;"{{end}}>
-        <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form">
-          <input type="hidden" name="type" value="install_apk">
-          {{if .Apps}}
-            <div class="form-row">
-              <label class="form-label">Repository App</label>
-              <div class="device-action-inline">
-                <select name="apk_url" class="form-input" required>
-                  <option value="" disabled selected>Select an app…</option>
-                  {{range .Apps}}
-                  <option value="{{.ApkURL}}">{{.Name}}</option>
-                  {{end}}
-                </select>
-                <button type="button" class="btn-outline btn-plus" onclick="openAppModal()" title="New App"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></button>
-              </div>
-            </div>
-          {{else}}
-            <div class="device-action-note">No apps are in the repository yet. Add one first, then come right back to install it on this device.
-              <button type="button" class="btn-link" onclick="openAppModal()" style="margin-left:6px;">Add app now</button>
-            </div>
-            <input type="hidden" name="apk_url" id="cmd-apk-url">
-          {{end}}
-          <div>
-            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>Install App</button>
-          </div>
-        </form>
-      </div>
-      {{end}}
-
-    </div>
-  </div>
-</div>
-{{end}}
-</section><!-- /controls -->
-
-<section class="dd-panel" data-dd-panel="controls" hidden>
-{{$setDefault := ""}}{{if canAdmin .Role}}{{$setDefault = "kiosk"}}{{end}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Device settings</h3></div>
-  <div class="device-actions">
-    <div class="device-actions-header">
-      <div>
-        <div class="device-actions-title">Configure how this device behaves</div>
-        <div class="device-actions-subtitle">Persistent settings applied to the device on its next check-in.</div>
-      </div>
-      <span class="status-badge muted">Target: {{.Device.SerialNumber}}</span>
-    </div>
-
-    {{if canAdmin .Role}}
-    <div class="device-action-picker">
-      <button type="button" class="device-action-tile{{if eq $setDefault "kiosk"}} active{{end}}" data-device-action="kiosk" onclick="selectDeviceAction('kiosk', this)">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/><rect x="9" y="9" width="6" height="4" rx="1"/><path d="M11 9V7.5a1 1 0 0 1 2 0V9"/></svg></span>
-        <div class="device-action-tile-title">Kiosk Mode</div>
-        <div class="device-action-tile-copy">Lock the device to a single app package, or release it back to the launcher.</div>
-      </button>
-      <button type="button" class="device-action-tile" data-device-action="poll" onclick="selectDeviceAction('poll', this)">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>
-        <div class="device-action-tile-title">Set Poll Interval</div>
-        <div class="device-action-tile-copy">Adjust how often the device checks in for updates and queued work.</div>
-      </button>
-    </div>
-
-    <div class="device-action-panel">
-      <div class="device-action-panel-head">
-        <div>
-          <div class="device-action-panel-title js-da-title">Device setting</div>
-          <div class="device-action-panel-copy js-da-copy">Adjust this device's configuration.</div>
-        </div>
-        <span class="device-action-meta js-da-meta"></span>
-      </div>
-
-      {{if canAdmin .Role}}
-      <div class="device-action-body" data-action="kiosk"{{if ne $setDefault "kiosk"}} style="display:none;"{{end}}>
-        <form action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" class="device-action-form">
-          <div class="form-row">
-            <label class="form-label">Kiosk Status</label>
-            <div class="device-action-inline">
-              <select name="kiosk_enabled" class="form-input" style="max-width:180px;">
-                <option value="0" {{if not .KioskConfig.KioskEnabled}}selected{{end}}>Disabled</option>
-                <option value="1" {{if .KioskConfig.KioskEnabled}}selected{{end}}>Enabled</option>
-              </select>
-              <span class="device-action-meta">Current: {{if .KioskConfig.KioskEnabled}}Enabled{{else}}Disabled{{end}}</span>
-            </div>
-          </div>
-          <div class="form-row">
-            <label class="form-label">Kiosk Package</label>
-            {{if .InstalledPackages}}
-              {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
-              <div class="pkg-combo" id="kiosk-pkg-combo">
-                <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{$current}}">
-                <input type="text" id="kiosk-pkg-search" class="form-input" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search installed apps…">
-                <div class="pkg-list" id="kiosk-pkg-list" role="listbox">
-                  <div class="pkg-opt" data-value="" data-search="none release clear launcher"><span class="pkg-opt-name">— None (release to launcher) —</span></div>
-                  {{range .InstalledPackages}}{{if eq .PackageName $current}}{{$found = true}}{{end}}
-                  <div class="pkg-opt" data-value="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}"><span class="pkg-opt-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pkg-opt-pkg mono">{{.PackageName}}</span></div>
-                  {{end}}
-                  {{if and (ne $current "") (not $found)}}<div class="pkg-opt" data-value="{{$current}}" data-search="{{$current}}"><span class="pkg-opt-name mono">{{$current}}</span><span class="pkg-opt-pkg">not installed</span></div>{{end}}
-                </div>
-              </div>
-            {{else}}
-              <input type="text" name="kiosk_package" class="form-input" value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
-              <span class="muted small">No packages reported by this device yet — enter a package name manually.</span>
-            {{end}}
-            <span class="muted small">Required when enabling. The device will be locked to this package via lock-task mode on the next check-in.</span>
-          </div>
-          <div>
-            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/><rect x="9" y="9" width="6" height="4" rx="1"/><path d="M11 9V7.5a1 1 0 0 1 2 0V9"/></svg></span>Save Kiosk Config</button>
-          </div>
-        </form>
-      </div>
-      <div class="device-action-body" data-action="poll" style="display:none;">
-        <form action="/devices/{{.Device.SerialNumber}}/poll-interval" method="POST" class="device-action-form">
-          <div class="form-row">
-            <label class="form-label">Poll Interval (ms)</label>
-            <div class="device-action-inline">
-              <input type="number" name="poll_interval_ms" class="form-input" value="{{.Device.PollIntervalMs}}" min="5000" step="1000" style="max-width:180px;" required>
-              <span class="device-action-meta">Current: {{div .Device.PollIntervalMs 1000}}s</span>
-            </div>
-            <span class="muted small">The updated interval is returned to the device on the next successful check-in.</span>
-          </div>
-          <div>
-            <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg></span>Save Poll Interval</button>
-          </div>
-        </form>
-      </div>
-      {{end}}
-    </div>
-    {{else}}
-    <div class="device-action-note" style="margin-top:14px;">You don't have permission to change this device's settings.</div>
-    {{end}}
-  </div>
+  </form>
+  <div style="padding:0 18px 16px;" class="muted small">Kiosk mode is configured from the <strong>Kiosk</strong> pill in the header above.</div>
+  {{else}}
+  <div class="device-action-note" style="margin:16px 18px;">You don't have permission to change this device's settings.</div>
+  {{end}}
 </div>
 
 </section><!-- /settings -->
@@ -1451,6 +1393,24 @@ function filterInstalledApps(q) {
     if (!e.target.closest('.pl-pop-wrap')) {
       document.querySelectorAll('.pl-pop').forEach(function (p) { p.setAttribute('hidden', ''); });
     }
+  });
+
+  // Kiosk config popover, opened from the hero "Kiosk" pill.
+  window.kioskPopToggle = function (e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    var pop = document.getElementById('kiosk-pop');
+    var btn = pop ? pop.previousElementSibling : null;
+    if (!pop) return;
+    var open = pop.hasAttribute('hidden');
+    if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
+    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
+  document.addEventListener('click', function (e) {
+    var pop = document.getElementById('kiosk-pop');
+    if (pop && !e.target.closest('.ddc-kpop-wrap')) pop.setAttribute('hidden', '');
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { var p = document.getElementById('kiosk-pop'); if (p) p.setAttribute('hidden', ''); }
   });
 
   // Opening a device always lands on Overview (no last-tab restore).
