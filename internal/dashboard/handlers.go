@@ -3237,6 +3237,17 @@ func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// onlineMap returns a device-id → true map of currently WS-connected devices,
+// for the shared device-cards roster partial.
+func (h *Handler) onlineMap() map[uuid.UUID]bool {
+	connected := h.hub.ConnectedIDs()
+	m := make(map[uuid.UUID]bool, len(connected))
+	for id := range connected {
+		m[id] = true
+	}
+	return m
+}
+
 func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -3248,15 +3259,17 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Group not found", http.StatusNotFound)
 		return
 	}
-	devices, err := h.db.ListGroupDevices(r.Context(), id)
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{GroupID: id}, 0, 1000, "serial", "asc")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	h.render(w, r, "group_detail.html", map[string]any{
-		"Title":   g.Name,
-		"Group":   g,
-		"Devices": devices,
+		"Title":               g.Name,
+		"Group":               g,
+		"Devices":             devices,
+		"Online":              h.onlineMap(),
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	})
 }
 
@@ -3469,17 +3482,19 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Restaurant not found", http.StatusNotFound)
 		return
 	}
-	devices, err := h.db.ListRestaurantDevices(r.Context(), id)
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 1000, "serial", "asc")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	win, hasOwn, _ := h.db.GetRestaurantServiceWindow(r.Context(), id)
 	h.render(w, r, "restaurant_detail.html", map[string]any{
-		"Title":         rest.Name,
-		"Restaurant":    rest,
-		"Devices":       devices,
-		"ServiceWindow": windowView(id.String(), rest.Name, win, hasOwn),
+		"Title":               rest.Name,
+		"Restaurant":          rest,
+		"Devices":             devices,
+		"Online":              h.onlineMap(),
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
 	})
 }
 
@@ -7113,16 +7128,16 @@ func (h *Handler) ProductionDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Production not found", http.StatusNotFound)
 		return
 	}
-	devices, err := h.db.GetProductionDevices(r.Context(), id)
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{ProductionID: id}, 0, 2000, "serial", "asc")
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	online := h.hub.ConnectedIDs()
 	h.render(w, r, "production_detail.html", map[string]any{
-		"Production": prod,
-		"Devices":    devices,
-		"Online":     online,
+		"Production":          prod,
+		"Devices":             devices,
+		"Online":              h.onlineMap(),
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	})
 }
 
