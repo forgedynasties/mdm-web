@@ -345,20 +345,26 @@
     if (valid.length < 5) return points;
     const x0 = valid[0].x, x1 = valid[valid.length - 1].x, span = (x1 - x0) || 1;
     const target = Math.min(70, valid.length);
-    const buckets = Array.from({ length: target }, () => ({ s: 0, n: 0 }));
+    const buckets = Array.from({ length: target }, () => ({ s: 0, n: 0, wlc: {} }));
     valid.forEach(p => {
       const i = Math.min(target - 1, Math.floor((p.x - x0) / span * target));
       buckets[i].s += p.y; buckets[i].n++;
+      if (p.wlc !== undefined && p.wlc !== null) buckets[i].wlc[p.wlc] = (buckets[i].wlc[p.wlc] || 0) + 1;
     });
     const reduced = [];
     for (let k = 0; k < target; k++) {
-      if (buckets[k].n > 0) reduced.push({ x: x0 + (k + 0.5) / target * span, y: buckets[k].s / buckets[k].n });
+      if (buckets[k].n > 0) {
+        // representative wlc state for the bucket = most frequent reading in it
+        let mode, best = -1;
+        for (const key in buckets[k].wlc) { if (buckets[k].wlc[key] > best) { best = buckets[k].wlc[key]; mode = Number(key); } }
+        reduced.push({ x: x0 + (k + 0.5) / target * span, y: buckets[k].s / buckets[k].n, wlc: mode });
+      }
     }
     const w = 2, ys = reduced.map(p => p.y);
     return reduced.map((p, i) => {
       let s = 0, n = 0;
       for (let j = i - w; j <= i + w; j++) { if (j >= 0 && j < ys.length) { s += ys[j]; n++; } }
-      return { x: p.x, y: Number((s / n).toFixed(2)) };
+      return { x: p.x, y: Number((s / n).toFixed(2)), wlc: p.wlc };
     });
   }
 
@@ -375,7 +381,7 @@
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
     chart.data.datasets[0].data = (chart === batteryChart)
-      ? (showWLC ? insertGaps(pts) : smoothBatterySeries(insertGaps(pts)))
+      ? smoothBatterySeries(insertGaps(pts))
       : insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
