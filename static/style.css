@@ -2177,6 +2177,8 @@ input[type="checkbox"]:hover {
   border-radius: 12px;
   overflow: hidden;
 }
+/* Let the kiosk package dropdown escape the panel instead of being clipped. */
+.device-action-panel:has(.pkg-combo.open) { overflow: visible; }
 
 .device-action-panel-head {
   padding: var(--s-4) var(--s-4) var(--s-3);
@@ -4728,6 +4730,15 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .cmd-dp { grid-template-columns: 1fr 280px; }
 .cmd-dp .filter-select { font-size: 12px; }
 @media (max-width: 860px) { .cmd-dp { grid-template-columns: 1fr; } }
+
+/* command builder: concise Filters + Sort toolbar (mirrors the Fleet page) */
+.cb-tools { display: flex; gap: 8px; margin: 9px 12px 2px; }
+.cb-tools .fleet-fbtn { height: 34px; padding: 0 12px; font-size: 12.5px; border-radius: 9px; }
+.cb-tools .fleet-fbtn svg { width: 14px; height: 14px; }
+.cb-tools .fleet-pop { left: 0; right: auto; width: 360px; }
+.cb-tools .fleet-sortpop { width: 210px; }
+/* let the popover escape the available-devices pane (the pane itself clips its scroll list) */
+.cmd-dp .dp-pane:has(.cb-tools) { overflow: visible; }
 
 /* command-history show-more (device detail History tab) */
 .ch-collapsed .ch-extra { display: none; }
