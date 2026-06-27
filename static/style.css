@@ -5053,3 +5053,13 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .dl-remove { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
   border: 1px solid var(--border); background: var(--surface); border-radius: 8px; color: var(--text-faint); cursor: pointer; }
 .dl-remove:hover { border-color: var(--danger-edge); color: var(--danger); background: var(--danger-bg); }
+
+/* kiosk popover: enable/disable toggle row */
+.ddc-kpop-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.kiosk-sw { position: relative; display: inline-block; width: 42px; height: 24px; flex: none; cursor: pointer; }
+.kiosk-sw input { opacity: 0; width: 0; height: 0; }
+.kiosk-sw .kiosk-sw-tr { position: absolute; inset: 0; border-radius: 99px; background: var(--surface3, #e6e8ee); transition: background .15s; }
+.kiosk-sw .kiosk-sw-kn { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: var(--shadow-sm); transition: left .15s; }
+.kiosk-sw input:checked + .kiosk-sw-tr { background: var(--accent); }
+.kiosk-sw input:checked + .kiosk-sw-tr .kiosk-sw-kn { left: 21px; }
+.kiosk-need { border-color: var(--accent) !important; box-shadow: var(--ring); }
