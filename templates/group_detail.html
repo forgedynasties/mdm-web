@@ -7,27 +7,6 @@
   <span class="ov-date">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}} · tag</span>
 </div>
 
-<script src="/static/vendor/chart.umd.min.js"></script>
-<div class="card chart-card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Group trends</h3>
-    <div style="display:flex;align-items:center;gap:10px;">
-      <span id="gtrends-info" class="muted small"></span>
-      <div class="dur-btns" id="gtrends-range">
-        <button class="dur-btn" data-days="7">7d</button>
-        <button class="dur-btn active" data-days="30">30d</button>
-        <button class="dur-btn" data-days="90">90d</button>
-      </div>
-    </div>
-  </div>
-  <p class="muted small" style="margin:0;padding:14px 20px 0;">
-    Aggregated across every device in this group, one point per day. Band is the group's
-    daily battery min–max; the line is the mean of per-device daily averages. Charging
-    coverage is the average share of the day devices reported charging.
-  </p>
-  <div class="chart-wrap chart-wrap--tall"><canvas id="gtrendsChart"></canvas></div>
-</div>
-
 {{if canAdmin .Role}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Add devices</h3></div>
@@ -97,67 +76,6 @@ function toggleSection(header) {
     header.setAttribute('aria-expanded', 'true');
   }
 }
-
-// Group trends chart — aggregated daily stats across the group's devices.
-(function () {
-  var groupID = '{{.Group.ID}}';
-  var chart = null, days = 30;
-  var info = document.getElementById('gtrends-info');
-  var CRIMSON = '#d82747';
-
-  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function fmtDay(d) { var p = d.split('-'); return MONTHS[parseInt(p[1], 10) - 1] + ' ' + parseInt(p[2], 10); } // 2026-06-09 -> Jun 9
-
-  function render(rows) {
-    var data = {
-      labels: rows.map(function (r) { return fmtDay(r.day); }),
-      datasets: [
-        { label: 'Battery max', data: rows.map(function (r) { return r.battery_max; }),
-          borderColor: 'rgba(120,144,170,0.5)', backgroundColor: 'rgba(120,144,170,0.12)',
-          borderWidth: 1, pointRadius: 0, fill: '+1', tension: 0.3 },
-        { label: 'Battery min', data: rows.map(function (r) { return r.battery_min; }),
-          borderColor: 'rgba(120,144,170,0.5)', borderWidth: 1, pointRadius: 0, fill: false, tension: 0.3 },
-        { label: 'Battery avg %', data: rows.map(function (r) { return r.battery_avg; }),
-          borderColor: CRIMSON, backgroundColor: CRIMSON, borderWidth: 2, pointRadius: 2, tension: 0.3 },
-        { label: 'Charging coverage %', data: rows.map(function (r) { return r.charging_frac == null ? null : Math.round(r.charging_frac * 100); }),
-          borderColor: '#1f8a4c', backgroundColor: '#1f8a4c', borderWidth: 2, borderDash: [4, 3], pointRadius: 0, tension: 0.3 }
-      ]
-    };
-    var opts = {
-      responsive: true, maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
-      scales: { y: { min: 0, max: 100, title: { display: true, text: '% (battery / charging)' } } },
-      plugins: { legend: { labels: { filter: function (i) { return i.text !== 'Battery min'; } } } }
-    };
-    if (chart) { chart.data = data; chart.options = opts; chart.update(); }
-    else { chart = new Chart(document.getElementById('gtrendsChart').getContext('2d'), { type: 'line', data: data, options: opts }); }
-  }
-
-  function load() {
-    if (!groupID) return;
-    if (info) info.textContent = 'Loading…';
-    fetch('/groups/' + encodeURIComponent(groupID) + '/daily-stats?days=' + days)
-      .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (rows) {
-        if (!rows.length) { if (info) info.textContent = 'No data yet'; return; }
-        if (info) info.textContent = rows.length + ' day(s)';
-        render(rows);
-      })
-      .catch(function () { if (info) info.textContent = 'Failed to load'; });
-  }
-
-  var rangeEl = document.getElementById('gtrends-range');
-  if (rangeEl) {
-    rangeEl.addEventListener('click', function (e) {
-      var btn = e.target.closest('.dur-btn');
-      if (!btn) return;
-      days = parseInt(btn.getAttribute('data-days'), 10) || 30;
-      rangeEl.querySelectorAll('.dur-btn').forEach(function (b) { b.classList.toggle('active', b === btn); });
-      load();
-    });
-  }
-  load();
-})();
 </script>
 
 {{template "footer" .}}
