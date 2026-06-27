@@ -2629,6 +2629,7 @@ type DevicePackage struct {
 	PackageName string    `json:"package_name"`
 	AppName     string    `json:"app_name"`
 	VersionName string    `json:"version_name"`
+	IsSystem    bool      `json:"is_system"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
@@ -2655,16 +2656,18 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 		names := make([]string, len(packages))
 		appNames := make([]string, len(packages))
 		versions := make([]string, len(packages))
+		systems := make([]bool, len(packages))
 		for i, p := range packages {
 			names[i] = p.PackageName
 			appNames[i] = p.AppName
 			versions[i] = p.VersionName
+			systems[i] = p.IsSystem
 		}
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO device_packages (device_id, package_name, app_name, version_name)
-			SELECT $1, unnest($2::text[]), unnest($3::text[]), unnest($4::text[])
-			ON CONFLICT (device_id, package_name) DO UPDATE SET app_name = EXCLUDED.app_name, version_name = EXCLUDED.version_name, updated_at = NOW()
-		`, deviceID, names, appNames, versions); err != nil {
+			INSERT INTO device_packages (device_id, package_name, app_name, version_name, is_system)
+			SELECT $1, unnest($2::text[]), unnest($3::text[]), unnest($4::text[]), unnest($5::bool[])
+			ON CONFLICT (device_id, package_name) DO UPDATE SET app_name = EXCLUDED.app_name, version_name = EXCLUDED.version_name, is_system = EXCLUDED.is_system, updated_at = NOW()
+		`, deviceID, names, appNames, versions, systems); err != nil {
 			return err
 		}
 	}
@@ -2674,7 +2677,7 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 
 func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]DevicePackage, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT package_name, app_name, version_name, updated_at
+		SELECT package_name, app_name, version_name, is_system, updated_at
 		FROM device_packages
 		WHERE device_id = $1
 		ORDER BY package_name
@@ -2687,7 +2690,7 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 	var out []DevicePackage
 	for rows.Next() {
 		var p DevicePackage
-		if err := rows.Scan(&p.PackageName, &p.AppName, &p.VersionName, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.VersionName, &p.IsSystem, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -2708,7 +2711,7 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				COUNT(DISTINCT dp.device_id) AS device_count,
 				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
 			FROM device_packages dp
-			WHERE dp.package_name ILIKE $1 OR dp.app_name ILIKE $1
+			WHERE (dp.package_name ILIKE $1 OR dp.app_name ILIKE $1) AND NOT dp.is_system
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -2721,6 +2724,7 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				COUNT(DISTINCT dp.device_id) AS device_count,
 				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
 			FROM device_packages dp
+			WHERE NOT dp.is_system
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -4757,6 +4761,7 @@ CREATE INDEX IF NOT EXISTS idx_device_packages_device_id   ON device_packages(de
 CREATE INDEX IF NOT EXISTS idx_device_packages_package_name ON device_packages(package_name);
 
 ALTER TABLE device_packages ADD COLUMN IF NOT EXISTS app_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE device_packages ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE;
 
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS poll_interval_ms INTEGER NOT NULL DEFAULT 30000;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS latest_battery_pct SMALLINT NOT NULL DEFAULT 0;
