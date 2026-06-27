@@ -1160,7 +1160,7 @@
     <div class="card-header">
       <h3>Installed applications</h3>
       <div style="display:flex;align-items:center;gap:10px;">
-        <span class="muted small">{{len .InstalledPackages}} packages</span>
+        <span class="muted small" id="apps-count">{{len .InstalledPackages}} packages</span>
         {{if canOperate .Role}}<button type="button" class="btn-primary btn-sm" onclick="toggleInstallForm()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Install app</button>{{end}}
       </div>
     </div>
@@ -1189,49 +1189,13 @@
       </form>
     </div>
     {{end}}
-    {{if or .InstalledPackages .PendingInstalls}}
-    {{if .InstalledPackages}}<div class="app-search"><input type="text" id="apps-filter" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>{{end}}
-    <div class="app-list{{if gt (len .InstalledPackages) 6}} collapsed{{end}}" id="apps-table">
-      {{range .PendingInstalls}}
-      <div class="app-row app-installing" data-app="{{.Name}} {{.ApkURL}}">
-        <div class="app-id">
-          <div class="app-name">{{.Name}}</div>
-          <div class="app-pkg mono">installing</div>
-        </div>
-        <span class="app-installing-tag"><span class="app-spin"></span>installing</span>
-      </div>
-      {{end}}
-      {{range $i, $p := .InstalledPackages}}
-      <div class="app-row{{if ge $i 6}} app-extra{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}">
-        <div class="app-id">
-          <div class="app-name">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
-          <div class="app-pkg mono">{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}</div>
-        </div>
-        {{if $p.EffectiveSystem}}<span class="app-systag" title="System app — cannot be uninstalled">system</span>{{end}}
-        {{if and (canOperate $.Role) (not $p.EffectiveSystem)}}
-        <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST"
-              onsubmit="return confirm('Uninstall {{$p.PackageName}} from this device?');">
-          <input type="hidden" name="type" value="uninstall">
-          <input type="hidden" name="package" value="{{$p.PackageName}}">
-          <button type="submit" class="app-uninstall">Uninstall</button>
-        </form>
-        {{end}}
-      </div>
-      {{end}}
+    <div id="apps-live"
+         hx-get="/devices/{{.Device.SerialNumber}}/apps-list"
+         hx-trigger="device-updated from:body delay:600ms"
+         hx-swap="innerHTML"
+         hx-on::after-swap="appsAfterRefresh()">
+      {{template "device-apps-list" .}}
     </div>
-    {{if gt (len .InstalledPackages) 6}}
-    <button type="button" id="apps-more" class="app-more" onclick="appsShowAll()">Show all {{len .InstalledPackages}} apps</button>
-    {{end}}
-    <div id="apps-no-match" class="muted small" style="display:none;padding:16px 18px;">No apps match your search.</div>
-    {{else}}
-    <div class="empty-state" style="padding:28px 18px;">
-      <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
-      <div class="empty-state-copy">
-        <div class="empty-state-title">No package data</div>
-        <div class="empty-state-text">The device client must include <code>packages</code> in its checkin payload.</div>
-      </div>
-    </div>
-    {{end}}
   </div>
 </section>
 
@@ -1247,6 +1211,17 @@ function appsShowAll() {
   if (list) list.classList.remove('collapsed');
   var btn = document.getElementById('apps-more');
   if (btn) btn.style.display = 'none';
+}
+// After the apps list live-refreshes (device check-in), re-apply the active search
+// filter (the input is hx-preserved) and refresh the package count.
+function appsAfterRefresh() {
+  var f = document.getElementById('apps-filter');
+  filterInstalledApps(f ? f.value : '');
+  var c = document.getElementById('apps-count');
+  if (c) {
+    var n = document.querySelectorAll('#apps-table .app-row:not(.app-installing)').length;
+    c.textContent = n + ' package' + (n === 1 ? '' : 's');
+  }
 }
 function filterInstalledApps(q) {
   q = q.trim().toLowerCase();
@@ -1720,6 +1695,55 @@ async function saveNewApp() {
 </div>
 
 {{template "footer" .}}
+{{end}}
+
+{{/* Installed-apps list region — refreshed live on device check-in (HTMX) and
+     reusable as a standalone partial. Expects Device, Role, InstalledPackages,
+     PendingInstalls. */}}
+{{define "device-apps-list"}}
+{{if or .InstalledPackages .PendingInstalls}}
+{{if .InstalledPackages}}<div class="app-search"><input type="text" id="apps-filter" hx-preserve="true" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>{{end}}
+<div class="app-list{{if gt (len .InstalledPackages) 6}} collapsed{{end}}" id="apps-table">
+  {{range .PendingInstalls}}
+  <div class="app-row app-installing" data-app="{{.Name}} {{.ApkURL}}">
+    <div class="app-id">
+      <div class="app-name">{{.Name}}</div>
+      <div class="app-pkg mono">installing</div>
+    </div>
+    <span class="app-installing-tag"><span class="app-spin"></span>installing</span>
+  </div>
+  {{end}}
+  {{range $i, $p := .InstalledPackages}}
+  <div class="app-row{{if ge $i 6}} app-extra{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}">
+    <div class="app-id">
+      <div class="app-name">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
+      <div class="app-pkg mono">{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}</div>
+    </div>
+    {{if $p.EffectiveSystem}}<span class="app-systag" title="System app — cannot be uninstalled">system</span>{{end}}
+    {{if and (canOperate $.Role) (not $p.EffectiveSystem)}}
+    <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST"
+          onsubmit="return confirm('Uninstall {{$p.PackageName}} from this device?');">
+      <input type="hidden" name="type" value="uninstall">
+      <input type="hidden" name="package" value="{{$p.PackageName}}">
+      <button type="submit" class="app-uninstall">Uninstall</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{if gt (len .InstalledPackages) 6}}
+<button type="button" id="apps-more" class="app-more" onclick="appsShowAll()">Show all {{len .InstalledPackages}} apps</button>
+{{end}}
+<div id="apps-no-match" class="muted small" style="display:none;padding:16px 18px;">No apps match your search.</div>
+{{else}}
+<div class="empty-state" style="padding:28px 18px;">
+  <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
+  <div class="empty-state-copy">
+    <div class="empty-state-title">No package data</div>
+    <div class="empty-state-text">The device client must include <code>packages</code> in its checkin payload.</div>
+  </div>
+</div>
+{{end}}
 {{end}}
 
 {{define "device_history.html"}}
