@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions builder — three layouts · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1020px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 8px;max-width:780px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:36px 0 6px;}
+.dname{font-weight:700;font-size:16px;margin:6px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 14px;max-width:780px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+
+/* builder shell */
+.cmd-rail3{display:grid;grid-template-columns:212px 1fr;background:var(--surface,#fff);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm);overflow:hidden;margin:6px 0 4px;}
+.cr-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
+.cr-head h3{margin:0;font-size:15px;font-weight:650;}
+.cr-rail{border-right:1px solid var(--border-soft);padding:10px;}
+.cr-rail-group{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint,#9aa0b0);padding:12px 12px 5px;}
+.cr-rail-group:first-child{padding-top:4px;}
+.cr-rail-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;font-size:13px;color:var(--text-2);user-select:none;}
+.cr-rail-item .ic{width:16px;height:16px;flex:none;color:var(--muted);}
+.cr-rail-item .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;}
+.cr-rail-item.on{background:var(--accent-soft);color:var(--text);font-weight:600;}
+.cr-rail-item.on .ic{color:var(--accent);}
+.cr-config{padding:22px 24px;min-width:0;}
+.cr-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:18px 0 10px;}
+.cr-sec-title:first-child{margin-top:0;}
+.cfg-lead{font-size:13px;color:var(--muted);margin:0 0 16px;line-height:1.5;}
+.flabel{font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 6px;}
+.cr-foot{display:flex;align-items:center;gap:14px;margin-top:24px;padding-top:18px;border-top:1px solid var(--border-soft);}
+.cr-send{margin-left:auto;display:inline-flex;align-items:center;gap:8px;}
+.cr-send svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;}
+
+/* target pills (real classes exist but redeclare lightly) */
+.tpills{display:flex;gap:8px;margin-bottom:6px;}
+.tpill{border:1px solid var(--border);border-radius:99px;padding:6px 13px;font-size:12.5px;font-weight:600;background:#fff;color:var(--muted);}
+.tpill.on{border-color:transparent;background:var(--accent-soft);color:var(--accent);}
+
+/* category launcher (B) */
+.cat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.cat{border:1px solid var(--border);border-radius:13px;background:#fff;padding:15px;cursor:pointer;}
+.cat.on{border-color:transparent;background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent);}
+.cat .ci{width:30px;height:30px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:var(--surface2,#eef0f4);margin-bottom:10px;}
+.cat.on .ci{background:#fff;}
+.cat .ci svg{width:17px;height:17px;fill:none;stroke:var(--accent);stroke-width:1.8;}
+.cat .ct{font-size:13.5px;font-weight:700;}
+.cat .cs{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4;}
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.actchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--border);border-radius:99px;padding:7px 13px;font-size:12.5px;font-weight:600;background:#fff;cursor:pointer;}
+.actchip.on{border-color:transparent;background:var(--accent-soft);color:var(--accent);}
+.actchip svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;}
+.note{font-size:12px;color:var(--muted);background:#fff;border:1px dashed var(--border);border-radius:10px;padding:11px 13px;margin-top:14px;line-height:1.55;}
+
+/* nav simulation */
+.navsim{display:flex;gap:4px;background:#fff;border:1px solid var(--border);border-radius:12px;padding:8px;margin:2px 0 2px;width:max-content;}
+.navsim a{display:flex;align-items:center;gap:8px;padding:8px 13px;border-radius:9px;font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;}
+.navsim a.on{background:var(--accent-soft);color:var(--accent);}
+.navsim a svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;}
+
+.two{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;}
+.minicard{border:1px solid var(--border);border-radius:13px;background:#fff;overflow:hidden;}
+.minicard .mh{padding:13px 16px;border-bottom:1px solid var(--border-soft);font-weight:650;font-size:14px;}
+.minicard .mb{padding:16px;}
+.up{border:1.5px dashed var(--border);border-radius:11px;padding:22px;text-align:center;color:var(--muted);font-size:12.5px;}
+.up svg{width:26px;height:26px;fill:none;stroke:var(--accent);stroke-width:1.6;display:block;margin:0 auto 8px;}
+</style></head>
+<body><div class="wrap">
+
+<h1>“Actions” — three builder layouts</h1>
+<p class="lead">Page renamed to <b>Actions</b> in the nav (below). Three ways to organize the builder so Boot logo stops feeling out of place. Pick one — they share the same config forms and Send flow underneath.</p>
+<div class="navsim">
+  <a><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"/></svg>Overview</a>
+  <a><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg>Fleet</a>
+  <a class="on"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</a>
+  <a><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>Releases</a>
+</div>
+
+<!-- ===== DEMO 1 · GROUPED RAIL ===== -->
+<div class="eyebrow">Demo 1 · Grouped rail</div>
+<div class="dname">Two-pane builder, grouped rail <span class="rec">lowest risk</span></div>
+<div class="ddesc">Today’s layout, the flat rail split into labelled groups. Boot logo lives under <b>Customization</b>. Smallest change — only the rail markup gains headers.</div>
+<div class="cmd-rail3">
+  <div class="cr-head"><h3>New action</h3></div>
+  <div class="cr-rail">
+    <div class="cr-rail-group">Apps</div>
+    <div class="cr-rail-item on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></span>Uninstall</div>
+    <div class="cr-rail-group">Diagnostics</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Log capture</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell</div>
+    <div class="cr-rail-group">Power</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot</div>
+    <div class="cr-rail-group">Customization</div>
+    <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo</div>
+  </div>
+  <div class="cr-config">
+    <div class="cr-sec-title">Install app</div>
+    <p class="flabel">Repository app</p>
+    <select class="form-input" style="max-width:100%;margin-bottom:4px;"><option>Aioapp Kiosk 2.4.1</option><option>POS Terminal 1.9</option></select>
+    <div class="cr-sec-title">Target</div>
+    <div class="tpills"><span class="tpill on">All devices</span><span class="tpill">Groups</span><span class="tpill">Specific</span></div>
+    <div class="cr-foot"><span class="muted small" style="color:var(--muted);font-size:12px;">Queues on next check-in.</span><button class="btn-primary cr-send"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>Send action</button></div>
+  </div>
+</div>
+
+<!-- ===== DEMO 2 · CATEGORY LAUNCHER ===== -->
+<div class="eyebrow">Demo 2 · Category launcher</div>
+<div class="dname">Pick a category, then the action</div>
+<div class="ddesc">Replaces the rail with four category cards across the top. Choosing one reveals its actions as chips and the config below. Scales as you add actions; the Apps / Diagnostics / Power / <b>Customization</b> split is obvious at a glance.</div>
+<div class="cmd-rail3"><div style="grid-column:1/-1;padding:20px 22px;">
+  <div class="cr-sec-title" style="margin-top:0;">What do you want to do?</div>
+  <div class="cat-row">
+    <div class="cat on"><div class="ci"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></div><div class="ct">Apps</div><div class="cs">Install or remove packages</div></div>
+    <div class="cat"><div class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></div><div class="ct">Diagnostics</div><div class="cs">Screenshot, logs, shell</div></div>
+    <div class="cat"><div class="ci"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/></svg></div><div class="ct">Power</div><div class="cs">Reboot devices</div></div>
+    <div class="cat"><div class="ci"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></div><div class="ct">Customization</div><div class="cs">Boot logo &amp; branding</div></div>
+  </div>
+  <div class="chiprow">
+    <span class="actchip on"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/></svg>Install app</span>
+    <span class="actchip"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M6 6l1 14h10l1-14"/></svg>Uninstall</span>
+  </div>
+  <div class="two" style="margin-top:18px;">
+    <div>
+      <div class="cr-sec-title" style="margin-top:0;">Install app</div>
+      <p class="flabel">Repository app</p>
+      <select class="form-input" style="max-width:100%;"><option>Aioapp Kiosk 2.4.1</option><option>POS Terminal 1.9</option></select>
+    </div>
+    <div>
+      <div class="cr-sec-title" style="margin-top:0;">Target</div>
+      <div class="tpills"><span class="tpill on">All</span><span class="tpill">Groups</span><span class="tpill">Specific</span></div>
+    </div>
+  </div>
+  <div class="cr-foot"><span style="color:var(--muted);font-size:12px;">Queues on next check-in.</span><button class="btn-primary cr-send"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>Send action</button></div>
+</div></div>
+
+<!-- ===== DEMO 3 · MOVE BOOT LOGO OUT ===== -->
+<div class="eyebrow">Demo 3 · Move Boot logo out</div>
+<div class="dname">Operational-only Actions + a separate Branding home</div>
+<div class="ddesc">Actions stays purely operational (no Customization group). Boot logo moves to its own small <b>Branding</b> card — shown here as it’d look under Settings or the device’s Controls. Cleanest separation, but it’s one more place to look.</div>
+<div class="two">
+  <div class="cmd-rail3" style="margin:0;">
+    <div class="cr-head"><h3>New action</h3></div>
+    <div class="cr-rail">
+      <div class="cr-rail-group">Apps</div>
+      <div class="cr-rail-item on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app</div>
+      <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M6 6l1 14h10l1-14"/></svg></span>Uninstall</div>
+      <div class="cr-rail-group">Diagnostics</div>
+      <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot</div>
+      <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/></svg></span>Log capture</div>
+      <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell</div>
+      <div class="cr-rail-group">Power</div>
+      <div class="cr-rail-item"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/></svg></span>Reboot</div>
+    </div>
+    <div class="cr-config">
+      <div class="cr-sec-title">Install app</div>
+      <p class="cfg-lead">No Boot logo here — Actions is operational only.</p>
+      <div class="cr-foot" style="margin-top:60px;"><button class="btn-primary cr-send"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>Send</button></div>
+    </div>
+  </div>
+  <div class="minicard">
+    <div class="mh">Branding</div>
+    <div class="mb">
+      <p class="flabel">Boot logo</p>
+      <div class="up"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>Drop splash.img or paste a URL</div>
+      <div class="cr-sec-title">Apply to</div>
+      <div class="tpills"><span class="tpill on">All</span><span class="tpill">Groups</span></div>
+      <button class="btn-primary" style="margin-top:14px;width:100%;justify-content:center;">Push boot logo</button>
+    </div>
+  </div>
+</div>
+<div class="note">Trade-off: branding gets a tidy dedicated spot, but you’d look in two places. Demos 1 &amp; 2 keep everything on one page.</div>
+
+</div></body></html>
