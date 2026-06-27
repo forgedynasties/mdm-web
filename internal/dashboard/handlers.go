@@ -1888,6 +1888,23 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// In-flight installs: install_apk commands not yet completed/failed, so the
+	// Applications list can show them as "installing" until the device reports them.
+	appName := make(map[string]string, len(apps))
+	for _, a := range apps {
+		appName[a.ApkURL] = a.Name
+	}
+	var pendingInstalls []map[string]string
+	for _, c := range commands {
+		if c.Type == "install_apk" && (c.Status == "pending" || c.Status == "delivered") {
+			name := appName[c.ApkURL]
+			if name == "" {
+				name = c.ApkURL
+			}
+			pendingInstalls = append(pendingInstalls, map[string]string{"Name": name, "ApkURL": c.ApkURL})
+		}
+	}
+
 	kioskCfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -1930,6 +1947,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ExtraColumns":        h.cfg.Columns(),
 		"Apps":                apps,
 		"InstalledPackages":   installedPkgs,
+		"PendingInstalls":     pendingInstalls,
 		"KioskConfig":         kioskCfg,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
