@@ -4945,3 +4945,11 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
   .rlc { grid-template-columns: 16px 40px 1fr auto; }
   .rlc-roll, .rlc-meta { display: none; }
 }
+
+/* Deploy two-pane: selectable rows (override the .cb-row grid with flex) */
+.dp-av { display: flex; align-items: center; gap: 11px; cursor: pointer; }
+.dp-av .cb-id { flex: 1; }
+.dp-av .dp-check { width: 18px; height: 18px; border-radius: 6px; border: 1.5px solid var(--border); flex: none; position: relative; }
+.dp-av.sel { background: var(--accent-soft); }
+.dp-av.sel .dp-check { background: var(--accent); border-color: var(--accent); }
+.dp-av.sel .dp-check::after { content: ''; position: absolute; left: 5px; top: 2px; width: 5px; height: 9px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); }
