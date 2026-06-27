@@ -4882,14 +4882,13 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .nbar-al-all { display: block; text-align: center; font-size: 12px; font-weight: var(--fw-semibold); color: var(--accent); padding: 9px; border-top: 1px solid var(--border-soft); margin-top: 4px; text-decoration: none; }
 .nbar-al-empty { padding: 16px 11px; text-align: center; color: var(--muted); font-size: 12.5px; }
 
-/* ── floating bottom-center dock ── */
+/* ── floating bottom-center dock (solid + coral ring for visibility) ── */
 .dock {
   position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 45;
   display: flex; gap: 4px; padding: 7px;
-  background: color-mix(in srgb, var(--surface) 90%, transparent);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--border); border-radius: 16px;
-  box-shadow: 0 12px 36px rgba(20, 22, 40, .16);
+  background: var(--surface);
+  border: 1.5px solid transparent; border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(20, 22, 40, .20), 0 0 0 1.5px var(--accent-edge);
 }
 .dock .nav-link {
   display: inline-flex; align-items: center; gap: 9px; padding: 10px 16px;
