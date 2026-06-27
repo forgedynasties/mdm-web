@@ -4919,7 +4919,12 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .rlc-badge.draft { background: var(--warn-bg); color: #9a6512; }
 .rlc-badge.muted { background: var(--surface2); color: var(--text-faint); }
 .rlc-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.rlc-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rlc-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.rlc-stat { font-size: 11px; font-weight: 600; text-transform: capitalize; white-space: nowrap; flex: none; }
+.rlc-stat.ok { color: #1c7d50; }
+.rlc-stat.warn { color: #9a6512; }
+.rlc-stat.danger { color: var(--danger); }
+.rlc-stat.muted { color: var(--text-faint); }
 .rlc-ver { font-family: var(--mono); font-size: 13.5px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rlc-sub { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
