@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Releases & deployments — revamp demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1040px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 8px;max-width:800px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:36px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:6px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 14px;max-width:800px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.mono{font-family:var(--mono,ui-monospace,monospace);}
+
+/* ============ A · RELEASE ROWS (card style) ============ */
+.rl{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.rl-row{display:grid;grid-template-columns:4px 1fr 220px auto;align-items:center;gap:16px;padding:0 16px 0 0;border-bottom:1px solid var(--border-soft);position:relative;}
+.rl-row:last-child{border-bottom:0;}
+.rl-rail{width:4px;align-self:stretch;background:var(--ok);}
+.rl-rail.warn{background:var(--warn);}.rl-rail.muted{background:var(--rule-2,#d6d8e0);}
+.rl-main{padding:15px 0 15px 4px;min-width:0;}
+.rl-top{display:flex;align-items:center;gap:9px;}
+.rl-ver{font-size:15px;font-weight:700;}
+.rl-sub{font-size:12px;color:var(--muted);margin-top:3px;}
+.rl-roll{padding:12px 0;}
+.rl-meter{height:7px;border-radius:99px;background:var(--surface3,#e6e8ee);overflow:hidden;}
+.rl-meter i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#7a80f6,#f9674e);}
+.rl-rollf{display:flex;justify-content:space-between;margin-top:5px;font-size:11px;color:var(--muted);}
+.rl-rollf b{color:var(--text);font-weight:700;}
+.rl-act{display:flex;gap:6px;align-items:center;}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 8px;border-radius:99px;}
+.chip.ok{background:#e6f6ee;color:#1c7d50;}.chip.warn{background:var(--warn-bg);color:#9a6512;}
+.chip.qa{background:var(--accent-soft);color:var(--accent);}
+
+/* ============ B · compact list ============ */
+.rc{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.rc-row{display:grid;grid-template-columns:1.4fr 1.6fr 110px auto;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border-soft);font-size:13px;}
+.rc-row:last-child{border-bottom:0;}
+.rc-row.head{background:var(--surface2);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint,#9aa0b0);padding:9px 16px;}
+.rc-meter{height:6px;border-radius:99px;background:var(--surface3,#e6e8ee);overflow:hidden;}
+.rc-meter i{display:block;height:100%;background:linear-gradient(90deg,#7a80f6,#f9674e);}
+
+/* ============ push two-pane (reuses .dp-tp from style.css) ============ */
+.panecard{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;}
+.seg{display:inline-flex;background:var(--surface2);border-radius:9px;padding:3px;gap:2px;}
+.seg button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:7px;cursor:pointer;}
+.seg button.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm);}
+.flabel{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;}
+
+/* generic detail page bits */
+.hero{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 22px;}
+.hero-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+.hero-ver{font-size:22px;font-weight:800;letter-spacing:-.01em;display:flex;align-items:center;gap:10px;}
+.hero-sub{color:var(--muted);font-size:12.5px;margin-top:4px;}
+.hero-vitals{display:flex;gap:26px;margin-top:18px;}
+.hv .k{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint,#9aa0b0);}
+.hv .v{font-size:20px;font-weight:700;margin-top:3px;}
+.subgrid{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;margin-top:16px;}
+.card2{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.card2 .h{padding:13px 16px;border-bottom:1px solid var(--border-soft);font-weight:650;font-size:14px;display:flex;justify-content:space-between;align-items:center;}
+.card2 .b{padding:14px 16px;}
+.dep-row{display:grid;grid-template-columns:auto 1fr 120px auto;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--border-soft);font-size:13px;}
+.dep-row:last-child{border-bottom:0;}
+.dep-dot{width:9px;height:9px;border-radius:50%;}
+.dep-dot.ok{background:var(--ok);}.dep-dot.run{background:var(--accent);}.dep-dot.warn{background:var(--warn);}
+.miniprog{height:6px;border-radius:99px;background:var(--surface3,#e6e8ee);overflow:hidden;}
+.miniprog i{display:block;height:100%;background:var(--ok);}
+
+/* deployment device list */
+.dl-row{display:grid;grid-template-columns:18px 1fr 120px 90px;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border-soft);font-size:12.5px;}
+.dl-row:last-child{border-bottom:0;}
+.donut{--p:72;width:120px;height:120px;border-radius:50%;background:conic-gradient(var(--ok) calc(var(--p)*1%), var(--surface3,#e6e8ee) 0);display:flex;align-items:center;justify-content:center;}
+.donut::after{content:'';width:88px;height:88px;border-radius:50%;background:var(--surface);position:absolute;}
+.donut span{position:relative;z-index:1;font-size:22px;font-weight:800;}
+</style></head>
+<body><div class="wrap">
+
+<h1>Releases &amp; deployments — revamp demos</h1>
+<p class="lead">Four things: a cleaner <b>release row</b>, the <b>release detail</b> page, the <b>deployment</b> page, and a <b>Push update</b> targeting picker that reuses the same two-pane transfer UI as “add to group / restaurant”.</p>
+
+<!-- ============ 1 · RELEASE ROWS ============ -->
+<div class="eyebrow">1 · Releases list — row styles</div>
+<div class="dname">Option A · Card rows with a status rail <span class="rec">recommended</span></div>
+<div class="ddesc">Roomier rows: a colored status rail on the left, big version + name, a gradient rollout meter with the real device count, QA / sign-off as quiet chips, and actions on the right. Clearer hierarchy than today’s 5-column squeeze.</div>
+<div class="rl">
+  <div class="rl-row">
+    <div class="rl-rail"></div>
+    <div class="rl-main"><div class="rl-top"><span class="rl-ver mono">2026.06.01-release</span><span class="status-badge ok">published</span></div><div class="rl-sub">June security update · 3 pkg · 2 deployments</div></div>
+    <div class="rl-roll"><div class="rl-meter"><i style="width:78%"></i></div><div class="rl-rollf"><span><b>243</b> of 312 devices</span><span>78%</span></div></div>
+    <div class="rl-act"><span class="chip qa">QA 8/8</span><span class="chip ok">✓ alex</span><a class="btn-outline btn-sm">View</a></div>
+  </div>
+  <div class="rl-row">
+    <div class="rl-rail warn"></div>
+    <div class="rl-main"><div class="rl-top"><span class="rl-ver mono">2026.05.20-rc2</span><span class="status-badge warn">draft</span></div><div class="rl-sub">RC build · 1 pkg · 0 deployments</div></div>
+    <div class="rl-roll"><div class="rl-meter"><i style="width:12%"></i></div><div class="rl-rollf"><span><b>38</b> of 312 devices</span><span>12%</span></div></div>
+    <div class="rl-act"><span class="chip warn">sign-off pending</span><button class="btn-primary btn-sm">Sign off</button><a class="btn-outline btn-sm">View</a></div>
+  </div>
+  <div class="rl-row">
+    <div class="rl-rail muted"></div>
+    <div class="rl-main"><div class="rl-top"><span class="rl-ver mono">1.98-debug</span><span class="status-badge muted">not tracked</span></div><div class="rl-sub">seen on devices</div></div>
+    <div class="rl-roll"><div class="rl-meter"><i style="width:4%;background:var(--rule-2,#d6d8e0)"></i></div><div class="rl-rollf"><span><b>11</b> of 312 devices</span><span>4%</span></div></div>
+    <div class="rl-act"><button class="btn-primary btn-sm">+ Add as release</button></div>
+  </div>
+</div>
+
+<div class="dname" style="margin-top:26px;">Option B · Compact list (aligned columns)</div>
+<div class="ddesc">Tighter and table-like with a header row — better when you have many releases. Thin meter, status pill, device count column, action.</div>
+<div class="rc">
+  <div class="rc-row head"><span>Version</span><span>Rollout</span><span>Devices</span><span style="text-align:right">Actions</span></div>
+  <div class="rc-row"><span><span class="mono" style="font-weight:700">2026.06.01-release</span> <span class="status-badge ok">published</span></span><span class="rc-meter"><i style="width:78%"></i></span><span><b>243</b>/312</span><span style="text-align:right"><a class="btn-outline btn-sm">View</a></span></div>
+  <div class="rc-row"><span><span class="mono" style="font-weight:700">2026.05.20-rc2</span> <span class="status-badge warn">draft</span></span><span class="rc-meter"><i style="width:12%"></i></span><span><b>38</b>/312</span><span style="text-align:right"><a class="btn-outline btn-sm">View</a></span></div>
+  <div class="rc-row"><span><span class="mono" style="font-weight:700">1.98-debug</span> <span class="status-badge muted">not tracked</span></span><span class="rc-meter"><i style="width:4%;background:var(--rule-2)"></i></span><span><b>11</b>/312</span><span style="text-align:right"><button class="btn-primary btn-sm">+ Add</button></span></div>
+</div>
+
+<!-- ============ 2 · PUSH TWO-PANE ============ -->
+<div class="eyebrow">2 · Push update — two-pane targeting</div>
+<div class="dname">Same transfer picker as “add to group / restaurant” <span class="rec">your ask</span></div>
+<div class="ddesc">Replaces the crammed checkbox list. Filter the left pane, click to move devices into <b>Selected</b> on the right; reboot behaviour + stage limit sit alongside. Devices / Groups toggle at the top.</div>
+<div class="panecard">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <div class="seg"><button class="on">Devices</button><button>Groups</button></div>
+    <span class="muted" style="font-size:12px;">Pushing <b class="mono" style="color:var(--text)">2026.06.01-release</b></span>
+  </div>
+  <div class="dp-tp">
+    <div class="dp-pane">
+      <div class="dp-pane-h"><span class="t">Available devices</span><button class="btn-link" style="font-size:12px;font-weight:600;">Select all matching</button></div>
+      <div class="filter-search" style="margin:11px 12px 0;"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path d="M8 4a4 4 0 100 8 4 4 0 000-8z"/></svg><input class="filter-search-input" placeholder="Filter serial…"></div>
+      <div class="cb-list" style="margin:8px;">
+        <label class="cb-row"><span class="dp-bchip battery-ok">98%</span><span class="cb-id"><span class="cb-serial mono">AT070AABU00169</span><span class="cb-sub">2026.05.20-rc2 · just now</span></span></label>
+        <label class="cb-row"><span class="dp-bchip battery-low">34%</span><span class="cb-id"><span class="cb-serial mono">AT070AABU00280</span><span class="cb-sub">1.98-debug · 2m</span></span></label>
+        <label class="cb-row"><span class="dp-bchip battery-ok">99%</span><span class="cb-id"><span class="cb-serial mono">AT070AABU00296</span><span class="cb-sub">2026.05.20-rc2 · just now</span></span></label>
+      </div>
+    </div>
+    <div class="dp-pane">
+      <div class="dp-pane-h"><span class="t">Selected</span><span class="n">2 devices</span></div>
+      <div style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;min-height:140px;">
+        <span class="cmd-chip">AT070AABU00169 <button>×</button></span>
+        <span class="cmd-chip">AT070AABU00296 <button>×</button></span>
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:16px;align-items:flex-end;">
+    <div><div class="flabel">Reboot after install</div><div class="seg"><button class="on">Immediate</button><button>Scheduled</button><button>Manual</button></div></div>
+    <div><div class="flabel">Stage limit</div><input class="form-input" style="width:120px" placeholder="e.g. 10"></div>
+    <button class="btn-primary" style="margin-left:auto;">Push update</button>
+  </div>
+</div>
+
+<!-- ============ 3 · RELEASE DETAIL ============ -->
+<div class="eyebrow">3 · Release detail page</div>
+<div class="dname">Hero + rollout, packages, deployments</div>
+<div class="ddesc">A clear hero (version, status, changelog summary) with vitals, then the rollout, packages and deployments below. Push lives in its own card (the picker above).</div>
+<div class="hero">
+  <div class="hero-top">
+    <div><div class="hero-ver mono">2026.06.01-release <span class="status-badge ok">published</span></div><div class="hero-sub">June security update · created Jun 24 · changelog: hardened OTA, battery fixes…</div></div>
+    <div style="display:flex;gap:8px;"><button class="btn-primary">Push update</button><button class="btn-outline">Edit</button><button class="btn-outline">Yank</button></div>
+  </div>
+  <div class="hero-vitals">
+    <div class="hv"><div class="k">Rollout</div><div class="v">78%</div></div>
+    <div class="hv"><div class="k">On this build</div><div class="v">243</div></div>
+    <div class="hv"><div class="k">Deployments</div><div class="v">2</div></div>
+    <div class="hv"><div class="k">QA</div><div class="v">8/8</div></div>
+    <div class="hv"><div class="k">Sign-off</div><div class="v" style="color:#1c7d50;font-size:15px;padding-top:5px;">✓ alex</div></div>
+  </div>
+</div>
+<div class="subgrid">
+  <div class="card2">
+    <div class="h">Deployments <span class="muted small">2 total</span></div>
+    <div class="dep-row"><span class="dep-dot ok"></span><span>Wave 2 · all devices</span><span class="miniprog"><i style="width:100%"></i></span><a class="link-detail">View</a></div>
+    <div class="dep-row"><span class="dep-dot run"></span><span>Wave 1 · Kitchen group</span><span class="miniprog"><i style="width:64%;background:var(--accent)"></i></span><a class="link-detail">View</a></div>
+  </div>
+  <div class="card2">
+    <div class="h">Packages</div>
+    <div class="b" style="font-size:12.5px;color:var(--muted);line-height:1.9;">
+      <div>📦 Full OTA · <span class="mono">v2026.06.01</span></div>
+      <div>↗ Incremental from rc2 · <span class="mono">+12 MB</span></div>
+      <div>🖼 Boot logo · <span class="mono">splash.img</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 4 · DEPLOYMENT DETAIL ============ -->
+<div class="eyebrow">4 · Deployment detail page</div>
+<div class="dname">Progress donut + per-device status</div>
+<div class="ddesc">Headline progress, status breakdown, and a clean per-device list (installed / pending / failed) with retry.</div>
+<div class="hero">
+  <div class="hero-top">
+    <div><div class="hero-ver">Wave 1 · Kitchen group</div><div class="hero-sub mono">2026.06.01-release · started 2h ago · immediate reboot</div></div>
+    <div style="display:flex;gap:8px;"><button class="btn-outline">Add targets</button><button class="btn-outline">Cancel</button></div>
+  </div>
+  <div style="display:flex;gap:28px;align-items:center;margin-top:18px;">
+    <div class="donut" style="--p:64;position:relative;"><span>64%</span></div>
+    <div class="hero-vitals" style="margin:0;">
+      <div class="hv"><div class="k">Installed</div><div class="v" style="color:#1c7d50">41</div></div>
+      <div class="hv"><div class="k">Pending</div><div class="v" style="color:var(--accent)">19</div></div>
+      <div class="hv"><div class="k">Failed</div><div class="v" style="color:#d6354a">4</div></div>
+      <div class="hv"><div class="k">Total</div><div class="v">64</div></div>
+    </div>
+  </div>
+</div>
+<div class="card2" style="margin-top:16px;">
+  <div class="h">Devices <span class="muted small">64</span></div>
+  <div class="dl-row"><span class="dep-dot ok"></span><span class="mono">AT070AABU00169</span><span class="status-badge ok">installed</span><span class="muted small">12m ago</span></div>
+  <div class="dl-row"><span class="dep-dot run"></span><span class="mono">AT070AABU00280</span><span class="status-badge warn">pending</span><span class="muted small">—</span></div>
+  <div class="dl-row"><span class="dep-dot warn"></span><span class="mono">AT070AABU00296</span><span class="status-badge danger">failed</span><span style="text-align:right"><button class="btn-outline btn-sm">Retry</button></span></div>
+</div>
+
+</div></body></html>
