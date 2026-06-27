@@ -298,6 +298,7 @@ type checkinRequest struct {
 		Package     string `json:"package"`
 		Name        string `json:"name"`
 		VersionName string `json:"version_name"`
+		IsSystem    bool   `json:"is_system"`
 	} `json:"installed_apps,omitempty"`
 	// OTA progress piggybacked on the checkin so the dashboard keeps tracking
 	// download/install percent even when the WebSocket is down.
@@ -350,7 +351,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			seen[p.Package] = struct{}{}
-			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName})
+			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem})
 		}
 		if err := h.db.UpsertDevicePackages(r.Context(), deviceID, pkgs); err != nil {
 			log.Printf("[checkin] UpsertDevicePackages error: %v", err)
@@ -680,7 +681,7 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 				continue
 			}
 			seen[p.Package] = struct{}{}
-			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName})
+			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem})
 		}
 		if err := h.db.UpsertDevicePackages(ctx, id, pkgs); err != nil {
 			log.Printf("[ws-telemetry] UpsertDevicePackages error: %v", err)
