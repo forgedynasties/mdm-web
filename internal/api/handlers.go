@@ -298,7 +298,7 @@ type checkinRequest struct {
 		Package     string `json:"package"`
 		Name        string `json:"name"`
 		VersionName string `json:"version_name"`
-		IsSystem    bool   `json:"is_system"`
+		IsSystem    *bool  `json:"is_system"` // nil when the client is too old to report it
 	} `json:"installed_apps,omitempty"`
 	// OTA progress piggybacked on the checkin so the dashboard keeps tracking
 	// download/install percent even when the WebSocket is down.
