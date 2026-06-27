@@ -36,6 +36,11 @@
         <kbd>⌘K</kbd>
       </button>
 
+      <button type="button" class="appbar-icon theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
+        <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
+        <span class="ui-icon theme-icon-dark"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+      </button>
+
       {{/* Alerts bell → dropdown (lazy-loads recent alerts via htmx on open). */}}
       <div class="nbar-wrap" id="alerts-wrap">
         <button type="button" id="alerts-indicator" class="appbar-icon js-dest" data-cmdk-label="Alerts" data-cmdk-href="/alerts" onclick="navAlerts(event)" aria-haspopup="true" aria-expanded="false" title="Alerts">
@@ -59,13 +64,7 @@
             <div class="n">{{if .CurrentUser}}{{.CurrentUser}}{{else}}Unknown User{{end}}</div>
             <div class="e">{{if .Role}}{{.Role}}{{else}}unknown{{end}} · v{{.Version}}</div>
           </div>
-          <button type="button" class="nbar-mi" onclick="toggleTheme()">
-            <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
-            <span class="ui-icon theme-icon-dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
-            <span class="nbar-mi-label">Theme</span><span class="nbar-theme-state"></span>
-          </button>
           {{if eq .Role "admin"}}
-          <div class="nbar-sep"></div>
           <a class="nbar-mi js-dest" data-cmdk-label="Settings" href="/settings">
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5h.1a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8z"/></svg></span>
             <span class="nbar-mi-label">Settings</span>
@@ -74,8 +73,8 @@
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
             <span class="nbar-mi-label">Users</span>
           </a>
-          {{end}}
           <div class="nbar-sep"></div>
+          {{end}}
           <a class="nbar-mi js-dest" data-cmdk-label="What's new" href="/changelog">
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg></span>
             <span class="nbar-mi-label">What's new</span><span class="nbar-mi-rt">v{{.Version}}</span>
@@ -128,13 +127,6 @@
       var lw = document.getElementById('alerts-wrap'); if (lw && !lw.contains(e.target)) pop('alerts-pop', '#alerts-indicator', false);
     });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false); } });
-    // Reflect the current theme as a small "Light/Dark" hint in the account menu.
-    function syncThemeState() {
-      var s = document.querySelector('.nbar-theme-state');
-      if (s) s.textContent = (document.documentElement.getAttribute('data-theme') === 'dark') ? 'Dark' : 'Light';
-    }
-    syncThemeState();
-    window.addEventListener('mdm:themechange', syncThemeState);
   })();
   </script>
   <div id="toast" class="toast" aria-live="polite"></div>
