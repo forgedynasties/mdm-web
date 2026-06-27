@@ -26,6 +26,7 @@
       <span class="dl-synced">Synced {{timeSince .LastSeenAt}}</span>
     </div>
     <div class="dl-act">
+      {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" onsubmit="return confirm('Remove {{.SerialNumber}}?')"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
       <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
     </div>
   </div>

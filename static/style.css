@@ -5048,3 +5048,8 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .ddc-kpop-h { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
 .ddc-kpop .form-row { margin-bottom: 12px; }
 .ddc-kpop .form-label { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; display: block; }
+
+/* device-cards roster: remove action button */
+.dl-remove { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  border: 1px solid var(--border); background: var(--surface); border-radius: 8px; color: var(--text-faint); cursor: pointer; }
+.dl-remove:hover { border-color: var(--danger-edge); color: var(--danger); background: var(--danger-bg); }
