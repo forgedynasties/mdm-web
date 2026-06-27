@@ -6965,18 +6965,41 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 
 // ── Packages ──────────────────────────────────────────────────────────────────
 
+// FleetPackages renders the admin app-classification page: every package across the
+// fleet, how clients classified it, and an admin override to flag system apps used
+// as the fallback when no client reports the flag.
 func (h *Handler) FleetPackages(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
-	pkgs, err := h.db.SearchFleetPackages(r.Context(), q)
+	pkgs, err := h.db.ListPackagesAdmin(r.Context(), q)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	h.render(w, r, "packages.html", map[string]any{
-		"Title":    "Package Inventory",
+		"Title":    "App classification",
 		"Packages": pkgs,
 		"Query":    q,
 	})
+}
+
+// PackageFlag toggles the admin system-app override for a package (admin only).
+func (h *Handler) PackageFlag(w http.ResponseWriter, r *http.Request) {
+	pkg := strings.TrimSpace(r.FormValue("package"))
+	if pkg == "" {
+		http.Error(w, "package required", http.StatusBadRequest)
+		return
+	}
+	flagged := r.FormValue("flagged") == "1"
+	if err := h.db.SetPackageSystemOverride(r.Context(), pkg, flagged); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	// HTMX posts get a 204 (the row updates its own UI); plain forms redirect back.
+	if r.Header.Get("HX-Request") == "true" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, "/packages", http.StatusSeeOther)
 }
 
 func (h *Handler) DevicePackages(w http.ResponseWriter, r *http.Request) {
@@ -7320,6 +7343,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
+	mux.HandleFunc("GET /packages", h.requireStrictAdmin(h.FleetPackages))
+	post("POST /packages/flag", h.requireStrictAdmin(h.PackageFlag))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/live", h.requireAuth(h.LogcatLivePage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(h.LogcatStream))

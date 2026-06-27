@@ -1076,8 +1076,8 @@
           <div class="app-name">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
           <div class="app-pkg mono">{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}</div>
         </div>
-        {{if $p.IsSystem}}<span class="app-systag" title="System app — cannot be uninstalled">system</span>{{end}}
-        {{if and (canOperate $.Role) (not $p.IsSystem)}}
+        {{if $p.EffectiveSystem}}<span class="app-systag" title="System app — cannot be uninstalled">system</span>{{end}}
+        {{if and (canOperate $.Role) (not $p.EffectiveSystem)}}
         <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST"
               onsubmit="return confirm('Uninstall {{$p.PackageName}} from this device?');">
           <input type="hidden" name="type" value="uninstall">

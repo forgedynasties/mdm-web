@@ -2626,11 +2626,28 @@ func (d *DB) FleetLogcatSuggestions(ctx context.Context, limit int) (recent, fre
 // ── Device Packages ───────────────────────────────────────────────────────────
 
 type DevicePackage struct {
-	PackageName string    `json:"package_name"`
-	AppName     string    `json:"app_name"`
-	VersionName string    `json:"version_name"`
-	IsSystem    bool      `json:"is_system"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	PackageName string `json:"package_name"`
+	AppName     string `json:"app_name"`
+	VersionName string `json:"version_name"`
+	// IsSystem is the client-reported system flag: nil when the device's client is
+	// too old to report it (so the admin override decides). Used on the write path.
+	IsSystem *bool `json:"is_system,omitempty"`
+	// EffectiveSystem is the resolved classification (client report if present, else
+	// admin override, else false). Populated on the read path; gates uninstall.
+	EffectiveSystem bool      `json:"effective_system"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// AdminPackage is a fleet-wide package row for the admin classification page.
+type AdminPackage struct {
+	PackageName     string `json:"package_name"`
+	AppName         string `json:"app_name"`
+	DeviceCount     int    `json:"device_count"`
+	ReportedSystem  int    `json:"reported_system"`  // devices whose client reported is_system=true
+	ReportedUser    int    `json:"reported_user"`    // devices whose client reported is_system=false
+	ReportedUnknown int    `json:"reported_unknown"` // devices whose client didn't report
+	AdminFlagged    bool   `json:"admin_flagged"`    // an admin override row exists
+	EffectiveSystem bool   `json:"effective_system"`
 }
 
 type FleetPackage struct {
@@ -2656,12 +2673,12 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 		names := make([]string, len(packages))
 		appNames := make([]string, len(packages))
 		versions := make([]string, len(packages))
-		systems := make([]bool, len(packages))
+		systems := make([]*bool, len(packages))
 		for i, p := range packages {
 			names[i] = p.PackageName
 			appNames[i] = p.AppName
 			versions[i] = p.VersionName
-			systems[i] = p.IsSystem
+			systems[i] = p.IsSystem // *bool → NULL when the client didn't report
 		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO device_packages (device_id, package_name, app_name, version_name, is_system)
@@ -2677,10 +2694,13 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 
 func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]DevicePackage, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT package_name, app_name, version_name, is_system, updated_at
-		FROM device_packages
-		WHERE device_id = $1
-		ORDER BY package_name
+		SELECT dp.package_name, dp.app_name, dp.version_name,
+		       COALESCE(dp.is_system, ov.package_name IS NOT NULL, false) AS effective_system,
+		       dp.updated_at
+		FROM device_packages dp
+		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+		WHERE dp.device_id = $1
+		ORDER BY dp.package_name
 	`, deviceID)
 	if err != nil {
 		return nil, err
@@ -2690,7 +2710,7 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 	var out []DevicePackage
 	for rows.Next() {
 		var p DevicePackage
-		if err := rows.Scan(&p.PackageName, &p.AppName, &p.VersionName, &p.IsSystem, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.VersionName, &p.EffectiveSystem, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -2711,7 +2731,9 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				COUNT(DISTINCT dp.device_id) AS device_count,
 				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
 			FROM device_packages dp
-			WHERE (dp.package_name ILIKE $1 OR dp.app_name ILIKE $1) AND NOT dp.is_system
+			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+			WHERE (dp.package_name ILIKE $1 OR dp.app_name ILIKE $1)
+			  AND NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -2724,7 +2746,8 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				COUNT(DISTINCT dp.device_id) AS device_count,
 				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
 			FROM device_packages dp
-			WHERE NOT dp.is_system
+			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+			WHERE NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -2744,6 +2767,75 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// ListPackagesAdmin returns every distinct package across the fleet with how each
+// device's client classified it (system / user / not-reported) and whether an admin
+// override exists — backing the admin app-classification page. Optional name filter.
+func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackage, error) {
+	base := `
+		SELECT
+			dp.package_name,
+			COALESCE(MAX(dp.app_name), '') AS app_name,
+			COUNT(DISTINCT dp.device_id) AS device_count,
+			COUNT(*) FILTER (WHERE dp.is_system IS TRUE)  AS rep_system,
+			COUNT(*) FILTER (WHERE dp.is_system IS FALSE) AS rep_user,
+			COUNT(*) FILTER (WHERE dp.is_system IS NULL)  AS rep_unknown,
+			bool_or(ov.package_name IS NOT NULL) AS admin_flagged
+		FROM device_packages dp
+		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name`
+	var rows pgx.Rows
+	var err error
+	if query != "" {
+		base += `
+		WHERE dp.package_name ILIKE $1 OR dp.app_name ILIKE $1
+		GROUP BY dp.package_name
+		ORDER BY dp.package_name
+		LIMIT 1000`
+		rows, err = d.pool.Query(ctx, base, "%"+query+"%")
+	} else {
+		base += `
+		GROUP BY dp.package_name
+		ORDER BY dp.package_name
+		LIMIT 1000`
+		rows, err = d.pool.Query(ctx, base)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []AdminPackage
+	for rows.Next() {
+		var p AdminPackage
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount,
+			&p.ReportedSystem, &p.ReportedUser, &p.ReportedUnknown, &p.AdminFlagged); err != nil {
+			return nil, err
+		}
+		// Effective: client signal wins when any device reported it; otherwise the
+		// admin flag decides.
+		if p.ReportedSystem > 0 {
+			p.EffectiveSystem = true
+		} else if p.ReportedUser > 0 {
+			p.EffectiveSystem = false
+		} else {
+			p.EffectiveSystem = p.AdminFlagged
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// SetPackageSystemOverride adds (flagged) or removes (unflagged) an admin
+// system-app override for a package name.
+func (d *DB) SetPackageSystemOverride(ctx context.Context, pkg string, flagged bool) error {
+	if flagged {
+		_, err := d.pool.Exec(ctx,
+			`INSERT INTO app_system_overrides (package_name) VALUES ($1) ON CONFLICT DO NOTHING`, pkg)
+		return err
+	}
+	_, err := d.pool.Exec(ctx, `DELETE FROM app_system_overrides WHERE package_name = $1`, pkg)
+	return err
 }
 
 // ── Device Config / Kiosk ─────────────────────────────────────────────────────
@@ -4762,6 +4854,17 @@ CREATE INDEX IF NOT EXISTS idx_device_packages_package_name ON device_packages(p
 
 ALTER TABLE device_packages ADD COLUMN IF NOT EXISTS app_name TEXT NOT NULL DEFAULT '';
 ALTER TABLE device_packages ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE;
+-- is_system becomes nullable: NULL means the device's client is too old to report it,
+-- so the admin override (app_system_overrides) decides the classification instead.
+ALTER TABLE device_packages ALTER COLUMN is_system DROP NOT NULL;
+ALTER TABLE device_packages ALTER COLUMN is_system DROP DEFAULT;
+
+-- Admin-managed list of package names flagged as system apps. Used as the fallback
+-- classification when no client has reported is_system for a package.
+CREATE TABLE IF NOT EXISTS app_system_overrides (
+	package_name TEXT PRIMARY KEY,
+	created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS poll_interval_ms INTEGER NOT NULL DEFAULT 30000;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS latest_battery_pct SMALLINT NOT NULL DEFAULT 0;
