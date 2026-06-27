@@ -216,7 +216,6 @@
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
       </div>
     </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
@@ -672,7 +671,6 @@
         spanGaps: true,
         segment: {
           borderColor: ctx => showWLC ? segColor(ctx) : "#f9674e",
-          borderDash: ctx => (showWLC && ctx.p1.raw && ctx.p0.raw && ctx.p1.raw.y < ctx.p0.raw.y) ? [5, 3] : [],
         },
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
