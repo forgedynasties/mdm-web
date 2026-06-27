@@ -7,8 +7,8 @@
 </div>
 
 <style>
-/* Three-pane command builder: action rail · config · live review. */
-.cmd-rail3{display:grid;grid-template-columns:212px 1fr 300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
+/* Two-pane command builder: action rail · config (with inline send). */
+.cmd-rail3{display:grid;grid-template-columns:212px 1fr;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
 .cr-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
 .cr-head h3{margin:0;font-size:15px;font-weight:650;}
 @media (max-width:980px){.cmd-rail3{grid-template-columns:1fr;}}
@@ -32,16 +32,10 @@
 .cr-config .payload-section.is-active{display:block;}
 .cr-config .payload-empty{color:var(--muted);font-size:13px;}
 
-.cr-review{padding:18px;background:var(--surface2);}
-.review-title{font-weight:650;margin-bottom:12px;}
-.review-action{font-size:15px;font-weight:600;margin-bottom:8px;}
-.review-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13px;}
-.review-row .k{color:var(--muted);white-space:nowrap;}
-.review-row .v{text-align:right;word-break:break-word;font-weight:500;}
-.review-warn{margin-top:12px;padding:9px 11px;border-radius:8px;background:var(--warn-bg);font-size:12px;line-height:1.6;}
-.review-send{width:100%;margin-top:16px;display:flex;align-items:center;justify-content:center;gap:8px;}
-.review-send:disabled{opacity:.5;cursor:not-allowed;}
-.review-hint{text-align:center;margin-top:8px;}
+.review-warn{padding:9px 11px;border-radius:8px;background:var(--warn-bg);font-size:12px;line-height:1.6;flex:1;}
+.cr-foot{display:flex;align-items:center;gap:14px;margin-top:24px;padding-top:18px;border-top:1px solid var(--border-soft);}
+.cr-send{margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex:none;}
+.cr-send:disabled{opacity:.5;cursor:not-allowed;}
 .cmd-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
 .cmd-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:14px;background:var(--accent-soft);color:var(--text);font-size:12px;font-family:var(--mono);}
 .cmd-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px;}
@@ -292,21 +286,15 @@
           </div>
         </div>
 
-    </div><!-- /.cr-config -->
+      <div class="cr-foot">
+        <div id="rv-warn" class="review-warn" style="display:none;"></div>
+        <button type="submit" id="send-btn" class="btn-primary cr-send">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
+          Send command
+        </button>
+      </div>
 
-    <!-- RIGHT · live review -->
-    <aside class="cr-review">
-      <div class="review-title">Review</div>
-      <div class="review-action" id="rv-action">Install APK</div>
-      <div class="review-row"><span class="k" id="rv-payload-k">App</span><span class="v" id="rv-payload-v">—</span></div>
-      <div class="review-row"><span class="k">Target</span><span class="v" id="rv-target-v">All devices</span></div>
-      <div class="review-row"><span class="k">Reason</span><span class="v" id="rv-reason-v">—</span></div>
-      <div id="rv-warn" class="review-warn" style="display:none;"></div>
-      <button type="submit" id="send-btn" class="btn-primary review-send">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
-        Send command
-      </button>
-    </aside>
+    </div><!-- /.cr-config -->
 
   </div>
 </form>
@@ -645,70 +633,36 @@ function lcCmdFill(btn) {
   updatePreview();
 }
 
-// Drives the right-hand Review pane and the Send button's validity.
+// Validates the builder, drives the inline warning + Send button's validity.
 function updatePreview() {
   var type = document.getElementById('cmd-type-input').value;
   var target = document.getElementById('target-type-input').value;
   var warn = [];
 
-  var NAMES = { install_apk: 'Install APK', uninstall: 'Uninstall app', shell: 'Shell command', screenshot: 'Screenshot', reboot: 'Reboot', update_splash: 'Boot logo', logcat: 'Log capture' };
-  document.getElementById('rv-action').textContent = NAMES[type] || type;
-
-  var pk = document.getElementById('rv-payload-k');
-  var pv = document.getElementById('rv-payload-v');
   if (type === 'install_apk') {
-    pk.textContent = 'App';
     var sel = document.getElementById('apk-select');
     var opt = sel && sel.options[sel.selectedIndex];
-    var v = (opt && opt.value) ? (opt.dataset.name || opt.value) : '';
-    pv.textContent = v || '—';
-    if (!v) warn.push('Choose an app to install.');
+    if (!(opt && opt.value)) warn.push('Choose an app to install.');
   } else if (type === 'uninstall') {
-    pk.textContent = 'Package';
     var uh = document.getElementById('uninstall-pkg');
-    var uv = uh && uh.value ? (uh.getAttribute('data-name') || uh.value) : '';
-    pv.textContent = uv || '—';
-    if (!uv) warn.push('Choose an app to uninstall.');
+    if (!(uh && uh.value)) warn.push('Choose an app to uninstall.');
   } else if (type === 'shell') {
-    pk.textContent = 'Command';
     var s = (document.getElementById('shell-cmd-input').value || '').trim();
-    pv.textContent = s || '—';
     if (!s) warn.push('Enter a shell command.');
-  } else if (type === 'screenshot') {
-    pk.textContent = 'Capture'; pv.textContent = 'next check-in';
-  } else if (type === 'reboot') {
-    pk.textContent = 'Mode'; pv.textContent = 'soft reboot';
   } else if (type === 'update_splash') {
-    pk.textContent = 'Image';
     var fi = document.getElementById('splash-file-input');
     var f = fi && fi.files && fi.files[0];
     var u = (document.getElementById('splash-url-input').value || '').trim();
-    pv.textContent = f ? f.name : (u ? u.replace(/^https?:\/\//, '') : '—');
     if (!f && !u) warn.push('Upload or link a splash image.');
-  } else if (type === 'logcat') {
-    pk.textContent = 'Capture';
-    var lcl = document.getElementById('lc-cmd-level');
-    var lcn = document.getElementById('lc-cmd-lines');
-    var lct = document.getElementById('lc-cmd-tag');
-    var tgv = lct && lct.value.trim();
-    pv.textContent = (lcl ? lcl.value : 'W') + ' · ' + (lcn ? lcn.value : '500') + ' lines' + (tgv ? ' · ' + tgv : '');
   }
 
-  var tv = document.getElementById('rv-target-v');
   if (target === 'groups') {
-    var n = document.querySelectorAll('input[name="target_groups"]:checked').length;
-    tv.textContent = n ? (n + ' group' + (n !== 1 ? 's' : '')) : '—';
-    if (!n) warn.push('Select at least one group.');
+    if (!document.querySelectorAll('input[name="target_groups"]:checked').length) warn.push('Select at least one group.');
   } else if (target === 'devices') {
-    var dn = cmdSerials().length;
-    tv.textContent = dn ? (dn + ' device' + (dn !== 1 ? 's' : '')) : '—';
-    if (!dn) warn.push('Add at least one device.');
-  } else {
-    tv.textContent = 'All devices';
+    if (!cmdSerials().length) warn.push('Add at least one device.');
   }
 
   var reason = (document.querySelector('input[name="reason"]').value || '').trim();
-  document.getElementById('rv-reason-v').textContent = reason || '—';
   var softWarn = [];
   if ((type === 'reboot' || type === 'update_splash') && !reason) softWarn.push('A reason may be required for this action.');
 
