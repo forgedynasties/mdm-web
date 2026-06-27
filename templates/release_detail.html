@@ -346,91 +346,83 @@
 <!-- Testing / QA -->
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
-    <h3>Testing / QA</h3>
-    <span class="muted small">
-      {{if gt .QA.Total 0}}
-        {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}} · {{.QA.Fail}} failed{{end}}{{if gt .QA.Blocked 0}} · {{.QA.Blocked}} blocked{{end}}{{if gt .QA.Skip 0}} · {{.QA.Skip}} skipped{{end}}{{if gt .QA.Untested 0}} · {{.QA.Untested}} untested{{end}}
-      {{else}}no test cases{{end}}
-    </span>
+    <h3>Testing &amp; QA</h3>
+    {{if eq $role "admin"}}
+    <form action="/releases/{{$rel.ID}}/qa-base" method="POST" style="margin:0;">
+      <label class="checkbox-label small" style="display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);">
+        <input type="checkbox" name="skip_base_tests" {{if $rel.SkipBaseTests}}checked{{end}} onchange="this.form.submit()">
+        Skip base cases
+      </label>
+      <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
+    </form>
+    {{end}}
   </div>
 
-  {{if eq $role "admin"}}
-  <form action="/releases/{{$rel.ID}}/qa-base" method="POST" style="padding:10px 18px 4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-    <label class="checkbox-label small" style="display:flex;align-items:center;gap:6px;margin:0;">
-      <input type="checkbox" name="skip_base_tests" {{if $rel.SkipBaseTests}}checked{{end}} onchange="this.form.submit()">
-      Skip base test cases — test only this release's own cases
-    </label>
-    <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
-  </form>
-  {{else if $rel.SkipBaseTests}}
-  <div class="small muted" style="padding:10px 18px 4px;">Base test cases are skipped for this release — only its specific cases apply.</div>
+  {{if gt .QA.Total 0}}
+  <div class="qa-progress">
+    <div class="qa-bar" title="{{.QA.Pass}} pass · {{.QA.Fail}} fail · {{.QA.Blocked}} blocked · {{.QA.Skip}} skip · {{.QA.Untested}} untested">
+      {{if gt .QA.Pass 0}}<i class="pass" style="width:{{pctOf .QA.Pass .QA.Total}}%"></i>{{end}}
+      {{if gt .QA.Fail 0}}<i class="fail" style="width:{{pctOf .QA.Fail .QA.Total}}%"></i>{{end}}
+      {{if gt .QA.Blocked 0}}<i class="blocked" style="width:{{pctOf .QA.Blocked .QA.Total}}%"></i>{{end}}
+      {{if gt .QA.Skip 0}}<i class="skip" style="width:{{pctOf .QA.Skip .QA.Total}}%"></i>{{end}}
+    </div>
+    <div class="qa-legend">
+      <span><i class="pass"></i>{{.QA.Pass}} pass</span>
+      {{if gt .QA.Fail 0}}<span><i class="fail"></i>{{.QA.Fail}} fail</span>{{end}}
+      {{if gt .QA.Blocked 0}}<span><i class="blocked"></i>{{.QA.Blocked}} blocked</span>{{end}}
+      {{if gt .QA.Skip 0}}<span><i class="skip"></i>{{.QA.Skip}} skip</span>{{end}}
+      {{if gt .QA.Untested 0}}<span><i class="untested"></i>{{.QA.Untested}} untested</span>{{end}}
+    </div>
+  </div>
   {{end}}
 
-  {{if and (gt .QA.Total 0) (not .QA.Passed)}}
-  <div class="small" style="padding:0 18px 6px;color:var(--warn,#f59e0b);">Not all cases have passed — publishing will warn.</div>
-  {{end}}
-  {{if and (gt .QA.Total 0) (not .CanRecord)}}
-  <div class="small muted" style="padding:0 18px 6px;">Results are read-only — only the tester role can mark cases.</div>
-  {{end}}
+  {{if not .QA.Passed}}{{if gt .QA.Total 0}}<div class="qa-flash warn">Not all cases have passed — publishing will warn.</div>{{end}}{{end}}
+  {{if and (gt .QA.Total 0) (not .CanRecord)}}<div class="qa-flash">Read-only — only the tester role can mark cases.</div>{{end}}
+  {{if and (not (eq $role "admin")) $rel.SkipBaseTests}}<div class="qa-flash">Base cases skipped — only this release's own cases apply.</div>{{end}}
 
   {{if .Checklist}}
-  <table class="table">
-    <thead>
-      <tr><th>Area</th><th>Test case</th><th>Status</th>{{if .CanRecord}}<th>Record</th>{{else}}<th>Tested by</th>{{end}}</tr>
-    </thead>
-    <tbody>
-      {{$canRecord := .CanRecord}}
-      {{$relID := $rel.ID}}
-      {{range .Checklist}}
-      {{$st := .Status}}
-      <tr>
-        <td class="small muted">{{if .Base}}<span title="standard case (every release)">★</span> {{end}}{{.Area}}</td>
-        <td>{{.Title}}{{if .Steps}}<div class="muted small">{{.Steps}}</div>{{end}}{{if .Expected}}<div class="muted small">Expected: {{.Expected}}</div>{{end}}
-          {{if and (not .Base) (eq $role "admin")}}
-          <form action="/test-cases/{{.ID}}/delete" method="POST" style="display:inline;margin-top:4px;"
-                onsubmit="return confirm('Remove this test case from this release?')">
-            <input type="hidden" name="redirect" value="/releases/{{$relID}}">
-            <button type="submit" class="btn-danger-sm">Remove</button>
-          </form>
-          {{end}}
-        </td>
-        <td>
-          <span class="status-badge {{if eq $st "pass"}}ok{{else if eq $st "fail"}}danger{{else if eq $st "blocked"}}warn{{else}}muted{{end}}">{{$st}}</span>
-        </td>
-        {{if $canRecord}}
-        <td>
-          <form action="/releases/{{$relID}}/test-results" method="POST" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-            <input type="hidden" name="test_case_id" value="{{.ID}}">
-            <select name="status" class="form-input" style="width:auto;padding:3px 6px;">
-              <option value="untested" {{if eq $st "untested"}}selected{{end}}>untested</option>
-              <option value="pass" {{if eq $st "pass"}}selected{{end}}>pass</option>
-              <option value="fail" {{if eq $st "fail"}}selected{{end}}>fail</option>
-              <option value="blocked" {{if eq $st "blocked"}}selected{{end}}>blocked</option>
-              <option value="skip" {{if eq $st "skip"}}selected{{end}}>skip</option>
-            </select>
-            <input name="notes" class="form-input" value="{{.Notes}}" placeholder="notes" style="width:160px;padding:3px 6px;">
-            <button type="submit" class="btn-outline btn-sm">Save</button>
-          </form>
-          {{if .TestedBy}}<div class="muted small">{{.TestedBy}}</div>{{end}}
-        </td>
-        {{else}}
-        <td class="small muted">{{if .TestedBy}}{{.TestedBy}}{{if .Notes}} — {{.Notes}}{{end}}{{else}}—{{end}}</td>
-        {{end}}
-      </tr>
+  <div class="qa-list">
+    {{$canRecord := .CanRecord}}
+    {{$relID := $rel.ID}}
+    {{range .Checklist}}
+    {{$st := .Status}}
+    <div class="qa-row {{$st}}">
+      <span class="qa-dot"></span>
+      <div class="qa-id">
+        <div class="qa-title">{{.Title}}{{if .Base}} <span class="qa-star" title="standard case — every release">★</span>{{end}}</div>
+        <div class="qa-meta">{{if .Area}}{{.Area}}{{else}}General{{end}}{{if .Steps}} · {{.Steps}}{{end}}{{if .Expected}} · Expected: {{.Expected}}{{end}}{{if and (not .Base) (eq $role "admin")}} · <a href="#" onclick="document.getElementById('qa-del-{{.ID}}').submit();return false;" class="qa-del">remove</a>{{end}}</div>
+        {{if and (not .Base) (eq $role "admin")}}<form id="qa-del-{{.ID}}" action="/test-cases/{{.ID}}/delete" method="POST" hidden onsubmit="return confirm('Remove this test case from this release?')"><input type="hidden" name="redirect" value="/releases/{{$relID}}"></form>{{end}}
+      </div>
+      {{if $canRecord}}
+      <form class="qa-rec" action="/releases/{{$relID}}/test-results" method="POST">
+        <input type="hidden" name="test_case_id" value="{{.ID}}">
+        <input name="notes" class="qa-notes form-input" value="{{.Notes}}" placeholder="notes…">
+        <div class="qa-pills">
+          <button type="submit" name="status" value="pass" class="qa-pill pass{{if eq $st "pass"}} on{{end}}">Pass</button>
+          <button type="submit" name="status" value="fail" class="qa-pill fail{{if eq $st "fail"}} on{{end}}">Fail</button>
+          <button type="submit" name="status" value="blocked" class="qa-pill blocked{{if eq $st "blocked"}} on{{end}}">Block</button>
+          <button type="submit" name="status" value="skip" class="qa-pill skip{{if eq $st "skip"}} on{{end}}">Skip</button>
+        </div>
+      </form>
+      {{else}}
+      <div class="qa-ro">
+        <span class="status-badge {{if eq $st "pass"}}ok{{else if eq $st "fail"}}danger{{else if eq $st "blocked"}}warn{{else}}muted{{end}}">{{$st}}</span>
+        {{if .TestedBy}}<span class="qa-tested">{{.TestedBy}}{{if .Notes}} — {{.Notes}}{{end}}</span>{{end}}
+      </div>
       {{end}}
-    </tbody>
-  </table>
+    </div>
+    {{end}}
+  </div>
   {{else}}
-  <div class="empty" style="padding:14px 18px;">No test cases apply to this release yet.</div>
+  <div class="empty" style="padding:18px;">No test cases apply to this release yet.</div>
   {{end}}
 
   {{if eq $role "admin"}}
-  <div style="padding:14px 18px;border-top:1px solid var(--border);">
-    <div class="muted small" style="margin-bottom:8px;">Add a release-specific test case (applies to this release only)</div>
+  <div class="qa-add">
     <form action="/test-cases" method="POST" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
       <input type="hidden" name="release_id" value="{{$rel.ID}}">
-      <input name="title" class="form-input" placeholder="Title" required style="min-width:240px;">
-      <input name="area" class="form-input" placeholder="Area" style="width:160px;">
+      <input name="title" class="form-input" placeholder="Add a release-specific test case…" required style="flex:1;min-width:240px;">
+      <input name="area" class="form-input" placeholder="Area" style="width:150px;">
       <button type="submit" class="btn-outline btn-sm">Add case</button>
     </form>
   </div>
