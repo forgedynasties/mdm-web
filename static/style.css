@@ -4523,7 +4523,29 @@ html[data-theme="dark"] .dp-moves { color: #f0b765; }
 .ddc-btn { display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 13px; font-weight: 600;
   border: 1px solid var(--border); background: var(--surface); color: var(--text); padding: 8px 13px; border-radius: 10px; cursor: pointer; text-decoration: none; }
 .ddc-btn:hover { background: var(--hover); }
-.ddc-btn svg { width: 15px; height: 15px; }
+.ddc-btn svg { width: 15px; height: 15px; flex: none; }
+/* primary hero action (Remote Control) */
+.ddc-btn-prim { background: var(--accent); border-color: transparent; color: #fff; }
+.ddc-btn-prim:hover { background: var(--accent-h); }
+/* hero "Actions ▾" dropdown */
+.ddc-menu-wrap { position: relative; }
+.ddc-caret { width: 13px; height: 13px; opacity: .8; }
+.ddc-btn.open { border-color: var(--rule-2); }
+.ddc-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; width: 232px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 13px;
+  box-shadow: var(--shadow-pop); padding: 7px; animation: ov-rise 0.14s var(--ease) both; }
+.ddc-menu[hidden] { display: none; }
+.ddc-mcap { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-faint); padding: 9px 10px 5px; }
+.ddc-mi { display: flex; align-items: center; gap: 11px; width: 100%; padding: 8px 10px; border: 0;
+  background: none; border-radius: 9px; font: inherit; font-size: 13px; color: var(--text);
+  text-align: left; text-decoration: none; cursor: pointer; box-sizing: border-box; }
+.ddc-mi:hover { background: var(--surface2); }
+.ddc-mi svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+.ddc-mi.danger, .ddc-mi.danger svg { color: var(--danger); }
+.ddc-mi.danger:hover { background: var(--danger-bg); }
+.ddc-msep { height: 1px; background: var(--border-soft); margin: 5px 4px; }
+.ddc-menu form { margin: 0; }
 .ddc-vitals { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border-soft); }
 .ddc-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px; font-size: 12.5px; font-weight: 600;
   font-variant-numeric: tabular-nums; background: var(--surface); color: var(--text); border: 1px solid var(--border); }
