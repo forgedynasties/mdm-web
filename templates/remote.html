@@ -15,7 +15,7 @@
   max-width: 100%;
   box-shadow: 0 4px 24px rgba(0,0,0,0.3);
 }
-#remote-screen img {
+#remote-screen img, #remote-screen canvas {
   display: block;
   max-width: 100%;
   height: auto;
@@ -56,6 +56,7 @@
   <div id="remote-toolbar">
     <div class="stat">FPS: <span id="stat-fps">—</span></div>
     <div class="stat">KB/s: <span id="stat-kbps">—</span></div>
+    <div class="stat" id="stat-err-wrap" style="display:none;color:var(--danger,#e5484d)">Decode errors: <span id="stat-err">0</span></div>
     <div class="stat" id="stat-size" style="display:none">Frame: <span></span></div>
     <button id="btn-disconnect" class="btn-danger" onclick="disconnect()" style="display:none">Disconnect</button>
     <span id="badge-status" class="status-badge pending">connecting…</span>
@@ -84,7 +85,9 @@
   var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial) + '?token=' + encodeURIComponent('{{.Token}}');
 
   var ws;
-  var img = null;
+  var view = null;   // <canvas> showing the device screen
+  var ctx = null;
+  var decodeErrors = 0;
   var frameCount = 0;
   var byteCount = 0;
   var fpsStart = performance.now();
@@ -102,24 +105,38 @@
       document.getElementById('btn-disconnect').style.display = '';
       var ph = document.getElementById('remote-placeholder');
       if (ph) {
-        img = document.createElement('img');
-        img.draggable = false;
-        ph.parentNode.replaceChild(img, ph);
-        setupInput(img);
+        view = document.createElement('canvas');
+        view.id = 'remote-canvas';
+        view.width = 1; view.height = 1; // sized to the first frame
+        ctx = view.getContext('2d');
+        ph.parentNode.replaceChild(view, ph);
+        setupInput(view);
       }
     };
 
     ws.onmessage = function(e) {
       if (typeof e.data === 'string') {
-        // JSON control messages (not used currently, but server may send)
-        return;
+        return; // JSON control messages (none currently)
       }
-      // Binary frame — WebP
+      if (!ctx) return;
+      // Binary frame — WebP. Decode via createImageBitmap and paint to the canvas.
+      // A canvas keeps intrinsic dimensions (unlike <img max-width:100%> in a
+      // shrink-to-fit container, which collapses to nothing), and the .catch
+      // surfaces decode failures instead of silently showing a broken image.
       var blob = new Blob([e.data], {type: 'image/webp'});
-      var url = URL.createObjectURL(blob);
-      var prevUrl = img.src;
-      img.src = url;
-      if (prevUrl && prevUrl.startsWith('blob:')) URL.revokeObjectURL(prevUrl);
+      createImageBitmap(blob).then(function(bmp) {
+        if (view.width !== bmp.width || view.height !== bmp.height) {
+          view.width = bmp.width;
+          view.height = bmp.height;
+        }
+        ctx.drawImage(bmp, 0, 0);
+        bmp.close();
+      }).catch(function(err) {
+        decodeErrors++;
+        var es = document.getElementById('stat-err');
+        if (es) { es.parentNode.style.display = ''; es.textContent = decodeErrors; }
+        if (decodeErrors <= 3) console.error('[remote] frame decode failed (' + e.data.byteLength + ' bytes):', err);
+      });
 
       frameCount++;
       byteCount += e.data.byteLength;
@@ -143,9 +160,9 @@
       setStatus('disconnected', 'disconnected');
       document.getElementById('btn-disconnect').style.display = 'none';
       var screen = document.getElementById('remote-screen');
-      if (img) {
-        img.replaceWith(document.createElement('div'));
-        img = null;
+      if (view) {
+        view.replaceWith(document.createElement('div'));
+        view = null; ctx = null;
       }
       var ph = document.createElement('div');
       ph.id = 'remote-placeholder';
@@ -211,15 +228,13 @@
   }
 
   function sendInput(action, e, eventName) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    var rect = img.getBoundingClientRect();
+    if (!ws || ws.readyState !== WebSocket.OPEN || !view) return;
+    var rect = view.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
 
-    // Natural size from rendered image vs displayed size
-    var scaleX = img.naturalWidth / rect.width;
-    var scaleY = img.naturalHeight / rect.height;
-
-    var x = ((e.clientX - rect.left) * scaleX) / img.naturalWidth;
-    var y = ((e.clientY - rect.top) * scaleY) / img.naturalHeight;
+    // Normalized 0..1 coords from the click position over the rendered canvas.
+    var x = (e.clientX - rect.left) / rect.width;
+    var y = (e.clientY - rect.top) / rect.height;
 
     // Clamp
     x = Math.max(0, Math.min(1, x));

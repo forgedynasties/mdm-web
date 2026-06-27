@@ -4807,7 +4807,7 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
   border-bottom: 1px solid var(--border-soft);
 }
 .appbar-brand {
-  font-family: var(--font); font-weight: var(--fw-semibold); font-size: 18px;
+  font-family: var(--font); font-weight: var(--fw-semibold); font-size: 27px;
   letter-spacing: -0.01em; color: var(--text); flex: none;
 }
 .appbar-brand:hover { opacity: 0.85; }
