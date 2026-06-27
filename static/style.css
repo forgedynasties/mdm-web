@@ -5031,3 +5031,20 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .qa-tested { font-size: 11.5px; color: var(--text-faint); white-space: nowrap; }
 .qa-add { padding: 14px 18px; border-top: 1px solid var(--border-soft); }
 @media (max-width: 720px) { .qa-row { grid-template-columns: auto 1fr; } .qa-rec { grid-column: 1 / -1; justify-content: flex-start; } }
+
+/* device detail: Install app form (Applications tab) */
+.app-install { border-bottom: 1px solid var(--border-soft); }
+.app-install[hidden] { display: none; }
+
+/* device detail: hero Kiosk pill → config popover */
+.ddc-chip-btn { cursor: pointer; font: inherit; }
+.ddc-chip-btn.on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.ddc-kcaret { width: 12px; height: 12px; opacity: .7; }
+.ddc-kpop-wrap { position: relative; display: inline-flex; }
+.ddc-kpop { position: absolute; top: calc(100% + 8px); left: 0; z-index: 60; width: 300px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 13px;
+  box-shadow: var(--shadow-pop); padding: 14px; animation: ov-rise 0.14s var(--ease) both; }
+.ddc-kpop[hidden] { display: none; }
+.ddc-kpop-h { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
+.ddc-kpop .form-row { margin-bottom: 12px; }
+.ddc-kpop .form-label { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 5px; display: block; }
