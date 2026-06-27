@@ -169,7 +169,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     {{range .RailRestaurants}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}">
       <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
-      <a class="ri-go" href="/devices?view=restaurant&id={{.GroupID}}" title="Open {{.Name}}" aria-label="Open {{.Name}} detail">→</a>
+      <a class="ri-go" href="/restaurants/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
     {{end}}
@@ -181,7 +181,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     {{range .RailGroups}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}">
       <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
-      <a class="ri-go" href="/devices?view=group&id={{.GroupID}}" title="Open {{.Name}}" aria-label="Open {{.Name}} detail">→</a>
+      <a class="ri-go" href="/groups/{{.GroupID}}" title="Manage {{.Name}}" aria-label="Manage {{.Name}}">→</a>
       <span class="ct">{{.DeviceCount}}</span>
     </div>
     {{end}}
@@ -206,12 +206,12 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       {{range $items}}
       <div class="cl-card{{if gt .OpenCritical 0}} alerty{{end}}">
         <div class="cl-top">
-          <a class="cl-name" href="/devices?view={{if $isRest}}restaurant{{else}}group{{end}}&id={{.GroupID}}">{{.Name}}</a>
+          <a class="cl-name" href="/{{if $isRest}}restaurants{{else}}groups{{end}}/{{.GroupID}}">{{.Name}}</a>
           {{if gt .DeviceCount 0}}<span class="cl-score {{if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}">{{.Score}}</span>{{else}}<span class="cl-score is-empty">—</span>{{end}}
         </div>
         <div class="cl-meta">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}{{if gt .OfflineCount 0}} · <span class="danger">{{.OfflineCount}} offline</span>{{end}}{{if gt .OpenCritical 0}} · <span class="danger">{{.OpenCritical}} critical</span>{{end}}</div>
         <div class="cl-foot">
-          <a href="/devices?view={{if $isRest}}restaurant{{else}}group{{end}}&id={{.GroupID}}">Open</a>
+          <a href="/{{if $isRest}}restaurants{{else}}groups{{end}}/{{.GroupID}}">Open</a>
           {{if canAdmin $.Role}}
           {{if $isRest}}<a href="/restaurants/{{.GroupID}}/edit">Edit</a>{{end}}
           <form action="/{{if $isRest}}restaurants{{else}}groups{{end}}/{{.GroupID}}/delete" method="POST" class="cl-delform" onsubmit="return mdmConfirmSubmit(event, {title:'Delete {{if $isRest}}restaurant{{else}}group{{end}}', body:'Delete {{.Name}}?', tier:'danger', confirmLabel:'Delete'})"><button type="submit" class="cl-del">Delete</button></form>
