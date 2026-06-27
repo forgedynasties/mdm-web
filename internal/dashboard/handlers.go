@@ -5193,7 +5193,7 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 			filter.ProductionID = id
 		}
 	}
-	devices, err := h.db.ListDevices(r.Context(), filter, 0, 500, "", "")
+	devices, err := h.db.ListDevices(r.Context(), filter, 0, 500, r.URL.Query().Get("sort"), r.URL.Query().Get("dir"))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return

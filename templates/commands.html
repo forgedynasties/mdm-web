@@ -235,14 +235,49 @@
                          hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
                 </div>
                 <div id="cmd-device-results"></div>
-                <div class="filter-bar" style="margin:8px 12px 0;border-bottom:none;flex-wrap:wrap;gap:6px;padding:0;">
-                  <select id="cmd-browse-status" class="filter-select" onchange="cmdBrowseReload()"><option value="">Status</option><option value="online">Online</option><option value="offline">Offline</option></select>
-                  <select id="cmd-browse-group" class="filter-select" onchange="cmdBrowseReload()"><option value="">Group</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
-                  <select id="cmd-browse-production" class="filter-select" onchange="cmdBrowseReload()"><option value="">Production</option>{{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
-                  <select id="cmd-browse-build" class="filter-select" onchange="cmdBrowseReload()"><option value="">Release</option>{{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}</select>
-                  <select id="cmd-browse-battery" class="filter-select" onchange="cmdBrowseReload()"><option value="">Battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select>
-                  <input type="search" id="cmd-browse-q" class="filter-select" placeholder="Filter serial…" oninput="cmdBrowseDebounced()" style="min-width:120px;">
-                  <button type="button" class="filter-clear" onclick="cmdBrowseClear()">Clear</button>
+                <div class="cb-tools">
+                  <div class="fleet-fwrap" id="cmd-filters-wrap">
+                    <button type="button" class="fleet-fbtn" id="cmd-filters-btn" onclick="cmdToggleFilters(event)" aria-haspopup="true" aria-expanded="false">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+                      Filters <span class="cnt" id="cmd-filter-cnt" hidden>0</span>
+                    </button>
+                    <div class="fleet-pop" id="cmd-filters-pop" hidden>
+                      <div class="fp-cap">Filter devices</div>
+                      <div class="fp-grid">
+                        <label class="fp-field"><span>Status</span>
+                          <select id="cmd-browse-status" onchange="cmdBrowseReload()"><option value="">Any status</option><option value="online">Online</option><option value="offline">Offline</option></select></label>
+                        <label class="fp-field"><span>Group</span>
+                          <select id="cmd-browse-group" onchange="cmdBrowseReload()"><option value="">Any group</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+                        <label class="fp-field"><span>Production</span>
+                          <select id="cmd-browse-production" onchange="cmdBrowseReload()"><option value="">Any production</option>{{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+                        <label class="fp-field"><span>Release</span>
+                          <select id="cmd-browse-build" onchange="cmdBrowseReload()"><option value="">Any release</option>{{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}</select></label>
+                        <label class="fp-field"><span>Battery</span>
+                          <select id="cmd-browse-battery" onchange="cmdBrowseReload()"><option value="">Any battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select></label>
+                        <label class="fp-field"><span>Serial contains</span>
+                          <input type="search" id="cmd-browse-q" placeholder="e.g. 0028" oninput="cmdBrowseDebounced()"></label>
+                      </div>
+                      <div class="fp-foot">
+                        <button type="button" class="fp-clear" onclick="cmdBrowseClear()">Clear all</button>
+                        <button type="button" class="btn-primary fp-done" onclick="cmdToggleFilters(event)">Done</button>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="fleet-fwrap" id="cmd-sort-wrap">
+                    <button type="button" class="fleet-fbtn" id="cmd-sort-btn" onclick="cmdToggleSort(event)" aria-haspopup="true" aria-expanded="false">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h5"/></svg>
+                      Sort
+                    </button>
+                    <div class="fleet-pop fleet-sortpop" id="cmd-sort-pop" hidden>
+                      <div class="fp-cap">Sort by</div>
+                      <div class="sortpop">
+                        <button type="button" class="sortopt on" data-sort="last_seen" onclick="cmdSortBy('last_seen')"><span>Last seen</span><span class="dir">↓</span></button>
+                        <button type="button" class="sortopt" data-sort="battery" onclick="cmdSortBy('battery')"><span>Battery</span><span class="dir"></span></button>
+                        <button type="button" class="sortopt" data-sort="serial" onclick="cmdSortBy('serial')"><span>Serial</span><span class="dir"></span></button>
+                        <button type="button" class="sortopt" data-sort="created_at" onclick="cmdSortBy('created_at')"><span>Onboarded</span><span class="dir"></span></button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <div id="cmd-device-browser" style="max-height:260px;overflow:auto;margin:8px 8px 6px;"
                      hx-get="/commands/browse-devices" hx-trigger="load" hx-target="#cmd-device-browser" hx-swap="innerHTML"></div>
@@ -501,18 +536,51 @@ function cmdRenderChips() {
 
 // ── Filtered device browser (same filters as the Devices list / new-group browse) ──
 var cmdBrowseTimer;
+var cmdSort = { key: 'last_seen', dir: 'desc' };
 function cmdBrowseDebounced() { clearTimeout(cmdBrowseTimer); cmdBrowseTimer = setTimeout(cmdBrowseReload, 300); }
 function cmdBrowseParams() {
   var map = { q:'cmd-browse-q', status:'cmd-browse-status', group:'cmd-browse-group', production:'cmd-browse-production', build:'cmd-browse-build', battery:'cmd-browse-battery' };
   var p = new URLSearchParams();
   for (var k in map) { var el = document.getElementById(map[k]); if (el && el.value) p.set(k, el.value); }
+  p.set('sort', cmdSort.key); p.set('dir', cmdSort.dir);
   return p;
 }
-function cmdBrowseReload() { if (window.htmx) htmx.ajax('GET', '/commands/browse-devices?' + cmdBrowseParams().toString(), '#cmd-device-browser'); }
+function cmdBrowseReload() { cmdUpdateFilterCount(); if (window.htmx) htmx.ajax('GET', '/commands/browse-devices?' + cmdBrowseParams().toString(), '#cmd-device-browser'); }
 function cmdBrowseClear() {
   ['cmd-browse-q','cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'].forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
   cmdBrowseReload();
 }
+// Count of active filters → badge on the Filters button.
+function cmdUpdateFilterCount() {
+  var ids = ['cmd-browse-q','cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'];
+  var n = ids.reduce(function (a, id) { var e = document.getElementById(id); return a + (e && e.value ? 1 : 0); }, 0);
+  var c = document.getElementById('cmd-filter-cnt');
+  if (c) { c.textContent = n; if (n) c.removeAttribute('hidden'); else c.setAttribute('hidden', ''); }
+  var b = document.getElementById('cmd-filters-btn'); if (b) b.classList.toggle('has', !!n);
+}
+// Filters / Sort popovers (mirror the Fleet page, scoped to the command builder).
+function cmdPop(popId, btnId, open) {
+  var pop = document.getElementById(popId), btn = document.getElementById(btnId);
+  if (!pop) return;
+  if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
+  if (btn) { btn.setAttribute('aria-expanded', open ? 'true' : 'false'); btn.classList.toggle('open', open); }
+}
+function cmdToggleFilters(e) { if (e) { e.preventDefault(); e.stopPropagation(); } var p = document.getElementById('cmd-filters-pop'); cmdPop('cmd-sort-pop','cmd-sort-btn',false); cmdPop('cmd-filters-pop','cmd-filters-btn', p && p.hasAttribute('hidden')); }
+function cmdToggleSort(e) { if (e) { e.preventDefault(); e.stopPropagation(); } var p = document.getElementById('cmd-sort-pop'); cmdPop('cmd-filters-pop','cmd-filters-btn',false); cmdPop('cmd-sort-pop','cmd-sort-btn', p && p.hasAttribute('hidden')); }
+function cmdSortBy(key) {
+  cmdSort.dir = (cmdSort.key === key) ? (cmdSort.dir === 'desc' ? 'asc' : 'desc') : (key === 'serial' ? 'asc' : 'desc');
+  cmdSort.key = key;
+  document.querySelectorAll('#cmd-sort-pop .sortopt').forEach(function (b) {
+    var on = b.dataset.sort === key; b.classList.toggle('on', on);
+    var d = b.querySelector('.dir'); if (d) d.textContent = on ? (cmdSort.dir === 'asc' ? '↑' : '↓') : '';
+  });
+  cmdToggleSort(); cmdBrowseReload();
+}
+document.addEventListener('click', function (e) {
+  var fw = document.getElementById('cmd-filters-wrap'); if (fw && !fw.contains(e.target)) cmdPop('cmd-filters-pop','cmd-filters-btn',false);
+  var sw = document.getElementById('cmd-sort-wrap'); if (sw && !sw.contains(e.target)) cmdPop('cmd-sort-pop','cmd-sort-btn',false);
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { cmdPop('cmd-filters-pop','cmd-filters-btn',false); cmdPop('cmd-sort-pop','cmd-sort-btn',false); } });
 function cmdToggleDevice(cb) {
   if (cb.checked) cmdAddSerial(cb.value);
   else cmdSetSerials(cmdSerials().filter(function (s) { return s !== cb.value; }));
