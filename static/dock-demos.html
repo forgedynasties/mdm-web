@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dock visibility & placement — demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#f6f7f9);margin:0;padding:30px 40px 90px;}
+.wrap{max-width:1080px;}
+h1{font-size:22px;margin:0 0 4px;}
+.lead{color:var(--muted);font-size:13px;margin:0 0 10px;max-width:780px;line-height:1.55;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 10px;border-radius:7px;margin:30px 0 6px;}
+.dname{font-weight:700;font-size:15px;margin:5px 0 2px;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 12px;max-width:780px;line-height:1.5;}
+.rec{display:inline-block;font-size:10.5px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+
+/* faux viewport frame */
+.vp{position:relative;height:300px;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--bg,#f6f7f9);}
+.vp-top{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:color-mix(in srgb,var(--bg) 82%,transparent);border-bottom:1px solid var(--border-soft);}
+.vp-brand{font-family:'Poppins',sans-serif;font-weight:700;font-size:13px;}
+.vp-brand .a{background:linear-gradient(90deg,#7a80f6,#f9674e);-webkit-background-clip:text;background-clip:text;color:transparent;}
+.vp-brand .m{color:var(--muted);}
+.vp-tr{display:flex;gap:6px;}
+.vp-tr i{width:24px;height:24px;border-radius:7px;background:var(--surface);border:1px solid var(--border);display:block;}
+.vp-body{padding:16px;}
+.vp-h{font-size:16px;font-weight:700;margin:0 0 3px;}
+.vp-s{font-size:11px;color:var(--muted);margin:0 0 14px;}
+.vp-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.vp-card{height:54px;background:var(--surface);border:1px solid var(--border);border-radius:11px;}
+
+/* base dock */
+.d{position:absolute;display:flex;gap:4px;padding:7px;border-radius:16px;z-index:5;}
+.d .nl{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:11px;font-size:12.5px;font-weight:600;color:var(--muted);}
+.d .nl .ic{width:16px;height:16px;display:inline-flex;}
+.d .nl .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;}
+.d .nl.on{background:var(--accent-soft);color:var(--accent);}
+.d-bottom{left:50%;bottom:16px;transform:translateX(-50%);}
+
+/* ── current (for reference) ── */
+.d-current{background:color-mix(in srgb,var(--surface) 90%,transparent);backdrop-filter:blur(14px);border:1px solid var(--border);box-shadow:0 12px 36px rgba(20,22,40,.16);}
+
+/* A · dark/inverted */
+.d-dark{background:#181b20;border:1px solid #2a2f37;box-shadow:0 16px 40px rgba(16,18,30,.34);}
+.d-dark .nl{color:#aeb4c2;}
+.d-dark .nl.on{background:rgba(249,103,78,.20);color:#ff8a72;}
+
+/* B · elevated light */
+.d-elev{background:#fff;border:1px solid var(--border);box-shadow:0 20px 48px rgba(20,22,40,.22),0 3px 8px rgba(20,22,40,.10);}
+.d-elev .nl.on{background:var(--accent);color:#fff;}
+
+/* C · edge bar (attached) */
+.d-bar{left:0;right:0;bottom:0;transform:none;border-radius:0;border:0;border-top:1px solid var(--border);background:var(--surface);box-shadow:0 -10px 30px rgba(20,22,40,.10);justify-content:center;}
+
+/* D · accent ring pill */
+.d-ring{background:#fff;border:1.5px solid transparent;box-shadow:0 14px 38px rgba(20,22,40,.16),0 0 0 1.5px var(--accent-edge,#f9b4a6);}
+.d-ring .nl.on{background:var(--accent-soft);color:var(--accent);}
+
+/* vertical rails */
+.d-vert{flex-direction:column;top:50%;bottom:auto;transform:translateY(-50%);}
+.d-vert .nl{flex-direction:column;gap:4px;padding:9px 12px;font-size:10px;width:62px;justify-content:center;}
+.d-vert .nl .ic,.d-vert .nl .ic svg{width:18px;height:18px;}
+.d-left{left:16px;}
+.d-right{right:16px;}
+.d-dark.d-vert .nl.on,.d-dark .nl.on{}
+</style></head>
+<body><div class="wrap">
+
+<h1>Dock — visibility &amp; placement</h1>
+<p class="lead">The current dock is translucent + blurred, so it melts into the page. Below: stronger <b>visibility treatments</b> (kept at the bottom) and the same dock moved to the <b>left</b> and <b>right</b>. Mix and match — e.g. “dark dock, on the left”.</p>
+
+<div class="eyebrow">Reference</div>
+<div class="dname">Current — translucent blur (the problem)</div>
+<div class="ddesc">Reads as part of the background; low contrast, easy to miss.</div>
+<div class="vp" style="max-width:520px;">
+  <div class="vp-top"><span class="vp-brand"><span class="a">AIO</span> <span class="m">MDM</span></span><span class="vp-tr"><i></i><i></i><i></i></span></div>
+  <div class="vp-body"><div class="vp-h">Good afternoon</div><div class="vp-s">312 devices · 298 online</div><div class="vp-cards"><div class="vp-card"></div><div class="vp-card"></div><div class="vp-card"></div></div></div>
+  <div class="d d-bottom d-current">
+    <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"/></svg></span>Overview</span>
+    <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Fleet</span>
+    <span class="nl on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Actions</span>
+    <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg></span>Releases</span>
+  </div>
+</div>
+
+<!-- BOTTOM VISIBILITY TREATMENTS -->
+<div class="eyebrow">Bottom · visibility treatments</div>
+<div class="row">
+
+  <div>
+    <div class="dname">A · Dark dock <span class="rec">most visible</span></div>
+    <div class="ddesc">Inverted ink pill, light labels, coral active. Pops hard against the light canvas; premium feel.</div>
+    <div class="vp">
+      <div class="vp-top"><span class="vp-brand"><span class="a">AIO</span> <span class="m">MDM</span></span><span class="vp-tr"><i></i><i></i><i></i></span></div>
+      <div class="vp-body"><div class="vp-h">Good afternoon</div><div class="vp-s">312 devices · 298 online</div><div class="vp-cards"><div class="vp-card"></div><div class="vp-card"></div><div class="vp-card"></div></div></div>
+      <div class="d d-bottom d-dark">
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"/></svg></span>Overview</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Fleet</span>
+        <span class="nl on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Actions</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg></span>Releases</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="dname">B · Elevated light</div>
+    <div class="ddesc">Solid white, crisp border, deep shadow, solid-coral active chip. Clearly floats above the page, stays light.</div>
+    <div class="vp">
+      <div class="vp-top"><span class="vp-brand"><span class="a">AIO</span> <span class="m">MDM</span></span><span class="vp-tr"><i></i><i></i><i></i></span></div>
+      <div class="vp-body"><div class="vp-h">Good afternoon</div><div class="vp-s">312 devices · 298 online</div><div class="vp-cards"><div class="vp-card"></div><div class="vp-card"></div><div class="vp-card"></div></div></div>
+      <div class="d d-bottom d-elev">
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"/></svg></span>Overview</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Fleet</span>
+        <span class="nl on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Actions</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg></span>Releases</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="dname">C · Edge bar (attached)</div>
+    <div class="ddesc">A solid bar flush to the bottom edge with a top border + lift shadow — a classic tab bar. Unmissable, but less “floating app” feel.</div>
+    <div class="vp">
+      <div class="vp-top"><span class="vp-brand"><span class="a">AIO</span> <span class="m">MDM</span></span><span class="vp-tr"><i></i><i></i><i></i></span></div>
+      <div class="vp-body"><div class="vp-h">Good afternoon</div><div class="vp-s">312 devices · 298 online</div><div class="vp-cards"><div class="vp-card"></div><div class="vp-card"></div><div class="vp-card"></div></div></div>
+      <div class="d d-bar">
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"/></svg></span>Overview</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Fleet</span>
+        <span class="nl on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Actions</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg></span>Releases</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="dname">D · Accent-ring pill</div>
+    <div class="ddesc">Light pill with a thin coral ring + shadow. On-brand pop without going dark.</div>
+    <div class="vp">
+      <div class="vp-top"><span class="vp-brand"><span class="a">AIO</span> <span class="m">MDM</span></span><span class="vp-tr"><i></i><i></i><i></i></span></div>
+      <div class="vp-body"><div class="vp-h">Good afternoon</div><div class="vp-s">312 devices · 298 online</div><div class="vp-cards"><div class="vp-card"></div><div class="vp-card"></div><div class="vp-card"></div></div></div>
+      <div class="d d-bottom d-ring">
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"/></svg></span>Overview</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Fleet</span>
+        <span class="nl on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Actions</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg></span>Releases</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- PLACEMENTS -->
+<div class="eyebrow">Placement · left &amp; right rails</div>
+<div class="ddesc">Same dark dock, rotated vertical and floated to a side edge — icon-over-label. A side rail is more obviously navigation (closer to the old sidebar) and never overlaps page content at the bottom.</div>
+<div class="row">
+
+  <div>
+    <div class="dname">E · Left rail (dark)</div>
+    <div class="vp">
+      <div class="vp-top"><span class="vp-brand"><span class="a">AIO</span> <span class="m">MDM</span></span><span class="vp-tr"><i></i><i></i><i></i></span></div>
+      <div class="vp-body" style="padding-left:90px;"><div class="vp-h">Good afternoon</div><div class="vp-s">312 devices · 298 online</div><div class="vp-cards" style="grid-template-columns:repeat(2,1fr);"><div class="vp-card"></div><div class="vp-card"></div></div></div>
+      <div class="d d-vert d-left d-dark">
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"/></svg></span>Overview</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Fleet</span>
+        <span class="nl on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Actions</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg></span>Releases</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="dname">F · Right rail (light, elevated)</div>
+    <div class="vp">
+      <div class="vp-top"><span class="vp-brand"><span class="a">AIO</span> <span class="m">MDM</span></span><span class="vp-tr"><i></i><i></i><i></i></span></div>
+      <div class="vp-body" style="padding-right:90px;"><div class="vp-h">Good afternoon</div><div class="vp-s">312 devices · 298 online</div><div class="vp-cards" style="grid-template-columns:repeat(2,1fr);"><div class="vp-card"></div><div class="vp-card"></div></div></div>
+      <div class="d d-vert d-right d-elev">
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 7h8V3h-8zM3 21h8v-4H3z"/></svg></span>Overview</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>Fleet</span>
+        <span class="nl on"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Actions</span>
+        <span class="nl"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12M7 11l5 5 5-5M5 20h14"/></svg></span>Releases</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</div></body></html>
