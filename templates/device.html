@@ -210,6 +210,15 @@
 
   <!-- Battery -->
   <div id="chart-panel-battery">
+    <div class="wlc-bar">
+      <button type="button" id="wlc-toggle" class="wlc-toggle{{""}}" onclick="toggleWLC()" aria-pressed="false" title="Colour the line by wireless-charging state"><span class="wlc-sw"><span class="wlc-knob"></span></span>WLC states</button>
+      <div class="chart-legend" id="wlc-legend" hidden>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
+      </div>
+    </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
   </div>
 
@@ -281,6 +290,8 @@
   let batteryChart, tempChart, ramChart, unifiedChart;
   let storedMarkerPref = localStorage.getItem(markerStorageKey);
   let showMarkers = storedMarkerPref === null ? false : storedMarkerPref === 'visible';
+  const wlcStorageKey = 'mdm-chart-wlc:{{.Device.SerialNumber}}';
+  let showWLC = localStorage.getItem(wlcStorageKey) === 'on';
   // The chart tab is driven by context (a ?focus deep-link), not remembered across
   // visits — so a battery unit never reopens on the Temp tab just because it was
   // viewed there once. Defaults to Battery when there's no focus.
@@ -296,6 +307,21 @@
     if (raw.wlc === 2) return "#f39c12";
     return raw.wlc ? "#e84393" : "#6c5ce7";
   }
+
+  function syncWLC() {
+    var btn = document.getElementById('wlc-toggle');
+    var leg = document.getElementById('wlc-legend');
+    if (btn) { btn.classList.toggle('on', showWLC); btn.setAttribute('aria-pressed', showWLC ? 'true' : 'false'); }
+    if (leg) leg.hidden = !showWLC;
+  }
+  // Toggle wireless-charging-state colouring: on = raw line coloured by WLC state +
+  // legend; off = the smooth single-colour battery curve.
+  window.toggleWLC = function () {
+    showWLC = !showWLC;
+    try { localStorage.setItem(wlcStorageKey, showWLC ? 'on' : 'off'); } catch (e) {}
+    syncWLC();
+    if (typeof batteryChart !== 'undefined' && batteryChart) applyData(batteryChart, allBattery);
+  };
 
   function filterWindow(all) {
     if (customMin !== null && customMax !== null) {
@@ -348,7 +374,9 @@
 
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
-    chart.data.datasets[0].data = (chart === batteryChart) ? smoothBatterySeries(insertGaps(pts)) : insertGaps(pts);
+    chart.data.datasets[0].data = (chart === batteryChart)
+      ? (showWLC ? insertGaps(pts) : smoothBatterySeries(insertGaps(pts)))
+      : insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
     chart.update();
@@ -391,6 +419,7 @@
     if (ramChart) applyData(ramChart, allRam);
     applyUnifiedData();
     syncMarkerToggle();
+    syncWLC();
   }
 
   function nearestInArray(arr, ms) {
@@ -635,6 +664,10 @@
         borderCapStyle: "round",
         borderJoinStyle: "round",
         spanGaps: true,
+        segment: {
+          borderColor: ctx => showWLC ? segColor(ctx) : "#f9674e",
+          borderDash: ctx => (showWLC && ctx.p1.raw && ctx.p0.raw && ctx.p1.raw.y < ctx.p0.raw.y) ? [5, 3] : [],
+        },
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
