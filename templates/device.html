@@ -118,15 +118,16 @@
       </button>
       <div class="ddc-kpop" id="kiosk-pop" hidden>
         <div class="ddc-kpop-h">Kiosk mode</div>
-        <form action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST">
-          <div class="form-row">
-            <label class="form-label">Status</label>
-            <select name="kiosk_enabled" class="form-input">
-              <option value="0" {{if not .KioskConfig.KioskEnabled}}selected{{end}}>Disabled</option>
-              <option value="1" {{if .KioskConfig.KioskEnabled}}selected{{end}}>Enabled</option>
-            </select>
+        <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST">
+          <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-val" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">
+          <div class="ddc-kpop-row">
+            <span class="form-label" style="margin:0;">Enabled</span>
+            <label class="kiosk-sw" title="Enable / disable kiosk">
+              <input type="checkbox" id="kiosk-toggle" {{if .KioskConfig.KioskEnabled}}checked{{end}} onchange="kioskToggle(this)">
+              <span class="kiosk-sw-tr"><span class="kiosk-sw-kn"></span></span>
+            </label>
           </div>
-          <div class="form-row">
+          <div class="form-row" style="margin-top:12px;">
             <label class="form-label">Locked app</label>
             {{if .InstalledPackages}}
               {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
@@ -144,9 +145,8 @@
             {{else}}
               <input type="text" name="kiosk_package" class="form-input" value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
             {{end}}
-            <span class="muted small">Required when enabling — the device locks to this app on the next check-in.</span>
+            <span class="muted small">Pick the app, then turn kiosk on. Applied on the next check-in.</span>
           </div>
-          <button type="submit" class="btn-primary" style="width:100%;justify-content:center;">Save kiosk config</button>
         </form>
       </div>
     </span>
@@ -1381,6 +1381,30 @@ function filterInstalledApps(q) {
     if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
     if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   };
+  // Kiosk enable/disable toggle: submit on change. Enabling needs a locked app.
+  window.kioskToggle = function (cb) {
+    var form = document.getElementById('kiosk-form');
+    var val = document.getElementById('kiosk-enabled-val');
+    var pkg = document.getElementById('kiosk-pkg-value');
+    if (!form || !val) return;
+    if (cb.checked && pkg && !pkg.value.trim()) {
+      // No app chosen yet — don't enable; nudge the picker instead.
+      cb.checked = false;
+      var s = document.getElementById('kiosk-pkg-search');
+      if (s) { s.focus(); s.classList.add('kiosk-need'); setTimeout(function () { s.classList.remove('kiosk-need'); }, 1200); }
+      return;
+    }
+    val.value = cb.checked ? '1' : '0';
+    if (form.requestSubmit) form.requestSubmit(); else form.submit();
+  };
+  // Changing the locked app while kiosk is on re-applies it immediately.
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.id === 'kiosk-pkg-value') {
+      var t = document.getElementById('kiosk-toggle');
+      var form = document.getElementById('kiosk-form');
+      if (t && t.checked && form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); }
+    }
+  });
   document.addEventListener('click', function (e) {
     var pop = document.getElementById('kiosk-pop');
     if (pop && !e.target.closest('.ddc-kpop-wrap')) pop.setAttribute('hidden', '');
@@ -1649,7 +1673,7 @@ async function saveNewApp() {
     });
     active = -1; paint();
   }
-  function choose(o) { hidden.value = o.getAttribute('data-value'); input.value = (o.querySelector('.pkg-opt-name') || o).textContent.trim(); close(); }
+  function choose(o) { hidden.value = o.getAttribute('data-value'); input.value = (o.querySelector('.pkg-opt-name') || o).textContent.trim(); close(); hidden.dispatchEvent(new Event('change', { bubbles: true })); }
 
   input.addEventListener('focus', function () { filter(''); open(); input.select(); });
   input.addEventListener('input', function () { filter(input.value); open(); });
