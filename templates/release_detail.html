@@ -440,19 +440,7 @@
     <span class="muted small">{{len .DevicesOnVersion}} device{{if ne (len .DevicesOnVersion) 1}}s{{end}} currently reporting {{$rel.Version}}</span>
   </div>
   {{if .DevicesOnVersion}}
-  <table class="table">
-    <thead><tr><th>Serial Number</th><th>Restaurant</th><th>Battery</th><th>Last Seen</th></tr></thead>
-    <tbody>
-      {{range .DevicesOnVersion}}
-      <tr>
-        <td class="mono small"><a href="/devices/{{.SerialNumber}}" class="link-detail mono">{{.SerialNumber}}</a></td>
-        <td class="small">{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">lab</span>{{end}}</td>
-        <td class="small">{{.BatteryPct}}%</td>
-        <td class="muted small">{{timeSince .LastSeenAt}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+  {{template "device-cards" (dict "Devices" .DevicesOnVersion "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs)}}
   {{else}}
   <div class="empty" style="padding:16px;">No devices are currently reporting this version.</div>
   {{end}}

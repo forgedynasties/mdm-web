@@ -4346,6 +4346,7 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-card:hover { background: var(--hover); }
 .dl-card.row-selected { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
 .dl-card > .device-cb { width: 15px; height: 15px; grid-area: cb; }
+.dl-card > .dl-cb-spacer { grid-area: cb; width: 0; }
 .dl-card > .dl-bat { grid-area: bat; }
 .dl-card > .dl-id { grid-area: id; }
 .dl-card > .dl-metrics { grid-area: metrics; }
