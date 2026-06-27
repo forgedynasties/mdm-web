@@ -14,6 +14,9 @@
   {{if $rel.Name}}<span class="ov-date">{{$rel.Name}}</span>{{end}}
   {{if eq $role "admin"}}
   <span class="acts">
+    {{if and (eq $rel.Status "published") .CanPush}}
+    <button type="button" class="btn-primary btn-sm" onclick="relDetailTab('updates', document.querySelector('.dd-tab[data-rtab=updates]'))">Push update</button>
+    {{end}}
     {{if ne $rel.Status "published"}}
     <form action="/releases/{{$rel.ID}}/publish" method="POST" style="display:inline;">
       <button type="submit" class="btn-primary btn-sm"
@@ -50,7 +53,7 @@
     <div class="stat-sub">{{if .HasFull}}full image ready{{else}}no full image yet{{end}}</div>
   </div>
   <div class="stat-card">
-    <div class="stat-label">Deployments</div>
+    <div class="stat-label">Updates</div>
     <div class="stat-value">{{len .Deployments}}</div>
   </div>
   <div class="stat-card">
@@ -72,6 +75,15 @@
     <div class="stat-sub">{{localTime $rel.CreatedAt}}</div>
   </div>
 </div>
+
+<div class="dd-tabs" role="tablist" style="margin-bottom:16px;">
+  <button class="dd-tab active" type="button" data-rtab="overview" onclick="relDetailTab('overview',this)">Overview</button>
+  <button class="dd-tab" type="button" data-rtab="updates" onclick="relDetailTab('updates',this)">Updates{{if .Deployments}} <span class="pill">{{len .Deployments}}</span>{{end}}</button>
+  <button class="dd-tab" type="button" data-rtab="qa" onclick="relDetailTab('qa',this)">QA{{if gt .QA.Total 0}} <span class="pill">{{.QA.Pass}}/{{.QA.Total}}</span>{{end}}</button>
+  <button class="dd-tab" type="button" data-rtab="devices" onclick="relDetailTab('devices',this)">Devices{{if .DevicesOnVersion}} <span class="pill">{{len .DevicesOnVersion}}</span>{{end}}</button>
+</div>
+
+<section class="rel-panel" data-rpanel="overview">
 
 <!-- Changelog -->
 {{if eq $role "admin"}}
@@ -164,6 +176,10 @@
   </div>
   {{end}}
 </div>
+
+</section><!-- /overview -->
+
+<section class="rel-panel" data-rpanel="updates" hidden>
 
 <!-- Push update -->
 {{if eq $role "admin"}}
@@ -274,6 +290,46 @@
 {{end}}
 {{end}}
 
+<!-- Updates (rollouts of this release) -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Updates</h3>
+    <span class="muted small">{{len .Deployments}} total</span>
+  </div>
+  {{if .Deployments}}
+  <table class="table">
+    <thead>
+      <tr><th>#</th><th>Status</th><th>Reboot</th><th>Devices</th><th>Installed</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+      {{range .Deployments}}
+      <tr>
+        <td class="mono small">{{.ID}}</td>
+        <td><span class="status-badge {{deployStatusClass .Status}}">{{.Status}}</span></td>
+        <td class="muted small">{{.RebootBehavior}}</td>
+        <td class="muted small">{{.DeviceTotal}}</td>
+        <td>
+          {{if gt .DeviceTotal 0}}
+            <span class="{{if eq .DeviceInstalled .DeviceTotal}}ok{{else}}muted{{end}} small">{{.DeviceInstalled}} / {{.DeviceTotal}}</span>
+          {{else}}
+            <span class="muted small">—</span>
+          {{end}}
+        </td>
+        <td class="muted small">{{timeSince .CreatedAt}}</td>
+        <td style="white-space:nowrap;"><a href="/releases/{{$rel.ID}}/deployments/{{.ID}}" class="link-detail">View</a></td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty" style="padding:24px;">No updates pushed yet{{if eq $role "admin"}} — use Push Update above{{end}}.</div>
+  {{end}}
+</div>
+
+</section><!-- /updates -->
+
+<section class="rel-panel" data-rpanel="qa" hidden>
+
 <!-- Testing / QA -->
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
@@ -368,41 +424,9 @@
   {{end}}
 </div>
 
-<!-- Deployments list -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Deployments</h3>
-    <span class="muted small">{{len .Deployments}} total</span>
-  </div>
-  {{if .Deployments}}
-  <table class="table">
-    <thead>
-      <tr><th>#</th><th>Status</th><th>Reboot</th><th>Devices</th><th>Installed</th><th>Created</th><th></th></tr>
-    </thead>
-    <tbody>
-      {{range .Deployments}}
-      <tr>
-        <td class="mono small">{{.ID}}</td>
-        <td><span class="status-badge {{deployStatusClass .Status}}">{{.Status}}</span></td>
-        <td class="muted small">{{.RebootBehavior}}</td>
-        <td class="muted small">{{.DeviceTotal}}</td>
-        <td>
-          {{if gt .DeviceTotal 0}}
-            <span class="{{if eq .DeviceInstalled .DeviceTotal}}ok{{else}}muted{{end}} small">{{.DeviceInstalled}} / {{.DeviceTotal}}</span>
-          {{else}}
-            <span class="muted small">—</span>
-          {{end}}
-        </td>
-        <td class="muted small">{{timeSince .CreatedAt}}</td>
-        <td style="white-space:nowrap;"><a href="/releases/{{$rel.ID}}/deployments/{{.ID}}" class="link-detail">View</a></td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty" style="padding:24px;">No deployments yet.</div>
-  {{end}}
-</div>
+</section><!-- /qa -->
+
+<section class="rel-panel" data-rpanel="devices" hidden>
 
 <!-- Devices currently on this version -->
 <div class="card">
@@ -429,7 +453,14 @@
   {{end}}
 </div>
 
+</section><!-- /devices -->
+
 <script>
+// Release detail tabs (Overview / Updates / QA / Devices).
+function relDetailTab(tab, btn) {
+  document.querySelectorAll('.dd-tab[data-rtab]').forEach(function (b) { b.classList.toggle('active', b === btn); });
+  document.querySelectorAll('.rel-panel').forEach(function (p) { p.hidden = p.getAttribute('data-rpanel') !== tab; });
+}
 function setPkgType(mode) {
   var fullBtn = document.querySelector('#add-pkg-form .seg-btn[data-mode="full"]');
   if (mode === 'full' && fullBtn && fullBtn.disabled) return; // only one full per release
