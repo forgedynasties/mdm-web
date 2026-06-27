@@ -32,6 +32,7 @@ import (
 	"mdm/internal/alerts"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/logstream"
 	"mdm/internal/notify"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
@@ -66,6 +67,7 @@ type Handler struct {
 	hub         *ws.Hub
 	shell       *shell.Manager
 	remote      *remote.Manager
+	logs        *logstream.Manager
 	store       *sessions.CookieStore
 	tmpl        *template.Template
 	user        string
@@ -306,7 +308,7 @@ var updateEngineErrors = map[string]string{
 	"62": "Package excluded for this device.",
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remote.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey string) *Handler {
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remote.Manager, logMgr *logstream.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey string) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -907,6 +909,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		hub:           hub,
 		shell:         shellMgr,
 		remote:        remoteMgr,
+		logs:          logMgr,
 		store:         store,
 		tmpl:          tmpl,
 		user:          user,
@@ -7318,6 +7321,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
+	mux.HandleFunc("GET /devices/{serial}/logcat/live", h.requireAuth(h.LogcatLivePage))
+	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(h.LogcatStream))
 	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))
 	mux.HandleFunc("GET /devices/{serial}/logcat/events", h.requireAuth(h.LogcatEvents))
 	post("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
@@ -7494,6 +7499,116 @@ func (h *Handler) CommandOutputStream(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+// LogcatLivePage renders the live logcat console for a device.
+func (h *Handler) LogcatLivePage(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	h.render(w, r, "logcat_live.html", map[string]any{
+		"Title":  "Live logs · " + device.SerialNumber,
+		"Device": device,
+		"Online": h.hub.IsConnected(device.ID),
+	})
+}
+
+// LogcatStream opens a Server-Sent Events stream of live `logcat` output from a
+// device. It mints a request_id, pushes start_logcat_stream to the device, relays
+// each chunk as an SSE `data:` line, and pushes stop_logcat_stream when the browser
+// disconnects. Query params: level (V|D|I|W|E), tag, buffer, grep, tail.
+func (h *Handler) LogcatStream(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	if !h.hub.IsConnected(device.ID) {
+		http.Error(w, "device not connected", http.StatusServiceUnavailable)
+		return
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming not supported", http.StatusInternalServerError)
+		return
+	}
+
+	reqID := uuid.NewString()
+	ch := h.logs.Open(reqID)
+	defer h.logs.Close(reqID)
+
+	start, _ := json.Marshal(map[string]any{
+		"type":       "start_logcat_stream",
+		"request_id": reqID,
+		"level":      logcatLevel(r.URL.Query().Get("level")),
+		"tag":        strings.TrimSpace(r.URL.Query().Get("tag")),
+		"buffer":     strings.TrimSpace(r.URL.Query().Get("buffer")),
+		"grep":       strings.TrimSpace(r.URL.Query().Get("grep")),
+		"tail":       logcatTail(r.URL.Query().Get("tail")),
+	})
+	if !h.hub.Push(device.ID, start) {
+		http.Error(w, "failed to reach device", http.StatusServiceUnavailable)
+		return
+	}
+	// Tell the device to stop streaming the moment this browser goes away.
+	defer func() {
+		stop, _ := json.Marshal(map[string]any{"type": "stop_logcat_stream", "request_id": reqID})
+		h.hub.Push(device.ID, stop)
+	}()
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	fmt.Fprintf(w, ": logcat stream %s\n\n", reqID)
+	flusher.Flush()
+
+	ka := time.NewTicker(20 * time.Second)
+	defer ka.Stop()
+	for {
+		select {
+		case chunk, open := <-ch:
+			if !open {
+				fmt.Fprintf(w, "event: end\ndata: {}\n\n")
+				flusher.Flush()
+				return
+			}
+			data, _ := json.Marshal(chunk)
+			fmt.Fprintf(w, "data: %s\n\n", data)
+			flusher.Flush()
+		case <-ka.C:
+			fmt.Fprintf(w, ": keepalive\n\n")
+			flusher.Flush()
+		case <-r.Context().Done():
+			return
+		}
+	}
+}
+
+// logcatLevel clamps a requested min-priority to a valid logcat level char.
+func logcatLevel(s string) string {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "V", "D", "I", "W", "E":
+		return strings.ToUpper(strings.TrimSpace(s))
+	default:
+		return "V"
+	}
+}
+
+// logcatTail clamps the initial backlog line count to a sane range.
+func logcatTail(s string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(s))
+	if err != nil || n < 0 {
+		return 200
+	}
+	if n > 5000 {
+		return 5000
+	}
+	return n
 }
 
 // ── WS push helpers ───────────────────────────────────────────────────────────
