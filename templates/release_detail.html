@@ -244,11 +244,13 @@
           <div class="filter-search" style="margin:11px 12px 0;"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" class="filter-search-input" placeholder="Filter serial…" oninput="deployFilter('tab-devices')"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 12px 0;">
             <select class="filter-select dp-f-status" onchange="deployFilter('tab-devices')"><option value="">Status</option><option value="online">Online</option><option value="offline">Offline</option></select>
+            <select class="filter-select dp-f-release" onchange="deployFilter('tab-devices')"><option value="">Release</option></select>
             <select class="filter-select dp-f-batt" onchange="deployFilter('tab-devices')"><option value="">Battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select>
+            <select class="filter-select dp-f-rest" onchange="deployFilter('tab-devices')"><option value="">Restaurant</option></select>
           </div>
           <div class="cb-list" style="margin:8px;max-height:260px;overflow:auto;">
             {{range .Devices}}
-            <div class="dp-av cb-row" data-search="{{.SerialNumber}} {{.BuildID}}" data-online="{{if index $.Online .ID}}1{{else}}0{{end}}" data-batt="{{if lt .BatteryPct 20}}low{{else if lt .BatteryPct 50}}mid{{else}}ok{{end}}" onclick="deployToggle(this,'tab-devices','serials')">
+            <div class="dp-av cb-row" data-search="{{.SerialNumber}} {{.BuildID}}" data-online="{{if index $.Online .ID}}1{{else}}0{{end}}" data-batt="{{if lt .BatteryPct 20}}low{{else if lt .BatteryPct 50}}mid{{else}}ok{{end}}" data-build="{{.BuildID}}" data-restaurant="{{.RestaurantName}}" onclick="deployToggle(this,'tab-devices','serials')">
               <input type="checkbox" name="serials" value="{{.SerialNumber}}" data-label="{{.SerialNumber}}" hidden>
               <span class="dp-bchip {{batteryClass .BatteryPct}}">{{.BatteryPct}}%</span>
               <span class="cb-id"><span class="cb-serial mono">{{.SerialNumber}}</span><span class="cb-sub">{{.BuildID}}</span></span>
@@ -487,11 +489,35 @@ function deployFilter(panelId) {
   var qEl = el.querySelector('input[type="search"]'), q = qEl ? qEl.value.toLowerCase() : '';
   var sEl = el.querySelector('.dp-f-status'), s = sEl ? sEl.value : '';
   var bEl = el.querySelector('.dp-f-batt'), b = bEl ? bEl.value : '';
+  var rEl = el.querySelector('.dp-f-release'), rv = rEl ? rEl.value : '';
+  var restEl = el.querySelector('.dp-f-rest'), rest = restEl ? restEl.value : '';
   el.querySelectorAll('.dp-av').forEach(function (row) {
     var okQ = !q || (row.dataset.search || '').toLowerCase().indexOf(q) !== -1;
     var okS = !s || row.dataset.online === (s === 'online' ? '1' : '0');
     var okB = !b || row.dataset.batt === b;
-    row.style.display = (okQ && okS && okB) ? '' : 'none';
+    var okR = !rv || (row.dataset.build || '') === rv;
+    var okRest = !rest || (row.dataset.restaurant || '') === rest;
+    row.style.display = (okQ && okS && okB && okR && okRest) ? '' : 'none';
+  });
+}
+// Fill the Release and Restaurant selects from the values present on the rendered device
+// rows, so the options always match the devices actually eligible for this release.
+function populateDeployFilters(panelId) {
+  var el = document.getElementById(panelId);
+  if (!el) return;
+  [['.dp-f-release', 'build'], ['.dp-f-rest', 'restaurant']].forEach(function (pair) {
+    var sel = el.querySelector(pair[0]);
+    if (!sel) return;
+    var seen = {};
+    el.querySelectorAll('.dp-av').forEach(function (row) {
+      var v = (row.dataset[pair[1]] || '').trim();
+      if (v) seen[v] = true;
+    });
+    Object.keys(seen).sort().forEach(function (v) {
+      var o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
   });
 }
 function deploySync(panelId, name) {
@@ -500,11 +526,16 @@ function deploySync(panelId, name) {
   basket.innerHTML = '';
   var checked = el.querySelectorAll('input[name="' + name + '"]:checked');
   checked.forEach(function (cb) {
+    var label = cb.getAttribute('data-label') || cb.value;
     var chip = document.createElement('span');
-    chip.className = 'cmd-chip';
-    chip.appendChild(document.createTextNode(cb.getAttribute('data-label') || cb.value));
+    chip.className = 'dp-chip';
+    var txt = document.createElement('span');
+    txt.className = 'dp-chip-t mono';
+    txt.textContent = label;
+    chip.appendChild(txt);
     var x = document.createElement('button');
-    x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove');
+    x.type = 'button'; x.className = 'dp-chip-x'; x.textContent = '✕';
+    x.setAttribute('aria-label', 'Remove ' + label);
     x.onclick = function (e) {
       e.stopPropagation();
       cb.checked = false;
@@ -533,7 +564,7 @@ function deployAll(panelId, name) {
   deploySync(panelId, name);
 }
 document.addEventListener('DOMContentLoaded', function () {
-  if (document.getElementById('tab-devices')) deploySync('tab-devices', 'serials');
+  if (document.getElementById('tab-devices')) { populateDeployFilters('tab-devices'); deploySync('tab-devices', 'serials'); }
   if (document.getElementById('tab-groups')) deploySync('tab-groups', 'group_ids');
 });
 // base64-encode the add-package URL (WAF bypass), mirroring the create form.
