@@ -1707,7 +1707,7 @@ async function saveNewApp() {
   {{range .PendingInstalls}}
   <div class="app-row app-installing" data-app="{{.Name}} {{.ApkURL}}">
     <div class="app-id">
-      <div class="app-name">{{.Name}}</div>
+      <div class="app-name">{{.Name}}{{if gt (atoi .Count) 1}} <span class="app-dup" title="{{.Count}} install commands queued for this app">×{{.Count}}</span>{{end}}</div>
       <div class="app-pkg mono">installing</div>
     </div>
     <span class="app-installing-tag"><span class="app-spin"></span>installing</span>
