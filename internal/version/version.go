@@ -17,6 +17,14 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.14.1",
+		Date:    "2026-06-29",
+		Changes: []string{
+			"Installing the same app twice no longer stacks duplicate “installing” rows — repeats now collapse into a single entry that shows how many times it was sent.",
+			"Pressing Install again while that app is already installing no longer queues a duplicate copy on the device.",
+		},
+	},
+	{
 		Version: "1.14.0",
 		Date:    "2026-06-26",
 		Changes: []string{
