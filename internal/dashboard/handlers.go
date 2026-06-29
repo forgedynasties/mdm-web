@@ -325,6 +325,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	store.MaxAge(cfg.SessionTimeout())
 
 	funcMap := template.FuncMap{
+		// atoi parses a string to int (0 on failure) for arithmetic in templates.
+		"atoi": atoi,
 		// canAdmin reports whether a role has operational admin power in the UI:
 		// both "admin" and "dev" do. Used to gate operational buttons/links;
 		// settings and user-management UI stay on a literal `eq .Role "admin"`.
@@ -1838,22 +1840,36 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 
 // pendingInstallRows returns "installing" rows (resolved app name + apk url) for
 // install_apk commands not yet completed/failed — shown in the device Applications list.
+// Commands are deduped by APK URL: re-sending the same install (or a group target
+// re-firing it) yields one row with a Count, not a stack of identical rows.
 func pendingInstallRows(commands []db.DeviceCommand, apps []db.App) []map[string]string {
 	name := make(map[string]string, len(apps))
 	for _, a := range apps {
 		name[a.ApkURL] = a.Name
 	}
 	var out []map[string]string
+	idx := make(map[string]int) // ApkURL -> position in out
 	for _, c := range commands {
 		if c.Type == "install_apk" && (c.Status == "pending" || c.Status == "delivered") {
+			if i, ok := idx[c.ApkURL]; ok {
+				out[i]["Count"] = strconv.Itoa(atoi(out[i]["Count"]) + 1)
+				continue
+			}
 			n := name[c.ApkURL]
 			if n == "" {
 				n = c.ApkURL
 			}
-			out = append(out, map[string]string{"Name": n, "ApkURL": c.ApkURL})
+			idx[c.ApkURL] = len(out)
+			out = append(out, map[string]string{"Name": n, "ApkURL": c.ApkURL, "Count": "1"})
 		}
 	}
 	return out
+}
+
+// atoi is a forgiving strconv.Atoi: it returns 0 for unparseable input.
+func atoi(s string) int {
+	n, _ := strconv.Atoi(s)
+	return n
 }
 
 // DeviceAppsList renders just the installed-apps list region for the device page,
