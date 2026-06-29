@@ -1077,6 +1077,101 @@ func (d *DB) GetCheckinsBetween(ctx context.Context, deviceID uuid.UUID, from, u
 	return scanCheckins(rows)
 }
 
+// WSSessionInterval is a WebSocket connection interval already clamped to the
+// requested window. Open is true when the session was still active at query time
+// (End was clamped to NOW or the window's upper bound).
+type WSSessionInterval struct {
+	Start time.Time `json:"start"`
+	End   time.Time `json:"end"`
+	Open  bool      `json:"open"`
+}
+
+// OpenWSSession records the start of a device's WebSocket connection. It first closes any
+// dangling-open row for the device — the hub does not always emit a disconnect for a
+// connection it replaces (register() closes the old client's Send but the displaced
+// client's later Unregister sees cur != c and stays silent), so without this a replaced
+// connection would leak a forever-open session. Done in one transaction so a device never
+// has two open rows at once.
+func (d *DB) OpenWSSession(ctx context.Context, deviceID uuid.UUID) error {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `
+		UPDATE ws_sessions SET disconnected_at = NOW()
+		WHERE device_id = $1 AND disconnected_at IS NULL
+	`, deviceID); err != nil {
+		return err
+	}
+	if _, err = tx.Exec(ctx, `
+		INSERT INTO ws_sessions (device_id, connected_at, disconnected_at)
+		VALUES ($1, NOW(), NULL)
+	`, deviceID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// CloseWSSession marks the device's open WebSocket session as ended now.
+func (d *DB) CloseWSSession(ctx context.Context, deviceID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE ws_sessions SET disconnected_at = NOW()
+		WHERE device_id = $1 AND disconnected_at IS NULL
+	`, deviceID)
+	return err
+}
+
+// SweepDanglingWSSessions closes every still-open session on startup: in-memory hub state
+// is lost on restart, so any open row is stale. The drop time is unknown, so clamp to the
+// device's last proof-of-life (last_seen_at) rather than NOW() — using NOW() would falsely
+// claim the device stayed connected across the whole downtime and bridge a real offline gap
+// that occurred while the server was down. Returns the number of sessions closed.
+func (d *DB) SweepDanglingWSSessions(ctx context.Context) (int64, error) {
+	ct, err := d.pool.Exec(ctx, `
+		UPDATE ws_sessions s
+		SET disconnected_at = GREATEST(s.connected_at, LEAST(NOW(), d.last_seen_at))
+		FROM devices d
+		WHERE s.device_id = d.id AND s.disconnected_at IS NULL
+	`)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
+}
+
+// GetWSSessionsBetween returns the device's WebSocket connection intervals overlapping
+// [from, until], each clamped to that window. A still-open session (disconnected_at NULL)
+// is treated as ending NOW. Degenerate intervals (End <= Start after clamping) are dropped.
+func (d *DB) GetWSSessionsBetween(ctx context.Context, deviceID uuid.UUID, from, until time.Time) ([]WSSessionInterval, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT GREATEST(connected_at, $2)                  AS start_at,
+		       LEAST(COALESCE(disconnected_at, NOW()), $3) AS end_at,
+		       (disconnected_at IS NULL)                   AS open
+		FROM ws_sessions
+		WHERE device_id = $1
+		  AND connected_at <= $3
+		  AND COALESCE(disconnected_at, NOW()) >= $2
+		ORDER BY connected_at
+	`, deviceID, from, until)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []WSSessionInterval
+	for rows.Next() {
+		var iv WSSessionInterval
+		if err := rows.Scan(&iv.Start, &iv.End, &iv.Open); err != nil {
+			return nil, err
+		}
+		if iv.End.After(iv.Start) {
+			out = append(out, iv)
+		}
+	}
+	return out, rows.Err()
+}
+
 // scanCheckins materializes check-in rows, defaulting empty extra to "{}".
 func scanCheckins(rows pgx.Rows) ([]Checkin, error) {
 	var checkins []Checkin
@@ -5357,6 +5452,22 @@ UPDATE alert_rules SET active_window = 'always' WHERE type = 'offline' AND activ
 -- instead of suppressing them silently, and record when the condition was last seen.
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS occurrences INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- ws_sessions: history of device WebSocket connections. A live socket proves the device
+-- was online even when no telemetry/checkin row landed (e.g. a stalled telemetry sender),
+-- so device-detail charts subtract these intervals from the check-in-gap "offline" bands.
+-- The in-memory hub (internal/ws/hub.go) is the source of truth while running; this table
+-- persists connect/disconnect so a historical chart window can still tell the device held
+-- a connection. disconnected_at IS NULL marks a still-open session (treated as ending NOW).
+CREATE TABLE IF NOT EXISTS ws_sessions (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    device_id       UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    connected_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    disconnected_at TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_ws_sessions_device_connected
+    ON ws_sessions (device_id, connected_at);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
