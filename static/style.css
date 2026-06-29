@@ -4701,6 +4701,20 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .cmd-chip.ok { background: rgba(43,182,115,.13); color: #1c7d50; }
 .cmd-chip.mid { background: rgba(232,161,58,.15); color: #9a6512; }
 .cmd-chip.low { background: rgba(229,72,77,.13); color: #b4282d; }
+
+/* Selected-device chip in the two-pane target picker. The remove control (dp-chip-x)
+   is collapsed to zero width and only expands on hover/focus, so the basket stays
+   compact and uncluttered while still being keyboard-accessible. */
+.dp-chip { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 99px;
+  font-size: 11.5px; font-weight: 600; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); max-width: 100%; }
+.dp-chip-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-chip-x { display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 0; margin-left: 0; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--muted); font-size: 11px; line-height: 1; opacity: 0; overflow: hidden;
+  transition: width .12s ease, margin .12s ease, opacity .12s ease; }
+.dp-chip:hover .dp-chip-x, .dp-chip:focus-within .dp-chip-x { width: 13px; margin-left: 6px; opacity: .75; }
+.dp-chip-x:hover, .dp-chip-x:focus-visible { opacity: 1; color: var(--danger); outline: none; }
 .cmd-when { white-space: nowrap; }
 .cmd-del { border: 0; background: none; color: var(--text-faint); font-size: 17px; line-height: 1; cursor: pointer; padding: 0 4px; }
 .cmd-del:hover { color: var(--danger); }
