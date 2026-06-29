@@ -1927,15 +1927,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			peakDay, havePeak = peakDayForFocus(stats, focus)
 		}
 	}
-	// Track the chart window so the WS-session fetch below covers exactly the same span
-	// as the check-ins (the chart subtracts WS-connected intervals from the gap bands).
-	var wsFrom, wsUntil time.Time
 	if havePeak {
-		wsFrom, wsUntil = peakDay.Add(-12*time.Hour), peakDay.Add(36*time.Hour)
-		chartCheckins, err = h.db.GetCheckinsBetween(r.Context(), device.ID, wsFrom, wsUntil)
+		chartCheckins, err = h.db.GetCheckinsBetween(r.Context(), device.ID,
+			peakDay.Add(-12*time.Hour), peakDay.Add(36*time.Hour))
 	} else {
-		wsFrom, wsUntil = device.LastSeenAt.Add(-48*time.Hour), time.Now()
-		chartCheckins, err = h.db.GetCheckinsForDuration(r.Context(), device.ID, wsFrom)
+		chartCheckins, err = h.db.GetCheckinsForDuration(r.Context(), device.ID, device.LastSeenAt.Add(-48*time.Hour))
 	}
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -1964,12 +1960,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// In-flight installs: install_apk commands not yet completed/failed, so the
 	// Applications list can show them as "installing" until the device reports them.
 	pendingInstalls := pendingInstallRows(commands, apps)
-
-	// WebSocket connection intervals over the same window as the chart check-ins. The
-	// chart subtracts these from the offline gap bands — a live socket proves the device
-	// was online even with no telemetry row. Best-effort: a query error just leaves the
-	// bands as-is.
-	wsSessions, _ := h.db.GetWSSessionsBetween(r.Context(), device.ID, wsFrom, wsUntil)
 
 	kioskCfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID)
 	if err != nil {
@@ -2009,7 +1999,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Release":             release,
 		"Online":              h.hub.IsConnected(device.ID),
 		"ChartCheckins":       chartCheckins,
-		"WSSessions":          wsSessions,
 		"Commands":            commands,
 		"ExtraColumns":        h.cfg.Columns(),
 		"Apps":                apps,
