@@ -96,11 +96,39 @@ func main() {
 	}
 	recCancel()
 
+	// Best-effort, non-fatal: close WebSocket sessions left open by the previous
+	// process. In-memory hub state is gone on restart, so any still-open ws_sessions
+	// row is stale; the sweep clamps it to the device's last_seen_at. Runs before the
+	// hub accepts connections, so it can never clobber a live session.
+	if n, err := database.SweepDanglingWSSessions(ctx); err != nil {
+		log.Printf("sweep dangling ws sessions (skipped, non-fatal): %v", err)
+	} else if n > 0 {
+		log.Printf("sweep dangling ws sessions: closed %d", n)
+	}
+
 	hub := ws.NewHub()
 	shellMgr := shell.NewManager()
 	remoteMgr := remote.New(hub)
 	logMgr := logstream.NewManager()
 	hub.SetOnBinaryMessage(remoteMgr.RelayFrame)
+	// Persist WS connect/disconnect to ws_sessions so device charts can tell the device
+	// held a live socket during a check-in gap. Synchronous: register/Unregister already
+	// run on per-connection goroutines with the hub lock released, so this blocks only the
+	// one connection and preserves connect-before-disconnect ordering on rapid reconnects.
+	// Log-and-continue on error — a DB hiccup must never tear down the WebSocket.
+	hub.SetOnPresence(func(deviceID uuid.UUID, online bool) {
+		pctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		var err error
+		if online {
+			err = database.OpenWSSession(pctx, deviceID)
+		} else {
+			err = database.CloseWSSession(pctx, deviceID)
+		}
+		if err != nil {
+			log.Printf("[ws-session] persist (online=%v) for %s: %v", online, deviceID, err)
+		}
+	})
 
 	mux := http.NewServeMux()
 
