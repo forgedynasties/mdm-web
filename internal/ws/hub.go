@@ -56,6 +56,7 @@ type Hub struct {
 	clients         map[uuid.UUID]*Client
 	onMessage       func(deviceID uuid.UUID, msg []byte)
 	onBinaryMessage func(deviceID uuid.UUID, data []byte)
+	onPresence      func(deviceID uuid.UUID, online bool)
 	subMu           sync.RWMutex
 	subscribers     map[chan PresenceEvent]struct{}
 	updateMu        sync.RWMutex
@@ -80,6 +81,14 @@ func (h *Hub) SetOnMessage(fn func(deviceID uuid.UUID, msg []byte)) {
 // message received from any device.
 func (h *Hub) SetOnBinaryMessage(fn func(deviceID uuid.UUID, data []byte)) {
 	h.onBinaryMessage = fn
+}
+
+// SetOnPresence registers a function called when a device connects (online=true)
+// or disconnects (online=false). Wired in cmd/server/main.go to persist ws_sessions
+// so historical charts can tell the device held a connection. Called outside h.mu,
+// right after the matching publishPresence. Safe to call before any connections.
+func (h *Hub) SetOnPresence(fn func(deviceID uuid.UUID, online bool)) {
+	h.onPresence = fn
 }
 
 // Client represents a single device WebSocket connection.
@@ -300,6 +309,9 @@ func (h *Hub) register(c *Client) {
 	h.mu.Unlock()
 	log.Printf("[ws] connected: %s", c.DeviceID)
 	h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: true})
+	if h.onPresence != nil {
+		h.onPresence(c.DeviceID, true)
+	}
 }
 
 func (h *Hub) Unregister(c *Client) {
@@ -313,6 +325,9 @@ func (h *Hub) Unregister(c *Client) {
 	log.Printf("[ws] disconnected: %s", c.DeviceID)
 	if removed {
 		h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: false})
+		if h.onPresence != nil {
+			h.onPresence(c.DeviceID, false)
+		}
 	}
 }
 
