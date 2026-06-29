@@ -1872,6 +1872,19 @@ func atoi(s string) int {
 	return n
 }
 
+// hasPendingInstall reports whether an install_apk for apkURL is already in flight
+// (pending/delivered) among the device's recent commands. Used to stop a repeat
+// "Install" click — or a group target re-firing — from stacking duplicate installs.
+func hasPendingInstall(commands []db.DeviceCommand, apkURL string) bool {
+	for _, c := range commands {
+		if c.Type == "install_apk" && c.ApkURL == apkURL &&
+			(c.Status == "pending" || c.Status == "delivered") {
+			return true
+		}
+	}
+	return false
+}
+
 // DeviceAppsList renders just the installed-apps list region for the device page,
 // refreshed live via HTMX when the device checks in (so a freshly installed app
 // shows up without a manual reload).
@@ -6971,6 +6984,22 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	if cmdType == "install_apk" && apkURL == "" {
 		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 		return
+	}
+
+	// Don't stack a duplicate install: if this APK already has an install_apk
+	// command in flight for the device, bounce back to the (already-showing)
+	// pending row instead of queuing a second command the device must process.
+	if cmdType == "install_apk" {
+		if existing, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry()); err == nil && hasPendingInstall(existing, apkURL) {
+			if r.Header.Get("Accept") == "application/json" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "install already pending for this app"})
+				return
+			}
+			http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+			return
+		}
 	}
 
 	payload := buildPayload(cmdType, r)
