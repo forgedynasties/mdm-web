@@ -350,9 +350,6 @@
   const allBattery = [{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}];
   const allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
   const allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
-  // WebSocket connection intervals (ms). Subtracted from offline gaps so a span the device
-  // held a live socket — but sent no telemetry — doesn't paint as offline.
-  const wsSessions = [{{range .WSSessions}}{start: {{.Start.UnixMilli}}, end: {{.End.UnixMilli}}, open: {{.Open}}},{{end}}];
   const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
   const markerStorageKey = 'mdm-chart-markers:v2:{{.Device.SerialNumber}}';
 
@@ -365,93 +362,18 @@
   const pollIntervalMs = {{.Device.PollIntervalMs}};
   const gapThresholdMs = Math.max((pollIntervalMs > 0 ? pollIntervalMs : 300000) * 3, 390000);
 
-  // Offline windows = stretches where the device stopped checking in for longer
-  // than gapThresholdMs. Derived from the check-in cadence (battery is recorded on
-  // every check-in, so its timeline is the densest, most faithful signal of "was
-  // the device alive?") and shared across all charts so every metric breaks — and
-  // the offline band paints — over the same, real, gaps rather than over spans
-  // where a single metric merely went unreported while the device was up.
-  // Expects a time-sorted {x,y} array; returns [{start,end}] interior gaps.
-  function computeOfflineGaps(checkinPts) {
-    const gaps = [];
-    if (!checkinPts) return gaps;
-    for (let i = 1; i < checkinPts.length; i++) {
-      if (checkinPts[i].x - checkinPts[i - 1].x > gapThresholdMs) {
-        gaps.push({ start: checkinPts[i - 1].x, end: checkinPts[i].x });
-      }
-    }
-    return gaps;
-  }
-
-  // Carve out spans the device held a live WebSocket (conn = [{start,end}] from the server)
-  // from the check-in gaps: a socket proves it was online even with no telemetry row. Each
-  // gap minus the connected intervals yields its residual offline sub-intervals, then we
-  // re-apply gapThresholdMs so leftovers shorter than a real gap don't paint. Driving the
-  // shared $gaps set means both the band (gapBandPlugin) and the line break (breakAtGaps)
-  // update together, so a connected-but-silent span bridges the line and shows no band.
-  function subtractConnected(gaps, conn) {
-    if (!gaps || !gaps.length || !conn || !conn.length) return gaps;
-    // Merge overlapping connected intervals once, sorted by start.
-    const merged = [];
-    conn.map(c => ({ s: c.start, e: c.end }))
-        .filter(c => c.e > c.s)
-        .sort((a, b) => a.s - b.s)
-        .forEach(c => {
-          const last = merged[merged.length - 1];
-          if (last && c.s <= last.e) last.e = Math.max(last.e, c.e);
-          else merged.push({ s: c.s, e: c.e });
-        });
-    const out = [];
-    for (const g of gaps) {
-      let cursor = g.start;
-      for (const m of merged) {
-        if (m.e <= cursor) continue;   // connected span ends before the remaining gap
-        if (m.s >= g.end) break;       // merged is sorted → the rest start past this gap
-        if (m.s > cursor) out.push({ start: cursor, end: Math.min(m.s, g.end) });
-        cursor = Math.max(cursor, m.e);
-        if (cursor >= g.end) break;
-      }
-      if (cursor < g.end) out.push({ start: cursor, end: g.end });
-    }
-    return out.filter(g => g.end - g.start > gapThresholdMs);
-  }
-
-  // Break a series at each offline window by dropping a null at the window's
-  // midpoint (renders as a line break with spanGaps:false). Returns a new,
-  // x-sorted array; leaves the input untouched.
-  function breakAtGaps(pts, gaps) {
-    if (!pts || !pts.length || !gaps || !gaps.length) return pts;
-    const out = pts.slice();
-    for (const g of gaps) out.push({ x: (g.start + g.end) / 2, y: null });
-    out.sort((a, b) => a.x - b.x);
-    return out;
-  }
-
-  // Battery is smoothed (see smoothBatterySeries), and smoothing buckets across the
-  // whole span — which would smear the curve straight through an offline window. So
-  // smooth each online segment on its own, then rejoin them with a null so the line
-  // breaks across the gap instead of bridging it.
-  function smoothBatteryWithGaps(pts, gaps) {
+  // Insert a null sample between consecutive points that are further apart
+  // than gapThresholdMs, so the line shows a break over inactive periods.
+  // Expects a time-sorted {x,y} array; returns a new array.
+  function insertGaps(pts) {
     if (!pts || pts.length < 2) return pts;
-    const cuts = (gaps || [])
-      .map(g => (g.start + g.end) / 2)
-      .filter(c => c > pts[0].x && c < pts[pts.length - 1].x);
-    if (!cuts.length) return smoothBatterySeries(pts);
-    const segs = [];
-    let seg = [], ci = 0;
-    for (const p of pts) {
-      while (ci < cuts.length && p.x > cuts[ci]) { if (seg.length) segs.push(seg); seg = []; ci++; }
-      seg.push(p);
-    }
-    if (seg.length) segs.push(seg);
     const out = [];
-    segs.forEach((s, i) => {
-      if (i > 0) {
-        const prev = segs[i - 1];
-        out.push({ x: (prev[prev.length - 1].x + s[0].x) / 2, y: null });
+    for (let i = 0; i < pts.length; i++) {
+      if (i > 0 && (pts[i].x - pts[i - 1].x) > gapThresholdMs) {
+        out.push({ x: (pts[i - 1].x + pts[i].x) / 2, y: null });
       }
-      out.push(...smoothBatterySeries(s));
-    });
+      out.push(pts[i]);
+    }
     return out;
   }
 
@@ -550,11 +472,9 @@
 
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
-    const gaps = subtractConnected(computeOfflineGaps(filterWindow(allBattery).pts), wsSessions);
-    chart.$gaps = gaps;
     chart.data.datasets[0].data = (chart === batteryChart)
-      ? smoothBatteryWithGaps(pts, gaps)
-      : breakAtGaps(pts, gaps);
+      ? smoothBatterySeries(insertGaps(pts))
+      : insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
     chart.update();
@@ -567,11 +487,9 @@
   function applyUnifiedData() {
     if (!unifiedChart) return;
     const { pts: bPts, minX, lastX } = filterWindow(allBattery);
-    const gaps = subtractConnected(computeOfflineGaps(bPts), wsSessions);
-    unifiedChart.$gaps = gaps;
-    unifiedChart.data.datasets[0].data = smoothBatteryWithGaps(bPts, gaps);
-    unifiedChart.data.datasets[1].data = breakAtGaps(filterWindow(allTemp).pts, gaps);
-    unifiedChart.data.datasets[2].data = breakAtGaps(filterWindow(allRam).pts, gaps);
+    unifiedChart.data.datasets[0].data = smoothBatterySeries(insertGaps(bPts));
+    unifiedChart.data.datasets[1].data = insertGaps(filterWindow(allTemp).pts);
+    unifiedChart.data.datasets[2].data = insertGaps(filterWindow(allRam).pts);
     unifiedChart.options.scales.x.min = minX;
     unifiedChart.options.scales.x.max = lastX;
     unifiedChart.update('none');
@@ -757,56 +675,6 @@
     },
   };
 
-  // Shades each offline window (chart.$gaps, set in applyData/applyUnifiedData) as a
-  // faint hatched band with dashed edges, drawn under the data lines so the break in
-  // the line and the band reinforce each other. Recomputed on every chart update, so
-  // it tracks zoom/pan and the range presets.
-  const gapBandPlugin = {
-    id: 'gapBand',
-    beforeDatasetsDraw(chart) {
-      const gaps = chart.$gaps;
-      if (!gaps || !gaps.length || !chart.chartArea) return;
-      const ctx = chart.ctx, ca = chart.chartArea, xs = chart.scales.x;
-      const h = ca.bottom - ca.top;
-      ctx.save();
-      for (const g of gaps) {
-        let x0 = xs.getPixelForValue(g.start), x1 = xs.getPixelForValue(g.end);
-        if (x1 < x0) { const t = x0; x0 = x1; x1 = t; }
-        x0 = Math.max(x0, ca.left); x1 = Math.min(x1, ca.right);
-        if (x1 - x0 < 1) continue;
-        const w = x1 - x0;
-        // base fill
-        ctx.fillStyle = 'rgba(120,127,154,0.10)';
-        ctx.fillRect(x0, ca.top, w, h);
-        // diagonal hatch, clipped to the band
-        ctx.save();
-        ctx.beginPath(); ctx.rect(x0, ca.top, w, h); ctx.clip();
-        ctx.strokeStyle = 'rgba(120,127,154,0.16)';
-        ctx.lineWidth = 1;
-        for (let x = x0 - h; x < x1; x += 8) {
-          ctx.beginPath(); ctx.moveTo(x, ca.bottom); ctx.lineTo(x + h, ca.top); ctx.stroke();
-        }
-        ctx.restore();
-        // dashed edges
-        ctx.strokeStyle = 'rgba(120,127,154,0.35)';
-        ctx.setLineDash([3, 3]);
-        ctx.beginPath();
-        ctx.moveTo(x0, ca.top); ctx.lineTo(x0, ca.bottom);
-        ctx.moveTo(x1, ca.top); ctx.lineTo(x1, ca.bottom);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        // label when the band is wide enough to fit it
-        if (w > 54) {
-          ctx.fillStyle = 'rgba(120,127,154,0.9)';
-          ctx.font = '600 10px ui-sans-serif, system-ui, sans-serif';
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText('offline', (x0 + x1) / 2, ca.top + 9);
-        }
-      }
-      ctx.restore();
-    },
-  };
-
   // Find nearest data point by x pixel position
   function nearestByPixel(chart, datasetIndex) {
     if (chart._crosshairX == null) return null;
@@ -893,7 +761,7 @@
         borderColor: "#f9674e",
         borderCapStyle: "round",
         borderJoinStyle: "round",
-        spanGaps: false,
+        spanGaps: true,
         segment: {
           borderColor: ctx => showWLC ? segColor(ctx) : "#f9674e",
         },
@@ -921,7 +789,7 @@
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20 }, grid: { color: GRID } },
       },
     },
-    plugins: [gapBandPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
@@ -949,7 +817,7 @@
         borderWidth: 2.5,
         borderCapStyle: "round",
         borderJoinStyle: "round",
-        spanGaps: false,
+        spanGaps: true,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
@@ -974,7 +842,7 @@
         y: { ticks: { color: TICK, callback: v => v + "°C" }, grid: { color: GRID } },
       },
     },
-    plugins: [gapBandPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
   });
   tempChart._labelFn = pt => 'Temp: ' + pt.y.toFixed(1) + '°C';
   tempChart._commandMarkers = commandMarkers;
@@ -997,7 +865,7 @@
         borderWidth: 2.5,
         borderCapStyle: "round",
         borderJoinStyle: "round",
-        spanGaps: false,
+        spanGaps: true,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
@@ -1022,7 +890,7 @@
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20 }, grid: { color: GRID } },
       },
     },
-    plugins: [gapBandPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
   });
   ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
   ramChart._commandMarkers = commandMarkers;
@@ -1047,21 +915,21 @@
         {
           label: 'Battery %', data: [], yAxisID: 'yPct',
           borderColor: '#f9674e', backgroundColor: 'rgba(249,103,78,0.10)',
-          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          borderWidth: 2, pointRadius: 0, spanGaps: true,
           tension: 0.45,
           borderCapStyle: 'round', borderJoinStyle: 'round', fill: true,
         },
         {
           label: 'Temp °C', data: [], yAxisID: 'yTemp',
           borderColor: '#e8a13a', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          borderWidth: 2, pointRadius: 0, spanGaps: true,
           cubicInterpolationMode: 'monotone', tension: 0.4,
           borderCapStyle: 'round', borderJoinStyle: 'round',
         },
         {
           label: 'RAM %', data: [], yAxisID: 'yPct',
           borderColor: '#7a80f6', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          borderWidth: 2, pointRadius: 0, spanGaps: true,
           cubicInterpolationMode: 'monotone', tension: 0.4,
           borderCapStyle: 'round', borderJoinStyle: 'round',
         },
@@ -1091,7 +959,7 @@
         },
       },
     },
-    plugins: [gapBandPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
+    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
   });
   unifiedChart._isUnified = true;
   unifiedChart._commandMarkers = commandMarkers;
