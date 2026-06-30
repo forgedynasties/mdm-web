@@ -34,7 +34,7 @@
       {{end}}
     </form>
     {{end}}
-    {{if $canDownloadQfil}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download title="Download the QFIL flashing bundle">Download QFIL</a>{{end}}
+    {{if $canDownloadQfil}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download title="Download the QFIL flashing bundle" style="display:inline-flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>{{end}}
     {{if .CanManageQFIL}}<button type="button" class="btn-outline btn-sm" onclick="qfilModalOpen()">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</button>{{end}}
   </span>
   {{end}}
