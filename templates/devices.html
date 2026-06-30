@@ -756,19 +756,81 @@ function openBulkKioskModal() {
     form.appendChild(inp);
   });
   document.getElementById('bulk-kiosk-count').textContent = serials.length;
+  document.getElementById('bulk-kiosk-toggle').checked = true;
   document.getElementById('bulk-kiosk-enabled').value = '1';
   document.getElementById('bulk-kiosk-package').value = '';
+  var bs = document.getElementById('bulk-kiosk-pkg-search');
+  if (bs) bs.value = '';
   onBulkKioskToggle();
   document.getElementById('bulk-kiosk-modal').classList.add('modal-open');
-  document.getElementById('bulk-kiosk-package').focus();
+  if (bs) bs.focus();
 }
 
-// Hide/require the package field depending on whether kiosk is being enabled.
+// Mirror the device-detail kiosk dropdown: a switch drives the hidden enabled flag
+// and hides the app picker when disabling.
 function onBulkKioskToggle() {
-  var enabled = document.getElementById('bulk-kiosk-enabled').value === '1';
+  var enabled = document.getElementById('bulk-kiosk-toggle').checked;
+  document.getElementById('bulk-kiosk-enabled').value = enabled ? '1' : '0';
   document.getElementById('bulk-kiosk-pkg-row').style.display = enabled ? '' : 'none';
-  document.getElementById('bulk-kiosk-package').required = enabled;
 }
+
+// Searchable "Locked app" combo for the bulk modal — same look/behaviour as the
+// per-device picker, but also commits free-typed text so you can pin a package no
+// device reports yet. The hidden #bulk-kiosk-package is what the form submits.
+(function () {
+  var combo = document.getElementById('bulk-kiosk-pkg-combo');
+  if (!combo) return;
+  var input = document.getElementById('bulk-kiosk-pkg-search');
+  var hidden = document.getElementById('bulk-kiosk-package');
+  var opts = [].slice.call(combo.querySelectorAll('.pkg-opt'));
+  var active = -1;
+
+  function open() { combo.classList.add('open'); input.setAttribute('aria-expanded', 'true'); }
+  function close() { combo.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); active = -1; paint(); }
+  function visible() { return opts.filter(function (o) { return !o.classList.contains('hidden'); }); }
+  function paint() {
+    opts.forEach(function (o) { o.classList.remove('active'); });
+    var vis = visible();
+    if (active >= 0 && active < vis.length) { vis[active].classList.add('active'); vis[active].scrollIntoView({ block: 'nearest' }); }
+  }
+  function filter(q) {
+    q = q.trim().toLowerCase();
+    opts.forEach(function (o) {
+      var s = (o.getAttribute('data-search') || '').toLowerCase();
+      o.classList.toggle('hidden', q !== '' && s.indexOf(q) === -1);
+    });
+    active = -1; paint();
+  }
+  function choose(o) {
+    hidden.value = o.getAttribute('data-value');
+    input.value = (o.querySelector('.pkg-opt-name') || o).textContent.trim();
+    close();
+  }
+
+  input.addEventListener('focus', function () { filter(''); open(); input.select(); });
+  input.addEventListener('input', function () { hidden.value = input.value.trim(); filter(input.value); open(); });
+  input.addEventListener('keydown', function (e) {
+    var vis = visible();
+    if (e.key === 'ArrowDown') { e.preventDefault(); open(); active = Math.min(active + 1, vis.length - 1); paint(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); paint(); }
+    else if (e.key === 'Enter') { if (combo.classList.contains('open') && active >= 0) { e.preventDefault(); choose(vis[active]); } }
+    else if (e.key === 'Escape') { close(); }
+  });
+  opts.forEach(function (o) { o.addEventListener('mousedown', function (e) { e.preventDefault(); choose(o); }); });
+  document.addEventListener('click', function (e) { if (!combo.contains(e.target)) close(); });
+
+  // The server rejects enabling kiosk with no package; block the submit and nudge
+  // the picker instead of letting it 400 (mirrors the per-device toggle guard).
+  var form = document.getElementById('bulk-kiosk-form');
+  if (form) form.addEventListener('submit', function (e) {
+    if (document.getElementById('bulk-kiosk-toggle').checked && !hidden.value.trim()) {
+      e.preventDefault();
+      input.focus();
+      input.classList.add('kiosk-need');
+      setTimeout(function () { input.classList.remove('kiosk-need'); }, 1200);
+    }
+  });
+})();
 
 function closeBulkKioskModal(event) {
   if (!event || event.target === document.getElementById('bulk-kiosk-modal')) {
@@ -1121,20 +1183,30 @@ document.addEventListener('keydown', function(e) {
     </div>
     <div class="modal-body">
       <div class="muted small">Apply kiosk settings to <span id="bulk-kiosk-count">0</span> selected device(s).</div>
-      <form action="/devices/bulk-kiosk" method="POST" id="bulk-kiosk-form" class="command-form" style="padding:0;margin-top:12px;">
-        <div class="form-row">
-          <label class="form-label">Kiosk Mode</label>
-          <select name="kiosk_enabled" id="bulk-kiosk-enabled" class="form-input" onchange="onBulkKioskToggle()">
-            <option value="1">Enable</option>
-            <option value="0">Disable</option>
-          </select>
+      <form action="/devices/bulk-kiosk" method="POST" id="bulk-kiosk-form" class="command-form" style="padding:0;margin-top:14px;">
+        <input type="hidden" name="kiosk_enabled" id="bulk-kiosk-enabled" value="1">
+        <div class="ddc-kpop-row">
+          <span class="form-label" style="margin:0;">Enabled</span>
+          <label class="kiosk-sw" title="Enable / disable kiosk">
+            <input type="checkbox" id="bulk-kiosk-toggle" checked onchange="onBulkKioskToggle()">
+            <span class="kiosk-sw-tr"><span class="kiosk-sw-kn"></span></span>
+          </label>
         </div>
-        <div class="form-row" id="bulk-kiosk-pkg-row">
-          <label class="form-label">Kiosk Package</label>
-          <input type="text" name="kiosk_package" id="bulk-kiosk-package" class="form-input" placeholder="com.example.app">
-          <div class="confirm-hint">The package pinned to the foreground in lock-task mode.</div>
+        <div class="form-row" id="bulk-kiosk-pkg-row" style="margin-top:14px;">
+          <label class="form-label">Locked app</label>
+          <div class="pkg-combo" id="bulk-kiosk-pkg-combo">
+            <input type="hidden" name="kiosk_package" id="bulk-kiosk-package" value="">
+            <input type="text" id="bulk-kiosk-pkg-search" class="form-input" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search apps or type a package…">
+            <div class="pkg-list" id="bulk-kiosk-pkg-list" role="listbox">
+              <div class="pkg-opt" data-value="" data-search="none release clear launcher"><span class="pkg-opt-name">— None (release to launcher) —</span></div>
+              {{range .FleetPackages}}
+              <div class="pkg-opt" data-value="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}"><span class="pkg-opt-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pkg-opt-pkg mono">{{.PackageName}}</span></div>
+              {{end}}
+            </div>
+          </div>
+          <span class="muted small">Pinned to the foreground in lock-task mode. Applied on the next check-in.</span>
         </div>
-        <button type="submit" class="btn-primary">Apply Kiosk</button>
+        <button type="submit" class="btn-primary" style="margin-top:14px;">Apply Kiosk</button>
       </form>
     </div>
   </div>

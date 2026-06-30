@@ -2180,6 +2180,8 @@ input[type="checkbox"]:hover {
 }
 /* Let the kiosk package dropdown escape the panel instead of being clipped. */
 .device-action-panel:has(.pkg-combo.open) { overflow: visible; }
+/* Same, for the bulk-kiosk modal's app picker (modal-body scrolls by default). */
+.modal-body:has(.pkg-combo.open) { overflow: visible; }
 
 .device-action-panel-head {
   padding: var(--s-4) var(--s-4) var(--s-3);
