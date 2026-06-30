@@ -9,7 +9,7 @@
     {{if .Restaurant.Address}} · {{.Restaurant.Address}}{{end}}
     {{if .Restaurant.Timezone}} · {{.Restaurant.Timezone}}{{end}}
   </span>
-  {{if canAdmin .Role}}
+  {{if canAdminOrTester .Role}}
   <span class="acts" style="margin-left:auto;display:flex;gap:8px;">
     <a href="/restaurants/{{.Restaurant.ID}}/edit" class="btn-outline">Edit</a>
     <form action="/restaurants/{{.Restaurant.ID}}/delete" method="POST"
@@ -28,7 +28,7 @@
 {{end}}
 
 <!-- Service hours -->
-{{if canAdmin .Role}}
+{{if canAdminOrTester .Role}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>Service hours</h3>
@@ -61,7 +61,7 @@
 {{end}}
 
 <!-- Deploy devices -->
-{{if canAdmin .Role}}
+{{if canAdminOrTester .Role}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Deploy devices</h3><span class="muted small">a device lives at one venue, so adding moves it here</span></div>
   <form action="/restaurants/{{.Restaurant.ID}}/devices" method="POST" style="padding:14px 20px 18px;">
@@ -114,7 +114,7 @@
     </div>
   </div>
   {{else}}
-  {{$rm := ""}}{{if canAdmin .Role}}{{$rm = printf "/restaurants/%s/devices/" .Restaurant.ID}}{{end}}
+  {{$rm := ""}}{{if canAdminOrTester .Role}}{{$rm = printf "/restaurants/%s/devices/" .Restaurant.ID}}{{end}}
   {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm)}}
   {{end}}
 </div>
