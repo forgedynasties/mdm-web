@@ -1670,6 +1670,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "device-table", h.withRole(r, data))
 		return
 	}
+	// Distinct fleet packages back the bulk-kiosk "Locked app" picker (mirrors the
+	// per-device kiosk dropdown). Only needed for the full page, not HX polls.
+	fleetPkgs, _ := h.db.SearchFleetPackages(r.Context(), "")
+	data["FleetPackages"] = fleetPkgs
 	h.render(w, r, "devices.html", data)
 }
 
