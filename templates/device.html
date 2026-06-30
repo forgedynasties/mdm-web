@@ -123,7 +123,7 @@
           hx-target="this" hx-swap="innerHTML">
       {{template "device-vitals" .}}
     </span>
-    {{if canAdmin .Role}}
+    {{if canAdminOrTester .Role}}
     <span class="ddc-kpop-wrap">
       <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskPopToggle(event)" aria-haspopup="true" aria-expanded="false" title="Configure kiosk mode">
         <span class="k">Kiosk</span>{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}} <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
