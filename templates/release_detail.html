@@ -514,10 +514,22 @@
 
 <script>
 // Release detail tabs (Overview / Updates / QA / Devices).
+var relTabKey = 'rel-tab:{{$rel.ID}}';
 function relDetailTab(tab, btn) {
   document.querySelectorAll('.dd-tab[data-rtab]').forEach(function (b) { b.classList.toggle('active', b === btn); });
   document.querySelectorAll('.rel-panel').forEach(function (p) { p.hidden = p.getAttribute('data-rpanel') !== tab; });
+  try { localStorage.setItem(relTabKey, tab); } catch (e) {}
 }
+// Restore the last-viewed tab on load. Recording a QA result posts and reloads the
+// page, so without this a tester would be thrown back to Overview after every
+// pass/fail instead of staying on QA.
+document.addEventListener('DOMContentLoaded', function () {
+  var saved = null;
+  try { saved = localStorage.getItem(relTabKey); } catch (e) {}
+  if (!saved || saved === 'overview') return;
+  var btn = document.querySelector('.dd-tab[data-rtab="' + saved + '"]');
+  if (btn) relDetailTab(saved, btn);
+});
 function setPkgType(mode) {
   var fullBtn = document.querySelector('#add-pkg-form .seg-btn[data-mode="full"]');
   if (mode === 'full' && fullBtn && fullBtn.disabled) return; // only one full per release
