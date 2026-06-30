@@ -5543,6 +5543,13 @@ func (d *DB) DeleteQFILPackage(ctx context.Context, id int) error {
 	return err
 }
 
+// DeleteQFILPackagesByRelease clears every QFIL bundle on a release. A release
+// carries at most one QFIL package, so adding a new one replaces the old.
+func (d *DB) DeleteQFILPackagesByRelease(ctx context.Context, releaseID int) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM qfil_packages WHERE release_id = $1`, releaseID)
+	return err
+}
+
 // ── Releases ──────────────────────────────────────────────────────────────────
 
 // GetOrCreateRelease returns the release for a version (target build id),

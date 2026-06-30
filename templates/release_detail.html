@@ -193,8 +193,8 @@
 <!-- QFIL flashing packages for this release -->
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
-    <h3>QFIL packages</h3>
-    <span class="muted small">Qualcomm flashing bundles for this build. The test team uses these to flash devices from scratch.</span>
+    <h3>QFIL package</h3>
+    <span class="muted small">The Qualcomm flashing bundle for this build. The test team uses it to flash devices from scratch.</span>
   </div>
   {{if .QFILPackages}}
   <table class="table">
@@ -228,9 +228,9 @@
   {{end}}
 
   {{if .CanManageQFIL}}
-  <!-- Add a QFIL package to this release (dev or admin) -->
+  <!-- Add or replace this release's single QFIL package (dev or admin) -->
   <div style="padding:16px 20px;border-top:1px solid var(--border-soft);">
-    <div class="form-label" style="margin-bottom:10px;">Add QFIL package <span class="muted small">for {{$rel.Version}}</span></div>
+    <div class="form-label" style="margin-bottom:10px;">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package <span class="muted small">for {{$rel.Version}}{{if .QFILPackages}} · replaces the current one{{end}}</span></div>
     <form id="add-qfil-form" action="/releases/{{$rel.ID}}/qfil" method="POST" class="command-form" style="padding:0;">
       <div class="form-row">
         <label class="form-label">Label <span class="muted small">(optional)</span></label>
@@ -246,7 +246,7 @@
         <label class="form-label">Notes <span class="muted small">(optional)</span></label>
         <input type="text" name="notes" class="form-input" placeholder="e.g. flash with QFIL 2.0, EDL mode">
       </div>
-      <button type="submit" class="btn-primary">Add QFIL Package</button>
+      <button type="submit" class="btn-primary">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL Package</button>
     </form>
   </div>
   {{end}}
