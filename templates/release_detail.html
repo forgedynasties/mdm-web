@@ -190,6 +190,68 @@
   {{end}}
 </div>
 
+<!-- QFIL flashing packages for this release -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>QFIL packages</h3>
+    <span class="muted small">Qualcomm flashing bundles for this build. The test team uses these to flash devices from scratch.</span>
+  </div>
+  {{if .QFILPackages}}
+  <table class="table">
+    <thead>
+      <tr><th>Label</th><th>URL</th><th>Notes</th><th>Added by</th><th>Added</th><th></th></tr>
+    </thead>
+    <tbody>
+      {{range .QFILPackages}}
+      <tr>
+        <td>{{if .Label}}{{.Label}}{{else}}<span class="muted">QFIL</span>{{end}}</td>
+        <td class="mono small" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <a href="{{.URL}}" target="_blank" rel="noopener" class="link-detail" style="font-size:11px;">{{truncate .URL 48}}</a>
+        </td>
+        <td class="muted small">{{.Notes}}</td>
+        <td class="muted small">{{if .AddedBy}}{{.AddedBy}}{{else}}<span class="muted">—</span>{{end}}</td>
+        <td class="muted small">{{localTime .CreatedAt}}</td>
+        <td style="white-space:nowrap;">
+          {{if $.CanManageQFIL}}
+          <form action="/releases/{{$rel.ID}}/qfil/{{.ID}}/delete" method="POST" style="display:inline;"
+                onsubmit="return confirm('Remove this QFIL package from the release?')">
+            <button type="submit" class="btn-outline btn-sm">Delete</button>
+          </form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <div class="empty" style="padding:16px;">No QFIL package yet.{{if .CanManageQFIL}} Add one below.{{end}}</div>
+  {{end}}
+
+  {{if .CanManageQFIL}}
+  <!-- Add a QFIL package to this release (dev or admin) -->
+  <div style="padding:16px 20px;border-top:1px solid var(--border-soft);">
+    <div class="form-label" style="margin-bottom:10px;">Add QFIL package <span class="muted small">for {{$rel.Version}}</span></div>
+    <form id="add-qfil-form" action="/releases/{{$rel.ID}}/qfil" method="POST" class="command-form" style="padding:0;">
+      <div class="form-row">
+        <label class="form-label">Label <span class="muted small">(optional)</span></label>
+        <input type="text" name="label" class="form-input" placeholder="e.g. variant A / full flash">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Package URL</label>
+        <input type="url" name="qfil_url" id="qfil-url" class="form-input" placeholder="https://..." required>
+        <input type="hidden" name="qfil_url_b64" id="qfil-url-b64">
+        <div class="form-hint">External URL where the QFIL flashing bundle is hosted.</div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Notes <span class="muted small">(optional)</span></label>
+        <input type="text" name="notes" class="form-input" placeholder="e.g. flash with QFIL 2.0, EDL mode">
+      </div>
+      <button type="submit" class="btn-primary">Add QFIL Package</button>
+    </form>
+  </div>
+  {{end}}
+</div>
+
 </section><!-- /overview -->
 
 <section class="rel-panel" data-rpanel="updates" hidden>
@@ -574,6 +636,19 @@ document.addEventListener('DOMContentLoaded', function () {
   form.addEventListener('submit', function() {
     var urlInput = document.getElementById('pkg-update-url');
     var b64Input = document.getElementById('pkg-update-url-b64');
+    if (!urlInput || !b64Input || !urlInput.value) return;
+    b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    urlInput.removeAttribute('name');
+  });
+})();
+// base64-encode the QFIL URL (WAF bypass), mirroring the add-package form.
+(function() {
+  var form = document.getElementById('add-qfil-form');
+  if (!form) return;
+  form.addEventListener('submit', function() {
+    var urlInput = document.getElementById('qfil-url');
+    var b64Input = document.getElementById('qfil-url-b64');
     if (!urlInput || !b64Input || !urlInput.value) return;
     b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value)))
       .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

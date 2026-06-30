@@ -4402,6 +4402,65 @@ func (h *Handler) ReleaseAddPackage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
+// ReleaseAddQFIL attaches a QFIL flashing bundle to a release. Admin/dev only
+// (see the requireAdmin route guard); the test team reads the resulting list on
+// the release page. The bundle is referenced by an external URL like an OTA
+// package — the URL may be base64-encoded (qfil_url_b64) to slip past an upstream
+// WAF, mirroring the OTA package form.
+func (h *Handler) ReleaseAddQFIL(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if _, err := h.db.GetRelease(r.Context(), id); err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	label := strings.TrimSpace(r.FormValue("label"))
+	notes := strings.TrimSpace(r.FormValue("notes"))
+	url := strings.TrimSpace(r.FormValue("qfil_url"))
+	if b64 := strings.TrimSpace(r.FormValue("qfil_url_b64")); b64 != "" {
+		dec, err := base64.RawURLEncoding.DecodeString(b64)
+		if err != nil {
+			http.Error(w, "invalid qfil_url encoding", http.StatusBadRequest)
+			return
+		}
+		url = strings.TrimSpace(string(dec))
+	}
+	if url == "" {
+		http.Error(w, "qfil_url is required", http.StatusBadRequest)
+		return
+	}
+	if _, err := h.db.CreateQFILPackage(r.Context(), id, label, url, notes, h.currentUsername(r)); err != nil {
+		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.qfil.add", strconv.Itoa(id), label)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+}
+
+// ReleaseDeleteQFIL removes a QFIL bundle from a release. Admin/dev only.
+func (h *Handler) ReleaseDeleteQFIL(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	qid, err := strconv.Atoi(r.PathValue("qid"))
+	if err != nil {
+		http.Error(w, "Invalid QFIL ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteQFILPackage(r.Context(), qid); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.qfil.delete", strconv.Itoa(id), strconv.Itoa(qid))
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+}
+
 func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -4414,6 +4473,7 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	packages, _ := h.db.ListPackagesByRelease(r.Context(), id)
+	qfilPackages, _ := h.db.ListQFILPackagesByRelease(r.Context(), id)
 	deployments, _ := h.db.ListDeploymentsByRelease(r.Context(), id)
 	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
@@ -4470,6 +4530,8 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"Title":            "Release " + rel.Version,
 		"Release":          rel,
 		"Packages":         packages,
+		"QFILPackages":     qfilPackages,
+		"CanManageQFIL":    role == "admin" || role == "dev",
 		"Deployments":      deployments,
 		"Devices":          devices,
 		"Online":           online,
@@ -7553,6 +7615,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /releases/{id}", h.requireAuth(h.ReleaseDetail))
 	post("POST /releases/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /releases/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
+	post("POST /releases/{id}/qfil", h.requireAdmin(h.ReleaseAddQFIL))
+	post("POST /releases/{id}/qfil/{qid}/delete", h.requireAdmin(h.ReleaseDeleteQFIL))
 	post("POST /releases/track", h.requireAdmin(h.ReleaseTrack))
 	post("POST /releases/order", h.requireAdmin(h.ReorderVersions))
 	post("POST /releases/version/hide", h.requireAdmin(h.VersionHide))
