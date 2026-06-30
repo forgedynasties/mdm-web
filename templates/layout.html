@@ -784,20 +784,42 @@
       input.setAttribute('aria-activedescendant', items.length ? 'cmdk-opt-' + active : '');
     }
 
-    var devTimer = null, devSeq = 0;
-    function matchingPages(q) {
+    var devTimer = null, devSeq = 0, entities = [];
+    // Pull the navigable entities (groups, restaurants, releases, productions) once
+    // per open so they can be matched alongside pages.
+    function loadEntities() {
+      fetch('/cmdk-index', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (e) { entities = e || []; if (!backdrop.hidden) filter(input.value); })
+        .catch(function () {});
+    }
+    // Fuzzy subsequence: do q's characters appear in order within text?
+    function subseq(q, text) {
+      var i = 0;
+      for (var j = 0; j < text.length && i < q.length; j++) { if (text[j] === q[i]) i++; }
+      return i === q.length;
+    }
+    // Pages + indexed entities, ranked substring-first then fuzzy subsequence. An
+    // empty query shows just the pages so the palette opens clean.
+    function matchEntries(q) {
       var ql = q.toLowerCase();
-      return dests.filter(function (d) {
-        return !ql || d.label.toLowerCase().indexOf(ql) !== -1 || d.sub.toLowerCase().indexOf(ql) !== -1;
+      if (!ql) return dests.slice();
+      var sub = [], seq = [], all = dests.concat(entities);
+      all.forEach(function (d) {
+        var hay = (d.label + ' ' + d.sub).toLowerCase();
+        if (hay.indexOf(ql) !== -1) sub.push(d);
+        else if (subseq(ql, d.label.toLowerCase())) seq.push(d);
       });
+      return sub.concat(seq).slice(0, 12);
     }
     function filter(q) {
       q = q.trim();
-      items = matchingPages(q).slice();
-      // A serial is a single token with no spaces; offer a direct jump immediately,
-      // then replace it with fuzzy server-side device matches as they arrive.
+      items = matchEntries(q).slice();
+      // A serial is a single token with no spaces; offer a direct jump immediately
+      // (flagged as a placeholder so Enter resolves it to the first fuzzy match),
+      // then replace it with ranked server-side device matches as they arrive.
       if (q && !/\s/.test(q)) {
-        items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device' });
+        items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device', placeholder: true, q: q });
         if (devTimer) clearTimeout(devTimer);
         if (q.length >= 2) devTimer = setTimeout(function () { fetchDevices(q); }, 120);
       }
@@ -807,18 +829,18 @@
     // Fuzzy device search: the server subsequence-matches the serial (so "866" or
     // "at866" both find AT070AABU00866) and returns the ranked top matches.
     function fetchDevices(q) {
-      var seq = ++devSeq;
+      var tok = ++devSeq;
       fetch('/devices/search?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (devs) {
-          if (seq !== devSeq || backdrop.hidden) return; // stale or closed
-          items = matchingPages(q).slice();
+          if (tok !== devSeq || backdrop.hidden) return; // stale or closed
+          items = matchEntries(q).slice();
           if (devs && devs.length) {
             devs.forEach(function (d) {
               items.push({ label: d.serial, sub: d.build || '', url: '/devices/' + encodeURIComponent(d.serial), type: 'device' });
             });
           } else {
-            items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device' });
+            items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device', placeholder: true, q: q });
           }
           active = 0;
           render();
@@ -848,6 +870,22 @@
     function choose(i) {
       var it = items[i];
       if (!it) return;
+      // Enter on the "Open device …" placeholder before the fuzzy results arrived:
+      // resolve it now and jump to the first match (typing "32" + Enter lands on the
+      // first device whose serial fuzzy-matches, not a dead /devices/32).
+      if (it.placeholder) {
+        var q = it.q;
+        fetch('/devices/search?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (devs) {
+            close();
+            window.location.href = (devs && devs.length)
+              ? '/devices/' + encodeURIComponent(devs[0].serial)
+              : '/devices/' + encodeURIComponent(q);
+          })
+          .catch(function () { close(); window.location.href = '/devices/' + encodeURIComponent(q); });
+        return;
+      }
       close();
       window.location.href = it.url;
     }
@@ -856,6 +894,7 @@
       if (!backdrop.hidden) return;
       lastFocus = document.activeElement;
       collectDests();
+      loadEntities();
       input.value = '';
       filter('');
       backdrop.hidden = false;

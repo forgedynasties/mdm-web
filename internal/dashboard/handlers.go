@@ -3889,6 +3889,47 @@ func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
 
 // DeviceSearch is a generic serial type-ahead (not scoped to a group), used by the
 // command builder's "specific devices" target to look devices up instead of typing serials.
+// CmdkIndex returns the navigable entities (groups, restaurants, releases, and —
+// for admin/dev — productions) as JSON, so the Cmd-K palette can fuzzy-match them
+// alongside pages and devices.
+func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
+	type entry struct {
+		Label string `json:"label"`
+		Sub   string `json:"sub"`
+		URL   string `json:"url"`
+		Type  string `json:"type"`
+	}
+	out := []entry{}
+	if gs, err := h.db.ListGroups(r.Context()); err == nil {
+		for _, g := range gs {
+			out = append(out, entry{g.Name, "Group", "/groups/" + g.ID.String(), "Group"})
+		}
+	}
+	if rs, err := h.db.ListRestaurants(r.Context()); err == nil {
+		for _, rest := range rs {
+			out = append(out, entry{rest.Name, "Restaurant", "/restaurants/" + rest.ID.String(), "Restaurant"})
+		}
+	}
+	if rels, err := h.db.ListReleases(r.Context()); err == nil {
+		for _, rel := range rels {
+			label := rel.Version
+			if rel.Name != "" {
+				label = rel.Version + " · " + rel.Name
+			}
+			out = append(out, entry{label, "Release", fmt.Sprintf("/releases/%d", rel.ID), "Release"})
+		}
+	}
+	if role := h.role(r); role == "admin" || role == "dev" {
+		if ps, err := h.db.ListProductions(r.Context()); err == nil {
+			for _, p := range ps {
+				out = append(out, entry{p.Name, "Production", "/productions/" + p.ID.String(), "Production"})
+			}
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(out)
+}
+
 func (h *Handler) DeviceSearch(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 	// The Cmd-K palette asks for JSON; the HTMX type-ahead inputs want the HTML list.
@@ -7588,6 +7629,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.Overview))
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))
 	mux.HandleFunc("GET /devices/search", h.requireAuth(h.DeviceSearch))
+	mux.HandleFunc("GET /cmdk-index", h.requireAuth(h.CmdkIndex))
 	mux.HandleFunc("GET /demo", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/demo/main1", http.StatusFound)
 	}))
