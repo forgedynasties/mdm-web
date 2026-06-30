@@ -2249,9 +2249,20 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 	if expirySec <= 0 {
 		expirySec = 300
 	}
+	// install_apk gets a longer leash than shell/screenshot/reboot (a large APK can
+	// take minutes to download + install), but a delivered/pending install that
+	// hasn't acked within this window is dead — expire it so the device page stops
+	// showing it as "installing" forever and duplicate clicks don't pile up.
+	installExpiry := expirySec * 3
+	if installExpiry < 900 {
+		installExpiry = 900
+	}
 	rows, err := d.pool.Query(ctx, fmt.Sprintf(`
 		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at,
 		       CASE
+		         WHEN c.type = 'install_apk'
+		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
+		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
 		         WHEN cs.status IS NOT NULL THEN cs.status
 		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
@@ -2274,7 +2285,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 			))
 		)
 		ORDER BY c.created_at DESC
-	`, expirySec), deviceID)
+	`, installExpiry, expirySec), deviceID)
 	if err != nil {
 		return nil, err
 	}
@@ -2297,6 +2308,10 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expirySec int) ([]CommandDelivery, error) {
 	if expirySec <= 0 {
 		expirySec = 300
+	}
+	installExpiry := expirySec * 3
+	if installExpiry < 900 {
+		installExpiry = 900
 	}
 	// Build the full set of targeted devices — explicit device targets and the members
 	// of any targeted groups — then LEFT JOIN command_status so devices that haven't
@@ -2324,6 +2339,10 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds'
 		           THEN 'expired'
+		         WHEN c.type = 'install_apk'
+		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
+		              AND c.created_at <= NOW() - INTERVAL '%d seconds'
+		           THEN 'expired'
 		         ELSE COALESCE(cs.status, 'pending')
 		       END AS status,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
@@ -2335,7 +2354,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 		LEFT JOIN command_status cs ON cs.command_id = $1 AND cs.device_id = td.device_id
 		LEFT JOIN command_results cr ON cr.command_id = $1 AND cr.device_id = td.device_id
 		ORDER BY COALESCE(cs.updated_at, c.created_at) DESC, d.serial_number
-	`, expirySec), commandID)
+	`, expirySec, installExpiry), commandID)
 	if err != nil {
 		return nil, err
 	}
