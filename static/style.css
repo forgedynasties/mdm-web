@@ -4797,6 +4797,10 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .cb-tools .fleet-sortpop { width: 210px; }
 /* let the popover escape the available-devices pane (the pane itself clips its scroll list) */
 .cmd-dp .dp-pane:has(.cb-tools) { overflow: visible; }
+/* Command-builder Filters panel: render in-flow so it pushes the device list down
+   (and spans the pane) instead of overlaying the rows as a narrow popover. */
+.cmd-filters-panel { position: static; width: auto; max-width: none; margin: 8px 12px 2px; animation: none; }
+.cmd-filters-panel .fp-grid { margin-bottom: 0; }
 
 /* command-history show-more (device detail History tab) */
 .ch-collapsed .ch-extra { display: none; }
