@@ -434,10 +434,16 @@
       }
       form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
         btn.disabled = true;
-        btn.classList.add('btn-submitting');
-        if (btn.tagName === 'INPUT') {
-          btn.dataset.originalValue = btn.value;
-          btn.value = 'Working...';
+        // Show the loading state only on the button that was actually clicked, so a
+        // form with several submit buttons (e.g. the QA Pass/Fail/Block/Skip pills)
+        // doesn't light every button up at once. The rest are just disabled to
+        // prevent a double-submit.
+        if (!submitter || btn === submitter) {
+          btn.classList.add('btn-submitting');
+          if (btn.tagName === 'INPUT') {
+            btn.dataset.originalValue = btn.value;
+            btn.value = 'Working...';
+          }
         }
       });
     }
