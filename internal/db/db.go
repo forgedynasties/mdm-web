@@ -1817,6 +1817,22 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]Producti
 }
 
 func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int) ([]Device, error) {
+	// Fuzzy serial match: the typed characters must appear in order anywhere in the
+	// serial (subsequence), so "at866" or "a070b86" both find "AT070AABU00866".
+	// Results are ranked so an exact serial, then a contiguous substring, sort above
+	// scattered subsequence hits; shorter serials break ties. %/_/\ in the query are
+	// escaped so they're matched literally rather than acting as ILIKE wildcards.
+	var sub strings.Builder
+	sub.WriteByte('%')
+	for _, r := range query {
+		if r == '%' || r == '_' || r == '\\' {
+			sub.WriteByte('\\')
+		}
+		sub.WriteRune(r)
+		sub.WriteByte('%')
+	}
+	subseq := sub.String()
+	contig := "%" + strings.NewReplacer("\\", "\\\\", "%", "\\%", "_", "\\_").Replace(query) + "%"
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
@@ -1829,10 +1845,13 @@ func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int)
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.serial_number ILIKE $1
 		ORDER BY
-			CASE WHEN lower(d.serial_number) = lower($2) THEN 0 ELSE 1 END,
+			CASE WHEN lower(d.serial_number) = lower($2) THEN 0
+			     WHEN d.serial_number ILIKE $3 THEN 1
+			     ELSE 2 END,
+			length(d.serial_number),
 			d.serial_number
-		LIMIT $3
-	`, "%"+query+"%", query, limit)
+		LIMIT $4
+	`, subseq, query, contig, limit)
 	if err != nil {
 		return nil, err
 	}

@@ -784,19 +784,46 @@
       input.setAttribute('aria-activedescendant', items.length ? 'cmdk-opt-' + active : '');
     }
 
-    function filter(q) {
-      q = q.trim();
+    var devTimer = null, devSeq = 0;
+    function matchingPages(q) {
       var ql = q.toLowerCase();
-      var pages = dests.filter(function (d) {
+      return dests.filter(function (d) {
         return !ql || d.label.toLowerCase().indexOf(ql) !== -1 || d.sub.toLowerCase().indexOf(ql) !== -1;
       });
-      items = pages.slice();
-      // A serial is a single token with no spaces; offer a direct device jump.
+    }
+    function filter(q) {
+      q = q.trim();
+      items = matchingPages(q).slice();
+      // A serial is a single token with no spaces; offer a direct jump immediately,
+      // then replace it with fuzzy server-side device matches as they arrive.
       if (q && !/\s/.test(q)) {
         items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device' });
+        if (devTimer) clearTimeout(devTimer);
+        if (q.length >= 2) devTimer = setTimeout(function () { fetchDevices(q); }, 120);
       }
       active = 0;
       render();
+    }
+    // Fuzzy device search: the server subsequence-matches the serial (so "866" or
+    // "at866" both find AT070AABU00866) and returns the ranked top matches.
+    function fetchDevices(q) {
+      var seq = ++devSeq;
+      fetch('/devices/search?q=' + encodeURIComponent(q), { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (devs) {
+          if (seq !== devSeq || backdrop.hidden) return; // stale or closed
+          items = matchingPages(q).slice();
+          if (devs && devs.length) {
+            devs.forEach(function (d) {
+              items.push({ label: d.serial, sub: d.build || '', url: '/devices/' + encodeURIComponent(d.serial), type: 'device' });
+            });
+          } else {
+            items.push({ label: 'Open device ' + q, url: '/devices/' + encodeURIComponent(q), type: 'device' });
+          }
+          active = 0;
+          render();
+        })
+        .catch(function () {});
     }
 
     function setActive(i) {
