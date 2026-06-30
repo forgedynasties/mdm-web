@@ -191,23 +191,87 @@
       menu.setAttribute('hidden', ''); btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open');
     }
   });
-  // One-off "Run shell command" (legacy check-in shell) — prompt then POST.
-  window.ddRunShell = function () {
-    var f = document.getElementById('dd-shell-form');
-    if (!f) return;
-    var cmd = window.prompt('Run a one-off shell command on this device:');
-    if (cmd === null) return;
-    cmd = cmd.trim();
-    if (!cmd) return;
-    f.querySelector('input[name="shell_cmd"]').value = cmd;
-    f.submit();
-  };
 })();
 </script>
-<form id="dd-shell-form" method="POST" action="/devices/{{.Device.SerialNumber}}/commands" hidden>
-  <input type="hidden" name="type" value="shell">
-  <input type="hidden" name="shell_cmd" value="">
-</form>
+
+<!-- One-off "Run shell command" — styled modal; command is queued and its output
+     is streamed back into the modal (reuses the command-create JSON + output SSE
+     endpoints, like the interactive shell console). -->
+<div id="shell-modal" class="modal-backdrop" onclick="shellBackdrop(event)">
+  <div class="modal-box modal-wide">
+    <div class="modal-header">
+      <span class="modal-title">Run shell command</span>
+      <button type="button" class="modal-close" aria-label="Close" onclick="shellModalClose()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted small">One-off command on <span class="mono">{{.Device.SerialNumber}}</span>. Output streams in below.</div>
+      <pre id="shell-modal-out" class="ddsh-term" hidden></pre>
+      <form id="shell-modal-form" class="ddsh-bar">
+        <span class="ddsh-sign">$</span>
+        <input type="text" id="shell-modal-input" class="ddsh-input" autocomplete="off" spellcheck="false" placeholder="e.g. getprop ro.build.id">
+        <button type="submit" class="btn-primary" id="shell-modal-run">Run</button>
+      </form>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var serial = '{{.Device.SerialNumber}}';
+  var modal = document.getElementById('shell-modal');
+  var form = document.getElementById('shell-modal-form');
+  var input = document.getElementById('shell-modal-input');
+  var runBtn = document.getElementById('shell-modal-run');
+  var out = document.getElementById('shell-modal-out');
+  var es = null, running = false;
+
+  function append(text, cls) {
+    out.hidden = false;
+    var span = document.createElement('span');
+    if (cls) span.className = cls;
+    span.textContent = text;
+    out.appendChild(span);
+    out.scrollTop = out.scrollHeight;
+  }
+  function setRunning(v) { running = v; input.disabled = v; runBtn.disabled = v; if (!v) input.focus(); }
+  function finish() { if (es) { es.close(); es = null; } setRunning(false); }
+  function stream(id) {
+    es = new EventSource('/commands/' + id + '/output/' + encodeURIComponent(serial) + '/stream');
+    es.onmessage = function (e) { append(JSON.parse(e.data)); };
+    es.addEventListener('done', function () { append('\n'); finish(); });
+    es.onerror = function () { finish(); };
+  }
+
+  window.ddRunShell = function () {
+    out.textContent = ''; out.hidden = true;
+    input.value = ''; setRunning(false);
+    modal.classList.add('modal-open');
+    setTimeout(function () { input.focus(); }, 30);
+  };
+  window.shellModalClose = function () { finish(); modal.classList.remove('modal-open'); };
+  window.shellBackdrop = function (e) { if (e.target.id === 'shell-modal') shellModalClose(); };
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (running) return;
+    var cmd = input.value.trim();
+    if (!cmd) return;
+    append('$ ' + cmd + '\n', 'ddsh-prompt');
+    input.value = '';
+    setRunning(true);
+    fetch('/devices/' + encodeURIComponent(serial) + '/commands', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'type=shell&shell_cmd=' + encodeURIComponent(cmd)
+    })
+      .then(function (r) { if (!r.ok) throw new Error('send failed (' + r.status + ')'); return r.json(); })
+      .then(function (d) { stream(d.id); })
+      .catch(function (err) { append('[error] ' + err.message + '\n', 'ddsh-error'); setRunning(false); });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('modal-open')) shellModalClose();
+  });
+})();
+</script>
 
 <div class="ddc-body">
 <aside class="ddc-side">
