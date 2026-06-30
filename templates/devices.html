@@ -489,17 +489,23 @@ function setView(view) {
   navigateDevices(ov);
 }
 
-// Toggle the Filters popover; close on outside-click or Escape.
+// Toggle the Filters popover; close on outside-click or Escape. Opening Filters
+// closes Sort (only one popover at a time). __fOpen is tracked on window so the
+// popover can be re-opened after an htmx re-render — applying one filter swaps the
+// whole toolbar, and we want it to stay open so several filters can be stacked.
 function toggleFilters(e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   var pop = document.getElementById('filters-pop');
   var btn = document.getElementById('filters-btn');
   if (!pop) return;
   var willOpen = pop.hasAttribute('hidden');
+  if (willOpen) closeSort();
+  window.__fOpen = willOpen;
   if (willOpen) { pop.removeAttribute('hidden'); } else { pop.setAttribute('hidden', ''); }
   if (btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.classList.toggle('open', willOpen); }
 }
 function closeFilters() {
+  window.__fOpen = false;
   var pop = document.getElementById('filters-pop');
   if (!pop || pop.hasAttribute('hidden')) return;
   pop.setAttribute('hidden', '');
@@ -507,13 +513,14 @@ function closeFilters() {
   if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.classList.remove('open'); }
 }
 // Sort control: a popover next to Filters that sets sort/dir (replaces the
-// old sortable column headers). Active option + direction are synced from URL.
+// old sortable column headers). Opening Sort closes Filters.
 function toggleSort(e) {
   if (e) { e.preventDefault(); e.stopPropagation(); }
   var pop = document.getElementById('sort-pop');
   var btn = document.getElementById('sort-btn');
   if (!pop) return;
   var willOpen = pop.hasAttribute('hidden');
+  if (willOpen) closeFilters();
   if (willOpen) { pop.removeAttribute('hidden'); } else { pop.setAttribute('hidden', ''); }
   if (btn) { btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false'); btn.classList.toggle('open', willOpen); }
 }
@@ -545,13 +552,18 @@ function syncSortUI() {
   });
 }
 
-document.addEventListener('click', function(e) {
-  var fw = document.getElementById('filters-wrap');
-  if (fw && !fw.contains(e.target)) closeFilters();
-  var sw = document.getElementById('sort-wrap');
-  if (sw && !sw.contains(e.target)) closeSort();
-});
-document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeFilters(); closeSort(); } });
+// Bind the outside-click / Escape closers once. This script re-runs on every htmx
+// table swap, so guard against stacking duplicate document listeners.
+if (!window.__fleetDocBound) {
+  window.__fleetDocBound = true;
+  document.addEventListener('click', function(e) {
+    var fw = document.getElementById('filters-wrap');
+    if (fw && !fw.contains(e.target)) closeFilters();
+    var sw = document.getElementById('sort-wrap');
+    if (sw && !sw.contains(e.target)) closeSort();
+  });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeFilters(); closeSort(); } });
+}
 
 // Recompute the lightweight filter UI (view pills, Filters badge, visibility
 // segment) from the URL after each navigation. Chips + table are server-rendered.
@@ -575,6 +587,14 @@ function syncFilterUI() {
   }
   document.querySelectorAll('.fleet-seg [data-vis]').forEach(function(b) { b.classList.toggle('on', b.dataset.vis === hidden); });
   syncSortUI();
+  // Applying a filter swaps the whole toolbar (this partial), which would close the
+  // Filters popover. Re-open it when it was open, so several filters can be picked
+  // and stacked in a row without re-opening between each.
+  if (window.__fOpen) {
+    var fpop = document.getElementById('filters-pop'), fbtn = document.getElementById('filters-btn');
+    if (fpop) fpop.removeAttribute('hidden');
+    if (fbtn) { fbtn.classList.add('open'); fbtn.setAttribute('aria-expanded', 'true'); }
+  }
   // The collections rail + roster heading are server-rendered (the rail uses
   // plain links and full-page navigation), so nothing to sync here.
 }
