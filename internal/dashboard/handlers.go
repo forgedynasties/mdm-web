@@ -1670,10 +1670,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		h.tmpl.ExecuteTemplate(w, "device-table", h.withRole(r, data))
 		return
 	}
-	// Distinct fleet packages back the bulk-kiosk "Locked app" picker (mirrors the
-	// per-device kiosk dropdown). Only needed for the full page, not HX polls.
-	fleetPkgs, _ := h.db.SearchFleetPackages(r.Context(), "")
-	data["FleetPackages"] = fleetPkgs
 	h.render(w, r, "devices.html", data)
 }
 
@@ -4065,6 +4061,29 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 		h.hub.Push(id, msg)
 		h.hub.PublishDeviceUpdate(id)
 	}
+}
+
+// BulkKioskApps returns the apps installed across the selected devices as JSON,
+// each with the count of those devices that have it, so the bulk-kiosk picker can
+// show apps common to every selected device and grey out partially-present ones.
+func (h *Handler) BulkKioskApps(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	serials := r.Form["serials"]
+	deviceIDs, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	apps, err := h.db.KioskAppsForDevices(r.Context(), deviceIDs)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"total": len(deviceIDs),
+		"apps":  apps,
+	})
 }
 
 func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
@@ -7531,6 +7550,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/bulk-unhide", h.requireAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
+	post("POST /devices/bulk-kiosk-apps", h.requireAdmin(h.BulkKioskApps))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))

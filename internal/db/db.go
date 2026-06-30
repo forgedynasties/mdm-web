@@ -2784,6 +2784,41 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 	return out, rows.Err()
 }
 
+// KioskAppsForDevices returns the distinct non-system packages installed across a
+// specific set of devices, each with the count of those devices that have it. The
+// bulk-kiosk picker uses device_count vs len(deviceIDs) to mark an app as common to
+// all selected devices or only present on some.
+func (d *DB) KioskAppsForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]FleetPackage, error) {
+	if len(deviceIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT
+			dp.package_name,
+			COALESCE(MAX(dp.app_name), '') AS app_name,
+			COUNT(DISTINCT dp.device_id) AS device_count
+		FROM device_packages dp
+		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+		WHERE dp.device_id = ANY($1)
+		  AND NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)
+		GROUP BY dp.package_name
+		ORDER BY device_count DESC, app_name, dp.package_name
+	`, deviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FleetPackage
+	for rows.Next() {
+		var p FleetPackage
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 // ListPackagesAdmin returns every distinct package across the fleet with how each
 // device's client classified it (system / user / not-reported) and whether an admin
 // override exists — backing the admin app-classification page. Optional name filter.
