@@ -50,6 +50,7 @@
           <form action="/releases/{{.ReleaseID}}/hide" method="POST"><input type="hidden" name="hidden" value="1"><button type="submit" class="btn-outline btn-sm" title="Hide from the list">Hide</button></form>
           {{if eq .DeviceCount 0}}<form action="/releases/{{.ReleaseID}}/delete" method="POST" onsubmit="return confirm('Delete release {{.Version}}? This permanently removes its packages and deployment history.')"><button type="submit" class="btn-danger-sm">Delete</button></form>{{end}}
           {{end}}
+          {{if .QfilURL}}<a href="{{.QfilURL}}" class="rlc-open" title="Download QFIL flashing package" download><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{else}}<span class="rlc-open disabled" title="No QFIL package set for this release" aria-disabled="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>{{end}}
           <a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open release"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
         {{else if canAdmin $.Role}}
           <form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Create a draft release for this version">+ Add as release</button></form>

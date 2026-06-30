@@ -4996,6 +4996,7 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rlc-open { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); flex: none; }
 .rlc-open svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
 .rlc-open:hover { border-color: var(--accent-edge); color: var(--accent); }
+.rlc-open.disabled { opacity: .3; pointer-events: none; cursor: default; }
 @media (max-width: 760px) {
   .rlc { grid-template-columns: 16px 40px 1fr auto; }
   .rlc-roll, .rlc-meta { display: none; }
