@@ -4135,6 +4135,16 @@ type versionRow struct {
 	QA           db.QASummary // QA/test status; zero value (Total 0) when not tracked
 	SignedOffBy  string       // dev who signed off ("" = not signed off)
 	SignedOffAt  *time.Time
+	QfilURL      string       // newest active QFIL flashing bundle URL ("" = none set)
+}
+
+// latestQfilURL returns the newest active QFIL bundle URL for a release, or ""
+// when none is set (so the releases list can grey out the download icon).
+func (h *Handler) latestQfilURL(r *http.Request, releaseID int) string {
+	if qpkgs, _ := h.db.ListQFILPackagesByRelease(r.Context(), releaseID); len(qpkgs) > 0 {
+		return qpkgs[0].URL
+	}
+	return ""
 }
 
 func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
@@ -4176,6 +4186,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
 			row.SignedOffBy, row.SignedOffAt = rel.SignedOffBy, rel.SignedOffAt
 			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
+			row.QfilURL = h.latestQfilURL(r, rel.ID)
 		} else {
 			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
 		}
@@ -4193,6 +4204,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			Status: rel.Status, Hidden: rel.Hidden,
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
+			QfilURL: h.latestQfilURL(r, rel.ID),
 		})
 	}
 	// Default order is alphabetical by version; any saved manual (drag) order takes

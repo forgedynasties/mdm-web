@@ -199,14 +199,14 @@
   {{if .QFILPackages}}
   <table class="table">
     <thead>
-      <tr><th>Label</th><th>URL</th><th>Notes</th><th>Added by</th><th>Added</th><th></th></tr>
+      <tr><th>Label</th><th>Download</th><th>Notes</th><th>Added by</th><th>Added</th><th></th></tr>
     </thead>
     <tbody>
       {{range .QFILPackages}}
       <tr>
         <td>{{if .Label}}{{.Label}}{{else}}<span class="muted">QFIL</span>{{end}}</td>
-        <td class="mono small" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          <a href="{{.URL}}" target="_blank" rel="noopener" class="link-detail" style="font-size:11px;">{{truncate .URL 48}}</a>
+        <td>
+          <a href="{{.URL}}" class="rlc-open" title="Download QFIL flashing package" download><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>
         </td>
         <td class="muted small">{{.Notes}}</td>
         <td class="muted small">{{if .AddedBy}}{{.AddedBy}}{{else}}<span class="muted">—</span>{{end}}</td>
