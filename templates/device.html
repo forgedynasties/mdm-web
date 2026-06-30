@@ -304,8 +304,7 @@
   <!-- Battery -->
   <div id="chart-panel-battery">
     <div class="wlc-bar">
-      <button type="button" id="wlc-toggle" class="wlc-toggle{{""}}" onclick="toggleWLC()" aria-pressed="false" title="Colour the line by wireless-charging state"><span class="wlc-sw"><span class="wlc-knob"></span></span>WLC states</button>
-      <div class="chart-legend" id="wlc-legend" hidden>
+      <div class="chart-legend" id="wlc-legend">
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
@@ -382,8 +381,8 @@
   let batteryChart, tempChart, ramChart, unifiedChart;
   let storedMarkerPref = localStorage.getItem(markerStorageKey);
   let showMarkers = storedMarkerPref === null ? false : storedMarkerPref === 'visible';
-  const wlcStorageKey = 'mdm-chart-wlc:{{.Device.SerialNumber}}';
-  let showWLC = localStorage.getItem(wlcStorageKey) === 'on';
+  // Wireless-charging-state colouring is always on: the raw battery line is
+  // coloured by WLC state with the legend shown (no per-device toggle).
   // The chart tab is driven by context (a ?focus deep-link), not remembered across
   // visits — so a battery unit never reopens on the Temp tab just because it was
   // viewed there once. Defaults to Battery when there's no focus.
@@ -400,20 +399,6 @@
     return raw.wlc ? "#e84393" : "#6c5ce7";
   }
 
-  function syncWLC() {
-    var btn = document.getElementById('wlc-toggle');
-    var leg = document.getElementById('wlc-legend');
-    if (btn) { btn.classList.toggle('on', showWLC); btn.setAttribute('aria-pressed', showWLC ? 'true' : 'false'); }
-    if (leg) leg.hidden = !showWLC;
-  }
-  // Toggle wireless-charging-state colouring: on = raw line coloured by WLC state +
-  // legend; off = the smooth single-colour battery curve.
-  window.toggleWLC = function () {
-    showWLC = !showWLC;
-    try { localStorage.setItem(wlcStorageKey, showWLC ? 'on' : 'off'); } catch (e) {}
-    syncWLC();
-    if (typeof batteryChart !== 'undefined' && batteryChart) applyData(batteryChart, allBattery);
-  };
 
   function filterWindow(all) {
     if (customMin !== null && customMax !== null) {
@@ -517,7 +502,6 @@
     if (ramChart) applyData(ramChart, allRam);
     applyUnifiedData();
     syncMarkerToggle();
-    syncWLC();
   }
 
   function nearestInArray(arr, ms) {
@@ -763,7 +747,7 @@
         borderJoinStyle: "round",
         spanGaps: true,
         segment: {
-          borderColor: ctx => showWLC ? segColor(ctx) : "#f9674e",
+          borderColor: ctx => segColor(ctx),
         },
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
