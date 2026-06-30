@@ -12,7 +12,8 @@
     <span class="mono">{{$rel.Version}}</span>
   </h1>
   {{if $rel.Name}}<span class="ov-date">{{$rel.Name}}</span>{{end}}
-  {{if .CanManageQFIL}}
+  {{$canDownloadQfil := and .QFILPackages (or (eq $role "admin") (eq $role "dev") (eq $role "tester"))}}
+  {{if or .CanManageQFIL $canDownloadQfil}}
   <span class="acts">
     {{if eq $role "admin"}}
     {{if and (eq $rel.Status "published") .CanPush}}
@@ -33,7 +34,8 @@
       {{end}}
     </form>
     {{end}}
-    <button type="button" class="btn-outline btn-sm" onclick="qfilModalOpen()">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</button>
+    {{if $canDownloadQfil}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download title="Download the QFIL flashing bundle">Download QFIL</a>{{end}}
+    {{if .CanManageQFIL}}<button type="button" class="btn-outline btn-sm" onclick="qfilModalOpen()">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</button>{{end}}
   </span>
   {{end}}
 </div>
@@ -205,23 +207,41 @@
       <button type="button" class="modal-close" aria-label="Close" onclick="qfilModalClose()">&times;</button>
     </div>
     <div class="modal-body">
-      <div class="muted small">The Qualcomm flashing bundle for {{$rel.Version}}. One per release{{if .QFILPackages}} — this replaces the current one{{end}}. The test team downloads it from the Releases list.</div>
+      {{if .QFILPackages}}{{$q := index .QFILPackages 0}}
+      <div class="card" style="margin:0 0 14px;padding:12px 14px;background:var(--surface2);border-radius:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="min-width:0;">
+            <div style="font-weight:600;font-size:13px;">Current: {{if $q.Label}}{{$q.Label}}{{else}}QFIL package{{end}}</div>
+            <div class="muted small">{{if $q.AddedBy}}by {{$q.AddedBy}} · {{end}}{{localTime $q.CreatedAt}}{{if $q.Notes}} · {{$q.Notes}}{{end}}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex:none;">
+            <a href="{{$q.URL}}" class="rlc-open" title="Download QFIL flashing package" download><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>
+            <form action="/releases/{{$rel.ID}}/qfil/{{$q.ID}}/delete" method="POST" style="margin:0;" onsubmit="return confirm('Remove the QFIL package from this release?')">
+              <button type="submit" class="btn-outline btn-sm">Delete</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="muted small">Update the fields below and save to replace it — one QFIL bundle per release.</div>
+      {{else}}
+      <div class="muted small">The Qualcomm flashing bundle for {{$rel.Version}}. The test team downloads it from the Releases list.</div>
+      {{end}}
       <form id="add-qfil-form" action="/releases/{{$rel.ID}}/qfil" method="POST" class="command-form" style="padding:0;margin-top:12px;">
         <div class="form-row">
           <label class="form-label">Label <span class="muted small">(optional)</span></label>
-          <input type="text" name="label" class="form-input" placeholder="e.g. variant A / full flash">
+          <input type="text" name="label" class="form-input" placeholder="e.g. variant A / full flash"{{if .QFILPackages}} value="{{(index .QFILPackages 0).Label}}"{{end}}>
         </div>
         <div class="form-row">
           <label class="form-label">Package URL</label>
-          <input type="url" name="qfil_url" id="qfil-url" class="form-input" placeholder="https://..." required>
+          <input type="url" name="qfil_url" id="qfil-url" class="form-input" placeholder="https://..." required{{if .QFILPackages}} value="{{(index .QFILPackages 0).URL}}"{{end}}>
           <input type="hidden" name="qfil_url_b64" id="qfil-url-b64">
           <div class="form-hint">External URL where the QFIL flashing bundle is hosted.</div>
         </div>
         <div class="form-row">
           <label class="form-label">Notes <span class="muted small">(optional)</span></label>
-          <input type="text" name="notes" class="form-input" placeholder="e.g. flash with QFIL 2.0, EDL mode">
+          <input type="text" name="notes" class="form-input" placeholder="e.g. flash with QFIL 2.0, EDL mode"{{if .QFILPackages}} value="{{(index .QFILPackages 0).Notes}}"{{end}}>
         </div>
-        <button type="submit" class="btn-primary">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL Package</button>
+        <button type="submit" class="btn-primary">{{if .QFILPackages}}Save changes{{else}}Add QFIL Package{{end}}</button>
       </form>
     </div>
   </div>
