@@ -246,27 +246,6 @@
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
                       Filters <span class="cnt" id="cmd-filter-cnt" hidden>0</span>
                     </button>
-                    <div class="fleet-pop" id="cmd-filters-pop" hidden>
-                      <div class="fp-cap">Filter devices</div>
-                      <div class="fp-grid">
-                        <label class="fp-field"><span>Status</span>
-                          <select id="cmd-browse-status" onchange="cmdBrowseReload()"><option value="">Any status</option><option value="online">Online</option><option value="offline">Offline</option></select></label>
-                        <label class="fp-field"><span>Group</span>
-                          <select id="cmd-browse-group" onchange="cmdBrowseReload()"><option value="">Any group</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
-                        <label class="fp-field"><span>Production</span>
-                          <select id="cmd-browse-production" onchange="cmdBrowseReload()"><option value="">Any production</option>{{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
-                        <label class="fp-field"><span>Release</span>
-                          <select id="cmd-browse-build" onchange="cmdBrowseReload()"><option value="">Any release</option>{{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}</select></label>
-                        <label class="fp-field"><span>Battery</span>
-                          <select id="cmd-browse-battery" onchange="cmdBrowseReload()"><option value="">Any battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select></label>
-                        <label class="fp-field"><span>Serial contains</span>
-                          <input type="search" id="cmd-browse-q" placeholder="e.g. 0028" oninput="cmdBrowseDebounced()"></label>
-                      </div>
-                      <div class="fp-foot">
-                        <button type="button" class="fp-clear" onclick="cmdBrowseClear()">Clear all</button>
-                        <button type="button" class="btn-primary fp-done" onclick="cmdToggleFilters(event)">Done</button>
-                      </div>
-                    </div>
                   </div>
                   <div class="fleet-fwrap" id="cmd-sort-wrap">
                     <button type="button" class="fleet-fbtn" id="cmd-sort-btn" onclick="cmdToggleSort(event)" aria-haspopup="true" aria-expanded="false">
@@ -282,6 +261,28 @@
                         <button type="button" class="sortopt" data-sort="created_at" onclick="cmdSortBy('created_at')"><span>Onboarded</span><span class="dir"></span></button>
                       </div>
                     </div>
+                  </div>
+                </div>
+                <!-- In-flow filter panel: pushes the device list down instead of
+                     overlaying it, so results stay visible while filtering. -->
+                <div class="fleet-pop cmd-filters-panel" id="cmd-filters-pop" hidden>
+                  <div class="fp-grid">
+                    <label class="fp-field"><span>Status</span>
+                      <select id="cmd-browse-status" onchange="cmdBrowseReload()"><option value="">Any status</option><option value="online">Online</option><option value="offline">Offline</option></select></label>
+                    <label class="fp-field"><span>Group</span>
+                      <select id="cmd-browse-group" onchange="cmdBrowseReload()"><option value="">Any group</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+                    <label class="fp-field"><span>Production</span>
+                      <select id="cmd-browse-production" onchange="cmdBrowseReload()"><option value="">Any production</option>{{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
+                    <label class="fp-field"><span>Release</span>
+                      <select id="cmd-browse-build" onchange="cmdBrowseReload()"><option value="">Any release</option>{{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}</select></label>
+                    <label class="fp-field"><span>Battery</span>
+                      <select id="cmd-browse-battery" onchange="cmdBrowseReload()"><option value="">Any battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select></label>
+                    <label class="fp-field"><span>Serial contains</span>
+                      <input type="search" id="cmd-browse-q" placeholder="e.g. 0028" oninput="cmdBrowseDebounced()"></label>
+                  </div>
+                  <div class="fp-foot">
+                    <button type="button" class="fp-clear" onclick="cmdBrowseClear()">Clear all</button>
+                    <button type="button" class="btn-primary fp-done" onclick="cmdToggleFilters(event)">Done</button>
                   </div>
                 </div>
                 <div id="cmd-device-browser" style="max-height:260px;overflow:auto;margin:8px 8px 6px;"
@@ -576,7 +577,9 @@ function cmdSortBy(key) {
   cmdToggleSort(); cmdBrowseReload();
 }
 document.addEventListener('click', function (e) {
-  var fw = document.getElementById('cmd-filters-wrap'); if (fw && !fw.contains(e.target)) cmdPop('cmd-filters-pop','cmd-filters-btn',false);
+  // The filters panel now sits in-flow outside the button wrap, so check both.
+  var fw = document.getElementById('cmd-filters-wrap'); var fp = document.getElementById('cmd-filters-pop');
+  if (fw && fp && !fw.contains(e.target) && !fp.contains(e.target)) cmdPop('cmd-filters-pop','cmd-filters-btn',false);
   var sw = document.getElementById('cmd-sort-wrap'); if (sw && !sw.contains(e.target)) cmdPop('cmd-sort-pop','cmd-sort-btn',false);
 });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { cmdPop('cmd-filters-pop','cmd-filters-btn',false); cmdPop('cmd-sort-pop','cmd-sort-btn',false); } });
