@@ -4631,11 +4631,16 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .pkg-list { position: absolute; left: 0; right: 0; top: 100%; margin-top: 4px; z-index: 200; max-height: 260px; overflow: auto;
   background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); display: none; }
 .pkg-combo.open .pkg-list { display: block; }
-.pkg-opt { display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; cursor: pointer; }
+.pkg-opt { display: flex; flex-direction: column; gap: 1px; padding: 8px 12px; cursor: pointer; position: relative; }
 .pkg-opt.hidden { display: none; }
 .pkg-opt.active, .pkg-opt:hover { background: var(--accent-soft); }
 .pkg-opt-name { font-size: 13px; font-weight: 600; }
 .pkg-opt-pkg { font-size: 11px; color: var(--muted); }
+/* Bulk-kiosk: an app present on only some selected devices is greyed but usable. */
+.pkg-opt-partial .pkg-opt-name, .pkg-opt-partial .pkg-opt-pkg { opacity: .5; }
+.pkg-opt-badge { position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 10px; font-weight: 700; color: var(--warn, #9a6512);
+  background: rgba(232,161,58,.16); border-radius: 99px; padding: 2px 7px; }
 
 /* placement popovers (device detail) */
 .pl-pop-wrap { position: relative; display: inline-flex; }
