@@ -331,6 +331,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// both "admin" and "dev" do. Used to gate operational buttons/links;
 		// settings and user-management UI stay on a literal `eq .Role "admin"`.
 		"canAdmin": func(role string) bool { return role == "admin" || role == "dev" },
+		// canAdminOrTester mirrors requireAdminOrTester: admin/dev plus the test team,
+		// for group/restaurant creation and kiosk mode. Used to show those controls.
+		"canAdminOrTester": func(role string) bool {
+			return role == "admin" || role == "dev" || role == "tester"
+		},
 		// canAct reports whether a role may reach the Actions builder at all
 		// (admin/dev fully; operator/tester for the action types allowed to them).
 		// Viewers cannot, so the Actions dock item is hidden for them.
@@ -1157,6 +1162,25 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if s.Role != "admin" && s.Role != "dev" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		h.touchSession(r)
+		next(w, r)
+	}
+}
+
+// requireAdminOrTester extends requireAdmin (admin/dev) to also allow testers, for
+// the fleet-organisation tasks the test team owns: creating groups and restaurants
+// and setting kiosk mode. Viewers and operators still can't reach these.
+func (h *Handler) requireAdminOrTester(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if s.Role != "admin" && s.Role != "dev" && s.Role != "tester" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -7558,7 +7582,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
-	post("POST /devices/{serial}/kiosk", h.requireAdmin(h.DeviceKioskUpdate))
+	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
@@ -7566,8 +7590,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
-	post("POST /devices/bulk-kiosk", h.requireAdmin(h.BulkKioskUpdate))
-	post("POST /devices/bulk-kiosk-apps", h.requireAdmin(h.BulkKioskApps))
+	post("POST /devices/bulk-kiosk", h.requireAdminOrTester(h.BulkKioskUpdate))
+	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrTester(h.BulkKioskApps))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
@@ -7581,10 +7605,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/logcat/events", h.requireAuth(h.LogcatEvents))
 	post("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
 
-	mux.HandleFunc("GET /groups/new", h.requireAdmin(h.GroupNew))
-	mux.HandleFunc("GET /groups/new/devices", h.requireAdmin(h.GroupNewDevices))
+	mux.HandleFunc("GET /groups/new", h.requireAdminOrTester(h.GroupNew))
+	mux.HandleFunc("GET /groups/new/devices", h.requireAdminOrTester(h.GroupNewDevices))
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
-	post("POST /groups", h.requireAdmin(h.GroupCreate))
+	post("POST /groups", h.requireAdminOrTester(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
@@ -7603,10 +7627,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /groups/{id}/devices", h.requireAdmin(h.GroupAddDevice))
 
 	// Restaurants (venue object). Static sub-paths registered before /{id}.
-	mux.HandleFunc("GET /restaurants/new", h.requireAdmin(h.RestaurantNew))
-	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdmin(h.RestaurantNewDevices))
+	mux.HandleFunc("GET /restaurants/new", h.requireAdminOrTester(h.RestaurantNew))
+	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdminOrTester(h.RestaurantNewDevices))
 	mux.HandleFunc("GET /restaurants", h.requireAuth(h.RestaurantList))
-	post("POST /restaurants", h.requireAdmin(h.RestaurantCreate))
+	post("POST /restaurants", h.requireAdminOrTester(h.RestaurantCreate))
 	mux.HandleFunc("GET /restaurants/{id}", h.requireAuth(h.RestaurantDetail))
 	mux.HandleFunc("GET /restaurants/{id}/edit", h.requireAdmin(h.RestaurantEdit))
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
