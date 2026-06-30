@@ -4484,6 +4484,11 @@ func (h *Handler) ReleaseAddQFIL(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "qfil_url is required", http.StatusBadRequest)
 		return
 	}
+	// A release carries a single QFIL bundle — adding one replaces any existing.
+	if err := h.db.DeleteQFILPackagesByRelease(r.Context(), id); err != nil {
+		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 	if _, err := h.db.CreateQFILPackage(r.Context(), id, label, url, notes, h.currentUsername(r)); err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
