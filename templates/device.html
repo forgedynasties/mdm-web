@@ -25,6 +25,19 @@
 </div>
 {{end}}
 
+{{/* Hero vitals chips — rendered both inline on the page and as a live fragment
+     re-fetched on each "device-updated" SSE event (and a 60s fallback), so battery,
+     charging, temperature, RAM, uptime and Wi-Fi refresh without a page reload. */}}
+{{define "device-vitals"}}
+    <span class="ddc-chip battery-{{if lt .Device.BatteryPct 20}}low{{else if lt .Device.BatteryPct 50}}mid{{else}}ok{{end}}" title="Battery">
+      <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .Device.BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.Device.BatteryPct}}%{{if and (charging .Device.LatestExtra) (notStale .Device.LastSeenAt .ActiveThresholdSecs)}} ⚡{{end}}
+    </span>
+    {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
+    {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
+    {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
+    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</span>{{end}}
+{{end}}
+
 {{define "device-commands"}}
 {{$hasPending := false}}
 {{range .Commands}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{end}}{{end}}
@@ -104,13 +117,12 @@
     </div>
   </div>
   <div class="ddc-vitals">
-    <span class="ddc-chip battery-{{if lt .Device.BatteryPct 20}}low{{else if lt .Device.BatteryPct 50}}mid{{else}}ok{{end}}" title="Battery">
-      <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .Device.BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.Device.BatteryPct}}%{{if and (charging .Device.LatestExtra) (notStale .Device.LastSeenAt .ActiveThresholdSecs)}} ⚡{{end}}
+    <span class="ddc-vitals-live" style="display:contents"
+          hx-get="/devices/{{.Device.SerialNumber}}/vitals"
+          hx-trigger="device-updated from:body, every 60s"
+          hx-target="this" hx-swap="innerHTML">
+      {{template "device-vitals" .}}
     </span>
-    {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
-    {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
-    {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
-    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</span>{{end}}
     {{if canAdmin .Role}}
     <span class="ddc-kpop-wrap">
       <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskPopToggle(event)" aria-haspopup="true" aria-expanded="false" title="Configure kiosk mode">
@@ -1406,33 +1418,10 @@ function filterInstalledApps(q) {
       var d = {};
       try { d = JSON.parse(e.data); } catch (_) {}
 
-      console.log('[mdm] device event', d, 'mdmChart:', !!window.mdmChart);
-
-      // Fast-path: reflect charging icon immediately without waiting for the
-      // HTMX stats refetch round-trip below.
-      if (typeof d.charging === 'boolean') {
-        document.querySelectorAll('#device-stats .charging-bolt, #device-stats + * .charging-bolt').forEach(function (el) {
-          el.style.display = d.charging ? '' : 'none';
-        });
-        var statCard = document.querySelector('#device-stats .stat-card');
-        if (statCard && d.charging) {
-          var existing = statCard.querySelector('.charging-bolt');
-          if (!existing) {
-            var span = document.createElement('span');
-            span.className = 'charging-bolt';
-            span.title = 'Charging';
-            span.setAttribute('aria-label', 'Charging');
-            span.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg>';
-            var valueEl = statCard.querySelector('.stat-value');
-            if (valueEl) valueEl.appendChild(span);
-          }
-        } else if (statCard && !d.charging) {
-          var bolt = statCard.querySelector('.charging-bolt');
-          if (bolt) bolt.remove();
-        }
-      }
-
-      // dispatch for HTMX stats/commands/checkins re-fetch
+      // Refresh every htmx-bound fragment listening for this event: the hero
+      // vitals row (battery / charging ⚡ / temp / RAM / uptime / Wi-Fi), the
+      // stats block and the command history. The vitals fragment re-renders the
+      // charging bolt server-side, so it tracks d.charging without a reload.
       document.body.dispatchEvent(new CustomEvent('device-updated'));
 
       // push new point into charts

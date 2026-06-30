@@ -3178,6 +3178,22 @@ func (h *Handler) DeviceStatsPartial(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DeviceVitalsPartial renders the hero vitals chips (battery, charging, temp,
+// RAM, uptime, Wi-Fi) as a standalone fragment so the device page can refresh
+// them live on each "device-updated" SSE event without a full reload.
+func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	h.renderCachedHTML(w, r, "device-vitals", map[string]any{
+		"Device":              device,
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+	})
+}
+
 // DeviceInspectorPanel renders the compact "inspector" card for a single
 // device, loaded into the split-pane drawer on the devices list so an operator
 // can glance at a unit without leaving the 1,000-row roster. It deliberately
@@ -7492,6 +7508,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.DeviceOnlineStatus))
 	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(h.DevicePresenceStream))
 	mux.HandleFunc("GET /devices/{serial}/stats", h.requireAuth(h.DeviceStatsPartial))
+	mux.HandleFunc("GET /devices/{serial}/vitals", h.requireAuth(h.DeviceVitalsPartial))
 	mux.HandleFunc("GET /devices/{serial}/panel", h.requireAuth(h.DeviceInspectorPanel))
 	mux.HandleFunc("GET /devices/{serial}/battery.csv", h.requireAuth(h.DeviceBatteryCSV))
 	mux.HandleFunc("GET /devices/{serial}/daily-stats", h.requireAuth(h.DeviceDailyStatsJSON))
