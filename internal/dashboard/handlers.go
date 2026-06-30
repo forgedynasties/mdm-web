@@ -1506,6 +1506,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	var (
 		devices     []db.Device
 		total       int
+		fleetTotal  int
 		summary     db.Summary
 		groups      []db.Group
 		productions []db.Production
@@ -1543,6 +1544,13 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		// Scope the quick-view pill counts to the active group/restaurant (and other
 		// contextual filters) so they reflect the visible roster, not the whole fleet.
 		summary, err = h.db.GetSummaryFiltered(r.Context(), filter)
+		return err
+	})
+	run(func() error {
+		var err error
+		// The rail "All devices" tally is always the whole (non-hidden) fleet, never
+		// the selected collection — so it doesn't change when a group/restaurant is open.
+		fleetTotal, err = h.db.CountDevices(r.Context(), db.DeviceFilter{ActiveThresholdSecs: activeThreshold})
 		return err
 	})
 	run(func() error {
@@ -1654,6 +1662,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Title":                "Devices",
 		"Devices":              devices,
 		"Total":                total,
+		"FleetTotal":           fleetTotal,
 		"FilterCount":          filterCount,
 		"RailGroups":           railGroups,
 		"RailRestaurants":      railRests,
