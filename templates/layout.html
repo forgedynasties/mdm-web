@@ -417,10 +417,21 @@
       }, 180);
     }
 
-    function markSubmitting(form) {
+    function markSubmitting(form, submitter) {
       if (!form || form.dataset.submitting === 'true') return;
       form.dataset.submitting = 'true';
       form.classList.add('form-submitting');
+      // A disabled submit button is omitted from the form payload — disabling the
+      // clicked button below would otherwise drop its name/value (e.g. a QA pill's
+      // status=pass), so forms with multiple submit buttons would post no value and
+      // the server would reject it. Preserve the submitter as a hidden field first.
+      if (submitter && submitter.name) {
+        var keep = document.createElement('input');
+        keep.type = 'hidden';
+        keep.name = submitter.name;
+        keep.value = submitter.value;
+        form.appendChild(keep);
+      }
       form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
         btn.disabled = true;
         btn.classList.add('btn-submitting');
@@ -515,7 +526,7 @@
       if (!form || form.tagName !== 'FORM' || evt.defaultPrevented) return;
       if ((form.method || 'GET').toUpperCase() !== 'POST') return;
       if (form.dataset.noSpinner === 'true') return;
-      markSubmitting(form);
+      markSubmitting(form, evt.submitter);
     });
 
     // Poll gating: drop polling requests when tab hidden or when the card's
