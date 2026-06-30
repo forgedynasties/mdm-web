@@ -47,7 +47,7 @@
       <span>{{if .Address}}{{.Address}}{{else}}<span class="muted">no address</span>{{end}}</span>
       <span class="gp-chip">{{.DeviceCount}} deployed</span>
     </div>
-    {{if canAdmin $.Role}}
+    {{if canAdminOrTester $.Role}}
     <form action="/restaurants/{{.ID}}/delete" method="POST" class="gp-del"
           onsubmit="return confirm('Delete restaurant {{.Name}}? Its devices become unassigned (lab).')">
       <button type="submit" class="btn-danger-sm" title="Delete restaurant">x</button>

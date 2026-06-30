@@ -47,7 +47,7 @@
       <span>created {{localTime .CreatedAt}}</span>
       {{if gt $h.DeployedCount 0}}<span class="gp-chip">{{$h.DeployedCount}} deployed</span>{{end}}
     </div>
-    {{if canAdmin $.Role}}
+    {{if canAdminOrTester $.Role}}
     <form action="/groups/{{.ID}}/delete" method="POST" class="gp-del"
           onsubmit="return confirm('Delete group {{.Name}}?')">
       <button type="submit" class="btn-danger-sm" title="Delete group">x</button>
