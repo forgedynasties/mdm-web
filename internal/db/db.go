@@ -101,6 +101,21 @@ type OTAPackage struct {
 	DeploymentCount int       `json:"deployment_count,omitempty"` // populated by ListOTAPackages
 }
 
+// QFILPackage is a Qualcomm Flash Image Loader bundle attached to a release — the
+// artifact the test team uses to flash a device from scratch over USB. It carries
+// only a URL to the externally hosted bundle plus a label/notes; it is never
+// deployed OTA, so it has no build/deployment plumbing of its own.
+type QFILPackage struct {
+	ID        int       `json:"id"`
+	ReleaseID int       `json:"release_id"`
+	Label     string    `json:"label"`
+	URL       string    `json:"url"`
+	Notes     string    `json:"notes"`
+	AddedBy   string    `json:"added_by"`
+	Status    string    `json:"status"` // "active" or "removed"
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // Release groups the packages for one target build version under a single
 // lifecycle. Version equals the target build id.
 type Release struct {
@@ -5357,6 +5372,23 @@ UPDATE alert_rules SET active_window = 'always' WHERE type = 'offline' AND activ
 -- instead of suppressing them silently, and record when the condition was last seen.
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS occurrences INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE alerts ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- QFIL flashing packages. Each release can carry one or more QFIL bundles
+-- (Qualcomm Flash Image Loader packages used to flash a device from scratch over
+-- USB). A dev or admin attaches them per release; the test team reads them off the
+-- release page when flashing units. The bundle itself lives at an external URL
+-- (like an OTA package), not in the DB.
+CREATE TABLE IF NOT EXISTS qfil_packages (
+    id          SERIAL      PRIMARY KEY,
+    release_id  INTEGER     NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+    label       TEXT        NOT NULL DEFAULT '',
+    url         TEXT        NOT NULL,
+    notes       TEXT        NOT NULL DEFAULT '',
+    added_by    TEXT        NOT NULL DEFAULT '',
+    status      TEXT        NOT NULL DEFAULT 'active',   -- active|removed
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_qfil_packages_release ON qfil_packages(release_id);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -5430,6 +5462,49 @@ func (d *DB) SetOTAPackageStatus(ctx context.Context, id int, status string) err
 
 func (d *DB) DeleteOTAPackage(ctx context.Context, id int) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM ota_packages WHERE id = $1`, id)
+	return err
+}
+
+// ── QFIL Packages ───────────────────────────────────────────────────────────────
+
+// CreateQFILPackage attaches a QFIL flashing bundle to a release.
+func (d *DB) CreateQFILPackage(ctx context.Context, releaseID int, label, url, notes, addedBy string) (*QFILPackage, error) {
+	var p QFILPackage
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO qfil_packages (release_id, label, url, notes, added_by)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, release_id, label, url, notes, added_by, status, created_at
+	`, releaseID, label, url, notes, addedBy).
+		Scan(&p.ID, &p.ReleaseID, &p.Label, &p.URL, &p.Notes, &p.AddedBy, &p.Status, &p.CreatedAt)
+	return &p, err
+}
+
+// ListQFILPackagesByRelease returns the active QFIL bundles for a release, newest first.
+func (d *DB) ListQFILPackagesByRelease(ctx context.Context, releaseID int) ([]QFILPackage, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, release_id, label, url, notes, added_by, status, created_at
+		FROM qfil_packages
+		WHERE release_id = $1 AND status = 'active'
+		ORDER BY created_at DESC
+	`, releaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []QFILPackage
+	for rows.Next() {
+		var p QFILPackage
+		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.Label, &p.URL, &p.Notes, &p.AddedBy, &p.Status, &p.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// DeleteQFILPackage removes a QFIL bundle from its release.
+func (d *DB) DeleteQFILPackage(ctx context.Context, id int) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM qfil_packages WHERE id = $1`, id)
 	return err
 }
 
