@@ -420,25 +420,14 @@
     if (!points) return points;
     const valid = points.filter(p => p && p.y != null);
     if (valid.length < 5) return points;
-    const x0 = valid[0].x, x1 = valid[valid.length - 1].x, span = (x1 - x0) || 1;
-    const target = Math.min(70, valid.length);
-    const buckets = Array.from({ length: target }, () => ({ s: 0, n: 0, wlc: {} }));
-    valid.forEach(p => {
-      const i = Math.min(target - 1, Math.floor((p.x - x0) / span * target));
-      buckets[i].s += p.y; buckets[i].n++;
-      if (p.wlc !== undefined && p.wlc !== null) buckets[i].wlc[p.wlc] = (buckets[i].wlc[p.wlc] || 0) + 1;
-    });
-    const reduced = [];
-    for (let k = 0; k < target; k++) {
-      if (buckets[k].n > 0) {
-        // representative wlc state for the bucket = most frequent reading in it
-        let mode, best = -1;
-        for (const key in buckets[k].wlc) { if (buckets[k].wlc[key] > best) { best = buckets[k].wlc[key]; mode = Number(key); } }
-        reduced.push({ x: x0 + (k + 0.5) / target * span, y: buckets[k].s / buckets[k].n, wlc: mode });
-      }
-    }
-    const w = 2, ys = reduced.map(p => p.y);
-    return reduced.map((p, i) => {
+    // Keep one vertex per reading so the line colour is precise to the checkin: the
+    // colour changes exactly where the wireless-charging state changed. We do NOT
+    // bucket/downsample and we never approximate WLC by a per-bucket majority — each
+    // point's exact wlc is passed through untouched. Only the battery % is lightly
+    // smoothed for a readable curve; the averaging window scales with density so the
+    // curve stays as smooth as the old 70-bucket version without losing WLC detail.
+    const w = Math.max(2, Math.round(valid.length / 70)), ys = valid.map(p => p.y);
+    return valid.map((p, i) => {
       let s = 0, n = 0;
       for (let j = i - w; j <= i + w; j++) { if (j >= 0 && j < ys.length) { s += ys[j]; n++; } }
       return { x: p.x, y: Number((s / n).toFixed(2)), wlc: p.wlc };
@@ -522,7 +511,14 @@
     const tPt = nearestInArray(allTemp, ms);
     const rPt = nearestInArray(allRam, ms);
     const parts = [fmtDate(ms)];
-    if (bPt != null) parts.push('Battery: ' + bPt.y + '%');
+    if (bPt != null) {
+      // WLC text comes from the raw nearest reading (not the smoothed line), so the
+      // label is the exact wireless-charging state recorded at that checkin.
+      let s = 'Battery: ' + bPt.y + '%';
+      if (bPt.wlc === 2) s += ' · ⚠ Pad Disconnected';
+      else if (bPt.wlc !== undefined && bPt.wlc !== null) s += bPt.wlc ? ' · ⚡ WLC On' : ' · WLC Off';
+      parts.push(s);
+    }
     if (tPt != null) parts.push('Temp: ' + tPt.y.toFixed(1) + '°C');
     if (rPt != null) parts.push('RAM: ' + rPt.y.toFixed(1) + '%');
     if (markerText) parts.push(markerText);
