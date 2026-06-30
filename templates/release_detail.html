@@ -206,7 +206,7 @@
       <tr>
         <td>{{if .Label}}{{.Label}}{{else}}<span class="muted">QFIL</span>{{end}}</td>
         <td>
-          <a href="{{.URL}}" class="rlc-open" title="Download QFIL flashing package" download><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>
+          {{if or (eq $role "admin") (eq $role "dev") (eq $role "tester")}}<a href="{{.URL}}" class="rlc-open" title="Download QFIL flashing package" download><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{else}}<span class="muted">—</span>{{end}}
         </td>
         <td class="muted small">{{.Notes}}</td>
         <td class="muted small">{{if .AddedBy}}{{.AddedBy}}{{else}}<span class="muted">—</span>{{end}}</td>
