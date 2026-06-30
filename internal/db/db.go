@@ -462,6 +462,77 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	return deviceID, pollIntervalMs, isNew, tx.Commit(ctx)
 }
 
+// GetSummaryFiltered computes the quick-view counts scoped to the contextual
+// filters (group, restaurant, production, search, build, timezone, hidden) while
+// ignoring the quick-view dimensions themselves (online/battery/kiosk/charging) —
+// so the All / Online / Offline / Low-battery / Out-of-kiosk pills show the
+// breakdown within the currently selected group or restaurant rather than the
+// whole fleet.
+func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, error) {
+	activeSecs := f.ActiveThresholdSecs
+	if activeSecs <= 0 {
+		activeSecs = 180
+	}
+	var args []interface{}
+	argN := 1
+	var joins []string
+	wheres := []string{"true"}
+	switch f.Hidden {
+	case "include":
+		// no hidden filter
+	case "only":
+		wheres = append(wheres, "d.hidden")
+	default:
+		wheres = append(wheres, "NOT d.hidden")
+	}
+	if f.Search != "" {
+		wheres = append(wheres, fmt.Sprintf("d.serial_number ILIKE $%d", argN))
+		args = append(args, "%"+f.Search+"%")
+		argN++
+	}
+	if f.GroupID != uuid.Nil {
+		joins = append(joins, fmt.Sprintf("JOIN device_groups dg ON dg.device_id = d.id AND dg.group_id = $%d", argN))
+		args = append(args, f.GroupID)
+		argN++
+	}
+	if f.RestaurantID != uuid.Nil {
+		wheres = append(wheres, fmt.Sprintf("d.restaurant_id = $%d", argN))
+		args = append(args, f.RestaurantID)
+		argN++
+	}
+	if f.ProductionID != uuid.Nil {
+		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
+		args = append(args, f.ProductionID)
+		argN++
+	}
+	if f.BuildID != "" {
+		wheres = append(wheres, fmt.Sprintf("d.build_id = $%d", argN))
+		args = append(args, f.BuildID)
+		argN++
+	}
+	if f.Timezone != "" {
+		wheres = append(wheres, fmt.Sprintf("d.latest_extra->>'timezone' = $%d", argN))
+		args = append(args, f.Timezone)
+		argN++
+	}
+	args = append(args, activeSecs)
+	thrArg := argN
+	q := fmt.Sprintf(`SELECT
+			COUNT(d.id),
+			COUNT(*) FILTER (WHERE d.last_seen_at > NOW() - ($%d * INTERVAL '1 second')),
+			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20),
+			COUNT(DISTINCT d.build_id),
+			COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM device_config dck WHERE dck.device_id = d.id AND dck.kiosk_enabled = true))
+		FROM devices d`, thrArg)
+	for _, j := range joins {
+		q += "\n" + j
+	}
+	q += "\nWHERE " + strings.Join(wheres, " AND ")
+	var s Summary
+	err := d.pool.QueryRow(ctx, q, args...).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.UniqueBuilds, &s.KioskCount)
+	return s, err
+}
+
 func (d *DB) GetSummary(ctx context.Context, activeSecs int) (Summary, error) {
 	if activeSecs <= 0 {
 		activeSecs = 180

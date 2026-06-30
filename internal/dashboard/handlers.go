@@ -1540,7 +1540,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	})
 	run(func() error {
 		var err error
-		summary, err = h.db.GetSummary(r.Context(), activeThreshold)
+		// Scope the quick-view pill counts to the active group/restaurant (and other
+		// contextual filters) so they reflect the visible roster, not the whole fleet.
+		summary, err = h.db.GetSummaryFiltered(r.Context(), filter)
 		return err
 	})
 	run(func() error {
