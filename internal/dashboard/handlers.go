@@ -7624,7 +7624,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	post("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
 	post("POST /groups/{id}/delete", h.requireAdmin(h.GroupDelete))
-	post("POST /groups/{id}/devices", h.requireAdmin(h.GroupAddDevice))
+	post("POST /groups/{id}/devices", h.requireAdminOrTester(h.GroupAddDevice))
 
 	// Restaurants (venue object). Static sub-paths registered before /{id}.
 	mux.HandleFunc("GET /restaurants/new", h.requireAdminOrTester(h.RestaurantNew))
@@ -7641,7 +7641,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants/{id}/devices/{serial}/remove", h.requireAdmin(h.RestaurantRemoveDevice))
 	post("POST /restaurants/{id}/service-window", h.requireAdmin(h.RestaurantSetServiceWindow))
 	post("POST /devices/{serial}/restaurant", h.requireAdmin(h.DeviceSetRestaurant))
-	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdmin(h.GroupRemoveDevice))
+	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdminOrTester(h.GroupRemoveDevice))
 	post("POST /groups/{id}/commands", h.requireAdmin(h.GroupCommandCreate))
 
 	// Productions is an admin-only area (nav link is admin-gated too).
