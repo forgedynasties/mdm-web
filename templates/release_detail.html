@@ -12,8 +12,9 @@
     <span class="mono">{{$rel.Version}}</span>
   </h1>
   {{if $rel.Name}}<span class="ov-date">{{$rel.Name}}</span>{{end}}
-  {{if eq $role "admin"}}
+  {{if .CanManageQFIL}}
   <span class="acts">
+    {{if eq $role "admin"}}
     {{if and (eq $rel.Status "published") .CanPush}}
     <button type="button" class="btn-primary btn-sm" onclick="relDetailTab('updates', document.querySelector('.dd-tab[data-rtab=updates]'))">Push update</button>
     {{end}}
@@ -31,6 +32,8 @@
                 onclick="return confirm('Yank this release? It will stop being delivered to devices and cannot be deployed.')">Yank</button>
       {{end}}
     </form>
+    {{end}}
+    <button type="button" class="btn-outline btn-sm" onclick="qfilModalOpen()">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</button>
   </span>
   {{end}}
 </div>
@@ -121,7 +124,8 @@
 </div>
 {{end}}
 
-<!-- Packages in this release -->
+<!-- Packages in this release — admin/dev only -->
+{{if canAdmin $role}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>Packages</h3>
@@ -189,68 +193,40 @@
   </div>
   {{end}}
 </div>
+{{end}}
 
-<!-- QFIL flashing packages for this release -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>QFIL package</h3>
-    <span class="muted small">The Qualcomm flashing bundle for this build. The test team uses it to flash devices from scratch.</span>
+<!-- QFIL flashing bundle: managed via the top "Add/Replace QFIL package" button
+     (admin/dev); the test team downloads it from the Releases list, not here. -->
+{{if .CanManageQFIL}}
+<div id="qfil-modal" class="modal-backdrop" onclick="qfilBackdrop(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</span>
+      <button type="button" class="modal-close" aria-label="Close" onclick="qfilModalClose()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="muted small">The Qualcomm flashing bundle for {{$rel.Version}}. One per release{{if .QFILPackages}} — this replaces the current one{{end}}. The test team downloads it from the Releases list.</div>
+      <form id="add-qfil-form" action="/releases/{{$rel.ID}}/qfil" method="POST" class="command-form" style="padding:0;margin-top:12px;">
+        <div class="form-row">
+          <label class="form-label">Label <span class="muted small">(optional)</span></label>
+          <input type="text" name="label" class="form-input" placeholder="e.g. variant A / full flash">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Package URL</label>
+          <input type="url" name="qfil_url" id="qfil-url" class="form-input" placeholder="https://..." required>
+          <input type="hidden" name="qfil_url_b64" id="qfil-url-b64">
+          <div class="form-hint">External URL where the QFIL flashing bundle is hosted.</div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Notes <span class="muted small">(optional)</span></label>
+          <input type="text" name="notes" class="form-input" placeholder="e.g. flash with QFIL 2.0, EDL mode">
+        </div>
+        <button type="submit" class="btn-primary">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL Package</button>
+      </form>
+    </div>
   </div>
-  {{if .QFILPackages}}
-  <table class="table">
-    <thead>
-      <tr><th>Label</th><th>Download</th><th>Notes</th><th>Added by</th><th>Added</th><th></th></tr>
-    </thead>
-    <tbody>
-      {{range .QFILPackages}}
-      <tr>
-        <td>{{if .Label}}{{.Label}}{{else}}<span class="muted">QFIL</span>{{end}}</td>
-        <td>
-          {{if or (eq $role "admin") (eq $role "dev") (eq $role "tester")}}<a href="{{.URL}}" class="rlc-open" title="Download QFIL flashing package" download><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{else}}<span class="muted">—</span>{{end}}
-        </td>
-        <td class="muted small">{{.Notes}}</td>
-        <td class="muted small">{{if .AddedBy}}{{.AddedBy}}{{else}}<span class="muted">—</span>{{end}}</td>
-        <td class="muted small">{{localTime .CreatedAt}}</td>
-        <td style="white-space:nowrap;">
-          {{if $.CanManageQFIL}}
-          <form action="/releases/{{$rel.ID}}/qfil/{{.ID}}/delete" method="POST" style="display:inline;"
-                onsubmit="return confirm('Remove this QFIL package from the release?')">
-            <button type="submit" class="btn-outline btn-sm">Delete</button>
-          </form>
-          {{end}}
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty" style="padding:16px;">No QFIL package yet.{{if .CanManageQFIL}} Add one below.{{end}}</div>
-  {{end}}
-
-  {{if .CanManageQFIL}}
-  <!-- Add or replace this release's single QFIL package (dev or admin) -->
-  <div style="padding:16px 20px;border-top:1px solid var(--border-soft);">
-    <div class="form-label" style="margin-bottom:10px;">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package <span class="muted small">for {{$rel.Version}}{{if .QFILPackages}} · replaces the current one{{end}}</span></div>
-    <form id="add-qfil-form" action="/releases/{{$rel.ID}}/qfil" method="POST" class="command-form" style="padding:0;">
-      <div class="form-row">
-        <label class="form-label">Label <span class="muted small">(optional)</span></label>
-        <input type="text" name="label" class="form-input" placeholder="e.g. variant A / full flash">
-      </div>
-      <div class="form-row">
-        <label class="form-label">Package URL</label>
-        <input type="url" name="qfil_url" id="qfil-url" class="form-input" placeholder="https://..." required>
-        <input type="hidden" name="qfil_url_b64" id="qfil-url-b64">
-        <div class="form-hint">External URL where the QFIL flashing bundle is hosted.</div>
-      </div>
-      <div class="form-row">
-        <label class="form-label">Notes <span class="muted small">(optional)</span></label>
-        <input type="text" name="notes" class="form-input" placeholder="e.g. flash with QFIL 2.0, EDL mode">
-      </div>
-      <button type="submit" class="btn-primary">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL Package</button>
-    </form>
-  </div>
-  {{end}}
 </div>
+{{end}}
 
 </section><!-- /overview -->
 
@@ -514,6 +490,9 @@
 
 <script>
 // Release detail tabs (Overview / Updates / QA / Devices).
+function qfilModalOpen() { var m = document.getElementById('qfil-modal'); if (m) m.classList.add('modal-open'); }
+function qfilModalClose() { var m = document.getElementById('qfil-modal'); if (m) m.classList.remove('modal-open'); }
+function qfilBackdrop(e) { if (e.target.id === 'qfil-modal') qfilModalClose(); }
 var relTabKey = 'rel-tab:{{$rel.ID}}';
 function relDetailTab(tab, btn) {
   document.querySelectorAll('.dd-tab[data-rtab]').forEach(function (b) { b.classList.toggle('active', b === btn); });
