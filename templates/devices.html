@@ -743,27 +743,94 @@ function closeBulkRestaurantModal(event) {
   }
 }
 
+// Apps installed across the currently-selected devices, fetched when the modal
+// opens. total = number of selected devices; an app on fewer than total of them is
+// "partial" (greyed, usable with a warning).
+var bulkKioskTotal = 0;
+var bulkKioskAppByPkg = {};
+
+function buildBulkKioskList(apps, total) {
+  var list = document.getElementById('bulk-kiosk-pkg-list');
+  // Keep the static "None" option (first child); drop any previously built options.
+  while (list.children.length > 1) list.removeChild(list.lastChild);
+  bulkKioskAppByPkg = {};
+  apps.forEach(function (a) {
+    bulkKioskAppByPkg[a.package_name] = a;
+    var partial = a.device_count < total;
+    var opt = document.createElement('div');
+    opt.className = 'pkg-opt' + (partial ? ' pkg-opt-partial' : '');
+    opt.setAttribute('data-value', a.package_name);
+    opt.setAttribute('data-search', (a.app_name || '') + ' ' + a.package_name);
+    var name = document.createElement('span');
+    name.className = 'pkg-opt-name';
+    name.textContent = a.app_name ? a.app_name : a.package_name;
+    var pkg = document.createElement('span');
+    pkg.className = 'pkg-opt-pkg mono';
+    pkg.textContent = a.package_name;
+    opt.appendChild(name); opt.appendChild(pkg);
+    if (partial) {
+      var badge = document.createElement('span');
+      badge.className = 'pkg-opt-badge';
+      badge.textContent = a.device_count + '/' + total;
+      badge.title = 'Installed on ' + a.device_count + ' of ' + total + ' selected devices';
+      opt.appendChild(badge);
+    }
+    list.appendChild(opt);
+  });
+}
+
+function updateBulkKioskWarn() {
+  var warn = document.getElementById('bulk-kiosk-warn');
+  var pkg = document.getElementById('bulk-kiosk-package').value.trim();
+  if (!pkg) { warn.style.display = 'none'; return; }
+  var a = bulkKioskAppByPkg[pkg];
+  var total = bulkKioskTotal;
+  if (!a) {
+    warn.textContent = '"' + pkg + '" isn\'t installed on any selected device. Kiosk will be set on all ' + total + ', but won\'t lock until the app is installed.';
+    warn.style.display = '';
+  } else if (a.device_count < total) {
+    var missing = total - a.device_count;
+    warn.textContent = 'Installed on only ' + a.device_count + ' of ' + total + ' selected devices. Kiosk will be set on all ' + total + ', but won\'t lock on the other ' + missing + ' until the app is installed.';
+    warn.style.display = '';
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
 function openBulkKioskModal() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
   var form = document.getElementById('bulk-kiosk-form');
   form.querySelectorAll('input[name="serials"]').forEach(function(i) { i.remove(); });
+  var fd = new FormData();
   serials.forEach(function(s) {
     var inp = document.createElement('input');
     inp.type = 'hidden';
     inp.name = 'serials';
     inp.value = s;
     form.appendChild(inp);
+    fd.append('serials', s);
   });
+  bulkKioskTotal = serials.length;
   document.getElementById('bulk-kiosk-count').textContent = serials.length;
   document.getElementById('bulk-kiosk-toggle').checked = true;
   document.getElementById('bulk-kiosk-enabled').value = '1';
   document.getElementById('bulk-kiosk-package').value = '';
+  document.getElementById('bulk-kiosk-warn').style.display = 'none';
   var bs = document.getElementById('bulk-kiosk-pkg-search');
   if (bs) bs.value = '';
+  buildBulkKioskList([], serials.length);
   onBulkKioskToggle();
   document.getElementById('bulk-kiosk-modal').classList.add('modal-open');
   if (bs) bs.focus();
+  // Fetch the apps common to / present on the selected devices.
+  fetch('/devices/bulk-kiosk-apps', { method: 'POST', body: fd })
+    .then(function (r) { return r.json(); })
+    .then(function (j) {
+      bulkKioskTotal = j.total || serials.length;
+      buildBulkKioskList(j.apps || [], bulkKioskTotal);
+    })
+    .catch(function () {});
 }
 
 // Mirror the device-detail kiosk dropdown: a switch drives the hidden enabled flag
@@ -774,28 +841,30 @@ function onBulkKioskToggle() {
   document.getElementById('bulk-kiosk-pkg-row').style.display = enabled ? '' : 'none';
 }
 
-// Searchable "Locked app" combo for the bulk modal — same look/behaviour as the
-// per-device picker, but also commits free-typed text so you can pin a package no
-// device reports yet. The hidden #bulk-kiosk-package is what the form submits.
+// Searchable "Locked app" combo for the bulk modal. The option list is rebuilt per
+// selection (see buildBulkKioskList), so the combo queries .pkg-opt live and uses
+// event delegation. Free-typed text is committed too, so you can pin a package no
+// selected device reports yet (it surfaces a warning).
 (function () {
   var combo = document.getElementById('bulk-kiosk-pkg-combo');
   if (!combo) return;
   var input = document.getElementById('bulk-kiosk-pkg-search');
   var hidden = document.getElementById('bulk-kiosk-package');
-  var opts = [].slice.call(combo.querySelectorAll('.pkg-opt'));
+  var list = document.getElementById('bulk-kiosk-pkg-list');
   var active = -1;
 
+  function allOpts() { return [].slice.call(list.querySelectorAll('.pkg-opt')); }
   function open() { combo.classList.add('open'); input.setAttribute('aria-expanded', 'true'); }
   function close() { combo.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); active = -1; paint(); }
-  function visible() { return opts.filter(function (o) { return !o.classList.contains('hidden'); }); }
+  function visible() { return allOpts().filter(function (o) { return !o.classList.contains('hidden'); }); }
   function paint() {
-    opts.forEach(function (o) { o.classList.remove('active'); });
+    allOpts().forEach(function (o) { o.classList.remove('active'); });
     var vis = visible();
     if (active >= 0 && active < vis.length) { vis[active].classList.add('active'); vis[active].scrollIntoView({ block: 'nearest' }); }
   }
   function filter(q) {
     q = q.trim().toLowerCase();
-    opts.forEach(function (o) {
+    allOpts().forEach(function (o) {
       var s = (o.getAttribute('data-search') || '').toLowerCase();
       o.classList.toggle('hidden', q !== '' && s.indexOf(q) === -1);
     });
@@ -804,11 +873,12 @@ function onBulkKioskToggle() {
   function choose(o) {
     hidden.value = o.getAttribute('data-value');
     input.value = (o.querySelector('.pkg-opt-name') || o).textContent.trim();
+    updateBulkKioskWarn();
     close();
   }
 
   input.addEventListener('focus', function () { filter(''); open(); input.select(); });
-  input.addEventListener('input', function () { hidden.value = input.value.trim(); filter(input.value); open(); });
+  input.addEventListener('input', function () { hidden.value = input.value.trim(); updateBulkKioskWarn(); filter(input.value); open(); });
   input.addEventListener('keydown', function (e) {
     var vis = visible();
     if (e.key === 'ArrowDown') { e.preventDefault(); open(); active = Math.min(active + 1, vis.length - 1); paint(); }
@@ -816,7 +886,10 @@ function onBulkKioskToggle() {
     else if (e.key === 'Enter') { if (combo.classList.contains('open') && active >= 0) { e.preventDefault(); choose(vis[active]); } }
     else if (e.key === 'Escape') { close(); }
   });
-  opts.forEach(function (o) { o.addEventListener('mousedown', function (e) { e.preventDefault(); choose(o); }); });
+  list.addEventListener('mousedown', function (e) {
+    var o = e.target.closest('.pkg-opt');
+    if (o) { e.preventDefault(); choose(o); }
+  });
   document.addEventListener('click', function (e) { if (!combo.contains(e.target)) close(); });
 
   // The server rejects enabling kiosk with no package; block the submit and nudge
@@ -1199,12 +1272,10 @@ document.addEventListener('keydown', function(e) {
             <input type="text" id="bulk-kiosk-pkg-search" class="form-input" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search apps or type a package…">
             <div class="pkg-list" id="bulk-kiosk-pkg-list" role="listbox">
               <div class="pkg-opt" data-value="" data-search="none release clear launcher"><span class="pkg-opt-name">— None (release to launcher) —</span></div>
-              {{range .FleetPackages}}
-              <div class="pkg-opt" data-value="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}"><span class="pkg-opt-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pkg-opt-pkg mono">{{.PackageName}}</span></div>
-              {{end}}
             </div>
           </div>
-          <span class="muted small">Pinned to the foreground in lock-task mode. Applied on the next check-in.</span>
+          <span class="muted small">Pinned to the foreground in lock-task mode. Applied on the next check-in. Apps common to every selected device are listed first; greyed apps are on only some.</span>
+          <div id="bulk-kiosk-warn" class="form-hint" style="display:none;margin-top:6px;color:var(--warn,#9a6512);font-weight:600;"></div>
         </div>
         <button type="submit" class="btn-primary" style="margin-top:14px;">Apply Kiosk</button>
       </form>
