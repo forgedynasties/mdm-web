@@ -7,7 +7,7 @@
   <span class="ov-date">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}} · tag</span>
 </div>
 
-{{if canAdmin .Role}}
+{{if canAdminOrTester .Role}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Add devices</h3></div>
   <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:14px 20px 18px;">
@@ -57,7 +57,7 @@
     </div>
   </div>
   {{else}}
-  {{$rm := ""}}{{if canAdmin .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{end}}
+  {{$rm := ""}}{{if canAdminOrTester .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{end}}
   {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm)}}
   {{end}}
 </div>
