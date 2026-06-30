@@ -3891,13 +3891,29 @@ func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
 // command builder's "specific devices" target to look devices up instead of typing serials.
 func (h *Handler) DeviceSearch(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	// The Cmd-K palette asks for JSON; the HTMX type-ahead inputs want the HTML list.
+	wantJSON := strings.Contains(r.Header.Get("Accept"), "application/json")
 	if query == "" {
+		if wantJSON {
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte("[]"))
+			return
+		}
 		h.tmpl.ExecuteTemplate(w, "device-search-results", map[string]any{"Query": "", "Devices": []db.Device{}})
 		return
 	}
 	devices, err := h.db.SearchDevicesBySerial(r.Context(), query, 8)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if wantJSON {
+		out := make([]map[string]string, 0, len(devices))
+		for _, d := range devices {
+			out = append(out, map[string]string{"serial": d.SerialNumber, "build": d.BuildID})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(out)
 		return
 	}
 	h.tmpl.ExecuteTemplate(w, "device-search-results", map[string]any{"Query": query, "Devices": devices})
