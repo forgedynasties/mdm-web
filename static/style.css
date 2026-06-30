@@ -4529,7 +4529,10 @@ html[data-theme="dark"] .dp-moves { color: #f0b765; }
 .ddc-btn svg { width: 15px; height: 15px; flex: none; }
 /* primary hero action (Remote Control) */
 .ddc-btn-prim { background: var(--accent); border-color: transparent; color: #fff; }
-.ddc-btn-prim:hover { background: var(--accent-h); }
+/* Keep the label white on hover. Without this, the global `a:hover { color: accent }`
+   (this button is an <a>) repaints the text coral on the coral hover background,
+   making it vanish. */
+.ddc-btn-prim:hover { background: var(--accent-h); color: #fff; }
 /* hero "Actions ▾" dropdown */
 .ddc-menu-wrap { position: relative; }
 .ddc-caret { width: 13px; height: 13px; opacity: .8; }
