@@ -1515,6 +1515,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		restaurants []db.Restaurant
 		railGroups  []db.GroupHealth
 		railRests   []db.GroupHealth
+		railRels    []db.ReleaseRailItem
 	)
 
 	errCh := make(chan error, 10)
@@ -1588,6 +1589,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		railRests, err = h.db.GetRestaurantHealth(r.Context(), activeThreshold, 7)
 		return err
 	})
+	run(func() error {
+		var err error
+		railRels, err = h.db.ListPublishedReleasesForRail(r.Context())
+		return err
+	})
 
 	wg.Wait()
 	close(errCh)
@@ -1640,6 +1646,18 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
+	} else if bid := qv.Get("build"); bid != "" {
+		// A release selected from the rail scopes the roster like a group does.
+		for _, rr := range railRels {
+			if rr.Version == bid {
+				name := rr.Name
+				if name == "" {
+					name = rr.Version
+				}
+				selectedCollection, selectedCount = name, rr.DeviceCount
+				break
+			}
+		}
 	}
 
 	// For a detail view, the active collection's health entry (header + stats).
@@ -1666,6 +1684,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterCount":          filterCount,
 		"RailGroups":           railGroups,
 		"RailRestaurants":      railRests,
+		"RailReleases":         railRels,
 		"FilterRestaurant":     qv.Get("restaurant"),
 		"SelectedCollection":   selectedCollection,
 		"SelectedCount":        selectedCount,

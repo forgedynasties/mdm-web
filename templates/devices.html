@@ -169,7 +169,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 <div class="fleet-md dv-rise-1">
   {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
   <aside class="fleet-rail" aria-label="Collections">
-    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View)}} on{{end}}" href="/devices">
+    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild)}} on{{end}}" href="/devices">
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span>
     </a>
 
@@ -195,6 +195,18 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     {{end}}
     {{if not .RailGroups}}
     <div class="fleet-rail-empty">{{if canAdminOrTester .Role}}<a href="/groups/new">+ Add group</a>{{else}}None yet{{end}}</div>
+    {{end}}
+
+    <div class="fleet-rail-cap"><a href="/releases">Releases</a></div>
+    {{range .RailReleases}}
+    <div class="fleet-rail-item{{if eq .Version $.FilterBuild}} on{{end}}">
+      <a class="ri-main" href="/devices?build={{.Version}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else}}ok{{end}}"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span></a>
+      <a class="ri-go" href="/releases/{{.ID}}" title="Manage {{.Version}}" aria-label="Manage {{.Version}}">→</a>
+      <span class="ct">{{.DeviceCount}}</span>
+    </div>
+    {{end}}
+    {{if not .RailReleases}}
+    <div class="fleet-rail-empty">None published</div>
     {{end}}
   </aside>
 
