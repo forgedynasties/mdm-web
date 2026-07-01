@@ -17,6 +17,13 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.15.1",
+		Date:    "2026-07-01",
+		Changes: []string{
+			"Device charts read like they used to: the battery line goes dashed while a device is draining, and offline periods show as gaps in the line instead of being smoothed over.",
+		},
+	},
+	{
 		Version: "1.15.0",
 		Date:    "2026-06-29",
 		Changes: []string{

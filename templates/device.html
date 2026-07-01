@@ -384,6 +384,7 @@
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
       </div>
     </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
@@ -485,28 +486,19 @@
     return { pts: all.filter(p => p.x >= minX), minX, lastX };
   }
 
-  // Smooth integer battery check-in points so the line reads as a trend.
-  // Keeps timestamp and metadata intact; only y is softened for rendering.
-  // Turns dense, integer-quantised battery % into a smooth flowing curve. Battery is
-  // monotonic over long charge/discharge runs, so plotting every 1%-step point — even
-  // smoothed — reads as a choppy polyline (and monotone interpolation makes it worse).
-  // Fix: bucket the readings into ~70 evenly-spaced averages, then a light centred MA;
-  // few well-spaced points + plain-cubic interpolation render smooth at any zoom.
-  function smoothBatterySeries(points) {
-    if (!points) return points;
-    const valid = points.filter(p => p && p.y != null);
-    if (valid.length < 5) return points;
-    // Keep one vertex per reading so the line colour is precise to the checkin: the
-    // colour changes exactly where the wireless-charging state changed. We do NOT
-    // bucket/downsample and we never approximate WLC by a per-bucket majority — each
-    // point's exact wlc is passed through untouched. Only the battery % is lightly
-    // smoothed for a readable curve; the averaging window scales with density so the
-    // curve stays as smooth as the old 70-bucket version without losing WLC detail.
-    const w = Math.max(2, Math.round(valid.length / 70)), ys = valid.map(p => p.y);
-    return valid.map((p, i) => {
-      let s = 0, n = 0;
-      for (let j = i - w; j <= i + w; j++) { if (j >= 0 && j < ys.length) { s += ys[j]; n++; } }
-      return { x: p.x, y: Number((s / n).toFixed(2)), wlc: p.wlc };
+  // Light EMA over battery check-ins so the line reads as a trend without
+  // over-flattening. Keeps timestamp + WLC per point (so the segment colour
+  // stays precise to the check-in), and — crucially — preserves the null gap
+  // markers inserted by insertGaps so offline windows render as breaks.
+  function smoothBatterySeries(points, alpha) {
+    if (!points || points.length < 3) return points;
+    const a = (typeof alpha === 'number' ? alpha : 0.35);
+    let prev = null;
+    return points.map(function (p) {
+      if (p.y == null) { prev = null; return p; }   // gap break — reset the filter
+      if (prev === null) { prev = p.y; return p; }
+      prev = (a * p.y) + ((1 - a) * prev);
+      return Object.assign({}, p, { y: Math.max(0, Math.min(100, Number(prev.toFixed(2)))) });
     });
   }
 
@@ -523,7 +515,7 @@
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
     chart.data.datasets[0].data = (chart === batteryChart)
-      ? smoothBatterySeries(insertGaps(pts))
+      ? smoothBatterySeries(insertGaps(pts), 0.32)
       : insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
@@ -809,7 +801,7 @@
       datasets: [{
         label: "Battery %",
         data: [],
-        tension: 0.45,
+        tension: 0.4,
         fill: true,
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -817,9 +809,10 @@
         borderColor: "#f9674e",
         borderCapStyle: "round",
         borderJoinStyle: "round",
-        spanGaps: true,
+        spanGaps: false,
         segment: {
           borderColor: ctx => segColor(ctx),
+          borderDash: ctx => (ctx.p1.raw && ctx.p0.raw && ctx.p1.raw.y < ctx.p0.raw.y) ? [5, 3] : [],
         },
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
@@ -863,7 +856,6 @@
       datasets: [{
         label: "Temperature",
         data: [],
-        cubicInterpolationMode: "monotone",
         tension: 0.4,
         fill: true,
         borderColor: "#e8a13a",
@@ -873,7 +865,7 @@
         borderWidth: 2.5,
         borderCapStyle: "round",
         borderJoinStyle: "round",
-        spanGaps: true,
+        spanGaps: false,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
@@ -911,7 +903,6 @@
       datasets: [{
         label: "RAM %",
         data: [],
-        cubicInterpolationMode: "monotone",
         tension: 0.4,
         fill: true,
         borderColor: "#7a80f6",
@@ -921,7 +912,7 @@
         borderWidth: 2.5,
         borderCapStyle: "round",
         borderJoinStyle: "round",
-        spanGaps: true,
+        spanGaps: false,
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
           const {ctx: c, chartArea} = chart;
@@ -971,22 +962,22 @@
         {
           label: 'Battery %', data: [], yAxisID: 'yPct',
           borderColor: '#f9674e', backgroundColor: 'rgba(249,103,78,0.10)',
-          borderWidth: 2, pointRadius: 0, spanGaps: true,
-          tension: 0.45,
+          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          tension: 0.4,
           borderCapStyle: 'round', borderJoinStyle: 'round', fill: true,
         },
         {
           label: 'Temp °C', data: [], yAxisID: 'yTemp',
           borderColor: '#e8a13a', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 0, spanGaps: true,
-          cubicInterpolationMode: 'monotone', tension: 0.4,
+          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          tension: 0.4,
           borderCapStyle: 'round', borderJoinStyle: 'round',
         },
         {
           label: 'RAM %', data: [], yAxisID: 'yPct',
           borderColor: '#7a80f6', backgroundColor: 'transparent',
-          borderWidth: 2, pointRadius: 0, spanGaps: true,
-          cubicInterpolationMode: 'monotone', tension: 0.4,
+          borderWidth: 2, pointRadius: 0, spanGaps: false,
+          tension: 0.4,
           borderCapStyle: 'round', borderJoinStyle: 'round',
         },
       ],
