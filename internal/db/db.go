@@ -5722,6 +5722,42 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	return out, rows.Err()
 }
 
+// ReleaseRailItem is a published release shown in the fleet collections rail, with the
+// count of non-hidden devices currently reporting its version. Clicking it scopes the
+// roster to that release (via the build_id filter), the same way groups/restaurants do.
+type ReleaseRailItem struct {
+	ID          int
+	Version     string
+	Name        string
+	DeviceCount int
+}
+
+// ListPublishedReleasesForRail returns published, non-hidden releases newest-first, each
+// with the number of non-hidden devices currently on that version.
+func (d *DB) ListPublishedReleasesForRail(ctx context.Context) ([]ReleaseRailItem, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT r.id, r.version, r.name, COUNT(dev.build_id)::int AS device_count
+		FROM releases r
+		LEFT JOIN devices dev ON dev.build_id = r.version AND NOT dev.hidden
+		WHERE r.status = 'published' AND NOT r.hidden
+		GROUP BY r.id, r.version, r.name, r.published_at, r.created_at
+		ORDER BY r.published_at DESC NULLS LAST, r.created_at DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReleaseRailItem
+	for rows.Next() {
+		var r ReleaseRailItem
+		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.DeviceCount); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // SetReleaseHidden hides/unhides a release from the main list (irrelevant releases).
 func (d *DB) SetReleaseHidden(ctx context.Context, id int, hidden bool) error {
 	_, err := d.pool.Exec(ctx, `UPDATE releases SET hidden = $2 WHERE id = $1`, id, hidden)
