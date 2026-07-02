@@ -5504,8 +5504,14 @@ func (h *Handler) resolveEligibleDevices(r *http.Request) ([]uuid.UUID, error) {
 
 // ── Commands ──────────────────────────────────────────────────────────────────
 
+// actionsWindowDays bounds the main Actions page to recent commands: its triage
+// buckets only need them (attention = failures < 3 days, in-progress is
+// expiry-bounded, completed is a capped preview). Full history lives at
+// /commands/history, which is unbounded + paginated.
+const actionsWindowDays = 30
+
 func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
-	cmds, err := h.db.ListCommands(r.Context())
+	cmds, err := h.db.ListCommandsSince(r.Context(), actionsWindowDays)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -5569,7 +5575,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	logcatRecent, logcatFrequent, _ := h.db.FleetLogcatSuggestions(r.Context(), 8)
 	productions, _ := h.db.ListProductions(r.Context())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
-	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry())
+	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), actionsWindowDays)
 
 	// ── Recipes strip: saved presets + a "Re-run last" derived from history ──
 	groupNames := make(map[uuid.UUID]string, len(groups))
@@ -5755,7 +5761,7 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry())
+	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), 0) // full history
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
 	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
 
@@ -6296,12 +6302,12 @@ func classifyCommands(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliv
 // list. It records dismissals only — the commands and their delivery history are
 // left intact (they remain visible under Completed / history).
 func (h *Handler) AttentionClear(w http.ResponseWriter, r *http.Request) {
-	cmds, err := h.db.ListCommands(r.Context())
+	cmds, err := h.db.ListCommandsSince(r.Context(), actionsWindowDays)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry())
+	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), actionsWindowDays)
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
 	attn, _, _ := classifyCommands(cmds, summaries, dismissed)
 	ids := make([]uuid.UUID, 0, len(attn))
