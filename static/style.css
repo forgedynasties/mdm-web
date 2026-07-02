@@ -4802,8 +4802,16 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .cmd-dp .dp-pane:has(.cb-tools) { overflow: visible; }
 /* Command-builder Filters panel: render in-flow so it pushes the device list down
    (and spans the pane) instead of overlaying the rows as a narrow popover. */
-.cmd-filters-panel { position: static; width: auto; max-width: none; margin: 8px 12px 2px; animation: none; }
+.cmd-filters-panel { position: static; width: auto; max-width: none; margin: 8px 12px 2px; animation: none; box-sizing: border-box; }
 .cmd-filters-panel .fp-grid { margin-bottom: 0; }
+/* Keep the filter fields inside the (now narrower) picker pane. Without min-width:0
+   a <select>'s intrinsic min-content width forces the grid tracks — and the whole
+   pane — to overflow the builder's config column. */
+.cmd-dp .dp-pane { min-width: 0; }
+.cmd-filters-panel .fp-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.cmd-filters-panel .fp-field { min-width: 0; }
+.cmd-filters-panel .fp-field select,
+.cmd-filters-panel .fp-field input { width: 100%; min-width: 0; box-sizing: border-box; }
 
 /* command-history show-more (device detail History tab) */
 .ch-collapsed .ch-extra { display: none; }

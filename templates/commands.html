@@ -436,8 +436,8 @@
       {{range .Commands}}
       {{$summary := index $.Summaries .ID}}
       {{$serials := index $.TargetSerials .ID}}
-      {{$total := 0}}{{if $summary}}{{$total = add (add $summary.Completed $summary.Failed) (add $summary.Pending $summary.Delivered)}}{{end}}
-      {{$inflight := and $summary (or (gt $summary.Pending 0) (gt $summary.Delivered 0))}}
+      {{$total := add (add $summary.Completed $summary.Failed) (add $summary.Pending $summary.Delivered)}}
+      {{$inflight := or (gt $summary.Pending 0) (gt $summary.Delivered 0)}}
       <div class="tlr" data-cmd-type="{{.Type}}" data-cmd-target="{{.TargetType}}" data-cmd-search="{{cmdLabel .Type}} {{cmdDetail .}} {{range $serials}}{{.}} {{end}}">
         <span class="tl-ic">
           {{if eq .Type "install_apk"}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>
@@ -453,18 +453,19 @@
           <div class="tl-sb">{{$hint := cmdHint .}}{{if $hint}}<span class="mono">{{$hint}}</span> · {{end}}{{if eq .TargetType "devices"}}{{if eq (len $serials) 1}}<span class="mono">{{index $serials 0}}</span>{{else}}{{len $serials}} devices{{end}}{{else if eq .TargetType "groups"}}Group target{{else}}All devices{{end}}</div>
         </div>
         <div class="tl-prog">
-          {{if $summary}}
-            {{if gt $summary.Failed 0}}
-              <div class="tl-track"><i style="width:{{pct (add $summary.Completed $summary.Failed) $total}}%;background:var(--danger);"></i></div>
-              <div class="tl-pl"><span>{{$summary.Completed}} ok · {{$summary.Failed}} failed</span><span style="color:var(--danger);font-weight:650;">needs retry</span></div>
-            {{else if $inflight}}
-              <div class="tl-track"><i style="width:{{pct $summary.Completed $total}}%;background:var(--accent-2);"></i></div>
-              <div class="tl-pl"><span>{{$summary.Completed}} of {{$total}} done</span><span class="tl-live"><span class="pd"></span>live</span></div>
-            {{else}}
-              <div class="tl-track"><i style="width:100%;background:var(--ok);"></i></div>
-              <div class="tl-pl"><span>{{$summary.Completed}} delivered</span><span style="color:var(--ok);font-weight:650;">✓ complete</span></div>
-            {{end}}
-          {{else}}<span class="muted small">—</span>{{end}}
+          {{if eq $total 0}}
+            <div class="tl-track"><i style="width:0;"></i></div>
+            <div class="tl-pl"><span class="muted">awaiting check-in</span></div>
+          {{else if gt $summary.Failed 0}}
+            <div class="tl-track"><i style="width:{{pct (add $summary.Completed $summary.Failed) $total}}%;background:var(--danger);"></i></div>
+            <div class="tl-pl"><span>{{$summary.Completed}} ok · {{$summary.Failed}} failed</span><span style="color:var(--danger);font-weight:650;">needs retry</span></div>
+          {{else if $inflight}}
+            <div class="tl-track"><i style="width:{{pct $summary.Completed $total}}%;background:var(--accent-2);"></i></div>
+            <div class="tl-pl"><span>{{$summary.Completed}} of {{$total}} done</span><span class="tl-live"><span class="pd"></span>live</span></div>
+          {{else}}
+            <div class="tl-track"><i style="width:100%;background:var(--ok);"></i></div>
+            <div class="tl-pl"><span>{{$summary.Completed}} delivered</span><span style="color:var(--ok);font-weight:650;">✓ complete</span></div>
+          {{end}}
         </div>
         <span class="tl-when">{{timeSince .CreatedAt}}</span>
         <span class="tl-del">
