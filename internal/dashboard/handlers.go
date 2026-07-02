@@ -5568,9 +5568,13 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	saved, _ := h.db.ListRecipes(r.Context())
+	role := h.role(r)
+	canOp := role == "admin" || role == "dev" || role == "operator" || role == "tester"
 	for _, rec := range saved {
-		// Skip recipes the current role can't issue.
-		if !h.commandTypeAllowed(h.role(r), rec.Type) {
+		// For roles that can act, hide recipes they aren't allowed to issue (so a
+		// click never leads to a rejected send). Viewers see every recipe — the
+		// strip is read-only for them, so it's just a catalogue of what's set up.
+		if canOp && !h.commandTypeAllowed(h.role(r), rec.Type) {
 			continue
 		}
 		recipes = append(recipes, recipeView{
@@ -5591,7 +5595,8 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	// rather than sitting in-progress forever.
 	// Failures older than this stop being "needs attention" — they drop into
 	// Completed (still rendered as failed, just no longer flagged for triage).
-	attn, prog, doneAll := classifyCommands(cmds, summaries)
+	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
+	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
 
 	// The Actions page shows a capped triage preview of each bucket; "Show all →"
 	// links jump to the standalone /commands/history page (with pagination).
@@ -5654,7 +5659,8 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry())
-	attn, prog, doneAll := classifyCommands(cmds, summaries)
+	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
+	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
 
 	status := r.URL.Query().Get("status")
 	var rows []db.Command
@@ -5718,7 +5724,7 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 	bucketByID := make(map[uuid.UUID]string, len(pageRows))
 	targetSerials := make(map[uuid.UUID][]string)
 	for _, c := range pageRows {
-		bucketByID[c.ID] = commandBucket(c, summaries[c.ID])
+		bucketByID[c.ID] = commandBucket(c, summaries[c.ID], dismissed[c.ID])
 		if c.TargetType == "devices" {
 			if s, e := h.db.GetCommandTargetSerials(r.Context(), c.ID); e == nil {
 				targetSerials[c.ID] = s
@@ -6158,10 +6164,10 @@ func (h *Handler) commandTypeAllowed(role, cmdType string) bool {
 const attnMaxAge = 72 * time.Hour
 
 // commandBucket classifies one command from its delivery summary into
-// "attn" (recent failure), "prog" (in flight) or "done".
-func commandBucket(c db.Command, s db.CommandDeliverySummary) string {
+// "attn" (recent, undismissed failure), "prog" (in flight) or "done".
+func commandBucket(c db.Command, s db.CommandDeliverySummary, dismissed bool) string {
 	switch {
-	case s.Failed > 0 && c.CreatedAt.After(time.Now().Add(-attnMaxAge)):
+	case s.Failed > 0 && !dismissed && c.CreatedAt.After(time.Now().Add(-attnMaxAge)):
 		return "attn"
 	case s.Failed == 0 && (s.Pending > 0 || s.Delivered > 0):
 		return "prog"
@@ -6171,13 +6177,14 @@ func commandBucket(c db.Command, s db.CommandDeliverySummary) string {
 }
 
 // classifyCommands buckets non-OTA commands (newest first) into the three triage
-// lists. Shared by the Actions page and the standalone history page.
-func classifyCommands(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliverySummary) (attn, prog, done []db.Command) {
+// lists. Commands in the dismissed set are kept out of Needs-attention. Shared by
+// the Actions page and the standalone history page.
+func classifyCommands(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliverySummary, dismissed map[uuid.UUID]bool) (attn, prog, done []db.Command) {
 	for _, c := range cmds {
 		if c.Type == "ota" {
 			continue
 		}
-		switch commandBucket(c, summaries[c.ID]) {
+		switch commandBucket(c, summaries[c.ID], dismissed[c.ID]) {
 		case "attn":
 			attn = append(attn, c)
 		case "prog":
@@ -6187,6 +6194,30 @@ func classifyCommands(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliv
 		}
 	}
 	return
+}
+
+// AttentionClear dismisses every command currently in Needs-attention from that
+// list. It records dismissals only — the commands and their delivery history are
+// left intact (they remain visible under Completed / history).
+func (h *Handler) AttentionClear(w http.ResponseWriter, r *http.Request) {
+	cmds, err := h.db.ListCommands(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry())
+	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
+	attn, _, _ := classifyCommands(cmds, summaries, dismissed)
+	ids := make([]uuid.UUID, 0, len(attn))
+	for _, c := range attn {
+		ids = append(ids, c.ID)
+	}
+	if err := h.db.DismissCommands(r.Context(), ids, h.role(r)); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "command.attention_clear", "", fmt.Sprintf("cleared=%d", len(ids)))
+	http.Redirect(w, r, "/commands", http.StatusFound)
 }
 
 // cmdTypeLabel maps a command type to its friendly label for the dashboard.
@@ -8237,6 +8268,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
+	post("POST /commands/clear-attention", h.requireOperatorOrAdmin(h.AttentionClear))
 	mux.HandleFunc("GET /commands/impact", h.requireAuth(h.CommandImpact))
 	// Recipes live under /recipes (not /commands/recipes) so the {id} delete route
 	// doesn't collide with /commands/{id}/resend/{serial} in the wildcard mux.

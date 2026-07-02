@@ -2030,6 +2030,40 @@ func (d *DB) DeleteRecipe(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+// ── Needs-attention dismissals ──────────────────────────────────────────────────
+
+// ListDismissedCommandIDs returns the set of commands cleared from the
+// Needs-attention list. Used by the triage classifier to skip them.
+func (d *DB) ListDismissedCommandIDs(ctx context.Context) (map[uuid.UUID]bool, error) {
+	rows, err := d.pool.Query(ctx, `SELECT command_id FROM dismissed_commands`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]bool)
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}
+
+// DismissCommands marks commands as cleared from Needs-attention (idempotent).
+// It does not delete or alter the commands themselves.
+func (d *DB) DismissCommands(ctx context.Context, ids []uuid.UUID, by string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO dismissed_commands (command_id, dismissed_by)
+		SELECT UNNEST($1::uuid[]), $2
+		ON CONFLICT (command_id) DO NOTHING`, ids, by)
+	return err
+}
+
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 // CreateCommand creates a command. For target_type "devices", targetIDs are device UUIDs.
@@ -5680,6 +5714,16 @@ CREATE TABLE IF NOT EXISTS command_recipes (
     target_groups  UUID[] NOT NULL DEFAULT '{}',
     created_by     TEXT NOT NULL DEFAULT '',
     created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Commands an operator has "cleared" from the Needs-attention triage list. This
+-- only dismisses them from that view — the command and its delivery records are
+-- untouched (it still appears in Completed / history). ON DELETE CASCADE keeps it
+-- tidy if the command is ever actually deleted.
+CREATE TABLE IF NOT EXISTS dismissed_commands (
+    command_id   UUID PRIMARY KEY REFERENCES commands(id) ON DELETE CASCADE,
+    dismissed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    dismissed_by TEXT NOT NULL DEFAULT ''
 );
 `
 
