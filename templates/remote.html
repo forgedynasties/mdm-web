@@ -97,7 +97,7 @@
   var displayHeight = 1920;
 
   function connect() {
-    ws = new WebSocket(wsUrl);
+    ws = window.mdmTrackStream(new WebSocket(wsUrl));
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = function() {

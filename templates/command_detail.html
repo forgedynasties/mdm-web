@@ -9,7 +9,7 @@
 <div class="card"
   id="deliveries-card"
   {{if $hasPending}}
-  hx-get="/commands/{{$cmd.ID}}/status"
+  hx-get="/commands/{{$cmd.ID}}/status" hx-select="unset" hx-target="this"
   hx-trigger="command-updated from:body, every 30s"
   hx-swap="outerHTML"
   {{end}}>
@@ -82,7 +82,7 @@
             <script>
             (function(){
               const el = document.getElementById('out-{{.SerialNumber}}');
-              const es = new EventSource('/commands/{{$cmd.ID}}/output/{{.SerialNumber}}/stream');
+              const es = window.mdmStream('/commands/{{$cmd.ID}}/output/{{.SerialNumber}}/stream');
               es.onmessage = function(e) {
                 el.style.display = '';
                 var wait = document.getElementById('wait-{{.SerialNumber}}');
@@ -111,7 +111,7 @@
               <a href="data:image/png;base64,{{.Output}}" target="_blank" class="ss-frame" title="Open full size">
                 <img src="data:image/png;base64,{{.Output}}" alt="screenshot">
               </a>
-              <a href="data:image/png;base64,{{.Output}}" download="screenshot-{{.SerialNumber}}.png" class="btn-outline ss-dl"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Download</a>
+              <a href="data:image/png;base64,{{.Output}}" download="screenshot-{{.SerialNumber}}.png" hx-boost="false" class="btn-outline ss-dl"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Download</a>
             </div>
             {{else}}<span class="muted small">—</span>{{end}}
           </td>
@@ -170,7 +170,7 @@
     <a href="/commands" class="btn-outline">New action</a>
     {{end}}
     {{if canAdmin .Role}}
-    <form action="/commands/{{.Command.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
+    <form action="/commands/{{.Command.ID}}/delete" method="POST" hx-confirm="Delete this command? Devices that have not yet received it will no longer get it.">
       <button type="submit" class="btn-danger">Delete Command</button>
     </form>
     {{end}}
@@ -205,7 +205,7 @@
 <script>
 (function () {
   if (!window.EventSource) return;
-  var es = new EventSource('/commands/{{.Command.ID}}/events');
+  var es = window.mdmStream('/commands/{{.Command.ID}}/events');
   es.addEventListener('command-update', function () {
     document.body.dispatchEvent(new CustomEvent('command-updated'));
   });

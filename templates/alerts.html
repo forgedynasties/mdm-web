@@ -84,7 +84,7 @@
       <button type="submit" name="action" value="resolve" class="btn-primary" style="padding:3px 12px;font-size:12px;">Resolve selected</button>
     </form>
     {{if canAdmin .Role}}
-    <form action="/alerts/clear-all" method="POST" style="margin-left:auto;" onsubmit="return confirm('Delete ALL alerts? Any whose condition still holds will re-fire on the next check.')">
+    <form action="/alerts/clear-all" method="POST" style="margin-left:auto;" hx-confirm="Delete ALL alerts? Any whose condition still holds will re-fire on the next check.">
       <button type="submit" class="btn-link-danger">Clear all</button>
     </form>
     {{end}}

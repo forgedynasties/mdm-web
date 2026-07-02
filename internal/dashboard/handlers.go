@@ -86,17 +86,12 @@ func hxToast(w http.ResponseWriter, msg, typ string) {
 	w.Header().Set("HX-Trigger", string(b))
 }
 
-// hxRedirect navigates to url. For htmx requests it uses HX-Location, which does
-// an AJAX page swap (no full-document reload — CSS/JS aren't re-fetched, no white
-// flash); for plain requests it falls back to a normal 303 redirect. Use it to
-// convert POST-Redirect-GET handlers to no-reload navigation while keeping the
-// no-JS path working.
+// hxRedirect issues a 303 redirect. The whole app is hx-boosted, so for htmx
+// requests htmx transparently follows the redirect and swaps only <main>
+// (inherited hx-select) — no full-document reload — while plain requests get a
+// normal redirect. Kept as a named helper so mutation handlers read intentionally
+// and we can adjust the strategy in one place.
 func (h *Handler) hxRedirect(w http.ResponseWriter, r *http.Request, url string) {
-	if hxReq(r) {
-		w.Header().Set("HX-Location", url)
-		w.WriteHeader(http.StatusOK)
-		return
-	}
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
@@ -1122,6 +1117,9 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	}
 	role := h.role(r)
 	data["Role"] = role
+	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
+	// htmx swaps just the content region (dock + footer scripts stay put).
+	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
 	data["CurrentUser"] = h.currentUsername(r)
 	data["Brand"] = h.cfg.CustomBrand()
 	data["Use24Hour"] = h.cfg.Use24Hour()
@@ -1768,7 +1766,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Density":              h.cfg.Density(),
 	}
 
-	if r.Header.Get("HX-Request") == "true" {
+	// The table fragment is for the in-place refresh (hx-get polling), NOT for a
+	// boosted full-page navigation — a boosted nav must get the whole page (which
+	// the layout renders as main-only) so <main> is swapped correctly.
+	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
 		h.tmpl.ExecuteTemplate(w, "device-table", h.withRole(r, data))
 		return
 	}

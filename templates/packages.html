@@ -74,7 +74,7 @@
         {{else}}
         <label class="pk-sw" title="Flag as a system app">
           <input type="checkbox" {{if .AdminFlagged}}checked{{end}}
-                 hx-post="/packages/flag" hx-trigger="change" hx-swap="none"
+                 hx-post="/packages/flag" hx-select="unset" hx-trigger="change" hx-swap="none"
                  hx-vals='js:{package: "{{.PackageName}}", flagged: event.target.checked ? "1" : "0"}'>
           <span class="tr"><span class="kn"></span></span>
         </label>

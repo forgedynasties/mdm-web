@@ -34,7 +34,7 @@
       {{end}}
     </form>
     {{end}}
-    {{if $canDownloadQfil}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download title="Download the QFIL flashing bundle" style="display:inline-flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>{{end}}
+    {{if $canDownloadQfil}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download hx-boost="false" title="Download the QFIL flashing bundle" style="display:inline-flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>{{end}}
     {{if .CanManageQFIL}}<button type="button" class="btn-outline btn-sm" onclick="qfilModalOpen()">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</button>{{end}}
   </span>
   {{end}}
@@ -150,7 +150,7 @@
         <td style="white-space:nowrap;">
           {{if eq $role "admin"}}
           <form action="/releases/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="display:inline;"
-                onsubmit="return confirm('Delete this package from the release?')">
+                hx-confirm="Delete this package from the release?">
             <button type="submit" class="btn-outline btn-sm">Delete</button>
           </form>
           {{end}}
@@ -216,7 +216,7 @@
           </div>
           <div style="display:flex;gap:8px;align-items:center;flex:none;">
             <a href="{{$q.URL}}" class="rlc-open" title="Download QFIL flashing package" download><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>
-            <form action="/releases/{{$rel.ID}}/qfil/{{$q.ID}}/delete" method="POST" style="margin:0;" onsubmit="return confirm('Remove the QFIL package from this release?')">
+            <form action="/releases/{{$rel.ID}}/qfil/{{$q.ID}}/delete" method="POST" style="margin:0;" hx-confirm="Remove the QFIL package from this release?">
               <button type="submit" class="btn-outline btn-sm">Delete</button>
             </form>
           </div>
@@ -451,7 +451,7 @@
       <div class="qa-id">
         <div class="qa-title">{{.Title}}{{if .Base}} <span class="qa-star" title="standard case — every release">★</span>{{end}}</div>
         <div class="qa-meta">{{if .Area}}{{.Area}}{{else}}General{{end}}{{if .Steps}} · {{.Steps}}{{end}}{{if .Expected}} · Expected: {{.Expected}}{{end}}{{if and (not .Base) (eq $role "admin")}} · <a href="#" onclick="document.getElementById('qa-del-{{.ID}}').submit();return false;" class="qa-del">remove</a>{{end}}</div>
-        {{if and (not .Base) (eq $role "admin")}}<form id="qa-del-{{.ID}}" action="/test-cases/{{.ID}}/delete" method="POST" hidden onsubmit="return confirm('Remove this test case from this release?')"><input type="hidden" name="redirect" value="/releases/{{$relID}}"></form>{{end}}
+        {{if and (not .Base) (eq $role "admin")}}<form id="qa-del-{{.ID}}" action="/test-cases/{{.ID}}/delete" method="POST" hidden hx-confirm="Remove this test case from this release?"><input type="hidden" name="redirect" value="/releases/{{$relID}}"></form>{{end}}
       </div>
       {{if $canRecord}}
       <form class="qa-rec" action="/releases/{{$relID}}/test-results" method="POST">

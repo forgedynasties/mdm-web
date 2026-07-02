@@ -318,7 +318,7 @@
                   <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
                   <input type="search" id="cmd-serial-input" name="q" class="filter-search-input" autocomplete="off"
                          placeholder="Search serial · Enter to add…"
-                         hx-get="/devices/search" hx-trigger="keyup changed delay:200ms, focus"
+                         hx-get="/devices/search" hx-select="unset" hx-trigger="keyup changed delay:200ms, focus"
                          hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
                 </div>
                 <div id="cmd-device-results"></div>
@@ -368,7 +368,7 @@
                   </div>
                 </div>
                 <div id="cmd-device-browser" style="max-height:260px;overflow:auto;margin:8px 8px 6px;"
-                     hx-get="/commands/browse-devices" hx-trigger="load" hx-target="#cmd-device-browser" hx-swap="innerHTML"></div>
+                     hx-get="/commands/browse-devices" hx-select="unset" hx-trigger="load" hx-target="#cmd-device-browser" hx-swap="innerHTML"></div>
               </div>
               <div class="dp-pane">
                 <div class="dp-pane-h"><span class="t">Selected</span><span class="n"><span id="cmd-sel-count">0</span> device(s)</span></div>
@@ -401,7 +401,7 @@
     <!-- RIGHT · live impact preview (blast radius). Reloads from /commands/impact
          whenever the builder state changes (the `impact` event fired by updatePreview). -->
     <div class="cr-impact" id="cmd-impact"
-         hx-get="/commands/impact" hx-include="#cmd-form"
+         hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
          hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML">
     </div>
 
@@ -448,7 +448,7 @@
       {{/* Needs attention — always shown, with a Clear button + empty state. */}}
       <div class="hgrp-h attn" data-grp><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Needs attention <span class="cnt">{{.AttnCount}}</span>
         {{if and .Attention (canOperate .Role)}}
-        <form action="/commands/clear-attention" method="POST" style="margin-left:auto;" onsubmit="return confirm('Clear all {{.AttnCount}} entries from Needs attention? This only dismisses them from this list — the actions are not deleted.')">
+        <form action="/commands/clear-attention" method="POST" style="margin-left:auto;" hx-confirm="Clear all {{.AttnCount}} entries from Needs attention? This only dismisses them from this list — the actions are not deleted.">
           <button type="submit" class="hclear" title="Dismiss these from the list (does not delete)">Clear all</button>
         </form>
         {{end}}
@@ -1087,12 +1087,12 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
   <span class="hwhen hrow-sent">{{timeSince $c.CreatedAt}}</span>
   <div class="hact">
     {{if and (eq .Bucket "attn") (canOperate .Role)}}
-    <form action="/commands/{{$c.ID}}/resend" method="POST" onsubmit="return confirm('Resend this action to all its original targets?')">
+    <form action="/commands/{{$c.ID}}/resend" method="POST" hx-confirm="Resend this action to all its original targets?">
       <button type="submit" class="hretry"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Resend all</button>
     </form>
     {{end}}
     {{if canAdmin .Role}}
-    <form action="/commands/{{$c.ID}}/delete" method="POST" onsubmit="return confirm('Delete this command? Devices that have not yet received it will no longer get it.')">
+    <form action="/commands/{{$c.ID}}/delete" method="POST" hx-confirm="Delete this command? Devices that have not yet received it will no longer get it.">
       <button type="submit" class="cmd-del" title="Delete command" aria-label="Delete">&times;</button>
     </form>
     {{end}}

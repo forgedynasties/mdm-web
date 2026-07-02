@@ -1,4 +1,7 @@
 {{define "header"}}
+{{if .Boosted}}{{/* boosted nav: return only <main> so htmx swaps just the content */}}
+  <main class="container">
+{{else}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,8 +25,45 @@
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
   <script src="/static/vendor/htmx.min.js"></script>
+  <script>
+    // ── No-reload navigation plumbing ──────────────────────────────────────────
+    // The whole app is hx-boosted (see <body>): links and form submits are AJAX
+    // and only the <main> region is swapped, so the header/dock and the persistent
+    // footer scripts (theme, alerts SSE, modals) are never re-run. Page-scoped
+    // live resources DO live inside <main>, so register them here and we tear them
+    // down before each boosted swap — otherwise EventSources/WebSockets would leak
+    // and hit the browser's per-domain connection cap.
+    window.__pageStreams = [];
+    window.__pageTimers = [];
+    // mdmStream: an EventSource that auto-closes on the next in-app navigation.
+    window.mdmStream = function (url, cfg) {
+      var es = new EventSource(url, cfg);
+      window.__pageStreams.push(es);
+      return es;
+    };
+    // mdmTrackStream / mdmTrackTimer: register a resource created elsewhere
+    // (e.g. a WebSocket, or a setInterval id) for the same cleanup.
+    window.mdmTrackStream = function (s) { window.__pageStreams.push(s); return s; };
+    window.mdmInterval = function (fn, ms) { var id = setInterval(fn, ms); window.__pageTimers.push(id); return id; };
+    function mdmTeardownPage() {
+      window.__pageStreams.forEach(function (s) { try { s.close(); } catch (e) {} });
+      window.__pageStreams = [];
+      window.__pageTimers.forEach(function (id) { clearInterval(id); });
+      window.__pageTimers = [];
+    }
+    // Tear down when a boosted navigation is about to replace <main>.
+    document.addEventListener('htmx:beforeSwap', function (e) {
+      var t = e.detail && e.detail.target;
+      if (t && t.tagName === 'MAIN') mdmTeardownPage();
+    });
+    // Belt-and-suspenders: also on a hard unload.
+    window.addEventListener('pagehide', mdmTeardownPage);
+  </script>
 </head>
-<body class="has-dock"{{if .Use24Hour}} data-time24="1"{{end}}>
+{{/* hx-boost: AJAX-navigate the whole app with no full-page reload. Only <main>
+     is swapped (hx-select/target/swap), preserving the dock and footer scripts.
+     Downloads, the export form and cross-origin links opt out with hx-boost="false". */}}
+<body class="has-dock" hx-boost="true" hx-target="main" hx-swap="outerHTML"{{if .Use24Hour}} data-time24="1"{{end}}>
   <div id="htmx-progress"></div>
   {{/* Global chrome: a slim top bar (brand + search + alerts + account) and a
        floating bottom-center dock for primary nav. No left sidebar. */}}
@@ -84,7 +124,7 @@
             <span class="nbar-mi-label">What's new</span><span class="nbar-mi-rt">v{{.Version}}</span>
           </a>
           <div class="nbar-sep"></div>
-          <form action="/logout" method="POST">
+          <form action="/logout" method="POST" hx-boost="false">
             <button type="submit" class="nbar-mi danger">
               <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></span>
             <span class="nbar-mi-label">Sign out</span>
@@ -168,6 +208,7 @@
     </div>
   </div>
   <main class="container">
+{{end}}{{/* end boosted/non-boosted chrome; <main> is now open in both paths */}}
     {{/* The overview is the home page — no Back affordance there. */}}
     {{if ne .ActivePage "overview"}}
     <button type="button" class="page-back" onclick="history.back()" title="Back to previous page" aria-label="Back to previous page"
@@ -203,6 +244,7 @@
 
 {{define "footer"}}
   </main>
+{{if not .Boosted}}
   <script>
   // Theme toggle: flip html[data-theme], persist, and notify listeners
   // (e.g. charts) so they can recolor without a reload.
@@ -1089,6 +1131,7 @@
   </script>
 </body>
 </html>
+{{end}}{{/* not .Boosted */}}
 {{end}}
 
 {{/* Unified Fleet tab strip — shared by the Devices, Restaurants and Groups pages

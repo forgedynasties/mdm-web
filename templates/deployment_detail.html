@@ -223,7 +223,7 @@
   </div>
   <div id="deployment-targets"
        {{if eq $dep.Status "active"}}
-       hx-get="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets"
+       hx-get="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets" hx-select="unset" hx-target="this"
        hx-trigger="deployment-updated from:body, every 30s"
        hx-swap="innerHTML"
        {{end}}>
@@ -244,7 +244,7 @@
   // (there's a slow 30s poll as a fallback if the stream drops).
   {{if eq $dep.Status "active"}}
   if (window.EventSource) {
-    var des = new EventSource('/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/events');
+    var des = window.mdmStream('/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/events');
     des.addEventListener('deployment-update', function () {
       document.body.dispatchEvent(new CustomEvent('deployment-updated'));
     });

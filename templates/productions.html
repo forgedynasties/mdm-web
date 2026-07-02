@@ -67,9 +67,9 @@
         </td>
         <td class="muted small">{{localTime .CreatedAt}}</td>
         <td style="display:flex;gap:8px;justify-content:flex-end;">
-          <a href="/productions/{{.ID}}/export.csv" class="btn-outline-sm">Export CSV</a>
+          <a href="/productions/{{.ID}}/export.csv" hx-boost="false" class="btn-outline-sm">Export CSV</a>
           {{if canAdmin $.Role}}
-          <form action="/productions/{{.ID}}/delete" method="POST" onsubmit="return confirm('Delete this production? This cannot be undone.');">
+          <form action="/productions/{{.ID}}/delete" method="POST" hx-confirm="Delete this production? This cannot be undone.">
             <button type="submit" class="btn-danger-sm">Delete</button>
           </form>
           {{end}}

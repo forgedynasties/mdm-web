@@ -32,7 +32,7 @@
             </select>
             <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
           </form>
-          <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete user {{.Username}}?')">
+          <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete user {{.Username}}?">
             <button type="submit" class="user-del" title="Delete user" aria-label="Delete">&times;</button>
           </form>
           {{end}}
