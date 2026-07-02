@@ -5677,6 +5677,19 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Optional server-side type filter — applied before pagination so it composes
+	// with paging (selecting a type then paging keeps the type).
+	cmdType := r.URL.Query().Get("type")
+	if cmdType != "" {
+		filtered := make([]db.Command, 0, len(rows))
+		for _, c := range rows {
+			if c.Type == cmdType {
+				filtered = append(filtered, c)
+			}
+		}
+		rows = filtered
+	}
+
 	// Pagination.
 	const pageSize = 40
 	total := len(rows)
@@ -5717,6 +5730,7 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		"Title":         "History — " + title,
 		"Heading":       title,
 		"Status":        status,
+		"FilterType":    cmdType,
 		"Rows":          pageRows,
 		"BucketByID":    bucketByID,
 		"Summaries":     summaries,
