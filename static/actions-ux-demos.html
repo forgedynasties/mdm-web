@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions — UX concepts · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:30px 40px 120px;color:var(--text);}
+.wrap{max-width:1120px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 5px;letter-spacing:-.01em;}
+.lead{color:var(--muted);font-size:13.5px;margin:0 0 6px;max-width:820px;line-height:1.6;}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#fff;background:linear-gradient(90deg,#7a80f6,#f9674e);padding:5px 11px;border-radius:8px;margin:44px 0 8px;}
+.dname{font-weight:700;font-size:17px;margin:8px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--muted);font-size:12.5px;margin:0 0 16px;max-width:840px;line-height:1.55;}
+.rec{display:inline-block;font-size:10px;font-weight:700;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.tag{display:inline-block;font-size:10px;font-weight:700;color:var(--accent-2);background:var(--accent-2-soft);border-radius:6px;padding:2px 7px;margin-left:8px;vertical-align:2px;}
+.note{font-size:12px;color:var(--muted);background:var(--surface);border:1px dashed var(--border);border-radius:10px;padding:11px 14px;margin-top:14px;line-height:1.6;}
+.pain{font-size:12px;color:var(--text-2);background:var(--warn-bg);border:1px solid var(--warn-edge);border-radius:10px;padding:10px 13px;margin:0 0 14px;line-height:1.55;max-width:840px;}
+.pain b{color:var(--warn);}
+svg{fill:none;stroke:currentColor;}
+
+/* ---- shared builder shell (mirrors commands.html) ---- */
+.frame{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-md);overflow:hidden;}
+.frhead{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--border-soft);}
+.frhead h3{margin:0;font-size:15px;font-weight:650;}
+.frhead .sub{font-size:12px;color:var(--muted);}
+
+/* Concept 1: three-pane launchpad (rail · config · impact) */
+.launch{display:grid;grid-template-columns:196px 1fr 300px;}
+@media(max-width:980px){.launch{grid-template-columns:1fr;}}
+.lp-rail{border-right:1px solid var(--border-soft);padding:12px;}
+.rg{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:12px 10px 5px;}
+.rg:first-child{padding-top:2px;}
+.ri{display:flex;align-items:center;gap:10px;padding:9px 11px;border-radius:10px;cursor:pointer;font-size:13px;color:var(--text-2);user-select:none;}
+.ri svg{width:16px;height:16px;stroke-width:1.7;color:var(--muted);}
+.ri:hover{background:var(--surface2);}
+.ri.on{background:var(--accent-soft);color:var(--text);font-weight:600;}
+.ri.on svg{color:var(--accent);}
+.lp-cfg{padding:20px 22px;border-right:1px solid var(--border-soft);min-width:0;}
+.sect{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+.sect+.field{margin-bottom:18px;}
+.sell{width:100%;box-sizing:border-box;padding:9px 11px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:var(--surface);color:var(--text);}
+.pills{display:flex;gap:8px;}
+.pill{border:1px solid var(--border);border-radius:99px;padding:7px 14px;font-size:12.5px;font-weight:600;background:var(--surface);color:var(--muted);cursor:pointer;}
+.pill.on{border-color:transparent;background:var(--accent-soft);color:var(--accent);}
+
+/* impact panel */
+.lp-imp{padding:20px;background:linear-gradient(180deg,var(--surface2),var(--surface));display:flex;flex-direction:column;}
+.imp-cap{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px;}
+.imp-big{font-size:34px;font-weight:750;line-height:1;letter-spacing:-.02em;}
+.imp-big small{font-size:14px;font-weight:600;color:var(--muted);margin-left:6px;}
+.imp-sub{font-size:12px;color:var(--muted);margin-top:4px;}
+.imp-bar{display:flex;height:9px;border-radius:99px;overflow:hidden;margin:16px 0 6px;background:var(--surface-3);}
+.imp-bar i{display:block;height:100%;}
+.seg-on{background:var(--ok);}.seg-off{background:var(--text-faint);}.seg-skip{background:var(--warn);}
+.imp-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
+.imp-legend span{display:inline-flex;align-items:center;gap:5px;}
+.dot{width:8px;height:8px;border-radius:99px;display:inline-block;}
+.imp-warn{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.45;background:var(--warn-bg);border:1px solid var(--warn-edge);color:var(--text-2);border-radius:9px;padding:9px 11px;margin-top:14px;}
+.imp-warn svg{width:14px;height:14px;stroke:var(--warn);stroke-width:2.2;flex:none;margin-top:1px;}
+.imp-roll{margin-top:14px;flex:1;overflow:auto;border-top:1px solid var(--border-soft);padding-top:10px;}
+.rollrow{display:flex;align-items:center;gap:8px;padding:5px 2px;font-size:12px;}
+.rollrow .sn{font-family:var(--mono);font-size:11.5px;}
+.rollrow .bat{margin-left:auto;font-size:11px;color:var(--muted);}
+.rollrow .st{width:7px;height:7px;border-radius:99px;flex:none;}
+.st.up{background:var(--ok);}.st.down{background:var(--text-faint);}
+.rollrow.skip{opacity:.5;text-decoration:line-through;}
+.sendbig{margin:16px 20px 20px;display:flex;flex-direction:column;gap:8px;}
+.btn-send{display:inline-flex;align-items:center;justify-content:center;gap:9px;background:var(--accent);color:#fff;border:none;border-radius:11px;padding:13px 18px;font-size:14px;font-weight:650;cursor:pointer;box-shadow:0 4px 14px rgba(249,103,78,.28);}
+.btn-send:hover{background:var(--accent-h);}
+.btn-send svg{width:16px;height:16px;stroke:#fff;stroke-width:2;}
+.send-hint{font-size:11.5px;color:var(--muted);text-align:center;}
+
+/* Concept 2: mission control */
+.mc{display:grid;grid-template-columns:260px 1fr;}
+@media(max-width:820px){.mc{grid-template-columns:1fr;}}
+.mc-left{padding:24px;border-right:1px solid var(--border-soft);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.ring{position:relative;width:150px;height:150px;}
+.ring svg{width:150px;height:150px;transform:rotate(-90deg);stroke:none;}
+.ring .rc{fill:none;stroke-width:13;stroke-linecap:round;}
+.ring .rt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.ring .rt b{font-size:30px;font-weight:750;letter-spacing:-.02em;}
+.ring .rt span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.mc-meta{margin-top:16px;font-size:12.5px;color:var(--muted);line-height:1.6;}
+.mc-meta b{color:var(--text);}
+.mc-stats{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;justify-content:center;}
+.mstat{border:1px solid var(--border);border-radius:9px;padding:7px 12px;min-width:58px;}
+.mstat b{display:block;font-size:17px;font-weight:700;}
+.mstat span{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);}
+.mc-right{padding:0;min-width:0;}
+.mc-toolbar{display:flex;align-items:center;gap:8px;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
+.chip{border:1px solid var(--border);background:var(--surface);border-radius:99px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;}
+.chip.on{background:var(--text);color:var(--surface);border-color:transparent;}
+.chip.retry{margin-left:auto;color:var(--accent);border-color:var(--accent-edge);}
+.mc-list{max-height:340px;overflow:auto;}
+.mcr{display:flex;align-items:center;gap:11px;padding:11px 18px;border-bottom:1px solid var(--border-soft);font-size:13px;}
+.mcr:last-child{border-bottom:none;}
+.mcr .sn{font-family:var(--mono);font-size:12.5px;}
+.mcr .meta{color:var(--muted);font-size:11.5px;margin-left:2px;}
+.mcr .bdg{margin-left:auto;font-size:11px;font-weight:650;padding:3px 9px;border-radius:99px;}
+.b-done{background:var(--ok-bg);color:var(--ok);}
+.b-run{background:var(--accent-2-soft);color:var(--accent-2);}
+.b-wait{background:var(--surface-3);color:var(--muted);}
+.b-fail{background:var(--danger-bg);color:var(--danger);}
+.tick{width:18px;height:18px;flex:none;}
+.spin{width:15px;height:15px;border:2px solid var(--accent-2-soft);border-top-color:var(--accent-2);border-radius:99px;animation:sp .7s linear infinite;flex:none;}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* Concept 3: recipes */
+.recipes{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+@media(max-width:820px){.recipes{grid-template-columns:repeat(2,1fr);}}
+.recipe{border:1px solid var(--border);border-radius:13px;background:var(--surface);padding:15px;cursor:pointer;transition:box-shadow .12s,transform .12s,border-color .12s;position:relative;}
+.recipe:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--accent-edge);}
+.recipe .ic{width:34px;height:34px;border-radius:10px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;margin-bottom:11px;}
+.recipe .ic svg{width:18px;height:18px;stroke:var(--accent);stroke-width:1.8;}
+.recipe.blue .ic{background:var(--accent-2-soft);}.recipe.blue .ic svg{stroke:var(--accent-2);}
+.recipe .rt{font-size:13.5px;font-weight:700;}
+.recipe .rs{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.45;}
+.recipe .go{position:absolute;top:14px;right:14px;color:var(--text-faint);}
+.recipe .go svg{width:15px;height:15px;stroke-width:2;}
+.recipe.add{border-style:dashed;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;font-weight:600;gap:7px;}
+.recipe.add svg{width:16px;height:16px;stroke-width:2;}
+
+/* Concept 4: activity timeline */
+.tl-group{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--text-faint);padding:16px 20px 6px;}
+.tlr{display:grid;grid-template-columns:34px 1fr 190px 84px;align-items:center;gap:14px;padding:13px 20px;border-top:1px solid var(--border-soft);}
+.tlr:hover{background:var(--surface2);}
+.tl-ic{width:34px;height:34px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;}
+.tl-ic svg{width:17px;height:17px;stroke:var(--text-2);stroke-width:1.7;}
+.tl-nm{font-size:13.5px;font-weight:650;}
+.tl-sb{font-size:11.5px;color:var(--muted);margin-top:2px;}
+.tl-sb .mono{font-family:var(--mono);}
+.tl-prog{}
+.tl-track{height:7px;border-radius:99px;background:var(--surface-3);overflow:hidden;}
+.tl-track i{display:block;height:100%;border-radius:99px;}
+.tl-pl{font-size:11px;color:var(--muted);margin-top:5px;display:flex;justify-content:space-between;}
+.tl-when{font-size:11.5px;color:var(--muted);text-align:right;}
+.live{display:inline-flex;align-items:center;gap:5px;color:var(--accent-2);font-weight:650;}
+.live .pd{width:6px;height:6px;border-radius:99px;background:var(--accent-2);animation:pulse 1.2s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+</style></head>
+<body><div class="wrap">
+
+<h1>Actions — a fresh take on the UX</h1>
+<p class="lead">The page works, but it’s <b>configure-in-the-dark, then go hunting</b>: you build an action without seeing who it’ll hit, press Send, then scroll to a flat list and click into a plain table to watch it land. Four concepts below re-shape that flow. They’re live — click around.</p>
+
+<!-- ═══════════════ CONCEPT 1 ═══════════════ -->
+<div class="eyebrow">Concept 1 · Launchpad<span class="tag">interactive</span></div>
+<div class="dname">A live “blast radius” panel — see who you’ll hit before you fire <span class="rec">recommended</span></div>
+<div class="ddesc">Add a third pane to the builder. As you pick an action and target, it computes the real impact <i>now</i>: how many devices, how many are online vs. will queue, and action-specific risks (rebooting low battery, uninstalling from devices that don’t have the app). The Send button stops saying “Send action” and starts saying exactly what’s about to happen.</p></div>
+<div class="pain">Today’s gap: <b>All Devices</b> is an abstraction. You can reboot 40 tablets — 6 of them at 4% battery — and the only feedback before Send is a generic warning line.</div>
+
+<div class="frame">
+  <div class="frhead"><h3>New action</h3><span class="sub" id="lp-ctx">Install app → All devices</span></div>
+  <div class="launch">
+    <div class="lp-rail" id="lp-rail">
+      <div class="rg">Apps</div>
+      <div class="ri on" data-act="install"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>Install app</div>
+      <div class="ri" data-act="uninstall"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>Uninstall</div>
+      <div class="rg">Diagnostics</div>
+      <div class="ri" data-act="screenshot"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg>Screenshot</div>
+      <div class="ri" data-act="shell"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>Shell</div>
+      <div class="rg">Power</div>
+      <div class="ri" data-act="reboot"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Reboot</div>
+    </div>
+
+    <div class="lp-cfg">
+      <div class="sect">Payload</div>
+      <div class="field" id="lp-payload">
+        <select class="sell"><option>POS Terminal 1.9</option><option>Aioapp Kiosk 2.4.1</option></select>
+      </div>
+      <div class="sect">Target</div>
+      <div class="pills" id="lp-tgt">
+        <span class="pill on" data-tgt="all">All devices</span>
+        <span class="pill" data-tgt="kiosks">Kiosks group</span>
+        <span class="pill" data-tgt="one">One device</span>
+      </div>
+    </div>
+
+    <div class="lp-imp">
+      <div class="imp-cap">Impact preview</div>
+      <div class="imp-big"><span id="imp-n">12</span><small id="imp-unit">devices</small></div>
+      <div class="imp-sub" id="imp-sub">will receive this action</div>
+      <div class="imp-bar"><i class="seg-on" id="seg-on" style="width:66%"></i><i class="seg-off" id="seg-off" style="width:34%"></i><i class="seg-skip" id="seg-skip" style="width:0"></i></div>
+      <div class="imp-legend">
+        <span><i class="dot" style="background:var(--ok)"></i><b id="lg-on">8</b>&nbsp;online now</span>
+        <span><i class="dot" style="background:var(--text-faint)"></i><b id="lg-off">4</b>&nbsp;offline · queued</span>
+        <span id="lg-skip-wrap" style="display:none"><i class="dot" style="background:var(--warn)"></i><b id="lg-skip">0</b>&nbsp;skipped</span>
+      </div>
+      <div class="imp-warn" id="imp-warn" style="display:none"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span id="imp-warn-t"></span></div>
+      <div class="imp-roll" id="imp-roll"></div>
+    </div>
+
+    <div class="sendbig" style="grid-column:2/-1;">
+      <button class="btn-send" id="lp-send"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg><span id="lp-send-t">Install on 12 devices</span></button>
+      <div class="send-hint" id="lp-send-hint">8 run now · 4 queue for when they reconnect · ⌘↵ to send</div>
+    </div>
+  </div>
+</div>
+<div class="note">The whole panel is derived from data the page already has (online state, battery, per-device packages for uninstall). No new backend — it’s the same <code>browse-devices</code> query, summarised. The Send label + hint remove every “wait, what did I just target?” moment.</div>
+
+<!-- ═══════════════ CONCEPT 2 ═══════════════ -->
+<div class="eyebrow">Concept 2 · Mission Control<span class="tag">animated</span></div>
+<div class="dname">Watch it land — a live rollup instead of a flat delivery table</div>
+<div class="ddesc">Right after Send, the builder collapses into this. A progress ring fills as acknowledgements stream in over the WebSocket you already have; the roll-call flips each device pending → running → done in place. Filter to just failures and retry them in one click — no per-row hunting.</div>
+<div class="pain">Today’s gap: the detail page is a static table that polls every 30s. For a 40-device reboot you refresh and squint at status badges.</div>
+
+<div class="frame mc">
+  <div class="mc-left">
+    <div class="ring">
+      <svg viewBox="0 0 120 120">
+        <circle class="rc" cx="60" cy="60" r="52" stroke="var(--surface-3)"></circle>
+        <circle class="rc" id="ring-fg" cx="60" cy="60" r="52" stroke="var(--ok)" stroke-dasharray="327" stroke-dashoffset="327"></circle>
+      </svg>
+      <div class="rt"><b id="ring-pct">0%</b><span>delivered</span></div>
+    </div>
+    <div class="mc-meta">Reboot · <b>Kiosks</b> group<br><span id="mc-count">0 of 12 acknowledged</span></div>
+    <div class="mc-stats">
+      <div class="mstat"><b id="s-done" style="color:var(--ok)">0</b><span>done</span></div>
+      <div class="mstat"><b id="s-run" style="color:var(--accent-2)">0</b><span>running</span></div>
+      <div class="mstat"><b id="s-wait" style="color:var(--muted)">12</b><span>queued</span></div>
+    </div>
+  </div>
+  <div class="mc-right">
+    <div class="mc-toolbar">
+      <span class="chip on">All 12</span><span class="chip">Done</span><span class="chip">Failed 1</span>
+      <span class="chip retry">↻ Retry failed</span>
+    </div>
+    <div class="mc-list" id="mc-list"></div>
+  </div>
+</div>
+<div class="note">The ring + roll-call are driven by the same <code>CommandUpdateEvent</code> the hub already broadcasts — this is a presentation change, not a protocol one. (Replay the animation by scrolling this panel back into view.)</div>
+
+<!-- ═══════════════ CONCEPT 3 ═══════════════ -->
+<div class="eyebrow">Concept 3 · Recipes</div>
+<div class="dname">One-tap for the actions you run constantly</div>
+<div class="ddesc">Most fleet actions repeat: nightly kiosk screenshots, rebooting a specific restaurant, re-installing the current POS build. A strip of recipes above the builder turns a 6-click sequence into one. “Re-run last” is automatic; the rest are saved presets (action + target + payload baked in).</div>
+<div class="frame" style="padding:18px 20px;">
+  <div class="recipes">
+    <div class="recipe blue"><span class="go"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span><div class="ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="rt">Re-run last</div><div class="rs">Install POS 1.9 → 12 devices · 4m ago</div></div>
+    <div class="recipe"><span class="go"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span><div class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></div><div class="rt">Screenshot kiosks</div><div class="rs">All devices in Kiosks group</div></div>
+    <div class="recipe"><span class="go"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span><div class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/></svg></div><div class="rt">Reboot AT0031</div><div class="rs">Restaurant · 6 devices</div></div>
+    <div class="recipe add"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Save a recipe</div>
+  </div>
+</div>
+<div class="note">Cheap to ship: a recipe is just the existing command payload stored and replayed through the builder’s prefill path (the same one “Duplicate &amp; edit” already uses).</div>
+
+<!-- ═══════════════ CONCEPT 4 ═══════════════ -->
+<div class="eyebrow">Concept 4 · Activity timeline<span class="tag">live progress</span></div>
+<div class="dname">History that shows motion, grouped by time</div>
+<div class="ddesc">The flat history list becomes a timeline. In-flight actions show a live progress bar and a pulsing “live” marker; finished ones collapse to a calm summary. Grouped Today / Yesterday so recent work is scannable.</div>
+<div class="frame">
+  <div class="tl-group">Today</div>
+  <div class="tlr">
+    <div class="tl-ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></div>
+    <div><div class="tl-nm">Reboot</div><div class="tl-sb">Kiosks group · 12 devices</div></div>
+    <div class="tl-prog"><div class="tl-track"><i id="tl-live" style="width:33%;background:var(--accent-2)"></i></div><div class="tl-pl"><span id="tl-live-t">4 of 12 done</span><span class="live"><span class="pd"></span>live</span></div></div>
+    <div class="tl-when">just now</div>
+  </div>
+  <div class="tlr">
+    <div class="tl-ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></div>
+    <div><div class="tl-nm">Install app</div><div class="tl-sb"><span class="mono">POS Terminal 1.9</span> · 12 devices</div></div>
+    <div class="tl-prog"><div class="tl-track"><i style="width:100%;background:var(--ok)"></i></div><div class="tl-pl"><span>12 delivered</span><span style="color:var(--ok);font-weight:650">✓ complete</span></div></div>
+    <div class="tl-when">4m ago</div>
+  </div>
+  <div class="tlr">
+    <div class="tl-ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></div>
+    <div><div class="tl-nm">Screenshot</div><div class="tl-sb"><span class="mono">AT0031-04</span></div></div>
+    <div class="tl-prog"><div class="tl-track"><i style="width:100%;background:var(--ok)"></i></div><div class="tl-pl"><span>1 delivered</span><span style="color:var(--ok);font-weight:650">✓ complete</span></div></div>
+    <div class="tl-when">22m ago</div>
+  </div>
+  <div class="tl-group">Yesterday</div>
+  <div class="tlr">
+    <div class="tl-ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></div>
+    <div><div class="tl-nm">Uninstall</div><div class="tl-sb"><span class="mono">com.legacy.launcher</span> · 8 devices</div></div>
+    <div class="tl-prog"><div class="tl-track"><i style="width:75%;background:var(--danger)"></i></div><div class="tl-pl"><span>6 ok · 2 failed</span><span style="color:var(--danger);font-weight:650">needs retry</span></div></div>
+    <div class="tl-when">1d ago</div>
+  </div>
+</div>
+<div class="note"><b>Recommendation:</b> ship <b>Concept 1 (Launchpad)</b> first — it’s the biggest confidence win and reuses existing data. <b>Concept 2 (Mission Control)</b> pairs with it as the post-send view. Recipes &amp; the timeline are lower-effort polish on top.</div>
+
+</div>
+
+<script>
+// ---------- Concept 1: live impact model ----------
+// A small sample fleet so the panel reacts to action + target choices.
+const FLEET=[
+ {sn:'AT0031-01',up:1,bat:82,app:1},{sn:'AT0031-02',up:1,bat:64,app:1},{sn:'AT0031-03',up:0,bat:41,app:1},
+ {sn:'AT0031-04',up:1,bat:8,app:0},{sn:'AT0031-05',up:1,bat:12,app:1},{sn:'AT0031-06',up:0,bat:97,app:1},
+ {sn:'KSK-1120',up:1,bat:55,app:1},{sn:'KSK-1121',up:1,bat:73,app:0},{sn:'KSK-1122',up:0,bat:29,app:1},
+ {sn:'KSK-1123',up:1,bat:88,app:1},{sn:'POS-2201',up:1,bat:4,app:1},{sn:'POS-2202',up:0,bat:60,app:1}];
+const KIOSKS=new Set(['KSK-1120','KSK-1121','KSK-1122','KSK-1123']);
+let ACT='install', TGT='all';
+const ACT_LBL={install:'Install',uninstall:'Uninstall',screenshot:'Screenshot',shell:'Run shell on',reboot:'Reboot'};
+const $=id=>document.getElementById(id);
+
+function targetSet(){
+  if(TGT==='kiosks')return FLEET.filter(d=>KIOSKS.has(d.sn));
+  if(TGT==='one')return [FLEET[0]];
+  return FLEET.slice();
+}
+function renderImpact(){
+  let set=targetSet();
+  // uninstall skips devices without the package
+  let skipped=[];
+  if(ACT==='uninstall'){skipped=set.filter(d=>!d.app);set=set.filter(d=>d.app);}
+  const on=set.filter(d=>d.up).length, off=set.length-on, n=set.length, sk=skipped.length, tot=n+sk;
+  $('imp-n').textContent=n;
+  $('imp-unit').textContent=n===1?'device':'devices';
+  $('imp-sub').textContent = ACT==='screenshot'?'will capture on next check-in':'will receive this action';
+  $('lg-on').textContent=on;$('lg-off').textContent=off;$('lg-skip').textContent=sk;
+  $('lg-skip-wrap').style.display=sk?'':'none';
+  $('seg-on').style.width=(tot?on/tot*100:0)+'%';
+  $('seg-off').style.width=(tot?off/tot*100:0)+'%';
+  $('seg-skip').style.width=(tot?sk/tot*100:0)+'%';
+  // risk warnings
+  let w='';
+  if(ACT==='reboot'){const low=set.filter(d=>d.up&&d.bat<20);if(low.length)w=low.length+' online device'+(low.length>1?'s are':' is')+' under 20% battery — rebooting risks a device that can’t power back up.';}
+  if(ACT==='uninstall'&&sk)w=sk+' targeted device'+(sk>1?'s don’t':' doesn’t')+' report this package — they’ll be skipped automatically.';
+  $('imp-warn').style.display=w?'':'none';$('imp-warn-t').textContent=w;
+  // roll-call
+  const roll=$('imp-roll');roll.innerHTML='';
+  set.concat(skipped.map(d=>({...d,_skip:1}))).slice(0,7).forEach(d=>{
+    const r=document.createElement('div');r.className='rollrow'+(d._skip?' skip':'');
+    r.innerHTML='<i class="st '+(d.up?'up':'down')+'"></i><span class="sn">'+d.sn+'</span><span class="bat">'+(d._skip?'no pkg':d.bat+'%')+'</span>';
+    roll.appendChild(r);
+  });
+  if(set.length+skipped.length>7){const m=document.createElement('div');m.className='rollrow';m.style.color='var(--muted)';m.style.fontSize='11px';m.textContent='+ '+(set.length+skipped.length-7)+' more…';roll.appendChild(m);}
+  // send button + context
+  const verb=ACT_LBL[ACT];
+  $('lp-send-t').textContent=n?verb+' '+n+' device'+(n>1?'s':''):'Nothing to send';
+  $('lp-send-hint').textContent=n?on+' run now · '+off+' queue for when they reconnect · ⌘↵ to send':'Pick a target with matching devices';
+  const tlbl={all:'All devices',kiosks:'Kiosks group',one:'One device'}[TGT];
+  $('lp-ctx').textContent=({install:'Install app',uninstall:'Uninstall',screenshot:'Screenshot',shell:'Shell',reboot:'Reboot'}[ACT])+' → '+tlbl;
+  // payload area swap (light)
+  const p=$('lp-payload');
+  if(ACT==='install')p.innerHTML='<select class="sell"><option>POS Terminal 1.9</option><option>Aioapp Kiosk 2.4.1</option></select>';
+  else if(ACT==='uninstall')p.innerHTML='<select class="sell"><option>com.legacy.launcher</option><option>com.demo.pos</option></select>';
+  else if(ACT==='shell')p.innerHTML='<input class="sell" style="font-family:var(--mono)" value="getprop ro.build.id">';
+  else p.innerHTML='<div style="font-size:12.5px;color:var(--muted)">No payload — '+(ACT==='reboot'?'devices restart on next check-in.':'devices capture on next check-in.')+'</div>';
+}
+$('lp-rail').addEventListener('click',e=>{const it=e.target.closest('.ri');if(!it)return;ACT=it.dataset.act;document.querySelectorAll('#lp-rail .ri').forEach(x=>x.classList.toggle('on',x===it));renderImpact();});
+$('lp-tgt').addEventListener('click',e=>{const p=e.target.closest('.pill');if(!p)return;TGT=p.dataset.tgt;document.querySelectorAll('#lp-tgt .pill').forEach(x=>x.classList.toggle('on',x===p));renderImpact();});
+renderImpact();
+
+// ---------- Concept 2: mission control animation ----------
+const MC=['AT0031-01','AT0031-02','AT0031-03','AT0031-04','AT0031-05','AT0031-06','KSK-1120','KSK-1121','KSK-1122','KSK-1123','POS-2201','POS-2202'];
+const listEl=$('mc-list');
+function buildMC(){listEl.innerHTML='';MC.forEach((sn,i)=>{
+  const r=document.createElement('div');r.className='mcr';r.dataset.i=i;
+  r.innerHTML='<span class="stateico"><span class="tick" style="display:block"><svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:var(--muted);stroke-width:2"><circle cx="12" cy="12" r="9"/></svg></span></span><span class="sn">'+sn+'</span><span class="meta">last seen 2m ago</span><span class="bdg b-wait">queued</span>';
+  listEl.appendChild(r);
+});}
+function setState(i,st){
+  const r=listEl.children[i];if(!r)return;const ico=r.querySelector('.stateico'),b=r.querySelector('.bdg');
+  if(st==='run'){ico.innerHTML='<span class="spin"></span>';b.className='bdg b-run';b.textContent='running';}
+  else if(st==='done'){ico.innerHTML='<svg class="tick" viewBox="0 0 24 24" style="stroke:var(--ok);stroke-width:2.4"><path d="M20 6L9 17l-5-5"/></svg>';b.className='bdg b-done';b.textContent='rebooted';}
+  else if(st==='fail'){ico.innerHTML='<svg class="tick" viewBox="0 0 24 24" style="stroke:var(--danger);stroke-width:2.4"><path d="M18 6 6 18M6 6l12 12"/></svg>';b.className='bdg b-fail';b.textContent='failed';}
+}
+const CIRC=327;
+function ring(pct){$('ring-fg').style.strokeDashoffset=CIRC*(1-pct/100);$('ring-pct').textContent=Math.round(pct)+'%';}
+let mcTimer=null;
+function runMC(){
+  buildMC();ring(0);let done=0,run=0;
+  $('s-done').textContent=0;$('s-run').textContent=0;$('s-wait').textContent=MC.length;$('mc-count').textContent='0 of '+MC.length+' acknowledged';
+  let i=0;
+  clearInterval(mcTimer);
+  mcTimer=setInterval(()=>{
+    if(i<MC.length){setState(i,'run');run++;i++;$('s-run').textContent=run;$('s-wait').textContent=MC.length-i;}
+    // complete an earlier running one
+    const doneable=i-2;
+    if(doneable>=0&&doneable<MC.length){
+      const isFail=(doneable===3); // one failure for realism
+      setState(doneable,isFail?'fail':'done');run=Math.max(0,run-1);done++;
+      $('s-done').textContent=done;$('s-run').textContent=run;
+      ring(done/MC.length*100);$('mc-count').textContent=done+' of '+MC.length+' acknowledged';
+    }
+    if(done>=MC.length){clearInterval(mcTimer);}
+  },420);
+}
+// run when scrolled into view (and replay on re-entry)
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)runMC();}),{threshold:.4});
+io.observe(document.querySelector('.mc'));
+
+// ---------- Concept 4: nudge the live bar ----------
+const io2=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){
+  let p=4;const t=setInterval(()=>{p++;const pct=p/12*100;$('tl-live').style.width=pct+'%';$('tl-live-t').textContent=p+' of 12 done';if(p>=9)clearInterval(t);},600);
+}}),{threshold:.5});
+io2.observe(document.querySelector('.tlr'));
+</script>
+</body></html>
