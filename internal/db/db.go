@@ -2267,6 +2267,35 @@ func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec int) (ma
 	return out, rows.Err()
 }
 
+// GetCommandTargetSerialsBatch resolves target serials for many commands in one
+// query, replacing the per-command N+1 on the Actions and history pages.
+func (d *DB) GetCommandTargetSerialsBatch(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID][]string, error) {
+	out := make(map[uuid.UUID][]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT ct.command_id, d.serial_number
+		FROM command_targets ct
+		JOIN devices d ON d.id = ct.target_id
+		WHERE ct.command_id = ANY($1)
+		ORDER BY d.serial_number
+	`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid uuid.UUID
+		var s string
+		if err := rows.Scan(&cid, &s); err != nil {
+			return nil, err
+		}
+		out[cid] = append(out[cid], s)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) GetCommandTargetSerials(ctx context.Context, commandID uuid.UUID) ([]string, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.serial_number FROM devices d
@@ -2995,7 +3024,7 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]DevicePackage, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT dp.package_name, dp.app_name, dp.version_name,
-		       COALESCE(dp.is_system, ov.package_name IS NOT NULL, false) AS effective_system,
+		       (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL) AS effective_system,
 		       dp.updated_at
 		FROM device_packages dp
 		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
@@ -3019,9 +3048,10 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 }
 
 // notSystemHeuristicSQL further excludes obvious AOSP/vendor system packages from
-// the uninstall picker as a safety net for devices whose client didn't report the
-// is_system flag (it defaults false, so those would otherwise look like user apps).
-// Admins can still fine-tune classification via app_system_overrides.
+// the uninstall picker. Unknown packages (is_system NULL, e.g. an old client that
+// didn't report the flag) already default to system and are treated as
+// non-uninstallable; this name filter is a secondary belt against vendor packages
+// that are somehow reported as user. Admins can still fine-tune via app_system_overrides.
 const notSystemHeuristicSQL = `
 			  AND dp.package_name <> 'android'
 			  AND dp.package_name NOT LIKE 'android.%'
@@ -3047,7 +3077,7 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 			FROM device_packages dp
 			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 			WHERE (dp.package_name ILIKE $1 OR dp.app_name ILIKE $1)
-			  AND NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)` + notSystemHeuristicSQL + `
+			  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)` + notSystemHeuristicSQL + `
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -3061,7 +3091,7 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
 			FROM device_packages dp
 			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
-			WHERE NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)` + notSystemHeuristicSQL + `
+			WHERE NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)` + notSystemHeuristicSQL + `
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -3099,7 +3129,7 @@ func (d *DB) KioskAppsForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]
 		FROM device_packages dp
 		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 		WHERE dp.device_id = ANY($1)
-		  AND NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)
+		  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)
 		GROUP BY dp.package_name
 		ORDER BY device_count DESC, app_name, dp.package_name
 	`, deviceIDs)
