@@ -2380,6 +2380,25 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 }
 
 // MarkCommandsDelivered records that these commands were sent to the device.
+// SetCommandStatusForDevices upserts one command's status for many devices in a
+// single statement — batches the pushCommand delivery/ack writes (previously one
+// query per online target). overwrite=true updates an existing row (ack), false
+// leaves it (delivered). Callers pass already-targeted device IDs.
+func (d *DB) SetCommandStatusForDevices(ctx context.Context, commandID uuid.UUID, deviceIDs []uuid.UUID, status string, overwrite bool) error {
+	if len(deviceIDs) == 0 {
+		return nil
+	}
+	conflict := "DO NOTHING"
+	if overwrite {
+		conflict = "DO UPDATE SET status = EXCLUDED.status, updated_at = NOW()"
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO command_status (command_id, device_id, status, updated_at)
+		SELECT $1, dev, $3, NOW() FROM UNNEST($2::uuid[]) AS dev
+		ON CONFLICT (command_id, device_id) `+conflict, commandID, deviceIDs, status)
+	return err
+}
+
 func (d *DB) MarkCommandsDelivered(ctx context.Context, deviceID uuid.UUID, commandIDs []uuid.UUID) error {
 	for _, cid := range commandIDs {
 		_, err := d.pool.Exec(ctx, `
@@ -2648,6 +2667,33 @@ type LogcatResult struct {
 type LogcatEntry struct {
 	Request LogcatRequest
 	Result  *LogcatResult
+}
+
+// CreateLogcatRequests inserts one logcat request per device in a single
+// statement and returns the created rows (with IDs) so the caller can push each
+// over the WebSocket. Replaces the per-device N+1 in captureLogsForTargets.
+func (d *DB) CreateLogcatRequests(ctx context.Context, deviceIDs []uuid.UUID, level string, lines int, tag string) ([]LogcatRequest, error) {
+	if len(deviceIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		INSERT INTO logcat_requests (device_id, level, lines, tag)
+		SELECT dev, $2, $3, $4 FROM UNNEST($1::uuid[]) AS dev
+		RETURNING id, device_id, level, lines, tag, status, created_at, updated_at
+	`, deviceIDs, level, lines, tag)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []LogcatRequest
+	for rows.Next() {
+		var r LogcatRequest
+		if err := rows.Scan(&r.ID, &r.DeviceID, &r.Level, &r.Lines, &r.Tag, &r.Status, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 func (d *DB) CreateLogcatRequest(ctx context.Context, deviceID uuid.UUID, level string, lines int, tag string) (*LogcatRequest, error) {
@@ -4355,6 +4401,31 @@ func (d *DB) FleetWindowActive(ctx context.Context, aw string) bool {
 		return true // fail open: better a stray notification than a silently dropped alert
 	}
 	return inActiveWindow(time.Now().UTC(), w.TZ, w, aw)
+}
+
+// ListRestaurantServiceWindows returns every restaurant's own service window in one
+// query (restaurants without a row are absent; the caller falls back to the fleet
+// default). Replaces the per-restaurant N+1 on the Settings page.
+func (d *DB) ListRestaurantServiceWindows(ctx context.Context) (map[uuid.UUID]ServiceWindow, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT restaurant_id, open_min, close_min, night_open_min, night_close_min, timezone
+		FROM service_windows WHERE restaurant_id IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]ServiceWindow)
+	for rows.Next() {
+		var id uuid.UUID
+		var w ServiceWindow
+		if err := rows.Scan(&id, &w.OpenMin, &w.CloseMin, &w.NightOpenMin, &w.NightCloseMin, &w.TZ); err != nil {
+			return nil, err
+		}
+		rid := id
+		w.RestaurantID = &rid
+		out[id] = w
+	}
+	return out, rows.Err()
 }
 
 // GetRestaurantServiceWindow returns a restaurant's own service window and whether it has
