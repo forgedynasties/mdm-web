@@ -5494,7 +5494,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	logcatRecent, logcatFrequent, _ := h.db.FleetLogcatSuggestions(r.Context(), 8)
 	productions, _ := h.db.ListProductions(r.Context())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
-	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context())
+	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry())
 
 	// ── Recipes strip: saved presets + a "Re-run last" derived from history ──
 	groupNames := make(map[uuid.UUID]string, len(groups))
