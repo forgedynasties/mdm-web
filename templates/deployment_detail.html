@@ -45,13 +45,13 @@
             <div class="muted small" style="margin-top:6px;">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
           {{end}}
           {{if and (eq .Status "failed") (canOperate $.Role)}}
-            <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" style="display:inline;margin-top:6px;">
+            <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" style="display:inline;margin-top:6px;">
               <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
             </form>
           {{end}}
           {{if and (eq .Status "pending") (canOperate $.Role)}}
-            <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" style="display:inline;margin-top:6px;"
-                  onsubmit="return confirm('Remove {{.SerialNumber}} from this deployment? It will not receive the update.')">
+            <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" style="display:inline;margin-top:6px;"
+                  hx-confirm="Remove {{.SerialNumber}} from this deployment? It will not receive the update.">
               <button type="submit" class="btn-outline btn-sm">Remove</button>
             </form>
           {{end}}
@@ -87,13 +87,13 @@
   <h1 class="ov-title">Deployment #{{$dep.ID}}</h1>
   <span class="acts">
     {{if and (eq $dep.Status "active") (canOperate .Role)}}
-    <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/cancel" method="POST" style="display:inline;"
-          onsubmit="return confirm('Cancel this deployment? Devices that have not started yet will be skipped; devices already updating will finish.')">
+    <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/cancel" method="POST" hx-boost="true" style="display:inline;"
+          hx-confirm="Cancel this deployment? Devices that have not started yet will be skipped; devices already updating will finish.">
       <button type="submit" class="btn-outline">Cancel deployment</button>
     </form>
     {{end}}
-    <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/delete" method="POST" style="display:inline;"
-          onsubmit="return confirm('Delete this deployment record? This will not undo any updates already applied.')">
+    <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/delete" method="POST" hx-boost="true" style="display:inline;"
+          hx-confirm="Delete this deployment record? This will not undo any updates already applied.">
       <button type="submit" class="btn-danger">Delete</button>
     </form>
   </span>
@@ -132,7 +132,7 @@
     <h3>Edit Reboot Settings</h3>
     <span class="muted small">Changes apply to this deployment without updating the Android client.</span>
   </div>
-  <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/settings" method="POST" class="command-form">
+  <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/settings" method="POST" hx-boost="true" class="command-form">
     <div class="form-row">
       <label class="form-label">Reboot After Install</label>
       <div class="seg-control" id="reboot-seg">
@@ -158,7 +158,7 @@
     <h3>Push to more devices</h3>
     <span class="muted small">Add devices or groups to this deployment — they inherit its reboot setting.</span>
   </div>
-  <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/add-targets" method="POST" class="command-form">
+  <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/add-targets" method="POST" hx-boost="true" class="command-form">
     <div class="form-row">
       <label class="form-label">Targets</label>
       <div class="seg-control" id="target-seg">
@@ -224,7 +224,7 @@
   <div id="deployment-targets"
        {{if eq $dep.Status "active"}}
        hx-get="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets"
-       hx-trigger="every 3s"
+       hx-trigger="deployment-updated from:body, every 30s"
        hx-swap="innerHTML"
        {{end}}>
     {{template "deployment-targets" .}}
@@ -237,6 +237,20 @@
 (function () {
   var box = document.getElementById('deployment-targets');
   if (!box) return;
+
+  // Live progress via server push (SSE) instead of constant polling: the server
+  // fires "deployment-update" when OTA progress ticks or anyone acts on the
+  // deployment; we dispatch a body event that the targets div refetches on
+  // (there's a slow 30s poll as a fallback if the stream drops).
+  {{if eq $dep.Status "active"}}
+  if (window.EventSource) {
+    var des = new EventSource('/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/events');
+    des.addEventListener('deployment-update', function () {
+      document.body.dispatchEvent(new CustomEvent('deployment-updated'));
+    });
+    window.addEventListener('beforeunload', function () { des.close(); });
+  }
+  {{end}}
 
   // Skip the swap when the polled HTML is identical to what's on screen — otherwise
   // the table would re-render every 3s (and the browser can mask the server's 304).

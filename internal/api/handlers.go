@@ -315,6 +315,7 @@ func (h *Handler) recordCheckinOtaProgress(deviceID uuid.UUID, req *checkinReque
 		return
 	}
 	h.shell.SetOTAProgress(deviceID, req.OtaProgress.CommandID, req.OtaProgress.Phase, req.OtaProgress.Percent)
+	h.hub.PublishDeploymentUpdate() // live-refresh open deployment pages
 }
 
 func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
@@ -642,6 +643,7 @@ func (h *Handler) HandleWsOtaStatus(deviceID uuid.UUID, raw []byte) {
 		h.afterOtaTerminal(ctx, deviceID, body.Status, body.ErrorCode)
 	}
 	h.hub.PublishDeviceUpdate(deviceID)
+	h.hub.PublishDeploymentUpdate() // OTA status changed → refresh deployment pages
 }
 
 // HandleWsTelemetry processes a "telemetry" message sent by a device over the
@@ -1099,6 +1101,7 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.hub.PublishDeviceUpdate(device.ID)
+	h.hub.PublishDeploymentUpdate() // OTA status changed → refresh deployment pages
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
