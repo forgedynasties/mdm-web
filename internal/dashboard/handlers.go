@@ -5466,28 +5466,12 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Pagination
+	// Pagination applies only to the "Completed" bucket below — the actionable
+	// buckets (Needs attention / In progress) are always shown in full.
 	const pageSize = 25
-	total := len(cmds)
-	totalPages := (total + pageSize - 1) / pageSize
-	if totalPages < 1 {
-		totalPages = 1
-	}
 	page := 1
 	if p, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("page"))); err == nil && p > 0 {
 		page = p
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-	start := (page - 1) * pageSize
-	end := start + pageSize
-	if end > total {
-		end = total
-	}
-	pagedCmds := cmds
-	if total > 0 {
-		pagedCmds = cmds[start:end]
 	}
 
 	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
@@ -5599,47 +5583,64 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// ── Triage buckets (Option D): classify every command by its delivery
+	// summary. Needs-attention (has failures) and In-progress (still in flight)
+	// are always shown in full; Completed is paginated. Expiry is already applied
+	// in the summary, so a stuck "pending" becomes failed → surfaces in attention
+	// rather than sitting in-progress forever.
+	var attn, prog, doneAll []db.Command
+	for _, c := range cmds {
+		s := summaries[c.ID]
+		switch {
+		case s.Failed > 0:
+			attn = append(attn, c)
+		case s.Pending > 0 || s.Delivered > 0:
+			prog = append(prog, c)
+		default:
+			doneAll = append(doneAll, c)
+		}
+	}
+
+	// Paginate only the Completed bucket.
+	doneTotal := len(doneAll)
+	totalPages := (doneTotal + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * pageSize
+	end := start + pageSize
+	if end > doneTotal {
+		end = doneTotal
+	}
+	var donePage []db.Command
+	if doneTotal > 0 {
+		donePage = doneAll[start:end]
+	}
+
+	// Serial lookups only for the commands actually rendered this request.
 	targetSerials := make(map[uuid.UUID][]string)
-	for _, c := range pagedCmds {
-		if c.TargetType == "devices" {
-			if s, err := h.db.GetCommandTargetSerials(r.Context(), c.ID); err == nil {
-				targetSerials[c.ID] = s
+	for _, set := range [][]db.Command{attn, prog, donePage} {
+		for _, c := range set {
+			if c.TargetType == "devices" {
+				if s, err := h.db.GetCommandTargetSerials(r.Context(), c.ID); err == nil {
+					targetSerials[c.ID] = s
+				}
 			}
 		}
-	}
-	// Group the page's commands into day buckets for the timeline history.
-	bucketLabel := func(t time.Time) string {
-		t = t.Local()
-		n := time.Now()
-		y, m, d := t.Date()
-		ny, nm, nd := n.Date()
-		if y == ny && m == nm && d == nd {
-			return "Today"
-		}
-		yd := n.AddDate(0, 0, -1)
-		yy, ym, ydd := yd.Date()
-		if y == yy && m == ym && d == ydd {
-			return "Yesterday"
-		}
-		return t.Format("Jan 2, 2006")
-	}
-	type cmdDayGroup struct {
-		Label    string
-		Commands []db.Command
-	}
-	var cmdGroups []cmdDayGroup
-	for _, c := range pagedCmds {
-		lbl := bucketLabel(c.CreatedAt)
-		if len(cmdGroups) == 0 || cmdGroups[len(cmdGroups)-1].Label != lbl {
-			cmdGroups = append(cmdGroups, cmdDayGroup{Label: lbl})
-		}
-		cmdGroups[len(cmdGroups)-1].Commands = append(cmdGroups[len(cmdGroups)-1].Commands, c)
 	}
 
 	h.render(w, r, "commands.html", map[string]any{
 		"Title":          "Commands",
-		"Commands":       pagedCmds,
-		"CommandGroups":  cmdGroups,
+		"Commands":       cmds,
+		"Attention":      attn,
+		"InProgress":     prog,
+		"Completed":      donePage,
+		"AttnCount":      len(attn),
+		"ProgCount":      len(prog),
+		"DoneCount":      doneTotal,
 		"Groups":         groups,
 		"Productions":    productions,
 		"Builds":         builds,
@@ -5655,7 +5656,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Prefill":        prefill,
 		"Page":           page,
 		"PageSize":       pageSize,
-		"Total":          total,
+		"Total":          len(cmds),
 		"TotalPages":     totalPages,
 	})
 }
