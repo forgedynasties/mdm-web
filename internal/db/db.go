@@ -2159,9 +2159,14 @@ type CommandDeliverySummary struct {
 	Failed    int
 }
 
+// GetCommandDeliverySummaries returns per-command status rollups for the history
+// list. It aggregates the real per-device status table (command_status) — the
+// same source GetCommandDeliveries reads — mapping the status vocabulary onto the
+// four summary buckets. (A device with no status row yet isn't counted here; the
+// command detail page is the authoritative per-device view including those.)
 func (d *DB) GetCommandDeliverySummaries(ctx context.Context) (map[uuid.UUID]CommandDeliverySummary, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT command_id, status, COUNT(*) FROM command_deliveries GROUP BY command_id, status
+		SELECT command_id, status, COUNT(*) FROM command_status GROUP BY command_id, status
 	`)
 	if err != nil {
 		return nil, err
@@ -2179,13 +2184,13 @@ func (d *DB) GetCommandDeliverySummaries(ctx context.Context) (map[uuid.UUID]Com
 		s.CommandID = cid
 		switch status {
 		case "pending":
-			s.Pending = count
+			s.Pending += count
 		case "delivered":
-			s.Delivered = count
-		case "completed":
-			s.Completed = count
-		case "failed":
-			s.Failed = count
+			s.Delivered += count
+		case "installed", "completed":
+			s.Completed += count
+		case "failed", "expired":
+			s.Failed += count
 		}
 		out[cid] = s
 	}
