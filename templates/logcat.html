@@ -68,7 +68,7 @@ function lcFill(level, lines, tag) {
 <script>
 (function () {
   if (!window.EventSource) return;
-  var es = new EventSource('/devices/{{.Device.SerialNumber}}/logcat/events');
+  var es = window.mdmStream('/devices/{{.Device.SerialNumber}}/logcat/events');
   es.addEventListener('logcat-update', function () {
     var panel = document.getElementById('logcat-entries');
     if (panel) htmx.trigger(panel, 'logcat-refresh');
@@ -84,7 +84,7 @@ function lcFill(level, lines, tag) {
 <div id="logcat-entries"
   data-poll-trigger="every 15s"
   data-can-poll="{{if .HasPending}}true{{else}}false{{end}}"
-  hx-get="/devices/{{.Device.SerialNumber}}/logcat/entries"
+  hx-get="/devices/{{.Device.SerialNumber}}/logcat/entries" hx-select="unset" hx-target="this"
   hx-trigger="logcat-refresh{{if .HasPending}}, every 15s{{end}}"
   hx-swap="outerHTML">
 

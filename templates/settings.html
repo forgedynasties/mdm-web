@@ -350,7 +350,7 @@
       <form action="/settings/alert-channels/{{.ID}}/test" method="POST" style="display:inline;">
         <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 12px;">Test</button>
       </form>
-      <form action="/settings/alert-channels/{{.ID}}/delete" method="POST" style="display:inline;" onsubmit="return confirm('Delete this channel?')">
+      <form action="/settings/alert-channels/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete this channel?">
         <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 12px;">Delete</button>
       </form>
     </div>
@@ -465,7 +465,7 @@
       <strong>Log out all sessions</strong>
       <div class="muted small">Immediately sign out every user on every device, including you.</div>
     </div>
-    <form action="/settings/logout-all" method="POST" onsubmit="return confirm('Log out all sessions now? You will need to sign in again.')">
+    <form action="/settings/logout-all" method="POST" hx-boost="false" onsubmit="return confirm('Log out all sessions now? You will need to sign in again.')">
       <button type="submit" class="btn-danger-sm">Log out all</button>
     </form>
   </div>

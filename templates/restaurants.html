@@ -49,7 +49,7 @@
     </div>
     {{if canAdminOrTester $.Role}}
     <form action="/restaurants/{{.ID}}/delete" method="POST" class="gp-del"
-          onsubmit="return confirm('Delete restaurant {{.Name}}? Its devices become unassigned (lab).')">
+          hx-confirm="Delete restaurant {{.Name}}? Its devices become unassigned (lab).">
       <button type="submit" class="btn-danger-sm" title="Delete restaurant">x</button>
     </form>
     {{end}}

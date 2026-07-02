@@ -59,7 +59,7 @@
     setRunning(false);
   }
   function stream(id) {
-    es = new EventSource('/commands/' + id + '/output/' + encodeURIComponent(serial) + '/stream');
+    es = window.mdmStream('/commands/' + id + '/output/' + encodeURIComponent(serial) + '/stream');
     es.onmessage = function (e) { append(JSON.parse(e.data)); };
     es.addEventListener('done', function () { append('\n'); finish(); });
     es.onerror = function () { finish(); };
