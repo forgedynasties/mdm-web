@@ -17,6 +17,34 @@
     <h3>Delivery Status</h3>
     <span class="muted small">{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{if $hasPending}} · waiting…{{if gt $offlinePending 0}} ({{$offlinePending}} offline){{end}}{{end}}</span>
   </div>
+
+  {{if gt .Stats.Total 0}}
+  <div class="mc-head">
+    <div class="mc-ring{{if $hasPending}} live{{end}}">
+      <svg viewBox="0 0 120 120">
+        <circle class="mc-bg" cx="60" cy="60" r="52"></circle>
+        <circle class="mc-fg{{if gt .Stats.Failed 0}} warn{{end}}" cx="60" cy="60" r="52" stroke-dasharray="327" stroke-dashoffset="{{ringDash .Stats.Done .Stats.Total}}"></circle>
+      </svg>
+      <div class="mc-rt"><b>{{.Stats.Pct}}%</b><span>delivered</span></div>
+    </div>
+    <div class="mc-info">
+      <div class="mc-stats">
+        <span class="mc-stat ok"><b>{{.Stats.Done}}</b> done</span>
+        <span class="mc-stat run"><b>{{.Stats.Pending}}</b> in flight</span>
+        {{if gt .Stats.Failed 0}}<span class="mc-stat fail"><b>{{.Stats.Failed}}</b> failed</span>{{end}}
+      </div>
+      <div class="mc-meta">
+        {{.Stats.Done}} of {{.Stats.Total}} device{{if ne .Stats.Total 1}}s{{end}} acknowledged{{if gt .Stats.Offline 0}} · <span class="mc-off">{{.Stats.Offline}} offline, will receive on reconnect</span>{{end}}
+      </div>
+      {{if and $.CanResend (gt .Stats.Failed 0)}}
+      <form action="/commands/{{$cmd.ID}}/resend" method="POST" style="margin-top:12px;">
+        <button type="submit" class="btn-outline mc-retry"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Retry all targets</button>
+      </form>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+
   <table class="table">
     <thead>
       <tr>
@@ -102,6 +130,31 @@
 
 {{define "command_detail.html"}}
 {{template "header" .}}
+
+<style>
+/* Mission Control — the delivery-progress rollup at the top of the deliveries card. */
+.mc-head{display:flex;align-items:center;gap:26px;padding:20px 22px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap;}
+.mc-ring{position:relative;width:120px;height:120px;flex:none;}
+.mc-ring svg{width:120px;height:120px;transform:rotate(-90deg);}
+.mc-ring circle{fill:none;stroke-width:12;}
+.mc-ring .mc-bg{stroke:var(--surface-3);}
+.mc-ring .mc-fg{stroke:var(--ok);stroke-linecap:round;transition:stroke-dashoffset .6s ease;}
+.mc-ring .mc-fg.warn{stroke:var(--warn);}
+.mc-ring.live .mc-fg{stroke:var(--accent-2);}
+.mc-rt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.mc-rt b{font-size:24px;font-weight:750;letter-spacing:-.02em;}
+.mc-rt span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+.mc-info{min-width:0;}
+.mc-stats{display:flex;gap:8px;flex-wrap:wrap;}
+.mc-stat{border:1px solid var(--border);border-radius:9px;padding:7px 12px;font-size:12px;color:var(--muted);}
+.mc-stat b{font-size:16px;font-weight:700;margin-right:4px;color:var(--text);}
+.mc-stat.ok b{color:var(--ok);}
+.mc-stat.run b{color:var(--accent-2);}
+.mc-stat.fail b{color:var(--danger);}
+.mc-meta{font-size:12.5px;color:var(--muted);margin-top:12px;}
+.mc-off{color:var(--warn);}
+.mc-retry{display:inline-flex;align-items:center;gap:7px;}
+</style>
 
 {{if .From}}<a href="{{.From}}" class="back-link">← Back to device</a>{{else}}<a href="/commands" class="back-link">← Actions</a>{{end}}
 <div class="ov-greet">
