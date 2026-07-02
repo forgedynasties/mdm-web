@@ -105,6 +105,7 @@
         {{template "ai-report-card" .}}
       {{end}}
 
+      {{if canOperate .Role}}
       <div class="ovx-sec"><h2>Quick actions</h2></div>
       <div class="ovx-qa">
         <a class="ovx-qact" href="/commands">
@@ -120,6 +121,7 @@
           <span class="qi i-blue"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span>
           <span class="qt">Fleet health</span><span class="qd">per-group scores &amp; evidence</span></a>
       </div>
+      {{end}}
 
     </div>
 
