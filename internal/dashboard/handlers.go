@@ -4727,7 +4727,6 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	packages, _ := h.db.ListPackagesByRelease(r.Context(), id)
 	qfilPackages, _ := h.db.ListQFILPackagesByRelease(r.Context(), id)
 	deployments, _ := h.db.ListDeploymentsByRelease(r.Context(), id)
-	devices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
 	groups, _ := h.db.ListGroups(r.Context())
 	// Adoption: which devices are currently on this version (the artifact's real-world reach).
 	// Full device rows so the roster renders with the same fleet card as /devices.
@@ -4753,24 +4752,28 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Mirror the resolver's eligibility in the Push Update device list: a full
-	// image can go to any device, but an incremental only reaches devices whose
-	// current build matches its source_build_id. Without a full image, hide
-	// devices that wouldn't receive anything (e.g. a 1.96→1.97 incremental only
-	// lists devices currently on 1.96).
-	if !hasFull {
-		eligible := devices[:0]
-		for _, d := range devices {
-			if sourceBuilds[d.BuildID] {
-				eligible = append(eligible, d)
+	role := h.role(r)
+	canOp := role == "admin" || role == "dev" || role == "operator" || role == "tester"
+
+	// The Push Update device picker only renders for an operator on a pushable
+	// release — skip the full-fleet (10k) load otherwise. When incremental-only,
+	// mirror the resolver's eligibility: only devices on a matching source build.
+	var devices []db.Device
+	if canOp && canPush {
+		devices, _ = h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
+		if !hasFull {
+			eligible := devices[:0]
+			for _, d := range devices {
+				if sourceBuilds[d.BuildID] {
+					eligible = append(eligible, d)
+				}
 			}
+			devices = eligible
 		}
-		devices = eligible
 	}
 
 	checklist, _ := h.db.GetReleaseChecklist(r.Context(), id)
 	qa, _ := h.db.ReleaseQASummary(r.Context(), id)
-	role := h.role(r)
 
 	connected := h.hub.ConnectedIDs()
 	online := make(map[uuid.UUID]bool, len(connected))
@@ -5169,6 +5172,19 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// poll re-renders the table on every tick and the section visibly flickers.
 	if r.URL.Query().Get("partial") == "targets" {
 		h.renderCachedHTML(w, r, "deployment-targets", h.withRole(r, data))
+		return
+	}
+
+	// The "add targets" picker only renders for operators on a non-canceled
+	// deployment (see template) — skip the expensive full-fleet load otherwise so
+	// viewers and canceled/finished deployments don't pay for a list they can't use.
+	role := h.role(r)
+	canOp := role == "admin" || role == "dev" || role == "operator" || role == "tester"
+	if !canOp || upd.Status == "canceled" {
+		data["Devices"] = nil
+		data["Online"] = map[uuid.UUID]bool{}
+		data["Groups"] = nil
+		h.render(w, r, "deployment_detail.html", data)
 		return
 	}
 
@@ -6993,10 +7009,14 @@ func (h *Handler) buildServiceWindowViews(ctx context.Context) (serviceWindowVie
 	fleet, _ := h.db.GetFleetServiceWindow(ctx)
 	fleetView := windowView("", "", fleet, true)
 	restaurants, _ := h.db.ListRestaurants(ctx)
+	windows, _ := h.db.ListRestaurantServiceWindows(ctx) // one query, not one per restaurant
 	var out []serviceWindowView
 	for _, rest := range restaurants {
-		w, ok, _ := h.db.GetRestaurantServiceWindow(ctx, rest.ID)
-		out = append(out, windowView(rest.ID.String(), rest.Name, w, ok))
+		if w, ok := windows[rest.ID]; ok {
+			out = append(out, windowView(rest.ID.String(), rest.Name, w, true))
+		} else {
+			out = append(out, windowView(rest.ID.String(), rest.Name, fleet, false))
+		}
 	}
 	return fleetView, out
 }
@@ -7771,15 +7791,11 @@ func (h *Handler) captureLogsForTargets(w http.ResponseWriter, r *http.Request, 
 		http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(deviceIDs), max), http.StatusBadRequest)
 		return
 	}
-	n := 0
-	for _, did := range deviceIDs {
-		req, err := h.db.CreateLogcatRequest(r.Context(), did, level, lines, tag)
-		if err != nil {
-			continue
-		}
-		h.pushLogcatRequest(r.Context(), req)
-		n++
+	reqs, _ := h.db.CreateLogcatRequests(r.Context(), deviceIDs, level, lines, tag) // one insert
+	for i := range reqs {
+		h.pushLogcatRequest(r.Context(), &reqs[i])
 	}
+	n := len(reqs)
 	h.audit(r, "logcat.capture", fmt.Sprintf("level=%s lines=%d tag=%s", level, lines, tag), fmt.Sprintf("target=%s, devices=%d", targetType, n))
 	http.Redirect(w, r, "/logs", http.StatusFound)
 }
@@ -8615,15 +8631,17 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 		targetIDs = ids
 	}
 
+	var pushed []uuid.UUID
 	for _, deviceID := range targetIDs {
-		if !h.hub.Push(deviceID, msg) {
-			continue
+		if h.hub.Push(deviceID, msg) {
+			pushed = append(pushed, deviceID)
 		}
-		if cmd.Type == "reboot" {
-			_ = h.db.AckCommand(ctx, cmd.ID, deviceID, "completed")
-		} else {
-			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
-		}
+	}
+	// One batched status write for all online targets (was a query per device).
+	if cmd.Type == "reboot" {
+		_ = h.db.SetCommandStatusForDevices(ctx, cmd.ID, pushed, "completed", true)
+	} else {
+		_ = h.db.SetCommandStatusForDevices(ctx, cmd.ID, pushed, "delivered", false)
 	}
 	// Surface the new delivery/ack state on the command detail page in real time
 	// instead of waiting for its 30s polling fallback.
