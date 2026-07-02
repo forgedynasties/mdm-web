@@ -12,6 +12,18 @@
 .cr-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
 .cr-head h3{margin:0;font-size:15px;font-weight:650;}
 .cr-head .ctx{font-size:12px;color:var(--muted);}
+/* Read-only builder (viewers): the pane is shown so they can see what's possible,
+   but every control is inert and clearly labelled. */
+.ro-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 11px;}
+.ro-badge svg{stroke:var(--muted);flex:none;}
+.cmd-rail3.is-readonly .cr-rail,
+.cmd-rail3.is-readonly .cr-config{pointer-events:none;}
+.cmd-rail3.is-readonly .cr-config{opacity:.92;}
+.cmd-rail3.is-readonly .form-input,
+.cmd-rail3.is-readonly .form-textarea,
+.cmd-rail3.is-readonly select,
+.cmd-rail3.is-readonly .target-pill{background:var(--surface2);cursor:default;}
+.ro-note{font-size:12px;color:var(--muted);flex:1;}
 @media (max-width:1180px){.cmd-rail3{grid-template-columns:212px 1fr;}.cr-impact{grid-column:1/-1;border-top:1px solid var(--border-soft);}}
 @media (max-width:980px){.cmd-rail3{grid-template-columns:1fr;}}
 
@@ -163,13 +175,15 @@
     <button type="button" class="recipe add" onclick="openRecipeModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Save current as recipe</button>
   </div>
 </div>
+{{end}}
 
-<form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data">
-  <div class="cmd-rail3 dv-rise-1">
+<form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
+  <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
 
     <div class="cr-head">
       <h3>New action</h3>
-      <span class="ctx" id="cmd-ctx"></span>
+      {{if canOperate .Role}}<span class="ctx" id="cmd-ctx"></span>
+      {{else}}<span class="ro-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>View only</span>{{end}}
     </div>
 
     <!-- LEFT · action rail (grouped: Apps · Diagnostics · Power · Customization) -->
@@ -414,11 +428,19 @@
         </div>
 
       <div class="cr-foot">
+        {{if canOperate .Role}}
         <div id="rv-warn" class="review-warn" style="display:none;"></div>
         <button type="submit" id="send-btn" class="btn-primary cr-send">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
           <span id="send-label">Send action</span>
         </button>
+        {{else}}
+        <div class="ro-note">You have view-only access — ask an operator or admin to send actions.</div>
+        <button type="button" class="btn-primary cr-send" disabled>
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          Send action
+        </button>
+        {{end}}
       </div>
 
     </div><!-- /.cr-config -->
@@ -432,7 +454,6 @@
 
   </div>
 </form>
-{{end}}
 
 <div class="card" id="history">
   <div class="card-header">

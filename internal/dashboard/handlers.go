@@ -360,11 +360,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canAdminOrTester": func(role string) bool {
 			return role == "admin" || role == "dev" || role == "tester"
 		},
-		// canAct reports whether a role may reach the Actions builder at all
-		// (admin/dev fully; operator/tester for the action types allowed to them).
-		// Viewers cannot, so the Actions dock item is hidden for them.
+		// canAct gates only the Actions dock link. Every authenticated role may
+		// open the Actions page — viewers see it read-only (the builder, recipes,
+		// resend and delete controls are all separately gated by canOperate /
+		// canAdmin, so a viewer sees history but no way to act).
 		"canAct": func(role string) bool {
-			return role == "admin" || role == "dev" || role == "operator" || role == "tester"
+			return role == "admin" || role == "dev" || role == "operator" || role == "tester" || role == "viewer"
 		},
 		// canOperate reports operator-level UI power: operators and testers both
 		// have it, plus admin/dev. Mirrors requireOperatorOrAdmin on the server so
