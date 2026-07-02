@@ -246,6 +246,22 @@
   </main>
 {{if not .Boosted}}
   <script>
+  // Keep the dock's active highlight in sync after a boosted (main-only) swap:
+  // the dock lives outside <main>, so it isn't re-rendered on navigation.
+  function mdmSyncDockActive() {
+    var p = location.pathname;
+    document.querySelectorAll('.dock .nav-link').forEach(function (a) {
+      var h = a.getAttribute('href'), on;
+      if (h === '/') on = (p === '/');
+      else if (h === '/devices') on = /^\/(devices|groups|restaurants)(\/|$)/.test(p);
+      else on = (p === h || p.indexOf(h + '/') === 0);
+      a.classList.toggle('active', on);
+    });
+  }
+  document.body.addEventListener('htmx:pushedIntoHistory', mdmSyncDockActive);
+  document.body.addEventListener('htmx:historyRestore', mdmSyncDockActive);
+  window.addEventListener('popstate', function () { setTimeout(mdmSyncDockActive, 0); });
+
   // Theme toggle: flip html[data-theme], persist, and notify listeners
   // (e.g. charts) so they can recolor without a reload.
   function toggleTheme() {
