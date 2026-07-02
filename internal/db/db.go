@@ -1906,6 +1906,45 @@ func (d *DB) GetAllDeviceIDs(ctx context.Context) ([]uuid.UUID, error) {
 	return ids, rows.Err()
 }
 
+// GetDevicesByIDs fetches the serial, battery and last-seen for a set of device
+// IDs (active devices only). Powers the Actions builder's impact preview, which
+// summarises the resolved target set (online/offline split, low-battery risk).
+func (d *DB) GetDevicesByIDs(ctx context.Context, ids []uuid.UUID) ([]Device, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, serial_number, COALESCE(build_id,''), last_seen_at, COALESCE(latest_battery_pct,0)
+		FROM devices WHERE id = ANY($1) AND NOT hidden`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Device
+	for rows.Next() {
+		var dev Device
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.BatteryPct); err != nil {
+			return nil, err
+		}
+		out = append(out, dev)
+	}
+	return out, rows.Err()
+}
+
+// CountDevicesWithPackage reports how many of the given devices currently report
+// the named package installed. Used by the impact preview for Uninstall, which is
+// a no-op on devices that don't have the package.
+func (d *DB) CountDevicesWithPackage(ctx context.Context, ids []uuid.UUID, pkg string) (int, error) {
+	if len(ids) == 0 || pkg == "" {
+		return 0, nil
+	}
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(DISTINCT device_id) FROM device_packages
+		WHERE device_id = ANY($1) AND package_name = $2`, ids, pkg).Scan(&n)
+	return n, err
+}
+
 // GetDeviceIDsInGroups expands a set of group IDs into the distinct device IDs that
 // belong to any of them. Used to target ad-hoc actions (e.g. a fleet log capture)
 // at whole groups while operating on concrete devices.
@@ -1927,6 +1966,68 @@ func (d *DB) GetDeviceIDsInGroups(ctx context.Context, groupIDs []uuid.UUID) ([]
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+// ── Command recipes ─────────────────────────────────────────────────────────────
+
+// Recipe is a saved action preset the Actions builder can replay in one click.
+type Recipe struct {
+	ID            uuid.UUID       `json:"id"`
+	Name          string          `json:"name"`
+	Type          string          `json:"type"`
+	ApkURL        string          `json:"apk_url"`
+	Payload       json.RawMessage `json:"payload"`
+	TargetType    string          `json:"target_type"`
+	TargetSerials []string        `json:"target_serials"`
+	TargetGroups  []uuid.UUID     `json:"target_groups"`
+	CreatedBy     string          `json:"created_by"`
+	CreatedAt     time.Time       `json:"created_at"`
+}
+
+func (d *DB) CreateRecipe(ctx context.Context, rec Recipe) (*Recipe, error) {
+	if rec.Payload == nil {
+		rec.Payload = json.RawMessage("{}")
+	}
+	if rec.TargetSerials == nil {
+		rec.TargetSerials = []string{}
+	}
+	if rec.TargetGroups == nil {
+		rec.TargetGroups = []uuid.UUID{}
+	}
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO command_recipes (name, type, apk_url, payload, target_type, target_serials, target_groups, created_by)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+		RETURNING id, created_at`,
+		rec.Name, rec.Type, rec.ApkURL, rec.Payload, rec.TargetType, rec.TargetSerials, rec.TargetGroups, rec.CreatedBy,
+	).Scan(&rec.ID, &rec.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
+}
+
+func (d *DB) ListRecipes(ctx context.Context) ([]Recipe, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, name, type, apk_url, payload, target_type, target_serials, target_groups, created_by, created_at
+		FROM command_recipes ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Recipe
+	for rows.Next() {
+		var rec Recipe
+		if err := rows.Scan(&rec.ID, &rec.Name, &rec.Type, &rec.ApkURL, &rec.Payload, &rec.TargetType, &rec.TargetSerials, &rec.TargetGroups, &rec.CreatedBy, &rec.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, rec)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) DeleteRecipe(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM command_recipes WHERE id = $1`, id)
+	return err
 }
 
 // ── Commands ──────────────────────────────────────────────────────────────────
@@ -5533,6 +5634,23 @@ CREATE TABLE IF NOT EXISTS qfil_packages (
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_qfil_packages_release ON qfil_packages(release_id);
+
+-- Command recipes: saved action presets (type + payload + target) that the
+-- Actions builder can replay in one click. target_serials / target_groups
+-- snapshot the intended target so a recipe survives group/device churn as a
+-- best-effort prefill (unknown serials are simply dropped when applied).
+CREATE TABLE IF NOT EXISTS command_recipes (
+    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name           TEXT NOT NULL,
+    type           TEXT NOT NULL,
+    apk_url        TEXT NOT NULL DEFAULT '',
+    payload        JSONB NOT NULL DEFAULT '{}',
+    target_type    TEXT NOT NULL DEFAULT 'all',
+    target_serials TEXT[] NOT NULL DEFAULT '{}',
+    target_groups  UUID[] NOT NULL DEFAULT '{}',
+    created_by     TEXT NOT NULL DEFAULT '',
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

@@ -327,6 +327,30 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	funcMap := template.FuncMap{
 		// atoi parses a string to int (0 on failure) for arithmetic in templates.
 		"atoi": atoi,
+		// pct returns done/total as an integer percentage (0-100), for progress bars.
+		"pct": func(done, total int) int {
+			if total <= 0 {
+				return 0
+			}
+			p := done * 100 / total
+			if p > 100 {
+				return 100
+			}
+			return p
+		},
+		// ringDash returns the stroke-dashoffset for a progress ring of radius 52
+		// (circumference ≈ 327), so done/total fills the arc. Powers Mission Control.
+		"ringDash": func(done, total int) int {
+			const c = 327
+			if total <= 0 {
+				return c
+			}
+			off := c - c*done/total
+			if off < 0 {
+				off = 0
+			}
+			return off
+		},
 		// canAdmin reports whether a role has operational admin power in the UI:
 		// both "admin" and "dev" do. Used to gate operational buttons/links;
 		// settings and user-management UI stay on a literal `eq .Role "admin"`.
@@ -455,22 +479,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return "muted"
 			}
 		},
-		"cmdLabel": func(cmdType string) string {
-			switch cmdType {
-			case "install_apk":
-				return "Install APK"
-			case "shell":
-				return "Shell"
-			case "screenshot":
-				return "Screenshot"
-			case "reboot":
-				return "Reboot"
-			case "ota":
-				return "OTA Update"
-			default:
-				return cmdType
-			}
-		},
+		"cmdLabel": cmdTypeLabel,
 		"cmdDetail": func(cmd db.Command) string {
 			if cmd.ApkURL != "" {
 				return cmd.ApkURL
@@ -3293,7 +3302,6 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 	})
 }
 
-
 // ── Groups ────────────────────────────────────────────────────────────────────
 
 func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
@@ -4246,7 +4254,7 @@ type versionRow struct {
 	QA           db.QASummary // QA/test status; zero value (Total 0) when not tracked
 	SignedOffBy  string       // dev who signed off ("" = not signed off)
 	SignedOffAt  *time.Time
-	QfilURL      string       // newest active QFIL flashing bundle URL ("" = none set)
+	QfilURL      string // newest active QFIL flashing bundle URL ("" = none set)
 }
 
 // latestQfilURL returns the newest active QFIL bundle URL for a release, or ""
@@ -4694,17 +4702,17 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "release_detail.html", map[string]any{
-		"Title":            "Release " + rel.Version,
-		"Release":          rel,
-		"Packages":         packages,
-		"QFILPackages":     qfilPackages,
-		"CanManageQFIL":    role == "admin" || role == "dev",
-		"Deployments":      deployments,
-		"Devices":          devices,
-		"Online":           online,
-		"Groups":           groups,
-		"HasFull":          hasFull,
-		"CanPush":          canPush,
+		"Title":               "Release " + rel.Version,
+		"Release":             rel,
+		"Packages":            packages,
+		"QFILPackages":        qfilPackages,
+		"CanManageQFIL":       role == "admin" || role == "dev",
+		"Deployments":         deployments,
+		"Devices":             devices,
+		"Online":              online,
+		"Groups":              groups,
+		"HasFull":             hasFull,
+		"CanPush":             canPush,
 		"DevicesOnVersion":    devicesOnVersion,
 		"ActiveThresholdSecs": activeThreshold,
 		"Checklist":           checklist,
@@ -5487,6 +5495,110 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	productions, _ := h.db.ListProductions(r.Context())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context())
+
+	// ── Recipes strip: saved presets + a "Re-run last" derived from history ──
+	groupNames := make(map[uuid.UUID]string, len(groups))
+	for _, g := range groups {
+		groupNames[g.ID] = g.Name
+	}
+	// recipeView carries a recipe plus the JSON the builder's prefill path consumes
+	// and a human target summary for the card.
+	type recipeView struct {
+		ID        uuid.UUID
+		Name      string
+		Type      string
+		Label     string
+		Summary   string
+		Prefill   template.JS
+		Deletable bool
+	}
+	buildPrefillJSON := func(cmdType, apkURL string, payload json.RawMessage, targetType string, serials []string, groupIDs []uuid.UUID) template.JS {
+		pf := map[string]any{"type": cmdType, "target": targetType}
+		if apkURL != "" {
+			pf["apk_url"] = apkURL
+		}
+		switch cmdType {
+		case "shell":
+			var p struct {
+				Cmd string `json:"cmd"`
+			}
+			_ = json.Unmarshal(payload, &p)
+			pf["shell_cmd"] = p.Cmd
+		case "uninstall":
+			var p struct {
+				Package string `json:"package"`
+			}
+			_ = json.Unmarshal(payload, &p)
+			pf["package"] = p.Package
+		}
+		if len(serials) > 0 {
+			pf["serials"] = serials
+		}
+		if len(groupIDs) > 0 {
+			gs := make([]string, len(groupIDs))
+			for i, g := range groupIDs {
+				gs[i] = g.String()
+			}
+			pf["groups"] = gs
+		}
+		b, _ := json.Marshal(pf)
+		return template.JS(b)
+	}
+	targetSummary := func(targetType string, serials []string, groupIDs []uuid.UUID) string {
+		switch targetType {
+		case "devices":
+			if len(serials) == 1 {
+				return serials[0]
+			}
+			return fmt.Sprintf("%d devices", len(serials))
+		case "groups":
+			if len(groupIDs) == 1 {
+				if n, ok := groupNames[groupIDs[0]]; ok {
+					return n
+				}
+			}
+			return fmt.Sprintf("%d groups", len(groupIDs))
+		default:
+			return "All devices"
+		}
+	}
+
+	var recipes []recipeView
+	// "Re-run last" from the most recent command in history.
+	if len(cmds) > 0 {
+		last := cmds[0]
+		var serials []string
+		var gids []uuid.UUID
+		if last.TargetType == "devices" {
+			serials, _ = h.db.GetCommandTargetSerials(r.Context(), last.ID)
+		} else if last.TargetType == "groups" {
+			gids, _ = h.db.GetCommandTargetIDs(r.Context(), last.ID)
+		}
+		recipes = append(recipes, recipeView{
+			Name:    "Re-run last",
+			Type:    last.Type,
+			Label:   cmdTypeLabel(last.Type),
+			Summary: cmdTypeLabel(last.Type) + " → " + targetSummary(last.TargetType, serials, gids),
+			Prefill: buildPrefillJSON(last.Type, last.ApkURL, last.Payload, last.TargetType, serials, gids),
+		})
+	}
+	saved, _ := h.db.ListRecipes(r.Context())
+	for _, rec := range saved {
+		// Skip recipes the current role can't issue.
+		if !h.commandTypeAllowed(h.role(r), rec.Type) {
+			continue
+		}
+		recipes = append(recipes, recipeView{
+			ID:        rec.ID,
+			Name:      rec.Name,
+			Type:      rec.Type,
+			Label:     cmdTypeLabel(rec.Type),
+			Summary:   cmdTypeLabel(rec.Type) + " → " + targetSummary(rec.TargetType, rec.TargetSerials, rec.TargetGroups),
+			Prefill:   buildPrefillJSON(rec.Type, rec.ApkURL, rec.Payload, rec.TargetType, rec.TargetSerials, rec.TargetGroups),
+			Deletable: h.role(r) == "admin" || h.role(r) == "dev",
+		})
+	}
+
 	targetSerials := make(map[uuid.UUID][]string)
 	for _, c := range pagedCmds {
 		if c.TargetType == "devices" {
@@ -5495,14 +5607,45 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// Group the page's commands into day buckets for the timeline history.
+	bucketLabel := func(t time.Time) string {
+		t = t.Local()
+		n := time.Now()
+		y, m, d := t.Date()
+		ny, nm, nd := n.Date()
+		if y == ny && m == nm && d == nd {
+			return "Today"
+		}
+		yd := n.AddDate(0, 0, -1)
+		yy, ym, ydd := yd.Date()
+		if y == yy && m == ym && d == ydd {
+			return "Yesterday"
+		}
+		return t.Format("Jan 2, 2006")
+	}
+	type cmdDayGroup struct {
+		Label    string
+		Commands []db.Command
+	}
+	var cmdGroups []cmdDayGroup
+	for _, c := range pagedCmds {
+		lbl := bucketLabel(c.CreatedAt)
+		if len(cmdGroups) == 0 || cmdGroups[len(cmdGroups)-1].Label != lbl {
+			cmdGroups = append(cmdGroups, cmdDayGroup{Label: lbl})
+		}
+		cmdGroups[len(cmdGroups)-1].Commands = append(cmdGroups[len(cmdGroups)-1].Commands, c)
+	}
+
 	h.render(w, r, "commands.html", map[string]any{
 		"Title":          "Commands",
 		"Commands":       pagedCmds,
+		"CommandGroups":  cmdGroups,
 		"Groups":         groups,
 		"Productions":    productions,
 		"Builds":         builds,
 		"Apps":           apps,
 		"FleetPackages":  fleetPackages,
+		"Recipes":        recipes,
 		"Summaries":      summaries,
 		"TargetSerials":  targetSerials,
 		"ShellRecent":    shellRecent,
@@ -5556,6 +5699,121 @@ func (h *Handler) CommandBrowseDevices(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// CommandImpact renders the Actions builder's live "blast radius" panel: given
+// the current builder state (action type + target selection), it resolves the
+// concrete device set and summarises online/offline split and action-specific
+// risks (low battery for reboot, missing-package skips for uninstall). It reuses
+// the same resolution the send path uses, so the preview matches what will fire.
+func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	cmdType := r.FormValue("type")
+	if cmdType == "" {
+		cmdType = "install_apk"
+	}
+	targetType := r.FormValue("target_type")
+
+	// Resolve the target device set the same way CommandCreate does.
+	var ids []uuid.UUID
+	switch targetType {
+	case "groups":
+		var gids []uuid.UUID
+		for _, g := range r.Form["target_groups"] {
+			if id, err := uuid.Parse(g); err == nil {
+				gids = append(gids, id)
+			}
+		}
+		ids, _ = h.db.GetDeviceIDsInGroups(r.Context(), gids)
+	case "devices":
+		serials := db.ParseSerials(r.FormValue("target_serials"))
+		ids, _ = h.db.GetDeviceIDsBySerials(r.Context(), serials)
+	default: // "all" (and unset)
+		targetType = "all"
+		ids, _ = h.db.GetAllDeviceIDs(r.Context())
+	}
+
+	devices, _ := h.db.GetDevicesByIDs(r.Context(), ids)
+	connected := h.hub.ConnectedIDs()
+
+	// Uninstall is a no-op on devices without the package — count and subtract.
+	skipped := 0
+	if cmdType == "uninstall" {
+		if pkg := strings.TrimSpace(r.FormValue("package")); pkg != "" {
+			have, _ := h.db.CountDevicesWithPackage(r.Context(), ids, pkg)
+			skipped = len(devices) - have
+			if skipped < 0 {
+				skipped = 0
+			}
+		}
+	}
+
+	type rollRow struct {
+		Serial  string
+		Online  bool
+		Battery int
+	}
+	online, lowBatOnline := 0, 0
+	roll := make([]rollRow, 0, len(devices))
+	for _, d := range devices {
+		_, up := connected[d.ID]
+		if up {
+			online++
+			if d.BatteryPct > 0 && d.BatteryPct < 20 {
+				lowBatOnline++
+			}
+		}
+		if len(roll) < 8 {
+			roll = append(roll, rollRow{Serial: d.SerialNumber, Online: up, Battery: d.BatteryPct})
+		}
+	}
+	total := len(devices)
+	effective := total - skipped // devices that will actually receive the action
+	if effective < 0 {
+		effective = 0
+	}
+	onlineEff := online
+	if onlineEff > effective {
+		onlineEff = effective
+	}
+	offlineEff := effective - onlineEff
+
+	var warn string
+	switch cmdType {
+	case "reboot":
+		if lowBatOnline > 0 {
+			s := ""
+			if lowBatOnline != 1 {
+				s = "s"
+			}
+			verb := "is"
+			if lowBatOnline != 1 {
+				verb = "are"
+			}
+			warn = fmt.Sprintf("%d online device%s %s under 20%% battery — rebooting risks a unit that can't power back up.", lowBatOnline, s, verb)
+		}
+	case "uninstall":
+		if skipped > 0 {
+			s, verb := "", "doesn't"
+			if skipped != 1 {
+				s, verb = "s", "don't"
+			}
+			warn = fmt.Sprintf("%d targeted device%s %s report this package — they'll be skipped automatically.", skipped, s, verb)
+		}
+	}
+
+	h.tmpl.ExecuteTemplate(w, "cmd-impact", map[string]any{
+		"Type":       cmdType,
+		"Total":      total,
+		"Effective":  effective,
+		"Online":     onlineEff,
+		"Offline":    offlineEff,
+		"Skipped":    skipped,
+		"Screenshot": cmdType == "screenshot",
+		"Warn":       warn,
+		"Roll":       roll,
+		"More":       total - len(roll),
+	})
+}
+
 // markDeliveryPresence flags each delivery online when the device currently
 // holds a live WebSocket connection in the hub — so the UI can distinguish a
 // device that's about to ack from one that's offline and won't receive the
@@ -5565,6 +5823,39 @@ func (h *Handler) markDeliveryPresence(deliveries []db.CommandDelivery) {
 	for i := range deliveries {
 		_, deliveries[i].Online = connected[deliveries[i].DeviceID]
 	}
+}
+
+// deliveryStats is the Mission-Control rollup for a command detail page: the
+// progress-ring counts derived from the per-device delivery statuses.
+type deliveryStats struct {
+	Total   int
+	Done    int // installed / completed
+	Failed  int // failed / expired (terminal, needs attention)
+	Pending int // pending / delivered (in flight)
+	Offline int // in-flight and currently offline (will receive on reconnect)
+	Pct     int // Done / Total, 0-100
+}
+
+func computeDeliveryStats(deliveries []db.CommandDelivery) deliveryStats {
+	var s deliveryStats
+	s.Total = len(deliveries)
+	for _, d := range deliveries {
+		switch d.Status {
+		case "installed", "completed":
+			s.Done++
+		case "failed", "expired":
+			s.Failed++
+		default: // pending, delivered
+			s.Pending++
+			if !d.Online {
+				s.Offline++
+			}
+		}
+	}
+	if s.Total > 0 {
+		s.Pct = s.Done * 100 / s.Total
+	}
+	return s
 }
 
 func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
@@ -5587,6 +5878,7 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 	h.renderCachedHTML(w, r, "command-deliveries", map[string]any{
 		"Command":    cmd,
 		"Deliveries": deliveries,
+		"Stats":      computeDeliveryStats(deliveries),
 		"CanResend":  h.commandTypeAllowed(h.role(r), cmd.Type),
 	})
 }
@@ -5692,6 +5984,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		"Title":      "Command " + id.String()[:8],
 		"Command":    cmd,
 		"Deliveries": deliveries,
+		"Stats":      computeDeliveryStats(deliveries),
 		"From":       from,
 		"CanResend":  h.commandTypeAllowed(h.role(r), cmd.Type),
 	})
@@ -5773,6 +6066,32 @@ func writeCommandAuthzError(w http.ResponseWriter, authz cmdAuthz) bool {
 // use authorizeCommand directly so they can distinguish 400 from 403.
 func (h *Handler) commandTypeAllowed(role, cmdType string) bool {
 	return h.authorizeCommand(role, cmdType) == cmdAuthzOK
+}
+
+// cmdTypeLabel maps a command type to its friendly label for the dashboard.
+// Package-level so both the template funcmap and handlers (recipes, timeline)
+// share one source of truth.
+func cmdTypeLabel(cmdType string) string {
+	switch cmdType {
+	case "install_apk":
+		return "Install app"
+	case "uninstall":
+		return "Uninstall"
+	case "shell":
+		return "Shell"
+	case "screenshot":
+		return "Screenshot"
+	case "reboot":
+		return "Reboot"
+	case "update_splash":
+		return "Boot logo"
+	case "logcat":
+		return "Log capture"
+	case "ota":
+		return "OTA Update"
+	default:
+		return cmdType
+	}
 }
 
 // canSeeCommandURLs reports whether a role may be shown internal APK/OTA URLs,
@@ -5905,6 +6224,59 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "command.send", cmdType, detail)
 	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
+}
+
+// RecipeCreate saves the current Actions-builder state as a named recipe that can
+// be replayed in one click. It mirrors CommandCreate's field parsing but persists
+// the preset instead of dispatching it.
+func (h *Handler) RecipeCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	cmdType := r.FormValue("type")
+	if name == "" || cmdType == "" {
+		http.Error(w, "name and type are required", http.StatusBadRequest)
+		return
+	}
+	if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
+		return
+	}
+	targetType := r.FormValue("target_type")
+	if targetType != "all" && targetType != "devices" && targetType != "groups" {
+		targetType = "all"
+	}
+	rec := db.Recipe{
+		Name:          name,
+		Type:          cmdType,
+		ApkURL:        strings.TrimSpace(r.FormValue("apk_url")),
+		Payload:       buildPayload(cmdType, r),
+		TargetType:    targetType,
+		TargetSerials: db.ParseSerials(r.FormValue("target_serials")),
+		CreatedBy:     h.role(r),
+	}
+	for _, g := range r.Form["target_groups"] {
+		if id, err := uuid.Parse(g); err == nil {
+			rec.TargetGroups = append(rec.TargetGroups, id)
+		}
+	}
+	if _, err := h.db.CreateRecipe(r.Context(), rec); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/commands", http.StatusFound)
+}
+
+// RecipeDelete removes a saved recipe.
+func (h *Handler) RecipeDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid recipe ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteRecipe(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/commands", http.StatusFound)
 }
 
 // isDestructiveCmd marks command types that change device state in a way that
@@ -7743,6 +8115,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
+	mux.HandleFunc("GET /commands/impact", h.requireAuth(h.CommandImpact))
+	// Recipes live under /recipes (not /commands/recipes) so the {id} delete route
+	// doesn't collide with /commands/{id}/resend/{serial} in the wildcard mux.
+	post("POST /recipes", h.requireAuth(h.RecipeCreate))
+	post("POST /recipes/{id}/delete", h.requireAdmin(h.RecipeDelete))
 	post("POST /commands", h.requireAuth(h.CommandCreate))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
