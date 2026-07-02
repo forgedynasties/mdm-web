@@ -110,7 +110,7 @@
 .suggest-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
 </style>
 
-{{if canOperate .Role}}
+{{if or (canOperate .Role) .Recipes}}
 
 <div class="recipes-wrap dv-rise-1">
   <div class="recipes-h"><span class="t">Recipes</span></div>
@@ -131,7 +131,7 @@
       <span><span class="rt">{{.Name}}</span><span class="rs">{{.Summary}}</span></span>
     </button>
     {{end}}
-    <button type="button" class="recipe add" onclick="openRecipeModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Save current as recipe</button>
+    {{if canOperate .Role}}<button type="button" class="recipe add" onclick="openRecipeModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Save current as recipe</button>{{end}}
   </div>
 </div>
 {{end}}
@@ -442,20 +442,30 @@
     </div>
   </div>
   <div class="cmd-timeline" id="cmd-history-table">
-    {{if or .Attention .InProgress .Completed}}
+    {{if or (or .Attention .InProgress) (or .Completed (gt .DoneCount 0))}}
       <div class="htbl-head htbl-cols"><span>Action</span><span>Target</span><span class="col-res">Result</span><span class="col-sent">Sent</span><span></span></div>
-      {{if .Attention}}
-      <div class="hgrp-h attn" data-grp><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Needs attention <span class="cnt">{{.AttnCount}}</span></div>
-      {{range .Attention}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" "attn")}}{{end}}
-      {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention">Show all {{.AttnCount}} that need attention →</a>{{end}}
-      {{end}}
 
-      {{if .InProgress}}
+      {{/* In progress — always shown (top), with an empty state. */}}
       <div class="hgrp-h prog" data-grp><span class="hbadge live" style="padding:0;background:none;"><span class="pd"></span></span>In progress <span class="cnt">{{.ProgCount}}</span></div>
-      {{range .InProgress}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" "prog")}}{{end}}
-      {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress">Show all {{.ProgCount}} in progress →</a>{{end}}
-      {{end}}
+      {{if .InProgress}}
+        {{range .InProgress}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" "prog")}}{{end}}
+        {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress">Show all {{.ProgCount}} in progress →</a>{{end}}
+      {{else}}<div class="hist-empty">No actions in progress</div>{{end}}
 
+      {{/* Needs attention — always shown, with a Clear button + empty state. */}}
+      <div class="hgrp-h attn" data-grp><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Needs attention <span class="cnt">{{.AttnCount}}</span>
+        {{if and .Attention (canOperate .Role)}}
+        <form action="/commands/clear-attention" method="POST" style="margin-left:auto;" onsubmit="return confirm('Clear all {{.AttnCount}} entries from Needs attention? This only dismisses them from this list — the actions are not deleted.')">
+          <button type="submit" class="hclear" title="Dismiss these from the list (does not delete)">Clear all</button>
+        </form>
+        {{end}}
+      </div>
+      {{if .Attention}}
+        {{range .Attention}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" "attn")}}{{end}}
+        {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention">Show all {{.AttnCount}} that need attention →</a>{{end}}
+      {{else}}<div class="hist-empty">No actions needing attention</div>{{end}}
+
+      {{/* Completed — only when present. */}}
       {{if .Completed}}
       <div class="hgrp-h done" data-grp><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Completed <span class="cnt">{{.DoneCount}}</span></div>
       {{range .Completed}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" "done")}}{{end}}
