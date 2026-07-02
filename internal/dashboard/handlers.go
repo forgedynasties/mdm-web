@@ -5548,9 +5548,16 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var recipes []recipeView
-	// "Re-run last" from the most recent command in history.
-	if len(cmds) > 0 {
-		last := cmds[0]
+	// "Re-run last" from the most recent command the builder can actually replay
+	// (OTA isn't a builder action, so skip it).
+	var last *db.Command
+	for i := range cmds {
+		if cmds[i].Type != "ota" {
+			last = &cmds[i]
+			break
+		}
+	}
+	if last != nil {
 		var serials []string
 		var gids []uuid.UUID
 		if last.TargetType == "devices" {
@@ -5590,6 +5597,10 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	// rather than sitting in-progress forever.
 	var attn, prog, doneAll []db.Command
 	for _, c := range cmds {
+		// OTA updates are managed on the Releases/Deployments pages, not here.
+		if c.Type == "ota" {
+			continue
+		}
 		s := summaries[c.ID]
 		switch {
 		case s.Failed > 0:
@@ -5599,6 +5610,23 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		default:
 			doneAll = append(doneAll, c)
 		}
+	}
+
+	// Needs-attention can be large (old failures pile up); show only the most
+	// recent few by default, with a "show all" toggle (?attn=all).
+	const attnLimit = 3
+	attnAll := r.URL.Query().Get("attn") == "all"
+	attnShown := attn
+	if !attnAll && len(attn) > attnLimit {
+		attnShown = attn[:attnLimit]
+	}
+	// In-progress is normally small (bounded by the expiry window) but cap it too
+	// so a burst of recent sends can't flood the list.
+	const progLimit = 8
+	progAll := r.URL.Query().Get("prog") == "all"
+	progShown := prog
+	if !progAll && len(prog) > progLimit {
+		progShown = prog[:progLimit]
 	}
 
 	// Paginate only the Completed bucket.
@@ -5622,7 +5650,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 
 	// Serial lookups only for the commands actually rendered this request.
 	targetSerials := make(map[uuid.UUID][]string)
-	for _, set := range [][]db.Command{attn, prog, donePage} {
+	for _, set := range [][]db.Command{attnShown, progShown, donePage} {
 		for _, c := range set {
 			if c.TargetType == "devices" {
 				if s, err := h.db.GetCommandTargetSerials(r.Context(), c.ID); err == nil {
@@ -5635,11 +5663,15 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "commands.html", map[string]any{
 		"Title":          "Commands",
 		"Commands":       cmds,
-		"Attention":      attn,
-		"InProgress":     prog,
+		"Attention":      attnShown,
+		"InProgress":     progShown,
 		"Completed":      donePage,
 		"AttnCount":      len(attn),
+		"AttnAll":        attnAll,
+		"AttnLimit":      attnLimit,
 		"ProgCount":      len(prog),
+		"ProgAll":        progAll,
+		"ProgLimit":      progLimit,
 		"DoneCount":      doneTotal,
 		"Groups":         groups,
 		"Productions":    productions,
