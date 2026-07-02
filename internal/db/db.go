@@ -2116,11 +2116,19 @@ func (d *DB) DeleteCommand(ctx context.Context, id uuid.UUID) error {
 }
 
 func (d *DB) ListCommands(ctx context.Context) ([]Command, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT id, type, apk_url, payload, target_type, created_at
-		FROM commands
-		ORDER BY created_at DESC
-	`)
+	return d.ListCommandsSince(ctx, 0)
+}
+
+// ListCommandsSince returns commands newest-first. sinceDays > 0 limits to the
+// recent window (the Actions page uses this — its triage buckets only need recent
+// commands, and full history has its own paginated view); 0 returns all.
+func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, error) {
+	q := `SELECT id, type, apk_url, payload, target_type, created_at FROM commands`
+	if sinceDays > 0 {
+		q += fmt.Sprintf(" WHERE created_at >= NOW() - INTERVAL '%d days'", sinceDays)
+	}
+	q += " ORDER BY created_at DESC"
+	rows, err := d.pool.Query(ctx, q)
 	if err != nil {
 		return nil, err
 	}
@@ -2211,13 +2219,21 @@ type CommandDeliverySummary struct {
 // perpetually "in flight" (otherwise a day-old command still animates as live).
 // (A device with no status row yet isn't counted here; the command detail page is
 // the authoritative per-device view including those.)
-func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec int) (map[uuid.UUID]CommandDeliverySummary, error) {
+// GetCommandDeliverySummaries rolls up per-command delivery status. sinceDays > 0
+// scopes the (otherwise whole-table) scan to commands created within that window
+// — the Actions page passes a window since its triage buckets only need recent
+// commands; the full history view passes 0.
+func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec, sinceDays int) (map[uuid.UUID]CommandDeliverySummary, error) {
 	if expirySec <= 0 {
 		expirySec = 300
 	}
 	installExpiry := expirySec * 3
 	if installExpiry < 900 {
 		installExpiry = 900
+	}
+	sinceClause := ""
+	if sinceDays > 0 {
+		sinceClause = fmt.Sprintf("WHERE c.created_at >= NOW() - INTERVAL '%d days'", sinceDays)
 	}
 	rows, err := d.pool.Query(ctx, fmt.Sprintf(`
 		SELECT command_id, status, COUNT(*) FROM (
@@ -2235,9 +2251,10 @@ func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec int) (ma
 				END AS status
 			FROM command_status cs
 			JOIN commands c ON c.id = cs.command_id
+			%s
 		) t
 		GROUP BY command_id, status
-	`, expirySec, installExpiry))
+	`, expirySec, installExpiry, sinceClause))
 	if err != nil {
 		return nil, err
 	}
