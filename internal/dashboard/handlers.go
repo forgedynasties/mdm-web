@@ -5467,13 +5467,6 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Pagination applies only to the "Completed" bucket below — the actionable
-	// buckets (Needs attention / In progress) are always shown in full.
-	const pageSize = 25
-	page := 1
-	if p, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("page"))); err == nil && p > 0 {
-		page = p
-	}
 
 	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
 	logcatRecent, logcatFrequent, _ := h.db.FleetLogcatSuggestions(r.Context(), 8)
@@ -5598,63 +5591,16 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	// rather than sitting in-progress forever.
 	// Failures older than this stop being "needs attention" — they drop into
 	// Completed (still rendered as failed, just no longer flagged for triage).
-	attnCutoff := time.Now().Add(-72 * time.Hour)
-	var attn, prog, doneAll []db.Command
-	for _, c := range cmds {
-		// OTA updates are managed on the Releases/Deployments pages, not here.
-		if c.Type == "ota" {
-			continue
-		}
-		s := summaries[c.ID]
-		switch {
-		case s.Failed > 0 && c.CreatedAt.After(attnCutoff):
-			attn = append(attn, c)
-		case s.Failed == 0 && (s.Pending > 0 || s.Delivered > 0):
-			prog = append(prog, c)
-		default:
-			doneAll = append(doneAll, c)
-		}
-	}
+	attn, prog, doneAll := classifyCommands(cmds, summaries)
 
-	// Needs-attention can be large (old failures pile up); show only the most
-	// recent few by default, with a "show all" toggle (?attn=all).
-	const attnLimit = 3
-	attnAll := r.URL.Query().Get("attn") == "all"
-	attnShown := attn
-	if !attnAll && len(attn) > attnLimit {
-		attnShown = attn[:attnLimit]
-	}
-	// In-progress is normally small (bounded by the expiry window) but cap it too
-	// so a burst of recent sends can't flood the list.
-	const progLimit = 8
-	progAll := r.URL.Query().Get("prog") == "all"
-	progShown := prog
-	if !progAll && len(prog) > progLimit {
-		progShown = prog[:progLimit]
-	}
-
-	// Paginate only the Completed bucket.
-	doneTotal := len(doneAll)
-	totalPages := (doneTotal + pageSize - 1) / pageSize
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-	start := (page - 1) * pageSize
-	end := start + pageSize
-	if end > doneTotal {
-		end = doneTotal
-	}
-	var donePage []db.Command
-	if doneTotal > 0 {
-		donePage = doneAll[start:end]
-	}
+	// The Actions page shows a capped triage preview of each bucket; "Show all →"
+	// links jump to the standalone /commands/history page (with pagination).
+	const attnLimit, progLimit, doneLimit = 3, 8, 6
+	attnShown, progShown, doneShown := capCmds(attn, attnLimit), capCmds(prog, progLimit), capCmds(doneAll, doneLimit)
 
 	// Serial lookups only for the commands actually rendered this request.
 	targetSerials := make(map[uuid.UUID][]string)
-	for _, set := range [][]db.Command{attnShown, progShown, donePage} {
+	for _, set := range [][]db.Command{attnShown, progShown, doneShown} {
 		for _, c := range set {
 			if c.TargetType == "devices" {
 				if s, err := h.db.GetCommandTargetSerials(r.Context(), c.ID); err == nil {
@@ -5669,14 +5615,10 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Commands":       cmds,
 		"Attention":      attnShown,
 		"InProgress":     progShown,
-		"Completed":      donePage,
+		"Completed":      doneShown,
 		"AttnCount":      len(attn),
-		"AttnAll":        attnAll,
-		"AttnLimit":      attnLimit,
 		"ProgCount":      len(prog),
-		"ProgAll":        progAll,
-		"ProgLimit":      progLimit,
-		"DoneCount":      doneTotal,
+		"DoneCount":      len(doneAll),
 		"Groups":         groups,
 		"Productions":    productions,
 		"Builds":         builds,
@@ -5690,10 +5632,102 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"LogcatRecent":   logcatRecent,
 		"LogcatFrequent": logcatFrequent,
 		"Prefill":        prefill,
-		"Page":           page,
-		"PageSize":       pageSize,
-		"Total":          len(cmds),
-		"TotalPages":     totalPages,
+	})
+}
+
+// capCmds returns the first n commands (or all if fewer).
+func capCmds(cmds []db.Command, n int) []db.Command {
+	if len(cmds) > n {
+		return cmds[:n]
+	}
+	return cmds
+}
+
+// CommandHistory is the standalone, paginated history view reached from the
+// Actions page's "Show all →" links. It shows one status bucket (or all) as a
+// dense table with numbered pagination — the deep-browse counterpart to the
+// capped triage preview on /commands.
+func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
+	cmds, err := h.db.ListCommands(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry())
+	attn, prog, doneAll := classifyCommands(cmds, summaries)
+
+	status := r.URL.Query().Get("status")
+	var rows []db.Command
+	var title string
+	switch status {
+	case "attention":
+		rows, title = attn, "Needs attention"
+	case "inprogress":
+		rows, title = prog, "In progress"
+	case "completed":
+		rows, title = doneAll, "Completed"
+	default:
+		status = "all"
+		title = "All actions"
+		rows = make([]db.Command, 0, len(cmds))
+		for _, c := range cmds { // everything except OTA, newest first
+			if c.Type != "ota" {
+				rows = append(rows, c)
+			}
+		}
+	}
+
+	// Pagination.
+	const pageSize = 40
+	total := len(rows)
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	page := 1
+	if p, e := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("page"))); e == nil && p > 0 {
+		page = p
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * pageSize
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	var pageRows []db.Command
+	if total > 0 {
+		pageRows = rows[start:end]
+	}
+
+	// Per-row bucket (for state/retry) + serials, only for the rendered page.
+	bucketByID := make(map[uuid.UUID]string, len(pageRows))
+	targetSerials := make(map[uuid.UUID][]string)
+	for _, c := range pageRows {
+		bucketByID[c.ID] = commandBucket(c, summaries[c.ID])
+		if c.TargetType == "devices" {
+			if s, e := h.db.GetCommandTargetSerials(r.Context(), c.ID); e == nil {
+				targetSerials[c.ID] = s
+			}
+		}
+	}
+
+	h.render(w, r, "command_history.html", map[string]any{
+		"Title":         "History — " + title,
+		"Heading":       title,
+		"Status":        status,
+		"Rows":          pageRows,
+		"BucketByID":    bucketByID,
+		"Summaries":     summaries,
+		"TargetSerials": targetSerials,
+		"AttnCount":     len(attn),
+		"ProgCount":     len(prog),
+		"DoneCount":     len(doneAll),
+		"AllCount":      len(rows),
+		"Page":          page,
+		"Total":         total,
+		"TotalPages":    totalPages,
 	})
 }
 
@@ -6103,6 +6137,42 @@ func writeCommandAuthzError(w http.ResponseWriter, authz cmdAuthz) bool {
 // use authorizeCommand directly so they can distinguish 400 from 403.
 func (h *Handler) commandTypeAllowed(role, cmdType string) bool {
 	return h.authorizeCommand(role, cmdType) == cmdAuthzOK
+}
+
+// attnMaxAge is how recent a failure must be to still count as "needs attention"
+// — older failures drop into Completed so the triage list stays actionable.
+const attnMaxAge = 72 * time.Hour
+
+// commandBucket classifies one command from its delivery summary into
+// "attn" (recent failure), "prog" (in flight) or "done".
+func commandBucket(c db.Command, s db.CommandDeliverySummary) string {
+	switch {
+	case s.Failed > 0 && c.CreatedAt.After(time.Now().Add(-attnMaxAge)):
+		return "attn"
+	case s.Failed == 0 && (s.Pending > 0 || s.Delivered > 0):
+		return "prog"
+	default:
+		return "done"
+	}
+}
+
+// classifyCommands buckets non-OTA commands (newest first) into the three triage
+// lists. Shared by the Actions page and the standalone history page.
+func classifyCommands(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliverySummary) (attn, prog, done []db.Command) {
+	for _, c := range cmds {
+		if c.Type == "ota" {
+			continue
+		}
+		switch commandBucket(c, summaries[c.ID]) {
+		case "attn":
+			attn = append(attn, c)
+		case "prog":
+			prog = append(prog, c)
+		default:
+			done = append(done, c)
+		}
+	}
+	return
 }
 
 // cmdTypeLabel maps a command type to its friendly label for the dashboard.
@@ -8152,6 +8222,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
+	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
 	mux.HandleFunc("GET /commands/impact", h.requireAuth(h.CommandImpact))
 	// Recipes live under /recipes (not /commands/recipes) so the {id} delete route
 	// doesn't collide with /commands/{id}/resend/{serial} in the wildcard mux.

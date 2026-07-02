@@ -1,0 +1,93 @@
+{{define "command_history.html"}}
+{{template "header" .}}
+
+<a href="/commands" class="back-link">← Actions</a>
+<div class="ov-greet">
+  <h1 class="ov-title">Action history</h1>
+  <span class="ov-date">every action sent across devices</span>
+</div>
+
+<!-- Status context tabs -->
+<div class="hist-tabs">
+  <a class="hist-tab{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all">All <span class="cnt">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
+  <a class="hist-tab{{if eq .Status "attention"}} on{{end}}" href="/commands/history?status=attention">Needs attention <span class="cnt">{{.AttnCount}}</span></a>
+  <a class="hist-tab{{if eq .Status "inprogress"}} on{{end}}" href="/commands/history?status=inprogress">In progress <span class="cnt">{{.ProgCount}}</span></a>
+  <a class="hist-tab{{if eq .Status "completed"}} on{{end}}" href="/commands/history?status=completed">Completed <span class="cnt">{{.DoneCount}}</span></a>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h3>{{.Heading}} <span class="muted small" style="font-weight:500;">· {{.Total}}</span></h3>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <div style="position:relative;display:flex;align-items:center;">
+        <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
+        <input type="search" id="cmd-search" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
+      </div>
+      <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="filterHistory()">
+        <option value="">All Types</option>
+        <option value="install_apk">Install app</option>
+        <option value="uninstall">Uninstall</option>
+        <option value="shell">Shell</option>
+        <option value="screenshot">Screenshot</option>
+        <option value="reboot">Reboot</option>
+        <option value="update_splash">Boot logo</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="cmd-history-table">
+    {{if .Rows}}
+      <div class="htbl-head htbl-cols"><span>Action</span><span>Target</span><span class="col-res">Result</span><span class="col-sent">Sent</span><span></span></div>
+      {{range .Rows}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" (index $.BucketByID .ID))}}{{end}}
+    {{else}}
+      <div class="empty-state" style="padding:28px 18px;">
+        <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
+        <div class="empty-state-copy">
+          <div class="empty-state-title">Nothing here</div>
+          <div class="empty-state-text">No actions in this view.</div>
+        </div>
+      </div>
+    {{end}}
+  </div>
+
+  {{if gt .TotalPages 1}}
+  <div class="pagination">
+    {{if gt .Page 1}}<a class="page-btn page-nav" href="?status={{.Status}}&page={{sub .Page 1}}">&#8592; Prev</a>
+    {{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
+    <div class="page-numbers">
+      {{range pageList .Page .TotalPages}}
+        {{if eq . 0}}<span class="page-num disabled">…</span>
+        {{else if eq . $.Page}}<span class="page-num active">{{.}}</span>
+        {{else}}<a class="page-num" href="?status={{$.Status}}&page={{.}}">{{.}}</a>{{end}}
+      {{end}}
+    </div>
+    {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="?status={{.Status}}&page={{add .Page 1}}">Next &#8594;</a>
+    {{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
+  </div>
+  <div class="table-footer">Page {{.Page}} of {{.TotalPages}} · {{.Total}} action{{if ne .Total 1}}s{{end}}</div>
+  {{end}}
+</div>
+
+<script>
+// Client-side filter for the current page (search + type). Pagination + status
+// are server-side via the tabs above.
+function filterHistory() {
+  var q = (document.getElementById('cmd-search').value || '').toLowerCase();
+  var ft = document.getElementById('filter-type').value;
+  document.querySelectorAll('#cmd-history-table .htrow[data-cmd-type]').forEach(function (r) {
+    var typeMatch = !ft || r.dataset.cmdType === ft;
+    var searchMatch = !q || (r.dataset.cmdSearch || '').toLowerCase().indexOf(q) !== -1;
+    r.style.display = typeMatch && searchMatch ? '' : 'none';
+  });
+}
+// Toast on resend (mirrors the Actions page).
+document.addEventListener('submit', function (evt) {
+  var form = evt.target;
+  if (form && form.tagName === 'FORM' && form.action.indexOf('/resend') !== -1) {
+    setTimeout(function () { if (window.showToast) showToast('Command resent', 'success'); }, 100);
+  }
+});
+</script>
+
+{{template "footer" .}}
+{{end}}

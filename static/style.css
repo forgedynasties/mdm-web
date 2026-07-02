@@ -5116,3 +5116,55 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .app-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--accent-edge); border-top-color: var(--accent);
   animation: app-spin 0.7s linear infinite; flex: none; }
 @keyframes app-spin { to { transform: rotate(360deg); } }
+
+/* ── Actions history: dense table (Action · Target · Result · Sent), grouped by
+   status. Shared by /commands and the standalone /commands/history page. ── */
+.htbl-cols{display:grid;grid-template-columns:minmax(0,1fr) 130px 214px 78px auto;gap:14px;align-items:center;}
+.htbl-head{padding:10px 18px;border-bottom:1px solid var(--border-soft);background:var(--surface2);}
+.htbl-head span{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
+.hgrp-h{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:14px 18px 6px;color:var(--text-faint);}
+.hgrp-h svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;flex:none;}
+.hgrp-h .cnt{color:var(--text-faint);font-weight:700;}
+.hgrp-h.attn{color:var(--danger);}
+.hgrp-h.prog{color:var(--accent-2);}
+.hgrp-h.done{color:var(--text-faint);}
+.htrow{padding:11px 18px;border-top:1px solid var(--border-soft);}
+.htrow:hover{background:var(--surface2);}
+.ca{display:flex;align-items:center;gap:11px;min-width:0;}
+.ca .tl-ic{width:34px;height:34px;flex:none;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;}
+.ca .tl-ic svg{width:17px;height:17px;fill:none;stroke:var(--text-2);stroke-width:1.7;}
+.ca .tl-ic.ok{background:var(--ok-bg);}.ca .tl-ic.ok svg{stroke:var(--ok);}
+.ca .tl-ic.fail{background:var(--danger-bg);}.ca .tl-ic.fail svg{stroke:var(--danger);}
+.ca .tl-ic.run{background:var(--accent-2-soft);}.ca .tl-ic.run svg{stroke:var(--accent-2);}
+.ca .nm{font-size:13.5px;font-weight:650;}
+.ca .nm a{color:inherit;text-decoration:none;}
+.ca .nm a:hover{color:var(--accent);}
+.ca .pl{font-size:11.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ct{font-size:12.5px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.cr-res{display:flex;align-items:center;gap:10px;}
+.seg{display:flex;height:6px;width:118px;flex:none;border-radius:99px;overflow:hidden;background:var(--surface-3);}
+.seg i{display:block;height:100%;}
+.s-ok{background:var(--ok);}.s-fail{background:var(--danger);}.s-run{background:var(--accent-2);}.s-wait{background:var(--text-faint);}
+.rcount{font-size:11.5px;color:var(--muted);white-space:nowrap;display:inline-flex;align-items:center;gap:5px;}
+.rcount.fail{color:var(--danger);font-weight:600;}
+.rcount .pd{width:6px;height:6px;border-radius:99px;background:var(--accent-2);animation:tlpulse 1.2s ease-in-out infinite;}
+@keyframes tlpulse{0%,100%{opacity:1}50%{opacity:.25}}
+.hwhen{font-size:11.5px;color:var(--muted);white-space:nowrap;}
+.hact{display:flex;align-items:center;gap:8px;justify-content:flex-end;}
+.hact form{display:inline;margin:0;}
+.hmore{display:block;padding:9px 18px 11px;font-size:12px;font-weight:600;color:var(--accent);text-decoration:none;border-top:1px solid var(--border-soft);background:var(--surface);}
+.hmore:hover{background:var(--surface2);}
+.hretry{font-size:11.5px;font-weight:650;color:var(--accent);border:1px solid var(--accent-edge);background:var(--surface);border-radius:8px;padding:5px 11px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.hretry:hover{background:var(--accent-soft);}
+.hretry svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;}
+.htrow .cmd-del{border:none;background:none;color:var(--text-faint);font-size:16px;line-height:1;cursor:pointer;padding:2px 5px;border-radius:6px;}
+.htrow .cmd-del:hover{color:var(--danger);background:var(--danger-bg);}
+@media (max-width:900px){.htbl-cols{grid-template-columns:minmax(0,1fr) 150px auto;}.htbl-head .col-res,.htbl-head .col-sent,.hrow-res,.hrow-sent{display:none;}}
+
+/* History-page status context tabs */
+.hist-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.hist-tab{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border:1px solid var(--border);border-radius:9px;background:var(--surface);font-size:13px;font-weight:600;color:var(--muted);text-decoration:none;}
+.hist-tab:hover{background:var(--surface2);}
+.hist-tab.on{border-color:transparent;background:var(--accent-soft);color:var(--accent);}
+.hist-tab .cnt{font-size:11.5px;color:var(--text-faint);font-weight:700;}
+.hist-tab.on .cnt{color:var(--accent);}
