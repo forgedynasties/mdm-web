@@ -5684,17 +5684,17 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	const attnLimit, progLimit, doneLimit = 3, 8, 6
 	attnShown, progShown, doneShown := capCmds(attn, attnLimit), capCmds(prog, progLimit), capCmds(doneAll, doneLimit)
 
-	// Serial lookups only for the commands actually rendered this request.
-	targetSerials := make(map[uuid.UUID][]string)
+	// Serial lookups only for the commands actually rendered this request, in one
+	// batched query (avoids a per-command N+1).
+	var serialIDs []uuid.UUID
 	for _, set := range [][]db.Command{attnShown, progShown, doneShown} {
 		for _, c := range set {
 			if c.TargetType == "devices" {
-				if s, err := h.db.GetCommandTargetSerials(r.Context(), c.ID); err == nil {
-					targetSerials[c.ID] = s
-				}
+				serialIDs = append(serialIDs, c.ID)
 			}
 		}
 	}
+	targetSerials, _ := h.db.GetCommandTargetSerialsBatch(r.Context(), serialIDs)
 
 	h.render(w, r, "commands.html", map[string]any{
 		"Title":          "Commands",
@@ -5801,17 +5801,16 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		pageRows = rows[start:end]
 	}
 
-	// Per-row bucket (for state/retry) + serials, only for the rendered page.
+	// Per-row bucket (for state/retry) + serials (one batched query), for the page.
 	bucketByID := make(map[uuid.UUID]string, len(pageRows))
-	targetSerials := make(map[uuid.UUID][]string)
+	var serialIDs []uuid.UUID
 	for _, c := range pageRows {
 		bucketByID[c.ID] = commandBucket(c, summaries[c.ID], dismissed[c.ID])
 		if c.TargetType == "devices" {
-			if s, e := h.db.GetCommandTargetSerials(r.Context(), c.ID); e == nil {
-				targetSerials[c.ID] = s
-			}
+			serialIDs = append(serialIDs, c.ID)
 		}
 	}
+	targetSerials, _ := h.db.GetCommandTargetSerialsBatch(r.Context(), serialIDs)
 
 	h.render(w, r, "command_history.html", map[string]any{
 		"Title":         "History — " + title,
