@@ -16,9 +16,13 @@
    but every control is inert and clearly labelled. */
 .ro-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 11px;}
 .ro-badge svg{stroke:var(--muted);flex:none;}
+.cmd-rail3.is-readonly{position:relative;}
 .cmd-rail3.is-readonly .cr-rail,
 .cmd-rail3.is-readonly .cr-config{pointer-events:none;}
 .cmd-rail3.is-readonly .cr-config{opacity:.92;}
+/* Transparent layer over the read-only builder: swallows clicks and gives the
+   viewer feedback (a toast) instead of silently doing nothing. */
+.ro-overlay{position:absolute;inset:0;z-index:6;cursor:not-allowed;background:transparent;}
 .cmd-rail3.is-readonly .form-input,
 .cmd-rail3.is-readonly .form-textarea,
 .cmd-rail3.is-readonly select,
@@ -179,6 +183,7 @@
 
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
   <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
+    {{if not (canOperate .Role)}}<div class="ro-overlay" onclick="roToast()" title="View only — you can't send actions"></div>{{end}}
 
     <div class="cr-head">
       <h3>New action</h3>
@@ -589,6 +594,16 @@
 
 <script>
 
+// Read-only feedback: viewers clicking the disabled builder get a toast
+// (throttled so a rapid click doesn't stack). Falls back to a native alert.
+var _roLast = 0;
+function roToast() {
+  var now = (window.performance && performance.now) ? performance.now() : +new Date();
+  if (now - _roLast < 2500) return;
+  _roLast = now;
+  if (window.showToast) showToast('View only — ask an operator or admin to send actions', 'info');
+  else alert('View only — you don’t have permission to send actions.');
+}
 
 // Show toast on resend (via global showToast)
 document.addEventListener('submit', function(evt) {
