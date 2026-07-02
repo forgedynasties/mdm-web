@@ -5595,6 +5595,9 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	// are always shown in full; Completed is paginated. Expiry is already applied
 	// in the summary, so a stuck "pending" becomes failed → surfaces in attention
 	// rather than sitting in-progress forever.
+	// Failures older than this stop being "needs attention" — they drop into
+	// Completed (still rendered as failed, just no longer flagged for triage).
+	attnCutoff := time.Now().Add(-72 * time.Hour)
 	var attn, prog, doneAll []db.Command
 	for _, c := range cmds {
 		// OTA updates are managed on the Releases/Deployments pages, not here.
@@ -5603,9 +5606,9 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		}
 		s := summaries[c.ID]
 		switch {
-		case s.Failed > 0:
+		case s.Failed > 0 && c.CreatedAt.After(attnCutoff):
 			attn = append(attn, c)
-		case s.Pending > 0 || s.Delivered > 0:
+		case s.Failed == 0 && (s.Pending > 0 || s.Delivered > 0):
 			prog = append(prog, c)
 		default:
 			doneAll = append(doneAll, c)

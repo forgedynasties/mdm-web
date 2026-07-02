@@ -1097,9 +1097,10 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 {{$c := .Cmd}}{{$s := .S}}{{$ser := .Ser}}
 {{$total := add (add $s.Completed $s.Failed) (add $s.Pending $s.Delivered)}}
 {{$rest := add $s.Pending $s.Delivered}}
+{{$state := "ok"}}{{if gt $s.Failed 0}}{{$state = "fail"}}{{else if gt $rest 0}}{{$state = "run"}}{{end}}
 <div class="htrow htbl-cols" data-cmd-type="{{$c.Type}}" data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdLabel $c.Type}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
   <div class="ca">
-    <span class="tl-ic {{if eq .Bucket "attn"}}fail{{else if eq .Bucket "prog"}}run{{else}}ok{{end}}">
+    <span class="tl-ic {{$state}}">
       {{if eq $c.Type "install_apk"}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>
       {{else if eq $c.Type "uninstall"}}<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
       {{else if eq $c.Type "shell"}}<svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>
@@ -1118,10 +1119,10 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     <span class="seg">
       {{if gt $s.Completed 0}}<i class="s-ok" style="width:{{pct $s.Completed $total}}%"></i>{{end}}
       {{if gt $s.Failed 0}}<i class="s-fail" style="width:{{pct $s.Failed $total}}%"></i>{{end}}
-      {{if gt $rest 0}}<i class="{{if eq .Bucket "prog"}}s-run{{else}}s-wait{{end}}" style="width:{{pct $rest $total}}%"></i>{{end}}
+      {{if gt $rest 0}}<i class="{{if eq $state "run"}}s-run{{else}}s-wait{{end}}" style="width:{{pct $rest $total}}%"></i>{{end}}
     </span>
-    {{if eq .Bucket "attn"}}<span class="rcount fail">{{$s.Completed}} ok · {{$s.Failed}} failed</span>
-    {{else if eq .Bucket "prog"}}{{if eq $total 0}}<span class="rcount">awaiting check-in</span>{{else}}<span class="rcount"><span class="pd"></span>{{$s.Completed}} / {{$total}}</span>{{end}}
+    {{if eq $state "fail"}}<span class="rcount fail">{{$s.Completed}} ok · {{$s.Failed}} failed</span>
+    {{else if eq $state "run"}}{{if eq $total 0}}<span class="rcount">awaiting check-in</span>{{else}}<span class="rcount"><span class="pd"></span>{{$s.Completed}} / {{$total}}</span>{{end}}
     {{else}}<span class="rcount">{{if gt $s.Completed 1}}{{$s.Completed}} delivered{{else}}delivered{{end}}</span>{{end}}
   </div>
   <span class="hwhen hrow-sent">{{timeSince $c.CreatedAt}}</span>
