@@ -2161,13 +2161,38 @@ type CommandDeliverySummary struct {
 
 // GetCommandDeliverySummaries returns per-command status rollups for the history
 // list. It aggregates the real per-device status table (command_status) — the
-// same source GetCommandDeliveries reads — mapping the status vocabulary onto the
-// four summary buckets. (A device with no status row yet isn't counted here; the
-// command detail page is the authoritative per-device view including those.)
-func (d *DB) GetCommandDeliverySummaries(ctx context.Context) (map[uuid.UUID]CommandDeliverySummary, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT command_id, status, COUNT(*) FROM command_status GROUP BY command_id, status
-	`)
+// same source GetCommandDeliveries reads — and applies the same expiry rule, so a
+// device stuck at pending/delivered past the timeout counts as expired rather than
+// perpetually "in flight" (otherwise a day-old command still animates as live).
+// (A device with no status row yet isn't counted here; the command detail page is
+// the authoritative per-device view including those.)
+func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec int) (map[uuid.UUID]CommandDeliverySummary, error) {
+	if expirySec <= 0 {
+		expirySec = 300
+	}
+	installExpiry := expirySec * 3
+	if installExpiry < 900 {
+		installExpiry = 900
+	}
+	rows, err := d.pool.Query(ctx, fmt.Sprintf(`
+		SELECT command_id, status, COUNT(*) FROM (
+			SELECT cs.command_id,
+				CASE
+					WHEN c.type IN ('shell','screenshot','reboot')
+						AND cs.status IN ('pending','delivered')
+						AND c.created_at <= NOW() - INTERVAL '%d seconds'
+					THEN 'expired'
+					WHEN c.type = 'install_apk'
+						AND cs.status IN ('pending','delivered')
+						AND c.created_at <= NOW() - INTERVAL '%d seconds'
+					THEN 'expired'
+					ELSE cs.status
+				END AS status
+			FROM command_status cs
+			JOIN commands c ON c.id = cs.command_id
+		) t
+		GROUP BY command_id, status
+	`, expirySec, installExpiry))
 	if err != nil {
 		return nil, err
 	}
