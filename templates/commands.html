@@ -368,7 +368,7 @@
                   </div>
                 </div>
                 <div id="cmd-device-browser" style="max-height:260px;overflow:auto;margin:8px 8px 6px;"
-                     hx-get="/commands/browse-devices" hx-select="unset" hx-trigger="load" hx-target="#cmd-device-browser" hx-swap="innerHTML"></div>
+                     hx-get="/commands/browse-devices" hx-select="unset" hx-trigger="load" hx-target="#cmd-device-browser" hx-swap="innerHTML">{{template "skel-rows" .}}</div>
               </div>
               <div class="dp-pane">
                 <div class="dp-pane-h"><span class="t">Selected</span><span class="n"><span id="cmd-sel-count">0</span> device(s)</span></div>

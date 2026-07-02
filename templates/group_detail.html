@@ -25,7 +25,7 @@
           <button type="button" class="dp-pill" data-battery="low" onclick="dpPill(this)">Low battery</button>
         </div>
         <div id="dp-rows" class="dp-rows" data-endpoint="/groups/{{.Group.ID}}/device-search"
-             hx-get="/groups/{{.Group.ID}}/device-search" hx-select="unset" hx-trigger="load" hx-target="#dp-rows" hx-swap="innerHTML"></div>
+             hx-get="/groups/{{.Group.ID}}/device-search" hx-select="unset" hx-trigger="load" hx-target="#dp-rows" hx-swap="innerHTML">{{template "skel-rows" .}}</div>
       </div>
       <div class="dp-pane">
         <div class="dp-pane-h"><span class="t">In this group</span><span class="n"><span data-dp-count>0</span> staged</span></div>

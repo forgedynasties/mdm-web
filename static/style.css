@@ -5173,3 +5173,20 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .hist-empty{padding:14px 18px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border-soft);}
 .hclear{font-size:11px;font-weight:650;color:var(--muted);border:1px solid var(--border);background:var(--surface);border-radius:7px;padding:4px 10px;cursor:pointer;text-transform:none;letter-spacing:0;}
 .hclear:hover{border-color:var(--danger-edge);color:var(--danger);background:var(--danger-bg);}
+
+/* ── Skeleton loading placeholders (shown until an hx-trigger=load fragment or a
+   boosted page swaps in). The shimmer respects reduced-motion. ── */
+.skel{position:relative;overflow:hidden;background:var(--surface-3);border-radius:6px;}
+.skel::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--surface) 60%,transparent),transparent);
+  animation:skel-sweep 1.2s infinite;}
+@keyframes skel-sweep{100%{transform:translateX(100%);}}
+@media (prefers-reduced-motion: reduce){.skel::after{animation:none;}}
+.skel-line{height:12px;margin:8px 0;}
+.skel-list{padding:12px 14px;}
+.skel-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border-soft);}
+.skel-row:last-child{border-bottom:none;}
+.skel-av{width:32px;height:32px;border-radius:8px;flex:none;}
+.skel-row .g{flex:1;display:flex;flex-direction:column;gap:6px;}
+.skel-w40{width:40%;}.skel-w60{width:60%;}.skel-w25{width:25%;}
+.skel-pill{height:22px;width:64px;border-radius:99px;flex:none;}
