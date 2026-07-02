@@ -62,6 +62,44 @@ func (h *Handler) renderCachedHTML(w http.ResponseWriter, r *http.Request, name 
 	w.Write(buf.Bytes())
 }
 
+// ── htmx helpers (no-reload mutations) ──────────────────────────────────────────
+// The dashboard is progressively enhanced: forms keep action=/method=POST so they
+// work without JS, but when the request comes from htmx (HX-Request) handlers can
+// respond without a full-page redirect — either by swapping a fragment or by
+// returning 204 + HX-Trigger events that make the affected regions refetch.
+
+// hxReq reports whether the request was issued by htmx.
+func hxReq(r *http.Request) bool { return r.Header.Get("HX-Request") == "true" }
+
+// hxTriggerEvents sets HX-Trigger so htmx dispatches the named events on the
+// client; page regions listen via hx-trigger="<name> from:body" and refetch.
+func hxTriggerEvents(w http.ResponseWriter, events ...string) {
+	if len(events) > 0 {
+		w.Header().Set("HX-Trigger", strings.Join(events, ", "))
+	}
+}
+
+// hxToast asks the client (via the global `toast` HX-Trigger listener in
+// layout.html) to show a toast. Used for inline error feedback on hx requests.
+func hxToast(w http.ResponseWriter, msg, typ string) {
+	b, _ := json.Marshal(map[string]any{"toast": map[string]string{"msg": msg, "type": typ}})
+	w.Header().Set("HX-Trigger", string(b))
+}
+
+// hxRedirect navigates to url. For htmx requests it uses HX-Location, which does
+// an AJAX page swap (no full-document reload — CSS/JS aren't re-fetched, no white
+// flash); for plain requests it falls back to a normal 303 redirect. Use it to
+// convert POST-Redirect-GET handlers to no-reload navigation while keeping the
+// no-JS path working.
+func (h *Handler) hxRedirect(w http.ResponseWriter, r *http.Request, url string) {
+	if hxReq(r) {
+		w.Header().Set("HX-Location", url)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	http.Redirect(w, r, url, http.StatusSeeOther)
+}
+
 type Handler struct {
 	db          *db.DB
 	hub         *ws.Hub
@@ -2439,6 +2477,43 @@ func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			emitCount()
+		}
+	}
+}
+
+// DeploymentEvents streams SSE notifications to open deployment pages so OTA
+// progress and operator actions (retry/cancel/edit) refresh live without polling.
+func (h *Handler) DeploymentEvents(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	fmt.Fprint(w, ": connected\n\n")
+	flusher.Flush()
+
+	sub := h.hub.SubscribeDeploymentUpdates()
+	defer h.hub.UnsubscribeDeploymentUpdates(sub)
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": keep-alive\n\n")
+			flusher.Flush()
+		case _, ok := <-sub:
+			if !ok {
+				return
+			}
+			fmt.Fprint(w, "event: deployment-update\ndata: refresh\n\n")
+			flusher.Flush()
 		}
 	}
 }
@@ -5176,8 +5251,8 @@ func (h *Handler) DeploymentUpdateSettings(w http.ResponseWriter, r *http.Reques
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
+	h.hub.PublishDeploymentUpdate()
+	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
 func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
@@ -5195,7 +5270,8 @@ func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", relID), http.StatusSeeOther)
+	h.hub.PublishDeploymentUpdate()
+	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d", relID))
 }
 
 // DeploymentCancel stops an active deployment from reaching devices that
@@ -5221,7 +5297,8 @@ func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "deployment.cancel", strconv.Itoa(did), "")
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
+	h.hub.PublishDeploymentUpdate()
+	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
 // DeploymentRetryDevice re-arms one failed device on a deployment: it clears the
@@ -5262,8 +5339,9 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	// otherwise strand it (ResolveUpdateForDevice only serves status='active').
 	_ = h.db.ReactivateUpdate(r.Context(), did)
 	h.hub.PublishDeviceUpdate(device.ID)
+	h.hub.PublishDeploymentUpdate()
 	h.audit(r, "deployment.retry", r.PathValue("serial"), strconv.Itoa(did))
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
+	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
 // DeploymentRemoveDevice drops a still-pending device from a deployment so it will
@@ -5300,9 +5378,10 @@ func (h *Handler) DeploymentRemoveDevice(w http.ResponseWriter, r *http.Request)
 		// the dashboard — mirrors the retry/clear-OTA path.
 		_ = h.db.ClearPendingOTACommands(r.Context(), device.ID)
 		h.hub.PublishDeviceUpdate(device.ID)
+		h.hub.PublishDeploymentUpdate()
 		h.audit(r, "deployment.remove_device", r.PathValue("serial"), strconv.Itoa(did))
 	}
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
+	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
 // DeploymentAddTargets widens an existing deployment by adding more devices or
@@ -5337,7 +5416,8 @@ func (h *Handler) DeploymentAddTargets(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.audit(r, "deployment.add_targets", strconv.Itoa(did), strconv.Itoa(len(eligible)))
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did), http.StatusSeeOther)
+	h.hub.PublishDeploymentUpdate()
+	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
 func parseScheduledUTC(raw, rebootBehavior string) *time.Time {
@@ -8339,6 +8419,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /test-cases/{id}/edit", h.requireAdmin(h.TestCaseUpdate))
 	post("POST /test-cases/{id}/delete", h.requireAdmin(h.TestCaseDelete))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAdminOrTester(h.DeploymentDetail))
+	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrTester(h.DeploymentEvents))
 	post("POST /releases/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
 	post("POST /releases/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
 	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireOperatorOrAdmin(h.DeploymentAddTargets))

@@ -635,6 +635,13 @@
     }
     window.showToast = showToast;
 
+    // Server-driven toasts: handlers set HX-Trigger {"toast":{"msg","type"}} and
+    // htmx dispatches a `toast` event on the body. Used for hx-request feedback.
+    document.body.addEventListener('toast', function (e) {
+      var d = (e && e.detail) || {};
+      showToast(d.msg || 'Done', d.type || 'info');
+    });
+
     document.body.addEventListener('htmx:afterRequest', function (evt) {
       var tgt = evt.detail.target;
       if (!tgt || !tgt.closest) return;

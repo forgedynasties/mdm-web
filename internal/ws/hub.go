@@ -50,6 +50,11 @@ type LogcatUpdateEvent struct {
 // carries no payload — the alerts page just re-fetches the current list.
 type AlertUpdateEvent struct{}
 
+// DeploymentUpdateEvent is emitted when an OTA deployment changes — a device's
+// rollout progress ticks, or an operator retries/cancels/edits it. Payload-less:
+// open deployment pages re-fetch their own (scoped, ETag-cached) targets partial.
+type DeploymentUpdateEvent struct{}
+
 // Hub maintains the set of active WebSocket clients keyed by device ID.
 type Hub struct {
 	mu              sync.RWMutex
@@ -66,6 +71,8 @@ type Hub struct {
 	logcatUpdates   map[chan LogcatUpdateEvent]struct{}
 	alertMu         sync.RWMutex
 	alertUpdates    map[chan AlertUpdateEvent]struct{}
+	deployMu        sync.RWMutex
+	deployUpdates   map[chan DeploymentUpdateEvent]struct{}
 	pingMu          sync.Mutex
 	pingWaiters     map[string]chan struct{}
 }
@@ -98,6 +105,7 @@ func NewHub() *Hub {
 		cmdUpdates:    make(map[chan CommandUpdateEvent]struct{}),
 		logcatUpdates: make(map[chan LogcatUpdateEvent]struct{}),
 		alertUpdates:  make(map[chan AlertUpdateEvent]struct{}),
+		deployUpdates: make(map[chan DeploymentUpdateEvent]struct{}),
 		pingWaiters:   make(map[string]chan struct{}),
 	}
 }
@@ -190,6 +198,37 @@ func (h *Hub) PublishAlertUpdate() {
 	for ch := range h.alertUpdates {
 		select {
 		case ch <- AlertUpdateEvent{}:
+		default:
+		}
+	}
+}
+
+// SubscribeDeploymentUpdates returns a channel that receives deployment update events.
+func (h *Hub) SubscribeDeploymentUpdates() chan DeploymentUpdateEvent {
+	ch := make(chan DeploymentUpdateEvent, 32)
+	h.deployMu.Lock()
+	h.deployUpdates[ch] = struct{}{}
+	h.deployMu.Unlock()
+	return ch
+}
+
+// UnsubscribeDeploymentUpdates closes the channel and removes it from the subscriber set.
+func (h *Hub) UnsubscribeDeploymentUpdates(ch chan DeploymentUpdateEvent) {
+	h.deployMu.Lock()
+	if _, ok := h.deployUpdates[ch]; ok {
+		delete(h.deployUpdates, ch)
+		close(ch)
+	}
+	h.deployMu.Unlock()
+}
+
+// PublishDeploymentUpdate notifies subscribers that a deployment changed.
+func (h *Hub) PublishDeploymentUpdate() {
+	h.deployMu.RLock()
+	defer h.deployMu.RUnlock()
+	for ch := range h.deployUpdates {
+		select {
+		case ch <- DeploymentUpdateEvent{}:
 		default:
 		}
 	}
