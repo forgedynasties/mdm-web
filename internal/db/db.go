@@ -365,7 +365,18 @@ type DB struct {
 var ErrCommandNotTargeted = errors.New("command does not target device")
 
 func New(ctx context.Context, connStr string) (*DB, error) {
-	pool, err := pgxpool.New(ctx, connStr)
+	cfg, err := pgxpool.ParseConfig(connStr)
+	if err != nil {
+		return nil, err
+	}
+	// The default max-conns (~4) starves the pool under concurrent device check-ins
+	// plus dashboard traffic, serializing requests. Raise it unless the connection
+	// string already specifies pool_max_conns.
+	if cfg.MaxConns < 20 && !strings.Contains(connStr, "pool_max_conns") {
+		cfg.MaxConns = 25
+	}
+	cfg.MinConns = 2
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -5739,6 +5750,19 @@ CREATE TABLE IF NOT EXISTS dismissed_commands (
     dismissed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     dismissed_by TEXT NOT NULL DEFAULT ''
 );
+
+-- Performance indexes (2026 audit). All idempotent. These back hot filters/joins/
+-- sorts that previously fell back to sequential scans on larger fleets.
+CREATE INDEX IF NOT EXISTS idx_command_status_device_id ON command_status(device_id);
+CREATE INDEX IF NOT EXISTS idx_devices_build_id         ON devices(build_id);
+CREATE INDEX IF NOT EXISTS idx_device_groups_device_id  ON device_groups(device_id);
+CREATE INDEX IF NOT EXISTS idx_device_config_device_id  ON device_config(device_id);
+CREATE INDEX IF NOT EXISTS idx_ota_packages_release     ON ota_packages(release_id);
+CREATE INDEX IF NOT EXISTS idx_updates_release          ON updates(release_id);
+CREATE INDEX IF NOT EXISTS idx_update_devices_device_id ON update_devices(device_id);
+CREATE INDEX IF NOT EXISTS idx_commands_created_at      ON commands(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_alerts_fired_at          ON alerts(fired_at DESC);
+CREATE INDEX IF NOT EXISTS idx_device_daily_stats_device_day ON device_daily_stats(device_id, day DESC);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
