@@ -3007,6 +3007,20 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 	return out, rows.Err()
 }
 
+// notSystemHeuristicSQL further excludes obvious AOSP/vendor system packages from
+// the uninstall picker as a safety net for devices whose client didn't report the
+// is_system flag (it defaults false, so those would otherwise look like user apps).
+// Admins can still fine-tune classification via app_system_overrides.
+const notSystemHeuristicSQL = `
+			  AND dp.package_name <> 'android'
+			  AND dp.package_name NOT LIKE 'android.%'
+			  AND dp.package_name NOT LIKE 'com.android.%'
+			  AND dp.package_name NOT LIKE 'com.google.android.%'
+			  AND dp.package_name NOT LIKE 'com.qualcomm.%'
+			  AND dp.package_name NOT LIKE 'com.qti.%'
+			  AND dp.package_name NOT LIKE 'com.mediatek.%'
+			  AND dp.package_name NOT LIKE 'org.chromium.%'`
+
 func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPackage, error) {
 	var q string
 	var rows pgx.Rows
@@ -3022,7 +3036,7 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 			FROM device_packages dp
 			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 			WHERE (dp.package_name ILIKE $1 OR dp.app_name ILIKE $1)
-			  AND NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)
+			  AND NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)` + notSystemHeuristicSQL + `
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -3036,7 +3050,7 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
 			FROM device_packages dp
 			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
-			WHERE NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)
+			WHERE NOT COALESCE(dp.is_system, ov.package_name IS NOT NULL, false)` + notSystemHeuristicSQL + `
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
