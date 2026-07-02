@@ -160,7 +160,7 @@
     toggleBtn.textContent = 'Stop';
     toggleBtn.classList.remove('btn-primary'); toggleBtn.classList.add('btn-danger');
     setStatus('', 'Connecting…');
-    es = new EventSource(streamURL());
+    es = window.mdmStream(streamURL());
     es.onopen = function () { setStatus('live', 'Live'); };
     es.onmessage = function (e) { try { append(JSON.parse(e.data)); } catch (x) {} };
     es.addEventListener('end', function () { setStatus('err', 'Stream ended'); stop(true); });

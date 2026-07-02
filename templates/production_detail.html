@@ -6,9 +6,9 @@
   <h1 class="ov-title">{{.Production.Name}}</h1>
   <span class="ov-date"><span class="mono">{{.Production.FirstSerial}}</span> → <span class="mono">{{.Production.LastSerial}}</span></span>
   <span class="acts">
-    <a href="/productions/{{.Production.ID}}/export.csv" class="btn-outline">Export CSV</a>
+    <a href="/productions/{{.Production.ID}}/export.csv" hx-boost="false" class="btn-outline">Export CSV</a>
     {{if canAdmin .Role}}
-    <form action="/productions/{{.Production.ID}}/delete" method="POST" onsubmit="return confirm('Delete this production? This cannot be undone.');">
+    <form action="/productions/{{.Production.ID}}/delete" method="POST" hx-confirm="Delete this production? This cannot be undone.">
       <button type="submit" class="btn-danger">Delete</button>
     </form>
     {{end}}
