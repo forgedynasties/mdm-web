@@ -4104,8 +4104,8 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .topbar { position: fixed; top: 14px; right: 18px; z-index: 60; display: flex; align-items: center; gap: 10px; }
 .topbar .alerts-indicator { position: static; }
 .topbar-search { height: 38px; }
-@media (max-width: 860px) {
-  /* Clear the mobile top-bar's hamburger; collapse the search to an icon. */
+@media (max-width: 1024px) {
+  /* Tablet & down: collapse the appbar search to an icon-only button. */
   .topbar { top: 9px; right: 56px; }
   .topbar-search span, .topbar-search kbd { display: none; }
   .topbar-search { width: 38px; min-width: 38px; padding: 0; justify-content: center; }
@@ -4938,11 +4938,22 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .dock .nav-link .ui-icon, .dock .nav-link .ui-icon svg { width: 17px; height: 17px; }
 
 @media (max-width: 640px) {
-  .appbar { padding: 10px 16px; }
+  .appbar { padding: 10px 14px; gap: 8px; }
+  .appbar-brand { font-size: 22px; }
+  .appbar-right { gap: 6px; }
+  /* Touch targets: keep icons ≥40px on phones. */
+  .appbar-icon { width: 40px; height: 40px; }
   .dock { left: 12px; right: 12px; transform: none; justify-content: space-around; bottom: 14px; }
-  .dock .nav-link { padding: 9px 10px; flex-direction: column; gap: 3px; font-size: 11px; }
+  .dock .nav-link { padding: 8px 6px; min-height: 46px; flex-direction: column; gap: 3px; font-size: 11px; }
   .appbar-acct .who { display: none; }
-  .appbar-acct { padding: 0 6px; }
+  .appbar-acct { height: 40px; padding: 0 6px; }
+  /* Taller stacked dock — ensure page content clears it. */
+  body.has-dock .container { padding-bottom: 92px; }
+}
+/* Very narrow phones: drop dock labels to guarantee all items fit. */
+@media (max-width: 380px) {
+  .dock .dock-lbl { display: none; }
+  .dock .nav-link { padding: 10px 8px; }
 }
 
 /* ── Releases list — fleet-card row language ── */
