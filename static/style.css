@@ -5190,3 +5190,8 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .skel-row .g{flex:1;display:flex;flex-direction:column;gap:6px;}
 .skel-w40{width:40%;}.skel-w60{width:60%;}.skel-w25{width:25%;}
 .skel-pill{height:22px;width:64px;border-radius:99px;flex:none;}
+
+/* Full-page skeleton shown during boosted navigation (see layout.html). */
+.skel-page{padding:6px 0;}
+.skel-title{width:210px;height:24px;border-radius:8px;margin:8px 0 22px;}
+.skel-card{border:1px solid var(--border);border-radius:14px;background:var(--surface);}
