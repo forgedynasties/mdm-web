@@ -2372,7 +2372,7 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		AND NOT EXISTS (
 			SELECT 1 FROM command_status cs
 			WHERE cs.command_id = c.id AND cs.device_id = $1
-			AND cs.status IN ('delivered', 'installed', 'failed', 'completed')
+			AND cs.status IN ('delivered', 'downloading', 'installing', 'installed', 'failed', 'completed')
 		)
 		-- Collapse duplicate installs of the same APK on this device: never deliver an
 		-- install_apk if another command for the same apk_url is already in flight to
@@ -2392,7 +2392,7 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 				  )
 				  AND (
 					EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
-						AND s2.status IN ('delivered','installed','completed'))
+						AND s2.status IN ('delivered','downloading','installing','installed','completed'))
 					OR (c2.created_at < c.created_at AND NOT EXISTS (
 						SELECT 1 FROM command_status s3 WHERE s3.command_id = c2.id AND s3.device_id = $1
 						AND s3.status IN ('delivered','installed','failed','completed')))
@@ -2537,8 +2537,37 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 		INSERT INTO command_status (command_id, device_id, status, updated_at)
 		VALUES ($1, $2, $3, NOW())
 		ON CONFLICT (command_id, device_id) DO UPDATE
-			SET status = EXCLUDED.status, updated_at = NOW()
+			SET status = EXCLUDED.status, progress = NULL, updated_at = NOW()
 	`, commandID, deviceID, status)
+	return err
+}
+
+// SetCommandProgress records an interim status ('downloading' or 'installing') for a
+// command on a device, with an optional percent (0-100, meaningful while
+// downloading). Terminal statuses go through AckCommand instead.
+func (d *DB) SetCommandProgress(ctx context.Context, commandID, deviceID uuid.UUID, status string, progress *int) error {
+	targeted, err := d.commandTargetsDevice(ctx, commandID, deviceID)
+	if err != nil {
+		return err
+	}
+	if !targeted {
+		return ErrCommandNotTargeted
+	}
+	if progress != nil {
+		p := *progress
+		if p < 0 {
+			p = 0
+		} else if p > 100 {
+			p = 100
+		}
+		progress = &p
+	}
+	_, err = d.pool.Exec(ctx, `
+		INSERT INTO command_status (command_id, device_id, status, progress, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (command_id, device_id) DO UPDATE
+			SET status = EXCLUDED.status, progress = EXCLUDED.progress, updated_at = NOW()
+	`, commandID, deviceID, status, progress)
 	return err
 }
 
@@ -2552,6 +2581,7 @@ type DeviceCommand struct {
 	Status     string          `json:"status"`
 	UpdatedAt  time.Time       `json:"updated_at"`
 	Output     string          `json:"output"`
+	Progress   *int            `json:"progress,omitempty"` // 0-100 while downloading, nil otherwise
 }
 
 // GetDeviceCommands returns all commands targeting a device with their status.
@@ -2571,7 +2601,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at,
 		       CASE
 		         WHEN c.type = 'install_apk'
-		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered')
+		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
 		         WHEN cs.status IS NOT NULL THEN cs.status
 		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
@@ -2579,7 +2609,8 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		         ELSE 'pending'
 		       END AS status,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
-		       COALESCE(cr.output, '') AS output
+		       COALESCE(cr.output, '') AS output,
+		       cs.progress
 		FROM commands c
 		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
 		LEFT JOIN command_results cr ON cr.command_id = c.id AND cr.device_id = $1
@@ -2604,7 +2635,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 	var out []DeviceCommand
 	for rows.Next() {
 		var dc DeviceCommand
-		if err := rows.Scan(&dc.ID, &dc.Type, &dc.ApkURL, &dc.Payload, &dc.TargetType, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt, &dc.Output); err != nil {
+		if err := rows.Scan(&dc.ID, &dc.Type, &dc.ApkURL, &dc.Payload, &dc.TargetType, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt, &dc.Output, &dc.Progress); err != nil {
 			return nil, err
 		}
 		out = append(out, dc)
@@ -5951,6 +5982,11 @@ CREATE INDEX IF NOT EXISTS idx_update_devices_device_id ON update_devices(device
 CREATE INDEX IF NOT EXISTS idx_commands_created_at      ON commands(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_alerts_fired_at          ON alerts(fired_at DESC);
 CREATE INDEX IF NOT EXISTS idx_device_daily_stats_device_day ON device_daily_stats(device_id, day DESC);
+
+-- Interim install progress: a device reports 'downloading' (with a percent) then
+-- 'installing' before the terminal 'installed'/'failed'. progress is 0-100 while
+-- downloading, NULL otherwise.
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS progress SMALLINT;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

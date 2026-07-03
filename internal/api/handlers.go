@@ -496,9 +496,22 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 		CommandID uuid.UUID `json:"command_id"`
 		Status    string    `json:"status"`
 		Output    string    `json:"output"`
+		Progress  *int      `json:"progress"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil || body.CommandID == uuid.Nil {
 		log.Printf("[ws-ack] parse error or missing command_id: %v", err)
+		return
+	}
+	// Interim install progress ('downloading'/'installing') updates status + percent
+	// without finalizing; a separate path from the terminal ack so the dashboard can
+	// show "Downloading 45%" / "Installing…" live.
+	if body.Status == "downloading" || body.Status == "installing" {
+		if err := h.db.SetCommandProgress(ctx, body.CommandID, deviceID, body.Status, body.Progress); err != nil {
+			log.Printf("[ws-ack] SetCommandProgress error: %v", err)
+			return
+		}
+		h.hub.PublishDeviceUpdate(deviceID)
+		h.hub.PublishCommandUpdate(body.CommandID)
 		return
 	}
 	if body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
@@ -1059,21 +1072,38 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		SerialNumber string `json:"serial_number"`
-		Status       string `json:"status"` // installed | failed | completed
+		Status       string `json:"status"` // downloading | installing | installed | failed | completed
 		Output       string `json:"output"`
+		Progress     *int   `json:"progress"` // 0-100, meaningful while downloading
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SerialNumber == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number is required"})
 		return
 	}
-	if body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be installed, failed, or completed"})
+	interim := body.Status == "downloading" || body.Status == "installing"
+	if !interim && body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be downloading, installing, installed, failed, or completed"})
 		return
 	}
 
 	device, err := h.db.GetDevice(r.Context(), body.SerialNumber)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+	// Interim progress updates the live status/percent without finalizing.
+	if interim {
+		if err := h.db.SetCommandProgress(r.Context(), cmdID, device.ID, body.Status, body.Progress); err != nil {
+			if errors.Is(err, db.ErrCommandNotTargeted) {
+				writeJSON(w, http.StatusForbidden, map[string]string{"error": "command does not target device"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return
+		}
+		h.hub.PublishDeviceUpdate(device.ID)
+		h.hub.PublishCommandUpdate(cmdID)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
 	if err := h.db.AckCommand(r.Context(), cmdID, device.ID, body.Status); err != nil {
