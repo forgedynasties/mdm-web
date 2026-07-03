@@ -6113,6 +6113,7 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 		"Online":     onlineEff,
 		"Offline":    offlineEff,
 		"Skipped":    skipped,
+		"LowBattery": lowBatOnline,
 		"Screenshot": cmdType == "screenshot",
 		"Warn":       warn,
 		"Roll":       roll,
