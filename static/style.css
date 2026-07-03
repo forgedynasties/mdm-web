@@ -5307,3 +5307,32 @@ a.hl-row:hover { background: var(--hover); }
 .skel-fleet-roster{min-width:0;}
 .skel-fleet-views{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap;}
 @media (max-width:900px){.skel-fleet-grid{grid-template-columns:1fr;}.skel-fleet-rail{display:none;}}
+
+/* ══════════════════════════════════════════════════════════
+   Responsive · phone row-grid relaxation (≤640px)
+   Dense multi-column list rows wrap or shed low-value columns
+   so nothing overflows on phones. Rows that already collapse
+   (.rel-row@820, .rlc@760, .qa-row@720, .htbl-cols@900) and the
+   container-query fleet cards (.dl-card) keep their own rules.
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Commands list: identity grows; status chip / time / delete wrap below. */
+  .cmd-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+  .cmd-row .cmd-main { flex: 1 1 58%; min-width: 0; }
+
+  /* Users list: avatar + identity on the first line; role + actions wrap. */
+  .user-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .user-row .user-id { flex: 1 1 55%; min-width: 0; }
+  .user-row .user-act { margin-left: auto; }
+
+  /* Fleet-health ranked table: keep Score/Restaurant/Offline/Battery;
+     drop the two least-critical metric columns (Charging, Max °C). */
+  .hl-row { grid-template-columns: 92px minmax(0, 1fr) auto auto; gap: 10px; padding: 11px 14px; }
+  .hl-row > :nth-child(5), .hl-row > :nth-child(6) { display: none; }
+
+  /* Wide data tables (nowrap headers) scroll sideways inside their card
+     instead of forcing the whole page to scroll. Cards otherwise clip
+     (overflow:hidden); relax that only when they hold a raw table. */
+  .card:has(> .table),
+  .card:has(> table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
