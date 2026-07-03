@@ -5195,3 +5195,18 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .skel-page{padding:6px 0;}
 .skel-title{width:210px;height:24px;border-radius:8px;margin:8px 0 22px;}
 .skel-card{border:1px solid var(--border);border-radius:14px;background:var(--surface);}
+
+/* Skeleton archetype building blocks (per-page nav skeletons — see layout <template>s). */
+.skel-block{background:var(--surface-3);border-radius:14px;position:relative;overflow:hidden;}
+.skel-block::after{content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--surface) 60%,transparent),transparent);animation:skel-sweep 1.2s infinite;}
+@media (prefers-reduced-motion: reduce){.skel-block::after{animation:none;}}
+.skel-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:0 0 16px;}
+.skel-statcard{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:16px 18px;}
+.skel-2col{display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start;}
+.skel-chips{display:flex;gap:12px;margin:0 0 20px;}
+.skel-chip-lg{flex:1;height:64px;border-radius:13px;}
+.skel-3pane{display:grid;grid-template-columns:212px 1fr 300px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface);}
+.skel-3pane .p{padding:16px 18px;}
+@media (max-width:1180px){.skel-3pane{grid-template-columns:212px 1fr;}.skel-3pane .imp{display:none;}}
+@media (max-width:900px){.skel-2col{grid-template-columns:1fr;}.skel-stats{grid-template-columns:repeat(2,1fr);}}
