@@ -5314,3 +5314,11 @@ a.hl-row:hover { background: var(--hover); }
 .ai-reveal .rep-tile,.ai-reveal .rep-row,.ai-reveal .rep-good{opacity:0;transform:translateY(6px)}
 .ai-reveal .rep-tile.in,.ai-reveal .rep-row.in,.ai-reveal .rep-good.in{opacity:1;transform:none;transition:opacity .35s,transform .35s}
 @media(prefers-reduced-motion:reduce){.ai-tline,.ai-reveal .rep-tile,.ai-reveal .rep-row,.ai-reveal .rep-good{transition:none;opacity:1;transform:none}.ai-caret,.ai-tspin{animation:none}}
+
+/* Fleet nav skeleton: mirrors .fleet-md (collections rail + roster). */
+.skel-w80{width:80%;}
+.skel-fleet-grid{display:grid;grid-template-columns:232px minmax(0,1fr);gap:20px;align-items:start;}
+.skel-fleet-rail{padding:16px 16px 20px;}
+.skel-fleet-roster{min-width:0;}
+.skel-fleet-views{display:flex;gap:8px;margin:0 0 16px;flex-wrap:wrap;}
+@media (max-width:900px){.skel-fleet-grid{grid-template-columns:1fr;}.skel-fleet-rail{display:none;}}
