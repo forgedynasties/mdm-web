@@ -319,7 +319,7 @@
                   <input type="search" id="cmd-serial-input" name="q" class="filter-search-input" autocomplete="off"
                          placeholder="Search serial · Enter to add…"
                          hx-get="/devices/search" hx-select="unset" hx-trigger="keyup changed delay:200ms, focus"
-                         hx-target="#cmd-device-results" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
+                         hx-target="#cmd-device-results" hx-swap="innerHTML" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
                 </div>
                 <div id="cmd-device-results"></div>
                 <div class="cb-tools">
