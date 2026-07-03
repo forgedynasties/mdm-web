@@ -1956,10 +1956,22 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 // install_apk commands not yet completed/failed — shown in the device Applications list.
 // Commands are deduped by APK URL: re-sending the same install (or a group target
 // re-firing it) yields one row with a Count, not a stack of identical rows.
-func pendingInstallRows(commands []db.DeviceCommand, apps []db.App) []map[string]string {
+// installedPkgs = the packages the device currently reports; apkPkg = learned
+// apk_url→package map. A pending install whose APK maps to a package the device
+// already has is treated as done and not shown (covers a lost terminal ack until the
+// next check-in reconciles it in the DB).
+func pendingInstallRows(commands []db.DeviceCommand, apps []db.App, installedPkgs []db.DevicePackage, apkPkg map[string]string) []map[string]string {
 	name := make(map[string]string, len(apps))
 	for _, a := range apps {
 		name[a.ApkURL] = a.Name
+	}
+	have := make(map[string]bool, len(installedPkgs))
+	for _, p := range installedPkgs {
+		have[p.PackageName] = true
+	}
+	alreadyInstalled := func(apkURL string) bool {
+		pkg, ok := apkPkg[apkURL]
+		return ok && have[pkg]
 	}
 	// A human phase label for the row's spinner tag, plus the download percent.
 	label := func(status string, progress *int) (string, string) {
@@ -1981,7 +1993,7 @@ func pendingInstallRows(commands []db.DeviceCommand, apps []db.App) []map[string
 	var out []map[string]string
 	idx := make(map[string]int) // ApkURL -> position in out
 	for _, c := range commands {
-		if c.Type == "install_apk" && inFlight(c.Status) {
+		if c.Type == "install_apk" && inFlight(c.Status) && !alreadyInstalled(c.ApkURL) {
 			if i, ok := idx[c.ApkURL]; ok {
 				out[i]["Count"] = strconv.Itoa(atoi(out[i]["Count"]) + 1)
 				continue
@@ -2029,11 +2041,12 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 	installedPkgs, _ := h.db.GetDevicePackages(r.Context(), device.ID)
 	commands, _ := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
 	apps, _ := h.db.ListApps(r.Context())
+	apkPkg, _ := h.db.GetApkPackageMap(r.Context(), nil)
 	h.tmpl.ExecuteTemplate(w, "device-apps-list", map[string]any{
 		"Device":            device,
 		"Role":              h.role(r),
 		"InstalledPackages": installedPkgs,
-		"PendingInstalls":   pendingInstallRows(commands, apps),
+		"PendingInstalls":   pendingInstallRows(commands, apps, installedPkgs, apkPkg),
 	})
 }
 
@@ -2090,8 +2103,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// In-flight installs: install_apk commands not yet completed/failed, so the
-	// Applications list can show them as "installing" until the device reports them.
-	pendingInstalls := pendingInstallRows(commands, apps)
+	// Applications list can show them as "installing" until the device reports them
+	// (skipping any whose app the device already has present).
+	apkPkg, _ := h.db.GetApkPackageMap(r.Context(), nil)
+	pendingInstalls := pendingInstallRows(commands, apps, installedPkgs, apkPkg)
 
 	kioskCfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID)
 	if err != nil {
