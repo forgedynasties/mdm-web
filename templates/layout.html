@@ -59,31 +59,39 @@
     // Belt-and-suspenders: also on a hard unload.
     window.addEventListener('pagehide', mdmTeardownPage);
 
-    // ── Instant skeleton on navigation ─────────────────────────────────────────
-    // The moment a boosted page navigation starts, paint a shimmer skeleton into
-    // <main> so the destination appears instantly while its data loads; htmx then
-    // replaces it with the real content. Only for GET navigations that target
-    // <main> (not the in-place polling partials, which target their own regions,
-    // nor form POSTs). A tiny delay avoids a flash on already-fast responses.
-    var MDM_SKELETON =
-      '<div class="skel-page">' +
-      '<div class="skel skel-line skel-title"></div>' +
-      '<div class="skel-list skel-card">' +
-      (function () { var r = ''; for (var i = 0; i < 7; i++) {
-        r += '<div class="skel-row"><div class="skel skel-av"></div>' +
-             '<div class="g"><div class="skel skel-line skel-w40"></div>' +
-             '<div class="skel skel-line skel-w60"></div></div>' +
-             '<div class="skel skel-pill"></div></div>'; } return r; })() +
-      '</div></div>';
+    // ── Instant, page-shaped skeleton on navigation ────────────────────────────
+    // The moment a boosted page navigation starts, clone the skeleton <template>
+    // that matches the destination into <main>, so the page appears instantly in
+    // roughly its final shape while data loads; htmx then swaps in real content.
+    // Only for GET navigations that target <main> (not in-place polling partials,
+    // which target their own regions, nor form POSTs). A tiny delay avoids a flash
+    // on already-fast responses.
+    function mdmSkeletonFor(path) {
+      path = (path || '').split('?')[0].split('#')[0];
+      if (path === '/') return 'skel-overview';
+      if (path === '/settings') return 'skel-settings';
+      if (path === '/commands') return 'skel-actions';
+      // Detail pages: a device serial, a numeric release/deployment id, or a
+      // group/restaurant/production id — stat-cards + content blocks.
+      if (/^\/devices\/[^/]+/.test(path)) return 'skel-detail';
+      if (/^\/releases\/\d+/.test(path)) return 'skel-detail';
+      if (/^\/commands\/[0-9a-f-]{8,}/.test(path)) return 'skel-detail';
+      if (/^\/(groups|restaurants|productions)\/[^/]+/.test(path)) return 'skel-detail';
+      return 'skel-list'; // fleet, history, alerts, users, packages, setup, …
+    }
     var _skelTimer = null;
     document.addEventListener('htmx:beforeRequest', function (e) {
       var d = e.detail || {};
       var verb = (d.requestConfig && d.requestConfig.verb || '').toLowerCase();
       var main = document.querySelector('main');
       if (verb !== 'get' || !main || d.target !== main) return; // only main-targeted GET nav
+      var path = (d.requestConfig && d.requestConfig.path) ||
+                 (d.elt && d.elt.getAttribute && d.elt.getAttribute('href')) || '';
       _skelTimer = setTimeout(function () {
-        main.innerHTML = MDM_SKELETON;
-        main.scrollTop = 0; window.scrollTo(0, 0);
+        var tpl = document.getElementById(mdmSkeletonFor(path));
+        main.innerHTML = '';
+        if (tpl && tpl.content) main.appendChild(tpl.content.cloneNode(true));
+        window.scrollTo(0, 0);
       }, 120);
     });
     function mdmCancelSkeleton() { if (_skelTimer) { clearTimeout(_skelTimer); _skelTimer = null; } }
@@ -1177,6 +1185,78 @@
     };
   })();
   </script>
+
+  {{/* Per-page navigation skeletons. Inert <template>s (rendered once, live
+       outside <main> so they survive boosted swaps); the beforeRequest handler
+       clones the one matching the destination path into <main> during nav. */}}
+  <template id="skel-list"><div class="skel-page">
+    <div class="skel skel-line skel-title"></div>
+    <div class="skel-list skel-card">
+      <div class="skel-row"><div class="skel skel-av"></div><div class="g"><div class="skel skel-line skel-w40"></div><div class="skel skel-line skel-w60"></div></div><div class="skel skel-pill"></div></div>
+      <div class="skel-row"><div class="skel skel-av"></div><div class="g"><div class="skel skel-line skel-w60"></div><div class="skel skel-line skel-w25"></div></div><div class="skel skel-pill"></div></div>
+      <div class="skel-row"><div class="skel skel-av"></div><div class="g"><div class="skel skel-line skel-w40"></div><div class="skel skel-line skel-w60"></div></div><div class="skel skel-pill"></div></div>
+      <div class="skel-row"><div class="skel skel-av"></div><div class="g"><div class="skel skel-line skel-w60"></div><div class="skel skel-line skel-w25"></div></div><div class="skel skel-pill"></div></div>
+      <div class="skel-row"><div class="skel skel-av"></div><div class="g"><div class="skel skel-line skel-w40"></div><div class="skel skel-line skel-w60"></div></div><div class="skel skel-pill"></div></div>
+      <div class="skel-row"><div class="skel skel-av"></div><div class="g"><div class="skel skel-line skel-w60"></div><div class="skel skel-line skel-w25"></div></div><div class="skel skel-pill"></div></div>
+      <div class="skel-row"><div class="skel skel-av"></div><div class="g"><div class="skel skel-line skel-w40"></div><div class="skel skel-line skel-w60"></div></div><div class="skel skel-pill"></div></div>
+    </div>
+  </div></template>
+
+  <template id="skel-overview"><div class="skel-page">
+    <div class="skel skel-line" style="width:240px;height:26px;margin:6px 0 22px;border-radius:8px;"></div>
+    <div class="skel-2col">
+      <div>
+        <div class="skel-chips"><div class="skel skel-chip-lg"></div><div class="skel skel-chip-lg"></div><div class="skel skel-chip-lg"></div><div class="skel skel-chip-lg"></div></div>
+        <div class="skel-block" style="height:230px;"></div>
+      </div>
+      <div>
+        <div class="skel-block" style="height:210px;margin-bottom:16px;"></div>
+        <div class="skel-block" style="height:150px;"></div>
+      </div>
+    </div>
+  </div></template>
+
+  <template id="skel-detail"><div class="skel-page">
+    <div class="skel skel-line" style="width:120px;height:13px;margin:0 0 14px;"></div>
+    <div class="skel skel-line" style="width:260px;height:26px;margin:0 0 18px;border-radius:8px;"></div>
+    <div class="skel-stats">
+      <div class="skel-statcard"><div class="skel skel-line skel-w40" style="height:10px;"></div><div class="skel skel-line skel-w60" style="height:18px;margin-top:12px;margin-bottom:0;"></div></div>
+      <div class="skel-statcard"><div class="skel skel-line skel-w40" style="height:10px;"></div><div class="skel skel-line skel-w60" style="height:18px;margin-top:12px;margin-bottom:0;"></div></div>
+      <div class="skel-statcard"><div class="skel skel-line skel-w40" style="height:10px;"></div><div class="skel skel-line skel-w60" style="height:18px;margin-top:12px;margin-bottom:0;"></div></div>
+      <div class="skel-statcard"><div class="skel skel-line skel-w40" style="height:10px;"></div><div class="skel skel-line skel-w60" style="height:18px;margin-top:12px;margin-bottom:0;"></div></div>
+    </div>
+    <div class="skel-block" style="height:180px;margin-bottom:16px;"></div>
+    <div class="skel-block" style="height:240px;"></div>
+  </div></template>
+
+  <template id="skel-settings"><div class="skel-page">
+    <div class="skel skel-line" style="width:160px;height:26px;margin:6px 0 22px;border-radius:8px;"></div>
+    <div class="skel-block" style="height:120px;margin-bottom:16px;"></div>
+    <div class="skel-block" style="height:180px;margin-bottom:16px;"></div>
+    <div class="skel-block" style="height:120px;"></div>
+  </div></template>
+
+  <template id="skel-actions"><div class="skel-page">
+    <div class="skel skel-line" style="width:170px;height:26px;margin:6px 0 18px;border-radius:8px;"></div>
+    <div class="skel-3pane" style="margin-bottom:22px;">
+      <div class="p" style="border-right:1px solid var(--border);">
+        <div class="skel skel-line" style="width:75%;margin:12px 0;"></div>
+        <div class="skel skel-line" style="width:60%;margin:12px 0;"></div>
+        <div class="skel skel-line" style="width:70%;margin:12px 0;"></div>
+        <div class="skel skel-line" style="width:55%;margin:12px 0;"></div>
+        <div class="skel skel-line" style="width:65%;margin:12px 0;"></div>
+      </div>
+      <div class="p">
+        <div class="skel skel-line skel-w25"></div>
+        <div class="skel-block" style="height:38px;margin:12px 0 22px;border-radius:9px;"></div>
+        <div class="skel skel-line skel-w25"></div>
+        <div class="skel-block" style="height:120px;margin-top:12px;border-radius:9px;"></div>
+      </div>
+      <div class="imp" style="background:var(--surface2);"></div>
+    </div>
+    <div class="skel-block" style="height:220px;"></div>
+  </div></template>
+
 </body>
 </html>
 {{end}}{{/* not .Boosted */}}
