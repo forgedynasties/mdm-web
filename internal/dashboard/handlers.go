@@ -2892,6 +2892,44 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 	openAlerts, _ := h.db.CountOpenAlerts(r.Context())
 	alerts, _ := h.db.ListAlerts(r.Context(), "open", 500)
 	serials, _ := h.db.ListAllSerials(r.Context())
+
+	// Fleet score: device-weighted mean of the per-restaurant scores (same basis as
+	// the overview ring), so the hero number agrees across pages.
+	score := 100
+	if summary.Total > 0 {
+		if num, den := 0, 0; len(groups) > 0 {
+			for _, g := range groups {
+				num += g.Score * g.DeviceCount
+				den += g.DeviceCount
+			}
+			if den > 0 {
+				score = num / den
+			}
+		} else {
+			score -= 40 * (summary.Total - summary.RecentlyActive) / summary.Total
+		}
+	}
+	scoreClass := "danger"
+	switch {
+	case score >= 80:
+		scoreClass = "ok"
+	case score >= 50:
+		scoreClass = "warn"
+	}
+	// Restaurants needing a look = anything not scoring "ok" (or with a device).
+	attention := 0
+	for _, g := range groups {
+		if g.DeviceCount > 0 && g.ScoreClass != "ok" {
+			attention++
+		}
+	}
+	verdict := "All restaurants healthy"
+	if attention == 1 {
+		verdict = "1 restaurant needs a look"
+	} else if attention > 1 {
+		verdict = fmt.Sprintf("%d restaurants need a look", attention)
+	}
+
 	data := map[string]any{
 		"Title":           "Fleet Health",
 		"Groups":          groups,
@@ -2905,6 +2943,12 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		"DeviceSerials":   serialsJSON(serials),
 		"HotSerials":      serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(r.Context()).TempC)),
 		"WindowDays":      windowDays,
+		"Score":           score,
+		"ScoreClass":      scoreClass,
+		// 2π·r40 = 251.3; the hero ring animates to this offset.
+		"RingOffset": fmt.Sprintf("%.1f", 251.3*float64(100-score)/100),
+		"Verdict":    verdict,
+		"Attention":  attention,
 	}
 	// Show the same cached fleet report as the main page (latest of hourly or manual).
 	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
