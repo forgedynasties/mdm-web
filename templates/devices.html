@@ -34,6 +34,26 @@
 </div>
 {{end}}
 
+{{/* Quick-view filter pills — shared by the inline roster and the OOB refresh
+     that a rail collection switch performs (counts come from the scoped summary). */}}
+{{define "fleet-view-pills"}}
+      <button type="button" class="fleet-view" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
+      <button type="button" class="fleet-view" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
+      <button type="button" class="fleet-view" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
+      <button type="button" class="fleet-view" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
+      <button type="button" class="fleet-view" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
+      <button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Hidden</button>
+{{end}}
+
+{{/* Out-of-band bits refreshed when the roster is re-scoped in place (rail click):
+     the heading name + count and the quick-view pill counts. The device list
+     itself is the main swap target (#device-table-container). */}}
+{{define "roster-meta-oob"}}
+<span class="t" id="roster-title" hx-swap-oob="true">{{.SelectedCollection}}</span>
+<span class="c" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
+<div class="fleet-views" id="fleet-views" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>
+{{end}}
+
 {{define "device-table"}}
 {{if or .Query .FilterStatus .FilterProduction .FilterBuild .FilterBattery .FilterKiosk .FilterCharging .FilterTimezone .FilterHidden}}
 <div class="fleet-chips">
@@ -293,14 +313,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     </div>
 
     {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
-    <div class="fleet-views">
-      <button type="button" class="fleet-view" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
-      <button type="button" class="fleet-view" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
-      <button type="button" class="fleet-view" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
-      <button type="button" class="fleet-view" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
-      <button type="button" class="fleet-view" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
-      <button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Hidden</button>
-    </div>
+    <div class="fleet-views" id="fleet-views">{{template "fleet-view-pills" .}}</div>
 
 
 <div class="fleet-bar dv-rise-1">
@@ -442,7 +455,10 @@ function getFilterVals(overrides) {
 function navigateDevices(overrides) {
   var vals = getFilterVals(overrides);
   var url = '/devices?' + new URLSearchParams(vals).toString();
-  htmx.ajax('GET', url, '#device-table-container').then(function() {
+  // Explicit innerHTML swap: a bare target string would inherit the <body>'s
+  // hx-swap="outerHTML" (hx-boost), which replaces the container itself and
+  // spills the fragment into the flex .dv-split as a broken horizontal row.
+  htmx.ajax('GET', url, { target: '#device-table-container', swap: 'innerHTML' }).then(function() {
     history.pushState(null, '', url);
     syncFilterUI();
   });
@@ -450,6 +466,45 @@ function navigateDevices(overrides) {
 
 function applyFilters() {
   navigateDevices({page: '1'});
+}
+
+// Skeleton rows for the device list, shown while a rail collection switch loads.
+function mdmDevSkeleton() {
+  var row = '<div class="skel-row"><div class="skel skel-av"></div><div class="g"><div class="skel skel-line skel-w40"></div><div class="skel skel-line skel-w60"></div></div><div class="skel skel-pill"></div></div>';
+  var s = ''; for (var i = 0; i < 7; i++) s += row;
+  return '<div class="skel-list skel-card">' + s + '</div>';
+}
+
+// Re-scope the roster to a rail collection IN PLACE: only the device list (skeleton
+// → real rows) and the heading/quick-view counts (OOB) change; the rail, search bar
+// and inspector stay put. Switching collection resets the search + popover filters.
+function scopeRoster(anchor, u) {
+  ['filter-production', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-charging', 'filter-timezone'].forEach(function (id) { setSel(id, ''); });
+  setSel('search-input', '');
+  var ov = { page: '1', group: '', restaurant: '', build: '', production: '', status: '', battery: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '' };
+  if (u.searchParams.get('restaurant')) ov.restaurant = u.searchParams.get('restaurant');
+  else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
+  else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
+
+  // Instant heading + rail highlight from the clicked item (before data lands).
+  var item = anchor.closest('.fleet-rail-item');
+  if (item) {
+    document.querySelectorAll('.fleet-rail-item').forEach(function (x) { x.classList.remove('on'); });
+    item.classList.add('on');
+    var nm = item.querySelector('.nm'), ct = item.querySelector('.ct');
+    var rt = document.getElementById('roster-title'), rc = document.getElementById('roster-count');
+    if (rt && nm) rt.textContent = nm.textContent.trim();
+    if (rc && ct) { var n = ct.textContent.trim(); rc.textContent = n + ' device' + (n === '1' ? '' : 's'); }
+  }
+
+  var tc = document.getElementById('device-table-container');
+  if (tc) tc.innerHTML = mdmDevSkeleton();
+  var url = '/devices?' + new URLSearchParams(getFilterVals(ov)).toString();
+  htmx.ajax('GET', url, { target: '#device-table-container', swap: 'innerHTML', headers: { 'X-Roster-Meta': '1' } }).then(function () {
+    history.pushState(null, '', url);
+    syncFilterUI();
+    applyCols();
+  });
 }
 
 function setSel(id, val) { var el = document.getElementById(id); if (el) el.value = val; }
@@ -575,6 +630,22 @@ if (!window.__fleetDocBound) {
     if (sw && !sw.contains(e.target)) closeSort();
   });
   document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeFilters(); closeSort(); } });
+
+  // Rail collection switch → re-scope in place instead of a full boosted reload.
+  // Capture phase so we preempt hx-boost on the anchor. Only intercept collection
+  // SCOPE links (All devices / a restaurant / group / release) while already in
+  // roster mode; view=grid switches and grid/detail→roster transitions fall through
+  // to the normal boosted navigation.
+  document.addEventListener('click', function (e) {
+    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    var a = e.target.closest && e.target.closest('.fleet-rail a[href^="/devices"]');
+    if (!a) return;
+    if (!document.getElementById('device-table-container')) return;
+    var u; try { u = new URL(a.href, location.origin); } catch (_) { return; }
+    if (u.searchParams.get('view')) return; // grid switch → full nav
+    e.preventDefault(); e.stopPropagation();
+    scopeRoster(a, u);
+  }, true);
 }
 
 // Recompute the lightweight filter UI (view pills, Filters badge, visibility
