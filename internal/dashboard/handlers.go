@@ -1766,6 +1766,16 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Density":              h.cfg.Density(),
 	}
 
+	// A rail collection switch (X-Roster-Meta) re-scopes the roster in place: the
+	// device list is the main swap target, and the heading + quick-view counts ride
+	// along as out-of-band swaps so only the changing bits update (the rail, search
+	// bar and inspector are left untouched).
+	if r.Header.Get("X-Roster-Meta") == "1" {
+		rd := h.withRole(r, data)
+		h.tmpl.ExecuteTemplate(w, "device-table", rd)
+		h.tmpl.ExecuteTemplate(w, "roster-meta-oob", rd)
+		return
+	}
 	// The table fragment is for the in-place refresh (hx-get polling), NOT for a
 	// boosted full-page navigation — a boosted nav must get the whole page (which
 	// the layout renders as main-only) so <main> is swapped correctly.
