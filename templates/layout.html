@@ -454,12 +454,18 @@
   // a meaningful single-moment spike map; battery decline / charging are trends, so
   // their serials stay plain links (open the device at its default view).
   var mdmAreaFocus = { heat: 'temp', memory: 'ram' };
-  function mdmReportPreview(rep) { return mdmStatusWord(rep.status) + '<span class="rep-headline">' + mdmLinkify(mdmEsc(rep.headline)) + '</span>'; }
+  // Assistant voice: a status-toned opener, colored by severity.
+  function mdmReportIntro(status) {
+    var map = { ok: ['ai-ok', 'All clear —'], watch: ['ai-warn', 'Heads up —'], at_risk: ['ai-bad', 'Urgent —'] };
+    var m = map[status] || ['ai-muted', 'Update —'];
+    return '<span class="ai-intro ' + m[0] + '">' + m[1] + '</span> ';
+  }
+  function mdmReportPreview(rep) { return mdmReportIntro(rep.status) + '<span class="rep-headline">' + mdmLinkify(mdmEsc(rep.headline)) + '</span>'; }
   function mdmReportBody(rep) {
     var h = '';
     if (rep.metrics && rep.metrics.length) {
       var tiles = '<div class="rep-tiles">';
-      rep.metrics.forEach(function (m) { tiles += '<div class="rep-tile"><div class="v">' + mdmEsc(m.value) + '</div><div class="l">' + mdmEsc(m.label) + '</div></div>'; });
+      rep.metrics.forEach(function (m) { tiles += '<span class="rep-tile"><b>' + mdmEsc(m.value) + '</b> <span class="l">' + mdmEsc(m.label) + '</span></span>'; });
       tiles += '</div>';
       h += mdmLinkify(tiles); // headline metrics: hottest-unit fallback
     }
@@ -471,16 +477,16 @@
         // call-out deep-links to its temp spike even if it isn't the single hottest —
         // and the same serial in a charging line stays a plain link.
         var focus = mdmAreaFocus.hasOwnProperty(is.area) ? mdmAreaFocus[is.area] : null;
-        var body = '<div class="line">' + (is.area ? '<span class="rep-uplabel">' + mdmEsc(is.area) + '</span> ' : '')
-          + '<span class="scope">' + mdmEsc(is.scope) + '</span>' + (is.detail ? ' — ' + mdmEsc(is.detail) : '') + '</div>'
-          + (is.action ? '<div class="action">→ ' + mdmEsc(is.action) + '</div>' : '');
+        // Conversational one-liner: scope — detail, then the fix as an inline accent.
+        var line = '<span class="scope">' + mdmEsc(is.scope) + '</span>' + (is.detail ? ' — ' + mdmEsc(is.detail) : '')
+          + (is.action ? ' <span class="rep-act">' + mdmEsc(is.action) + '</span>' : '');
         h += '<div class="rep-row rep-' + sev + '"><span class="ind"></span><div class="meta">'
-          + mdmLinkify(body, focus) + '</div></div>';
+          + mdmLinkify(line, focus) + '</div></div>';
       });
       h += '</div>';
     }
     if (rep.good && rep.good.length) {
-      h += '<div class="rep-good">' + mdmLinkifyRestaurants(rep.good.map(mdmEsc).join(', ')) + ' look fine</div>';
+      h += '<div class="rep-good">' + mdmLinkify('<b>' + rep.good.map(mdmEsc).join(', ') + '</b> are reporting normally') + '</div>';
     }
     return h || '<div class="muted small">No further detail.</div>';
   }
@@ -551,7 +557,7 @@
   async function mdmStreamReport(rep, gen){
     var pre=document.getElementById('ai-sum-preview'), full=document.getElementById('ai-sum-full');
     if(!pre||!full) return;
-    pre.innerHTML = mdmStatusWord(rep.status)+'<span class="rep-headline"></span>';
+    pre.innerHTML = mdmReportIntro(rep.status)+'<span class="rep-headline"></span>';
     await mdmTypeHeadline(pre.querySelector('.rep-headline'), rep.headline, gen);
     if(gen!==_repGen) return;
     full.classList.add('ai-reveal');
