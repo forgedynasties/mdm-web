@@ -498,6 +498,7 @@
     var raw = rawEl.textContent;
     var pre = document.getElementById('ai-sum-preview');
     var full = document.getElementById('ai-sum-full');
+    full.classList.remove('ai-reveal'); // instant render — never leave items hidden
     var rep = mdmParseReport(raw);
     if (rep) {
       pre.innerHTML = mdmReportPreview(rep);
@@ -511,27 +512,83 @@
     }
     full.dataset.rendered = '1';
   };
+  // ── Live generation: thinking log → streamed reveal (mirrors the report demo) ──
+  var _repReduce = window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches;
+  function _repDelay(ms){ return new Promise(function(r){ setTimeout(r, _repReduce ? 0 : ms); }); }
+  var _repThinkTimer = null, _repGen = 0;
+  function mdmRunThink(host){
+    if(!host) return;
+    var lines = ['Reading fleet telemetry…', 'Cross-referencing open alerts and 7-day trends…', 'Composing report…'];
+    host.innerHTML=''; var i=0;
+    function add(){
+      var spin = host.querySelector('.ai-tline .ai-tspin');
+      if(spin) spin.outerHTML='<svg class="ai-tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      if(i>=lines.length){ mdmStopThink(); return; }
+      var el=document.createElement('div'); el.className='ai-tline';
+      el.innerHTML='<span class="ai-tspin"></span><span></span>'; el.querySelector('span:last-child').textContent=lines[i];
+      host.appendChild(el); requestAnimationFrame(function(){ el.classList.add('show'); });
+      i++;
+    }
+    add();
+    _repThinkTimer = setInterval(add, _repReduce ? 200 : 640);
+  }
+  function mdmStopThink(){ if(_repThinkTimer){ clearInterval(_repThinkTimer); _repThinkTimer=null; } }
+  async function mdmTypeHeadline(el, text, gen){
+    if(_repReduce){ el.innerHTML = mdmLinkify(mdmEsc(text)); return; }
+    var cw=document.createElement('span'); cw.className='ai-caret'; el.textContent=''; el.appendChild(cw);
+    var i=0, raw='';
+    while(i<text.length){
+      if(gen!==_repGen) return;
+      var step=Math.max(1, Math.round(Math.random()*2)); raw+=text.substr(i,step); i+=step;
+      el.textContent=raw; el.appendChild(cw);
+      await _repDelay(12 + (/[.,—]/.test(text[i-1]) ? 80 : 0));
+    }
+    el.innerHTML = mdmLinkify(mdmEsc(text));
+  }
+  // Stream a parsed report into the card: type the headline, then reveal the metric
+  // tiles and issue rows one by one — same beat as the standalone demo.
+  async function mdmStreamReport(rep, gen){
+    var pre=document.getElementById('ai-sum-preview'), full=document.getElementById('ai-sum-full');
+    if(!pre||!full) return;
+    pre.innerHTML = mdmStatusWord(rep.status)+'<span class="rep-headline"></span>';
+    await mdmTypeHeadline(pre.querySelector('.rep-headline'), rep.headline, gen);
+    if(gen!==_repGen) return;
+    full.classList.add('ai-reveal');
+    full.innerHTML = mdmReportBody(rep);
+    var items = full.querySelectorAll('.rep-tile, .rep-row, .rep-good');
+    for(var i=0;i<items.length;i++){ await _repDelay(110); if(gen!==_repGen) return; items[i].classList.add('in'); }
+    full.dataset.rendered='1';
+  }
   window.refreshHourlyReport = function () {
     var btn = document.getElementById('ai-sum-refresh');
     if (!btn) return;
-    btn.disabled = true; var lbl = btn.textContent; btn.textContent = 'Refreshing…';
+    var gen = ++_repGen;
+    btn.disabled = true; var lbl = btn.dataset.lbl || btn.textContent; btn.dataset.lbl = lbl; btn.textContent = 'Analyzing…';
+    var pre = document.getElementById('ai-sum-preview'), full = document.getElementById('ai-sum-full');
+    if (pre) pre.innerHTML = '';
+    if (full) { full.classList.remove('ai-reveal'); full.dataset.rendered=''; full.innerHTML = '<div class="ai-think" id="ai-think"></div>'; mdmRunThink(document.getElementById('ai-think')); }
     fetch('/ai-summary/refresh', { method: 'POST' })
       .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
+        if (gen !== _repGen) return; // superseded by a newer click
+        mdmStopThink();
         var rawEl = document.getElementById('ai-sum-raw');
-        if (!res.ok) {
-          var pre = document.getElementById('ai-sum-preview');
-          if (pre) { pre.textContent = res.j.error || 'Refresh failed.'; } else { alert(res.j.error || 'Refresh failed.'); }
-          return;
-        }
+        if (!res.ok) { if (pre) pre.textContent = res.j.error || 'Refresh failed.'; if (full) full.innerHTML = ''; return; }
         if (!rawEl) { location.reload(); return; } // card wasn't on the page yet
         rawEl.textContent = res.j.text;
-        window.mdmInitReportCard();
+        mdmSerials._cache = mdmHotSerials._cache = mdmRestaurants._cache = null;
         var ts = document.querySelector('#ai-summary-card .js-local-time');
         if (ts) { ts.setAttribute('data-utc', res.j.generated_at); ts.textContent = new Date(res.j.generated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+        var rep = mdmParseReport(res.j.text);
+        // Return the stream promise so .finally waits for the reveal to finish before
+        // re-enabling the button (keeps it "Analyzing…" through the animation).
+        if (rep) { return mdmStreamReport(rep, gen); }
+        // legacy prose summary — no streaming
+        if (pre) { var head=''; String(res.j.text||'').split('\n').some(function(l){ head=l.replace(/[*`#]/g,'').replace(/^[-0-9.\s]+/,'').trim(); return !!head; }); pre.textContent = head; }
+        if (full) { full.innerHTML = window.mdmRenderMarkdown ? window.mdmRenderMarkdown(res.j.text) : res.j.text; full.dataset.rendered='1'; }
       })
-      .catch(function () { var pre = document.getElementById('ai-sum-preview'); if (pre) pre.textContent = 'Network error.'; })
-      .finally(function () { btn.disabled = false; btn.textContent = lbl; });
+      .catch(function () { if (gen !== _repGen) return; mdmStopThink(); if (pre) pre.textContent = 'Network error.'; if (full) full.innerHTML = ''; })
+      .finally(function () { if (gen === _repGen) { btn.disabled = false; btn.textContent = lbl; } });
   };
   document.addEventListener('DOMContentLoaded', function () { if (document.getElementById('ai-sum-raw')) window.mdmInitReportCard(); });
   // hx-boost swaps only <main>, so DOMContentLoaded never re-fires; re-render the
