@@ -490,6 +490,10 @@
   window.mdmInitReportCard = function () {
     var rawEl = document.getElementById('ai-sum-raw');
     if (!rawEl) return;
+    // Entity caches are memoized on the function; drop them so a boosted nav that
+    // brought a fresh card re-reads THIS page's serials/hot/restaurants, not the
+    // previous page's (stale cache = no or wrong linkification).
+    mdmSerials._cache = mdmHotSerials._cache = mdmRestaurants._cache = null;
     var raw = rawEl.textContent;
     var pre = document.getElementById('ai-sum-preview');
     var full = document.getElementById('ai-sum-full');
@@ -529,6 +533,14 @@
       .finally(function () { btn.disabled = false; btn.textContent = lbl; });
   };
   document.addEventListener('DOMContentLoaded', function () { if (document.getElementById('ai-sum-raw')) window.mdmInitReportCard(); });
+  // hx-boost swaps only <main>, so DOMContentLoaded never re-fires; re-render the
+  // report card whenever a swap brings one in (else it's stuck on the server-side
+  // preview until a full reload). Checked against the live document, not the swap
+  // target — an outerHTML swap's evt.detail.target is the detached OLD element.
+  document.body.addEventListener('htmx:afterSwap', function () {
+    var full = document.getElementById('ai-sum-full');
+    if (full && full.dataset.rendered !== '1' && document.getElementById('ai-sum-raw')) window.mdmInitReportCard();
+  });
 </script>
   <script>
   (function () {
