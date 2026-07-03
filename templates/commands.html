@@ -634,7 +634,7 @@ function cmdBrowseParams() {
   p.set('sort', cmdSort.key); p.set('dir', cmdSort.dir);
   return p;
 }
-function cmdBrowseReload() { cmdUpdateFilterCount(); if (window.htmx) htmx.ajax('GET', '/commands/browse-devices?' + cmdBrowseParams().toString(), '#cmd-device-browser'); }
+function cmdBrowseReload() { cmdUpdateFilterCount(); if (window.htmx) htmx.ajax('GET', '/commands/browse-devices?' + cmdBrowseParams().toString(), { target: '#cmd-device-browser', swap: 'innerHTML' }); }
 function cmdBrowseClear() {
   ['cmd-browse-q','cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'].forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
   cmdBrowseReload();
