@@ -7,29 +7,53 @@
 </div>
 
 <style>
-/* Flight deck: compose (numbered steps) on the left, a sticky pre-flight panel
-   on the right that shows the blast radius + live safety checks before you send. */
-.cmd-rail3{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;margin-bottom:22px;}
-.fd-compose{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;min-width:0;}
-.cr-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
-.cr-head h3{margin:0;font-size:15px;font-weight:650;}
-.cr-head .ctx{font-size:12px;color:var(--muted);}
-.cr-head .ctx b{color:var(--text-2);font-weight:600;}
-/* numbered step scaffold */
-.fd-step-h{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
-.fd-stepn{width:23px;height:23px;flex:none;border-radius:50%;background:var(--text);color:var(--bg);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
-.fd-step-h .fd-lbl{font-size:13.5px;font-weight:700;}
-.fd-step-h .fd-pick{margin-left:auto;font-size:12.5px;color:var(--muted);}
-.fd-step-h .fd-pick b{color:var(--text-2);font-weight:600;}
-/* Read-only builder (viewers): every control natively disabled (greyed, not-allowed). */
+/* Stepper: one decision on screen at a time. A progress rail up top, the current
+   step in the body, and Back / Continue (→ Send on the Review step) in the footer. */
+.cmd-rail3{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
+/* progress rail */
+.wiz-rail{display:flex;align-items:center;padding:16px 22px;border-bottom:1px solid var(--border-soft);background:var(--surface2);}
+.rnode{display:flex;align-items:center;gap:9px;flex:none;background:none;border:none;padding:0;font:inherit;}
+.rdot{width:26px;height:26px;flex:none;border-radius:50%;border:2px solid var(--rule);background:var(--surface);color:var(--muted);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .18s;}
+.rlbl{font-size:12.5px;font-weight:600;color:var(--muted);white-space:nowrap;}
+.rline{flex:1;height:2px;background:var(--rule);margin:0 12px;min-width:14px;border-radius:2px;transition:background .2s;}
+.rnode.on .rdot{border-color:var(--accent);background:var(--accent);color:var(--accent-ink);}
+.rnode.on .rlbl{color:var(--text);}
+.rnode.done .rdot{border-color:var(--ok);background:var(--ok);color:#fff;}
+.rnode.done .rlbl{color:var(--text-2);}
+.rnode.done{cursor:pointer;}
+.rline.fill{background:var(--ok);}
+@media (max-width:640px){.wiz-rail .rlbl{display:none;}.wiz-rail .rline{margin:0 6px;}}
+/* body + steps */
+.wiz-body{padding:24px 22px;min-height:210px;}
+.wiz-step{display:none;}
+.wiz-step.on{display:block;animation:wizfade .25s ease;}
+@keyframes wizfade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.wiz-stitle{font-size:16px;font-weight:700;letter-spacing:-.01em;}
+.wiz-ssub{font-size:13px;color:var(--muted);margin:3px 0 18px;}
+/* review summary cards */
+.wiz-rev{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;}
+@media (max-width:560px){.wiz-rev{grid-template-columns:1fr;}}
+.wiz-revc{border:1px solid var(--border-soft);border-radius:12px;padding:13px 15px;background:var(--surface2);}
+.wiz-revc .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);font-weight:600;}
+.wiz-revc .v{font-size:14px;font-weight:650;margin-top:3px;}
+.wiz-pf{border:1px solid var(--border);border-radius:13px;overflow:hidden;}
+/* footer nav */
+.wiz-foot{display:flex;align-items:center;gap:12px;padding:15px 22px;border-top:1px solid var(--border-soft);}
+.wiz-fctx{font-size:12.5px;color:var(--muted);}
+.wiz-back{margin-left:auto;border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:10px 16px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;}
+.wiz-back:hover{border-color:var(--rule-2);color:var(--text-2);}
+.wiz-back[disabled]{opacity:.4;pointer-events:none;}
+.wiz-next{border:none;border-radius:10px;padding:11px 20px;font-size:13.5px;font-weight:700;color:#fff;background:var(--text);display:inline-flex;align-items:center;gap:8px;cursor:pointer;}
+.wiz-next:hover{background:#000;}
+.wiz-next svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.2;}
+/* Read-only builder (viewers): controls natively disabled (greyed, not-allowed). */
 .ro-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 11px;}
 .ro-badge svg{stroke:var(--muted);flex:none;}
 .cmd-rail3.is-readonly .cr-rail{pointer-events:none;}
 .cmd-rail3.is-readonly .cr-rail-item{opacity:.6;}
 .cmd-rail3.is-readonly :disabled{cursor:not-allowed;opacity:.6;}
 .cmd-rail3.is-readonly .target-pill:disabled{opacity:.6;}
-.ro-note{font-size:12px;color:var(--muted);}
-@media (max-width:1024px){.cmd-rail3{grid-template-columns:1fr;}.fd-pf{position:static;}}
+.ro-note{font-size:12px;color:var(--muted);margin-right:auto;}
 
 /* "Start from a recipe" — horizontal strip of one-tap presets above the composer. */
 .recipes-wrap{margin-bottom:18px;}
@@ -51,8 +75,7 @@
 .recipe.add{border-style:dashed;box-shadow:none;color:var(--muted);font-weight:600;font-size:12.5px;gap:7px;padding:10px 15px;}
 .recipe.add svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;}
 
-/* ── Pre-flight panel (sticky right column): blast radius + safety checks ── */
-.fd-pf{position:sticky;top:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;}
+/* ── Pre-flight (Review step): blast radius + safety checks ── */
 .cr-impact{min-width:0;}
 .pf-top{padding:16px 18px 14px;background:linear-gradient(180deg,var(--surface2),var(--surface));border-bottom:1px solid var(--border-soft);}
 .imp-cap{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin-bottom:7px;}
@@ -77,7 +100,6 @@
    static/style.css so the standalone /commands/history page shares them. */
 
 /* Step 1 — action tiles (keeps .cr-rail / .cr-rail-item markup + selectType JS). */
-.fd-step{padding:18px 20px;}
 .cr-rail{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
 @media (max-width:520px){.cr-rail{grid-template-columns:repeat(2,1fr);}}
 .cr-rail-group{grid-column:1/-1;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:6px 2px 0;}
@@ -89,23 +111,21 @@
 .cr-rail-item.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-h);}
 .cr-rail-item.on .ic{background:var(--surface);color:var(--accent);}
 
-/* Steps 2 & 3 — payload + target blocks in .cr-config. */
+/* Steps 2 & 3 — payload + target render bare inside the step body. */
 .cr-config{min-width:0;}
-.cr-config .cr-sec{padding:18px 20px;border-top:1px solid var(--border-soft);}
-.cr-sec + .cr-sec{margin-top:0;}
-.cr-sec-title{display:flex;align-items:center;gap:11px;font-size:13.5px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--text);margin:0 0 14px;}
+.cr-config .cr-sec{padding:0;border-top:none;}
+.cr-sec-title{display:none;} /* the step heading (.wiz-stitle) replaces it */
 .cr-config .form-input,.cr-config .form-textarea{width:100%;box-sizing:border-box;}
 .cr-config .form-textarea{min-height:80px;}
 .cr-config .payload-section{display:none;}
 .cr-config .payload-section.is-active{display:block;}
 .cr-config .payload-empty{color:var(--muted);font-size:13px;}
 
-/* Send footer — inside the pre-flight panel, below the checklist. */
-.review-warn{padding:9px 11px;border-radius:8px;background:var(--warn-bg);font-size:12px;line-height:1.5;margin-bottom:10px;}
-.cr-foot{padding:14px 16px 16px;border-top:1px solid var(--border-soft);}
-.cr-send{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;}
-.cr-send:disabled{opacity:.5;cursor:not-allowed;}
-.ro-note{margin-bottom:10px;}
+/* Send button — the footer's primary on the Review step. */
+.review-warn{padding:9px 11px;border-radius:8px;background:var(--warn-bg);font-size:12px;line-height:1.5;margin-bottom:14px;}
+.cr-send{border:none;border-radius:10px;padding:11px 20px;font-size:13.5px;font-weight:700;color:#fff;background:var(--brand-grad);display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 14px rgba(249,103,78,.28);cursor:pointer;}
+.cr-send:hover{filter:brightness(1.04);}
+.cr-send:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;filter:none;}
 .cmd-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
 .cmd-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:14px;background:var(--accent-soft);color:var(--text);font-size:12px;font-family:var(--mono);}
 .cmd-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px;}
@@ -144,57 +164,67 @@
 {{end}}
 
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
-  <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
-    <div class="fd-compose">
+  <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}" id="wiz">
 
-    <div class="cr-head">
-      <h3>New action</h3>
-      {{if canOperate .Role}}<span class="ctx" id="cmd-ctx"></span>
-      {{else}}<span class="ro-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>View only</span>{{end}}
+    <!-- progress rail -->
+    <div class="wiz-rail" id="wiz-rail">
+      <button type="button" class="rnode on" data-n="1" onclick="wizJump(1)"><span class="rdot">1</span><span class="rlbl">Action</span></button>
+      <span class="rline"></span>
+      <button type="button" class="rnode" data-n="2" onclick="wizJump(2)"><span class="rdot">2</span><span class="rlbl">Configure</span></button>
+      <span class="rline"></span>
+      <button type="button" class="rnode" data-n="3" onclick="wizJump(3)"><span class="rdot">3</span><span class="rlbl">Target</span></button>
+      <span class="rline"></span>
+      <button type="button" class="rnode" data-n="4" onclick="wizJump(4)"><span class="rdot">4</span><span class="rlbl">Review</span></button>
     </div>
 
-    <!-- STEP 1 · choose an action (grouped tiles: Apps · Diagnostics · Power · Customization) -->
-    <div class="fd-step">
-      <div class="fd-step-h"><span class="fd-stepn">1</span><span class="fd-lbl">Choose an action</span><span class="fd-pick" id="fd-pick1"></span></div>
+    <div class="wiz-body">
+
+    <!-- STEP 1 · choose an action -->
+    <div class="wiz-step on" data-s="1">
+      <div class="wiz-stitle">What do you want to do?</div>
+      <div class="wiz-ssub">Pick an action to send to your fleet.</div>
+      <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
       <div class="cr-rail">
       <div class="cr-rail-group">Apps</div>
-      <div class="cr-rail-item on" data-type="install_apk" onclick="selectType('install_apk', this)">
+      <div class="cr-rail-item on" data-type="install_apk" onclick="wizPickType('install_apk', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app
       </div>
-      <div class="cr-rail-item" data-type="uninstall" onclick="selectType('uninstall', this)">
+      <div class="cr-rail-item" data-type="uninstall" onclick="wizPickType('uninstall', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall
       </div>
 
       <div class="cr-rail-group">Diagnostics</div>
-      <div class="cr-rail-item" data-type="screenshot" onclick="selectType('screenshot', this)">
+      <div class="cr-rail-item" data-type="screenshot" onclick="wizPickType('screenshot', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot
       </div>
       {{if canAdmin .Role}}
-      <div class="cr-rail-item" data-type="logcat" onclick="selectType('logcat', this)">
+      <div class="cr-rail-item" data-type="logcat" onclick="wizPickType('logcat', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Log capture
       </div>
       {{end}}
-      <div class="cr-rail-item" data-type="shell" onclick="selectType('shell', this)">
+      <div class="cr-rail-item" data-type="shell" onclick="wizPickType('shell', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell
       </div>
 
       <div class="cr-rail-group">Power</div>
-      <div class="cr-rail-item" data-type="reboot" onclick="selectType('reboot', this)">
+      <div class="cr-rail-item" data-type="reboot" onclick="wizPickType('reboot', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot
       </div>
 
       {{if canAdmin .Role}}
       <div class="cr-rail-group">Customization</div>
-      <div class="cr-rail-item" data-type="update_splash" onclick="selectType('update_splash', this)">
+      <div class="cr-rail-item" data-type="update_splash" onclick="wizPickType('update_splash', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo
       </div>
       {{end}}
       </div>
-    </div><!-- /.fd-step (step 1) -->
-    <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
+    </div><!-- /.wiz-step (1) -->
 
-    <!-- MIDDLE · configure -->
-    <div class="cr-config">
+    <!-- STEP 2 · configure payload -->
+    <div class="wiz-step" data-s="2">
+      <div class="wiz-stitle">Configure the action</div>
+      <div class="wiz-ssub">Set the options before sending.</div>
+      <div class="cr-config">
 
       <div class="cr-sec">
         <div class="cr-sec-title"><span class="fd-stepn">2</span>Configure payload</div>
@@ -296,7 +326,14 @@
             <input type="text" name="reason" class="form-input" oninput="updatePreview()" placeholder="Reason (required for reboot / boot logo when reason-logging is on)">
           </div>
         </div>
+      </div><!-- /.cr-config -->
+    </div><!-- /.wiz-step (2) -->
 
+    <!-- STEP 3 · target -->
+    <div class="wiz-step" data-s="3">
+      <div class="wiz-stitle">Who should receive it?</div>
+      <div class="wiz-ssub">Choose the target set.</div>
+      <div class="cr-config">
         <div class="cr-sec">
           <div class="cr-sec-title"><span class="fd-stepn">3</span>Target</div>
           <div class="target-pills">
@@ -393,36 +430,49 @@
             </div>
           </div>
         </div>
+      </div><!-- /.cr-config -->
+    </div><!-- /.wiz-step (3) -->
 
-    </div><!-- /.cr-config -->
-    </div><!-- /.fd-compose -->
-
-    <!-- RIGHT · sticky pre-flight panel: blast radius + live safety checks, then Send.
-         #cmd-impact reloads from /commands/impact on every builder change; the Send
-         footer stays put below it (not swapped) and reads the resolved count. -->
-    <aside class="fd-pf">
-      <div class="cr-impact" id="cmd-impact"
-           hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
-           hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML">
+    <!-- STEP 4 · review & send -->
+    <div class="wiz-step" data-s="4">
+      <div class="wiz-stitle">Review &amp; send</div>
+      <div class="wiz-ssub">Confirm the blast radius, then send.</div>
+      <div class="wiz-rev">
+        <div class="wiz-revc"><div class="k">Action</div><div class="v" id="rv-act">—</div></div>
+        <div class="wiz-revc"><div class="k">Target</div><div class="v" id="rv-tgt">—</div></div>
       </div>
-      <div class="cr-foot">
-        {{if canOperate .Role}}
-        <div id="rv-warn" class="review-warn" style="display:none;"></div>
-        <button type="submit" id="send-btn" class="btn-primary cr-send">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
-          <span id="send-label">Send action</span>
-        </button>
-        {{else}}
-        <div class="ro-note">You have view-only access — ask an operator or admin to send actions.</div>
-        <button type="button" class="btn-primary cr-send" disabled>
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-          Send action
-        </button>
-        {{end}}
+      <!-- live pre-flight; reloads from /commands/impact on every builder change -->
+      <div class="wiz-pf">
+        <div class="cr-impact" id="cmd-impact"
+             hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
+             hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML">
+        </div>
       </div>
-    </aside>
+      {{if canOperate .Role}}<div id="rv-warn" class="review-warn" style="display:none;margin:14px 0 0;"></div>{{end}}
+    </div>
 
-  </div>
+    </div><!-- /.wiz-body -->
+
+    <!-- footer navigation: Back · Continue (→ Send on the Review step) -->
+    <div class="wiz-foot">
+      <span class="wiz-fctx" id="wiz-fctx">Step 1 of 4</span>
+      {{if not (canOperate .Role)}}<span class="ro-note">View-only access — ask an operator or admin to send actions.</span>{{end}}
+      <button type="button" class="wiz-back" id="wiz-back" disabled onclick="wizBack()">Back</button>
+      <button type="button" class="wiz-next" id="wiz-next" onclick="wizNext()">Continue <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+      {{if canOperate .Role}}
+      <button type="submit" id="send-btn" class="cr-send" style="display:none;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
+        <span id="send-label">Send action</span>
+      </button>
+      {{else}}
+      <button type="button" class="cr-send" disabled style="display:none;">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        Send action
+      </button>
+      {{end}}
+    </div>
+
+  </div><!-- /.cmd-rail3 (wizard) -->
 </form>
 
 <div class="card" id="history">
@@ -575,8 +625,6 @@ function filterCommands() {
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
   document.querySelectorAll('.cr-rail-item').forEach(function(c) { c.classList.toggle('on', c.dataset.type === val); });
-  var lbl = ({ install_apk:'Install app', uninstall:'Uninstall', screenshot:'Screenshot', shell:'Shell', reboot:'Reboot', update_splash:'Boot logo', logcat:'Log capture' })[val] || val;
-  var p1 = document.getElementById('fd-pick1'); if (p1) p1.textContent = lbl;
   ['apk-fields','uninstall-fields','shell-fields','screenshot-hint','reboot-hint','splash-fields','logcat-fields'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('is-active');
@@ -587,6 +635,34 @@ function selectType(val, btn) {
   var apkSel = document.getElementById('apk-select');
   if (apkSel) apkSel.disabled = (val !== 'install_apk');
   updatePreview();
+}
+
+// ── Wizard (stepper): one step on screen at a time ──
+var wizStep = 1;
+function wizGo(n) {
+  n = Math.max(1, Math.min(4, n)); wizStep = n;
+  document.querySelectorAll('#wiz .wiz-step').forEach(function (s) { s.classList.toggle('on', +s.dataset.s === n); });
+  document.querySelectorAll('#wiz-rail .rnode').forEach(function (nd) { var k = +nd.dataset.n; nd.classList.toggle('on', k === n); nd.classList.toggle('done', k < n); });
+  document.querySelectorAll('#wiz-rail .rline').forEach(function (l, i) { l.classList.toggle('fill', i < n - 1); });
+  var back = document.getElementById('wiz-back'); if (back) back.disabled = (n === 1);
+  var ctx = document.getElementById('wiz-fctx'); if (ctx) ctx.textContent = 'Step ' + n + ' of 4';
+  var next = document.getElementById('wiz-next'), send = document.getElementById('send-btn');
+  if (next) next.style.display = (n === 4) ? 'none' : '';
+  if (send) send.style.display = (n === 4) ? '' : 'none';
+  if (n === 4) { fillReview(); document.body.dispatchEvent(new CustomEvent('impact')); }
+}
+function wizNext() { if (wizStep < 4) wizGo(wizStep + 1); }
+function wizBack() { if (wizStep > 1) wizGo(wizStep - 1); }
+function wizJump(n) { var nd = document.querySelector('#wiz-rail .rnode[data-n="' + n + '"]'); if (nd && (nd.classList.contains('done') || nd.classList.contains('on'))) wizGo(n); }
+// Tile click: pick the action, then advance to Configure.
+function wizPickType(val, el) { selectType(val, el); wizGo(2); }
+function fillReview() {
+  var type = document.getElementById('cmd-type-input').value;
+  var target = document.getElementById('target-type-input').value;
+  var labels = { install_apk:'Install app', uninstall:'Uninstall', screenshot:'Screenshot', shell:'Shell', reboot:'Reboot', update_splash:'Boot logo', logcat:'Log capture' };
+  var tgt = { all:'All devices', groups:'Groups', devices:'Specific devices' }[target] || target;
+  var a = document.getElementById('rv-act'); if (a) a.textContent = labels[type] || type;
+  var t = document.getElementById('rv-tgt'); if (t) t.textContent = tgt;
 }
 
 function selectTarget(val, btn) {
@@ -918,6 +994,7 @@ function applyPrefill(pf) {
 function applyRecipe(btn) {
   var pf; try { pf = JSON.parse(btn.dataset.prefill); } catch (e) { return; }
   applyPrefill(pf);
+  wizGo(4); // recipe is fully specified — jump straight to Review
   var b = document.querySelector('.cmd-rail3'); if (b) b.scrollIntoView({ behavior: 'smooth', block: 'start' });
   if (window.showToast) showToast('Recipe loaded — review the target, then Send', 'success');
 }
@@ -975,6 +1052,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
   applyPrefill(window.CMD_PREFILL);
   cmdRenderChips();
   updatePreview();
+  if (window.CMD_PREFILL) wizGo(4); // cloned action is fully specified — land on Review
 })();
 
 // Prefill the Log-capture builder from query params (e.g. a "Frequent preset" on /logs
