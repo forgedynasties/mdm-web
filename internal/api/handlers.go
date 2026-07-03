@@ -976,6 +976,38 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Don't pile up installs: drop devices that already have this exact APK in flight.
+	var skipped []string
+	if body.Type == "install_apk" && body.TargetType == "devices" && len(targetIDs) > 0 {
+		inflight, err := h.db.DevicesWithPendingInstall(r.Context(), body.ApkURL, targetIDs)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return
+		}
+		if len(inflight) > 0 {
+			fresh := make([]uuid.UUID, 0, len(targetIDs))
+			var skippedIDs []uuid.UUID
+			for _, id := range targetIDs {
+				if inflight[id] {
+					skippedIDs = append(skippedIDs, id)
+				} else {
+					fresh = append(fresh, id)
+				}
+			}
+			if devs, e := h.db.GetDevicesByIDs(r.Context(), skippedIDs); e == nil {
+				for _, d := range devs {
+					skipped = append(skipped, d.SerialNumber)
+				}
+			}
+			targetIDs = fresh
+			if len(targetIDs) == 0 {
+				writeJSON(w, http.StatusOK, map[string]any{"created": false, "skipped": skipped,
+					"message": "all target devices already have this app installing"})
+				return
+			}
+		}
+	}
+
 	cmd, err := h.db.CreateCommand(r.Context(), body.Type, body.ApkURL, body.Payload, body.TargetType, targetIDs)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
@@ -984,6 +1016,10 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 
 	h.pushCommand(r.Context(), cmd, body.TargetType, targetIDs)
 
+	if len(skipped) > 0 {
+		writeJSON(w, http.StatusCreated, map[string]any{"command": cmd, "skipped": skipped})
+		return
+	}
 	writeJSON(w, http.StatusCreated, cmd)
 }
 

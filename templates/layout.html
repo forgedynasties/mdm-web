@@ -851,6 +851,21 @@
     }
     window.showToast = showToast;
 
+    // Flash-via-URL: a redirect (which swallows HX-Trigger toasts) can carry
+    // ?flash=<msg>&flash_type=<t>; show it once, then strip it from the address bar.
+    // Runs on load and after each boosted navigation.
+    function mdmFlash() {
+      try {
+        var u = new URL(location.href), m = u.searchParams.get('flash');
+        if (!m) return;
+        showToast(m, u.searchParams.get('flash_type') || 'info');
+        u.searchParams.delete('flash'); u.searchParams.delete('flash_type');
+        history.replaceState(null, '', u.pathname + (u.searchParams.toString() ? '?' + u.searchParams.toString() : '') + u.hash);
+      } catch (e) {}
+    }
+    document.addEventListener('DOMContentLoaded', mdmFlash);
+    document.body.addEventListener('htmx:pushedIntoHistory', mdmFlash);
+
     // Server-driven toasts: handlers set HX-Trigger {"toast":{"msg","type"}} and
     // htmx dispatches a `toast` event on the body. Used for hx-request feedback.
     document.body.addEventListener('toast', function (e) {
