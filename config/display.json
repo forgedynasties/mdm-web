@@ -1,6 +1,36 @@
 {
   "extra_columns": [
-    {"key": "wifi", "label": "WiFi SSID"},
-    {"key": "ip",   "label": "IP Address"}
-  ]
+    {
+      "key": "wifi",
+      "label": "WiFi SSID"
+    },
+    {
+      "key": "ip",
+      "label": "IP Address"
+    }
+  ],
+  "legacy_checkin": true,
+  "checkin_interval_sec": 0,
+  "shell_disabled": false,
+  "remote_disabled": false,
+  "command_expiry_sec": 0,
+  "max_targets": 0,
+  "operator_denied_cmds": null,
+  "require_reason": false,
+  "session_timeout_sec": 0,
+  "session_epoch": 0,
+  "auto_hide_days": 0,
+  "checkin_retention_days": 0,
+  "logcat_retention_days": 0,
+  "page_size": 0,
+  "default_sort": "",
+  "density": "",
+  "brand_name": "",
+  "use_24_hour": false,
+  "alert_webhook_url": "",
+  "anthropic_api_key": "",
+  "anthropic_model": "",
+  "ai_provider": "",
+  "ai_base_url": "",
+  "ai_digest_enabled": false
 }

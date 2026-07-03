@@ -6546,6 +6546,40 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Don't pile up installs: drop target devices that already have this exact APK
+	// in flight (pending/delivered). "all" is already resolved to device IDs above,
+	// so this covers both "all" and "devices"; group targets collapse at delivery.
+	var skippedSerials []string
+	if cmdType == "install_apk" && targetType == "devices" && len(targetIDs) > 0 {
+		inflight, err := h.db.DevicesWithPendingInstall(r.Context(), apkURL, targetIDs)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if len(inflight) > 0 {
+			fresh := make([]uuid.UUID, 0, len(targetIDs))
+			var skippedIDs []uuid.UUID
+			for _, id := range targetIDs {
+				if inflight[id] {
+					skippedIDs = append(skippedIDs, id)
+				} else {
+					fresh = append(fresh, id)
+				}
+			}
+			if devs, e := h.db.GetDevicesByIDs(r.Context(), skippedIDs); e == nil {
+				for _, d := range devs {
+					skippedSerials = append(skippedSerials, d.SerialNumber)
+				}
+			}
+			targetIDs = fresh
+			if len(targetIDs) == 0 {
+				h.audit(r, "command.send.skip", cmdType, fmt.Sprintf("all %d target(s) already installing this app", len(skippedIDs)))
+				h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape("All selected device(s) are already installing this app — nothing queued.")+"&flash_type=info")
+				return
+			}
+		}
+	}
+
 	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, targetType, targetIDs)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -6557,7 +6591,12 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		detail += ", reason=" + reason
 	}
 	h.audit(r, "command.send", cmdType, detail)
-	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
+	dest := "/commands/" + cmd.ID.String()
+	if n := len(skippedSerials); n > 0 {
+		msg := fmt.Sprintf("Sent to %d device(s). Skipped %d already installing this app: %s", len(targetIDs), n, strings.Join(skippedSerials, ", "))
+		dest += "?flash=" + url.QueryEscape(msg) + "&flash_type=info"
+	}
+	h.hxRedirect(w, r, dest)
 }
 
 // RecipeCreate saves the current Actions-builder state as a named recipe that can
