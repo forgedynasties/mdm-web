@@ -11,98 +11,103 @@
   {{end}}
 </div>
 
-{{template "ai-report-card" .}}
-
-<div class="ov-vitals hl-vitals">
-  <a class="ov-vital" href="/devices"><div class="k">Devices</div><div class="v">{{.TotalDevices}}</div></a>
-  <a class="ov-vital" href="/devices?status=online"><div class="k">Online</div><div class="v ok">{{.OnlineDevices}}</div></a>
-  <a class="ov-vital{{if gt .OfflineDevices 0}} alerty{{end}}" href="/devices?status=offline"><div class="k">Offline</div><div class="v{{if gt .OfflineDevices 0}} bad{{end}}">{{.OfflineDevices}}</div></a>
-  <a class="ov-vital" href="/alerts?status=open"><div class="k">Open alerts</div><div class="v{{if gt .OpenAlerts 0}} warn{{end}}">{{.OpenAlerts}}</div></a>
-  <a class="ov-vital" href="/releases"><div class="k">Builds</div><div class="v">{{.UniqueBuilds}}</div></a>
+{{/* ── Hero band: fleet score ring + verdict + KPIs + window toggle ── */}}
+<div class="hl-hero is-{{.ScoreClass}}">
+  <div class="hl-ring">
+    <svg viewBox="0 0 104 104" width="84" height="84">
+      <circle class="trk" cx="52" cy="52" r="40"/>
+      <circle class="val" cx="52" cy="52" r="40" stroke-dasharray="251.3" stroke-dashoffset="{{.RingOffset}}" transform="rotate(-90 52 52)">
+        <animate attributeName="stroke-dashoffset" from="251.3" to="{{.RingOffset}}" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.2 0.7 0.3 1"/>
+      </circle>
+    </svg>
+    <div class="hl-ring-num">{{.Score}}</div>
+  </div>
+  <div class="hl-htxt">
+    <span class="hl-eyebrow">Fleet health · {{if eq .WindowDays 1}}today{{else}}last 7 days{{end}}</span>
+    <span class="hl-verdict">{{.Verdict}}</span>
+    <span class="hl-sub">{{.OnlineDevices}} of {{.TotalDevices}} devices online · {{.OpenAlerts}} open alert{{if ne .OpenAlerts 1}}s{{end}}</span>
+  </div>
+  <div class="hl-kpis">
+    <a class="hl-kpi" href="/devices"><span class="v">{{.TotalDevices}}</span><span class="k">Devices</span></a>
+    <a class="hl-kpi" href="/devices?status=online"><span class="v ok">{{.OnlineDevices}}</span><span class="k">Online</span></a>
+    <a class="hl-kpi" href="/devices?status=offline"><span class="v{{if gt .OfflineDevices 0}} bad{{end}}">{{.OfflineDevices}}</span><span class="k">Offline</span></a>
+    <a class="hl-kpi" href="/alerts?status=open"><span class="v{{if gt .OpenAlerts 0}} warn{{end}}">{{.OpenAlerts}}</span><span class="k">Alerts</span></a>
+    <a class="hl-kpi" href="/releases"><span class="v">{{.UniqueBuilds}}</span><span class="k">Builds</span></a>
+  </div>
+  <div class="dur-btns hl-toggle" title="Aggregation window">
+    <a class="dur-btn{{if ne .WindowDays 1}} active{{end}}" href="/fleet-health?days=7">7 days</a>
+    <a class="dur-btn{{if eq .WindowDays 1}} active{{end}}" href="/fleet-health?days=1">1 day</a>
+  </div>
 </div>
 
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Evidence by signal</h3><span class="muted small">{{.OpenAlertsCount}} open alert{{if ne .OpenAlertsCount 1}}s{{end}}</span></div>
-  <div style="padding:4px 18px 16px;">
-    <p class="muted small" style="margin:6px 0 4px;">Each row is a real open alert behind the report's call-outs — the unit, when it fired, and the measured value. Serials link to the device's telemetry.</p>
-    {{range .Evidence}}
-    <div style="margin-top:16px;">
-      <h4 style="margin:0 0 6px;display:flex;align-items:center;gap:8px;">{{.Label}} <span class="muted small">{{len .Alerts}}</span></h4>
+{{template "ai-report-card" .}}
+
+{{/* ── Ops split: ranked restaurants · live evidence feed ── */}}
+<div class="hl-split">
+
+  <div class="card hl-ranked">
+    <div class="card-header">
+      <h3>Restaurants by health</h3>
+      <span class="muted small spacer-l">worst first</span>
+    </div>
+    {{if not .Groups}}
+    <div class="empty-state">
+      <div class="empty-state-copy">
+        <div class="empty-state-title">No restaurants yet</div>
+        <div class="empty-state-text">Create restaurants and the health scorecard ranks them here.</div>
+      </div>
+    </div>
+    {{else}}
+    <div class="hl-row hl-row-head">
+      <span>Score</span><span>Restaurant</span><span class="num">Offline</span><span class="num">Battery</span><span class="num">Charging</span><span class="num">Max °C</span>
+    </div>
+    {{range .Groups}}
+    <a class="hl-row" href="/restaurants/{{.GroupID}}">
+      <span class="hl-scorewrap" title="Health score {{.Score}}">
+        <span class="hl-scorebar"><i class="{{.ScoreClass}}" style="width:{{if gt .DeviceCount 0}}{{.Score}}{{else}}0{{end}}%"></i></span>
+        <span class="hl-scoren {{if le .DeviceCount 0}}muted{{else}}{{.ScoreClass}}{{end}}">{{if gt .DeviceCount 0}}{{.Score}}{{else}}—{{end}}</span>
+      </span>
+      <span class="hl-rname">{{.Name}}<span class="s">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span></span>
+      <span class="hl-cell num">{{if gt .OfflineCount 0}}<b class="bad">{{.OfflineCount}}</b>{{else}}<span class="muted">0</span>{{end}}</span>
+      <span class="hl-cell num">{{if .BatteryAvg}}{{fnum .BatteryAvg}}%{{if .BatteryDelta}} <span class="u">{{fdelta .BatteryDelta}}</span>{{end}}{{else}}<span class="muted">—</span>{{end}}</span>
+      <span class="hl-cell num">{{if .ChargingAvg}}{{fpct .ChargingAvg}}{{else}}<span class="muted">—</span>{{end}}</span>
+      <span class="hl-cell num">{{if .TempMax}}{{fnum .TempMax}}{{else}}<span class="muted">—</span>{{end}}</span>
+    </a>
+    {{end}}
+    {{end}}
+  </div>
+
+  <div class="card hl-evidence">
+    <div class="card-header">
+      <h3>Evidence</h3>
+      <span class="muted small spacer-l">{{.OpenAlertsCount}} open alert{{if ne .OpenAlertsCount 1}}s{{end}}</span>
+    </div>
+    {{if eq .OpenAlertsCount 0}}
+    <div class="hl-allclear">
+      <span class="hl-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+      <div><div class="t">Nothing to investigate</div><div class="d">No open alerts behind the scores right now.</div></div>
+    </div>
+    {{else}}
+    <div class="hl-feed">
+      {{range .Evidence}}
       {{if .Alerts}}
-      <table class="table">
-        <thead><tr><th>Device</th><th>Severity</th><th>When</th><th>What the telemetry showed</th></tr></thead>
-        <tbody>
-          {{range .Alerts}}
-          <tr>
-            <td>{{if .Serial}}<a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>{{else}}<span class="muted">—</span>{{end}}</td>
-            <td><span class="status-badge {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{else}}muted{{end}}">{{.Severity}}</span></td>
-            <td class="muted small" title="{{formatTime .FiredAt}}">{{timeSince .FiredAt}}</td>
-            <td class="small">{{.Summary}}</td>
-          </tr>
-          {{end}}
-        </tbody>
-      </table>
-      {{else}}
-      <p class="muted small" style="margin:0;">No open alerts in this category.</p>
+      <div class="hl-evcat"><span class="dot {{if eq .Key "heat"}}d-bad{{else}}d-warn{{end}}"></span>{{.Label}}<span class="c">{{len .Alerts}}</span></div>
+      {{range .Alerts}}
+      <div class="hl-ev">
+        <span class="dot {{if eq .Severity "critical"}}d-bad{{else if eq .Severity "warning"}}d-warn{{else}}d-muted{{end}}"></span>
+        <div class="evb">
+          <div class="t1">{{if .Serial}}<a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>{{else}}<span class="muted">—</span>{{end}} <span class="sm">{{.Summary}}</span></div>
+          <div class="t2">{{if .RestaurantName}}{{.RestaurantName}} · {{end}}fired {{timeSince .FiredAt}}</div>
+        </div>
+        <span class="hl-sev {{if eq .Severity "critical"}}c{{else if eq .Severity "warning"}}w{{else}}m{{end}}">{{.Severity}}</span>
+      </div>
+      {{end}}
+      {{end}}
       {{end}}
     </div>
     {{end}}
   </div>
-</div>
 
-<div class="card">
-  <div class="card-header">
-    <h3>Restaurants by health</h3>
-    <div class="dur-btns" title="Aggregation window">
-      <a class="dur-btn{{if ne .WindowDays 1}} active{{end}}" href="/fleet-health?days=7">Last 7 days</a>
-      <a class="dur-btn{{if eq .WindowDays 1}} active{{end}}" href="/fleet-health?days=1">1 day only</a>
-    </div>
-  </div>
-  {{if not .Groups}}
-  <div class="empty-state">
-    <div class="empty-state-copy">
-      <div class="empty-state-title">No restaurants yet</div>
-      <div class="empty-state-text">Create restaurants and the health scorecard ranks them here.</div>
-    </div>
-  </div>
-  {{else}}
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Score</th>
-        <th>Restaurant</th>
-        <th>Devices</th>
-        <th>Offline</th>
-        <th>Alerts</th>
-        <th title="Average daily peak battery over the window">Battery</th>
-        <th title="Change vs the prior period">{{if eq .WindowDays 1}}Δ day{{else}}Δ wk{{end}}</th>
-        <th title="Average charging coverage">Charging</th>
-        <th title="Hottest device in the window">Max °C{{if eq .WindowDays 1}} <span class="muted">(today)</span>{{end}}</th>
-        <th title="Distinct firmware builds in the restaurant">Builds</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{range .Groups}}
-      <tr>
-        <td><span class="status-badge {{.ScoreClass}}" style="min-width:34px;justify-content:center;">{{.Score}}</span></td>
-        <td><a href="/restaurants/{{.GroupID}}" class="link-detail">{{.Name}}</a></td>
-        <td class="muted">{{.DeviceCount}}</td>
-        <td>{{if gt .OfflineCount 0}}<span class="status-badge danger">{{.OfflineCount}}</span>{{else}}<span class="muted">0</span>{{end}}</td>
-        <td>
-          {{if gt .OpenCritical 0}}<span class="status-badge danger">{{.OpenCritical}}</span>{{end}}
-          {{if gt .OpenWarning 0}}<span class="status-badge warn">{{.OpenWarning}}</span>{{end}}
-          {{if and (eq .OpenCritical 0) (eq .OpenWarning 0)}}<span class="muted">—</span>{{end}}
-        </td>
-        <td class="muted">{{fnum .BatteryAvg}}{{if .BatteryAvg}}%{{end}}</td>
-        <td class="muted small">{{fdelta .BatteryDelta}}</td>
-        <td class="muted">{{fpct .ChargingAvg}}</td>
-        <td class="muted">{{fnum .TempMax}}</td>
-        <td class="muted">{{.DistinctBuilds}}</td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{end}}
 </div>
 
 {{template "footer" .}}
