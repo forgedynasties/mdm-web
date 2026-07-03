@@ -1,0 +1,201 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Daily Report — revamp directions — AIO MDM demo</title></head><body>
+<style>
+  :root{
+    --bg:#faf8f5; --surface:#fff; --surface2:#f6f3ee;
+    --border:#e8e2da; --border-soft:#efe9e1;
+    --text:#1c1a18; --text2:#4a453e; --muted:#7e776d; --faint:#a49c90;
+    --accent:#f9674e; --accent-h:#ec4f33; --accent-soft:rgba(249,103,78,.10);
+    --p:#7a80f6; --p-soft:rgba(122,128,246,.12);
+    --ok:#157f3c; --ok-soft:rgba(21,127,60,.11);
+    --warn:#b45309; --warn-soft:rgba(180,83,9,.12);
+    --danger:#b42318; --danger-soft:rgba(180,35,24,.10);
+    --r2:6px; --r3:9px; --r4:14px;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","IBM Plex Mono",Menlo,monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);
+  }
+  *{box-sizing:border-box}
+  .wrap{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 90px}
+  h1,h2,h3{margin:0;letter-spacing:-.01em;text-wrap:balance}
+  .mono{font-family:var(--mono)}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+
+  .top{max-width:940px;margin:0 auto;padding:42px 24px 4px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:19px;letter-spacing:-.02em;margin-bottom:20px}
+  .brand .a{background:linear-gradient(96deg,var(--accent),var(--p));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  .top h1{font-size:28px;font-weight:700}
+  .top .lede{color:var(--muted);font-size:15px;margin-top:8px;max-width:64ch}
+
+  .sec{max-width:940px;margin:30px auto 0;padding:0 24px}
+  .sec-h{display:flex;align-items:baseline;gap:11px;margin-bottom:12px}
+  .tag{font-size:11.5px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:99px}
+  .tag-old{background:var(--surface2);color:var(--muted)}
+  .tag-new{background:var(--accent-soft);color:var(--accent)}
+  .sec-h h2{font-size:19px;font-weight:700}
+  .sec-h .n{color:var(--muted);font-size:13px}
+
+  /* shared card shell (mirrors the real dashboard card) */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);overflow:hidden}
+  .card-h{display:flex;align-items:center;gap:9px;padding:13px 18px;border-bottom:1px solid var(--border-soft)}
+  .card-h .ci{width:16px;height:16px;color:var(--muted)}
+  .card-h h3{font-size:15px;font-weight:650}
+  .card-h .r{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--muted)}
+  .btn{font-size:12px;font-weight:600;padding:5px 11px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer}
+
+  /* ══════════ BASELINE (current) ══════════ */
+  .b-body{padding:15px 18px 18px}
+  .b-status{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-right:10px}
+  .b-status.warn{color:var(--warn)}
+  .b-head{color:var(--text);font-size:14px}
+  .b-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:14px 0 16px}
+  .b-tile{background:var(--bg);border:1px solid var(--border-soft);border-radius:10px;padding:11px 14px}
+  .b-tile .v{font-size:24px;font-weight:600;line-height:1.1}
+  .b-tile .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin-top:4px}
+  .b-row{position:relative;padding:11px 0 11px 16px;border-top:1px solid var(--border-soft)}
+  .b-row .ind{position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:2px;background:var(--warn)}
+  .b-meta{font-size:13.5px;line-height:1.6}
+  .b-up{display:inline-block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--warn);background:var(--warn-soft);padding:1px 6px;border-radius:5px;margin-right:6px}
+  .b-scope{font-weight:600}
+  .b-action{color:var(--muted);font-size:12.5px;margin-top:4px}
+  .b-good{color:var(--muted);font-size:12.5px;margin-top:14px}
+
+  /* ══════════ REVAMP A · Signal briefing ══════════ */
+  .a-hero{display:flex;gap:14px;padding:18px 20px;background:linear-gradient(103deg,var(--warn-soft),transparent 62%);border-bottom:1px solid var(--border-soft)}
+  .a-hero.ok{background:linear-gradient(103deg,var(--ok-soft),transparent 62%)}
+  .a-dot{width:38px;height:38px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;background:var(--warn);color:#fff;box-shadow:0 4px 12px rgba(180,83,9,.28)}
+  .a-dot svg{width:20px;height:20px}
+  .a-htext{min-width:0}
+  .a-chip{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:800;letter-spacing:.05em;color:var(--warn);text-transform:uppercase;margin-bottom:5px}
+  .a-chip i{width:6px;height:6px;border-radius:50%;background:var(--warn)}
+  .a-head{font-size:16px;font-weight:650;line-height:1.4;color:var(--text)}
+  .a-stats{display:flex;gap:0;padding:14px 20px 4px}
+  .a-stat{flex:1;padding-right:18px}
+  .a-stat + .a-stat{border-left:1px solid var(--border-soft);padding-left:18px}
+  .a-stat .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .a-stat .l{font-size:11px;color:var(--muted);margin-top:5px}
+  .a-issues{padding:12px 20px 8px;display:flex;flex-direction:column;gap:10px}
+  .a-iss{border:1px solid var(--border-soft);border-left:3px solid var(--warn);border-radius:10px;padding:12px 14px;background:var(--surface)}
+  .a-iss.crit{border-left-color:var(--danger)}
+  .a-iss-top{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+  .a-area{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--warn);background:var(--warn-soft);padding:2px 7px;border-radius:5px}
+  .a-iss.crit .a-area{color:var(--danger);background:var(--danger-soft)}
+  .a-scope{font-weight:650;font-size:13.5px}
+  .a-detail{font-size:13px;color:var(--text2);line-height:1.55}
+  .a-act{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--accent);font-weight:600;margin-top:8px}
+  .a-act svg{width:13px;height:13px}
+  .a-good{display:flex;align-items:center;gap:8px;margin:6px 20px 18px;padding:9px 13px;background:var(--ok-soft);border-radius:9px;font-size:12.5px;color:var(--ok)}
+  .a-good svg{width:15px;height:15px;flex:none}
+  .a-good b{font-weight:600}
+
+  /* ══════════ REVAMP B · Executive briefing ══════════ */
+  .c-body{padding:16px 20px 18px}
+  .c-strip{display:flex;gap:22px;padding:2px 0 15px;border-bottom:1px dashed var(--border);margin-bottom:15px}
+  .c-stat .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .c-stat .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:5px}
+  .c-lede{font-size:15.5px;line-height:1.5;color:var(--text);font-weight:500;margin:0 0 12px}
+  .c-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--warn);background:var(--warn-soft);padding:2px 8px;border-radius:99px;margin-right:8px;vertical-align:2px}
+  .c-p{font-size:13.5px;line-height:1.62;color:var(--text2);margin:0 0 10px}
+  .c-p .scope{color:var(--text);font-weight:600}
+  .c-p .fix{color:var(--accent);font-weight:600}
+  .c-good{font-size:13px;color:var(--muted);margin-top:4px}
+  .c-good b{color:var(--text2);font-weight:600}
+
+  .note{max-width:940px;margin:14px auto 0;padding:0 24px;font-size:12px;color:var(--faint)}
+  @media(max-width:560px){.a-stats{flex-wrap:wrap;gap:12px}.a-stat + .a-stat{border-left:0;padding-left:0}.c-strip{flex-wrap:wrap;gap:14px}}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><span class="a">AIO</span><span class="m">MDM</span></div>
+    <h1>Daily Report — card revamp</h1>
+    <p class="lede">Same report content and the same live-generation behavior — three ways to dress the card. The current design is shown first for reference; pick a direction (or mix) and I'll ship it on both the Overview and Fleet&nbsp;Health pages.</p>
+  </div>
+
+  <!-- BASELINE -->
+  <section class="sec">
+    <div class="sec-h"><span class="tag tag-old">Current</span><h2>What ships today</h2><span class="n">for reference</span></div>
+    <div class="card">
+      <div class="card-h">
+        <span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span>
+        <h3>Daily Report</h3>
+        <div class="r"><span>updated 5:00 PM</span><button class="btn">Refresh</button><a href="#">Detailed analysis →</a></div>
+      </div>
+      <div class="b-body">
+        <div><span class="b-status warn">WATCH</span><span class="b-head">Downtown Diner ran warm through dinner service — one unit worth a look, everything else steady.</span></div>
+        <div class="b-tiles">
+          <div class="b-tile"><div class="v">38.7°C</div><div class="l">Downtown Diner peak</div></div>
+          <div class="b-tile"><div class="v">22%</div><div class="l">charging coverage</div></div>
+          <div class="b-tile"><div class="v">57 / 58</div><div class="l">reporting</div></div>
+        </div>
+        <div class="b-row"><span class="ind"></span><div class="b-meta"><span class="b-up">heat</span><span class="b-scope">Downtown Diner</span> — SN-003 held 38.7 °C for 18 min at the pass, 6° over its 7-day norm.<div class="b-action">→ Move the unit off the line or improve airflow before tomorrow's service.</div></div></div>
+        <div class="b-row"><span class="ind"></span><div class="b-meta"><span class="b-up">charging</span><span class="b-scope">Downtown Diner</span> — coverage fell to 22% today vs ~70% typical.<div class="b-action">→ Check the chargers on the pass are powered.</div></div></div>
+        <div class="b-good">San Jose Office, Airport Kiosk, Riverside Grill look fine</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- REVAMP A -->
+  <section class="sec">
+    <div class="sec-h"><span class="tag tag-new">Direction A</span><h2>Signal briefing</h2><span class="n">recommended</span></div>
+    <div class="card">
+      <div class="card-h">
+        <span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span>
+        <h3>Daily Report</h3>
+        <div class="r"><span>updated 5:00 PM</span><button class="btn">Refresh</button><a href="#">Detailed analysis →</a></div>
+      </div>
+      <div class="a-hero">
+        <span class="a-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0z"/></svg></span>
+        <div class="a-htext">
+          <div class="a-chip"><i></i>Watch · 2 call-outs</div>
+          <div class="a-head">Downtown Diner ran warm through dinner service — one unit worth a look, everything else steady.</div>
+        </div>
+      </div>
+      <div class="a-stats">
+        <div class="a-stat"><div class="v" style="color:var(--warn)">38.7°C</div><div class="l">Downtown Diner peak</div></div>
+        <div class="a-stat"><div class="v" style="color:var(--warn)">22%</div><div class="l">charging coverage</div></div>
+        <div class="a-stat"><div class="v">57 / 58</div><div class="l">reporting</div></div>
+      </div>
+      <div class="a-issues">
+        <div class="a-iss">
+          <div class="a-iss-top"><span class="a-area">heat</span><span class="a-scope"><a href="#">Downtown Diner</a></span></div>
+          <div class="a-detail"><a class="mono" href="#">SN-003</a> held 38.7 °C for 18 min at the pass — 6° over its 7-day norm.</div>
+          <div class="a-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Move the unit off the line or improve airflow before tomorrow's service.</div>
+        </div>
+        <div class="a-iss">
+          <div class="a-iss-top"><span class="a-area">charging</span><span class="a-scope"><a href="#">Downtown Diner</a></span></div>
+          <div class="a-detail">coverage fell to 22% today vs ~70% typical — units run down between orders.</div>
+          <div class="a-act"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Check the chargers on the pass are powered and seated.</div>
+        </div>
+      </div>
+      <div class="a-good"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span><b>Healthy elsewhere</b> — <a href="#">San Jose Office</a>, <a href="#">Airport Kiosk</a>, <a href="#">Riverside Grill</a></span></div>
+    </div>
+  </section>
+
+  <!-- REVAMP B -->
+  <section class="sec">
+    <div class="sec-h"><span class="tag tag-new">Direction B</span><h2>Executive briefing</h2><span class="n">prose-first</span></div>
+    <div class="card">
+      <div class="card-h">
+        <span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span>
+        <h3>Daily Report</h3>
+        <div class="r"><span>updated 5:00 PM</span><button class="btn">Refresh</button><a href="#">Detailed analysis →</a></div>
+      </div>
+      <div class="c-body">
+        <div class="c-strip">
+          <div class="c-stat"><div class="v" style="color:var(--warn)">38.7°C</div><div class="l">peak temp</div></div>
+          <div class="c-stat"><div class="v" style="color:var(--warn)">22%</div><div class="l">charging</div></div>
+          <div class="c-stat"><div class="v">57 / 58</div><div class="l">reporting</div></div>
+        </div>
+        <p class="c-lede"><span class="c-badge">Watch</span>Downtown Diner ran warm through dinner service — one unit worth a look, everything else steady.</p>
+        <p class="c-p"><span class="scope"><a href="#">Downtown Diner</a></span> — <a class="mono" href="#">SN-003</a> held 38.7 °C for 18 min at the pass, 6° over its 7-day norm. <span class="fix">Move it off the line or improve airflow before tomorrow's service.</span></p>
+        <p class="c-p"><span class="scope"><a href="#">Downtown Diner</a></span> — charging coverage fell to 22% today vs ~70% typical. <span class="fix">Check the chargers on the pass are powered.</span></p>
+        <p class="c-good"><a href="#">San Jose Office</a>, <a href="#">Airport Kiosk</a> and <a href="#">Riverside Grill</a> are reporting normally.</p>
+      </div>
+    </div>
+  </section>
+
+  <p class="note">Serials and restaurant names stay live links to their device / venue page. The thinking-log + streamed reveal on Refresh is unchanged — only the finished card's look differs.</p>
+</div>
+
+</body></html>
