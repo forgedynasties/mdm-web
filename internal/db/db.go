@@ -2374,6 +2374,31 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 			WHERE cs.command_id = c.id AND cs.device_id = $1
 			AND cs.status IN ('delivered', 'installed', 'failed', 'completed')
 		)
+		-- Collapse duplicate installs of the same APK on this device: never deliver an
+		-- install_apk if another command for the same apk_url is already in flight to
+		-- this device (delivered/installed), or is an older copy still pending (deliver
+		-- the earliest first). A prior failed copy does NOT block — that's a retry.
+		AND NOT (
+			c.type = 'install_apk' AND EXISTS (
+				SELECT 1 FROM commands c2
+				WHERE c2.id <> c.id AND c2.type = 'install_apk' AND c2.apk_url = c.apk_url
+				  AND (
+					c2.target_type = 'all'
+					OR (c2.target_type = 'devices' AND EXISTS (
+						SELECT 1 FROM command_targets ct2 WHERE ct2.command_id = c2.id AND ct2.target_id = $1))
+					OR (c2.target_type = 'groups' AND EXISTS (
+						SELECT 1 FROM command_targets ct2 JOIN device_groups dg2 ON dg2.group_id = ct2.target_id
+						WHERE ct2.command_id = c2.id AND dg2.device_id = $1))
+				  )
+				  AND (
+					EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
+						AND s2.status IN ('delivered','installed','completed'))
+					OR (c2.created_at < c.created_at AND NOT EXISTS (
+						SELECT 1 FROM command_status s3 WHERE s3.command_id = c2.id AND s3.device_id = $1
+						AND s3.status IN ('delivered','installed','failed','completed')))
+				  )
+			)
+		)
 		AND (
 			c.type NOT IN ('shell', 'screenshot', 'reboot')
 			OR c.created_at > NOW() - INTERVAL '5 minutes'
@@ -2394,6 +2419,50 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		cmds = append(cmds, c)
 	}
 	return cmds, rows.Err()
+}
+
+// DevicesWithPendingInstall returns which of the given devices already have an
+// in-flight install_apk for apkURL — a command targeting the device (directly, by
+// group, or "all") whose per-device status is not yet terminal (pending or
+// delivered, i.e. not installed/failed/completed). Used to stop piling up a second
+// install of the same APK on a device that's already installing it.
+func (d *DB) DevicesWithPendingInstall(ctx context.Context, apkURL string, deviceIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := make(map[uuid.UUID]bool)
+	if apkURL == "" || len(deviceIDs) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT dev.id
+		FROM unnest($2::uuid[]) AS dev(id)
+		WHERE EXISTS (
+			SELECT 1 FROM commands c
+			WHERE c.type = 'install_apk' AND c.apk_url = $1
+			  AND (
+				c.target_type = 'all'
+				OR (c.target_type = 'devices' AND EXISTS (
+					SELECT 1 FROM command_targets ct WHERE ct.command_id = c.id AND ct.target_id = dev.id))
+				OR (c.target_type = 'groups' AND EXISTS (
+					SELECT 1 FROM command_targets ct JOIN device_groups dg ON dg.group_id = ct.target_id
+					WHERE ct.command_id = c.id AND dg.device_id = dev.id))
+			  )
+			  AND NOT EXISTS (
+				SELECT 1 FROM command_status cs
+				WHERE cs.command_id = c.id AND cs.device_id = dev.id
+				  AND cs.status IN ('installed','failed','completed'))
+		)
+	`, apkURL, deviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
 }
 
 // MarkCommandsDelivered records that these commands were sent to the device.
