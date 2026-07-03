@@ -87,6 +87,9 @@
       if (verb !== 'get' || !main || d.target !== main) return; // only main-targeted GET nav
       var path = (d.requestConfig && d.requestConfig.path) ||
                  (d.elt && d.elt.getAttribute && d.elt.getAttribute('href')) || '';
+      // Highlight the destination in the dock immediately (don't wait for the
+      // page to load) — mdmSyncDockActive is defined in the footer script.
+      if (window.mdmSyncDockActive) window.mdmSyncDockActive(path.split('?')[0].split('#')[0]);
       _skelTimer = setTimeout(function () {
         var tpl = document.getElementById(mdmSkeletonFor(path));
         main.innerHTML = '';
@@ -288,8 +291,8 @@
   <script>
   // Keep the dock's active highlight in sync after a boosted (main-only) swap:
   // the dock lives outside <main>, so it isn't re-rendered on navigation.
-  function mdmSyncDockActive() {
-    var p = location.pathname;
+  function mdmSyncDockActive(path) {
+    var p = path || location.pathname;
     document.querySelectorAll('.dock .nav-link').forEach(function (a) {
       var h = a.getAttribute('href'), on;
       if (h === '/') on = (p === '/');
@@ -298,9 +301,10 @@
       a.classList.toggle('active', on);
     });
   }
-  document.body.addEventListener('htmx:pushedIntoHistory', mdmSyncDockActive);
-  document.body.addEventListener('htmx:historyRestore', mdmSyncDockActive);
-  window.addEventListener('popstate', function () { setTimeout(mdmSyncDockActive, 0); });
+  // Call with no arg so it reads the (now-current) location.pathname — not the event.
+  document.body.addEventListener('htmx:pushedIntoHistory', function () { mdmSyncDockActive(); });
+  document.body.addEventListener('htmx:historyRestore', function () { mdmSyncDockActive(); });
+  window.addEventListener('popstate', function () { setTimeout(function () { mdmSyncDockActive(); }, 0); });
 
   // Theme toggle: flip html[data-theme], persist, and notify listeners
   // (e.g. charts) so they can recolor without a reload.
