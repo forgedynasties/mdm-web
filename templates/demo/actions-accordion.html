@@ -1,0 +1,248 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions · Accordion — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.32);
+  --peri:#7a80f6;--peri-soft:rgba(122,128,246,.13);
+  --amber:#b45309;--amber-soft:rgba(180,83,9,.12);
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.10);--danger:#b42318;
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r2:6px;--r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);--sh-lg:0 18px 50px rgba(28,26,24,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}button{font:inherit;cursor:pointer}
+.wrap{max-width:680px;margin:0 auto;padding:26px 24px 140px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+.head h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.head p{color:var(--muted);font-size:14.5px;margin-top:5px;max-width:60ch}
+.scap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:24px 2px 10px}
+.srow{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.chip{flex:none;display:flex;align-items:center;gap:9px;padding:9px 13px 9px 10px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--sh-sm);transition:transform .12s,border-color .14s}
+.chip:hover{transform:translateY(-1px);border-color:var(--rule)}
+.chip .pic{width:26px;height:26px;flex:none;border-radius:8px;background:var(--peri-soft);display:flex;align-items:center;justify-content:center}
+.chip .pic svg{width:15px;height:15px;fill:none;stroke:var(--peri);stroke-width:1.8}
+.chip .t1{display:block;font-size:13px;font-weight:650;white-space:nowrap}
+.chip .t2{display:block;font-size:11px;color:var(--muted);font-family:var(--mono)}
+
+/* ── accordion card ── */
+.acc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-md);overflow:hidden;margin-top:8px}
+.acc-h{padding:15px 20px;border-bottom:1px solid var(--border-soft);font-size:15px;font-weight:700}
+.acc-h small{font-weight:500;color:var(--muted);font-size:12.5px;margin-left:6px}
+.astep{border-bottom:1px solid var(--border-soft)}
+.astep-head{width:100%;display:flex;align-items:center;gap:13px;padding:15px 20px;background:none;border:none;text-align:left}
+.astep-head:hover{background:var(--surface2)}
+.astep.open .astep-head{background:transparent}
+.anum{width:24px;height:24px;flex:none;border-radius:50%;border:2px solid var(--rule);color:var(--muted);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .18s}
+.astep.open .anum{border-color:var(--coral);background:var(--coral);color:#fff}
+.astep.done .anum{border-color:var(--ok);background:var(--ok);color:#fff}
+.astep-l{min-width:0;flex:1}
+.astep-t{font-size:14px;font-weight:650}
+.astep.pending .astep-t{color:var(--muted)}
+.astep-sum{font-size:12.5px;color:var(--muted);margin-top:1px;display:none}
+.astep.done:not(.open) .astep-sum{display:block}
+.astep-sum b{color:var(--text2);font-weight:600}
+.astep-edit{flex:none;font-size:12px;font-weight:600;color:var(--coral);display:none}
+.astep.done:not(.open) .astep-edit{display:inline}
+.acar{flex:none;color:var(--faint);transition:transform .2s}
+.astep.open .acar{transform:rotate(90deg)}
+.astep-body{display:none;padding:2px 20px 20px 57px}
+.astep.open .astep-body{display:block;animation:fade .22s ease}
+@keyframes fade{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media(max-width:560px){.astep-body{padding-left:20px}}
+
+.acts{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+@media(max-width:560px){.acts{grid-template-columns:repeat(2,1fr)}}
+.act{display:flex;flex-direction:column;gap:7px;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface);text-align:left;transition:border-color .14s,background .14s}
+.act:hover{border-color:var(--rule);background:var(--surface2)}
+.act.on{border-color:var(--coral-edge);background:var(--coral-soft)}
+.act .ic{width:28px;height:28px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center}
+.act.on .ic{background:#fff}
+.act .ic svg{width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:1.8}
+.act.on .ic svg{stroke:var(--coral)}
+.act .grp{font-size:9.5px;color:var(--faint);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.act .an{font-size:13px;font-weight:650}
+.act.on .an{color:var(--coral-h)}
+.finput{display:flex;align-items:center;gap:10px;height:44px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2);color:var(--muted);font-size:13.5px}
+.finput svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}
+.seg{display:inline-flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:4px}
+.seg button{border:none;background:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--coral);box-shadow:var(--sh-sm)}
+.mini-next{margin-top:16px;border:none;border-radius:9px;padding:9px 16px;font-size:13px;font-weight:650;color:#fff;background:var(--text);display:inline-flex;align-items:center;gap:7px}
+.mini-next:hover{background:#000}
+.mini-next svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.4}
+
+/* ── docked send bar ── */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:center;padding:0 24px 20px;pointer-events:none}
+.dock-in{pointer-events:auto;width:100%;max-width:632px;background:var(--surface);border:1px solid var(--border);border-radius:15px;box-shadow:var(--sh-lg);overflow:hidden}
+.pf-panel{display:none;border-bottom:1px solid var(--border-soft);padding:6px 14px}
+.dock.expanded .pf-panel{display:block;animation:fade .2s ease}
+.ck{display:flex;align-items:center;gap:11px;padding:7px 6px;font-size:12.5px}
+.ck .m{width:18px;height:18px;flex:none;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center}
+.ck .m svg{width:10px;height:10px;fill:none;stroke:#fff;stroke-width:3}
+.ck .lab{flex:1;color:var(--text2)}.ck .val{font-family:var(--mono);font-size:12px;font-weight:600}
+.dock-bar{display:flex;align-items:center;gap:14px;padding:12px 14px}
+.dock-toggle{display:flex;align-items:center;gap:10px;background:none;border:none;flex:1;min-width:0;text-align:left}
+.dock-n{font-size:20px;font-weight:750;letter-spacing:-.01em;flex:none}
+.dock-meta{min-width:0}
+.dock-meta .dm1{font-size:12.5px;font-weight:600;line-height:1.2}
+.dock-meta .dm2{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.dock-meta .dm2 svg{width:11px;height:11px;fill:none;stroke:var(--ok);stroke-width:2.4}
+.dcar{margin-left:auto;flex:none;color:var(--faint);transition:transform .2s}
+.dock.expanded .dcar{transform:rotate(180deg)}
+.dock-send{flex:none;border:none;border-radius:11px;padding:12px 20px;font-size:14px;font-weight:700;color:#fff;background:var(--grad);box-shadow:0 4px 14px rgba(249,103,78,.28);display:inline-flex;align-items:center;gap:8px}
+.dock-send:hover{filter:brightness(1.04)}
+.dock-send svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2}
+.dock-send[disabled]{background:var(--surface3);color:var(--faint);box-shadow:none;cursor:not-allowed}
+
+#toast{position:fixed;left:50%;bottom:100px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1c1a18;color:#fff;font-size:13.5px;padding:12px 18px;border-radius:11px;box-shadow:var(--sh-lg);display:flex;align-items:center;gap:10px;transition:opacity .2s,transform .2s;z-index:60}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast .k{width:18px;height:18px;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center}
+#toast .k svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/actions">← Actions demos</a><span class="tag">B · Accordion</span></div>
+  <div class="head">
+    <h1>Actions</h1>
+    <p>Each step opens only when you're on it, then folds into a one-line summary you can reopen. The blast radius lives in a compact bar docked at the bottom — tap it to expand the safety checks, or just send.</p>
+  </div>
+
+  <div class="scap">Start from a recipe</div>
+  <div class="srow">
+    <button class="chip" onclick="loadRecipe('Screenshot kiosks','Screenshot',214)"><span class="pic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span><span><span class="t1">Screenshot kiosks</span><span class="t2">214 kiosks</span></span></button>
+    <button class="chip" onclick="loadRecipe('Nightly reboot','Reboot',212)"><span class="pic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span><span><span class="t1">Nightly reboot</span><span class="t2">212 devices</span></span></button>
+  </div>
+
+  <div class="acc" id="acc">
+    <div class="acc-h">New action <small>guided</small></div>
+
+    <div class="astep open" data-s="1">
+      <button class="astep-head" onclick="toggle(1)">
+        <span class="anum">1</span>
+        <span class="astep-l"><span class="astep-t">Choose an action</span><span class="astep-sum" id="sum1"></span></span>
+        <span class="astep-edit">Edit</span>
+        <span class="acar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+      </button>
+      <div class="astep-body">
+        <div class="acts">
+          <button class="act" data-t="Install app" onclick="pickAct(this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span class="grp">Apps</span><span class="an">Install app</span></button>
+          <button class="act" data-t="Uninstall" onclick="pickAct(this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></span><span class="grp">Apps</span><span class="an">Uninstall</span></button>
+          <button class="act" data-t="Screenshot" onclick="pickAct(this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span><span class="grp">Diagnostics</span><span class="an">Screenshot</span></button>
+          <button class="act" data-t="Log capture" onclick="pickAct(this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span><span class="grp">Diagnostics</span><span class="an">Log capture</span></button>
+          <button class="act" data-t="Shell" onclick="pickAct(this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span><span class="grp">Diagnostics</span><span class="an">Shell</span></button>
+          <button class="act" data-t="Reboot" onclick="pickAct(this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span><span class="grp">Power</span><span class="an">Reboot</span></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="astep pending" data-s="2">
+      <button class="astep-head" onclick="toggle(2)">
+        <span class="anum">2</span>
+        <span class="astep-l"><span class="astep-t">Configure payload</span><span class="astep-sum" id="sum2"></span></span>
+        <span class="astep-edit">Edit</span>
+        <span class="acar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+      </button>
+      <div class="astep-body">
+        <div class="finput" id="s2field"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg>Pick an action first</div>
+        <button class="mini-next" onclick="toggle(3)">Next: target <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      </div>
+    </div>
+
+    <div class="astep pending" data-s="3">
+      <button class="astep-head" onclick="toggle(3)">
+        <span class="anum">3</span>
+        <span class="astep-l"><span class="astep-t">Target</span><span class="astep-sum" id="sum3"></span></span>
+        <span class="astep-edit">Edit</span>
+        <span class="acar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+      </button>
+      <div class="astep-body">
+        <div class="seg"><button class="on" onclick="pickTarget(this,'All devices',900)">All devices</button><button onclick="pickTarget(this,'Groups',212)">Groups</button><button onclick="pickTarget(this,'Specific',18)">Specific</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dock" id="dock">
+  <div class="dock-in">
+    <div class="pf-panel">
+      <div class="ck"><span class="m"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span class="lab">Online &amp; reachable</span><span class="val" id="ck-on">846</span></div>
+      <div class="ck"><span class="m"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span class="lab">Offline — will queue</span><span class="val" id="ck-off">54</span></div>
+      <div class="ck"><span class="m"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span class="lab">Low battery (&lt;20%)</span><span class="val">0</span></div>
+    </div>
+    <div class="dock-bar">
+      <button class="dock-toggle" onclick="document.getElementById('dock').classList.toggle('expanded')">
+        <span class="dock-n" id="dock-n">900</span>
+        <span class="dock-meta"><span class="dm1" id="dock-m1">All devices</span><span class="dm2"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>All checks clear</span></span>
+        <span class="dcar"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15l6-6 6 6"/></svg></span>
+      </button>
+      <button class="dock-send" id="send" disabled onclick="send()"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg><span id="send-l">Choose an action</span></button>
+    </div>
+  </div>
+</div>
+<div id="toast"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span id="tmsg"></span></div>
+
+<script>
+var ICONS={'Install app':'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>','Uninstall':'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>','Screenshot':'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>','Log capture':'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>','Shell':'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>','Reboot':'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>'};
+var PAY={'Install app':'Choose an app from the library','Uninstall':'Pick a package to remove','Screenshot':'No options — captures live screen','Log capture':'Set buffer, tag & line count','Shell':'Type a shell command','Reboot':'No options — restarts device'};
+var action='',target='All devices',tcount=900;
+function toast(m){var t=document.getElementById('toast');document.getElementById('tmsg').textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400)}
+function toggle(n){
+  var s=document.querySelector('.astep[data-s="'+n+'"]');
+  if(s.classList.contains('pending'))return; // can't open until reached
+  var wasOpen=s.classList.contains('open');
+  document.querySelectorAll('.astep').forEach(x=>x.classList.remove('open'));
+  if(!wasOpen)s.classList.add('open');
+}
+function markDone(n){var s=document.querySelector('.astep[data-s="'+n+'"]');s.classList.remove('pending');s.classList.add('done')}
+function openStep(n){document.querySelectorAll('.astep').forEach(x=>x.classList.remove('open'));document.querySelector('.astep[data-s="'+n+'"]').classList.add('open')}
+function pickAct(el){
+  document.querySelectorAll('.act').forEach(a=>a.classList.remove('on'));el.classList.add('on');
+  action=el.dataset.t;
+  document.getElementById('sum1').innerHTML='<b>'+action+'</b>';
+  markDone(1);
+  document.querySelector('.astep[data-s="2"]').classList.remove('pending');
+  document.getElementById('s2field').innerHTML='<svg viewBox="0 0 24 24">'+ICONS[action]+'</svg>'+PAY[action];
+  document.getElementById('sum2').innerHTML='<b>'+PAY[action]+'</b>';
+  document.querySelector('.astep[data-s="3"]').classList.remove('pending');
+  setTimeout(()=>openStep(2),160);
+  refresh();
+}
+function pickTarget(el,name,n){
+  document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('on'));el.classList.add('on');
+  target=name;tcount=n;markDone(3);
+  document.getElementById('sum3').innerHTML='<b>'+name+'</b> · '+n+' devices';
+  refresh();
+}
+function refresh(){
+  var send=document.getElementById('send');
+  document.getElementById('dock-n').textContent=tcount;
+  document.getElementById('dock-m1').textContent=(action?action:'—')+' → '+target;
+  var on=Math.round(tcount*.94);document.getElementById('ck-on').textContent=on;document.getElementById('ck-off').textContent=tcount-on;
+  if(action){send.disabled=false;document.getElementById('send-l').textContent='Send to '+tcount;}
+  else{send.disabled=true;document.getElementById('send-l').textContent='Choose an action';}
+}
+function send(){toast('Dispatched "'+action+'" to '+tcount+' devices')}
+function loadRecipe(name,act,n){
+  document.querySelectorAll('.act').forEach(a=>a.classList.toggle('on',a.dataset.t===act));
+  action=act;target='Recipe target';tcount=n;
+  document.getElementById('sum1').innerHTML='<b>'+act+'</b>';markDone(1);
+  document.querySelectorAll('.astep').forEach(x=>{x.classList.remove('pending','open')});
+  markDone(2);markDone(3);
+  document.getElementById('sum2').innerHTML='<b>'+PAY[act]+'</b>';
+  document.getElementById('sum3').innerHTML='<b>'+name+'</b> · '+n+' devices';
+  document.getElementById('dock').classList.add('expanded');
+  refresh();toast('Loaded "'+name+'" — review and send');
+}
+</script>
+</body></html>

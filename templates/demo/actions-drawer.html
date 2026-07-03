@@ -1,0 +1,192 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions · Drawer — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.32);
+  --peri:#7a80f6;--peri-soft:rgba(122,128,246,.13);
+  --amber:#b45309;--amber-soft:rgba(180,83,9,.12);
+  --ok:#157f3c;--danger:#b42318;
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r2:6px;--r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);--sh-lg:0 18px 50px rgba(28,26,24,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}button{font:inherit;cursor:pointer}
+.wrap{max-width:900px;margin:0 auto;padding:26px 24px 120px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+.top{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap}
+.top h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.top p{color:var(--muted);font-size:14.5px;margin-top:5px;max-width:52ch}
+.newbtn{margin-left:auto;flex:none;border:none;border-radius:12px;padding:12px 20px;font-size:14px;font-weight:700;color:#fff;background:var(--grad);box-shadow:0 4px 14px rgba(249,103,78,.28);display:inline-flex;align-items:center;gap:9px}
+.newbtn:hover{filter:brightness(1.04)}
+.newbtn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4}
+
+.scap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:26px 2px 11px}
+.srow{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.chip{flex:none;display:flex;align-items:center;gap:9px;padding:10px 14px 10px 11px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--sh-sm);transition:transform .12s,border-color .14s}
+.chip:hover{transform:translateY(-1px);border-color:var(--rule)}
+.chip .pic{width:28px;height:28px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.chip.diag .pic{background:var(--peri-soft)}.chip.diag .pic svg{stroke:var(--peri)}
+.chip.apps .pic{background:var(--coral-soft)}.chip.apps .pic svg{stroke:var(--coral)}
+.chip.power .pic{background:var(--amber-soft)}.chip.power .pic svg{stroke:var(--amber)}
+.chip .pic svg{width:15px;height:15px;fill:none;stroke-width:1.8}
+.chip .t1{display:block;font-size:13px;font-weight:650;white-space:nowrap}
+.chip .t2{display:block;font-size:11px;color:var(--muted);font-family:var(--mono)}
+
+/* recent activity */
+.recent{margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);overflow:hidden}
+.rr{display:flex;align-items:center;gap:13px;padding:13px 16px;border-top:1px solid var(--border-soft)}
+.rr:first-child{border-top:none}
+.rr .ic{width:34px;height:34px;flex:none;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.rr .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7}
+.rr .m{min-width:0;flex:1}
+.rr .r1{font-size:13.5px;font-weight:650}
+.rr .r2{font-size:12px;color:var(--muted);margin-top:1px}
+.rr .st{flex:none;font-size:11.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px}
+.rr .st.ok{color:var(--ok);background:rgba(21,127,60,.10)}
+.rr .st.run{color:var(--peri);background:var(--peri-soft)}
+.rr .st .d{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* ── slide-over drawer ── */
+.scrim{position:fixed;inset:0;background:rgba(20,18,16,.34);opacity:0;pointer-events:none;transition:opacity .22s;z-index:45}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(440px,94vw);background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--sh-lg);z-index:46;transform:translateX(100%);transition:transform .26s cubic-bezier(.2,.7,.2,1);display:flex;flex-direction:column}
+.drawer.open{transform:none}
+.dh{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--border-soft)}
+.dh .t{font-size:15px;font-weight:700}
+.dh .x{margin-left:auto;width:30px;height:30px;border:none;background:var(--surface2);border-radius:8px;color:var(--muted);font-size:17px;display:flex;align-items:center;justify-content:center}
+.dh .x:hover{background:var(--surface3);color:var(--text)}
+.db{flex:1;overflow-y:auto;padding:18px}
+.blk{margin-bottom:20px}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.apick{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.ao{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);text-align:left;font-size:13px;font-weight:600;color:var(--text2)}
+.ao:hover{border-color:var(--rule);background:var(--surface2)}
+.ao.on{border-color:var(--coral-edge);background:var(--coral-soft);color:var(--coral-h)}
+.ao svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;flex:none}
+.finput{display:flex;align-items:center;gap:10px;height:44px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2);color:var(--muted);font-size:13.5px}
+.finput svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}
+.seg{display:flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:4px}
+.seg button{flex:1;border:none;background:none;border-radius:8px;padding:9px 10px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--coral);box-shadow:var(--sh-sm)}
+/* drawer footer: compact pre-flight + send */
+.df{border-top:1px solid var(--border-soft);padding:14px 18px;background:var(--surface2)}
+.pf-line{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.pf-n{font-size:24px;font-weight:750;letter-spacing:-.01em}
+.pf-chk{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:2px}
+.pf-chk span{display:inline-flex;align-items:center;gap:6px}
+.pf-chk svg{width:12px;height:12px;fill:none;stroke:var(--ok);stroke-width:2.6;flex:none}
+.pf-more{margin-left:auto;font-size:12px;font-weight:600;color:var(--coral);background:none;border:none}
+.dsend{width:100%;border:none;border-radius:12px;padding:13px;font-size:14.5px;font-weight:700;color:#fff;background:var(--grad);box-shadow:0 4px 14px rgba(249,103,78,.28);display:inline-flex;align-items:center;justify-content:center;gap:9px}
+.dsend:hover{filter:brightness(1.04)}
+.dsend svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2}
+
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1c1a18;color:#fff;font-size:13.5px;padding:12px 18px;border-radius:11px;box-shadow:var(--sh-lg);display:flex;align-items:center;gap:10px;transition:opacity .2s,transform .2s;z-index:60}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast .k{width:18px;height:18px;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center}
+#toast .k svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3}
+@media(max-width:560px){.newbtn{margin-left:0}}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/actions">← Actions demos</a><span class="tag">C · Focused drawer</span></div>
+  <div class="top">
+    <div>
+      <h1>Actions</h1>
+      <p>The page stays a calm dashboard — recipes and recent activity. Composing happens in a focused slide-over that shows only the one action you're sending, nothing else.</p>
+    </div>
+    <button class="newbtn" onclick="openDrawer('')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New action</button>
+  </div>
+
+  <div class="scap">Start from a recipe · one tap re-opens it filled in</div>
+  <div class="srow">
+    <button class="chip diag" onclick="openDrawer('Screenshot','Screenshot kiosks','All devices',214)"><span class="pic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span><span><span class="t1">Screenshot kiosks</span><span class="t2">214 kiosks</span></span></button>
+    <button class="chip apps" onclick="openDrawer('Install app','Install POS v4.2','All devices',900)"><span class="pic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span><span class="t1">Install POS v4.2</span><span class="t2">900 devices</span></span></button>
+    <button class="chip power" onclick="openDrawer('Reboot','Nightly reboot','Groups',212)"><span class="pic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span><span><span class="t1">Nightly reboot</span><span class="t2">212 devices</span></span></button>
+  </div>
+
+  <div class="scap">Recent activity</div>
+  <div class="recent">
+    <div class="rr"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><div class="m"><div class="r1">Install POS v4.2</div><div class="r2">All devices · 6h ago</div></div><span class="st ok"><span class="d"></span>886/900</span></div>
+    <div class="rr"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span><div class="m"><div class="r1">Nightly reboot</div><div class="r2">Downtown group · 14h ago</div></div><span class="st ok"><span class="d"></span>208/212</span></div>
+    <div class="rr"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span><div class="m"><div class="r1">Screenshot kiosks</div><div class="r2">214 kiosks · 2d ago</div></div><span class="st ok"><span class="d"></span>214/214</span></div>
+  </div>
+</div>
+
+<!-- slide-over -->
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dh"><span class="t" id="dtitle">New action</span><button class="x" onclick="closeDrawer()">&times;</button></div>
+  <div class="db">
+    <div class="blk">
+      <div class="lbl">Action</div>
+      <div class="apick" id="apick">
+        <button class="ao" data-t="Install app" onclick="pickAct(this)"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>Install app</button>
+        <button class="ao" data-t="Uninstall" onclick="pickAct(this)"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>Uninstall</button>
+        <button class="ao" data-t="Screenshot" onclick="pickAct(this)"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg>Screenshot</button>
+        <button class="ao" data-t="Log capture" onclick="pickAct(this)"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg>Log capture</button>
+        <button class="ao" data-t="Shell" onclick="pickAct(this)"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>Shell</button>
+        <button class="ao" data-t="Reboot" onclick="pickAct(this)"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Reboot</button>
+      </div>
+    </div>
+    <div class="blk" id="payblk" style="display:none">
+      <div class="lbl">Payload</div>
+      <div class="finput" id="payfield"></div>
+    </div>
+    <div class="blk" id="tgtblk" style="display:none">
+      <div class="lbl">Target</div>
+      <div class="seg"><button class="on" onclick="pickTarget(this,'All devices',900)">All</button><button onclick="pickTarget(this,'Groups',212)">Groups</button><button onclick="pickTarget(this,'Specific',18)">Specific</button></div>
+    </div>
+  </div>
+  <div class="df" id="dfoot" style="display:none">
+    <div class="pf-line">
+      <span class="pf-n" id="pf-n">900</span>
+      <span class="pf-chk"><span><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><b id="pf-on">846</b>&nbsp;online</span><span><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><b id="pf-off">54</b>&nbsp;queued · 0 low battery</span></span>
+      <button class="pf-more" onclick="toast('Online 846 · Offline 54 · Low battery 0 · Mid-service 0')">Details</button>
+    </div>
+    <button class="dsend" onclick="send()"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg><span id="dsend-l">Send to 900 devices</span></button>
+  </div>
+</aside>
+<div id="toast"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span id="tmsg"></span></div>
+
+<script>
+var ICONS={'Install app':'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>','Uninstall':'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>','Screenshot':'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>','Log capture':'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>','Shell':'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>','Reboot':'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>'};
+var PAY={'Install app':'Choose an app from the library','Uninstall':'Pick a package to remove','Screenshot':'No options — captures live screen','Log capture':'Set buffer, tag & line count','Shell':'Type a shell command','Reboot':'No options — restarts device'};
+var action='',target='All devices',tcount=900;
+function toast(m){var t=document.getElementById('toast');document.getElementById('tmsg').textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600)}
+function openDrawer(act,name,tgt,n){
+  document.getElementById('scrim').classList.add('open');
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('dtitle').textContent=name||'New action';
+  if(act){setAct(act);if(tgt){target=tgt;tcount=n;var idx={'All devices':0,'Groups':1,'Specific':2}[tgt]||0;document.querySelectorAll('.seg button').forEach((b,i)=>b.classList.toggle('on',i===idx));}refresh();}
+  else{document.querySelectorAll('.ao').forEach(a=>a.classList.remove('on'));document.getElementById('payblk').style.display='none';document.getElementById('tgtblk').style.display='none';document.getElementById('dfoot').style.display='none';action='';}
+}
+function closeDrawer(){document.getElementById('scrim').classList.remove('open');document.getElementById('drawer').classList.remove('open')}
+function setAct(act){
+  action=act;
+  document.querySelectorAll('.ao').forEach(a=>a.classList.toggle('on',a.dataset.t===act));
+  document.getElementById('payfield').innerHTML='<svg viewBox="0 0 24 24">'+ICONS[act]+'</svg>'+PAY[act];
+  document.getElementById('payblk').style.display='';document.getElementById('tgtblk').style.display='';document.getElementById('dfoot').style.display='';
+}
+function pickAct(el){setAct(el.dataset.t);refresh()}
+function pickTarget(el,name,n){document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('on'));el.classList.add('on');target=name;tcount=n;refresh()}
+function refresh(){
+  var on=Math.round(tcount*.94);
+  document.getElementById('pf-n').textContent=tcount;
+  document.getElementById('pf-on').textContent=on;document.getElementById('pf-off').textContent=tcount-on;
+  document.getElementById('dsend-l').textContent='Send to '+tcount+' device'+(tcount===1?'':'s');
+}
+function send(){toast('Dispatched "'+action+'" to '+tcount+' devices');closeDrawer()}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer()});
+</script>
+</body></html>
