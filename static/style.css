@@ -3549,34 +3549,45 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 .ai-text strong { font-weight: 600; color: var(--text-strong, var(--text)); }
 .ai-text code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; background: var(--surface-2, rgba(127,127,127,0.12)); padding: 1px 4px; border-radius: 4px; }
 
-/* AI Hourly Report — structured card (stat tiles + dotted issue list). */
-.rep-status { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-right: 10px; }
-.rep-status.rep-ok { color: var(--ok); }
-.rep-status.rep-warn { color: var(--warn); }
-.rep-status.rep-danger { color: var(--danger); }
-.rep-status.rep-muted { color: var(--muted); }
+/* ── Daily Report · Assistant treatment (orb header + chat-bubble briefing) ── */
+.ai-hdr { display: flex; align-items: center; gap: 11px; }
+.ai-orb { position: relative; width: 32px; height: 32px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2, #7a80f6)); box-shadow: 0 4px 13px rgba(249,103,78,.28); }
+.ai-orb svg { width: 16px; height: 16px; }
+.ai-orb::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid var(--accent-soft); animation: ai-orbpulse 2.6s ease-out infinite; }
+@keyframes ai-orbpulse { 0% { transform: scale(.9); opacity: .7; } 70% { transform: scale(1.35); opacity: 0; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .ai-orb::after { animation: none; } }
+.ai-hdr-t { font-size: 15px; font-weight: 650; letter-spacing: -.01em; line-height: 1.2; }
+.ai-hdr-sub { display: block; font-size: 11px; font-weight: 500; color: var(--text-faint); letter-spacing: 0; margin-top: 1px; }
+.ai-hdr-r { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.ai-stamp { font-size: 12px; color: var(--muted); }
+.ai-body { padding: 15px 18px 17px; }
+.ai-bubble { background: var(--surface2); border: 1px solid var(--border-soft); border-radius: 5px 16px 16px 16px; padding: 15px 17px; }
+
+.ai-lede { font-size: 15px; line-height: 1.5; font-weight: 500; color: var(--text); }
+.ai-intro { font-weight: 700; }
+.ai-intro.ai-ok { color: var(--ok); } .ai-intro.ai-warn { color: var(--warn); } .ai-intro.ai-bad { color: var(--danger); } .ai-intro.ai-muted { color: var(--muted); }
 .rep-headline { color: var(--text); }
 
-/* Metric tiles: small bordered cards, display-serif values (overview language). */
-.rep-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 14px 0 16px; }
-.rep-tile { background: var(--bg); border: 1px solid var(--border-soft); border-radius: 10px; padding: 11px 14px; }
-.rep-tile .v { font-family: var(--font-display); font-size: 24px; font-weight: 600; letter-spacing: -.01em; line-height: 1.1; color: var(--text); }
-.rep-tile .l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); margin-top: 4px; }
+/* metrics → pills */
+.rep-tiles { display: flex; flex-wrap: wrap; gap: 8px; margin: 13px 0 4px; }
+.rep-tile { display: inline-flex; align-items: baseline; gap: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 99px; padding: 4px 12px; font-size: 12.5px; }
+.rep-tile b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.rep-tile .l { color: var(--muted); font-weight: 500; }
 
-/* Issue rows: severity reads as a colored left rail, not a floating dot. */
-.rep-row { position: relative; padding: 11px 0 11px 16px; border-top: 1px solid var(--border-soft); }
-.rep-row .ind { position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 2px; }
+/* issues → dotted briefing list */
+.rep-rows { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.rep-row { display: flex; gap: 10px; }
+.rep-row .ind { width: 7px; height: 7px; border-radius: 50%; margin-top: 7px; flex: none; background: var(--muted); }
 .rep-row.rep-danger .ind { background: var(--danger); }
 .rep-row.rep-warn .ind { background: var(--warn); }
-.rep-row .meta { font-size: 13.5px; color: var(--text); line-height: 1.6; }
-.rep-uplabel { display: inline-block; font-size: 10px; font-weight: 600; text-transform: uppercase;
-  letter-spacing: .06em; color: var(--muted); background: var(--surface2);
-  border-radius: 4px; padding: 2px 7px; margin-right: 6px; vertical-align: 1px; }
-.rep-row.rep-danger .rep-uplabel { color: var(--danger); background: var(--danger-bg); }
-.rep-row.rep-warn .rep-uplabel { color: var(--warn); background: var(--warn-bg); }
-.rep-row .scope { font-weight: 600; }
-.rep-row .action { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
-.rep-good { color: var(--muted); font-size: 12.5px; margin-top: 14px; }
+.rep-row .meta { font-size: 13.5px; color: var(--text); line-height: 1.55; min-width: 0; }
+.rep-row .scope { font-weight: 650; }
+.rep-act { color: var(--accent); font-weight: 600; }
+
+/* healthy footer line */
+.rep-good { font-size: 12px; color: var(--text-faint); margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--border-soft); }
+.rep-good b { color: var(--text-2); font-weight: 600; }
 
 /* Serial links inside report prose: inline mono text, not boxed chips —
    the boxed .link-detail style breaks the sentence flow around commas. */
