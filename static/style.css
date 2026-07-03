@@ -5301,3 +5301,16 @@ a.hl-row:hover { background: var(--hover); }
 /* severity dots shared by the feed */
 .hl-evidence .dot, .hl-evcat .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
 .d-bad { background: var(--danger); } .d-warn { background: var(--warn); } .d-muted { background: var(--text-faint); }
+
+/* ── Daily Report · live generation (thinking log + streamed reveal) ── */
+.ai-think{display:flex;flex-direction:column;gap:9px;padding:2px 0}
+.ai-tline{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);opacity:0;transform:translateY(4px);transition:opacity .3s,transform .3s}
+.ai-tline.show{opacity:1;transform:none}
+.ai-tick{width:16px;height:16px;flex:none;color:var(--ok)}
+.ai-tspin{width:14px;height:14px;flex:none;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:ai-spin .7s linear infinite}
+@keyframes ai-spin{to{transform:rotate(360deg)}}
+.ai-caret{display:inline-block;width:2px;height:1.05em;background:var(--accent);margin-left:1px;vertical-align:-2px;animation:ai-blink 1s steps(2) infinite}
+@keyframes ai-blink{50%{opacity:0}}
+.ai-reveal .rep-tile,.ai-reveal .rep-row,.ai-reveal .rep-good{opacity:0;transform:translateY(6px)}
+.ai-reveal .rep-tile.in,.ai-reveal .rep-row.in,.ai-reveal .rep-good.in{opacity:1;transform:none;transition:opacity .35s,transform .35s}
+@media(prefers-reduced-motion:reduce){.ai-tline,.ai-reveal .rep-tile,.ai-reveal .rep-row,.ai-reveal .rep-good{transition:none;opacity:1;transform:none}.ai-caret,.ai-tspin{animation:none}}
