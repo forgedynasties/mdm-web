@@ -2571,6 +2571,93 @@ func (d *DB) SetCommandProgress(ctx context.Context, commandID, deviceID uuid.UU
 	return err
 }
 
+// LearnApkPackage records that apkURL installs packageName, so future installs of
+// that APK can be reconciled against a device's reported package list.
+func (d *DB) LearnApkPackage(ctx context.Context, apkURL, packageName string) error {
+	if apkURL == "" || packageName == "" {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO apk_packages (apk_url, package_name, updated_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (apk_url) DO UPDATE SET package_name = EXCLUDED.package_name, updated_at = NOW()
+	`, apkURL, packageName)
+	return err
+}
+
+// ReconcileInstalledCommands marks as 'installed' any in-flight install_apk command
+// targeting this device whose APK's known package is already present in the device's
+// reported packages. Recovers from a lost terminal ack: the "installing" row clears
+// as soon as the device reports the app present. Returns the affected command IDs so
+// the caller can publish live updates.
+func (d *DB) ReconcileInstalledCommands(ctx context.Context, deviceID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `
+		WITH affected AS (
+			SELECT c.id
+			FROM commands c
+			JOIN apk_packages ap ON ap.apk_url = c.apk_url
+			JOIN device_packages dp ON dp.device_id = $1 AND dp.package_name = ap.package_name
+			WHERE c.type = 'install_apk'
+			  AND (
+				c.target_type = 'all'
+				OR (c.target_type = 'devices' AND EXISTS (
+					SELECT 1 FROM command_targets ct WHERE ct.command_id = c.id AND ct.target_id = $1))
+				OR (c.target_type = 'groups' AND EXISTS (
+					SELECT 1 FROM command_targets ct JOIN device_groups dg ON dg.group_id = ct.target_id
+					WHERE ct.command_id = c.id AND dg.device_id = $1))
+			  )
+			  AND NOT EXISTS (
+				SELECT 1 FROM command_status cs WHERE cs.command_id = c.id AND cs.device_id = $1
+				  AND cs.status IN ('installed','failed','completed'))
+		), up AS (
+			INSERT INTO command_status (command_id, device_id, status, progress, updated_at)
+			SELECT id, $1, 'installed', NULL, NOW() FROM affected
+			ON CONFLICT (command_id, device_id) DO UPDATE SET status = 'installed', progress = NULL, updated_at = NOW()
+			RETURNING command_id
+		)
+		SELECT command_id FROM up
+	`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// GetApkPackageMap returns the learned apk_url → package_name map for the given APK
+// URLs (empty urls => whole table). Used to filter already-installed apps out of the
+// pending-install rows at render time.
+func (d *DB) GetApkPackageMap(ctx context.Context, apkURLs []string) (map[string]string, error) {
+	out := make(map[string]string)
+	var rows pgx.Rows
+	var err error
+	if len(apkURLs) == 0 {
+		rows, err = d.pool.Query(ctx, `SELECT apk_url, package_name FROM apk_packages`)
+	} else {
+		rows, err = d.pool.Query(ctx, `SELECT apk_url, package_name FROM apk_packages WHERE apk_url = ANY($1)`, apkURLs)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var u, p string
+		if err := rows.Scan(&u, &p); err != nil {
+			return nil, err
+		}
+		out[u] = p
+	}
+	return out, rows.Err()
+}
+
 type DeviceCommand struct {
 	ID         uuid.UUID       `json:"id"`
 	Type       string          `json:"type"`
@@ -5987,6 +6074,16 @@ CREATE INDEX IF NOT EXISTS idx_device_daily_stats_device_day ON device_daily_sta
 -- 'installing' before the terminal 'installed'/'failed'. progress is 0-100 while
 -- downloading, NULL otherwise.
 ALTER TABLE command_status ADD COLUMN IF NOT EXISTS progress SMALLINT;
+
+-- Learned APK-URL → package-name map. Populated when a device acks an install and
+-- reports which package the APK produced. Lets the server reconcile a pending
+-- install against a device's reported package list (clears a stuck "installing" the
+-- moment the app is actually present, even if the terminal ack was lost).
+CREATE TABLE IF NOT EXISTS apk_packages (
+	apk_url      TEXT PRIMARY KEY,
+	package_name TEXT NOT NULL,
+	updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

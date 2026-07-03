@@ -357,6 +357,15 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		if err := h.db.UpsertDevicePackages(r.Context(), deviceID, pkgs); err != nil {
 			log.Printf("[checkin] UpsertDevicePackages error: %v", err)
 		}
+		// Clear any stuck "installing" whose app the device now reports present (e.g.
+		// a lost terminal ack): mark the install command installed and refresh the UI.
+		if ids, err := h.db.ReconcileInstalledCommands(r.Context(), deviceID); err != nil {
+			log.Printf("[checkin] ReconcileInstalledCommands error: %v", err)
+		} else {
+			for _, id := range ids {
+				h.hub.PublishCommandUpdate(id)
+			}
+		}
 	}
 
 	h.recordCheckinOtaProgress(deviceID, &req)
@@ -497,6 +506,7 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 		Status    string    `json:"status"`
 		Output    string    `json:"output"`
 		Progress  *int      `json:"progress"`
+		Package   string    `json:"package"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil || body.CommandID == uuid.Nil {
 		log.Printf("[ws-ack] parse error or missing command_id: %v", err)
@@ -524,6 +534,11 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 	}
 	if body.Output != "" {
 		_ = h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output)
+	}
+	if body.Status == "installed" && body.Package != "" {
+		if cmd, err := h.db.GetCommand(ctx, body.CommandID); err == nil && cmd.ApkURL != "" {
+			_ = h.db.LearnApkPackage(ctx, cmd.ApkURL, body.Package)
+		}
 	}
 	h.hub.PublishDeviceUpdate(deviceID)
 	h.hub.PublishCommandUpdate(body.CommandID)
@@ -1075,6 +1090,7 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		Status       string `json:"status"` // downloading | installing | installed | failed | completed
 		Output       string `json:"output"`
 		Progress     *int   `json:"progress"` // 0-100, meaningful while downloading
+		Package      string `json:"package"`  // package the APK installed (learned on 'installed')
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SerialNumber == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number is required"})
@@ -1116,6 +1132,12 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.Output != "" {
 		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
+	}
+	// Learn which package this APK installs, so future stuck installs auto-reconcile.
+	if body.Status == "installed" && body.Package != "" {
+		if cmd, err := h.db.GetCommand(r.Context(), cmdID); err == nil && cmd.ApkURL != "" {
+			_ = h.db.LearnApkPackage(r.Context(), cmd.ApkURL, body.Package)
+		}
 	}
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishCommandUpdate(cmdID)
