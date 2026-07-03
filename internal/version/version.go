@@ -17,6 +17,33 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.17.0",
+		Date:    "2026-07-03",
+		Changes: []string{
+			"Every page now shows an instant preview the moment you click — a shimmering outline appears right away and fills in with real data a beat later, so the dashboard feels immediate. The Fleet page previews its sidebar and device list too.",
+			"The bottom navigation highlights the page you're heading to instantly, instead of only after it finishes loading.",
+			"Fresh look for the Daily Report: it now reads like a short briefing from your fleet assistant — a plain-language headline, the key numbers as pills, and each thing worth a look paired with what to do about it. Device and restaurant names in the report are clickable, and you can watch it think and write itself when you press Refresh.",
+			"New Health button in the bottom bar, opening a redesigned Fleet Health page: an overall health score, your restaurants ranked worst-first, and the open alerts behind those scores right alongside.",
+			"Fleet page: picking a restaurant or group now refreshes just the device list (with a brief skeleton) instead of reloading the whole page — and choosing a filter or changing pages no longer scrambles the layout.",
+			"Search improvements: the device search on the Actions page now filters the same list you're looking at, and hidden devices no longer appear in any search (including the top-right search box).",
+			"Tidied the home page by removing the quick-action tiles.",
+		},
+	},
+	{
+		Version: "1.16.0",
+		Date:    "2026-07-02",
+		Changes: []string{
+			"The dashboard is much faster and no longer reloads the whole page as you click around — pages swap in place, so things like software-update progress update smoothly without a full reload.",
+			"Major speed-up for the pages that used to feel slow (Fleet, Actions, and Releases), so they stay quick even with thousands of devices.",
+			"Changes you make now appear automatically in your other open tabs — no refresh needed.",
+			"Redesigned Actions page: preview exactly which devices a command will hit before you send it, watch what's in progress at a glance, save and reuse common commands as “recipes”, and browse a clearer history split into In progress, Needs attention, and Completed — with its own dedicated history page.",
+			"Viewers can now open the Actions page in read-only mode — they can see what's possible and view saved recipes, with the controls clearly disabled.",
+			"The uninstall picker now lists only your installed apps, hiding the built-in system packages you can't remove.",
+			"Slower sections of a page now show a loading placeholder instead of a blank gap while they load.",
+			"Quick actions on the home page are now shown only to operators and above, and the Releases menu is limited to admin, dev, and tester accounts.",
+		},
+	},
+	{
 		Version: "1.15.1",
 		Date:    "2026-07-01",
 		Changes: []string{
