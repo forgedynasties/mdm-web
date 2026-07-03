@@ -1961,10 +1961,27 @@ func pendingInstallRows(commands []db.DeviceCommand, apps []db.App) []map[string
 	for _, a := range apps {
 		name[a.ApkURL] = a.Name
 	}
+	// A human phase label for the row's spinner tag, plus the download percent.
+	label := func(status string, progress *int) (string, string) {
+		switch status {
+		case "downloading":
+			if progress != nil {
+				return "downloading", strconv.Itoa(*progress)
+			}
+			return "downloading", ""
+		case "installing":
+			return "installing", ""
+		default: // pending / delivered — queued, not yet picked up
+			return "installing", ""
+		}
+	}
+	inFlight := func(s string) bool {
+		return s == "pending" || s == "delivered" || s == "downloading" || s == "installing"
+	}
 	var out []map[string]string
 	idx := make(map[string]int) // ApkURL -> position in out
 	for _, c := range commands {
-		if c.Type == "install_apk" && (c.Status == "pending" || c.Status == "delivered") {
+		if c.Type == "install_apk" && inFlight(c.Status) {
 			if i, ok := idx[c.ApkURL]; ok {
 				out[i]["Count"] = strconv.Itoa(atoi(out[i]["Count"]) + 1)
 				continue
@@ -1973,8 +1990,9 @@ func pendingInstallRows(commands []db.DeviceCommand, apps []db.App) []map[string
 			if n == "" {
 				n = c.ApkURL
 			}
+			phase, pct := label(c.Status, c.Progress)
 			idx[c.ApkURL] = len(out)
-			out = append(out, map[string]string{"Name": n, "ApkURL": c.ApkURL, "Count": "1"})
+			out = append(out, map[string]string{"Name": n, "ApkURL": c.ApkURL, "Count": "1", "Phase": phase, "Progress": pct})
 		}
 	}
 	return out
