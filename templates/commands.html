@@ -7,92 +7,105 @@
 </div>
 
 <style>
-/* Three-pane command builder: action rail · config · live impact preview. */
-.cmd-rail3{display:grid;grid-template-columns:212px 1fr 300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
-.cr-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
+/* Flight deck: compose (numbered steps) on the left, a sticky pre-flight panel
+   on the right that shows the blast radius + live safety checks before you send. */
+.cmd-rail3{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;align-items:start;margin-bottom:22px;}
+.fd-compose{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;min-width:0;}
+.cr-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
 .cr-head h3{margin:0;font-size:15px;font-weight:650;}
 .cr-head .ctx{font-size:12px;color:var(--muted);}
-/* Read-only builder (viewers): the pane is shown so they can see what's possible,
-   but every control is natively disabled (greyed, not-allowed). JS sets `disabled`
-   on the form controls; the rail items are plain divs so they get pointer-events:none. */
+.cr-head .ctx b{color:var(--text-2);font-weight:600;}
+/* numbered step scaffold */
+.fd-step-h{display:flex;align-items:center;gap:11px;margin-bottom:14px;}
+.fd-stepn{width:23px;height:23px;flex:none;border-radius:50%;background:var(--text);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;}
+.fd-step-h .fd-lbl{font-size:13.5px;font-weight:700;}
+.fd-step-h .fd-pick{margin-left:auto;font-size:12.5px;color:var(--muted);}
+.fd-step-h .fd-pick b{color:var(--text-2);font-weight:600;}
+/* Read-only builder (viewers): every control natively disabled (greyed, not-allowed). */
 .ro-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 11px;}
 .ro-badge svg{stroke:var(--muted);flex:none;}
 .cmd-rail3.is-readonly .cr-rail{pointer-events:none;}
 .cmd-rail3.is-readonly .cr-rail-item{opacity:.6;}
 .cmd-rail3.is-readonly :disabled{cursor:not-allowed;opacity:.6;}
 .cmd-rail3.is-readonly .target-pill:disabled{opacity:.6;}
-.ro-note{font-size:12px;color:var(--muted);flex:1;}
-@media (max-width:1180px){.cmd-rail3{grid-template-columns:212px 1fr;}.cr-impact{grid-column:1/-1;border-top:1px solid var(--border-soft);}}
-@media (max-width:1024px){.cmd-rail3{grid-template-columns:1fr;}}
+.ro-note{font-size:12px;color:var(--muted);}
+@media (max-width:1024px){.cmd-rail3{grid-template-columns:1fr;}.fd-pf{position:static;}}
 
-/* Recipes strip — one-tap saved / recent actions above the builder. */
-.recipes-wrap{margin-bottom:16px;}
-.recipes-h{display:flex;align-items:center;justify-content:space-between;margin:0 2px 8px;}
-.recipes-h .t{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);}
-.recipes{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;}
-.recipe{position:relative;display:flex;gap:11px;align-items:flex-start;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:13px 14px;cursor:pointer;text-align:left;font:inherit;transition:box-shadow .12s,transform .12s,border-color .12s;}
-.recipe:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--accent-edge);}
-.recipe .ic{width:32px;height:32px;flex:none;border-radius:9px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;}
-.recipe .ic svg{width:17px;height:17px;fill:none;stroke:var(--accent);stroke-width:1.8;}
+/* "Start from a recipe" — horizontal strip of one-tap presets above the composer. */
+.recipes-wrap{margin-bottom:18px;}
+.recipes-h{display:flex;align-items:center;gap:8px;margin:0 2px 10px;}
+.recipes-h .t{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);}
+.recipes{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin;}
+.recipes::-webkit-scrollbar{height:6px;}
+.recipes::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:9px;}
+.recipe{position:relative;flex:none;display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-sm);padding:10px 14px 10px 11px;cursor:pointer;text-align:left;font:inherit;transition:box-shadow .12s,transform .12s,border-color .12s;}
+.recipe:hover{box-shadow:var(--shadow-md);transform:translateY(-1px);border-color:var(--rule-2);}
+.recipe .ic{width:30px;height:30px;flex:none;border-radius:9px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;}
+.recipe .ic svg{width:16px;height:16px;fill:none;stroke:var(--accent);stroke-width:1.8;}
 .recipe.last .ic{background:var(--accent-2-soft);}.recipe.last .ic svg{stroke:var(--accent-2);}
-.recipe .rt{font-size:13.5px;font-weight:700;line-height:1.2;}
-.recipe .rs{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.35;}
-.recipe .rx{position:absolute;top:8px;right:8px;border:none;background:none;color:var(--text-faint);font-size:16px;line-height:1;cursor:pointer;padding:2px 5px;border-radius:6px;}
-.recipe .rx:hover{color:var(--danger);background:var(--danger-bg);}
-.recipe.add{border-style:dashed;align-items:center;justify-content:center;color:var(--muted);font-weight:600;font-size:13px;gap:7px;}
-.recipe.add svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;}
+.recipe .rt{display:block;font-size:13px;font-weight:650;line-height:1.2;white-space:nowrap;}
+.recipe .rs{display:block;font-size:11px;color:var(--muted);margin-top:1px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px;}
+.recipe .rx{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:12px;line-height:1;cursor:pointer;border-radius:50%;display:none;align-items:center;justify-content:center;padding:0;}
+.recipe:hover .rx{display:flex;}
+.recipe .rx:hover{color:var(--danger);border-color:var(--danger-edge);}
+.recipe.add{border-style:dashed;box-shadow:none;color:var(--muted);font-weight:600;font-size:12.5px;gap:7px;padding:10px 15px;}
+.recipe.add svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;}
 
-/* Impact preview pane */
-.cr-impact{padding:18px 18px 0;background:linear-gradient(180deg,var(--surface2),var(--surface));display:flex;flex-direction:column;min-width:0;}
-.imp-cap{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px;}
-.imp-big{font-size:33px;font-weight:750;line-height:1;letter-spacing:-.02em;}
-.imp-big small{font-size:13px;font-weight:600;color:var(--muted);margin-left:6px;}
-.imp-sub{font-size:12px;color:var(--muted);margin-top:4px;}
-.imp-bar{display:flex;height:9px;border-radius:99px;overflow:hidden;margin:15px 0 7px;background:var(--surface-3);}
-.imp-bar i{display:block;height:100%;}
-.imp-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
-.imp-legend span{display:inline-flex;align-items:center;gap:5px;}
-.imp-legend b{color:var(--text);}
-.imp-dot{width:8px;height:8px;border-radius:99px;display:inline-block;}
-.imp-warn{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.45;background:var(--warn-bg);border:1px solid var(--warn-edge);color:var(--text-2);border-radius:9px;padding:9px 11px;margin-top:14px;}
+/* ── Pre-flight panel (sticky right column): blast radius + safety checks ── */
+.fd-pf{position:sticky;top:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;}
+.cr-impact{min-width:0;}
+.pf-top{padding:16px 18px 14px;background:linear-gradient(180deg,var(--surface2),var(--surface));border-bottom:1px solid var(--border-soft);}
+.imp-cap{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin-bottom:7px;}
+.imp-big{font-size:34px;font-weight:750;line-height:1;letter-spacing:-.02em;}
+.imp-big small{font-size:12.5px;font-weight:600;color:var(--muted);margin-left:7px;letter-spacing:0;}
+.imp-sub{font-size:12px;color:var(--muted);margin-top:5px;}
+.imp-sub b{color:var(--text-2);font-weight:600;}
+.pf-list{padding:7px 11px;}
+.ck{display:flex;align-items:center;gap:11px;padding:8px 7px;border-radius:8px;font-size:12.5px;}
+.ck .m{width:19px;height:19px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.ck .m svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;}
+.ck.ok .m{background:var(--ok);}
+.ck.warn .m{background:var(--warn);}
+.ck .lab{flex:1;color:var(--text-2);}
+.ck .val{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--text);}
+.ck.warn .val{color:var(--warn);}
+.imp-warn{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.45;background:var(--warn-bg);border-top:1px solid var(--warn-edge);color:var(--text-2);padding:11px 14px;margin:0;}
 .imp-warn svg{width:14px;height:14px;fill:none;stroke:var(--warn);stroke-width:2.2;flex:none;margin-top:1px;}
-.imp-roll{margin-top:14px;overflow:auto;border-top:1px solid var(--border-soft);padding-top:8px;max-height:190px;}
-.imp-rr{display:flex;align-items:center;gap:8px;padding:4px 2px;font-size:12px;}
-.imp-rr .sn{font-family:var(--mono);font-size:11.5px;}
-.imp-rr .bat{margin-left:auto;font-size:11px;color:var(--muted);}
-.imp-rr .st{width:7px;height:7px;border-radius:99px;flex:none;}
-.imp-rr .st.up{background:var(--ok);}.imp-rr .st.down{background:var(--text-faint);}
-.imp-rr.skip{opacity:.5;}
-.imp-empty{font-size:12.5px;color:var(--muted);padding:10px 0;}
+.imp-empty{font-size:12.5px;color:var(--muted);padding:14px 16px;}
 
 /* History dense-table styles (.htbl-*, .htrow, .ca, .seg, .hgrp-h, …) live in
    static/style.css so the standalone /commands/history page shares them. */
 
-.cr-rail{border-right:1px solid var(--border-soft);padding:10px 12px;}
-.cr-rail-group{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:13px 12px 5px;}
-.cr-rail-group:first-child{padding-top:3px;}
-@media (max-width:1024px){.cr-rail{border-right:none;border-bottom:1px solid var(--border-soft);display:flex;flex-wrap:wrap;gap:6px;align-items:center;}.cr-rail-group{flex-basis:100%;padding:8px 4px 0;}}
-.cr-rail-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-3);cursor:pointer;font-size:13px;color:var(--text-2);user-select:none;}
-.cr-rail-item .ic{width:16px;height:16px;flex:none;color:var(--muted);}
+/* Step 1 — action tiles (keeps .cr-rail / .cr-rail-item markup + selectType JS). */
+.fd-step{padding:18px 20px;}
+.cr-rail{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;}
+@media (max-width:520px){.cr-rail{grid-template-columns:repeat(2,1fr);}}
+.cr-rail-group{grid-column:1/-1;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:6px 2px 0;}
+.cr-rail-group:first-child{padding-top:0;}
+.cr-rail-item{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:11px;background:var(--surface);cursor:pointer;font-size:13px;font-weight:600;color:var(--text-2);user-select:none;transition:border-color .14s,background .14s;}
+.cr-rail-item .ic{width:30px;height:30px;flex:none;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);}
 .cr-rail-item .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;}
-.cr-rail-item:hover{background:var(--surface2);}
-.cr-rail-item.on{background:var(--accent-soft);color:var(--text);font-weight:600;}
-.cr-rail-item.on .ic{color:var(--accent);}
+.cr-rail-item:hover{border-color:var(--rule-2);background:var(--surface2);}
+.cr-rail-item.on{border-color:var(--accent-edge);background:var(--accent-soft);color:var(--accent-h);}
+.cr-rail-item.on .ic{background:var(--surface);color:var(--accent);}
 
-.cr-config{padding:22px 24px;border-right:1px solid var(--border-soft);min-width:0;}
-@media (max-width:1024px){.cr-config{border-right:none;border-bottom:1px solid var(--border-soft);}}
-.cr-sec + .cr-sec{margin-top:24px;}
-.cr-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
+/* Steps 2 & 3 — payload + target blocks in .cr-config. */
+.cr-config{min-width:0;}
+.cr-config .cr-sec{padding:18px 20px;border-top:1px solid var(--border-soft);}
+.cr-sec + .cr-sec{margin-top:0;}
+.cr-sec-title{display:flex;align-items:center;gap:11px;font-size:13.5px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--text);margin:0 0 14px;}
 .cr-config .form-input,.cr-config .form-textarea{width:100%;box-sizing:border-box;}
 .cr-config .form-textarea{min-height:80px;}
 .cr-config .payload-section{display:none;}
 .cr-config .payload-section.is-active{display:block;}
 .cr-config .payload-empty{color:var(--muted);font-size:13px;}
 
-.review-warn{padding:9px 11px;border-radius:8px;background:var(--warn-bg);font-size:12px;line-height:1.6;flex:1;}
-.cr-foot{display:flex;align-items:center;gap:14px;margin-top:24px;padding-top:18px;border-top:1px solid var(--border-soft);}
-.cr-send{margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex:none;}
+/* Send footer — inside the pre-flight panel, below the checklist. */
+.review-warn{padding:9px 11px;border-radius:8px;background:var(--warn-bg);font-size:12px;line-height:1.5;margin-bottom:10px;}
+.cr-foot{padding:14px 16px 16px;border-top:1px solid var(--border-soft);}
+.cr-send{width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;}
 .cr-send:disabled{opacity:.5;cursor:not-allowed;}
+.ro-note{margin-bottom:10px;}
 .cmd-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
 .cmd-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:14px;background:var(--accent-soft);color:var(--text);font-size:12px;font-family:var(--mono);}
 .cmd-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px;}
@@ -107,7 +120,7 @@
 {{if or (canOperate .Role) .Recipes}}
 
 <div class="recipes-wrap dv-rise-1">
-  <div class="recipes-h"><span class="t">Recipes</span></div>
+  <div class="recipes-h"><span class="t">Start from a recipe</span></div>
   <div class="recipes">
     {{range .Recipes}}
     <button type="button" class="recipe{{if eq .Name "Re-run last"}} last{{end}}" data-prefill="{{.Prefill}}" onclick="applyRecipe(this)">
@@ -132,6 +145,7 @@
 
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
   <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
+    <div class="fd-compose">
 
     <div class="cr-head">
       <h3>New action</h3>
@@ -139,8 +153,10 @@
       {{else}}<span class="ro-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>View only</span>{{end}}
     </div>
 
-    <!-- LEFT · action rail (grouped: Apps · Diagnostics · Power · Customization) -->
-    <div class="cr-rail">
+    <!-- STEP 1 · choose an action (grouped tiles: Apps · Diagnostics · Power · Customization) -->
+    <div class="fd-step">
+      <div class="fd-step-h"><span class="fd-stepn">1</span><span class="fd-lbl">Choose an action</span><span class="fd-pick" id="fd-pick1"></span></div>
+      <div class="cr-rail">
       <div class="cr-rail-group">Apps</div>
       <div class="cr-rail-item on" data-type="install_apk" onclick="selectType('install_apk', this)">
         <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app
@@ -173,14 +189,15 @@
         <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo
       </div>
       {{end}}
-    </div>
+      </div>
+    </div><!-- /.fd-step (step 1) -->
     <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
 
     <!-- MIDDLE · configure -->
     <div class="cr-config">
 
       <div class="cr-sec">
-        <div class="cr-sec-title">Payload</div>
+        <div class="cr-sec-title"><span class="fd-stepn">2</span>Configure payload</div>
         <div id="apk-fields" class="payload-section is-active">
             {{if .Apps}}
               <div class="app-select-wrap">
@@ -281,7 +298,7 @@
         </div>
 
         <div class="cr-sec">
-          <div class="cr-sec-title">Target</div>
+          <div class="cr-sec-title"><span class="fd-stepn">3</span>Target</div>
           <div class="target-pills">
             <button type="button" class="target-pill is-active" data-target="all" onclick="selectTarget('all', this)">
               <span class="pill-dot"></span>All Devices
@@ -377,6 +394,17 @@
           </div>
         </div>
 
+    </div><!-- /.cr-config -->
+    </div><!-- /.fd-compose -->
+
+    <!-- RIGHT · sticky pre-flight panel: blast radius + live safety checks, then Send.
+         #cmd-impact reloads from /commands/impact on every builder change; the Send
+         footer stays put below it (not swapped) and reads the resolved count. -->
+    <aside class="fd-pf">
+      <div class="cr-impact" id="cmd-impact"
+           hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
+           hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML">
+      </div>
       <div class="cr-foot">
         {{if canOperate .Role}}
         <div id="rv-warn" class="review-warn" style="display:none;"></div>
@@ -392,15 +420,7 @@
         </button>
         {{end}}
       </div>
-
-    </div><!-- /.cr-config -->
-
-    <!-- RIGHT · live impact preview (blast radius). Reloads from /commands/impact
-         whenever the builder state changes (the `impact` event fired by updatePreview). -->
-    <div class="cr-impact" id="cmd-impact"
-         hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
-         hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML">
-    </div>
+    </aside>
 
   </div>
 </form>
@@ -555,6 +575,8 @@ function filterCommands() {
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
   document.querySelectorAll('.cr-rail-item').forEach(function(c) { c.classList.toggle('on', c.dataset.type === val); });
+  var lbl = ({ install_apk:'Install app', uninstall:'Uninstall', screenshot:'Screenshot', shell:'Shell', reboot:'Reboot', update_splash:'Boot logo', logcat:'Log capture' })[val] || val;
+  var p1 = document.getElementById('fd-pick1'); if (p1) p1.textContent = lbl;
   ['apk-fields','uninstall-fields','shell-fields','screenshot-hint','reboot-hint','splash-fields','logcat-fields'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('is-active');
@@ -1016,36 +1038,35 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 {{end}}
 
 {{define "cmd-impact"}}
-{{/* Live blast-radius preview for the Actions builder. The root carries the
-     resolved counts as data-* so the page JS can update the Send button label. */}}
-<div class="imp-cap">Impact preview</div>
+{{/* Live pre-flight for the Actions builder: blast radius + safety checks. The
+     root .imp-body carries the resolved counts as data-* so the page JS can
+     update the Send button label. */}}
 {{if gt .Total 0}}
 <div class="imp-body" data-effective="{{.Effective}}" data-online="{{.Online}}" data-offline="{{.Offline}}" data-verb="{{cmdLabel .Type}}">
-  <div class="imp-big">{{.Effective}}<small>device{{if ne .Effective 1}}s{{end}}</small></div>
-  <div class="imp-sub">{{if .Screenshot}}will capture on next check-in{{else}}will receive this action{{end}}</div>
-  {{$tot := add (add .Online .Offline) .Skipped}}
-  <div class="imp-bar">
-    <i style="width:{{pct .Online $tot}}%;background:var(--ok);"></i>
-    <i style="width:{{pct .Offline $tot}}%;background:var(--text-faint);"></i>
-    {{if gt .Skipped 0}}<i style="width:{{pct .Skipped $tot}}%;background:var(--warn);"></i>{{end}}
+  <div class="pf-top">
+    <div class="imp-cap">Pre-flight check</div>
+    <div class="imp-big">{{.Effective}}<small>device{{if ne .Effective 1}}s{{end}} targeted</small></div>
+    <div class="imp-sub"><b>{{cmdLabel .Type}}</b> · {{if .Screenshot}}captures on next check-in{{else}}delivered on next check-in{{end}}</div>
   </div>
-  <div class="imp-legend">
-    <span><i class="imp-dot" style="background:var(--ok);"></i><b>{{.Online}}</b>&nbsp;online now</span>
-    <span><i class="imp-dot" style="background:var(--text-faint);"></i><b>{{.Offline}}</b>&nbsp;queued</span>
-    {{if gt .Skipped 0}}<span><i class="imp-dot" style="background:var(--warn);"></i><b>{{.Skipped}}</b>&nbsp;skipped</span>{{end}}
+  <div class="pf-list">
+    <div class="ck ok"><span class="m"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span class="lab">Online &amp; reachable</span><span class="val">{{.Online}}</span></div>
+    <div class="ck ok"><span class="m"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span class="lab">Offline — will queue</span><span class="val">{{.Offline}}</span></div>
+    {{if or (eq .Type "reboot") (gt .LowBattery 0)}}
+    <div class="ck {{if gt .LowBattery 0}}warn{{else}}ok{{end}}"><span class="m">{{if gt .LowBattery 0}}<svg viewBox="0 0 24 24"><path d="M12 8v5"/><path d="M12 16h.01"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>{{end}}</span><span class="lab">Low battery (&lt;20%)</span><span class="val">{{.LowBattery}}</span></div>
+    {{end}}
+    {{if eq .Type "uninstall"}}
+    <div class="ck {{if gt .Skipped 0}}warn{{else}}ok{{end}}"><span class="m">{{if gt .Skipped 0}}<svg viewBox="0 0 24 24"><path d="M12 8v5"/><path d="M12 16h.01"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>{{end}}</span><span class="lab">Missing package — skipped</span><span class="val">{{.Skipped}}</span></div>
+    {{end}}
   </div>
   {{if .Warn}}<div class="imp-warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span>{{.Warn}}</span></div>{{end}}
-  <div class="imp-roll">
-    {{range .Roll}}
-    <div class="imp-rr"><i class="st {{if .Online}}up{{else}}down{{end}}"></i><span class="sn">{{.Serial}}</span><span class="bat">{{if .Online}}online{{else}}offline{{end}}{{if gt .Battery 0}} · {{.Battery}}%{{end}}</span></div>
-    {{end}}
-    {{if gt .More 0}}<div class="imp-rr" style="color:var(--muted);font-size:11px;">+ {{.More}} more…</div>{{end}}
-  </div>
 </div>
 {{else}}
 <div class="imp-body" data-effective="0">
-  <div class="imp-big" style="color:var(--muted);">0<small>devices</small></div>
-  <div class="imp-empty">No matching devices in this target yet. Pick a group or add devices on the left.</div>
+  <div class="pf-top">
+    <div class="imp-cap">Pre-flight check</div>
+    <div class="imp-big" style="color:var(--muted);">0<small>devices</small></div>
+  </div>
+  <div class="imp-empty">No matching devices in this target yet. Pick a group in step 3, or add specific devices.</div>
 </div>
 {{end}}
 {{end}}
