@@ -6766,7 +6766,7 @@ func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Req
 func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 	switch r.PathValue("n") {
 	case "5", "8", "main1", "main2", "merge1", "merge2", "merge3",
-		"index", "report-flagship", "report-revamp", "report-live", "fleet-health":
+		"index", "report-flagship", "report-revamp", "report-live", "report-gallery", "fleet-health":
 	default:
 		http.NotFound(w, r)
 		return
