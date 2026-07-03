@@ -1,0 +1,289 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions · Launchpad — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.32);
+  --peri:#7a80f6;--peri-soft:rgba(122,128,246,.13);--peri-edge:rgba(122,128,246,.32);
+  --amber:#b45309;--amber-soft:rgba(180,83,9,.12);--amber-edge:rgba(180,83,9,.28);
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.11);--danger:#b42318;
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r2:6px;--r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);--sh-lg:0 14px 40px rgba(28,26,24,.13);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}
+button{font:inherit;cursor:pointer}
+.wrap{max-width:1120px;margin:0 auto;padding:26px 24px 120px}
+
+/* demo chrome */
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:26px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+.head h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.head p{color:var(--muted);font-size:14.5px;margin-top:5px;max-width:64ch}
+
+/* ── section cap ── */
+.cap{display:flex;align-items:baseline;gap:10px;margin:30px 2px 13px}
+.cap .k{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint)}
+.cap .n{font-size:11px;color:var(--faint)}
+.cap .hint{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* ══ LAUNCHPAD — recipe cards ══ */
+.pad{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:14px}
+.rc{position:relative;display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--r4);padding:15px 16px 14px;box-shadow:var(--sh-sm);overflow:hidden;
+  transition:box-shadow .16s,transform .16s,border-color .16s}
+.rc::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--tint,var(--coral))}
+.rc:hover{box-shadow:var(--sh-md);transform:translateY(-2px);border-color:var(--rule)}
+.rc.apps{--tint:var(--coral);--tint-soft:var(--coral-soft)}
+.rc.diag{--tint:var(--peri);--tint-soft:var(--peri-soft)}
+.rc.power{--tint:var(--amber);--tint-soft:var(--amber-soft)}
+.rc-top{display:flex;align-items:flex-start;gap:11px}
+.rc-ic{width:38px;height:38px;flex:none;border-radius:11px;background:var(--tint-soft);display:flex;align-items:center;justify-content:center}
+.rc-ic svg{width:20px;height:20px;fill:none;stroke:var(--tint);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.rc-h{min-width:0;flex:1}
+.rc-name{display:block;font-size:14.5px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
+.rc-desc{display:block;font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.35}
+.rc-kebab{position:absolute;top:11px;right:10px;width:26px;height:26px;border:none;background:none;border-radius:7px;
+  color:var(--faint);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .14s,background .14s}
+.rc:hover .rc-kebab{opacity:1}
+.rc-kebab:hover{background:var(--surface2);color:var(--text2)}
+.rc-kebab svg{width:16px;height:16px;fill:currentColor}
+.rc-scope{display:flex;flex-wrap:wrap;gap:6px;margin:13px 0 12px}
+.scope{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--text2);
+  background:var(--surface2);border:1px solid var(--border-soft);border-radius:99px;padding:3px 10px}
+.scope b{font-family:var(--mono);font-weight:600;color:var(--text)}
+.scope .d{width:6px;height:6px;border-radius:50%;background:var(--tint)}
+.rc-foot{display:flex;align-items:center;gap:10px;margin-top:auto;padding-top:12px;border-top:1px solid var(--border-soft)}
+.rc-last{font-size:11.5px;color:var(--muted);min-width:0;line-height:1.3}
+.rc-last b{color:var(--ok);font-weight:600}
+.rc-run{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:7px;padding:8px 15px;border:none;border-radius:9px;
+  background:var(--text);color:#fff;font-size:13px;font-weight:600;transition:transform .1s,background .14s}
+.rc-run:hover{background:#000}
+.rc-run:active{transform:scale(.97)}
+.rc-run svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.4}
+/* armed confirm state */
+.rc.armed{border-color:var(--tint);box-shadow:0 0 0 1px var(--tint),var(--sh-md)}
+.rc-arm{display:none;align-items:center;gap:8px;margin-top:auto;padding-top:12px;border-top:1px solid var(--border-soft)}
+.rc.armed .rc-foot{display:none}
+.rc.armed .rc-arm{display:flex}
+.rc-arm .q{font-size:12px;color:var(--text2);flex:1;line-height:1.3}
+.rc-arm .q b{color:var(--text);font-weight:700}
+.rc-arm .no{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:7px 11px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.rc-arm .no:hover{border-color:var(--rule);color:var(--text2)}
+.rc-arm .yes{border:none;border-radius:8px;padding:7px 14px;font-size:12.5px;font-weight:700;color:#fff;background:var(--tint)}
+/* new-recipe ghost */
+.rc-new{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;min-height:150px;
+  border:1.5px dashed var(--rule);border-radius:var(--r4);background:transparent;color:var(--muted);font-size:13.5px;font-weight:600;text-align:center;padding:16px}
+.rc-new:hover{border-color:var(--coral-edge);color:var(--coral);background:var(--coral-soft)}
+.rc-new .p{width:34px;height:34px;border-radius:10px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center}
+.rc-new .p svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2}
+
+/* ══ COMPOSER card ══ */
+.comp{background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-md);overflow:hidden;scroll-margin-top:16px}
+.comp.flash{animation:flash .9s ease}
+@keyframes flash{0%{box-shadow:0 0 0 3px var(--coral-edge),var(--sh-md)}100%{box-shadow:var(--sh-md)}}
+.comp-h{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border-soft)}
+.comp-h h3{font-size:15px;font-weight:700}
+.comp-h .ctx{font-size:12.5px;color:var(--muted)}
+.comp-h .ctx b{color:var(--text2);font-weight:600}
+.comp-body{padding:20px}
+/* type chip cloud */
+.tgrp{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0 0 8px}
+.tgrp:not(:first-child){margin-top:16px}
+.tcloud{display:flex;flex-wrap:wrap;gap:8px}
+.tchip{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--border);border-radius:10px;
+  background:var(--surface);font-size:13px;font-weight:600;color:var(--text2);transition:border-color .14s,background .14s,color .14s}
+.tchip svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7}
+.tchip:hover{border-color:var(--rule);background:var(--surface2)}
+.tchip.on{border-color:transparent;background:var(--text);color:#fff}
+.divide{height:1px;background:var(--border-soft);margin:20px 0}
+.field-lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.fake-input{display:flex;align-items:center;gap:10px;height:42px;padding:0 13px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);color:var(--muted);font-size:13.5px}
+.fake-input svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}
+.seg{display:inline-flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:4px}
+.seg button{border:none;background:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--coral);box-shadow:var(--sh-sm)}
+
+/* blast-radius strip */
+.blast{display:flex;align-items:center;gap:18px;flex-wrap:wrap;margin-top:20px;padding:15px 18px;border-radius:var(--r4);
+  background:linear-gradient(180deg,var(--surface2),var(--surface));border:1px solid var(--border-soft)}
+.blast-n{font-size:30px;font-weight:750;letter-spacing:-.02em;line-height:1}
+.blast-n small{font-size:12.5px;font-weight:600;color:var(--muted);margin-left:6px}
+.blast-meta{font-size:12px;color:var(--muted);margin-top:3px}
+.blast-bar{flex:1;min-width:160px;height:9px;border-radius:99px;background:var(--surface3);overflow:hidden;display:flex}
+.blast-bar i{height:100%}
+.blast-bar i.up{background:var(--ok)}.blast-bar i.down{background:var(--faint)}.blast-bar i.skip{background:var(--amber)}
+.send{flex:none;display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border:none;border-radius:11px;
+  background:var(--grad);color:#fff;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(249,103,78,.28)}
+.send:hover{filter:brightness(1.04)}
+.send:active{transform:scale(.98)}
+.send svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
+  background:#1c1a18;color:#fff;font-size:13.5px;font-weight:500;padding:12px 18px;border-radius:11px;box-shadow:var(--sh-lg);
+  display:flex;align-items:center;gap:10px;transition:opacity .2s,transform .2s;z-index:50}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast .ok{width:18px;height:18px;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center}
+#toast .ok svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3}
+
+@media(max-width:640px){
+  .wrap{padding:20px 15px 110px}
+  .blast{gap:12px}.send{width:100%;justify-content:center}
+}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar">
+    <a class="back" href="/demo/actions">← Actions demos</a>
+    <span class="tag">Direction 1 · Launchpad</span>
+  </div>
+  <div class="head">
+    <h1>Actions</h1>
+    <p>Recipes become a launchpad — recurring dispatches you run in one tap, each showing exactly who it hits and how it went last time. The composer sits below for anything new.</p>
+  </div>
+
+  <!-- LAUNCHPAD -->
+  <div class="cap"><span class="k">Launchpad</span><span class="n">4 recipes</span><span class="hint">Tap a card to load it · Run to re-dispatch</span></div>
+  <div class="pad" id="pad">
+    <!-- recipe: screenshot kiosks -->
+    <div class="rc diag" data-name="Screenshot kiosks" data-count="214" data-scope="kiosks" onclick="loadRecipe(this)">
+      <span class="rc-kebab" onclick="kebab(event)"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></span>
+      <span class="rc-top">
+        <span class="rc-ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>
+        <span class="rc-h"><span class="rc-name">Screenshot kiosks</span><span class="rc-desc">Capture every locked kiosk screen</span></span>
+      </span>
+      <span class="rc-scope"><span class="scope"><span class="d"></span>Kiosks <b>214</b></span></span>
+      <span class="rc-foot">
+        <span class="rc-last"><b>✓ 214/214</b> · ran 2d ago</span>
+        <span class="rc-run" onclick="arm(event)"><svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9z"/></svg>Run</span>
+      </span>
+      <span class="rc-arm">
+        <span class="q">Dispatch to <b>214 kiosks</b>?</span>
+        <button class="no" onclick="disarm(event)">Cancel</button>
+        <button class="yes" onclick="fire(event)">Confirm</button>
+      </span>
+    </div>
+    <!-- recipe: install POS -->
+    <div class="rc apps" data-name="Install POS v4.2" data-count="900" data-scope="all devices" onclick="loadRecipe(this)">
+      <span class="rc-kebab" onclick="kebab(event)"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></span>
+      <span class="rc-top">
+        <span class="rc-ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
+        <span class="rc-h"><span class="rc-name">Install POS v4.2</span><span class="rc-desc">Roll the point-of-sale build fleet-wide</span></span>
+      </span>
+      <span class="rc-scope"><span class="scope"><span class="d"></span>All devices <b>900</b></span></span>
+      <span class="rc-foot">
+        <span class="rc-last"><b>✓ 886/900</b> · ran 6h ago</span>
+        <span class="rc-run" onclick="arm(event)"><svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9z"/></svg>Run</span>
+      </span>
+      <span class="rc-arm">
+        <span class="q">Dispatch to <b>900 devices</b>?</span>
+        <button class="no" onclick="disarm(event)">Cancel</button>
+        <button class="yes" onclick="fire(event)">Confirm</button>
+      </span>
+    </div>
+    <!-- recipe: nightly reboot -->
+    <div class="rc power" data-name="Nightly reboot" data-count="212" data-scope="Downtown group" onclick="loadRecipe(this)">
+      <span class="rc-kebab" onclick="kebab(event)"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></span>
+      <span class="rc-top">
+        <span class="rc-ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>
+        <span class="rc-h"><span class="rc-name">Nightly reboot</span><span class="rc-desc">Clear memory on the Downtown group</span></span>
+      </span>
+      <span class="rc-scope"><span class="scope"><span class="d"></span>Downtown <b>212</b></span></span>
+      <span class="rc-foot">
+        <span class="rc-last"><b>✓ 208/212</b> · ran 14h ago</span>
+        <span class="rc-run" onclick="arm(event)"><svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9z"/></svg>Run</span>
+      </span>
+      <span class="rc-arm">
+        <span class="q">Reboot <b>212 devices</b>?</span>
+        <button class="no" onclick="disarm(event)">Cancel</button>
+        <button class="yes" onclick="fire(event)">Confirm</button>
+      </span>
+    </div>
+    <!-- new -->
+    <button class="rc-new" onclick="toast('Fill the composer below, then Save as recipe')">
+      <span class="p"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+      Save current as recipe
+    </button>
+  </div>
+
+  <!-- COMPOSER -->
+  <div class="cap"><span class="k">New action</span><span class="hint" id="composer-hint">Build a one-off dispatch</span></div>
+  <div class="comp" id="composer">
+    <div class="comp-h">
+      <h3>New action</h3>
+      <span class="ctx" id="ctx"><b>Screenshot</b> → 214 kiosks</span>
+    </div>
+    <div class="comp-body">
+      <div class="tgrp">Apps</div>
+      <div class="tcloud">
+        <button class="tchip" data-t="Install app" data-n="900" onclick="pickType(this)"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>Install app</button>
+        <button class="tchip" data-t="Uninstall" data-n="742" onclick="pickType(this)"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>Uninstall</button>
+      </div>
+      <div class="tgrp">Diagnostics</div>
+      <div class="tcloud">
+        <button class="tchip on" data-t="Screenshot" data-n="214" onclick="pickType(this)"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg>Screenshot</button>
+        <button class="tchip" data-t="Log capture" data-n="900" onclick="pickType(this)"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg>Log capture</button>
+        <button class="tchip" data-t="Shell" data-n="61" onclick="pickType(this)"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>Shell</button>
+      </div>
+      <div class="tgrp">Power</div>
+      <div class="tcloud">
+        <button class="tchip" data-t="Reboot" data-n="900" onclick="pickType(this)"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Reboot</button>
+      </div>
+
+      <div class="divide"></div>
+      <div class="field-lbl">Target</div>
+      <div class="seg"><button class="on">All devices</button><button>Groups</button><button>Specific</button></div>
+
+      <div class="blast">
+        <div>
+          <div class="blast-n" id="blast-n">214<small>devices</small></div>
+          <div class="blast-meta" id="blast-meta">210 online · 4 offline (queued) · 0 skipped</div>
+        </div>
+        <div class="blast-bar"><i class="up" style="width:82%"></i><i class="down" style="width:18%"></i></div>
+        <button class="send" onclick="toast('Dispatched — track it in History')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Send action</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"><span class="ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span id="toast-msg"></span></div>
+
+<script>
+function toast(msg){var t=document.getElementById('toast');document.getElementById('toast-msg').textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show')},2400)}
+function kebab(e){e.stopPropagation();toast('Edit · Duplicate · Delete')}
+/* Run → arm inline confirm (safe re-dispatch) */
+function arm(e){e.stopPropagation();document.querySelectorAll('.rc.armed').forEach(function(c){c.classList.remove('armed')});e.target.closest('.rc').classList.add('armed')}
+function disarm(e){e.stopPropagation();e.target.closest('.rc').classList.remove('armed')}
+function fire(e){e.stopPropagation();var c=e.target.closest('.rc');c.classList.remove('armed');
+  var last=c.querySelector('.rc-last');last.innerHTML='<b>· dispatching…</b>';
+  setTimeout(function(){last.innerHTML='<b>✓ sent</b> · just now'},900);
+  toast('Dispatched “'+c.dataset.name+'” to '+c.dataset.count+' '+c.dataset.scope)}
+/* card body → load into composer */
+function loadRecipe(el){
+  var comp=document.getElementById('composer');
+  document.getElementById('ctx').innerHTML='<b>'+el.dataset.name+'</b> → '+el.dataset.count+' '+el.dataset.scope;
+  document.getElementById('composer-hint').textContent='Loaded from “'+el.dataset.name+'” — review and send';
+  setBlast(el.dataset.count);
+  comp.scrollIntoView({behavior:'smooth',block:'start'});comp.classList.remove('flash');void comp.offsetWidth;comp.classList.add('flash');
+  toast('Loaded “'+el.dataset.name+'” — review the target, then Send')}
+/* type chip pick */
+function pickType(el){
+  document.querySelectorAll('.tchip').forEach(function(c){c.classList.remove('on')});el.classList.add('on');
+  document.getElementById('ctx').innerHTML='<b>'+el.dataset.t+'</b> → '+el.dataset.n+' devices';
+  setBlast(el.dataset.n)}
+function setBlast(n){n=+n;document.getElementById('blast-n').innerHTML=n+'<small>devices</small>';
+  var on=Math.round(n*.94),off=n-on;
+  document.getElementById('blast-meta').textContent=on+' online · '+off+' offline (queued) · 0 skipped';
+  var bar=document.querySelector('.blast-bar');bar.innerHTML='<i class="up" style="width:'+Math.round(on/n*100)+'%"></i><i class="down" style="width:'+Math.round(off/n*100)+'%"></i>'}
+</script>
+</body></html>
