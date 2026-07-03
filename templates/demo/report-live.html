@@ -1,0 +1,384 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Daily Report — live generation — AIO MDM demo</title></head><body>
+<style>
+  :root{
+    --bg:#faf8f5; --surface:#fff; --surface2:#f6f3ee;
+    --border:#e8e2da; --border-soft:#efe9e1;
+    --text:#1c1a18; --text2:#4a453e; --muted:#7e776d; --faint:#a49c90;
+    --accent:#f9674e; --accent-h:#ec4f33; --accent-soft:rgba(249,103,78,.10); --accent-edge:rgba(249,103,78,.34);
+    --p:#7a80f6; --p-soft:rgba(122,128,246,.12);
+    --ok:#157f3c; --ok-soft:rgba(21,127,60,.12);
+    --warn:#b45309; --warn-soft:rgba(180,83,9,.13);
+    --danger:#b42318; --danger-soft:rgba(180,35,24,.11);
+    --r2:6px; --r3:9px; --r4:14px;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","IBM Plex Mono",Menlo,monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);
+  }
+  *{box-sizing:border-box}
+  .wrap{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 80px;min-height:100vh}
+  h1,h2,h3,h4{margin:0;letter-spacing:-.01em;text-wrap:balance}
+  .mono{font-family:var(--mono)}
+  a{color:var(--accent);text-decoration:none;cursor:pointer}
+  a:hover{color:var(--accent-h);text-decoration:underline}
+  button{font-family:inherit}
+
+  .top{max-width:1140px;margin:0 auto;padding:40px 28px 6px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:19px;letter-spacing:-.02em;margin-bottom:20px}
+  .brand .a{background:linear-gradient(96deg,var(--accent),var(--p));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  .top h1{font-size:29px;font-weight:700}
+  .top .lede{color:var(--muted);font-size:15px;margin-top:8px;max-width:66ch}
+  .note{display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-size:12.5px;color:var(--text2);background:var(--p-soft);border:1px solid rgba(122,128,246,.22);padding:7px 12px;border-radius:99px}
+  .note svg{width:14px;height:14px;color:var(--p);flex:none}
+
+  .grid{max-width:1140px;margin:26px auto 0;padding:0 28px;display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start}
+  @media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+  /* rail */
+  .rail{display:flex;flex-direction:column;gap:12px;position:sticky;top:20px}
+  .rlabel{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:700;margin:2px 0}
+  .scn{display:flex;gap:12px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:13px 14px;cursor:pointer;text-align:left;width:100%}
+  .scn:hover{border-color:var(--accent-edge)}
+  .scn.on{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .scn .ic{width:34px;height:34px;border-radius:9px;flex:none;display:flex;align-items:center;justify-content:center}
+  .scn .ic svg{width:18px;height:18px}
+  .ic-ok{background:var(--ok-soft);color:var(--ok)} .ic-warn{background:var(--warn-soft);color:var(--warn)} .ic-bad{background:var(--danger-soft);color:var(--danger)}
+  .scn .st{display:block;font-size:13.5px;font-weight:650}
+  .scn .sd{display:block;font-size:11.5px;color:var(--muted);margin-top:1px}
+  .snap{background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:13px 14px}
+  .snap .h{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:700;margin-bottom:9px}
+  .snapchips{display:flex;flex-wrap:wrap;gap:6px}
+  .sc{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;padding:4px 9px;border-radius:99px;background:var(--surface2);color:var(--text2)}
+  .sc .k{color:var(--faint);font-weight:500}
+  .sc.bad{background:var(--danger-soft);color:var(--danger)} .sc.warn{background:var(--warn-soft);color:var(--warn)}
+
+  /* report card */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);overflow:hidden}
+  .ch{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border-soft)}
+  .ch .ic{width:16px;height:16px;color:var(--muted)}
+  .ch h3{font-size:15px;font-weight:650}
+  .ch .r{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .stamp{font-size:12px;color:var(--muted)}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:99px;overflow:hidden}
+  .seg button{border:0;background:var(--surface);color:var(--muted);font-size:12px;font-weight:600;padding:5px 11px;cursor:pointer}
+  .seg button.on{background:var(--accent-soft);color:var(--accent)}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:var(--r2);border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+  .btn:hover{background:var(--accent-h)}
+  .btn:disabled{opacity:.6;cursor:default}
+  .btn.ghost{background:var(--surface);color:var(--text2);border-color:var(--border)}
+  .btn.ghost:hover{background:var(--surface2);color:var(--accent);border-color:var(--accent-edge)}
+  .btn svg{width:14px;height:14px}
+
+  .body{padding:18px 20px;min-height:220px}
+
+  /* idle */
+  .idle{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px;padding:34px 20px;color:var(--muted)}
+  .idle .orb{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--p));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 8px 24px rgba(249,103,78,.28)}
+  .idle .orb svg{width:26px;height:26px}
+  .idle .t{font-size:15px;font-weight:600;color:var(--text)}
+  .idle .d{font-size:13px;max-width:42ch}
+
+  /* thinking */
+  .think{display:flex;flex-direction:column;gap:9px}
+  .tline{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);opacity:0;transform:translateY(4px);transition:opacity .3s,transform .3s}
+  .tline.show{opacity:1;transform:none}
+  .tline .tick{width:16px;height:16px;flex:none;color:var(--ok)}
+  .tline .spin{width:14px;height:14px;flex:none;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .caret{display:inline-block;width:2px;height:1.05em;background:var(--accent);margin-left:1px;vertical-align:-2px;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:0}}
+
+  /* structured report */
+  .rep-status{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.05em;padding:3px 9px;border-radius:99px;vertical-align:2px;margin-right:9px}
+  .rs-ok{background:var(--ok-soft);color:var(--ok)} .rs-warn{background:var(--warn-soft);color:var(--warn)} .rs-bad{background:var(--danger-soft);color:var(--danger)}
+  .rep-head{font-size:16.5px;font-weight:650;line-height:1.4}
+  .tiles{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 4px}
+  .tile{background:var(--surface2);border:1px solid var(--border-soft);border-radius:var(--r3);padding:10px 14px;min-width:110px;opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s}
+  .tile.show{opacity:1;transform:none}
+  .tile .v{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tile .l{font-size:11px;color:var(--muted);margin-top:2px}
+  .rows{margin-top:14px;display:flex;flex-direction:column;gap:9px}
+  .row{display:flex;gap:11px;padding:12px 13px;border-radius:var(--r3);border:1px solid var(--border-soft);background:var(--surface);opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s}
+  .row.show{opacity:1;transform:none}
+  .row.crit{border-left:3px solid var(--danger)} .row.warnr{border-left:3px solid var(--warn)}
+  .row .ind{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none}
+  .row.crit .ind{background:var(--danger)} .row.warnr .ind{background:var(--warn)}
+  .row .line{font-size:13.5px}
+  .uplabel{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--surface2);border:1px solid var(--border-soft);padding:1px 6px;border-radius:5px;margin-right:6px;vertical-align:1px}
+  .row .scope{font-weight:650}
+  .row .action{font-size:12.5px;color:var(--text2);margin-top:5px}
+  .row .action b{color:var(--accent);font-weight:600}
+  .good{margin-top:14px;font-size:13px;color:var(--muted)}
+  .good b{color:var(--text2);font-weight:600}
+  .reveal{opacity:0;transform:translateY(6px);transition:opacity .35s,transform .35s}
+  .reveal.show{opacity:1;transform:none}
+
+  /* briefing treatment */
+  .brief-strip{display:flex;gap:9px;flex-wrap:wrap;margin:4px 0 14px}
+  .bstat{display:flex;flex-direction:column;gap:2px;padding:8px 13px;border-radius:var(--r3);background:var(--surface2);border:1px solid var(--border-soft)}
+  .bstat .v{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+  .bstat .l{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  .prose{font-size:14px;line-height:1.65;color:var(--text2)}
+  .prose p{margin:0 0 11px}
+  .prose .lede{font-size:15.5px;color:var(--text);font-weight:600}
+
+  .footcap{max-width:1140px;margin:16px auto 0;padding:0 28px;font-size:12px;color:var(--faint)}
+  @media(prefers-reduced-motion:reduce){.tile,.row,.reveal,.tline{transition:none}.caret{animation:none}.spin{animation:none}}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><span class="a">AIO</span><span class="m">MDM</span></div>
+    <h1>Daily Report — live generation demo</h1>
+    <p class="lede">The AI fleet report reads live telemetry and writes a structured briefing: a status, a headline, the numbers that matter, the issues worth a tech's time, and what's fine. Pick a fleet situation, hit <strong>Generate</strong>, and watch it work. Toggle <strong>Structured / Briefing</strong> to compare two report treatments — both driven by the same generated data.</p>
+    <span class="note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a4 4 0 0 1 4 4c0 1 .5 2 1 2a3 3 0 0 1 0 6c-.5 0-1 1-1 2a4 4 0 0 1-8 0c0-1-.5-2-1-2a3 3 0 0 1 0-6c.5 0 1-1 1-2a4 4 0 0 1 4-4z"/></svg>In production, Claude generates this server-side from real device data. This demo replays that flow so you can judge the content and UX.</span>
+  </div>
+
+  <div class="grid">
+    <!-- control rail -->
+    <div class="rail">
+      <div class="rlabel">Fleet situation</div>
+      <button class="scn on" data-s="0">
+        <span class="ic ic-warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 4v10a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0z"/></svg></span>
+        <span><span class="st">Service-hour heat</span><span class="sd">Dinner rush · one venue running warm</span></span>
+      </button>
+      <button class="scn" data-s="1">
+        <span class="ic ic-bad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18.4 5.6a9 9 0 1 1-12.8 0"/><path d="M12 2v8"/></svg></span>
+        <span><span class="st">Venue outage</span><span class="sd">A restaurant goes dark mid-shift</span></span>
+      </button>
+      <button class="scn" data-s="2">
+        <span class="ic ic-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <span><span class="st">Calm overnight</span><span class="sd">Everything charging, nothing firing</span></span>
+      </button>
+
+      <div class="snap">
+        <div class="h">Telemetry snapshot</div>
+        <div class="snapchips" id="snapchips"></div>
+      </div>
+    </div>
+
+    <!-- report card -->
+    <div class="card">
+      <div class="ch">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v5h5"/><path d="M12 7v5l3 2"/></svg></span>
+        <h3>Daily Report</h3>
+        <div class="r">
+          <span class="stamp" id="stamp"></span>
+          <span class="seg" id="seg" hidden><button class="on" data-t="structured">Structured</button><button data-t="briefing">Briefing</button></span>
+          <button class="btn" id="gen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg><span id="genlbl">Generate report</span></button>
+        </div>
+      </div>
+      <div class="body" id="body">
+        <div class="idle">
+          <span class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span>
+          <div class="t">Ready to analyze the fleet</div>
+          <div class="d">Pick a situation on the left, then hit <strong>Generate report</strong>. The model reads the snapshot and writes the briefing.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="footcap">Serials and restaurant names in the report are live links to their device / venue page (disabled in this demo).</p>
+</div>
+
+<script>
+(function(){
+  var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var delay = function(ms){ return new Promise(function(r){ setTimeout(r, reduce?0:ms); }); };
+  var $ = function(s,r){ return (r||document).querySelector(s); };
+
+  // ── scenario data: snapshot + the report the model "produces" ──────────────
+  var SCEN = [
+    {
+      chips:[['Devices','58'],['Restaurants','4'],['Offline','1'],['Running hot','2','warn'],['Charging','61%'],['Avg batt','78%']],
+      think:['Reading telemetry — 58 devices across 4 restaurants…','Cross-referencing 3 open alerts with 7-day trends…','Isolating what changed during dinner service…','Composing report…'],
+      reports:[{
+        status:'watch',
+        headline:'Downtown Diner ran warm through dinner service — one unit worth a look, everything else steady.',
+        metrics:[['38.7°C','Downtown Diner peak'],['22%','charging coverage'],['57 / 58','reporting']],
+        issues:[
+          {area:'heat',sev:'warning',scope:'Downtown Diner',detail:'SN-003 held 38.7 °C for 18 min at the pass — 6° over its 7-day norm.',action:'Move the unit off the line or improve airflow before tomorrow’s service.'},
+          {area:'charging',sev:'warning',scope:'Downtown Diner',detail:'coverage fell to 22% today vs ~70% typical — units are running down between orders.',action:'Check the chargers on the pass are powered and seated.'}
+        ],
+        good:['San Jose Office','Airport Kiosk','Riverside Grill']
+      },{
+        status:'watch',
+        headline:'One hot spot at Downtown Diner during the rush; the other three venues are healthy.',
+        metrics:[['38.7°C','peak temp'],['22%','charge coverage'],['1','unit flagged']],
+        issues:[
+          {area:'heat',sev:'warning',scope:'Downtown Diner',detail:'SN-003 spiked to 38.7 °C mid-service and stayed there ~18 min.',action:'Relocate SN-003 away from the heat source or add ventilation.'},
+          {area:'charging',sev:'warning',scope:'Downtown Diner',detail:'only 22% charging coverage today — well below the venue’s usual 70%.',action:'Confirm the charging cradles on the pass are working.'}
+        ],
+        good:['San Jose Office','Airport Kiosk','Riverside Grill']
+      }]
+    },
+    {
+      chips:[['Devices','58'],['Restaurants','4'],['Offline','4','bad'],['Critical','1','bad'],['Low batt','1','warn'],['Charging','58%']],
+      think:['Reading telemetry — 58 devices across 4 restaurants…','4 units silent past the offline threshold — grouping by venue…','Checking last-seen and battery before they dropped…','Composing report…'],
+      reports:[{
+        status:'at_risk',
+        headline:'Tom’s Ducci 6th has gone dark — 4 of 6 units silent for over 5 minutes. Likely a venue-wide power or network loss.',
+        metrics:[['4 / 6','silent at venue'],['5 min','since last check-in'],['1','critical alert']],
+        issues:[
+          {area:'offline',sev:'critical',scope:'Tom’s Ducci 6th',detail:'AT-0031, AT-0034, AT-0037 and AT-0041 all stopped reporting within the same 90-second window.',action:'Call the venue — a simultaneous drop points to power or the local network, not the devices.'},
+          {area:'battery',sev:'warning',scope:'Tom’s Ducci 6th',detail:'AT-0030 was at 14% and off charge when it last reported.',action:'Bring a charged spare when a tech rolls out.'}
+        ],
+        good:['San Jose Office','Airport Kiosk','Downtown Diner']
+      },{
+        status:'at_risk',
+        headline:'Outage at Tom’s Ducci 6th: four units dropped together — treat the venue, not the tablets.',
+        metrics:[['4 / 6','offline'],['~5 min','ago'],['0','recovered']],
+        issues:[
+          {area:'offline',sev:'critical',scope:'Tom’s Ducci 6th',detail:'AT-0031, AT-0034, AT-0037, AT-0041 went silent in the same window — a classic power/uplink signature.',action:'Phone the venue and check the router/UPS before dispatching.'},
+          {area:'battery',sev:'warning',scope:'Tom’s Ducci 6th',detail:'AT-0030 last seen at 14% off charge — it won’t ride out a long outage.',action:'Stage a charged replacement for the visit.'}
+        ],
+        good:['San Jose Office','Airport Kiosk','Downtown Diner']
+      }]
+    },
+    {
+      chips:[['Devices','58'],['Restaurants','4'],['Offline','0','ok'],['Alerts','0','ok'],['Charging','88%'],['Avg batt','91%']],
+      think:['Reading telemetry — 58 devices across 4 restaurants…','No open alerts — confirming overnight charging and uptime…','Comparing against the 7-day baseline…','Composing report…'],
+      reports:[{
+        status:'ok',
+        headline:'Fleet is healthy — all 58 units reporting, charged overnight, and nothing firing across the four restaurants.',
+        metrics:[['100%','uptime'],['91%','avg battery'],['0','open alerts']],
+        issues:[],
+        good:['Downtown Diner','Tom’s Ducci 6th','San Jose Office','Airport Kiosk']
+      },{
+        status:'ok',
+        headline:'All clear overnight — every venue reporting, batteries topped up, zero alerts.',
+        metrics:[['58 / 58','online'],['88%','on charge'],['0','issues']],
+        issues:[],
+        good:['Downtown Diner','Tom’s Ducci 6th','San Jose Office','Airport Kiosk']
+      }]
+    }
+  ];
+  var SERIALS = ['AT-0031','AT-0034','AT-0037','AT-0041','AT-0030','SN-003'];
+  var RESTS = ['Downtown Diner','Tom’s Ducci 6th','San Jose Office','Airport Kiosk','Riverside Grill'];
+
+  var cur = 0, gen = 0, treatment = 'structured', lastReport = null, renderToken = 0;
+
+  function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function linkify(html){
+    var re = new RegExp('('+SERIALS.map(function(s){return s.replace(/[-]/g,'\\-');}).join('|')+')','g');
+    html = html.replace(/(<a\b[^>]*>[\s\S]*?<\/a>)|([^<]+)/g,function(m,a,t){
+      if(a) return a; if(t==null) return m;
+      return t.replace(re,function(x){ return '<a class="mono" href="#">'+x+'</a>'; });
+    });
+    var rre = new RegExp('('+RESTS.slice().sort(function(a,b){return b.length-a.length;}).map(function(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}).join('|')+')','g');
+    return html.replace(/(<a\b[^>]*>[\s\S]*?<\/a>)|([^<]+)/g,function(m,a,t){
+      if(a) return a; if(t==null) return m;
+      return t.replace(rre,function(x){ return '<a href="#">'+x+'</a>'; });
+    });
+  }
+  var STATUS={ok:['rs-ok','ALL CLEAR'],watch:['rs-warn','WATCH'],at_risk:['rs-bad','AT-RISK']};
+
+  function drawSnapshot(){
+    $('#snapchips').innerHTML = SCEN[cur].chips.map(function(c){
+      return '<span class="sc '+(c[2]||'')+'"><span class="k">'+esc(c[0])+'</span> '+esc(c[1])+'</span>';
+    }).join('');
+  }
+
+  // ── streaming render ───────────────────────────────────────────────────────
+  async function typeInto(el, text, speed){
+    el.innerHTML = ''; var cw = document.createElement('span'); cw.className='caret'; el.appendChild(cw);
+    if(reduce){ el.innerHTML = linkify(esc(text)); return; }
+    var i=0, raw='';
+    while(i<text.length){
+      var step = Math.max(1, Math.round(Math.random()*2)); raw += text.substr(i,step); i+=step;
+      el.innerHTML = esc(raw); el.appendChild(cw);
+      await delay(speed + (/[.,—]/.test(text[i-1])?90:0));
+    }
+    el.innerHTML = linkify(esc(text));
+  }
+
+  async function runStructured(rep, tok){
+    var b=$('#body'); b.innerHTML='';
+    var head=document.createElement('div');
+    head.innerHTML='<span class="rep-status '+STATUS[rep.status][0]+'">'+STATUS[rep.status][1]+'</span><span class="rep-head"></span>';
+    b.appendChild(head);
+    await typeInto(head.querySelector('.rep-head'), rep.headline, 12);
+    if(tok!==renderToken) return;
+
+    if(rep.metrics.length){
+      var tiles=document.createElement('div'); tiles.className='tiles';
+      rep.metrics.forEach(function(m){ tiles.innerHTML+='<div class="tile"><div class="v">'+esc(m[0])+'</div><div class="l">'+esc(m[1])+'</div></div>'; });
+      b.appendChild(tiles);
+      var ts=tiles.querySelectorAll('.tile');
+      for(var i=0;i<ts.length;i++){ await delay(90); if(tok!==renderToken) return; ts[i].classList.add('show'); }
+    }
+    if(rep.issues.length){
+      var rows=document.createElement('div'); rows.className='rows'; b.appendChild(rows);
+      for(var j=0;j<rep.issues.length;j++){
+        var is=rep.issues[j], sev=is.sev==='critical'?'crit':'warnr';
+        var r=document.createElement('div'); r.className='row '+sev;
+        r.innerHTML='<span class="ind"></span><div><div class="line"><span class="uplabel">'+esc(is.area)+'</span> '+linkify('<span class="scope">'+esc(is.scope)+'</span> — '+esc(is.detail))+'</div><div class="action">→ '+linkify(esc(is.action)).replace(/^(→\s*)?/,'')+'</div></div>';
+        rows.appendChild(r); await delay(160); if(tok!==renderToken) return; r.classList.add('show');
+      }
+    }
+    var good=document.createElement('div'); good.className='good reveal';
+    good.innerHTML = rep.good.length ? linkify('<b>'+rep.good.map(esc).join(', ')+'</b> look fine') : '';
+    b.appendChild(good); await delay(120); if(tok!==renderToken) return; good.classList.add('show');
+  }
+
+  function buildBriefing(rep){
+    var b=$('#body'); b.innerHTML='';
+    var strip=document.createElement('div'); strip.className='brief-strip';
+    rep.metrics.forEach(function(m){ strip.innerHTML+='<div class="bstat"><span class="v">'+esc(m[0])+'</span><span class="l">'+esc(m[1])+'</span></div>'; });
+    b.appendChild(strip);
+    var prose=document.createElement('div'); prose.className='prose';
+    var html='<p class="lede"><span class="rep-status '+STATUS[rep.status][0]+'">'+STATUS[rep.status][1]+'</span>'+linkify(esc(rep.headline))+'</p>';
+    rep.issues.forEach(function(is){
+      html+='<p>'+linkify(esc(is.scope+' — '+is.detail))+' <b style="color:var(--accent)">'+linkify(esc(is.action))+'</b></p>';
+    });
+    if(rep.good.length) html+='<p style="color:var(--muted)">'+linkify('<b style="color:var(--text2)">'+rep.good.map(esc).join(', ')+'</b> are reporting normally.')+'</p>';
+    prose.innerHTML=html; b.appendChild(prose);
+  }
+
+  function renderCurrent(){
+    if(!lastReport) return;
+    var tok=++renderToken;
+    if(treatment==='structured') runStructured(lastReport, tok); else buildBriefing(lastReport);
+  }
+
+  async function generate(){
+    var tok=++renderToken;
+    var btn=$('#gen'); btn.disabled=true; $('#genlbl').textContent='Analyzing…';
+    $('#stamp').textContent=''; $('#seg').hidden=true;
+    var sc=SCEN[cur];
+    var b=$('#body'); b.innerHTML='<div class="think" id="think"></div>'; var tk=$('#think');
+    for(var i=0;i<sc.think.length;i++){
+      var line=document.createElement('div'); line.className='tline';
+      var last=(i===sc.think.length-1);
+      line.innerHTML='<span class="spin"></span><span>'+esc(sc.think[i])+'</span>';
+      tk.appendChild(line); await delay(30); if(tok!==renderToken) return; line.classList.add('show');
+      await delay(reduce?0:(last?420:560)); if(tok!==renderToken) return;
+      if(!last){ line.querySelector('.spin').outerHTML='<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'; }
+    }
+    await delay(reduce?0:260); if(tok!==renderToken) return;
+    lastReport = sc.reports[gen % sc.reports.length];
+    treatment='structured'; syncSeg();
+    await runStructured(lastReport, tok); if(tok!==renderToken) return;
+    $('#stamp').textContent='updated just now';
+    $('#seg').hidden=false;
+    btn.disabled=false; $('#genlbl').textContent='Regenerate';
+  }
+
+  function syncSeg(){ $('#seg').querySelectorAll('button').forEach(function(x){ x.classList.toggle('on', x.dataset.t===treatment); }); }
+
+  // events
+  document.querySelectorAll('.scn').forEach(function(s){
+    s.addEventListener('click',function(){
+      document.querySelectorAll('.scn').forEach(function(x){x.classList.remove('on');}); s.classList.add('on');
+      cur=+s.dataset.s; gen=0; drawSnapshot();
+    });
+  });
+  $('#gen').addEventListener('click',function(){ gen++; generate(); });
+  $('#seg').querySelectorAll('button').forEach(function(x){
+    x.addEventListener('click',function(){ treatment=x.dataset.t; syncSeg(); renderCurrent(); });
+  });
+
+  drawSnapshot();
+})();
+</script>
+
+</body></html>

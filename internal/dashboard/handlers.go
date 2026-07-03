@@ -6765,7 +6765,8 @@ func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Req
 // are throwaway design demos with synthetic data, not wired to the real fleet.
 func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 	switch r.PathValue("n") {
-	case "5", "8", "main1", "main2", "merge1", "merge2", "merge3":
+	case "5", "8", "main1", "main2", "merge1", "merge2", "merge3",
+		"index", "report-flagship", "report-revamp", "report-live", "fleet-health":
 	default:
 		http.NotFound(w, r)
 		return
@@ -8356,7 +8357,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/search", h.requireAuth(h.DeviceSearch))
 	mux.HandleFunc("GET /cmdk-index", h.requireAuth(h.CmdkIndex))
 	mux.HandleFunc("GET /demo", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/demo/main1", http.StatusFound)
+		http.Redirect(w, r, "/demo/index", http.StatusFound)
+	}))
+	mux.HandleFunc("GET /demos", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/demo/index", http.StatusFound)
 	}))
 	mux.HandleFunc("GET /demo/{n}", h.requireAuth(h.DemoPage))
 	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
