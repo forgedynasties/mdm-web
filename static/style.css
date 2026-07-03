@@ -254,6 +254,8 @@ body.has-dock .container { padding-bottom: 104px; }
 /* Never let raster media force horizontal page scroll on small screens.
  * (SVGs are sized explicitly throughout the UI, so they're left alone.) */
 img, video, canvas { max-width: 100%; }
+/* Form controls with fixed px widths must not overflow narrow viewports. */
+input, select, textarea { max-width: 100%; }
 
 /* Reusable horizontal-scroll wrapper for content that must not wrap
  * (wide tables, monospace consoles). Wrap the element, not the page. */
