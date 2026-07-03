@@ -240,6 +240,25 @@ body > .modal-backdrop {
 body.has-dock { padding-left: 0; }
 body.has-dock .container { padding-bottom: 104px; }
 
+/* ── Responsive convention ─────────────────────────────
+ * Two canonical breakpoints are used throughout this file:
+ *   @media (max-width: 1024px)  → TABLET: multi-pane grids collapse
+ *                                 to a single column; rails go static.
+ *   @media (max-width: 640px)   → PHONE:  dense row-grids restack into
+ *                                 cards; appbar condenses; padding tightens.
+ * Keep new responsive rules on these two breakpoints. Dense mono/log
+ * surfaces (logcat, shell, JSON/diff dumps) scroll horizontally via
+ * `.scroll-x` rather than restacking.
+ * ────────────────────────────────────────────────────── */
+
+/* Never let raster media force horizontal page scroll on small screens.
+ * (SVGs are sized explicitly throughout the UI, so they're left alone.) */
+img, video, canvas { max-width: 100%; }
+
+/* Reusable horizontal-scroll wrapper for content that must not wrap
+ * (wide tables, monospace consoles). Wrap the element, not the page. */
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-h); }
 
@@ -3060,63 +3079,7 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
   .filter-bar { flex-wrap: wrap; }
 }
 
-/* Narrow screens: revert the sidebar to a horizontal top bar + hamburger */
-@media (max-width: 860px) {
-  body.has-sidebar { padding-left: 0; }
-  .navbar {
-    position: sticky;
-    inset: auto;
-    top: 0;
-    width: auto;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--s-2);
-    min-height: 52px;
-    padding: var(--s-3) var(--s-4);
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    flex-wrap: wrap;
-    overflow: visible;
-    z-index: 10;
-  }
-  .navbar > form { width: auto; }
-  .navbar-top { width: 100%; margin-bottom: 0; gap: var(--s-3); }
-  .navbar-brand { padding: 0; }
-  .nav-toggle { display: flex; }
-  .navbar-links {
-    display: none;
-    order: 3;
-    width: 100%;
-    gap: 0;
-    padding: var(--s-2) 0;
-    border-top: 1px solid var(--border);
-    margin-top: var(--s-2);
-  }
-  .nav-open .navbar-links { display: flex; }
-  .nav-link { border-radius: 0; box-shadow: none; }
-  .nav-link.active { background: var(--accent-soft); box-shadow: none; }
-  .theme-toggle { margin: 0 0 0 auto; align-self: center; }
-  .navbar-user { display: none; }
-  .btn-logout { width: auto; }
-}
-
 @media (max-width: 640px) {
-  .navbar { height: auto; min-height: 52px; padding: var(--s-3) var(--s-4); flex-wrap: wrap; gap: var(--s-2); }
-  .nav-toggle { display: flex; }
-  .navbar-links {
-    display: none;
-    order: 3;
-    width: 100%;
-    flex-direction: column;
-    gap: 0;
-    padding: var(--s-2) 0;
-    border-top: 1px solid var(--border);
-    margin-top: var(--s-2);
-  }
-  .nav-open .navbar-links { display: flex; }
-  .nav-link { padding: var(--s-3) var(--s-3); height: auto; }
-  .nav-link::after { display: none; }
-  .nav-link.active { background: var(--accent-soft); }
   .container { padding: var(--s-4); }
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .type-grid { grid-template-columns: 1fr; }
