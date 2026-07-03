@@ -7,23 +7,47 @@
 </div>
 
 <style>
-/* Three-pane command builder: action rail · config · live impact preview. */
-.cmd-rail3{display:grid;grid-template-columns:212px 1fr 300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
-.cr-head{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--border-soft);}
-.cr-head h3{margin:0;font-size:15px;font-weight:650;}
-.cr-head .ctx{font-size:12px;color:var(--muted);}
-/* Read-only builder (viewers): the pane is shown so they can see what's possible,
-   but every control is natively disabled (greyed, not-allowed). JS sets `disabled`
-   on the form controls; the rail items are plain divs so they get pointer-events:none. */
+/* Dispatch bar (command-palette action picker) + focused compose sheet. */
+.dispatch-wrap{position:relative;z-index:50;margin-bottom:16px;}
+.dispatch{width:100%;display:flex;align-items:center;gap:12px;padding:14px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);cursor:pointer;text-align:left;font:inherit;transition:box-shadow .16s,border-color .16s;}
+.dispatch:hover{border-color:var(--rule-2);}
+.dispatch:focus-visible,.dispatch.open{border-color:var(--accent-edge);box-shadow:0 0 0 4px var(--accent-soft);outline:none;}
+.dispatch:disabled{cursor:not-allowed;opacity:.7;}
+.dispatch .spark{width:22px;height:22px;flex:none;}
+.dispatch .spark svg{width:22px;height:22px;fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.dispatch-txt{flex:1;font-size:15.5px;color:var(--text);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dispatch-txt.placeholder{color:var(--text-faint);}
+.dispatch .kk{display:flex;gap:4px;flex:none;}
+.dispatch kbd{font-family:var(--mono);font-size:10.5px;font-weight:600;background:var(--surface2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--muted);line-height:1.5;}
+/* action-type dropdown */
+.dispatch-menu{position:absolute;top:calc(100% + 8px);left:0;right:0;z-index:40;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-pop);padding:7px;animation:dm-in .14s ease;}
+.dispatch-menu[hidden]{display:none;}
+@keyframes dm-in{from{transform:translateY(-5px);}to{transform:none;}}
+.dm-group{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint);padding:9px 11px 4px;}
+.dm-group:first-child{padding-top:3px;}
+.dm-item{width:100%;display:flex;align-items:center;gap:11px;padding:9px 11px;border:none;background:none;border-radius:9px;font:inherit;font-size:13.5px;color:var(--text-2);cursor:pointer;text-align:left;}
+.dm-item:hover{background:var(--surface2);color:var(--text);}
+.dm-item.on{background:var(--accent-soft);color:var(--accent-h);font-weight:600;}
+.dm-item .ic{width:18px;height:18px;flex:none;color:var(--muted);}
+.dm-item.on .ic{color:var(--accent);}
+.dm-item .ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;}
+
+/* focused compose sheet */
+.cmd-rail3{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
+.sheet-h{display:flex;align-items:center;gap:13px;padding:16px 20px;border-bottom:1px solid var(--border-soft);}
+.sheet-ic{width:38px;height:38px;flex:none;border-radius:11px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;}
+.sheet-ic svg{width:20px;height:20px;fill:none;stroke:var(--accent);stroke-width:1.8;}
+.sheet-hh{min-width:0;flex:1;}
+.sheet-t{font-size:15px;font-weight:700;}
+.sheet-s{font-size:12.5px;color:var(--muted);margin-top:1px;}
+.sheet-chg{flex:none;font-size:12.5px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:7px 13px;background:var(--surface);cursor:pointer;}
+.sheet-chg:hover{border-color:var(--rule-2);color:var(--text-2);}
+/* Read-only builder (viewers): controls natively disabled (greyed, not-allowed). */
 .ro-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 11px;}
 .ro-badge svg{stroke:var(--muted);flex:none;}
-.cmd-rail3.is-readonly .cr-rail{pointer-events:none;}
-.cmd-rail3.is-readonly .cr-rail-item{opacity:.6;}
 .cmd-rail3.is-readonly :disabled{cursor:not-allowed;opacity:.6;}
 .cmd-rail3.is-readonly .target-pill:disabled{opacity:.6;}
-.ro-note{font-size:12px;color:var(--muted);flex:1;}
-@media (max-width:1180px){.cmd-rail3{grid-template-columns:212px 1fr;}.cr-impact{grid-column:1/-1;border-top:1px solid var(--border-soft);}}
-@media (max-width:1024px){.cmd-rail3{grid-template-columns:1fr;}}
+.ro-note{font-size:12px;color:var(--muted);margin-right:auto;}
 
 /* "Start from a recipe" — horizontal strip of one-tap presets above the builder. */
 .recipes-wrap{margin-bottom:18px;}
@@ -45,46 +69,24 @@
 .recipe.add{border-style:dashed;box-shadow:none;color:var(--muted);font-weight:600;font-size:12.5px;gap:7px;padding:10px 15px;}
 .recipe.add svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;}
 
-/* Impact preview pane */
-.cr-impact{padding:18px 18px 0;background:linear-gradient(180deg,var(--surface2),var(--surface));display:flex;flex-direction:column;min-width:0;}
-.imp-cap{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px;}
-.imp-big{font-size:33px;font-weight:750;line-height:1;letter-spacing:-.02em;}
-.imp-big small{font-size:13px;font-weight:600;color:var(--muted);margin-left:6px;}
-.imp-sub{font-size:12px;color:var(--muted);margin-top:4px;}
-.imp-bar{display:flex;height:9px;border-radius:99px;overflow:hidden;margin:15px 0 7px;background:var(--surface-3);}
-.imp-bar i{display:block;height:100%;}
-.imp-legend{display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
-.imp-legend span{display:inline-flex;align-items:center;gap:5px;}
-.imp-legend b{color:var(--text);}
-.imp-dot{width:8px;height:8px;border-radius:99px;display:inline-block;}
-.imp-warn{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:1.45;background:var(--warn-bg);border:1px solid var(--warn-edge);color:var(--text-2);border-radius:9px;padding:9px 11px;margin-top:14px;}
-.imp-warn svg{width:14px;height:14px;fill:none;stroke:var(--warn);stroke-width:2.2;flex:none;margin-top:1px;}
-.imp-roll{margin-top:14px;overflow:auto;border-top:1px solid var(--border-soft);padding-top:8px;max-height:190px;}
-.imp-rr{display:flex;align-items:center;gap:8px;padding:4px 2px;font-size:12px;}
-.imp-rr .sn{font-family:var(--mono);font-size:11.5px;}
-.imp-rr .bat{margin-left:auto;font-size:11px;color:var(--muted);}
-.imp-rr .st{width:7px;height:7px;border-radius:99px;flex:none;}
-.imp-rr .st.up{background:var(--ok);}.imp-rr .st.down{background:var(--text-faint);}
-.imp-rr.skip{opacity:.5;}
-.imp-empty{font-size:12.5px;color:var(--muted);padding:10px 0;}
+/* Impact — compact blast-radius line in the sheet footer. */
+.cr-impact{min-width:0;flex:1;}
+.imp-cap{display:none;}
+.imp-body{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;font-size:13px;color:var(--muted);}
+.imp-n{font-size:22px;font-weight:750;letter-spacing:-.01em;color:var(--text);line-height:1;}
+.imp-u{font-size:12.5px;color:var(--muted);}
+.imp-split{color:var(--muted);}
+.imp-split b{color:var(--text-2);font-weight:600;font-variant-numeric:tabular-nums;}
+.imp-warn{display:flex;gap:7px;align-items:center;font-size:12px;line-height:1.4;color:var(--warn);flex-basis:100%;margin-top:2px;}
+.imp-warn svg{width:13px;height:13px;fill:none;stroke:var(--warn);stroke-width:2.2;flex:none;}
+.imp-empty{font-size:12.5px;color:var(--muted);}
 
 /* History dense-table styles (.htbl-*, .htrow, .ca, .seg, .hgrp-h, …) live in
    static/style.css so the standalone /commands/history page shares them. */
 
-.cr-rail{border-right:1px solid var(--border-soft);padding:10px 12px;}
-.cr-rail-group{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:13px 12px 5px;}
-.cr-rail-group:first-child{padding-top:3px;}
-@media (max-width:1024px){.cr-rail{border-right:none;border-bottom:1px solid var(--border-soft);display:flex;flex-wrap:wrap;gap:6px;align-items:center;}.cr-rail-group{flex-basis:100%;padding:8px 4px 0;}}
-.cr-rail-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r-3);cursor:pointer;font-size:13px;color:var(--text-2);user-select:none;}
-.cr-rail-item .ic{width:16px;height:16px;flex:none;color:var(--muted);}
-.cr-rail-item .ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.7;}
-.cr-rail-item:hover{background:var(--surface2);}
-.cr-rail-item.on{background:var(--accent-soft);color:var(--text);font-weight:600;}
-.cr-rail-item.on .ic{color:var(--accent);}
-
-.cr-config{padding:22px 24px;border-right:1px solid var(--border-soft);min-width:0;}
-@media (max-width:1024px){.cr-config{border-right:none;border-bottom:1px solid var(--border-soft);}}
-.cr-sec + .cr-sec{margin-top:24px;}
+/* sheet body (payload + target) */
+.cr-config{padding:20px;min-width:0;}
+.cr-sec + .cr-sec{margin-top:22px;}
 .cr-sec-title{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:0 0 10px;}
 .cr-config .form-input,.cr-config .form-textarea{width:100%;box-sizing:border-box;}
 .cr-config .form-textarea{min-height:80px;}
@@ -92,8 +94,9 @@
 .cr-config .payload-section.is-active{display:block;}
 .cr-config .payload-empty{color:var(--muted);font-size:13px;}
 
-.review-warn{padding:9px 11px;border-radius:8px;background:var(--warn-bg);font-size:12px;line-height:1.6;flex:1;}
-.cr-foot{display:flex;align-items:center;gap:14px;margin-top:24px;padding-top:18px;border-top:1px solid var(--border-soft);}
+/* sheet footer: blast radius + send */
+.sheet-f{display:flex;align-items:center;gap:16px;padding:14px 20px;border-top:1px solid var(--border-soft);background:var(--surface2);flex-wrap:wrap;}
+.review-warn{flex-basis:100%;padding:8px 11px;border-radius:8px;background:var(--warn-bg);font-size:12px;line-height:1.5;order:-1;}
 .cr-send{margin-left:auto;display:inline-flex;align-items:center;gap:8px;flex:none;}
 .cr-send:disabled{opacity:.5;cursor:not-allowed;}
 .cmd-chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0;}
@@ -134,52 +137,39 @@
 {{end}}
 
 <form action="/commands" method="POST" id="cmd-form" enctype="multipart/form-data"{{if not (canOperate .Role)}} onsubmit="return false"{{end}}>
+  <!-- DISPATCH BAR — pick an action, command-palette style -->
+  <div class="dispatch-wrap dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
+    <button type="button" class="dispatch" id="dispatch-btn" onclick="toggleDispatch(event)" aria-haspopup="true" aria-expanded="false"{{if not (canOperate .Role)}} disabled{{end}}>
+      <span class="spark"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>
+      <span class="dispatch-txt" id="dispatch-txt">Dispatch an action — install, screenshot, reboot, shell…</span>
+      <span class="kk"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="var(--text-faint)" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg></span>
+    </button>
+    <div class="dispatch-menu" id="dispatch-menu" hidden>
+      <div class="dm-group">Apps</div>
+      <button type="button" class="dm-item on" data-type="install_apk" onclick="paletteType('install_apk')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app</button>
+      <button type="button" class="dm-item" data-type="uninstall" onclick="paletteType('uninstall')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall</button>
+      <div class="dm-group">Diagnostics</div>
+      <button type="button" class="dm-item" data-type="screenshot" onclick="paletteType('screenshot')"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot</button>
+      {{if canAdmin .Role}}<button type="button" class="dm-item" data-type="logcat" onclick="paletteType('logcat')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Log capture</button>{{end}}
+      <button type="button" class="dm-item" data-type="shell" onclick="paletteType('shell')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell</button>
+      <div class="dm-group">Power</div>
+      <button type="button" class="dm-item" data-type="reboot" onclick="paletteType('reboot')"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot</button>
+      {{if canAdmin .Role}}<div class="dm-group">Customization</div>
+      <button type="button" class="dm-item" data-type="update_splash" onclick="paletteType('update_splash')"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo</button>{{end}}
+    </div>
+    <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
+  </div>
+
   <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
 
-    <div class="cr-head">
-      <h3>New action</h3>
-      {{if canOperate .Role}}<span class="ctx" id="cmd-ctx"></span>
+    <!-- sheet header: the action being composed -->
+    <div class="sheet-h">
+      <span class="sheet-ic" id="sheet-ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
+      <div class="sheet-hh"><div class="sheet-t" id="sheet-t">Install app</div><div class="sheet-s" id="sheet-s">Push an APK and install it silently</div></div>
+      {{if canOperate .Role}}<button type="button" class="sheet-chg" onclick="toggleDispatch(event)">Change</button>
       {{else}}<span class="ro-badge"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>View only</span>{{end}}
     </div>
 
-    <!-- LEFT · action rail (grouped: Apps · Diagnostics · Power · Customization) -->
-    <div class="cr-rail">
-      <div class="cr-rail-group">Apps</div>
-      <div class="cr-rail-item on" data-type="install_apk" onclick="selectType('install_apk', this)">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app
-      </div>
-      <div class="cr-rail-item" data-type="uninstall" onclick="selectType('uninstall', this)">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall
-      </div>
-
-      <div class="cr-rail-group">Diagnostics</div>
-      <div class="cr-rail-item" data-type="screenshot" onclick="selectType('screenshot', this)">
-        <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot
-      </div>
-      {{if canAdmin .Role}}
-      <div class="cr-rail-item" data-type="logcat" onclick="selectType('logcat', this)">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Log capture
-      </div>
-      {{end}}
-      <div class="cr-rail-item" data-type="shell" onclick="selectType('shell', this)">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell
-      </div>
-
-      <div class="cr-rail-group">Power</div>
-      <div class="cr-rail-item" data-type="reboot" onclick="selectType('reboot', this)">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot
-      </div>
-
-      {{if canAdmin .Role}}
-      <div class="cr-rail-group">Customization</div>
-      <div class="cr-rail-item" data-type="update_splash" onclick="selectType('update_splash', this)">
-        <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo
-      </div>
-      {{end}}
-    </div>
-    <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
-
-    <!-- MIDDLE · configure -->
     <div class="cr-config">
 
       <div class="cr-sec">
@@ -380,29 +370,27 @@
           </div>
         </div>
 
-      <div class="cr-foot">
-        {{if canOperate .Role}}
-        <div id="rv-warn" class="review-warn" style="display:none;"></div>
-        <button type="submit" id="send-btn" class="btn-primary cr-send">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
-          <span id="send-label">Send action</span>
-        </button>
-        {{else}}
-        <div class="ro-note">You have view-only access — ask an operator or admin to send actions.</div>
-        <button type="button" class="btn-primary cr-send" disabled>
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-          Send action
-        </button>
-        {{end}}
-      </div>
-
     </div><!-- /.cr-config -->
 
-    <!-- RIGHT · live impact preview (blast radius). Reloads from /commands/impact
-         whenever the builder state changes (the `impact` event fired by updatePreview). -->
-    <div class="cr-impact" id="cmd-impact"
-         hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
-         hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML">
+    <!-- sheet footer: live blast radius + send. #cmd-impact reloads from
+         /commands/impact on every builder change; the Send button reads its counts. -->
+    <div class="sheet-f">
+      <div class="cr-impact" id="cmd-impact"
+           hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
+           hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML"></div>
+      {{if canOperate .Role}}
+      <div id="rv-warn" class="review-warn" style="display:none;"></div>
+      <button type="submit" id="send-btn" class="btn-primary cr-send">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2 15 22 11 13 2 9z"/></svg>
+        <span id="send-label">Send action</span>
+      </button>
+      {{else}}
+      <div class="ro-note">You have view-only access — ask an operator or admin to send actions.</div>
+      <button type="button" class="btn-primary cr-send" disabled>
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        Send action
+      </button>
+      {{end}}
     </div>
 
   </div>
@@ -555,9 +543,24 @@ function filterCommands() {
   });
 }
 
+var ACT_META = {
+  install_apk:  { name:'Install app',  sub:'Push an APK and install it silently',   icon:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>' },
+  uninstall:    { name:'Uninstall',    sub:'Remove a package across the target',      icon:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>' },
+  screenshot:   { name:'Screenshot',   sub:'Capture the live screen on next check-in',icon:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>' },
+  logcat:       { name:'Log capture',  sub:'Pull a logcat buffer for triage',         icon:'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>' },
+  shell:        { name:'Shell',        sub:'Run a shell command (legacy devices)',    icon:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>' },
+  reboot:       { name:'Reboot',       sub:'Restart the device on next check-in',     icon:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>' },
+  update_splash:{ name:'Boot logo',    sub:'Replace the boot splash image',           icon:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>' }
+};
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
-  document.querySelectorAll('.cr-rail-item').forEach(function(c) { c.classList.toggle('on', c.dataset.type === val); });
+  document.querySelectorAll('.dm-item').forEach(function(c) { c.classList.toggle('on', c.dataset.type === val); });
+  // reflect the chosen action in the dispatch bar + sheet header
+  var m = ACT_META[val] || { name: val, sub: '', icon: '<circle cx="12" cy="12" r="8"/>' };
+  var ic = document.getElementById('sheet-ic'); if (ic) ic.innerHTML = '<svg viewBox="0 0 24 24">' + m.icon + '</svg>';
+  var st = document.getElementById('sheet-t'); if (st) st.textContent = m.name;
+  var ss = document.getElementById('sheet-s'); if (ss) ss.textContent = m.sub;
+  var dt = document.getElementById('dispatch-txt'); if (dt) { dt.textContent = m.name; dt.classList.remove('placeholder'); }
   ['apk-fields','uninstall-fields','shell-fields','screenshot-hint','reboot-hint','splash-fields','logcat-fields'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('is-active');
@@ -569,6 +572,27 @@ function selectType(val, btn) {
   if (apkSel) apkSel.disabled = (val !== 'install_apk');
   updatePreview();
 }
+
+// ── Dispatch bar (command-palette action picker) ──
+function paletteType(val) { selectType(val); closeDispatch(); }
+function toggleDispatch(e) {
+  if (e) e.stopPropagation();
+  var mnu = document.getElementById('dispatch-menu'), btn = document.getElementById('dispatch-btn');
+  if (!mnu || (btn && btn.disabled)) return;
+  var opening = mnu.hidden;
+  mnu.hidden = !opening;
+  if (btn) { btn.classList.toggle('open', opening); btn.setAttribute('aria-expanded', opening ? 'true' : 'false'); }
+}
+function closeDispatch() {
+  var mnu = document.getElementById('dispatch-menu'), btn = document.getElementById('dispatch-btn');
+  if (mnu) mnu.hidden = true;
+  if (btn) { btn.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); }
+}
+document.addEventListener('click', function (e) {
+  var mnu = document.getElementById('dispatch-menu');
+  if (mnu && !mnu.hidden && !e.target.closest('.dispatch-wrap')) closeDispatch();
+});
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeDispatch(); });
 
 function selectTarget(val, btn) {
   document.getElementById('target-type-input').value = val;
@@ -879,7 +903,7 @@ window.CMD_PREFILL = {{.Prefill}};
 // edit) and by recipes.
 function applyPrefill(pf) {
   if (!pf) return;
-  if (pf.type) { var rail = document.querySelector('.cr-rail-item[data-type="' + pf.type + '"]'); if (rail) selectType(pf.type, rail); }
+  if (pf.type) { var rail = document.querySelector('.dm-item[data-type="' + pf.type + '"]'); if (rail) selectType(pf.type, rail); }
   if (pf.apk_url) { var sel = document.getElementById('apk-select'); if (sel) sel.value = pf.apk_url; }
   if (typeof pf.shell_cmd === 'string') { var si = document.getElementById('shell-cmd-input'); if (si) si.value = pf.shell_cmd; }
   if (pf.package) {
@@ -943,7 +967,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 // Initialise the builder: default action, optional ?serials (bulk from devices page),
 // and optional clone-prefill (Duplicate & edit from a command's detail page).
 (function() {
-  var firstCard = document.querySelector('.cr-rail-item.on') || document.querySelector('.cr-rail-item');
+  var firstCard = document.querySelector('.dm-item.on') || document.querySelector('.dm-item');
   if (firstCard) selectType(firstCard.dataset.type, firstCard);
 
   var serials = new URLSearchParams(window.location.search).get('serials');
@@ -963,7 +987,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 (function () {
   var p = new URLSearchParams(location.search);
   if (p.get('ctype') !== 'logcat') return;
-  var rail = document.querySelector('.cr-rail-item[data-type="logcat"]');
+  var rail = document.querySelector('.dm-item[data-type="logcat"]');
   if (!rail) return; // role can't capture logs from here
   selectType('logcat', rail);
   if (p.get('level')) { var l = document.getElementById('lc-cmd-level'); if (l) l.value = p.get('level'); }
@@ -1019,36 +1043,18 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 {{end}}
 
 {{define "cmd-impact"}}
-{{/* Live blast-radius preview for the Actions builder. The root carries the
+{{/* Compact blast-radius line for the sheet footer. The root .imp-body carries the
      resolved counts as data-* so the page JS can update the Send button label. */}}
-<div class="imp-cap">Impact preview</div>
 {{if gt .Total 0}}
 <div class="imp-body" data-effective="{{.Effective}}" data-online="{{.Online}}" data-offline="{{.Offline}}" data-verb="{{cmdLabel .Type}}">
-  <div class="imp-big">{{.Effective}}<small>device{{if ne .Effective 1}}s{{end}}</small></div>
-  <div class="imp-sub">{{if .Screenshot}}will capture on next check-in{{else}}will receive this action{{end}}</div>
-  {{$tot := add (add .Online .Offline) .Skipped}}
-  <div class="imp-bar">
-    <i style="width:{{pct .Online $tot}}%;background:var(--ok);"></i>
-    <i style="width:{{pct .Offline $tot}}%;background:var(--text-faint);"></i>
-    {{if gt .Skipped 0}}<i style="width:{{pct .Skipped $tot}}%;background:var(--warn);"></i>{{end}}
-  </div>
-  <div class="imp-legend">
-    <span><i class="imp-dot" style="background:var(--ok);"></i><b>{{.Online}}</b>&nbsp;online now</span>
-    <span><i class="imp-dot" style="background:var(--text-faint);"></i><b>{{.Offline}}</b>&nbsp;queued</span>
-    {{if gt .Skipped 0}}<span><i class="imp-dot" style="background:var(--warn);"></i><b>{{.Skipped}}</b>&nbsp;skipped</span>{{end}}
-  </div>
-  {{if .Warn}}<div class="imp-warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span>{{.Warn}}</span></div>{{end}}
-  <div class="imp-roll">
-    {{range .Roll}}
-    <div class="imp-rr"><i class="st {{if .Online}}up{{else}}down{{end}}"></i><span class="sn">{{.Serial}}</span><span class="bat">{{if .Online}}online{{else}}offline{{end}}{{if gt .Battery 0}} · {{.Battery}}%{{end}}</span></div>
-    {{end}}
-    {{if gt .More 0}}<div class="imp-rr" style="color:var(--muted);font-size:11px;">+ {{.More}} more…</div>{{end}}
-  </div>
+  <span class="imp-n">{{.Effective}}</span><span class="imp-u">device{{if ne .Effective 1}}s{{end}}</span>
+  <span class="imp-split">· <b>{{.Online}}</b> online, <b>{{.Offline}}</b> queued{{if gt .Skipped 0}}, <b>{{.Skipped}}</b> skipped{{end}}</span>
+  {{if .Warn}}<span class="imp-warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>{{.Warn}}</span>{{end}}
 </div>
 {{else}}
 <div class="imp-body" data-effective="0">
-  <div class="imp-big" style="color:var(--muted);">0<small>devices</small></div>
-  <div class="imp-empty">No matching devices in this target yet. Pick a group or add devices on the left.</div>
+  <span class="imp-n" style="color:var(--muted);">0</span><span class="imp-u">devices</span>
+  <span class="imp-empty">· no matching devices in this target yet</span>
 </div>
 {{end}}
 {{end}}
