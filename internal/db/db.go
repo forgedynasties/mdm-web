@@ -1854,7 +1854,7 @@ func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int)
 			d.latest_extra AS latest_extra
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
-		WHERE d.serial_number ILIKE $1
+		WHERE d.serial_number ILIKE $1 AND NOT d.hidden
 		ORDER BY
 			CASE WHEN lower(d.serial_number) = lower($2) THEN 0
 			     WHEN d.serial_number ILIKE $3 THEN 1
