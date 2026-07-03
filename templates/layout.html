@@ -807,10 +807,17 @@
     document.body.addEventListener('htmx:responseError', endProgress);
     document.body.addEventListener('htmx:sendError', endProgress);
     document.body.addEventListener('htmx:afterSwap', function (evt) {
-      if (evt.detail && evt.detail.target) {
-        resetSubmitting(evt.detail.target);
-        syncPollStamps(evt.detail.target);
-        localizeTimes(evt.detail.target);
+      var t = evt.detail && evt.detail.target;
+      if (!t) return;
+      resetSubmitting(t);
+      syncPollStamps(t);
+      localizeTimes(t);
+      // A boosted nav swaps <main> via outerHTML, so evt.detail.target is the
+      // DETACHED old <main> — localize the live one too, or its timestamps
+      // (e.g. the Daily Report "updated" time) stay as raw ISO until reload.
+      if (t.tagName === 'MAIN') {
+        var m = document.querySelector('main');
+        if (m && m !== t) { syncPollStamps(m); localizeTimes(m); }
       }
     });
 
