@@ -317,11 +317,10 @@
                 <div class="filter-search" style="margin:11px 12px 0;box-sizing:border-box;">
                   <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
                   <input type="search" id="cmd-serial-input" name="q" class="filter-search-input" autocomplete="off"
-                         placeholder="Search serial · Enter to add…"
-                         hx-get="/devices/search" hx-select="unset" hx-trigger="keyup changed delay:200ms, focus"
-                         hx-target="#cmd-device-results" hx-swap="innerHTML" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
+                         placeholder="Search serial · Enter to add exact match…"
+                         oninput="cmdBrowseDebounced()"
+                         onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
                 </div>
-                <div id="cmd-device-results"></div>
                 <div class="cb-tools">
                   <div class="fleet-fwrap" id="cmd-filters-wrap">
                     <button type="button" class="fleet-fbtn" id="cmd-filters-btn" onclick="cmdToggleFilters(event)" aria-haspopup="true" aria-expanded="false">
@@ -359,8 +358,6 @@
                       <select id="cmd-browse-build" onchange="cmdBrowseReload()"><option value="">Any release</option>{{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}</select></label>
                     <label class="fp-field"><span>Battery</span>
                       <select id="cmd-browse-battery" onchange="cmdBrowseReload()"><option value="">Any battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select></label>
-                    <label class="fp-field"><span>Serial contains</span>
-                      <input type="search" id="cmd-browse-q" placeholder="e.g. 0028" oninput="cmdBrowseDebounced()"></label>
                   </div>
                   <div class="fp-foot">
                     <button type="button" class="fp-clear" onclick="cmdBrowseClear()">Clear all</button>
@@ -589,13 +586,14 @@ function cmdSetSerials(list) {
   cmdRenderChips();
   updatePreview();
 }
+// Enter-to-add: commit the typed serial(s) as chips, clear the search box, and
+// reload the (now unfiltered) browse list so the selection shows checked.
 function cmdAddSerial(raw) {
   if (!raw) return;
   cmdSetSerials(cmdSerials().concat(String(raw).split(/[\s,]+/)));
   var inp = document.getElementById('cmd-serial-input');
   if (inp) inp.value = '';
-  var res = document.getElementById('cmd-device-results');
-  if (res) res.innerHTML = '';
+  cmdBrowseReload();
 }
 function cmdRemoveSerial(s) {
   cmdSetSerials(cmdSerials().filter(function (x) { return x !== s; }));
@@ -628,7 +626,7 @@ var cmdBrowseTimer;
 var cmdSort = { key: 'last_seen', dir: 'desc' };
 function cmdBrowseDebounced() { clearTimeout(cmdBrowseTimer); cmdBrowseTimer = setTimeout(cmdBrowseReload, 300); }
 function cmdBrowseParams() {
-  var map = { q:'cmd-browse-q', status:'cmd-browse-status', group:'cmd-browse-group', production:'cmd-browse-production', build:'cmd-browse-build', battery:'cmd-browse-battery' };
+  var map = { q:'cmd-serial-input', status:'cmd-browse-status', group:'cmd-browse-group', production:'cmd-browse-production', build:'cmd-browse-build', battery:'cmd-browse-battery' };
   var p = new URLSearchParams();
   for (var k in map) { var el = document.getElementById(map[k]); if (el && el.value) p.set(k, el.value); }
   p.set('sort', cmdSort.key); p.set('dir', cmdSort.dir);
@@ -636,12 +634,13 @@ function cmdBrowseParams() {
 }
 function cmdBrowseReload() { cmdUpdateFilterCount(); if (window.htmx) htmx.ajax('GET', '/commands/browse-devices?' + cmdBrowseParams().toString(), { target: '#cmd-device-browser', swap: 'innerHTML' }); }
 function cmdBrowseClear() {
-  ['cmd-browse-q','cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'].forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
+  ['cmd-serial-input','cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'].forEach(function (id) { var e = document.getElementById(id); if (e) e.value = ''; });
   cmdBrowseReload();
 }
-// Count of active filters → badge on the Filters button.
+// Count of active filters → badge on the Filters button (search is the visible box,
+// not counted here — mirrors the Fleet page).
 function cmdUpdateFilterCount() {
-  var ids = ['cmd-browse-q','cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'];
+  var ids = ['cmd-browse-status','cmd-browse-group','cmd-browse-production','cmd-browse-build','cmd-browse-battery'];
   var n = ids.reduce(function (a, id) { var e = document.getElementById(id); return a + (e && e.value ? 1 : 0); }, 0);
   var c = document.getElementById('cmd-filter-cnt');
   if (c) { c.textContent = n; if (n) c.removeAttribute('hidden'); else c.setAttribute('hidden', ''); }
@@ -673,7 +672,9 @@ document.addEventListener('click', function (e) {
 });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { cmdPop('cmd-filters-pop','cmd-filters-btn',false); cmdPop('cmd-sort-pop','cmd-sort-btn',false); } });
 function cmdToggleDevice(cb) {
-  if (cb.checked) cmdAddSerial(cb.value);
+  // Add/remove without touching the search box, so the filtered view stays put
+  // while you check several matches.
+  if (cb.checked) cmdSetSerials(cmdSerials().concat([cb.value]));
   else cmdSetSerials(cmdSerials().filter(function (s) { return s !== cb.value; }));
 }
 function cmdSelectAllMatching() {
