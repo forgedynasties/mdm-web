@@ -1946,6 +1946,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 			data["DeviceSerials"] = serialsJSON(serials)
 		}
 		data["HotSerials"] = serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(ctx).TempC))
+		data["ReportRestaurants"] = restaurantLinksJSON(groups)
 	}
 
 	h.render(w, r, "overview.html", data)
@@ -2910,6 +2911,7 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		data["AISummary"] = s.Summary
 		data["AISummaryAt"] = s.GeneratedAt.UTC().Format(time.RFC3339)
 		data["AISummaryPreview"] = summarizePreview(s.Summary)
+		data["ReportRestaurants"] = restaurantLinksJSON(groups)
 	}
 	h.render(w, r, "health.html", data)
 }
@@ -2999,6 +3001,30 @@ func peakDayForFocus(stats []db.DeviceDailyStat, focus string) (time.Time, bool)
 // serial linkifier (it turns any serial named in the report prose into a device link).
 func serialsJSON(serials []string) template.JS {
 	b, err := json.Marshal(serials)
+	if err != nil {
+		return template.JS("[]")
+	}
+	return template.JS(b)
+}
+
+// restaurantLinksJSON emits [{"name","id"}] for the restaurants the Daily Report may
+// name, so the report card can turn each restaurant name in the prose into a link to
+// that venue's page. Only named restaurants (Deployed) are included; longest name
+// first so a shorter name can't shadow a longer one when the client linkifies.
+func restaurantLinksJSON(groups []db.GroupHealth) template.JS {
+	type link struct {
+		Name string `json:"name"`
+		ID   string `json:"id"`
+	}
+	var out []link
+	for _, g := range groups {
+		if g.Name == "" {
+			continue
+		}
+		out = append(out, link{Name: g.Name, ID: g.GroupID.String()})
+	}
+	sort.Slice(out, func(i, j int) bool { return len(out[i].Name) > len(out[j].Name) })
+	b, err := json.Marshal(out)
 	if err != nil {
 		return template.JS("[]")
 	}

@@ -383,6 +383,36 @@
     mdmHotSerials._cache = set;
     return set;
   }
+  // Restaurants named in the report ([{name,id}], longest-name-first) so each venue
+  // name in the prose links to its page. Cached; safe if the list is absent.
+  function mdmRestaurants() {
+    if (mdmRestaurants._cache) return mdmRestaurants._cache;
+    var el = document.getElementById('ai-sum-restaurants'), arr = [];
+    if (el) { try { arr = JSON.parse(el.textContent) || []; } catch (e) {} }
+    mdmRestaurants._cache = arr;
+    return arr;
+  }
+  // Turn each restaurant name in the report HTML into a link to that venue's page.
+  // Runs over already-escaped, serial-linkified HTML: it only rewrites text OUTSIDE
+  // existing <a>…</a> spans, so it never nests anchors or touches serial links.
+  function mdmLinkifyRestaurants(html) {
+    var rests = mdmRestaurants();
+    if (!rests.length) return html;
+    var byName = {};
+    rests.forEach(function (r) { byName[r.name] = r.id; });
+    var esc = rests.map(function (r) { return r.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+    var re = new RegExp('(' + esc.join('|') + ')', 'g');
+    return html.replace(/(<a\b[^>]*>[\s\S]*?<\/a>)|([^<]+)/g, function (m, anchor, text) {
+      if (anchor) return anchor;
+      if (text == null) return m;
+      return text.replace(re, function (name) {
+        var id = byName[name];
+        return id ? '<a href="/restaurants/' + encodeURIComponent(id) + '" class="link">' + name + '</a>' : name;
+      });
+    });
+  }
+  // Full entity linkify: serials first, then restaurant names.
+  function mdmLinkify(html, focus) { return mdmLinkifyRestaurants(mdmLinkifySerials(html, focus)); }
   // mdmDevLink builds a device link. focus controls the chart deep-link:
   //   undefined → hot-unit fallback (the headline's hottest unit deep-links to temp)
   //   a metric string ("temp"/"ram") → force ?focus=<metric>
@@ -422,14 +452,14 @@
   // a meaningful single-moment spike map; battery decline / charging are trends, so
   // their serials stay plain links (open the device at its default view).
   var mdmAreaFocus = { heat: 'temp', memory: 'ram' };
-  function mdmReportPreview(rep) { return mdmStatusWord(rep.status) + '<span class="rep-headline">' + mdmLinkifySerials(mdmEsc(rep.headline)) + '</span>'; }
+  function mdmReportPreview(rep) { return mdmStatusWord(rep.status) + '<span class="rep-headline">' + mdmLinkify(mdmEsc(rep.headline)) + '</span>'; }
   function mdmReportBody(rep) {
     var h = '';
     if (rep.metrics && rep.metrics.length) {
       var tiles = '<div class="rep-tiles">';
       rep.metrics.forEach(function (m) { tiles += '<div class="rep-tile"><div class="v">' + mdmEsc(m.value) + '</div><div class="l">' + mdmEsc(m.label) + '</div></div>'; });
       tiles += '</div>';
-      h += mdmLinkifySerials(tiles); // headline metrics: hottest-unit fallback
+      h += mdmLinkify(tiles); // headline metrics: hottest-unit fallback
     }
     if (rep.issues && rep.issues.length) {
       h += '<div class="rep-rows">';
@@ -443,12 +473,12 @@
           + '<span class="scope">' + mdmEsc(is.scope) + '</span>' + (is.detail ? ' — ' + mdmEsc(is.detail) : '') + '</div>'
           + (is.action ? '<div class="action">→ ' + mdmEsc(is.action) + '</div>' : '');
         h += '<div class="rep-row rep-' + sev + '"><span class="ind"></span><div class="meta">'
-          + mdmLinkifySerials(body, focus) + '</div></div>';
+          + mdmLinkify(body, focus) + '</div></div>';
       });
       h += '</div>';
     }
     if (rep.good && rep.good.length) {
-      h += '<div class="rep-good">' + rep.good.map(mdmEsc).join(', ') + ' look fine</div>';
+      h += '<div class="rep-good">' + mdmLinkifyRestaurants(rep.good.map(mdmEsc).join(', ')) + ' look fine</div>';
     }
     return h || '<div class="muted small">No further detail.</div>';
   }
