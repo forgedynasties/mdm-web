@@ -1,0 +1,239 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Actions · Dispatch bar — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.32);
+  --peri:#7a80f6;--peri-soft:rgba(122,128,246,.13);
+  --amber:#b45309;--amber-soft:rgba(180,83,9,.12);
+  --ok:#157f3c;--danger:#b42318;
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r2:6px;--r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);--sh-lg:0 18px 50px rgba(28,26,24,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}button{font:inherit;cursor:pointer}
+.wrap{max-width:1080px;margin:0 auto;padding:26px 24px 120px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:24px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+.head h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.head p{color:var(--muted);font-size:14.5px;margin-top:5px;max-width:64ch}
+kbd{font-family:var(--mono);font-size:10.5px;font-weight:600;background:var(--surface);border:1px solid var(--border);
+  border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--muted);line-height:1.6}
+
+/* ── DISPATCH BAR (hero) ── */
+.dispatch{margin-top:22px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);
+  box-shadow:var(--sh-md);padding:7px 7px 7px 18px;display:flex;align-items:center;gap:12px;transition:box-shadow .18s,border-color .18s}
+.dispatch:focus-within{border-color:var(--coral-edge);box-shadow:0 0 0 4px var(--coral-soft),var(--sh-md)}
+.dispatch .spark{width:22px;height:22px;flex:none}
+.dispatch .spark svg{width:22px;height:22px;fill:none;stroke:url(#g);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.dispatch input{flex:1;border:none;outline:none;background:none;font:inherit;font-size:16.5px;color:var(--text);padding:12px 0}
+.dispatch input::placeholder{color:var(--faint)}
+.dispatch .kk{display:flex;gap:4px;flex:none}
+.dispatch .go{flex:none;display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border:none;border-radius:12px;
+  background:var(--text);color:#fff;font-size:13.5px;font-weight:600}
+.dispatch .go:hover{background:#000}
+
+/* recipe quick-picks */
+.qp-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:22px 2px 10px}
+.qp{display:flex;flex-wrap:wrap;gap:9px}
+.pill{display:inline-flex;align-items:center;gap:9px;padding:8px 13px 8px 9px;border:1px solid var(--border);border-radius:12px;
+  background:var(--surface);box-shadow:var(--sh-sm);transition:transform .12s,border-color .14s,box-shadow .14s}
+.pill:hover{transform:translateY(-1px);border-color:var(--rule);box-shadow:var(--sh-md)}
+.pill .num{width:20px;height:20px;flex:none;border-radius:6px;background:var(--surface2);border:1px solid var(--border-soft);
+  font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.pill .pic{width:26px;height:26px;flex:none;border-radius:8px;display:flex;align-items:center;justify-content:center}
+.pill .pic svg{width:15px;height:15px;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.pill.diag .pic{background:var(--peri-soft)}.pill.diag .pic svg{stroke:var(--peri)}
+.pill.apps .pic{background:var(--coral-soft)}.pill.apps .pic svg{stroke:var(--coral)}
+.pill.power .pic{background:var(--amber-soft)}.pill.power .pic svg{stroke:var(--amber)}
+.pill .pt{display:block;font-size:13px;font-weight:650;line-height:1.2}
+.pill .ps{display:block;font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+.pill .txt{text-align:left}
+.pill.add{border-style:dashed;color:var(--muted);font-weight:600;font-size:12.5px;padding:8px 14px}
+.pill.add svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+
+/* ── main two-column ── */
+.grid{display:grid;grid-template-columns:1fr 300px;gap:20px;margin-top:26px;align-items:start}
+.grid>*{min-width:0}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+/* compose sheet */
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-md);overflow:hidden}
+.sheet.flash{animation:fl .9s ease}
+@keyframes fl{0%{box-shadow:0 0 0 3px var(--coral-edge),var(--sh-md)}100%{box-shadow:var(--sh-md)}}
+.sheet-h{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border-soft)}
+.sheet-h .ic{width:34px;height:34px;flex:none;border-radius:10px;background:var(--peri-soft);display:flex;align-items:center;justify-content:center}
+.sheet-h .ic svg{width:18px;height:18px;fill:none;stroke:var(--peri);stroke-width:1.8}
+.sheet-h .t{font-size:15px;font-weight:700}
+.sheet-h .s{font-size:12.5px;color:var(--muted);margin-top:1px}
+.sheet-h .chg{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:7px 12px}
+.sheet-h .chg:hover{border-color:var(--rule);color:var(--text2)}
+.sheet-b{padding:20px}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.lbl+.lbl,.blk+.blk .lbl{margin-top:0}
+.blk+.blk{margin-top:20px}
+.finput{display:flex;align-items:center;gap:10px;height:44px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2);color:var(--muted);font-size:14px}
+.finput svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}
+.tsel{display:flex;flex-wrap:wrap;gap:8px}
+.tsel .opt{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:13px;font-weight:600;color:var(--text2)}
+.tsel .opt.on{border-color:transparent;background:var(--coral-soft);color:var(--coral-h)}
+.tsel .opt .c{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.tsel .opt.on .c{color:var(--coral)}
+.sheet-f{display:flex;align-items:center;gap:16px;padding:16px 20px;border-top:1px solid var(--border-soft);background:var(--surface2);flex-wrap:wrap}
+.sheet-f .rad{font-size:12.5px;color:var(--muted)}
+.sheet-f .rad b{font-size:20px;font-weight:750;color:var(--text);letter-spacing:-.01em}
+.send{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:9px;padding:12px 22px;border:none;border-radius:11px;
+  background:var(--grad);color:#fff;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(249,103,78,.28)}
+.send:hover{filter:brightness(1.04)}.send:active{transform:scale(.98)}
+.send svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.2}
+
+/* recent rail */
+.rail{background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-sm);overflow:hidden}
+.rail-h{padding:14px 16px 10px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.rr{display:flex;align-items:flex-start;gap:10px;padding:10px 16px;border-top:1px solid var(--border-soft)}
+.rr .d{width:8px;height:8px;border-radius:50%;flex:none;margin-top:4px}
+.rr .d.ok{background:var(--ok)}.rr .d.run{background:var(--peri)}.rr .d.warn{background:var(--amber)}
+.rr .m{min-width:0}
+.rr .r1{font-size:12.5px;font-weight:600;line-height:1.3}
+.rr .r2{font-size:11px;color:var(--muted);margin-top:1px}
+.rr .r2 .mono{font-family:var(--mono)}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;
+  background:#1c1a18;color:#fff;font-size:13.5px;font-weight:500;padding:12px 18px;border-radius:11px;box-shadow:var(--sh-lg);
+  display:flex;align-items:center;gap:10px;transition:opacity .2s,transform .2s;z-index:50}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast .ok{width:18px;height:18px;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center}
+#toast .ok svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3}
+@media(max-width:640px){.wrap{padding:20px 15px 110px}.dispatch input{font-size:15px}.dispatch .go span{display:none}.send{width:100%;justify-content:center}}
+</style></head>
+<body>
+<svg width="0" height="0"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f9674e"/><stop offset="1" stop-color="#7a80f6"/></linearGradient></defs></svg>
+<div class="wrap">
+  <div class="dbar">
+    <a class="back" href="/demo/actions">← Actions demos</a>
+    <span class="tag">Direction 2 · Dispatch bar</span>
+  </div>
+  <div class="head">
+    <h1>Actions</h1>
+    <p>One dispatch bar drives everything. Recipes are numbered quick-picks — press <kbd>1</kbd>–<kbd>4</kbd> or click to load one. The composer opens as a focused sheet; recent dispatches stay in view on the right.</p>
+  </div>
+
+  <!-- DISPATCH BAR -->
+  <div class="dispatch">
+    <span class="spark"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>
+    <input id="q" placeholder="Dispatch an action — install, screenshot, reboot, shell…" autocomplete="off">
+    <span class="kk"><kbd>⌘</kbd><kbd>K</kbd></span>
+    <button class="go" onclick="toast('Pick an action or a recipe to continue')"><span>Dispatch</span></button>
+  </div>
+
+  <!-- RECIPE QUICK-PICKS -->
+  <div class="qp-cap">Recipes · quick-picks</div>
+  <div class="qp" id="qp">
+    <button class="pill diag" data-t="Screenshot" data-name="Screenshot kiosks" data-c="214" data-scope="kiosks" onclick="pick(this)">
+      <span class="num">1</span>
+      <span class="pic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>
+      <span class="txt"><span class="pt">Screenshot kiosks</span><span class="ps">214 kiosks</span></span>
+    </button>
+    <button class="pill apps" data-t="Install app" data-name="Install POS v4.2" data-c="900" data-scope="all devices" onclick="pick(this)">
+      <span class="num">2</span>
+      <span class="pic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
+      <span class="txt"><span class="pt">Install POS v4.2</span><span class="ps">900 devices</span></span>
+    </button>
+    <button class="pill power" data-t="Reboot" data-name="Nightly reboot" data-c="212" data-scope="Downtown group" onclick="pick(this)">
+      <span class="num">3</span>
+      <span class="pic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>
+      <span class="txt"><span class="pt">Nightly reboot</span><span class="ps">212 devices</span></span>
+    </button>
+    <button class="pill diag" data-t="Log capture" data-name="Grab crash logs" data-c="18" data-scope="offline devices" onclick="pick(this)">
+      <span class="num">4</span>
+      <span class="pic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>
+      <span class="txt"><span class="pt">Grab crash logs</span><span class="ps">18 flagged</span></span>
+    </button>
+    <button class="pill add" onclick="toast('Saved the current dispatch as a recipe')"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg> Save recipe</button>
+  </div>
+
+  <!-- MAIN -->
+  <div class="grid">
+    <div class="sheet" id="sheet">
+      <div class="sheet-h">
+        <span class="ic" id="sh-ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>
+        <div><div class="t" id="sh-t">Screenshot</div><div class="s" id="sh-s">Capture the current screen and pull it back</div></div>
+        <button class="chg" onclick="document.getElementById('q').focus()">Change</button>
+      </div>
+      <div class="sheet-b">
+        <div class="blk">
+          <div class="lbl">Payload</div>
+          <div class="finput" id="payload"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg>No options — screenshots capture the live screen</div>
+        </div>
+        <div class="blk">
+          <div class="lbl">Target</div>
+          <div class="tsel">
+            <span class="opt on">All devices <span class="c">900</span></span>
+            <span class="opt">Groups <span class="c">6</span></span>
+            <span class="opt">Specific <span class="c">pick</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="sheet-f">
+        <div class="rad"><b id="rad-n">214</b> devices · <span id="rad-sub">210 online, 4 queued</span></div>
+        <button class="send" onclick="dispatch()"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Send action</button>
+      </div>
+    </div>
+
+    <div class="rail">
+      <div class="rail-h">Recent</div>
+      <div id="recent">
+        <div class="rr"><span class="d ok"></span><div class="m"><div class="r1">Install POS v4.2</div><div class="r2"><span class="mono">886/900</span> · 6h ago</div></div></div>
+        <div class="rr"><span class="d ok"></span><div class="m"><div class="r1">Nightly reboot</div><div class="r2"><span class="mono">208/212</span> · 14h ago</div></div></div>
+        <div class="rr"><span class="d warn"></span><div class="m"><div class="r1">Uninstall LegacyPay</div><div class="r2"><span class="mono">640/742</span> · 1d ago</div></div></div>
+        <div class="rr"><span class="d ok"></span><div class="m"><div class="r1">Screenshot kiosks</div><div class="r2"><span class="mono">214/214</span> · 2d ago</div></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"><span class="ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span id="toast-msg"></span></div>
+
+<script>
+var ICONS={
+ 'Screenshot':'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>',
+ 'Install app':'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>',
+ 'Reboot':'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>',
+ 'Log capture':'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>'};
+var SUB={'Screenshot':'Capture the current screen and pull it back','Install app':'Push an APK and install it silently',
+ 'Reboot':'Restart the device — clears memory','Log capture':'Pull a logcat buffer for triage'};
+function toast(msg){var t=document.getElementById('toast');document.getElementById('toast-msg').textContent=msg;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show')},2400)}
+function pick(el){
+  var t=el.dataset.t,name=el.dataset.name,c=+el.dataset.c,scope=el.dataset.scope;
+  document.getElementById('sh-ic').innerHTML='<svg viewBox="0 0 24 24">'+(ICONS[t]||ICONS['Screenshot'])+'</svg>';
+  document.getElementById('sh-t').textContent=name;
+  document.getElementById('sh-s').textContent=SUB[t]||'';
+  document.getElementById('payload').innerHTML='<svg viewBox="0 0 24 24">'+(ICONS[t]||'')+'</svg>Loaded from “'+name+'” · '+t;
+  document.getElementById('rad-n').textContent=c;
+  var on=Math.round(c*.94);document.getElementById('rad-sub').textContent=on+' online, '+(c-on)+' queued';
+  document.getElementById('q').value=name;
+  var s=document.getElementById('sheet');s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash');
+  toast('Loaded “'+name+'” → '+scope)}
+function dispatch(){
+  var name=document.getElementById('sh-t').textContent,n=document.getElementById('rad-n').textContent;
+  var r=document.getElementById('recent');
+  var row=document.createElement('div');row.className='rr';row.style.opacity=0;
+  row.innerHTML='<span class="d run"></span><div class="m"><div class="r1">'+name+'</div><div class="r2"><span class="mono">0/'+n+'</span> · dispatching…</div></div>';
+  r.insertBefore(row,r.firstChild);requestAnimationFrame(function(){row.style.transition='opacity .3s';row.style.opacity=1});
+  toast('Dispatched “'+name+'” to '+n+' devices')}
+/* keyboard 1-4 fire recipes */
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT')return;
+  if(e.key>='1'&&e.key<='4'){var p=document.querySelectorAll('.qp .pill')[+e.key-1];if(p)pick(p)}});
+</script>
+</body></html>

@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Actions demos — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--border:#e8e2da;--text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --coral:#f9674e;--peri:#7a80f6;--amber:#b45309;--r4:14px;
+    --font:'IBM Plex Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{display:block}
+  .wrap{max-width:760px;margin:0 auto;padding:40px 24px 90px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:20px}
+  .back:hover{color:var(--coral)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:19px;letter-spacing:-.02em;margin-bottom:22px}
+  .brand .a{background:linear-gradient(96deg,var(--coral),var(--peri));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  h1{font-size:28px;font-weight:700;letter-spacing:-.015em}
+  .lede{color:var(--muted);font-size:15px;margin:8px 0 8px;max-width:62ch}
+  .now{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:11px;
+    padding:12px 14px;margin:16px 0 6px;line-height:1.5}
+  .now b{color:var(--text);font-weight:600}
+  .grid{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+  a.demo{display:flex;align-items:center;gap:15px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);
+    padding:16px 18px;box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+  a.demo:hover{border-color:rgba(249,103,78,.34);transform:translateY(-1px)}
+  .ic{width:44px;height:44px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff}
+  .ic.i1{background:linear-gradient(135deg,#f9674e,#7a80f6)}
+  .ic.i2{background:linear-gradient(135deg,#7a80f6,#9aa0ff)}
+  .ic.i3{background:linear-gradient(135deg,#157f3c,#59c97a)}
+  .ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .demo .t{display:block;font-size:15.5px;font-weight:650}
+  .demo .d{display:block;font-size:13px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .demo .go{margin-left:auto;color:var(--faint);font-size:20px}
+</style></head>
+<body>
+  <div class="wrap">
+    <a class="back" href="/demo/index">← All demos</a>
+    <div class="brand"><span class="a">AIO</span><span class="m">MDM</span></div>
+    <h1>Actions page — three directions</h1>
+    <p class="lede">Rethinking the Actions composer and the Recipes experience. Each direction is a live, clickable mockup with sample data — recipes load into the composer, action types swap, and the blast radius updates as you go.</p>
+    <div class="now"><b>Today:</b> recipes are a plain strip of name + summary cards above a three-pane composer. They're passive — you can't see what a recipe targets or how it last ran, and re-running means loading it, then hunting for Send. These directions make recipes first-class and tighten the dispatch flow.</div>
+
+    <div class="grid">
+      <a class="demo" href="/demo/actions-launchpad">
+        <span class="ic i1"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7"/></svg></span>
+        <span><span class="t">1 · Launchpad</span><span class="d">Recipes become one-tap dispatch cards — target scope, last-run result, and a Run button that arms an inline confirm. Composer sits below.</span></span>
+        <span class="go">→</span>
+      </a>
+      <a class="demo" href="/demo/actions-palette">
+        <span class="ic i2"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>
+        <span><span class="t">2 · Dispatch bar</span><span class="d">A command-palette bar drives everything; recipes are numbered quick-picks (press 1–4). Composer opens as a focused sheet with recent activity alongside.</span></span>
+        <span class="go">→</span>
+      </a>
+      <a class="demo" href="/demo/actions-flightdeck">
+        <span class="ic i3"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span>
+        <span><span class="t">3 · Flight deck</span><span class="d">Compose on the left; a sticky pre-flight panel runs live safety checks (online, low battery, in-use) and shows the blast radius before you send.</span></span>
+        <span class="go">→</span>
+      </a>
+    </div>
+  </div>
+</body></html>
