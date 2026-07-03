@@ -3092,7 +3092,8 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 		FROM device_packages dp
 		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 		WHERE dp.device_id = $1
-		ORDER BY dp.package_name
+		-- User apps first, then system apps; alphabetical within each group.
+		ORDER BY effective_system, COALESCE(NULLIF(dp.app_name, ''), dp.package_name), dp.package_name
 	`, deviceID)
 	if err != nil {
 		return nil, err
