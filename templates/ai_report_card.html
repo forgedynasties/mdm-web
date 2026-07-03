@@ -16,6 +16,7 @@
     <div id="ai-sum-raw" hidden>{{.AISummary}}</div>
     {{if .DeviceSerials}}<script type="application/json" id="ai-sum-serials">{{.DeviceSerials}}</script>{{end}}
     {{if .HotSerials}}<script type="application/json" id="ai-sum-hot-serials">{{.HotSerials}}</script>{{end}}
+    {{if .ReportRestaurants}}<script type="application/json" id="ai-sum-restaurants">{{.ReportRestaurants}}</script>{{end}}
     <div id="ai-sum-preview" class="muted small">{{.AISummaryPreview}}</div>
     <div id="ai-sum-full" class="ai-text small" style="line-height:1.5;"></div>
   </div>
