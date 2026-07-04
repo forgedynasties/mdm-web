@@ -1,0 +1,184 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payload panes · Guided — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.32);
+  --peri:#7a80f6;--peri-soft:rgba(122,128,246,.13);--ok:#157f3c;--ok-soft:rgba(21,127,60,.1);--amber:#b45309;--amber-soft:rgba(180,83,9,.12);--amber-edge:rgba(180,83,9,.3);--danger:#b42318;
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);--sh-lg:0 18px 50px rgba(28,26,24,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}button{font:inherit;cursor:pointer}input,select{font:inherit}
+.wrap{max-width:820px;margin:0 auto;padding:26px 24px 120px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+.head h1{font-size:25px;font-weight:700;letter-spacing:-.02em}
+.head p{color:var(--muted);font-size:14.5px;margin-top:5px;max-width:64ch}
+.cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:22px 2px 11px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.pill{display:inline-flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface);box-shadow:var(--sh-sm);font-size:13.5px;font-weight:600;color:var(--text2)}
+.pill:hover{border-color:var(--rule);background:var(--surface2)}
+.pill .ic{width:22px;height:22px;flex:none;border-radius:7px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.pill .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8}
+.pill.on{border-color:transparent;background:var(--coral-soft);color:var(--coral-h)}.pill.on .ic{background:#fff;color:var(--coral)}
+.pill .g{font-size:10px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-left:2px}.pill.on .g{color:var(--coral)}
+
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-md);overflow:hidden}
+.sh-h{display:flex;align-items:center;gap:13px;padding:16px 20px;border-bottom:1px solid var(--border-soft)}
+.sh-ic{width:38px;height:38px;flex:none;border-radius:11px;background:var(--coral-soft);display:flex;align-items:center;justify-content:center}
+.sh-ic svg{width:20px;height:20px;fill:none;stroke:var(--coral);stroke-width:1.8}
+.sh-t{font-size:15px;font-weight:700}.sh-s{font-size:12.5px;color:var(--muted);margin-top:1px}
+.sh-b{padding:22px 22px 6px}
+.pane{display:none}.pane.on{display:block;animation:fade .2s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* a guided field: question + optional help + control */
+.q{margin-bottom:22px}
+.q .qt{font-size:14px;font-weight:650;color:var(--text)}
+.q .qh{font-size:12.5px;color:var(--muted);margin-top:2px}
+.q .qc{margin-top:11px}
+.inp{width:100%;height:44px;padding:0 14px;border:1px solid var(--border);border-radius:11px;background:var(--surface);font-size:14px;color:var(--text);outline:none}
+.inp:focus{border-color:var(--coral-edge);box-shadow:0 0 0 3px var(--coral-soft)}
+select.inp{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237e776d' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;background-size:16px;padding-right:40px}
+.mono{font-family:var(--mono)}
+.help{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--text2);background:var(--peri-soft);border-radius:10px;padding:11px 13px;line-height:1.5}
+.help svg{width:15px;height:15px;fill:none;stroke:var(--peri);stroke-width:2;flex:none;margin-top:1px}
+.help.ok{background:var(--ok-soft)}.help.ok svg{stroke:var(--ok)}
+.help.warn{background:var(--amber-soft)}.help.warn svg{stroke:var(--amber)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:520px){.two{grid-template-columns:1fr}}
+.selrow{display:flex;gap:10px}
+.selrow .inp{flex:1}
+.btn2{flex:none;height:44px;padding:0 15px;border:1px solid var(--border);border-radius:11px;background:var(--surface);font-size:13px;font-weight:600;color:var(--text2);display:inline-flex;align-items:center;gap:7px}
+.btn2:hover{border-color:var(--rule)}
+.btn2 svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.chosen{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--ok-soft);background:var(--ok-soft);border-radius:11px;margin-top:10px}
+.chosen .tk{width:22px;height:22px;flex:none;border-radius:50%;background:var(--ok);display:flex;align-items:center;justify-content:center}
+.chosen .tk svg{width:12px;height:12px;fill:none;stroke:#fff;stroke-width:3}
+.chosen .cn{font-size:13px}.chosen .cn b{font-weight:650}.chosen .cn span{color:var(--muted)}
+.suggest{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.stag{font-size:12px;font-family:var(--mono);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text2)}
+.stag:hover{border-color:var(--coral-edge);color:var(--coral)}
+.filepick{display:flex;align-items:center;gap:13px;padding:14px;border:1px solid var(--border);border-radius:12px}
+.filepick .th{width:44px;height:78px;flex:none;border-radius:7px;background:linear-gradient(160deg,#1a1d2b,#2a2340);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
+.filepick .fm{font-size:13px;color:var(--text2)}.filepick .fm b{color:var(--text)}
+.filepick .re{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--coral);background:none;border:none}
+
+.sh-f{display:flex;align-items:center;gap:14px;padding:14px 22px;border-top:1px solid var(--border-soft);background:var(--surface2);flex-wrap:wrap;margin-top:12px}
+.seg{display:inline-flex;gap:3px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:4px}
+.seg button{border:none;background:none;border-radius:8px;padding:8px 15px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--coral-soft);color:var(--coral)}
+.rad{font-size:13px;color:var(--muted)}.rad b{color:var(--text)}
+.send{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:9px;padding:11px 20px;border:none;border-radius:11px;background:var(--grad);color:#fff;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(249,103,78,.28)}
+.send svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1c1a18;color:#fff;font-size:13.5px;padding:12px 18px;border-radius:11px;box-shadow:var(--sh-lg);z-index:60;transition:opacity .2s,transform .2s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/actions">← Actions demos</a><span class="tag">Panes · Guided</span></div>
+  <div class="head">
+    <h1>Payload panes — Guided</h1>
+    <p>Calm and form-first. Each pane asks a plain-language question, gives one clear control with a smart default, and explains what will happen. Nothing clever to decode.</p>
+  </div>
+  <div class="cap">Choose an action</div>
+  <div class="pills" id="pills"></div>
+
+  <div class="sheet">
+    <div class="sh-h"><span class="sh-ic" id="ic"></span><div><div class="sh-t" id="t"></div><div class="sh-s" id="s"></div></div></div>
+    <div class="sh-b">
+
+      <!-- Install -->
+      <div class="pane on" data-p="install_apk">
+        <div class="q"><div class="qt">Which app do you want to install?</div><div class="qh">Choose from your uploaded library, or add a new APK.</div>
+          <div class="qc selrow"><select class="inp"><option>AIO POS — v4.2.0 (24 MB)</option><option>KioskGuard — v1.9.3 (8 MB)</option><option>PrinterBridge — v2.0.1 (5 MB)</option><option>TempProbe — v0.7.0 (3 MB)</option></select><button class="btn2" onclick="toast('Add a new app')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New app</button></div>
+          <div class="chosen"><span class="tk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><span class="cn"><b>AIO POS v4.2.0</b> <span>· already on 812 of 900 targeted devices</span></span></div>
+        </div>
+      </div>
+
+      <!-- Uninstall -->
+      <div class="pane" data-p="uninstall">
+        <div class="q"><div class="qt">Which app should be removed?</div><div class="qh">Pick a package seen across the fleet. Devices without it are skipped.</div>
+          <div class="qc"><select class="inp mono"><option>com.legacy.pay — LegacyPay (640 devices)</option><option>com.acme.oldlauncher — OldLauncher (88 devices)</option><option>com.acme.debug — DebugTool (12 devices)</option></select></div>
+        </div>
+        <div class="q"><div class="help warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Uninstalling <b>LegacyPay</b> hits 640 devices. This can't be undone remotely — you'd need to re-install.</div></div>
+      </div>
+
+      <!-- Screenshot -->
+      <div class="pane" data-p="screenshot">
+        <div class="q"><div class="qt">Nothing to configure</div><div class="qh">Screenshots have no options.</div>
+          <div class="qc help ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span>Each targeted device captures its current screen on the next check-in (within 5 minutes). The image appears on that device's page, ready to view or download.</span></div>
+        </div>
+      </div>
+
+      <!-- Log capture -->
+      <div class="pane" data-p="logcat">
+        <div class="q"><div class="qt">How much log do you want?</div><div class="qh">The default catches most real problems without the noise.</div>
+          <div class="qc two"><select class="inp"><option>Warnings and above (recommended)</option><option>Errors only</option><option>Info and above</option><option>Debug and above</option><option>Everything (verbose)</option></select><input class="inp" value="500 lines"></div>
+        </div>
+        <div class="q"><div class="qt">Filter to one tag? <span style="font-weight:400;color:var(--faint)">optional</span></div><div class="qh">Leave blank to capture all tags.</div>
+          <div class="qc"><input class="inp mono" placeholder="e.g. MdmService"></div>
+          <div class="suggest"><button class="stag" onclick="toast('MdmService')">MdmService</button><button class="stag" onclick="toast('WLC')">WLC</button><button class="stag" onclick="toast('ActivityManager')">ActivityManager</button></div>
+        </div>
+      </div>
+
+      <!-- Shell -->
+      <div class="pane" data-p="shell">
+        <div class="q"><div class="qt">What command should run?</div><div class="qh">Runs on each device's next check-in. Legacy devices only; expires after 5 minutes.</div>
+          <div class="qc"><input class="inp mono" placeholder="ls /sdcard" value="ls /sdcard"></div>
+          <div class="suggest"><button class="stag" onclick="toast('ls /sdcard')">ls /sdcard</button><button class="stag" onclick="toast('getprop ro.build.version.release')">getprop ro.build.version.release</button><button class="stag" onclick="toast('pm list packages')">pm list packages</button><button class="stag" onclick="toast('df -h')">df -h</button></div>
+        </div>
+      </div>
+
+      <!-- Reboot -->
+      <div class="pane" data-p="reboot">
+        <div class="q"><div class="qt">Restart the targeted devices?</div>
+          <div class="qc help warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span>Devices restart on their next check-in. Anything unsaved on-device is lost, and a low-battery unit might not power back up.</span></div>
+        </div>
+        <div class="q"><div class="qt">Why? <span style="font-weight:400;color:var(--faint)">required when reason-logging is on</span></div>
+          <div class="qc"><input class="inp" placeholder="e.g. nightly memory clear"></div>
+        </div>
+      </div>
+
+      <!-- Boot logo -->
+      <div class="pane" data-p="update_splash">
+        <div class="q"><div class="qt">Choose the splash image</div><div class="qh">A BMP is used as-is; a PNG or JPEG is converted to a 24-bit BMP for you.</div>
+          <div class="qc filepick"><span class="th">splash</span><span class="fm"><b>splash.png</b><br>720 × 1280 · 1.1 MB</span><button class="re" onclick="toast('Choose a different image')">Replace</button></div>
+        </div>
+        <div class="q"><div class="qt">Advanced <span style="font-weight:400;color:var(--faint)">optional</span></div><div class="qh">Only needed if the broker can't infer the partition size.</div>
+          <div class="qc two"><input class="inp mono" placeholder="…or paste a splash.img URL"><input class="inp mono" placeholder="partition size (bytes)"></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="sh-f">
+      <div class="seg"><button class="on">All devices</button><button>Groups</button><button>Specific</button></div>
+      <div class="rad"><b>900</b> devices · 846 online, 54 queued</div>
+      <button class="send" onclick="toast('Dispatched '+CUR.name)"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Send action</button>
+    </div>
+  </div>
+</div>
+<div id="toast"><span id="tm"></span></div>
+<script>
+var ICON={install_apk:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>',uninstall:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>',screenshot:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>',logcat:'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>',shell:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>',reboot:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>',update_splash:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>'};
+var A=[{t:'install_apk',name:'Install app',sub:'Push an APK and install it silently',g:'Apps'},{t:'uninstall',name:'Uninstall',sub:'Remove a package across the target',g:'Apps'},{t:'screenshot',name:'Screenshot',sub:'Capture the live screen',g:'Diag'},{t:'logcat',name:'Log capture',sub:'Pull a logcat buffer',g:'Diag'},{t:'shell',name:'Shell',sub:'Run a shell command',g:'Diag'},{t:'reboot',name:'Reboot',sub:'Restart the device',g:'Power'},{t:'update_splash',name:'Boot logo',sub:'Replace the boot splash image',g:'Custom'}];
+var CUR=A[0];
+function toast(m){var t=document.getElementById('toast');document.getElementById('tm').textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
+function go(t){CUR=A.find(a=>a.t===t);
+  document.getElementById('pills').querySelectorAll('.pill').forEach(p=>p.classList.toggle('on',p.dataset.t===t));
+  document.getElementById('ic').innerHTML='<svg viewBox="0 0 24 24">'+ICON[t]+'</svg>';
+  document.getElementById('t').textContent=CUR.name;document.getElementById('s').textContent=CUR.sub;
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.dataset.p===t));
+}
+document.getElementById('pills').innerHTML=A.map(a=>'<button class="pill'+(a.t===CUR.t?' on':'')+'" data-t="'+a.t+'" onclick="go(\''+a.t+'\')"><span class="ic"><svg viewBox="0 0 24 24">'+ICON[a.t]+'</svg></span>'+a.name+'<span class="g">'+a.g+'</span></button>').join('');
+go('install_apk');
+</script>
+</body></html>
