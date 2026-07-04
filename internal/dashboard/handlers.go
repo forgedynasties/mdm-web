@@ -1001,8 +1001,9 @@ const loginMaxFailures = 8
 
 // sessionIdleTimeout logs out a session that has gone this long without an
 // authenticated request, independent of the absolute lifetime
-// (cfg.SessionTimeout()). Activity slides last_seen forward (touchSession).
-const sessionIdleTimeout = 30 * time.Minute
+// (cfg.SessionTimeout(), default 24h). Activity slides last_seen forward
+// (touchSession).
+const sessionIdleTimeout = 24 * time.Hour
 
 // currentSession resolves the server-side session referenced by the request
 // cookie, enforcing both the absolute expiry and the idle timeout. An invalid,
