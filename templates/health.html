@@ -1,6 +1,73 @@
 {{define "health.html"}}
 {{template "header" .}}
 
+<style>
+/* ── Fleet Health · Pulse ─────────────────────────────── */
+.hp-hero{display:grid;grid-template-columns:auto 1fr auto;gap:26px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:20px 24px;margin-bottom:16px;}
+@media(max-width:720px){.hp-hero{grid-template-columns:auto 1fr;}.hp-toggle{grid-column:1/-1;justify-self:start;}}
+.hp-ring{position:relative;width:120px;height:120px;flex:none;}
+.hp-ring svg{width:120px;height:120px;}
+.hp-ring .trk{fill:none;stroke:var(--surface-3);stroke-width:9;}
+.hp-ring .val{fill:none;stroke-width:9;stroke-linecap:round;stroke:var(--muted);}
+.hp-hero.is-ok .hp-ring .val{stroke:var(--ok);}
+.hp-hero.is-warn .hp-ring .val{stroke:var(--warn);}
+.hp-hero.is-danger .hp-ring .val{stroke:var(--danger);}
+.hp-ring .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.hp-ring .n b{font-size:36px;font-weight:750;letter-spacing:-.02em;line-height:1;}
+.hp-hero.is-ok .hp-ring .n b{color:var(--ok);}
+.hp-hero.is-warn .hp-ring .n b{color:var(--warn);}
+.hp-hero.is-danger .hp-ring .n b{color:var(--danger);}
+.hp-ring .n span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:3px;}
+.hp-hero-r{min-width:0;}
+.hp-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);}
+.hp-verdict{font-size:22px;font-weight:750;letter-spacing:-.01em;margin-top:3px;}
+.hp-sub{font-size:13.5px;color:var(--muted);margin-top:3px;}
+
+.hp-vitals{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:22px;}
+@media(max-width:860px){.hp-vitals{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:520px){.hp-vitals{grid-template-columns:repeat(2,1fr);}}
+.hp-vt{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:15px 16px;text-decoration:none;color:inherit;transition:border-color .14s,transform .1s;}
+.hp-vt:hover{border-color:var(--rule-2);transform:translateY(-1px);}
+.hp-vt .k{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.hp-vt .k svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;}
+.hp-vt .v{display:block;font-size:27px;font-weight:750;letter-spacing:-.01em;margin-top:8px;line-height:1;}
+.hp-vt .v.ok{color:var(--ok);}.hp-vt .v.warn{color:var(--warn);}.hp-vt .v.bad{color:var(--danger);}
+.hp-vt .d{display:block;font-size:11.5px;margin-top:5px;color:var(--muted);}
+
+.hp-cols{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:start;margin-bottom:22px;}
+@media(max-width:860px){.hp-cols{grid-template-columns:1fr;}}
+.hp-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;}
+.hp-card-h{display:flex;align-items:center;gap:8px;padding:15px 18px;border-bottom:1px solid var(--border-soft);}
+.hp-card-h h3{font-size:14.5px;font-weight:700;margin:0;}
+.hp-card-h .m{margin-left:auto;font-size:12px;color:var(--muted);}
+.hp-rrow{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:13px;align-items:center;padding:12px 18px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;}
+.hp-rrow:first-of-type{border-top:none;}
+.hp-rrow:hover{background:var(--surface2);}
+.hp-rscore{width:34px;height:34px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:750;font-variant-numeric:tabular-nums;}
+.hp-rscore.ok{background:var(--ok-bg);color:var(--ok);}
+.hp-rscore.warn{background:var(--warn-bg);color:var(--warn);}
+.hp-rscore.danger{background:var(--danger-bg);color:var(--danger);}
+.hp-rname{display:block;font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hp-rissue{display:block;font-size:12px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hp-rbar{width:120px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;flex:none;}
+.hp-rbar i{display:block;height:100%;border-radius:99px;}
+.hp-rbar i.ok{background:var(--ok);}.hp-rbar i.warn{background:var(--warn);}.hp-rbar i.danger{background:var(--danger);}
+@media(max-width:520px){.hp-rbar{display:none;}}
+.hp-fold{padding:14px 18px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border-soft);}
+.hp-fold b{color:var(--ok);}
+.hp-allclear{display:flex;align-items:center;gap:12px;padding:18px;}
+.hp-allclear .i{width:34px;height:34px;flex:none;border-radius:9px;background:var(--ok-bg);display:flex;align-items:center;justify-content:center;color:var(--ok);}
+.hp-allclear .i svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;}
+.hp-allclear .t{font-size:14px;font-weight:650;}.hp-allclear .s{font-size:12.5px;color:var(--muted);}
+.hp-bd{padding:16px 18px;}
+.hp-bditem+.hp-bditem{margin-top:15px;}
+.hp-bdtop{display:flex;align-items:baseline;justify-content:space-between;font-size:13px;}
+.hp-bdtop .bn{font-weight:600;}.hp-bdtop .bv{font-family:var(--mono);font-size:12px;color:var(--muted);}
+.hp-bdbar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:7px;}
+.hp-bdbar i{display:block;height:100%;border-radius:99px;min-width:3px;}
+.hp-bdbar i.ok{background:var(--ok);}.hp-bdbar i.warn{background:var(--warn);}.hp-bdbar i.danger{background:var(--danger);}
+</style>
+
 <div class="ov-greet">
   <h1 class="ov-title">Fleet Health</h1>
   <span class="ov-date">per-restaurant health, worst first — where to send a tech</span>
@@ -11,104 +78,69 @@
   {{end}}
 </div>
 
-{{/* ── Hero band: fleet score ring + verdict + KPIs + window toggle ── */}}
-<div class="hl-hero is-{{.ScoreClass}}">
-  <div class="hl-ring">
-    <svg viewBox="0 0 104 104" width="84" height="84">
+{{/* ── Hero: fleet score ring + verdict + window toggle ── */}}
+<div class="hp-hero is-{{.ScoreClass}}">
+  <div class="hp-ring">
+    <svg viewBox="0 0 104 104">
       <circle class="trk" cx="52" cy="52" r="40"/>
       <circle class="val" cx="52" cy="52" r="40" stroke-dasharray="251.3" stroke-dashoffset="{{.RingOffset}}" transform="rotate(-90 52 52)">
         <animate attributeName="stroke-dashoffset" from="251.3" to="{{.RingOffset}}" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.2 0.7 0.3 1"/>
       </circle>
     </svg>
-    <div class="hl-ring-num">{{.Score}}</div>
+    <div class="n"><b>{{.Score}}</b><span>Health</span></div>
   </div>
-  <div class="hl-htxt">
-    <span class="hl-eyebrow">Fleet health · {{if eq .WindowDays 1}}today{{else}}last 7 days{{end}}</span>
-    <span class="hl-verdict">{{.Verdict}}</span>
-    <span class="hl-sub">{{.OnlineDevices}} of {{.TotalDevices}} devices online · {{.OpenAlerts}} open alert{{if ne .OpenAlerts 1}}s{{end}}</span>
+  <div class="hp-hero-r">
+    <div class="hp-eyebrow">Fleet health · {{if eq .WindowDays 1}}today{{else}}last 7 days{{end}}</div>
+    <div class="hp-verdict">{{.Verdict}}</div>
+    <div class="hp-sub">{{.OnlineDevices}} of {{.TotalDevices}} devices online · {{.OpenAlerts}} open alert{{if ne .OpenAlerts 1}}s{{end}} · {{.UniqueBuilds}} build{{if ne .UniqueBuilds 1}}s{{end}}</div>
   </div>
-  <div class="hl-kpis">
-    <a class="hl-kpi" href="/devices"><span class="v">{{.TotalDevices}}</span><span class="k">Devices</span></a>
-    <a class="hl-kpi" href="/devices?status=online"><span class="v ok">{{.OnlineDevices}}</span><span class="k">Online</span></a>
-    <a class="hl-kpi" href="/devices?status=offline"><span class="v{{if gt .OfflineDevices 0}} bad{{end}}">{{.OfflineDevices}}</span><span class="k">Offline</span></a>
-    <a class="hl-kpi" href="/alerts?status=open"><span class="v{{if gt .OpenAlerts 0}} warn{{end}}">{{.OpenAlerts}}</span><span class="k">Alerts</span></a>
-    <a class="hl-kpi" href="/releases"><span class="v">{{.UniqueBuilds}}</span><span class="k">Builds</span></a>
-  </div>
-  <div class="dur-btns hl-toggle" title="Aggregation window">
+  <div class="dur-btns hp-toggle" title="Aggregation window">
     <a class="dur-btn{{if ne .WindowDays 1}} active{{end}}" href="/fleet-health?days=7">7 days</a>
     <a class="dur-btn{{if eq .WindowDays 1}} active{{end}}" href="/fleet-health?days=1">1 day</a>
   </div>
 </div>
 
-{{template "ai-report-card" .}}
-
-{{/* ── Ops split: ranked restaurants · live evidence feed ── */}}
-<div class="hl-split">
-
-  <div class="card hl-ranked">
-    <div class="card-header">
-      <h3>Restaurants by health</h3>
-      <span class="muted small spacer-l">worst first</span>
-    </div>
-    {{if not .Groups}}
-    <div class="empty-state">
-      <div class="empty-state-copy">
-        <div class="empty-state-title">No restaurants yet</div>
-        <div class="empty-state-text">Create restaurants and the health scorecard ranks them here.</div>
-      </div>
-    </div>
-    {{else}}
-    <div class="hl-row hl-row-head">
-      <span>Score</span><span>Restaurant</span><span class="num">Offline</span><span class="num">Battery</span><span class="num">Charging</span><span class="num">Max °C</span>
-    </div>
-    {{range .Groups}}
-    <a class="hl-row" href="/restaurants/{{.GroupID}}">
-      <span class="hl-scorewrap" title="Health score {{.Score}}">
-        <span class="hl-scorebar"><i class="{{.ScoreClass}}" style="width:{{if gt .DeviceCount 0}}{{.Score}}{{else}}0{{end}}%"></i></span>
-        <span class="hl-scoren {{if le .DeviceCount 0}}muted{{else}}{{.ScoreClass}}{{end}}">{{if gt .DeviceCount 0}}{{.Score}}{{else}}—{{end}}</span>
-      </span>
-      <span class="hl-rname">{{.Name}}<span class="s">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span></span>
-      <span class="hl-cell num">{{if gt .OfflineCount 0}}<b class="bad">{{.OfflineCount}}</b>{{else}}<span class="muted">0</span>{{end}}</span>
-      <span class="hl-cell num">{{if .BatteryAvg}}{{fnum .BatteryAvg}}%{{if .BatteryDelta}} <span class="u">{{fdelta .BatteryDelta}}</span>{{end}}{{else}}<span class="muted">—</span>{{end}}</span>
-      <span class="hl-cell num">{{if .ChargingAvg}}{{fpct .ChargingAvg}}{{else}}<span class="muted">—</span>{{end}}</span>
-      <span class="hl-cell num">{{if .TempMax}}{{fnum .TempMax}}{{else}}<span class="muted">—</span>{{end}}</span>
-    </a>
-    {{end}}
-    {{end}}
-  </div>
-
-  <div class="card hl-evidence">
-    <div class="card-header">
-      <h3>Evidence</h3>
-      <span class="muted small spacer-l">{{.OpenAlertsCount}} open alert{{if ne .OpenAlertsCount 1}}s{{end}}</span>
-    </div>
-    {{if eq .OpenAlertsCount 0}}
-    <div class="hl-allclear">
-      <span class="hl-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-      <div><div class="t">Nothing to investigate</div><div class="d">No open alerts behind the scores right now.</div></div>
-    </div>
-    {{else}}
-    <div class="hl-feed">
-      {{range .Evidence}}
-      {{if .Alerts}}
-      <div class="hl-evcat"><span class="dot {{if eq .Key "heat"}}d-bad{{else}}d-warn{{end}}"></span>{{.Label}}<span class="c">{{len .Alerts}}</span></div>
-      {{range .Alerts}}
-      <div class="hl-ev">
-        <span class="dot {{if eq .Severity "critical"}}d-bad{{else if eq .Severity "warning"}}d-warn{{else}}d-muted{{end}}"></span>
-        <div class="evb">
-          <div class="t1">{{if .Serial}}<a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>{{else}}<span class="muted">—</span>{{end}} <span class="sm">{{.Summary}}</span></div>
-          <div class="t2">{{if .RestaurantName}}{{.RestaurantName}} · {{end}}fired {{timeSince .FiredAt}}</div>
-        </div>
-        <span class="hl-sev {{if eq .Severity "critical"}}c{{else if eq .Severity "warning"}}w{{else}}m{{end}}">{{.Severity}}</span>
-      </div>
-      {{end}}
-      {{end}}
-      {{end}}
-    </div>
-    {{end}}
-  </div>
-
+{{/* ── Vital signs ── */}}
+<div class="hp-vitals">
+  <a class="hp-vt" href="/devices?status=online"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12h4l2 6 4-14 2 8h6"/></svg>Online</span><span class="v ok">{{.OnlineDevices}}</span><span class="d">of {{.TotalDevices}} devices</span></a>
+  <a class="hp-vt" href="/devices?status=offline"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span><span class="v{{if gt .OfflineDevices 0}} bad{{end}}">{{.OfflineDevices}}</span><span class="d">queued for reconnect</span></a>
+  <a class="hp-vt" href="/devices?battery=low"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span><span class="v{{if gt .LowBattery 0}} warn{{end}}">{{.LowBattery}}</span><span class="d">under 20%</span></a>
+  <a class="hp-vt" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Running hot</span><span class="v{{if gt .HotCount 0}} bad{{end}}">{{.HotCount}}</span><span class="d">over threshold</span></a>
+  <a class="hp-vt" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Open alerts</span><span class="v{{if gt .OpenAlerts 0}} warn{{end}}">{{.OpenAlerts}}</span><span class="d">unresolved</span></a>
 </div>
+
+{{/* ── Needs a look · What's dragging the score ── */}}
+<div class="hp-cols">
+  <div class="hp-card">
+    <div class="hp-card-h"><h3>Needs a look</h3><span class="m">worst first</span></div>
+    {{if not .Groups}}
+    <div class="hp-allclear"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">No restaurants yet</div><div class="s">Create restaurants and the health scorecard ranks them here.</div></div></div>
+    {{else if eq .Attention 0}}
+    <div class="hp-allclear"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">Every restaurant is healthy</div><div class="s">All locations scoring 80+ — nothing to send a tech to.</div></div></div>
+    {{else}}
+    {{range .Groups}}{{if and (ne .ScoreClass "ok") (gt .DeviceCount 0)}}
+    <a class="hp-rrow" href="/restaurants/{{.GroupID}}">
+      <span class="hp-rscore {{.ScoreClass}}">{{.Score}}</span>
+      <span><span class="hp-rname">{{.Name}}</span><span class="hp-rissue">{{if gt .OfflineCount 0}}{{.OfflineCount}} offline{{end}}{{if .TempMax}}{{if gt .OfflineCount 0}} · {{end}}max {{fnum .TempMax}}°C{{end}}{{if and (le .OfflineCount 0) (not .TempMax)}}{{if .BatteryAvg}}avg battery {{fnum .BatteryAvg}}%{{else}}{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}} · needs a look{{end}}{{end}}</span></span>
+      <span class="hp-rbar"><i class="{{.ScoreClass}}" style="width:{{.Score}}%"></i></span>
+    </a>
+    {{end}}{{end}}
+    {{if gt .HealthyCount 0}}<div class="hp-fold"><b>✓ {{.HealthyCount}} restaurant{{if ne .HealthyCount 1}}s{{end}}</b> scoring 80+ — nothing to do there.</div>{{end}}
+    {{end}}
+  </div>
+
+  <div class="hp-card">
+    <div class="hp-card-h"><h3>What's dragging the score</h3></div>
+    <div class="hp-bd">
+      <div class="hp-bditem"><div class="hp-bdtop"><span class="bn">Connectivity</span><span class="bv">{{.OfflineDevices}} offline</span></div><div class="hp-bdbar"><i class="warn" style="width:{{pct .OfflineDevices .TotalDevices}}%"></i></div></div>
+      <div class="hp-bditem"><div class="hp-bdtop"><span class="bn">Battery</span><span class="bv">{{.LowBattery}} critical</span></div><div class="hp-bdbar"><i class="warn" style="width:{{pct .LowBattery .TotalDevices}}%"></i></div></div>
+      <div class="hp-bditem"><div class="hp-bdtop"><span class="bn">Temperature</span><span class="bv">{{.HotCount}} over threshold</span></div><div class="hp-bdbar"><i class="danger" style="width:{{pct .HotCount .TotalDevices}}%"></i></div></div>
+      <div class="hp-bditem"><div class="hp-bdtop"><span class="bn">Open alerts</span><span class="bv">{{.OpenAlerts}} unresolved</span></div><div class="hp-bdbar"><i class="ok" style="width:{{pct .OpenAlerts .TotalDevices}}%"></i></div></div>
+    </div>
+  </div>
+</div>
+
+{{template "ai-report-card" .}}
 
 {{template "footer" .}}
 {{end}}
