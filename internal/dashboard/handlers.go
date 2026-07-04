@@ -2964,18 +2964,28 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		verdict = fmt.Sprintf("%d restaurants need a look", attention)
 	}
 
+	hot := hotSerialsFromHealth(groups, h.alertThresholds(r.Context()).TempC)
+	healthy := 0
+	for _, g := range groups {
+		if g.DeviceCount > 0 && g.ScoreClass == "ok" {
+			healthy++
+		}
+	}
 	data := map[string]any{
 		"Title":           "Fleet Health",
 		"Groups":          groups,
 		"TotalDevices":    summary.Total,
 		"OnlineDevices":   summary.RecentlyActive,
 		"OfflineDevices":  summary.Total - summary.RecentlyActive,
+		"LowBattery":      summary.LowBattery,
+		"HotCount":        len(hot),
+		"HealthyCount":    healthy,
 		"OpenAlerts":      openAlerts,
 		"UniqueBuilds":    summary.UniqueBuilds,
 		"Evidence":        groupAlertsBySignal(alerts),
 		"OpenAlertsCount": len(alerts),
 		"DeviceSerials":   serialsJSON(serials),
-		"HotSerials":      serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(r.Context()).TempC)),
+		"HotSerials":      serialsJSON(hot),
 		"WindowDays":      windowDays,
 		"Score":           score,
 		"ScoreClass":      scoreClass,
