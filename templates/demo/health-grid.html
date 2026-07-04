@@ -1,0 +1,112 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Health · Grid — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-soft:rgba(249,103,78,.1);--coral-edge:rgba(249,103,78,.3);--peri:#7a80f6;
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.1);--ok-edge:rgba(21,127,60,.24);--warn:#b45309;--warn-soft:rgba(180,83,9,.12);--warn-edge:rgba(180,83,9,.26);--danger:#b42318;--danger-soft:rgba(180,35,24,.09);--danger-edge:rgba(180,35,24,.26);
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+.wrap{max-width:1120px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:64ch}
+
+/* header bar: score + vitals + filters */
+.top{display:flex;align-items:center;gap:20px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-md);padding:16px 22px;margin-bottom:14px}
+.top .sc{display:flex;align-items:center;gap:13px}
+.top .sc .n{font-size:34px;font-weight:750;letter-spacing:-.02em;color:var(--warn)}
+.top .sc .l{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.top .sc .v{font-size:14px;font-weight:650;margin-top:1px}
+.top .vt{display:flex;gap:22px;margin-left:8px}
+.top .vt a{text-align:left}.top .vt .v{font-size:19px;font-weight:750;line-height:1}.top .vt .v.ok{color:var(--ok)}.top .vt .v.bad{color:var(--danger)}.top .vt .v.warn{color:var(--warn)}
+.top .vt .k{font-size:11px;color:var(--muted)}
+.segs{margin-left:auto;display:inline-flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:4px}
+.segs button{border:none;background:none;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;color:var(--muted)}
+.segs button.on{background:var(--surface);color:var(--coral);box-shadow:var(--sh-sm)}
+.legend{display:flex;gap:14px;align-items:center;margin:0 2px 12px;font-size:11.5px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:10px;height:10px;border-radius:3px}
+.legend i.ok{background:var(--ok)}.legend i.warn{background:var(--warn)}.legend i.bad{background:var(--danger)}
+
+/* heatmap grid */
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:11px}
+.tile{border:1px solid var(--border);border-radius:var(--r4);padding:14px 15px;background:var(--surface);position:relative;overflow:hidden;transition:transform .1s,box-shadow .14s}
+.tile:hover{transform:translateY(-2px);box-shadow:var(--sh-md)}
+.tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px}
+.tile.ok::before{background:var(--ok)}.tile.warn::before{background:var(--warn)}.tile.bad::before{background:var(--danger)}
+.tile.ok{background:linear-gradient(180deg,var(--ok-soft),var(--surface))}
+.tile.warn{background:linear-gradient(180deg,var(--warn-soft),var(--surface))}
+.tile.bad{background:linear-gradient(180deg,var(--danger-soft),var(--surface))}
+.tile .th{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.tile .nm{font-size:14px;font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tile .sc{font-size:24px;font-weight:750;letter-spacing:-.02em;line-height:1;flex:none}
+.tile.ok .sc{color:var(--ok)}.tile.warn .sc{color:var(--warn)}.tile.bad .sc{color:var(--danger)}
+.tile .dev{font-size:11.5px;color:var(--muted);margin-top:2px}
+.tile .stats{display:flex;gap:12px;margin-top:12px;padding-top:11px;border-top:1px solid var(--border-soft)}
+.tile .st{font-size:11px;color:var(--muted)}.tile .st b{display:block;font-size:14px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;line-height:1.2}
+.tile .st b.bad{color:var(--danger)}.tile .st b.warn{color:var(--warn)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/index">← All demos</a><span class="tag">Health · Grid</span></div>
+  <h1>Fleet Health — Grid</h1>
+  <p class="lede">Every restaurant as a color-coded tile, sorted worst-first — the whole fleet's health readable at a glance, and it scales to hundreds of locations. Reusable as a compact fleet map on Overview.</p>
+
+  <div class="top">
+    <div class="sc"><span class="n">78</span><div><div class="l">Fleet health</div><div class="v">2 need a look</div></div></div>
+    <div class="vt">
+      <a><div class="v ok">846</div><div class="k">Online</div></a>
+      <a><div class="v bad">54</div><div class="k">Offline</div></a>
+      <a><div class="v warn">8</div><div class="k">Low batt</div></a>
+      <a><div class="v">12</div><div class="k">Alerts</div></a>
+    </div>
+    <div class="segs"><button class="on">All 44</button><button>Needs a look 3</button></div>
+  </div>
+
+  <div class="legend"><span><i class="bad"></i>Critical &lt;50</span><span><i class="warn"></i>Watch 50–79</span><span><i class="ok"></i>Healthy 80+</span><span style="margin-left:auto">worst first</span></div>
+
+  <div class="hgrid" id="grid"></div>
+</div>
+<script>
+var R=[
+ {n:'Downtown Diner',s:38,d:24,off:8,hot:2},
+ {n:"Tom's Ducci 6th",s:54,d:18,off:3,low:4},
+ {n:'San Jose Office',s:71,d:31,off:2},
+ {n:'Midtown Grill',s:81,d:22,off:1},
+ {n:'Harbor Cafe',s:83,d:14},
+ {n:'Nugget Market',s:88,d:40},
+ {n:'Airport Kiosk',s:92,d:12},
+ {n:'Elm St Bakery',s:84,d:9},
+ {n:'Riverside Bar',s:79,d:16,off:1},
+ {n:'Oak Plaza',s:90,d:27},
+ {n:'Sunset Deli',s:86,d:11},
+ {n:'Union Station',s:94,d:33},
+ {n:'Pier 7 Grill',s:82,d:19},
+ {n:'Maple Court',s:96,d:8},
+ {n:'Bay View Cafe',s:89,d:21},
+ {n:'Central Kitchen',s:91,d:38}
+];
+function cls(s){return s<50?'bad':s<80?'warn':'ok'}
+document.getElementById('grid').innerHTML=R.map(function(r){
+  var c=cls(r.s);
+  var stats='<span class="st"><b>'+r.d+'</b>devices</span>';
+  if(r.off)stats+='<span class="st"><b class="'+(r.off>5?'bad':'warn')+'">'+r.off+'</b>offline</span>';
+  if(r.low)stats+='<span class="st"><b class="warn">'+r.low+'</b>low batt</span>';
+  if(r.hot)stats+='<span class="st"><b class="bad">'+r.hot+'</b>hot</span>';
+  if(!r.off&&!r.low&&!r.hot)stats+='<span class="st"><b class="">✓</b>all clear</span>';
+  return '<a class="tile '+c+'"><div class="th"><span class="nm">'+r.n+'</span><span class="sc">'+r.s+'</span></div><div class="dev">'+r.d+' devices</div><div class="stats">'+stats+'</div></a>';
+}).join('');
+</script>
+</body></html>

@@ -1,0 +1,133 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Health · Pulse — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.1);--peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.1);--warn:#b45309;--warn-soft:rgba(180,83,9,.12);--danger:#b42318;--danger-soft:rgba(180,35,24,.09);
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}a{color:inherit;text-decoration:none}
+.wrap{max-width:1120px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:64ch}
+.cap{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0 2px 12px}
+
+/* hero */
+.hero{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-md);padding:22px 26px;margin-bottom:16px}
+@media(max-width:720px){.hero{grid-template-columns:1fr;gap:18px}}
+.ring{position:relative;width:132px;height:132px;flex:none}
+.ring svg{width:132px;height:132px;transform:rotate(-90deg)}
+.ring .trk{fill:none;stroke:var(--surface3);stroke-width:11}
+.ring .val{fill:none;stroke-width:11;stroke-linecap:round;stroke:var(--ok);transition:stroke-dashoffset 1s ease}
+.ring .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .n b{font-size:38px;font-weight:750;letter-spacing:-.02em;line-height:1;color:var(--ok)}
+.ring .n span{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:3px}
+.hero-r{min-width:0}
+.hero-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
+.hero-verdict{font-size:22px;font-weight:750;letter-spacing:-.01em;margin-top:3px}
+.hero-sub{font-size:13.5px;color:var(--muted);margin-top:3px}
+.spark{margin-top:16px;display:flex;align-items:flex-end;gap:14px}
+.spark svg{width:100%;height:46px;overflow:visible}
+.spark .lg{font-size:11px;color:var(--muted);white-space:nowrap}.spark .lg b{color:var(--ok);font-weight:700}
+
+/* vitals */
+.vitals{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:26px}
+@media(max-width:860px){.vitals{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:520px){.vitals{grid-template-columns:repeat(2,1fr)}}
+.vt{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);padding:15px 16px;transition:border-color .14s,transform .1s}
+.vt:hover{border-color:var(--rule);transform:translateY(-1px)}
+.vt .k{font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.vt .k svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.vt .v{font-size:27px;font-weight:750;letter-spacing:-.01em;margin-top:8px;line-height:1}
+.vt .d{font-size:11.5px;margin-top:5px;display:flex;align-items:center;gap:4px}
+.vt .d.up{color:var(--ok)}.vt .d.down{color:var(--danger)}.vt .d.flat{color:var(--muted)}
+.vt .v.ok{color:var(--ok)}.vt .v.warn{color:var(--warn)}.vt .v.bad{color:var(--danger)}
+
+/* two columns */
+.cols{display:grid;grid-template-columns:1.35fr 1fr;gap:20px;align-items:start}
+@media(max-width:860px){.cols{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);overflow:hidden}
+.card-h{display:flex;align-items:center;gap:8px;padding:15px 18px;border-bottom:1px solid var(--border-soft)}
+.card-h h3{font-size:14.5px;font-weight:700}.card-h .m{margin-left:auto;font-size:12px;color:var(--muted)}
+/* ranked rows */
+.rrow{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:13px;align-items:center;padding:12px 18px;border-top:1px solid var(--border-soft)}
+.rrow:first-of-type{border-top:none}
+.rrow:hover{background:var(--surface2)}
+.rscore{width:34px;height:34px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:750;font-variant-numeric:tabular-nums}
+.rscore.ok{background:var(--ok-soft);color:var(--ok)}.rscore.warn{background:var(--warn-soft);color:var(--warn)}.rscore.bad{background:var(--danger-soft);color:var(--danger)}
+.rname{display:block;font-size:13.5px;font-weight:650}
+.rissue{display:block;font-size:12px;color:var(--muted);margin-top:1px}
+.rbar{width:120px;height:6px;border-radius:99px;background:var(--surface3);overflow:hidden;flex:none}
+.rbar i{display:block;height:100%;border-radius:99px}
+.rbar i.ok{background:var(--ok)}.rbar i.warn{background:var(--warn)}.rbar i.bad{background:var(--danger)}
+.allhealthy{padding:14px 18px;font-size:12.5px;color:var(--muted);border-top:1px solid var(--border-soft)}
+.allhealthy b{color:var(--ok)}
+/* breakdown bars */
+.bd{padding:16px 18px}
+.bditem+.bditem{margin-top:15px}
+.bdtop{display:flex;align-items:baseline;justify-content:space-between;font-size:13px}
+.bdtop .bn{font-weight:600}.bdtop .bv{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.bdbar{height:8px;border-radius:99px;background:var(--surface3);overflow:hidden;margin-top:7px}
+.bdbar i{display:block;height:100%;border-radius:99px}
+.bdbar i.ok{background:var(--ok)}.bdbar i.warn{background:var(--warn)}.bdbar i.bad{background:var(--danger)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/index">← All demos</a><span class="tag">Health · Pulse</span></div>
+  <h1>Fleet Health — Pulse</h1>
+  <p class="lede">A calm scorecard: the health score with its 7-day trend, a strip of vital signs each with their own direction, and the two questions that matter — what needs a look, and what's dragging the score down. Reusable as the Overview hero.</p>
+
+  <div class="hero">
+    <div class="ring"><svg viewBox="0 0 132 132"><circle class="trk" cx="66" cy="66" r="56"/><circle class="val" cx="66" cy="66" r="56" stroke-dasharray="351.9" stroke-dashoffset="77.4"/></svg><div class="n"><b>78</b><span>Health</span></div></div>
+    <div class="hero-r">
+      <div class="hero-eyebrow">Fleet health · last 7 days</div>
+      <div class="hero-verdict">2 restaurants need a look</div>
+      <div class="hero-sub">846 of 900 devices online · 12 open alerts · up 4 points this week</div>
+      <div class="spark">
+        <svg viewBox="0 0 320 46" preserveAspectRatio="none"><polyline fill="none" stroke="var(--ok)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="0,30 46,28 91,32 137,22 183,24 229,16 274,18 320,10"/><polyline fill="none" stroke="var(--ok-soft)" stroke-width="0" points="0,46 320,46"/></svg>
+        <span class="lg">7-day trend<br><b>74 → 78</b></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="vitals">
+    <div class="vt"><div class="k"><svg viewBox="0 0 24 24"><path d="M5 12h4l2 6 4-14 2 8h6"/></svg>Online</div><div class="v ok">846</div><div class="d up">▲ 12 vs yesterday</div></div>
+    <div class="vt"><div class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</div><div class="v">54</div><div class="d down">▲ 6 vs yesterday</div></div>
+    <div class="vt"><div class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</div><div class="v warn">8</div><div class="d flat">— unchanged</div></div>
+    <div class="vt"><div class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Running hot</div><div class="v bad">2</div><div class="d down">▲ 1 vs yesterday</div></div>
+    <div class="vt"><div class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg>Open alerts</div><div class="v">12</div><div class="d up">▼ 3 vs yesterday</div></div>
+  </div>
+
+  <div class="cols">
+    <div class="card">
+      <div class="card-h"><h3>Needs a look</h3><span class="m">worst first</span></div>
+      <div class="rrow"><span class="rscore bad">38</span><span><span class="rname">Downtown Diner</span><span class="rissue">8 offline · max 55°C at register 3</span></span><span class="rbar"><i class="bad" style="width:38%"></i></span></div>
+      <div class="rrow"><span class="rscore warn">54</span><span><span class="rname">Tom's Ducci 6th</span><span class="rissue">3 offline · 4 devices under 20% battery</span></span><span class="rbar"><i class="warn" style="width:54%"></i></span></div>
+      <div class="rrow"><span class="rscore warn">71</span><span><span class="rname">San Jose Office</span><span class="rissue">2 offline over 3h</span></span><span class="rbar"><i class="warn" style="width:71%"></i></span></div>
+      <div class="allhealthy"><b>✓ 41 restaurants</b> scoring 80+ — nothing to do there.</div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>What's dragging the score</h3></div>
+      <div class="bd">
+        <div class="bditem"><div class="bdtop"><span class="bn">Connectivity</span><span class="bv">54 offline</span></div><div class="bdbar"><i class="warn" style="width:64%"></i></div></div>
+        <div class="bditem"><div class="bdtop"><span class="bn">Battery</span><span class="bv">8 critical</span></div><div class="bdbar"><i class="warn" style="width:78%"></i></div></div>
+        <div class="bditem"><div class="bdtop"><span class="bn">Temperature</span><span class="bv">2 over 54°C</span></div><div class="bdbar"><i class="bad" style="width:88%"></i></div></div>
+        <div class="bditem"><div class="bdtop"><span class="bn">Open alerts</span><span class="bv">12 unresolved</span></div><div class="bdbar"><i class="ok" style="width:92%"></i></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

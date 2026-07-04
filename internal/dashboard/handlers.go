@@ -6844,7 +6844,8 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"actions", "actions-launchpad", "actions-palette", "actions-flightdeck",
 		"actions-stepper", "actions-accordion", "actions-drawer",
 		"actions-pick-pills", "actions-pick-spotlight", "actions-pick-toolbar",
-		"actions-panes-studio", "actions-panes-console", "actions-panes-guided":
+		"actions-panes-studio", "actions-panes-console", "actions-panes-guided",
+		"health-pulse", "health-triage", "health-grid":
 	default:
 		http.NotFound(w, r)
 		return
