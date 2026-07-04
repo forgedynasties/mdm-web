@@ -1,0 +1,203 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payload panes · Console — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.32);
+  --peri:#7a80f6;--ok:#157f3c;--amber:#b45309;--amber-soft:rgba(180,83,9,.12);--amber-edge:rgba(180,83,9,.3);--danger:#b42318;
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --term:#12161b;--term-2:#1a1f26;--term-b:#232a33;--term-t:#c9d1d9;--term-dim:#7a8494;--term-green:#59c97a;--term-blue:#6aa9ff;--term-y:#e6a836;
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);--sh-lg:0 18px 50px rgba(28,26,24,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}button{font:inherit;cursor:pointer}input,select{font:inherit}
+.wrap{max-width:1000px;margin:0 auto;padding:26px 24px 120px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+.head h1{font-size:25px;font-weight:700;letter-spacing:-.02em}
+.head p{color:var(--muted);font-size:14.5px;margin-top:5px;max-width:64ch}
+.cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);margin:22px 2px 11px}
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.pill{display:inline-flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface);box-shadow:var(--sh-sm);font-size:13.5px;font-weight:600;color:var(--text2)}
+.pill:hover{border-color:var(--rule);background:var(--surface2)}
+.pill .ic{width:22px;height:22px;flex:none;border-radius:7px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.pill .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8}
+.pill.on{border-color:transparent;background:var(--coral-soft);color:var(--coral-h)}.pill.on .ic{background:#fff;color:var(--coral)}
+.pill .g{font-size:10px;color:var(--faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-left:2px}.pill.on .g{color:var(--coral)}
+
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-md);overflow:hidden}
+.sh-h{display:flex;align-items:center;gap:13px;padding:16px 20px;border-bottom:1px solid var(--border-soft)}
+.sh-ic{width:38px;height:38px;flex:none;border-radius:11px;background:var(--coral-soft);display:flex;align-items:center;justify-content:center}
+.sh-ic svg{width:20px;height:20px;fill:none;stroke:var(--coral);stroke-width:1.8}
+.sh-t{font-size:15px;font-weight:700}.sh-s{font-size:12.5px;color:var(--muted);margin-top:1px}
+.sh-b{padding:20px}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.pane{display:none}.pane.on{display:block;animation:fade .2s ease}@keyframes fade{from{opacity:0}to{opacity:1}}
+
+/* the composed command line (signature of this direction) */
+.cmd{display:flex;align-items:center;gap:10px;background:var(--term);border-radius:11px;padding:13px 15px;overflow-x:auto}
+.cmd .pr{color:var(--term-green);font-family:var(--mono);font-size:14px;flex:none}
+.cmd code{font-family:var(--mono);font-size:14px;color:var(--term-t);white-space:nowrap}
+.cmd .fl{color:var(--term-blue)}.cmd .ar{color:var(--term-y)}.cmd .mut{color:var(--term-dim)}
+.cmd .cur{display:inline-block;width:8px;height:16px;background:var(--term-green);vertical-align:-3px;margin-left:1px;animation:blink 1.1s step-end infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* dense control grid */
+.ctl{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.seg{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:3px}
+.seg button{border:none;background:none;border-radius:7px;padding:6px 11px;font-size:12.5px;font-weight:600;color:var(--muted);font-family:var(--mono)}
+.seg button.on{background:var(--surface);color:var(--coral);box-shadow:var(--sh-sm)}
+.fin{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:9px;background:var(--surface);overflow:hidden}
+.fin span{font-size:11px;color:var(--faint);font-weight:600;padding:0 4px 0 11px;font-family:var(--mono)}
+.fin input{border:none;outline:none;background:none;padding:8px 11px 8px 4px;font-family:var(--mono);font-size:13px;color:var(--text);width:110px}
+.terminput{width:100%;border:1px solid var(--border);border-radius:9px;background:var(--surface);padding:10px 13px;font-family:var(--mono);font-size:13.5px;color:var(--text);outline:none}
+.terminput:focus{border-color:var(--coral-edge);box-shadow:0 0 0 3px var(--coral-soft)}
+
+/* dense mono list (install/uninstall) */
+.list{border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:250px;overflow-y:auto}
+.li{width:100%;display:flex;align-items:center;gap:11px;padding:8px 12px;border:none;background:var(--surface);border-top:1px solid var(--border-soft);text-align:left;font-family:var(--mono);font-size:12.5px}
+.li:first-child{border-top:none}.li:hover{background:var(--surface2)}.li.on{background:var(--coral-soft)}
+.li .d{width:7px;height:7px;border-radius:50%;background:var(--rule);flex:none}.li.on .d{background:var(--coral)}
+.li .nm{color:var(--text);font-family:var(--font);font-weight:600;flex:none}
+.li .pk{color:var(--muted)}
+.li .c{margin-left:auto;color:var(--faint);white-space:nowrap}
+.finder{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;padding:0 11px;margin-bottom:8px;background:var(--surface)}
+.finder svg{width:15px;height:15px;fill:none;stroke:var(--muted);stroke-width:2;flex:none}
+.finder input{flex:1;border:none;outline:none;background:none;padding:9px 0;font-family:var(--mono);font-size:13px;color:var(--text)}
+
+.sub{font-size:12px;color:var(--muted);margin-top:10px;font-family:var(--mono)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 9px;color:var(--text2)}
+.chip:hover{border-color:var(--coral-edge);color:var(--coral)}
+.up{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.upbtn{display:inline-flex;align-items:center;gap:8px;border:1px dashed var(--rule);border-radius:9px;padding:9px 14px;color:var(--muted);font-size:12.5px;font-weight:600;font-family:var(--mono)}
+.upbtn:hover{border-color:var(--coral-edge);color:var(--coral)}
+.upbtn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.warn{display:flex;gap:9px;align-items:center;font-family:var(--mono);font-size:12.5px;color:var(--amber);background:var(--amber-soft);border:1px solid var(--amber-edge);border-radius:9px;padding:9px 12px;margin-top:12px}
+.warn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;flex:none}
+
+.sh-f{display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid var(--border-soft);background:var(--surface2);flex-wrap:wrap}
+.tgt{display:inline-flex;gap:2px;background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:3px}
+.tgt button{border:none;background:none;border-radius:7px;padding:7px 13px;font-size:12.5px;font-weight:600;color:var(--muted);font-family:var(--mono)}
+.tgt button.on{background:var(--coral-soft);color:var(--coral)}
+.rad{font-size:12.5px;color:var(--muted);font-family:var(--mono)}.rad b{color:var(--text)}
+.send{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:9px;padding:11px 20px;border:none;border-radius:11px;background:var(--grad);color:#fff;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(249,103,78,.28)}
+.send svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1c1a18;color:#fff;font-size:13.5px;padding:12px 18px;border-radius:11px;box-shadow:var(--sh-lg);z-index:60;transition:opacity .2s,transform .2s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/actions">← Actions demos</a><span class="tag">Panes · Console</span></div>
+  <div class="head">
+    <h1>Payload panes — Console</h1>
+    <p>A tighter, developer-minded take. Every action composes an equivalent command line up top, and the controls below stay compact and monospace. Fast for people who live in a terminal.</p>
+  </div>
+  <div class="cap">Choose an action</div>
+  <div class="pills" id="pills"></div>
+
+  <div class="sheet">
+    <div class="sh-h"><span class="sh-ic" id="ic"></span><div><div class="sh-t" id="t"></div><div class="sh-s" id="s"></div></div></div>
+    <div class="sh-b">
+      <div class="lbl">Payload</div>
+
+      <!-- Install -->
+      <div class="pane" data-p="install_apk">
+        <div class="cmd"><span class="pr">▸</span><code><span class="fl">install</span> <span class="ar" id="ci-app">AIO-POS-v4.2.0.apk</span></code></div>
+        <div class="finder" style="margin-top:12px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="filter library…"></div>
+        <div class="list">
+          <button class="li on" onclick="pickApp(this,'AIO-POS-v4.2.0.apk')"><span class="d"></span><span class="nm">AIO POS</span><span class="pk">v4.2.0 · 24MB</span><span class="c">812 dev</span></button>
+          <button class="li" onclick="pickApp(this,'KioskGuard-1.9.3.apk')"><span class="d"></span><span class="nm">KioskGuard</span><span class="pk">v1.9.3 · 8MB</span><span class="c">214 dev</span></button>
+          <button class="li" onclick="pickApp(this,'PrinterBridge-2.0.1.apk')"><span class="d"></span><span class="nm">PrinterBridge</span><span class="pk">v2.0.1 · 5MB</span><span class="c">640 dev</span></button>
+          <button class="li" onclick="pickApp(this,'TempProbe-0.7.0.apk')"><span class="d"></span><span class="nm">TempProbe</span><span class="pk">v0.7.0 · 3MB</span><span class="c">31 dev</span></button>
+        </div>
+        <div class="up"><button class="upbtn" onclick="toast('Upload .apk')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>upload .apk</button><button class="upbtn" onclick="toast('Paste URL')"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>paste url</button></div>
+      </div>
+
+      <!-- Uninstall -->
+      <div class="pane" data-p="uninstall">
+        <div class="cmd"><span class="pr">▸</span><code><span class="fl">pm uninstall</span> <span class="ar" id="cu-pkg">com.legacy.pay</span></code></div>
+        <div class="finder" style="margin-top:12px"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input placeholder="filter fleet packages…"></div>
+        <div class="list">
+          <button class="li on" onclick="pickPkg(this,'com.legacy.pay')"><span class="d"></span><span class="nm">LegacyPay</span><span class="pk">com.legacy.pay</span><span class="c">640 dev</span></button>
+          <button class="li" onclick="pickPkg(this,'com.acme.oldlauncher')"><span class="d"></span><span class="nm">OldLauncher</span><span class="pk">com.acme.oldlauncher</span><span class="c">88 dev</span></button>
+          <button class="li" onclick="pickPkg(this,'com.acme.debug')"><span class="d"></span><span class="nm">DebugTool</span><span class="pk">com.acme.debug</span><span class="c">12 dev</span></button>
+        </div>
+        <div class="sub"># skipped where the package isn't present</div>
+      </div>
+
+      <!-- Screenshot -->
+      <div class="pane" data-p="screenshot">
+        <div class="cmd"><span class="pr">▸</span><code><span class="fl">screencap</span> <span class="mut"># on next check-in → /screens/&lt;serial&gt;.png</span></code></div>
+        <div class="sub"># no arguments · captures within a 5-minute window · lands on each device page</div>
+      </div>
+
+      <!-- Log capture -->
+      <div class="pane" data-p="logcat">
+        <div class="cmd"><span class="pr">▸</span><code><span class="fl">logcat</span> <span class="mut">-v</span> <span class="ar" id="cl-lv">W</span> <span class="mut">-t</span> <span class="ar" id="cl-n">500</span> <span class="mut">-s</span> <span class="ar" id="cl-tag">MdmService</span></code></div>
+        <div class="ctl">
+          <div class="seg"><button onclick="setLv(this,'E')">E</button><button class="on" onclick="setLv(this,'W')">W</button><button onclick="setLv(this,'I')">I</button><button onclick="setLv(this,'D')">D</button><button onclick="setLv(this,'V')">V</button></div>
+          <span class="fin"><span>-t</span><input id="cl-nn" value="500" oninput="document.getElementById('cl-n').textContent=this.value||'500'"></span>
+          <span class="fin"><span>-s</span><input placeholder="tag" oninput="document.getElementById('cl-tag').textContent=this.value||'∅'"></span>
+        </div>
+        <div class="chips"><button class="chip" onclick="toast('logcat -v W -t 500 -s MdmService')">W -t 500 -s MdmService</button><button class="chip" onclick="toast('logcat -v E -t 1000')">E -t 1000</button></div>
+      </div>
+
+      <!-- Shell -->
+      <div class="pane" data-p="shell">
+        <div class="cmd"><span class="pr">$</span><code style="color:var(--term-t)">ls /sdcard<span class="cur"></span></code></div>
+        <input class="terminput" style="margin-top:12px" placeholder="type a command…" value="ls /sdcard">
+        <div class="sub"># legacy devices · runs on next check-in · 5-min expiry</div>
+        <div class="chips"><button class="chip" onclick="toast('ls /sdcard')">ls /sdcard</button><button class="chip" onclick="toast('getprop')">getprop ro.build…</button><button class="chip" onclick="toast('pm list packages')">pm list packages</button><button class="chip" onclick="toast('df -h')">df -h</button></div>
+      </div>
+
+      <!-- Reboot -->
+      <div class="pane" data-p="reboot">
+        <div class="cmd"><span class="pr">▸</span><code><span class="fl">reboot</span> <span class="mut">--reason</span> <span class="ar" id="cr-r">"nightly clear"</span></code></div>
+        <div class="warn"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>restarts on next check-in · low-battery units may not return</div>
+        <input class="terminput" style="margin-top:12px" placeholder="--reason (required when logging is on)" oninput="document.getElementById('cr-r').textContent='&quot;'+(this.value||'…')+'&quot;'">
+      </div>
+
+      <!-- Boot logo -->
+      <div class="pane" data-p="update_splash">
+        <div class="cmd"><span class="pr">▸</span><code><span class="fl">flash splash</span> <span class="ar" id="cs-src">splash.img</span> <span class="mut"># staged by init broker → visible next boot</span></code></div>
+        <input class="terminput" style="margin-top:12px" placeholder="https://…/splash.img  (or upload below)">
+        <div class="up"><button class="upbtn" onclick="toast('Upload BMP/PNG/JPEG')"><svg viewBox="0 0 24 24"><path d="M7 8l5-5 5 5"/><path d="M12 3v13"/><path d="M5 21h14"/></svg>upload image</button><button class="upbtn" onclick="toast('Set partition size')"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>partition size</button></div>
+        <div class="sub"># BMP passes through · PNG/JPEG → 24-bit BMP · match panel res (720×1280)</div>
+      </div>
+    </div>
+
+    <div class="sh-f">
+      <div class="tgt"><button class="on">all</button><button>groups</button><button>specific</button></div>
+      <div class="rad"><b>900</b> devices · 846 online, 54 queued</div>
+      <button class="send" onclick="toast('Dispatched '+CUR.name)"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Send action</button>
+    </div>
+  </div>
+</div>
+<div id="toast"><span id="tm"></span></div>
+<script>
+var ICON={install_apk:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>',uninstall:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>',screenshot:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>',logcat:'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>',shell:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>',reboot:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>',update_splash:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>'};
+var A=[{t:'install_apk',name:'Install app',sub:'Push an APK and install it silently',g:'Apps'},{t:'uninstall',name:'Uninstall',sub:'Remove a package across the target',g:'Apps'},{t:'screenshot',name:'Screenshot',sub:'Capture the live screen',g:'Diag'},{t:'logcat',name:'Log capture',sub:'Pull a logcat buffer',g:'Diag'},{t:'shell',name:'Shell',sub:'Run a shell command',g:'Diag'},{t:'reboot',name:'Reboot',sub:'Restart the device',g:'Power'},{t:'update_splash',name:'Boot logo',sub:'Replace the boot splash image',g:'Custom'}];
+var CUR=A[0];
+function toast(m){var t=document.getElementById('toast');document.getElementById('tm').textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2200)}
+function go(t){CUR=A.find(a=>a.t===t);
+  document.getElementById('pills').querySelectorAll('.pill').forEach(p=>p.classList.toggle('on',p.dataset.t===t));
+  document.getElementById('ic').innerHTML='<svg viewBox="0 0 24 24">'+ICON[t]+'</svg>';
+  document.getElementById('t').textContent=CUR.name;document.getElementById('s').textContent=CUR.sub;
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.dataset.p===t));
+}
+function pickApp(el,f){document.querySelectorAll('#pills ~ .sheet .pane[data-p=install_apk] .li').forEach(a=>a.classList.remove('on'));el.classList.add('on');document.getElementById('ci-app').textContent=f}
+function pickPkg(el,p){document.querySelectorAll('.pane[data-p=uninstall] .li').forEach(a=>a.classList.remove('on'));el.classList.add('on');document.getElementById('cu-pkg').textContent=p}
+function setLv(el,v){el.parentNode.querySelectorAll('button').forEach(b=>b.classList.remove('on'));el.classList.add('on');document.getElementById('cl-lv').textContent=v}
+document.getElementById('pills').innerHTML=A.map(a=>'<button class="pill'+(a.t===CUR.t?' on':'')+'" data-t="'+a.t+'" onclick="go(\''+a.t+'\')"><span class="ic"><svg viewBox="0 0 24 24">'+ICON[a.t]+'</svg></span>'+a.name+'<span class="g">'+a.g+'</span></button>').join('');
+go('install_apk');
+</script>
+</body></html>
