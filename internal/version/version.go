@@ -17,6 +17,17 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.18.0",
+		Date:    "2026-07-04",
+		Changes: []string{
+			"You now stay signed in for a full day — sessions no longer time out after 30 minutes of sitting idle.",
+			"Reworked how you build a command on the Actions page: every action (Install, Uninstall, Screenshot, Log capture, Shell, Reboot, Boot logo) is now a button you can see at a glance, and picking one opens a panel built for that job — choose an app from a visual library to install, browse only the apps you can actually remove to uninstall, set a log level and how many lines to capture, type straight into a shell, or drop in a boot-logo image and preview it before you send.",
+			"Refined the Fleet Health page: a clear overall health score, at-a-glance vital tiles (online, offline, low battery, running hot, open alerts), your restaurants ranked worst-first, and a “what's dragging the score” breakdown.",
+			"App download links are now visible only to admins.",
+			"Fixed a couple of visual glitches where the top of a recipe button or a health row could look cut off when hovered or selected.",
+		},
+	},
+	{
 		Version: "1.17.0",
 		Date:    "2026-07-03",
 		Changes: []string{
