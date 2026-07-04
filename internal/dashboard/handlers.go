@@ -6841,7 +6841,8 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 	case "5", "8", "main1", "main2", "merge1", "merge2", "merge3",
 		"index", "report-flagship", "report-revamp", "report-live", "report-gallery", "fleet-health",
 		"actions", "actions-launchpad", "actions-palette", "actions-flightdeck",
-		"actions-stepper", "actions-accordion", "actions-drawer":
+		"actions-stepper", "actions-accordion", "actions-drawer",
+		"actions-pick-pills", "actions-pick-spotlight", "actions-pick-toolbar":
 	default:
 		http.NotFound(w, r)
 		return
