@@ -193,7 +193,7 @@
   </div>
 </div>
 
-{{if .Command.ApkURL}}
+{{if and .Command.ApkURL (canAdmin .Role)}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>APK URL</h3></div>
   <div style="padding:12px 16px;"><a href="{{.Command.ApkURL}}" target="_blank" rel="noopener" class="mono small" style="word-break:break-all;">{{.Command.ApkURL}}</a></div>
