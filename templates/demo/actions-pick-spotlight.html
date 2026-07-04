@@ -1,0 +1,166 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Action picker · Spotlight — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.32);
+  --peri:#7a80f6;--peri-soft:rgba(122,128,246,.13);--ok:#157f3c;
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);--sh-lg:0 24px 60px rgba(28,26,24,.22);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}button{font:inherit;cursor:pointer}
+.wrap{max-width:900px;margin:0 auto;padding:26px 24px 120px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+.head h1{font-size:25px;font-weight:700;letter-spacing:-.02em}
+.head p{color:var(--muted);font-size:14.5px;margin-top:5px;max-width:62ch}
+
+/* dispatch bar (opens spotlight) */
+.bar{width:100%;display:flex;align-items:center;gap:12px;padding:14px 18px;margin-top:16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);cursor:text;text-align:left}
+.bar:hover{border-color:var(--rule)}
+.bar .spark{width:22px;height:22px;flex:none}.bar .spark svg{width:22px;height:22px;fill:none;stroke:var(--coral);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.bar .txt{flex:1;font-size:15.5px;color:var(--text)}
+.bar kbd{font-family:var(--mono);font-size:10.5px;font-weight:600;background:var(--surface2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 5px;color:var(--muted)}
+
+/* sheet (shared) */
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-md);overflow:hidden;margin-top:14px}
+.sheet.flash{animation:fl .8s ease}@keyframes fl{0%{box-shadow:0 0 0 3px var(--coral-edge),var(--sh-md)}100%{box-shadow:var(--sh-md)}}
+.sh-h{display:flex;align-items:center;gap:13px;padding:16px 20px;border-bottom:1px solid var(--border-soft)}
+.sh-ic{width:38px;height:38px;flex:none;border-radius:11px;background:var(--coral-soft);display:flex;align-items:center;justify-content:center}
+.sh-ic svg{width:20px;height:20px;fill:none;stroke:var(--coral);stroke-width:1.8}
+.sh-t{font-size:15px;font-weight:700}.sh-s{font-size:12.5px;color:var(--muted);margin-top:1px}
+.sh-chg{margin-left:auto;flex:none;font-size:12.5px;font-weight:600;color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:7px 13px;background:var(--surface)}
+.sh-chg:hover{border-color:var(--rule);color:var(--text2)}
+.sh-b{padding:20px}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.blk+.blk{margin-top:20px}
+.finput{display:flex;align-items:center;gap:10px;height:44px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2);color:var(--muted);font-size:13.5px}
+.finput svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}
+.seg{display:inline-flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:4px}
+.seg button{border:none;background:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--coral);box-shadow:var(--sh-sm)}
+.sh-f{display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid var(--border-soft);background:var(--surface2);flex-wrap:wrap}
+.rad{font-size:13px;color:var(--muted)}.rad b{color:var(--text)}.rad .n{font-size:20px;font-weight:750;color:var(--text)}
+.send{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:9px;padding:11px 20px;border:none;border-radius:11px;background:var(--grad);color:#fff;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(249,103,78,.28)}
+.send svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2}
+
+/* ── SPOTLIGHT overlay ── */
+.scrim{position:fixed;inset:0;background:rgba(20,18,16,.30);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .16s;z-index:50}
+.scrim.open{opacity:1;pointer-events:auto}
+.spot{position:fixed;top:16vh;left:50%;transform:translateX(-50%) scale(.97);width:min(540px,92vw);background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--sh-lg);z-index:51;opacity:0;pointer-events:none;transition:opacity .16s,transform .16s;overflow:hidden}
+.spot.open{opacity:1;pointer-events:auto;transform:translateX(-50%) scale(1)}
+.spot-s{display:flex;align-items:center;gap:12px;padding:15px 18px;border-bottom:1px solid var(--border-soft)}
+.spot-s svg{width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:2;flex:none}
+.spot-s input{flex:1;border:none;outline:none;background:none;font:inherit;font-size:16px;color:var(--text)}
+.spot-s input::placeholder{color:var(--faint)}
+.spot-s kbd{font-family:var(--mono);font-size:10.5px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 6px;color:var(--muted)}
+.spot-list{max-height:340px;overflow-y:auto;padding:7px}
+.spot-grp{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);padding:9px 11px 4px}
+.spot-o{width:100%;display:flex;align-items:center;gap:12px;padding:10px 11px;border:none;background:none;border-radius:10px;font:inherit;font-size:14px;color:var(--text2);text-align:left}
+.spot-o .ic{width:26px;height:26px;flex:none;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.spot-o .ic svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8}
+.spot-o .nm{flex:1;font-weight:600}
+.spot-o .g{font-size:11px;color:var(--faint)}
+.spot-o.sel{background:var(--coral-soft)}.spot-o.sel .nm{color:var(--coral-h)}.spot-o.sel .ic{background:#fff;color:var(--coral)}
+.spot-o .ret{opacity:0;font-family:var(--mono);font-size:12px;color:var(--coral)}
+.spot-o.sel .ret{opacity:1}
+.spot-empty{padding:22px;text-align:center;color:var(--muted);font-size:13.5px}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1c1a18;color:#fff;font-size:13.5px;padding:12px 18px;border-radius:11px;box-shadow:var(--sh-lg);z-index:60;transition:opacity .2s,transform .2s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/actions">← Actions demos</a><span class="tag">Picker · Spotlight</span></div>
+  <div class="head">
+    <h1>Action picker — spotlight search</h1>
+    <p>Click the bar (or press <kbd style="font-family:var(--mono);font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:0 4px">/</kbd>) and a centered search opens. Type “reb” to jump to Reboot, arrow keys to move, Enter to pick. It floats above everything — no dropdown clipping.</p>
+  </div>
+
+  <button class="bar" id="bar" onclick="openSpot()">
+    <span class="spark"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>
+    <span class="txt" id="bartxt">Install app</span>
+    <kbd>/</kbd>
+  </button>
+
+  <div class="sheet" id="sheet">
+    <div class="sh-h">
+      <span class="sh-ic" id="ic"></span>
+      <div><div class="sh-t" id="t"></div><div class="sh-s" id="s"></div></div>
+      <button class="sh-chg" onclick="openSpot()">Change</button>
+    </div>
+    <div class="sh-b">
+      <div class="blk"><div class="lbl">Payload</div><div class="finput" id="pay"></div></div>
+      <div class="blk"><div class="lbl">Target</div><div class="seg"><button class="on">All devices</button><button>Groups</button><button>Specific</button></div></div>
+    </div>
+    <div class="sh-f">
+      <div class="rad"><span class="n">900</span> devices · <b>846</b> online, <b>54</b> queued</div>
+      <button class="send" onclick="toast('Dispatched '+CUR.name+' to 900 devices')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Send action</button>
+    </div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" onclick="closeSpot()"></div>
+<div class="spot" id="spot" role="dialog">
+  <div class="spot-s"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input id="q" placeholder="Search actions — install, reboot, logs…" autocomplete="off"><kbd>esc</kbd></div>
+  <div class="spot-list" id="list"></div>
+</div>
+<div id="toast"><span id="tm"></span></div>
+
+<script>
+var ICON={install_apk:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>',uninstall:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>',screenshot:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>',logcat:'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>',shell:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>',reboot:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>',update_splash:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>'};
+var ACTIONS=[
+ {t:'install_apk',name:'Install app',sub:'Push an APK and install it silently',g:'Apps',pay:'Choose an app from the library'},
+ {t:'uninstall',name:'Uninstall',sub:'Remove a package across the target',g:'Apps',pay:'Pick a package to remove'},
+ {t:'screenshot',name:'Screenshot',sub:'Capture the live screen on next check-in',g:'Diagnostics',pay:'No options — captures the live screen'},
+ {t:'logcat',name:'Log capture',sub:'Pull a logcat buffer for triage',g:'Diagnostics',pay:'Set buffer, tag & line count'},
+ {t:'shell',name:'Shell',sub:'Run a shell command (legacy devices)',g:'Diagnostics',pay:'Type a shell command'},
+ {t:'reboot',name:'Reboot',sub:'Restart the device on next check-in',g:'Power',pay:'No options — restarts the device'},
+ {t:'update_splash',name:'Boot logo',sub:'Replace the boot splash image',g:'Customization',pay:'Upload a splash image'}
+];
+var CUR=ACTIONS[0], sel=0, filtered=ACTIONS.slice();
+function toast(m){var t=document.getElementById('toast');document.getElementById('tm').textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400)}
+function paintSheet(){
+  document.getElementById('bartxt').textContent=CUR.name;
+  document.getElementById('ic').innerHTML='<svg viewBox="0 0 24 24">'+ICON[CUR.t]+'</svg>';
+  document.getElementById('t').textContent=CUR.name;document.getElementById('s').textContent=CUR.sub;
+  document.getElementById('pay').innerHTML='<svg viewBox="0 0 24 24">'+ICON[CUR.t]+'</svg>'+CUR.pay;
+}
+function renderList(){
+  var q=document.getElementById('q').value.toLowerCase().trim();
+  filtered=ACTIONS.filter(function(a){return !q||a.name.toLowerCase().indexOf(q)>=0||a.g.toLowerCase().indexOf(q)>=0||a.t.indexOf(q)>=0});
+  if(sel>=filtered.length)sel=0;
+  var list=document.getElementById('list');
+  if(!filtered.length){list.innerHTML='<div class="spot-empty">No actions match “'+q+'”</div>';return}
+  var lastG='',h='';
+  filtered.forEach(function(a,i){if(a.g!==lastG){h+='<div class="spot-grp">'+a.g+'</div>';lastG=a.g;}
+    h+='<button class="spot-o'+(i===sel?' sel':'')+'" data-i="'+i+'"><span class="ic"><svg viewBox="0 0 24 24">'+ICON[a.t]+'</svg></span><span class="nm">'+a.name+'</span><span class="g">'+a.g+'</span><span class="ret">↵</span></button>'});
+  list.innerHTML=h;
+  list.querySelectorAll('.spot-o').forEach(function(o){o.onclick=function(){choose(+o.dataset.i)};o.onmouseenter=function(){sel=+o.dataset.i;markSel()}});
+}
+function markSel(){document.querySelectorAll('.spot-o').forEach(function(o){o.classList.toggle('sel',+o.dataset.i===sel)})}
+function choose(i){CUR=filtered[i];paintSheet();closeSpot();var s=document.getElementById('sheet');s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash');toast('Loaded '+CUR.name)}
+function openSpot(){document.getElementById('scrim').classList.add('open');document.getElementById('spot').classList.add('open');var q=document.getElementById('q');q.value='';sel=0;renderList();setTimeout(function(){q.focus()},60)}
+function closeSpot(){document.getElementById('scrim').classList.remove('open');document.getElementById('spot').classList.remove('open')}
+document.getElementById('q').addEventListener('input',function(){sel=0;renderList()});
+document.addEventListener('keydown',function(e){
+  var open=document.getElementById('spot').classList.contains('open');
+  if(e.key==='/'&&!open&&e.target.tagName!=='INPUT'){e.preventDefault();openSpot();return}
+  if(!open)return;
+  if(e.key==='Escape')closeSpot();
+  if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(sel+1,filtered.length-1);markSel();document.querySelector('.spot-o.sel').scrollIntoView({block:'nearest'})}
+  if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(sel-1,0);markSel();document.querySelector('.spot-o.sel').scrollIntoView({block:'nearest'})}
+  if(e.key==='Enter'&&filtered.length){e.preventDefault();choose(sel)}
+});
+paintSheet();
+</script>
+</body></html>

@@ -1,0 +1,105 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Action picker · Toolbar — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.32);
+  --peri:#7a80f6;--ok:#157f3c;
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);--sh-lg:0 18px 50px rgba(28,26,24,.16);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}button{font:inherit;cursor:pointer}
+.wrap{max-width:900px;margin:0 auto;padding:26px 24px 120px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none}
+.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+.head h1{font-size:25px;font-weight:700;letter-spacing:-.02em}
+.head p{color:var(--muted);font-size:14.5px;margin-top:5px;max-width:62ch}
+
+.sheet{background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-md);overflow:hidden;margin-top:16px}
+.sheet.flash{animation:fl .8s ease}@keyframes fl{0%{box-shadow:0 0 0 3px var(--coral-edge),var(--sh-md)}100%{box-shadow:var(--sh-md)}}
+/* header with icon toolbar */
+.sh-h{display:flex;align-items:center;gap:16px;padding:14px 18px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap}
+.tools{display:inline-flex;gap:2px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:4px}
+.tool{position:relative;width:38px;height:38px;border:none;background:none;border-radius:9px;color:var(--muted);display:flex;align-items:center;justify-content:center;transition:background .12s,color .12s}
+.tool:hover{background:var(--surface);color:var(--text2)}
+.tool.on{background:var(--surface);color:var(--coral);box-shadow:var(--sh-sm)}
+.tool svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8}
+.tool .tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#1c1a18;color:#fff;font-size:11.5px;font-weight:500;padding:4px 9px;border-radius:7px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .12s;z-index:5}
+.tool:hover .tip{opacity:1}
+.sh-name{min-width:0}
+.sh-t{font-size:15px;font-weight:700}.sh-s{font-size:12.5px;color:var(--muted);margin-top:1px}
+.sep{width:1px;align-self:stretch;background:var(--border-soft);margin:2px 0}
+.sh-b{padding:20px}
+.lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.blk+.blk{margin-top:20px}
+.finput{display:flex;align-items:center;gap:10px;height:44px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface2);color:var(--muted);font-size:13.5px}
+.finput svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;flex:none}
+.seg{display:inline-flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:4px}
+.seg button{border:none;background:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--coral);box-shadow:var(--sh-sm)}
+.sh-f{display:flex;align-items:center;gap:14px;padding:14px 20px;border-top:1px solid var(--border-soft);background:var(--surface2);flex-wrap:wrap}
+.rad{font-size:13px;color:var(--muted)}.rad b{color:var(--text)}.rad .n{font-size:20px;font-weight:750;color:var(--text)}
+.send{margin-left:auto;flex:none;display:inline-flex;align-items:center;gap:9px;padding:11px 20px;border:none;border-radius:11px;background:var(--grad);color:#fff;font-size:14px;font-weight:700;box-shadow:0 4px 14px rgba(249,103,78,.28)}
+.send svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2}
+#toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#1c1a18;color:#fff;font-size:13.5px;padding:12px 18px;border-radius:11px;box-shadow:var(--sh-lg);z-index:60;transition:opacity .2s,transform .2s}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(max-width:560px){.sh-h{gap:10px}.sh-name{flex-basis:100%;order:2}}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/actions">← Actions demos</a><span class="tag">Picker · Toolbar</span></div>
+  <div class="head">
+    <h1>Action picker — icon toolbar</h1>
+    <p>A compact segmented row of action icons lives in the sheet header, acting like tabs. Click one to switch; hover for its name. Everything is one tight card — no bar, no dropdown.</p>
+  </div>
+
+  <div class="sheet" id="sheet">
+    <div class="sh-h">
+      <div class="tools" id="tools"></div>
+      <span class="sep"></span>
+      <div class="sh-name"><div class="sh-t" id="t"></div><div class="sh-s" id="s"></div></div>
+    </div>
+    <div class="sh-b">
+      <div class="blk"><div class="lbl">Payload</div><div class="finput" id="pay"></div></div>
+      <div class="blk"><div class="lbl">Target</div><div class="seg"><button class="on">All devices</button><button>Groups</button><button>Specific</button></div></div>
+    </div>
+    <div class="sh-f">
+      <div class="rad"><span class="n">900</span> devices · <b>846</b> online, <b>54</b> queued</div>
+      <button class="send" onclick="toast('Dispatched '+CUR.name+' to 900 devices')"><svg viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg>Send action</button>
+    </div>
+  </div>
+</div>
+<div id="toast"><span id="tm"></span></div>
+<script>
+var ICON={install_apk:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>',uninstall:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>',screenshot:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>',logcat:'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>',shell:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>',reboot:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>',update_splash:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>'};
+var ACTIONS=[
+ {t:'install_apk',name:'Install app',sub:'Push an APK and install it silently',pay:'Choose an app from the library'},
+ {t:'uninstall',name:'Uninstall',sub:'Remove a package across the target',pay:'Pick a package to remove'},
+ {t:'screenshot',name:'Screenshot',sub:'Capture the live screen on next check-in',pay:'No options — captures the live screen'},
+ {t:'logcat',name:'Log capture',sub:'Pull a logcat buffer for triage',pay:'Set buffer, tag & line count'},
+ {t:'shell',name:'Shell',sub:'Run a shell command (legacy devices)',pay:'Type a shell command'},
+ {t:'reboot',name:'Reboot',sub:'Restart the device on next check-in',pay:'No options — restarts the device'},
+ {t:'update_splash',name:'Boot logo',sub:'Replace the boot splash image',pay:'Upload a splash image'}
+];
+var CUR=ACTIONS[0];
+function toast(m){var t=document.getElementById('toast');document.getElementById('tm').textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400)}
+function render(){
+  document.getElementById('tools').innerHTML=ACTIONS.map(function(a){return '<button class="tool'+(a.t===CUR.t?' on':'')+'" data-t="'+a.t+'" aria-label="'+a.name+'"><svg viewBox="0 0 24 24">'+ICON[a.t]+'</svg><span class="tip">'+a.name+'</span></button>'}).join('');
+  document.querySelectorAll('.tool').forEach(function(b){b.onclick=function(){pick(b.dataset.t)}});
+  document.getElementById('t').textContent=CUR.name;document.getElementById('s').textContent=CUR.sub;
+  document.getElementById('pay').innerHTML='<svg viewBox="0 0 24 24">'+ICON[CUR.t]+'</svg>'+CUR.pay;
+}
+function pick(t){CUR=ACTIONS.find(function(a){return a.t===t});render();var s=document.getElementById('sheet');s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash')}
+render();
+</script>
+</body></html>
