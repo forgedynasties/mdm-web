@@ -37,9 +37,9 @@
 
 /* "Start from a recipe" — horizontal strip of one-tap presets above the builder. */
 .recipes-wrap{margin-bottom:18px;}
-.recipes-h{display:flex;align-items:center;gap:8px;margin:0 2px 10px;}
+.recipes-h{display:flex;align-items:center;gap:8px;margin:0 2px 4px;}
 .recipes-h .t{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);}
-.recipes{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin;}
+.recipes{display:flex;gap:10px;overflow-x:auto;overflow-y:visible;padding:8px 2px 6px;scrollbar-width:thin;}
 .recipes::-webkit-scrollbar{height:6px;}
 .recipes::-webkit-scrollbar-thumb{background:var(--surface-3);border-radius:9px;}
 .recipe{position:relative;flex:none;display:flex;gap:10px;align-items:center;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-sm);padding:10px 14px 10px 11px;cursor:pointer;text-align:left;font:inherit;transition:box-shadow .12s,transform .12s,border-color .12s;}
@@ -79,6 +79,99 @@
 .cr-config .payload-section{display:none;}
 .cr-config .payload-section.is-active{display:block;}
 .cr-config .payload-empty{color:var(--muted);font-size:13px;}
+
+/* ── Studio payload panes ─────────────────────────────────── */
+.pl-search{display:flex;align-items:center;gap:10px;height:42px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);margin-bottom:12px;}
+.pl-search:focus-within{border-color:var(--accent-edge);box-shadow:var(--ring);}
+.pl-search svg{width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:2;flex:none;}
+.pl-search input{flex:1;border:none;outline:none;background:none;font-size:14px;color:var(--text);}
+/* app grid (Install) */
+.appgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
+.appc{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);text-align:left;cursor:pointer;transition:border-color .14s,box-shadow .14s,transform .1s;}
+.appc:hover{border-color:var(--rule-2);box-shadow:var(--shadow-sm);transform:translateY(-1px);}
+.appc.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+.appc .thumb{width:42px;height:42px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:17px;text-transform:uppercase;}
+.appc .m{min-width:0;flex:1;}
+.appc .nm{display:block;font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.appc .meta{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;font-family:var(--mono);}
+.appc .chk{width:20px;height:20px;flex:none;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;}
+.appc .chk svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3;display:none;}
+.appc.on .chk{border-color:var(--accent);background:var(--accent);}
+.appc.on .chk svg{display:block;}
+.appgrid .appc:nth-child(5n+1) .thumb{background:linear-gradient(135deg,#f9674e,#ff9f7a);}
+.appgrid .appc:nth-child(5n+2) .thumb{background:linear-gradient(135deg,#7a80f6,#9aa0ff);}
+.appgrid .appc:nth-child(5n+3) .thumb{background:linear-gradient(135deg,#2bb673,#59c97a);}
+.appgrid .appc:nth-child(5n+4) .thumb{background:linear-gradient(135deg,#e8a13a,#f0b765);}
+.appgrid .appc:nth-child(5n) .thumb{background:linear-gradient(135deg,#6aa9ff,#9ecbff);}
+.appnew{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border:1.5px dashed var(--rule-2);border-radius:12px;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;min-height:66px;cursor:pointer;}
+.appnew:hover{border-color:var(--accent-edge);color:var(--accent);background:var(--accent-soft);}
+.appnew svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;}
+/* package rows (Uninstall) */
+.pkgs{border:1px solid var(--border);border-radius:12px;overflow:hidden;max-height:300px;overflow-y:auto;}
+.pkg{width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border:none;background:var(--surface);border-top:1px solid var(--border-soft);text-align:left;cursor:pointer;}
+.pkg:first-child{border-top:none;}
+.pkg:hover{background:var(--surface2);}
+.pkg.on{background:var(--accent-soft);}
+.pkg .ic{width:34px;height:34px;flex:none;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);}
+.pkg.on .ic{background:var(--surface);color:var(--accent);}
+.pkg .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;}
+.pkg .m{min-width:0;flex:1;}
+.pkg .nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pkg.on .nm{color:var(--accent-h);}
+.pkg .pk{font-size:11.5px;color:var(--muted);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pkg .cnt{font-size:11.5px;font-weight:600;color:var(--text-2);background:var(--surface2);border:1px solid var(--border-soft);border-radius:99px;padding:3px 10px;white-space:nowrap;}
+.pkg.on .cnt{background:var(--surface);border-color:var(--accent-edge);color:var(--accent);}
+/* info panel (Screenshot) */
+.pl-info{display:flex;gap:16px;align-items:center;padding:18px;border:1px solid var(--border-soft);border-radius:14px;background:linear-gradient(180deg,var(--surface2),var(--surface));}
+.pl-info .art{width:96px;height:64px;flex:none;border-radius:10px;border:2px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;position:relative;}
+.pl-info .art svg{width:26px;height:26px;fill:none;stroke:var(--accent-2);stroke-width:1.6;}
+.pl-info .art::after{content:"";position:absolute;bottom:-2px;right:-2px;width:16px;height:16px;border-radius:50%;background:var(--ok);border:2px solid var(--surface);}
+.pl-info .txt{font-size:13.5px;color:var(--text-2);line-height:1.5;}
+.pl-info .txt b{color:var(--text);font-weight:650;}
+/* level segmented + stepper (Log capture) */
+.lvl-lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;}
+.levels{display:inline-flex;gap:3px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:4px;}
+.lv{border:none;background:none;border-radius:8px;padding:8px 13px;font-size:13px;font-weight:600;color:var(--muted);font-family:var(--mono);cursor:pointer;}
+.lv.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm);}
+.lv small{font-family:var(--font);font-weight:500;opacity:.7;margin-left:5px;}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);}
+.stepper button{width:38px;height:40px;border:none;background:var(--surface);color:var(--text-2);font-size:18px;cursor:pointer;}
+.stepper button:hover{background:var(--surface2);}
+.stepper input{width:64px;height:40px;border:none;border-left:1px solid var(--border-soft);border-right:1px solid var(--border-soft);text-align:center;font-family:var(--mono);font-size:14px;color:var(--text);outline:none;}
+.pl-field{height:42px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);font-size:14px;color:var(--text);outline:none;width:100%;box-sizing:border-box;}
+.pl-field:focus{border-color:var(--accent-edge);box-shadow:var(--ring);}
+.pl-row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;}
+.pl-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;}
+.pl-chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text-2);cursor:pointer;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pl-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
+.pl-sub{font-size:12px;color:var(--muted);margin-top:8px;}
+/* shell console */
+.console{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#12161b;}
+.console .cbar{display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #232a33;}
+.console .cbar i{width:10px;height:10px;border-radius:50%;background:#3a4452;}
+.console .cin{display:flex;align-items:center;gap:9px;padding:14px;}
+.console .cin .pr{color:#59c97a;font-family:var(--mono);font-size:14px;}
+.console .cin input{flex:1;border:none;background:none;outline:none;color:#e7ebf0;font-family:var(--mono);font-size:14px;}
+.console .cin input::placeholder{color:#5a6472;}
+/* dropzone + preview (Boot logo) */
+.drop{border:1.5px dashed var(--rule-2);border-radius:14px;padding:26px;text-align:center;background:var(--surface2);cursor:pointer;transition:border-color .14s,background .14s;}
+.drop:hover{border-color:var(--accent-edge);background:var(--accent-soft);}
+.drop .di{width:44px;height:44px;margin:0 auto 10px;border-radius:12px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;}
+.drop .di svg{width:22px;height:22px;fill:none;stroke:var(--accent);stroke-width:1.8;}
+.drop .dt{font-size:14px;font-weight:650;}
+.drop .ds{font-size:12.5px;color:var(--muted);margin-top:3px;}
+.preview{display:flex;gap:16px;align-items:center;margin-top:14px;padding:14px;border:1px solid var(--border-soft);border-radius:12px;}
+.preview .ph{width:72px;height:128px;flex:none;border-radius:8px;border:1px solid var(--border);background:linear-gradient(160deg,#1a1d2b,#2a2340);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:12px;overflow:hidden;}
+.preview .ph img{width:100%;height:100%;object-fit:cover;}
+.preview .pm{font-size:13px;color:var(--text-2);line-height:1.6;}
+.preview .pm b{color:var(--text);}
+.orp{display:flex;align-items:center;gap:12px;margin:14px 0;color:var(--text-faint);font-size:11px;font-weight:700;letter-spacing:.06em;}
+.orp::before,.orp::after{content:"";flex:1;height:1px;background:var(--border-soft);}
+/* reboot warning */
+.warncard{display:flex;gap:12px;padding:14px 16px;border:1px solid var(--warn-edge);background:var(--warn-bg);border-radius:12px;}
+.warncard svg{width:18px;height:18px;fill:none;stroke:var(--warn);stroke-width:2;flex:none;margin-top:1px;}
+.warncard .wt{font-size:13.5px;font-weight:650;color:var(--warn);}
+.warncard .ws{font-size:12.5px;color:var(--text-2);margin-top:2px;}
 
 /* sheet footer: blast radius + send */
 .sheet-f{display:flex;align-items:center;gap:16px;padding:14px 20px;border-top:1px solid var(--border-soft);background:var(--surface2);flex-wrap:wrap;}
@@ -152,103 +245,109 @@
 
       <div class="cr-sec">
         <div class="cr-sec-title">Payload</div>
+        <!-- Install app -->
         <div id="apk-fields" class="payload-section is-active">
-            {{if .Apps}}
-              <div class="app-select-wrap">
-                <select name="apk_url" class="form-input" id="apk-select" onchange="updatePreview()">
-                  <option value="" disabled selected>Select an app…</option>
-                  {{range .Apps}}
-                  <option value="{{.ApkURL}}" data-name="{{.Name}}">{{.Name}}</option>
-                  {{end}}
-                </select>
-                <button type="button" class="btn-outline btn-plus" onclick="openAppModal()" title="New App"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></button>
-              </div>
-            {{else}}
-              <div class="app-empty-hint">
-                No apps in library. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>
-                <input type="hidden" name="apk_url" id="cmd-apk-url">
-              </div>
-            {{end}}
-          </div>
-          <div id="uninstall-fields" class="payload-section">
-            {{if .FleetPackages}}
-              <input type="hidden" name="package" id="uninstall-pkg" value="">
-              <input type="text" id="uninstall-filter" class="form-input" placeholder="Search apps across the fleet…" autocomplete="off" oninput="filterUninstallApps(this.value)" style="margin-bottom:8px;">
-              <div class="fleet-app-list" id="uninstall-list">
-                {{range .FleetPackages}}
-                <button type="button" class="fleet-app" data-pkg="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickUninstall(this)">
-                  <span class="fa-id"><span class="fa-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="fa-pkg mono">{{.PackageName}}</span></span>
-                  <span class="fa-cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
-                </button>
-                {{end}}
-              </div>
-              <div id="uninstall-nomatch" class="muted small" style="display:none;padding:8px 2px;">No apps match.</div>
-              <div class="muted small" style="margin-top:6px;">Every app seen across all devices; the count is how many report it. The uninstall is skipped on targeted devices that don't have the package.</div>
-            {{else}}
-              <div class="payload-empty">No package data reported by any device yet.</div>
-            {{end}}
-          </div>
-          <div id="shell-fields" class="payload-section">
-            <input type="text" name="shell_cmd" id="shell-cmd-input" class="form-input" placeholder="ls /sdcard" oninput="updatePreview()" style="font-family:var(--mono);">
-            <div class="muted small" style="margin-top:6px;">Legacy devices only. Runs via checkin response. Expires after 5 minutes.</div>
-            {{if or .ShellRecent .ShellPopular}}
-            <div class="shell-suggest">
-              {{if .ShellRecent}}
-              <div class="suggest-lbl">Recent</div>
-              <div class="suggest-row">{{range .ShellRecent}}<button type="button" class="suggest-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>
+          <input type="hidden" name="apk_url" id="cmd-apk-url" value="">
+          {{if .Apps}}
+            <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" autocomplete="off" oninput="filterApps(this.value)"></div>
+            <div class="appgrid" id="app-grid">
+              {{range .Apps}}
+              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.ApkURL}}" onclick="pickApp(this)">
+                <span class="thumb">{{slice .Name 0 1}}</span>
+                <span class="m"><span class="nm">{{.Name}}</span><span class="meta">{{.ApkURL}}</span></span>
+                <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
+              </button>
               {{end}}
-              {{if .ShellPopular}}
-              <div class="suggest-lbl">Frequent</div>
-              <div class="suggest-row">{{range .ShellPopular}}<button type="button" class="suggest-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>
+              <button type="button" class="appnew" onclick="openAppModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add app</button>
+            </div>
+          {{else}}
+            <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span class="txt">No apps in your library yet. <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button> — upload an APK or paste a URL, then pick it here.</span></div>
+          {{end}}
+        </div>
+
+        <!-- Uninstall -->
+        <div id="uninstall-fields" class="payload-section">
+          {{if .FleetPackages}}
+            <input type="hidden" name="package" id="uninstall-pkg" value="">
+            <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="uninstall-filter" placeholder="Search apps seen across the fleet…" autocomplete="off" oninput="filterUninstallApps(this.value)"></div>
+            <div class="pkgs" id="uninstall-list">
+              {{range .FleetPackages}}
+              <button type="button" class="pkg" data-pkg="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickUninstall(this)">
+                <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
+                <span class="m"><span class="nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pk">{{.PackageName}}</span></span>
+                <span class="cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
+              </button>
               {{end}}
             </div>
-            {{end}}
+            <div id="uninstall-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
+            <div class="pl-sub">Every app seen across the fleet; the count is how many report it. Skipped automatically on targeted devices that don't have the package.</div>
+          {{else}}
+            <div class="payload-empty">No package data reported by any device yet.</div>
+          {{end}}
+        </div>
+
+        <!-- Shell -->
+        <div id="shell-fields" class="payload-section">
+          <div class="console"><div class="cbar"><i></i><i></i><i></i></div><div class="cin"><span class="pr">$</span><input type="text" name="shell_cmd" id="shell-cmd-input" placeholder="ls /sdcard" oninput="updatePreview()"></div></div>
+          <div class="pl-sub">Legacy devices only · runs on the next check-in · expires after 5 minutes.</div>
+          {{if .ShellRecent}}<div class="lvl-lbl" style="margin-top:16px">Recent</div>
+          <div class="pl-chips">{{range .ShellRecent}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
+          {{if .ShellPopular}}<div class="lvl-lbl" style="margin-top:14px">Frequent</div>
+          <div class="pl-chips">{{range .ShellPopular}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
+        </div>
+
+        <!-- Screenshot -->
+        <div id="screenshot-hint" class="payload-section">
+          <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span><span class="txt">No options to set — each targeted device <b>captures its current screen</b> on the next check-in (within a 5-minute window). The image lands on that device's page, ready to view or download.</span></div>
+        </div>
+
+        <!-- Reboot -->
+        <div id="reboot-hint" class="payload-section">
+          <div class="warncard"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div><div class="wt">Devices will restart on their next check-in</div><div class="ws">Anything unsaved on-device is lost, and a low-battery unit may not power back up.</div></div></div>
+        </div>
+
+        <!-- Log capture -->
+        <div id="logcat-fields" class="payload-section">
+          <input type="hidden" name="level" id="lc-cmd-level" value="W">
+          <div class="pl-row">
+            <div><div class="lvl-lbl">Level</div><div class="levels" id="lc-levels">
+              <button type="button" class="lv" data-lv="E" onclick="setLevel(this)">E<small>Error</small></button>
+              <button type="button" class="lv on" data-lv="W" onclick="setLevel(this)">W<small>Warn+</small></button>
+              <button type="button" class="lv" data-lv="I" onclick="setLevel(this)">I<small>Info+</small></button>
+              <button type="button" class="lv" data-lv="D" onclick="setLevel(this)">D<small>Debug+</small></button>
+              <button type="button" class="lv" data-lv="V" onclick="setLevel(this)">V<small>All</small></button>
+            </div></div>
+            <div><div class="lvl-lbl">Lines</div><div class="stepper"><button type="button" onclick="stepLines(-100)">−</button><input type="number" name="lines" id="lc-cmd-lines" value="500" min="50" max="5000" oninput="updatePreview()"><button type="button" onclick="stepLines(100)">+</button></div></div>
+            <div style="flex:1;min-width:180px"><div class="lvl-lbl">Tag <span style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0">optional</span></div><input type="text" name="tag" id="lc-cmd-tag" class="pl-field" placeholder="e.g. MdmService" oninput="updatePreview()"></div>
           </div>
-          <div id="screenshot-hint" class="payload-section">
-            <div class="payload-empty">→ device captures screen on next checkin (5 min window)</div>
+          <div class="pl-sub">Requests a logcat from each targeted device on its next check-in. Results appear on each device's Logcat page.</div>
+          {{if or .LogcatRecent .LogcatFrequent}}
+          <div class="lvl-lbl" style="margin-top:16px">Reuse a recent capture</div>
+          <div class="pl-chips">
+            {{range .LogcatRecent}}<button type="button" class="pl-chip" data-level="{{.Level}}" data-lines="{{.Lines}}" data-tag="{{.Tag}}" onclick="lcCmdFill(this)">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}
+            {{range .LogcatFrequent}}<button type="button" class="pl-chip" data-level="{{.Level}}" data-lines="{{.Lines}}" data-tag="{{.Tag}}" onclick="lcCmdFill(this)">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}
           </div>
-          <div id="reboot-hint" class="payload-section">
-            <div class="payload-empty" style="color:var(--danger);display:flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="14" height="14" style="flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>device will restart on next checkin (5 min window)</div>
+          {{end}}
+        </div>
+
+        <!-- Boot logo -->
+        <div id="splash-fields" class="payload-section">
+          <div class="drop" onclick="document.getElementById('splash-file-input').click()">
+            <div class="di"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 3v13"/><path d="M7 8l5-5 5 5"/></svg></div>
+            <div class="dt" id="splash-dt">Drop a splash image, or click to choose</div>
+            <div class="ds">BMP passes through · PNG/JPEG converts to 24-bit BMP · match the panel (e.g. 720×1280)</div>
           </div>
-          <div id="logcat-fields" class="payload-section">
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-              <div><label class="form-label">Level</label>
-                <select name="level" id="lc-cmd-level" class="form-input" style="width:auto;" onchange="updatePreview()">
-                  <option value="E">E — Error only</option>
-                  <option value="W" selected>W — Warning+</option>
-                  <option value="I">I — Info+</option>
-                  <option value="D">D — Debug+</option>
-                  <option value="V">V — Verbose (all)</option>
-                </select></div>
-              <div><label class="form-label">Lines</label>
-                <input type="number" name="lines" id="lc-cmd-lines" class="form-input" value="500" min="50" max="5000" style="width:100px;" oninput="updatePreview()"></div>
-              <div><label class="form-label">Tag <span class="muted small">(optional)</span></label>
-                <input type="text" name="tag" id="lc-cmd-tag" class="form-input" placeholder="e.g. MyApp" style="width:180px;" oninput="updatePreview()"></div>
-            </div>
-            <div class="muted small" style="margin-top:6px;">Requests a logcat capture from each targeted device on its next check-in. Results appear on each device's Logcat page.</div>
-            {{if or .LogcatRecent .LogcatFrequent}}
-            <div class="shell-suggest">
-              {{if .LogcatRecent}}
-              <div class="suggest-lbl">Recent</div>
-              <div class="suggest-row">{{range .LogcatRecent}}<button type="button" class="suggest-chip" data-level="{{.Level}}" data-lines="{{.Lines}}" data-tag="{{.Tag}}" onclick="lcCmdFill(this)" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>
-              {{end}}
-              {{if .LogcatFrequent}}
-              <div class="suggest-lbl">Frequent</div>
-              <div class="suggest-row">{{range .LogcatFrequent}}<button type="button" class="suggest-chip" data-level="{{.Level}}" data-lines="{{.Lines}}" data-tag="{{.Tag}}" onclick="lcCmdFill(this)" title="level {{.Level}}, {{.Lines}} lines{{if .Tag}}, tag {{.Tag}}{{end}}">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}</div>
-              {{end}}
-            </div>
-            {{end}}
-          </div>
-          <div id="splash-fields" class="payload-section">
-            <input type="file" name="splash_file" id="splash-file-input" class="form-input" accept="image/bmp,image/png,image/jpeg,.bmp,.png,.jpg,.jpeg" onchange="updatePreview()">
-            <div class="muted small" style="margin-top:6px;">Upload a BMP (passed through as-is) or PNG/JPEG (converted to 24-bit BMP). The server wraps it into a <code>splash.img</code> (0x4000 zero filler + BMP) and hosts it — no need to build the image yourself. Match the panel resolution (e.g. 720×1280).</div>
-            <input type="url" name="splash_url" id="splash-url-input" class="form-input" placeholder="…or paste a splash.img URL" oninput="updatePreview()" style="font-family:var(--mono); margin-top:8px;">
-            <input type="number" name="partition_size" id="splash-size-input" class="form-input" placeholder="partition size in bytes (optional)" min="1" style="margin-top:8px;">
-            <div class="muted small" style="margin-top:6px;">The device validates the BMP signature and stages it; an init broker writes the partition — visible next boot. Size is checked by the broker if left blank.</div>
-          </div>
-          <div style="margin-top:14px;">
-            <input type="text" name="reason" class="form-input" oninput="updatePreview()" placeholder="Reason (required for reboot / boot logo when reason-logging is on)">
-          </div>
+          <input type="file" name="splash_file" id="splash-file-input" accept="image/bmp,image/png,image/jpeg,.bmp,.png,.jpg,.jpeg" onchange="onSplashFile(this)" style="display:none;">
+          <div class="preview" id="splash-preview" style="display:none;"><span class="ph" id="splash-ph">splash</span><span class="pm" id="splash-pm"></span></div>
+          <div class="orp">or paste a URL</div>
+          <input type="url" name="splash_url" id="splash-url-input" class="pl-field" style="font-family:var(--mono)" placeholder="https://…/splash.img" oninput="updatePreview()">
+          <input type="number" name="partition_size" id="splash-size-input" class="pl-field" style="margin-top:10px" placeholder="Partition size in bytes (optional — inferred if blank)" min="1">
+        </div>
+
+        <!-- Reason (reboot / boot logo) -->
+        <div id="reason-wrap" style="margin-top:16px;display:none;">
+          <div class="lvl-lbl">Reason <span style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0">required when reason-logging is on</span></div>
+          <input type="text" name="reason" class="pl-field" oninput="updatePreview()" placeholder="e.g. nightly memory clear">
         </div>
 
         <div class="cr-sec">
@@ -545,8 +644,50 @@ function selectType(val, btn) {
   var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', update_splash:'splash-fields', logcat:'logcat-fields' })[val];
   var section = document.getElementById(sectionId);
   if (section) section.classList.add('is-active');
-  var apkSel = document.getElementById('apk-select');
-  if (apkSel) apkSel.disabled = (val !== 'install_apk');
+  // reason applies only to reboot / boot logo
+  var rw = document.getElementById('reason-wrap');
+  if (rw) rw.style.display = (val === 'reboot' || val === 'update_splash') ? '' : 'none';
+  updatePreview();
+}
+
+// ── Studio pane controls ──
+// Install: pick an app card → set the hidden apk_url.
+function pickApp(el) {
+  document.querySelectorAll('#app-grid .appc').forEach(function (a) { a.classList.toggle('on', a === el); });
+  document.getElementById('cmd-apk-url').value = el.dataset.url;
+  updatePreview();
+}
+function filterApps(q) {
+  q = (q || '').toLowerCase();
+  document.querySelectorAll('#app-grid .appc').forEach(function (a) {
+    a.style.display = (a.dataset.search || '').toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+  });
+}
+// Log capture: level segmented control writes the hidden #lc-cmd-level.
+function setLevelValue(v) {
+  var h = document.getElementById('lc-cmd-level'); if (h) h.value = v;
+  document.querySelectorAll('#lc-levels .lv').forEach(function (b) { b.classList.toggle('on', b.dataset.lv === v); });
+}
+function setLevel(el) { setLevelValue(el.dataset.lv); updatePreview(); }
+function stepLines(d) {
+  var i = document.getElementById('lc-cmd-lines');
+  i.value = Math.max(50, Math.min(5000, (parseInt(i.value, 10) || 0) + d));
+  updatePreview();
+}
+// Boot logo: show a live preview + filename when a file is chosen.
+function onSplashFile(input) {
+  var f = input.files && input.files[0];
+  var pv = document.getElementById('splash-preview'), dt = document.getElementById('splash-dt');
+  if (!f) { if (pv) pv.style.display = 'none'; if (dt) dt.textContent = 'Drop a splash image, or click to choose'; updatePreview(); return; }
+  var kb = f.size < 1048576 ? Math.round(f.size / 1024) + ' KB' : (f.size / 1048576).toFixed(1) + ' MB';
+  document.getElementById('splash-pm').innerHTML = '<b>' + f.name + '</b> · ' + kb + '<br>Wrapped into <span style="font-family:var(--mono)">splash.img</span> and hosted — visible next boot.';
+  if (dt) dt.textContent = 'Replace image';
+  var ph = document.getElementById('splash-ph');
+  if (/^image\/(png|jpe?g|bmp)/.test(f.type)) {
+    var url = URL.createObjectURL(f);
+    ph.innerHTML = '<img src="' + url + '" alt="">';
+  } else { ph.textContent = 'splash'; }
+  pv.style.display = '';
   updatePreview();
 }
 
@@ -689,7 +830,7 @@ function filterCmdGroups() {
 function filterUninstallApps(q) {
   q = (q || '').toLowerCase();
   var vis = 0;
-  document.querySelectorAll('#uninstall-list .fleet-app').forEach(function (a) {
+  document.querySelectorAll('#uninstall-list .pkg').forEach(function (a) {
     var show = (a.getAttribute('data-search') || '').toLowerCase().indexOf(q) !== -1;
     a.style.display = show ? '' : 'none'; if (show) vis++;
   });
@@ -699,7 +840,7 @@ function pickUninstall(btn) {
   var h = document.getElementById('uninstall-pkg');
   h.value = btn.getAttribute('data-pkg');
   h.setAttribute('data-name', btn.getAttribute('data-name') || btn.getAttribute('data-pkg'));
-  document.querySelectorAll('#uninstall-list .fleet-app').forEach(function (a) { a.classList.toggle('sel', a === btn); });
+  document.querySelectorAll('#uninstall-list .pkg').forEach(function (a) { a.classList.toggle('on', a === btn); });
   updatePreview();
 }
 
@@ -714,7 +855,7 @@ function cmdFillShell(s) {
 }
 
 function lcCmdFill(btn) {
-  var l = document.getElementById('lc-cmd-level'); if (l) l.value = btn.dataset.level;
+  setLevelValue(btn.dataset.level);
   var n = document.getElementById('lc-cmd-lines'); if (n) n.value = btn.dataset.lines;
   var t = document.getElementById('lc-cmd-tag');   if (t) t.value = btn.dataset.tag || '';
   updatePreview();
@@ -727,9 +868,8 @@ function updatePreview() {
   var warn = [];
 
   if (type === 'install_apk') {
-    var sel = document.getElementById('apk-select');
-    var opt = sel && sel.options[sel.selectedIndex];
-    if (!(opt && opt.value)) warn.push('Choose an app to install.');
+    var au = document.getElementById('cmd-apk-url');
+    if (!(au && au.value)) warn.push('Choose an app to install.');
   } else if (type === 'uninstall') {
     var uh = document.getElementById('uninstall-pkg');
     if (!(uh && uh.value)) warn.push('Choose an app to uninstall.');
@@ -842,13 +982,23 @@ async function saveNewApp() {
     return;
   }
   var app = await res.json();
-  document.querySelectorAll('select[name="apk_url"]').forEach(function(sel) {
-    var opt = new Option(app.name, app.apk_url, true, true);
-    sel.add(opt);
-    sel.value = app.apk_url;
-  });
-  var hidden = document.getElementById('cmd-apk-url');
-  if (hidden) hidden.value = app.apk_url;
+  // add a card to the grid (before the "Add app" tile) and select it
+  var grid = document.getElementById('app-grid');
+  if (grid) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'appc';
+    b.dataset.url = app.apk_url; b.dataset.name = app.name; b.dataset.search = app.name + ' ' + app.apk_url;
+    b.setAttribute('onclick', 'pickApp(this)');
+    b.innerHTML = '<span class="thumb"></span><span class="m"><span class="nm"></span><span class="meta"></span></span><span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>';
+    b.querySelector('.thumb').textContent = (app.name[0] || '?');
+    b.querySelector('.nm').textContent = app.name;
+    b.querySelector('.meta').textContent = app.apk_url;
+    grid.insertBefore(b, grid.querySelector('.appnew'));
+    pickApp(b);
+  } else {
+    var hidden = document.getElementById('cmd-apk-url');
+    if (hidden) { hidden.value = app.apk_url; updatePreview(); }
+  }
   closeAppModal();
 }
 
@@ -860,10 +1010,10 @@ window.CMD_PREFILL = {{.Prefill}};
 function applyPrefill(pf) {
   if (!pf) return;
   if (pf.type) { var rail = document.querySelector('.pill[data-type="' + pf.type + '"]'); if (rail) selectType(pf.type, rail); }
-  if (pf.apk_url) { var sel = document.getElementById('apk-select'); if (sel) sel.value = pf.apk_url; }
+  if (pf.apk_url) { var ac = document.querySelector('#app-grid .appc[data-url="' + pf.apk_url + '"]'); if (ac) { pickApp(ac); } else { var h = document.getElementById('cmd-apk-url'); if (h) h.value = pf.apk_url; } }
   if (typeof pf.shell_cmd === 'string') { var si = document.getElementById('shell-cmd-input'); if (si) si.value = pf.shell_cmd; }
   if (pf.package) {
-    var fa = document.querySelector('#uninstall-list .fleet-app[data-pkg="' + pf.package + '"]');
+    var fa = document.querySelector('#uninstall-list .pkg[data-pkg="' + pf.package + '"]');
     if (fa) { pickUninstall(fa); } else { var uh = document.getElementById('uninstall-pkg'); if (uh) uh.value = pf.package; }
   }
   // Reset target checkboxes/serials before applying so a recipe fully replaces state.
