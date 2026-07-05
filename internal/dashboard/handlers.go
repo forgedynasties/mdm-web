@@ -9075,7 +9075,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdminOrTester(h.AlertConfigView))
-	mux.HandleFunc("GET /wrapped", h.requireAuth(h.WrappedPage))
+	mux.HandleFunc("GET /wrapped", h.WrappedPage) // public — shareable, standalone page
 	mux.HandleFunc("GET /alerts/recent", h.requireAuth(h.AlertsRecent))
 	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
 	post("POST /alerts/bulk", h.requireOperatorOrAdmin(h.AlertBulk))
