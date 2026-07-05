@@ -89,14 +89,8 @@
     <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
     <button type="button" class="btn-outline" onclick="openBulkRestaurantModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>Add to Restaurant</button>
     {{end}}
-    {{if canAdmin .Role}}
-    <button type="button" class="btn-outline" onclick="bulkSendCommand()" style="padding:3px 10px;font-size:12px;">Send Command</button>
-    {{end}}
     {{if canAdminOrTester .Role}}
-    <button type="button" class="btn-outline" onclick="openBulkKioskModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk</button>
-    {{end}}
-    {{if canAdmin .Role}}
-    <button type="button" class="btn-danger-sm" onclick="bulkReboot()" title="Reboot selected devices">Reboot</button>
+    <button type="button" class="btn-primary" onclick="bulkAction()" style="padding:3px 12px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
     {{end}}
     <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
   </div>
@@ -779,31 +773,12 @@ function toggleSelectAll(cb) {
   updateBulkBar();
 }
 
-function bulkSendCommand() {
+// Open the Actions composer targeting the selected devices — one entry point for
+// every action (reboot, kiosk, install, screenshot, …) instead of separate bulk buttons.
+function bulkAction() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
   window.location.href = '/commands?serials=' + encodeURIComponent(serials.join(','));
-}
-
-function bulkReboot() {
-  var serials = getSelectedSerials();
-  if (serials.length === 0) return;
-  confirmMassAction({
-    action: 'reboot',
-    count: serials.length,
-    onConfirm: function() {
-      var form = document.createElement('form');
-      form.method = 'POST'; form.action = '/commands';
-      var fields = {type: 'reboot', target_type: 'devices', target_serials: serials.join(','), apk_url: ''};
-      for (var key in fields) {
-        var inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = key; inp.value = fields[key];
-        form.appendChild(inp);
-      }
-      document.body.appendChild(form);
-      form.submit();
-    }
-  });
 }
 
 function bulkExport() {
