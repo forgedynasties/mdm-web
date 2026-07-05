@@ -27,6 +27,9 @@ type Device struct {
 	KioskPackage   string          `json:"kiosk_package"`
 	LatestExtra    json.RawMessage `json:"latest_extra,omitempty"`
 	Hidden         bool            `json:"hidden"`
+	// DischargeTotalPct is the lifetime cumulative percent of battery capacity
+	// discharged (never resets). BatteryCycles() renders it as equivalent full cycles.
+	DischargeTotalPct int64 `json:"discharge_total_pct"`
 	// RestaurantID is the venue the device physically lives in (nil = lab/bench unit).
 	// RestaurantName is joined for display. A device is "deployed" iff it has a restaurant.
 	RestaurantID   *uuid.UUID `json:"restaurant_id,omitempty"`
@@ -34,6 +37,12 @@ type Device struct {
 	// DeployedEffective is true when the device is live in a restaurant (RestaurantID set);
 	// false = lab/bench unit. There is no separate deployed flag — assignment is the signal.
 	DeployedEffective bool `json:"deployed_effective"`
+}
+
+// BatteryCycles converts the lifetime cumulative discharge into equivalent full
+// battery cycles (1 cycle = 100% of capacity discharged). 250% total => 2.5 cycles.
+func (d Device) BatteryCycles() float64 {
+	return float64(d.DischargeTotalPct) / 100
 }
 
 // Restaurant is a real venue a device physically lives in. It owns the venue semantics
@@ -454,6 +463,8 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			SET build_id           = EXCLUDED.build_id,
 			    last_seen_at       = NOW(),
 			    latest_battery_pct = COALESCE($3, devices.latest_battery_pct),
+			    discharge_total_pct = devices.discharge_total_pct
+			        + GREATEST(0, devices.latest_battery_pct - COALESCE($3, devices.latest_battery_pct)),
 			    latest_extra       = %s,
 			    hidden             = false
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
@@ -990,17 +1001,82 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
 			d.latest_extra AS latest_extra,
+			d.discharge_total_pct,
 			d.restaurant_id, COALESCE(r.name, ''),
 			(d.restaurant_id IS NOT NULL) AS deployed_effective
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
 	return &dev, nil
+}
+
+// BackfillDischargeCycles seeds devices.discharge_total_pct from each device's full
+// check-in history for rows that predate the counter (discharge_backfilled=false).
+// It walks devices in small batches, computing each one's cumulative discharge with a
+// single per-device window query (covered by idx_checkins_device_created_at), so it
+// never scans the whole checkins table at once or holds a long lock — that recurring
+// full-scan-at-startup mistake is documented in migrationSQL. Idempotent: once a
+// device is seeded its flag flips true and it is skipped forever after.
+//
+// Safe to run concurrently with live check-ins: the UPDATE overwrites the counter
+// absolutely from history and serializes on the device row with UpsertCheckin, so a
+// check-in landing mid-backfill is counted exactly once (either it is already in the
+// history sum, or its delta is applied on top of the seeded value afterwards).
+func (d *DB) BackfillDischargeCycles(ctx context.Context) (int, error) {
+	total := 0
+	for {
+		if err := ctx.Err(); err != nil {
+			return total, err
+		}
+		var ids []uuid.UUID
+		rows, err := d.pool.Query(ctx, `SELECT id FROM devices WHERE NOT discharge_backfilled LIMIT 200`)
+		if err != nil {
+			return total, err
+		}
+		for rows.Next() {
+			var id uuid.UUID
+			if err := rows.Scan(&id); err != nil {
+				rows.Close()
+				return total, err
+			}
+			ids = append(ids, id)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return total, err
+		}
+		if len(ids) == 0 {
+			return total, nil
+		}
+		for _, id := range ids {
+			if err := ctx.Err(); err != nil {
+				return total, err
+			}
+			_, err := d.pool.Exec(ctx, `
+				UPDATE devices SET
+					discharge_total_pct = COALESCE((
+						SELECT SUM(GREATEST(0, prev - battery_pct))::bigint
+						FROM (
+							SELECT battery_pct,
+							       LAG(battery_pct) OVER (ORDER BY created_at) AS prev
+							FROM checkins WHERE device_id = $1
+						) steps
+						WHERE prev IS NOT NULL
+					), 0),
+					discharge_backfilled = true
+				WHERE id = $1
+			`, id)
+			if err != nil {
+				return total, err
+			}
+			total++
+		}
+	}
 }
 
 // GetDeviceByID fetches a single device by its UUID.
@@ -5524,6 +5600,17 @@ CREATE TABLE IF NOT EXISTS app_system_overrides (
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS poll_interval_ms INTEGER NOT NULL DEFAULT 30000;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS latest_battery_pct SMALLINT NOT NULL DEFAULT 0;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS latest_extra JSONB NOT NULL DEFAULT '{}';
+
+-- Battery wear: running total of cumulative percent discharged, never reset.
+-- UpsertCheckin adds each downward step in battery level (charging/flat frames add 0).
+-- Equivalent full cycles = discharge_total_pct / 100 (250 => 2.5 cycles).
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS discharge_total_pct BIGINT NOT NULL DEFAULT 0;
+-- Guards the ONE-TIME historical backfill (BackfillDischargeCycles, run in the
+-- background at startup — NOT here; see the checkins-backfill warning above).
+-- Existing rows start false (need seeding from history); new devices default true
+-- since UpsertCheckin maintains their counter from the first check-in.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS discharge_backfilled BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE devices ALTER COLUMN discharge_backfilled SET DEFAULT true;
 
 -- NOTE: A one-time backfill of devices.latest_battery_pct / latest_extra from the
 -- newest checkin per device used to live here (a DISTINCT ON over the whole
