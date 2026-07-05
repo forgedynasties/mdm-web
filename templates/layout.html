@@ -163,6 +163,13 @@
           </a>
           <div class="nbar-sep"></div>
           {{end}}
+          {{if or (eq .Role "tester") (eq .Role "dev")}}
+          <a class="nbar-mi js-dest" data-cmdk-label="Alert config" href="/alert-config">
+            <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+            <span class="nbar-mi-label">Alert config</span><span class="nbar-mi-rt">View</span>
+          </a>
+          <div class="nbar-sep"></div>
+          {{end}}
           <a class="nbar-mi js-dest" data-cmdk-label="What's new" href="/changelog">
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg></span>
             <span class="nbar-mi-label">What's new</span><span class="nbar-mi-rt">v{{.Version}}</span>
