@@ -4112,16 +4112,21 @@ var defaultAlertRules = []struct {
 	// Lifecycle.
 	{"new_device", "New device onboarded", `{}`, "always", true},
 	// Daily-tier rules.
-	{"overheating", "Device overheating", `{"temp_c":45}`, "always", true},
+	// overheating is WLC-aware: temp_c off the pad, temp_c_wlc while wireless-charging.
+	{"overheating", "Device overheating", `{"temp_c":45,"temp_c_wlc":65}`, "always", true},
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
 	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
 	{"storage_filling", "Storage filling fast", `{"low_gb":1.5,"drop_gb":0.2}`, "always", true},
 	// Recent-tier rules (T7 matrix).
 	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
-	{"storage_low", "Storage critically low", `{"free_gb":0.5}`, "always", true},
+	{"offline_long", "Device offline 1h+", `{"offline_minutes":60}`, "always", true},
+	{"storage_low", "Storage critically low", `{"free_gb":1}`, "always", true},
+	{"storage_warning", "Storage low", `{"free_gb":14,"floor_gb":1}`, "always", true},
 	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", true},
 	{"memory_low", "Memory low (available)", `{"avail_mb":400}`, "always", true},
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
+	{"battery_high_night", "Battery high overnight", `{"soc_pct":60}`, "overnight", true},
+	{"wlc_continuous", "Continuous wireless charging", `{"sustain_min":60}`, "always", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
@@ -4979,20 +4984,30 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 
 // recentRuleTypes is the set of rule types evaluated by the recent tier.
 var recentRuleTypes = map[string]bool{
-	"offline":       true,
-	"overheating":   true,
-	"storage_low":   true,
-	"temp_elevated": true,
-	"memory_low":    true,
-	"wifi_weak":     true,
+	"offline":            true,
+	"offline_long":       true,
+	"overheating":        true,
+	"storage_low":        true,
+	"storage_warning":    true,
+	"temp_elevated":      true,
+	"memory_low":         true,
+	"wifi_weak":          true,
+	"battery_high_night": true,
+	"wlc_continuous":     true,
 }
 
 func isRecentType(typ string) bool { return recentRuleTypes[typ] }
 
 // defaultActiveWindow is the window a recent rule is gated to when its active_window
-// column is unset. All current rules are fleet-wide ("always"); the window machinery
-// (service/overnight, deployed-only) stays in EvaluateRecentAlerts for future rules.
+// column is unset. Most rules are fleet-wide ("always"); a few are inherently tied to a
+// time-of-day window (e.g. the overnight battery-high check, peak-hours offline).
 func defaultActiveWindow(typ string) string {
+	switch typ {
+	case "battery_high_night":
+		return "overnight"
+	case "offline_peak", "battery_low":
+		return "peak"
+	}
 	return "always"
 }
 
@@ -5125,16 +5140,23 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		return hits, "critical", rows.Err()
 
 	case "overheating":
-		limit := param(p, "temp_c", 45)
-		// Point-in-time: the device's most recent reading is at/over the limit. EventAt is
-		// the check-in that reported it, so the alert lands within ~1 min of the spike and
-		// auto-resolves once it cools.
+		// WLC-aware dual threshold: a device actively wireless-charging (wlc_status='1')
+		// runs hotter by design, so it only alerts at the higher limit; off the pad the
+		// lower limit applies. Point-in-time on the latest reading, so the alert lands
+		// within ~1 min of the spike and auto-resolves once it cools.
+		limit := param(p, "temp_c", 45)         // off-pad limit
+		limitWLC := param(p, "temp_c_wlc", 65)   // on-pad (wireless charging) limit
 		rows, err := d.pool.Query(ctx, `
 			SELECT d.id, d.serial_number, (d.latest_extra->>'battery_temp_c')::numeric,
-			       d.last_seen_at, d.latest_extra->>'timezone'
+			       d.last_seen_at, d.latest_extra->>'timezone',
+			       (d.latest_extra->>'wlc_status' = '1') AS on_wlc
 			FROM devices d
 			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
-			  AND (d.latest_extra->>'battery_temp_c')::numeric >= $1`, limit)
+			  AND (
+			    (d.latest_extra->>'wlc_status' = '1' AND (d.latest_extra->>'battery_temp_c')::numeric >= $2)
+			    OR
+			    (COALESCE(d.latest_extra->>'wlc_status','') <> '1' AND (d.latest_extra->>'battery_temp_c')::numeric >= $1)
+			  )`, limit, limitWLC)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -5146,15 +5168,24 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			var temp float64
 			var seen time.Time
 			var tz *string
-			if err := rows.Scan(&id, &serial, &temp, &seen, &tz); err != nil {
+			var onWLC bool
+			if err := rows.Scan(&id, &serial, &temp, &seen, &tz, &onWLC); err != nil {
 				return nil, "critical", err
 			}
-			detail := map[string]any{"temp_c": temp, "limit_c": limit, "event_at": seen}
+			lim := limit
+			if onWLC {
+				lim = limitWLC
+			}
+			detail := map[string]any{"temp_c": temp, "limit_c": lim, "on_wlc": onWLC, "event_at": seen}
 			if tz != nil && *tz != "" {
 				detail["timezone"] = *tz
 			}
+			ctx := "off pad"
+			if onWLC {
+				ctx = "on wireless charger"
+			}
 			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("Device temperature is %.0f°C (limit %.0f°C)", temp, limit),
+				fmt.Sprintf("Device temperature is %.0f°C %s (limit %.0f°C)", temp, ctx, lim),
 				detail})
 		}
 		return hits, "critical", rows.Err()
@@ -5251,6 +5282,128 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Wi-Fi signal held below %.0f dBm for >%.0f min (best %.0f dBm)", thr, sustain, best),
 				map[string]any{"rssi_dbm": best, "limit_dbm": thr}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "storage_warning":
+		// Point-in-time warning band: free storage at/under warn_gb but still above the
+		// critical floor (storage_low owns < floor_gb), so a low disk warns once and only
+		// escalates to critical when it gets dire.
+		warnGB := param(p, "free_gb", 14)
+		floorGB := param(p, "floor_gb", 1)
+		rows, err := d.pool.Query(ctx, `
+			SELECT d.id, d.serial_number, (d.latest_extra->>'storage_free_gb')::numeric
+			FROM devices d
+			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+			  AND (d.latest_extra->>'storage_free_gb')::numeric <= $1
+			  AND (d.latest_extra->>'storage_free_gb')::numeric >  $2`, warnGB, floorGB)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var free float64
+			if err := rows.Scan(&id, &serial, &free); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Storage low: %.1f GB free (warn ≤ %.0f GB)", free, warnGB),
+				map[string]any{"storage_free_gb": free, "limit_gb": warnGB}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "battery_high_night":
+		// Point-in-time battery SoC at/above the threshold. Overnight-windowed +
+		// deployed-only (gated by the caller), so it flags venue units sitting high on the
+		// charger overnight rather than cycling down.
+		pct := param(p, "soc_pct", 60)
+		rows, err := d.pool.Query(ctx, `
+			SELECT d.id, d.serial_number, d.latest_battery_pct
+			FROM devices d
+			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+			  AND d.latest_battery_pct >= $1`, int(pct))
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var batt int
+			if err := rows.Scan(&id, &serial, &batt); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Battery at %d%% overnight (≥ %.0f%%)", batt, pct),
+				map[string]any{"battery_pct": batt, "limit_pct": pct}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "wlc_continuous":
+		// Sustained: every reading in the last ~(sustain+5) min is on the wireless
+		// charger (wlc_status='1') and the run spans ≥ sustain_min — i.e. the device has
+		// been continuously wireless-charging for over an hour (heat/battery stress). A
+		// gap or any non-'1'/missing reading breaks continuity (bool_and over NULL fails).
+		sustain := param(p, "sustain_min", 60)
+		rows, err := d.pool.Query(ctx, `
+			SELECT c.device_id, dv.serial_number,
+			       EXTRACT(EPOCH FROM (MAX(c.created_at) - MIN(c.created_at)))/60 AS span_min
+			FROM (
+				SELECT device_id, (extra->>'wlc_status') AS wlc, created_at
+				FROM checkins WHERE created_at > NOW() - (($1 + 5) * INTERVAL '1 minute')
+			) c JOIN devices dv ON dv.id = c.device_id
+			WHERE NOT dv.hidden
+			GROUP BY c.device_id, dv.serial_number
+			HAVING bool_and(c.wlc = '1')
+			   AND (MAX(c.created_at) - MIN(c.created_at)) >= ($1 * INTERVAL '1 minute')`, sustain)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var span float64
+			if err := rows.Scan(&id, &serial, &span); err != nil {
+				return nil, "critical", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("On wireless charger continuously for %.0f min (≥ %.0f)", span, sustain),
+				map[string]any{"span_min": span, "limit_min": sustain}})
+		}
+		return hits, "critical", rows.Err()
+
+	case "offline_long":
+		// Anytime long-outage warning (distinct type from the critical `offline` so both
+		// can hold an open alert). For the non-legacy fleet, last_seen_at is refreshed by
+		// the 30s WS check-in, so "silent > N min" == "no live WS" — the offline-means-no-
+		// websocket definition, without a separate presence path.
+		mins := int(param(p, "offline_minutes", 60))
+		rows, err := d.pool.Query(ctx, `
+			SELECT id, serial_number, last_seen_at FROM devices
+			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')`, mins)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		now := time.Now().UTC()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var last time.Time
+			if err := rows.Scan(&id, &serial, &last); err != nil {
+				return nil, "warning", err
+			}
+			down := int(now.Sub(last).Minutes())
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Offline %dm (last check-in)", down),
+				map[string]any{"offline_minutes": down, "last_seen": last}})
 		}
 		return hits, "warning", rows.Err()
 	}
