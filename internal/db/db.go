@@ -4117,6 +4117,7 @@ var defaultAlertRules = []struct {
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
 	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
 	{"storage_filling", "Storage filling fast", `{"low_gb":1.5,"drop_gb":0.2}`, "always", true},
+	{"wlc_dead", "Wireless charger not functional all day", `{}`, "always", true},
 	// Recent-tier rules (T7 matrix).
 	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
 	{"offline_long", "Device offline 1h+", `{"offline_minutes":60}`, "always", true},
@@ -5094,6 +5095,37 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 			}
 			hits = append(hits, alertHit{id, serial, summary,
 				map[string]any{"today_gb": today, "low_gb": lowGB, "drop_gb": dropGB}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "wlc_dead":
+		// The wireless charger was never readable for the whole of the last complete day
+		// (pad_readable=false), on a deployed unit whose pad WAS working within the prior
+		// week — i.e. a genuine regression, not a device that simply has no pad. Daily tier.
+		rows, err := d.pool.Query(ctx, `
+			SELECT s.device_id, dv.serial_number
+			FROM device_daily_stats s JOIN devices dv ON dv.id = s.device_id
+			WHERE s.day = CURRENT_DATE - 1 AND s.pad_readable = false
+			  AND NOT dv.hidden AND dv.restaurant_id IS NOT NULL
+			  AND EXISTS (
+			    SELECT 1 FROM device_daily_stats p
+			    WHERE p.device_id = s.device_id
+			      AND p.day >= CURRENT_DATE - 8 AND p.day < CURRENT_DATE - 1
+			      AND p.pad_readable = true)`)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			if err := rows.Scan(&id, &serial); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				"Wireless charger not functional all day (pad never readable)",
+				map[string]any{"day": "yesterday"}})
 		}
 		return hits, "warning", rows.Err()
 	}
