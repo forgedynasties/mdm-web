@@ -1535,6 +1535,13 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
+	// The "Retired" view (hidden=only) is admin-only; everyone else only ever sees
+	// active devices. Any other value collapses to active-only (there is no mixed view).
+	role := h.role(r)
+	hiddenParam := ""
+	if r.URL.Query().Get("hidden") == "only" && (role == "admin" || role == "dev") {
+		hiddenParam = "only"
+	}
 	filter := db.DeviceFilter{
 		Search:              q,
 		GroupID:             groupID,
@@ -1546,7 +1553,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		Kiosk:               r.URL.Query().Get("kiosk"),
 		Charging:            r.URL.Query().Get("charging"),
 		Timezone:            r.URL.Query().Get("timezone"),
-		Hidden:              r.URL.Query().Get("hidden"),
+		Hidden:              hiddenParam,
 		ActiveThresholdSecs: activeThreshold,
 	}
 
@@ -1761,7 +1768,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterKiosk":          r.URL.Query().Get("kiosk"),
 		"FilterCharging":       r.URL.Query().Get("charging"),
 		"FilterTimezone":       r.URL.Query().Get("timezone"),
-		"FilterHidden":         r.URL.Query().Get("hidden"),
+		"FilterHidden":         hiddenParam,
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
 		"Density":              h.cfg.Density(),
