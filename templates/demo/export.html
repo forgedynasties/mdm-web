@@ -1,0 +1,62 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Export Data — reworks — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--border:#e8e2da;--text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --coral:#f9674e;--peri:#7a80f6;--grad:linear-gradient(96deg,#f9674e,#7a80f6);--r4:14px;
+    --font:'IBM Plex Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{display:block}
+  .wrap{max-width:700px;margin:0 auto;padding:40px 24px 90px}
+  .back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:20px}
+  .back:hover{color:var(--coral)}
+  .wm{display:flex;align-items:center;gap:9px;font-weight:700;font-size:19px;letter-spacing:-.02em;margin-bottom:22px}
+  .wm .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.wm .m{color:var(--muted);font-weight:600}
+  h1{font-size:28px;font-weight:700;letter-spacing:-.015em}
+  .lede{color:var(--muted);font-size:15px;margin:8px 0 8px;max-width:64ch}
+  .now{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin:16px 0 6px;line-height:1.55}.now b{color:var(--text)}
+  .common{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--muted);background:linear-gradient(180deg,#fff,#fdfbf9);border:1px solid var(--border);border-radius:11px;padding:13px 15px;margin:14px 0 4px;line-height:1.55}.common b{color:var(--text)}
+  .grid{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+  a.demo{display:flex;align-items:flex-start;gap:15px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);padding:16px 18px;box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+  a.demo:hover{border-color:rgba(249,103,78,.34);transform:translateY(-1px)}
+  .num{font-size:12px;font-weight:700;color:var(--faint);padding-top:2px}
+  .demo .t{font-weight:700;font-size:15.5px;display:block;margin-bottom:3px}
+  .demo .d{font-size:13.5px;color:var(--muted);line-height:1.5}
+  .demo .best{display:inline-block;font-size:11px;font-weight:600;color:var(--peri);margin-top:6px}
+  .arw{margin-left:auto;color:var(--faint);align-self:center}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo">← Demos</a>
+  <div class="wm"><span class="a">AIO</span><span class="m">MDM</span></div>
+  <h1>Reworking Export Data</h1>
+  <p class="lede">Two takes on the CSV export screen. Both add the thing it's missing most: an honest sense of <b>what you're about to download</b> before you click.</p>
+
+  <div class="now"><b>Today it's:</b> four stacked form cards — Time Range, Row Timestamps, Sampling Interval, Columns — that you fill in blind, then hope the file is right. No preview, no row count, no size estimate.</div>
+
+  <div class="common"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f9674e" stroke-width="2" style="flex:none;margin-top:1px"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg><span><b>Shared idea:</b> a live <b>row + file-size estimate</b> that moves as you configure — so a stray "30 days, every check-in, all columns" reads as <i>≈ 2.1M rows · 240 MB</i> before you commit, not after.</span></div>
+
+  <div class="grid">
+    <a class="demo" href="/demo/export-builder">
+      <span class="num">01</span>
+      <span><span class="t">Builder — with live preview</span><span class="d">Controls on the left; the actual spreadsheet forms on the right — real headers, sample rows, row/size estimate. You see the file before you download it.</span><span class="best">Best for careful, exactly-right exports</span></span>
+      <span class="arw">→</span>
+    </a>
+    <a class="demo" href="/demo/export-compact">
+      <span class="num">02</span>
+      <span><span class="t">Compact — one screen</span><span class="d">Range, grain and columns collapse into three tidy rows with the size estimate and a plain-English recipe on the download button. A five-second routine export.</span><span class="best">Best for quick, everyday pulls</span></span>
+      <span class="arw">→</span>
+    </a>
+  </div>
+
+  <p class="lede" style="margin-top:26px">Related: the graph's <b>custom time selector</b> revamp —</p>
+  <div class="grid" style="margin-top:8px">
+    <a class="demo" href="/demo/timesel">
+      <span class="num">◷</span>
+      <span><span class="t">Graph time selector — brush timeline</span><span class="d">Replaces the two datetime boxes with a draggable window over a data-density timeline: see where the check-ins are, drag to select, snap to semantic ranges (today, last night, lunch rush).</span></span>
+      <span class="arw">→</span>
+    </a>
+  </div>
+</div>
+</body></html>

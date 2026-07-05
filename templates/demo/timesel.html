@@ -1,0 +1,174 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Graph time selector — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--sunk:#f4f1ec;--border:#e8e2da;--border-soft:#efe9e1;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --coral:#f9674e;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.34);
+    --peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);--peri-ink:#4a4fb8;
+    --grad:linear-gradient(96deg,var(--coral),var(--peri));
+    --r2:8px;--r3:11px;--r4:14px;
+    --font:'IBM Plex Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:'JetBrains Mono','IBM Plex Mono',monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{display:block}
+  .wrap{max-width:780px;margin:0 auto;padding:32px 22px 90px}
+  .back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:16px}
+  .back:hover{color:var(--coral)}
+  .wm{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;margin-bottom:16px}
+  .wm .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.wm .m{color:var(--muted);font-weight:600}
+  h1{font-size:25px;font-weight:700;letter-spacing:-.015em}
+  .lede{color:var(--muted);font-size:14.5px;margin:7px 0 20px;max-width:64ch}.lede b{color:var(--text)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);overflow:hidden}
+  .head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border-soft)}
+  .head .t{font-size:14px;font-weight:700}
+  .read{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}.read b{color:var(--text)}
+
+  /* preset chips */
+  .presets{display:flex;flex-wrap:wrap;gap:6px;padding:13px 18px 4px}
+  .chip{font:inherit;font-size:12.5px;font-weight:500;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:all .12s}
+  .chip:hover{border-color:var(--coral-edge)}
+  .chip.on{background:var(--coral-soft);border-color:var(--coral-edge);color:#b5432f;font-weight:600}
+  .chip.sem{border-style:dashed;color:var(--peri-ink)}
+  .chip.sem.on{background:var(--peri-soft);border-color:rgba(122,128,246,.5);color:var(--peri-ink)}
+
+  /* the brush timeline — signature */
+  .tl-wrap{padding:14px 18px 18px}
+  .tl-cap{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-bottom:5px}
+  .nudge{display:inline-flex;gap:4px}
+  .nudge button{width:22px;height:22px;border:1px solid var(--border);background:var(--surface);border-radius:6px;color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:12px}
+  .nudge button:hover{border-color:var(--coral-edge);color:var(--coral)}
+  .track{position:relative;height:64px;border:1px solid var(--border);border-radius:var(--r2);background:var(--sunk);overflow:hidden;user-select:none;touch-action:none}
+  .spark{position:absolute;inset:0;display:flex;align-items:flex-end;gap:1px;padding:0 1px;opacity:.5}
+  .spark i{flex:1;background:var(--faint);border-radius:1px 1px 0 0}
+  .brush{position:absolute;top:0;bottom:0;background:linear-gradient(180deg,rgba(249,103,78,.14),rgba(122,128,246,.14));border-left:2px solid var(--coral);border-right:2px solid var(--peri);cursor:grab}
+  .brush:active{cursor:grabbing}
+  .brush .h{position:absolute;top:0;bottom:0;width:12px;cursor:ew-resize;display:flex;align-items:center;justify-content:center}
+  .brush .h.l{left:-7px}.brush .h.r{right:-7px}
+  .brush .h b{width:4px;height:26px;border-radius:3px;background:var(--surface);box-shadow:0 1px 3px rgba(0,0,0,.25);border:1px solid var(--border)}
+  .brush .lab{position:absolute;top:-1px;left:50%;transform:translateX(-50%);background:var(--text);color:#fff;font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:0 0 6px 6px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .axis{display:flex;justify-content:space-between;font-size:10.5px;color:var(--faint);margin-top:5px;font-variant-numeric:tabular-nums}
+  .hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+
+  /* mock chart under the control */
+  .chart{margin-top:14px;height:150px;border:1px solid var(--border);border-radius:var(--r3);background:var(--surface);position:relative;overflow:hidden}
+  .chart svg{position:absolute;inset:0;width:100%;height:100%}
+  .chart .cl{position:absolute;top:8px;left:12px;font-size:11px;color:var(--faint)}
+  .note{margin-top:18px;font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:13px 15px;line-height:1.6}.note b{color:var(--text)}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo">← Demos</a>
+  <div class="wm"><span class="a">AIO</span><span class="m">MDM</span></div>
+  <h1>Graph time selector</h1>
+  <p class="lede">The current picker is two <code>datetime-local</code> boxes you type into blind. This replaces them with a <b>brush over a data-density timeline</b> — you can <i>see</i> where the check-ins are and just drag a window over them. Presets set it instantly; drag the edges to fine-tune; slide it with the arrows. Semantic ranges (last night, today) map to real service hours.</p>
+
+  <div class="card">
+    <div class="head">
+      <span class="t">Device graphs</span>
+      <span class="read">Showing <b id="readRange">last 6 hours</b> · <span id="readAbs"></span></span>
+    </div>
+    <div class="presets" id="presets">
+      <button class="chip" data-h="1">1h</button>
+      <button class="chip on" data-h="6">6h</button>
+      <button class="chip" data-h="24">24h</button>
+      <button class="chip" data-h="72">3d</button>
+      <button class="chip" data-h="168">7d</button>
+      <span style="width:1px;background:var(--border);margin:2px 4px"></span>
+      <button class="chip sem" data-sem="today">Today</button>
+      <button class="chip sem" data-sem="last-night">Last night</button>
+      <button class="chip sem" data-sem="lunch">Lunch rush</button>
+    </div>
+    <div class="tl-wrap">
+      <div class="tl-cap"><span>Drag to select a window · 30-day span</span>
+        <span class="nudge"><button id="nprev" title="Earlier">◀</button><button id="nnext" title="Later">▶</button></span>
+      </div>
+      <div class="track" id="track">
+        <div class="spark" id="spark"></div>
+        <div class="brush" id="brush"><div class="h l"><b></b></div><div class="h r"><b></b></div><div class="lab" id="brushLab">6h</div></div>
+      </div>
+      <div class="axis"><span>30 days ago</span><span>2 weeks</span><span>1 week</span><span>now</span></div>
+      <div class="hint" id="hint">Tip: click a preset, then nudge the window with ◀ ▶ to walk back through time keeping the same width.</div>
+
+      <div class="chart"><span class="cl">battery · selected window</span><svg id="chartSvg" viewBox="0 0 600 150" preserveAspectRatio="none"></svg></div>
+    </div>
+  </div>
+
+  <p class="note"><b>Why this shape:</b> people don't think in ISO timestamps — they think "the spike last night" or "during lunch." The density bars show them where data actually exists (no more selecting an empty range), the brush makes width and position one gesture, and semantic presets snap to the venue's real service window. The exact start/end are still there in the read-out for when precision matters.</p>
+</div>
+
+<script>
+(function(){
+  var SPAN_MS=30*24*3600*1000; // track = last 30 days
+  var now=1751731200000; // fixed "now" for the demo (2025-07-05 12:00 UTC-ish)
+  var track=document.getElementById("track"), brush=document.getElementById("brush");
+  var minFrac=0.008; // min brush width
+  var $=function(id){return document.getElementById(id)};
+
+  // density sparkline (busier toward "now", with a couple of gaps)
+  var sp=$("spark"); var bars=90;
+  for(var i=0;i<bars;i++){ var b=document.createElement("i"); var base=8+Math.round(70*Math.pow(i/bars,1.6));
+    if(i%17===0||i%23===0) base=3; // silent windows
+    b.style.height=base+"%"; sp.appendChild(b); }
+
+  var startF=0.8, endF=1.0; // fractions of the 30-day span (0=30d ago, 1=now)
+  function fmtDur(ms){var h=ms/3600000; if(h<1)return Math.round(h*60)+"m"; if(h<48)return (h%1?h.toFixed(1):h)+"h"; return Math.round(h/24)+"d";}
+  function fmtAbs(t){var d=new Date(t); return d.toLocaleDateString([], {month:"short",day:"numeric"})+" "+String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0");}
+  function apply(){
+    startF=Math.max(0,Math.min(startF,1-minFrac)); endF=Math.min(1,Math.max(endF,startF+minFrac));
+    brush.style.left=(startF*100)+"%"; brush.style.width=((endF-startF)*100)+"%";
+    var s=now-SPAN_MS+startF*SPAN_MS, e=now-SPAN_MS+endF*SPAN_MS;
+    var dur=e-s; $("brushLab").textContent=fmtDur(dur);
+    $("readRange").textContent=fmtDur(dur)+" window"; $("readAbs").textContent=fmtAbs(s)+" → "+fmtAbs(e);
+    drawChart(); syncPreset(dur,e);
+  }
+  function setWindowHours(h,anchorNow){
+    var f=(h*3600000)/SPAN_MS; if(anchorNow!==false){endF=1;startF=1-f;} else {startF=Math.max(0,endF-f);} apply();
+  }
+  function syncPreset(dur,e){
+    document.querySelectorAll("#presets .chip").forEach(function(c){c.classList.remove("on")});
+    if(Math.abs(e-now)<3600000){ var h=Math.round(dur/3600000); var m=document.querySelector('#presets .chip[data-h="'+h+'"]'); if(m)m.classList.add("on"); }
+  }
+
+  // presets
+  document.querySelectorAll("#presets .chip[data-h]").forEach(function(c){c.onclick=function(){ setWindowHours(+c.dataset.h,true); };});
+  document.querySelectorAll("#presets .chip[data-sem]").forEach(function(c){c.onclick=function(){
+    document.querySelectorAll("#presets .chip").forEach(function(x){x.classList.remove("on")}); c.classList.add("on");
+    // map semantic ranges onto the span (illustrative fractions)
+    var map={ "today":[0.966,1.0], "last-night":[0.94,0.965], "lunch":[0.978,0.99] };
+    var m=map[c.dataset.sem]; startF=m[0]; endF=m[1]; apply();
+    $("hint").textContent = c.dataset.sem==="lunch" ? "Lunch rush maps to this venue's 12:00–14:00 service window." : "Semantic ranges snap to the venue's configured service hours.";
+  };});
+
+  // drag
+  var drag=null;
+  function fracFromX(clientX){var r=track.getBoundingClientRect(); return Math.max(0,Math.min(1,(clientX-r.left)/r.width));}
+  brush.addEventListener("pointerdown",function(e){
+    var t=e.target.closest(".h"); drag={mode:t?(t.classList.contains("l")?"l":"r"):"move", x:e.clientX, s:startF, e:endF};
+    brush.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
+  });
+  brush.addEventListener("pointermove",function(e){
+    if(!drag)return; var r=track.getBoundingClientRect(); var d=(e.clientX-drag.x)/r.width;
+    if(drag.mode==="move"){var w=drag.e-drag.s; startF=drag.s+d; endF=startF+w; if(startF<0){startF=0;endF=w;} if(endF>1){endF=1;startF=1-w;}}
+    else if(drag.mode==="l"){startF=drag.s+d;}
+    else {endF=drag.e+d;}
+    apply();
+  });
+  brush.addEventListener("pointerup",function(e){drag=null;});
+  // click track to center a window there
+  track.addEventListener("pointerdown",function(e){ if(e.target.closest(".brush"))return; var f=fracFromX(e.clientX); var w=endF-startF; startF=Math.max(0,f-w/2); endF=Math.min(1,startF+w); apply(); });
+  $("nprev").onclick=function(){var w=endF-startF; startF=Math.max(0,startF-w); endF=startF+w; apply();};
+  $("nnext").onclick=function(){var w=endF-startF; endF=Math.min(1,endF+w); startF=endF-w; apply();};
+
+  function drawChart(){
+    var svg=$("chartSvg"); var pts=[]; var n=60;
+    for(var i=0;i<=n;i++){ var y=75+40*Math.sin(i/6+startF*20)+18*Math.cos(i/2.5); pts.push((i/n*600)+","+y); }
+    svg.innerHTML='<polyline fill="none" stroke="url(#g)" stroke-width="2.5" points="'+pts.join(" ")+'"/>'+
+      '<defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#f9674e"/><stop offset="1" stop-color="#7a80f6"/></linearGradient></defs>';
+  }
+  apply();
+})();
+</script>
+</body></html>
