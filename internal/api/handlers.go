@@ -339,6 +339,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
+	h.db.IngestDeviceEvents(r.Context(), deviceID, req.Extra)
 	if isNew {
 		h.notifyDeviceOnboarded(r.Context(), deviceID, req.SerialNumber)
 	}
@@ -696,6 +697,7 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		log.Printf("[ws-telemetry] UpsertCheckin error: %v", err)
 		return
 	}
+	h.db.IngestDeviceEvents(ctx, id, req.Extra)
 	if isNew {
 		// A device must already exist to open its WS, so this is rare, but keep
 		// onboarding parity with the HTTP checkin path.
