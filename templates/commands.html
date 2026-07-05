@@ -55,6 +55,27 @@
 .recipe.add{border-style:dashed;box-shadow:none;color:var(--muted);font-weight:600;font-size:12.5px;gap:7px;padding:10px 15px;}
 .recipe.add svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;}
 
+/* Scope rail — target picker (pick a collection, refine, see blast radius). */
+.scope-wrap{display:grid;grid-template-columns:230px 1fr;gap:16px;margin-top:10px;align-items:start;}
+.scope-rail{border:1px solid var(--border);border-radius:10px;padding:7px 6px;max-height:320px;overflow:auto;background:var(--surface);}
+.scope-rail .src{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint,#a49c90);padding:10px 8px 3px;}
+.scope-rail .src:first-child{padding-top:2px;}
+.sri{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:7px 9px;border-radius:7px;border:1px solid transparent;background:none;cursor:pointer;font:inherit;color:var(--text);}
+.sri:hover{background:var(--surface-sunk,rgba(0,0,0,.03));}
+.sri.on{background:var(--accent-soft,rgba(249,103,78,.1));border-color:var(--accent-edge,rgba(249,103,78,.34));}
+.sri .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted-dot,#b8b0a4);}
+.sri .dot.ok{background:var(--ok,#3f9d5a);}.sri .dot.warn{background:var(--warn,#c98a1a);}.sri .dot.danger,.sri .dot.bad{background:var(--danger,#d1503f);}
+.sri .nm{flex:1;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sri.on .nm{font-weight:600;}
+.sri .ct{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.scope-refine .sr-cap{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint,#a49c90);margin-bottom:8px;}
+.sr-pills{display:flex;flex-wrap:wrap;gap:8px;}
+.sr-pill{font:inherit;font-size:12.5px;font-weight:500;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);cursor:pointer;}
+.sr-pill:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));}
+.sr-pill.on{background:var(--accent-2-soft,rgba(122,128,246,.12));border-color:rgba(122,128,246,.4);color:#4a4fb8;font-weight:600;}
+.sr-hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:14px;}
+@media(max-width:700px){.scope-wrap{grid-template-columns:1fr;}}
+
 /* Impact — compact blast-radius line in the sheet footer. */
 .cr-impact{min-width:0;flex:1;}
 .imp-cap{display:none;}
@@ -386,97 +407,32 @@
 
         <div class="cr-sec">
           <div class="cr-sec-title">Target</div>
-          <div class="target-pills">
-            <button type="button" class="target-pill is-active" data-target="all" onclick="selectTarget('all', this)">
-              <span class="pill-dot"></span>All Devices
-            </button>
-            <button type="button" class="target-pill" data-target="groups" onclick="selectTarget('groups', this)">
-              <span class="pill-dot"></span>Groups
-            </button>
-            <button type="button" class="target-pill" data-target="devices" onclick="selectTarget('devices', this)">
-              <span class="pill-dot"></span>Specific
-            </button>
-          </div>
           <input type="hidden" name="target_type" id="target-type-input" value="all">
+          <input type="hidden" name="scope_mode" id="scope-mode" value="all">
+          <input type="hidden" name="scope_id" id="scope-id" value="">
+          <input type="hidden" name="scope_status" id="scope-status" value="">
+          <input type="hidden" name="scope_battery" id="scope-battery" value="">
+          <input type="hidden" name="scope_kiosk" id="scope-kiosk" value="">
+          <textarea name="target_serials" id="cmd-serials" style="display:none"></textarea>
 
-          <div id="target-groups" class="target-detail" style="margin-top:12px;">
-            {{if .Groups}}
-            <input type="text" id="cmd-group-filter" class="form-input" autocomplete="off" placeholder="Filter groups…" oninput="filterCmdGroups()" style="margin-bottom:8px;">
-            {{end}}
-            <div class="checkbox-group" id="cmd-group-list">
-              {{range .Groups}}
-              <label class="checkbox-label" data-name="{{.Name}}">
-                <input type="checkbox" name="target_groups" value="{{.ID}}" onchange="updatePreview()"> {{.Name}} ({{.DeviceCount}} devices)
-              </label>
-              {{else}}
-              <span class="muted small">No groups created yet.</span>
-              {{end}}
-            </div>
-          </div>
-
-          <div id="target-devices" class="target-detail" style="margin-top:12px;">
-            <div class="dp-tp cmd-dp">
-              <div class="dp-pane">
-                <div class="dp-pane-h"><span class="t">Available devices</span><button type="button" class="btn-link" onclick="cmdSelectAllMatching()" style="font-size:12px;font-weight:600;">Select all matching</button></div>
-                <div class="filter-search" style="margin:11px 12px 0;box-sizing:border-box;">
-                  <svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-                  <input type="search" id="cmd-serial-input" name="q" class="filter-search-input" autocomplete="off"
-                         placeholder="Search serial · Enter to add exact match…"
-                         oninput="cmdBrowseDebounced()"
-                         onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}">
+          <div class="scope-wrap">
+            <aside class="scope-rail" id="scope-rail">
+              <button type="button" class="sri" data-mode="picked" id="sri-picked" style="display:none" onclick="selectScope('picked','',this)"><span class="dot ok"></span><span class="nm">Selected devices</span><span class="ct" id="picked-ct">0</span></button>
+              <button type="button" class="sri on" data-mode="all" onclick="selectScope('all','',this)"><span class="dot ok"></span><span class="nm">All devices</span></button>
+              {{if .ScopeRestaurants}}<div class="src">Restaurants</div>{{range .ScopeRestaurants}}<button type="button" class="sri" data-mode="restaurant" data-id="{{.GroupID}}" onclick="selectScope('restaurant','{{.GroupID}}',this)"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+              {{if .Groups}}<div class="src">Groups</div>{{range .Groups}}<button type="button" class="sri" data-mode="group" data-id="{{.ID}}" onclick="selectScope('group','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+              {{if .ScopeReleases}}<div class="src">Releases</div>{{range .ScopeReleases}}<button type="button" class="sri" data-mode="build" data-id="{{.Version}}" onclick="selectScope('build','{{.Version}}',this)"><span class="dot muted"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+            </aside>
+            <div class="scope-side">
+              <div class="scope-refine" id="scope-refine">
+                <div class="sr-cap">Refine</div>
+                <div class="sr-pills">
+                  <button type="button" class="sr-pill" data-k="status" data-v="online" onclick="toggleRefine(this)">Online only</button>
+                  <button type="button" class="sr-pill" data-k="battery" data-v="low" onclick="toggleRefine(this)">Low battery</button>
+                  <button type="button" class="sr-pill" data-k="kiosk" data-v="enabled" onclick="toggleRefine(this)">In kiosk</button>
                 </div>
-                <div class="cb-tools">
-                  <div class="fleet-fwrap" id="cmd-filters-wrap">
-                    <button type="button" class="fleet-fbtn" id="cmd-filters-btn" onclick="cmdToggleFilters(event)" aria-haspopup="true" aria-expanded="false">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
-                      Filters <span class="cnt" id="cmd-filter-cnt" hidden>0</span>
-                    </button>
-                  </div>
-                  <div class="fleet-fwrap" id="cmd-sort-wrap">
-                    <button type="button" class="fleet-fbtn" id="cmd-sort-btn" onclick="cmdToggleSort(event)" aria-haspopup="true" aria-expanded="false">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h5"/></svg>
-                      Sort
-                    </button>
-                    <div class="fleet-pop fleet-sortpop" id="cmd-sort-pop" hidden>
-                      <div class="fp-cap">Sort by</div>
-                      <div class="sortpop">
-                        <button type="button" class="sortopt on" data-sort="last_seen" onclick="cmdSortBy('last_seen')"><span>Last seen</span><span class="dir">↓</span></button>
-                        <button type="button" class="sortopt" data-sort="battery" onclick="cmdSortBy('battery')"><span>Battery</span><span class="dir"></span></button>
-                        <button type="button" class="sortopt" data-sort="serial" onclick="cmdSortBy('serial')"><span>Serial</span><span class="dir"></span></button>
-                        <button type="button" class="sortopt" data-sort="created_at" onclick="cmdSortBy('created_at')"><span>Onboarded</span><span class="dir"></span></button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <!-- In-flow filter panel: pushes the device list down instead of
-                     overlaying it, so results stay visible while filtering. -->
-                <div class="fleet-pop cmd-filters-panel" id="cmd-filters-pop" hidden>
-                  <div class="fp-grid">
-                    <label class="fp-field"><span>Status</span>
-                      <select id="cmd-browse-status" onchange="cmdBrowseReload()"><option value="">Any status</option><option value="online">Online</option><option value="offline">Offline</option></select></label>
-                    <label class="fp-field"><span>Group</span>
-                      <select id="cmd-browse-group" onchange="cmdBrowseReload()"><option value="">Any group</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
-                    <label class="fp-field"><span>Production</span>
-                      <select id="cmd-browse-production" onchange="cmdBrowseReload()"><option value="">Any production</option>{{range .Productions}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select></label>
-                    <label class="fp-field"><span>Release</span>
-                      <select id="cmd-browse-build" onchange="cmdBrowseReload()"><option value="">Any release</option>{{range .Builds}}<option value="{{.}}">{{.}}</option>{{end}}</select></label>
-                    <label class="fp-field"><span>Battery</span>
-                      <select id="cmd-browse-battery" onchange="cmdBrowseReload()"><option value="">Any battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select></label>
-                  </div>
-                  <div class="fp-foot">
-                    <button type="button" class="fp-clear" onclick="cmdBrowseClear()">Clear all</button>
-                    <button type="button" class="btn-primary fp-done" onclick="cmdToggleFilters(event)">Done</button>
-                  </div>
-                </div>
-                <div id="cmd-device-browser" style="max-height:260px;overflow:auto;margin:8px 8px 6px;"
-                     hx-get="/commands/browse-devices" hx-select="unset" hx-trigger="load" hx-target="#cmd-device-browser" hx-swap="innerHTML">{{template "skel-rows" .}}</div>
               </div>
-              <div class="dp-pane">
-                <div class="dp-pane-h"><span class="t">Selected</span><span class="n"><span id="cmd-sel-count">0</span> device(s)</span></div>
-                <div id="cmd-chips" class="cmd-chips" style="padding:10px 12px;flex:1;overflow:auto;align-content:flex-start;min-height:150px;"></div>
-                <textarea name="target_serials" id="cmd-serials" class="form-textarea" placeholder="paste serials, one per line&#10;DEVICE001&#10;DEVICE002" oninput="cmdRenderChips();updatePreview()" style="display:none;font-family:var(--mono);font-size:12px;margin:0 12px;"></textarea>
-                <button type="button" class="btn-link small" id="cmd-edit-list" onclick="cmdToggleList()" style="margin:0 12px 10px;font-size:12px;">Edit as list ▾</button>
-              </div>
+              <p class="sr-hint" id="scope-hint">Pick a whole restaurant, group or release &mdash; or refine with a pill. The blast radius below updates live.</p>
             </div>
           </div>
         </div>
@@ -750,12 +706,33 @@ function onSplashFile(input) {
   updatePreview();
 }
 
-function selectTarget(val, btn) {
-  document.getElementById('target-type-input').value = val;
-  document.querySelectorAll('.target-pill').forEach(function(p) { p.classList.toggle('is-active', p.dataset.target === val); });
-  document.getElementById('target-groups').classList.toggle('is-active', val === 'groups');
-  document.getElementById('target-devices').classList.toggle('is-active', val === 'devices');
+// ── Scope-rail target picker ──
+function selectScope(mode, id, el) {
+  document.querySelectorAll('#scope-rail .sri').forEach(function(b){ b.classList.toggle('on', b === el); });
+  var refine = document.getElementById('scope-refine');
+  if (mode === 'picked') {
+    document.getElementById('target-type-input').value = 'devices';
+    document.getElementById('scope-mode').value = '';
+    if (refine) refine.style.display = 'none';
+  } else {
+    document.getElementById('target-type-input').value = 'scope';
+    document.getElementById('scope-mode').value = mode;
+    document.getElementById('scope-id').value = id || '';
+    if (refine) refine.style.display = '';
+  }
   updatePreview();
+}
+function toggleRefine(el) {
+  var on = !el.classList.contains('on');
+  el.classList.toggle('on', on);
+  var hid = document.getElementById('scope-' + el.dataset.k);
+  if (hid) hid.value = on ? el.dataset.v : '';
+  updatePreview();
+}
+// Back-compat shim: recipes/clone call selectTarget('all'|'groups'|'devices').
+function selectTarget(val) {
+  if (val === 'all') { var a = document.querySelector('#scope-rail .sri[data-mode="all"]'); if (a) selectScope('all', '', a); }
+  // 'devices' is driven by cmdSetSerials; 'groups' is handled in applyPrefill.
 }
 
 // ── Specific-devices target: serial chips backed by the hidden textarea ──
@@ -764,10 +741,12 @@ function cmdSerials() {
 }
 function cmdSetSerials(list) {
   var seen = {}, out = [];
-  list.forEach(function (s) { s = s.trim(); if (s && !seen[s]) { seen[s] = 1; out.push(s); } });
+  (list || []).forEach(function (s) { s = String(s).trim(); if (s && !seen[s]) { seen[s] = 1; out.push(s); } });
   document.getElementById('cmd-serials').value = out.join('\n');
-  cmdRenderChips();
-  updatePreview();
+  var picked = document.getElementById('sri-picked'), ct = document.getElementById('picked-ct');
+  if (ct) ct.textContent = out.length;
+  if (out.length) { if (picked) { picked.style.display = ''; selectScope('picked', '', picked); } }
+  else { if (picked) picked.style.display = 'none'; }
 }
 // Enter-to-add: commit the typed serial(s) as chips, clear the search box, and
 // reload the (now unfiltered) browse list so the selection shows checked.
@@ -1075,12 +1054,18 @@ function applyPrefill(pf) {
     var fa = document.querySelector('#uninstall-list .pkg[data-pkg="' + pf.package + '"]');
     if (fa) { pickUninstall(fa); } else { var uh = document.getElementById('uninstall-pkg'); if (uh) uh.value = pf.package; }
   }
-  // Reset target checkboxes/serials before applying so a recipe fully replaces state.
-  document.querySelectorAll('input[name="target_groups"]:checked').forEach(function (cb) { cb.checked = false; });
-  if (pf.target) { var tp = document.querySelector('.target-pill[data-target="' + pf.target + '"]'); if (tp) selectTarget(pf.target, tp); }
-  cmdSetSerials(pf.serials && pf.serials.length ? pf.serials : []);
-  if (pf.groups && pf.groups.length) pf.groups.forEach(function (g) { var cb = document.querySelector('input[name="target_groups"][value="' + g + '"]'); if (cb) cb.checked = true; });
-  cmdRenderChips();
+  // Restore the target on the scope rail: hand-picked serials → Selected devices;
+  // a group recipe → that group's scope (first group); otherwise All devices.
+  if (pf.serials && pf.serials.length) {
+    cmdSetSerials(pf.serials);
+  } else if (pf.target === 'groups' && pf.groups && pf.groups.length) {
+    var gb = document.querySelector('#scope-rail .sri[data-mode="group"][data-id="' + pf.groups[0] + '"]');
+    if (gb) selectScope('group', pf.groups[0], gb);
+    else { var ga = document.querySelector('#scope-rail .sri[data-mode="all"]'); if (ga) selectScope('all', '', ga); }
+  } else {
+    cmdSetSerials([]);
+    var a = document.querySelector('#scope-rail .sri[data-mode="all"]'); if (a) selectScope('all', '', a);
+  }
   updatePreview();
 }
 
@@ -1137,13 +1122,10 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 
   var serials = new URLSearchParams(window.location.search).get('serials');
   if (serials) {
-    var pill = document.querySelector('.target-pill[data-target="devices"]');
-    if (pill) selectTarget('devices', pill);
-    cmdSetSerials(serials.split(','));
+    cmdSetSerials(serials.split(','));   // shows + activates the "Selected devices" scope
   }
 
   applyPrefill(window.CMD_PREFILL);
-  cmdRenderChips();
   updatePreview();
 })();
 

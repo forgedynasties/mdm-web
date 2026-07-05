@@ -5923,6 +5923,10 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	}
 	targetSerials, _ := h.db.GetCommandTargetSerialsBatch(r.Context(), serialIDs)
 
+	// Collections for the scope-rail target picker (restaurants + releases with counts).
+	scopeRestaurants, _ := h.db.GetRestaurantHealth(r.Context(), h.cfg.CheckinInterval()*3, 7)
+	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
+
 	h.render(w, r, "commands.html", map[string]any{
 		"Title":          "Commands",
 		"Commands":       cmds,
@@ -5933,6 +5937,8 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"ProgCount":      len(prog),
 		"DoneCount":      len(doneAll),
 		"Groups":         groups,
+		"ScopeRestaurants": scopeRestaurants,
+		"ScopeReleases":    scopeReleases,
 		"Productions":    productions,
 		"Builds":         builds,
 		"Apps":           apps,
@@ -6110,25 +6116,9 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	}
 	targetType := r.FormValue("target_type")
 
-	// Resolve the target device set the same way CommandCreate does.
-	var ids []uuid.UUID
-	switch targetType {
-	case "groups":
-		var gids []uuid.UUID
-		for _, g := range r.Form["target_groups"] {
-			if id, err := uuid.Parse(g); err == nil {
-				gids = append(gids, id)
-			}
-		}
-		ids, _ = h.db.GetDeviceIDsInGroups(r.Context(), gids)
-	case "devices":
-		serials := db.ParseSerials(r.FormValue("target_serials"))
-		ids, _ = h.db.GetDeviceIDsBySerials(r.Context(), serials)
-	default: // "all" (and unset)
-		targetType = "all"
-		ids, _ = h.db.GetAllDeviceIDs(r.Context())
-	}
-
+	// Resolve the target device set the same way CommandCreate does (all/devices/
+	// groups/scope) so the impact count is exactly what a send would hit.
+	ids, _ := h.resolveTargetDeviceIDs(r, targetType)
 	devices, _ := h.db.GetDevicesByIDs(r.Context(), ids)
 	connected := h.hub.ConnectedIDs()
 
@@ -6653,9 +6643,9 @@ func redactDeviceCommandURLs(role string, cmds []db.DeviceCommand) {
 	}
 }
 
-// resolveTargetDeviceIDs turns a command target spec (all/devices/groups) into the
-// concrete device-ID set — expanding groups to their devices — for actions like kiosk
-// that operate on device IDs directly rather than going through CreateCommand.
+// resolveTargetDeviceIDs turns a command target spec (all/devices/groups/scope) into
+// the concrete device-ID set — expanding groups/scope to their devices — for actions
+// like kiosk/logcat that operate on device IDs directly rather than via CreateCommand.
 func (h *Handler) resolveTargetDeviceIDs(r *http.Request, targetType string) ([]uuid.UUID, error) {
 	switch targetType {
 	case "groups":
@@ -6668,9 +6658,48 @@ func (h *Handler) resolveTargetDeviceIDs(r *http.Request, targetType string) ([]
 		return h.db.GetDeviceIDsInGroups(r.Context(), gids)
 	case "devices":
 		return h.db.GetDeviceIDsBySerials(r.Context(), db.ParseSerials(r.FormValue("target_serials")))
+	case "scope":
+		return h.resolveScopeDeviceIDs(r)
 	default: // "all"
 		return h.db.GetAllDeviceIDs(r.Context())
 	}
+}
+
+// buildScopeFilter reads the scope-rail form fields (a primary collection —
+// all/restaurant/group/build — plus optional refine filters) into a DeviceFilter.
+func (h *Handler) buildScopeFilter(r *http.Request) db.DeviceFilter {
+	f := db.DeviceFilter{ActiveThresholdSecs: h.cfg.CheckinInterval() * 3}
+	switch r.FormValue("scope_mode") {
+	case "restaurant":
+		if id, err := uuid.Parse(r.FormValue("scope_id")); err == nil {
+			f.RestaurantID = id
+		}
+	case "group":
+		if id, err := uuid.Parse(r.FormValue("scope_id")); err == nil {
+			f.GroupID = id
+		}
+	case "build":
+		f.BuildID = r.FormValue("scope_id")
+	}
+	// Refine pills compose on top of the collection.
+	f.Online = r.FormValue("scope_status")
+	f.Battery = r.FormValue("scope_battery")
+	f.Kiosk = r.FormValue("scope_kiosk")
+	return f
+}
+
+// resolveScopeDeviceIDs snapshots the scope filter to the matching device IDs (like the
+// "all" path — future devices that later match are unaffected).
+func (h *Handler) resolveScopeDeviceIDs(r *http.Request) ([]uuid.UUID, error) {
+	devs, err := h.db.ListDevices(r.Context(), h.buildScopeFilter(r), 0, 20000, "serial", "asc")
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, len(devs))
+	for i := range devs {
+		ids[i] = devs[i].ID
+	}
+	return ids, nil
 }
 
 // applyKioskForTargets sets (or clears) kiosk mode on the resolved target devices and
@@ -6749,7 +6778,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	targetType := r.FormValue("target_type")
-	if targetType != "all" && targetType != "devices" && targetType != "groups" {
+	if targetType != "all" && targetType != "devices" && targetType != "groups" && targetType != "scope" {
 		http.Redirect(w, r, "/commands", http.StatusFound)
 		return
 	}
@@ -6824,6 +6853,19 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			}
 			targetIDs = append(targetIDs, id)
 		}
+	case "scope":
+		// Snapshot the scope-rail selection (collection + refine) to device IDs now.
+		ids, err := h.resolveScopeDeviceIDs(r)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
+			http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(ids), max), http.StatusBadRequest)
+			return
+		}
+		targetType = "devices"
+		targetIDs = ids
 	}
 
 	// Don't pile up installs: drop target devices that already have this exact APK
@@ -8210,36 +8252,10 @@ func parseLogcatParams(r *http.Request) (level string, lines int, tag string) {
 // to concrete device IDs and creates one logcat request per device.
 func (h *Handler) captureLogsForTargets(w http.ResponseWriter, r *http.Request, targetType string) {
 	level, lines, tag := parseLogcatParams(r)
-	var deviceIDs []uuid.UUID
-	switch targetType {
-	case "all":
-		ids, err := h.db.GetAllDeviceIDs(r.Context())
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		deviceIDs = ids
-	case "devices":
-		serials := db.ParseSerials(r.FormValue("target_serials"))
-		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		deviceIDs = ids
-	case "groups":
-		var gids []uuid.UUID
-		for _, g := range r.Form["target_groups"] {
-			if id, err := uuid.Parse(g); err == nil {
-				gids = append(gids, id)
-			}
-		}
-		ids, err := h.db.GetDeviceIDsInGroups(r.Context(), gids)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		deviceIDs = ids
+	deviceIDs, err := h.resolveTargetDeviceIDs(r, targetType)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
 	}
 	if max := h.cfg.MaxTargets(); max > 0 && len(deviceIDs) > max {
 		http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(deviceIDs), max), http.StatusBadRequest)
