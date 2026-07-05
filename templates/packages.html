@@ -69,16 +69,12 @@
         {{if .EffectiveSystem}}<span class="pk-eff sys">system</span>{{else}}<span class="pk-eff usr">user</span>{{end}}
       </span>
       <div class="pk-swwrap">
-        {{if $clientReported}}
-        <span class="pk-locked" title="A client reports this flag, which overrides the admin setting">client-set</span>
-        {{else}}
-        <label class="pk-sw" title="Flag as a system app">
+        <label class="pk-sw" title="Force this app to be treated as a system app — overrides what devices report (hides it from Uninstall &amp; Kiosk pickers)">
           <input type="checkbox" {{if .AdminFlagged}}checked{{end}}
                  hx-post="/packages/flag" hx-select="unset" hx-trigger="change" hx-swap="none"
                  hx-vals='js:{package: "{{.PackageName}}", flagged: event.target.checked ? "1" : "0"}'>
           <span class="tr"><span class="kn"></span></span>
         </label>
-        {{end}}
       </div>
     </div>
     {{end}}
