@@ -326,7 +326,17 @@
 
 <section class="dd-panel" data-dd-panel="summary">
 
+<style>
+.chart-card{position:relative;}
+.chart-loading{position:absolute;inset:0;z-index:6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:11px;background:var(--surface,#fff);border-radius:inherit;transition:opacity .28s ease;}
+.chart-loading.hide{opacity:0;pointer-events:none;}
+.chart-spin{width:26px;height:26px;border-radius:50%;border:2.5px solid var(--border,#e8e2da);border-top-color:var(--accent,#f9674e);animation:chartspin .7s linear infinite;}
+.chart-loading-t{font-size:12.5px;color:var(--muted,#7e776d);font-weight:500;letter-spacing:.01em;}
+@keyframes chartspin{to{transform:rotate(360deg);}}
+@media(prefers-reduced-motion:reduce){.chart-spin{animation-duration:1.8s;}}
+</style>
 <div class="card chart-card">
+  <div class="chart-loading" id="chart-loading" aria-live="polite"><span class="chart-spin" aria-hidden="true"></span><span class="chart-loading-t">Loading graphs…</span></div>
   <div class="card-header">
     <h3>Device Graphs</h3>
     <div style="display:flex;align-items:center;gap:10px;">
@@ -1169,9 +1179,15 @@
   }
 
   var focusTab = applyFocusFromURL();
-  updateCharts();
-  syncMarkerToggle();
-  setChartTab(focusTab || activeTab);
+  // Populate/render after a paint so the "Loading graphs…" overlay is visible while
+  // Chart.js lays out the data (which can take a beat on devices with lots of points).
+  requestAnimationFrame(function () {
+    updateCharts();
+    syncMarkerToggle();
+    setChartTab(focusTab || activeTab);
+    var cl = document.getElementById('chart-loading');
+    if (cl) { cl.classList.add('hide'); setTimeout(function () { cl.style.display = 'none'; }, 300); }
+  });
   window.mdmChart = { allBattery, allTemp, allRam, updateCharts };
 
   // Recolor chart grid/ticks live when the theme is toggled.
