@@ -1,0 +1,218 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Target · Split targeter — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--sunk:#f4f1ec;--border:#e8e2da;--border-soft:#efe9e1;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --coral:#f9674e;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.34);
+    --peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);--peri-ink:#4a4fb8;
+    --ok:#3f9d5a;--warn:#c98a1a;--bad:#d1503f;--muted-dot:#b8b0a4;
+    --grad:linear-gradient(96deg,var(--coral),var(--peri));
+    --r2:8px;--r3:11px;--r4:14px;
+    --font:'IBM Plex Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:'JetBrains Mono','IBM Plex Mono',monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{display:block}
+  .wrap{max-width:1040px;margin:0 auto;padding:34px 24px 90px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:18px}
+  .back:hover{color:var(--coral)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;margin-bottom:18px}
+  .brand .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  h1{font-size:25px;font-weight:700;letter-spacing:-.015em}
+  .lede{color:var(--muted);font-size:14.5px;margin:7px 0 22px;max-width:64ch}
+  .lede b{color:var(--text);font-weight:600}
+
+  .frame{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);overflow:hidden}
+  .frame-top{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border-soft);background:linear-gradient(180deg,#fff,#fdfbf9)}
+  .act-chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;background:var(--sunk);border:1px solid var(--border)}
+  .act-chip .ic{width:15px;height:15px;color:var(--coral)}
+  .step{font-size:12px;color:var(--faint);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .arrow{color:var(--faint)}
+
+  .cols{display:grid;grid-template-columns:186px 1fr 250px;min-height:440px}
+  /* rail */
+  .rail{border-right:1px solid var(--border-soft);background:#fdfbf9;padding:10px 8px;overflow-y:auto}
+  .rail-cap{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);padding:11px 9px 4px}
+  .rail-cap:first-child{padding-top:3px}
+  .ri{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:6px 9px;border-radius:var(--r2);border:1px solid transparent;background:none;cursor:pointer;font:inherit;color:var(--text)}
+  .ri:hover{background:var(--sunk)}.ri.on{background:var(--coral-soft);border-color:var(--coral-edge)}
+  .ri .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}.dot.muted{background:var(--muted-dot)}
+  .ri .nm{flex:1;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ri.on .nm{font-weight:600}.ri .ct{font-size:11.5px;color:var(--muted)}
+
+  /* roster */
+  .roster{display:flex;flex-direction:column;border-right:1px solid var(--border-soft);min-width:0}
+  .rtools{display:flex;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid var(--border-soft)}
+  .search{flex:1;display:flex;align-items:center;gap:7px;background:var(--sunk);border:1px solid var(--border);border-radius:var(--r2);padding:6px 10px}
+  .search input{border:none;background:none;font:inherit;font-size:13px;width:100%;outline:none;color:var(--text)}
+  .search svg{color:var(--faint);flex:none}
+  .selall{font-size:12px;font-weight:600;color:var(--peri-ink);background:none;border:none;cursor:pointer;white-space:nowrap}
+  .rpills{display:flex;gap:6px;padding:9px 13px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap}
+  .rpill{font-size:12px;font-weight:500;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);cursor:pointer}
+  .rpill.on{background:var(--peri-soft);border-color:rgba(122,128,246,.4);color:var(--peri-ink);font-weight:600}
+  .rlist{flex:1;overflow-y:auto;padding:6px}
+  .row{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:var(--r2);cursor:pointer}
+  .row:hover{background:var(--sunk)}
+  .row.sel{background:var(--coral-soft)}
+  .cbx{width:16px;height:16px;border-radius:5px;border:1.6px solid var(--faint);flex:none;display:grid;place-items:center;color:#fff}
+  .row.sel .cbx{background:var(--coral);border-color:var(--coral)}
+  .cbx svg{width:11px;height:11px;opacity:0}.row.sel .cbx svg{opacity:1}
+  .row .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .row .ser{font-family:var(--mono);font-size:12px;letter-spacing:-.02em}
+  .row .meta{margin-left:auto;font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .row .meta.low{color:var(--bad);font-weight:600}
+
+  /* tray */
+  .tray{background:#fdfbf9;display:flex;flex-direction:column}
+  .tray-meter{padding:15px 16px 14px;border-bottom:1px solid var(--border-soft);position:relative;overflow:hidden}
+  .tray-meter::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad)}
+  .tray-meter .lab{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  .tray-meter .big{display:flex;align-items:baseline;gap:7px;margin:2px 0 9px}
+  .tray-meter .big .n{font-size:38px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .tray-meter .big .u{font-size:13px;color:var(--muted);font-weight:600}
+  .bar{height:8px;border-radius:5px;background:var(--sunk);overflow:hidden;display:flex}
+  .bar .on{background:var(--ok);transition:width .3s}.bar .q{background:var(--muted-dot);transition:width .3s}
+  .tsplit{display:flex;gap:12px;margin-top:7px;font-size:11.5px;color:var(--muted)}
+  .tsplit b{color:var(--text)}
+  .tray-head{display:flex;align-items:center;justify-content:space-between;padding:11px 15px 6px}
+  .tray-head .t{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+  .tray-head .clr{font-size:12px;color:var(--peri-ink);background:none;border:none;cursor:pointer;font-weight:600}
+  .tchips{flex:1;overflow-y:auto;padding:4px 12px 12px;display:flex;flex-direction:column;gap:5px}
+  .tchip{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--r2);background:var(--surface);border:1px solid var(--border);font-size:12.5px}
+  .tchip .dot{width:6px;height:6px;border-radius:50%;flex:none}
+  .tchip .ser{font-family:var(--mono);font-size:11.5px}
+  .tchip .rm{margin-left:auto;width:17px;height:17px;border-radius:50%;border:none;background:var(--sunk);color:var(--muted);cursor:pointer;display:grid;place-items:center;font-size:12px}
+  .tchip .rm:hover{background:var(--coral-soft);color:var(--coral)}
+  .tchip.grp{background:var(--peri-soft);border-color:rgba(122,128,246,.3)}
+  .tchip.grp .ser{font-family:var(--font);font-weight:600;color:var(--peri-ink)}
+  .empty{padding:26px 16px;text-align:center;color:var(--faint);font-size:12.5px;line-height:1.6}
+
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid var(--border-soft);background:#fdfbf9}
+  .foot .hint{font-size:12.5px;color:var(--muted)}
+  .send{display:inline-flex;align-items:center;gap:8px;background:var(--grad);color:#fff;border:none;font:inherit;font-weight:600;font-size:14px;padding:9px 18px;border-radius:var(--r2);cursor:pointer;box-shadow:0 2px 10px rgba(249,103,78,.28)}
+  .send:disabled{opacity:.45;box-shadow:none;cursor:not-allowed}
+  .note{margin-top:20px;font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:13px 15px;line-height:1.6}
+  .note b{color:var(--text)}
+  @media(max-width:820px){.cols{grid-template-columns:1fr}.rail,.roster{border-right:none;border-bottom:1px solid var(--border-soft)}}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/actions-target">← Target ideas</a>
+  <div class="brand"><span class="a">AIO</span><span class="m">MDM</span></div>
+  <h1>Target · Split targeter</h1>
+  <p class="lede">The fleet page, made actionable. Scope with the rail, browse and search the roster in the middle, and click devices — or a whole collection — into the <b>target tray</b> on the right. The tray is your cart: it holds exactly what the command will hit, mixing hand-picked units and whole groups, with the blast-radius meter on top.</p>
+
+  <div class="frame">
+    <div class="frame-top">
+      <span class="step">Command</span>
+      <span class="act-chip"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>Install app</span>
+      <span class="arrow">→</span>
+      <span class="step">Target</span>
+    </div>
+
+    <div class="cols">
+      <aside class="rail">
+        <button class="ri on" data-add="none"><span class="dot ok"></span><span class="nm">All devices</span><span class="ct">428</span></button>
+        <div class="rail-cap">Restaurants</div>
+        <button class="ri" data-add="grp" data-name="Terminal 4" data-count="73" data-h="ok"><span class="dot ok"></span><span class="nm">Terminal 4</span><span class="ct">73</span></button>
+        <button class="ri" data-add="grp" data-name="Harbourfront" data-count="44" data-h="warn"><span class="dot warn"></span><span class="nm">Harbourfront</span><span class="ct">44</span></button>
+        <button class="ri" data-add="grp" data-name="Old Mill" data-count="38" data-h="bad"><span class="dot bad"></span><span class="nm">Old Mill</span><span class="ct">38</span></button>
+        <div class="rail-cap">Groups</div>
+        <button class="ri" data-add="grp" data-name="Kiosks" data-count="210" data-h="ok"><span class="dot ok"></span><span class="nm">Kiosks</span><span class="ct">210</span></button>
+        <button class="ri" data-add="grp" data-name="Dev bench" data-count="18" data-h="muted"><span class="dot muted"></span><span class="nm">Dev bench</span><span class="ct">18</span></button>
+      </aside>
+
+      <section class="roster">
+        <div class="rtools">
+          <div class="search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search serial…"></div>
+          <button class="selall" id="selAll">Select all</button>
+        </div>
+        <div class="rpills">
+          <button class="rpill on">All</button><button class="rpill">Online</button><button class="rpill">Low battery</button><button class="rpill">Out of kiosk</button>
+        </div>
+        <div class="rlist" id="rlist"></div>
+      </section>
+
+      <aside class="tray">
+        <div class="tray-meter">
+          <div class="lab">Blast radius</div>
+          <div class="big"><span class="n" id="mN">0</span><span class="u" id="mU">devices</span></div>
+          <div class="bar"><div class="on" id="mOn" style="width:0"></div><div class="q" id="mQ" style="width:0"></div></div>
+          <div class="tsplit"><span><b id="mOnN">0</b> online</span><span><b id="mQN">0</b> queued</span></div>
+        </div>
+        <div class="tray-head"><span class="t">Target tray</span><button class="clr" id="clr" hidden>Clear</button></div>
+        <div class="tchips" id="tchips"><div class="empty">Nothing targeted yet.<br>Click devices or a collection to add them here.</div></div>
+      </aside>
+    </div>
+
+    <div class="foot">
+      <span class="hint" id="footHint">Pick devices to install to.</span>
+      <button class="send" id="send" disabled>Send to <span id="sendN">0</span> →</button>
+    </div>
+  </div>
+
+  <p class="note"><b>Why this shape:</b> it keeps the fleet's browse-and-filter power but adds the one thing browsing lacks — a place to <i>collect</i>. You can drop in "Kiosks (210)" as a single collection chip and then hand-add three stragglers from a different venue, all visible together. The tray is the target: what you see is exactly what gets the command.</p>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var serials=["AT070AABU00142","AT070AABU00311","AT070AABU00860","AT070AABU01204","AT070AABU00077","AT070AABU00519","AT070AABU00988","AT070AABU00203","AT070AABU00644","AT070AABU00415","AT070AABU00730","AT070AABU00266"];
+  var devs=serials.map(function(s,i){return {ser:s,online:(i%3!==0),low:(i%5===0),bt:(i%5===0?12:28+i*5)};});
+  var selDev={}, groups=[]; // groups: {name,count,online}
+
+  function counts(){
+    var n=0,on=0;
+    Object.keys(selDev).forEach(function(s){ var d=devs.find(function(x){return x.ser===s}); n++; if(d.online)on++; });
+    groups.forEach(function(g){ n+=g.count; on+=Math.round(g.count*0.92); });
+    return {n:n,on:on,q:Math.max(0,n-on)};
+  }
+  function render(){
+    var c=counts();
+    $("mN").textContent=c.n; $("mU").textContent=c.n===1?"device":"devices";
+    $("mOnN").textContent=c.on; $("mQN").textContent=c.q;
+    var p=c.n?Math.round(c.on/c.n*100):0; $("mOn").style.width=p+"%"; $("mQ").style.width=(c.n?100-p:0)+"%";
+    $("sendN").textContent=c.n; $("send").disabled=c.n===0;
+    $("clr").hidden=c.n===0;
+    $("footHint").innerHTML = c.n? ("Install app to <b>"+c.n+" device"+(c.n===1?"":"s")+"</b>"+(c.q?" ("+c.q+" queued)":"")+".") : "Pick devices to install to.";
+    // tray chips
+    var host=$("tchips"); host.innerHTML="";
+    if(c.n===0){ host.innerHTML='<div class="empty">Nothing targeted yet.<br>Click devices or a collection to add them here.</div>'; return; }
+    groups.forEach(function(g,i){
+      var el=document.createElement("div"); el.className="tchip grp";
+      el.innerHTML='<span class="dot '+g.h+'"></span><span class="ser">'+g.name+' · '+g.count+'</span><button class="rm">×</button>';
+      el.querySelector(".rm").onclick=function(){ groups.splice(i,1); render(); };
+      host.appendChild(el);
+    });
+    Object.keys(selDev).forEach(function(s){
+      var d=devs.find(function(x){return x.ser===s});
+      var el=document.createElement("div"); el.className="tchip";
+      el.innerHTML='<span class="dot '+(d.online?"ok":"muted")+'"></span><span class="ser">'+s+'</span><button class="rm">×</button>';
+      el.querySelector(".rm").onclick=function(){ delete selDev[s]; paintRows(); render(); };
+      host.appendChild(el);
+    });
+  }
+  function paintRows(){
+    var host=$("rlist"); host.innerHTML="";
+    devs.forEach(function(d){
+      var row=document.createElement("div"); row.className="row"+(selDev[d.ser]?" sel":"");
+      row.innerHTML='<span class="cbx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>'+
+        '<span class="dot '+(d.online?"ok":"muted")+'"></span><span class="ser">'+d.ser+'</span>'+
+        '<span class="meta'+(d.low?" low":"")+'">'+d.bt+'%</span>';
+      row.onclick=function(){ if(selDev[d.ser])delete selDev[d.ser]; else selDev[d.ser]=1; row.classList.toggle("sel"); render(); };
+      host.appendChild(row);
+    });
+  }
+  document.querySelectorAll(".ri[data-add='grp']").forEach(function(b){
+    b.onclick=function(){ groups.push({name:b.dataset.name,count:+b.dataset.count,h:b.dataset.h}); render(); };
+  });
+  $("selAll").onclick=function(){ devs.forEach(function(d){selDev[d.ser]=1;}); paintRows(); render(); };
+  $("clr").onclick=function(){ selDev={}; groups=[]; paintRows(); render(); };
+  document.querySelectorAll(".rpill").forEach(function(p){ p.onclick=function(){ document.querySelectorAll(".rpill").forEach(function(x){x.classList.remove("on")}); p.classList.add("on"); }; });
+  paintRows(); render();
+})();
+</script>
+</body></html>

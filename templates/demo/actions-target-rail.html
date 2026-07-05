@@ -1,0 +1,239 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Target · Scope rail — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--sunk:#f4f1ec;--border:#e8e2da;--border-soft:#efe9e1;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --coral:#f9674e;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.34);
+    --peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);
+    --ok:#3f9d5a;--warn:#c98a1a;--bad:#d1503f;--muted-dot:#b8b0a4;
+    --grad:linear-gradient(96deg,var(--coral),var(--peri));
+    --r2:8px;--r3:11px;--r4:14px;
+    --font:'IBM Plex Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:'JetBrains Mono','IBM Plex Mono',monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{display:block}
+  .wrap{max-width:1000px;margin:0 auto;padding:34px 24px 90px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:18px}
+  .back:hover{color:var(--coral)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;margin-bottom:18px}
+  .brand .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  h1{font-size:25px;font-weight:700;letter-spacing:-.015em}
+  .lede{color:var(--muted);font-size:14.5px;margin:7px 0 22px;max-width:64ch}
+  .lede b{color:var(--text);font-weight:600}
+
+  /* command-builder frame for context */
+  .frame{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);overflow:hidden}
+  .frame-top{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border-soft);background:linear-gradient(180deg,#fff,#fdfbf9)}
+  .act-chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;background:var(--sunk);border:1px solid var(--border)}
+  .act-chip .ic{width:15px;height:15px;color:var(--coral)}
+  .frame-top .step{font-size:12px;color:var(--faint);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .frame-top .arrow{color:var(--faint)}
+
+  .target{display:grid;grid-template-columns:236px 1fr;min-height:430px}
+  /* — scope rail — */
+  .rail{border-right:1px solid var(--border-soft);background:#fdfbf9;padding:10px 8px;overflow-y:auto}
+  .rail-cap{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);padding:12px 10px 5px}
+  .rail-cap:first-child{padding-top:4px}
+  .ri{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:7px 10px;border-radius:var(--r2);border:1px solid transparent;background:none;cursor:pointer;font:inherit;color:var(--text);transition:background .12s,border-color .12s}
+  .ri:hover{background:var(--sunk)}
+  .ri.on{background:var(--coral-soft);border-color:var(--coral-edge)}
+  .ri .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  .dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}.dot.muted{background:var(--muted-dot)}
+  .ri .nm{flex:1;font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ri.on .nm{font-weight:600}
+  .ri .ct{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .ri.all{border-bottom:1px solid var(--border-soft);border-radius:var(--r2) var(--r2) 0 0;margin-bottom:4px}
+
+  /* — impact + refine — */
+  .panel{padding:20px 22px;display:flex;flex-direction:column;gap:18px}
+  .scope-name{font-size:12px;color:var(--muted);font-weight:600}
+  .scope-name b{color:var(--text)}
+
+  /* SIGNATURE: the blast-radius meter */
+  .meter{border:1px solid var(--border);border-radius:var(--r3);padding:16px 18px;background:linear-gradient(180deg,#fff,#fdfbf9);position:relative;overflow:hidden}
+  .meter::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad)}
+  .meter .lab{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint)}
+  .meter .big{display:flex;align-items:baseline;gap:8px;margin:2px 0 10px}
+  .meter .big .n{font-size:42px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;
+    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .meter .big .u{font-size:14px;color:var(--muted);font-weight:600}
+  .bar{height:9px;border-radius:6px;background:var(--sunk);overflow:hidden;display:flex}
+  .bar .on{background:var(--ok);transition:width .35s cubic-bezier(.4,0,.2,1)}
+  .bar .q{background:var(--muted-dot);transition:width .35s cubic-bezier(.4,0,.2,1)}
+  .split{display:flex;gap:16px;margin-top:9px;font-size:12.5px;color:var(--muted)}
+  .split b{color:var(--text);font-variant-numeric:tabular-nums}
+  .split .k{display:inline-flex;align-items:center;gap:6px}
+  .split .sw{width:8px;height:8px;border-radius:2px}
+  .sw.on{background:var(--ok)}.sw.q{background:var(--muted-dot)}
+  .warnrow{margin-top:11px;font-size:12.5px;color:var(--warn);display:none;align-items:center;gap:7px}
+  .warnrow.show{display:flex}
+
+  .refine .rc{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:8px}
+  .pills{display:flex;flex-wrap:wrap;gap:8px}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:all .12s}
+  .pill:hover{border-color:var(--coral-edge)}
+  .pill.on{background:var(--peri-soft);border-color:rgba(122,128,246,.4);color:#4a4fb8;font-weight:600}
+  .pill .x{opacity:.55}
+
+  .preview{border-top:1px solid var(--border-soft);padding-top:15px}
+  .pv-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+  .pv-head .t{font-size:12.5px;font-weight:600}
+  .pv-head .lnk{font-size:12px;color:var(--peri);cursor:pointer;background:none;border:none;font:inherit;font-weight:600}
+  .pv-list{display:flex;flex-direction:column;gap:2px;max-height:150px;overflow-y:auto}
+  .dev{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:var(--r2);font-size:13px}
+  .dev:hover{background:var(--sunk)}
+  .dev.ex{opacity:.4}
+  .dev .dot{width:7px;height:7px;border-radius:50%;flex:none}
+  .dev .ser{font-family:var(--mono);font-size:12px;letter-spacing:-.02em}
+  .dev .bt{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .dev .bt.low{color:var(--bad);font-weight:600}
+  .dev .rm{margin-left:auto;font-size:11px;color:var(--faint);background:none;border:1px solid transparent;border-radius:6px;padding:2px 7px;cursor:pointer}
+  .dev .rm:hover{border-color:var(--border);color:var(--bad)}
+  .dev.ex .rm{color:var(--peri)}
+
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid var(--border-soft);background:#fdfbf9}
+  .foot .hint{font-size:12.5px;color:var(--muted)}
+  .send{display:inline-flex;align-items:center;gap:8px;background:var(--grad);color:#fff;border:none;font:inherit;font-weight:600;font-size:14px;padding:9px 18px;border-radius:var(--r2);cursor:pointer;box-shadow:0 2px 10px rgba(249,103,78,.28)}
+  .send:hover{filter:brightness(1.04)}
+  .note{margin-top:20px;font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:13px 15px;line-height:1.6}
+  .note b{color:var(--text)}
+  @media(max-width:720px){.target{grid-template-columns:1fr}.rail{border-right:none;border-bottom:1px solid var(--border-soft);display:flex;flex-wrap:wrap;gap:4px}.rail-cap{width:100%}}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/actions-target">← Target ideas</a>
+  <div class="brand"><span class="a">AIO</span><span class="m">MDM</span></div>
+  <h1>Target · Scope rail</h1>
+  <p class="lede">Pick <b>who</b> a command hits the same way you browse the fleet — a rail of collections with health dots and live counts. Choose one, refine with a pill or two, and the <b>blast-radius meter</b> tells you exactly how many devices you're about to touch, online now versus queued for later.</p>
+
+  <div class="frame">
+    <div class="frame-top">
+      <span class="step">Command</span>
+      <span class="act-chip"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M23 4v6h-6"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>Reboot</span>
+      <span class="arrow">→</span>
+      <span class="step">Target</span>
+    </div>
+
+    <div class="target">
+      <aside class="rail">
+        <button class="ri all on" data-scope="all" data-count="428" data-online="391" data-health="ok"><span class="dot ok"></span><span class="nm">All devices</span><span class="ct">428</span></button>
+        <div class="rail-cap">Restaurants</div>
+        <button class="ri" data-scope="r" data-count="73" data-online="70" data-health="ok"><span class="dot ok"></span><span class="nm">Terminal 4</span><span class="ct">73</span></button>
+        <button class="ri" data-scope="r" data-count="62" data-online="58" data-health="ok"><span class="dot ok"></span><span class="nm">Westgate Mall</span><span class="ct">62</span></button>
+        <button class="ri" data-scope="r" data-count="44" data-online="40" data-health="warn"><span class="dot warn"></span><span class="nm">Harbourfront</span><span class="ct">44</span></button>
+        <button class="ri" data-scope="r" data-count="38" data-online="31" data-health="bad"><span class="dot bad"></span><span class="nm">Old Mill</span><span class="ct">38</span></button>
+        <button class="ri" data-scope="r" data-count="29" data-online="22" data-health="warn"><span class="dot warn"></span><span class="nm">Airport Lounge</span><span class="ct">29</span></button>
+        <div class="rail-cap">Groups</div>
+        <button class="ri" data-scope="g" data-count="210" data-online="198" data-health="ok"><span class="dot ok"></span><span class="nm">Kiosks</span><span class="ct">210</span></button>
+        <button class="ri" data-scope="g" data-count="96" data-online="84" data-health="warn"><span class="dot warn"></span><span class="nm">Kitchen displays</span><span class="ct">96</span></button>
+        <button class="ri" data-scope="g" data-count="18" data-online="6" data-health="muted"><span class="dot muted"></span><span class="nm">Dev bench</span><span class="ct">18</span></button>
+        <div class="rail-cap">Releases</div>
+        <button class="ri" data-scope="b" data-count="35" data-online="30" data-health="bad"><span class="dot bad"></span><span class="nm">v1.18.0 · outdated</span><span class="ct">35</span></button>
+      </aside>
+
+      <section class="panel">
+        <div class="scope-name">Targeting <b id="scopeName">All devices</b></div>
+
+        <div class="meter">
+          <div class="lab">Blast radius</div>
+          <div class="big"><span class="n" id="mN">428</span><span class="u" id="mU">devices</span></div>
+          <div class="bar"><div class="on" id="mOn" style="width:91%"></div><div class="q" id="mQ" style="width:9%"></div></div>
+          <div class="split">
+            <span class="k"><span class="sw on"></span><b id="mOnN">391</b> online — reboot now</span>
+            <span class="k"><span class="sw q"></span><b id="mQN">37</b> offline — queued</span>
+          </div>
+          <div class="warnrow" id="warn"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg><span id="warnT"></span></div>
+        </div>
+
+        <div class="refine">
+          <div class="rc">Refine</div>
+          <div class="pills">
+            <button class="pill" data-refine="online">Online only</button>
+            <button class="pill" data-refine="nolow">Skip low battery</button>
+            <button class="pill" data-refine="kiosk">In kiosk mode</button>
+          </div>
+        </div>
+
+        <div class="preview">
+          <div class="pv-head"><span class="t">Preview <span id="pvCount" style="color:var(--muted);font-weight:400"></span></span><button class="pv-lnk lnk" id="pvToggle">Show devices</button></div>
+          <div class="pv-list" id="pvList" hidden></div>
+        </div>
+      </section>
+    </div>
+
+    <div class="foot">
+      <span class="hint" id="footHint">Reboot will reach <b>428 devices</b> across the whole fleet.</span>
+      <button class="send">Send to <span id="sendN">428</span> →</button>
+    </div>
+  </div>
+
+  <p class="note"><b>Why this shape:</b> targeting reuses the exact mental model of the fleet rail you already navigate — collections with health dots and counts — so there's nothing new to learn. The one addition is the blast-radius meter: an honest, live answer to "how many, and how many right now?" before you commit. Refine pills stack on top of a scope (e.g. <i>Kitchen displays → Skip low battery</i>) without switching modes.</p>
+</div>
+
+<script>
+(function(){
+  var sampleSerials = ["AT070AABU00142","AT070AABU00311","AT070AABU00860","AT070AABU01204","AT070AABU00077","AT070AABU00519","AT070AABU00988","AT070AABU00203","AT070AABU00644","AT070AABU00415"];
+  var state = {count:428, online:391, health:"ok", refine:{online:false,nolow:false,kiosk:false}, excluded:{}};
+  var $=function(id){return document.getElementById(id)};
+
+  function effective(){
+    var base=state.count, on=state.online;
+    if(state.refine.online){base=on;}
+    if(state.refine.nolow){var cut=Math.round(base*0.08); base-=cut; on=Math.max(0,on-cut);}
+    if(state.refine.kiosk){base=Math.round(base*0.82); on=Math.min(on,base);}
+    var ex=Object.keys(state.excluded).length;
+    base=Math.max(0,base-ex); on=Math.max(0,Math.min(on,base));
+    var q=Math.max(0,base-on);
+    return {n:base,on:on,q:q};
+  }
+  function render(){
+    var e=effective();
+    $("mN").textContent=e.n; $("mU").textContent=e.n===1?"device":"devices";
+    $("mOnN").textContent=e.on; $("mQN").textContent=e.q;
+    var onPct=e.n?Math.round(e.on/e.n*100):0;
+    $("mOn").style.width=onPct+"%"; $("mQ").style.width=(100-onPct)+"%";
+    $("sendN").textContent=e.n;
+    $("footHint").innerHTML="Reboot will reach <b>"+e.n+" device"+(e.n===1?"":"s")+"</b>"+(state.refine.online?" that are online":"")+".";
+    // warnings
+    var w=$("warn");
+    if(state.health==="bad"){ $("warnT").textContent="This scope runs an outdated build — reboot may trigger a pending update."; w.classList.add("show"); }
+    else if(e.q>0 && e.q>=e.n*0.25){ $("warnT").textContent=e.q+" devices are offline and will only reboot when they reconnect."; w.classList.add("show"); }
+    else { w.classList.remove("show"); }
+    $("pvCount").textContent="· "+e.n+" match";
+  }
+  function buildList(){
+    var host=$("pvList"); host.innerHTML="";
+    sampleSerials.forEach(function(s,i){
+      var low=(i%4===0), online=(i%3!==0);
+      var row=document.createElement("div"); row.className="dev"+(state.excluded[s]?" ex":"");
+      row.innerHTML='<span class="dot '+(online?"ok":"muted")+'"></span><span class="ser">'+s+'</span><span class="bt'+(low?" low":"")+'">'+(low?"14%":(30+i*6)+"%")+'</span>'+
+        '<button class="rm">'+(state.excluded[s]?"add back":"exclude")+'</button>';
+      row.querySelector(".rm").onclick=function(){ if(state.excluded[s]) delete state.excluded[s]; else state.excluded[s]=1; buildList(); render(); };
+      host.appendChild(row);
+    });
+  }
+
+  document.querySelectorAll(".ri").forEach(function(b){
+    b.onclick=function(){
+      document.querySelectorAll(".ri").forEach(function(x){x.classList.remove("on")});
+      b.classList.add("on");
+      state.count=+b.dataset.count; state.online=+b.dataset.online; state.health=b.dataset.health; state.excluded={};
+      $("scopeName").textContent=b.querySelector(".nm").textContent;
+      buildList(); render();
+    };
+  });
+  document.querySelectorAll(".pill").forEach(function(p){
+    p.onclick=function(){ var k=p.dataset.refine; state.refine[k]=!state.refine[k]; p.classList.toggle("on",state.refine[k]);
+      p.innerHTML = state.refine[k] ? p.textContent+' <span class="x">×</span>' : p.textContent.replace(" ×","");
+      render(); };
+  });
+  $("pvToggle").onclick=function(){ var l=$("pvList"); var show=l.hasAttribute("hidden");
+    if(show){l.removeAttribute("hidden"); this.textContent="Hide devices";} else {l.setAttribute("hidden",""); this.textContent="Show devices";} };
+
+  buildList(); render();
+})();
+</script>
+</body></html>
