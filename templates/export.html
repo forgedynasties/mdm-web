@@ -316,11 +316,29 @@ document.getElementById('export-form').addEventListener('submit', function() {
   var label = document.getElementById('export-submit-label');
   btn.disabled = true;
   label.textContent = 'Preparing CSV…';
-  // Re-enable after a moment so users can retry if the server errors.
-  setTimeout(function() {
-    btn.disabled = false;
-    label.textContent = 'Download CSV';
-  }, 4000);
+
+  // A file download fires no JS completion event, so a fixed timeout either clears
+  // too early or leaves the button stuck. Instead send a one-time token that the
+  // server echoes back as a cookie on the CSV response; poll for it, then restore.
+  var token = 'dl' + Date.now() + Math.floor(Math.random() * 1e6);
+  var field = document.getElementById('dl-token-field');
+  if (!field) {
+    field = document.createElement('input');
+    field.type = 'hidden'; field.name = 'dl_token'; field.id = 'dl-token-field';
+    this.appendChild(field);
+  }
+  field.value = token;
+
+  function restore() { btn.disabled = false; label.textContent = 'Download CSV'; }
+  var start = Date.now();
+  var poll = setInterval(function() {
+    if (document.cookie.indexOf('dl_token=' + token) !== -1) {
+      document.cookie = 'dl_token=; Path=/; Max-Age=0';   // consume it
+      clearInterval(poll); restore();
+    } else if (Date.now() - start > 60000) {
+      clearInterval(poll); restore();                     // safety net on a real failure
+    }
+  }, 300);
 });
 
 // Default: last 48 hours, "Common" preset
