@@ -6213,6 +6213,86 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// TargetLivePage renders the working target-picker prototype (/demo/target-live) backed
+// by the real fleet: restaurants, groups and releases with live counts. All three
+// picker concepts share the JSON count endpoint below.
+func (h *Handler) TargetLivePage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	at := h.cfg.CheckinInterval() * 3
+	rests, _ := h.db.GetRestaurantHealth(ctx, at, 7)
+	groups, _ := h.db.GetGroupHealth(ctx, at)
+	rels, _ := h.db.ListPublishedReleasesForRail(ctx)
+	all, _ := h.db.ListDevices(ctx, db.DeviceFilter{ActiveThresholdSecs: at}, 0, 20000, "serial", "asc")
+	connected := h.hub.ConnectedIDs()
+	online := 0
+	for _, d := range all {
+		if _, up := connected[d.ID]; up {
+			online++
+		}
+	}
+	h.render(w, r, "target-live.html", map[string]any{
+		"Title":       "Target playground",
+		"Restaurants": rests,
+		"Groups":      groups,
+		"Releases":    rels,
+		"FleetTotal":  len(all),
+		"FleetOnline": online,
+	})
+}
+
+// TargetCountJSON resolves a target spec to a live device count for the target-picker
+// prototypes. mode = all | group | restaurant | build | audience | serials — every
+// non-serial mode is just a DeviceFilter, so audience rules compose into one query.
+func (h *Handler) TargetCountJSON(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	q := r.URL.Query()
+	var devices []db.Device
+	if q.Get("mode") == "serials" {
+		ids, _ := h.db.GetDeviceIDsBySerials(ctx, db.ParseSerials(q.Get("serials")))
+		devices, _ = h.db.GetDevicesByIDs(ctx, ids)
+	} else {
+		f := db.DeviceFilter{ActiveThresholdSecs: h.cfg.CheckinInterval() * 3}
+		if v := q.Get("group"); v != "" {
+			if id, err := uuid.Parse(v); err == nil {
+				f.GroupID = id
+			}
+		}
+		if v := q.Get("restaurant"); v != "" {
+			if id, err := uuid.Parse(v); err == nil {
+				f.RestaurantID = id
+			}
+		}
+		f.BuildID = q.Get("build")
+		f.Battery = q.Get("battery")
+		f.Online = q.Get("status")
+		f.Kiosk = q.Get("kiosk")
+		f.Charging = q.Get("charging")
+		devices, _ = h.db.ListDevices(ctx, f, 0, 20000, "serial", "asc")
+	}
+	connected := h.hub.ConnectedIDs()
+	online := 0
+	type samp struct {
+		Serial  string `json:"serial"`
+		Online  bool   `json:"online"`
+		Battery int    `json:"battery"`
+	}
+	sample := make([]samp, 0, 60)
+	for _, d := range devices {
+		_, up := connected[d.ID]
+		if up {
+			online++
+		}
+		if len(sample) < 60 {
+			sample = append(sample, samp{d.SerialNumber, up, d.BatteryPct})
+		}
+	}
+	eff := len(devices)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"effective": eff, "online": online, "offline": eff - online, "sample": sample,
+	})
+}
+
 // markDeliveryPresence flags each delivery online when the device currently
 // holds a live WebSocket connection in the hub — so the UI can distinguish a
 // device that's about to ack from one that's offline and won't receive the
@@ -8574,6 +8654,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /demos", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/demo/index", http.StatusFound)
 	}))
+	// Working target-picker prototype (real fleet data + live counts), plus the static demos.
+	mux.HandleFunc("GET /demo/target-live", h.requireAuth(h.TargetLivePage))
+	mux.HandleFunc("GET /demo/target-count", h.requireAuth(h.TargetCountJSON))
 	mux.HandleFunc("GET /demo/{n}", h.requireAuth(h.DemoPage))
 	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
