@@ -14,6 +14,10 @@
     {{end}}
   </div>
   <div class="dd-drow">
+    <span class="dd-row-label">Battery cycles</span>
+    <span class="dd-row-val">{{printf "%.1f" .Device.BatteryCycles}} <span class="muted">({{.Device.DischargeTotalPct}}% discharged lifetime)</span></span>
+  </div>
+  <div class="dd-drow">
     <span class="dd-row-label">Kiosk package</span>
     <span class="dd-row-val mono">{{if .KioskConfig.KioskPackage}}{{.KioskConfig.KioskPackage}}{{else}}—{{end}}</span>
   </div>
