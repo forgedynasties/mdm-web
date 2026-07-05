@@ -5950,6 +5950,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"ShellPopular":   shellPopular,
 		"LogcatRecent":   logcatRecent,
 		"LogcatFrequent": logcatFrequent,
+		"AIEnabled":      h.cfg.AIEnabled(),
 		"Prefill":        prefill,
 	})
 }
@@ -8220,6 +8221,51 @@ func (h *Handler) DeviceAIAnalysis(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "ai.device", serial, "")
 }
 
+// LogcatAISuggest (BETA) turns a plain-language problem description into logcat
+// capture settings (level / lines / tag) using the configured AI provider. It
+// returns JSON {level, lines, tag, rationale, model} for the composer to fill the
+// log-capture form.
+func (h *Handler) LogcatAISuggest(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.AIEnabled() {
+		writeJSONError(w, http.StatusServiceUnavailable, "AI suggestions are not configured — add an API key in Settings.")
+		return
+	}
+	problem := strings.TrimSpace(r.FormValue("problem"))
+	if problem == "" {
+		writeJSONError(w, http.StatusBadRequest, "Describe the problem first.")
+		return
+	}
+	if len(problem) > 2000 {
+		problem = problem[:2000]
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
+	defer cancel()
+	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
+	text, usage, err := client.SuggestLogcat(ctx, problem)
+	if err != nil {
+		log.Printf("[ai] logcat suggest failed: %v", err)
+		writeJSONError(w, http.StatusBadGateway, "Suggestion failed: "+err.Error())
+		return
+	}
+	if err := h.db.RecordAIUsage(ctx, usage.InputTokens, usage.OutputTokens); err != nil {
+		log.Printf("[ai] record usage: %v", err)
+	}
+	sug, ok := ai.ParseLogcatSuggestion(text)
+	if !ok {
+		writeJSONError(w, http.StatusBadGateway, "The model returned an unexpected response — try rephrasing the problem.")
+		return
+	}
+	h.audit(r, "ai.logcat_suggest", fmt.Sprintf("level=%s lines=%d tag=%s", sug.Level, sug.Lines, sug.Tag), problem)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"level":     sug.Level,
+		"lines":     sug.Lines,
+		"tag":       sug.Tag,
+		"rationale": sug.Rationale,
+		"model":     client.Model(),
+	})
+}
+
 // DeviceAIAnalysesList returns a device's stored AI analyses (newest first) as JSON.
 func (h *Handler) DeviceAIAnalysesList(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -9056,6 +9102,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /schedules/{id}/toggle", h.requireOperatorOrAdmin(h.ScheduleToggle))
 	post("POST /schedules/{id}/run-now", h.requireOperatorOrAdmin(h.ScheduleRunNow))
 	post("POST /commands", h.requireAuth(h.CommandCreate))
+	post("POST /commands/logcat-suggest", h.requireAuth(h.LogcatAISuggest))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
