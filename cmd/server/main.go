@@ -230,13 +230,10 @@ func main() {
 		}
 	}()
 
-	// One-time seed of battery discharge-cycle counters from check-in history for
-	// devices that predate the counter. Batched + throttled + backgrounded so it
-	// never blocks startup or saturates the DB pool (see the checkins-backfill
-	// warning in db.go). Wait a bit first so startup and the first requests settle
-	// before it starts competing for connections.
+	// One-time seed of battery discharge-cycle counters for devices that predate the
+	// counter, from the pre-aggregated device_daily_stats (cheap — no raw checkins
+	// scan). Backgrounded so it never blocks startup.
 	go func() {
-		time.Sleep(30 * time.Second)
 		if n, err := database.BackfillDischargeCycles(context.Background()); err != nil {
 			log.Printf("[startup] backfill discharge cycles: %v", err)
 		} else if n > 0 {
