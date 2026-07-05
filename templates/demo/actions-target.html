@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Target section — reworks — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--sunk:#f4f1ec;--border:#e8e2da;--text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --coral:#f9674e;--peri:#7a80f6;--grad:linear-gradient(96deg,#f9674e,#7a80f6);--r4:14px;
+    --font:'IBM Plex Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{display:block}
+  .wrap{max-width:720px;margin:0 auto;padding:40px 24px 90px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:20px}
+  .back:hover{color:var(--coral)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:19px;letter-spacing:-.02em;margin-bottom:22px}
+  .brand .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  h1{font-size:28px;font-weight:700;letter-spacing:-.015em}
+  .lede{color:var(--muted);font-size:15px;margin:8px 0 8px;max-width:64ch}
+  .now{font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:12px 14px;margin:16px 0 6px;line-height:1.55}
+  .now b{color:var(--text);font-weight:600}
+  .common{display:flex;gap:10px;align-items:flex-start;font-size:13px;color:var(--muted);background:linear-gradient(180deg,#fff,#fdfbf9);border:1px solid var(--border);border-left:3px solid transparent;border-image:var(--grad) 1;border-radius:11px;padding:13px 15px;margin:14px 0 4px;line-height:1.55}
+  .common b{color:var(--text)}
+  .grid{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+  a.demo{display:flex;align-items:flex-start;gap:15px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);padding:16px 18px;box-shadow:var(--shadow);text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+  a.demo:hover{border-color:rgba(249,103,78,.34);transform:translateY(-1px)}
+  .num{font-size:12px;font-weight:700;color:var(--faint);font-variant-numeric:tabular-nums;padding-top:2px}
+  .demo .t{font-weight:700;font-size:15.5px;display:block;margin-bottom:3px}
+  .demo .d{font-size:13.5px;color:var(--muted);line-height:1.5}
+  .demo .best{display:inline-block;font-size:11px;font-weight:600;color:var(--peri);margin-top:6px}
+  .arw{margin-left:auto;color:var(--faint);align-self:center}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/actions">← Actions demos</a>
+  <div class="brand"><span class="a">AIO</span><span class="m">MDM</span></div>
+  <h1>Reworking the Target section</h1>
+  <p class="lede">Three ways to choose <b>who</b> a command hits — each borrowing the fleet page's rail, health dots and live counts. Same fleet, three mental models. Open each and click around; they're live.</p>
+
+  <div class="now"><b>Today it's:</b> three separate modes (All / Groups / Specific) with a cramped two-pane picker, serial-only search, and no answer to "how many will this actually hit?" until you submit.</div>
+
+  <div class="common"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f9674e" stroke-width="2" style="flex:none;margin-top:1px"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 2"/></svg><span><b>Shared across all three:</b> a live <b>blast-radius meter</b> — the exact device count, split into "online now" vs "queued for later," updating as you refine. It's the one thing the current picker is missing.</span></div>
+
+  <div class="grid">
+    <a class="demo" href="/demo/actions-target-rail">
+      <span class="num">01</span>
+      <span><span class="t">Scope rail</span><span class="d">Pick a collection from a fleet-style rail (All / Restaurants / Groups / Releases), then refine with a pill or two. Nothing new to learn — it's the fleet you already navigate.</span><span class="best">Best for the common "target one venue or group" case</span></span>
+      <span class="arw">→</span>
+    </a>
+    <a class="demo" href="/demo/actions-target-audience">
+      <span class="num">02</span>
+      <span><span class="t">Audience builder</span><span class="d">Describe the target as a query: start with everyone, stack narrowing rules (restaurant, build, battery, status), watch the count fall. Expresses "everything that matches X" — which today's picker can't.</span><span class="best">Best for conditional, cross-cutting targets</span></span>
+      <span class="arw">→</span>
+    </a>
+    <a class="demo" href="/demo/actions-target-split">
+      <span class="num">03</span>
+      <span><span class="t">Split targeter</span><span class="d">The fleet page made actionable: scope on the left, browse + search in the middle, click devices or a whole collection into a target tray on the right. Mix hand-picked units and groups in one cart.</span><span class="best">Best when you're hand-assembling a mixed set</span></span>
+      <span class="arw">→</span>
+    </a>
+  </div>
+</div>
+</body></html>
