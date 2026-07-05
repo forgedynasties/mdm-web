@@ -6653,6 +6653,65 @@ func redactDeviceCommandURLs(role string, cmds []db.DeviceCommand) {
 	}
 }
 
+// resolveTargetDeviceIDs turns a command target spec (all/devices/groups) into the
+// concrete device-ID set — expanding groups to their devices — for actions like kiosk
+// that operate on device IDs directly rather than going through CreateCommand.
+func (h *Handler) resolveTargetDeviceIDs(r *http.Request, targetType string) ([]uuid.UUID, error) {
+	switch targetType {
+	case "groups":
+		var gids []uuid.UUID
+		for _, g := range r.Form["target_groups"] {
+			if id, err := uuid.Parse(g); err == nil {
+				gids = append(gids, id)
+			}
+		}
+		return h.db.GetDeviceIDsInGroups(r.Context(), gids)
+	case "devices":
+		return h.db.GetDeviceIDsBySerials(r.Context(), db.ParseSerials(r.FormValue("target_serials")))
+	default: // "all"
+		return h.db.GetAllDeviceIDs(r.Context())
+	}
+}
+
+// applyKioskForTargets sets (or clears) kiosk mode on the resolved target devices and
+// pushes the config so they pick it up on the next check-in. Mirrors BulkKioskUpdate,
+// but resolves its target from the Actions composer's target section.
+func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, targetType string) {
+	enabled := r.FormValue("kiosk_enabled") == "1"
+	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
+	if enabled && pkg == "" {
+		http.Error(w, "Pick an app to lock to when enabling kiosk mode.", http.StatusBadRequest)
+		return
+	}
+	if !enabled {
+		pkg = ""
+	}
+	ids, err := h.resolveTargetDeviceIDs(r, targetType)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if len(ids) == 0 {
+		h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape("No devices matched the target.")+"&flash_type=info")
+		return
+	}
+	if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
+		http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(ids), max), http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetKioskConfigForDevices(r.Context(), ids, enabled, pkg, 0); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.pushKioskConfigToDevices(r.Context(), ids)
+	verb := "Enabled"
+	if !enabled {
+		verb = "Disabled"
+	}
+	h.audit(r, "device.kiosk_bulk", verb, fmt.Sprintf("devices=%d, package=%s", len(ids), pkg))
+	h.hxRedirect(w, r, "/devices?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
+}
+
 func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	// update_splash may carry a file upload (multipart); other types are urlencoded.
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
@@ -6668,7 +6727,15 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		cmdType = "install_apk"
 	}
 
-	if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
+	// set_kiosk isn't a queued command — it writes kiosk config to the target set (like
+	// the old bulk-kiosk action). Gate it directly (admin/dev/tester), not via the
+	// command-role/operator-allows machinery the real commands use.
+	if cmdType == "set_kiosk" {
+		if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	} else if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
 		return
 	}
 	if cmdType == "shell" && !h.cfg.ShellEnabled() {
@@ -6691,6 +6758,13 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	// selected targets via the logcat_requests mechanism and returns to /logs.
 	if cmdType == "logcat" {
 		h.captureLogsForTargets(w, r, targetType)
+		return
+	}
+
+	// "set_kiosk" writes kiosk config to the resolved target devices immediately
+	// (pushed on their next check-in), then returns — no command row is created.
+	if cmdType == "set_kiosk" {
+		h.applyKioskForTargets(w, r, targetType)
 		return
 	}
 
