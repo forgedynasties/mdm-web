@@ -4871,6 +4871,31 @@ func (d *DB) ListPeakWindows(ctx context.Context) ([]PeakWindow, error) {
 	return out, rows.Err()
 }
 
+// GetPeakWindows returns the peak ranges stored for one scope (a restaurant, or the
+// fleet default when restaurantID is nil) — the raw rows, without inheritance.
+func (d *DB) GetPeakWindows(ctx context.Context, restaurantID *uuid.UUID) ([]PeakWindow, error) {
+	var rows pgx.Rows
+	var err error
+	if restaurantID == nil {
+		rows, err = d.pool.Query(ctx, `SELECT id, restaurant_id, start_min, end_min FROM peak_windows WHERE restaurant_id IS NULL ORDER BY start_min`)
+	} else {
+		rows, err = d.pool.Query(ctx, `SELECT id, restaurant_id, start_min, end_min FROM peak_windows WHERE restaurant_id = $1 ORDER BY start_min`, restaurantID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PeakWindow
+	for rows.Next() {
+		var w PeakWindow
+		if err := rows.Scan(&w.ID, &w.RestaurantID, &w.StartMin, &w.EndMin); err != nil {
+			return nil, err
+		}
+		out = append(out, w)
+	}
+	return out, rows.Err()
+}
+
 // SetPeakWindows replaces the full peak set for one scope (a restaurant, or the fleet
 // default when restaurantID is nil) in a single transaction — delete-then-insert, so
 // the caller passes the complete desired list of ranges.
