@@ -306,7 +306,7 @@
     {{$ram := ramUsage .Device.LatestExtra}}
     <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Total RAM</span><span class="v">{{if $ram}}{{mbToGB (index $ram "total")}}{{else}}—{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{.Device.DischargeTotalPct}}% discharged lifetime">{{printf "%.1f" .Device.BatteryCycles}}</span></div>
+    <div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{else}}<span class="muted">—</span>{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
   </div>

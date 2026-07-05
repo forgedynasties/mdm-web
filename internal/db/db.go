@@ -30,6 +30,9 @@ type Device struct {
 	// DischargeTotalPct is the lifetime cumulative percent of battery capacity
 	// discharged (never resets). BatteryCycles() renders it as equivalent full cycles.
 	DischargeTotalPct int64 `json:"discharge_total_pct"`
+	// DischargeBackfilled is false until the one-time history seed has run for this
+	// device. While false the cycle count is not yet meaningful (show "—", not 0.0).
+	DischargeBackfilled bool `json:"discharge_backfilled"`
 	// RestaurantID is the venue the device physically lives in (nil = lab/bench unit).
 	// RestaurantName is joined for display. A device is "deployed" iff it has a restaurant.
 	RestaurantID   *uuid.UUID `json:"restaurant_id,omitempty"`
@@ -1001,14 +1004,14 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
 			d.latest_extra AS latest_extra,
-			d.discharge_total_pct,
+			d.discharge_total_pct, d.discharge_backfilled,
 			d.restaurant_id, COALESCE(r.name, ''),
 			(d.restaurant_id IS NOT NULL) AS deployed_effective
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
