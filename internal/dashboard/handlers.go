@@ -7422,8 +7422,9 @@ var alertRuleDefs = []struct {
 	Windowed, Recent            bool
 }{
 	// ── Thermal ──
-	{"overheating", "Device overheating", "Fires within ~1 minute when a device's current temperature is at or above the threshold; auto-resolves once it cools.", "Thermal", []alertParamField{
-		{"temp_c", "Temperature", "°C", 1, 45},
+	{"overheating", "Device overheating", "Fires within ~1 minute when a device's current temperature is at or above the limit; a device on the wireless charger uses the higher on-pad limit. Auto-resolves once it cools.", "Thermal", []alertParamField{
+		{"temp_c", "Limit (off pad)", "°C", 1, 45},
+		{"temp_c_wlc", "Limit (on charger)", "°C", 1, 65},
 	}, false, true},
 	{"temp_elevated", "Temperature elevated", "Fires when device temperature holds in the elevated band for >15 min (trending toward throttle).", "Thermal", []alertParamField{
 		{"temp_min", "Band low", "°C", 1, 38},
@@ -7433,24 +7434,56 @@ var alertRuleDefs = []struct {
 	{"offline", "Device offline", "Fires when any device (deployed or bench) is silent longer than the threshold. Self-suppresses overnight via its own quiet window.", "Connectivity", []alertParamField{
 		{"offline_minutes", "Offline after", "min", 1, 5},
 	}, false, true},
+	{"offline_long", "Device offline 1h+", "Fires when a device is silent for the (longer) threshold, any time of day. Warning severity.", "Connectivity", []alertParamField{
+		{"offline_minutes", "Offline after", "min", 5, 60},
+	}, false, true},
+	{"offline_peak", "Offline during peak", "Fires when a deployed device goes offline during its restaurant's peak hours. Configure peak ranges per restaurant.", "Connectivity", []alertParamField{
+		{"offline_minutes", "Offline after", "min", 1, 5},
+	}, true, true},
 	{"wifi_weak", "Weak Wi-Fi signal", "Fires when the connected Wi-Fi RSSI holds below the floor for the sustain window — packet loss territory for voice/payment APIs.", "Connectivity", []alertParamField{
 		{"rssi_dbm", "Signal floor", "dBm", 1, -75},
 		{"sustain_min", "Sustained for", "min", 1, 10},
 	}, false, true},
+	{"wifi_unstable", "Frequent Wi-Fi disconnects", "Fires when the device reports at least this many Wi-Fi disconnects within the last hour.", "Connectivity", []alertParamField{
+		{"disconnects", "Disconnects / hr", "", 1, 3},
+	}, false, true},
 	// ── Storage ──
 	{"storage_low", "Storage critically low", "Fires when free storage falls below the critical floor.", "Storage", []alertParamField{
-		{"free_gb", "Free floor", "GB", 0.1, 0.5},
+		{"free_gb", "Free floor", "GB", 0.1, 1},
+	}, false, true},
+	{"storage_warning", "Storage low", "Fires when free storage is at/below the warning level but still above the critical floor.", "Storage", []alertParamField{
+		{"free_gb", "Warning level", "GB", 1, 14},
+		{"floor_gb", "Critical floor", "GB", 0.1, 1},
 	}, false, true},
 	{"storage_filling", "Storage filling fast", "Fires when free storage is below the warning floor or dropped sharply over 24 h (above the critical floor).", "Storage", []alertParamField{
 		{"low_gb", "Warning floor", "GB", 0.1, 1.5},
 		{"drop_gb", "24h drop", "GB", 0.1, 0.2},
 	}, false, false},
+	// ── Battery ──
+	{"battery_low", "Battery low during peak", "Fires when a deployed device's battery drops below the threshold during peak hours.", "Battery", []alertParamField{
+		{"soc_pct", "Battery floor", "%", 1, 20},
+	}, true, true},
+	{"battery_high_night", "Battery high overnight", "Fires when a deployed device sits at/above the threshold overnight instead of cycling down.", "Battery", []alertParamField{
+		{"soc_pct", "Battery level", "%", 1, 60},
+	}, true, true},
+	// ── Power / wireless charging ──
+	{"wlc_continuous", "Continuous wireless charging", "Fires when a device has been on the wireless charger continuously for at least the threshold (heat / battery stress).", "Power", []alertParamField{
+		{"sustain_min", "Continuous for", "min", 5, 60},
+	}, false, true},
+	{"wlc_dead", "Wireless charger not functional all day", "Fires when a deployed unit's pad was never readable for a whole day, though it worked within the prior week (daily).", "Power", []alertParamField{}, false, false},
+	{"slow_charge_night", "Slow overnight charging (5V)", "Fires when a device on a ~5V charger overnight gains at most this much over the window (weak supply).", "Power", []alertParamField{
+		{"max_gain_pct", "Max gain", "%", 1, 15},
+		{"window_hours", "Over", "h", 1, 2},
+	}, true, true},
 	// ── System health ──
 	{"memory_pressure", "Memory pressure", "Fires when a device's peak RAM usage exceeds the threshold (predicts crashes/reboots). Also the cutoff the Daily Report uses for memory.", "System", []alertParamField{
 		{"ram_pct", "RAM usage", "%", 1, 85},
 	}, false, false},
 	{"memory_low", "Memory low (available)", "Fires when available RAM (total − used) holds below the floor for >8 min — Android's low-memory killer territory.", "System", []alertParamField{
 		{"avail_mb", "Available floor", "MB", 10, 400},
+	}, false, true},
+	{"device_crash", "Device crash / ANR", "Fires when the device reports an app/system crash, ANR, or native tombstone (from DropBox) within the window.", "System", []alertParamField{
+		{"window_min", "Look-back", "min", 1, 15},
 	}, false, true},
 }
 
@@ -7659,6 +7692,8 @@ func (h *Handler) SettingsUpdateAlertRule(w http.ResponseWriter, r *http.Request
 			aw = "service"
 		case "overnight":
 			aw = "overnight"
+		case "peak":
+			aw = "peak"
 		case "always":
 			aw = "always"
 		}
