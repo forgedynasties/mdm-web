@@ -260,6 +260,8 @@ func main() {
 			apiHandler.ProcessDueScheduledReboots(context.Background())
 			// Recent-tier alert rules (point-in-time + rate/sustained); see Tier 5 §10.
 			dash.RunRecentAlerts(context.Background())
+			// Fire any scheduled recipes whose cron time has arrived.
+			dash.ProcessDueScheduledRecipes(context.Background())
 		}
 	}()
 
