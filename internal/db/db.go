@@ -466,8 +466,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			SET build_id           = EXCLUDED.build_id,
 			    last_seen_at       = NOW(),
 			    latest_battery_pct = COALESCE($3, devices.latest_battery_pct),
-			    latest_extra       = %s,
-			    hidden             = false
+			    latest_extra       = %s
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
 	`, extraExpr), serial, buildID, batteryPct, extra).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
 	if err != nil {
@@ -559,8 +558,6 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 	var joins []string
 	wheres := []string{"true"}
 	switch f.Hidden {
-	case "include":
-		// no hidden filter
 	case "only":
 		wheres = append(wheres, "d.hidden")
 	default:
@@ -667,9 +664,10 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 
 	var joins []string
 	wheres := []string{"true"}
+	// Retired ("hidden") devices are excluded from every list; only the dedicated
+	// admin "Retired" view ("only") surfaces them (for reactivation). There is no
+	// "show active + retired together" mode — retired means retired.
 	switch f.Hidden {
-	case "include":
-		// no filter on hidden
 	case "only":
 		wheres = append(wheres, "d.hidden")
 	default:
@@ -1487,7 +1485,7 @@ func (d *DB) ListGroupDevices(ctx context.Context, groupID uuid.UUID) ([]Device,
 		FROM devices d
 		JOIN device_groups dg ON dg.device_id = d.id
 		LEFT JOIN device_config dc ON dc.device_id = d.id
-		WHERE dg.group_id = $1
+		WHERE dg.group_id = $1 AND NOT d.hidden
 		ORDER BY d.serial_number
 	`, groupID)
 	if err != nil {
@@ -1928,7 +1926,7 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]Producti
 			AND LENGTH(d.serial_number) = 14
 			AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$'
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
-		WHERE p.id = $1
+		WHERE p.id = $1 AND NOT d.hidden
 		ORDER BY d.serial_number
 	`, id)
 	if err != nil {
@@ -2002,7 +2000,7 @@ func (d *DB) SearchDevicesBySerial(ctx context.Context, query string, limit int)
 // GetDeviceIDsBySerials resolves serial numbers to device UUIDs.
 func (d *DB) GetDeviceIDsBySerials(ctx context.Context, serials []string) ([]uuid.UUID, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id FROM devices WHERE serial_number = ANY($1)
+		SELECT id FROM devices WHERE serial_number = ANY($1) AND NOT hidden
 	`, serials)
 	if err != nil {
 		return nil, err
