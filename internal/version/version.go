@@ -17,6 +17,17 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.19.0",
+		Date:    "2026-07-05",
+		Changes: []string{
+			"Battery wear at a glance: every device now tracks its lifetime battery cycles. You'll see it on the device page and on the fleet cards, and you can sort the fleet by it to find the most-worn units.",
+			"A big batch of new health alerts. Overheating now knows when a device is sitting on its wireless charger and allows a higher temperature before flagging it. New alerts cover: low battery during peak hours, storage running low, being stuck on the wireless charger for over an hour, staying offline for more than an hour, sitting fully charged overnight, a charging pad that hasn't worked all day, repeated Wi-Fi drop-outs, app crashes, and slow overnight charging on a weak charger.",
+			"Peak hours are now set per restaurant — add each venue's real busy periods (for example lunch and dinner) so the 'during peak' alerts fire when it actually matters for that location.",
+			"Retire devices you've taken out of service. A retired device disappears from every list and search and won't come back on its next check-in, but all its data is kept. Retiring is admin-only, with a dedicated Retired view to reactivate one later.",
+			"Fixes: the ← Fleet back arrow no longer bounces back and forth between two device pages; the CSV download button no longer gets stuck showing “Preparing CSV…”; and resetting a custom time range on the device graphs now clears it properly.",
+		},
+	},
+	{
 		Version: "1.18.0",
 		Date:    "2026-07-04",
 		Changes: []string{
