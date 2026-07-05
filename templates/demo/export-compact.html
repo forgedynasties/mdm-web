@@ -1,0 +1,112 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Export · Compact — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--sunk:#f4f1ec;--border:#e8e2da;--border-soft:#efe9e1;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --coral:#f9674e;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.34);
+    --peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);--peri-ink:#4a4fb8;
+    --grad:linear-gradient(96deg,var(--coral),var(--peri));
+    --r2:8px;--r3:11px;--r4:14px;
+    --font:'IBM Plex Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:'JetBrains Mono','IBM Plex Mono',monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{display:block}
+  .wrap{max-width:660px;margin:0 auto;padding:32px 22px 90px}
+  .back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:16px}
+  .back:hover{color:var(--coral)}
+  .wm{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;margin-bottom:16px}
+  .wm .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.wm .m{color:var(--muted);font-weight:600}
+  h1{font-size:25px;font-weight:700;letter-spacing:-.015em}
+  .lede{color:var(--muted);font-size:14.5px;margin:7px 0 20px;max-width:60ch}.lede b{color:var(--text)}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);overflow:hidden}
+  .row{padding:15px 18px;border-bottom:1px solid var(--border-soft);display:flex;align-items:center;gap:14px}
+  .row .lb{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);width:88px;flex:none}
+  .grow{flex:1;min-width:0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font:inherit;font-size:12.5px;font-weight:500;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);cursor:pointer}
+  .chip:hover{border-color:var(--coral-edge)}
+  .chip.on{background:var(--coral-soft);border-color:var(--coral-edge);color:#b5432f;font-weight:600}
+  .cx{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);cursor:pointer;margin:0 4px 4px 0}
+  .cx.on{background:var(--peri-soft);border-color:rgba(122,128,246,.4);color:var(--peri-ink);font-weight:600}
+  .cx .d{width:6px;height:6px;border-radius:50%;background:var(--faint)}.cx.on .d{background:var(--peri)}
+  .colcap{font-size:11px;color:var(--faint);font-weight:600;margin:0 6px 6px 0}
+
+  /* estimate footer — the hero */
+  .est{padding:18px 20px;background:linear-gradient(180deg,#fff,#fdfbf9);display:flex;align-items:center;gap:18px;position:relative}
+  .est::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad)}
+  .est .big{display:flex;align-items:baseline;gap:7px}
+  .est .big .n{font-size:38px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .est .big .u{font-size:13px;color:var(--muted);font-weight:600}
+  .est .m{flex:1;font-size:12.5px;color:var(--muted);line-height:1.6}.est .m b{color:var(--text)}
+  .est .m code{font-family:var(--mono);font-size:11.5px;background:var(--sunk);padding:1px 6px;border-radius:5px}
+  .dl{display:inline-flex;align-items:center;gap:8px;background:var(--grad);color:#fff;border:none;font:inherit;font-weight:600;font-size:14px;padding:10px 20px;border-radius:var(--r2);cursor:pointer;box-shadow:0 2px 10px rgba(249,103,78,.28)}
+  .note{margin-top:18px;font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:13px 15px;line-height:1.6}.note b{color:var(--text)}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/export">← Export ideas</a>
+  <div class="wm"><span class="a">AIO</span><span class="m">MDM</span></div>
+  <h1>Export · Compact</h1>
+  <p class="lede">One screen, no scrolling. Range, grain and columns collapse into three tidy rows; the <b>size estimate</b> and a plain-English recipe sit right on the download button — a quick export you can fire without thinking.</p>
+
+  <div class="card">
+    <div class="row">
+      <span class="lb">Range</span>
+      <div class="grow"><div class="chips" id="rangeChips">
+        <button class="chip" data-h="1">1h</button><button class="chip" data-h="6">6h</button>
+        <button class="chip" data-h="24">24h</button><button class="chip on" data-h="48">48h</button>
+        <button class="chip" data-h="168">7d</button><button class="chip" data-h="720">30d</button>
+        <button class="chip" data-h="custom">Custom…</button>
+      </div></div>
+    </div>
+    <div class="row">
+      <span class="lb">Grain</span>
+      <div class="grow"><div class="chips" id="grainChips">
+        <button class="chip on" data-s="0">Every check-in</button><button class="chip" data-s="300">5 min</button>
+        <button class="chip" data-s="900">15 min</button><button class="chip" data-s="3600">1 hr</button><button class="chip" data-s="86400">1 day</button>
+      </div></div>
+    </div>
+    <div class="row" style="align-items:flex-start">
+      <span class="lb" style="margin-top:5px">Columns</span>
+      <div class="grow" id="cols"></div>
+    </div>
+    <div class="est">
+      <div class="big"><span class="n" id="rows">—</span><span class="u">rows</span></div>
+      <div class="m"><b id="size">—</b> · <code id="recipe">…</code></div>
+      <button class="dl"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Download</button>
+    </div>
+  </div>
+
+  <p class="note"><b>Why this shape:</b> most exports are routine — "battery for the last day." This makes that a five-second job: three rows, a live size read-out, done. The recipe line (<code>battery_pct, temp · 12 devices · 48h · 5-min</code>) doubles as a sanity check and something you could copy for a scheduled export later. Pairs well with the Builder for when you need the full preview.</p>
+</div>
+
+<script>
+(function(){
+  var DEVICES=12, CPH=120;
+  var COLS=[["battery_pct","Battery %"],["battery_temp_c","Temp"],["wlc_status","WLC"],["wifi","WiFi"],["ip_address","IP"],["build_id","Release"],["ram_used_mb","RAM"],["storage_free_gb","Storage"],["uptime_seconds","Uptime"],["last_seen","Last seen"]];
+  var sel={battery_pct:1,battery_temp_c:1,build_id:1,last_seen:1};
+  var hours=48,interval=0;
+  var $=function(id){return document.getElementById(id)};
+  function fmt(n){return n>=1000?(n/1000).toFixed(n>=100000?0:1)+"k":""+n;}
+  function build(){ var h=$("cols"); h.innerHTML="";
+    COLS.forEach(function(c){ var b=document.createElement("button"); b.className="cx"+(sel[c[0]]?" on":"");
+      b.innerHTML='<span class="d"></span>'+c[1]; b.onclick=function(){ if(sel[c[0]])delete sel[c[0]]; else sel[c[0]]=1; render(); }; h.appendChild(b); });
+  }
+  function render(){
+    var ks=Object.keys(sel); var per=interval?Math.round(hours*3600/interval):Math.round(hours*CPH);
+    var rows=DEVICES*per; $("rows").textContent=fmt(rows);
+    var bytes=rows*(ks.length+2)*11; $("size").textContent=bytes>1e6?(bytes/1e6).toFixed(1)+" MB":Math.max(1,Math.round(bytes/1024))+" KB";
+    var rlab=({1:"1h",6:"6h",24:"24h",48:"48h",168:"7d",720:"30d"})[hours]||"custom";
+    var glab=interval?({300:"5-min",900:"15-min",3600:"1-hr",86400:"daily"})[interval]:"all rows";
+    var cl = ks.length? ks.slice(0,3).map(function(k){return (COLS.find(function(c){return c[0]===k})||[k])[0]}).join(", ")+(ks.length>3?" +"+(ks.length-3):"") : "no columns";
+    $("recipe").textContent=cl+" · "+DEVICES+" devices · "+rlab+" · "+glab;
+  }
+  document.querySelectorAll("#rangeChips .chip").forEach(function(c){c.onclick=function(){document.querySelectorAll("#rangeChips .chip").forEach(function(x){x.classList.remove("on")});c.classList.add("on");if(c.dataset.h!=="custom")hours=+c.dataset.h;render();};});
+  document.querySelectorAll("#grainChips .chip").forEach(function(c){c.onclick=function(){document.querySelectorAll("#grainChips .chip").forEach(function(x){x.classList.remove("on")});c.classList.add("on");interval=+c.dataset.s;render();};});
+  build(); render();
+})();
+</script>
+</body></html>
