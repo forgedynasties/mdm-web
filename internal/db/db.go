@@ -4085,6 +4085,147 @@ func (d *DB) GetDeviceDailyStats(ctx context.Context, deviceID uuid.UUID, days i
 	return stats, rows.Err()
 }
 
+// WrappedStat is one "superlative" in the Fleet Wrapped review: a device (or
+// venue) that tops some metric, with the value and a bit of context.
+type WrappedStat struct {
+	Serial     string  `json:"serial"`
+	Restaurant string  `json:"restaurant"`
+	Value      float64 `json:"value"`
+	Extra      string  `json:"extra"` // e.g. the date it happened
+}
+
+// FleetWrapped is the "Spotify Wrapped for devices" review — playful all-time
+// superlatives and totals for the whole fleet, computed from the rolled-up daily
+// stats plus lifetime device counters, commands, and alerts.
+type FleetWrapped struct {
+	HasData         bool
+	FirstDay        time.Time
+	LastDay         time.Time
+	DaysCovered     int
+	DeviceCount     int
+	RestaurantCount int
+
+	TotalCheckins int64
+	OnlineMinutes int64
+	TotalCycles   float64 // fleet-wide lifetime full battery cycles (discharge/100)
+	PeakRAM       int     // highest RAM pressure ever seen, %
+
+	TotalCommands  int64
+	TopCommandType string
+	TotalAlerts    int64
+	TopAlertType   string
+
+	HardestWorker WrappedStat // most online minutes, all-time
+	Busiest       WrappedStat // most check-ins, all-time
+	Hottest       WrappedStat // highest temperature ever recorded
+	MostWorn      WrappedStat // most lifetime battery cycles
+	LongestDay    WrappedStat // most online minutes in a single day
+	PadLover      WrappedStat // highest average charging coverage
+	Veteran       WrappedStat // earliest device in the fleet
+	BusiestVenue  WrappedStat // restaurant with the most check-ins (Serial holds the name)
+}
+
+// GetFleetWrapped computes the all-time Fleet Wrapped review. Every query excludes
+// hidden (retired) devices. Superlatives left at their zero value simply don't
+// render — the page guards on HasData for the overall empty case.
+func (d *DB) GetFleetWrapped(ctx context.Context) (FleetWrapped, error) {
+	var w FleetWrapped
+
+	// Fleet-wide totals + span from the daily rollups.
+	var first, last *time.Time
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(DISTINCT s.day), MIN(s.day), MAX(s.day),
+		       COALESCE(SUM(s.checkin_count),0), COALESCE(SUM(s.online_minutes),0),
+		       COALESCE(MAX(s.ram_pct_peak),0)
+		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+		WHERE NOT d.hidden`).
+		Scan(&w.DaysCovered, &first, &last, &w.TotalCheckins, &w.OnlineMinutes, &w.PeakRAM)
+	if err != nil {
+		return w, err
+	}
+	if first != nil {
+		w.FirstDay = *first
+	}
+	if last != nil {
+		w.LastDay = *last
+	}
+	w.HasData = w.TotalCheckins > 0
+
+	_ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM devices WHERE NOT hidden`).Scan(&w.DeviceCount)
+	_ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM restaurants`).Scan(&w.RestaurantCount)
+
+	var totalDischarge int64
+	_ = d.pool.QueryRow(ctx, `SELECT COALESCE(SUM(discharge_total_pct),0) FROM devices WHERE NOT hidden`).Scan(&totalDischarge)
+	w.TotalCycles = float64(totalDischarge) / 100
+
+	_ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM commands`).Scan(&w.TotalCommands)
+	_ = d.pool.QueryRow(ctx, `SELECT type FROM commands GROUP BY type ORDER BY COUNT(*) DESC, type LIMIT 1`).Scan(&w.TopCommandType)
+	_ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM alerts`).Scan(&w.TotalAlerts)
+	_ = d.pool.QueryRow(ctx, `SELECT type FROM alerts GROUP BY type ORDER BY COUNT(*) DESC, type LIMIT 1`).Scan(&w.TopAlertType)
+
+	// scanStat runs a superlative query returning (serial, restaurant, value, extra)
+	// and tolerates no rows (leaves the stat zero).
+	scanStat := func(q string) WrappedStat {
+		var s WrappedStat
+		_ = d.pool.QueryRow(ctx, q).Scan(&s.Serial, &s.Restaurant, &s.Value, &s.Extra)
+		return s
+	}
+
+	w.HardestWorker = scanStat(`
+		SELECT d.serial_number, COALESCE(r.name,''), SUM(s.online_minutes)::float8, ''
+		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE NOT d.hidden GROUP BY d.id, d.serial_number, r.name
+		ORDER BY 3 DESC LIMIT 1`)
+
+	w.Busiest = scanStat(`
+		SELECT d.serial_number, COALESCE(r.name,''), SUM(s.checkin_count)::float8, ''
+		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE NOT d.hidden GROUP BY d.id, d.serial_number, r.name
+		ORDER BY 3 DESC LIMIT 1`)
+
+	w.Hottest = scanStat(`
+		SELECT d.serial_number, COALESCE(r.name,''), s.temp_max::float8, to_char(s.day,'Mon DD')
+		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE NOT d.hidden AND s.temp_max IS NOT NULL
+		ORDER BY s.temp_max DESC LIMIT 1`)
+
+	w.LongestDay = scanStat(`
+		SELECT d.serial_number, COALESCE(r.name,''), s.online_minutes::float8, to_char(s.day,'Mon DD')
+		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE NOT d.hidden ORDER BY s.online_minutes DESC LIMIT 1`)
+
+	w.PadLover = scanStat(`
+		SELECT d.serial_number, COALESCE(r.name,''), (AVG(s.charging_frac)*100)::float8, ''
+		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE NOT d.hidden AND s.charging_frac IS NOT NULL
+		GROUP BY d.id, d.serial_number, r.name HAVING COUNT(*) >= 3
+		ORDER BY 3 DESC LIMIT 1`)
+
+	w.MostWorn = scanStat(`
+		SELECT d.serial_number, COALESCE(r.name,''), (d.discharge_total_pct::float8/100), ''
+		FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE NOT d.hidden ORDER BY d.discharge_total_pct DESC LIMIT 1`)
+
+	w.Veteran = scanStat(`
+		SELECT d.serial_number, COALESCE(r.name,''), 0::float8, to_char(d.created_at,'Mon DD, YYYY')
+		FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE NOT d.hidden ORDER BY d.created_at ASC LIMIT 1`)
+
+	// Busiest venue: name lands in Serial (WrappedStat has no venue field), Value = check-ins.
+	w.BusiestVenue = scanStat(`
+		SELECT r.name, '', SUM(s.checkin_count)::float8, COUNT(DISTINCT d.id)::text
+		FROM restaurants r JOIN devices d ON d.restaurant_id = r.id AND NOT d.hidden
+		JOIN device_daily_stats s ON s.device_id = d.id
+		GROUP BY r.id, r.name ORDER BY 3 DESC LIMIT 1`)
+
+	return w, nil
+}
+
 // GroupDailyStat is one day of stats aggregated across all devices in a group.
 // Aggregates are pointers so a day/metric with no data serializes as null, not 0.
 type GroupDailyStat struct {

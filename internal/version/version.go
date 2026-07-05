@@ -17,6 +17,14 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.21.0",
+		Date:    "2026-07-06",
+		Changes: []string{
+			"Fleet Wrapped — a playful, full-screen year-in-review of the whole fleet. Open it from your account menu: scroll through the fleet's total check-ins and uptime, the battery cycles it's clocked, its hardest-working unit, busiest restaurant, hottest moment, and a shareable summary card at the end.",
+			"Testers and developers now have an Alert config page in the account menu: a read-only view of every alert rule, its thresholds, and the fleet's peak hours — so they can see exactly what's being watched without needing admin access to Settings.",
+		},
+	},
+	{
 		Version: "1.20.0",
 		Date:    "2026-07-05",
 		Changes: []string{
