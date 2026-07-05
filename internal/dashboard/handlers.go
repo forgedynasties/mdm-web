@@ -8045,6 +8045,17 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 	return groups
 }
 
+// AlertConfigView renders the alert-rule configuration read-only. Editing stays
+// in Settings (admin-only); this page lets testers and devs see exactly what the
+// fleet watches for and the thresholds that trigger each alert.
+func (h *Handler) AlertConfigView(w http.ResponseWriter, r *http.Request) {
+	h.render(w, r, "alert_config.html", map[string]any{
+		"Title":      "Alert config",
+		"AlertRules": h.buildAlertRuleViews(r.Context()),
+		"Peak":       h.peakView(r.Context(), nil),
+	})
+}
+
 // alertThresholds reads the configurable cutoffs from the alert rules so the fleet
 // report judges problems against the same numbers (defaults if a rule is missing).
 func (h *Handler) alertThresholds(ctx context.Context) ai.Thresholds {
@@ -9048,6 +9059,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
+	mux.HandleFunc("GET /alert-config", h.requireAdminOrTester(h.AlertConfigView))
 	mux.HandleFunc("GET /alerts/recent", h.requireAuth(h.AlertsRecent))
 	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
 	post("POST /alerts/bulk", h.requireOperatorOrAdmin(h.AlertBulk))
