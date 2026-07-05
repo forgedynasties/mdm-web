@@ -1031,64 +1031,68 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 // check-in landing mid-backfill is counted exactly once (either it is already in the
 // history sum, or its delta is applied on top of the seeded value afterwards).
 func (d *DB) BackfillDischargeCycles(ctx context.Context) (int, error) {
-	total := 0
-	for {
+	// Snapshot the devices still needing a seed ONCE. Iterating a fixed list (rather
+	// than re-querying `WHERE NOT discharge_backfilled` each batch) means a device
+	// whose per-row UPDATE fails is simply left unseeded for the next startup to
+	// retry — it can never be re-selected into an endless loop, and one failure can
+	// never strand the rest of the fleet.
+	rows, err := d.pool.Query(ctx, `SELECT id FROM devices WHERE NOT discharge_backfilled`)
+	if err != nil {
+		return 0, err
+	}
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return 0, err
+		}
+		ids = append(ids, id)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, err
+	}
+
+	seeded, failed := 0, 0
+	for _, id := range ids {
 		if err := ctx.Err(); err != nil {
-			return total, err
+			return seeded, err
 		}
-		var ids []uuid.UUID
-		rows, err := d.pool.Query(ctx, `SELECT id FROM devices WHERE NOT discharge_backfilled LIMIT 200`)
+		_, err := d.pool.Exec(ctx, `
+			UPDATE devices SET
+				discharge_total_pct = COALESCE((
+					SELECT SUM(GREATEST(0, prev - battery_pct))::bigint
+					FROM (
+						SELECT battery_pct,
+						       LAG(battery_pct) OVER (ORDER BY created_at) AS prev
+						FROM checkins WHERE device_id = $1
+					) steps
+					WHERE prev IS NOT NULL
+				), 0),
+				discharge_backfilled = true
+			WHERE id = $1
+		`, id)
 		if err != nil {
-			return total, err
+			// A single device's failure must not abort the whole run — leave it
+			// unseeded (discharge_backfilled stays false) so the next startup retries.
+			failed++
+			continue
 		}
-		for rows.Next() {
-			var id uuid.UUID
-			if err := rows.Scan(&id); err != nil {
-				rows.Close()
-				return total, err
-			}
-			ids = append(ids, id)
-		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			return total, err
-		}
-		if len(ids) == 0 {
-			return total, nil
-		}
-		for _, id := range ids {
-			if err := ctx.Err(); err != nil {
-				return total, err
-			}
-			_, err := d.pool.Exec(ctx, `
-				UPDATE devices SET
-					discharge_total_pct = COALESCE((
-						SELECT SUM(GREATEST(0, prev - battery_pct))::bigint
-						FROM (
-							SELECT battery_pct,
-							       LAG(battery_pct) OVER (ORDER BY created_at) AS prev
-							FROM checkins WHERE device_id = $1
-						) steps
-						WHERE prev IS NOT NULL
-					), 0),
-					discharge_backfilled = true
-				WHERE id = $1
-			`, id)
-			if err != nil {
-				return total, err
-			}
-			total++
-			// Gentle throttle: this shares the request connection pool, so pace the
-			// per-device window queries to avoid saturating the DB right after a
-			// deploy (which showed up as transient 502s). ctx-aware so shutdown is
-			// still prompt.
-			select {
-			case <-ctx.Done():
-				return total, ctx.Err()
-			case <-time.After(50 * time.Millisecond):
-			}
+		seeded++
+		// Gentle throttle: this shares the request connection pool, so pace the
+		// per-device window queries to avoid saturating the DB right after a deploy
+		// (which showed up as transient 502s). ctx-aware so shutdown stays prompt.
+		select {
+		case <-ctx.Done():
+			return seeded, ctx.Err()
+		case <-time.After(50 * time.Millisecond):
 		}
 	}
+	if failed > 0 {
+		return seeded, fmt.Errorf("seeded %d device(s); %d failed and will retry next startup", seeded, failed)
+	}
+	return seeded, nil
 }
 
 // GetDeviceByID fetches a single device by its UUID.
