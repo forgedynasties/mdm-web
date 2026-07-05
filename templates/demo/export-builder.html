@@ -1,0 +1,212 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Export · Builder — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--sunk:#f4f1ec;--border:#e8e2da;--border-soft:#efe9e1;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --coral:#f9674e;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.34);
+    --peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);--peri-ink:#4a4fb8;--ok:#3f9d5a;
+    --grad:linear-gradient(96deg,var(--coral),var(--peri));
+    --r2:8px;--r3:11px;--r4:14px;
+    --font:'IBM Plex Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:'JetBrains Mono','IBM Plex Mono',monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{display:block}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 22px 90px}
+  .back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:16px}
+  .back:hover{color:var(--coral)}
+  .wm{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;margin-bottom:16px}
+  .wm .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}.wm .m{color:var(--muted);font-weight:600}
+  h1{font-size:25px;font-weight:700;letter-spacing:-.015em}
+  .lede{color:var(--muted);font-size:14.5px;margin:7px 0 20px;max-width:66ch}.lede b{color:var(--text)}
+
+  .split{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow)}
+  .sec{padding:15px 16px;border-bottom:1px solid var(--border-soft)}
+  .sec:last-child{border-bottom:none}
+  .cap{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+  .cap .v{color:var(--peri-ink);font-weight:600;text-transform:none;letter-spacing:0;font-size:12px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font:inherit;font-size:12.5px;font-weight:500;padding:5px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:all .12s}
+  .chip:hover{border-color:var(--coral-edge)}
+  .chip.on{background:var(--coral-soft);border-color:var(--coral-edge);color:#b5432f;font-weight:600}
+  /* column toggles grouped */
+  .grp{margin-top:12px}.grp:first-child{margin-top:0}
+  .grp-h{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+  .grp-h .t{font-size:12px;font-weight:600}
+  .grp-h .all{font-size:11.5px;color:var(--peri-ink);cursor:pointer;background:none;border:none;font:inherit}
+  .col{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;padding:5px 10px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);cursor:pointer;margin:0 5px 5px 0}
+  .col .bx{width:14px;height:14px;border-radius:4px;border:1.6px solid var(--faint);display:grid;place-items:center;color:#fff;flex:none}
+  .col.on{background:var(--coral-soft);border-color:var(--coral-edge)}
+  .col.on .bx{background:var(--coral);border-color:var(--coral)}
+  .col .bx svg{width:10px;height:10px;opacity:0}.col.on .bx svg{opacity:1}
+  .seg{display:inline-flex;background:var(--sunk);border-radius:8px;padding:3px}
+  .seg button{border:none;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);padding:5px 12px;border-radius:6px;cursor:pointer}
+  .seg button.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+  .hint{font-size:12px;color:var(--muted);line-height:1.5;margin-top:8px}
+
+  /* preview — the hero */
+  .preview{position:sticky;top:14px}
+  .est{display:flex;align-items:center;gap:16px;padding:15px 18px;border-bottom:1px solid var(--border-soft);background:linear-gradient(180deg,#fff,#fdfbf9);border-radius:var(--r4) var(--r4) 0 0;position:relative;overflow:hidden}
+  .est::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad)}
+  .est .big{display:flex;align-items:baseline;gap:7px}
+  .est .big .n{font-size:34px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .est .big .u{font-size:13px;color:var(--muted);font-weight:600}
+  .est .meta{font-size:12.5px;color:var(--muted);line-height:1.6}.est .meta b{color:var(--text)}
+  .tablewrap{overflow:auto;max-height:440px}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  thead th{position:sticky;top:0;background:var(--sunk);text-align:left;padding:8px 11px;font-weight:600;color:var(--text);white-space:nowrap;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:.01em}
+  tbody td{padding:7px 11px;border-bottom:1px solid var(--border-soft);white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--text)}
+  tbody td.mono{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  tbody tr:hover{background:var(--sunk)}
+  .fade{padding:9px 11px;font-size:11.5px;color:var(--faint);text-align:center}
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 16px;border-top:1px solid var(--border-soft)}
+  .foot .s{font-size:12.5px;color:var(--muted)}.foot .s b{color:var(--text)}
+  .dl{display:inline-flex;align-items:center;gap:8px;background:var(--grad);color:#fff;border:none;font:inherit;font-weight:600;font-size:14px;padding:9px 18px;border-radius:var(--r2);cursor:pointer;box-shadow:0 2px 10px rgba(249,103,78,.28)}
+  .note{margin-top:18px;font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:13px 15px;line-height:1.6}.note b{color:var(--text)}
+  @media(max-width:820px){.split{grid-template-columns:1fr}.preview{position:static}}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/export">← Export ideas</a>
+  <div class="wm"><span class="a">AIO</span><span class="m">MDM</span></div>
+  <h1>Export · Builder</h1>
+  <p class="lede">Stop exporting blind. Configure on the left; the <b>actual spreadsheet forms on the right</b> — real headers, sample rows, and an honest <b>row + file-size estimate</b> — so you know exactly what you'll get before you download.</p>
+
+  <div class="split">
+    <!-- controls -->
+    <div class="card">
+      <div class="sec">
+        <div class="cap">Time range <span class="v" id="rangeV">Last 48 hours</span></div>
+        <div class="chips" id="rangeChips">
+          <button class="chip" data-h="1">1h</button><button class="chip" data-h="6">6h</button>
+          <button class="chip" data-h="24">24h</button><button class="chip on" data-h="48">48h</button>
+          <button class="chip" data-h="168">7d</button><button class="chip" data-h="720">30d</button>
+          <button class="chip" data-h="custom">Custom…</button>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="cap">Granularity <span class="v" id="grainV">Every check-in</span></div>
+        <div class="chips" id="grainChips">
+          <button class="chip on" data-s="0">Every check-in</button><button class="chip" data-s="60">1 min</button>
+          <button class="chip" data-s="300">5 min</button><button class="chip" data-s="900">15 min</button>
+          <button class="chip" data-s="3600">1 hr</button><button class="chip" data-s="86400">1 day</button>
+        </div>
+        <div class="hint" id="grainHint">Every check-in row (~1 every 30s per device).</div>
+      </div>
+      <div class="sec">
+        <div class="cap">Row layout</div>
+        <div class="seg" id="modeSeg"><button class="on" data-m="checkin">Check-in times</button><button data-m="cycle">Fixed intervals</button></div>
+        <div class="hint">Fixed intervals give one row per device per mark — aligned columns, blanks when silent.</div>
+      </div>
+      <div class="sec">
+        <div class="cap">Columns <span class="v"><span id="colN">7</span> selected</span></div>
+        <div class="chips" style="margin-bottom:12px"><button class="chip" onclick="preset('common')">Common</button><button class="chip" onclick="preset('battery')">Battery</button><button class="chip" onclick="preset('all')">All</button><button class="chip" onclick="preset('none')">None</button></div>
+        <div id="colGroups"></div>
+      </div>
+    </div>
+
+    <!-- preview -->
+    <div class="card preview">
+      <div class="est">
+        <div class="big"><span class="n" id="rows">—</span><span class="u">rows</span></div>
+        <div class="meta"><b id="cols">7</b> columns · <b id="devs">12</b> devices · ≈ <b id="size">—</b></div>
+      </div>
+      <div class="tablewrap">
+        <table><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+        <div class="fade" id="fade">preview of the first rows</div>
+      </div>
+      <div class="foot">
+        <span class="s">CSV · <b id="footRange">Last 48 hours</b> · UTF-8</span>
+        <button class="dl"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>Download</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="note"><b>Why this shape:</b> the current page is four stacked cards you fill in blind, then hope the file is what you wanted. Here the preview is the point — the moment you toggle a column or widen the range, the headers, sample rows and the row/size estimate move with you. The estimate alone stops a lot of accidental 2-million-row downloads.</p>
+</div>
+
+<script>
+(function(){
+  var DEVICES=12, CHECKINS_PER_HR=120;
+  var COLS=[
+    {g:"Battery",k:"battery_pct",label:"battery_pct",ex:function(i){return (20+i*7)%100}},
+    {g:"Battery",k:"battery_temp_c",label:"battery_temp_c",ex:function(i){return (28+(i%9)).toFixed(1)}},
+    {g:"Battery",k:"wlc_status",label:"wlc_status",ex:function(i){return ["on","off","-1"][i%3]}},
+    {g:"Network",k:"wifi",label:"wifi",ex:function(){return '"AIO-Office"'}},
+    {g:"Network",k:"ip_address",label:"ip_address",ex:function(i){return "10.0.1."+(20+i)}},
+    {g:"System",k:"build_id",label:"build_id",ex:function(){return "v2.0.1"}},
+    {g:"System",k:"ram_used_mb",label:"ram_used_mb",ex:function(i){return 1400+i*40}},
+    {g:"System",k:"storage_free_gb",label:"storage_free_gb",ex:function(i){return (40-i).toFixed(1)}},
+    {g:"System",k:"uptime_seconds",label:"uptime_seconds",ex:function(i){return 3600*(i+2)}},
+    {g:"System",k:"timezone",label:"timezone",ex:function(){return "Asia/Karachi"}},
+    {g:"Meta",k:"last_seen",label:"last_seen",ex:function(){return ""}}
+  ];
+  var PRESETS={common:["battery_pct","build_id","wifi","ip_address","last_seen"],battery:["battery_pct","battery_temp_c","wlc_status"],all:COLS.map(function(c){return c.k}),none:[]};
+  var sel={}; PRESETS.common.forEach(function(k){sel[k]=1}); ["battery_temp_c","wlc_status"].forEach(function(k){sel[k]=1});
+  // default 7 (common 5 + temp + wlc) to match header
+  sel={}; ["battery_pct","battery_temp_c","wlc_status","wifi","ip_address","build_id","last_seen"].forEach(function(k){sel[k]=1});
+  var hours=48, interval=0, mode="checkin";
+  var $=function(id){return document.getElementById(id)};
+
+  function buildCols(){
+    var host=$("colGroups"); host.innerHTML="";
+    var groups=["Battery","Network","System","Meta"];
+    groups.forEach(function(g){
+      var wrap=document.createElement("div"); wrap.className="grp";
+      wrap.innerHTML='<div class="grp-h"><span class="t">'+g+'</span><button class="all" data-g="'+g+'">toggle</button></div>';
+      var box=document.createElement("div");
+      COLS.filter(function(c){return c.g===g}).forEach(function(c){
+        var el=document.createElement("button"); el.className="col"+(sel[c.k]?" on":""); el.dataset.k=c.k;
+        el.innerHTML='<span class="bx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>'+c.label;
+        el.onclick=function(){ if(sel[c.k])delete sel[c.k]; else sel[c.k]=1; render(); };
+        box.appendChild(el);
+      });
+      wrap.appendChild(box);
+      wrap.querySelector(".all").onclick=function(){ var ks=COLS.filter(function(c){return c.g===g}); var anyOff=ks.some(function(c){return !sel[c.k]}); ks.forEach(function(c){ if(anyOff)sel[c.k]=1; else delete sel[c.k]; }); render(); };
+      host.appendChild(wrap);
+    });
+  }
+  function estimate(){
+    var perDevice = interval? Math.round(hours*3600/interval) : Math.round(hours*CHECKINS_PER_HR);
+    if(mode==="cycle" && !interval) perDevice = Math.round(hours*CHECKINS_PER_HR); // still per-checkin marks
+    return DEVICES*perDevice;
+  }
+  function fmt(n){ return n>=1000? (n/1000).toFixed(n>=100000?0:1)+"k" : ""+n; }
+  function render(){
+    var cols=COLS.filter(function(c){return sel[c.k]});
+    $("colN").textContent=cols.length; $("cols").textContent=cols.length;
+    // header
+    var th="<tr><th>serial</th><th>timestamp</th>"+cols.map(function(c){return "<th>"+c.label+"</th>"}).join("")+"</tr>";
+    $("thead").innerHTML=th;
+    // rows
+    var tb="";
+    for(var r=0;r<7;r++){
+      var serial="AT070AABU00"+String(100+ (r%DEVICES)).slice(-3);
+      var ts="2026-07-05 "+String(9+r).padStart(2,"0")+":30:0"+r;
+      tb+="<tr><td class='mono'>"+serial+"</td><td class='mono'>"+ts+"</td>"+cols.map(function(c){var v=c.ex(r); return "<td>"+(v===""?"<span style='color:var(--faint)'>—</span>":v)+"</td>"}).join("")+"</tr>";
+    }
+    $("tbody").innerHTML=tb;
+    var rows=estimate();
+    $("rows").textContent=fmt(rows);
+    var bytes=rows*(cols.length+2)*11; $("size").textContent = bytes>1e6? (bytes/1e6).toFixed(1)+" MB" : Math.max(1,Math.round(bytes/1024))+" KB";
+    $("fade").textContent = rows>7? "+ "+fmt(rows-7)+" more rows in the file" : "";
+  }
+  document.querySelectorAll("#rangeChips .chip").forEach(function(c){ c.onclick=function(){
+    document.querySelectorAll("#rangeChips .chip").forEach(function(x){x.classList.remove("on")}); c.classList.add("on");
+    if(c.dataset.h==="custom"){ $("rangeV").textContent="Custom range"; $("footRange").textContent="Custom range"; return; }
+    hours=+c.dataset.h; var lbl=c.textContent; $("rangeV").textContent="Last "+lbl; $("footRange").textContent="Last "+lbl; render();
+  };});
+  document.querySelectorAll("#grainChips .chip").forEach(function(c){ c.onclick=function(){
+    document.querySelectorAll("#grainChips .chip").forEach(function(x){x.classList.remove("on")}); c.classList.add("on");
+    interval=+c.dataset.s; $("grainV").textContent=c.textContent;
+    $("grainHint").textContent = interval? ("One row per device every "+c.textContent.toLowerCase()+".") : "Every check-in row (~1 every 30s per device).";
+    render();
+  };});
+  document.querySelectorAll("#modeSeg button").forEach(function(b){ b.onclick=function(){ document.querySelectorAll("#modeSeg button").forEach(function(x){x.classList.remove("on")}); b.classList.add("on"); mode=b.dataset.m; render(); };});
+  window.preset=function(p){ sel={}; PRESETS[p].forEach(function(k){sel[k]=1}); buildCols(); render(); };
+  buildCols(); render();
+})();
+</script>
+</body></html>
