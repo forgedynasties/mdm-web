@@ -1075,6 +1075,15 @@ func (d *DB) BackfillDischargeCycles(ctx context.Context) (int, error) {
 				return total, err
 			}
 			total++
+			// Gentle throttle: this shares the request connection pool, so pace the
+			// per-device window queries to avoid saturating the DB right after a
+			// deploy (which showed up as transient 502s). ctx-aware so shutdown is
+			// still prompt.
+			select {
+			case <-ctx.Done():
+				return total, ctx.Err()
+			case <-time.After(50 * time.Millisecond):
+			}
 		}
 	}
 }
