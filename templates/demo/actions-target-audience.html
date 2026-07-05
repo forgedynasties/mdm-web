@@ -1,0 +1,192 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Target · Audience builder — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--sunk:#f4f1ec;--border:#e8e2da;--border-soft:#efe9e1;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --coral:#f9674e;--coral-soft:rgba(249,103,78,.10);--coral-edge:rgba(249,103,78,.34);
+    --peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);--peri-ink:#4a4fb8;
+    --ok:#3f9d5a;--warn:#c98a1a;--bad:#d1503f;--muted-dot:#b8b0a4;
+    --grad:linear-gradient(96deg,var(--coral),var(--peri));
+    --r2:8px;--r3:11px;--r4:14px;
+    --font:'IBM Plex Sans',ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:'JetBrains Mono','IBM Plex Mono',monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  svg{display:block}
+  .wrap{max-width:840px;margin:0 auto;padding:34px 24px 90px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:18px}
+  .back:hover{color:var(--coral)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;margin-bottom:18px}
+  .brand .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  h1{font-size:25px;font-weight:700;letter-spacing:-.015em}
+  .lede{color:var(--muted);font-size:14.5px;margin:7px 0 22px;max-width:64ch}
+  .lede b{color:var(--text);font-weight:600}
+
+  .frame{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);overflow:hidden}
+  .frame-top{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--border-soft);background:linear-gradient(180deg,#fff,#fdfbf9)}
+  .act-chip{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;background:var(--sunk);border:1px solid var(--border)}
+  .act-chip .ic{width:15px;height:15px;color:var(--coral)}
+  .step{font-size:12px;color:var(--faint);font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .arrow{color:var(--faint)}
+
+  .panel{padding:22px}
+  /* SIGNATURE meter — hero here */
+  .meter{display:flex;align-items:center;gap:18px;border:1px solid var(--border);border-radius:var(--r3);padding:16px 20px;background:linear-gradient(180deg,#fff,#fdfbf9);position:relative;overflow:hidden;margin-bottom:20px}
+  .meter::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad)}
+  .meter .big{display:flex;align-items:baseline;gap:8px}
+  .meter .big .n{font-size:46px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;
+    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;transition:opacity .2s}
+  .meter .big .u{font-size:14px;color:var(--muted);font-weight:600}
+  .meter .r{flex:1;min-width:0}
+  .meter .lab{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);margin-bottom:7px}
+  .bar{height:9px;border-radius:6px;background:var(--sunk);overflow:hidden;display:flex}
+  .bar .on{background:var(--ok);transition:width .35s cubic-bezier(.4,0,.2,1)}
+  .bar .q{background:var(--muted-dot);transition:width .35s cubic-bezier(.4,0,.2,1)}
+  .split{display:flex;gap:16px;margin-top:8px;font-size:12.5px;color:var(--muted)}
+  .split b{color:var(--text);font-variant-numeric:tabular-nums}
+  .split .sw{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:middle}
+  .sw.on{background:var(--ok)}.sw.q{background:var(--muted-dot)}
+
+  .qcap{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+  /* the query row: "Everyone" seed + AND rule chips */
+  .query{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px;border:1px dashed var(--border);border-radius:var(--r3);background:#fdfbf9;min-height:60px}
+  .seed{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--peri-soft);color:var(--peri-ink)}
+  .andw{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--faint)}
+  .rule{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:6px 8px 6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border);box-shadow:0 1px 2px rgba(28,26,24,.05)}
+  .rule .k{color:var(--muted);font-weight:500}
+  .rule .v{font-weight:600}
+  .rule .rm{width:18px;height:18px;border-radius:50%;border:none;background:var(--sunk);color:var(--muted);cursor:pointer;font-size:13px;line-height:1;display:grid;place-items:center}
+  .rule .rm:hover{background:var(--coral-soft);color:var(--coral)}
+  .addbtn{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--peri-ink);padding:6px 12px;border-radius:999px;border:1px dashed rgba(122,128,246,.5);background:none;cursor:pointer}
+  .addbtn:hover{background:var(--peri-soft)}
+
+  /* facet menu */
+  .facets{position:relative;display:inline-block}
+  .menu{position:absolute;z-index:20;top:calc(100% + 6px);left:0;width:230px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);box-shadow:0 10px 34px rgba(28,26,24,.14);padding:6px;display:none}
+  .menu.open{display:block}
+  .menu .mcap{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);padding:8px 9px 4px}
+  .mi{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:7px 9px;border-radius:var(--r2);border:none;background:none;cursor:pointer;font:inherit;font-size:13px;color:var(--text)}
+  .mi:hover{background:var(--sunk)}
+  .mi .dot{width:7px;height:7px;border-radius:50%}
+  .mi .ct{margin-left:auto;font-size:11.5px;color:var(--faint)}
+
+  .esc{margin-top:16px;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
+  .esc .pin{display:inline-flex;align-items:center;gap:6px;font-weight:600;color:var(--text);cursor:pointer;padding:5px 10px;border:1px solid var(--border);border-radius:var(--r2);background:var(--surface)}
+  .esc .pin:hover{border-color:var(--coral-edge)}
+  .esc .pinned{color:var(--peri-ink);font-weight:600}
+
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-top:1px solid var(--border-soft);background:#fdfbf9}
+  .foot .hint{font-size:12.5px;color:var(--muted)}
+  .send{display:inline-flex;align-items:center;gap:8px;background:var(--grad);color:#fff;border:none;font:inherit;font-weight:600;font-size:14px;padding:9px 18px;border-radius:var(--r2);cursor:pointer;box-shadow:0 2px 10px rgba(249,103,78,.28)}
+  .send:hover{filter:brightness(1.04)}
+  .note{margin-top:20px;font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:var(--r3);padding:13px 15px;line-height:1.6}
+  .note b{color:var(--text)}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/actions-target">← Target ideas</a>
+  <div class="brand"><span class="a">AIO</span><span class="m">MDM</span></div>
+  <h1>Target · Audience builder</h1>
+  <p class="lede">Describe the target as a <b>query</b> instead of picking from a list. Start with everyone, then stack narrowing rules — <i>restaurant is Harbourfront, build below 2.0.1, battery under 20%</i> — and watch the count fall in real time. Perfect for the "everything that matches X" commands the current picker can't express.</p>
+
+  <div class="frame">
+    <div class="frame-top">
+      <span class="step">Command</span>
+      <span class="act-chip"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Capture logs</span>
+      <span class="arrow">→</span>
+      <span class="step">Target</span>
+    </div>
+
+    <div class="panel">
+      <div class="meter">
+        <div class="big"><span class="n" id="mN">428</span><span class="u" id="mU">devices</span></div>
+        <div class="r">
+          <div class="lab">Match this audience</div>
+          <div class="bar"><div class="on" id="mOn" style="width:91%"></div><div class="q" id="mQ" style="width:9%"></div></div>
+          <div class="split"><span><span class="sw on"></span><b id="mOnN">391</b> online</span><span><span class="sw q"></span><b id="mQN">37</b> queued</span></div>
+        </div>
+      </div>
+
+      <div class="qcap">Audience</div>
+      <div class="query" id="query">
+        <span class="seed">Everyone <span style="opacity:.6;font-weight:500">428</span></span>
+        <span class="facets">
+          <button class="addbtn" id="addBtn">+ Add filter</button>
+          <div class="menu" id="menu">
+            <div class="mcap">Narrow by</div>
+            <button class="mi" data-type="Restaurant" data-val="Harbourfront" data-factor="0.10" data-h="warn"><span class="dot warn"></span>Restaurant<span class="ct">6 venues</span></button>
+            <button class="mi" data-type="Group" data-val="Kitchen displays" data-factor="0.22" data-h="warn"><span class="dot warn"></span>Group<span class="ct">4 groups</span></button>
+            <button class="mi" data-type="Release" data-val="&lt; 2.0.1" data-factor="0.29" data-h="bad"><span class="dot bad"></span>Release<span class="ct">3 builds</span></button>
+            <button class="mi" data-type="Battery" data-val="under 20%" data-factor="0.14" data-h="bad"><span class="dot bad"></span>Battery level</button>
+            <button class="mi" data-type="Status" data-val="Online" data-factor="0.91" data-h="ok"><span class="dot ok"></span>Status</button>
+            <button class="mi" data-type="Kiosk" data-val="Enabled" data-factor="0.72" data-h="ok"><span class="dot ok"></span>Kiosk mode</button>
+          </div>
+        </span>
+      </div>
+
+      <div class="esc">
+        <span>Need a handful of exact units?</span>
+        <button class="pin" id="pinBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M5 3h14l-1 9-6 3-6-3z"/></svg>Pin specific devices</button>
+        <span class="pinned" id="pinnedTxt" hidden></span>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span class="hint" id="footHint">Capture logs from <b>428 devices</b> — everyone.</span>
+      <button class="send">Send to <span id="sendN">428</span> →</button>
+    </div>
+  </div>
+
+  <p class="note"><b>Why this shape:</b> some commands are naturally "all the devices that match a condition," not "these named devices." A rule stack expresses that directly and stays honest — the count is the answer, updating as you add or drop a rule. The <i>Pin specific devices</i> escape hatch keeps the old hand-pick flow one click away for the times you do know the exact serials.</p>
+</div>
+
+<script>
+(function(){
+  var FLEET=428, ONLINE=391;
+  var rules=[]; var pinned=0;
+  var $=function(id){return document.getElementById(id)};
+
+  function compute(){
+    var n=FLEET, onFrac=ONLINE/FLEET;
+    rules.forEach(function(r){ n=Math.round(n*r.factor); if(r.type==="Status"&&r.val==="Online"){onFrac=1;} });
+    n=Math.max(pinned?pinned:1, n);
+    if(pinned) n=pinned; // pinning overrides to an explicit set
+    var on=Math.round(n*onFrac); var q=Math.max(0,n-on);
+    return {n:n,on:on,q:q};
+  }
+  function render(){
+    var e=compute();
+    var nEl=$("mN"); nEl.style.opacity=.3; setTimeout(function(){nEl.textContent=e.n; nEl.style.opacity=1;},60);
+    $("mU").textContent=e.n===1?"device":"devices";
+    $("mOnN").textContent=e.on; $("mQN").textContent=e.q;
+    var onPct=e.n?Math.round(e.on/e.n*100):0; $("mOn").style.width=onPct+"%"; $("mQ").style.width=(100-onPct)+"%";
+    $("sendN").textContent=e.n;
+    var desc = pinned ? "<b>"+pinned+" pinned devices</b>" : (rules.length? "<b>"+e.n+" devices</b> matching "+rules.length+" rule"+(rules.length===1?"":"s") : "<b>"+e.n+" devices</b> — everyone");
+    $("footHint").innerHTML="Capture logs from "+desc+".";
+  }
+  function chip(r,idx){
+    var s=document.createElement("span"); s.className="rule";
+    s.innerHTML='<span class="andw">AND</span> <span class="k">'+r.type+'</span> <span class="v">'+r.val+'</span> <button class="rm" title="Remove">×</button>';
+    s.querySelector(".rm").onclick=function(){ rules.splice(idx,1); rebuild(); };
+    return s;
+  }
+  function rebuild(){
+    // clear existing rule chips (keep seed + facets)
+    document.querySelectorAll(".query .rule").forEach(function(x){x.remove()});
+    var facets=document.querySelector(".facets");
+    rules.forEach(function(r,i){ document.querySelector(".query").insertBefore(chip(r,i),facets); });
+    render();
+  }
+  $("addBtn").onclick=function(e){ e.stopPropagation(); $("menu").classList.toggle("open"); };
+  document.addEventListener("click",function(){ $("menu").classList.remove("open"); });
+  document.querySelectorAll(".mi").forEach(function(b){
+    b.onclick=function(){ rules.push({type:b.dataset.type,val:b.dataset.val,factor:+b.dataset.factor}); $("menu").classList.remove("open"); rebuild(); };
+  });
+  $("pinBtn").onclick=function(){ pinned = pinned? 0 : 12; var t=$("pinnedTxt");
+    if(pinned){t.hidden=false;t.textContent="· 12 devices pinned";this.style.display="none";} render(); };
+  render();
+})();
+</script>
+</body></html>
