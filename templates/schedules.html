@@ -9,33 +9,99 @@
 </div>
 
 {{if canOperate .Role}}
+<style>
+.sch-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:640px){.sch-grid{grid-template-columns:1fr;}}
+.sch-freq{display:flex;flex-wrap:wrap;gap:6px;}
+.sfb{padding:8px 13px;border:1px solid var(--border);border-radius:9px;background:var(--surface);font-size:13px;color:var(--text-2);cursor:pointer;transition:all .12s;}
+.sfb:hover{border-color:var(--accent-edge);color:var(--text);}
+.sfb.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+.sch-panel{margin-top:16px;}
+.sch-narrow{max-width:200px;}
+.sch-days{display:flex;flex-wrap:wrap;gap:7px;}
+.sch-days label{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--border);border-radius:9px;font-size:12.5px;cursor:pointer;user-select:none;background:var(--surface);}
+.sch-days label:hover{border-color:var(--accent-edge);}
+.sch-days input{margin:0;accent-color:var(--accent);}
+.sch-sum{margin-top:16px;font-size:14px;color:var(--text);background:var(--surface2);border:1px solid var(--border-soft);border-radius:10px;padding:11px 14px;}
+.sch-sum.warn{background:#fbe9e9;border-color:#f3cccc;color:#b42318;}
+.sch-tz{color:var(--muted);font-weight:400;font-size:12px;}
+.sch-cronx{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-left:8px;background:var(--surface);border:1px solid var(--border-soft);border-radius:6px;padding:1px 7px;}
+</style>
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>New schedule</h3></div>
-  <form action="/schedules" method="POST" style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;">
+  <form action="/schedules" method="POST" id="sch-form" onsubmit="return schSync()" style="padding:16px 20px;">
     {{if .Recipes}}
-    <div class="form-row" style="min-width:220px;flex:1;">
-      <label class="form-label" for="sch-recipe">Recipe</label>
-      <select name="recipe_id" id="sch-recipe" class="form-input" required>
-        {{range .Recipes}}<option value="{{.ID}}">{{.Name}} · {{.Type}}</option>{{end}}
+    <div class="sch-grid">
+      <div class="form-row">
+        <label class="form-label" for="sch-recipe">Recipe</label>
+        <select name="recipe_id" id="sch-recipe" class="form-input" required>
+          {{range .Recipes}}<option value="{{.ID}}">{{.Name}} · {{.Type}}</option>{{end}}
+        </select>
+      </div>
+      <div class="form-row">
+        <label class="form-label">How often</label>
+        <div class="sch-freq" id="sch-freq">
+          <button type="button" class="sfb on" data-f="daily" onclick="schPick('daily')">Daily</button>
+          <button type="button" class="sfb" data-f="weekly" onclick="schPick('weekly')">Weekly</button>
+          <button type="button" class="sfb" data-f="monthly" onclick="schPick('monthly')">Monthly</button>
+          <button type="button" class="sfb" data-f="minutes" onclick="schPick('minutes')">Every few minutes</button>
+          <button type="button" class="sfb" data-f="advanced" onclick="schPick('advanced')">Advanced</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="sch-panel" data-p="daily">
+      <label class="form-label">At what time</label>
+      <input type="time" id="sch-time-d" class="form-input sch-narrow" value="03:00" onchange="schUpdate()">
+    </div>
+
+    <div class="sch-panel" data-p="weekly" hidden>
+      <label class="form-label">On which days</label>
+      <div class="sch-days" id="sch-days">
+        <label><input type="checkbox" value="1" checked onchange="schUpdate()"><span>Mon</span></label>
+        <label><input type="checkbox" value="2" onchange="schUpdate()"><span>Tue</span></label>
+        <label><input type="checkbox" value="3" onchange="schUpdate()"><span>Wed</span></label>
+        <label><input type="checkbox" value="4" onchange="schUpdate()"><span>Thu</span></label>
+        <label><input type="checkbox" value="5" onchange="schUpdate()"><span>Fri</span></label>
+        <label><input type="checkbox" value="6" onchange="schUpdate()"><span>Sat</span></label>
+        <label><input type="checkbox" value="0" onchange="schUpdate()"><span>Sun</span></label>
+      </div>
+      <label class="form-label" style="margin-top:12px;">At what time</label>
+      <input type="time" id="sch-time-w" class="form-input sch-narrow" value="03:00" onchange="schUpdate()">
+    </div>
+
+    <div class="sch-panel" data-p="monthly" hidden>
+      <label class="form-label">On day of month</label>
+      <select id="sch-dom" class="form-input sch-narrow" onchange="schUpdate()"></select>
+      <label class="form-label" style="margin-top:12px;">At what time</label>
+      <input type="time" id="sch-time-m" class="form-input sch-narrow" value="03:00" onchange="schUpdate()">
+    </div>
+
+    <div class="sch-panel" data-p="minutes" hidden>
+      <label class="form-label">Run every</label>
+      <select id="sch-min" class="form-input sch-narrow" onchange="schUpdate()">
+        <option value="5">5 minutes</option>
+        <option value="10">10 minutes</option>
+        <option value="15" selected>15 minutes</option>
+        <option value="30">30 minutes</option>
+        <option value="60">hour</option>
       </select>
     </div>
-    <div class="form-row" style="min-width:200px;">
-      <label class="form-label" for="sch-cron">Schedule (cron)</label>
-      <input type="text" name="cron_expr" id="sch-cron" class="form-input" placeholder="0 2 * * *" value="0 2 * * *" required style="font-family:var(--mono);">
+
+    <div class="sch-panel" data-p="advanced" hidden>
+      <label class="form-label" for="sch-cron-raw">Cron expression</label>
+      <input type="text" id="sch-cron-raw" class="form-input" placeholder="0 2 * * *" style="font-family:var(--mono);max-width:320px;" oninput="schUpdate()">
+      <p class="muted small" style="margin:6px 0 0;">Five fields: minute&nbsp;hour&nbsp;day-of-month&nbsp;month&nbsp;day-of-week — in UTC.</p>
     </div>
-    <div class="form-row" style="align-self:flex-end;">
+
+    <div class="sch-sum" id="sch-sum"></div>
+    <input type="hidden" name="cron_expr" id="sch-cron">
+
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-top:14px;">
+      <button type="submit" class="btn-primary">Schedule</button>
       <label class="checkbox-label" style="font-size:13px;"><input type="checkbox" name="run_once"> Run once, then disable</label>
     </div>
-    <button type="submit" class="btn-primary">Schedule</button>
-    <div style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;">
-      <span class="muted small" style="margin-right:4px;">Presets:</span>
-      <button type="button" class="dur-btn" onclick="setCron('0 * * * *')">Hourly</button>
-      <button type="button" class="dur-btn" onclick="setCron('0 2 * * *')">Daily 2am</button>
-      <button type="button" class="dur-btn" onclick="setCron('0 3 * * 1')">Weekly Mon 3am</button>
-      <button type="button" class="dur-btn" onclick="setCron('*/15 * * * *')">Every 15 min</button>
-      <button type="button" class="dur-btn" onclick="setCron('0 4 1 * *')">Monthly 1st 4am</button>
-    </div>
-    <p class="muted small" style="flex-basis:100%;margin:2px 0 0;">Five fields: minute&nbsp;hour&nbsp;day-of-month&nbsp;month&nbsp;day-of-week (times in UTC). Only Install / Uninstall / Reboot / Screenshot / Shell / Boot-logo recipes can be scheduled.</p>
+    <p class="muted small" style="margin:12px 0 0;">Only Install / Uninstall / Reboot / Screenshot / Shell / Boot-logo recipes can be scheduled.</p>
     {{else}}
     <p class="muted small" style="margin:0;">No schedulable recipes yet. On the <a href="/commands" class="link-detail">Actions</a> page, build an action and <b>Save current as recipe</b> first.</p>
     {{end}}
@@ -49,7 +115,7 @@
     {{if not .Schedules}}
     <div class="empty-state"><div class="empty-state-copy">
       <div class="empty-state-title">No schedules yet</div>
-      <div class="empty-state-text">Pick a recipe and a cron above to run an action automatically.</div>
+      <div class="empty-state-text">Pick a recipe and a schedule above to run an action automatically.</div>
     </div></div>
     {{else}}
     <table class="data-table" style="width:100%;">
@@ -81,7 +147,104 @@
 </div>
 
 <script>
-function setCron(v){ var el=document.getElementById('sch-cron'); if(el) el.value=v; }
+// Friendly schedule builder: users choose Daily/Weekly/Monthly/etc. and enter
+// times in their LOCAL timezone; we compose the 5-field cron the server expects
+// (which runs in UTC), converting the local time — and shifting the weekday /
+// day-of-month when that conversion crosses midnight.
+var SCH_DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function schPad(n) { return (n < 10 ? '0' : '') + n; }
+
+function schCurFreq() {
+  var b = document.querySelector('#sch-freq .sfb.on');
+  return b ? b.dataset.f : 'daily';
+}
+
+function schPick(f) {
+  document.querySelectorAll('#sch-freq .sfb').forEach(function (b) { b.classList.toggle('on', b.dataset.f === f); });
+  document.querySelectorAll('.sch-panel').forEach(function (p) { p.hidden = p.dataset.p !== f; });
+  schUpdate();
+}
+
+// toUTC converts a local "HH:MM" to a UTC hour/minute plus a day shift
+// (-1, 0, or +1) for when the conversion crosses midnight.
+function schToUTC(hhmm) {
+  var pp = (hhmm || '00:00').split(':');
+  var mins = (parseInt(pp[0], 10) || 0) * 60 + (parseInt(pp[1], 10) || 0);
+  var t = mins + new Date().getTimezoneOffset(); // local + offset = UTC
+  var shift = Math.floor(t / 1440);
+  t = ((t % 1440) + 1440) % 1440;
+  return { h: Math.floor(t / 60), m: t % 60, shift: shift };
+}
+
+function schFmt12(hhmm) {
+  var pp = (hhmm || '00:00').split(':');
+  var h = parseInt(pp[0], 10) || 0, m = parseInt(pp[1], 10) || 0;
+  var ap = h < 12 ? 'AM' : 'PM', h12 = h % 12; if (h12 === 0) h12 = 12;
+  return h12 + ':' + schPad(m) + ' ' + ap;
+}
+
+function schBuild() {
+  var f = schCurFreq();
+  if (f === 'daily') {
+    var t = document.getElementById('sch-time-d').value || '03:00', u = schToUTC(t);
+    return { cron: u.m + ' ' + u.h + ' * * *', desc: 'Every day at ' + schFmt12(t), local: true };
+  }
+  if (f === 'weekly') {
+    var days = Array.prototype.map.call(document.querySelectorAll('#sch-days input:checked'), function (x) { return parseInt(x.value, 10); });
+    if (!days.length) return { desc: 'Pick at least one day.', err: true };
+    var t = document.getElementById('sch-time-w').value || '03:00', u = schToUTC(t);
+    var ud = days.map(function (d) { return ((d + u.shift) % 7 + 7) % 7; });
+    ud = ud.filter(function (v, i) { return ud.indexOf(v) === i; }).sort(function (a, b) { return a - b; });
+    var names = days.slice().sort(function (a, b) { return a - b; }).map(function (d) { return SCH_DOW[d]; });
+    return { cron: u.m + ' ' + u.h + ' * * ' + ud.join(','), desc: 'Every ' + names.join(', ') + ' at ' + schFmt12(t), local: true };
+  }
+  if (f === 'monthly') {
+    var dom = parseInt(document.getElementById('sch-dom').value, 10) || 1;
+    var t = document.getElementById('sch-time-m').value || '03:00', u = schToUTC(t);
+    var ud = dom + u.shift; if (ud < 1) ud += 31; if (ud > 31) ud -= 31;
+    return { cron: u.m + ' ' + u.h + ' ' + ud + ' * *', desc: 'On day ' + dom + ' of each month at ' + schFmt12(t), local: true };
+  }
+  if (f === 'minutes') {
+    var n = parseInt(document.getElementById('sch-min').value, 10) || 15;
+    if (n >= 60) return { cron: '0 * * * *', desc: 'Every hour' };
+    return { cron: '*/' + n + ' * * * *', desc: 'Every ' + n + ' minutes' };
+  }
+  // advanced
+  var cron = (document.getElementById('sch-cron-raw').value || '').trim();
+  return { cron: cron, desc: cron ? 'Custom: ' + cron : 'Enter a cron expression.', err: !cron };
+}
+
+function schUpdate() {
+  var r = schBuild();
+  document.getElementById('sch-cron').value = r.cron || '';
+  var s = document.getElementById('sch-sum');
+  if (r.err || !r.cron) {
+    s.className = 'sch-sum warn';
+    s.textContent = r.desc;
+    return;
+  }
+  var tz = r.local ? ' <span class="sch-tz">(your local time)</span>' : '';
+  s.className = 'sch-sum';
+  s.innerHTML = 'Runs <b>' + r.desc + '</b>' + tz + '<span class="sch-cronx">' + r.cron + ' UTC</span>';
+}
+
+function schSync() {
+  schUpdate();
+  if (!document.getElementById('sch-cron').value) {
+    var s = document.getElementById('sch-sum');
+    if (s) { s.className = 'sch-sum warn'; if (!s.textContent) s.textContent = 'Please complete the schedule above.'; }
+    return false;
+  }
+  return true;
+}
+
+(function () {
+  if (!document.getElementById('sch-cron')) return; // form not shown (viewer)
+  var dom = document.getElementById('sch-dom');
+  if (dom) for (var i = 1; i <= 31; i++) { var o = document.createElement('option'); o.value = i; o.textContent = i; dom.appendChild(o); }
+  schUpdate();
+})();
 </script>
 
 {{template "footer" .}}
