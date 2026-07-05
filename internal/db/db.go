@@ -5509,15 +5509,29 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 // handled by the offline rule, not the SoC/pad/storage rules (whose latest_extra is stale).
 const recentReportingCutoff = "15 minutes"
 
+// offlineHitsQuery finds devices offline longer than $1 minutes for the offline-family
+// rule $2, EXCLUDING those already alerted for the current offline stretch. A resolved
+// alert whose fired_at is at/after the device's last_seen_at means we alerted since the
+// device was last seen — so it must not re-fire (even if an operator resolved it while
+// still offline). last_seen_at only advances when the device comes back online, so a
+// genuine recover-then-drop resets this and a fresh alert can fire. An OPEN alert is not
+// 'resolved', so it stays in the hit set (deduped by CreateAlertIfAbsent, not re-notified).
+const offlineHitsQuery = `
+	SELECT d.id, d.serial_number, d.last_seen_at FROM devices d
+	WHERE NOT d.hidden AND d.last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
+	  AND NOT EXISTS (
+	    SELECT 1 FROM alerts a
+	    WHERE a.device_id = d.id AND a.type = $2 AND a.status = 'resolved'
+	      AND a.fired_at >= d.last_seen_at
+	  )`
+
 // detectRecentRule returns devices currently violating a recent-tier rule. Window gating
 // is applied by the caller (EvaluateRecentAlerts).
 func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]float64) ([]alertHit, string, error) {
 	switch typ {
 	case "offline":
 		mins := int(param(p, "offline_minutes", 5))
-		rows, err := d.pool.Query(ctx, `
-			SELECT id, serial_number, last_seen_at FROM devices
-			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')`, mins)
+		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline")
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -5808,9 +5822,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// the 30s WS check-in, so "silent > N min" == "no live WS" — the offline-means-no-
 		// websocket definition, without a separate presence path.
 		mins := int(param(p, "offline_minutes", 60))
-		rows, err := d.pool.Query(ctx, `
-			SELECT id, serial_number, last_seen_at FROM devices
-			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')`, mins)
+		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline_long")
 		if err != nil {
 			return nil, "warning", err
 		}
@@ -5862,9 +5874,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// Offline during peak hours (peak-windowed + deployed-only via the caller). Shorter
 		// fuse than the anytime rules because an outage mid-service is urgent.
 		mins := int(param(p, "offline_minutes", 5))
-		rows, err := d.pool.Query(ctx, `
-			SELECT id, serial_number, last_seen_at FROM devices
-			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')`, mins)
+		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline_peak")
 		if err != nil {
 			return nil, "critical", err
 		}
