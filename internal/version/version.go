@@ -17,6 +17,18 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.20.0",
+		Date:    "2026-07-05",
+		Changes: []string{
+			"AI-assisted log capture (beta): on the Actions page, just describe the problem in plain words and the assistant picks the log level, how many lines to pull, and the tag to focus on — you can tweak its suggestion before sending. Shows up when an AI key is configured.",
+			"Reworked how you choose which devices an action hits: start from everything, a restaurant, a group, or a release, then refine down to a hand-picked set — with a search so you can find and add specific devices before you send.",
+			"Schedule a saved recipe to run on its own: pick a recipe and a cron schedule (one-off or repeating), and its target is re-resolved each time it fires. Manage everything from the new Scheduled recipes page.",
+			"App classification: admins can now force an app to be treated as a system app, overriding what devices report — handy for hiding an app from the Uninstall and Kiosk pickers.",
+			"When several devices are selected on the Fleet page, the toolbar now offers a single Action button that takes them straight to the composer; Kiosk mode is also available directly from the Actions page.",
+			"Fixes: an offline alert no longer re-fires while a device is still down — once you've resolved it, it stays quiet until the device comes back online and drops again; the device graphs now show a loading spinner while they draw.",
+		},
+	},
+	{
 		Version: "1.19.0",
 		Date:    "2026-07-05",
 		Changes: []string{
