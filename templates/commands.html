@@ -438,7 +438,7 @@
               </div>
               <div class="scope-devices">
                 <div class="sd-head">
-                  <div class="filter-search sd-search"><svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="scope-search" autocomplete="off" placeholder="Search serial…" oninput="scopeSearchDebounced()"></div>
+                  <div class="filter-search sd-search"><svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="scope-search" autocomplete="off" placeholder="Search serial · Enter to add exact…" oninput="scopeSearchDebounced()" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}"></div>
                   <button type="button" class="btn-link small" onclick="cmdSelectAllMatching()">Select all</button>
                   <button type="button" class="btn-link small" onclick="cmdSetSerials([])">Clear</button>
                   <span class="sd-count"><b id="cmd-sel-count">0</b> picked</span>
@@ -783,9 +783,9 @@ function cmdSetSerials(list) {
 function cmdAddSerial(raw) {
   if (!raw) return;
   cmdSetSerials(cmdSerials().concat(String(raw).split(/[\s,]+/)));
-  var inp = document.getElementById('cmd-serial-input');
+  var inp = document.getElementById('scope-search');
   if (inp) inp.value = '';
-  cmdBrowseReload();
+  scopeBrowseReload();
 }
 function cmdRemoveSerial(s) {
   cmdSetSerials(cmdSerials().filter(function (x) { return x !== s; }));
