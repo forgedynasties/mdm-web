@@ -647,7 +647,7 @@ func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int,
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -755,7 +755,8 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 			COALESCE(dc.kiosk_package, ''),
 			d.latest_extra AS latest_extra,
 			d.hidden,
-			COALESCE(r.name, '')
+			COALESCE(r.name, ''),
+			d.discharge_total_pct, d.discharge_backfilled
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id`
@@ -799,6 +800,12 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 				orderClause = "d.latest_battery_pct DESC"
 			} else {
 				orderClause = "d.latest_battery_pct ASC"
+			}
+		case "cycles":
+			if dir == "asc" {
+				orderClause = "d.discharge_total_pct ASC"
+			} else {
+				orderClause = "d.discharge_total_pct DESC"
 			}
 		case "ram":
 			orderClause = `COALESCE(

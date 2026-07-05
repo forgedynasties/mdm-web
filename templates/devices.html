@@ -20,6 +20,7 @@
     <div class="dl-metrics">
       <span class="dl-m" data-m="ram"><span class="k">RAM</span>{{$ram := ramUsage .LatestExtra}}{{if $ram}}{{$pct := ramPct $ram}}<span class="v {{if ge $pct 80}}danger{{else if ge $pct 60}}warn{{else}}ok{{end}}">{{$pct}}%</span>{{else}}<span class="v muted">—</span>{{end}}</span>
       <span class="dl-m" data-m="temp"><span class="k">Temp</span>{{$temp := batteryTemp .LatestExtra}}{{if ne $temp ""}}<span class="v {{tempClass .LatestExtra}}">{{$temp}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
+      <span class="dl-m" data-m="cycles" title="Battery discharge cycles (lifetime)"><span class="k">Cycles</span>{{if .DischargeBackfilled}}<span class="v">{{printf "%.1f" .BatteryCycles}}</span>{{else}}<span class="v muted">—</span>{{end}}</span>
     </div>
     <div class="dl-status-col">
       {{if index $.Online .ID}}<span class="dl-status on"><i></i>Online</span>{{else}}<span class="dl-status off"><i></i>Offline</span>{{end}}
@@ -400,6 +401,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       <div class="sortpop">
         <button type="button" class="sortopt" data-sort="last_seen" onclick="sortBy('last_seen')"><span>Last seen</span><span class="dir"></span></button>
         <button type="button" class="sortopt" data-sort="battery" onclick="sortBy('battery')"><span>Battery</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" data-sort="cycles" onclick="sortBy('cycles')"><span>Battery cycles</span><span class="dir"></span></button>
         <button type="button" class="sortopt" data-sort="temp" onclick="sortBy('temp')"><span>Temperature</span><span class="dir"></span></button>
         <button type="button" class="sortopt" data-sort="ram" onclick="sortBy('ram')"><span>RAM</span><span class="dir"></span></button>
         <button type="button" class="sortopt" data-sort="serial" onclick="sortBy('serial')"><span>Serial</span><span class="dir"></span></button>
