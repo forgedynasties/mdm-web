@@ -3714,14 +3714,17 @@ func (d *DB) ListPackagesAdmin(ctx context.Context, query string) ([]AdminPackag
 			&p.ReportedSystem, &p.ReportedUser, &p.ReportedUnknown, &p.AdminFlagged); err != nil {
 			return nil, err
 		}
-		// Effective: client signal wins when any device reported it; otherwise the
-		// admin flag decides.
-		if p.ReportedSystem > 0 {
+		// Effective classification. The admin override forces system and overrides
+		// whatever devices reported (matching the consumer query
+		// `COALESCE(is_system,true) OR override`). Otherwise a client system report
+		// wins, then a client user report, then unknown defaults to system.
+		switch {
+		case p.AdminFlagged || p.ReportedSystem > 0:
 			p.EffectiveSystem = true
-		} else if p.ReportedUser > 0 {
+		case p.ReportedUser > 0:
 			p.EffectiveSystem = false
-		} else {
-			p.EffectiveSystem = p.AdminFlagged
+		default:
+			p.EffectiveSystem = true // all-unknown → treated as system (COALESCE default)
 		}
 		out = append(out, p)
 	}
