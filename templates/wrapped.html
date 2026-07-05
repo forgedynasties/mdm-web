@@ -1,0 +1,299 @@
+{{define "wrapped.html"}}
+{{template "header" .}}
+
+<style>
+/* ── Fleet Wrapped: a full-screen, scroll-snapped story deck that overlays the
+   whole app (above the dock). Brand: coral #F9674E + periwinkle #7A80F6 on ink. */
+.wr{position:fixed;inset:0;z-index:3000;overflow-y:auto;overflow-x:hidden;
+    background:#0E0F1C;color:#fff;scroll-snap-type:y mandatory;scroll-behavior:smooth;
+    -webkit-overflow-scrolling:touch;font-family:var(--sans,'IBM Plex Sans',system-ui,sans-serif);}
+.wr *{box-sizing:border-box;}
+.wr-prog{position:fixed;top:0;left:0;height:3px;width:0;z-index:3002;
+    background:linear-gradient(90deg,#F9674E,#7A80F6);transition:width .15s linear;box-shadow:0 0 12px rgba(249,103,78,.6);}
+.wr-close{position:fixed;top:16px;right:18px;z-index:3002;width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;
+    background:rgba(255,255,255,.12);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.18);
+    font-size:22px;line-height:1;transition:background .15s,transform .15s;}
+.wr-close:hover{background:rgba(255,255,255,.24);transform:rotate(90deg);}
+.wr-hint{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:3001;
+    font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7);
+    animation:wrBob 1.8s ease-in-out infinite;pointer-events:none;}
+@keyframes wrBob{0%,100%{transform:translate(-50%,0);}50%{transform:translate(-50%,7px);}}
+
+.wr-panel{min-height:100vh;min-height:100dvh;scroll-snap-align:center;scroll-snap-stop:always;
+    display:flex;flex-direction:column;justify-content:center;align-items:flex-start;
+    padding:clamp(28px,7vw,110px);position:relative;overflow:hidden;}
+.wr-panel.center{align-items:center;text-align:center;}
+/* backgrounds */
+.bg-intro{background:linear-gradient(155deg,#F9674E 0%,#7A80F6 100%);}
+.bg-peri{background:linear-gradient(160deg,#7A80F6 0%,#4b51c9 100%);}
+.bg-coral{background:linear-gradient(160deg,#F9674E 0%,#E0483A 100%);}
+.bg-heat{background:linear-gradient(160deg,#F9674E 0%,#8f1a14 100%);}
+.bg-ink{background:radial-gradient(120% 90% at 15% 10%,#20223f 0%,#0E0F1C 60%);}
+.bg-ink2{background:radial-gradient(120% 90% at 85% 15%,#2a2350 0%,#0E0F1C 62%);}
+
+/* content reveal — visible by default (so nothing can blank out); the entrance
+   animation only engages once JS adds .anim to the root. */
+.wr-in{opacity:1;transform:none;}
+.wr.anim .wr-in{opacity:0;transform:translateY(26px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1);}
+.wr.anim .wr-panel.in .wr-in{opacity:1;transform:none;}
+.wr.anim .wr-panel.in .wr-in.d1{transition-delay:.08s;}
+.wr.anim .wr-panel.in .wr-in.d2{transition-delay:.18s;}
+.wr.anim .wr-panel.in .wr-in.d3{transition-delay:.30s;}
+.wr.anim .wr-panel.in .wr-in.d4{transition-delay:.42s;}
+
+.wr-eye{font-family:var(--mono);font-size:clamp(11px,1.4vw,14px);letter-spacing:.18em;text-transform:uppercase;
+    opacity:.85;margin:0 0 18px;}
+.wr-num{font-weight:800;font-size:clamp(4.2rem,17vw,12.5rem);line-height:.86;letter-spacing:-.035em;
+    margin:0;font-variant-numeric:tabular-nums;text-shadow:0 6px 40px rgba(0,0,0,.18);}
+.wr-num .u{font-size:.34em;font-weight:700;letter-spacing:-.01em;opacity:.9;margin-left:.12em;}
+.wr-lead{font-size:clamp(1.5rem,4.4vw,3.1rem);font-weight:700;line-height:1.06;letter-spacing:-.02em;margin:0 0 10px;}
+.wr-sub{font-size:clamp(1rem,2.1vw,1.4rem);line-height:1.5;font-weight:400;opacity:.9;margin:20px 0 0;max-width:22ch;}
+.wr-panel.center .wr-sub{max-width:30ch;}
+.wr-serial{display:inline-block;font-family:var(--mono);font-size:clamp(1.1rem,3.2vw,2.1rem);font-weight:600;
+    background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:14px;
+    padding:8px 18px;margin:6px 0 4px;color:#fff;text-decoration:none;transition:background .15s;}
+a.wr-serial:hover{background:rgba(255,255,255,.26);}
+.wr-tag{font-size:clamp(1.2rem,3.4vw,2.2rem);font-weight:800;letter-spacing:-.02em;margin:0 0 14px;}
+.wr-venue-flag{opacity:.75;font-weight:400;font-size:.62em;}
+
+/* mini-stats (behind the scenes) */
+.wr-duo{display:grid;grid-template-columns:1fr;gap:34px;width:100%;max-width:720px;}
+@media(min-width:640px){.wr-duo{grid-template-columns:1fr 1fr;}}
+.wr-duo .wr-num{font-size:clamp(3.2rem,11vw,6.5rem);}
+
+/* outro poster */
+.wr-poster{width:100%;max-width:560px;}
+.wr-poster-h{font-size:clamp(1.8rem,6vw,3.4rem);font-weight:800;letter-spacing:-.025em;line-height:1;margin:0 0 26px;}
+.wr-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(255,255,255,.16);
+    border:1px solid rgba(255,255,255,.16);border-radius:18px;overflow:hidden;}
+.wr-cell{background:rgba(14,15,28,.34);backdrop-filter:blur(2px);padding:18px 18px;min-height:98px;}
+.wr-cell .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;opacity:.8;margin-bottom:7px;}
+.wr-cell .v{font-size:clamp(1.15rem,3.4vw,1.7rem);font-weight:800;letter-spacing:-.02em;line-height:1.05;}
+.wr-cell .s{font-size:12px;opacity:.82;margin-top:3px;font-family:var(--mono);}
+.wr-foot{margin-top:22px;font-size:13px;opacity:.8;text-align:center;}
+.wr-brandline{font-weight:800;letter-spacing:-.01em;}
+.wr-brandline .c{color:#ffd9d2;}
+
+@media (prefers-reduced-motion: reduce){
+  .wr{scroll-behavior:auto;}
+  .wr-in{opacity:1;transform:none;transition:none;}
+  .wr-hint,.wr-close{animation:none;}
+}
+</style>
+
+<div class="wr" id="wr">
+  <div class="wr-prog" id="wr-prog"></div>
+  <a class="wr-close" href="/" aria-label="Close" title="Close">&times;</a>
+
+  {{if not .W.HasData}}
+  <section class="wr-panel bg-intro center in">
+    <div class="wr-in"><p class="wr-eye">AIO Fleet Wrapped</p></div>
+    <h1 class="wr-lead wr-in d1">Nothing to unwrap… yet.</h1>
+    <p class="wr-sub wr-in d2">Once your devices have been checking in for a few days, come back for the fleet's story — the numbers, the record-breakers, the drama.</p>
+    <div class="wr-in d3" style="margin-top:28px;"><a href="/" class="wr-serial">← Back to dashboard</a></div>
+  </section>
+  {{else}}
+
+  <!-- 1 · Intro -->
+  <section class="wr-panel bg-intro center" data-panel>
+    <div class="wr-in"><p class="wr-eye">AIO Fleet Wrapped</p></div>
+    <h1 class="wr-lead wr-in d1" style="font-size:clamp(2.2rem,9vw,5rem);">The fleet had<br>a year.</h1>
+    <p class="wr-sub wr-in d2">{{.W.DeviceCount}} devices{{if gt .W.RestaurantCount 0}} across {{.W.RestaurantCount}} restaurant{{if gt .W.RestaurantCount 1}}s{{end}}{{end}}, from {{.W.FirstDay.Format "Jan 2"}} to {{.W.LastDay.Format "Jan 2, 2006"}}. Here's how it went.</p>
+    <div class="wr-hint">Scroll ↓</div>
+  </section>
+
+  <!-- 2 · Check-ins -->
+  <section class="wr-panel bg-ink" data-panel>
+    <p class="wr-eye wr-in">You stayed in touch</p>
+    <p class="wr-num wr-in d1" data-count="{{.W.TotalCheckins}}">0</p>
+    <p class="wr-lead wr-in d2" style="margin-top:18px;">check-ins.</p>
+    <p class="wr-sub wr-in d3">Every unit, phoning home around the clock — {{.W.DaysCovered}} days of never going quiet.</p>
+  </section>
+
+  <!-- 3 · Uptime -->
+  <section class="wr-panel bg-peri" data-panel>
+    <p class="wr-eye wr-in">Always on</p>
+    <p class="wr-num wr-in d1" data-count="{{.OnlineDays}}">0<span class="u">days</span></p>
+    <p class="wr-lead wr-in d2" style="margin-top:18px;">of combined uptime.</p>
+    <p class="wr-sub wr-in d3">Awake, serving tables and topping up phones, so nobody had to think about it.</p>
+  </section>
+
+  <!-- 4 · Battery cycles -->
+  <section class="wr-panel bg-coral" data-panel>
+    <p class="wr-eye wr-in">Round and round</p>
+    <p class="wr-num wr-in d1" data-count="{{printf "%.1f" .W.TotalCycles}}" data-dec="1">0</p>
+    <p class="wr-lead wr-in d2" style="margin-top:18px;">full battery cycles.</p>
+    <p class="wr-sub wr-in d3">Charged and drained, over and over — that's real mileage on real batteries.</p>
+  </section>
+
+  <!-- 5 · Hardest worker -->
+  {{if .W.HardestWorker.Serial}}
+  <section class="wr-panel bg-ink2" data-panel>
+    <p class="wr-eye wr-in">Employee of the year</p>
+    <a class="wr-serial wr-in d1" href="/devices/{{.W.HardestWorker.Serial}}">{{.W.HardestWorker.Serial}}</a>
+    <p class="wr-lead wr-in d2" style="margin-top:14px;">clocked <b data-count="{{.WorkerDays}}" class="wr-count">0</b> days online —<br>more than any other unit.</p>
+    <p class="wr-sub wr-in d3">{{if .W.HardestWorker.Restaurant}}Holding it down at {{.W.HardestWorker.Restaurant}}. {{end}}No days off, no complaints.</p>
+  </section>
+  {{end}}
+
+  <!-- 6 · Busiest venue -->
+  {{if .W.BusiestVenue.Serial}}
+  <section class="wr-panel bg-peri" data-panel>
+    <p class="wr-eye wr-in">Busiest house</p>
+    <p class="wr-tag wr-in d1" style="font-size:clamp(1.8rem,6vw,3.4rem);">{{.W.BusiestVenue.Serial}}</p>
+    <p class="wr-num wr-in d2" data-count="{{printf "%.0f" .W.BusiestVenue.Value}}" style="font-size:clamp(3rem,12vw,8rem);">0</p>
+    <p class="wr-sub wr-in d3">check-ins from its {{.W.BusiestVenue.Extra}} device{{if ne .W.BusiestVenue.Extra "1"}}s{{end}} — the hardest-running room in the fleet.</p>
+  </section>
+  {{end}}
+
+  <!-- 7 · Hottest -->
+  {{if .W.Hottest.Serial}}
+  <section class="wr-panel bg-heat" data-panel>
+    <p class="wr-eye wr-in">Feeling the heat</p>
+    <p class="wr-num wr-in d1" data-count="{{printf "%.0f" .W.Hottest.Value}}">0<span class="u">°C</span></p>
+    <p class="wr-lead wr-in d2" style="margin-top:16px;">peak temperature.</p>
+    <p class="wr-sub wr-in d3"><a class="wr-serial" style="font-size:1em;padding:4px 12px;" href="/devices/{{.W.Hottest.Serial}}">{{.W.Hottest.Serial}}</a> hit its hottest on {{.W.Hottest.Extra}}. Took the heat and kept serving.</p>
+  </section>
+  {{end}}
+
+  <!-- 8 · Behind the scenes -->
+  <section class="wr-panel bg-ink center" data-panel>
+    <p class="wr-eye wr-in">Behind the scenes</p>
+    <div class="wr-duo wr-in d1" style="margin-top:10px;">
+      <div>
+        <p class="wr-num" data-count="{{.W.TotalCommands}}">0</p>
+        <p class="wr-sub" style="margin:12px auto 0;">actions sent{{if .W.TopCommandType}} — mostly <b>{{.W.TopCommandType}}</b>{{end}}.</p>
+      </div>
+      <div>
+        <p class="wr-num" data-count="{{.W.TotalAlerts}}">0</p>
+        <p class="wr-sub" style="margin:12px auto 0;">alerts weathered{{if .W.TopAlertType}} — usually <b>{{.W.TopAlertType}}</b>{{end}}.</p>
+      </div>
+    </div>
+    <p class="wr-sub wr-in d3" style="max-width:34ch;">You pushed, watched, and patched — and the fleet kept its cool.</p>
+  </section>
+
+  <!-- 9 · Outro poster -->
+  <section class="wr-panel bg-intro center" data-panel>
+    <div class="wr-poster wr-in">
+      <h2 class="wr-poster-h">The fleet,<br>wrapped.</h2>
+      <div class="wr-grid">
+        <div class="wr-cell"><div class="k">Devices</div><div class="v">{{.W.DeviceCount}}</div>{{if gt .W.RestaurantCount 0}}<div class="s">{{.W.RestaurantCount}} restaurant{{if gt .W.RestaurantCount 1}}s{{end}}</div>{{end}}</div>
+        <div class="wr-cell"><div class="k">Days tracked</div><div class="v">{{.W.DaysCovered}}</div><div class="s">since {{.W.FirstDay.Format "Jan 2"}}</div></div>
+        {{if .W.MostWorn.Serial}}<div class="wr-cell"><div class="k">Most-worn unit</div><div class="v">{{printf "%.1f" .W.MostWorn.Value}} cycles</div><div class="s">{{.W.MostWorn.Serial}}</div></div>{{end}}
+        {{if .W.Veteran.Serial}}<div class="wr-cell"><div class="k">The veteran</div><div class="v">{{.W.Veteran.Serial}}</div><div class="s">joined {{.W.Veteran.Extra}}</div></div>{{end}}
+        {{if .W.PadLover.Serial}}<div class="wr-cell"><div class="k">Pad devotee</div><div class="v">{{printf "%.0f" .W.PadLover.Value}}% on the pad</div><div class="s">{{.W.PadLover.Serial}}</div></div>{{end}}
+        {{if .W.LongestDay.Serial}}<div class="wr-cell"><div class="k">Longest single day</div><div class="v">{{printf "%.0f" .W.LongestDay.Value}} min online</div><div class="s">{{.W.LongestDay.Serial}} · {{.W.LongestDay.Extra}}</div></div>{{end}}
+      </div>
+      <p class="wr-foot"><span class="wr-brandline"><span class="c">AIO</span> MDM</span> — here's to the next lap.</p>
+    </div>
+  </section>
+  {{end}}
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById('wr');
+  if (!root) return;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // The app shell (appbar + dock) lives outside <main>, and an ancestor of <main>
+  // is transformed — which traps position:fixed. Portal the overlay to <body> so it
+  // covers the whole viewport, and lock background scroll while it's open.
+  document.querySelectorAll('body > .wr').forEach(function (n) { if (n !== root) n.remove(); });
+  if (root.parentNode !== document.body) document.body.appendChild(root);
+  var htmlEl = document.documentElement, prevOverflow = htmlEl.style.overflow;
+  htmlEl.style.overflow = 'hidden';
+  var revealTimer = null;
+  function teardown() {
+    htmlEl.style.overflow = prevOverflow;
+    if (revealTimer) clearInterval(revealTimer);
+    if (root && root.parentNode) root.parentNode.removeChild(root);
+    document.removeEventListener('htmx:beforeSwap', teardown);
+  }
+  // Any boosted navigation (close, a serial link, the dock, browser back) swaps
+  // <main> — remove the portaled overlay so it doesn't linger on the next page.
+  document.addEventListener('htmx:beforeSwap', teardown);
+
+  // Progress bar tracks scroll through the deck.
+  var prog = document.getElementById('wr-prog');
+  root.addEventListener('scroll', function () {
+    var max = root.scrollHeight - root.clientHeight;
+    prog.style.width = (max > 0 ? (root.scrollTop / max) * 100 : 0) + '%';
+  }, { passive: true });
+
+  // Format a number with thousands separators and optional decimals.
+  function fmt(n, dec) {
+    if (dec) return n.toLocaleString(undefined, { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    return Math.round(n).toLocaleString();
+  }
+
+  // Count up every [data-count] inside a panel once, when it first appears.
+  function runCounts(panel) {
+    panel.querySelectorAll('[data-count]').forEach(function (el) {
+      if (el.dataset.done) return; el.dataset.done = '1';
+      var target = parseFloat(el.dataset.count) || 0;
+      var dec = parseInt(el.dataset.dec || '0', 10);
+      // Preserve any trailing unit span (e.g. "days", "°C").
+      var unit = el.querySelector('.u');
+      var setText = function (v) {
+        if (unit) { el.firstChild.nodeValue = fmt(v, dec); }
+        else { el.textContent = fmt(v, dec); }
+      };
+      if (reduce || target === 0) { setText(target); return; }
+      var dur = 1300, t0 = null;
+      function step(ts) {
+        if (t0 === null) t0 = ts;
+        var p = Math.min((ts - t0) / dur, 1);
+        var e = 1 - Math.pow(1 - p, 3); // easeOutCubic
+        setText(target * e);
+        if (p < 1) requestAnimationFrame(step); else setText(target);
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
+  var panels = root.querySelectorAll('[data-panel]');
+  if (!reduce) root.classList.add('anim'); // enable entrance animation only with JS
+
+  // Reveal any panel whose center is within the viewport. A plain scroll check is
+  // used instead of IntersectionObserver, which proved unreliable inside this
+  // fixed, scroll-snapped container — a missed observer would leave a panel blank.
+  function reveal() {
+    var vh = root.clientHeight;
+    panels.forEach(function (p) {
+      if (p.classList.contains('in')) return;
+      var r = p.getBoundingClientRect(); // viewport coords; .wr is fixed inset:0
+      if (r.top < vh * 0.62 && r.bottom > vh * 0.38) {
+        p.classList.add('in');
+        runCounts(p);
+      }
+    });
+  }
+  var ticking = false;
+  root.addEventListener('scroll', function () {
+    if (ticking) return; ticking = true;
+    requestAnimationFrame(function () { reveal(); ticking = false; });
+  }, { passive: true });
+  reveal(); // reveal whatever's on screen at load
+  // Safety net: the scroll event alone can miss a panel if layout settles late.
+  // Poll until every panel is revealed, then stop.
+  revealTimer = setInterval(function () {
+    reveal();
+    var all = Array.prototype.every.call(panels, function (p) { return p.classList.contains('in'); });
+    if (all) { clearInterval(revealTimer); revealTimer = null; }
+  }, 200);
+
+  // Esc closes the experience.
+  document.addEventListener('keydown', function onKey(e) {
+    if (e.key === 'Escape') {
+      var a = root.querySelector('.wr-close');
+      if (a) a.click();
+      document.removeEventListener('keydown', onKey);
+    }
+  });
+})();
+</script>
+
+{{template "footer" .}}
+{{end}}

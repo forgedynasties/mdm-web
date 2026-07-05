@@ -8045,6 +8045,21 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 	return groups
 }
 
+// WrappedPage renders "Fleet Wrapped" — a playful, full-screen year-in-review of
+// the whole fleet (Spotify-Wrapped style). Open to any signed-in role.
+func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
+	wr, err := h.db.GetFleetWrapped(r.Context())
+	if err != nil {
+		log.Printf("[wrapped] compute: %v", err)
+	}
+	h.render(w, r, "wrapped.html", map[string]any{
+		"Title":       "Fleet Wrapped",
+		"W":           wr,
+		"OnlineDays":  wr.OnlineMinutes / 1440,
+		"WorkerDays":  int(wr.HardestWorker.Value) / 1440,
+	})
+}
+
 // AlertConfigView renders the alert-rule configuration read-only. Editing stays
 // in Settings (admin-only); this page lets testers and devs see exactly what the
 // fleet watches for and the thresholds that trigger each alert.
@@ -9060,6 +9075,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdminOrTester(h.AlertConfigView))
+	mux.HandleFunc("GET /wrapped", h.requireAuth(h.WrappedPage))
 	mux.HandleFunc("GET /alerts/recent", h.requireAuth(h.AlertsRecent))
 	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
 	post("POST /alerts/bulk", h.requireOperatorOrAdmin(h.AlertBulk))
