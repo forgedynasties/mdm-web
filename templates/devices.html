@@ -43,7 +43,7 @@
       <button type="button" class="fleet-view" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
       <button type="button" class="fleet-view" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
       <button type="button" class="fleet-view" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
-      <button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Hidden</button>
+      {{if canAdmin $.Role}}<button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Retired</button>{{end}}
 {{end}}
 
 {{/* Out-of-band bits refreshed when the roster is re-scoped in place (rail click):
