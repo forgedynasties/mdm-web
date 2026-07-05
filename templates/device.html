@@ -84,7 +84,7 @@
 <script src="/static/vendor/chart.umd.min.js"></script>
 
 <div class="device-detail">
-<a href="/devices" class="back-link" onclick="if(document.referrer&&document.referrer.indexOf(location.origin)===0&&document.referrer!==location.href&&history.length>1){history.back();return false;}">← Fleet</a>
+<a href="/devices" class="back-link" onclick="try{var r=document.referrer;if(r&&new URL(r).origin===location.origin&&new URL(r).pathname==='/devices'&&history.length>1){history.back();return false;}}catch(e){}">← Fleet</a>
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
 <div class="ddc-hero">
   <div class="ddc-top">
@@ -1110,6 +1110,15 @@
     var def = document.querySelector('.dur-btn[data-ms="21600000"]');
     if (def) def.classList.add("active");
     currentDuration = 6 * 3600 * 1000;
+    // Drop any ?focus=/?window= deep-link params so the custom window can't be
+    // re-applied by applyFocusFromURL on a reload or back/forward navigation.
+    try {
+      var u = new URL(location.href);
+      if (u.searchParams.has("focus") || u.searchParams.has("window")) {
+        u.searchParams.delete("focus"); u.searchParams.delete("window");
+        history.replaceState(null, "", u);
+      }
+    } catch (e) {}
     updateCharts();
   }
 

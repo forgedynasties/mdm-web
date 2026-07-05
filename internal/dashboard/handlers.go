@@ -3353,6 +3353,12 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/csv")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
+	// Echo the client's one-time download token back as a cookie so the page can detect
+	// that the CSV response arrived (a file download fires no JS load event) and clear
+	// its "Preparing CSV…" state instead of leaving the button stuck.
+	if tok := r.FormValue("dl_token"); tok != "" {
+		http.SetCookie(w, &http.Cookie{Name: "dl_token", Value: tok, Path: "/", MaxAge: 30})
+	}
 
 	colSet := make(map[string]bool, len(columns))
 	for _, c := range columns {
