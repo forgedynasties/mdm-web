@@ -314,6 +314,7 @@
           <select name="active_window" class="form-input" style="width:140px;">
             <option value="service"{{if eq .ActiveWindow "service"}} selected{{end}}>Service hours</option>
             <option value="overnight"{{if eq .ActiveWindow "overnight"}} selected{{end}}>Overnight</option>
+            <option value="peak"{{if eq .ActiveWindow "peak"}} selected{{end}}>Peak hours</option>
             <option value="always"{{if eq .ActiveWindow "always"}} selected{{end}}>Always</option>
           </select>
         </label>
