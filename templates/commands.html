@@ -175,6 +175,20 @@
 .pl-chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text-2);cursor:pointer;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pl-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
 .pl-sub{font-size:12px;color:var(--muted);margin-top:8px;}
+/* AI logcat assist (beta) */
+.lc-ai{border:1px solid var(--accent-edge);border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 5%,var(--surface)),var(--surface));padding:12px 14px;margin-bottom:14px;}
+.lc-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap;}
+.lc-ai-ttl{font-size:12.5px;font-weight:700;color:var(--text);}
+.lc-ai-beta{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--accent);border-radius:99px;padding:2px 7px;}
+.lc-ai-sub{font-size:12px;color:var(--muted);}
+.lc-ai-row{display:flex;gap:9px;align-items:stretch;}
+.lc-ai-ta{flex:1;min-height:44px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:13.5px;color:var(--text);font-family:inherit;resize:vertical;outline:none;box-sizing:border-box;}
+.lc-ai-ta:focus{border-color:var(--accent-edge);}
+.lc-ai-go{white-space:nowrap;align-self:flex-start;min-width:96px;}
+.lc-ai-go[disabled]{opacity:.6;cursor:progress;}
+.lc-ai-out{margin-top:9px;font-size:12.5px;color:var(--text-2);line-height:1.5;background:var(--surface2);border-radius:9px;padding:9px 12px;}
+.lc-ai-out.err{color:#b42318;background:#fbe9e9;}
+.lc-ai-out b{color:var(--text);}
 /* shell console */
 .console{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#12161b;}
 .console .cbar{display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #232a33;}
@@ -373,6 +387,20 @@
         <!-- Log capture -->
         <div id="logcat-fields" class="payload-section">
           <input type="hidden" name="level" id="lc-cmd-level" value="W">
+          {{if .AIEnabled}}
+          <div class="lc-ai">
+            <div class="lc-ai-head">
+              <span class="lc-ai-ttl">Describe the problem</span>
+              <span class="lc-ai-beta">Beta</span>
+              <span class="lc-ai-sub">and let AI pick the level, depth, and tag</span>
+            </div>
+            <div class="lc-ai-row">
+              <textarea id="lc-ai-problem" class="lc-ai-ta" rows="2" placeholder="e.g. The app keeps dropping out of kiosk mode after the screen wakes"></textarea>
+              <button type="button" class="btn-outline lc-ai-go" id="lc-ai-go" onclick="lcAiSuggest()">Suggest</button>
+            </div>
+            <div class="lc-ai-out" id="lc-ai-out" hidden></div>
+          </div>
+          {{end}}
           <div class="pl-row">
             <div><div class="lvl-lbl">Level</div><div class="levels" id="lc-levels">
               <button type="button" class="lv" data-lv="E" onclick="setLevel(this)">E<small>Error</small></button>
@@ -932,6 +960,47 @@ function lcCmdFill(btn) {
   var n = document.getElementById('lc-cmd-lines'); if (n) n.value = btn.dataset.lines;
   var t = document.getElementById('lc-cmd-tag');   if (t) t.value = btn.dataset.tag || '';
   updatePreview();
+}
+
+// AI logcat assist (beta): send the plain-language problem, fill level/lines/tag
+// from the model's suggestion, and show its one-line rationale.
+function lcAiSuggest() {
+  var ta = document.getElementById('lc-ai-problem');
+  var btn = document.getElementById('lc-ai-go');
+  var out = document.getElementById('lc-ai-out');
+  if (!ta || !btn || !out) return;
+  var problem = (ta.value || '').trim();
+  if (!problem) { ta.focus(); return; }
+  var show = function (html, isErr) {
+    out.hidden = false;
+    out.className = 'lc-ai-out' + (isErr ? ' err' : '');
+    out.innerHTML = html;
+  };
+  btn.disabled = true; btn.textContent = 'Thinking…';
+  show('Analyzing the problem…', false);
+  var esc = function (s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+  fetch('/commands/logcat-suggest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'problem=' + encodeURIComponent(problem)
+  }).then(function (r) {
+    return r.json().then(function (d) { return { ok: r.ok, d: d }; });
+  }).then(function (res) {
+    if (!res.ok) { show(esc(res.d && res.d.error ? res.d.error : 'Suggestion failed — try again.'), true); return; }
+    var d = res.d;
+    setLevelValue(d.level);
+    var n = document.getElementById('lc-cmd-lines'); if (n) n.value = d.lines;
+    var t = document.getElementById('lc-cmd-tag');   if (t) t.value = d.tag || '';
+    updatePreview();
+    var tagTxt = d.tag ? esc(d.tag) : 'all tags';
+    show('Applied <b>' + esc(d.level) + '</b> · <b>' + esc(String(d.lines)) + '</b> lines · <b>' + tagTxt + '</b>'
+       + (d.rationale ? '<br><span style="color:var(--muted)">' + esc(d.rationale) + '</span>' : '')
+       + '<br><span style="color:var(--text-faint);font-size:11px">Suggestion only — review before sending.</span>', false);
+  }).catch(function () {
+    show('Network error — try again.', true);
+  }).finally(function () {
+    btn.disabled = false; btn.textContent = 'Suggest';
+  });
 }
 
 // Validates the builder, drives the inline warning + Send button's validity.
