@@ -4127,6 +4127,8 @@ var defaultAlertRules = []struct {
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
 	{"battery_high_night", "Battery high overnight", `{"soc_pct":60}`, "overnight", true},
 	{"wlc_continuous", "Continuous wireless charging", `{"sustain_min":60}`, "always", true},
+	{"battery_low", "Battery low during peak", `{"soc_pct":20}`, "peak", true},
+	{"offline_peak", "Offline during peak", `{"offline_minutes":5}`, "peak", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
@@ -4820,6 +4822,131 @@ func windowFor(m map[uuid.UUID]ServiceWindow, id uuid.UUID) ServiceWindow {
 	return ServiceWindow{OpenMin: 420, CloseMin: 1380, NightOpenMin: 1410, NightCloseMin: 360}
 }
 
+// ── Peak windows (discrete busy periods, active_window='peak') ───────────────────
+
+// PeakWindow is one busy period for a venue (or the fleet default when RestaurantID
+// is nil), in local minutes past midnight. A range may wrap past midnight (End < Start).
+type PeakWindow struct {
+	ID           uuid.UUID  `json:"id"`
+	RestaurantID *uuid.UUID `json:"restaurant_id"`
+	StartMin     int        `json:"start_min"`
+	EndMin       int        `json:"end_min"`
+}
+
+// inAnyPeak reports whether local time "now" (converted with tz) falls in any of the
+// ranges. Empty ranges → never in peak.
+func inAnyPeak(now time.Time, tz string, ranges []PeakWindow) bool {
+	if len(ranges) == 0 {
+		return false
+	}
+	lt := localTime(now, tz)
+	m := lt.Hour()*60 + lt.Minute()
+	for _, r := range ranges {
+		if inMinWindow(m, r.StartMin, r.EndMin) {
+			return true
+		}
+	}
+	return false
+}
+
+// ListPeakWindows returns the fleet-default peak set (restaurant_id NULL) plus every
+// per-restaurant override, for the settings UI.
+func (d *DB) ListPeakWindows(ctx context.Context) ([]PeakWindow, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, restaurant_id, start_min, end_min FROM peak_windows
+		ORDER BY restaurant_id NULLS FIRST, start_min`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PeakWindow
+	for rows.Next() {
+		var w PeakWindow
+		if err := rows.Scan(&w.ID, &w.RestaurantID, &w.StartMin, &w.EndMin); err != nil {
+			return nil, err
+		}
+		out = append(out, w)
+	}
+	return out, rows.Err()
+}
+
+// SetPeakWindows replaces the full peak set for one scope (a restaurant, or the fleet
+// default when restaurantID is nil) in a single transaction — delete-then-insert, so
+// the caller passes the complete desired list of ranges.
+func (d *DB) SetPeakWindows(ctx context.Context, restaurantID *uuid.UUID, ranges []PeakWindow) error {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if restaurantID == nil {
+		_, err = tx.Exec(ctx, `DELETE FROM peak_windows WHERE restaurant_id IS NULL`)
+	} else {
+		_, err = tx.Exec(ctx, `DELETE FROM peak_windows WHERE restaurant_id = $1`, restaurantID)
+	}
+	if err != nil {
+		return err
+	}
+	for _, r := range ranges {
+		if _, err = tx.Exec(ctx, `
+			INSERT INTO peak_windows (restaurant_id, start_min, end_min) VALUES ($1, $2, $3)`,
+			restaurantID, r.StartMin, r.EndMin); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+// effectivePeakWindows resolves the peak ranges for every non-hidden device: its
+// restaurant's own set if it has any, otherwise the fleet-default set. Loaded once per
+// evaluation pass (mirrors effectiveWindows).
+func (d *DB) effectivePeakWindows(ctx context.Context) (map[uuid.UUID][]PeakWindow, error) {
+	rows, err := d.pool.Query(ctx, `SELECT restaurant_id, start_min, end_min FROM peak_windows`)
+	if err != nil {
+		return nil, err
+	}
+	var fleet []PeakWindow
+	byRest := make(map[uuid.UUID][]PeakWindow)
+	for rows.Next() {
+		var rid *uuid.UUID
+		var w PeakWindow
+		if err := rows.Scan(&rid, &w.StartMin, &w.EndMin); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if rid == nil {
+			fleet = append(fleet, w)
+		} else {
+			byRest[*rid] = append(byRest[*rid], w)
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	drows, err := d.pool.Query(ctx, `SELECT id, restaurant_id FROM devices WHERE NOT hidden`)
+	if err != nil {
+		return nil, err
+	}
+	defer drows.Close()
+	out := make(map[uuid.UUID][]PeakWindow)
+	for drows.Next() {
+		var id uuid.UUID
+		var rid *uuid.UUID
+		if err := drows.Scan(&id, &rid); err != nil {
+			return nil, err
+		}
+		if rid != nil {
+			if r, ok := byRest[*rid]; ok {
+				out[id] = r
+				continue
+			}
+		}
+		out[id] = fleet
+	}
+	return out, drows.Err()
+}
+
 // EvaluateAlerts runs every enabled fleet-scoped rule against device_daily_stats,
 // creating alerts for violators (deduped) and resolving alerts whose condition has
 // cleared. Returns counts of created and resolved alerts. Called from housekeeping.
@@ -4986,7 +5113,9 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 var recentRuleTypes = map[string]bool{
 	"offline":            true,
 	"offline_long":       true,
+	"offline_peak":       true,
 	"overheating":        true,
+	"battery_low":        true,
 	"storage_low":        true,
 	"storage_warning":    true,
 	"temp_elevated":      true,
@@ -5023,6 +5152,10 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 	if err != nil {
 		return nil, 0, err
 	}
+	peaks, err := d.effectivePeakWindows(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
 	deployed, err := d.deployedDeviceSet(ctx)
 	if err != nil {
 		return nil, 0, err
@@ -5044,7 +5177,7 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 		if aw == "" {
 			aw = defaultActiveWindow(r.Type)
 		}
-		windowed := aw == "service" || aw == "overnight"
+		windowed := aw == "service" || aw == "overnight" || aw == "peak"
 		ids := make([]uuid.UUID, 0, len(hits))
 		ruleID := r.ID
 		for _, h := range hits {
@@ -5056,7 +5189,14 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 				continue
 			}
 			// Skip devices outside the rule's active window; they auto-resolve below.
-			if !inActiveWindow(now, "", windowFor(windows, h.DeviceID), aw) {
+			// Peak windows are a separate list of ranges; service/overnight use the span.
+			var inWin bool
+			if aw == "peak" {
+				inWin = inAnyPeak(now, windowFor(windows, h.DeviceID).TZ, peaks[h.DeviceID])
+			} else {
+				inWin = inActiveWindow(now, "", windowFor(windows, h.DeviceID), aw)
+			}
+			if !inWin {
 				continue
 			}
 			ids = append(ids, h.DeviceID)
@@ -5406,6 +5546,60 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				map[string]any{"offline_minutes": down, "last_seen": last}})
 		}
 		return hits, "warning", rows.Err()
+
+	case "battery_low":
+		// Point-in-time low SoC. Peak-windowed + deployed-only (gated by the caller), so
+		// it flags a venue unit running low during the busy lunch/dinner rush.
+		pct := param(p, "soc_pct", 20)
+		rows, err := d.pool.Query(ctx, `
+			SELECT d.id, d.serial_number, d.latest_battery_pct
+			FROM devices d
+			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+			  AND d.latest_battery_pct < $1`, int(pct))
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var batt int
+			if err := rows.Scan(&id, &serial, &batt); err != nil {
+				return nil, "critical", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Battery at %d%% during peak hours (< %.0f%%)", batt, pct),
+				map[string]any{"battery_pct": batt, "limit_pct": pct}})
+		}
+		return hits, "critical", rows.Err()
+
+	case "offline_peak":
+		// Offline during peak hours (peak-windowed + deployed-only via the caller). Shorter
+		// fuse than the anytime rules because an outage mid-service is urgent.
+		mins := int(param(p, "offline_minutes", 5))
+		rows, err := d.pool.Query(ctx, `
+			SELECT id, serial_number, last_seen_at FROM devices
+			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')`, mins)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		now := time.Now().UTC()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var last time.Time
+			if err := rows.Scan(&id, &serial, &last); err != nil {
+				return nil, "critical", err
+			}
+			down := int(now.Sub(last).Minutes())
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Offline %dm during peak hours", down),
+				map[string]any{"offline_minutes": down, "last_seen": last}})
+		}
+		return hits, "critical", rows.Err()
 	}
 	return nil, "warning", nil
 }
@@ -6077,6 +6271,24 @@ CREATE TABLE IF NOT EXISTS restaurants (
 -- A device lives in at most one restaurant; NULL = lab/bench unit.
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS restaurant_id UUID REFERENCES restaurants(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_devices_restaurant ON devices(restaurant_id);
+
+-- Peak-hour windows: discrete busy periods (e.g. lunch 12:00–14:00, dinner 19:00–21:00);
+-- a rule with active_window='peak' fires only inside one. Unlike service_windows (a single
+-- open/close span) a venue can have MANY peak rows; restaurant_id NULL = the fleet-default
+-- set, inherited by any restaurant with no rows of its own. (Defined here, after the
+-- restaurants table it references.)
+CREATE TABLE IF NOT EXISTS peak_windows (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,  -- NULL = fleet default
+    start_min     INTEGER NOT NULL,   -- local minutes past midnight
+    end_min       INTEGER NOT NULL,   -- may wrap past midnight (end < start)
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_peak_windows_restaurant ON peak_windows(restaurant_id);
+-- Seed the fleet-default peak set once: lunch 12:00–14:00 and dinner 19:00–21:00.
+INSERT INTO peak_windows (restaurant_id, start_min, end_min)
+SELECT NULL::uuid, v.s, v.e FROM (VALUES (720,840),(1140,1260)) v(s,e)
+WHERE NOT EXISTS (SELECT 1 FROM peak_windows WHERE restaurant_id IS NULL);
 
 -- Service windows move from group_id to restaurant_id. The fleet-default row has both
 -- NULL; per-restaurant rows set restaurant_id (group_id stays NULL, now unused). Redefine
