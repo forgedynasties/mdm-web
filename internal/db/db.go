@@ -466,8 +466,6 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			SET build_id           = EXCLUDED.build_id,
 			    last_seen_at       = NOW(),
 			    latest_battery_pct = COALESCE($3, devices.latest_battery_pct),
-			    discharge_total_pct = devices.discharge_total_pct
-			        + GREATEST(0, devices.latest_battery_pct - COALESCE($3, devices.latest_battery_pct)),
 			    latest_extra       = %s,
 			    hidden             = false
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
@@ -1083,20 +1081,18 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 	return &dev, nil
 }
 
-// BackfillDischargeCycles seeds devices.discharge_total_pct for devices that predate
-// the counter (discharge_backfilled=false). It deliberately does NOT scan the raw
-// checkins history: at months of 30-second check-ins that is ~1.4M rows per device
-// (tens of millions total), and a per-device window over that saturated the DB and
-// stalled. Instead it sums the pre-aggregated daily battery swing (battery_max −
-// battery_min per day) from device_daily_stats — ~one small row per device per day —
-// which is an approximate lower bound on past discharge (it counts roughly one swing
-// per day, so multi-cycle days undercount). The exact per-check-in counter in
-// UpsertCheckin takes over from deploy onward, so only pre-deploy history is estimated.
-//
-// Today's partial day is excluded (day < CURRENT_DATE) so it can't double-count
-// against the live counter, which owns everything from deploy forward. One cheap
-// set-based statement; guarded so it seeds each device exactly once.
-func (d *DB) BackfillDischargeCycles(ctx context.Context) (int, error) {
+// RecomputeDischargeCycles (re)computes devices.discharge_total_pct for EVERY device as
+// the sum of daily battery swing (battery_max − battery_min per day) from
+// device_daily_stats. This is the whole cycle metric — there is deliberately NO
+// per-check-in counter: summing raw per-check-in SoC deltas integrated battery-gauge
+// jitter (a device idling on the charger reads e.g. 99/100/99/100…), which over
+// ~345k check-ins inflated the total to thousands of bogus "cycles". The daily
+// max−min is immune to that jitter (intra-day noise stays within [min,max]); it can
+// undercount days with multiple full cycles, which is the safe direction for a wear
+// metric. Cheap (device_daily_stats is ~one small row per device per day), so it runs
+// as one set-based statement at startup and hourly from housekeeping — always
+// overwriting, so any previously-inflated value self-heals.
+func (d *DB) RecomputeDischargeCycles(ctx context.Context) (int, error) {
 	tag, err := d.pool.Exec(ctx, `
 		UPDATE devices dv SET
 			discharge_total_pct  = COALESCE(s.total, 0),
@@ -1104,20 +1100,27 @@ func (d *DB) BackfillDischargeCycles(ctx context.Context) (int, error) {
 		FROM (
 			SELECT device_id, SUM(GREATEST(0, battery_max - battery_min))::bigint AS total
 			FROM device_daily_stats
-			WHERE day < CURRENT_DATE AND battery_max IS NOT NULL AND battery_min IS NOT NULL
+			WHERE battery_max IS NOT NULL AND battery_min IS NOT NULL
 			GROUP BY device_id
 		) s
-		WHERE dv.id = s.device_id AND NOT dv.discharge_backfilled`)
+		WHERE dv.id = s.device_id
+		  AND (dv.discharge_total_pct <> COALESCE(s.total, 0) OR NOT dv.discharge_backfilled)`)
 	if err != nil {
 		return 0, err
 	}
-	seeded := int(tag.RowsAffected())
-	// Devices with no daily-stats history still get flagged so they aren't reconsidered
-	// every startup; their counter starts at 0 and the live counter accrues from here.
+	updated := int(tag.RowsAffected())
+	// Devices with no daily-stats yet: mark computed (counter stays 0) so the detail
+	// page shows 0.0 rather than a "seeding…" dash forever.
 	if _, err := d.pool.Exec(ctx, `UPDATE devices SET discharge_backfilled = true WHERE NOT discharge_backfilled`); err != nil {
-		return seeded, err
+		return updated, err
 	}
-	return seeded, nil
+	return updated, nil
+}
+
+// BackfillDischargeCycles is the startup entry point (kept for the main.go call site);
+// it just runs the full recompute.
+func (d *DB) BackfillDischargeCycles(ctx context.Context) (int, error) {
+	return d.RecomputeDischargeCycles(ctx)
 }
 
 // GetDeviceByID fetches a single device by its UUID.

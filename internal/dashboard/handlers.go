@@ -7007,6 +7007,12 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			log.Printf("[housekeeping] rollup daily stats %s: %v", day.Format("2006-01-02"), err)
 		}
 	}
+	// Recompute battery discharge cycles from the freshly rolled-up daily swings.
+	if n, err := h.db.RecomputeDischargeCycles(ctx); err != nil {
+		log.Printf("[housekeeping] recompute discharge cycles: %v", err)
+	} else if n > 0 {
+		log.Printf("[housekeeping] recomputed discharge cycles for %d device(s)", n)
+	}
 	// Evaluate daily-tier alert rules against the freshly rolled-up stats, then notify.
 	if created, resolved, err := h.db.EvaluateAlerts(ctx); err != nil {
 		log.Printf("[housekeeping] evaluate alerts: %v", err)
