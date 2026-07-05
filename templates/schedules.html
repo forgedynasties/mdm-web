@@ -1,0 +1,88 @@
+{{define "schedules.html"}}
+{{template "header" .}}
+
+<a href="/commands" class="back-link">&#8592; Actions</a>
+
+<div class="ov-greet">
+  <h1 class="ov-title">Scheduled recipes</h1>
+  <span class="ov-date">Run a saved recipe on a schedule — its target is re-resolved each time it fires.</span>
+</div>
+
+{{if canOperate .Role}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>New schedule</h3></div>
+  <form action="/schedules" method="POST" style="padding:16px 20px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end;">
+    {{if .Recipes}}
+    <div class="form-row" style="min-width:220px;flex:1;">
+      <label class="form-label" for="sch-recipe">Recipe</label>
+      <select name="recipe_id" id="sch-recipe" class="form-input" required>
+        {{range .Recipes}}<option value="{{.ID}}">{{.Name}} · {{.Type}}</option>{{end}}
+      </select>
+    </div>
+    <div class="form-row" style="min-width:200px;">
+      <label class="form-label" for="sch-cron">Schedule (cron)</label>
+      <input type="text" name="cron_expr" id="sch-cron" class="form-input" placeholder="0 2 * * *" value="0 2 * * *" required style="font-family:var(--mono);">
+    </div>
+    <div class="form-row" style="align-self:flex-end;">
+      <label class="checkbox-label" style="font-size:13px;"><input type="checkbox" name="run_once"> Run once, then disable</label>
+    </div>
+    <button type="submit" class="btn-primary">Schedule</button>
+    <div style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;margin-top:2px;">
+      <span class="muted small" style="margin-right:4px;">Presets:</span>
+      <button type="button" class="dur-btn" onclick="setCron('0 * * * *')">Hourly</button>
+      <button type="button" class="dur-btn" onclick="setCron('0 2 * * *')">Daily 2am</button>
+      <button type="button" class="dur-btn" onclick="setCron('0 3 * * 1')">Weekly Mon 3am</button>
+      <button type="button" class="dur-btn" onclick="setCron('*/15 * * * *')">Every 15 min</button>
+      <button type="button" class="dur-btn" onclick="setCron('0 4 1 * *')">Monthly 1st 4am</button>
+    </div>
+    <p class="muted small" style="flex-basis:100%;margin:2px 0 0;">Five fields: minute&nbsp;hour&nbsp;day-of-month&nbsp;month&nbsp;day-of-week (times in UTC). Only Install / Uninstall / Reboot / Screenshot / Shell / Boot-logo recipes can be scheduled.</p>
+    {{else}}
+    <p class="muted small" style="margin:0;">No schedulable recipes yet. On the <a href="/commands" class="link-detail">Actions</a> page, build an action and <b>Save current as recipe</b> first.</p>
+    {{end}}
+  </form>
+</div>
+{{end}}
+
+<div class="card">
+  <div class="card-header"><h3>Schedules <span class="muted small">({{len .Schedules}})</span></h3></div>
+  <div style="padding:6px 8px 12px;">
+    {{if not .Schedules}}
+    <div class="empty-state"><div class="empty-state-copy">
+      <div class="empty-state-title">No schedules yet</div>
+      <div class="empty-state-text">Pick a recipe and a cron above to run an action automatically.</div>
+    </div></div>
+    {{else}}
+    <table class="data-table" style="width:100%;">
+      <thead><tr>
+        <th>Recipe</th><th>Action</th><th>Cron</th><th>Next run</th><th>Last run</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody>
+      {{range .Schedules}}
+      <tr>
+        <td><b>{{.RecipeName}}</b>{{if .RunOnce}} <span class="status-badge muted">once</span>{{end}}</td>
+        <td>{{.RecipeType}}</td>
+        <td class="mono small">{{.CronExpr}}</td>
+        <td class="small">{{if and .Enabled .NextRunAt}}{{.NextRunAt.UTC.Format "Jan 2, 15:04"}} UTC{{else}}<span class="muted">—</span>{{end}}</td>
+        <td class="small">{{if .LastRunAt}}{{.LastRunAt.UTC.Format "Jan 2, 15:04"}} UTC{{else}}<span class="muted">never</span>{{end}}</td>
+        <td>{{if .Enabled}}<span class="status-badge ok">Active</span>{{else}}<span class="status-badge muted">Paused</span>{{end}}</td>
+        <td style="text-align:right;white-space:nowrap;">
+          {{if canOperate $.Role}}
+          <form action="/schedules/{{.ID}}/run-now" method="POST" style="display:inline;"><button type="submit" class="btn-outline" style="padding:2px 9px;font-size:12px;">Run now</button></form>
+          <form action="/schedules/{{.ID}}/toggle" method="POST" style="display:inline;"><input type="hidden" name="enable" value="{{if .Enabled}}0{{else}}1{{end}}"><button type="submit" class="btn-outline" style="padding:2px 9px;font-size:12px;">{{if .Enabled}}Pause{{else}}Resume{{end}}</button></form>
+          <form action="/schedules/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete this schedule?"><button type="submit" class="btn-danger-sm" style="padding:2px 9px;font-size:12px;">Delete</button></form>
+          {{end}}
+        </td>
+      </tr>
+      {{end}}
+      </tbody>
+    </table>
+    {{end}}
+  </div>
+</div>
+
+<script>
+function setCron(v){ var el=document.getElementById('sch-cron'); if(el) el.value=v; }
+</script>
+
+{{template "footer" .}}
+{{end}}
