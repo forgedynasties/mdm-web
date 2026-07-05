@@ -487,6 +487,64 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	return deviceID, pollIntervalMs, isNew, tx.Commit(ctx)
 }
 
+// IngestDeviceEvents records crash/ANR/tombstone entries and reboots carried in a
+// check-in's extra. Crashes are deduped by (device, kind, occurred_at) so the client
+// can safely re-report the last hour every check-in; a reboot is recorded when the
+// per-boot id changes (occurred_at anchored to boot time = now − uptime, so it dedupes
+// across the many check-ins of one boot). No-op when neither signal is present — cheap
+// on the hot path. Best-effort: parse/insert errors are swallowed rather than failing
+// the check-in the caller already committed.
+func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, extra json.RawMessage) {
+	if len(extra) == 0 {
+		return
+	}
+	var e struct {
+		BootID     string `json:"boot_id"`
+		BootReason string `json:"boot_reason"`
+		Uptime     *int64 `json:"uptime_seconds"`
+		Crashes    []struct {
+			Kind    string `json:"kind"`
+			TimeMs  int64  `json:"time_ms"`
+			Summary string `json:"summary"`
+		} `json:"crash_events"`
+	}
+	if err := json.Unmarshal(extra, &e); err != nil {
+		return
+	}
+	now := time.Now().UTC()
+	for _, c := range e.Crashes {
+		if c.Kind == "" || c.TimeMs <= 0 {
+			continue
+		}
+		summary := c.Summary
+		if len(summary) > 300 {
+			summary = summary[:300]
+		}
+		_, _ = d.pool.Exec(ctx, `
+			INSERT INTO device_events (device_id, kind, summary, occurred_at)
+			VALUES ($1, $2, $3, $4)
+			ON CONFLICT (device_id, kind, occurred_at) DO NOTHING`,
+			deviceID, c.Kind, summary, time.UnixMilli(c.TimeMs).UTC())
+	}
+	if e.BootID != "" {
+		var prev string
+		if err := d.pool.QueryRow(ctx, `SELECT last_boot_id FROM devices WHERE id = $1`, deviceID).Scan(&prev); err == nil && prev != e.BootID {
+			if prev != "" { // not the first boot id we've seen for this device → a real reboot
+				bootTime := now
+				if e.Uptime != nil && *e.Uptime > 0 {
+					bootTime = now.Add(-time.Duration(*e.Uptime) * time.Second)
+				}
+				_, _ = d.pool.Exec(ctx, `
+					INSERT INTO device_events (device_id, kind, summary, occurred_at)
+					VALUES ($1, 'reboot', $2, $3)
+					ON CONFLICT (device_id, kind, occurred_at) DO NOTHING`,
+					deviceID, e.BootReason, bootTime.Truncate(time.Second))
+			}
+			_, _ = d.pool.Exec(ctx, `UPDATE devices SET last_boot_id = $2 WHERE id = $1`, deviceID, e.BootID)
+		}
+	}
+}
+
 // GetSummaryFiltered computes the quick-view counts scoped to the contextual
 // filters (group, restaurant, production, search, build, timezone, hidden) while
 // ignoring the quick-view dimensions themselves (online/battery/kiosk/charging) —
@@ -4130,6 +4188,10 @@ var defaultAlertRules = []struct {
 	{"wlc_continuous", "Continuous wireless charging", `{"sustain_min":60}`, "always", true},
 	{"battery_low", "Battery low during peak", `{"soc_pct":20}`, "peak", true},
 	{"offline_peak", "Offline during peak", `{"offline_minutes":5}`, "peak", true},
+	// Client-telemetry rules (need the new charger/wifi/crash fields the client reports).
+	{"wifi_unstable", "Frequent Wi-Fi disconnects", `{"disconnects":3}`, "always", true},
+	{"device_crash", "Device crash / ANR", `{"window_min":15}`, "always", true},
+	{"slow_charge_night", "Slow overnight charging (5V)", `{"max_gain_pct":15,"window_hours":2,"min_mv":4000,"max_mv":5500}`, "overnight", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
@@ -5178,8 +5240,11 @@ var recentRuleTypes = map[string]bool{
 	"temp_elevated":      true,
 	"memory_low":         true,
 	"wifi_weak":          true,
+	"wifi_unstable":      true,
 	"battery_high_night": true,
 	"wlc_continuous":     true,
+	"device_crash":       true,
+	"slow_charge_night":  true,
 }
 
 func isRecentType(typ string) bool { return recentRuleTypes[typ] }
@@ -5189,7 +5254,7 @@ func isRecentType(typ string) bool { return recentRuleTypes[typ] }
 // time-of-day window (e.g. the overnight battery-high check, peak-hours offline).
 func defaultActiveWindow(typ string) string {
 	switch typ {
-	case "battery_high_night":
+	case "battery_high_night", "slow_charge_night":
 		return "overnight"
 	case "offline_peak", "battery_low":
 		return "peak"
@@ -5655,6 +5720,108 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Offline %dm during peak hours", down),
 				map[string]any{"offline_minutes": down, "last_seen": last}})
+		}
+		return hits, "critical", rows.Err()
+
+	case "wifi_unstable":
+		// Point-in-time on the client-reported rolling count of Wi-Fi disconnects in the
+		// last hour (extra.wifi_disconnects_1h).
+		limit := param(p, "disconnects", 3)
+		rows, err := d.pool.Query(ctx, `
+			SELECT d.id, d.serial_number, (d.latest_extra->>'wifi_disconnects_1h')::numeric
+			FROM devices d
+			WHERE NOT d.hidden AND d.last_seen_at > NOW() - INTERVAL '`+recentReportingCutoff+`'
+			  AND (d.latest_extra->>'wifi_disconnects_1h')::numeric >= $1`, limit)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var n float64
+			if err := rows.Scan(&id, &serial, &n); err != nil {
+				return nil, "warning", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("%.0f Wi-Fi disconnects in the last hour (≥ %.0f)", n, limit),
+				map[string]any{"disconnects_1h": n, "limit": limit}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "device_crash":
+		// A crash/ANR/tombstone was reported (device_events, from the client's DropBox
+		// reader) within the window. Auto-resolves once no crash is seen for that long.
+		mins := int(param(p, "window_min", 15))
+		rows, err := d.pool.Query(ctx, `
+			SELECT d.id, d.serial_number, COUNT(*), MAX(e.occurred_at),
+			       (array_agg(e.kind ORDER BY e.occurred_at DESC))[1],
+			       (array_agg(e.summary ORDER BY e.occurred_at DESC))[1]
+			FROM devices d JOIN device_events e ON e.device_id = d.id
+			WHERE NOT d.hidden AND e.kind <> 'reboot'
+			  AND e.occurred_at > NOW() - ($1 * INTERVAL '1 minute')
+			GROUP BY d.id, d.serial_number`, mins)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial, kind, summary string
+			var n int
+			var at time.Time
+			if err := rows.Scan(&id, &serial, &n, &at, &kind, &summary); err != nil {
+				return nil, "critical", err
+			}
+			label := fmt.Sprintf("%d crash(es) in %dm — latest %s", n, mins, kind)
+			hits = append(hits, alertHit{id, serial, label,
+				map[string]any{"count": n, "kind": kind, "summary": summary, "event_at": at}})
+		}
+		return hits, "critical", rows.Err()
+
+	case "slow_charge_night":
+		// Over the last window_hours the device was continuously plugged into a ~5V
+		// charger yet its battery barely rose (≤ max_gain_pct) and isn't essentially full —
+		// i.e. a weak 5V supply that can't keep up. Overnight-windowed + deployed-only.
+		maxGain := param(p, "max_gain_pct", 15)
+		windowH := param(p, "window_hours", 2)
+		minMV := param(p, "min_mv", 4000)
+		maxMV := param(p, "max_mv", 5500)
+		rows, err := d.pool.Query(ctx, `
+			SELECT s.device_id, dv.serial_number, s.first_batt, s.last_batt
+			FROM (
+				SELECT device_id,
+				       (array_agg(battery_pct ORDER BY created_at ASC))[1]  AS first_batt,
+				       (array_agg(battery_pct ORDER BY created_at DESC))[1] AS last_batt,
+				       bool_and((extra->>'charging')::boolean) AS always_charging,
+				       bool_and((extra->>'charger_voltage_mv')::numeric BETWEEN $3 AND $4) AS always_5v,
+				       COUNT(*) AS n,
+				       (MAX(created_at) - MIN(created_at)) AS span
+				FROM checkins
+				WHERE created_at > NOW() - ($1 * INTERVAL '1 hour')
+				GROUP BY device_id
+			) s JOIN devices dv ON dv.id = s.device_id
+			WHERE NOT dv.hidden AND s.always_charging AND s.always_5v AND s.n >= 3
+			  AND s.span >= (($1 - 0.25) * INTERVAL '1 hour')
+			  AND (s.last_batt - s.first_batt) <= $2
+			  AND s.last_batt < 95`, windowH, maxGain, minMV, maxMV)
+		if err != nil {
+			return nil, "critical", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			var first, last int
+			if err := rows.Scan(&id, &serial, &first, &last); err != nil {
+				return nil, "critical", err
+			}
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("On a 5V charger for %.0fh but battery only went %d%%→%d%%", windowH, first, last),
+				map[string]any{"gain_pct": last - first, "first_pct": first, "last_pct": last}})
 		}
 		return hits, "critical", rows.Err()
 	}
@@ -6346,6 +6513,22 @@ CREATE INDEX IF NOT EXISTS idx_peak_windows_restaurant ON peak_windows(restauran
 INSERT INTO peak_windows (restaurant_id, start_min, end_min)
 SELECT NULL::uuid, v.s, v.e FROM (VALUES (720,840),(1140,1260)) v(s,e)
 WHERE NOT EXISTS (SELECT 1 FROM peak_windows WHERE restaurant_id IS NULL);
+
+-- Device events: crash/ANR/tombstone entries (from the client's DropBox reader) and
+-- reboots (detected from a changed per-boot id). Deduped by (device, kind, occurred_at)
+-- so the client can safely re-report the last hour on every check-in.
+CREATE TABLE IF NOT EXISTS device_events (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    device_id   UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    kind        TEXT NOT NULL,                 -- DropBox crash tag, or 'reboot'
+    summary     TEXT NOT NULL DEFAULT '',
+    occurred_at TIMESTAMPTZ NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_device_events_dedupe ON device_events(device_id, kind, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_device_events_device_time ON device_events(device_id, occurred_at DESC);
+-- Last per-boot id seen, to detect reboots (a change = the device rebooted).
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS last_boot_id TEXT NOT NULL DEFAULT '';
 
 -- Service windows move from group_id to restaurant_id. The fleet-default row has both
 -- NULL; per-restaurant rows set restaurant_id (group_id stays NULL, now unused). Redefine
