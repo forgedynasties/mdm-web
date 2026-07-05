@@ -1,0 +1,319 @@
+{{define "target-live.html"}}<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Target playground — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+  /* Scoped to #tgt; leans on the app's real tokens (--accent coral, --accent-2 periwinkle). */
+  #tgt{--grad:linear-gradient(96deg,var(--accent,#f9674e),var(--accent-2,#7a80f6));
+    --ok:var(--ok,#3f9d5a);--warn:var(--warn,#c98a1a);--bad:var(--danger,#d1503f);--mut:var(--muted-dot,#b8b0a4);
+    max-width:1040px;margin:0 auto;padding:30px 22px 90px;font-family:var(--font,'IBM Plex Sans',sans-serif)}
+  #tgt a.back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:14px}
+  #tgt a.back:hover{color:var(--accent)}
+  #tgt .wm{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;margin-bottom:14px}
+  #tgt .wm .a{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  #tgt .wm .m{color:var(--muted);font-weight:600}
+  #tgt h1{font-size:24px;font-weight:700;letter-spacing:-.015em;margin:0}
+  #tgt .lede{color:var(--muted);font-size:14px;margin:6px 0 18px;max-width:66ch}
+  #tgt .lede b{color:var(--text)}
+
+  /* shared blast-radius meter (sticky) */
+  #tgt .meter{position:sticky;top:10px;z-index:5;display:flex;align-items:center;gap:18px;border:1px solid var(--border);border-radius:12px;
+    padding:14px 18px;background:var(--surface);box-shadow:var(--shadow-md,0 6px 22px rgba(0,0,0,.06));overflow:hidden;margin-bottom:16px}
+  #tgt .meter::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--grad)}
+  #tgt .meter .n{font-size:40px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;
+    background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent;transition:opacity .15s}
+  #tgt .meter .u{font-size:13px;color:var(--muted);font-weight:600;margin-left:7px}
+  #tgt .meter .r{flex:1;min-width:0}
+  #tgt .meter .lab{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  #tgt .meter .lab b{color:var(--text)}
+  #tgt .bar{height:9px;border-radius:6px;background:var(--sunk,#f0ece6);overflow:hidden;display:flex}
+  #tgt .bar .on{background:var(--ok);transition:width .35s cubic-bezier(.4,0,.2,1)}
+  #tgt .bar .q{background:var(--mut);transition:width .35s cubic-bezier(.4,0,.2,1)}
+  #tgt .split{display:flex;gap:16px;margin-top:7px;font-size:12px;color:var(--muted)}
+  #tgt .split b{color:var(--text);font-variant-numeric:tabular-nums}
+  #tgt .split .sw{width:8px;height:8px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:middle}
+  #tgt .sw.on{background:var(--ok)}#tgt .sw.q{background:var(--mut)}
+
+  /* tabs */
+  #tgt .tabs{display:flex;gap:4px;background:var(--sunk,#f0ece6);padding:4px;border-radius:10px;width:fit-content;margin-bottom:14px}
+  #tgt .tab{border:none;background:none;font:inherit;font-size:13.5px;font-weight:600;color:var(--muted);padding:7px 15px;border-radius:7px;cursor:pointer}
+  #tgt .tab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+  #tgt .panel{display:none}#tgt .panel.on{display:block}
+  #tgt .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+
+  /* rail */
+  #tgt .cols{display:grid;grid-template-columns:250px 1fr;min-height:360px}
+  #tgt .cols.three{grid-template-columns:190px 1fr 240px}
+  #tgt .rail{border-right:1px solid var(--border);padding:9px 7px;overflow-y:auto;max-height:520px}
+  #tgt .rc{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:11px 9px 4px}
+  #tgt .rc:first-child{padding-top:3px}
+  #tgt .ri{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:7px 9px;border-radius:8px;border:1px solid transparent;background:none;cursor:pointer;font:inherit;color:var(--text)}
+  #tgt .ri:hover{background:var(--sunk,#f4f1ec)}
+  #tgt .ri.on{background:var(--accent-soft,rgba(249,103,78,.1));border-color:var(--accent-edge,rgba(249,103,78,.34))}
+  #tgt .ri .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  #tgt .dot.ok{background:var(--ok)}#tgt .dot.warn{background:var(--warn)}#tgt .dot.danger,#tgt .dot.bad{background:var(--bad)}#tgt .dot.muted{background:var(--mut)}
+  #tgt .ri .nm{flex:1;font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #tgt .ri.on .nm{font-weight:600}
+  #tgt .ri .ct{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+  #tgt .pane{padding:20px}
+  #tgt .scope-name{font-size:12px;color:var(--muted);margin-bottom:14px}#tgt .scope-name b{color:var(--text)}
+  #tgt .rfc{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  #tgt .pills{display:flex;flex-wrap:wrap;gap:8px}
+  #tgt .pill{font:inherit;font-size:12.5px;font-weight:500;padding:6px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface);cursor:pointer}
+  #tgt .pill:hover{border-color:var(--accent-edge,rgba(249,103,78,.34))}
+  #tgt .pill.on{background:var(--accent-2-soft,rgba(122,128,246,.12));border-color:rgba(122,128,246,.4);color:#4a4fb8;font-weight:600}
+  #tgt .prev{margin-top:16px;border-top:1px solid var(--border);padding-top:12px;max-height:180px;overflow:auto}
+  #tgt .dev{display:flex;align-items:center;gap:9px;padding:5px 7px;border-radius:7px;font-size:12.5px}
+  #tgt .dev:hover{background:var(--sunk,#f4f1ec)}
+  #tgt .dev .dot{width:7px;height:7px;border-radius:50%}
+  #tgt .dev .ser{font-family:var(--mono,monospace);font-size:11.5px}
+  #tgt .dev .bt{margin-left:auto;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  #tgt .dev .bt.low{color:var(--bad);font-weight:600}
+
+  /* audience */
+  #tgt .query{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px;border:1px dashed var(--border);border-radius:11px;min-height:56px}
+  #tgt .seed{font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--accent-2-soft,rgba(122,128,246,.12));color:#4a4fb8}
+  #tgt .rule{display:inline-flex;align-items:center;gap:8px;font-size:13px;padding:6px 8px 6px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border)}
+  #tgt .rule .k{color:var(--muted)}#tgt .rule .v{font-weight:600}
+  #tgt .rule .rm{width:18px;height:18px;border:none;border-radius:50%;background:var(--sunk,#f0ece6);color:var(--muted);cursor:pointer;font-size:13px;line-height:1}
+  #tgt .rule .rm:hover{background:var(--accent-soft,rgba(249,103,78,.1));color:var(--accent)}
+  #tgt .addwrap{position:relative;display:inline-block}
+  #tgt .add{font:inherit;font-size:13px;font-weight:600;color:#4a4fb8;padding:6px 12px;border-radius:999px;border:1px dashed rgba(122,128,246,.5);background:none;cursor:pointer}
+  #tgt .menu{position:absolute;z-index:20;top:calc(100% + 6px);left:0;width:240px;background:var(--surface);border:1px solid var(--border);border-radius:11px;box-shadow:0 12px 34px rgba(0,0,0,.16);padding:8px;display:none;max-height:280px;overflow:auto}
+  #tgt .menu.open{display:block}
+  #tgt .menu .mc{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:7px 8px 3px}
+  #tgt .menu select{width:100%;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);margin-bottom:4px}
+
+  /* split tray */
+  #tgt .rt{display:flex;flex-direction:column;border-right:1px solid var(--border);min-width:0}
+  #tgt .rtools{padding:10px 12px;border-bottom:1px solid var(--border)}
+  #tgt .rlist{flex:1;overflow:auto;padding:5px;max-height:460px}
+  #tgt .row{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;cursor:pointer}
+  #tgt .row:hover{background:var(--sunk,#f4f1ec)}#tgt .row.sel{background:var(--accent-soft,rgba(249,103,78,.1))}
+  #tgt .cbx{width:15px;height:15px;border-radius:4px;border:1.6px solid var(--muted);flex:none}
+  #tgt .row.sel .cbx{background:var(--accent);border-color:var(--accent)}
+  #tgt .tray{display:flex;flex-direction:column;background:var(--sunk,#faf8f5)}
+  #tgt .th{display:flex;justify-content:space-between;align-items:center;padding:11px 14px 6px}
+  #tgt .th .t{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  #tgt .th .clr{font-size:12px;color:#4a4fb8;background:none;border:none;cursor:pointer;font-weight:600}
+  #tgt .tchips{flex:1;overflow:auto;padding:4px 12px 12px;display:flex;flex-direction:column;gap:5px;max-height:420px}
+  #tgt .tchip{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:var(--surface);border:1px solid var(--border);font-size:12px}
+  #tgt .tchip.grp{background:var(--accent-2-soft,rgba(122,128,246,.12));border-color:rgba(122,128,246,.3)}
+  #tgt .tchip .ser{font-family:var(--mono,monospace);font-size:11px}
+  #tgt .tchip.grp .ser{font-family:inherit;font-weight:600;color:#4a4fb8}
+  #tgt .tchip .rm{margin-left:auto;width:16px;height:16px;border:none;border-radius:50%;background:var(--sunk,#f0ece6);color:var(--muted);cursor:pointer}
+  #tgt .empty{padding:24px 14px;text-align:center;color:var(--muted);font-size:12px;line-height:1.6}
+  #tgt .note{margin-top:16px;font-size:12.5px;color:var(--muted);line-height:1.6}
+  @media(max-width:820px){#tgt .cols,#tgt .cols.three{grid-template-columns:1fr}}
+</style></head>
+<body>
+<div id="tgt">
+  <a class="back" href="/demo">← Demos</a>
+  <div class="wm"><span class="a">AIO</span><span class="m">MDM</span></div>
+  <h1>Target playground</h1>
+  <p class="lede">All three target-picker ideas, wired to your <b>real fleet</b> — {{.FleetTotal}} devices, {{.FleetOnline}} online right now. Switch tabs to try each; the <b>blast-radius meter</b> below queries live counts as you go. Nothing is sent — this is for choosing the shape.</p>
+
+  <div class="meter">
+    <div><span class="n" id="mN">{{.FleetTotal}}</span><span class="u" id="mU">devices</span></div>
+    <div class="r">
+      <div class="lab">Blast radius — <b id="mScope">All devices</b></div>
+      <div class="bar"><div class="on" id="mOn" style="width:0"></div><div class="q" id="mQ" style="width:0"></div></div>
+      <div class="split"><span><span class="sw on"></span><b id="mOnN">{{.FleetOnline}}</b> online now</span><span><span class="sw q"></span><b id="mQN">0</b> queued (offline)</span></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" data-tab="rail">Scope rail</button>
+    <button class="tab" data-tab="aud">Audience builder</button>
+    <button class="tab" data-tab="split">Split targeter</button>
+  </div>
+
+  <!-- 1 · SCOPE RAIL -->
+  <div class="panel on" data-panel="rail">
+    <div class="card"><div class="cols">
+      <aside class="rail" id="railA">
+        <button class="ri on" data-mode="all"><span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span></button>
+        {{if .Restaurants}}<div class="rc">Restaurants</div>{{range .Restaurants}}
+        <button class="ri" data-mode="restaurant" data-id="{{.GroupID}}"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+        {{if .Groups}}<div class="rc">Groups</div>{{range .Groups}}
+        <button class="ri" data-mode="group" data-id="{{.GroupID}}"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+        {{if .Releases}}<div class="rc">Releases</div>{{range .Releases}}
+        <button class="ri" data-mode="build" data-id="{{.Version}}"><span class="dot muted"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+      </aside>
+      <section class="pane">
+        <div class="scope-name">Targeting <b id="railScope">All devices</b></div>
+        <div class="rfc">Refine</div>
+        <div class="pills" id="railPills">
+          <button class="pill" data-k="status" data-v="online">Online only</button>
+          <button class="pill" data-k="battery" data-v="low">Low battery</button>
+          <button class="pill" data-k="kiosk" data-v="enabled">In kiosk</button>
+        </div>
+        <div class="prev" id="railPrev"></div>
+      </section>
+    </div></div>
+  </div>
+
+  <!-- 2 · AUDIENCE -->
+  <div class="panel" data-panel="aud">
+    <div class="card"><div class="pane">
+      <div class="rfc">Audience — everyone, minus each rule you add</div>
+      <div class="query" id="query">
+        <span class="seed">Everyone</span>
+        <span class="addwrap">
+          <button class="add" id="addBtn">+ Add filter</button>
+          <div class="menu" id="menu">
+            <div class="mc">Restaurant</div><select data-f="restaurant"><option value="">— any —</option>{{range .Restaurants}}<option value="{{.GroupID}}">{{.Name}} ({{.DeviceCount}})</option>{{end}}</select>
+            <div class="mc">Group</div><select data-f="group"><option value="">— any —</option>{{range .Groups}}<option value="{{.GroupID}}">{{.Name}} ({{.DeviceCount}})</option>{{end}}</select>
+            <div class="mc">Release</div><select data-f="build"><option value="">— any —</option>{{range .Releases}}<option value="{{.Version}}">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}} ({{.DeviceCount}})</option>{{end}}</select>
+            <div class="mc">Battery</div><select data-f="battery"><option value="">— any —</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20–49%</option><option value="ok">Healthy 50%+</option></select>
+            <div class="mc">Status</div><select data-f="status"><option value="">— any —</option><option value="online">Online</option><option value="offline">Offline</option></select>
+            <div class="mc">Kiosk</div><select data-f="kiosk"><option value="">— any —</option><option value="enabled">In kiosk</option><option value="disabled">Out of kiosk</option></select>
+          </div>
+        </span>
+      </div>
+      <div class="prev" id="audPrev"></div>
+    </div></div>
+  </div>
+
+  <!-- 3 · SPLIT -->
+  <div class="panel" data-panel="split">
+    <div class="card"><div class="cols three">
+      <aside class="rail" id="railB">
+        <div class="rc">Add a collection</div>
+        {{range .Restaurants}}<button class="ri" data-name="{{.Name}}" data-count="{{.DeviceCount}}" data-off="{{.OfflineCount}}" data-h="{{.ScoreClass}}"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}
+        {{range .Groups}}<button class="ri" data-name="{{.Name}}" data-count="{{.DeviceCount}}" data-off="{{.OfflineCount}}" data-h="{{.ScoreClass}}"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}
+      </aside>
+      <section class="rt">
+        <div class="rtools"><span style="font-size:12px;color:var(--muted)">Click devices to add · <span id="splitShown">loading…</span></span></div>
+        <div class="rlist" id="splitList"></div>
+      </section>
+      <aside class="tray">
+        <div class="th"><span class="t">Target tray</span><button class="clr" id="splitClr" hidden>Clear</button></div>
+        <div class="tchips" id="splitTray"><div class="empty">Nothing yet. Add devices or a collection.</div></div>
+      </aside>
+    </div></div>
+  </div>
+
+  <p class="note"><b>Live counts</b> come from the same DeviceFilter the fleet page uses, so the numbers here match what a command would actually hit. Tell me which shape wins (or which parts to combine) and I'll wire it into the real <code>/commands</code> compose + send flow.</p>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+  var meter={};
+  function setMeter(scope,d){
+    $("mScope").textContent=scope;
+    var nEl=$("mN"); nEl.style.opacity=.3; setTimeout(function(){nEl.textContent=d.effective; nEl.style.opacity=1;},50);
+    $("mU").textContent=d.effective===1?"device":"devices";
+    $("mOnN").textContent=d.online; $("mQN").textContent=d.offline;
+    var p=d.effective?Math.round(d.online/d.effective*100):0;
+    $("mOn").style.width=p+"%"; $("mQ").style.width=(d.effective?100-p:0)+"%";
+  }
+  function fetchCount(params,scope,cb){
+    fetch("/demo/target-count?"+params).then(function(r){return r.json()}).then(function(d){ setMeter(scope,d); if(cb)cb(d); })
+      .catch(function(){});
+  }
+  function renderPrev(host,d){
+    host.innerHTML="";
+    (d.sample||[]).slice(0,30).forEach(function(s){
+      var low=s.battery>0&&s.battery<20;
+      var el=document.createElement("div"); el.className="dev";
+      el.innerHTML='<span class="dot '+(s.online?"ok":"muted")+'"></span><span class="ser">'+s.serial+'</span><span class="bt'+(low?" low":"")+'">'+(s.battery||0)+'%</span>';
+      host.appendChild(el);
+    });
+    if(d.effective>30){ var m=document.createElement("div"); m.className="dev"; m.style.color="var(--muted)"; m.innerHTML='<span class="ser">+ '+(d.effective-30)+' more</span>'; host.appendChild(m); }
+  }
+
+  // tabs
+  document.querySelectorAll(".tab").forEach(function(t){ t.onclick=function(){
+    document.querySelectorAll(".tab").forEach(function(x){x.classList.remove("on")}); t.classList.add("on");
+    document.querySelectorAll(".panel").forEach(function(p){p.classList.toggle("on",p.dataset.panel===t.dataset.tab)});
+    if(t.dataset.tab==="rail") railEval(); else if(t.dataset.tab==="aud") audEval(); else splitEval();
+  };});
+
+  /* ---- 1 · rail ---- */
+  var railSel={mode:"all",id:"",name:"All devices"}, railRefine={};
+  function railQuery(){
+    var p=[]; if(railSel.mode==="restaurant")p.push("restaurant="+railSel.id);
+    else if(railSel.mode==="group")p.push("group="+railSel.id);
+    else if(railSel.mode==="build")p.push("build="+encodeURIComponent(railSel.id));
+    Object.keys(railRefine).forEach(function(k){p.push(k+"="+railRefine[k])});
+    return p.join("&");
+  }
+  function railEval(){ fetchCount(railQuery(),railSel.name,function(d){renderPrev($("railPrev"),d)}); $("railScope").textContent=railSel.name; }
+  document.querySelectorAll("#railA .ri").forEach(function(b){ b.onclick=function(){
+    document.querySelectorAll("#railA .ri").forEach(function(x){x.classList.remove("on")}); b.classList.add("on");
+    railSel={mode:b.dataset.mode,id:b.dataset.id||"",name:b.querySelector(".nm").textContent}; railEval();
+  };});
+  document.querySelectorAll("#railPills .pill").forEach(function(p){ p.onclick=function(){
+    var k=p.dataset.k; if(railRefine[k]){delete railRefine[k];p.classList.remove("on");} else {railRefine[k]=p.dataset.v;p.classList.add("on");}
+    railEval();
+  };});
+
+  /* ---- 2 · audience ---- */
+  var rules=[]; // {f,val,label}
+  var labels={restaurant:"Restaurant",group:"Group",build:"Release",battery:"Battery",status:"Status",kiosk:"Kiosk"};
+  function audQuery(){ return rules.map(function(r){return r.f+"="+encodeURIComponent(r.val)}).join("&"); }
+  function audEval(){ fetchCount(audQuery(),rules.length?rules.length+" rule"+(rules.length>1?"s":""):"All devices",function(d){renderPrev($("audPrev"),d)}); }
+  function audRebuild(){
+    document.querySelectorAll("#query .rule").forEach(function(x){x.remove()});
+    var aw=document.querySelector("#query .addwrap");
+    rules.forEach(function(r,i){
+      var s=document.createElement("span"); s.className="rule";
+      s.innerHTML='<span class="k">'+labels[r.f]+'</span> <span class="v">'+r.label+'</span> <button class="rm">×</button>';
+      s.querySelector(".rm").onclick=function(){rules.splice(i,1);audRebuild();};
+      $("query").insertBefore(s,aw);
+    });
+    audEval();
+  }
+  $("addBtn").onclick=function(e){e.stopPropagation();$("menu").classList.toggle("open");};
+  document.addEventListener("click",function(){$("menu").classList.remove("open");});
+  $("menu").onclick=function(e){e.stopPropagation();};
+  document.querySelectorAll("#menu select").forEach(function(sel){ sel.onchange=function(){
+    if(!sel.value)return; var f=sel.dataset.f, label=sel.options[sel.selectedIndex].text.replace(/\s*\(\d+\)$/,"");
+    rules=rules.filter(function(r){return r.f!==f}); rules.push({f:f,val:sel.value,label:label});
+    sel.value=""; $("menu").classList.remove("open"); audRebuild();
+  };});
+
+  /* ---- 3 · split ---- */
+  var picked={}, coll=[]; var roster=[];
+  function splitCounts(){
+    var n=0,on=0;
+    coll.forEach(function(c){ n+=c.count; on+=(c.count-c.off); });
+    Object.keys(picked).forEach(function(s){ var d=roster.find(function(x){return x.serial===s}); if(d){n++; if(d.online)on++;} });
+    return {effective:n,online:on,offline:Math.max(0,n-on)};
+  }
+  function splitEval(){ var c=splitCounts(); setMeter(coll.length||Object.keys(picked).length?"Tray":"All devices", c);
+    $("splitClr").hidden=c.effective===0;
+    var host=$("splitTray"); host.innerHTML="";
+    if(c.effective===0){host.innerHTML='<div class="empty">Nothing yet. Add devices or a collection.</div>';return;}
+    coll.forEach(function(cc,i){ var el=document.createElement("div"); el.className="tchip grp";
+      el.innerHTML='<span class="dot '+cc.h+'"></span><span class="ser">'+cc.name+' · '+cc.count+'</span><button class="rm">×</button>';
+      el.querySelector(".rm").onclick=function(){coll.splice(i,1);splitEval();}; host.appendChild(el); });
+    Object.keys(picked).forEach(function(s){ var d=roster.find(function(x){return x.serial===s}); if(!d)return;
+      var el=document.createElement("div"); el.className="tchip";
+      el.innerHTML='<span class="dot '+(d.online?"ok":"muted")+'"></span><span class="ser">'+s+'</span><button class="rm">×</button>';
+      el.querySelector(".rm").onclick=function(){delete picked[s];paintSplit();splitEval();}; host.appendChild(el); });
+  }
+  function paintSplit(){
+    var host=$("splitList"); host.innerHTML="";
+    roster.forEach(function(d){ var row=document.createElement("div"); row.className="row"+(picked[d.serial]?" sel":"");
+      var low=d.battery>0&&d.battery<20;
+      row.innerHTML='<span class="cbx"></span><span class="dot '+(d.online?"ok":"muted")+'"></span><span class="ser">'+d.serial+'</span><span class="bt'+(low?" low":"")+'" style="margin-left:auto;font-size:11px;color:var(--muted)">'+(d.battery||0)+'%</span>';
+      row.onclick=function(){ if(picked[d.serial])delete picked[d.serial]; else picked[d.serial]=1; row.classList.toggle("sel"); splitEval(); };
+      host.appendChild(row); });
+  }
+  document.querySelectorAll("#railB .ri").forEach(function(b){ b.onclick=function(){
+    coll.push({name:b.dataset.name,count:+b.dataset.count,off:+(b.dataset.off||0),h:b.dataset.h}); splitEval();
+  };});
+  $("splitClr").onclick=function(){picked={};coll=[];paintSplit();splitEval();};
+  // load roster once (first 60 devices)
+  fetch("/demo/target-count?mode=all").then(function(r){return r.json()}).then(function(d){
+    roster=d.sample||[]; $("splitShown").textContent="showing "+roster.length+" of "+d.effective; paintSplit();
+  });
+
+  railEval();
+})();
+</script>
+</body></html>{{end}}
