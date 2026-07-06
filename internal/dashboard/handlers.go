@@ -6962,14 +6962,16 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Don't pile up installs. Drop target devices that (a) already have this exact
-	// APK in flight (pending/delivered), or (b) already report the app's package
-	// installed — unless the operator ticks "Reinstall anyway" to force a
-	// same-package update or repair. "all" is already resolved to device IDs above,
-	// so this covers both "all" and "devices"; group targets collapse at delivery.
+	// APK in flight (a *recent* pending/delivered install — old dead ones don't
+	// count), or (b) already report the app's package installed. "Reinstall anyway"
+	// is a full override: it forces the install through both checks (for a repair,
+	// a same-package update, or an install stuck behind a dead command). "all" is
+	// already resolved to device IDs above, so this covers "all" and "devices";
+	// group targets collapse at delivery.
 	var skippedSerials []string
-	if cmdType == "install_apk" && targetType == "devices" && len(targetIDs) > 0 {
+	if cmdType == "install_apk" && targetType == "devices" && len(targetIDs) > 0 && r.FormValue("reinstall") == "" {
 		skip := make(map[uuid.UUID]bool)
-		inflight, err := h.db.DevicesWithPendingInstall(r.Context(), apkURL, targetIDs)
+		inflight, err := h.db.DevicesWithPendingInstall(r.Context(), apkURL, targetIDs, h.cfg.CommandExpiry())
 		if err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
@@ -6977,16 +6979,13 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		for id := range inflight {
 			skip[id] = true
 		}
-		reinstall := r.FormValue("reinstall") != ""
-		if !reinstall {
-			installed, err := h.db.DevicesWithPackageInstalled(r.Context(), apkURL, targetIDs)
-			if err != nil {
-				http.Error(w, "Internal error", http.StatusInternalServerError)
-				return
-			}
-			for id := range installed {
-				skip[id] = true
-			}
+		installed, err := h.db.DevicesWithPackageInstalled(r.Context(), apkURL, targetIDs)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		for id := range installed {
+			skip[id] = true
 		}
 		if len(skip) > 0 {
 			fresh := make([]uuid.UUID, 0, len(targetIDs))

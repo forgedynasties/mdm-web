@@ -2756,17 +2756,29 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 // group, or "all") whose per-device status is not yet terminal (pending or
 // delivered, i.e. not installed/failed/completed). Used to stop piling up a second
 // install of the same APK on a device that's already installing it.
-func (d *DB) DevicesWithPendingInstall(ctx context.Context, apkURL string, deviceIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+func (d *DB) DevicesWithPendingInstall(ctx context.Context, apkURL string, deviceIDs []uuid.UUID, expirySec int) (map[uuid.UUID]bool, error) {
 	out := make(map[uuid.UUID]bool)
 	if apkURL == "" || len(deviceIDs) == 0 {
 		return out, nil
 	}
-	rows, err := d.pool.Query(ctx, `
+	// Only a *recent* install counts as in-flight. An install that never completed
+	// (device offline / command never delivered) leaves a non-terminal row forever;
+	// without this bound it would block every future re-install of the same APK on
+	// that device. Mirror the install-expiry window used elsewhere (expiry*3, ≥15m).
+	if expirySec <= 0 {
+		expirySec = 300
+	}
+	installExpiry := expirySec * 3
+	if installExpiry < 900 {
+		installExpiry = 900
+	}
+	rows, err := d.pool.Query(ctx, fmt.Sprintf(`
 		SELECT dev.id
 		FROM unnest($2::uuid[]) AS dev(id)
 		WHERE EXISTS (
 			SELECT 1 FROM commands c
 			WHERE c.type = 'install_apk' AND c.apk_url = $1
+			  AND c.created_at > NOW() - INTERVAL '%d seconds'
 			  AND (
 				c.target_type = 'all'
 				OR (c.target_type = 'devices' AND EXISTS (
@@ -2780,7 +2792,7 @@ func (d *DB) DevicesWithPendingInstall(ctx context.Context, apkURL string, devic
 				WHERE cs.command_id = c.id AND cs.device_id = dev.id
 				  AND cs.status IN ('installed','failed','completed'))
 		)
-	`, apkURL, deviceIDs)
+	`, installExpiry), apkURL, deviceIDs)
 	if err != nil {
 		return nil, err
 	}

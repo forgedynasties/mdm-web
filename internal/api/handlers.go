@@ -1009,7 +1009,7 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	// Don't pile up installs: drop devices that already have this exact APK in flight.
 	var skipped []string
 	if body.Type == "install_apk" && body.TargetType == "devices" && len(targetIDs) > 0 {
-		inflight, err := h.db.DevicesWithPendingInstall(r.Context(), body.ApkURL, targetIDs)
+		inflight, err := h.db.DevicesWithPendingInstall(r.Context(), body.ApkURL, targetIDs, h.cfg.CommandExpiry())
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 			return
