@@ -859,8 +859,6 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			switch s {
 			case "published":
 				return "ok"
-			case "yanked":
-				return "danger"
 			default: // draft
 				return "muted"
 			}
@@ -4785,10 +4783,11 @@ func (h *Handler) ReleaseDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
-	// A release that devices are still running can't be deleted — yank or hide it instead.
+	// A release that devices are still running can't be deleted — hide it instead
+	// (keeps the changelog), or move those devices to another build first.
 	if rel, err := h.db.GetRelease(r.Context(), id); err == nil {
 		if n, err := h.db.CountDevicesByVersion(r.Context(), rel.Version); err == nil && n > 0 {
-			http.Error(w, fmt.Sprintf("Cannot delete: %d device(s) are still running %s. Yank it to stop delivery (keeps the changelog) or hide it.", n, rel.Version), http.StatusConflict)
+			http.Error(w, fmt.Sprintf("Cannot delete: %d device(s) are still running %s. Hide it instead (keeps the changelog), or move those devices to another build first.", n, rel.Version), http.StatusConflict)
 			return
 		}
 	}
@@ -5343,30 +5342,6 @@ func (h *Handler) ReleaseSetSkipBase(w http.ResponseWriter, r *http.Request) {
 		state = "specific-only"
 	}
 	h.audit(r, "release.qa_scope", strconv.Itoa(id), state)
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
-}
-
-// ReleaseYank toggles a release between yanked and published.
-func (h *Handler) ReleaseYank(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	rel, err := h.db.GetRelease(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Release not found", http.StatusNotFound)
-		return
-	}
-	newStatus := "yanked"
-	if rel.Status == "yanked" {
-		newStatus = "published"
-	}
-	if err := h.db.SetReleaseStatus(r.Context(), id, newStatus); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "release.status", strconv.Itoa(id), newStatus)
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
@@ -9454,7 +9429,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
 	post("POST /releases/{id}/delete", h.requireAdmin(h.ReleaseDelete))
 	post("POST /releases/{id}/publish", h.requireAdmin(h.ReleasePublish))
-	post("POST /releases/{id}/yank", h.requireAdmin(h.ReleaseYank))
 	post("POST /releases/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))

@@ -25,8 +25,8 @@
 <div class="rlc-list dv-rise-1" id="versions-tbody">
     {{range .Versions}}
     {{$pct := pctOf .DeviceCount $.FleetTotal}}
-    {{$badge := "muted"}}{{if .Tracked}}{{if eq .Status "yanked"}}{{$badge = "muted"}}{{else if eq .Status "draft"}}{{$badge = "draft"}}{{else}}{{$badge = "ok"}}{{end}}{{end}}
-    <div class="rlc" data-rel-group="{{if .Tracked}}tracked{{else}}nottracked{{end}}" data-version="{{.Version}}"{{if and (canAdmin $.Role) .Tracked}} draggable="true"{{end}}{{if eq .Status "yanked"}} style="opacity:.6;"{{end}}>
+    {{$badge := "muted"}}{{if .Tracked}}{{if eq .Status "draft"}}{{$badge = "draft"}}{{else}}{{$badge = "ok"}}{{end}}{{end}}
+    <div class="rlc" data-rel-group="{{if .Tracked}}tracked{{else}}nottracked{{end}}" data-version="{{.Version}}"{{if and (canAdmin $.Role) .Tracked}} draggable="true"{{end}}>
       {{if canAdmin $.Role}}<span class="rlc-drag drag-handle" title="Drag to reorder"{{if not .Tracked}} style="visibility:hidden"{{end}}>⠿</span>{{else}}<span></span>{{end}}
       <span class="rlc-badge {{$badge}}">{{if eq $badge "ok"}}<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{else if eq $badge "draft"}}<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>{{end}}</span>
       <div class="rlc-id">
@@ -69,7 +69,7 @@
     {{end}}
     {{range .HiddenReleases}}
     {{$pct := pctOf .DeviceCount $.FleetTotal}}
-    {{$badge := "muted"}}{{if .Tracked}}{{if eq .Status "draft"}}{{$badge = "draft"}}{{else if ne .Status "yanked"}}{{$badge = "ok"}}{{end}}{{end}}
+    {{$badge := "muted"}}{{if .Tracked}}{{if eq .Status "draft"}}{{$badge = "draft"}}{{else}}{{$badge = "ok"}}{{end}}{{end}}
     <div class="rlc" data-rel-group="hidden" style="display:none;opacity:.85;">
       {{if canAdmin $.Role}}<span class="rlc-drag" style="visibility:hidden">⠿</span>{{else}}<span></span>{{end}}
       <span class="rlc-badge {{$badge}}">{{if eq $badge "ok"}}<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{else if eq $badge "draft"}}<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>{{end}}</span>
