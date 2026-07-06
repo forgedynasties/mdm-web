@@ -25,44 +25,16 @@ document.addEventListener('submit', function (evt) {
     setTimeout(function () { if (window.showToast) showToast('Action resent', 'success'); }, 100);
   }
 });
-
-// Live updates: an SSE feed of action changes drives the #hist-live htmx swap, so
-// actions move In progress → Completed (and counts update) without a refresh.
-// Placed outside #hist-live so the stream is set up once, not re-created per swap.
-(function () {
-  if (!window.EventSource) return;
-  var es = window.mdmStream('/commands/events');
-  es.addEventListener('command-update', function () {
-    document.body.dispatchEvent(new CustomEvent('commands-updated'));
-  });
-})();
-// Re-apply the current search filter to freshly-swapped rows (the input itself is
-// kept across swaps via hx-preserve, but the new rows render unfiltered).
-document.body.addEventListener('htmx:afterSettle', function (e) {
-  if (e.target && e.target.id === 'hist-live') filterHistory();
-});
-// Safety net: never let an empty or error refresh response swap in and blank the
-// live region — if the response isn't a real #hist-live fragment, keep what's shown.
-document.body.addEventListener('htmx:beforeSwap', function (e) {
-  if (e.target && e.target.id === 'hist-live') {
-    var d = e.detail, ok = d.xhr && d.xhr.status < 400 && d.serverResponse && d.serverResponse.indexOf('id="hist-live"') !== -1;
-    if (!ok) { d.shouldSwap = false; }
-  }
-});
 </script>
 
 {{template "footer" .}}
 {{end}}
 
-{{/* The live region — tabs + table. Rendered inline on first load, and returned
-     on its own (partial=histlive, see CommandHistory) for the self-refresh swap,
-     so htmx swaps a clean fragment instead of hx-select-ing it out of a full HTML
-     document (which could parse to nothing and blank the region). */}}
+{{/* Tabs + table. Server-rendered on each navigation; refresh the page to update.
+     (No htmx self-refresh here — that repeatedly blanked the region in some
+     browsers, so this stays plain server-rendered for reliability.) */}}
 {{define "action-history-live"}}
-<div id="hist-live"
-  hx-get="/commands/history?status={{.Status}}&type={{.FilterType}}&page={{.Page}}&partial=histlive"
-  hx-trigger="commands-updated from:body, every 30s"
-  hx-target="#hist-live" hx-swap="outerHTML">
+<div id="hist-live">
 
 <!-- Status context tabs -->
 <div class="hist-tabs">
@@ -78,7 +50,7 @@ document.body.addEventListener('htmx:beforeSwap', function (e) {
     <div style="display:flex;gap:8px;align-items:center;">
       <div style="position:relative;display:flex;align-items:center;">
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-        <input type="search" id="cmd-search" hx-preserve="true" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
+        <input type="search" id="cmd-search" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
       </div>
       <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="location.href='/commands/history?status={{.Status}}&type='+encodeURIComponent(this.value)">
         <option value=""{{if eq .FilterType ""}} selected{{end}}>All Types</option>
