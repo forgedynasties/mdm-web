@@ -48,7 +48,7 @@
   hx-trigger="device-updated from:body, every 60s"
   hx-swap="outerHTML"
   {{end}}>
-  <div class="card-header"><h3>Command history</h3><span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span></div>
+  <div class="card-header"><h3>Action history</h3><span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span></div>
   <div style="padding:10px 18px 12px;">
     {{if .Commands}}
     <div class="ch-filters" id="ch-filters">
@@ -69,10 +69,10 @@
       </a>
       {{end}}
     </div>
-    {{if gt (len .Commands) 10}}<button type="button" id="ch-more" class="app-more" onclick="chShowAll()">Show all {{len .Commands}} commands</button>{{end}}
-    <div id="ch-empty" class="muted small" style="display:none;padding:8px 0;">No commands of that type.</div>
+    {{if gt (len .Commands) 10}}<button type="button" id="ch-more" class="app-more" onclick="chShowAll()">Show all {{len .Commands}} actions</button>{{end}}
+    <div id="ch-empty" class="muted small" style="display:none;padding:8px 0;">No actions of that type.</div>
     {{else}}
-    <div class="muted small" style="padding:8px 0;">No commands sent to this device yet.</div>
+    <div class="muted small" style="padding:8px 0;">No actions sent to this device yet.</div>
     {{end}}
   </div>
 </div>
@@ -1240,7 +1240,7 @@
     {{end}}{{end}}
   </div>
   {{else}}
-  <div class="muted small" style="padding:8px 0;">No commands sent to this device yet.</div>
+  <div class="muted small" style="padding:8px 0;">No actions sent to this device yet.</div>
   {{end}}
 </div>
 
@@ -1777,7 +1777,7 @@ async function saveNewApp() {
   {{range .PendingInstalls}}
   <div class="app-row app-installing" data-app="{{.Name}} {{.ApkURL}}">
     <div class="app-id">
-      <div class="app-name">{{.Name}}{{if gt (atoi .Count) 1}} <span class="app-dup" title="{{.Count}} install commands queued for this app">×{{.Count}}</span>{{end}}</div>
+      <div class="app-name">{{.Name}}{{if gt (atoi .Count) 1}} <span class="app-dup" title="{{.Count}} install actions queued for this app">×{{.Count}}</span>{{end}}</div>
       <div class="app-pkg mono">{{if and (eq .Phase "downloading") .Progress}}downloading {{.Progress}}%{{else}}{{.Phase}}{{end}}</div>
     </div>
     <span class="app-installing-tag"><span class="app-spin"></span>{{if and (eq .Phase "downloading") .Progress}}downloading {{.Progress}}%{{else}}{{.Phase}}{{end}}</span>
@@ -1822,7 +1822,7 @@ async function saveNewApp() {
 <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
 <div class="ov-greet">
   <h1 class="ov-title">History</h1>
-  <span class="ov-date">check-in and command history for this device</span>
+  <span class="ov-date">check-in and action history for this device</span>
   <span class="acts">
     <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg></span>Logcat</a>
     <a href="/devices/{{.Device.SerialNumber}}/logcat/live" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>Live logs</a>

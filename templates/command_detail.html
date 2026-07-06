@@ -1,234 +1,197 @@
 {{define "command-deliveries"}}
 {{$cmd := .Command}}
-{{$hasPending := true}}
+{{$hasPending := false}}
 {{$offlinePending := 0}}
-{{if .Deliveries}}
-  {{$hasPending = false}}
-  {{range .Deliveries}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{if not .Online}}{{$offlinePending = add $offlinePending 1}}{{end}}{{end}}{{if or (eq .Status "downloading") (eq .Status "installing")}}{{$hasPending = true}}{{end}}{{end}}
-{{end}}
-<div class="card"
+{{range .Deliveries}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{if not .Online}}{{$offlinePending = add $offlinePending 1}}{{end}}{{end}}{{if or (eq .Status "downloading") (eq .Status "installing")}}{{$hasPending = true}}{{end}}{{end}}
+{{$verb := "done"}}{{if eq $cmd.Type "install_apk"}}{{$verb = "installed"}}{{else if eq $cmd.Type "uninstall"}}{{$verb = "removed"}}{{else if eq $cmd.Type "screenshot"}}{{$verb = "captured"}}{{else if eq $cmd.Type "reboot"}}{{$verb = "rebooted"}}{{else if eq $cmd.Type "shell"}}{{$verb = "responded"}}{{end}}
+<div class="ad-body"
   id="deliveries-card"
   {{if $hasPending}}
   hx-get="/commands/{{$cmd.ID}}/status" hx-select="unset" hx-target="this"
   hx-trigger="command-updated from:body, every 30s"
   hx-swap="outerHTML"
   {{end}}>
-  <div class="card-header">
-    <h3>Delivery Status</h3>
-    <span class="muted small">{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{if $hasPending}} · waiting…{{if gt $offlinePending 0}} ({{$offlinePending}} offline){{end}}{{end}}</span>
+
+  {{/* Rollup strip — live counts for this action. */}}
+  <div class="ad-roll">
+    <div class="ad-big{{if gt .Stats.Failed 0}} bad{{else if $hasPending}} run{{else}} ok{{end}}">{{.Stats.Done}}<span>/{{.Stats.Total}}</span></div>
+    <div class="ad-roll-i">
+      <div class="ad-roll-lbl">{{$verb}}{{if $hasPending}} · in progress{{end}}</div>
+      <div class="ad-roll-sub">
+        {{if gt .Stats.Pending 0}}<span class="ad-tally run">{{.Stats.Pending}} in flight</span>{{end}}
+        {{if gt .Stats.Failed 0}}<span class="ad-tally bad">{{.Stats.Failed}} failed</span>{{end}}
+        {{if gt .Stats.Offline 0}}<span class="ad-tally off">{{.Stats.Offline}} offline · will receive on reconnect</span>{{end}}
+        {{if and (eq .Stats.Failed 0) (not $hasPending)}}<span class="ad-tally ok">all devices {{$verb}}</span>{{end}}
+      </div>
+    </div>
+    {{if and $.CanResend (gt .Stats.Failed 0)}}
+    <form action="/commands/{{$cmd.ID}}/resend" method="POST" class="ad-roll-act">
+      <button type="submit" class="ad-btn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Retry failed</button>
+    </form>
+    {{end}}
   </div>
 
-  {{if gt .Stats.Total 0}}
-  <div class="mc-head">
-    <div class="mc-ring{{if $hasPending}} live{{end}}">
-      <svg viewBox="0 0 120 120">
-        <circle class="mc-bg" cx="60" cy="60" r="52"></circle>
-        <circle class="mc-fg{{if gt .Stats.Failed 0}} warn{{end}}" cx="60" cy="60" r="52" stroke-dasharray="327" stroke-dashoffset="{{ringDash .Stats.Done .Stats.Total}}"></circle>
-      </svg>
-      <div class="mc-rt"><b>{{.Stats.Pct}}%</b><span>delivered</span></div>
+  {{if not .Deliveries}}
+  <div class="empty" style="padding:20px;">No devices targeted.</div>
+  {{else}}
+
+  {{/* ── SHELL: echoed command + per-device terminals ── */}}
+  {{if eq $cmd.Type "shell"}}
+  <div class="ad-shell">
+    {{range .Deliveries}}
+    <div class="ad-term">
+      <div class="ad-term-h"><a href="/devices/{{.SerialNumber}}" class="ad-sn2">{{.SerialNumber}}</a><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></div>
+      {{if .Output}}<pre class="ad-out">{{colorizeLogcat .Output}}</pre>
+      {{else if eq .Status "expired"}}<div class="ad-wait warn">Timed out — no output within 5 minutes</div>
+      {{else if or (eq .Status "delivered") (eq .Status "pending")}}
+        <div id="wait-{{.SerialNumber}}" class="ad-wait"><span class="shell-spinner"></span> Waiting for output…</div>
+        <pre id="out-{{.SerialNumber}}" class="ad-out" style="display:none;"></pre>
+        <script>(function(){var el=document.getElementById('out-{{.SerialNumber}}');var es=window.mdmStream('/commands/{{$cmd.ID}}/output/{{.SerialNumber}}/stream');es.onmessage=function(e){el.style.display='';var w=document.getElementById('wait-{{.SerialNumber}}');if(w)w.style.display='none';el.textContent+=JSON.parse(e.data);el.scrollTop=el.scrollHeight;};es.addEventListener('done',function(){es.close();});es.onerror=function(){es.close();};})();</script>
+      {{else}}<div class="ad-wait">No output.</div>{{end}}
     </div>
-    <div class="mc-info">
-      <div class="mc-stats">
-        <span class="mc-stat ok"><b>{{.Stats.Done}}</b> done</span>
-        <span class="mc-stat run"><b>{{.Stats.Pending}}</b> in flight</span>
-        {{if gt .Stats.Failed 0}}<span class="mc-stat fail"><b>{{.Stats.Failed}}</b> failed</span>{{end}}
-      </div>
-      <div class="mc-meta">
-        {{.Stats.Done}} of {{.Stats.Total}} device{{if ne .Stats.Total 1}}s{{end}} acknowledged{{if gt .Stats.Offline 0}} · <span class="mc-off">{{.Stats.Offline}} offline, will receive on reconnect</span>{{end}}
-      </div>
-      {{if and $.CanResend (gt .Stats.Failed 0)}}
-      <form action="/commands/{{$cmd.ID}}/resend" method="POST" style="margin-top:12px;">
-        <button type="submit" class="btn-outline mc-retry"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Retry all targets</button>
-      </form>
-      {{end}}
+    {{end}}
+  </div>
+
+  {{/* ── SCREENSHOT: gallery ── */}}
+  {{else if eq $cmd.Type "screenshot"}}
+  <div class="ad-gallery">
+    {{range .Deliveries}}
+    <div class="ad-shot{{if not .Output}} pending{{end}}">
+      {{if .Output}}
+      <a href="data:image/png;base64,{{.Output}}" target="_blank" class="ad-frame" hx-boost="false"><img src="data:image/png;base64,{{.Output}}" alt="screenshot of {{.SerialNumber}}"></a>
+      {{else}}<div class="ad-frame ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>{{end}}
+      <div class="ad-shot-cap"><a href="/devices/{{.SerialNumber}}" class="mono">{{.SerialNumber}}</a>{{if .Output}}<a href="data:image/png;base64,{{.Output}}" download="screenshot-{{.SerialNumber}}.png" hx-boost="false" class="ad-dl" title="Download">↓</a>{{else}}<span class="when">waiting…</span>{{end}}</div>
     </div>
+    {{end}}
+  </div>
+
+  {{/* ── INSTALL / UNINSTALL / REBOOT / default: status list ── */}}
+  {{else}}
+  <div class="ad-list">
+    {{range .Deliveries}}
+    <div class="ad-row">
+      <a href="/devices/{{.SerialNumber}}" class="ad-sn mono">{{.SerialNumber}}</a>
+      <div class="ad-st">
+        {{if and (eq .Status "downloading") .Progress}}
+          <span class="status-badge active">↓ {{.Progress}}%</span><span class="ad-bar"><i style="width:{{.Progress}}%"></i></span>
+        {{else if eq .Status "installing"}}
+          <span class="status-badge active">installing</span><span class="ad-bar run"><i></i></span>
+        {{else}}
+          <span class="status-badge {{statusClass .Status}}">{{.Status}}</span>
+          {{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered"))}}<span class="muted small"><span class="ws-dot"></span>offline · last seen {{timeSince .LastSeenAt}}</span>
+          {{else if .Output}}<span class="muted small">{{.Output}}</span>
+          {{else}}<span class="when">{{timeSince .UpdatedAt}}</span>{{end}}
+        {{end}}
+      </div>
+      <div class="ad-row-act">{{if and $.CanResend (or (eq .Status "failed") (eq .Status "expired") (not .Online))}}<form action="/commands/{{$cmd.ID}}/resend/{{.SerialNumber}}" method="POST"><button type="submit" class="ad-mini">Resend</button></form>{{end}}</div>
+    </div>
+    {{end}}
   </div>
   {{end}}
 
-  <table class="table">
-    <thead>
-      <tr>
-        <th>Serial Number</th>
-        <th>Status</th>
-        <th>Updated</th>
-        {{if eq $cmd.Type "shell"}}<th>Output</th><th></th>{{end}}
-        {{if eq $cmd.Type "screenshot"}}<th>Screenshot</th>{{end}}
-      </tr>
-    </thead>
-    <tbody>
-      {{if .Deliveries}}
-        {{range .Deliveries}}
-        <tr>
-          <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
-          <td style="white-space:nowrap;">
-            <span class="status-badge {{statusClass .Status}}">{{.Status}}{{if and (eq .Status "downloading") .Progress}} {{.Progress}}%{{end}}</span>
-            {{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered"))}}
-            <span class="muted small" style="margin-left:8px;" title="Device offline — it will receive this command when it reconnects"><span class="ws-dot"></span>offline · last seen {{timeSince .LastSeenAt}}</span>
-            {{end}}
-          </td>
-          <td class="muted small">{{localTime .UpdatedAt}}</td>
-          {{if eq $cmd.Type "shell"}}
-          <td style="min-width:320px;">
-            {{if .Output}}
-            <pre class="logcat-terminal" style="max-height:300px;margin:0;">{{colorizeLogcat .Output}}</pre>
-            {{else if eq .Status "expired"}}
-            <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--warn);">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-              Timed out — no output received within 5 minutes
-            </div>
-            {{else if or (eq .Status "delivered") (eq .Status "pending")}}
-            <div id="wait-{{.SerialNumber}}" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-size:12px;color:var(--accent-h);"><span class="shell-spinner"></span> Waiting for output…</div>
-            <pre id="out-{{.SerialNumber}}" class="logcat-terminal" style="max-height:300px;margin:0;display:none;"></pre>
-            <script>
-            (function(){
-              const el = document.getElementById('out-{{.SerialNumber}}');
-              const es = window.mdmStream('/commands/{{$cmd.ID}}/output/{{.SerialNumber}}/stream');
-              es.onmessage = function(e) {
-                el.style.display = '';
-                var wait = document.getElementById('wait-{{.SerialNumber}}');
-                if (wait) wait.style.display = 'none';
-                el.textContent += JSON.parse(e.data);
-                el.scrollTop = el.scrollHeight;
-              };
-              es.addEventListener('done', function() { es.close(); });
-              es.onerror = function() { es.close(); };
-            })();
-            </script>
-            {{else}}<span class="muted small">—</span>{{end}}
-          </td>
-          <td>
-            {{if $.CanResend}}
-            <form action="/commands/{{$cmd.ID}}/resend/{{.SerialNumber}}" method="POST" style="display:inline;">
-              <button type="submit" class="btn-outline" style="padding:3px 10px;font-size:12px;">Resend</button>
-            </form>
-            {{end}}
-          </td>
-          {{end}}
-          {{if eq $cmd.Type "screenshot"}}
-          <td>
-            {{if .Output}}
-            <div class="ss-result">
-              <a href="data:image/png;base64,{{.Output}}" target="_blank" class="ss-frame" title="Open full size">
-                <img src="data:image/png;base64,{{.Output}}" alt="screenshot">
-              </a>
-              <a href="data:image/png;base64,{{.Output}}" download="screenshot-{{.SerialNumber}}.png" hx-boost="false" class="btn-outline ss-dl"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></span>Download</a>
-            </div>
-            {{else}}<span class="muted small">—</span>{{end}}
-          </td>
-          {{end}}
-        </tr>
-        {{end}}
-      {{else}}
-        <tr>
-          <td colspan="4" class="empty">No devices targeted.</td>
-        </tr>
-      {{end}}
-    </tbody>
-  </table>
+  {{end}}
 </div>
 {{end}}
 
 {{define "command_detail.html"}}
 {{template "header" .}}
+{{$cmd := .Command}}
 
 <style>
-/* Mission Control — the delivery-progress rollup at the top of the deliveries card. */
-.mc-head{display:flex;align-items:center;gap:26px;padding:20px 22px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap;}
-.mc-ring{position:relative;width:120px;height:120px;flex:none;}
-.mc-ring svg{width:120px;height:120px;transform:rotate(-90deg);}
-.mc-ring circle{fill:none;stroke-width:12;}
-.mc-ring .mc-bg{stroke:var(--surface-3);}
-.mc-ring .mc-fg{stroke:var(--ok);stroke-linecap:round;transition:stroke-dashoffset .6s ease;}
-.mc-ring .mc-fg.warn{stroke:var(--warn);}
-.mc-ring.live .mc-fg{stroke:var(--accent-2);}
-.mc-rt{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-.mc-rt b{font-size:24px;font-weight:750;letter-spacing:-.02em;}
-.mc-rt span{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
-.mc-info{min-width:0;}
-.mc-stats{display:flex;gap:8px;flex-wrap:wrap;}
-.mc-stat{border:1px solid var(--border);border-radius:9px;padding:7px 12px;font-size:12px;color:var(--muted);}
-.mc-stat b{font-size:16px;font-weight:700;margin-right:4px;color:var(--text);}
-.mc-stat.ok b{color:var(--ok);}
-.mc-stat.run b{color:var(--accent-2);}
-.mc-stat.fail b{color:var(--danger);}
-.mc-meta{font-size:12.5px;color:var(--muted);margin-top:12px;}
-.mc-off{color:var(--warn);}
-.mc-retry{display:inline-flex;align-items:center;gap:7px;}
+  .ad-hero{display:flex;align-items:flex-start;gap:15px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm);padding:20px 22px;margin-bottom:16px;flex-wrap:wrap;}
+  .ad-glyph{width:48px;height:48px;flex:none;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 16px var(--accent-soft);}
+  .ad-glyph svg{width:24px;height:24px;}
+  .ad-hid{flex:1;min-width:200px;}
+  .ad-kick{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);}
+  .ad-hid h1{margin:3px 0 4px;font-size:22px;font-weight:700;letter-spacing:-.02em;}
+  .ad-hid h1 .sub{font-family:var(--mono);font-size:14px;color:var(--muted);font-weight:500;word-break:break-all;}
+  .ad-meta{font-size:13px;color:var(--muted);}.ad-meta b{color:var(--text);font-weight:600;}
+  .ad-acts{display:flex;gap:8px;flex-wrap:wrap;}
+  .ad-btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:8px 13px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+  .ad-btn:hover{border-color:var(--accent-edge);color:var(--accent);}
+  .ad-btn.danger:hover{border-color:var(--danger);color:var(--danger);}
+
+  .ad-body{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-sm);overflow:hidden;}
+  .ad-roll{display:flex;align-items:center;gap:18px;padding:18px 22px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap;}
+  .ad-big{font-size:30px;font-weight:750;letter-spacing:-.03em;line-height:1;}
+  .ad-big span{font-size:18px;color:var(--muted);font-weight:600;}
+  .ad-big.ok{color:var(--ok);}.ad-big.run{color:var(--accent-2);}.ad-big.bad{color:var(--danger);}
+  .ad-roll-i{flex:1;min-width:0;}
+  .ad-roll-lbl{font-size:13px;font-weight:650;text-transform:capitalize;}
+  .ad-roll-sub{display:flex;gap:8px;flex-wrap:wrap;margin-top:5px;}
+  .ad-tally{font-size:12px;color:var(--muted);}
+  .ad-tally.run{color:var(--accent-2);}.ad-tally.bad{color:var(--danger);}.ad-tally.off{color:var(--warn);}.ad-tally.ok{color:var(--ok);}
+  .ad-roll-act .ad-btn{padding:7px 12px;}
+
+  .ad-list .ad-row{display:grid;grid-template-columns:1.1fr 1.6fr auto;align-items:center;gap:14px;padding:13px 22px;border-top:1px solid var(--border-soft);}
+  .ad-list .ad-row:first-child{border-top:0;}
+  .ad-sn{font-size:13px;text-decoration:none;color:var(--text);}.ad-sn:hover{color:var(--accent);}
+  .ad-st{display:flex;align-items:center;gap:10px;min-width:0;}
+  .ad-bar{flex:1;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;max-width:220px;}
+  .ad-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;}
+  .ad-bar.run i{background:var(--accent-2);width:100%;animation:adsh 1.4s ease-in-out infinite;}@keyframes adsh{50%{opacity:.5}}
+  .ad-st .when{font-size:12px;color:var(--muted);}
+  .ad-row-act{display:flex;justify-content:flex-end;}
+  .ad-mini{font:inherit;font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:4px 10px;cursor:pointer;}
+  .ad-mini:hover{border-color:var(--accent-edge);color:var(--accent);}
+
+  .ad-shell{padding:16px 18px;display:flex;flex-direction:column;gap:11px;}
+  .ad-term{background:#14171c;border-radius:10px;overflow:hidden;}
+  .ad-term-h{display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.08);}
+  .ad-sn2{font-family:var(--mono);font-size:12.5px;color:#e8edf2;text-decoration:none;}.ad-sn2:hover{color:#fff;}
+  .ad-term-h .status-badge{margin-left:auto;}
+  .ad-out{margin:0;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.6;color:#c9d4df;white-space:pre-wrap;max-height:300px;overflow:auto;}
+  .ad-wait{display:flex;align-items:center;gap:7px;padding:12px 14px;font-size:12.5px;color:var(--accent-2);}
+  .ad-wait.warn{color:var(--warn);}
+
+  .ad-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;padding:16px 18px;}
+  .ad-shot{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface-2);}
+  .ad-frame{display:block;aspect-ratio:16/10;background:var(--surface-3);}
+  .ad-frame img{width:100%;height:100%;object-fit:cover;display:block;}
+  .ad-frame.ph{display:flex;align-items:center;justify-content:center;color:var(--faint);}.ad-frame.ph svg{width:26px;height:26px;}
+  .ad-shot-cap{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;font-size:12px;}
+  .ad-shot-cap a{text-decoration:none;color:var(--text);}.ad-shot-cap a:hover{color:var(--accent);}
+  .ad-dl{font-weight:700;color:var(--muted)!important;}.ad-dl:hover{color:var(--accent)!important;}
+  .ad-shot-cap .when{color:var(--muted);}
 </style>
 
 {{if .From}}<a href="{{.From}}" class="back-link">← Back to device</a>{{else}}<a href="/commands" class="back-link">← Actions</a>{{end}}
-<div class="ov-greet">
-  <h1 class="ov-title">{{.Title}}</h1>
-  <span class="acts">
-    {{if .CanResend}}
-    <form action="/commands/{{.Command.ID}}/resend" method="POST">
-      <button type="submit" class="btn-outline">Resend to All Targets</button>
-    </form>
-    {{end}}
-    {{if canOperate .Role}}
-    <a href="/commands?clone={{.Command.ID}}" class="btn-outline" title="Open the builder prefilled with this command — tweak and send a new one">Duplicate &amp; edit</a>
-    <a href="/commands" class="btn-outline">New action</a>
-    {{end}}
-    {{if canAdmin .Role}}
-    <form action="/commands/{{.Command.ID}}/delete" method="POST" hx-confirm="Delete this command? Devices that have not yet received it will no longer get it.">
-      <button type="submit" class="btn-danger">Delete Command</button>
-    </form>
-    {{end}}
-  </span>
-</div>
 
-<div class="stats-grid" style="margin-bottom:16px;">
-  <div class="stat-card">
-    <div class="stat-label">Type</div>
-    <div class="stat-value small mono">{{cmdLabel .Command.Type}}</div>
+<div class="ad-hero">
+  <div class="ad-glyph">
+    {{if eq $cmd.Type "install_apk"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>
+    {{else if eq $cmd.Type "uninstall"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
+    {{else if eq $cmd.Type "shell"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>
+    {{else if eq $cmd.Type "screenshot"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg>
+    {{else if eq $cmd.Type "reboot"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>
+    {{else}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>{{end}}
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Target</div>
-    <div class="stat-value small">{{.Command.TargetType}}</div>
+  <div class="ad-hid">
+    <div class="ad-kick">{{cmdLabel $cmd.Type}}</div>
+    <h1>{{cmdLabel $cmd.Type}}{{$h := cmdHint $cmd}}{{if $h}} <span class="sub">{{$h}}</span>{{end}}</h1>
+    <div class="ad-meta">Sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b> · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group target{{else}}{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{end}}</div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Sent</div>
-    <div class="stat-value small" data-since-ms="{{.Command.CreatedAt.UnixMilli}}">{{timeSince .Command.CreatedAt}}</div>
-    <div class="stat-sub">{{localTime .Command.CreatedAt}}</div>
+  <div class="ad-acts">
+    {{if .CanResend}}<form action="/commands/{{$cmd.ID}}/resend" method="POST"><button type="submit" class="ad-btn">Resend to all</button></form>{{end}}
+    {{if canOperate .Role}}<a href="/commands?clone={{$cmd.ID}}" class="ad-btn" title="Open the builder prefilled with this action — tweak and send a new one">Duplicate &amp; edit</a>{{end}}
+    {{if and $cmd.ApkURL (canAdmin .Role)}}<a href="{{$cmd.ApkURL}}" target="_blank" rel="noopener" class="ad-btn" title="{{$cmd.ApkURL}}">APK ↗</a>{{end}}
+    {{if canAdmin .Role}}<form action="/commands/{{$cmd.ID}}/delete" method="POST" hx-confirm="Delete this action? Devices that haven't received it yet won't get it."><button type="submit" class="ad-btn danger">Delete</button></form>{{end}}
   </div>
 </div>
-
-{{if and .Command.ApkURL (canAdmin .Role)}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>APK URL</h3></div>
-  <div style="padding:12px 16px;"><a href="{{.Command.ApkURL}}" target="_blank" rel="noopener" class="mono small" style="word-break:break-all;">{{.Command.ApkURL}}</a></div>
-</div>
-{{end}}
 
 {{template "command-deliveries" .}}
 
 <script>
 (function () {
   if (!window.EventSource) return;
-  var es = window.mdmStream('/commands/{{.Command.ID}}/events');
-  es.addEventListener('command-update', function () {
-    document.body.dispatchEvent(new CustomEvent('command-updated'));
-  });
+  var es = window.mdmStream('/commands/{{$cmd.ID}}/events');
+  es.addEventListener('command-update', function () { document.body.dispatchEvent(new CustomEvent('command-updated')); });
   window.addEventListener('beforeunload', function () { es.close(); });
 })();
-
-// Live-update relative timestamps (data-since-ms="<unix-millis>")
 (function () {
-  function fmt(ms) {
-    var d = (Date.now() - ms) / 1000;
-    if (d < 60)        return 'just now';
-    if (d < 3600)      return Math.floor(d / 60) + 'm ago';
-    if (d < 86400)     return Math.floor(d / 3600) + 'h ago';
-    return Math.floor(d / 86400) + 'd ago';
-  }
-  function tick() {
-    document.querySelectorAll('[data-since-ms]').forEach(function (el) {
-      var ms = parseInt(el.dataset.sinceMs, 10);
-      if (!isNaN(ms)) el.textContent = fmt(ms);
-    });
-  }
-  tick();
-  setInterval(tick, 30000);
+  function fmt(ms){var d=(Date.now()-ms)/1000;if(d<60)return 'just now';if(d<3600)return Math.floor(d/60)+'m ago';if(d<86400)return Math.floor(d/3600)+'h ago';return Math.floor(d/86400)+'d ago';}
+  function tick(){document.querySelectorAll('[data-since-ms]').forEach(function(el){var ms=parseInt(el.dataset.sinceMs,10);if(!isNaN(ms))el.textContent=fmt(ms);});}
+  tick();setInterval(tick,30000);
 })();
 </script>
 

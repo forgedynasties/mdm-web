@@ -90,7 +90,7 @@ function filterHistory() {
 document.addEventListener('submit', function (evt) {
   var form = evt.target;
   if (form && form.tagName === 'FORM' && form.action.indexOf('/resend') !== -1) {
-    setTimeout(function () { if (window.showToast) showToast('Command resent', 'success'); }, 100);
+    setTimeout(function () { if (window.showToast) showToast('Action resent', 'success'); }, 100);
   }
 });
 
