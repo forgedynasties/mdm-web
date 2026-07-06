@@ -42,7 +42,12 @@
       </div>
       <div class="rlc-meta">
         {{if .Tracked}}
-          {{if gt .QA.Total 0}}<span class="rchip qa" title="{{.QA.Pass}} passed · {{.QA.Fail}} failed · {{.QA.Untested}} untested of {{.QA.Total}}">QA {{.QA.Pass}}/{{.QA.Total}}</span>{{end}}
+          {{if gt .QA.Total 0}}
+            {{$qaTitle := printf "%d passed · %d failed · %d blocked · %d untested of %d" .QA.Pass .QA.Fail .QA.Blocked .QA.Untested .QA.Total}}
+            {{if gt .QA.Fail 0}}<span class="rchip bad" title="{{$qaTitle}}">QA {{.QA.Fail}}✗ · {{.QA.Pass}}/{{.QA.Total}}</span>
+            {{else if .QA.Passed}}<span class="rchip ok" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} ✓</span>
+            {{else}}<span class="rchip qa" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} · {{.QA.Untested}} left</span>{{end}}
+          {{end}}
           {{if .SignedOffBy}}<span class="rchip ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="rchip warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
         {{end}}
       </div>
