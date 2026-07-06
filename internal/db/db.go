@@ -4713,7 +4713,7 @@ var defaultAlertRules = []struct {
 	// Client-telemetry rules (need the new charger/wifi/crash fields the client reports).
 	{"wifi_unstable", "Frequent Wi-Fi disconnects", `{"disconnects":3}`, "always", true},
 	{"device_crash", "Device crash / ANR", `{"window_min":15}`, "always", true},
-	{"slow_charge_night", "Slow overnight charging (5V)", `{"max_gain_pct":15,"window_hours":2,"min_mv":4000,"max_mv":5500}`, "overnight", true},
+	{"slow_charge_night", "Slow overnight charging", `{"max_gain_pct":15,"window_hours":2}`, "overnight", true},
 }
 
 // EnsureDefaultRules inserts each default rule only if no rule of that type exists.
@@ -6315,13 +6315,11 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		return hits, "critical", rows.Err()
 
 	case "slow_charge_night":
-		// Over the last window_hours the device was continuously plugged into a ~5V
-		// charger yet its battery barely rose (≤ max_gain_pct) and isn't essentially full —
-		// i.e. a weak 5V supply that can't keep up. Overnight-windowed + deployed-only.
+		// Over the last window_hours the device was continuously charging yet its
+		// battery barely rose (≤ max_gain_pct) and isn't essentially full — a stalled
+		// / trickle charge that won't be ready by morning. Overnight-windowed.
 		maxGain := param(p, "max_gain_pct", 15)
 		windowH := param(p, "window_hours", 2)
-		minMV := param(p, "min_mv", 4000)
-		maxMV := param(p, "max_mv", 5500)
 		rows, err := d.pool.Query(ctx, `
 			SELECT s.device_id, dv.serial_number, s.first_batt, s.last_batt
 			FROM (
@@ -6329,17 +6327,16 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				       (array_agg(battery_pct ORDER BY created_at ASC))[1]  AS first_batt,
 				       (array_agg(battery_pct ORDER BY created_at DESC))[1] AS last_batt,
 				       bool_and((extra->>'charging')::boolean) AS always_charging,
-				       bool_and((extra->>'charger_voltage_mv')::numeric BETWEEN $3 AND $4) AS always_5v,
 				       COUNT(*) AS n,
 				       (MAX(created_at) - MIN(created_at)) AS span
 				FROM checkins
 				WHERE created_at > NOW() - ($1 * INTERVAL '1 hour')
 				GROUP BY device_id
 			) s JOIN devices dv ON dv.id = s.device_id
-			WHERE NOT dv.hidden AND s.always_charging AND s.always_5v AND s.n >= 3
+			WHERE NOT dv.hidden AND s.always_charging AND s.n >= 3
 			  AND s.span >= (($1 - 0.25) * INTERVAL '1 hour')
 			  AND (s.last_batt - s.first_batt) <= $2
-			  AND s.last_batt < 95`, windowH, maxGain, minMV, maxMV)
+			  AND s.last_batt < 95`, windowH, maxGain)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -6353,7 +6350,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				return nil, "critical", err
 			}
 			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("On a 5V charger for %.0fh but battery only went %d%%→%d%%", windowH, first, last),
+				fmt.Sprintf("Charging for %.0fh but battery only went %d%%→%d%%", windowH, first, last),
 				map[string]any{"gain_pct": last - first, "first_pct": first, "last_pct": last}})
 		}
 		return hits, "critical", rows.Err()

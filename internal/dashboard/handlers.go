@@ -8139,7 +8139,7 @@ var alertRuleDefs = []struct {
 		{"sustain_min", "Continuous for", "min", 5, 60},
 	}, false, true},
 	{"wlc_dead", "Wireless charger not functional all day", "Fires when a deployed unit's pad was never readable for a whole day, though it worked within the prior week (daily).", "Power", []alertParamField{}, false, false},
-	{"slow_charge_night", "Slow overnight charging (5V)", "Fires when a device on a ~5V charger overnight gains at most this much over the window (weak supply).", "Power", []alertParamField{
+	{"slow_charge_night", "Slow overnight charging", "Fires when a device charges overnight but its battery gains at most this much over the window (stalled/trickle charge).", "Power", []alertParamField{
 		{"max_gain_pct", "Max gain", "%", 1, 15},
 		{"window_hours", "Over", "h", 1, 2},
 	}, true, true},
