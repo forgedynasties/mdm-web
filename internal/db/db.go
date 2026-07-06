@@ -3323,6 +3323,81 @@ func (d *DB) CreateLogcatRequest(ctx context.Context, deviceID uuid.UUID, level 
 	return &r, err
 }
 
+// CreateLogcatRequestForAlert inserts a logcat request linked to an alert (an
+// auto-capture triggered by e.g. a device_crash alert). Same as CreateLogcatRequest
+// but stamps alert_id so the result can be shown on the alert.
+func (d *DB) CreateLogcatRequestForAlert(ctx context.Context, deviceID uuid.UUID, level string, lines int, tag string, alertID uuid.UUID) (*LogcatRequest, error) {
+	var r LogcatRequest
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO logcat_requests (device_id, level, lines, tag, alert_id)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, device_id, level, lines, tag, status, created_at, updated_at
+	`, deviceID, level, lines, tag, alertID).Scan(&r.ID, &r.DeviceID, &r.Level, &r.Lines, &r.Tag, &r.Status, &r.CreatedAt, &r.UpdatedAt)
+	return &r, err
+}
+
+// GetOpenAlertID returns the id of the current non-resolved alert for (type, device),
+// so a follow-up action (e.g. attaching logs) can reference it.
+func (d *DB) GetOpenAlertID(ctx context.Context, typ string, deviceID uuid.UUID) (uuid.UUID, bool, error) {
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		SELECT id FROM alerts WHERE type = $1 AND device_id = $2 AND status <> 'resolved'
+		ORDER BY fired_at DESC LIMIT 1`, typ, deviceID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if err != nil {
+		return uuid.Nil, false, err
+	}
+	return id, true, nil
+}
+
+// AlertHasLogcat reports whether a logcat capture has already been requested for an
+// alert — the rate limit so a repeatedly-firing crash grabs logs only once.
+func (d *DB) AlertHasLogcat(ctx context.Context, alertID uuid.UUID) (bool, error) {
+	var exists bool
+	err := d.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM logcat_requests WHERE alert_id = $1)`, alertID).Scan(&exists)
+	return exists, err
+}
+
+// AlertLogcat is the auto-captured log attached to an alert, for display.
+type AlertLogcat struct {
+	Status     string    // pending | delivered | fulfilled
+	Content    string    // set when fulfilled
+	Level      string
+	Lines      int
+	RequestAt  time.Time
+	CapturedAt time.Time // when the result came back (zero if not yet)
+}
+
+// GetAlertLogcat returns the auto-captured logcat linked to an alert (its request
+// status and, once returned, the content). ok is false when no capture was made.
+func (d *DB) GetAlertLogcat(ctx context.Context, alertID uuid.UUID) (*AlertLogcat, bool, error) {
+	var a AlertLogcat
+	var content *string
+	var capturedAt *time.Time
+	err := d.pool.QueryRow(ctx, `
+		SELECT lr.status, lr.level, lr.lines, lr.created_at, res.content, res.created_at
+		FROM logcat_requests lr
+		LEFT JOIN logcat_results res ON res.request_id = lr.id
+		WHERE lr.alert_id = $1
+		ORDER BY lr.created_at DESC LIMIT 1`, alertID).Scan(
+		&a.Status, &a.Level, &a.Lines, &a.RequestAt, &content, &capturedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if content != nil {
+		a.Content = *content
+	}
+	if capturedAt != nil {
+		a.CapturedAt = *capturedAt
+	}
+	return &a, true, nil
+}
+
 // GetPendingLogcatRequestsForDevice returns undelivered logcat requests for a device (oldest first).
 func (d *DB) GetPendingLogcatRequestsForDevice(ctx context.Context, deviceID uuid.UUID) ([]LogcatRequest, error) {
 	rows, err := d.pool.Query(ctx, `
@@ -5033,6 +5108,7 @@ type AlertNotification struct {
 	Severity string
 	Summary  string
 	Serial   string
+	DeviceID uuid.UUID // the device the alert fired for (used for follow-up actions)
 	// EventAt is when the underlying problem occurred (e.g. the peak-temperature
 	// reading); falls back to the detection time. Timezone is the device's reported
 	// IANA zone for rendering EventAt locally ("" → UTC).
@@ -5516,7 +5592,7 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, r
 			}
 			if ok {
 				at, tz := notifyTimeFrom(h.Detail)
-				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, EventAt: at, Timezone: tz})
+				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz})
 			}
 		}
 		// Resolve any open alert of this type whose device is no longer violating.
@@ -5775,7 +5851,7 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 			}
 			if ok {
 				at, tz := notifyTimeFrom(h.Detail)
-				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, EventAt: at, Timezone: tz})
+				created = append(created, AlertNotification{Type: r.Type, Severity: severity, Summary: h.Summary, Serial: h.Serial, DeviceID: h.DeviceID, EventAt: at, Timezone: tz})
 			}
 		}
 		tag, e := d.pool.Exec(ctx, `
@@ -7235,6 +7311,10 @@ ALTER TABLE apps ADD COLUMN IF NOT EXISTS package_name TEXT NOT NULL DEFAULT '';
 
 -- Freeform operator notes on a device (e.g. "cracked screen", "reserved for QA").
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
+
+-- Links an auto-triggered logcat capture to the alert that requested it (e.g. a
+-- device_crash alert grabs the device's error logs). NULL for manual captures.
+ALTER TABLE logcat_requests ADD COLUMN IF NOT EXISTS alert_id UUID;
 
 -- Structured problem reports filed by testers against a release. A problem is
 -- release-scoped (auto-links the build), optionally references a specific test

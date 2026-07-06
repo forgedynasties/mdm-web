@@ -2847,12 +2847,23 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	// Auto-captured crash logs, keyed by alert id, for the expandable detail row.
+	alertLogs := make(map[uuid.UUID]*db.AlertLogcat)
+	for _, a := range alerts {
+		if a.Type != "device_crash" {
+			continue
+		}
+		if lc, ok, _ := h.db.GetAlertLogcat(r.Context(), a.ID); ok {
+			alertLogs[a.ID] = lc
+		}
+	}
 	h.render(w, r, "alerts.html", map[string]any{
-		"Title":    "Alerts",
-		"Alerts":   alerts,
-		"Summary":  summary,
-		"Filter":   status,
-		"Severity": severity,
+		"Title":     "Alerts",
+		"Alerts":    alerts,
+		"AlertLogs": alertLogs,
+		"Summary":   summary,
+		"Filter":    status,
+		"Severity":  severity,
 	})
 }
 
@@ -7609,7 +7620,35 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 		log.Printf("[recent-alerts] %d new, %d resolved", len(created), resolved)
 		h.hub.PublishAlertUpdate()
 	}
+	// On a new crash/ANR alert, auto-capture the device's error logs so the alert
+	// carries the relevant logs (reuses the existing logcat pipeline — no client
+	// change). Once per alert (AlertHasLogcat), so a repeat crasher isn't spammed.
+	for _, n := range created {
+		if n.Type == "device_crash" {
+			h.captureCrashLogs(ctx, n.DeviceID)
+		}
+	}
 	h.dispatchAlertNotifications(ctx, created)
+}
+
+// captureCrashLogs issues a one-shot errors-level logcat capture for a device that
+// just raised a crash alert, linked to that alert for display. Best-effort: pushed
+// over WS if connected, otherwise delivered on the device's next reconnect.
+func (h *Handler) captureCrashLogs(ctx context.Context, deviceID uuid.UUID) {
+	alertID, ok, err := h.db.GetOpenAlertID(ctx, "device_crash", deviceID)
+	if err != nil || !ok {
+		return
+	}
+	if has, _ := h.db.AlertHasLogcat(ctx, alertID); has {
+		return // already captured for this alert (rate limit)
+	}
+	req, err := h.db.CreateLogcatRequestForAlert(ctx, deviceID, "E", 500, "", alertID)
+	if err != nil {
+		log.Printf("[crash-logs] create logcat request: %v", err)
+		return
+	}
+	h.pushLogcatRequest(ctx, req)
+	log.Printf("[crash-logs] requested error logs for device %s (alert %s)", deviceID, alertID)
 }
 
 // dispatchAlertNotifications routes freshly-created alerts to the configured
