@@ -25,14 +25,6 @@
         {{if and (gt .QA.Total 0) (not .QA.Passed)}}onclick="return confirm('QA is not complete — {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}}, {{.QA.Fail}} failed{{end}}{{if gt .QA.Untested 0}}, {{.QA.Untested}} untested{{end}}. Publish anyway?')"{{end}}>Publish</button>
     </form>
     {{end}}
-    <form action="/releases/{{$rel.ID}}/yank" method="POST" style="display:inline;">
-      {{if eq $rel.Status "yanked"}}
-        <button type="submit" class="btn-outline btn-sm">Restore</button>
-      {{else}}
-        <button type="submit" class="btn-outline btn-sm"
-                onclick="return confirm('Yank this release? It will stop being delivered to devices and cannot be deployed.')">Yank</button>
-      {{end}}
-    </form>
     {{end}}
     {{if $canDownloadQfil}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download hx-boost="false" title="Download the QFIL flashing bundle" style="display:inline-flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>{{end}}
     {{if .CanManageQFIL}}<button type="button" class="btn-outline btn-sm" onclick="qfilModalOpen()">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</button>{{end}}
@@ -43,10 +35,6 @@
 {{if eq $rel.Status "draft"}}
 <div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg,#2a2010);border:1px solid var(--warn,#f59e0b);color:var(--warn,#f59e0b);font-size:13px;">
   This release is a draft. Add its full package, then <strong>Publish</strong> it before deploying.
-</div>
-{{else if eq $rel.Status "yanked"}}
-<div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg,#2a2010);border:1px solid var(--warn,#f59e0b);color:var(--warn,#f59e0b);font-size:13px;">
-  This release is yanked — it is not delivered to any device. Restore it to resume.
 </div>
 {{end}}
 

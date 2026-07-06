@@ -135,7 +135,7 @@ type Release struct {
 	Version       string     `json:"version"`
 	Name          string     `json:"name"`
 	Changelog     string     `json:"changelog"`
-	Status        string     `json:"status"`          // "draft" | "published" | "yanked"
+	Status        string     `json:"status"`          // "draft" | "published"
 	Hidden        bool       `json:"hidden"`          // hidden from the main releases list (irrelevant)
 	SkipBaseTests bool       `json:"skip_base_tests"` // QA tests only release-specific cases, not base
 	CreatedAt     time.Time  `json:"created_at"`
@@ -6849,7 +6849,7 @@ ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS started_at   TIMESTAMPTZ;
 ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 
 -- Releases group the packages for one target build version (the full image plus
--- its incrementals) under a single lifecycle (draft -> published -> yanked).
+-- its incrementals) under a single lifecycle (draft -> published).
 -- Deploying a release lets the server pick the right artifact per device.
 CREATE TABLE IF NOT EXISTS releases (
     id           SERIAL      PRIMARY KEY,
