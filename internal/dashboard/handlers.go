@@ -2480,6 +2480,49 @@ func (h *Handler) CommandEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// CommandsFeedEvents streams SSE notifications for the action history page: it
+// fires on every command update (no per-id filter), so an in-flight action that
+// completes moves from "In progress" to "Completed" without a manual refresh —
+// the same live behavior the device page has for its command list.
+func (h *Handler) CommandsFeedEvents(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	fmt.Fprint(w, ": connected\n\n")
+	flusher.Flush()
+
+	sub := h.hub.SubscribeCommandUpdates()
+	defer h.hub.UnsubscribeCommandUpdates(sub)
+
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": keep-alive\n\n")
+			flusher.Flush()
+		case _, ok := <-sub:
+			if !ok {
+				return
+			}
+			fmt.Fprint(w, "event: command-update\ndata: refresh\n\n")
+			flusher.Flush()
+		}
+	}
+}
+
 // AlertEvents streams SSE notifications to the alerts page so an ack/resolve by
 // any user refreshes every open alerts view in real time.
 func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
@@ -9166,6 +9209,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
+	// Static route wins over /commands/{id}, so this is the global live feed the
+	// history page subscribes to (not a per-command stream).
+	mux.HandleFunc("GET /commands/events", h.requireAuth(h.CommandsFeedEvents))
 	post("POST /commands/clear-attention", h.requireOperatorOrAdmin(h.AttentionClear))
 	mux.HandleFunc("GET /commands/impact", h.requireAuth(h.CommandImpact))
 	// Recipes live under /recipes (not /commands/recipes) so the {id} delete route

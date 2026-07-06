@@ -7,6 +7,14 @@
   <span class="ov-date">every action sent across devices</span>
 </div>
 
+<!-- Live region: re-fetches this page and swaps itself in on any command update
+     (SSE below) or every 30s, so in-flight actions move In progress → Completed
+     and the tab counts update without a manual refresh. -->
+<div id="hist-live"
+  hx-get="/commands/history?status={{.Status}}&type={{.FilterType}}&page={{.Page}}"
+  hx-trigger="commands-updated from:body, every 30s"
+  hx-target="#hist-live" hx-select="#hist-live" hx-swap="outerHTML">
+
 <!-- Status context tabs -->
 <div class="hist-tabs">
   <a class="hist-tab{{if eq .Status "all"}} on{{end}}" href="/commands/history?status=all">All <span class="cnt">{{add (add .AttnCount .ProgCount) .DoneCount}}</span></a>
@@ -21,7 +29,7 @@
     <div style="display:flex;gap:8px;align-items:center;">
       <div style="position:relative;display:flex;align-items:center;">
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-        <input type="search" id="cmd-search" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
+        <input type="search" id="cmd-search" hx-preserve="true" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
       </div>
       <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="location.href='/commands/history?status={{.Status}}&type='+encodeURIComponent(this.value)">
         <option value=""{{if eq .FilterType ""}} selected{{end}}>All Types</option>
@@ -67,6 +75,7 @@
   <div class="table-footer">Page {{.Page}} of {{.TotalPages}} · {{.Total}} action{{if ne .Total 1}}s{{end}}</div>
   {{end}}
 </div>
+</div><!-- /#hist-live -->
 
 <script>
 // Client-side search of the current page only. Status, type and pagination are
@@ -83,6 +92,22 @@ document.addEventListener('submit', function (evt) {
   if (form && form.tagName === 'FORM' && form.action.indexOf('/resend') !== -1) {
     setTimeout(function () { if (window.showToast) showToast('Command resent', 'success'); }, 100);
   }
+});
+
+// Live updates: an SSE feed of command changes drives the #hist-live htmx swap,
+// so actions move In progress → Completed (and counts update) without a refresh.
+// Placed outside #hist-live so the stream is set up once, not re-created per swap.
+(function () {
+  if (!window.EventSource) return;
+  var es = window.mdmStream('/commands/events');
+  es.addEventListener('command-update', function () {
+    document.body.dispatchEvent(new CustomEvent('commands-updated'));
+  });
+})();
+// Re-apply the current search filter to freshly-swapped rows (the input itself is
+// kept across swaps via hx-preserve, but the new rows render unfiltered).
+document.body.addEventListener('htmx:afterSettle', function (e) {
+  if (e.target && e.target.id === 'hist-live') filterHistory();
 });
 </script>
 
