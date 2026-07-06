@@ -8495,6 +8495,25 @@ func (h *Handler) DeviceAIAnalysis(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "ai.device", serial, "")
 }
 
+// AlertLogcatAnalyze runs an AI triage over the logs auto-captured for a crash
+// alert and returns the analysis as JSON (same shape as the other AI endpoints).
+func (h *Handler) AlertLogcatAnalyze(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid alert id")
+		return
+	}
+	lc, ok, err := h.db.GetAlertLogcat(r.Context(), id)
+	if err != nil || !ok || strings.TrimSpace(lc.Content) == "" {
+		writeJSONError(w, http.StatusNotFound, "No captured logs to analyze yet.")
+		return
+	}
+	h.writeAIResult(w, r, func(ctx context.Context, c *ai.Client) (string, ai.Usage, error) {
+		return c.AnalyzeLog(ctx, lc.Content)
+	})
+	h.audit(r, "ai.logcat.analyze", id.String(), "")
+}
+
 // LogcatAISuggest (BETA) turns a plain-language problem description into logcat
 // capture settings (level / lines / tag) using the configured AI provider. It
 // returns JSON {level, lines, tag, rationale, model} for the composer to fill the
@@ -9415,6 +9434,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /schedules/{id}/run-now", h.requireOperatorOrAdmin(h.ScheduleRunNow))
 	post("POST /commands", h.requireAuth(h.CommandCreate))
 	post("POST /commands/logcat-suggest", h.requireAuth(h.LogcatAISuggest))
+	post("POST /alerts/{id}/logcat/analyze", h.requireAuth(h.AlertLogcatAnalyze))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
