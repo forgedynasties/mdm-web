@@ -2483,6 +2483,12 @@ type CommandDeliverySummary struct {
 	Delivered int
 	Completed int
 	Failed    int
+	// Downloading/Installing are a phase breakdown of the in-flight (Delivered)
+	// devices for install_apk commands, so the Actions in-progress row can show
+	// "3 downloading · 1 installing" instead of a single lumped count. They are a
+	// subset of Delivered, not additive to the totals.
+	Downloading int
+	Installing  int
 }
 
 // GetCommandDeliverySummaries returns per-command status rollups for the history
@@ -2549,8 +2555,16 @@ func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec, sinceDa
 		// delivered so the command stays in the Actions "In progress" bucket
 		// (commandBucket keys "prog" off Pending/Delivered) instead of falling
 		// through to "done" and disappearing while the app is still installing.
-		case "delivered", "downloading", "installing":
+		// Downloading/Installing are also tracked separately (a subset of
+		// Delivered) so the row can show a per-phase tally.
+		case "delivered":
 			s.Delivered += count
+		case "downloading":
+			s.Delivered += count
+			s.Downloading += count
+		case "installing":
+			s.Delivered += count
+			s.Installing += count
 		case "installed", "completed":
 			s.Completed += count
 		case "failed", "expired":
