@@ -78,6 +78,23 @@
 </div>
 {{end}}
 
+{{/* Notes card — freeform operator notes; saves via htmx and swaps itself back
+     in with a "Saved" flash. Rendered inline in the sidebar and returned by
+     POST /devices/{serial}/notes. */}}
+{{define "device-notes"}}
+<div class="ddc-card" id="device-notes-card">
+  <div class="ddc-card-t">Notes{{if .Saved}} <span class="dn-saved">Saved</span>{{end}}</div>
+  {{if canOperate .Role}}
+  <form hx-post="/devices/{{.Device.SerialNumber}}/notes" hx-target="#device-notes-card" hx-swap="outerHTML">
+    <textarea name="notes" class="dn-ta" rows="4" maxlength="4000" placeholder="Add a note about this device — e.g. cracked screen, reserved for QA…">{{.Notes}}</textarea>
+    <div class="dn-actions"><button type="submit" class="btn-primary dn-save">Save</button></div>
+  </form>
+  {{else}}
+    {{if .Notes}}<div class="dn-view">{{.Notes}}</div>{{else}}<div class="muted small">No notes.</div>{{end}}
+  {{end}}
+</div>
+{{end}}
+
 {{define "device.html"}}
 {{template "header" .}}
 
@@ -316,6 +333,7 @@
     {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
     <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
   </div>
+  {{template "device-notes" .}}
 </aside>
 <div class="ddc-main">
 <div class="dd-tabs" role="tablist">

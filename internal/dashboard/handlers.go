@@ -2150,9 +2150,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	if device.BuildID != "" {
 		release, _ = h.db.GetReleaseByVersion(r.Context(), device.BuildID)
 	}
+	notes, _ := h.db.GetDeviceNotes(r.Context(), device.ID)
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
+		"Notes":               notes,
 		"Release":             release,
 		"Online":              h.hub.IsConnected(device.ID),
 		"ChartCheckins":       chartCheckins,
@@ -8771,6 +8773,38 @@ func (h *Handler) DeviceSetPollInterval(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
+// DeviceNotesUpdate saves freeform operator notes for a device and returns the
+// updated notes card for an htmx swap (falls back to a redirect without JS).
+func (h *Handler) DeviceNotesUpdate(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	notes := strings.TrimSpace(r.FormValue("notes"))
+	const maxNotes = 4000
+	if len(notes) > maxNotes {
+		notes = notes[:maxNotes]
+	}
+	if err := h.db.SetDeviceNotes(r.Context(), device.ID, notes); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.notes", serial, fmt.Sprintf("len=%d", len(notes)))
+	if r.Header.Get("HX-Request") == "" {
+		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.tmpl.ExecuteTemplate(w, "device-notes", h.withRole(r, map[string]any{
+		"Device": device,
+		"Notes":  notes,
+		"Saved":  true,
+	}))
+}
+
 func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	r.ParseForm()
@@ -9173,6 +9207,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
+	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))

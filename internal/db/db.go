@@ -1186,6 +1186,24 @@ func (d *DB) SetDevicePollInterval(ctx context.Context, serial string, intervalM
 	return err
 }
 
+// GetDeviceNotes returns the freeform operator notes for a device (empty if none).
+// Kept off the Device struct (which is scanned in many places) so adding notes
+// doesn't touch every device query.
+func (d *DB) GetDeviceNotes(ctx context.Context, deviceID uuid.UUID) (string, error) {
+	var notes string
+	err := d.pool.QueryRow(ctx, `SELECT notes FROM devices WHERE id = $1`, deviceID).Scan(&notes)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return notes, err
+}
+
+// SetDeviceNotes stores the freeform operator notes for a device.
+func (d *DB) SetDeviceNotes(ctx context.Context, deviceID uuid.UUID, notes string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET notes = $2 WHERE id = $1`, deviceID, notes)
+	return err
+}
+
 func (d *DB) GetLatestCheckin(ctx context.Context, deviceID uuid.UUID) (*Checkin, error) {
 	var c Checkin
 	err := d.pool.QueryRow(ctx, `
@@ -7202,6 +7220,9 @@ CREATE TABLE IF NOT EXISTS apk_packages (
 -- app. When set, it seeds apk_packages immediately so an install can skip devices
 -- that already have the app — no need to wait for a first install to "learn" it.
 ALTER TABLE apps ADD COLUMN IF NOT EXISTS package_name TEXT NOT NULL DEFAULT '';
+
+-- Freeform operator notes on a device (e.g. "cracked screen", "reserved for QA").
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
