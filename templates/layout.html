@@ -26,6 +26,15 @@
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
   <script src="/static/vendor/htmx.min.js"></script>
   <script>
+    // Turn off htmx's localStorage history-snapshot cache and drop any existing
+    // entry. It can restore a stale/blank <main> snapshot taken during a deploy —
+    // the "works in incognito but not after a hard refresh" symptom, because
+    // localStorage survives a hard refresh (only HTTP cache is bypassed). We'd
+    // rather re-fetch on back/forward than ever show a cached-blank page.
+    if (window.htmx) { htmx.config.historyCacheSize = 0; htmx.config.refreshOnHistoryMiss = true; }
+    try { localStorage.removeItem('htmx-history-cache'); } catch (e) {}
+  </script>
+  <script>
     // ── No-reload navigation plumbing ──────────────────────────────────────────
     // The whole app is hx-boosted (see <body>): links and form submits are AJAX
     // and only the <main> region is swapped, so the header/dock and the persistent
