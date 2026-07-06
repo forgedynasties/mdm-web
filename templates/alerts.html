@@ -156,6 +156,20 @@
             <div class="alert-detail-item"><span class="alert-detail-k">Occurrences</span><span class="alert-detail-v">{{.Occurrences}}</span></div>
             {{if .ResolvedAt}}<div class="alert-detail-item"><span class="alert-detail-k">Resolved</span><span class="alert-detail-v">{{localTime .ResolvedAt}}</span></div>{{end}}
             {{if .Detail}}<div class="alert-detail-item alert-detail-raw"><span class="alert-detail-k">Detail</span><code class="alert-detail-json">{{printf "%s" .Detail}}</code></div>{{end}}
+            {{$lc := index $.AlertLogs .ID}}
+            {{if $lc}}
+            <div class="alert-detail-item alert-detail-raw">
+              <span class="alert-detail-k">Logs</span>
+              {{if eq $lc.Status "fulfilled"}}
+                <div class="alert-logs">
+                  <div class="alert-logs-h">Auto-captured {{$lc.Level}}-level · {{timeSince $lc.CapturedAt}}</div>
+                  <pre class="logcat-terminal alert-logs-pre">{{colorizeLogcat $lc.Content}}</pre>
+                </div>
+              {{else}}
+                <span class="alert-detail-v muted"><span class="ws-dot"></span>Capturing device logs… (requested {{timeSince $lc.RequestAt}}{{if ne $lc.Status "pending"}} · sent{{end}})</span>
+              {{end}}
+            </div>
+            {{end}}
           </div>
         </td>
       </tr>
