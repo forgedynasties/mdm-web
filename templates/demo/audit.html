@@ -1,0 +1,769 @@
+<title>AIO MDM — System Audit</title>
+<style>
+  :root{
+    --ground:#FBFBFD; --panel:#FFFFFF; --panel-2:#F6F6FA;
+    --ink:#16171D; --ink-2:#3A3C46; --muted:#6A6E7C; --faint:#9498A6;
+    --line:#E7E8EE; --line-2:#EFEFF4;
+    --coral:#F9674E; --peri:#7A80F6;
+    --grad:linear-gradient(115deg,#F9674E 0%,#F97E67 34%,#8A82F3 78%,#7A80F6 100%);
+    --good:#1E9E6B; --good-bg:#E7F5EE;
+    --warn:#C7871B; --warn-bg:#FBF1DE;
+    --crit:#D23A4B; --crit-bg:#FBE7EA;
+    --high:#E06A2E; --high-bg:#FCEBDF;
+    --info:#5A62E6; --info-bg:#ECEDFC;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --radius:14px; --radius-s:9px;
+    --shadow:0 1px 2px rgba(20,21,26,.04),0 8px 26px -14px rgba(20,21,26,.18);
+    --maxw:1080px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 24px}
+  h1,h2,h3{text-wrap:balance;line-height:1.14;margin:0}
+  p{margin:0}
+  a{color:inherit}
+  .mono{font-family:var(--mono)}
+
+  /* ---------- eyebrow ---------- */
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--coral);font-weight:600;display:inline-flex;align-items:center;gap:.55em}
+  .eyebrow::before{content:"";width:22px;height:2px;background:var(--grad);border-radius:2px;display:inline-block}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);
+    background:radial-gradient(120% 140% at 88% -20%,rgba(122,128,246,.16),transparent 46%),
+               radial-gradient(90% 120% at 4% 8%,rgba(249,103,78,.13),transparent 50%),
+               var(--panel)}
+  .hero .wrap{padding:30px 24px 46px}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+    padding-bottom:40px;flex-wrap:wrap}
+  .wordmark{font-weight:700;font-size:1.18rem;letter-spacing:-.01em}
+  .wordmark .aio{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .wordmark .mdm{color:var(--muted);font-weight:600;margin-left:.12em}
+  .doc-meta{font-family:var(--mono);font-size:.72rem;color:var(--muted);text-align:right;line-height:1.7}
+  .doc-meta b{color:var(--ink-2);font-weight:600}
+
+  .hero h1{font-size:clamp(2.1rem,5.2vw,3.5rem);font-weight:700;letter-spacing:-.025em;max-width:16ch}
+  .hero .lede{margin-top:20px;font-size:clamp(1.05rem,2vw,1.22rem);color:var(--ink-2);max-width:60ch;line-height:1.55}
+  .hero .lede b{color:var(--ink);font-weight:600}
+
+  .verdict{margin-top:30px;display:flex;gap:14px;flex-wrap:wrap;align-items:stretch}
+  .verdict-card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 20px;box-shadow:var(--shadow);min-width:150px;flex:1 1 150px}
+  .verdict-card .k{font-family:var(--mono);font-size:.68rem;letter-spacing:.13em;text-transform:uppercase;color:var(--faint)}
+  .verdict-card .v{font-size:1.42rem;font-weight:700;margin-top:6px;letter-spacing:-.01em}
+  .verdict-card .s{font-size:.82rem;color:var(--muted);margin-top:3px}
+  .stage-pill{display:inline-block;font-family:var(--mono);font-size:.7rem;font-weight:600;
+    letter-spacing:.04em;padding:3px 9px;border-radius:999px;background:var(--info-bg);color:var(--info);margin-top:4px}
+
+  /* ---------- sticky nav ---------- */
+  .snav{position:sticky;top:0;z-index:20;background:rgba(251,251,253,.86);
+    backdrop-filter:saturate(1.4) blur(9px);border-bottom:1px solid var(--line)}
+  .snav .wrap{display:flex;gap:4px;overflow-x:auto;padding:0 18px;scrollbar-width:thin}
+  .snav a{font-family:var(--mono);font-size:.76rem;letter-spacing:.02em;color:var(--muted);
+    text-decoration:none;padding:13px 12px;white-space:nowrap;border-bottom:2px solid transparent;font-weight:500}
+  .snav a:hover{color:var(--ink)}
+
+  /* ---------- section frame ---------- */
+  section{padding:56px 0 8px}
+  .sec-head{max-width:66ch;margin-bottom:30px}
+  .sec-head h2{font-size:clamp(1.5rem,3vw,2rem);font-weight:700;letter-spacing:-.02em;margin-top:12px}
+  .sec-head p{color:var(--muted);margin-top:12px;font-size:1.02rem}
+
+  /* ---------- generic panel ---------- */
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+
+  /* ---------- stat strip ---------- */
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .stat{background:var(--panel);padding:18px 20px}
+  .stat .n{font-size:1.7rem;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .stat .n .u{font-size:.9rem;color:var(--muted);font-weight:600;margin-left:.15em}
+  .stat .l{font-size:.82rem;color:var(--muted);margin-top:2px}
+
+  /* ---------- architecture diagram ---------- */
+  .arch{display:grid;grid-template-columns:1fr;gap:14px;margin-top:24px}
+  .arch-row{display:grid;gap:14px}
+  .arch-plane{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow)}
+  .arch-plane .ph{display:flex;align-items:center;gap:9px;margin-bottom:12px}
+  .arch-plane .ph .dot{width:9px;height:9px;border-radius:3px;flex:none}
+  .arch-plane .ph h3{font-size:1rem;font-weight:650}
+  .arch-plane .ph .tag{margin-left:auto;font-family:var(--mono);font-size:.66rem;color:var(--muted);
+    background:var(--panel-2);border:1px solid var(--line);padding:2px 7px;border-radius:6px}
+  .chiprow{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:.78rem;color:var(--ink-2);background:var(--panel-2);border:1px solid var(--line-2);
+    padding:4px 10px;border-radius:7px;font-weight:500}
+  .chip.mono{font-family:var(--mono);font-size:.72rem}
+  .arch-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:760px){.arch-cols{grid-template-columns:1fr}}
+
+  /* ---------- capability grid ---------- */
+  .caps{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+  @media(max-width:760px){.caps{grid-template-columns:1fr}}
+  .cap{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:18px 20px;box-shadow:var(--shadow);position:relative}
+  .cap .cap-top{display:flex;align-items:baseline;gap:10px;margin-bottom:9px}
+  .cap h3{font-size:1.02rem;font-weight:650;letter-spacing:-.01em}
+  .cap .badge{margin-left:auto;flex:none}
+  .cap p{font-size:.9rem;color:var(--muted);line-height:1.5}
+  .cap ul{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+  .cap li{font-size:.855rem;color:var(--ink-2);padding-left:16px;position:relative;line-height:1.45}
+  .cap li::before{content:"";position:absolute;left:0;top:.55em;width:5px;height:5px;border-radius:2px;background:var(--peri)}
+
+  .badge{display:inline-flex;align-items:center;gap:.4em;font-family:var(--mono);font-size:.66rem;font-weight:600;
+    letter-spacing:.04em;padding:3px 8px;border-radius:999px;text-transform:uppercase;white-space:nowrap}
+  .badge.ship{background:var(--good-bg);color:var(--good)}
+  .badge.beta{background:var(--warn-bg);color:var(--warn)}
+  .badge.partial{background:var(--info-bg);color:var(--info)}
+
+  /* ---------- device power ---------- */
+  .power-lead{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;align-items:stretch}
+  @media(max-width:760px){.power-lead{grid-template-columns:1fr}}
+  .power-note{background:linear-gradient(180deg,rgba(249,103,78,.06),rgba(122,128,246,.06));
+    border:1px solid var(--line);border-radius:var(--radius);padding:20px 22px}
+  .power-note .k{font-family:var(--mono);font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--coral);font-weight:600}
+  .power-note h3{font-size:1.24rem;font-weight:700;margin-top:8px;letter-spacing:-.01em}
+  .power-note p{color:var(--ink-2);font-size:.92rem;margin-top:10px;line-height:1.55}
+  .caplist{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  @media(max-width:520px){.caplist{grid-template-columns:1fr}}
+  .caplist .ci{background:var(--panel);padding:13px 15px}
+  .caplist .ci .t{font-weight:600;font-size:.9rem}
+  .caplist .ci .d{font-size:.78rem;color:var(--muted);margin-top:1px}
+
+  .telemetry{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px}
+
+  /* ---------- scorecard ---------- */
+  .score-wrap{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  .score-row{display:grid;grid-template-columns:180px 54px 1fr;gap:16px;align-items:center;
+    padding:14px 20px;background:var(--panel);border-top:1px solid var(--line-2)}
+  .score-row:first-child{border-top:none}
+  .score-row .dim{font-weight:600;font-size:.94rem}
+  .score-row .dim small{display:block;font-weight:400;color:var(--faint);font-size:.76rem;margin-top:1px;font-family:var(--mono)}
+  .grade{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;
+    font-family:var(--mono);font-weight:700;font-size:1.05rem;flex:none}
+  .g-a{background:var(--good-bg);color:var(--good)}
+  .g-b{background:#EAF3EC;color:#3E8E5C}
+  .g-c{background:var(--warn-bg);color:var(--warn)}
+  .g-d{background:var(--high-bg);color:var(--high)}
+  .g-f{background:var(--crit-bg);color:var(--crit)}
+  .bar-area{display:flex;align-items:center;gap:14px}
+  .bar{flex:1;height:8px;background:var(--panel-2);border-radius:6px;overflow:hidden;border:1px solid var(--line-2)}
+  .bar>i{display:block;height:100%;border-radius:6px}
+  .bar-note{font-size:.83rem;color:var(--muted);flex:1.3;min-width:180px}
+  @media(max-width:680px){
+    .score-row{grid-template-columns:1fr 46px;grid-template-areas:"dim grade" "bar bar";row-gap:10px}
+    .score-row .dim{grid-area:dim}.grade{grid-area:grade;justify-self:end}.bar-area{grid-area:bar;flex-wrap:wrap}
+  }
+
+  /* ---------- pen test ---------- */
+  .pt-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:760px){.pt-grid{grid-template-columns:1fr}}
+  .findings{width:100%;border-collapse:collapse;font-size:.86rem}
+  .findings th,.findings td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line-2);vertical-align:top}
+  .findings th{font-family:var(--mono);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  .findings td.id{font-family:var(--mono);font-size:.78rem;color:var(--muted);white-space:nowrap}
+  .sev{display:inline-block;font-family:var(--mono);font-size:.66rem;font-weight:700;padding:2px 7px;border-radius:6px;white-space:nowrap}
+  .sev.crit{background:var(--crit-bg);color:var(--crit)}
+  .sev.high{background:var(--high-bg);color:var(--high)}
+  .sev.med{background:var(--warn-bg);color:var(--warn)}
+  .fix{font-family:var(--mono);font-size:.66rem;font-weight:700;color:var(--good);white-space:nowrap}
+  .fix.part{color:var(--info)}
+  .fix.no{color:var(--muted)}
+  .pos-list{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .pos-list li{font-size:.87rem;color:var(--ink-2);padding-left:24px;position:relative;line-height:1.45}
+  .pos-list li::before{content:"✓";position:absolute;left:0;top:0;color:var(--good);font-weight:700;
+    font-family:var(--mono);font-size:.85rem}
+
+  /* ---------- risks ---------- */
+  .risk{display:grid;grid-template-columns:34px 1fr auto;gap:16px;align-items:start;
+    padding:18px 20px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);margin-top:12px}
+  .risk .rank{font-family:var(--mono);font-weight:700;font-size:1.05rem;color:var(--faint);
+    padding-top:2px;font-variant-numeric:tabular-nums}
+  .risk h3{font-size:1rem;font-weight:650}
+  .risk p{font-size:.88rem;color:var(--muted);margin-top:5px;line-height:1.5}
+  .risk .why{color:var(--ink-2)}
+  .risk .rsev{align-self:start}
+
+  /* ---------- roadmap ---------- */
+  .road{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:760px){.road{grid-template-columns:1fr}}
+  .road-col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:20px;box-shadow:var(--shadow)}
+  .road-col .rh{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;font-weight:600}
+  .road-col.now .rh{color:var(--crit)}
+  .road-col.next .rh{color:var(--warn)}
+  .road-col.later .rh{color:var(--good)}
+  .road-col .rt{font-weight:700;font-size:1.05rem;margin:4px 0 12px;letter-spacing:-.01em}
+  .road-col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:9px}
+  .road-col li{font-size:.87rem;color:var(--ink-2);padding-left:18px;position:relative;line-height:1.45}
+  .road-col li::before{content:"";position:absolute;left:0;top:.5em;width:6px;height:6px;border-radius:2px}
+  .road-col.now li::before{background:var(--crit)}
+  .road-col.next li::before{background:var(--warn)}
+  .road-col.later li::before{background:var(--good)}
+
+  /* ---------- callout ---------- */
+  .callout{border:1px solid var(--line);border-left:3px solid var(--coral);background:var(--panel);
+    border-radius:var(--radius-s);padding:16px 20px;margin-top:20px;box-shadow:var(--shadow)}
+  .callout .ct{font-weight:650;font-size:.95rem;display:flex;align-items:center;gap:8px}
+  .callout p{font-size:.88rem;color:var(--muted);margin-top:6px}
+  .callout code{font-family:var(--mono);font-size:.82em;background:var(--panel-2);padding:1px 5px;border-radius:4px;color:var(--ink-2)}
+
+  /* ---------- footer ---------- */
+  footer{margin-top:64px;border-top:1px solid var(--line);background:var(--panel)}
+  footer .wrap{padding:30px 24px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+  .lead-note{font-size:.9rem;color:var(--muted);max-width:64ch;line-height:1.55;margin-top:18px}
+  .divider{height:1px;background:var(--line);margin:8px 0 0}
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="topbar">
+      <div class="wordmark"><span class="aio">AIO</span><span class="mdm">MDM</span></div>
+      <div class="doc-meta">
+        <div><b>System Audit</b> · Capability &amp; Production Readiness</div>
+        <div>Internal engineering review · 06 Jul 2026</div>
+      </div>
+    </div>
+    <div class="eyebrow">Executive summary</div>
+    <h1>A capable, security-conscious fleet platform — one operational lap from production.</h1>
+    <p class="lede">AIO MDM is a full mobile-device-management stack — a Go control plane, a real-time
+      dashboard, and a root-privileged Android agent — already running a real fleet of roughly
+      <b>900 devices</b>. The product surface is deep and genuinely wired to live data. The remaining
+      distance to "production-grade" is <b>operational discipline</b> — tests, backups, high-availability —
+      not a security or feature rewrite.</p>
+
+    <div class="verdict">
+      <div class="verdict-card">
+        <div class="k">Overall</div>
+        <div class="v">Strong MVP</div>
+        <div class="stage-pill">Late MVP / early beta</div>
+      </div>
+      <div class="verdict-card">
+        <div class="k">Product depth</div>
+        <div class="v" style="color:var(--good)">Excellent</div>
+        <div class="s">Broad, live, MDM-grade</div>
+      </div>
+      <div class="verdict-card">
+        <div class="k">App security</div>
+        <div class="v" style="color:var(--good)">Above average</div>
+        <div class="s">Pen-tested · top findings fixed</div>
+      </div>
+      <div class="verdict-card">
+        <div class="k">Ops maturity</div>
+        <div class="v" style="color:var(--high)">Thin</div>
+        <div class="s">No tests · no backups · single node</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<nav class="snav">
+  <div class="wrap">
+    <a href="#arch">Architecture</a>
+    <a href="#caps">Capabilities</a>
+    <a href="#device">Device control</a>
+    <a href="#score">Readiness scorecard</a>
+    <a href="#security">Security &amp; pen-test</a>
+    <a href="#risks">Top risks</a>
+    <a href="#road">Path to production</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ARCHITECTURE -->
+  <section id="arch">
+    <div class="sec-head">
+      <div class="eyebrow">How it's built</div>
+      <h2>One lean Go binary, three surfaces, one real-time spine</h2>
+      <p>No web framework and few dependencies — a deliberately minimal, current stack. A single
+        process serves the device fleet, the admin API, and the operator dashboard, backed by PostgreSQL
+        and an in-process real-time hub that pushes updates to browsers and devices alike.</p>
+    </div>
+
+    <div class="stats" style="margin-bottom:24px">
+      <div class="stat"><div class="n">~23k<span class="u">LOC Go</span></div><div class="l">Backend, no framework</div></div>
+      <div class="stat"><div class="n">~35<span class="u">tables</span></div><div class="l">PostgreSQL 17 · pgx</div></div>
+      <div class="stat"><div class="n">120+<span class="u">routes</span></div><div class="l">Dashboard + APIs</div></div>
+      <div class="stat"><div class="n">13<span class="u">files</span></div><div class="l">Android agent</div></div>
+      <div class="stat"><div class="n">2<span class="u">transports</span></div><div class="l">WebSocket + HTTP</div></div>
+    </div>
+
+    <div class="arch-cols">
+      <div class="arch-plane">
+        <div class="ph"><span class="dot" style="background:var(--peri)"></span><h3>Device API</h3><span class="tag">device key</span></div>
+        <div class="chiprow">
+          <span class="chip mono">/checkin</span><span class="chip mono">/ws</span>
+          <span class="chip mono">/commands/ack</span><span class="chip mono">/logcat</span>
+          <span class="chip mono">/ota/status</span>
+        </div>
+        <p style="font-size:.86rem;color:var(--muted);margin-top:12px">Telemetry ingest, command
+          delivery, OTA state machine, live log &amp; screen streams. Devices run over WebSocket with a
+          full HTTP fallback on every path.</p>
+      </div>
+      <div class="arch-plane">
+        <div class="ph"><span class="dot" style="background:var(--coral)"></span><h3>Admin REST API</h3><span class="tag">admin key</span></div>
+        <div class="chiprow">
+          <span class="chip mono">/devices</span><span class="chip mono">/groups</span>
+          <span class="chip mono">/commands</span><span class="chip mono">/productions</span>
+          <span class="chip mono">/remote</span>
+        </div>
+        <p style="font-size:.86rem;color:var(--muted);margin-top:12px">Programmatic fleet control —
+          a subset of the dashboard. Remote-control sessions use single-use, short-lived tokens so
+          the admin key never reaches the browser.</p>
+      </div>
+      <div class="arch-plane">
+        <div class="ph"><span class="dot" style="background:#8A82F3"></span><h3>HTMX Dashboard</h3><span class="tag">sessions + RBAC</span></div>
+        <div class="chiprow">
+          <span class="chip">Server-rendered</span><span class="chip">Live SSE</span>
+          <span class="chip">5 roles</span><span class="chip">Audit log</span>
+        </div>
+        <p style="font-size:.86rem;color:var(--muted);margin-top:12px">The primary operator console.
+          Server-side sessions in Postgres, CSRF protection, and role-based access — hardened well
+          beyond a typical internal tool.</p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="ct">Real-time layer</div>
+      <p>Devices hold a long-lived WebSocket to the server; the same in-process hub fans presence,
+        command, alert, and deployment events out to the dashboard over SSE — so the UI updates with
+        no polling. Cohesive and pervasive, but held entirely in memory (see scaling, below).</p>
+    </div>
+  </section>
+
+  <!-- CAPABILITIES -->
+  <section id="caps">
+    <div class="sec-head">
+      <div class="eyebrow">What it does</div>
+      <h2>The capability inventory</h2>
+      <p>Twelve product areas, nearly all shipped and operating against the live fleet. A handful carry
+        an explicit <span class="badge beta" style="vertical-align:middle">Beta</span> tag; the alerting
+        matrix is partly <span class="badge partial" style="vertical-align:middle">Phase&nbsp;2</span>,
+        deferred on telemetry the device agent doesn't yet collect.</p>
+    </div>
+
+    <div class="caps">
+      <div class="cap">
+        <div class="cap-top"><h3>Fleet &amp; Device Cockpit</h3><span class="badge ship">Shipped</span></div>
+        <p>Card/table fleet view with rich filters, bulk actions, and a per-device "Cockpit" with live vitals.</p>
+        <ul>
+          <li>Live battery / temp / RAM / uptime / Wi-Fi chips, auto-refreshing</li>
+          <li>30/7/90-day battery &amp; charging trend charts</li>
+          <li>Kiosk toggle, poll-interval override, notes, release resolution</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Groups · Restaurants · Productions</h3><span class="badge ship">Shipped</span></div>
+        <p>Three orthogonal ways to organize the fleet: free-form tags, physical venues, and manufacturing batches.</p>
+        <ul>
+          <li>Restaurants as first-class venues — address, timezone, service &amp; peak windows</li>
+          <li>Production batches with base-36 serial-range generation</li>
+          <li>Two-pane transfer pickers, per-group health scoring</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Actions &amp; Command builder</h3><span class="badge ship">Shipped</span></div>
+        <p>Compose an action, choose a target scope, preview the blast radius, and dispatch fleet-wide.</p>
+        <ul>
+          <li>Install / uninstall / shell / screenshot / reboot / log / boot-logo</li>
+          <li>Target by all / group / restaurant / production / timezone with live counts</li>
+          <li>Governance: expiry, target caps, require-reason, per-operator allow/deny</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Releases · OTA · QA</h3><span class="badge ship">Shipped</span></div>
+        <p>The most sophisticated area — full A/B OTA rollout with a tester sign-off workflow.</p>
+        <ul>
+          <li>Full + incremental packages, drag-to-order version tracking</li>
+          <li>Staged rollouts with live per-device OTA phase &amp; progress</li>
+          <li>Inline QA test cases, per-tester results, dev sign-off (role-gated)</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Logcat &amp; live log streaming</h3><span class="badge ship">Shipped</span></div>
+        <p>Pull a capture on demand or tail a device's logs live in the browser.</p>
+        <ul>
+          <li>Filter by buffer / level / tag / grep; colorized output</li>
+          <li>Live SSE tail with FPS &amp; bandwidth meters, save-to-file</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Alerts &amp; Fleet Health</h3><span class="badge partial">Phase 1</span></div>
+        <p>Rule-driven alerting with a 0–100 fleet health score and worst-first venue ranking.</p>
+        <ul>
+          <li>Two-tier evaluator; per-venue service windows; Slack / Discord / Teams</li>
+          <li>Auto-attached crash logs; ack / resolve in bulk</li>
+          <li><b>15 of 26</b> designed alerts live; the rest await device telemetry</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>AI assistance</h3><span class="badge ship">Wired</span></div>
+        <p>Real LLM integration (Claude by default, provider-pluggable) — not a mock.</p>
+        <ul>
+          <li>Fleet report card &amp; daily digest; per-device analysis</li>
+          <li>Alert triage &amp; plain-language → logcat settings</li>
+          <li>Token accounting &amp; 30-day usage charts</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Remote shell &amp; live screen</h3><span class="badge ship">Shipped</span></div>
+        <p>Full unattended control — a terminal and a live mirror of any device.</p>
+        <ul>
+          <li>Interactive shell with streamed output &amp; history</li>
+          <li>Live WebP screen mirror with pointer/keyboard forwarding</li>
+          <li>Both globally toggleable; token-gated sessions</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Users &amp; access control</h3><span class="badge ship">Shipped</span></div>
+        <p>A genuine RBAC model — not a single shared password.</p>
+        <ul>
+          <li>5 roles (viewer → operator → tester → dev → admin), bcrypt-hashed</li>
+          <li>7 middleware tiers; UI hides what the server would refuse</li>
+          <li>67 audit call-sites feed a recent-activity feed</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Boot logo &amp; splash</h3><span class="badge ship">Shipped</span></div>
+        <p>Push a custom boot splash image to any device, group, or the whole fleet.</p>
+        <ul>
+          <li>Upload BMP/PNG/JPEG (auto-convert) or paste an image URL</li>
+          <li>Per-device apply-status tracking</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Export &amp; reporting</h3><span class="badge ship">Shipped</span></div>
+        <p>A CSV builder for telemetry — device, time-range, columns, sampling.</p>
+        <ul>
+          <li>Raw check-ins or fixed cycle marks; column presets</li>
+          <li>Live summary &amp; download-completion tracking</li>
+        </ul>
+      </div>
+      <div class="cap">
+        <div class="cap-top"><h3>Scheduling &amp; extras</h3><span class="badge beta">Beta</span></div>
+        <p>Cron-scheduled actions plus polished "delight" surfaces.</p>
+        <ul>
+          <li>Cron builder with local→UTC conversion &amp; plain-English preview</li>
+          <li>"Fleet Wrapped" year-in-review; release problem reports</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEVICE CONTROL -->
+  <section id="device">
+    <div class="sec-head">
+      <div class="eyebrow">The device agent</div>
+      <h2>Root-equivalent control of every device</h2>
+      <p>The Android client is an AOSP <em>system app</em> — platform-signed, sharing the system UID, and
+        self-provisioning as Device Owner. In practice there is no capability ceiling: it can install,
+        wipe, watch, drive, reboot, and re-flash a device. The runtime engineering behind it is mature
+        and clearly battle-tested.</p>
+    </div>
+
+    <div class="power-lead">
+      <div class="power-note">
+        <div class="k">Privilege posture</div>
+        <h3>Maximum short of root</h3>
+        <p>Platform signature + <code style="font-family:var(--mono);font-size:.85em">android.uid.system</code>
+          + Device Owner. Silent app management, input injection, screen capture, firmware flashing, and
+          shell as the system user are all on the table. This is real MDM power — and it makes the
+          server's trust model the thing that matters most.</p>
+        <div class="telemetry">
+          <span class="chip">Adaptive polling</span><span class="chip">Delta telemetry</span>
+          <span class="chip">WS + HTTP fallback</span><span class="chip">Doze-aware</span>
+          <span class="chip">Auto-reconnect</span>
+        </div>
+      </div>
+      <div class="caplist">
+        <div class="ci"><div class="t">Kiosk / lock-task</div><div class="d">Single-app lockdown, re-applied on boot</div></div>
+        <div class="ci"><div class="t">Silent app install/remove</div><div class="d">PackageInstaller, no user prompt</div></div>
+        <div class="ci"><div class="t">A/B seamless OTA</div><div class="d">UpdateEngine, resume-able downloads</div></div>
+        <div class="ci"><div class="t">Live screen + input</div><div class="d">WebP mirror, touch/key injection</div></div>
+        <div class="ci"><div class="t">Shell as system</div><div class="d">Streamed output over WebSocket</div></div>
+        <div class="ci"><div class="t">Reboot &amp; boot-splash</div><div class="d">Firmware &amp; splash re-flash</div></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="eyebrow" style="color:var(--peri)"><span style="background:var(--peri)"></span>Telemetry captured every check-in</div>
+      <div class="telemetry" style="margin-top:12px">
+        <span class="chip">Battery %, temp, charger type &amp; voltage</span>
+        <span class="chip">Storage &amp; RAM</span>
+        <span class="chip">Build ID / boot reason / uptime</span>
+        <span class="chip">Wi-Fi SSID, RSSI, IP, disconnects/hr</span>
+        <span class="chip">Crashes · ANRs · native tombstones</span>
+        <span class="chip">Installed app inventory</span>
+        <span class="chip">Wireless-charging pad status</span>
+        <span class="chip">Timezone</span>
+      </div>
+      <p class="lead-note">Telemetry is delta-encoded and battery-adaptive to keep radio-on time low —
+        full keyframes on start/reconnect, changed fields otherwise. Notably absent: device GPS
+        (location comes from the venue record, not the device).</p>
+    </div>
+  </section>
+
+  <!-- SCORECARD -->
+  <section id="score">
+    <div class="sec-head">
+      <div class="eyebrow">Honest assessment</div>
+      <h2>Production-readiness scorecard</h2>
+      <p>Graded by an engineering review of the actual code. The pattern is consistent: the
+        <b>product and application-security dimensions score high</b>; the <b>operational dimensions
+        drag the average down</b>. That's a fixable, well-understood gap — not a redesign.</p>
+    </div>
+
+    <div class="score-wrap">
+      <div class="score-row">
+        <div class="dim">Feature depth<small>capability &amp; completeness</small></div>
+        <div class="grade g-a">A</div>
+        <div class="bar-area"><div class="bar"><i style="width:93%;background:var(--good)"></i></div>
+          <div class="bar-note">Broad, cohesive, wired to live data. MDM-grade OTA/QA workflow.</div></div>
+      </div>
+      <div class="score-row">
+        <div class="dim">Application security<small>authz · CSRF · sessions</small></div>
+        <div class="grade g-a">A−</div>
+        <div class="bar-area"><div class="bar"><i style="width:88%;background:var(--good)"></i></div>
+          <div class="bar-note">Pen-tested; Critical + top High findings remediated. RBAC, server-side sessions, CSRF.</div></div>
+      </div>
+      <div class="score-row">
+        <div class="dim">Real-time architecture<small>WebSocket + SSE</small></div>
+        <div class="grade g-a">A</div>
+        <div class="bar-area"><div class="bar"><i style="width:90%;background:var(--good)"></i></div>
+          <div class="bar-note">Careful concurrency, dual transport, live everything. In-memory only (see scaling).</div></div>
+      </div>
+      <div class="score-row">
+        <div class="dim">Device agent<small>Android runtime</small></div>
+        <div class="grade g-a">A−</div>
+        <div class="bar-area"><div class="bar"><i style="width:87%;background:var(--good)"></i></div>
+          <div class="bar-note">Battle-tested: adaptive polling, delta telemetry, robust reconnect &amp; error reporting.</div></div>
+      </div>
+      <div class="score-row">
+        <div class="dim">Data model<small>schema &amp; integrity</small></div>
+        <div class="grade g-b">B+</div>
+        <div class="bar-area"><div class="bar"><i style="width:80%;background:#3E8E5C"></i></div>
+          <div class="bar-note">Thorough FKs, good indexes, pre-aggregation &amp; retention. Hot table unpartitioned; one fresh-install migration bug.</div></div>
+      </div>
+      <div class="score-row">
+        <div class="dim">Documentation<small>hand-off readiness</small></div>
+        <div class="grade g-b">B−</div>
+        <div class="bar-area"><div class="bar"><i style="width:68%;background:#3E8E5C"></i></div>
+          <div class="bar-note">Strong engineering docs; missing runbooks. Docs are git-ignored (<code>*.md</code>).</div></div>
+      </div>
+      <div class="score-row">
+        <div class="dim">Secret management<small>keys &amp; rotation</small></div>
+        <div class="grade g-c">C</div>
+        <div class="bar-area"><div class="bar"><i style="width:52%;background:var(--warn)"></i></div>
+          <div class="bar-note">One fleet-wide device key, serial-as-identity, no rotation or per-device revocation.</div></div>
+      </div>
+      <div class="score-row">
+        <div class="dim">Scalability / HA<small>horizontal scale</small></div>
+        <div class="grade g-c">C−</div>
+        <div class="bar-area"><div class="bar"><i style="width:44%;background:var(--warn)"></i></div>
+          <div class="bar-note">Single-instance by design — in-process hub blocks replicas &amp; zero-downtime deploys. Fine at ~900.</div></div>
+      </div>
+      <div class="score-row">
+        <div class="dim">Deployment &amp; ops<small>backups · monitoring · TLS</small></div>
+        <div class="grade g-d">D</div>
+        <div class="bar-area"><div class="bar"><i style="width:32%;background:var(--high)"></i></div>
+          <div class="bar-note">No backups, no metrics/tracing, no resource limits or graceful shutdown. Relies on external AWS infra.</div></div>
+      </div>
+      <div class="score-row">
+        <div class="dim">Automated testing<small>tests &amp; CI</small></div>
+        <div class="grade g-f">F</div>
+        <div class="bar-area"><div class="bar"><i style="width:8%;background:var(--crit)"></i></div>
+          <div class="bar-note">Zero automated tests across ~23k lines. No CI. Two manual bash smoke scripts only.</div></div>
+      </div>
+    </div>
+    <p class="lead-note">Grades reflect production-readiness, not effort or intent. The codebase is
+      notably tidy — no <code>TODO</code>/<code>FIXME</code>/<code>HACK</code> markers anywhere, and
+      unusually well-commented for its size.</p>
+  </section>
+
+  <!-- SECURITY -->
+  <section id="security">
+    <div class="sec-head">
+      <div class="eyebrow">Security posture</div>
+      <h2>A real pen-test — and the findings were taken seriously</h2>
+      <p>The team commissioned an independent third-party penetration test (TSAI, June 2026): 44 pages,
+        20 findings, OWASP + NIST methodology. The headline was a <b>Critical</b> authorization flaw — and
+        a review of the current code shows it and the top High findings <b>already remediated</b> a month later.
+        For a system at this stage, that's an above-average security story to tell.</p>
+    </div>
+
+    <div class="pt-grid">
+      <div class="panel" style="padding:18px 20px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px">
+          <h3 style="font-size:1rem;font-weight:650">Findings &amp; remediation</h3>
+          <span class="mono" style="font-size:.7rem;color:var(--muted)">1C · 4H · 7M · 5L · 3I</span>
+        </div>
+        <div style="overflow-x:auto">
+        <table class="findings">
+          <thead><tr><th>ID</th><th>Sev</th><th>Finding</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td class="id">GB-01</td><td><span class="sev crit">CRIT</span></td>
+              <td>Viewer could dispatch <b>wipe / factory-reset</b> commands — broken function-level authz</td>
+              <td><span class="fix">✓ Fixed</span></td></tr>
+            <tr><td class="id">GB-02</td><td><span class="sev high">HIGH</span></td>
+              <td>Command type not validated against an allowlist</td>
+              <td><span class="fix">✓ Fixed</span></td></tr>
+            <tr><td class="id">GB-03</td><td><span class="sev high">HIGH</span></td>
+              <td>No CSRF protection on command POSTs</td>
+              <td><span class="fix">✓ Fixed</span></td></tr>
+            <tr><td class="id">GB-04</td><td><span class="sev high">HIGH</span></td>
+              <td>Logout didn't invalidate the session server-side</td>
+              <td><span class="fix">✓ Fixed</span></td></tr>
+            <tr><td class="id">F-01</td><td><span class="sev high">HIGH</span></td>
+              <td>Login: no rate-limit / lockout / CSRF token</td>
+              <td><span class="fix">✓ Fixed</span></td></tr>
+            <tr><td class="id">—</td><td><span class="sev med">MED</span></td>
+              <td>Step-up MFA on destructive commands (recommended)</td>
+              <td><span class="fix no">Not done</span></td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p style="font-size:.8rem;color:var(--faint);margin-top:12px">Remediation confirmed by code review;
+          an independent re-test has not yet been recorded.</p>
+      </div>
+
+      <div class="panel" style="padding:18px 20px">
+        <h3 style="font-size:1rem;font-weight:650">Controls the testers credited</h3>
+        <ul class="pos-list">
+          <li>TLS 1.0 / 1.1 correctly rejected</li>
+          <li>HMAC-signed, tamper-resistant session cookies</li>
+          <li>Constant-time login — no user enumeration</li>
+          <li>No SQL injection; path traversal normalized</li>
+          <li>Auth checked before request parsing</li>
+          <li>Admin vs. device API-key separation</li>
+          <li>WebSocket rejects session cookies</li>
+        </ul>
+        <div class="divider" style="margin:16px 0"></div>
+        <p style="font-size:.86rem;color:var(--muted)">The foundations were sound; the flaw was
+          authorization <em>depth</em>. That's the good kind of finding — serious, specific, and
+          cleanly fixable, which is exactly what happened.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- RISKS -->
+  <section id="risks">
+    <div class="sec-head">
+      <div class="eyebrow">Where to focus</div>
+      <h2>Top production-readiness risks, prioritized</h2>
+      <p>None of these are cosmetic, and none require rethinking the product. They're the operational
+        safety net a fleet control-plane needs before "production-grade" is a fair label.</p>
+    </div>
+
+    <div class="risk">
+      <div class="rank">01</div>
+      <div><h3>Zero automated tests &amp; no CI</h3>
+        <p class="why">A regression in command authorization — the exact Critical the pen-test found —
+          could ship undetected and turn a low-privilege account into a fleet-wide wipe. Nothing
+          currently guards it.</p></div>
+      <div class="rsev"><span class="sev crit">CRITICAL</span></div>
+    </div>
+    <div class="risk">
+      <div class="rank">02</div>
+      <div><h3>No database backups or point-in-time recovery</h3>
+        <p class="why">This is the system of record for a 900-device fleet. Today a volume loss or a
+          bad migration has no documented recovery path.</p></div>
+      <div class="rsev"><span class="sev crit">CRITICAL</span></div>
+    </div>
+    <div class="risk">
+      <div class="rank">03</div>
+      <div><h3>Single-instance architecture</h3>
+        <p class="why">The real-time hub lives entirely in one process's memory. There's no horizontal
+          scaling and no zero-downtime deploy path — the control plane is a single point of failure for
+          the whole fleet's live channel. Adequate at ~900 devices; a ceiling beyond.</p></div>
+      <div class="rsev"><span class="sev high">HIGH</span></div>
+    </div>
+    <div class="risk">
+      <div class="rank">04</div>
+      <div><h3>Static, shared, non-rotatable secrets</h3>
+        <p class="why">One fleet-wide device API key with the serial number as the only identity, plus a
+          shared admin key. One leak compromises everything, and there's no per-device revocation or
+          rotation mechanism — the weakest link in an otherwise strong trust model.</p></div>
+      <div class="rsev"><span class="sev high">HIGH</span></div>
+    </div>
+    <div class="risk">
+      <div class="rank">05</div>
+      <div><h3>Thin operational envelope</h3>
+        <p class="why">No graceful shutdown, no metrics/tracing/structured logging, no resource limits,
+          no in-repo TLS or runbooks — production relies on undocumented external AWS infrastructure.</p></div>
+      <div class="rsev"><span class="sev med">MEDIUM</span></div>
+    </div>
+    <div class="risk">
+      <div class="rank">06</div>
+      <div><h3>Two concrete, fixable defects</h3>
+        <p class="why">A migration statement alters <code>release_problems</code> before the table is
+          created — likely breaking a fresh-database install. And the agent's shell allowlist checks only
+          the first token yet runs the whole string via <code>sh -c</code>, so it's bypassable. Both are small, targeted fixes.</p></div>
+      <div class="rsev"><span class="sev med">MEDIUM</span></div>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section id="road">
+    <div class="sec-head">
+      <div class="eyebrow">The plan</div>
+      <h2>Path to production</h2>
+      <p>A phased hardening plan. Nothing here is a rewrite — it's the discipline layer that turns a
+        strong MVP into a system you can stake a business on.</p>
+    </div>
+    <div class="road">
+      <div class="road-col now">
+        <div class="rh">Phase 1 · Must-do</div>
+        <div class="rt">Stop the bleeding</div>
+        <ul>
+          <li>Automated tests around command authorization + a CI pipeline</li>
+          <li>Automated Postgres backups with point-in-time recovery</li>
+          <li>Fix the fresh-install migration bug &amp; the shell-allowlist bypass</li>
+          <li>Add graceful shutdown &amp; HTTP read/write timeouts</li>
+        </ul>
+      </div>
+      <div class="road-col next">
+        <div class="rh">Phase 2 · Hardening</div>
+        <div class="rt">Trust &amp; visibility</div>
+        <ul>
+          <li>Per-device enrollment credentials with rotation/revocation</li>
+          <li>Step-up MFA on destructive commands</li>
+          <li>Metrics, tracing &amp; structured logging; server healthchecks</li>
+          <li>Resource limits, run-as-non-root, documented TLS &amp; runbooks</li>
+        </ul>
+      </div>
+      <div class="road-col later">
+        <div class="rh">Phase 3 · Scale</div>
+        <div class="rt">Grow past one node</div>
+        <ul>
+          <li>External pub/sub (Redis/NATS) to free the real-time hub for HA</li>
+          <li>Partition the high-volume check-ins table</li>
+          <li>Complete the alert matrix (Phase-2 device telemetry)</li>
+          <li>Prune demo scaffolding from served assets; break up the monolith files</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout" style="border-left-color:var(--good);margin-top:26px">
+      <div class="ct" style="color:var(--good)">The one-line takeaway for the room</div>
+      <p style="color:var(--ink-2)">AIO MDM already does the hard product things well — deep fleet control,
+        real OTA with QA sign-off, live remote access, AI assistance, and a pen-tested security model with
+        the serious findings fixed. What stands between it and "production-grade" is a well-scoped
+        operational punch-list, not a redesign.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><span class="wordmark" style="font-size:1rem"><span class="aio">AIO</span><span class="mdm">MDM</span></span> · System Audit</div>
+    <div>Capability &amp; production-readiness review · 06 Jul 2026 · internal engineering</div>
+  </div>
+</footer>

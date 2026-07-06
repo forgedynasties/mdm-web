@@ -7575,7 +7575,8 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"actions-target", "actions-target-rail", "actions-target-audience", "actions-target-split",
 		"action-types", "action-rollout", "action-cockpit",
 		"export", "export-builder", "export-compact", "timesel",
-		"health-pulse", "health-triage", "health-grid":
+		"health-pulse", "health-triage", "health-grid",
+		"audit":
 	default:
 		http.NotFound(w, r)
 		return
