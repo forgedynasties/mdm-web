@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/sha1"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/csv"
@@ -41,23 +40,20 @@ import (
 	"mdm/internal/ws"
 )
 
-// renderCachedHTML renders a template into a buffer, computes its ETag, and
-// writes 304 when the client already has the same version. Used by polling
-// partials to short-circuit unchanged responses.
+// renderCachedHTML renders a template fragment for an htmx swap target. It used
+// to emit an ETag and 304 to short-circuit unchanged polls, but that is a footgun
+// with htmx: a 304 has an empty body, and on any browser that doesn't transparently
+// serve the cached copy (cache disabled, entry evicted, some privacy configs) htmx
+// swaps the empty body IN and blanks the whole region. So it now always returns the
+// full body with no-store — correctness over a few KB of bandwidth on these tiny,
+// frequently-changing fragments.
 func (h *Handler) renderCachedHTML(w http.ResponseWriter, r *http.Request, name string, data any) {
 	var buf bytes.Buffer
 	if err := h.tmpl.ExecuteTemplate(&buf, name, data); err != nil {
 		http.Error(w, "render error", http.StatusInternalServerError)
 		return
 	}
-	sum := sha1.Sum(buf.Bytes())
-	etag := `"` + hex.EncodeToString(sum[:]) + `"`
-	w.Header().Set("ETag", etag)
-	w.Header().Set("Cache-Control", "private, no-cache")
-	if match := r.Header.Get("If-None-Match"); match != "" && match == etag {
-		w.WriteHeader(http.StatusNotModified)
-		return
-	}
+	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Write(buf.Bytes())
 }
