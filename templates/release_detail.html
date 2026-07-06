@@ -491,7 +491,7 @@
 <section class="rel-panel" data-rpanel="problems" hidden>
 <div class="card">
   <div class="card-header">
-    <h3>Problems</h3>
+    <h3>Problems <span class="beta-pill" style="margin-left:6px;">Beta</span></h3>
     <span class="muted small">{{.ProblemSummary.Open}} open{{if gt .ProblemSummary.Blockers 0}} · {{.ProblemSummary.Blockers}} blocker{{if ne .ProblemSummary.Blockers 1}}s{{end}}{{end}} · {{.ProblemSummary.Total}} total</span>
   </div>
   <div style="padding:14px 16px;">
@@ -539,6 +539,7 @@
         <div class="prob-h">
           <span class="prob-sev {{.Severity}}">{{.Severity}}</span>
           <span class="prob-title">{{.Title}}</span>
+          {{if eq .Source "qa"}}<span class="prob-qa" title="Auto-created from a failed QA case; resolves when the case passes">from QA</span>{{end}}
           <span class="prob-status st-{{.Status}}">{{.Status}}</span>
         </div>
         {{if .Description}}<div class="prob-desc">{{.Description}}</div>{{end}}

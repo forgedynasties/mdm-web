@@ -7,13 +7,54 @@
   <span class="ov-date">every action sent across devices</span>
 </div>
 
-<!-- Live region: re-fetches this page and swaps itself in on any command update
-     (SSE below) or every 30s, so in-flight actions move In progress → Completed
-     and the tab counts update without a manual refresh. -->
+{{template "action-history-live" .}}
+
+<script>
+// Client-side search of the current page only. Status, type and pagination are
+// all server-side (tabs + type dropdown + page links carry each other).
+function filterHistory() {
+  var q = (document.getElementById('cmd-search').value || '').toLowerCase();
+  document.querySelectorAll('#cmd-history-table .htrow[data-cmd-type]').forEach(function (r) {
+    r.style.display = (!q || (r.dataset.cmdSearch || '').toLowerCase().indexOf(q) !== -1) ? '' : 'none';
+  });
+}
+// Toast on resend (mirrors the Actions page).
+document.addEventListener('submit', function (evt) {
+  var form = evt.target;
+  if (form && form.tagName === 'FORM' && form.action.indexOf('/resend') !== -1) {
+    setTimeout(function () { if (window.showToast) showToast('Action resent', 'success'); }, 100);
+  }
+});
+
+// Live updates: an SSE feed of action changes drives the #hist-live htmx swap, so
+// actions move In progress → Completed (and counts update) without a refresh.
+// Placed outside #hist-live so the stream is set up once, not re-created per swap.
+(function () {
+  if (!window.EventSource) return;
+  var es = window.mdmStream('/commands/events');
+  es.addEventListener('command-update', function () {
+    document.body.dispatchEvent(new CustomEvent('commands-updated'));
+  });
+})();
+// Re-apply the current search filter to freshly-swapped rows (the input itself is
+// kept across swaps via hx-preserve, but the new rows render unfiltered).
+document.body.addEventListener('htmx:afterSettle', function (e) {
+  if (e.target && e.target.id === 'hist-live') filterHistory();
+});
+</script>
+
+{{template "footer" .}}
+{{end}}
+
+{{/* The live region — tabs + table. Rendered inline on first load, and returned
+     on its own (partial=histlive, see CommandHistory) for the self-refresh swap,
+     so htmx swaps a clean fragment instead of hx-select-ing it out of a full HTML
+     document (which could parse to nothing and blank the region). */}}
+{{define "action-history-live"}}
 <div id="hist-live"
-  hx-get="/commands/history?status={{.Status}}&type={{.FilterType}}&page={{.Page}}"
+  hx-get="/commands/history?status={{.Status}}&type={{.FilterType}}&page={{.Page}}&partial=histlive"
   hx-trigger="commands-updated from:body, every 30s"
-  hx-target="#hist-live" hx-select="#hist-live" hx-swap="outerHTML">
+  hx-target="#hist-live" hx-swap="outerHTML">
 
 <!-- Status context tabs -->
 <div class="hist-tabs">
@@ -76,40 +117,4 @@
   {{end}}
 </div>
 </div><!-- /#hist-live -->
-
-<script>
-// Client-side search of the current page only. Status, type and pagination are
-// all server-side (tabs + type dropdown + page links carry each other).
-function filterHistory() {
-  var q = (document.getElementById('cmd-search').value || '').toLowerCase();
-  document.querySelectorAll('#cmd-history-table .htrow[data-cmd-type]').forEach(function (r) {
-    r.style.display = (!q || (r.dataset.cmdSearch || '').toLowerCase().indexOf(q) !== -1) ? '' : 'none';
-  });
-}
-// Toast on resend (mirrors the Actions page).
-document.addEventListener('submit', function (evt) {
-  var form = evt.target;
-  if (form && form.tagName === 'FORM' && form.action.indexOf('/resend') !== -1) {
-    setTimeout(function () { if (window.showToast) showToast('Action resent', 'success'); }, 100);
-  }
-});
-
-// Live updates: an SSE feed of command changes drives the #hist-live htmx swap,
-// so actions move In progress → Completed (and counts update) without a refresh.
-// Placed outside #hist-live so the stream is set up once, not re-created per swap.
-(function () {
-  if (!window.EventSource) return;
-  var es = window.mdmStream('/commands/events');
-  es.addEventListener('command-update', function () {
-    document.body.dispatchEvent(new CustomEvent('commands-updated'));
-  });
-})();
-// Re-apply the current search filter to freshly-swapped rows (the input itself is
-// kept across swaps via hx-preserve, but the new rows render unfiltered).
-document.body.addEventListener('htmx:afterSettle', function (e) {
-  if (e.target && e.target.id === 'hist-live') filterHistory();
-});
-</script>
-
-{{template "footer" .}}
 {{end}}

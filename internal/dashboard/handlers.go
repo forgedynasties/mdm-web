@@ -5308,9 +5308,22 @@ func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid status", http.StatusBadRequest)
 		return
 	}
-	if err := h.db.SetTestResult(r.Context(), id, caseID, status, strings.TrimSpace(r.FormValue("notes")), h.currentUsername(r)); err != nil {
+	notes := strings.TrimSpace(r.FormValue("notes"))
+	if err := h.db.SetTestResult(r.Context(), id, caseID, status, notes, h.currentUsername(r)); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	// Keep the Problems list in sync with QA (two-way): a failed case opens a
+	// linked problem; passing it later resolves that problem. Best-effort.
+	switch status {
+	case "fail":
+		if err := h.db.UpsertQAProblem(r.Context(), id, caseID, notes, h.currentUsername(r)); err != nil {
+			log.Printf("[qa] upsert problem from fail: %v", err)
+		}
+	case "pass":
+		if err := h.db.ResolveQAProblem(r.Context(), id, caseID); err != nil {
+			log.Printf("[qa] resolve problem on pass: %v", err)
+		}
 	}
 	h.audit(r, "testresult.set", fmt.Sprintf("release %d / %s = %s", id, caseID, status), "")
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
@@ -6179,7 +6192,7 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	targetSerials, _ := h.db.GetCommandTargetSerialsBatch(r.Context(), serialIDs)
 
-	h.render(w, r, "command_history.html", map[string]any{
+	data := map[string]any{
 		"Title":         "History — " + title,
 		"Heading":       title,
 		"Status":        status,
@@ -6195,7 +6208,15 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		"Page":          page,
 		"Total":         total,
 		"TotalPages":    totalPages,
-	})
+	}
+	// The #hist-live self-refresh requests partial=histlive and swaps the returned
+	// fragment directly (no hx-select on a full document, which could parse to
+	// nothing and blank the region). Serve just that block for the refresh.
+	if r.URL.Query().Get("partial") == "histlive" {
+		h.renderCachedHTML(w, r, "action-history-live", h.withRole(r, data))
+		return
+	}
+	h.render(w, r, "command_history.html", data)
 }
 
 // CommandBrowseDevices renders the filtered device picker for the command builder's
