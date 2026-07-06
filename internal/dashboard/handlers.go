@@ -6061,7 +6061,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
 
 	h.render(w, r, "commands.html", map[string]any{
-		"Title":          "Commands",
+		"Title":          "Actions",
 		"Commands":       cmds,
 		"Attention":      attnShown,
 		"InProgress":     progShown,
@@ -6589,7 +6589,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		cmd.ApkURL = ""
 	}
 	h.render(w, r, "command_detail.html", map[string]any{
-		"Title":      "Command " + id.String()[:8],
+		"Title":      "Action " + id.String()[:8],
 		"Command":    cmd,
 		"Deliveries": deliveries,
 		"Stats":      computeDeliveryStats(deliveries),

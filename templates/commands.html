@@ -510,7 +510,7 @@
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
           <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
         </svg>
-        <input type="search" id="cmd-search" class="form-input" style="width:180px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Search type, command, serial…" oninput="filterCommands()">
+        <input type="search" id="cmd-search" class="form-input" style="width:180px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Search type, action, serial…" oninput="filterCommands()">
       </div>
       <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="filterCommands()">
         <option value="">All Types</option>
@@ -633,7 +633,7 @@ document.addEventListener('submit', function(evt) {
   var form = evt.target;
   if (!form || form.tagName !== 'FORM') return;
   if (form.action.indexOf('/resend') !== -1) {
-    setTimeout(function() { if (window.showToast) showToast('Command resent', 'success'); }, 100);
+    setTimeout(function() { if (window.showToast) showToast('Action resent', 'success'); }, 100);
   }
 });
 
@@ -1330,7 +1330,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     {{end}}
     {{if canAdmin .Role}}
     <form action="/commands/{{$c.ID}}/delete" method="POST" hx-confirm="Delete this command? Devices that have not yet received it will no longer get it.">
-      <button type="submit" class="cmd-del" title="Delete command" aria-label="Delete">&times;</button>
+      <button type="submit" class="cmd-del" title="Delete action" aria-label="Delete">&times;</button>
     </form>
     {{end}}
   </div>
