@@ -161,9 +161,16 @@
             <div class="alert-detail-item alert-detail-raw">
               <span class="alert-detail-k">Logs</span>
               {{if eq $lc.Status "fulfilled"}}
-                <div class="alert-logs">
-                  <div class="alert-logs-h">Auto-captured {{$lc.Level}}-level · {{timeSince $lc.CapturedAt}}</div>
+                <div class="alert-logs" data-alert="{{.ID}}">
+                  <div class="alert-logs-h">
+                    <span>Auto-captured {{$lc.Level}}-level · {{timeSince $lc.CapturedAt}}</span>
+                    <span class="alert-logs-acts">
+                      <button type="button" class="lg-btn" onclick="copyLog(this)">Copy</button>
+                      <button type="button" class="lg-btn ai" onclick="analyzeLog(this,'{{.ID}}')">✦ Analyze</button>
+                    </span>
+                  </div>
                   <pre class="logcat-terminal alert-logs-pre">{{colorizeLogcat $lc.Content}}</pre>
+                  <div class="alert-logs-ai" hidden></div>
                 </div>
               {{else}}
                 <span class="alert-detail-v muted"><span class="ws-dot"></span>Capturing device logs… (requested {{timeSince $lc.RequestAt}}{{if ne $lc.Status "pending"}} · sent{{end}})</span>
@@ -265,6 +272,36 @@ function alertUpdateBulk() {
   }
   document.addEventListener('mdm:alerts-update', refresh);
 })();
+
+// Copy the captured log buffer (plain text from the <pre>) to the clipboard.
+function copyLog(btn) {
+  var box = btn.closest('.alert-logs');
+  var pre = box.querySelector('.alert-logs-pre');
+  var text = pre ? pre.innerText : '';
+  navigator.clipboard.writeText(text).then(function () {
+    var old = btn.textContent; btn.textContent = 'Copied ✓';
+    setTimeout(function () { btn.textContent = old; }, 1500);
+  }).catch(function () { btn.textContent = 'Copy failed'; });
+}
+// AI-triage the captured logs for this alert; render the summary inline.
+function analyzeLog(btn, alertId) {
+  var box = btn.closest('.alert-logs');
+  var out = box.querySelector('.alert-logs-ai');
+  out.hidden = false;
+  out.className = 'alert-logs-ai loading';
+  out.textContent = 'Analyzing logs…';
+  btn.disabled = true;
+  fetch('/alerts/' + alertId + '/logcat/analyze', { method: 'POST', headers: { 'X-Requested-With': 'fetch' } })
+    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+    .then(function (res) {
+      btn.disabled = false;
+      if (!res.ok) { out.className = 'alert-logs-ai err'; out.textContent = res.d.error || 'Analysis failed.'; return; }
+      out.className = 'alert-logs-ai';
+      out.innerHTML = '<div class="ai-tag">✦ AI triage · ' + (res.d.model || '') + '</div><div class="ai-body"></div>';
+      out.querySelector('.ai-body').textContent = res.d.text || '';
+    })
+    .catch(function () { btn.disabled = false; out.className = 'alert-logs-ai err'; out.textContent = 'Analysis failed.'; });
+}
 </script>
 
 {{template "footer" .}}
