@@ -89,7 +89,7 @@
       if (path === '/devices') return 'skel-fleet'; // two-column: collections rail + roster
       return 'skel-list'; // history, alerts, users, packages, setup, …
     }
-    var _skelTimer = null;
+    var _skelTimer = null, _navWatchdog = null, _navDest = '';
     document.addEventListener('htmx:beforeRequest', function (e) {
       var d = e.detail || {};
       var verb = (d.requestConfig && d.requestConfig.verb || '').toLowerCase();
@@ -106,11 +106,23 @@
         if (tpl && tpl.content) main.appendChild(tpl.content.cloneNode(true));
         window.scrollTo(0, 0);
       }, 120);
+      // Watchdog: a boosted GET nav must settle (swap/error/abort). If it doesn't —
+      // e.g. the request is aborted or blocked mid-flight (seen in Firefox/Zen),
+      // leaving the page stuck on a skeleton — force a full reload to recover so the
+      // page can never stay blank.
+      _navDest = path;
+      if (_navWatchdog) clearTimeout(_navWatchdog);
+      _navWatchdog = setTimeout(function () {
+        window.location.href = _navDest || window.location.href;
+      }, 8000);
     });
     function mdmCancelSkeleton() { if (_skelTimer) { clearTimeout(_skelTimer); _skelTimer = null; } }
-    document.addEventListener('htmx:beforeSwap', mdmCancelSkeleton);
-    document.addEventListener('htmx:responseError', mdmCancelSkeleton);
-    document.addEventListener('htmx:sendError', mdmCancelSkeleton);
+    function mdmNavSettled() { mdmCancelSkeleton(); if (_navWatchdog) { clearTimeout(_navWatchdog); _navWatchdog = null; } }
+    // Clear on any terminal outcome — including htmx:abort, which Firefox fires on
+    // an aborted request instead of afterRequest.
+    ['htmx:beforeSwap', 'htmx:afterSettle', 'htmx:responseError', 'htmx:sendError', 'htmx:abort', 'htmx:timeout'].forEach(function (ev) {
+      document.addEventListener(ev, mdmNavSettled);
+    });
   </script>
 </head>
 {{/* hx-boost: AJAX-navigate the whole app with no full-page reload. Only <main>
@@ -827,9 +839,12 @@
     });
 
     document.body.addEventListener('htmx:beforeRequest', beginProgress);
-    document.body.addEventListener('htmx:afterRequest', endProgress);
-    document.body.addEventListener('htmx:responseError', endProgress);
-    document.body.addEventListener('htmx:sendError', endProgress);
+    // End on any terminal outcome. htmx:abort/timeout are included so an aborted
+    // request (Firefox fires these instead of afterRequest) never leaves the body
+    // stuck in htmx-requesting-progress.
+    ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError', 'htmx:abort', 'htmx:timeout'].forEach(function (ev) {
+      document.body.addEventListener(ev, endProgress);
+    });
     document.body.addEventListener('htmx:afterSwap', function (evt) {
       var t = evt.detail && evt.detail.target;
       if (!t) return;
