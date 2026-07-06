@@ -98,6 +98,7 @@
   <button class="dd-tab active" type="button" data-rtab="overview" onclick="relDetailTab('overview',this)">Overview</button>
   <button class="dd-tab" type="button" data-rtab="updates" onclick="relDetailTab('updates',this)">Updates{{if .Deployments}} <span class="pill">{{len .Deployments}}</span>{{end}}</button>
   <button class="dd-tab" type="button" data-rtab="qa" onclick="relDetailTab('qa',this)">QA{{if gt .QA.Total 0}} <span class="pill">{{.QA.Pass}}/{{.QA.Total}}</span>{{end}}</button>
+  <button class="dd-tab" type="button" data-rtab="problems" onclick="relDetailTab('problems',this)">Problems{{if gt .ProblemSummary.Open 0}} <span class="pill"{{if gt .ProblemSummary.Blockers 0}} style="background:var(--danger-bg);color:var(--danger)"{{end}}>{{.ProblemSummary.Open}}</span>{{end}}</button>
   <button class="dd-tab" type="button" data-rtab="devices" onclick="relDetailTab('devices',this)">Devices{{if .DevicesOnVersion}} <span class="pill">{{len .DevicesOnVersion}}</span>{{end}}</button>
 </div>
 
@@ -490,6 +491,72 @@
 </div>
 
 </section><!-- /qa -->
+
+<section class="rel-panel" data-rpanel="problems" hidden>
+<div class="card">
+  <div class="card-header">
+    <h3>Problems</h3>
+    <span class="muted small">{{.ProblemSummary.Open}} open{{if gt .ProblemSummary.Blockers 0}} · {{.ProblemSummary.Blockers}} blocker{{if ne .ProblemSummary.Blockers 1}}s{{end}}{{end}} · {{.ProblemSummary.Total}} total</span>
+  </div>
+  <div style="padding:14px 16px;">
+    {{if .CanReport}}
+    <form action="/releases/{{$rel.ID}}/problems" method="POST" class="prob-form">
+      <input name="title" class="form-input" placeholder="What went wrong? (short title)" required maxlength="200">
+      <textarea name="description" class="form-input" rows="3" placeholder="Repro steps, what you saw, paste a relevant log snippet…" style="resize:vertical;"></textarea>
+      <div class="prob-form-row">
+        <select name="severity" class="form-input" title="Severity">
+          <option value="blocker">Blocker</option>
+          <option value="major" selected>Major</option>
+          <option value="minor">Minor</option>
+        </select>
+        <select name="test_case_id" class="form-input" title="Related test case">
+          <option value="">— related test case (optional) —</option>
+          {{range .Checklist}}<option value="{{.ID}}">{{.Title}}</option>{{end}}
+        </select>
+        <input name="device_serial" class="form-input" placeholder="Device serial (optional)" list="prob-devices" autocapitalize="off">
+        <datalist id="prob-devices">{{range .DevicesOnVersion}}<option value="{{.SerialNumber}}"></option>{{end}}</datalist>
+        <button type="submit" class="btn-primary">Report problem</button>
+      </div>
+    </form>
+    {{end}}
+
+    {{if .Problems}}
+    <div class="prob-list">
+      {{range .Problems}}
+      {{$open := not (or (eq .Status "verified") (eq .Status "wontfix"))}}
+      <div class="prob{{if not $open}} closed{{end}}">
+        <div class="prob-h">
+          <span class="prob-sev {{.Severity}}">{{.Severity}}</span>
+          <span class="prob-title">{{.Title}}</span>
+          <span class="prob-status st-{{.Status}}">{{.Status}}</span>
+        </div>
+        {{if .Description}}<div class="prob-desc">{{.Description}}</div>{{end}}
+        <div class="prob-meta">
+          {{if .TestCaseTitle}}case: <b>{{.TestCaseTitle}}</b> · {{end}}
+          {{if .DeviceSerial}}<a href="/devices/{{.DeviceSerial}}" class="link-detail mono">{{.DeviceSerial}}</a> · {{end}}
+          {{if .BuildID}}build {{.BuildID}} · {{end}}{{if .ReportedBy}}{{.ReportedBy}} · {{end}}{{timeSince .CreatedAt}}
+        </div>
+        {{if $.CanReport}}
+        <form action="/releases/{{$rel.ID}}/problems/{{.ID}}" method="POST" class="prob-actions">
+          {{if $open}}
+            <button name="status" value="fixed" class="qa-pill{{if eq .Status "fixed"}} on{{end}}">Fixed</button>
+            <button name="status" value="verified" class="qa-pill pass">Verified ✓</button>
+            <button name="status" value="wontfix" class="qa-pill skip">Won't fix</button>
+          {{else}}
+            <span class="prob-resolved">{{if eq .Status "verified"}}Verified fixed{{else}}Won't fix{{end}}</span>
+            <button name="status" value="open" class="qa-pill">Reopen</button>
+          {{end}}
+        </form>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="empty" style="padding:16px;">No problems reported for this release.{{if .CanReport}} File one above when a test turns up an issue.{{end}}</div>
+    {{end}}
+  </div>
+</div>
+</section><!-- /problems -->
 
 <section class="rel-panel" data-rpanel="devices" hidden>
 

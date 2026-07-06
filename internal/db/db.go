@@ -7235,6 +7235,27 @@ ALTER TABLE apps ADD COLUMN IF NOT EXISTS package_name TEXT NOT NULL DEFAULT '';
 
 -- Freeform operator notes on a device (e.g. "cracked screen", "reserved for QA").
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
+
+-- Structured problem reports filed by testers against a release. A problem is
+-- release-scoped (auto-links the build), optionally references a specific test
+-- case and the device it was seen on, carries a severity + lifecycle status, and
+-- holds freeform detail (repro steps, pasted logs). This is the tracked record
+-- behind a QA "fail" so problems can be handed off, fixed and re-verified.
+CREATE TABLE IF NOT EXISTS release_problems (
+	id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	release_id   INTEGER NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
+	test_case_id UUID REFERENCES test_cases(id) ON DELETE SET NULL,
+	device_id    UUID REFERENCES devices(id) ON DELETE SET NULL,
+	build_id     TEXT NOT NULL DEFAULT '',
+	title        TEXT NOT NULL,
+	description  TEXT NOT NULL DEFAULT '',
+	severity     TEXT NOT NULL DEFAULT 'major',   -- blocker | major | minor
+	status       TEXT NOT NULL DEFAULT 'open',    -- open | fixed | verified | wontfix
+	reported_by  TEXT NOT NULL DEFAULT '',
+	created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_release_problems_release ON release_problems(release_id);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -8448,4 +8469,149 @@ func (d *DB) ReleaseQASummary(ctx context.Context, releaseID int) (QASummary, er
 			      OR (tc.base AND NOT COALESCE((SELECT skip_base_tests FROM releases WHERE id = $1), false)))
 		) c`, releaseID).Scan(&s.Total, &s.Pass, &s.Fail, &s.Blocked, &s.Skip, &s.Untested)
 	return s, err
+}
+
+// ── Release problem reports ───────────────────────────────────────────────────
+
+// ReleaseProblem is a tracked problem a tester filed against a release. TestCase
+// and Device are optional; the joined title/serial are populated for display.
+type ReleaseProblem struct {
+	ID            uuid.UUID
+	ReleaseID     int
+	TestCaseID    *uuid.UUID
+	TestCaseTitle string
+	DeviceID      *uuid.UUID
+	DeviceSerial  string
+	BuildID       string
+	Title         string
+	Description   string
+	Severity      string // blocker | major | minor
+	Status        string // open | fixed | verified | wontfix
+	ReportedBy    string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+// ProblemSummary is the per-release rollup used by badges: how many problems are
+// still open, and how many of those are blockers.
+type ProblemSummary struct {
+	Open     int
+	Blockers int
+	Total    int
+}
+
+var validProblemSeverity = map[string]bool{"blocker": true, "major": true, "minor": true}
+var validProblemStatus = map[string]bool{"open": true, "fixed": true, "verified": true, "wontfix": true}
+
+// A problem still counts as "open" (needs attention) unless it's verified-fixed
+// or explicitly won't-fix.
+func problemIsOpen(status string) bool { return status != "verified" && status != "wontfix" }
+
+// CreateReleaseProblem files a new problem. testCaseID/deviceID may be nil.
+func (d *DB) CreateReleaseProblem(ctx context.Context, p ReleaseProblem) (uuid.UUID, error) {
+	if !validProblemSeverity[p.Severity] {
+		p.Severity = "major"
+	}
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO release_problems
+			(release_id, test_case_id, device_id, build_id, title, description, severity, reported_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+		p.ReleaseID, p.TestCaseID, p.DeviceID, p.BuildID, p.Title, p.Description, p.Severity, p.ReportedBy,
+	).Scan(&id)
+	return id, err
+}
+
+// ListReleaseProblems returns a release's problems, open first then by severity
+// (blocker → minor) and newest, with the joined case title and device serial.
+func (d *DB) ListReleaseProblems(ctx context.Context, releaseID int) ([]ReleaseProblem, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT p.id, p.release_id, p.test_case_id, COALESCE(tc.title, ''),
+		       p.device_id, COALESCE(d.serial_number, ''), p.build_id,
+		       p.title, p.description, p.severity, p.status, p.reported_by,
+		       p.created_at, p.updated_at
+		FROM release_problems p
+		LEFT JOIN test_cases tc ON tc.id = p.test_case_id
+		LEFT JOIN devices d ON d.id = p.device_id
+		WHERE p.release_id = $1
+		ORDER BY
+			(p.status NOT IN ('verified','wontfix')) DESC,
+			CASE p.severity WHEN 'blocker' THEN 0 WHEN 'major' THEN 1 ELSE 2 END,
+			p.created_at DESC`, releaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReleaseProblem
+	for rows.Next() {
+		var p ReleaseProblem
+		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.TestCaseID, &p.TestCaseTitle,
+			&p.DeviceID, &p.DeviceSerial, &p.BuildID, &p.Title, &p.Description,
+			&p.Severity, &p.Status, &p.ReportedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// UpdateReleaseProblem changes a problem's status and/or severity. Empty values
+// leave the corresponding field unchanged.
+func (d *DB) UpdateReleaseProblem(ctx context.Context, id uuid.UUID, status, severity string) error {
+	if status != "" && !validProblemStatus[status] {
+		return fmt.Errorf("invalid status %q", status)
+	}
+	if severity != "" && !validProblemSeverity[severity] {
+		return fmt.Errorf("invalid severity %q", severity)
+	}
+	_, err := d.pool.Exec(ctx, `
+		UPDATE release_problems
+		SET status   = COALESCE(NULLIF($2, ''), status),
+		    severity = COALESCE(NULLIF($3, ''), severity),
+		    updated_at = NOW()
+		WHERE id = $1`, id, status, severity)
+	return err
+}
+
+// DeleteReleaseProblem removes a problem outright (admin only).
+func (d *DB) DeleteReleaseProblem(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM release_problems WHERE id = $1`, id)
+	return err
+}
+
+// ReleaseProblemSummary returns the open/blocker/total counts for one release.
+func (d *DB) ReleaseProblemSummary(ctx context.Context, releaseID int) (ProblemSummary, error) {
+	var s ProblemSummary
+	err := d.pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE status NOT IN ('verified','wontfix')),
+			COUNT(*) FILTER (WHERE status NOT IN ('verified','wontfix') AND severity='blocker'),
+			COUNT(*)
+		FROM release_problems WHERE release_id = $1`, releaseID).Scan(&s.Open, &s.Blockers, &s.Total)
+	return s, err
+}
+
+// ProblemSummariesByRelease returns the per-release problem rollup for every
+// release in one query, for the releases list badges (avoids an N+1).
+func (d *DB) ProblemSummariesByRelease(ctx context.Context) (map[int]ProblemSummary, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT release_id,
+			COUNT(*) FILTER (WHERE status NOT IN ('verified','wontfix')),
+			COUNT(*) FILTER (WHERE status NOT IN ('verified','wontfix') AND severity='blocker'),
+			COUNT(*)
+		FROM release_problems GROUP BY release_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int]ProblemSummary)
+	for rows.Next() {
+		var rid int
+		var s ProblemSummary
+		if err := rows.Scan(&rid, &s.Open, &s.Blockers, &s.Total); err != nil {
+			return nil, err
+		}
+		out[rid] = s
+	}
+	return out, rows.Err()
 }

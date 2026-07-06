@@ -4580,8 +4580,9 @@ type versionRow struct {
 	DeviceCount  int
 	PackageCount int
 	DeployCount  int
-	QA           db.QASummary // QA/test status; zero value (Total 0) when not tracked
-	SignedOffBy  string       // dev who signed off ("" = not signed off)
+	QA           db.QASummary       // QA/test status; zero value (Total 0) when not tracked
+	Problems     db.ProblemSummary  // open/blocker problem counts for the tracked release
+	SignedOffBy  string             // dev who signed off ("" = not signed off)
 	SignedOffAt  *time.Time
 	QfilURL      string // newest active QFIL flashing bundle URL ("" = none set)
 }
@@ -4605,6 +4606,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	// version-centric table (fleet versions come pre-sorted by adoption desc).
 	fleet, _ := h.db.GetFleetVersions(r.Context())
 	hiddenVersions, _ := h.db.ListHiddenVersions(r.Context())
+	problemsByRelease, _ := h.db.ProblemSummariesByRelease(r.Context())
 	relByVersion := make(map[string]db.Release, len(releases))
 	for _, rel := range releases {
 		relByVersion[rel.Version] = rel
@@ -4634,6 +4636,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
 			row.SignedOffBy, row.SignedOffAt = rel.SignedOffBy, rel.SignedOffAt
 			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
+			row.Problems = problemsByRelease[rel.ID]
 			row.QfilURL = h.latestQfilURL(r, rel.ID)
 		} else {
 			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
@@ -4651,8 +4654,9 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			Version: rel.Version, Tracked: true, ReleaseID: &id, Name: rel.Name,
 			Status: rel.Status, Hidden: rel.Hidden,
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
+			Problems:    problemsByRelease[rel.ID],
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
-			QfilURL: h.latestQfilURL(r, rel.ID),
+			QfilURL:     h.latestQfilURL(r, rel.ID),
 		})
 	}
 	// Default order is alphabetical by version; any saved manual (drag) order takes
@@ -5026,6 +5030,8 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 
 	checklist, _ := h.db.GetReleaseChecklist(r.Context(), id)
 	qa, _ := h.db.ReleaseQASummary(r.Context(), id)
+	problems, _ := h.db.ListReleaseProblems(r.Context(), id)
+	problemSummary, _ := h.db.ReleaseProblemSummary(r.Context(), id)
 
 	connected := h.hub.ConnectedIDs()
 	online := make(map[uuid.UUID]bool, len(connected))
@@ -5050,7 +5056,99 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"Checklist":           checklist,
 		"QA":                  qa,
 		"CanRecord":           role == "tester",
+		"Problems":            problems,
+		"ProblemSummary":      problemSummary,
+		"CanReport":           canOp, // admin/dev/operator/tester can file & triage problems
 	})
+}
+
+// ReleaseProblemCreate files a new problem report against a release. Any operator
+// or tester (canOperate) can report; the build is snapshotted from the release.
+func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	rel, err := h.db.GetRelease(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	title := strings.TrimSpace(r.FormValue("title"))
+	if title == "" {
+		http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
+		return
+	}
+	p := db.ReleaseProblem{
+		ReleaseID:   id,
+		BuildID:     rel.Version,
+		Title:       title,
+		Description: strings.TrimSpace(r.FormValue("description")),
+		Severity:    r.FormValue("severity"),
+		ReportedBy:  h.currentUsername(r),
+	}
+	if tc := strings.TrimSpace(r.FormValue("test_case_id")); tc != "" {
+		if tcid, err := uuid.Parse(tc); err == nil {
+			p.TestCaseID = &tcid
+		}
+	}
+	// Device is picked by serial (the QA-relevant identifier).
+	if serial := strings.TrimSpace(r.FormValue("device_serial")); serial != "" {
+		if dev, err := h.db.GetDevice(r.Context(), serial); err == nil {
+			p.DeviceID = &dev.ID
+			if p.BuildID == "" {
+				p.BuildID = dev.BuildID
+			}
+		}
+	}
+	if _, err := h.db.CreateReleaseProblem(r.Context(), p); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.problem.create", rel.Version, fmt.Sprintf("severity=%s, title=%s", p.Severity, title))
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
+}
+
+// ReleaseProblemUpdate changes a problem's status (and optionally severity).
+func (h *Handler) ReleaseProblemUpdate(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	pid, err := uuid.Parse(r.PathValue("pid"))
+	if err != nil {
+		http.Error(w, "Invalid problem ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	if err := h.db.UpdateReleaseProblem(r.Context(), pid, r.FormValue("status"), r.FormValue("severity")); err != nil {
+		http.Error(w, "Bad request", http.StatusBadRequest)
+		return
+	}
+	h.audit(r, "release.problem.update", strconv.Itoa(id), fmt.Sprintf("problem=%s, status=%s", pid, r.FormValue("status")))
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
+}
+
+// ReleaseProblemDelete removes a problem (admin only).
+func (h *Handler) ReleaseProblemDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	pid, err := uuid.Parse(r.PathValue("pid"))
+	if err != nil {
+		http.Error(w, "Invalid problem ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteReleaseProblem(r.Context(), pid); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
 }
 
 // ReleasePublish moves a release to published (deployable).
@@ -9359,6 +9457,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
 	post("POST /releases/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
+	// Problem reports: any operator/tester can file and triage; admins can delete.
+	post("POST /releases/{id}/problems", h.requireOperatorOrAdmin(h.ReleaseProblemCreate))
+	post("POST /releases/{id}/problems/{pid}", h.requireOperatorOrAdmin(h.ReleaseProblemUpdate))
+	post("POST /releases/{id}/problems/{pid}/delete", h.requireAdmin(h.ReleaseProblemDelete))
 
 	// Test team / QA — base cases are managed inline on the Releases page (admin),
 	// testers mark results per-release. No standalone Testing/Test-cases pages.

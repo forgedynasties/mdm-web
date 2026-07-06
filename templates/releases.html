@@ -48,6 +48,7 @@
             {{else if .QA.Passed}}<span class="rchip ok" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} ✓</span>
             {{else}}<span class="rchip qa" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} · {{.QA.Untested}} left</span>{{end}}
           {{end}}
+          {{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}{{if gt .Problems.Blockers 0}} · {{.Problems.Blockers}} blocker{{if ne .Problems.Blockers 1}}s{{end}}{{end}} · {{.Problems.Total}} total">{{if gt .Problems.Blockers 0}}⚠ {{end}}{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}
           {{if .SignedOffBy}}<span class="rchip ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="rchip warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
         {{end}}
       </div>

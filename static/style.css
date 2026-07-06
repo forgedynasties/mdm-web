@@ -5088,6 +5088,31 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .qa-add { padding: 14px 18px; border-top: 1px solid var(--border-soft); }
 @media (max-width: 720px) { .qa-row { grid-template-columns: auto 1fr; } .qa-rec { grid-column: 1 / -1; justify-content: flex-start; } }
 
+/* Release problem reports */
+.prob-form { display: flex; flex-direction: column; gap: 8px; padding: 14px; margin-bottom: 16px; background: var(--surface-2, var(--surface)); border: 1px solid var(--border); border-radius: 12px; }
+.prob-form-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.prob-form-row .form-input { flex: 1; min-width: 140px; }
+.prob-form-row select.form-input { flex: 0 1 auto; }
+.prob-list { display: flex; flex-direction: column; gap: 10px; }
+.prob { padding: 12px 14px; border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px; }
+.prob.closed { opacity: .62; }
+.prob-h { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.prob-title { font-weight: 600; font-size: 14px; flex: 1; min-width: 0; }
+.prob-sev { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 2px 7px; border-radius: 99px; }
+.prob-sev.blocker { background: var(--danger-bg); color: var(--danger); }
+.prob-sev.major   { background: var(--warn-bg); color: #9a6512; }
+.prob-sev.minor   { background: var(--surface-3); color: var(--muted); }
+.prob:has(.prob-sev.blocker) { border-left-color: var(--danger); }
+.prob:has(.prob-sev.major)   { border-left-color: var(--warn); }
+.prob-status { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 99px; background: var(--surface-3); color: var(--muted); }
+.prob-status.st-open { background: var(--accent-soft); color: var(--accent); }
+.prob-status.st-fixed { background: var(--warn-bg); color: #9a6512; }
+.prob-status.st-verified { background: var(--ok-bg); color: var(--ok); }
+.prob-desc { font-size: 13px; line-height: 1.5; color: var(--fg); white-space: pre-wrap; word-break: break-word; margin: 8px 0 6px; }
+.prob-meta { font-size: 11.5px; color: var(--text-faint); }
+.prob-actions { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
+.prob-resolved { font-size: 12px; color: var(--muted); margin-right: auto; }
+
 /* device detail: Install app form (Applications tab) */
 .app-install { border-bottom: 1px solid var(--border-soft); }
 .app-install[hidden] { display: none; }
