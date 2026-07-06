@@ -411,6 +411,22 @@ func (c *Client) SuggestLogcat(ctx context.Context, problem string) (string, Usa
 	return c.complete(ctx, logcatSystem, user)
 }
 
+const logAnalyzeSystem = `You are an Android fleet-support engineer triaging device logs (logcat and DropBox crash/ANR/tombstone dumps). Given a raw log buffer, reply in plain text with exactly these three short lines, no preamble:
+What happened: <the key error or crash, one line>
+Likely cause: <the most probable root cause, one line>
+Next step: <one concrete action for the operator, one line>
+Be terse and specific — name the package/component and exception if present. If the log shows no clear problem, say "No obvious error in this buffer."`
+
+// AnalyzeLog gives a short operator-facing triage of a raw logcat/crash buffer.
+// The buffer is tail-capped so the prompt stays bounded on huge captures.
+func (c *Client) AnalyzeLog(ctx context.Context, content string) (string, Usage, error) {
+	content = strings.TrimSpace(content)
+	if len(content) > 12000 {
+		content = "…(truncated)…\n" + content[len(content)-12000:]
+	}
+	return c.complete(ctx, logAnalyzeSystem, "Log buffer:\n\n"+content)
+}
+
 // ParseLogcatSuggestion extracts a LogcatSuggestion from the model's response,
 // tolerating ```json fences, and clamps the fields to the capture form's limits.
 // ok is false if the text isn't usable JSON.

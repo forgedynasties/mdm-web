@@ -4064,8 +4064,19 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 }
 /* Auto-captured crash logs shown inside an alert's detail row. */
 .alert-logs { width: 100%; }
-.alert-logs-h { font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 6px; }
+.alert-logs-h { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 6px; }
+.alert-logs-acts { display: flex; gap: 6px; }
+.lg-btn { font: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 7px; padding: 3px 9px; cursor: pointer; }
+.lg-btn:hover { border-color: var(--accent-edge); color: var(--accent); }
+.lg-btn.ai { color: var(--accent-2); border-color: var(--accent-2-soft); background: var(--accent-2-soft); }
+.lg-btn.ai:hover { color: var(--accent-2); }
+.lg-btn:disabled { opacity: .6; cursor: default; }
 .alert-logs-pre { max-height: 320px; overflow: auto; margin: 0; }
+.alert-logs-ai { margin-top: 10px; border: 1px solid var(--accent-2-soft); background: var(--accent-2-soft); border-radius: 10px; padding: 11px 13px; }
+.alert-logs-ai.loading { color: var(--muted); font-size: 13px; }
+.alert-logs-ai.err { border-color: var(--danger-bg); background: var(--danger-bg); color: var(--danger); font-size: 13px; }
+.alert-logs-ai .ai-tag { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent-2); margin-bottom: 6px; }
+.alert-logs-ai .ai-body { font-size: 13px; line-height: 1.6; color: var(--fg); white-space: pre-wrap; }
 
 /* De-emphasized destructive text button (Clear all). */
 .btn-link-danger {
