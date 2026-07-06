@@ -28,6 +28,7 @@
     <thead>
       <tr>
         <th>Name</th>
+        <th>Package</th>
         <th>APK URL</th>
         <th>Added</th>
         <th></th>
@@ -38,9 +39,13 @@
         {{range .Apps}}
         <tr>
           <td class="bold">{{.Name}}</td>
+          <td class="mono small muted">{{if .PackageName}}{{.PackageName}}{{else}}<span class="muted" title="Set a package name so installs can skip devices that already have this app">—</span>{{end}}</td>
           <td class="mono small muted extra-cell">{{.ApkURL}}</td>
           <td class="muted small">{{localTime .CreatedAt}}</td>
-          <td>
+          <td style="white-space:nowrap;">
+            <button type="button" class="btn-outline btn-danger-sm" style="color:var(--fg);"
+              data-id="{{.ID}}" data-name="{{.Name}}" data-apk="{{.ApkURL}}" data-pkg="{{.PackageName}}"
+              onclick="openEditAppModal(this)">Edit</button>
             <form action="/setup/apps/{{.ID}}/delete" method="POST" style="display:inline;">
               <button type="submit" class="btn-danger-sm">Delete</button>
             </form>
@@ -49,7 +54,7 @@
         {{end}}
       {{else}}
         <tr>
-          <td colspan="4" class="empty">No apps added yet.</td>
+          <td colspan="5" class="empty">No apps added yet.</td>
         </tr>
       {{end}}
     </tbody>
@@ -60,20 +65,25 @@
 <div id="repository-app-modal" class="modal-backdrop" onclick="closeRepositoryAppModal(event)">
   <div class="modal-box">
     <div class="modal-header">
-      <span class="modal-title">Add App</span>
+      <span class="modal-title" id="repository-app-title">Add App</span>
       <button class="modal-close" aria-label="Close" type="button" onclick="closeRepositoryAppModal()">&times;</button>
     </div>
-    <form action="/setup/apps" method="POST" class="modal-body">
+    <form action="/setup/apps" method="POST" class="modal-body" id="repository-app-form">
       <div class="form-row">
         <label class="form-label">App Name</label>
         <input type="text" name="name" id="repository-app-name" placeholder="My App" class="form-input" required>
       </div>
       <div class="form-row">
+        <label class="form-label">Package name <span class="muted small" style="font-weight:400;">— e.g. com.example.app</span></label>
+        <input type="text" name="package_name" id="repository-app-pkg" placeholder="com.example.app" class="form-input mono" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <div class="muted small" style="margin-top:4px;">Optional, but recommended: lets installs skip devices that already have this app instead of re-downloading it.</div>
+      </div>
+      <div class="form-row">
         <label class="form-label">APK URL</label>
-        <input type="url" name="apk_url" placeholder="https://example.com/app.apk" class="form-input" required>
+        <input type="url" name="apk_url" id="repository-app-apk" placeholder="https://example.com/app.apk" class="form-input" required>
       </div>
       <div>
-        <button type="submit" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add App</button>
+        <button type="submit" class="btn-primary" id="repository-app-submit"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add App</button>
       </div>
     </form>
   </div>
@@ -83,9 +93,31 @@
 function openRepositoryAppModal() {
   var modal = document.getElementById('repository-app-modal');
   if (!modal) return;
+  // Reset to "add" mode.
+  document.getElementById('repository-app-form').action = '/setup/apps';
+  document.getElementById('repository-app-title').textContent = 'Add App';
+  document.getElementById('repository-app-submit').lastChild.textContent = 'Add App';
+  document.getElementById('repository-app-name').value = '';
+  document.getElementById('repository-app-pkg').value = '';
+  document.getElementById('repository-app-apk').value = '';
   modal.classList.add('modal-open');
   var input = document.getElementById('repository-app-name');
   if (input) setTimeout(function() { input.focus(); }, 0);
+}
+
+// Reuse the same modal for editing: prefill fields and point the form at the
+// app's edit endpoint.
+function openEditAppModal(btn) {
+  var modal = document.getElementById('repository-app-modal');
+  if (!modal) return;
+  document.getElementById('repository-app-form').action = '/setup/apps/' + btn.dataset.id + '/edit';
+  document.getElementById('repository-app-title').textContent = 'Edit App';
+  document.getElementById('repository-app-submit').lastChild.textContent = 'Save';
+  document.getElementById('repository-app-name').value = btn.dataset.name || '';
+  document.getElementById('repository-app-pkg').value = btn.dataset.pkg || '';
+  document.getElementById('repository-app-apk').value = btn.dataset.apk || '';
+  modal.classList.add('modal-open');
+  setTimeout(function() { document.getElementById('repository-app-name').focus(); }, 0);
 }
 
 function closeRepositoryAppModal(e) {

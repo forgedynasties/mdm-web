@@ -308,6 +308,10 @@
           {{else}}
             <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span class="txt">No apps in your library yet.{{if canAdmin .Role}} <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button> — upload an APK or paste a URL, then pick it here.{{else}} Ask an admin to add one.{{end}}</span></div>
           {{end}}
+          <label class="reinstall-opt" style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--muted);cursor:pointer;">
+            <input type="checkbox" name="reinstall" value="1">
+            Reinstall anyway — install even on devices that already have this app (for updates or repairs)
+          </label>
         </div>
 
         <!-- Uninstall -->
@@ -578,6 +582,11 @@
       <div class="form-row" style="margin-bottom:12px;">
         <label class="form-label">App Name</label>
         <input type="text" id="new-app-name" class="form-input" placeholder="My App">
+      </div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <label class="form-label">Package name <span class="muted small" style="font-weight:400;">— e.g. com.example.app</span></label>
+        <input type="text" id="new-app-pkg" class="form-input" style="font-family:var(--mono)" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="com.example.app">
+        <div class="muted small" style="margin-top:4px;">Optional — lets installs skip devices that already have this app.</div>
       </div>
       <div class="form-row" style="margin-bottom:16px;">
         <label class="form-label">APK URL</label>
@@ -1056,6 +1065,7 @@ document.addEventListener('keydown', function(e) {
 
 function openAppModal() {
   document.getElementById('new-app-name').value = '';
+  document.getElementById('new-app-pkg').value  = '';
   document.getElementById('new-app-url').value  = '';
   document.getElementById('app-modal-error').style.display = 'none';
   document.getElementById('app-modal').classList.add('modal-open');
@@ -1075,13 +1085,14 @@ document.addEventListener('keydown', function(e) {
 async function saveNewApp() {
   var name   = document.getElementById('new-app-name').value.trim();
   var apkURL = document.getElementById('new-app-url').value.trim();
+  var pkg    = document.getElementById('new-app-pkg').value.trim();
   var errEl  = document.getElementById('app-modal-error');
   if (!name || !apkURL) {
-    errEl.textContent = 'Both fields are required.';
+    errEl.textContent = 'Name and APK URL are required.';
     errEl.style.display = '';
     return;
   }
-  var body = new URLSearchParams({ name, apk_url: apkURL });
+  var body = new URLSearchParams({ name, apk_url: apkURL, package_name: pkg });
   var res  = await fetch('/setup/apps/create', { method: 'POST', body });
   if (!res.ok) {
     errEl.textContent = 'Failed to save app. Try again.';
