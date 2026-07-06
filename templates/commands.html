@@ -226,13 +226,6 @@
 .cmd-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 4px 3px 9px;border-radius:14px;background:var(--accent-soft);color:var(--text);font-size:12px;font-family:var(--mono);}
 .cmd-chip button{border:none;background:none;cursor:pointer;color:var(--muted);font-size:15px;line-height:1;padding:0 2px;}
 .cmd-chip button:hover{color:#d82747;}
-/* Editable list of chosen device serials */
-.cmd-picked{margin:8px 0 4px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);max-height:190px;overflow:auto;}
-.cmd-picked-h{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 11px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
-.cmd-picked-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 11px;font-size:12.5px;border-top:1px solid var(--border-soft);}
-.cmd-picked-row:first-of-type{border-top:0;}
-.cmd-picked-x{border:none;background:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0 4px;}
-.cmd-picked-x:hover{color:#d82747;}
 .shell-suggest{margin-top:12px;}
 .suggest-lbl{font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin:10px 0 5px;}
 .suggest-row{display:flex;flex-wrap:wrap;gap:6px;}
@@ -474,7 +467,6 @@
                   <button type="button" class="btn-link small" onclick="cmdSetSerials([])">Clear</button>
                   <span class="sd-count"><b id="cmd-sel-count">0</b> picked</span>
                 </div>
-                <div id="cmd-chips" class="cmd-picked" hidden></div>
                 <div id="cmd-device-browser" class="scope-dev-list"
                      hx-get="/commands/browse-devices" hx-select="unset" hx-trigger="load"
                      hx-target="#cmd-device-browser" hx-swap="innerHTML">{{template "skel-rows" .}}</div>
@@ -795,7 +787,6 @@ function cmdSetSerials(list) {
   (list || []).forEach(function (s) { s = String(s).trim(); if (s && !seen[s]) { seen[s] = 1; out.push(s); } });
   document.getElementById('cmd-serials').value = out.join('\n');
   var ct = document.getElementById('cmd-sel-count'); if (ct) ct.textContent = out.length;
-  cmdRenderChips();
   cmdSyncBrowserChecks();
   applyTarget();
 }
@@ -811,35 +802,27 @@ function cmdAddSerial(raw) {
 function cmdRemoveSerial(s) {
   cmdSetSerials(cmdSerials().filter(function (x) { return x !== s; }));
 }
-// Editable list of the chosen device serials: one row per serial with a remove
-// button, so you can see and prune exactly what's targeted (not just a count).
 function cmdRenderChips() {
   var box = document.getElementById('cmd-chips');
   if (!box) return;
-  var serials = cmdSerials();
   box.innerHTML = '';
-  box.hidden = serials.length === 0;
-  if (!serials.length) return;
-  var head = document.createElement('div');
-  head.className = 'cmd-picked-h';
-  head.innerHTML = '<span>Selected ' + serials.length + '</span>';
-  var clr = document.createElement('button');
-  clr.type = 'button'; clr.className = 'btn-link small'; clr.textContent = 'Clear all';
-  clr.onclick = function () { cmdSetSerials([]); };
-  head.appendChild(clr);
-  box.appendChild(head);
-  serials.forEach(function (s) {
-    var row = document.createElement('div');
-    row.className = 'cmd-picked-row';
-    var name = document.createElement('span');
-    name.className = 'mono'; name.textContent = s;
-    var b = document.createElement('button');
-    b.type = 'button'; b.className = 'cmd-picked-x'; b.textContent = '×';
-    b.setAttribute('aria-label', 'Remove ' + s);
-    b.onclick = function () { cmdRemoveSerial(s); };
-    row.appendChild(name); row.appendChild(b);
-    box.appendChild(row);
-  });
+  var serials = cmdSerials();
+  if (!serials.length) {
+    box.innerHTML = '<div class="muted small" style="padding:6px 2px;">No devices selected. Add them from the left.</div>';
+  } else {
+    serials.forEach(function (s) {
+      var chip = document.createElement('span');
+      chip.className = 'cmd-chip';
+      chip.appendChild(document.createTextNode(s));
+      var b = document.createElement('button');
+      b.type = 'button'; b.textContent = '×'; b.setAttribute('aria-label', 'Remove ' + s);
+      b.onclick = function () { cmdRemoveSerial(s); };
+      chip.appendChild(b);
+      box.appendChild(chip);
+    });
+  }
+  var c = document.getElementById('cmd-sel-count'); if (c) c.textContent = serials.length;
+  cmdSyncBrowserChecks();
 }
 
 // ── Filtered device browser (same filters as the Devices list / new-group browse) ──
