@@ -6959,21 +6959,38 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		targetIDs = ids
 	}
 
-	// Don't pile up installs: drop target devices that already have this exact APK
-	// in flight (pending/delivered). "all" is already resolved to device IDs above,
+	// Don't pile up installs. Drop target devices that (a) already have this exact
+	// APK in flight (pending/delivered), or (b) already report the app's package
+	// installed — unless the operator ticks "Reinstall anyway" to force a
+	// same-package update or repair. "all" is already resolved to device IDs above,
 	// so this covers both "all" and "devices"; group targets collapse at delivery.
 	var skippedSerials []string
 	if cmdType == "install_apk" && targetType == "devices" && len(targetIDs) > 0 {
+		skip := make(map[uuid.UUID]bool)
 		inflight, err := h.db.DevicesWithPendingInstall(r.Context(), apkURL, targetIDs)
 		if err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		if len(inflight) > 0 {
+		for id := range inflight {
+			skip[id] = true
+		}
+		reinstall := r.FormValue("reinstall") != ""
+		if !reinstall {
+			installed, err := h.db.DevicesWithPackageInstalled(r.Context(), apkURL, targetIDs)
+			if err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+			for id := range installed {
+				skip[id] = true
+			}
+		}
+		if len(skip) > 0 {
 			fresh := make([]uuid.UUID, 0, len(targetIDs))
 			var skippedIDs []uuid.UUID
 			for _, id := range targetIDs {
-				if inflight[id] {
+				if skip[id] {
 					skippedIDs = append(skippedIDs, id)
 				} else {
 					fresh = append(fresh, id)
@@ -6986,8 +7003,8 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			}
 			targetIDs = fresh
 			if len(targetIDs) == 0 {
-				h.audit(r, "command.send.skip", cmdType, fmt.Sprintf("all %d target(s) already installing this app", len(skippedIDs)))
-				h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape("All selected device(s) are already installing this app — nothing queued.")+"&flash_type=info")
+				h.audit(r, "command.send.skip", cmdType, fmt.Sprintf("all %d target(s) already have or are installing this app", len(skippedIDs)))
+				h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape("All selected device(s) already have this app or are installing it — nothing queued. Tick “Reinstall anyway” to force.")+"&flash_type=info")
 				return
 			}
 		}
@@ -7012,7 +7029,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	dest := "/commands/" + cmd.ID.String()
 	if n := len(skippedSerials); n > 0 {
-		msg := fmt.Sprintf("Sent to %d device(s). Skipped %d already installing this app: %s", len(targetIDs), n, strings.Join(skippedSerials, ", "))
+		msg := fmt.Sprintf("Sent to %d device(s). Skipped %d that already have or are installing this app: %s", len(targetIDs), n, strings.Join(skippedSerials, ", "))
 		dest += "?flash=" + url.QueryEscape(msg) + "&flash_type=info"
 	}
 	h.hxRedirect(w, r, dest)
@@ -7317,11 +7334,12 @@ func (h *Handler) SetupCreateApp(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	name := strings.TrimSpace(r.FormValue("name"))
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	pkg := strings.TrimSpace(r.FormValue("package_name"))
 	if name == "" || apkURL == "" {
 		http.Redirect(w, r, "/setup", http.StatusFound)
 		return
 	}
-	if _, err := h.db.CreateApp(r.Context(), name, apkURL); err != nil {
+	if _, err := h.db.CreateApp(r.Context(), name, apkURL, pkg); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -7332,17 +7350,40 @@ func (h *Handler) SetupCreateAppJSON(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	name := strings.TrimSpace(r.FormValue("name"))
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	pkg := strings.TrimSpace(r.FormValue("package_name"))
 	if name == "" || apkURL == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	app, err := h.db.CreateApp(r.Context(), name, apkURL)
+	app, err := h.db.CreateApp(r.Context(), name, apkURL, pkg)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(app)
+}
+
+// SetupUpdateApp edits an existing repository app (name, APK URL, package name).
+func (h *Handler) SetupUpdateApp(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid app ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	pkg := strings.TrimSpace(r.FormValue("package_name"))
+	if name == "" || apkURL == "" {
+		http.Redirect(w, r, "/setup", http.StatusFound)
+		return
+	}
+	if _, err := h.db.UpdateApp(r.Context(), id, name, apkURL, pkg); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	http.Redirect(w, r, "/setup", http.StatusFound)
 }
 
 func (h *Handler) SetupDeleteApp(w http.ResponseWriter, r *http.Request) {
@@ -9260,6 +9301,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
+	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 
 	mux.HandleFunc("GET /releases", h.requireAdminOrTester(h.ReleaseList))
