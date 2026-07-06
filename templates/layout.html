@@ -89,7 +89,22 @@
       if (path === '/devices') return 'skel-fleet'; // two-column: collections rail + roster
       return 'skel-list'; // history, alerts, users, packages, setup, …
     }
-    var _skelTimer = null, _navWatchdog = null, _navDest = '';
+    var _skelTimer = null, _navWatchdog = null, _navDest = '', _navActive = false;
+    function mdmCancelSkeleton() { if (_skelTimer) { clearTimeout(_skelTimer); _skelTimer = null; } }
+    function mdmClearWatchdog() { if (_navWatchdog) { clearTimeout(_navWatchdog); _navWatchdog = null; } }
+    // A boosted <main> GET nav that RECOVERS to real content (beforeSwap/afterSettle):
+    // clear the skeleton timer + watchdog, nav is done.
+    function mdmNavOk() { mdmCancelSkeleton(); mdmClearWatchdog(); _navActive = false; }
+    // A boosted <main> GET nav that FAILED (aborted/errored/timed out — Firefox fires
+    // htmx:abort instead of afterRequest): the page is stuck on a skeleton, so recover
+    // immediately with a full load of the destination. Guarded by _navActive so an
+    // aborted polling partial doesn't trigger a reload.
+    function mdmNavFail() {
+      mdmCancelSkeleton(); mdmClearWatchdog();
+      if (!_navActive) return;
+      _navActive = false;
+      window.location.href = _navDest || window.location.href;
+    }
     document.addEventListener('htmx:beforeRequest', function (e) {
       var d = e.detail || {};
       var verb = (d.requestConfig && d.requestConfig.verb || '').toLowerCase();
@@ -106,22 +121,16 @@
         if (tpl && tpl.content) main.appendChild(tpl.content.cloneNode(true));
         window.scrollTo(0, 0);
       }, 120);
-      // Watchdog: a boosted GET nav must settle (swap/error/abort). If it doesn't —
-      // e.g. the request is aborted or blocked mid-flight (seen in Firefox/Zen),
-      // leaving the page stuck on a skeleton — force a full reload to recover so the
-      // page can never stay blank.
-      _navDest = path;
-      if (_navWatchdog) clearTimeout(_navWatchdog);
-      _navWatchdog = setTimeout(function () {
-        window.location.href = _navDest || window.location.href;
-      }, 8000);
+      // Watchdog: if the nav neither succeeds nor fires a failure event within 8s
+      // (hung request), force a full reload so the page can never stay blank.
+      _navActive = true; _navDest = path;
+      mdmClearWatchdog();
+      _navWatchdog = setTimeout(function () { if (_navActive) { _navActive = false; window.location.href = _navDest || window.location.href; } }, 8000);
     });
-    function mdmCancelSkeleton() { if (_skelTimer) { clearTimeout(_skelTimer); _skelTimer = null; } }
-    function mdmNavSettled() { mdmCancelSkeleton(); if (_navWatchdog) { clearTimeout(_navWatchdog); _navWatchdog = null; } }
-    // Clear on any terminal outcome — including htmx:abort, which Firefox fires on
-    // an aborted request instead of afterRequest.
-    ['htmx:beforeSwap', 'htmx:afterSettle', 'htmx:responseError', 'htmx:sendError', 'htmx:abort', 'htmx:timeout'].forEach(function (ev) {
-      document.addEventListener(ev, mdmNavSettled);
+    document.addEventListener('htmx:beforeSwap', mdmNavOk);
+    document.addEventListener('htmx:afterSettle', mdmNavOk);
+    ['htmx:responseError', 'htmx:sendError', 'htmx:abort', 'htmx:timeout'].forEach(function (ev) {
+      document.addEventListener(ev, mdmNavFail);
     });
   </script>
 </head>
