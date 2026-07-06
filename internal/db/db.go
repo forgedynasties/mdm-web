@@ -8591,6 +8591,46 @@ func (d *DB) ReleaseProblemSummary(ctx context.Context, releaseID int) (ProblemS
 	return s, err
 }
 
+// BuildCrash is a crash/ANR event observed on a device currently running a given
+// build — surfaced on the release page so testers see regressions to investigate.
+type BuildCrash struct {
+	Serial     string
+	Kind       string
+	Summary    string
+	OccurredAt time.Time
+}
+
+// CrashesOnBuild returns recent crash/ANR/tombstone events (not reboots) from
+// devices currently reporting buildID, newest first.
+func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]BuildCrash, error) {
+	if buildID == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT dv.serial_number, e.kind, e.summary, e.occurred_at
+		FROM device_events e
+		JOIN devices dv ON dv.id = e.device_id
+		WHERE dv.build_id = $1 AND e.kind <> 'reboot'
+		ORDER BY e.occurred_at DESC
+		LIMIT $2`, buildID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BuildCrash
+	for rows.Next() {
+		var c BuildCrash
+		if err := rows.Scan(&c.Serial, &c.Kind, &c.Summary, &c.OccurredAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // ProblemSummariesByRelease returns the per-release problem rollup for every
 // release in one query, for the releases list badges (avoids an N+1).
 func (d *DB) ProblemSummariesByRelease(ctx context.Context) (map[int]ProblemSummary, error) {
