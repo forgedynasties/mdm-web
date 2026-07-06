@@ -3118,14 +3118,15 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 // ── Apps ──────────────────────────────────────────────────────────────────────
 
 type App struct {
-	ID        uuid.UUID `json:"id"`
-	Name      string    `json:"name"`
-	ApkURL    string    `json:"apk_url"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	Name        string    `json:"name"`
+	ApkURL      string    `json:"apk_url"`
+	PackageName string    `json:"package_name"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 func (d *DB) ListApps(ctx context.Context) ([]App, error) {
-	rows, err := d.pool.Query(ctx, `SELECT id, name, apk_url, created_at FROM apps ORDER BY name ASC`)
+	rows, err := d.pool.Query(ctx, `SELECT id, name, apk_url, package_name, created_at FROM apps ORDER BY name ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -3133,7 +3134,7 @@ func (d *DB) ListApps(ctx context.Context) ([]App, error) {
 	var out []App
 	for rows.Next() {
 		var a App
-		if err := rows.Scan(&a.ID, &a.Name, &a.ApkURL, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -3141,18 +3142,84 @@ func (d *DB) ListApps(ctx context.Context) ([]App, error) {
 	return out, rows.Err()
 }
 
-func (d *DB) CreateApp(ctx context.Context, name, apkURL string) (*App, error) {
+func (d *DB) GetApp(ctx context.Context, id uuid.UUID) (*App, error) {
 	var a App
 	err := d.pool.QueryRow(ctx,
-		`INSERT INTO apps (name, apk_url) VALUES ($1, $2) RETURNING id, name, apk_url, created_at`,
-		name, apkURL,
-	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.CreatedAt)
+		`SELECT id, name, apk_url, package_name, created_at FROM apps WHERE id = $1`, id,
+	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+func (d *DB) CreateApp(ctx context.Context, name, apkURL, packageName string) (*App, error) {
+	var a App
+	err := d.pool.QueryRow(ctx,
+		`INSERT INTO apps (name, apk_url, package_name) VALUES ($1, $2, $3) RETURNING id, name, apk_url, package_name, created_at`,
+		name, apkURL, packageName,
+	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	// A known package lets installs dedup against already-installed devices from
+	// the start, rather than waiting for a first install to learn the mapping.
+	if packageName != "" {
+		_ = d.LearnApkPackage(ctx, apkURL, packageName)
+	}
 	return &a, err
+}
+
+// UpdateApp edits an app's display name, APK URL and package name. When a package
+// name is set it re-seeds the apk_url → package map so dedup stays accurate.
+func (d *DB) UpdateApp(ctx context.Context, id uuid.UUID, name, apkURL, packageName string) (*App, error) {
+	var a App
+	err := d.pool.QueryRow(ctx,
+		`UPDATE apps SET name = $2, apk_url = $3, package_name = $4 WHERE id = $1
+		 RETURNING id, name, apk_url, package_name, created_at`,
+		id, name, apkURL, packageName,
+	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	if packageName != "" {
+		_ = d.LearnApkPackage(ctx, apkURL, packageName)
+	}
+	return &a, nil
 }
 
 func (d *DB) DeleteApp(ctx context.Context, id uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM apps WHERE id = $1`, id)
 	return err
+}
+
+// DevicesWithPackageInstalled returns which of deviceIDs already report the app's
+// package present. The package is resolved from the learned apk_url → package map
+// (seeded when an app has a package name, or learned from a prior install), so an
+// install can skip devices that already have the app instead of re-downloading it.
+func (d *DB) DevicesWithPackageInstalled(ctx context.Context, apkURL string, deviceIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	out := make(map[uuid.UUID]bool)
+	if apkURL == "" || len(deviceIDs) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT dp.device_id
+		FROM apk_packages ap
+		JOIN device_packages dp ON dp.package_name = ap.package_name
+		WHERE ap.apk_url = $1 AND dp.device_id = ANY($2)
+	`, apkURL, deviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
 }
 
 // ── Logcat ────────────────────────────────────────────────────────────────────
@@ -7130,6 +7197,11 @@ CREATE TABLE IF NOT EXISTS apk_packages (
 	package_name TEXT NOT NULL,
 	updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Package name (e.g. com.example.app) an admin records when adding a repository
+-- app. When set, it seeds apk_packages immediately so an install can skip devices
+-- that already have the app — no need to wait for a first install to "learn" it.
+ALTER TABLE apps ADD COLUMN IF NOT EXISTS package_name TEXT NOT NULL DEFAULT '';
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
