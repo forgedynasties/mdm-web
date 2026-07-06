@@ -4575,6 +4575,15 @@ html[data-theme="dark"] .ddc-gtag { color: #a9adfb; }
 .ddc-card-t { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 12px; }
 .ddc-kv { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 13px; padding: 6px 0; }
 .ddc-kv + .ddc-kv { border-top: 1px solid var(--border-soft); }
+
+/* Device notes card */
+.dn-ta { width: 100%; box-sizing: border-box; resize: vertical; min-height: 76px; padding: 9px 11px; font: inherit; font-size: 13px; line-height: 1.5; color: var(--fg); background: var(--surface-2, var(--surface)); border: 1px solid var(--border); border-radius: 10px; }
+.dn-ta:focus { outline: none; border-color: var(--accent-edge); box-shadow: 0 0 0 3px var(--accent-soft); }
+.dn-actions { display: flex; justify-content: flex-end; margin-top: 9px; }
+.dn-save { padding: 5px 14px; font-size: 12px; }
+.dn-view { font-size: 13px; line-height: 1.55; color: var(--fg); white-space: pre-wrap; word-break: break-word; }
+.dn-saved { font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--ok); background: var(--ok-bg); border-radius: 99px; padding: 2px 7px; margin-left: 6px; animation: dnSavedFade 2.4s forwards; }
+@keyframes dnSavedFade { 0%, 60% { opacity: 1; } 100% { opacity: 0; } }
 .ddc-kv .k { color: var(--muted); }
 .ddc-kv .v { font-weight: 600; min-width: 0; display: flex; align-items: center; gap: 6px; justify-content: flex-end; text-align: right; }
 .ddc-kv .v.tags { flex-wrap: wrap; }
