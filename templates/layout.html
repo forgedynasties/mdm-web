@@ -671,6 +671,32 @@
       }, 180);
     }
 
+    // Catch-all stuck-state watchdog. Independent of request type or htmx events:
+    // if the in-progress indicator stays on for more than a few seconds, a request
+    // hung or was aborted without firing a terminal event (seen in some Firefox/Zen
+    // configs), leaving the page frozen on a skeleton/blank <main>. Force-clear it
+    // and, if the content area never got real content, reload to recover — so the
+    // app can never sit blank. A full reload is a plain server render (no boosted
+    // nav), so it always comes up and can't loop.
+    (function () {
+      var stuckSince = 0;
+      setInterval(function () {
+        if (document.body.classList.contains('htmx-requesting-progress')) {
+          if (!stuckSince) { stuckSince = Date.now(); return; }
+          if (Date.now() - stuckSince < 6000) return;
+          stuckSince = 0;
+          document.body.classList.remove('htmx-requesting-progress');
+          if (progress) progress.style.width = '0';
+          var main = document.querySelector('main');
+          if (main && (!main.textContent.trim() || main.querySelector('.skel'))) {
+            window.location.reload();
+          }
+        } else {
+          stuckSince = 0;
+        }
+      }, 2000);
+    })();
+
     function markSubmitting(form, submitter) {
       if (!form || form.dataset.submitting === 'true') return;
       form.dataset.submitting = 'true';
