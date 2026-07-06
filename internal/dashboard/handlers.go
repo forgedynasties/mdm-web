@@ -6749,6 +6749,46 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 	h.hxRedirect(w, r, "/devices?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
 }
 
+// BootLogo renders the Boot logo config page: a dedicated splash-upload + target
+// picker whose submit runs through the normal update_splash command path (POST
+// /commands), plus the status of the most recently applied splash. update_splash
+// is hidden from the Actions/history/device command lists (see ListCommandsSince /
+// GetDeviceCommands), so this page is the single place boot logos are managed.
+func (h *Handler) BootLogo(w http.ResponseWriter, r *http.Request) {
+	groups, err := h.db.ListGroups(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	var (
+		last       *db.Command
+		stats      deliveryStats
+		deliveries []db.CommandDelivery
+		splashURL  string
+	)
+	if c, err := h.db.GetLatestCommandByType(r.Context(), "update_splash"); err == nil && c != nil {
+		last = c
+		var p struct {
+			URL string `json:"url"`
+		}
+		_ = json.Unmarshal(c.Payload, &p)
+		splashURL = p.URL
+		if ds, err := h.db.GetCommandDeliveries(r.Context(), c.ID, h.cfg.CommandExpiry()); err == nil {
+			h.markDeliveryPresence(ds)
+			deliveries = ds
+			stats = computeDeliveryStats(ds)
+		}
+	}
+	h.render(w, r, "boot_logo.html", map[string]any{
+		"Title":      "Boot logo",
+		"Groups":     groups,
+		"Last":       last,
+		"SplashURL":  splashURL,
+		"Stats":      stats,
+		"Deliveries": deliveries,
+	})
+}
+
 func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	// update_splash may carry a file upload (multipart); other types are urlencoded.
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
@@ -6921,6 +6961,12 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		detail += ", reason=" + reason
 	}
 	h.audit(r, "command.send", cmdType, detail)
+	// Boot logo is applied from its own config page — return there (with status),
+	// not to the command-detail view, and never into the command history flow.
+	if cmdType == "update_splash" {
+		h.hxRedirect(w, r, "/boot-logo?flash="+url.QueryEscape(fmt.Sprintf("Boot logo applied to %d device(s).", len(targetIDs)))+"&flash_type=success")
+		return
+	}
 	dest := "/commands/" + cmd.ID.String()
 	if n := len(skippedSerials); n > 0 {
 		msg := fmt.Sprintf("Sent to %d device(s). Skipped %d already installing this app: %s", len(targetIDs), n, strings.Join(skippedSerials, ", "))
@@ -9140,6 +9186,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
 	post("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
 
+	mux.HandleFunc("GET /boot-logo", h.requireStrictAdmin(h.BootLogo))
 	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
 	post("POST /settings/columns/add", h.requireStrictAdmin(h.SettingsAddColumn))
 	post("POST /settings/columns/{key}/remove", h.requireStrictAdmin(h.SettingsRemoveColumn))

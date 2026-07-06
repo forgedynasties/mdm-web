@@ -273,7 +273,6 @@
       <button type="button" class="pill" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>
       <button type="button" class="pill" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
       {{if canAdminOrTester .Role}}<button type="button" class="pill" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
-      {{if canAdmin .Role}}<button type="button" class="pill" data-type="update_splash" onclick="selectType('update_splash', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>Boot logo<span class="g">Custom</span></button>{{end}}
     </div>
     <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
   </div>
@@ -422,21 +421,9 @@
           {{end}}
         </div>
 
-        <!-- Boot logo -->
-        <div id="splash-fields" class="payload-section">
-          <div class="drop" onclick="document.getElementById('splash-file-input').click()">
-            <div class="di"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M12 3v13"/><path d="M7 8l5-5 5 5"/></svg></div>
-            <div class="dt" id="splash-dt">Drop a splash image, or click to choose</div>
-            <div class="ds">BMP passes through · PNG/JPEG converts to 24-bit BMP · match the panel (e.g. 720×1280)</div>
-          </div>
-          <input type="file" name="splash_file" id="splash-file-input" accept="image/bmp,image/png,image/jpeg,.bmp,.png,.jpg,.jpeg" onchange="onSplashFile(this)" style="display:none;">
-          <div class="preview" id="splash-preview" style="display:none;"><span class="ph" id="splash-ph">splash</span><span class="pm" id="splash-pm"></span></div>
-          <div class="orp">or paste a URL</div>
-          <input type="url" name="splash_url" id="splash-url-input" class="pl-field" style="font-family:var(--mono)" placeholder="https://…/splash.img" oninput="updatePreview()">
-          <input type="number" name="partition_size" id="splash-size-input" class="pl-field" style="margin-top:10px" placeholder="Partition size in bytes (optional — inferred if blank)" min="1">
-        </div>
+        <!-- Boot logo has moved to its own admin page (/boot-logo). -->
 
-        <!-- Reason (reboot / boot logo) -->
+        <!-- Reason (reboot) -->
         <div id="reason-wrap" style="margin-top:16px;display:none;">
           <div class="lvl-lbl">Reason <span style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0">required when reason-logging is on</span></div>
           <input type="text" name="reason" class="pl-field" oninput="updatePreview()" placeholder="e.g. nightly memory clear">
@@ -667,8 +654,7 @@ var ACT_META = {
   logcat:       { name:'Log capture',  sub:'Pull a logcat buffer for triage',         icon:'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>' },
   shell:        { name:'Shell',        sub:'Run a shell command (legacy devices)',    icon:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>' },
   reboot:       { name:'Reboot',       sub:'Restart the device on next check-in',     icon:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>' },
-  set_kiosk:    { name:'Kiosk mode',   sub:'Lock the target to one app, or unlock it',icon:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>' },
-  update_splash:{ name:'Boot logo',    sub:'Replace the boot splash image',           icon:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/>' }
+  set_kiosk:    { name:'Kiosk mode',   sub:'Lock the target to one app, or unlock it',icon:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>' }
 };
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
@@ -678,16 +664,16 @@ function selectType(val, btn) {
   var ic = document.getElementById('sheet-ic'); if (ic) ic.innerHTML = '<svg viewBox="0 0 24 24">' + m.icon + '</svg>';
   var st = document.getElementById('sheet-t'); if (st) st.textContent = m.name;
   var ss = document.getElementById('sheet-s'); if (ss) ss.textContent = m.sub;
-  ['apk-fields','uninstall-fields','shell-fields','screenshot-hint','reboot-hint','splash-fields','logcat-fields','kiosk-fields'].forEach(function(id) {
+  ['apk-fields','uninstall-fields','shell-fields','screenshot-hint','reboot-hint','logcat-fields','kiosk-fields'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('is-active');
   });
-  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', update_splash:'splash-fields', logcat:'logcat-fields', set_kiosk:'kiosk-fields' })[val];
+  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', logcat:'logcat-fields', set_kiosk:'kiosk-fields' })[val];
   var section = document.getElementById(sectionId);
   if (section) section.classList.add('is-active');
-  // reason applies only to reboot / boot logo
+  // reason applies only to reboot
   var rw = document.getElementById('reason-wrap');
-  if (rw) rw.style.display = (val === 'reboot' || val === 'update_splash') ? '' : 'none';
+  if (rw) rw.style.display = (val === 'reboot') ? '' : 'none';
   updatePreview();
 }
 
@@ -735,22 +721,6 @@ function setLevel(el) { setLevelValue(el.dataset.lv); updatePreview(); }
 function stepLines(d) {
   var i = document.getElementById('lc-cmd-lines');
   i.value = Math.max(50, Math.min(5000, (parseInt(i.value, 10) || 0) + d));
-  updatePreview();
-}
-// Boot logo: show a live preview + filename when a file is chosen.
-function onSplashFile(input) {
-  var f = input.files && input.files[0];
-  var pv = document.getElementById('splash-preview'), dt = document.getElementById('splash-dt');
-  if (!f) { if (pv) pv.style.display = 'none'; if (dt) dt.textContent = 'Drop a splash image, or click to choose'; updatePreview(); return; }
-  var kb = f.size < 1048576 ? Math.round(f.size / 1024) + ' KB' : (f.size / 1048576).toFixed(1) + ' MB';
-  document.getElementById('splash-pm').innerHTML = '<b>' + f.name + '</b> · ' + kb + '<br>Wrapped into <span style="font-family:var(--mono)">splash.img</span> and hosted — visible next boot.';
-  if (dt) dt.textContent = 'Replace image';
-  var ph = document.getElementById('splash-ph');
-  if (/^image\/(png|jpe?g|bmp)/.test(f.type)) {
-    var url = URL.createObjectURL(f);
-    ph.innerHTML = '<img src="' + url + '" alt="">';
-  } else { ph.textContent = 'splash'; }
-  pv.style.display = '';
   updatePreview();
 }
 
@@ -1018,11 +988,6 @@ function updatePreview() {
   } else if (type === 'shell') {
     var s = (document.getElementById('shell-cmd-input').value || '').trim();
     if (!s) warn.push('Enter a shell command.');
-  } else if (type === 'update_splash') {
-    var fi = document.getElementById('splash-file-input');
-    var f = fi && fi.files && fi.files[0];
-    var u = (document.getElementById('splash-url-input').value || '').trim();
-    if (!f && !u) warn.push('Upload or link a splash image.');
   }
 
   if (target === 'groups') {
@@ -1033,7 +998,7 @@ function updatePreview() {
 
   var reason = (document.querySelector('input[name="reason"]').value || '').trim();
   var softWarn = [];
-  if ((type === 'reboot' || type === 'update_splash') && !reason) softWarn.push('A reason may be required for this action.');
+  if (type === 'reboot' && !reason) softWarn.push('A reason may be required for this action.');
 
   var all = warn.concat(softWarn);
   var warnEl = document.getElementById('rv-warn');

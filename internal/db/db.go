@@ -2396,9 +2396,12 @@ func (d *DB) ListCommands(ctx context.Context) ([]Command, error) {
 // recent window (the Actions page uses this — its triage buckets only need recent
 // commands, and full history has its own paginated view); 0 returns all.
 func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, error) {
-	q := `SELECT id, type, apk_url, payload, target_type, created_at FROM commands`
+	// update_splash (boot logo) is managed on its own config page (/boot-logo) and
+	// deliberately excluded from the Actions and history lists — it's a fleet config
+	// action, not a tracked one-off command.
+	q := `SELECT id, type, apk_url, payload, target_type, created_at FROM commands WHERE type != 'update_splash'`
 	if sinceDays > 0 {
-		q += fmt.Sprintf(" WHERE created_at >= NOW() - INTERVAL '%d days'", sinceDays)
+		q += fmt.Sprintf(" AND created_at >= NOW() - INTERVAL '%d days'", sinceDays)
 	}
 	q += " ORDER BY created_at DESC"
 	rows, err := d.pool.Query(ctx, q)
@@ -2416,6 +2419,24 @@ func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, e
 		cmds = append(cmds, c)
 	}
 	return cmds, rows.Err()
+}
+
+// GetLatestCommandByType returns the most recent command of the given type, or
+// (nil, nil) if none exists. Used by the Boot logo config page to show the status
+// of the last applied splash without surfacing it in the command history lists.
+func (d *DB) GetLatestCommandByType(ctx context.Context, cmdType string) (*Command, error) {
+	var c Command
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, type, apk_url, payload, target_type, created_at
+		FROM commands WHERE type = $1 ORDER BY created_at DESC LIMIT 1
+	`, cmdType).Scan(&c.ID, &c.Type, &c.ApkURL, &c.Payload, &c.TargetType, &c.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &c, nil
 }
 
 // ShellCommandSuggestions returns previously-sent shell commands for quick re-use in the
@@ -3003,6 +3024,9 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 				WHERE ct.command_id = c.id AND dg.device_id = $1
 			))
 		)
+		-- Boot logo is a config action managed on /boot-logo, not part of the
+		-- device's command history.
+		AND c.type != 'update_splash'
 		ORDER BY c.created_at DESC
 	`, installExpiry, expirySec), deviceID)
 	if err != nil {

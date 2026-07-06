@@ -161,6 +161,10 @@
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
             <span class="nbar-mi-label">App classification</span>
           </a>
+          <a class="nbar-mi js-dest" data-cmdk-label="Boot logo" href="/boot-logo">
+            <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg></span>
+            <span class="nbar-mi-label">Boot logo</span>
+          </a>
           <div class="nbar-sep"></div>
           {{end}}
           {{if or (eq .Role "tester") (eq .Role "dev")}}

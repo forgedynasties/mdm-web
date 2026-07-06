@@ -1,0 +1,120 @@
+{{define "boot_logo.html"}}
+{{template "header" .}}
+
+<a href="/commands" class="back-link">&#8592; Actions</a>
+
+<div class="ov-greet">
+  <h1 class="ov-title">Boot logo</h1>
+  <span class="ov-date">Replace the boot splash image on your devices. This is a fleet config action — it isn't tracked in the Actions history.</span>
+</div>
+
+<style>
+.bl-wrap{display:grid;grid-template-columns:1fr;gap:16px;max-width:760px;}
+.bl-drop{border:1.5px dashed var(--border);border-radius:12px;padding:26px;text-align:center;cursor:pointer;color:var(--muted);transition:border-color .15s,background .15s;}
+.bl-drop:hover{border-color:var(--accent-edge);background:var(--accent-soft);}
+.bl-drop .bl-dt{font-size:13px;margin-top:8px;}
+.bl-preview{display:flex;align-items:center;gap:12px;margin-top:12px;font-size:12px;color:var(--muted);}
+.bl-preview .th{width:44px;height:44px;border-radius:8px;background:var(--surface-3);display:flex;align-items:center;justify-content:center;overflow:hidden;font-size:10px;text-transform:uppercase;}
+.bl-preview .th img{width:100%;height:100%;object-fit:cover;}
+.bl-field{width:100%;margin-top:10px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--fg);font-size:13px;}
+.bl-targets{display:flex;flex-direction:column;gap:10px;margin-top:6px;}
+.bl-radio{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;}
+.bl-sub{margin:6px 0 4px 26px;}
+.bl-status{display:flex;flex-wrap:wrap;gap:20px;align-items:center;}
+.bl-stat b{font-size:20px;font-weight:700;}
+.bl-stat span{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.bl-none{color:var(--muted);font-size:13px;}
+</style>
+
+<div class="bl-wrap">
+
+  <div class="card">
+    <div class="card-header"><h3>Current boot logo</h3></div>
+    <div style="padding:14px 16px;">
+      {{if .Last}}
+      <div class="bl-status">
+        <div class="bl-preview" style="margin:0;">
+          <span class="th">{{if .SplashURL}}<img src="{{.SplashURL}}" alt="splash" onerror="this.style.display='none';this.parentNode.textContent='img';">{{else}}img{{end}}</span>
+          <div>
+            <div class="mono" style="word-break:break-all;max-width:340px;">{{if .SplashURL}}{{.SplashURL}}{{else}}—{{end}}</div>
+            <div class="muted small">Set {{timeSince .Last.CreatedAt}}</div>
+          </div>
+        </div>
+        <div class="bl-stat"><b>{{.Stats.Done}}/{{.Stats.Total}}</b><span>Applied</span></div>
+        {{if gt .Stats.Pending 0}}<div class="bl-stat"><b>{{.Stats.Pending}}</b><span>Pending{{if gt .Stats.Offline 0}} · {{.Stats.Offline}} offline{{end}}</span></div>{{end}}
+        {{if gt .Stats.Failed 0}}<div class="bl-stat" style="color:var(--danger);"><b>{{.Stats.Failed}}</b><span>Failed</span></div>{{end}}
+      </div>
+      {{else}}
+      <div class="bl-none">No boot logo has been applied yet.</div>
+      {{end}}
+    </div>
+  </div>
+
+  <form action="/commands" method="POST" enctype="multipart/form-data" class="card" id="bl-form">
+    <input type="hidden" name="type" value="update_splash">
+    <div class="card-header"><h3>Apply a new boot logo</h3></div>
+    <div style="padding:14px 16px;">
+
+      <label class="muted small" style="text-transform:uppercase;letter-spacing:.04em;">Splash image</label>
+      <div class="bl-drop" onclick="document.getElementById('bl-file').click()">
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg>
+        <div class="bl-dt" id="bl-dt">Drop a splash image, or click to choose</div>
+        <div class="muted small">BMP passes through · PNG/JPEG converts to 24-bit BMP · match the panel (e.g. 720×1280)</div>
+      </div>
+      <input type="file" name="splash_file" id="bl-file" accept="image/bmp,image/png,image/jpeg,.bmp,.png,.jpg,.jpeg" onchange="blFile(this)" style="display:none;">
+      <div class="bl-preview" id="bl-preview" style="display:none;"><span class="th" id="bl-th">img</span><span id="bl-pm"></span></div>
+      <input type="url" name="splash_url" id="bl-url" class="bl-field mono" placeholder="…or paste a splash.img URL (https://…/splash.img)">
+      <input type="number" name="partition_size" class="bl-field" placeholder="Partition size in bytes (optional — inferred if blank)" min="1">
+
+      <label class="muted small" style="text-transform:uppercase;letter-spacing:.04em;display:block;margin-top:18px;">Apply to</label>
+      <div class="bl-targets">
+        <label class="bl-radio"><input type="radio" name="target_type" value="all" checked onchange="blTargets()"> All devices</label>
+        <div>
+          <label class="bl-radio"><input type="radio" name="target_type" value="devices" onchange="blTargets()"> Specific devices</label>
+          <div class="bl-sub" id="bl-t-devices" style="display:none;">
+            <input type="text" name="target_serials" class="bl-field" style="margin-top:0;" placeholder="Serial numbers, separated by spaces or commas">
+          </div>
+        </div>
+        <div>
+          <label class="bl-radio"><input type="radio" name="target_type" value="groups" onchange="blTargets()"> Group</label>
+          <div class="bl-sub" id="bl-t-groups" style="display:none;">
+            <select name="target_groups" class="bl-field" style="margin-top:0;" multiple size="4">
+              {{range .Groups}}<option value="{{.ID}}">{{.Name}} ({{.DeviceCount}})</option>{{end}}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <input type="text" name="reason" class="bl-field" placeholder="Reason (optional)" style="margin-top:14px;">
+
+      <div style="margin-top:18px;">
+        <button type="submit" class="btn-primary">Apply boot logo</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+function blTargets(){
+  var v=document.querySelector('#bl-form input[name=target_type]:checked').value;
+  document.getElementById('bl-t-devices').style.display = v==='devices'?'':'none';
+  document.getElementById('bl-t-groups').style.display  = v==='groups'?'':'none';
+}
+function blFile(input){
+  var f=input.files&&input.files[0];
+  var pv=document.getElementById('bl-preview'), dt=document.getElementById('bl-dt'), th=document.getElementById('bl-th');
+  if(!f){pv.style.display='none';dt.textContent='Drop a splash image, or click to choose';return;}
+  var kb=(f.size/1024).toFixed(0)+' KB';
+  document.getElementById('bl-pm').innerHTML='<b>'+f.name+'</b> · '+kb+' — wrapped into <span class="mono">splash.img</span> and hosted; visible next boot.';
+  dt.textContent=f.name;
+  if(/^image\/(png|jpeg|bmp)/.test(f.type)){
+    var rd=new FileReader();
+    rd.onload=function(e){th.innerHTML='<img src="'+e.target.result+'" alt="preview">';};
+    rd.readAsDataURL(f);
+  } else { th.textContent='img'; }
+  pv.style.display='';
+}
+</script>
+
+{{template "footer" .}}
+{{end}}
