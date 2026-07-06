@@ -220,6 +220,7 @@ type CommandDelivery struct {
 	DeviceID     uuid.UUID `json:"device_id"`
 	SerialNumber string    `json:"serial_number"`
 	Status       string    `json:"status"`
+	Progress     *int      `json:"progress,omitempty"` // 0-100 while an install is downloading; nil otherwise
 	UpdatedAt    time.Time `json:"updated_at"`
 	Output       string    `json:"output"`
 	LastSeenAt   time.Time `json:"last_seen_at"`
@@ -2544,7 +2545,11 @@ func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec, sinceDa
 		switch status {
 		case "pending":
 			s.Pending += count
-		case "delivered":
+		// An install actively downloading/installing is in flight: count it as
+		// delivered so the command stays in the Actions "In progress" bucket
+		// (commandBucket keys "prog" off Pending/Delivered) instead of falling
+		// through to "done" and disappearing while the app is still installing.
+		case "delivered", "downloading", "installing":
 			s.Delivered += count
 		case "installed", "completed":
 			s.Completed += count
@@ -3045,6 +3050,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 		           THEN 'expired'
 		         ELSE COALESCE(cs.status, 'pending')
 		       END AS status,
+		       cs.progress,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
 		       COALESCE(cr.output, '') AS output,
 		       d.last_seen_at
@@ -3063,7 +3069,7 @@ func (d *DB) GetCommandDeliveries(ctx context.Context, commandID uuid.UUID, expi
 	var out []CommandDelivery
 	for rows.Next() {
 		var cd CommandDelivery
-		if err := rows.Scan(&cd.DeviceID, &cd.SerialNumber, &cd.Status, &cd.UpdatedAt, &cd.Output, &cd.LastSeenAt); err != nil {
+		if err := rows.Scan(&cd.DeviceID, &cd.SerialNumber, &cd.Status, &cd.Progress, &cd.UpdatedAt, &cd.Output, &cd.LastSeenAt); err != nil {
 			return nil, err
 		}
 		out = append(out, cd)

@@ -1635,6 +1635,7 @@ input[type="checkbox"]:hover {
 .status-badge.danger { color: var(--danger); background: var(--danger-bg); }
 .status-badge.muted,
 .ws-badge.offline  { color: var(--muted);  background: var(--surface-3); }
+.status-badge.active { color: var(--accent-2); background: var(--accent-2-soft); }
 
 /* ── WebSocket online dot ────────────────────────── */
 .ws-dot {
