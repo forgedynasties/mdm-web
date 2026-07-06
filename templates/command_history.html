@@ -41,6 +41,14 @@ document.addEventListener('submit', function (evt) {
 document.body.addEventListener('htmx:afterSettle', function (e) {
   if (e.target && e.target.id === 'hist-live') filterHistory();
 });
+// Safety net: never let an empty or error refresh response swap in and blank the
+// live region — if the response isn't a real #hist-live fragment, keep what's shown.
+document.body.addEventListener('htmx:beforeSwap', function (e) {
+  if (e.target && e.target.id === 'hist-live') {
+    var d = e.detail, ok = d.xhr && d.xhr.status < 400 && d.serverResponse && d.serverResponse.indexOf('id="hist-live"') !== -1;
+    if (!ok) { d.shouldSwap = false; }
+  }
+});
 </script>
 
 {{template "footer" .}}
