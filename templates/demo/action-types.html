@@ -1,0 +1,231 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Action detail · per type — AIO MDM</title>
+<style>
+  :root{
+    --bg:#faf8f5;--surface:#fff;--surface2:#f6f4f0;--surface3:#efeae3;--border:#e8e2da;--border-soft:#f0ebe4;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --accent:#f9674e;--accent-h:#ec4f33;--accent-soft:rgba(249,103,78,.10);--accent-edge:rgba(249,103,78,.34);
+    --p:#7a80f6;--p-soft:rgba(122,128,246,.12);
+    --ok:#157f3c;--ok-bg:rgba(21,127,60,.10);--warn:#b45309;--warn-bg:rgba(180,83,9,.10);--danger:#b42318;--danger-bg:rgba(180,35,24,.10);
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 8px 26px rgba(28,26,24,.07);--r:16px;
+    --console:#14171c;--console-fg:#c9d4df;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:940px;margin:0 auto;padding:30px 24px 90px}
+  .back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:16px}
+  .back:hover{color:var(--accent)}
+  .note{font-size:13px;color:var(--muted);margin:0 0 16px}
+
+  /* Type switcher */
+  .switch{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px}
+  .sw{display:inline-flex;align-items:center;gap:7px;font:inherit;font-size:13px;font-weight:600;padding:8px 13px;border-radius:11px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
+  .sw svg{width:15px;height:15px}
+  .sw:hover{border-color:var(--accent-edge);color:var(--accent)}
+  .sw.on{background:var(--accent);border-color:var(--accent);color:#fff}
+
+  /* Shared hero */
+  .hero{display:flex;align-items:flex-start;gap:15px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:20px 22px;margin-bottom:16px}
+  .glyph{width:48px;height:48px;flex:none;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--p));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 16px rgba(249,103,78,.24)}
+  .glyph svg{width:24px;height:24px}
+  .h-id{flex:1;min-width:0}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
+  .h-id h1{margin:3px 0 4px;font-size:21px;font-weight:700;letter-spacing:-.02em}
+  .h-id h1 .sub{font-family:var(--mono);font-size:14px;color:var(--muted);font-weight:500}
+  .h-meta{font-size:13px;color:var(--muted)}.h-meta b{color:var(--text);font-weight:600}
+  .h-stat{flex:none;text-align:right}
+  .h-stat b{font-size:24px;font-weight:750;letter-spacing:-.02em;display:block}
+  .h-stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
+  .c-head{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;border-bottom:1px solid var(--border-soft)}
+  .c-head h3{margin:0;font-size:13.5px;font-weight:650}
+  .c-head .r{font-size:12.5px;color:var(--muted)}
+  .row{display:grid;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid var(--border-soft)}
+  .row:first-child{border-top:0}
+  .sn{font-family:var(--mono);font-size:13px}.sn .loc{display:block;font-family:var(--font);font-size:11.5px;color:var(--faint);margin-top:1px}
+  .pill{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:3px 9px;border-radius:99px;white-space:nowrap;display:inline-block}
+  .pill.done{background:var(--ok-bg);color:var(--ok)}.pill.run{background:var(--p-soft);color:var(--p)}.pill.dl{background:var(--accent-soft);color:var(--accent)}.pill.fail{background:var(--danger-bg);color:var(--danger)}.pill.off{background:var(--surface3);color:var(--muted)}
+  .when{font-size:12px;color:var(--muted)}
+  .bar{height:6px;border-radius:99px;background:var(--surface3);overflow:hidden}.bar i{display:block;height:100%;background:var(--accent)}
+  .bar.run i{background:var(--p);width:100%;animation:sh 1.4s ease-in-out infinite}@keyframes sh{50%{opacity:.5}}
+  .mini{font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:4px 10px;cursor:pointer}.mini:hover{border-color:var(--accent-edge);color:var(--accent)}
+
+  .view{display:none}.view.on{display:block}
+
+  /* Install */
+  .v-install .row{grid-template-columns:1.3fr 90px 1fr auto}
+  .pct{font-family:var(--mono);font-size:12.5px;font-weight:600;color:var(--accent)}
+
+  /* Shell — terminal blocks */
+  .cmd-line{font-family:var(--mono);font-size:13px;background:var(--surface2);border:1px solid var(--border-soft);border-radius:10px;padding:11px 14px;margin:0 0 14px;color:var(--text)}
+  .cmd-line .p{color:var(--accent);user-select:none}
+  .term{background:var(--console);border-radius:10px;overflow:hidden}
+  .term-h{display:flex;align-items:center;gap:9px;padding:9px 14px;border-bottom:1px solid rgba(255,255,255,.07)}
+  .term-h .sn2{font-family:var(--mono);font-size:12.5px;color:#e8edf2}
+  .term-h .code{margin-left:auto;font-family:var(--mono);font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px}
+  .code.z{background:rgba(21,127,60,.22);color:#7ee2a8}.code.nz{background:rgba(180,35,24,.24);color:#ff9b8f}
+  pre.out{margin:0;padding:12px 14px;font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--console-fg);white-space:pre-wrap;max-height:170px;overflow:auto}
+  .term+.term{margin-top:10px}
+
+  /* Screenshot — gallery */
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px;padding:16px 18px}
+  .shot{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface2)}
+  .shot .frame{aspect-ratio:16/10;background:linear-gradient(135deg,#2a2f3a,#3d4657);position:relative;display:flex;align-items:center;justify-content:center}
+  .shot .frame::after{content:"";position:absolute;inset:14px;border:1px dashed rgba(255,255,255,.18);border-radius:8px}
+  .shot .frame svg{width:26px;height:26px;color:rgba(255,255,255,.5)}
+  .shot.pending .frame{background:var(--surface3)}.shot.pending .frame svg{color:var(--faint)}
+  .shot .cap{display:flex;align-items:center;justify-content:space-between;padding:9px 11px;font-size:12px}
+  .shot .cap .sn3{font-family:var(--mono)}
+
+  /* Reboot / Uninstall — simple status list */
+  .v-simple .row,.v-uninstall .row{grid-template-columns:1.3fr 1fr auto}
+  .up{font-size:12px;color:var(--muted)}.up b{color:var(--ok);font-weight:600}
+
+  /* Logs */
+  .v-logs .lg{border-top:1px solid var(--border-soft)}
+  .v-logs .lg:first-child{border-top:0}
+  .lg-h{display:flex;align-items:center;gap:10px;padding:12px 18px;cursor:pointer}
+  .lg-h .sn4{font-family:var(--mono);font-size:13px}
+  .lg-h .lvl{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:var(--surface2);border-radius:99px;padding:2px 8px}
+  .lg-h .ai{margin-left:auto;font-size:12px;font-weight:600;color:var(--p);border:1px solid var(--p-soft);background:var(--p-soft);border-radius:8px;padding:4px 10px;cursor:pointer}
+  .lg pre.out{border-radius:0}
+  .tag{position:fixed;left:14px;bottom:14px;font-size:11px;color:var(--faint);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 9px}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/index">← Demos</a>
+  <p class="note">The action detail page adapts to the action type — each shows what actually matters for that kind of action. Switch types to compare.</p>
+
+  <div class="switch">
+    <button class="sw on" data-t="install"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>Install app</button>
+    <button class="sw" data-t="shell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>Shell</button>
+    <button class="sw" data-t="screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg>Screenshot</button>
+    <button class="sw" data-t="reboot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Reboot</button>
+    <button class="sw" data-t="uninstall"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>Uninstall</button>
+    <button class="sw" data-t="logs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 10h10M4 14h16M4 18h10"/></svg>Log capture</button>
+  </div>
+
+  <div class="hero">
+    <div class="glyph" id="hglyph"></div>
+    <div class="h-id">
+      <div class="kicker" id="hkick">Install app · in progress</div>
+      <h1 id="htitle">SpeedTest <span class="sub" id="hsub">com.aioapp.speedtest</span></h1>
+      <div class="h-meta" id="hmeta">Sent <b>6m ago</b> to <b>Downtown</b> · 12 devices · by admin</div>
+    </div>
+    <div class="h-stat"><b id="hbig">5/12</b><span id="hlabel">installed</span></div>
+  </div>
+
+  <!-- INSTALL -->
+  <div class="view v-install on" data-v="install">
+    <div class="card">
+      <div class="c-head"><h3>Delivery</h3><span class="r">3 downloading · 1 installing · 1 failed · 3 offline</span></div>
+      <div class="row"><div class="sn">AT070AA2600042<span class="loc">Register 2</span></div><span class="pct">↓ 78%</span><span class="bar"><i style="width:78%"></i></span><span></span></div>
+      <div class="row"><div class="sn">AT070AA2600021<span class="loc">Register 1</span></div><span class="pct">↓ 45%</span><span class="bar"><i style="width:45%"></i></span><span></span></div>
+      <div class="row"><div class="sn">AT070AA2600031<span class="loc">Kitchen</span></div><span class="pct" style="color:var(--p)">install</span><span class="bar run"><i></i></span><span></span></div>
+      <div class="row"><div class="sn">AT070AA2600051<span class="loc">Drive-thru</span></div><span class="pill fail">Failed</span><span class="when" style="color:var(--danger)">Insufficient storage</span><button class="mini">Resend</button></div>
+      <div class="row"><div class="sn">AT070AA2600011<span class="loc">Register 3</span></div><span class="pill done">Done</span><span class="when">2m ago</span><span></span></div>
+      <div class="row"><div class="sn">AT070AA2600061<span class="loc">Patio</span></div><span class="pill off">Offline</span><span class="when">last seen 3h ago</span><button class="mini">Resend</button></div>
+    </div>
+  </div>
+
+  <!-- SHELL -->
+  <div class="view v-shell" data-v="shell">
+    <div class="cmd-line"><span class="p">$ </span>getprop ro.build.version.incremental &amp;&amp; df -h /data</div>
+    <div class="card"><div style="padding:14px 16px">
+      <div class="term">
+        <div class="term-h"><span class="sn2">AT070AA2600011</span><span class="code z">exit 0</span></div>
+        <pre class="out">2.0.2.14
+Filesystem      Size  Used Avail Use% Mounted
+/dev/block/dm-4  25G   18G  6.4G  74% /data</pre>
+      </div>
+      <div class="term">
+        <div class="term-h"><span class="sn2">AT070AA2600021</span><span class="code z">exit 0</span></div>
+        <pre class="out">2.0.2.14
+Filesystem      Size  Used Avail Use% Mounted
+/dev/block/dm-4  25G   24G  0.4G  98% /data</pre>
+      </div>
+      <div class="term">
+        <div class="term-h"><span class="sn2">AT070AA2600051</span><span class="code nz">exit 1</span></div>
+        <pre class="out">/system/bin/sh: df: permission denied</pre>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- SCREENSHOT -->
+  <div class="view v-screenshot" data-v="screenshot">
+    <div class="card">
+      <div class="c-head"><h3>Captures</h3><span class="r">4 of 5 returned · 1 pending</span></div>
+      <div class="gallery">
+        <div class="shot"><div class="frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></div><div class="cap"><span class="sn3">…011</span><span class="when">2m ago</span></div></div>
+        <div class="shot"><div class="frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></div><div class="cap"><span class="sn3">…021</span><span class="when">2m ago</span></div></div>
+        <div class="shot"><div class="frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></div><div class="cap"><span class="sn3">…031</span><span class="when">3m ago</span></div></div>
+        <div class="shot pending"><div class="frame"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div class="cap"><span class="sn3">…061</span><span class="when">waiting…</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- REBOOT -->
+  <div class="view v-simple" data-v="reboot">
+    <div class="card">
+      <div class="c-head"><h3>Reboot</h3><span class="r">reason: apply new kiosk policy</span></div>
+      <div class="row"><div class="sn">AT070AA2600011<span class="loc">Register 3</span></div><span class="up">back online · <b>uptime reset 2m ago</b></span><span class="pill done">Rebooted</span></div>
+      <div class="row"><div class="sn">AT070AA2600021<span class="loc">Register 1</span></div><span class="up">rebooting…</span><span class="pill run">In progress</span></div>
+      <div class="row"><div class="sn">AT070AA2600061<span class="loc">Patio</span></div><span class="up">offline · last seen 3h ago</span><span class="pill off">Pending</span></div>
+    </div>
+  </div>
+
+  <!-- UNINSTALL -->
+  <div class="view v-uninstall" data-v="uninstall">
+    <div class="card">
+      <div class="c-head"><h3>Remove <span class="mono" style="font-family:var(--mono)">com.oldvendor.pos</span></h3><span class="r">4 removed · 1 not present · 1 failed</span></div>
+      <div class="row"><div class="sn">AT070AA2600011<span class="loc">Register 3</span></div><span class="when">package removed</span><span class="pill done">Removed</span></div>
+      <div class="row"><div class="sn">AT070AA2600021<span class="loc">Register 1</span></div><span class="when">app wasn't installed</span><span class="pill off">Not present</span></div>
+      <div class="row"><div class="sn">AT070AA2600051<span class="loc">Drive-thru</span></div><span class="when" style="color:var(--danger)">device admin — can't remove</span><span class="pill fail">Failed</span></div>
+    </div>
+  </div>
+
+  <!-- LOGS -->
+  <div class="view v-logs" data-v="logs">
+    <div class="card">
+      <div class="c-head"><h3>Captured logs</h3><span class="r">Error level · 500 lines · 3 of 4 returned</span></div>
+      <div class="lg">
+        <div class="lg-h"><span class="sn4">AT070AA2600042</span><span class="lvl">E · 500</span><span class="ai">✦ Analyze</span></div>
+        <pre class="out"><span style="color:#ff9b8f">01-06 14:49:28.100 E AndroidRuntime: FATAL EXCEPTION: main</span>
+01-06 14:49:28.101 E AndroidRuntime: java.lang.NullPointerException
+01-06 14:49:28.140 E ActivityManager: Force finishing activity</pre>
+      </div>
+      <div class="lg">
+        <div class="lg-h"><span class="sn4">AT070AA2600061</span><span class="lvl">E · 500</span><span class="ai">✦ Analyze</span></div>
+        <pre class="out">01-06 14:50:11.220 E WifiStateMachine: CMD_START_CONNECT failed
+01-06 14:50:12.010 E ConnectivityService: no default network</pre>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="tag">Demo · Per-type views · synthetic data</div>
+
+<script>
+  var META = {
+    install:   {glyph:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>', kick:'Install app · in progress', title:'SpeedTest', sub:'com.aioapp.speedtest', meta:'Sent <b>6m ago</b> to <b>Downtown</b> · 12 devices · by admin', big:'5/12', label:'installed'},
+    shell:     {glyph:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>', kick:'Shell command · complete', title:'Shell', sub:'getprop &amp; df', meta:'Ran <b>4m ago</b> on <b>Downtown</b> · 3 devices · by dev', big:'2/3', label:'exit 0'},
+    screenshot:{glyph:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>', kick:'Screenshot · capturing', title:'Screenshot', sub:'live screen', meta:'Requested <b>2m ago</b> · 5 devices · by tester', big:'4/5', label:'captured'},
+    reboot:    {glyph:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>', kick:'Reboot · in progress', title:'Reboot', sub:'', meta:'Sent <b>3m ago</b> to <b>Downtown</b> · 6 devices · by admin', big:'5/6', label:'rebooted'},
+    uninstall: {glyph:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>', kick:'Uninstall · complete', title:'Uninstall', sub:'com.oldvendor.pos', meta:'Sent <b>9m ago</b> to <b>Downtown</b> · 6 devices · by admin', big:'4/6', label:'removed'},
+    logs:      {glyph:'<path d="M4 5h16M4 10h10M4 14h16M4 18h10"/>', kick:'Log capture · complete', title:'Log capture', sub:'error · 500 lines', meta:'Requested <b>5m ago</b> · 4 devices · by dev', big:'3/4', label:'returned'}
+  };
+  function setType(t){
+    document.querySelectorAll('.sw').forEach(function(b){b.classList.toggle('on',b.dataset.t===t);});
+    document.querySelectorAll('.view').forEach(function(v){v.classList.toggle('on',v.dataset.v===t);});
+    var m=META[t];
+    document.getElementById('hglyph').innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+m.glyph+'</svg>';
+    document.getElementById('hkick').textContent=m.kick;
+    document.getElementById('htitle').innerHTML=m.title+(m.sub?' <span class="sub">'+m.sub+'</span>':'');
+    document.getElementById('hmeta').innerHTML=m.meta;
+    document.getElementById('hbig').textContent=m.big;
+    document.getElementById('hlabel').textContent=m.label;
+  }
+  document.querySelectorAll('.sw').forEach(function(b){b.addEventListener('click',function(){setType(b.dataset.t);});});
+</script>
+</body></html>

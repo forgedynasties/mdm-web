@@ -1,0 +1,154 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Action · Rollout track — AIO MDM</title>
+<style>
+  :root{
+    --bg:#faf8f5;--surface:#fff;--surface2:#f6f4f0;--surface3:#efeae3;--border:#e8e2da;--border-soft:#f0ebe4;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --accent:#f9674e;--accent-h:#ec4f33;--accent-soft:rgba(249,103,78,.10);--accent-edge:rgba(249,103,78,.34);
+    --p:#7a80f6;--p-soft:rgba(122,128,246,.12);
+    --ok:#157f3c;--ok-bg:rgba(21,127,60,.10);--warn:#b45309;--warn-bg:rgba(180,83,9,.10);--danger:#b42318;--danger-bg:rgba(180,35,24,.10);
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 8px 26px rgba(28,26,24,.07);--r:16px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:940px;margin:0 auto;padding:34px 24px 90px}
+  .back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:20px}
+  .back:hover{color:var(--accent)}
+
+  /* Hero: the action identity + the rollout track (signature). */
+  .hero{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+  .hero-top{display:flex;align-items:flex-start;gap:16px;padding:22px 24px 18px}
+  .glyph{width:52px;height:52px;flex:none;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--p));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 16px rgba(249,103,78,.28)}
+  .glyph svg{width:26px;height:26px}
+  .h-id{min-width:0;flex:1}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent)}
+  .h-id h1{margin:3px 0 4px;font-size:23px;font-weight:700;letter-spacing:-.02em}
+  .h-id h1 .pkg{font-family:var(--mono);font-size:15px;color:var(--muted);font-weight:500;letter-spacing:0}
+  .h-sub{font-size:13px;color:var(--muted)}
+  .h-sub b{color:var(--text);font-weight:600}
+  .h-acts{display:flex;gap:8px;flex:none}
+  .btn{font:inherit;font-size:13px;font-weight:600;border-radius:10px;padding:8px 13px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+  .btn:hover{border-color:var(--accent-edge);color:var(--accent)}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}.btn.pri:hover{background:var(--accent-h);color:#fff}
+
+  /* The rollout track — one rail, device dots flowing left→right through the stages. */
+  .track{padding:6px 24px 22px}
+  .track-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+  .track-h .big{font-size:15px;font-weight:650}
+  .track-h .big b{font-size:22px;color:var(--accent);letter-spacing:-.02em}
+  .track-h .meta{font-size:12.5px;color:var(--muted)}
+  .rail{position:relative;height:44px;border-radius:12px;background:var(--surface2);border:1px solid var(--border-soft);overflow:hidden}
+  .rail .fill{position:absolute;inset:0 auto 0 0;width:42%;background:linear-gradient(90deg,var(--accent-soft),rgba(122,128,246,.14));border-right:2px solid var(--accent)}
+  .rail .stages{position:absolute;inset:0;display:grid;grid-template-columns:repeat(4,1fr)}
+  .rail .stg{border-left:1px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--faint)}
+  .rail .stg:first-child{border-left:0}
+  .dots{display:flex;gap:5px;margin-top:12px;flex-wrap:wrap}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--surface3)}
+  .dot.done{background:var(--ok)}.dot.run{background:var(--p)}.dot.dl{background:var(--accent);animation:pulse 1.4s ease-in-out infinite}.dot.fail{background:var(--danger)}.dot.off{background:var(--faint);opacity:.5}
+  @keyframes pulse{50%{opacity:.4}}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:14px;font-size:12px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:9px;height:9px;border-radius:50%}
+  .li-done{background:var(--ok)}.li-run{background:var(--p)}.li-dl{background:var(--accent)}.li-fail{background:var(--danger)}.li-off{background:var(--faint)}
+
+  /* Device roster */
+  .roster{margin-top:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+  .r-head{display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--border-soft)}
+  .r-head h3{margin:0;font-size:14px;font-weight:650}
+  .filters{display:flex;gap:6px}
+  .chip{font-size:12px;font-weight:600;padding:4px 11px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
+  .chip.on{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent)}
+  .row{display:grid;grid-template-columns:1.4fr 1.3fr auto;align-items:center;gap:14px;padding:13px 20px;border-top:1px solid var(--border-soft)}
+  .row:first-child{border-top:0}
+  .sn{font-family:var(--mono);font-size:13px}
+  .sn .loc{display:block;font-family:var(--font);font-size:11.5px;color:var(--faint);margin-top:1px}
+  .st{display:flex;align-items:center;gap:9px;min-width:0}
+  .pill{font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:3px 9px;border-radius:99px;white-space:nowrap}
+  .pill.done{background:var(--ok-bg);color:var(--ok)}.pill.run{background:var(--p-soft);color:var(--p)}.pill.dl{background:var(--accent-soft);color:var(--accent)}.pill.fail{background:var(--danger-bg);color:var(--danger)}.pill.off{background:var(--surface3);color:var(--muted)}
+  .bar{flex:1;height:6px;border-radius:99px;background:var(--surface3);overflow:hidden;min-width:60px}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+  .bar.run i{background:var(--p);width:100%;animation:shimmer 1.4s ease-in-out infinite}
+  @keyframes shimmer{50%{opacity:.5}}
+  .st .err{font-size:11.5px;color:var(--danger)}
+  .st .note{font-size:11.5px;color:var(--muted)}
+  .r-act{display:flex;justify-content:flex-end}
+  .mini{font-size:12px;font-weight:600;color:var(--muted);border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:4px 10px;cursor:pointer}
+  .mini:hover{border-color:var(--accent-edge);color:var(--accent)}
+  .tag{position:fixed;left:14px;bottom:14px;font-size:11px;color:var(--faint);background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:5px 9px}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/index">← Demos</a>
+
+  <div class="hero">
+    <div class="hero-top">
+      <div class="glyph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></div>
+      <div class="h-id">
+        <div class="kicker">Install app · in progress</div>
+        <h1>SpeedTest <span class="pkg">com.aioapp.speedtest</span></h1>
+        <div class="h-sub">Sent <b>6m ago</b> to <b>Downtown</b> · 12 devices · by admin</div>
+      </div>
+      <div class="h-acts">
+        <a class="btn" href="#">Duplicate &amp; edit</a>
+        <button class="btn pri">Retry failed</button>
+      </div>
+    </div>
+
+    <div class="track">
+      <div class="track-h">
+        <div class="big"><b>5</b> of 12 landed</div>
+        <div class="meta">3 in flight · 1 failed · 3 offline</div>
+      </div>
+      <div class="rail">
+        <div class="fill"></div>
+        <div class="stages">
+          <div class="stg">queued</div><div class="stg">downloading</div><div class="stg">installing</div><div class="stg">installed</div>
+        </div>
+      </div>
+      <div class="dots">
+        <span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot done"></span><span class="dot done"></span>
+        <span class="dot run"></span><span class="dot dl"></span><span class="dot dl"></span>
+        <span class="dot fail"></span>
+        <span class="dot off"></span><span class="dot off"></span><span class="dot off"></span>
+      </div>
+      <div class="legend">
+        <span><i class="li-done"></i>Installed</span><span><i class="li-dl"></i>Downloading</span><span><i class="li-run"></i>Installing</span><span><i class="li-fail"></i>Failed</span><span><i class="li-off"></i>Offline · will receive on reconnect</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="roster">
+    <div class="r-head">
+      <h3>12 targets</h3>
+      <div class="filters"><span class="chip on">All</span><span class="chip">In flight 3</span><span class="chip">Failed 1</span><span class="chip">Offline 3</span></div>
+    </div>
+
+    <div class="row"><div class="sn">AT070AA2600042<span class="loc">Downtown · Register 2</span></div>
+      <div class="st"><span class="pill dl">↓ 78%</span><span class="bar"><i style="width:78%"></i></span></div>
+      <div class="r-act"></div></div>
+
+    <div class="row"><div class="sn">AT070AA2600021<span class="loc">Downtown · Register 1</span></div>
+      <div class="st"><span class="pill dl">↓ 45%</span><span class="bar"><i style="width:45%"></i></span></div>
+      <div class="r-act"></div></div>
+
+    <div class="row"><div class="sn">AT070AA2600031<span class="loc">Downtown · Kitchen</span></div>
+      <div class="st"><span class="pill run">Installing</span><span class="bar run"><i></i></span></div>
+      <div class="r-act"></div></div>
+
+    <div class="row"><div class="sn">AT070AA2600051<span class="loc">Downtown · Drive-thru</span></div>
+      <div class="st"><span class="pill fail">Failed</span><span class="err">Insufficient storage</span></div>
+      <div class="r-act"><button class="mini">Resend</button></div></div>
+
+    <div class="row"><div class="sn">AT070AA2600011<span class="loc">Downtown · Register 3</span></div>
+      <div class="st"><span class="pill done">Installed</span><span class="note">2m ago</span></div>
+      <div class="r-act"></div></div>
+
+    <div class="row"><div class="sn">AT070AA2600061<span class="loc">Downtown · Patio</span></div>
+      <div class="st"><span class="pill off">Offline</span><span class="note">last seen 3h ago</span></div>
+      <div class="r-act"><button class="mini">Resend</button></div></div>
+
+  </div>
+</div>
+<div class="tag">Demo · Rollout track · synthetic data</div>
+</body></html>
