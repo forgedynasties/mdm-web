@@ -7575,13 +7575,33 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"actions-target", "actions-target-rail", "actions-target-audience", "actions-target-split",
 		"action-types", "action-rollout", "action-cockpit",
 		"export", "export-builder", "export-compact", "timesel",
-		"health-pulse", "health-triage", "health-grid",
-		"audit":
+		"health-pulse", "health-triage", "health-grid":
 	default:
 		http.NotFound(w, r)
 		return
 	}
 	b, err := os.ReadFile("templates/demo/" + r.PathValue("n") + ".html")
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(b)
+}
+
+// InternalPage serves admin/dev-only presenter material — the system audit and the
+// demo runbook — from templates/demo/<n>.html. Kept separate from DemoPage so these
+// candid, internal-facing documents sit behind requireAdmin rather than requireAuth,
+// and so they're never exposed to a viewer/operator/tester or an external guest login.
+func (h *Handler) InternalPage(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(r.URL.Path, "/demo/")
+	switch name {
+	case "audit", "runbook":
+	default:
+		http.NotFound(w, r)
+		return
+	}
+	b, err := os.ReadFile("templates/demo/" + name + ".html")
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -9340,6 +9360,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Working target-picker prototype (real fleet data + live counts), plus the static demos.
 	mux.HandleFunc("GET /demo/target-live", h.requireAuth(h.TargetLivePage))
 	mux.HandleFunc("GET /demo/target-count", h.requireAuth(h.TargetCountJSON))
+	// Internal presenter material (system audit + demo runbook): admin/dev only, and
+	// registered as explicit routes so they take precedence over /demo/{n} — a viewer
+	// or external guest with a login can't reach the candid readiness/security content.
+	mux.HandleFunc("GET /demo/audit", h.requireAdmin(h.InternalPage))
+	mux.HandleFunc("GET /demo/runbook", h.requireAdmin(h.InternalPage))
 	mux.HandleFunc("GET /demo/{n}", h.requireAuth(h.DemoPage))
 	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))

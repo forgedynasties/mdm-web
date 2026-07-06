@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Demo Runbook — AIO MDM</title>
+<style>
+  :root{
+    --ground:#FBFBFD;--panel:#FFFFFF;--panel-2:#F6F6FA;
+    --ink:#16171D;--ink-2:#3A3C46;--muted:#6A6E7C;--faint:#9498A6;
+    --line:#E7E8EE;--line-2:#EFEFF4;
+    --coral:#F9674E;--peri:#7A80F6;
+    --grad:linear-gradient(115deg,#F9674E 0%,#F97E67 34%,#8A82F3 78%,#7A80F6 100%);
+    --good:#1E9E6B;--good-bg:#E7F5EE;--warn:#C7871B;--warn-bg:#FBF1DE;
+    --crit:#D23A4B;--crit-bg:#FBE7EA;--info:#5A62E6;--info-bg:#ECEDFC;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --radius:14px;--radius-s:9px;--shadow:0 1px 2px rgba(20,21,26,.04),0 8px 26px -14px rgba(20,21,26,.18);
+  }
+  *{box-sizing:border-box}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+  h1,h2,h3{line-height:1.15;margin:0;text-wrap:balance}
+  p{margin:0}
+  .mono{font-family:var(--mono)}
+  .eyebrow{font-family:var(--mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--coral);font-weight:600;display:inline-flex;align-items:center;gap:.55em}
+  .eyebrow::before{content:"";width:20px;height:2px;background:var(--grad);border-radius:2px}
+
+  header.top{background:radial-gradient(120% 140% at 90% -30%,rgba(122,128,246,.15),transparent 46%),
+    radial-gradient(90% 120% at 2% 6%,rgba(249,103,78,.12),transparent 50%),var(--panel);
+    border-bottom:1px solid var(--line)}
+  header.top .wrap{padding:26px 22px 30px}
+  .wordmark{font-weight:700;font-size:1.1rem;letter-spacing:-.01em}
+  .wordmark .aio{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .wordmark .mdm{color:var(--muted);font-weight:600;margin-left:.12em}
+  header.top h1{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:700;letter-spacing:-.02em;margin-top:16px}
+  .runmeta{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .rm{font-family:var(--mono);font-size:.74rem;font-weight:500;color:var(--ink-2);
+    background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 11px}
+  .rm b{color:var(--ink);font-weight:600}
+
+  section{padding:36px 0 4px}
+  .sh{margin-bottom:18px}
+  .sh h2{font-size:1.35rem;font-weight:700;letter-spacing:-.015em;margin-top:8px}
+  .sh p{color:var(--muted);margin-top:6px;font-size:.95rem}
+
+  /* banners */
+  .banner{display:flex;gap:14px;align-items:flex-start;border-radius:var(--radius);padding:15px 18px;
+    margin-top:14px;border:1px solid var(--line);box-shadow:var(--shadow)}
+  .banner .ic{font-family:var(--mono);font-weight:700;font-size:.7rem;letter-spacing:.05em;
+    padding:4px 8px;border-radius:6px;white-space:nowrap;flex:none;margin-top:2px}
+  .banner .bt{font-weight:650;font-size:.96rem}
+  .banner p{font-size:.88rem;color:var(--ink-2);margin-top:3px;line-height:1.5}
+  .banner.freeze{border-left:3px solid var(--crit)}
+  .banner.freeze .ic{background:var(--crit-bg);color:var(--crit)}
+  .banner.candor{border-left:3px solid var(--warn)}
+  .banner.candor .ic{background:var(--warn-bg);color:var(--warn)}
+
+  /* checklist */
+  .checks{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  @media(max-width:680px){.checks{grid-template-columns:1fr}}
+  .checks li{background:var(--panel);padding:13px 16px;display:flex;gap:11px;align-items:flex-start}
+  .checks .box{width:16px;height:16px;border:2px solid var(--peri);border-radius:5px;flex:none;margin-top:2px}
+  .checks .ct{font-size:.88rem;color:var(--ink-2);line-height:1.45}
+  .checks .ct b{color:var(--ink);font-weight:600}
+  code{font-family:var(--mono);font-size:.82em;background:var(--panel-2);border:1px solid var(--line-2);
+    padding:1px 5px;border-radius:4px;color:var(--ink-2)}
+
+  /* run of show */
+  .seg{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);margin-top:12px;overflow:hidden}
+  .seg-head{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--line-2);
+    background:linear-gradient(180deg,var(--panel),var(--panel-2))}
+  .tchip{font-family:var(--mono);font-weight:700;font-size:.8rem;color:#fff;background:var(--ink);
+    padding:3px 9px;border-radius:7px;flex:none;font-variant-numeric:tabular-nums}
+  .tchip.wow{background:var(--grad)}
+  .seg-head h3{font-size:1.04rem;font-weight:650;flex:1}
+  .dur{font-family:var(--mono);font-size:.72rem;color:var(--faint);flex:none}
+  .seg-body{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line-2)}
+  @media(max-width:640px){.seg-body{grid-template-columns:1fr}}
+  .do,.say{background:var(--panel);padding:14px 18px}
+  .lbl{font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;
+    font-weight:600;margin-bottom:7px}
+  .do .lbl{color:var(--peri)}.say .lbl{color:var(--coral)}
+  .do ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:5px}
+  .do li{font-size:.87rem;color:var(--ink-2);line-height:1.45}
+  .say p{font-size:.92rem;color:var(--ink);line-height:1.5;font-style:italic}
+  .fallback{grid-column:1/-1;background:var(--panel-2);padding:9px 18px;font-size:.8rem;color:var(--muted);
+    border-top:1px solid var(--line-2)}
+  .fallback b{font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--high,#E06A2E);font-weight:600;margin-right:6px}
+
+  /* qa */
+  .qa{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);margin-top:12px;padding:16px 20px}
+  .qa .q{font-weight:650;font-size:.94rem;display:flex;gap:9px;align-items:baseline}
+  .qa .q .qm{font-family:var(--mono);color:var(--coral);font-weight:700}
+  .qa .a{font-size:.89rem;color:var(--ink-2);margin-top:6px;padding-left:22px;line-height:1.5}
+  .qa+.qa{margin-top:10px}
+
+  /* ask */
+  .ask{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px}
+  @media(max-width:680px){.ask{grid-template-columns:1fr}}
+  .ask-col{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:17px 18px;box-shadow:var(--shadow)}
+  .ask-col .p{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+  .ask-col.now .p{color:var(--crit)}.ask-col.next .p{color:var(--warn)}.ask-col.later .p{color:var(--good)}
+  .ask-col .t{font-weight:700;font-size:1.02rem;margin:3px 0 10px}
+  .ask-col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+  .ask-col li{font-size:.85rem;color:var(--ink-2);padding-left:16px;position:relative;line-height:1.4}
+  .ask-col li::before{content:"";position:absolute;left:0;top:.5em;width:6px;height:6px;border-radius:2px}
+  .ask-col.now li::before{background:var(--crit)}.ask-col.next li::before{background:var(--warn)}.ask-col.later li::before{background:var(--good)}
+  .askline{border:1px solid var(--line);border-left:3px solid var(--good);background:var(--panel);
+    border-radius:var(--radius-s);padding:15px 18px;margin-top:16px;box-shadow:var(--shadow)}
+  .askline .t{font-weight:650;color:var(--good);font-size:.92rem}
+  .askline p{font-size:.9rem;color:var(--ink-2);margin-top:5px}
+
+  footer{margin-top:52px;border-top:1px solid var(--line);background:var(--panel)}
+  footer .wrap{padding:22px;font-family:var(--mono);font-size:.72rem;color:var(--muted);
+    display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="wordmark"><span class="aio">AIO</span><span class="mdm">MDM</span></div>
+    <div class="eyebrow">Presenter runbook · keep on your second screen</div>
+    <h1>Demo run-of-show</h1>
+    <div class="runmeta">
+      <span class="rm"><b>~25 min</b> total</span>
+      <span class="rm">Audience: <b>mixed / external</b></span>
+      <span class="rm">Live on the <b>real fleet</b></span>
+      <span class="rm">9 segments + Q&amp;A</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- THROUGHLINE + BANNERS -->
+  <section id="open">
+    <div class="sh">
+      <div class="eyebrow">Say this first — the throughline</div>
+      <h2>“It already runs our 900-device fleet, and it does the hard things well.”</h2>
+      <p>Everything you show maps back to this one sentence: real fleet, real control, and a clear plan.
+        Lead with the product moving on screen — not slides.</p>
+    </div>
+
+    <div class="banner freeze">
+      <span class="ic">DO NOT RESTART</span>
+      <div><div class="bt">Freeze the server for the whole window</div>
+        <p>The platform is single-instance — a restart or redeploy drops every live device connection and
+          your “live” demo goes cold. No <code>docker compose</code>, no deploys, from T-60 until you're done.</p></div>
+    </div>
+    <div class="banner candor">
+      <span class="ic">EXTERNAL IN ROOM</span>
+      <div><div class="bt">Keep the candor internal</div>
+        <p>With outside people present, <b>do not open the audit page</b> or walk the readiness gaps. Security =
+          the positive pen-test story only. Frame the roadmap as ambition, not as a list of what's missing.</p></div>
+    </div>
+  </section>
+
+  <!-- PREFLIGHT -->
+  <section id="preflight">
+    <div class="sh">
+      <div class="eyebrow">T-60 minutes</div>
+      <h2>Pre-flight checklist</h2>
+      <p>Walk this an hour before. A cold device or a stray notification is what actually kills a live demo.</p>
+    </div>
+    <ul class="checks">
+      <li><span class="box"></span><span class="ct"><b>Confirm 2–3 demo devices are online</b> — open <code>/devices</code>, verify green / WS-connected. Pick your “hero” device for remote control.</span></li>
+      <li><span class="box"></span><span class="ct"><b>Wake the hero device</b> and keep it on power so it doesn't sleep or throttle its check-in mid-demo.</span></li>
+      <li><span class="box"></span><span class="ct"><b>Server freeze confirmed</b> — tell anyone with deploy access: no restarts during your slot.</span></li>
+      <li><span class="box"></span><span class="ct"><b>Backup recordings ready</b> — a 15-sec clip each of remote control and an OTA rollout, in case live gets flaky.</span></li>
+      <li><span class="box"></span><span class="ct"><b>Tabs pre-opened &amp; logged in</b>, in order: Overview → Fleet Health → a device → Releases → Wrapped. Full-screen the browser.</span></li>
+      <li><span class="box"></span><span class="ct"><b>Silence notifications</b>, hide bookmarks bar, zoom to a readable size for the room's screen.</span></li>
+      <li><span class="box"></span><span class="ct"><b>Have a recent release/deployment</b> ready to show — either start a small staged rollout live, or open a completed one.</span></li>
+      <li><span class="box"></span><span class="ct"><b>Audit page is admin-gated</b> — confirmed. Don't navigate to it while sharing your screen.</span></li>
+    </ul>
+  </section>
+
+  <!-- RUN OF SHOW -->
+  <section id="ros">
+    <div class="sh">
+      <div class="eyebrow">The run-of-show</div>
+      <h2>Nine segments, timed to ~25 minutes</h2>
+      <p>Left column is exactly what to click; right column is the line to say. Times are cumulative.</p>
+    </div>
+
+    <div class="seg">
+      <div class="seg-head"><span class="tchip">0:00</span><h3>Open — the throughline</h3><span class="dur">30 sec</span></div>
+      <div class="seg-body">
+        <div class="do"><div class="lbl">Do</div><ol>
+          <li>Dashboard already open on Overview <code>/</code></li>
+          <li>Don't read a slide — look at the room</li>
+        </ol></div>
+        <div class="say"><div class="lbl">Say</div><p>“This is our device-management platform — it's live right now, running about 900 devices in the field. Let me show you, then I'll show you where we're taking it.”</p></div>
+      </div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-head"><span class="tchip">0:30</span><h3>Fleet at a glance</h3><span class="dur">2 min</span></div>
+      <div class="seg-body">
+        <div class="do"><div class="lbl">Do</div><ol>
+          <li>Overview <code>/</code> — point at the live stats + activity feed</li>
+          <li>Click <b>Health</b> → <code>/fleet-health</code></li>
+          <li>Show the 0–100 score ring + worst-first venue ranking</li>
+        </ol></div>
+        <div class="say"><div class="lbl">Say</div><p>“One number for the whole fleet's health, and it ranks the venues that need attention first. This updates on its own — nobody's refreshing.”</p></div>
+      </div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-head"><span class="tchip">2:30</span><h3>Device Cockpit — live vitals</h3><span class="dur">2.5 min</span></div>
+      <div class="seg-body">
+        <div class="do"><div class="lbl">Do</div><ol>
+          <li>Go to <code>/devices</code>, click your hero device</li>
+          <li>Point at the live chips: battery, temp, RAM, uptime, Wi-Fi</li>
+          <li>Open the <b>Trends</b> tab — battery &amp; charging over 30 days</li>
+        </ol></div>
+        <div class="say"><div class="lbl">Say</div><p>“Every device reports real telemetry — battery, temperature, memory, network, even crash events. This is a live window into any unit in the field, and history back 30/90 days.”</p></div>
+      </div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-head"><span class="tchip wow">5:00</span><h3>Remote control — the wow moment</h3><span class="dur">3 min</span></div>
+      <div class="seg-body">
+        <div class="do"><div class="lbl">Do</div><ol>
+          <li>On the device, action menu → <b>Remote control</b></li>
+          <li>Wait for the live screen mirror to appear</li>
+          <li><b>Tap something on-screen</b> — open an app, scroll. Let them see it react.</li>
+        </ol></div>
+        <div class="say"><div class="lbl">Say</div><p>“This is that exact device's screen, live — and I can drive it from here. No one has to touch the physical unit. This is how we support a device that's a thousand miles away.”</p></div>
+      </div>
+      <div class="fallback"><b>If flaky</b> Give it 5 seconds; if the mirror doesn't paint, say “let me show you the recording” and play the clip. Don't fight it live.</div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-head"><span class="tchip wow">8:00</span><h3>OTA rollout — updates at fleet scale</h3><span class="dur">3.5 min</span></div>
+      <div class="seg-body">
+        <div class="do"><div class="lbl">Do</div><ol>
+          <li>Go to <code>/releases</code>, open a release</li>
+          <li>Open a deployment — show per-device OTA phases animating (download → verify → install)</li>
+          <li>Point at staged rollout + QA sign-off</li>
+        </ol></div>
+        <div class="say"><div class="lbl">Say</div><p>“We push firmware and app updates to the whole fleet, staged and tracked device-by-device — with a QA sign-off gate before anything goes wide. This is the part that's genuinely hard to build, and it's real.”</p></div>
+      </div>
+      <div class="fallback"><b>If flaky</b> Open a completed deployment instead of starting one — the finished phase badges tell the same story with zero risk.</div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-head"><span class="tchip">11:30</span><h3>Breadth — one screen, many powers</h3><span class="dur">3 min</span></div>
+      <div class="seg-body">
+        <div class="do"><div class="lbl">Do</div><ol>
+          <li>Open <code>/commands</code> — pick an action type, choose a target scope</li>
+          <li>Point at the live <b>blast-radius preview</b> (how many devices)</li>
+          <li>Name-check, don't click through: Alerts, AI report card, live logcat, roles/audit</li>
+        </ol></div>
+        <div class="say"><div class="lbl">Say</div><p>“Install, reboot, run diagnostics, capture logs — targeted at one venue or the whole fleet, with a preview of exactly how many devices it'll hit. Behind it: alerting, AI-assisted triage, live logs, and proper role-based access with an audit trail.”</p></div>
+      </div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-head"><span class="tchip">14:30</span><h3>Reliability &amp; trust</h3><span class="dur">3 min</span></div>
+      <div class="seg-body">
+        <div class="do"><div class="lbl">Do</div><ol>
+          <li>Back to Overview or Health for a calm, whole-fleet visual</li>
+          <li>No audit page. No gap list. Positive framing only.</li>
+        </ol></div>
+        <div class="say"><div class="lbl">Say</div><p>“This isn't a prototype — it runs our real fleet today. And we take security seriously: we commissioned an independent penetration test, they probed it hard, and we fixed the serious findings within a month. We'd rather find it than have someone else.”</p></div>
+      </div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-head"><span class="tchip">17:30</span><h3>The roadmap &amp; the ask</h3><span class="dur">4 min</span></div>
+      <div class="seg-body">
+        <div class="do"><div class="lbl">Do</div><ol>
+          <li>Switch to the 3-phase plan below (or a slide of it)</li>
+          <li>State the <b>specific ask</b> — fill it in before the meeting</li>
+          <li>End on a decision, not a summary</li>
+        </ol></div>
+        <div class="say"><div class="lbl">Say</div><p>“It works today. To make it something we stake the business on, here's a phased plan — and here's what I'm asking for to get there.”</p></div>
+      </div>
+    </div>
+
+    <div class="seg">
+      <div class="seg-head"><span class="tchip wow">21:30</span><h3>Closer — Fleet Wrapped</h3><span class="dur">1.5 min</span></div>
+      <div class="seg-body">
+        <div class="do"><div class="lbl">Do</div><ol>
+          <li>Open <code>/wrapped</code> — let one or two panels count up</li>
+          <li>Optional; skip if you're over time</li>
+        </ol></div>
+        <div class="say"><div class="lbl">Say</div><p>“And because the data's all there — a little year-in-review of what the fleet did. Total check-ins, uptime, battery cycles. Thanks — happy to take questions.”</p></div>
+      </div>
+      <div class="fallback"><b>Time check</b> If you're past 23:00, cut this and go straight to Q&amp;A. Never run the clock out on a flourish.</div>
+    </div>
+  </section>
+
+  <!-- QA -->
+  <section id="qa">
+    <div class="sh">
+      <div class="eyebrow">Pre-loaded answers</div>
+      <h2>The hard questions — answer them crisply</h2>
+      <p>Confident, short, and always end on the plan. Never apologize your way through one.</p>
+    </div>
+
+    <div class="qa"><div class="q"><span class="qm">Q</span>“Is it secure?”</div>
+      <div class="a">“We had an independent firm attack it. They found real issues; we fixed the serious ones within a month. The foundations — encrypted traffic, no injection, separated access — they specifically credited.”</div></div>
+    <div class="qa"><div class="q"><span class="qm">Q</span>“What happens if the server goes down?”</div>
+      <div class="a">“Today it's a single instance — solid at our current scale. Making it fault-tolerant with zero-downtime deploys is an explicit item on the plan, and we know exactly how to do it.”</div></div>
+    <div class="qa"><div class="q"><span class="qm">Q</span>“What if we lose the data?”</div>
+      <div class="a">“Automated backups with point-in-time recovery are the first thing in the plan — I'm naming it before you have to. It's a known, funded line item, not a surprise.”</div></div>
+    <div class="qa"><div class="q"><span class="qm">Q</span>“How do you know it works — is it tested?”</div>
+      <div class="a">“It's proven in the field on 900 devices daily. Formal automated testing is the top engineering investment I'm asking for, precisely so we can move faster with confidence.”</div></div>
+    <div class="qa"><div class="q"><span class="qm">Q</span>“Why build it instead of buying an MDM?”</div>
+      <div class="a">“Off-the-shelf MDM can't do our hardware-specific pieces — the boot splash, the wireless-charging pad telemetry, our OTA and kiosk flow. This is built exactly around our devices and our operation.”</div></div>
+    <div class="qa"><div class="q"><span class="qm">Q</span>“Can it scale past 900?”</div>
+      <div class="a">“The device agent and data model are built for it. The one ceiling is the single-instance server, and Phase 3 lifts it with a standard message-bus pattern. It's an upgrade, not a rebuild.”</div></div>
+  </section>
+
+  <!-- ASK -->
+  <section id="ask">
+    <div class="sh">
+      <div class="eyebrow">The plan you're presenting</div>
+      <h2>Phased path — and the concrete ask</h2>
+      <p>Keep it to ambition and sequencing in front of external folks. The specifics of the gaps stay internal.</p>
+    </div>
+    <div class="ask">
+      <div class="ask-col now"><div class="p">Phase 1 · Foundation</div><div class="t">Rock-solid basics</div>
+        <ul><li>Automated testing + continuous integration</li><li>Backups with point-in-time recovery</li><li>Graceful restarts &amp; hardening</li></ul></div>
+      <div class="ask-col next"><div class="p">Phase 2 · Trust</div><div class="t">Enterprise-grade</div>
+        <ul><li>Per-device credentials &amp; rotation</li><li>Extra approval on high-impact actions</li><li>Monitoring, metrics &amp; runbooks</li></ul></div>
+      <div class="ask-col later"><div class="p">Phase 3 · Scale</div><div class="t">Grow with confidence</div>
+        <ul><li>Fault-tolerant, multi-node server</li><li>Handle far more than 900 devices</li><li>Round out alerting &amp; automation</li></ul></div>
+    </div>
+    <div class="askline">
+      <div class="t">Your ask — fill this in before the meeting</div>
+      <p>e.g. “<b>[N] engineers for [X] weeks</b> to complete Phase 1, and a go / no-go decision on moving to
+        full production rollout by <b>[date]</b>.” End the meeting with a decision, not a recap.</p>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div><span class="wordmark" style="font-size:.95rem"><span class="aio">AIO</span><span class="mdm">MDM</span></span> · Presenter runbook</div>
+    <div>Internal · admin/dev only · /demo/runbook</div>
+  </div>
+</footer>
+</body>
+</html>
