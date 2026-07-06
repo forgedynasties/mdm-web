@@ -145,7 +145,7 @@
     <div class="form-row" id="scheduled-time-row" style="{{if eq $dep.RebootBehavior "scheduled"}}{{else}}display:none;{{end}}">
       <label class="form-label">Scheduled Time (UTC / GMT+0)</label>
       <input type="datetime-local" name="scheduled_time" value="{{if $dep.ScheduledTime}}{{utcDateTimeLocal (deref $dep.ScheduledTime)}}{{end}}" class="form-input" style="max-width:260px;">
-      <div class="form-hint">This field is interpreted as UTC. Devices that have not yet received the OTA command will use the updated reboot setting.</div>
+      <div class="form-hint">This field is interpreted as UTC. Devices that have not yet received the OTA update will use the updated reboot setting.</div>
     </div>
     <button type="submit" class="btn-primary">Save Reboot Settings</button>
   </form>
