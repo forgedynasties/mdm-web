@@ -7313,6 +7313,10 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 -- device_crash alert grabs the device's error logs). NULL for manual captures.
 ALTER TABLE logcat_requests ADD COLUMN IF NOT EXISTS alert_id UUID;
 
+-- How a release problem was filed: 'manual' (tester filed it) or 'qa' (auto-created
+-- when a QA test case was marked failed). One 'qa' problem per (release, test_case).
+ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
+
 -- Structured problem reports filed by testers against a release. A problem is
 -- release-scoped (auto-links the build), optionally references a specific test
 -- case and the device it was seen on, carries a severity + lifecycle status, and
@@ -8564,6 +8568,7 @@ type ReleaseProblem struct {
 	Description   string
 	Severity      string // blocker | major | minor
 	Status        string // open | fixed | verified | wontfix
+	Source        string // manual | qa (auto-created from a failed QA case)
 	ReportedBy    string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
@@ -8605,7 +8610,7 @@ func (d *DB) ListReleaseProblems(ctx context.Context, releaseID int) ([]ReleaseP
 	rows, err := d.pool.Query(ctx, `
 		SELECT p.id, p.release_id, p.test_case_id, COALESCE(tc.title, ''),
 		       p.device_id, COALESCE(d.serial_number, ''), p.build_id,
-		       p.title, p.description, p.severity, p.status, p.reported_by,
+		       p.title, p.description, p.severity, p.status, p.source, p.reported_by,
 		       p.created_at, p.updated_at
 		FROM release_problems p
 		LEFT JOIN test_cases tc ON tc.id = p.test_case_id
@@ -8624,12 +8629,53 @@ func (d *DB) ListReleaseProblems(ctx context.Context, releaseID int) ([]ReleaseP
 		var p ReleaseProblem
 		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.TestCaseID, &p.TestCaseTitle,
 			&p.DeviceID, &p.DeviceSerial, &p.BuildID, &p.Title, &p.Description,
-			&p.Severity, &p.Status, &p.ReportedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			&p.Severity, &p.Status, &p.Source, &p.ReportedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// UpsertQAProblem is called when a QA test case is marked failed: it opens a
+// linked problem for (release, test_case) with source='qa', or reopens the
+// existing QA problem if it had been resolved (a re-fail after a fix). Title comes
+// from the case, build from the release; severity defaults to major.
+func (d *DB) UpsertQAProblem(ctx context.Context, releaseID int, testCaseID uuid.UUID, notes, reportedBy string) error {
+	if strings.TrimSpace(notes) == "" {
+		notes = "Marked failed in QA."
+	}
+	if _, err := d.pool.Exec(ctx, `
+		INSERT INTO release_problems
+			(release_id, test_case_id, build_id, title, description, severity, status, reported_by, source)
+		SELECT $1, $2,
+		       COALESCE((SELECT version FROM releases WHERE id = $1), ''),
+		       'QA fail: ' || COALESCE((SELECT title FROM test_cases WHERE id = $2), 'test case'),
+		       $3, 'major', 'open', $4, 'qa'
+		WHERE NOT EXISTS (
+			SELECT 1 FROM release_problems WHERE release_id = $1 AND test_case_id = $2 AND source = 'qa')
+	`, releaseID, testCaseID, notes, reportedBy); err != nil {
+		return err
+	}
+	// Reopen (and refresh notes on) an existing QA problem that had been closed.
+	_, err := d.pool.Exec(ctx, `
+		UPDATE release_problems SET status = 'open', description = $3, updated_at = NOW()
+		WHERE release_id = $1 AND test_case_id = $2 AND source = 'qa'
+		  AND status IN ('verified', 'wontfix')
+	`, releaseID, testCaseID, notes)
+	return err
+}
+
+// ResolveQAProblem is called when a QA case is marked passed: it marks the linked
+// QA-sourced problem verified (two-way sync). No-op if there is none or it's
+// already closed.
+func (d *DB) ResolveQAProblem(ctx context.Context, releaseID int, testCaseID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE release_problems SET status = 'verified', updated_at = NOW()
+		WHERE release_id = $1 AND test_case_id = $2 AND source = 'qa'
+		  AND status NOT IN ('verified', 'wontfix')
+	`, releaseID, testCaseID)
+	return err
 }
 
 // UpdateReleaseProblem changes a problem's status and/or severity. Empty values
