@@ -5032,6 +5032,7 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	qa, _ := h.db.ReleaseQASummary(r.Context(), id)
 	problems, _ := h.db.ListReleaseProblems(r.Context(), id)
 	problemSummary, _ := h.db.ReleaseProblemSummary(r.Context(), id)
+	buildCrashes, _ := h.db.CrashesOnBuild(r.Context(), rel.Version, 20)
 
 	connected := h.hub.ConnectedIDs()
 	online := make(map[uuid.UUID]bool, len(connected))
@@ -5058,6 +5059,7 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"CanRecord":           role == "tester",
 		"Problems":            problems,
 		"ProblemSummary":      problemSummary,
+		"BuildCrashes":        buildCrashes,
 		"CanReport":           canOp, // admin/dev/operator/tester can file & triage problems
 	})
 }

@@ -84,6 +84,14 @@
     <span class="ovx-lbl">QA passed</span>
     <span class="ovx-sub">{{if gt .QA.Total 0}}{{if gt .QA.Fail 0}}{{.QA.Fail}} failed · {{end}}{{.QA.Untested}} untested{{else}}no test cases{{end}}</span>
   </div>
+  <div class="ovx-stat" style="cursor:pointer;" onclick="var b=document.querySelector('[data-rtab=problems]');if(b)b.click();">
+    <div class="ovx-stat-top">
+      <span class="ovx-ico i-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
+      <span class="ovx-big{{if gt .ProblemSummary.Blockers 0}} bad{{else if gt .ProblemSummary.Open 0}} warn{{else}} ok{{end}}" style="font-size:24px;">{{.ProblemSummary.Open}}</span>
+    </div>
+    <span class="ovx-lbl">Open problems</span>
+    <span class="ovx-sub">{{if gt .ProblemSummary.Blockers 0}}{{.ProblemSummary.Blockers}} blocker{{if ne .ProblemSummary.Blockers 1}}s{{end}} · {{end}}{{.ProblemSummary.Total}} total</span>
+  </div>
   <div class="ovx-stat">
     <div class="ovx-stat-top">
       <span class="ovx-ico i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
@@ -500,9 +508,9 @@
   </div>
   <div style="padding:14px 16px;">
     {{if .CanReport}}
-    <form action="/releases/{{$rel.ID}}/problems" method="POST" class="prob-form">
-      <input name="title" class="form-input" placeholder="What went wrong? (short title)" required maxlength="200">
-      <textarea name="description" class="form-input" rows="3" placeholder="Repro steps, what you saw, paste a relevant log snippet…" style="resize:vertical;"></textarea>
+    <form action="/releases/{{$rel.ID}}/problems" method="POST" class="prob-form" id="prob-form">
+      <input name="title" id="prob-title-input" class="form-input" placeholder="What went wrong? (short title)" required maxlength="200">
+      <textarea name="description" id="prob-desc-input" class="form-input" rows="3" placeholder="Repro steps, what you saw, paste a relevant log snippet…" style="resize:vertical;"></textarea>
       <div class="prob-form-row">
         <select name="severity" class="form-input" title="Severity">
           <option value="blocker">Blocker</option>
@@ -513,11 +521,26 @@
           <option value="">— related test case (optional) —</option>
           {{range .Checklist}}<option value="{{.ID}}">{{.Title}}</option>{{end}}
         </select>
-        <input name="device_serial" class="form-input" placeholder="Device serial (optional)" list="prob-devices" autocapitalize="off">
+        <input name="device_serial" id="prob-device-input" class="form-input" placeholder="Device serial (optional)" list="prob-devices" autocapitalize="off">
         <datalist id="prob-devices">{{range .DevicesOnVersion}}<option value="{{.SerialNumber}}"></option>{{end}}</datalist>
         <button type="submit" class="btn-primary">Report problem</button>
       </div>
     </form>
+
+    {{if .BuildCrashes}}
+    <div class="prob-crashes">
+      <div class="prob-crashes-h">Crashes seen on devices running {{$rel.Version}} <span class="muted small">— auto-detected; report the relevant ones</span></div>
+      {{range .BuildCrashes}}
+      <div class="prob-crash">
+        <span class="prob-crash-kind">{{.Kind}}</span>
+        <a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>
+        <span class="prob-crash-sum">{{if .Summary}}{{.Summary}}{{else}}—{{end}}</span>
+        <span class="prob-crash-when muted small">{{timeSince .OccurredAt}}</span>
+        <button type="button" class="qa-pill" onclick="probFromCrash(this)" data-kind="{{.Kind}}" data-serial="{{.Serial}}" data-sum="{{.Summary}}">Report</button>
+      </div>
+      {{end}}
+    </div>
+    {{end}}
     {{end}}
 
     {{if .Problems}}
@@ -596,6 +619,19 @@ document.addEventListener('DOMContentLoaded', function () {
   var btn = document.querySelector('.dd-tab[data-rtab="' + saved + '"]');
   if (btn) relDetailTab(saved, btn);
 });
+// Prefill the problem report form from an auto-detected crash and jump to it.
+function probFromCrash(btn) {
+  var t = document.getElementById('prob-title-input');
+  var d = document.getElementById('prob-device-input');
+  var desc = document.getElementById('prob-desc-input');
+  var kind = btn.dataset.kind || 'crash', sum = btn.dataset.sum || '', serial = btn.dataset.serial || '';
+  if (t) t.value = kind + (sum ? ': ' + sum : '') + (serial ? ' on ' + serial : '');
+  if (d) d.value = serial;
+  if (desc && !desc.value) desc.value = 'Auto-detected ' + kind + (serial ? ' on ' + serial : '') + '.';
+  var f = document.getElementById('prob-form');
+  if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (t) t.focus();
+}
 function setPkgType(mode) {
   var fullBtn = document.querySelector('#add-pkg-form .seg-btn[data-mode="full"]');
   if (mode === 'full' && fullBtn && fullBtn.disabled) return; // only one full per release
