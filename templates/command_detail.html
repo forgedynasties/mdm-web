@@ -4,7 +4,7 @@
 {{$offlinePending := 0}}
 {{if .Deliveries}}
   {{$hasPending = false}}
-  {{range .Deliveries}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{if not .Online}}{{$offlinePending = add $offlinePending 1}}{{end}}{{end}}{{end}}
+  {{range .Deliveries}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{if not .Online}}{{$offlinePending = add $offlinePending 1}}{{end}}{{end}}{{if or (eq .Status "downloading") (eq .Status "installing")}}{{$hasPending = true}}{{end}}{{end}}
 {{end}}
 <div class="card"
   id="deliveries-card"
@@ -61,7 +61,7 @@
         <tr>
           <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
           <td style="white-space:nowrap;">
-            <span class="status-badge {{statusClass .Status}}">{{.Status}}</span>
+            <span class="status-badge {{statusClass .Status}}">{{.Status}}{{if and (eq .Status "downloading") .Progress}} {{.Progress}}%{{end}}</span>
             {{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered"))}}
             <span class="muted small" style="margin-left:8px;" title="Device offline — it will receive this command when it reconnects"><span class="ws-dot"></span>offline · last seen {{timeSince .LastSeenAt}}</span>
             {{end}}

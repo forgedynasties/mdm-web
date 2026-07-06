@@ -509,6 +509,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return "danger"
 			case "expired":
 				return "warn"
+			case "downloading", "installing":
+				return "active"
 			default:
 				return "muted"
 			}
