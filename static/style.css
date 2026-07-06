@@ -5184,7 +5184,7 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 
 /* ── Actions history: dense table (Action · Target · Result · Sent), grouped by
    status. Shared by /commands and the standalone /commands/history page. ── */
-.htbl-cols{display:grid;grid-template-columns:minmax(0,1fr) 120px 244px 70px auto;gap:14px;align-items:center;}
+.htbl-cols{display:grid;grid-template-columns:minmax(0,1fr) 120px 290px 70px auto;gap:14px;align-items:center;}
 .htbl-head{padding:10px 18px;border-bottom:1px solid var(--border-soft);background:var(--surface2);}
 .htbl-head span{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
 .hgrp-h{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:14px 18px 6px;color:var(--text-faint);}
@@ -5206,7 +5206,7 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .ca .nm a:hover{color:var(--accent);}
 .ca .pl{font-size:11.5px;color:var(--muted);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .ct{font-size:12.5px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.cr-res{display:flex;align-items:center;gap:10px;}
+.cr-res{display:flex;align-items:center;gap:10px;min-width:0;overflow:hidden;}
 .seg{display:flex;height:6px;width:100px;flex:none;border-radius:99px;overflow:hidden;background:var(--surface-3);}
 .seg i{display:block;height:100%;}
 .s-ok{background:var(--ok);}.s-fail{background:var(--danger);}.s-run{background:var(--accent-2);}.s-wait{background:var(--text-faint);}
