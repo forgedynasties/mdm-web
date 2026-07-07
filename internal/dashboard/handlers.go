@@ -5046,6 +5046,34 @@ func (h *Handler) PackageInspect(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ReleaseCrashDelete removes a crash from a release's auto-detected crash list (admin
+// cleanup of a noisy/irrelevant crash) and clears the device's crash alert, so it also
+// disappears from the Alerts page.
+func (h *Handler) ReleaseCrashDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	eid, err := uuid.Parse(r.PathValue("eid"))
+	if err != nil {
+		http.Error(w, "Invalid crash ID", http.StatusBadRequest)
+		return
+	}
+	deviceID, ok, err := h.db.DeleteCrashEvent(r.Context(), eid)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if ok {
+		if err := h.db.DeleteDeviceCrashAlert(r.Context(), deviceID); err == nil {
+			h.hub.PublishAlertUpdate() // refresh the Alerts page live
+		}
+	}
+	h.audit(r, "release.crash.delete", strconv.Itoa(id), eid.String())
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
+}
+
 // ReleaseAddQFIL attaches a QFIL flashing bundle to a release. Admin/dev only
 // (see the requireAdmin route guard); the test team reads the resulting list on
 // the release page. The bundle is referenced by an external URL like an OTA
@@ -9875,6 +9903,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /releases/{id}/qa", h.requireAdminOrTester(h.ReleaseQAPage))
 	post("POST /releases/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /releases/{id}/packages/inspect", h.requireAdmin(h.PackageInspect))
+	post("POST /releases/{id}/crashes/{eid}/delete", h.requireAdmin(h.ReleaseCrashDelete))
 	post("POST /releases/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
 	post("POST /releases/{id}/qfil", h.requireAdmin(h.ReleaseAddQFIL))
 	post("POST /releases/{id}/qfil/{qid}/delete", h.requireAdmin(h.ReleaseDeleteQFIL))

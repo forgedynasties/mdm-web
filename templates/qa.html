@@ -109,6 +109,7 @@
         <span class="prob-crash-sum">{{if .Summary}}{{.Summary}}{{else}}—{{end}}</span>
         <span class="prob-crash-when muted small">{{timeSince .OccurredAt}}</span>
         <button type="button" class="qa-pill" onclick="probFromCrash(this)" data-kind="{{.Kind}}" data-serial="{{.Serial}}" data-sum="{{.Summary}}">Report</button>
+        {{if eq $role "admin"}}<form action="/releases/{{$rel.ID}}/crashes/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Remove this crash? It also disappears from the Alerts page."><button type="submit" class="qa-pill" title="Remove this crash — also clears it from Alerts">Remove</button></form>{{end}}
       </div>
       {{if .Detail}}
       <details class="prob-crash-trace">
