@@ -166,7 +166,13 @@ func (h *httpReaderAt) ReadAt(p []byte, off int64) (int, error) {
 		return 0, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusPartialContent && resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusPartialContent: // 206 — the body is exactly our range
+	case http.StatusOK: // server ignored Range; body starts at 0, so only offset 0 is safe
+		if off != 0 {
+			return 0, fmt.Errorf("host does not support range requests (HTTP 200) — cannot inspect without downloading the whole package")
+		}
+	default:
 		return 0, fmt.Errorf("range request failed: HTTP %d", resp.StatusCode)
 	}
 	n, err := io.ReadFull(resp.Body, p[:end-off+1])
