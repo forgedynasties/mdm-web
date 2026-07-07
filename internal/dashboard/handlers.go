@@ -6390,6 +6390,24 @@ func (h *Handler) CommandImpact(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// CommandTargetPackages renders the uninstall package picker scoped to the current
+// target selection, so the Actions uninstall list shows only apps actually installed
+// on the devices that would receive the command. htmx-refreshed when the target
+// changes (see the #uninstall-list container in commands.html).
+func (h *Handler) CommandTargetPackages(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	targetType := r.FormValue("target_type")
+	if targetType != "all" && targetType != "devices" && targetType != "groups" && targetType != "scope" {
+		targetType = "all"
+	}
+	ids, _ := h.resolveTargetDeviceIDs(r, targetType)
+	pkgs, _ := h.db.PackagesForDevices(r.Context(), ids)
+	h.tmpl.ExecuteTemplate(w, "uninstall-pkg-list", map[string]any{
+		"FleetPackages": pkgs,
+		"TargetCount":   len(ids),
+	})
+}
+
 // TargetLivePage renders the working target-picker prototype (/demo/target-live) backed
 // by the real fleet: restaurants, groups and releases with live counts. All three
 // picker concepts share the JSON count endpoint below.
@@ -7024,8 +7042,16 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
-	if cmdType == "install_apk" && apkURL == "" {
+	// install_apk and uninstall accept MULTIPLE selections — one command is created
+	// per chosen app / package (the command + client model is one-app-per-command).
+	// Every other type carries a single payload.
+	installURLs := dedupeStrings(formValues(r, "apk_url"))
+	uninstallPkgs := dedupeStrings(formValues(r, "package"))
+	if cmdType == "install_apk" && len(installURLs) == 0 {
+		http.Redirect(w, r, "/commands", http.StatusFound)
+		return
+	}
+	if cmdType == "uninstall" && len(uninstallPkgs) == 0 {
 		http.Redirect(w, r, "/commands", http.StatusFound)
 		return
 	}
@@ -7047,8 +7073,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	payload := buildPayload(cmdType, r)
-
+	// Resolve the target device set once — every command we create shares it.
 	var targetIDs []uuid.UUID
 	switch targetType {
 	case "all":
@@ -7095,79 +7120,152 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		targetIDs = ids
 	}
 
-	// Don't pile up installs. Drop target devices that (a) already have this exact
-	// APK in flight (a *recent* pending/delivered install — old dead ones don't
-	// count), or (b) already report the app's package installed. "Reinstall anyway"
-	// is a full override: it forces the install through both checks (for a repair,
-	// a same-package update, or an install stuck behind a dead command). "all" is
-	// already resolved to device IDs above, so this covers "all" and "devices";
-	// group targets collapse at delivery.
-	var skippedSerials []string
-	if cmdType == "install_apk" && targetType == "devices" && len(targetIDs) > 0 && r.FormValue("reinstall") == "" {
-		skip := make(map[uuid.UUID]bool)
-		inflight, err := h.db.DevicesWithPendingInstall(r.Context(), apkURL, targetIDs, h.cfg.CommandExpiry())
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
+	// Build the per-command work items (apkURL + payload).
+	type cmdItem struct {
+		apkURL  string
+		payload json.RawMessage
+	}
+	var items []cmdItem
+	switch cmdType {
+	case "install_apk":
+		for _, u := range installURLs {
+			items = append(items, cmdItem{apkURL: u})
 		}
-		for id := range inflight {
-			skip[id] = true
+	case "uninstall":
+		for _, p := range uninstallPkgs {
+			b, _ := json.Marshal(map[string]string{"package": p})
+			items = append(items, cmdItem{payload: json.RawMessage(b)})
 		}
-		installed, err := h.db.DevicesWithPackageInstalled(r.Context(), apkURL, targetIDs)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		for id := range installed {
-			skip[id] = true
-		}
-		if len(skip) > 0 {
-			fresh := make([]uuid.UUID, 0, len(targetIDs))
-			var skippedIDs []uuid.UUID
-			for _, id := range targetIDs {
-				if skip[id] {
-					skippedIDs = append(skippedIDs, id)
-				} else {
-					fresh = append(fresh, id)
-				}
-			}
-			if devs, e := h.db.GetDevicesByIDs(r.Context(), skippedIDs); e == nil {
-				for _, d := range devs {
-					skippedSerials = append(skippedSerials, d.SerialNumber)
-				}
-			}
-			targetIDs = fresh
-			if len(targetIDs) == 0 {
-				h.audit(r, "command.send.skip", cmdType, fmt.Sprintf("all %d target(s) already have or are installing this app", len(skippedIDs)))
-				h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape("All selected device(s) already have this app or are installing it — nothing queued. Tick “Reinstall anyway” to force.")+"&flash_type=info")
-				return
-			}
-		}
+	default:
+		items = []cmdItem{{apkURL: strings.TrimSpace(r.FormValue("apk_url")), payload: buildPayload(cmdType, r)}}
 	}
 
-	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, targetType, targetIDs)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
+	// Create one command per item. For install_apk, drop target devices that already
+	// have this exact APK in flight or already report its package (unless "Reinstall
+	// anyway"); an app whose whole target set is skipped simply creates no command.
+	reinstall := r.FormValue("reinstall") != ""
+	skippedSet := map[string]bool{}
+	var created []*db.Command
+	for _, it := range items {
+		ids := targetIDs
+		if cmdType == "install_apk" && targetType == "devices" && len(ids) > 0 && !reinstall {
+			skip := make(map[uuid.UUID]bool)
+			inflight, err := h.db.DevicesWithPendingInstall(r.Context(), it.apkURL, ids, h.cfg.CommandExpiry())
+			if err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+			for id := range inflight {
+				skip[id] = true
+			}
+			installed, err := h.db.DevicesWithPackageInstalled(r.Context(), it.apkURL, ids)
+			if err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+			for id := range installed {
+				skip[id] = true
+			}
+			if len(skip) > 0 {
+				fresh := make([]uuid.UUID, 0, len(ids))
+				var skippedIDs []uuid.UUID
+				for _, id := range ids {
+					if skip[id] {
+						skippedIDs = append(skippedIDs, id)
+					} else {
+						fresh = append(fresh, id)
+					}
+				}
+				if devs, e := h.db.GetDevicesByIDs(r.Context(), skippedIDs); e == nil {
+					for _, d := range devs {
+						skippedSet[d.SerialNumber] = true
+					}
+				}
+				ids = fresh
+			}
+		}
+		if len(ids) == 0 {
+			continue // every target already has / is installing this app
+		}
+		payload := it.payload
+		if cmdType == "install_apk" {
+			// Capture APK size + ETag so the device can verify/resume the download.
+			payload = apkmeta.Augment(r.Context(), it.apkURL, payload)
+		}
+		cmd, err := h.db.CreateCommand(r.Context(), cmdType, it.apkURL, payload, targetType, ids)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		h.pushCommand(r.Context(), cmd, targetType, ids)
+		created = append(created, cmd)
+	}
+
+	if len(created) == 0 {
+		h.audit(r, "command.send.skip", cmdType, fmt.Sprintf("all %d target(s) already have or are installing the selected app(s)", len(targetIDs)))
+		h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape("All selected device(s) already have or are installing the selected app(s) — nothing queued. Tick “Reinstall anyway” to force.")+"&flash_type=info")
 		return
 	}
-	h.pushCommand(r.Context(), cmd, targetType, targetIDs)
-	detail := fmt.Sprintf("target=%s, devices=%d", targetType, len(targetIDs))
+
+	detail := fmt.Sprintf("target=%s, devices=%d, commands=%d", targetType, len(targetIDs), len(created))
 	if reason != "" {
 		detail += ", reason=" + reason
 	}
 	h.audit(r, "command.send", cmdType, detail)
+
 	// Boot logo is applied from its own config page — return there (with status),
 	// not to the command-detail view, and never into the command history flow.
 	if cmdType == "update_splash" {
 		h.hxRedirect(w, r, "/boot-logo?flash="+url.QueryEscape(fmt.Sprintf("Boot logo applied to %d device(s).", len(targetIDs)))+"&flash_type=success")
 		return
 	}
-	dest := "/commands/" + cmd.ID.String()
-	if n := len(skippedSerials); n > 0 {
-		msg := fmt.Sprintf("Sent to %d device(s). Skipped %d that already have or are installing this app: %s", len(targetIDs), n, strings.Join(skippedSerials, ", "))
-		dest += "?flash=" + url.QueryEscape(msg) + "&flash_type=info"
+
+	skipped := make([]string, 0, len(skippedSet))
+	for s := range skippedSet {
+		skipped = append(skipped, s)
 	}
-	h.hxRedirect(w, r, dest)
+	sort.Strings(skipped)
+
+	// One command → its detail view (with any skip note). Multiple → back to Actions
+	// with a summary, since there's no single command to open.
+	if len(created) == 1 {
+		dest := "/commands/" + created[0].ID.String()
+		if n := len(skipped); n > 0 {
+			msg := fmt.Sprintf("Sent to %d device(s). Skipped %d that already have or are installing this app: %s", len(targetIDs), n, strings.Join(skipped, ", "))
+			dest += "?flash=" + url.QueryEscape(msg) + "&flash_type=info"
+		}
+		h.hxRedirect(w, r, dest)
+		return
+	}
+	msg := fmt.Sprintf("Queued %d commands to %d device(s).", len(created), len(targetIDs))
+	if n := len(skipped); n > 0 {
+		msg += fmt.Sprintf(" Skipped %d device(s) that already had one of the apps.", n)
+	}
+	h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape(msg)+"&flash_type=success")
+}
+
+// formValues returns the trimmed, non-empty values of a repeated form field.
+func formValues(r *http.Request, key string) []string {
+	var out []string
+	for _, v := range r.Form[key] {
+		if v = strings.TrimSpace(v); v != "" {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// dedupeStrings preserves order while dropping duplicate values.
+func dedupeStrings(in []string) []string {
+	seen := make(map[string]bool, len(in))
+	out := in[:0:0]
+	for _, s := range in {
+		if !seen[s] {
+			seen[s] = true
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // RecipeCreate saves the current Actions-builder state as a named recipe that can
@@ -9519,6 +9617,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands/events", h.requireAuth(h.CommandsFeedEvents))
 	post("POST /commands/clear-attention", h.requireOperatorOrAdmin(h.AttentionClear))
 	mux.HandleFunc("GET /commands/impact", h.requireAuth(h.CommandImpact))
+	mux.HandleFunc("GET /commands/target-packages", h.requireAuth(h.CommandTargetPackages))
 	// Recipes live under /recipes (not /commands/recipes) so the {id} delete route
 	// doesn't collide with /commands/{id}/resend/{serial} in the wildcard mux.
 	post("POST /recipes", h.requireAuth(h.RecipeCreate))

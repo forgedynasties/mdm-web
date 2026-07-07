@@ -292,7 +292,8 @@
         <div class="cr-sec-title">Payload</div>
         <!-- Install app -->
         <div id="apk-fields" class="payload-section is-active">
-          <input type="hidden" name="apk_url" id="cmd-apk-url" value="">
+          <!-- One hidden apk_url input per selected app; the server creates one command each. -->
+          <span id="apk-hidden"></span>
           {{if .Apps}}
             <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" autocomplete="off" oninput="filterApps(this.value)"></div>
             <div class="appgrid" id="app-grid">
@@ -305,6 +306,7 @@
               {{end}}
               {{if canAdmin .Role}}<button type="button" class="appnew" onclick="openAppModal()"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add app</button>{{end}}
             </div>
+            <div class="pl-sub">Pick one or more apps — each becomes its own install command.</div>
           {{else}}
             <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span class="txt">No apps in your library yet.{{if canAdmin .Role}} <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button> — upload an APK or paste a URL, then pick it here.{{else}} Ask an admin to add one.{{end}}</span></div>
           {{end}}
@@ -316,23 +318,17 @@
 
         <!-- Uninstall -->
         <div id="uninstall-fields" class="payload-section">
-          {{if .FleetPackages}}
-            <input type="hidden" name="package" id="uninstall-pkg" value="">
-            <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="uninstall-filter" placeholder="Search apps seen across the fleet…" autocomplete="off" oninput="filterUninstallApps(this.value)"></div>
-            <div class="pkgs" id="uninstall-list">
-              {{range .FleetPackages}}
-              <button type="button" class="pkg" data-pkg="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickUninstall(this)">
-                <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
-                <span class="m"><span class="nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pk">{{.PackageName}}</span></span>
-                <span class="cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
-              </button>
-              {{end}}
-            </div>
-            <div id="uninstall-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
-            <div class="pl-sub">Every app seen across the fleet; the count is how many report it. Skipped automatically on targeted devices that don't have the package.</div>
-          {{else}}
-            <div class="payload-empty">No package data reported by any device yet.</div>
-          {{end}}
+          <!-- One hidden package input per selected app; the server creates one command each. -->
+          <span id="pkg-hidden"></span>
+          <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="uninstall-filter" placeholder="Search installed apps…" autocomplete="off" oninput="filterUninstallApps(this.value)"></div>
+          <!-- Populated from the selected target's installed packages; reloads on target change. -->
+          <div class="pkgs" id="uninstall-list"
+               hx-get="/commands/target-packages" hx-include="#cmd-form" hx-target="#uninstall-list"
+               hx-swap="innerHTML" hx-trigger="load, targetchange from:body delay:250ms">
+            <div class="pl-sub">Loading installed apps…</div>
+          </div>
+          <div id="uninstall-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
+          <div class="pl-sub">Pick one or more apps installed on the selected target — each becomes its own uninstall command. The count is how many targeted devices report it; devices without it are skipped automatically.</div>
         </div>
 
         <!-- Shell -->
@@ -687,11 +683,22 @@ function selectType(val, btn) {
 }
 
 // ── Studio pane controls ──
-// Install: pick an app card → set the hidden apk_url.
+// Install: multi-select app cards. Each selected app becomes one hidden apk_url
+// input, so the server queues one install command per app.
+var selApps = new Set();
 function pickApp(el) {
-  document.querySelectorAll('#app-grid .appc').forEach(function (a) { a.classList.toggle('on', a === el); });
-  document.getElementById('cmd-apk-url').value = el.dataset.url;
+  var u = el.dataset.url;
+  if (selApps.has(u)) { selApps.delete(u); el.classList.remove('on'); }
+  else { selApps.add(u); el.classList.add('on'); }
+  syncApkHidden();
   updatePreview();
+}
+function syncApkHidden() {
+  var box = document.getElementById('apk-hidden'); if (!box) return;
+  box.innerHTML = '';
+  selApps.forEach(function (u) {
+    var i = document.createElement('input'); i.type = 'hidden'; i.name = 'apk_url'; i.value = u; box.appendChild(i);
+  });
 }
 function filterApps(q) {
   q = (q || '').toLowerCase();
@@ -741,6 +748,8 @@ var scopeMode = 'all', scopeId = '';
 function applyTarget() {
   document.getElementById('target-type-input').value = cmdSerials().length ? 'devices' : 'scope';
   updatePreview();
+  // Refresh the target-scoped uninstall package list.
+  document.body.dispatchEvent(new CustomEvent('targetchange'));
 }
 function scopeBrowseParams() {
   var p = new URLSearchParams();
@@ -753,6 +762,7 @@ function scopeBrowseParams() {
 }
 function scopeBrowseReload() {
   if (window.htmx) htmx.ajax('GET', '/commands/browse-devices?' + scopeBrowseParams().toString(), { target: '#cmd-device-browser', swap: 'innerHTML' });
+  document.body.dispatchEvent(new CustomEvent('targetchange'));
 }
 var scopeSearchTimer;
 function scopeSearchDebounced() { clearTimeout(scopeSearchTimer); scopeSearchTimer = setTimeout(scopeBrowseReload, 300); }
@@ -916,13 +926,34 @@ function filterUninstallApps(q) {
   });
   var nm = document.getElementById('uninstall-nomatch'); if (nm) nm.style.display = vis ? 'none' : '';
 }
+// Uninstall: multi-select apps from the target's installed packages. Each selected
+// package becomes one hidden `package` input → one uninstall command. The selection
+// is kept in a Set so it survives the list reloading when the target changes.
+var selPkgs = new Set();
 function pickUninstall(btn) {
-  var h = document.getElementById('uninstall-pkg');
-  h.value = btn.getAttribute('data-pkg');
-  h.setAttribute('data-name', btn.getAttribute('data-name') || btn.getAttribute('data-pkg'));
-  document.querySelectorAll('#uninstall-list .pkg').forEach(function (a) { a.classList.toggle('on', a === btn); });
+  var p = btn.getAttribute('data-pkg');
+  if (selPkgs.has(p)) { selPkgs.delete(p); btn.classList.remove('on'); }
+  else { selPkgs.add(p); btn.classList.add('on'); }
+  syncPkgHidden();
   updatePreview();
 }
+function syncPkgHidden() {
+  var box = document.getElementById('pkg-hidden'); if (!box) return;
+  box.innerHTML = '';
+  selPkgs.forEach(function (p) {
+    var i = document.createElement('input'); i.type = 'hidden'; i.name = 'package'; i.value = p; box.appendChild(i);
+  });
+}
+// When the target-scoped uninstall list reloads, re-mark still-selected apps and
+// re-apply the current search filter.
+document.body.addEventListener('htmx:afterSwap', function (e) {
+  if (!e.target || e.target.id !== 'uninstall-list') return;
+  document.querySelectorAll('#uninstall-list .pkg').forEach(function (b) {
+    if (selPkgs.has(b.getAttribute('data-pkg'))) b.classList.add('on');
+  });
+  var f = document.getElementById('uninstall-filter');
+  if (f && f.value) filterUninstallApps(f.value);
+});
 
 // The device-lookup partial's Add button calls this.
 function pickCommandSerial(serial) { cmdAddSerial(serial); }
@@ -989,11 +1020,9 @@ function updatePreview() {
   var warn = [];
 
   if (type === 'install_apk') {
-    var au = document.getElementById('cmd-apk-url');
-    if (!(au && au.value)) warn.push('Choose an app to install.');
+    if (selApps.size === 0) warn.push('Choose at least one app to install.');
   } else if (type === 'uninstall') {
-    var uh = document.getElementById('uninstall-pkg');
-    if (!(uh && uh.value)) warn.push('Choose an app to uninstall.');
+    if (selPkgs.size === 0) warn.push('Choose at least one app to uninstall.');
   } else if (type === 'shell') {
     var s = (document.getElementById('shell-cmd-input').value || '').trim();
     if (!s) warn.push('Enter a shell command.');
@@ -1114,8 +1143,7 @@ async function saveNewApp() {
     grid.insertBefore(b, grid.querySelector('.appnew'));
     pickApp(b);
   } else {
-    var hidden = document.getElementById('cmd-apk-url');
-    if (hidden) { hidden.value = app.apk_url; updatePreview(); }
+    selApps.add(app.apk_url); syncApkHidden(); updatePreview();
   }
   closeAppModal();
 }
@@ -1128,11 +1156,13 @@ window.CMD_PREFILL = {{.Prefill}};
 function applyPrefill(pf) {
   if (!pf) return;
   if (pf.type) { var rail = document.querySelector('.pill[data-type="' + pf.type + '"]'); if (rail) selectType(pf.type, rail); }
-  if (pf.apk_url) { var ac = document.querySelector('#app-grid .appc[data-url="' + pf.apk_url + '"]'); if (ac) { pickApp(ac); } else { var h = document.getElementById('cmd-apk-url'); if (h) h.value = pf.apk_url; } }
+  if (pf.apk_url) { var ac = document.querySelector('#app-grid .appc[data-url="' + pf.apk_url + '"]'); if (ac) { if (!selApps.has(pf.apk_url)) pickApp(ac); } else { selApps.add(pf.apk_url); syncApkHidden(); } }
   if (typeof pf.shell_cmd === 'string') { var si = document.getElementById('shell-cmd-input'); if (si) si.value = pf.shell_cmd; }
   if (pf.package) {
+    // The scoped uninstall list may still be loading; add to the selection now and the
+    // afterSwap handler marks the button once it appears.
     var fa = document.querySelector('#uninstall-list .pkg[data-pkg="' + pf.package + '"]');
-    if (fa) { pickUninstall(fa); } else { var uh = document.getElementById('uninstall-pkg'); if (uh) uh.value = pf.package; }
+    if (fa) { if (!selPkgs.has(pf.package)) pickUninstall(fa); } else { selPkgs.add(pf.package); syncPkgHidden(); }
   }
   // Restore the target on the scope rail: hand-picked serials → Selected devices;
   // a group recipe → that group's scope (first group); otherwise All devices.
@@ -1335,4 +1365,20 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     {{end}}
   </div>
 </div>
+{{end}}
+
+{{/* Uninstall package picker, scoped to the selected target. Rendered on first load
+     and re-fetched into #uninstall-list whenever the target changes. */}}
+{{define "uninstall-pkg-list"}}
+{{if .FleetPackages}}
+{{range .FleetPackages}}
+<button type="button" class="pkg" data-pkg="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickUninstall(this)">
+  <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
+  <span class="m"><span class="nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pk">{{.PackageName}}</span></span>
+  <span class="cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
+</button>
+{{end}}
+{{else}}
+<div class="payload-empty">{{if .TargetCount}}No uninstallable apps reported on the selected device(s).{{else}}Select a target to see its installed apps.{{end}}</div>
+{{end}}
 {{end}}
