@@ -5121,6 +5121,20 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 /* Brief "saved" flash on an htmx-swapped checklist row */
 .qa-list .qa-row.htmx-added { animation: qaSaved 1.1s ease-out; }
 @keyframes qaSaved { 0% { background: var(--ok-bg); } 100% { background: transparent; } }
+/* Release-page QA status card (links to the dedicated QA page) */
+.rel-qa-card { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 0 0 16px; padding: 15px 20px; border: 1px solid var(--border); border-left-width: 3px; border-radius: 12px; background: var(--surface); text-decoration: none; color: inherit; transition: border-color .14s, box-shadow .14s, transform .1s; }
+.rel-qa-card:hover { box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.rel-qa-card.ok { border-left-color: var(--ok); }
+.rel-qa-card.warn { border-left-color: var(--warn); }
+.rel-qa-main { display: flex; align-items: center; gap: 12px; }
+.rel-qa-k { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.rel-qa-big { font-size: 26px; font-weight: 750; }
+.rel-qa-big.ok { color: var(--ok); } .rel-qa-big.bad { color: var(--danger); } .rel-qa-big.warn { color: var(--warn); } .rel-qa-big.muted { color: var(--muted); }
+.rel-qa-verdict { font-size: 14px; font-weight: 650; }
+.rel-qa-meta { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); flex: 1; }
+.rel-qa-meta .bad { color: var(--danger); font-weight: 600; } .rel-qa-meta .warn { color: var(--warn); font-weight: 600; }
+.rel-qa-go { font-size: 13px; font-weight: 650; color: var(--accent); white-space: nowrap; }
+.rchip-a { text-decoration: none; }
 
 /* Release problem reports */
 .prob-form { display: flex; flex-direction: column; gap: 8px; padding: 14px; margin-bottom: 16px; background: var(--surface-2, var(--surface)); border: 1px solid var(--border); border-radius: 12px; }
