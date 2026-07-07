@@ -3865,6 +3865,44 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 // specific set of devices, each with the count of those devices that have it. The
 // bulk-kiosk picker uses device_count vs len(deviceIDs) to mark an app as common to
 // all selected devices or only present on some.
+// PackagesForDevices returns the uninstallable (non-system) packages present on the
+// given device set, with per-package device counts — the target-scoped variant of
+// SearchFleetPackages that backs the Actions uninstall picker once a target is chosen,
+// so the list shows only apps actually installed on the devices that would receive the
+// command. Applies the same system/override/heuristic filtering as the fleet picker.
+func (d *DB) PackagesForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]FleetPackage, error) {
+	if len(deviceIDs) == 0 {
+		return nil, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT
+			dp.package_name,
+			COALESCE(MAX(dp.app_name), '') AS app_name,
+			COUNT(DISTINCT dp.device_id) AS device_count,
+			string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
+		FROM device_packages dp
+		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+		WHERE dp.device_id = ANY($1)
+		  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)` + notSystemHeuristicSQL + `
+		GROUP BY dp.package_name
+		ORDER BY device_count DESC, dp.package_name
+		LIMIT 200
+	`, deviceIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FleetPackage
+	for rows.Next() {
+		var p FleetPackage
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount, &p.Versions); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) KioskAppsForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]FleetPackage, error) {
 	if len(deviceIDs) == 0 {
 		return nil, nil
