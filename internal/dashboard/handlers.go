@@ -1151,6 +1151,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "commands"
 	case strings.HasPrefix(path, "/releases"):
 		data["ActivePage"] = "releases"
+	case strings.HasPrefix(path, "/updates"):
+		data["ActivePage"] = "updates"
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
@@ -5478,6 +5480,37 @@ func (h *Handler) PackageDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", relID), http.StatusSeeOther)
 }
 
+// UpdatesHub renders the global Updates page: every deployment across releases with
+// its progress, plus a "new deployment" composer (admin/dev) that picks a published
+// release and its targets. Testers/operators can view the list but not deploy.
+func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
+	role := h.role(r)
+	deployments, _ := h.db.ListDeployments(r.Context())
+	deployable, _ := h.db.ListDeployableReleases(r.Context())
+	groups, _ := h.db.ListGroups(r.Context())
+
+	canDeploy := role == "admin" || role == "dev"
+	var devices []db.Device
+	if canDeploy {
+		devices, _ = h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
+	}
+	connected := h.hub.ConnectedIDs()
+	online := make(map[uuid.UUID]bool, len(connected))
+	for cid := range connected {
+		online[cid] = true
+	}
+	h.render(w, r, "updates.html", map[string]any{
+		"Title":       "Updates",
+		"Deployments": deployments,
+		"Releases":    deployable,
+		"Devices":     devices,
+		"Groups":      groups,
+		"Online":      online,
+		"CanDeploy":   canDeploy,
+		"PreRelease":  r.URL.Query().Get("release"),
+	})
+}
+
 // ReleaseDeploy deploys a whole release; the per-device artifact (full vs
 // incremental) is chosen at resolve time. Only published releases can deploy.
 func (h *Handler) ReleaseDeploy(w http.ResponseWriter, r *http.Request) {
@@ -5486,6 +5519,26 @@ func (h *Handler) ReleaseDeploy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
 		return
 	}
+	h.deployRelease(w, r, relID)
+}
+
+// DeployCreate is the global Updates-hub deploy entry point: identical to
+// ReleaseDeploy except the release is chosen in the composer (a form field) rather
+// than taken from the URL path.
+func (h *Handler) DeployCreate(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	relID, err := strconv.Atoi(strings.TrimSpace(r.FormValue("release_id")))
+	if err != nil {
+		http.Error(w, "Choose a release to deploy.", http.StatusBadRequest)
+		return
+	}
+	h.deployRelease(w, r, relID)
+}
+
+// deployRelease validates the release is publishable (published + an active package)
+// and fans the update out to the resolved target devices, then redirects to the new
+// deployment's detail page. Shared by ReleaseDeploy (path) and DeployCreate (form).
+func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID int) {
 	rel, err := h.db.GetRelease(r.Context(), relID)
 	if err != nil {
 		http.Error(w, "Release not found", http.StatusNotFound)
@@ -9747,6 +9800,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
 	post("POST /releases/{id}/delete", h.requireAdmin(h.ReleaseDelete))
 	post("POST /releases/{id}/publish", h.requireAdmin(h.ReleasePublish))
+	mux.HandleFunc("GET /updates", h.requireAdminOrTester(h.UpdatesHub))
+	post("POST /updates", h.requireAdmin(h.DeployCreate))
 	post("POST /releases/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))

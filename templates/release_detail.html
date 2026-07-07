@@ -17,7 +17,7 @@
   <span class="acts">
     {{if eq $role "admin"}}
     {{if and (eq $rel.Status "published") .CanPush}}
-    <button type="button" class="btn-primary btn-sm" onclick="relDetailTab('updates', document.querySelector('.dd-tab[data-rtab=updates]'))">Push update</button>
+    <a href="/updates?release={{$rel.ID}}" class="btn-primary btn-sm">Deploy →</a>
     {{end}}
     {{if ne $rel.Status "published"}}
     <form action="/releases/{{$rel.ID}}/publish" method="POST" style="display:inline;">
@@ -249,115 +249,19 @@
 
 <section class="rel-panel" data-rpanel="updates" hidden>
 
-<!-- Push update -->
-{{if eq $role "admin"}}
-{{if eq $rel.Status "published"}}
-{{if not .CanPush}}
+<!-- Deploy CTA — the composer lives on the global /updates page now. -->
+{{if and (eq $rel.Status "published") (or (eq $role "admin") (eq $role "dev"))}}
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Push Update</h3></div>
-  <div style="padding:16px;" class="muted small">Add an <strong>OTA package</strong> above before you can push this release.</div>
-</div>
-{{else}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Push Update</h3>
-    <span class="muted small">Push this release to devices; each one gets the matching artifact.</span>
+  <div class="card-header"><h3>Deploy this release</h3></div>
+  <div style="padding:16px;">
+    {{if .CanPush}}
+    <a href="/updates?release={{$rel.ID}}" class="btn-primary">Deploy in Updates →</a>
+    <span class="muted small" style="margin-left:10px;">Pushing an update — target picker, reboot &amp; schedule — now lives on the Updates page.</span>
+    {{else}}
+    <span class="muted small">Add an <strong>OTA package</strong> above before this release can be deployed.</span>
+    {{end}}
   </div>
-  {{if not .HasFull}}
-  <div style="padding:0 16px 12px;" class="muted small">
-    No full image in this release — the device list below is limited to devices currently on a matching <strong>source build</strong>; only those receive the incremental. Devices reached via a group that are not on a source build are skipped.
-  </div>
-  {{end}}
-  <form action="/releases/{{$rel.ID}}/deploy" method="POST" class="command-form">
-    <div class="form-row">
-      <label class="form-label">Reboot After Install</label>
-      <div class="seg-control" id="reboot-seg">
-        <button type="button" class="seg-btn active" data-mode="immediate" onclick="setReboot('immediate')">Immediate</button>
-        <button type="button" class="seg-btn"        data-mode="scheduled" onclick="setReboot('scheduled')">Scheduled</button>
-        <button type="button" class="seg-btn"        data-mode="manual"    onclick="setReboot('manual')">Manual</button>
-      </div>
-      <input type="hidden" name="reboot_behavior" id="reboot-input" value="immediate">
-    </div>
-    <div class="form-row" id="scheduled-time-row" style="display:none;">
-      <label class="form-label">Scheduled Time (UTC / GMT+0)</label>
-      <input type="datetime-local" name="scheduled_time" class="form-input" style="max-width:260px;">
-      <div class="form-hint">This field is interpreted as UTC.</div>
-    </div>
-
-    <div class="form-row">
-      <label class="form-label">Targets</label>
-      <div class="seg-control" id="target-seg">
-        <button type="button" class="seg-btn active" data-tab="devices" onclick="setTargetTab('devices')">Devices</button>
-        <button type="button" class="seg-btn"        data-tab="groups"  onclick="setTargetTab('groups')">Groups</button>
-      </div>
-    </div>
-
-    <div id="tab-devices" class="send-tab-panel">
-      <div class="dp-tp">
-        <div class="dp-pane">
-          <div class="dp-pane-h"><span class="t">Available devices</span><button type="button" class="btn-link" style="font-size:12px;font-weight:600;" onclick="deployAll('tab-devices','serials')">Select all matching</button></div>
-          <div class="filter-search" style="margin:11px 12px 0;"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" class="filter-search-input" placeholder="Filter serial…" oninput="deployFilter('tab-devices')"></div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 12px 0;">
-            <select class="filter-select dp-f-status" onchange="deployFilter('tab-devices')"><option value="">Status</option><option value="online">Online</option><option value="offline">Offline</option></select>
-            <select class="filter-select dp-f-release" onchange="deployFilter('tab-devices')"><option value="">Release</option></select>
-            <select class="filter-select dp-f-batt" onchange="deployFilter('tab-devices')"><option value="">Battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select>
-            <select class="filter-select dp-f-rest" onchange="deployFilter('tab-devices')"><option value="">Restaurant</option></select>
-          </div>
-          <div class="cb-list" style="margin:8px;max-height:260px;overflow:auto;">
-            {{range .Devices}}
-            <div class="dp-av cb-row" data-search="{{.SerialNumber}} {{.BuildID}}" data-online="{{if index $.Online .ID}}1{{else}}0{{end}}" data-batt="{{if lt .BatteryPct 20}}low{{else if lt .BatteryPct 50}}mid{{else}}ok{{end}}" data-build="{{.BuildID}}" data-restaurant="{{.RestaurantName}}" onclick="deployToggle(this,'tab-devices','serials')">
-              <input type="checkbox" name="serials" value="{{.SerialNumber}}" data-label="{{.SerialNumber}}" hidden>
-              <span class="dp-bchip {{batteryClass .BatteryPct}}">{{.BatteryPct}}%</span>
-              <span class="cb-id"><span class="cb-serial mono">{{.SerialNumber}}</span><span class="cb-sub">{{.BuildID}}</span></span>
-              <span class="dp-check" aria-hidden="true"></span>
-            </div>
-            {{else}}
-            <div class="muted small" style="padding:14px 12px;">No devices registered.</div>
-            {{end}}
-          </div>
-        </div>
-        <div class="dp-pane">
-          <div class="dp-pane-h"><span class="t">Selected</span><span class="n"><span class="dp-seln">0</span> device(s)</span></div>
-          <div class="dp-basket" style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;min-height:150px;flex:1;overflow:auto;"></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="tab-groups" class="send-tab-panel" style="display:none;">
-      <div class="dp-tp">
-        <div class="dp-pane">
-          <div class="dp-pane-h"><span class="t">Available groups</span><button type="button" class="btn-link" style="font-size:12px;font-weight:600;" onclick="deployAll('tab-groups','group_ids')">Select all matching</button></div>
-          <div class="filter-search" style="margin:11px 12px 0;"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" class="filter-search-input" placeholder="Filter groups…" oninput="deployFilter('tab-groups')"></div>
-          <div class="cb-list" style="margin:8px;max-height:300px;overflow:auto;">
-            {{range .Groups}}
-            <div class="dp-av cb-row" data-search="{{.Name}}" onclick="deployToggle(this,'tab-groups','group_ids')">
-              <input type="checkbox" name="group_ids" value="{{.ID}}" data-label="{{.Name}}" hidden>
-              <span class="cb-id"><span class="cb-serial">{{.Name}}</span><span class="cb-sub">{{.DeviceCount}} devices</span></span>
-              <span class="dp-check" aria-hidden="true"></span>
-            </div>
-            {{else}}
-            <div class="muted small" style="padding:14px 12px;">No groups yet.</div>
-            {{end}}
-          </div>
-        </div>
-        <div class="dp-pane">
-          <div class="dp-pane-h"><span class="t">Selected</span><span class="n"><span class="dp-seln">0</span> group(s)</span></div>
-          <div class="dp-basket" style="padding:10px 12px;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;min-height:150px;flex:1;overflow:auto;"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="form-row">
-      <label class="form-label">Stage Limit <span class="muted small">(optional)</span></label>
-      <input type="number" name="limit" class="form-input" min="1" style="max-width:120px;" placeholder="e.g. 10">
-      <div class="form-hint">Cap how many devices receive this deployment. Useful for staged rollouts.</div>
-    </div>
-
-    <button type="submit" class="btn-primary">Push Update</button>
-  </form>
 </div>
-{{end}}
-{{end}}
 {{end}}
 
 <!-- Updates (rollouts of this release) -->
@@ -600,105 +504,7 @@ function setPkgType(mode) {
     b.classList.toggle('active', b.dataset.mode === mode);
   });
 }
-function setReboot(mode) {
-  document.getElementById('reboot-input').value = mode;
-  document.getElementById('scheduled-time-row').style.display = mode === 'scheduled' ? '' : 'none';
-  document.querySelectorAll('#reboot-seg .seg-btn').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.mode === mode);
-  });
-}
-function setTargetTab(tab) {
-  document.getElementById('tab-devices').style.display = tab === 'devices' ? '' : 'none';
-  document.getElementById('tab-groups').style.display  = tab === 'groups'  ? '' : 'none';
-  document.querySelectorAll('#target-seg .seg-btn').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.tab === tab);
-  });
-}
-// ── Two-pane target picker (same transfer pattern as add-to-group / restaurant) ──
-function deployFilter(panelId) {
-  var el = document.getElementById(panelId);
-  if (!el) return;
-  var qEl = el.querySelector('input[type="search"]'), q = qEl ? qEl.value.toLowerCase() : '';
-  var sEl = el.querySelector('.dp-f-status'), s = sEl ? sEl.value : '';
-  var bEl = el.querySelector('.dp-f-batt'), b = bEl ? bEl.value : '';
-  var rEl = el.querySelector('.dp-f-release'), rv = rEl ? rEl.value : '';
-  var restEl = el.querySelector('.dp-f-rest'), rest = restEl ? restEl.value : '';
-  el.querySelectorAll('.dp-av').forEach(function (row) {
-    var okQ = !q || (row.dataset.search || '').toLowerCase().indexOf(q) !== -1;
-    var okS = !s || row.dataset.online === (s === 'online' ? '1' : '0');
-    var okB = !b || row.dataset.batt === b;
-    var okR = !rv || (row.dataset.build || '') === rv;
-    var okRest = !rest || (row.dataset.restaurant || '') === rest;
-    row.style.display = (okQ && okS && okB && okR && okRest) ? '' : 'none';
-  });
-}
-// Fill the Release and Restaurant selects from the values present on the rendered device
-// rows, so the options always match the devices actually eligible for this release.
-function populateDeployFilters(panelId) {
-  var el = document.getElementById(panelId);
-  if (!el) return;
-  [['.dp-f-release', 'build'], ['.dp-f-rest', 'restaurant']].forEach(function (pair) {
-    var sel = el.querySelector(pair[0]);
-    if (!sel) return;
-    var seen = {};
-    el.querySelectorAll('.dp-av').forEach(function (row) {
-      var v = (row.dataset[pair[1]] || '').trim();
-      if (v) seen[v] = true;
-    });
-    Object.keys(seen).sort().forEach(function (v) {
-      var o = document.createElement('option');
-      o.value = v; o.textContent = v;
-      sel.appendChild(o);
-    });
-  });
-}
-function deploySync(panelId, name) {
-  var el = document.getElementById(panelId);
-  var basket = el.querySelector('.dp-basket');
-  basket.innerHTML = '';
-  var checked = el.querySelectorAll('input[name="' + name + '"]:checked');
-  checked.forEach(function (cb) {
-    var label = cb.getAttribute('data-label') || cb.value;
-    var chip = document.createElement('span');
-    chip.className = 'dp-chip';
-    var txt = document.createElement('span');
-    txt.className = 'dp-chip-t mono';
-    txt.textContent = label;
-    chip.appendChild(txt);
-    var x = document.createElement('button');
-    x.type = 'button'; x.className = 'dp-chip-x'; x.textContent = '✕';
-    x.setAttribute('aria-label', 'Remove ' + label);
-    x.onclick = function (e) {
-      e.stopPropagation();
-      cb.checked = false;
-      var row = cb.closest('.dp-av'); if (row) row.classList.remove('sel');
-      deploySync(panelId, name);
-    };
-    chip.appendChild(x);
-    basket.appendChild(chip);
-  });
-  if (!checked.length) basket.innerHTML = '<div class="muted small" style="padding:6px 2px;">Nothing selected yet.</div>';
-  el.querySelector('.dp-seln').textContent = checked.length;
-}
-function deployToggle(row, panelId, name) {
-  var cb = row.querySelector('input[type="checkbox"]');
-  cb.checked = !cb.checked;
-  row.classList.toggle('sel', cb.checked);
-  deploySync(panelId, name);
-}
-function deployAll(panelId, name) {
-  var el = document.getElementById(panelId);
-  el.querySelectorAll('.dp-av').forEach(function (row) {
-    if (row.style.display === 'none') return;
-    var cb = row.querySelector('input[type="checkbox"]');
-    cb.checked = true; row.classList.add('sel');
-  });
-  deploySync(panelId, name);
-}
-document.addEventListener('DOMContentLoaded', function () {
-  if (document.getElementById('tab-devices')) { populateDeployFilters('tab-devices'); deploySync('tab-devices', 'serials'); }
-  if (document.getElementById('tab-groups')) deploySync('tab-groups', 'group_ids');
-});
+// (The deploy composer + its two-pane picker JS moved to the Updates page, templates/updates.html.)
 // base64-encode the add-package URL (WAF bypass), mirroring the create form.
 (function() {
   var form = document.getElementById('add-pkg-form');

@@ -7955,6 +7955,63 @@ func (d *DB) ListDeploymentsByRelease(ctx context.Context, releaseID int) ([]Upd
 	return out, rows.Err()
 }
 
+// ListDeployments returns every deployment (newest first) with its release version
+// and device counts — backs the global Updates hub.
+func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT u.id, COALESCE(u.ota_package_id, 0), COALESCE(u.release_id, 0), u.reboot_behavior,
+		       u.scheduled_time, u.status, u.created_at, COALESCE(rel.version, ''),
+		       COUNT(ud.device_id) AS device_total,
+		       COUNT(CASE WHEN ud.status = 'installed' THEN 1 END) AS device_installed
+		FROM updates u
+		LEFT JOIN releases rel ON rel.id = u.release_id
+		LEFT JOIN update_devices ud ON ud.update_id = u.id
+		GROUP BY u.id, rel.version
+		ORDER BY u.created_at DESC
+		LIMIT 200
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Update
+	for rows.Next() {
+		var u Update
+		var version string
+		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime,
+			&u.Status, &u.CreatedAt, &version, &u.DeviceTotal, &u.DeviceInstalled); err != nil {
+			return nil, err
+		}
+		u.Release = &Release{ID: u.ReleaseID, Version: version}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// ListDeployableReleases returns published releases that have at least one active OTA
+// package — the choices offered in the Updates-hub deploy composer.
+func (d *DB) ListDeployableReleases(ctx context.Context) ([]Release, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT DISTINCT r.id, r.version, r.name, r.created_at
+		FROM releases r
+		JOIN ota_packages p ON p.release_id = r.id AND p.status = 'active'
+		WHERE r.status = 'published' AND NOT r.hidden
+		ORDER BY r.created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Release
+	for rows.Next() {
+		var rel Release
+		if err := rows.Scan(&rel.ID, &rel.Version, &rel.Name, &rel.CreatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, rel)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) ListUpdates(ctx context.Context) ([]Update, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT u.id, u.ota_package_id, u.reboot_behavior, u.scheduled_time, u.status, u.created_at,
