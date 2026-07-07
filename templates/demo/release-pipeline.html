@@ -1,0 +1,211 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Release · Pipeline — AIO MDM</title>
+<style>
+  :root{
+    --bg:#faf8f5;--surface:#fff;--surface2:#f6f4f0;--surface3:#efeae3;--border:#e8e2da;--border-soft:#f0ebe4;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --accent:#f9674e;--accent-h:#ec4f33;--accent-soft:rgba(249,103,78,.10);--accent-edge:rgba(249,103,78,.34);
+    --p:#7a80f6;--p-soft:rgba(122,128,246,.12);--p-edge:rgba(122,128,246,.34);
+    --ok:#157f3c;--ok-bg:rgba(21,127,60,.10);--warn:#b45309;--warn-bg:rgba(180,83,9,.10);--danger:#b42318;--danger-bg:rgba(180,35,24,.10);
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 8px 26px rgba(28,26,24,.07);--shadow-sm:0 1px 2px rgba(28,26,24,.06);--r:16px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:30px 24px 90px}
+  a{color:inherit}
+  .back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:22px}
+  .back:hover{color:var(--accent)}
+  .mono{font-family:var(--mono)}
+  .muted{color:var(--muted)} .small{font-size:12px}
+
+  /* ── Header ── */
+  .head{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+  .badge{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 9px;border-radius:99px}
+  .badge.pub{background:var(--ok-bg);color:var(--ok)} .badge.draft{background:var(--warn-bg);color:var(--warn)}
+  .head h1{margin:6px 0 2px;font-size:27px;font-weight:750;letter-spacing:-.02em;font-family:var(--mono)}
+  .head .name{color:var(--muted);font-size:14px}
+  .head .sp{flex:1}
+  .btn{font:inherit;font-size:13px;font-weight:650;padding:8px 15px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+  .btn:hover{border-color:var(--faint)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:var(--accent-h)}
+
+  /* ── Signature: the release pipeline ── */
+  .pipe{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:0;margin:0 0 26px;padding:22px 8px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm)}
+  .pipe::before{content:"";position:absolute;left:calc(100%/12);right:calc(100%/12);top:44px;height:2px;background:var(--border);z-index:0}
+  .stage{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:0 6px}
+  .node{width:44px;height:44px;border-radius:50%;background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--faint)}
+  .node svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .stage.done .node{background:var(--ok);border-color:var(--ok);color:#fff}
+  .stage.now .node{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 0 5px var(--accent-soft)}
+  .stage.now .node::after{content:"";position:absolute;width:44px;height:44px;border-radius:50%;border:2px solid var(--accent);animation:pulse 2s ease-out infinite}
+  @keyframes pulse{0%{transform:scale(1);opacity:.6}100%{transform:scale(1.55);opacity:0}}
+  .st-name{font-size:12px;font-weight:700;letter-spacing:.02em}
+  .stage.todo .st-name{color:var(--faint)}
+  .st-sub{font-size:11px;color:var(--muted)}
+  .stage.now .st-name{color:var(--accent)}
+
+  /* ── layout ── */
+  .cols{display:grid;grid-template-columns:1fr 300px;gap:20px;align-items:start}
+  @media(max-width:860px){.cols{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm);margin-bottom:18px;overflow:hidden}
+  .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border-soft)}
+  .card-h h3{margin:0;font-size:14.5px;font-weight:700}
+  .card-b{padding:16px 18px}
+
+  /* ── packages: the "stack" ── */
+  .pkg-stack{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+  .pkg{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+  .pkg.base{border-left:3px solid var(--p)}
+  .pkg.inc{margin-left:26px;border-left:3px solid var(--warn);position:relative}
+  .pkg.inc::before{content:"";position:absolute;left:-16px;top:-9px;width:14px;height:26px;border-left:2px solid var(--border);border-bottom:2px solid var(--border);border-bottom-left-radius:8px}
+  .pkg .ptype{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:99px}
+  .pkg.base .ptype{background:var(--p-soft);color:var(--p)}
+  .pkg.inc .ptype{background:var(--warn-bg);color:var(--warn)}
+  .pkg .pmeta{flex:1;min-width:0}
+  .pkg .pmeta b{font-size:13px;font-weight:650}
+  .pkg .pmeta .u{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pkg .psize{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+
+  /* ── the redesigned package composer ── */
+  .composer{border:1px dashed var(--accent-edge);border-radius:14px;padding:15px;background:var(--accent-soft)}
+  .composer .lbl{font-size:12px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+  .tcards{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}
+  .tcard{border:1.5px solid var(--border);background:var(--surface);border-radius:11px;padding:11px 12px;cursor:pointer;transition:border-color .12s}
+  .tcard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .tcard .tt{font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px}
+  .tcard .td{font-size:11.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+  .tcard .dot{width:8px;height:8px;border-radius:50%}
+  .tcard.on .dot.b{background:var(--p)} .tcard .dot.b{background:var(--border)}
+  .tcard.on .dot.i{background:var(--warn)} .tcard .dot.i{background:var(--border)}
+  .field{margin-bottom:11px}
+  .field label{display:block;font-size:11.5px;font-weight:650;color:var(--muted);margin-bottom:5px}
+  .urlbox{display:flex;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+  .urlbox input{flex:1;border:0;padding:10px 12px;font:inherit;font-size:13px;font-family:var(--mono);background:transparent;outline:none;min-width:0}
+  .urlbox .verify{border:0;border-left:1px solid var(--border);background:var(--surface2);padding:0 14px;font:inherit;font-size:12.5px;font-weight:650;cursor:pointer;color:var(--p)}
+  .verified{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--ok);font-weight:600}
+  .verified .chip{background:var(--ok-bg);border-radius:99px;padding:2px 9px}
+  .verified .chip.n{background:var(--surface2);color:var(--muted)}
+  .sel{width:100%;border:1px solid var(--border);border-radius:10px;padding:9px 11px;font:inherit;font-size:13px;background:var(--surface)}
+
+  /* ── rail cards ── */
+  .rail .card-b{padding:16px 18px}
+  .ready{text-align:center;padding:6px 0 2px}
+  .donut{width:112px;height:112px;margin:0 auto 10px;position:relative}
+  .donut svg{transform:rotate(-90deg)}
+  .donut .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .donut .ctr b{font-size:23px;font-weight:750}
+  .donut .ctr span{font-size:11px;color:var(--muted)}
+  .verdict{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;padding:5px 12px;border-radius:99px;background:var(--warn-bg);color:var(--warn)}
+  .verdict .d{width:8px;height:8px;border-radius:50%;background:currentColor}
+  .rl{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--border-soft);font-size:13px}
+  .rl:first-child{border-top:0}
+  .rl .k{color:var(--muted)}
+  .rl .v{font-weight:650}
+  .rl .v.ok{color:var(--ok)} .rl .v.bad{color:var(--danger)}
+  .stat{font-family:var(--mono)}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/index">← Demos</a>
+
+  <div class="head">
+    <div>
+      <span class="badge pub">Published</span>
+      <h1>v2026.06.01</h1>
+      <span class="name">June security update</span>
+    </div>
+    <div class="sp"></div>
+    <a class="btn" href="#">Open QA →</a>
+    <a class="btn primary" href="#">Deploy →</a>
+  </div>
+
+  <!-- SIGNATURE: release lifecycle pipeline -->
+  <div class="pipe">
+    <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Draft</div><div class="st-sub">created</div></div>
+    <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Packages</div><div class="st-sub">full + 2 inc</div></div>
+    <div class="stage now"><div class="node"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="st-name">QA</div><div class="st-sub">12/15 · 2 failed</div></div>
+    <div class="stage todo"><div class="node"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div><div class="st-name">Sign-off</div><div class="st-sub">pending</div></div>
+    <div class="stage todo"><div class="node"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></div><div class="st-name">Deploy</div><div class="st-sub">—</div></div>
+    <div class="stage todo"><div class="node"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/></svg></div><div class="st-name">Adopted</div><div class="st-sub">—</div></div>
+  </div>
+
+  <div class="cols">
+    <div class="main">
+      <!-- PACKAGES with redesigned composer -->
+      <div class="card">
+        <div class="card-h"><h3>Packages</h3><span class="muted small">the server picks the right artifact per device</span></div>
+        <div class="card-b">
+          <div class="pkg-stack">
+            <div class="pkg base"><span class="ptype">Full</span><div class="pmeta"><b>Baseline image</b><span class="u">ota-packages.s3…/v2026.06.01-full.zip</span></div><span class="psize">1.12 GB</span></div>
+            <div class="pkg inc"><span class="ptype">Incremental</span><div class="pmeta"><b>from 2026.05.01</b><span class="u">ota-packages.s3…/060100-from-050100.zip</span></div><span class="psize">184 MB</span></div>
+            <div class="pkg inc"><span class="ptype">Incremental</span><div class="pmeta"><b>from 2026.05.15</b><span class="u">ota-packages.s3…/060100-from-051500.zip</span></div><span class="psize">96 MB</span></div>
+          </div>
+
+          <!-- the new package composer -->
+          <div class="composer">
+            <div class="lbl"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg> Add another package</div>
+            <div class="tcards">
+              <div class="tcard"><div class="tt"><span class="dot b"></span>Full image</div><div class="td">The complete build. Any device can install it.</div></div>
+              <div class="tcard on"><div class="tt"><span class="dot i"></span>Incremental</div><div class="td">Smaller patch from one specific build.</div></div>
+            </div>
+            <div class="field">
+              <label>From build</label>
+              <select class="sel"><option>2026.05.15-release  (58 devices)</option><option>2026.05.01-release  (41 devices)</option><option>2026.04.10-release  (12 devices)</option></select>
+            </div>
+            <div class="field">
+              <label>Package URL</label>
+              <div class="urlbox"><input value="https://ota-packages.s3.us-west-2.amazonaws.com/060100-from-051500.zip"><button class="verify">Verify</button></div>
+              <div class="verified">✓ Reachable <span class="chip">96 MB</span> <span class="chip n">incremental · target 2026.06.01 ✓</span></div>
+            </div>
+            <button class="btn primary" style="width:100%;justify-content:center">Add package</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Changelog -->
+      <div class="card">
+        <div class="card-h"><h3>Changelog</h3></div>
+        <div class="card-b" style="font-size:13px;line-height:1.7;color:var(--text)">
+          • Security patch level 2026-06-01<br>• Fix NFC reader wake-from-sleep on the T7<br>• Kiosk lock-task no longer drops on OTA reboot<br>• Wi-Fi roaming stability on 5&nbsp;GHz
+        </div>
+      </div>
+    </div>
+
+    <!-- RAIL -->
+    <div class="rail">
+      <div class="card">
+        <div class="card-h"><h3>QA readiness</h3></div>
+        <div class="card-b">
+          <div class="ready">
+            <div class="donut">
+              <svg width="112" height="112" viewBox="0 0 112 112">
+                <circle cx="56" cy="56" r="48" fill="none" stroke="var(--surface3)" stroke-width="12"/>
+                <circle cx="56" cy="56" r="48" fill="none" stroke="var(--ok)" stroke-width="12" stroke-linecap="round" stroke-dasharray="301" stroke-dashoffset="60"/>
+                <circle cx="56" cy="56" r="48" fill="none" stroke="var(--danger)" stroke-width="12" stroke-dasharray="40 261" stroke-dashoffset="-241"/>
+              </svg>
+              <div class="ctr"><b>12/15</b><span>passed</span></div>
+            </div>
+            <span class="verdict"><span class="d"></span>Not ready</span>
+          </div>
+          <div style="margin-top:12px">
+            <div class="rl"><span class="k">Failed</span><span class="v bad">2</span></div>
+            <div class="rl"><span class="k">Untested</span><span class="v">1</span></div>
+            <div class="rl"><span class="k">Open blockers</span><span class="v bad">1</span></div>
+            <div class="rl"><span class="k">Dev sign-off</span><span class="v">pending</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Rollout</h3></div>
+        <div class="card-b">
+          <div class="rl"><span class="k">Deployments</span><span class="v stat">2</span></div>
+          <div class="rl"><span class="k">On this version</span><span class="v stat">143</span></div>
+          <div class="rl"><span class="k">QFIL bundle</span><span class="v ok">ready</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>

@@ -1,0 +1,166 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Release · Cockpit — AIO MDM</title>
+<style>
+  :root{
+    --bg:#faf8f5;--surface:#fff;--surface2:#f6f4f0;--surface3:#efeae3;--border:#e8e2da;--border-soft:#f0ebe4;
+    --text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --accent:#f9674e;--accent-h:#ec4f33;--accent-soft:rgba(249,103,78,.10);--accent-edge:rgba(249,103,78,.34);
+    --p:#7a80f6;--p-soft:rgba(122,128,246,.12);--p-edge:rgba(122,128,246,.34);
+    --ok:#157f3c;--ok-bg:rgba(21,127,60,.10);--warn:#b45309;--warn-bg:rgba(180,83,9,.10);--danger:#b42318;--danger-bg:rgba(180,35,24,.10);
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 8px 26px rgba(28,26,24,.07);--shadow-sm:0 1px 2px rgba(28,26,24,.06);--r:16px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto;padding:30px 24px 90px}
+  .back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:22px}
+  .back:hover{color:var(--accent)}
+  .mono{font-family:var(--mono)} .muted{color:var(--muted)} .small{font-size:12px}
+  .grid{display:grid;grid-template-columns:296px 1fr;gap:20px;align-items:start}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+  .btn{font:inherit;font-size:13px;font-weight:650;padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+  .btn:hover{border-color:var(--faint)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn.primary:hover{background:var(--accent-h)}
+  .btn.full{width:100%}
+
+  /* ── sticky identity rail ── */
+  .rail{position:sticky;top:22px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
+  .r-top{padding:20px 20px 4px}
+  .glyph{width:46px;height:46px;border-radius:13px;background:linear-gradient(135deg,var(--accent),var(--p));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 6px 16px rgba(249,103,78,.26);margin-bottom:13px}
+  .glyph svg{width:23px;height:23px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .badge{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:3px 9px;border-radius:99px}
+  .badge.pub{background:var(--ok-bg);color:var(--ok)}
+  .r-top h1{margin:9px 0 2px;font-size:21px;font-weight:750;letter-spacing:-.01em;font-family:var(--mono)}
+  .r-top .name{color:var(--muted);font-size:13px}
+  .ring{display:flex;align-items:center;gap:15px;padding:16px 20px}
+  .ring .donut{width:78px;height:78px;position:relative;flex:none}
+  .ring .donut svg{transform:rotate(-90deg)}
+  .ring .donut .ctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .donut .ctr b{font-size:16px;font-weight:750}
+  .ring .rr .verdict{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--warn)}
+  .ring .rr .verdict .d{width:8px;height:8px;border-radius:50%;background:currentColor}
+  .ring .rr .sub{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .facts{border-top:1px solid var(--border-soft)}
+  .fact{display:flex;justify-content:space-between;align-items:center;padding:10px 20px;font-size:13px;border-top:1px solid var(--border-soft)}
+  .fact:first-child{border-top:0}
+  .fact .k{color:var(--muted)} .fact .v{font-weight:650} .fact .v.stat{font-family:var(--mono)}
+  .fact .v.bad{color:var(--danger)} .fact .v.warn{color:var(--warn)}
+  .r-act{padding:14px 20px;display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border-soft)}
+
+  /* ── content cards ── */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm);margin-bottom:18px;overflow:hidden}
+  .card-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border-soft)}
+  .card-h h3{margin:0;font-size:14.5px;font-weight:700}
+  .card-b{padding:16px 18px}
+
+  .pkg{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--border);border-radius:12px;margin-bottom:8px}
+  .pkg.base{border-left:3px solid var(--p)}.pkg.inc{border-left:3px solid var(--warn)}
+  .pkg .ptype{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:2px 8px;border-radius:99px}
+  .pkg.base .ptype{background:var(--p-soft);color:var(--p)}.pkg.inc .ptype{background:var(--warn-bg);color:var(--warn)}
+  .pkg .pmeta{flex:1;min-width:0}.pkg .pmeta b{font-size:13px;font-weight:650}
+  .pkg .pmeta .u{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pkg .psize{font-size:11.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+
+  /* ── paste-first composer ── */
+  .drop{border:1.5px dashed var(--accent-edge);border-radius:13px;padding:16px;background:var(--accent-soft);text-align:center;margin-top:6px}
+  .drop .ic{width:34px;height:34px;border-radius:10px;background:var(--surface);display:inline-flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:8px;box-shadow:var(--shadow-sm)}
+  .drop .ic svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .drop .t{font-size:13px;font-weight:650}
+  .drop .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .urlbox{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);margin-top:12px}
+  .urlbox input{flex:1;border:0;padding:10px 12px;font:inherit;font-size:12.5px;font-family:var(--mono);background:transparent;outline:none;min-width:0;text-align:left}
+  .urlbox .verify{border:0;border-left:1px solid var(--border);background:var(--surface2);padding:0 14px;font:inherit;font-size:12.5px;font-weight:650;cursor:pointer;color:var(--p)}
+  /* auto-detected result */
+  .detected{margin-top:12px;border:1px solid var(--ok);background:var(--ok-bg);border-radius:11px;padding:12px 13px;text-align:left}
+  .detected .dh{font-size:12px;font-weight:700;color:var(--ok);display:flex;align-items:center;gap:7px;margin-bottom:9px}
+  .drow{display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0}
+  .drow .k{color:var(--muted)} .drow .v{font-weight:650;font-family:var(--mono)}
+  .drow .v .edit{font-family:var(--font);font-weight:600;color:var(--p);font-size:11px;margin-left:8px;cursor:pointer}
+</style></head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/index">← Demos</a>
+  <div class="grid">
+
+    <!-- identity rail -->
+    <aside class="rail">
+      <div class="r-top">
+        <div class="glyph"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></div>
+        <span class="badge pub">Published</span>
+        <h1>v2026.06.01</h1>
+        <span class="name">June security update</span>
+      </div>
+      <div class="ring">
+        <div class="donut">
+          <svg width="78" height="78" viewBox="0 0 78 78">
+            <circle cx="39" cy="39" r="32" fill="none" stroke="var(--surface3)" stroke-width="9"/>
+            <circle cx="39" cy="39" r="32" fill="none" stroke="var(--ok)" stroke-width="9" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="40"/>
+            <circle cx="39" cy="39" r="32" fill="none" stroke="var(--danger)" stroke-width="9" stroke-dasharray="27 174" stroke-dashoffset="-161"/>
+          </svg>
+          <div class="ctr"><b>12/15</b></div>
+        </div>
+        <div class="rr">
+          <div class="verdict"><span class="d"></span>Not ready</div>
+          <div class="sub">QA in progress</div>
+        </div>
+      </div>
+      <div class="facts">
+        <div class="fact"><span class="k">Failed cases</span><span class="v bad">2</span></div>
+        <div class="fact"><span class="k">Open blockers</span><span class="v bad">1</span></div>
+        <div class="fact"><span class="k">Dev sign-off</span><span class="v warn">pending</span></div>
+        <div class="fact"><span class="k">Packages</span><span class="v stat">3</span></div>
+        <div class="fact"><span class="k">Deployments</span><span class="v stat">2</span></div>
+        <div class="fact"><span class="k">On this version</span><span class="v stat">143</span></div>
+      </div>
+      <div class="r-act">
+        <a class="btn primary full" href="#">Open QA →</a>
+        <a class="btn full" href="#">Deploy an update</a>
+      </div>
+    </aside>
+
+    <!-- content -->
+    <div class="main">
+      <div class="card">
+        <div class="card-h"><h3>Packages</h3><span class="muted small">1 full baseline · 2 incrementals</span></div>
+        <div class="card-b">
+          <div class="pkg base"><span class="ptype">Full</span><div class="pmeta"><b>Baseline image</b><span class="u">ota-packages.s3…/v2026.06.01-full.zip</span></div><span class="psize">1.12 GB</span></div>
+          <div class="pkg inc"><span class="ptype">Incremental</span><div class="pmeta"><b>from 2026.05.15</b><span class="u">ota-packages.s3…/060100-from-051500.zip</span></div><span class="psize">96 MB</span></div>
+          <div class="pkg inc"><span class="ptype">Incremental</span><div class="pmeta"><b>from 2026.05.01</b><span class="u">ota-packages.s3…/060100-from-050100.zip</span></div><span class="psize">184 MB</span></div>
+
+          <!-- paste-first / drop composer with auto-detect -->
+          <div class="drop">
+            <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg></div>
+            <div class="t">Drop an OTA .zip, or paste its URL</div>
+            <div class="s">We read the zip's metadata and fill in the rest.</div>
+            <div class="urlbox"><input value="https://ota-packages.s3.us-west-2.amazonaws.com/060100-from-051500.zip"><button class="verify">Verify</button></div>
+          </div>
+
+          <div class="detected">
+            <div class="dh"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Detected from the package — confirm and add</div>
+            <div class="drow"><span class="k">Type</span><span class="v">Incremental <span class="edit">change</span></span></div>
+            <div class="drow"><span class="k">From build</span><span class="v">2026.05.15-release <span class="edit">change</span></span></div>
+            <div class="drow"><span class="k">Target build</span><span class="v">2026.06.01 ✓</span></div>
+            <div class="drow"><span class="k">Size</span><span class="v">96 MB · reachable ✓</span></div>
+            <button class="btn primary full" style="margin-top:11px">Add package</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Changelog</h3></div>
+        <div class="card-b" style="font-size:13px;line-height:1.7">
+          • Security patch level 2026-06-01<br>• Fix NFC reader wake-from-sleep on the T7<br>• Kiosk lock-task no longer drops on OTA reboot<br>• Wi-Fi roaming stability on 5&nbsp;GHz
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Recent deployments</h3><a class="muted small" href="#" style="text-decoration:none">All in Updates →</a></div>
+        <div class="card-b" style="padding:0">
+          <div class="fact" style="padding:12px 18px"><span class="k mono small">#412 · immediate</span><span class="v ok">58 / 58 installed</span></div>
+          <div class="fact" style="padding:12px 18px"><span class="k mono small">#409 · scheduled 02:00</span><span class="v warn">31 / 40 · in progress</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body></html>
