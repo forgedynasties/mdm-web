@@ -8841,6 +8841,7 @@ func (d *DB) ReleaseProblemSummary(ctx context.Context, releaseID int) (ProblemS
 // BuildCrash is a crash/ANR event observed on a device currently running a given
 // build — surfaced on the release page so testers see regressions to investigate.
 type BuildCrash struct {
+	ID         uuid.UUID // device_events.id — lets an admin remove a specific crash
 	Serial     string
 	Kind       string
 	Summary    string
@@ -8879,7 +8880,7 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 	// current build (dv.build_id) — otherwise a device that has since updated drags
 	// its old crashes onto the new release's page.
 	rows, err := d.pool.Query(ctx, `
-		SELECT dv.serial_number, e.kind, e.summary, e.detail, e.occurred_at
+		SELECT e.id, dv.serial_number, e.kind, e.summary, e.detail, e.occurred_at
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		WHERE e.build_id = $1 AND e.kind <> 'reboot'
@@ -8892,12 +8893,34 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 	var out []BuildCrash
 	for rows.Next() {
 		var c BuildCrash
-		if err := rows.Scan(&c.Serial, &c.Kind, &c.Summary, &c.Detail, &c.OccurredAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Serial, &c.Kind, &c.Summary, &c.Detail, &c.OccurredAt); err != nil {
 			return nil, err
 		}
 		out = append(out, c)
 	}
 	return out, rows.Err()
+}
+
+// DeleteCrashEvent removes a single crash/ANR/tombstone event (admin cleanup of a
+// noisy or irrelevant crash). Returns the device it belonged to so the caller can
+// also clear that device's crash alert. ok is false if the event didn't exist.
+func (d *DB) DeleteCrashEvent(ctx context.Context, eventID uuid.UUID) (deviceID uuid.UUID, ok bool, err error) {
+	err = d.pool.QueryRow(ctx, `DELETE FROM device_events WHERE id = $1 RETURNING device_id`, eventID).Scan(&deviceID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, false, nil
+		}
+		return uuid.Nil, false, err
+	}
+	return deviceID, true, nil
+}
+
+// DeleteDeviceCrashAlert removes the open device_crash alert for a device, so deleting
+// a crash also clears it from the Alerts page. If real crashes remain, the minute-ly
+// evaluator re-raises an accurate alert; if none remain, it stays gone.
+func (d *DB) DeleteDeviceCrashAlert(ctx context.Context, deviceID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM alerts WHERE type = 'device_crash' AND device_id = $1`, deviceID)
+	return err
 }
 
 // ProblemSummariesByRelease returns the per-release problem rollup for every
