@@ -5172,10 +5172,12 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	role := h.role(r)
-	// The QA + problem summaries drive the release page's QA status card; the full
+	// The QA + problem summaries drive the release page's pipeline + QA rail; the full
 	// checklist / problems / crashes live on the dedicated QA page (ReleaseQAPage).
 	qa, _ := h.db.ReleaseQASummary(r.Context(), id)
 	problemSummary, _ := h.db.ReleaseProblemSummary(r.Context(), id)
+	// Tracked releases back the incremental package's "From build" picker (its source).
+	sourceReleases, _ := h.db.ListReleases(r.Context())
 
 	h.render(w, r, "release_detail.html", map[string]any{
 		"Title":          "Release " + rel.Version,
@@ -5189,6 +5191,7 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"DevicesCount":   devicesCount,
 		"QA":             qa,
 		"ProblemSummary": problemSummary,
+		"SourceReleases": sourceReleases,
 	})
 }
 

@@ -3,6 +3,11 @@
 
 {{$rel := .Release}}
 {{$role := .Role}}
+{{$blockers := .ProblemSummary.Blockers}}
+{{$hasPkg := gt (len .Packages) 0}}
+{{$qaDone := and (gt .QA.Total 0) .QA.Passed (eq $blockers 0)}}
+{{$signed := ne $rel.SignedOffBy ""}}
+{{$stage := "packages"}}{{if $hasPkg}}{{$stage = "qa"}}{{if $qaDone}}{{$stage = "signoff"}}{{if $signed}}{{$stage = "done"}}{{end}}{{end}}{{end}}
 
 <a href="/releases" class="back-link">← Releases</a>
 
@@ -13,15 +18,15 @@
   </h1>
   {{if $rel.Name}}<span class="ov-date">{{$rel.Name}}</span>{{end}}
   {{$canDownloadQfil := and .QFILPackages (or (eq $role "admin") (eq $role "dev") (eq $role "tester"))}}
-  {{if or .CanManageQFIL $canDownloadQfil}}
   <span class="acts">
+    <a href="/releases/{{$rel.ID}}/qa" class="btn-primary btn-sm">Open QA →</a>
     {{if eq $role "admin"}}
     {{if and (eq $rel.Status "published") .CanPush}}
-    <a href="/updates?release={{$rel.ID}}" class="btn-primary btn-sm">Deploy →</a>
+    <a href="/updates?release={{$rel.ID}}" class="btn-outline btn-sm">Deploy</a>
     {{end}}
     {{if ne $rel.Status "published"}}
     <form action="/releases/{{$rel.ID}}/publish" method="POST" style="display:inline;">
-      <button type="submit" class="btn-primary btn-sm"
+      <button type="submit" class="btn-outline btn-sm"
         {{if and (gt .QA.Total 0) (not .QA.Passed)}}onclick="return confirm('QA is not complete — {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}}, {{.QA.Fail}} failed{{end}}{{if gt .QA.Untested 0}}, {{.QA.Untested}} untested{{end}}. Publish anyway?')"{{end}}>Publish</button>
     </form>
     {{end}}
@@ -29,168 +34,178 @@
     {{if $canDownloadQfil}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download hx-boost="false" title="Download the QFIL flashing bundle" style="display:inline-flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>{{end}}
     {{if .CanManageQFIL}}<button type="button" class="btn-outline btn-sm" onclick="qfilModalOpen()">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</button>{{end}}
   </span>
-  {{end}}
 </div>
 
 {{if eq $rel.Status "draft"}}
-<div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg,#2a2010);border:1px solid var(--warn,#f59e0b);color:var(--warn,#f59e0b);font-size:13px;">
+<div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg);border:1px solid var(--warn);color:var(--warn);font-size:13px;">
   This release is a draft. Add its full package, then <strong>Publish</strong> it before deploying.
 </div>
 {{end}}
 
-<!-- At-a-glance -->
-<div class="rel-vitals" style="margin-bottom:16px;">
-  <div class="ovx-stat">
-    <div class="ovx-stat-top">
-      <span class="ovx-ico i-violet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/><path d="M12 12v9"/></svg></span>
-      <span class="ovx-big">{{len .Packages}}</span>
-    </div>
-    <span class="ovx-lbl">Packages</span>
-    <span class="ovx-sub">{{if .HasFull}}full image ready{{else}}no full image yet{{end}}</span>
-  </div>
-  <div class="ovx-stat">
-    <div class="ovx-stat-top">
-      <span class="ovx-ico i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
-      <span class="ovx-big">{{len .Deployments}}</span>
-    </div>
-    <span class="ovx-lbl">Updates</span>
-    <span class="ovx-sub">rollouts pushed</span>
-  </div>
-  <div class="ovx-stat">
-    <div class="ovx-stat-top">
-      <span class="ovx-ico i-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
-      <span class="ovx-big">{{.DevicesCount}}</span>
-    </div>
-    <span class="ovx-lbl">On this version</span>
-    <span class="ovx-sub">reporting now</span>
-  </div>
-  <div class="ovx-stat">
-    <div class="ovx-stat-top">
-      <span class="ovx-ico i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
-      <span class="ovx-big" style="font-size:19px;">{{timeSince $rel.CreatedAt}}</span>
-    </div>
-    <span class="ovx-lbl">Created</span>
-    <span class="ovx-sub">{{localTime $rel.CreatedAt}}</span>
-  </div>
+<!-- Release lifecycle pipeline — Created → Packages → QA → Sign-off. Deploy is optional. -->
+<div class="pipe">
+  <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Created</div><div class="st-sub">{{timeSince $rel.CreatedAt}}</div></div>
+  <div class="stage {{if $hasPkg}}done{{else if eq $stage "packages"}}now{{else}}todo{{end}}"><div class="node">{{if $hasPkg}}<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>{{end}}</div><div class="st-name">Packages</div><div class="st-sub">{{if $hasPkg}}{{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}}{{else}}none yet{{end}}</div></div>
+  <div class="stage {{if $qaDone}}done{{else if eq $stage "qa"}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="st-name">QA</div><div class="st-sub">{{if gt .QA.Total 0}}{{.QA.Pass}}/{{.QA.Total}}{{if gt .QA.Fail 0}} · {{.QA.Fail}} failed{{end}}{{else}}no cases{{end}}</div></div>
+  <div class="stage finish {{if $signed}}done{{else if eq $stage "signoff"}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V3"/></svg></div><div class="st-name">Sign-off</div><div class="st-sub">{{if $signed}}by {{$rel.SignedOffBy}}{{else}}the finish line{{end}}</div></div>
 </div>
+<div class="pipe-note">Testing is done at sign-off. Deploying to devices is optional — push this build anytime from <a href="/updates?release={{$rel.ID}}">Updates →</a></div>
 
-<!-- QA status card — the release's testing verdict; full workspace is the QA page. -->
-{{$blockers := .ProblemSummary.Blockers}}
-{{$ready := and (or (eq .QA.Total 0) .QA.Passed) (eq $blockers 0)}}
-<a href="/releases/{{$rel.ID}}/qa" class="rel-qa-card {{if $ready}}ok{{else}}warn{{end}}">
-  <div class="rel-qa-main">
-    <span class="rel-qa-k">QA</span>
-    {{if gt .QA.Total 0}}<span class="rel-qa-big{{if .QA.Passed}} ok{{else if gt .QA.Fail 0}} bad{{else}} warn{{end}}">{{.QA.Pass}}/{{.QA.Total}}</span>{{else}}<span class="rel-qa-big muted">—</span>{{end}}
-    <span class="rel-qa-verdict">{{if gt .QA.Total 0}}{{if $ready}}Ready to publish{{else}}Not ready{{end}}{{else}}No test cases yet{{end}}</span>
-  </div>
-  <div class="rel-qa-meta">
-    {{if gt .QA.Untested 0}}<span>{{.QA.Untested}} untested</span>{{end}}
-    {{if gt .QA.Fail 0}}<span class="bad">{{.QA.Fail}} failed</span>{{end}}
-    {{if gt .ProblemSummary.Open 0}}<span class="{{if gt $blockers 0}}bad{{else}}warn{{end}}">{{.ProblemSummary.Open}} problem{{if ne .ProblemSummary.Open 1}}s{{end}}{{if gt $blockers 0}} · {{$blockers}} blocker{{if ne $blockers 1}}s{{end}}{{end}}</span>{{end}}
-    <span>{{if $rel.SignedOffBy}}dev sign-off ✓ {{$rel.SignedOffBy}}{{else}}dev sign-off pending{{end}}</span>
-  </div>
-  <span class="rel-qa-go">Open QA →</span>
-</a>
+<div class="rel-cols">
+  <div class="rel-main">
 
-
-<section class="rel-panel" data-rpanel="overview">
-
-<!-- Changelog -->
-{{if eq $role "admin"}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Name &amp; changelog</h3><span class="muted small">editable any time</span></div>
-  <form action="/releases/{{$rel.ID}}/meta" method="POST" style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
-    <div class="form-row">
-      <label class="form-label">Name <span class="muted small">(optional)</span></label>
-      <input type="text" name="name" class="form-input" placeholder="e.g. June security update" value="{{$rel.Name}}">
-    </div>
-    <div class="form-row">
-      <label class="form-label">Changelog</label>
-      <textarea name="changelog" class="form-textarea" rows="22" style="resize:vertical;min-height:460px;" placeholder="What changed in this release…">{{$rel.Changelog}}</textarea>
-    </div>
-    <div><button type="submit" class="btn-primary">Save changelog</button></div>
-  </form>
-</div>
-{{else if $rel.Changelog}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Changelog</h3></div>
-  <div style="padding:12px 16px;white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$rel.Changelog}}</div>
-</div>
-{{end}}
-
-<!-- Packages in this release — admin/dev only -->
-{{if canAdmin $role}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Packages</h3>
-    <span class="muted small">One full image (the baseline) plus any incrementals. The server picks the right one per device.</span>
-  </div>
-  {{if .Packages}}
-  <table class="table">
-    <thead>
-      <tr><th>Type</th><th>From build</th><th>URL</th><th>Added</th><th></th></tr>
-    </thead>
-    <tbody>
-      {{range .Packages}}
-      <tr {{if eq .Status "yanked"}}style="opacity:0.55;"{{end}}>
-        <td>{{if eq .Type "incremental"}}<span class="status-badge warn">incremental</span>{{else}}<span class="status-badge muted">full</span>{{end}}</td>
-        <td class="mono small">{{if .SourceBuildID}}{{.SourceBuildID}}{{else}}<span class="muted">— (any)</span>{{end}}</td>
-        <td class="mono small" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          <a href="{{.UpdateURL}}" target="_blank" rel="noopener" class="link-detail" style="font-size:11px;">{{truncate .UpdateURL 48}}</a>
-        </td>
-        <td class="muted small">{{localTime .CreatedAt}}</td>
-        <td style="white-space:nowrap;">
-          {{if eq $role "admin"}}
-          <form action="/releases/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="display:inline;"
-                hx-confirm="Delete this package from the release?">
-            <button type="submit" class="btn-outline btn-sm">Delete</button>
-          </form>
+    <!-- Packages -->
+    {{if canAdmin $role}}
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-header"><h3>Packages</h3><span class="muted small">the server picks the right artifact per device</span></div>
+      <div style="padding:16px 18px;">
+        {{if .Packages}}
+        <div class="pkg-stack">
+          {{range .Packages}}
+          <div class="pkg {{if eq .Type "incremental"}}inc{{else}}base{{end}}"{{if eq .Status "yanked"}} style="opacity:.5"{{end}}>
+            <span class="ptype">{{.Type}}</span>
+            <div class="pmeta">
+              <b>{{if eq .Type "incremental"}}{{if .SourceBuildID}}from {{.SourceBuildID}}{{else}}from any build{{end}}{{else}}Baseline image{{end}}</b>
+              <a href="{{.UpdateURL}}" target="_blank" rel="noopener" class="u" title="{{.UpdateURL}}">{{truncate .UpdateURL 54}}</a>
+            </div>
+            <span class="pwhen muted small">{{timeSince .CreatedAt}}</span>
+            {{if eq $role "admin"}}<form action="/releases/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="margin:0;" hx-confirm="Delete this package from the release?"><button type="submit" class="pkg-x" title="Delete package">✕</button></form>{{end}}
+          </div>
           {{end}}
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty" style="padding:16px;">No packages yet — add the full image below.</div>
-  {{end}}
-
-  {{if eq $role "admin"}}
-  <!-- Add a package to this release -->
-  <div style="padding:16px 20px;border-top:1px solid var(--border-soft);">
-    <div class="form-label" style="margin-bottom:10px;">Add package <span class="muted small">for {{$rel.Version}}</span></div>
-    <form id="add-pkg-form" action="/releases/{{$rel.ID}}/packages" method="POST" class="command-form" style="padding:0;">
-      <div class="form-row">
-        <label class="form-label">Type</label>
-        <div class="seg-control">
-          <button type="button" class="seg-btn{{if not .HasFull}} active{{end}}" data-mode="full"
-                  {{if .HasFull}}disabled title="This release already has a full package"{{end}}
-                  onclick="setPkgType('full')">Full</button>
-          <button type="button" class="seg-btn{{if .HasFull}} active{{end}}" data-mode="incremental" onclick="setPkgType('incremental')">Incremental</button>
         </div>
-        <input type="hidden" name="type" id="pkg-type-input" value="{{if .HasFull}}incremental{{else}}full{{end}}">
-        {{if .HasFull}}<div class="form-hint">A full image already exists — only one is allowed. Add an incremental instead.</div>{{end}}
-      </div>
-      <div class="form-row" id="source-build-row" style="display:{{if .HasFull}}block{{else}}none{{end}};">
-        <label class="form-label">Source Build ID</label>
-        <input type="text" name="source_build_id" id="pkg-source-build" class="form-input" placeholder="e.g. 2026.05.01-release" {{if .HasFull}}required{{end}}>
-        <div class="form-hint">Only devices currently on this build will receive this incremental.</div>
-      </div>
-      <div class="form-row">
-        <label class="form-label">Package URL</label>
-        <input type="url" name="update_url" id="pkg-update-url" class="form-input" placeholder="https://..." required>
-        <input type="hidden" name="update_url_b64" id="pkg-update-url-b64">
-        <div class="form-hint">External URL where the OTA zip is hosted.</div>
-      </div>
-      <button type="submit" class="btn-primary">Add Package</button>
-    </form>
-  </div>
-  {{end}}
-</div>
-{{end}}
+        {{else}}
+        <div class="empty" style="padding:8px 0 16px;">No packages yet — add the full image below.</div>
+        {{end}}
 
-<!-- QFIL flashing bundle: managed via the top "Add/Replace QFIL package" button
-     (admin/dev); the test team downloads it from the Releases list, not here. -->
+        {{if eq $role "admin"}}
+        <!-- Package composer: paste a URL, we read the OTA metadata (no full download). -->
+        <div class="composer">
+          <div class="composer-h">Add package <span class="muted small">for {{$rel.Version}}</span></div>
+          <div class="tcards">
+            <button type="button" class="tcard{{if not .HasFull}} on{{end}}" data-mode="full" {{if .HasFull}}disabled{{end}} onclick="setPkgType('full')">
+              <div class="tt"><span class="dot b"></span>Full image</div>
+              <div class="td">The complete build — any device can install it.{{if .HasFull}} Already added.{{end}}</div>
+            </button>
+            <button type="button" class="tcard{{if .HasFull}} on{{end}}" data-mode="incremental" onclick="setPkgType('incremental')">
+              <div class="tt"><span class="dot i"></span>Incremental</div>
+              <div class="td">A smaller patch from one specific build.</div>
+            </button>
+          </div>
+          <form id="add-pkg-form" action="/releases/{{$rel.ID}}/packages" method="POST">
+            <input type="hidden" name="type" id="pkg-type-input" value="{{if .HasFull}}incremental{{else}}full{{end}}">
+            <div class="field" id="source-build-row" style="display:{{if .HasFull}}block{{else}}none{{end}};">
+              <label>From build</label>
+              <select name="source_build_id" id="pkg-source-build" class="sel">
+                <option value="">— choose the source release —</option>
+                {{range .SourceReleases}}{{if ne .Version $rel.Version}}<option value="{{.Version}}">{{.Version}}{{if .Name}} — {{.Name}}{{end}}</option>{{end}}{{end}}
+              </select>
+              <div class="form-hint">Only devices on this build receive the incremental.</div>
+            </div>
+            <div class="field">
+              <label>Package URL</label>
+              <div class="urlbox">
+                <input type="url" name="update_url" id="pkg-update-url" placeholder="https://…/update.zip" required oninput="pkgReset()">
+                <button type="button" class="verify" onclick="pkgVerify()">Verify</button>
+              </div>
+              <input type="hidden" name="update_url_b64" id="pkg-update-url-b64">
+              <div id="pkg-detected" class="detected-line"></div>
+            </div>
+            <button type="submit" class="btn-primary">Add package</button>
+          </form>
+        </div>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+
+    <!-- Changelog -->
+    {{if eq $role "admin"}}
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-header"><h3>Name &amp; changelog</h3><span class="muted small">editable any time</span></div>
+      <form action="/releases/{{$rel.ID}}/meta" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+        <div class="form-row">
+          <label class="form-label">Name <span class="muted small">(optional)</span></label>
+          <input type="text" name="name" class="form-input" placeholder="e.g. June security update" value="{{$rel.Name}}">
+        </div>
+        <div class="form-row">
+          <label class="form-label">Changelog</label>
+          <textarea name="changelog" class="form-textarea" rows="14" style="resize:vertical;min-height:280px;" placeholder="What changed in this release…">{{$rel.Changelog}}</textarea>
+        </div>
+        <div><button type="submit" class="btn-primary">Save changelog</button></div>
+      </form>
+    </div>
+    {{else if $rel.Changelog}}
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-header"><h3>Changelog</h3></div>
+      <div style="padding:14px 18px;white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$rel.Changelog}}</div>
+    </div>
+    {{end}}
+  </div>
+
+  <!-- Rail -->
+  <div class="rel-rail">
+    <!-- QA readiness -->
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-header"><h3>QA readiness</h3></div>
+      <div style="padding:16px 18px;">
+        <div class="rel-ready-top">
+          {{if gt .QA.Total 0}}{{$pass := pctOf .QA.Pass .QA.Total}}{{$passfail := pctOf (add .QA.Pass .QA.Fail) .QA.Total}}
+          <div class="rel-donut" style="background:conic-gradient(var(--ok) 0 {{$pass}}%, var(--danger) {{$pass}}% {{$passfail}}%, var(--surface3) {{$passfail}}% 100%);"><span class="rel-donut-c">{{.QA.Pass}}/{{.QA.Total}}</span></div>
+          {{else}}
+          <div class="rel-donut" style="background:var(--surface3);"><span class="rel-donut-c muted">—</span></div>
+          {{end}}
+          <div>
+            <span class="rel-verdict {{if $qaDone}}ok{{else}}warn{{end}}"><span class="d"></span>{{if gt .QA.Total 0}}{{if $qaDone}}Ready to publish{{else}}Not ready{{end}}{{else}}No test cases{{end}}</span>
+          </div>
+        </div>
+        <div class="rel-facts">
+          {{if gt .QA.Fail 0}}<div class="rf"><span class="k">Failed</span><span class="v bad">{{.QA.Fail}}</span></div>{{end}}
+          {{if gt .QA.Untested 0}}<div class="rf"><span class="k">Untested</span><span class="v">{{.QA.Untested}}</span></div>{{end}}
+          <div class="rf"><span class="k">Open problems</span><span class="v {{if gt $blockers 0}}bad{{end}}">{{.ProblemSummary.Open}}{{if gt $blockers 0}} · {{$blockers}} blocker{{if ne $blockers 1}}s{{end}}{{end}}</span></div>
+          <div class="rf"><span class="k">Dev sign-off</span><span class="v {{if $signed}}ok{{end}}">{{if $signed}}✓ {{$rel.SignedOffBy}}{{else}}pending{{end}}</span></div>
+        </div>
+        <a href="/releases/{{$rel.ID}}/qa" class="btn-primary" style="width:100%;justify-content:center;margin-top:14px;">Open QA →</a>
+      </div>
+    </div>
+
+    <!-- Rollout -->
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-header"><h3>Rollout</h3>{{if eq $role "admin"}}<a class="muted small" href="/updates?release={{$rel.ID}}" style="text-decoration:none;">Deploy →</a>{{end}}</div>
+      <div style="padding:6px 18px 8px;">
+        <div class="rf"><span class="k">Deployments</span><span class="v stat">{{len .Deployments}}</span></div>
+        <div class="rf"><span class="k">On this version</span><span class="v stat">{{.DevicesCount}}</span></div>
+        <div class="rf"><span class="k">Full image</span><span class="v {{if .HasFull}}ok{{end}}">{{if .HasFull}}ready{{else}}none yet{{end}}</span></div>
+        <div class="rf"><span class="k">QFIL bundle</span><span class="v {{if .QFILPackages}}ok{{end}}">{{if .QFILPackages}}ready{{else}}none{{end}}</span></div>
+      </div>
+      {{if .Deployments}}
+      <div style="border-top:1px solid var(--border-soft);">
+        {{range .Deployments}}
+        <a href="/releases/{{$rel.ID}}/deployments/{{.ID}}" class="rel-deploy-row">
+          <span class="mono small">#{{.ID}}</span>
+          <span class="status-badge {{deployStatusClass .Status}}">{{.Status}}</span>
+          <span class="muted small" style="margin-left:auto;">{{if gt .DeviceTotal 0}}{{.DeviceInstalled}}/{{.DeviceTotal}}{{else}}—{{end}}</span>
+        </a>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+
+    <!-- Devices -->
+    <div class="card" style="margin-bottom:18px;">
+      <div class="card-header"><h3>Devices on this version</h3></div>
+      <div style="padding:16px 18px;">
+        {{if gt .DevicesCount 0}}
+        <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px;"><span class="ovx-big" style="font-size:26px;">{{.DevicesCount}}</span><span class="muted small">reporting {{$rel.Version}}</span></div>
+        <a href="/devices?build={{urlquery $rel.Version}}" class="btn-outline btn-sm" style="width:100%;justify-content:center;">Open in Fleet →</a>
+        {{else}}
+        <span class="muted small">No devices are currently reporting this version.</span>
+        {{end}}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QFIL flashing bundle modal -->
 {{if .CanManageQFIL}}
 <div id="qfil-modal" class="modal-backdrop" onclick="qfilBackdrop(event)">
   <div class="modal-box">
@@ -240,120 +255,63 @@
 </div>
 {{end}}
 
-</section><!-- /overview -->
-
-<section class="rel-panel">
-
-<!-- Deploy CTA — the composer lives on the global /updates page now. -->
-{{if and (eq $rel.Status "published") (or (eq $role "admin") (eq $role "dev"))}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Deploy this release</h3></div>
-  <div style="padding:16px;">
-    {{if .CanPush}}
-    <a href="/updates?release={{$rel.ID}}" class="btn-primary">Deploy in Updates →</a>
-    <span class="muted small" style="margin-left:10px;">Pushing an update — target picker, reboot &amp; schedule — now lives on the Updates page.</span>
-    {{else}}
-    <span class="muted small">Add an <strong>OTA package</strong> above before this release can be deployed.</span>
-    {{end}}
-  </div>
-</div>
-{{end}}
-
-<!-- Updates (rollouts of this release) -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Updates</h3>
-    <span class="muted small">{{len .Deployments}} total</span>
-  </div>
-  {{if .Deployments}}
-  <table class="table">
-    <thead>
-      <tr><th>#</th><th>Status</th><th>Reboot</th><th>Devices</th><th>Installed</th><th>Created</th><th></th></tr>
-    </thead>
-    <tbody>
-      {{range .Deployments}}
-      <tr>
-        <td class="mono small">{{.ID}}</td>
-        <td><span class="status-badge {{deployStatusClass .Status}}">{{.Status}}</span></td>
-        <td class="muted small">{{.RebootBehavior}}</td>
-        <td class="muted small">{{.DeviceTotal}}</td>
-        <td>
-          {{if gt .DeviceTotal 0}}
-            <span class="{{if eq .DeviceInstalled .DeviceTotal}}ok{{else}}muted{{end}} small">{{.DeviceInstalled}} / {{.DeviceTotal}}</span>
-          {{else}}
-            <span class="muted small">—</span>
-          {{end}}
-        </td>
-        <td class="muted small">{{timeSince .CreatedAt}}</td>
-        <td style="white-space:nowrap;"><a href="/releases/{{$rel.ID}}/deployments/{{.ID}}" class="link-detail">View</a></td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty" style="padding:24px;">No updates pushed yet{{if eq $role "admin"}} — use Push Update above{{end}}.</div>
-  {{end}}
-</div>
-
-</section><!-- /updates -->
-
-<section class="rel-panel">
-
-<!-- Devices currently on this version -->
-<div class="card">
-  <div class="card-header">
-    <h3>Devices on this version</h3>
-  </div>
-  <div style="padding:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-    <div>
-      {{if gt .DevicesCount 0}}<span class="ovx-big" style="font-size:24px;">{{.DevicesCount}}</span> <span class="muted small">device{{if ne .DevicesCount 1}}s{{end}} currently reporting {{$rel.Version}}</span>{{else}}<span class="muted small">No devices are currently reporting this version.</span>{{end}}
-    </div>
-    {{if gt .DevicesCount 0}}<a href="/devices?build={{urlquery $rel.Version}}" class="btn-outline btn-sm">Open in Fleet →</a>{{end}}
-  </div>
-</div>
-
-</section><!-- /devices -->
-
 <script>
 function qfilModalOpen() { var m = document.getElementById('qfil-modal'); if (m) m.classList.add('modal-open'); }
 function qfilModalClose() { var m = document.getElementById('qfil-modal'); if (m) m.classList.remove('modal-open'); }
 function qfilBackdrop(e) { if (e.target.id === 'qfil-modal') qfilModalClose(); }
+
+// Package composer type toggle (Full / Incremental).
 function setPkgType(mode) {
-  var fullBtn = document.querySelector('#add-pkg-form .seg-btn[data-mode="full"]');
+  var box = document.querySelector('.composer'); if (!box) return;
+  var fullBtn = box.querySelector('.tcard[data-mode="full"]');
   if (mode === 'full' && fullBtn && fullBtn.disabled) return; // only one full per release
   document.getElementById('pkg-type-input').value = mode;
   var srcRow = document.getElementById('source-build-row');
   var srcInput = document.getElementById('pkg-source-build');
   if (srcRow) srcRow.style.display = mode === 'incremental' ? 'block' : 'none';
   if (srcInput) srcInput.required = mode === 'incremental';
-  document.querySelectorAll('#add-pkg-form .seg-btn').forEach(function(b) {
-    b.classList.toggle('active', b.dataset.mode === mode);
-  });
+  box.querySelectorAll('.tcard').forEach(function (b) { b.classList.toggle('on', b.dataset.mode === mode); });
 }
-// (The deploy composer + its two-pane picker JS moved to the Updates page, templates/updates.html.)
-// base64-encode the add-package URL (WAF bypass), mirroring the create form.
-(function() {
+function pkgReset() { var o = document.getElementById('pkg-detected'); if (o) o.innerHTML = ''; }
+// Verify: read the OTA package's metadata by URL (server range-reads it, no download)
+// and auto-set full vs incremental + show the target device and size.
+function pkgVerify() {
+  var el = document.getElementById('pkg-update-url'); var url = (el.value || '').trim();
+  var out = document.getElementById('pkg-detected'); if (!out) return;
+  if (!url) { out.innerHTML = '<span class="pkg-bad">Enter a package URL first.</span>'; return; }
+  out.innerHTML = '<span class="muted small"><span class="ws-dot"></span>Reading package metadata…</span>';
+  var url64 = btoa(unescape(encodeURIComponent(url))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  var body = new URLSearchParams(); body.set('update_url_b64', url64);
+  fetch('/releases/{{$rel.ID}}/packages/inspect', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { out.innerHTML = '<span class="pkg-bad">✗ ' + (d.error || 'Could not read the package') + '</span>'; return; }
+      if (d.type) setPkgType(d.type);
+      var sz = d.size_bytes > 1073741824 ? (d.size_bytes / 1073741824).toFixed(2) + ' GB' : Math.round(d.size_bytes / 1048576) + ' MB';
+      out.innerHTML = '<span class="pkg-ok">✓ Reachable</span> <span class="pkg-chip">' + sz + '</span> <span class="pkg-chip">' + d.type + (d.device ? ' · for ' + d.device : '') + '</span>';
+    })
+    .catch(function () { out.innerHTML = '<span class="pkg-bad">✗ Couldn’t reach the package.</span>'; });
+}
+// base64-encode the add-package URL on submit (WAF bypass), mirroring the QFIL form.
+(function () {
   var form = document.getElementById('add-pkg-form');
   if (!form) return;
-  form.addEventListener('submit', function() {
+  form.addEventListener('submit', function () {
     var urlInput = document.getElementById('pkg-update-url');
     var b64Input = document.getElementById('pkg-update-url-b64');
     if (!urlInput || !b64Input || !urlInput.value) return;
-    b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     urlInput.removeAttribute('name');
   });
 })();
-// base64-encode the QFIL URL (WAF bypass), mirroring the add-package form.
-(function() {
+(function () {
   var form = document.getElementById('add-qfil-form');
   if (!form) return;
-  form.addEventListener('submit', function() {
+  form.addEventListener('submit', function () {
     var urlInput = document.getElementById('qfil-url');
     var b64Input = document.getElementById('qfil-url-b64');
     if (!urlInput || !b64Input || !urlInput.value) return;
-    b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value)))
-      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     urlInput.removeAttribute('name');
   });
 })();
