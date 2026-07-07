@@ -5117,6 +5117,10 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	title := strings.TrimSpace(r.FormValue("title"))
 	if title == "" {
+		if hxReq(r) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
 		return
 	}
@@ -5147,6 +5151,10 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.problem.create", rel.Version, fmt.Sprintf("severity=%s, title=%s", p.Severity, title))
+	if hxReq(r) {
+		h.writeReleaseQAResponse(w, r, id, nil)
+		return
+	}
 	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
 }
 
@@ -5168,6 +5176,10 @@ func (h *Handler) ReleaseProblemUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.problem.update", strconv.Itoa(id), fmt.Sprintf("problem=%s, status=%s", pid, r.FormValue("status")))
+	if hxReq(r) {
+		h.writeReleaseQAResponse(w, r, id, nil)
+		return
+	}
 	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
 }
 
@@ -5353,7 +5365,58 @@ func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.audit(r, "testresult.set", fmt.Sprintf("release %d / %s = %s", id, caseID, status), "")
+	if hxReq(r) {
+		h.writeReleaseQAResponse(w, r, id, &caseID)
+		return
+	}
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+}
+
+// releaseQAData gathers the QA + Problems state that the release page and its htmx
+// OOB fragments render from. Keys match what the rd-* partials expect.
+func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any {
+	ctx := r.Context()
+	checklist, _ := h.db.GetReleaseChecklist(ctx, rel.ID)
+	qa, _ := h.db.ReleaseQASummary(ctx, rel.ID)
+	problems, _ := h.db.ListReleaseProblems(ctx, rel.ID)
+	ps, _ := h.db.ReleaseProblemSummary(ctx, rel.ID)
+	role := h.role(r)
+	return map[string]any{
+		"Release":        rel,
+		"Role":           role,
+		"Checklist":      checklist,
+		"QA":             qa,
+		"Problems":       problems,
+		"ProblemSummary": ps,
+		"CanRecord":      role == "tester",
+		"CanReport":      role == "admin" || role == "dev" || role == "operator" || role == "tester",
+	}
+}
+
+// writeReleaseQAResponse renders the htmx response for a QA/Problems mutation: the
+// changed qa-row (when markedCase is non-nil) followed by out-of-band fragments that
+// refresh the QA summary, problems list, counts and tab badges — so the page updates
+// in place with no full reload.
+func (h *Handler) writeReleaseQAResponse(w http.ResponseWriter, r *http.Request, releaseID int, markedCase *uuid.UUID) {
+	rel, err := h.db.GetRelease(r.Context(), releaseID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	data := h.releaseQAData(r, rel)
+	if markedCase != nil {
+		if items, ok := data["Checklist"].([]db.ChecklistItem); ok {
+			for _, it := range items {
+				if it.ID == *markedCase {
+					_ = h.tmpl.ExecuteTemplate(w, "rd-qa-row", map[string]any{
+						"Item": it, "CanRecord": data["CanRecord"], "Role": data["Role"], "RelID": rel.ID,
+					})
+					break
+				}
+			}
+		}
+	}
+	_ = h.tmpl.ExecuteTemplate(w, "release-oob", data)
 }
 
 // ReleaseEditMeta updates a release's editable metadata (name + changelog) after
