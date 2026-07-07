@@ -43,10 +43,12 @@
       <div class="rlc-meta">
         {{if .Tracked}}
           {{if gt .QA.Total 0}}
-            {{$qaTitle := printf "%d passed · %d failed · %d blocked · %d untested of %d" .QA.Pass .QA.Fail .QA.Blocked .QA.Untested .QA.Total}}
+            {{$qaTitle := printf "%d passed · %d failed · %d blocked · %d untested of %d — open QA" .QA.Pass .QA.Fail .QA.Blocked .QA.Untested .QA.Total}}
+            <a href="/releases/{{.ReleaseID}}/qa" class="rchip-a">
             {{if gt .QA.Fail 0}}<span class="rchip bad" title="{{$qaTitle}}">QA {{.QA.Fail}}✗ · {{.QA.Pass}}/{{.QA.Total}}</span>
             {{else if .QA.Passed}}<span class="rchip ok" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} ✓</span>
             {{else}}<span class="rchip qa" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} · {{.QA.Untested}} left</span>{{end}}
+            </a>
           {{end}}
           {{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}{{if gt .Problems.Blockers 0}} · {{.Problems.Blockers}} blocker{{if ne .Problems.Blockers 1}}s{{end}}{{end}} · {{.Problems.Total}} total">{{if gt .Problems.Blockers 0}}⚠ {{end}}{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}
           {{if .SignedOffBy}}<span class="rchip ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="rchip warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
