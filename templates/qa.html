@@ -46,7 +46,6 @@
     <button type="button" class="qa-fchip on" data-qafilter="all" onclick="qaFilter('all',this)">All <span class="c">{{.QA.Total}}</span></button>
     <button type="button" class="qa-fchip" data-qafilter="untested" onclick="qaFilter('untested',this)">Untested <span class="c">{{.QA.Untested}}</span></button>
     <button type="button" class="qa-fchip" data-qafilter="failed" onclick="qaFilter('failed',this)">Failed <span class="c">{{add .QA.Fail .QA.Blocked}}</span></button>
-    {{if gt .QA.Untested 0}}<button type="button" class="qa-fchip jump" onclick="qaJumpUntested()">Jump to next untested →</button>{{end}}
   </div>
   {{end}}
   <div class="qa-list" id="rd-qa-list">
@@ -157,10 +156,6 @@ function qaFilter(mode, btn) {
       || (mode === 'failed' && (s === 'fail' || s === 'blocked'));
     row.style.display = show ? '' : 'none';
   });
-}
-function qaJumpUntested() {
-  var next = document.querySelector('#rd-qa-list .qa-row[data-status="untested"]');
-  if (next) { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); next.classList.add('qa-flash-focus'); setTimeout(function () { next.classList.remove('qa-flash-focus'); }, 1200); }
 }
 function probFilter(mode, btn) {
   btn.parentElement.querySelectorAll('.qa-fchip[data-probfilter]').forEach(function (b) { b.classList.toggle('on', b === btn); });
