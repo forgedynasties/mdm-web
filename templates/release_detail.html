@@ -59,7 +59,7 @@
   <div class="ovx-stat">
     <div class="ovx-stat-top">
       <span class="ovx-ico i-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
-      <span class="ovx-big">{{len .DevicesOnVersion}}</span>
+      <span class="ovx-big">{{.DevicesCount}}</span>
     </div>
     <span class="ovx-lbl">On this version</span>
     <span class="ovx-sub">reporting now</span>
@@ -303,13 +303,13 @@
 <div class="card">
   <div class="card-header">
     <h3>Devices on this version</h3>
-    <span class="muted small">{{len .DevicesOnVersion}} device{{if ne (len .DevicesOnVersion) 1}}s{{end}} currently reporting {{$rel.Version}}</span>
   </div>
-  {{if .DevicesOnVersion}}
-  {{template "device-cards" (dict "Devices" .DevicesOnVersion "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs)}}
-  {{else}}
-  <div class="empty" style="padding:16px;">No devices are currently reporting this version.</div>
-  {{end}}
+  <div style="padding:18px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      {{if gt .DevicesCount 0}}<span class="ovx-big" style="font-size:24px;">{{.DevicesCount}}</span> <span class="muted small">device{{if ne .DevicesCount 1}}s{{end}} currently reporting {{$rel.Version}}</span>{{else}}<span class="muted small">No devices are currently reporting this version.</span>{{end}}
+    </div>
+    {{if gt .DevicesCount 0}}<a href="/devices?build={{urlquery $rel.Version}}" class="btn-outline btn-sm">Open in Fleet →</a>{{end}}
+  </div>
 </div>
 
 </section><!-- /devices -->

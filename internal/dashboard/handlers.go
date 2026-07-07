@@ -5069,10 +5069,9 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	packages, _ := h.db.ListPackagesByRelease(r.Context(), id)
 	qfilPackages, _ := h.db.ListQFILPackagesByRelease(r.Context(), id)
 	deployments, _ := h.db.ListDeploymentsByRelease(r.Context(), id)
-	// Adoption: which devices are currently on this version (full rows so the roster
-	// renders with the same fleet card as /devices).
-	activeThreshold := h.cfg.CheckinInterval() * 3
-	devicesOnVersion, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{BuildID: rel.Version}, 0, 500, "serial", "asc")
+	// Adoption count only — the release page shows the number and links out to the
+	// Fleet page (filtered by this build) instead of embedding the device roster.
+	devicesCount, _ := h.db.CountDevicesByVersion(r.Context(), rel.Version)
 
 	// hasFull gates the "Add full package" form; canPush gates the deploy CTA. An
 	// incremental-only release is still pushable — the per-device resolver matches
@@ -5095,25 +5094,17 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	qa, _ := h.db.ReleaseQASummary(r.Context(), id)
 	problemSummary, _ := h.db.ReleaseProblemSummary(r.Context(), id)
 
-	connected := h.hub.ConnectedIDs()
-	online := make(map[uuid.UUID]bool, len(connected))
-	for cid := range connected {
-		online[cid] = true
-	}
-
 	h.render(w, r, "release_detail.html", map[string]any{
-		"Title":               "Release " + rel.Version,
-		"Release":             rel,
-		"Packages":            packages,
-		"QFILPackages":        qfilPackages,
-		"CanManageQFIL":       role == "admin" || role == "dev",
-		"Deployments":         deployments,
-		"Online":              online,
-		"HasFull":             hasFull,
-		"CanPush":             canPush,
-		"DevicesOnVersion":    devicesOnVersion,
-		"ActiveThresholdSecs": activeThreshold,
-		"QA":                  qa,
+		"Title":         "Release " + rel.Version,
+		"Release":       rel,
+		"Packages":      packages,
+		"QFILPackages":  qfilPackages,
+		"CanManageQFIL": role == "admin" || role == "dev",
+		"Deployments":   deployments,
+		"HasFull":       hasFull,
+		"CanPush":       canPush,
+		"DevicesCount":  devicesCount,
+		"QA":            qa,
 		"ProblemSummary":      problemSummary,
 	})
 }
