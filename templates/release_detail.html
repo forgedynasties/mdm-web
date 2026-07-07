@@ -66,22 +66,6 @@
   </div>
   <div class="ovx-stat">
     <div class="ovx-stat-top">
-      <span class="ovx-ico i-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
-      {{if gt .QA.Total 0}}<span class="ovx-big{{if .QA.Passed}} ok{{else if gt .QA.Fail 0}} bad{{else}} warn{{end}}" style="font-size:24px;">{{.QA.Pass}}/{{.QA.Total}}</span>{{else}}<span class="ovx-big muted" style="font-size:22px;">—</span>{{end}}
-    </div>
-    <span class="ovx-lbl">QA passed</span>
-    <span class="ovx-sub">{{if gt .QA.Total 0}}{{if gt .QA.Fail 0}}{{.QA.Fail}} failed · {{end}}{{.QA.Untested}} untested{{else}}no test cases{{end}}</span>
-  </div>
-  <div class="ovx-stat" style="cursor:pointer;" onclick="var b=document.querySelector('[data-rtab=problems]');if(b)b.click();">
-    <div class="ovx-stat-top">
-      <span class="ovx-ico i-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
-      <span class="ovx-big{{if gt .ProblemSummary.Blockers 0}} bad{{else if gt .ProblemSummary.Open 0}} warn{{else}} ok{{end}}" style="font-size:24px;">{{.ProblemSummary.Open}}</span>
-    </div>
-    <span class="ovx-lbl">Open problems</span>
-    <span class="ovx-sub">{{if gt .ProblemSummary.Blockers 0}}{{.ProblemSummary.Blockers}} blocker{{if ne .ProblemSummary.Blockers 1}}s{{end}} · {{end}}{{.ProblemSummary.Total}} total</span>
-  </div>
-  <div class="ovx-stat">
-    <div class="ovx-stat-top">
       <span class="ovx-ico i-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
       <span class="ovx-big" style="font-size:19px;">{{timeSince $rel.CreatedAt}}</span>
     </div>
@@ -90,13 +74,24 @@
   </div>
 </div>
 
-<div class="dd-tabs" role="tablist" style="margin-bottom:16px;">
-  <button class="dd-tab active" type="button" data-rtab="overview" onclick="relDetailTab('overview',this)">Overview</button>
-  <button class="dd-tab" type="button" data-rtab="updates" onclick="relDetailTab('updates',this)">Updates{{if .Deployments}} <span class="pill">{{len .Deployments}}</span>{{end}}</button>
-  <button class="dd-tab" type="button" data-rtab="qa" onclick="relDetailTab('qa',this)">QA <span id="rd-qa-badge">{{template "rd-qa-badge" .}}</span></button>
-  <button class="dd-tab" type="button" data-rtab="problems" onclick="relDetailTab('problems',this)">Problems <span id="rd-prob-badge">{{template "rd-prob-badge" .}}</span></button>
-  <button class="dd-tab" type="button" data-rtab="devices" onclick="relDetailTab('devices',this)">Devices{{if .DevicesOnVersion}} <span class="pill">{{len .DevicesOnVersion}}</span>{{end}}</button>
-</div>
+<!-- QA status card — the release's testing verdict; full workspace is the QA page. -->
+{{$blockers := .ProblemSummary.Blockers}}
+{{$ready := and (or (eq .QA.Total 0) .QA.Passed) (eq $blockers 0)}}
+<a href="/releases/{{$rel.ID}}/qa" class="rel-qa-card {{if $ready}}ok{{else}}warn{{end}}">
+  <div class="rel-qa-main">
+    <span class="rel-qa-k">QA</span>
+    {{if gt .QA.Total 0}}<span class="rel-qa-big{{if .QA.Passed}} ok{{else if gt .QA.Fail 0}} bad{{else}} warn{{end}}">{{.QA.Pass}}/{{.QA.Total}}</span>{{else}}<span class="rel-qa-big muted">—</span>{{end}}
+    <span class="rel-qa-verdict">{{if gt .QA.Total 0}}{{if $ready}}Ready to publish{{else}}Not ready{{end}}{{else}}No test cases yet{{end}}</span>
+  </div>
+  <div class="rel-qa-meta">
+    {{if gt .QA.Untested 0}}<span>{{.QA.Untested}} untested</span>{{end}}
+    {{if gt .QA.Fail 0}}<span class="bad">{{.QA.Fail}} failed</span>{{end}}
+    {{if gt .ProblemSummary.Open 0}}<span class="{{if gt $blockers 0}}bad{{else}}warn{{end}}">{{.ProblemSummary.Open}} problem{{if ne .ProblemSummary.Open 1}}s{{end}}{{if gt $blockers 0}} · {{$blockers}} blocker{{if ne $blockers 1}}s{{end}}{{end}}</span>{{end}}
+    <span>{{if $rel.SignedOffBy}}dev sign-off ✓ {{$rel.SignedOffBy}}{{else}}dev sign-off pending{{end}}</span>
+  </div>
+  <span class="rel-qa-go">Open QA →</span>
+</a>
+
 
 <section class="rel-panel" data-rpanel="overview">
 
@@ -247,7 +242,7 @@
 
 </section><!-- /overview -->
 
-<section class="rel-panel" data-rpanel="updates" hidden>
+<section class="rel-panel">
 
 <!-- Deploy CTA — the composer lives on the global /updates page now. -->
 {{if and (eq $rel.Status "published") (or (eq $role "admin") (eq $role "dev"))}}
@@ -302,121 +297,7 @@
 
 </section><!-- /updates -->
 
-<section class="rel-panel" data-rpanel="qa" hidden>
-
-<!-- Testing / QA -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Testing &amp; QA</h3>
-    {{if eq $role "admin"}}
-    <form action="/releases/{{$rel.ID}}/qa-base" method="POST" style="margin:0;">
-      <label class="checkbox-label small" style="display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);">
-        <input type="checkbox" name="skip_base_tests" {{if $rel.SkipBaseTests}}checked{{end}} onchange="this.form.submit()">
-        Skip base cases
-      </label>
-      <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
-    </form>
-    {{end}}
-  </div>
-
-  <div id="rd-qa-summary">{{template "rd-qa-summary" .}}</div>
-
-  {{if .Checklist}}
-  {{if .CanRecord}}
-  <div class="qa-filter" id="rd-qa-filter">
-    <button type="button" class="qa-fchip on" data-qafilter="all" onclick="qaFilter('all',this)">All <span class="c">{{.QA.Total}}</span></button>
-    <button type="button" class="qa-fchip" data-qafilter="untested" onclick="qaFilter('untested',this)">Untested <span class="c">{{.QA.Untested}}</span></button>
-    <button type="button" class="qa-fchip" data-qafilter="failed" onclick="qaFilter('failed',this)">Failed <span class="c">{{add .QA.Fail .QA.Blocked}}</span></button>
-    {{if gt .QA.Untested 0}}<button type="button" class="qa-fchip jump" onclick="qaJumpUntested()">Jump to next untested →</button>{{end}}
-  </div>
-  {{end}}
-  <div class="qa-list" id="rd-qa-list">
-    {{$canRecord := .CanRecord}}
-    {{range .Checklist}}
-    {{template "rd-qa-row" (dict "Item" . "CanRecord" $canRecord "Role" $role "RelID" $rel.ID)}}
-    {{end}}
-  </div>
-  {{else}}
-  <div class="empty" style="padding:18px;">No test cases apply to this release yet.{{if eq $role "admin"}} Add base cases from the Releases page, or a release-specific case below.{{end}}</div>
-  {{end}}
-
-  {{if eq $role "admin"}}
-  <div class="qa-add">
-    <form action="/test-cases" method="POST" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <input type="hidden" name="release_id" value="{{$rel.ID}}">
-      <input name="title" class="form-input" placeholder="Add a release-specific test case…" required style="flex:1;min-width:240px;">
-      <input name="area" class="form-input" placeholder="Area" style="width:150px;">
-      <button type="submit" class="btn-outline btn-sm">Add case</button>
-    </form>
-  </div>
-  {{end}}
-</div>
-
-</section><!-- /qa -->
-
-<section class="rel-panel" data-rpanel="problems" hidden>
-<div class="card">
-  <div class="card-header">
-    <h3>Problems <span class="beta-pill" style="margin-left:6px;">Beta</span></h3>
-    <span class="muted small" id="rd-prob-count">{{template "rd-prob-count" .}}</span>
-  </div>
-  <div style="padding:14px 16px;">
-    {{if .CanReport}}
-    <form action="/releases/{{$rel.ID}}/problems" method="POST" class="prob-form" id="prob-form"
-          hx-post="/releases/{{$rel.ID}}/problems" hx-swap="none" hx-on::after-request="if(event.detail.successful){this.reset();}">
-      <input name="title" id="prob-title-input" class="form-input" placeholder="What went wrong? (short title)" required maxlength="200">
-      <textarea name="description" id="prob-desc-input" class="form-input" rows="3" placeholder="Repro steps, what you saw, paste a relevant log snippet…" style="resize:vertical;"></textarea>
-      <div class="prob-form-row">
-        <select name="severity" class="form-input" title="Severity">
-          <option value="blocker">Blocker</option>
-          <option value="major" selected>Major</option>
-          <option value="minor">Minor</option>
-        </select>
-        <select name="test_case_id" class="form-input" title="Related test case">
-          <option value="">— related test case (optional) —</option>
-          {{range .Checklist}}<option value="{{.ID}}">{{.Title}}</option>{{end}}
-        </select>
-        <input name="device_serial" id="prob-device-input" class="form-input" placeholder="Device serial (optional)" list="prob-devices" autocapitalize="off">
-        <datalist id="prob-devices">{{range .DevicesOnVersion}}<option value="{{.SerialNumber}}"></option>{{end}}</datalist>
-        <button type="submit" class="btn-primary">Report problem</button>
-      </div>
-    </form>
-
-    {{if .BuildCrashes}}
-    <div class="prob-crashes">
-      <div class="prob-crashes-h">Crashes seen on devices running {{$rel.Version}} <span class="muted small">— auto-detected; report the relevant ones</span></div>
-      {{range .BuildCrashes}}
-      <div class="prob-crash">
-        <span class="prob-crash-kind">{{.Kind}}</span>
-        <a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>
-        <span class="prob-crash-sum">{{if .Summary}}{{.Summary}}{{else}}—{{end}}</span>
-        <span class="prob-crash-when muted small">{{timeSince .OccurredAt}}</span>
-        <button type="button" class="qa-pill" onclick="probFromCrash(this)" data-kind="{{.Kind}}" data-serial="{{.Serial}}" data-sum="{{.Summary}}">Report</button>
-      </div>
-      {{if .Detail}}
-      <details class="prob-crash-trace">
-        <summary class="muted small">View crash / ANR trace</summary>
-        <pre class="logcat-terminal">{{colorizeLogcat .Detail}}</pre>
-      </details>
-      {{end}}
-      {{end}}
-    </div>
-    {{end}}
-    {{end}}
-
-    {{if .Problems}}
-    <div class="qa-filter" style="margin-top:14px;">
-      <button type="button" class="qa-fchip on" data-probfilter="all" onclick="probFilter('all',this)">All</button>
-      <button type="button" class="qa-fchip" data-probfilter="open" onclick="probFilter('open',this)">Open</button>
-      <button type="button" class="qa-fchip" data-probfilter="blocker" onclick="probFilter('blocker',this)">Blockers</button>
-    </div>
-    {{end}}
-    <div id="rd-prob-list">{{template "rd-prob-list" .}}</div>
-  </div>
-</div>
-</section><!-- /problems -->
-
-<section class="rel-panel" data-rpanel="devices" hidden>
+<section class="rel-panel">
 
 <!-- Devices currently on this version -->
 <div class="card">
@@ -434,64 +315,9 @@
 </section><!-- /devices -->
 
 <script>
-// Release detail tabs (Overview / Updates / QA / Devices).
 function qfilModalOpen() { var m = document.getElementById('qfil-modal'); if (m) m.classList.add('modal-open'); }
 function qfilModalClose() { var m = document.getElementById('qfil-modal'); if (m) m.classList.remove('modal-open'); }
 function qfilBackdrop(e) { if (e.target.id === 'qfil-modal') qfilModalClose(); }
-var relTabKey = 'rel-tab:{{$rel.ID}}';
-function relDetailTab(tab, btn) {
-  document.querySelectorAll('.dd-tab[data-rtab]').forEach(function (b) { b.classList.toggle('active', b === btn); });
-  document.querySelectorAll('.rel-panel').forEach(function (p) { p.hidden = p.getAttribute('data-rpanel') !== tab; });
-  try { localStorage.setItem(relTabKey, tab); } catch (e) {}
-}
-// Restore the last-viewed tab on load. Recording a QA result posts and reloads the
-// page, so without this a tester would be thrown back to Overview after every
-// pass/fail instead of staying on QA.
-document.addEventListener('DOMContentLoaded', function () {
-  var saved = null;
-  try { saved = localStorage.getItem(relTabKey); } catch (e) {}
-  if (!saved || saved === 'overview') return;
-  var btn = document.querySelector('.dd-tab[data-rtab="' + saved + '"]');
-  if (btn) relDetailTab(saved, btn);
-});
-// Prefill the problem report form from an auto-detected crash and jump to it.
-function probFromCrash(btn) {
-  var t = document.getElementById('prob-title-input');
-  var d = document.getElementById('prob-device-input');
-  var desc = document.getElementById('prob-desc-input');
-  var kind = btn.dataset.kind || 'crash', sum = btn.dataset.sum || '', serial = btn.dataset.serial || '';
-  if (t) t.value = kind + (sum ? ': ' + sum : '') + (serial ? ' on ' + serial : '');
-  if (d) d.value = serial;
-  if (desc && !desc.value) desc.value = 'Auto-detected ' + kind + (serial ? ' on ' + serial : '') + '.';
-  var f = document.getElementById('prob-form');
-  if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  if (t) t.focus();
-}
-
-// ── QA checklist filter/focus (client-side; all rows are on the page) ──
-function qaFilter(mode, btn) {
-  document.querySelectorAll('#rd-qa-filter .qa-fchip[data-qafilter]').forEach(function (b) { b.classList.toggle('on', b === btn); });
-  document.querySelectorAll('#rd-qa-list .qa-row').forEach(function (row) {
-    var s = row.getAttribute('data-status');
-    var show = mode === 'all'
-      || (mode === 'untested' && s === 'untested')
-      || (mode === 'failed' && (s === 'fail' || s === 'blocked'));
-    row.style.display = show ? '' : 'none';
-  });
-}
-function qaJumpUntested() {
-  var next = document.querySelector('#rd-qa-list .qa-row[data-status="untested"]');
-  if (next) { next.scrollIntoView({ behavior: 'smooth', block: 'center' }); next.classList.add('qa-flash-focus'); setTimeout(function () { next.classList.remove('qa-flash-focus'); }, 1200); }
-}
-function probFilter(mode, btn) {
-  btn.parentElement.querySelectorAll('.qa-fchip[data-probfilter]').forEach(function (b) { b.classList.toggle('on', b === btn); });
-  document.querySelectorAll('#rd-prob-list .prob').forEach(function (row) {
-    var show = mode === 'all'
-      || (mode === 'open' && row.getAttribute('data-open') === '1')
-      || (mode === 'blocker' && row.getAttribute('data-severity') === 'blocker');
-    row.style.display = show ? '' : 'none';
-  });
-}
 function setPkgType(mode) {
   var fullBtn = document.querySelector('#add-pkg-form .seg-btn[data-mode="full"]');
   if (mode === 'full' && fullBtn && fullBtn.disabled) return; // only one full per release
@@ -534,122 +360,4 @@ function setPkgType(mode) {
 </script>
 
 {{template "footer" .}}
-{{end}}
-
-{{/* ── QA / Problems partials — shared by the initial page render and the htmx
-      OOB swaps returned by the mark-case / file-problem / update-problem handlers,
-      so those actions update in place with no full-page reload. ── */}}
-
-{{define "rd-qa-badge"}}{{if gt .QA.Total 0}}<span class="pill">{{.QA.Pass}}/{{.QA.Total}}</span>{{end}}{{end}}
-
-{{define "rd-prob-badge"}}{{if gt .ProblemSummary.Open 0}}<span class="pill"{{if gt .ProblemSummary.Blockers 0}} style="background:var(--danger-bg);color:var(--danger)"{{end}}>{{.ProblemSummary.Open}}</span>{{end}}{{end}}
-
-{{define "rd-prob-count"}}{{.ProblemSummary.Open}} open{{if gt .ProblemSummary.Blockers 0}} · {{.ProblemSummary.Blockers}} blocker{{if ne .ProblemSummary.Blockers 1}}s{{end}}{{end}} · {{.ProblemSummary.Total}} total{{end}}
-
-{{define "rd-qa-summary"}}
-  {{if gt .QA.Total 0}}
-  <div class="qa-progress">
-    <div class="qa-bar" title="{{.QA.Pass}} pass · {{.QA.Fail}} fail · {{.QA.Blocked}} blocked · {{.QA.Skip}} skip · {{.QA.Untested}} untested">
-      {{if gt .QA.Pass 0}}<i class="pass" style="width:{{pctOf .QA.Pass .QA.Total}}%"></i>{{end}}
-      {{if gt .QA.Fail 0}}<i class="fail" style="width:{{pctOf .QA.Fail .QA.Total}}%"></i>{{end}}
-      {{if gt .QA.Blocked 0}}<i class="blocked" style="width:{{pctOf .QA.Blocked .QA.Total}}%"></i>{{end}}
-      {{if gt .QA.Skip 0}}<i class="skip" style="width:{{pctOf .QA.Skip .QA.Total}}%"></i>{{end}}
-    </div>
-    <div class="qa-legend">
-      <span><i class="pass"></i>{{.QA.Pass}} pass</span>
-      {{if gt .QA.Fail 0}}<span><i class="fail"></i>{{.QA.Fail}} fail</span>{{end}}
-      {{if gt .QA.Blocked 0}}<span><i class="blocked"></i>{{.QA.Blocked}} blocked</span>{{end}}
-      {{if gt .QA.Skip 0}}<span><i class="skip"></i>{{.QA.Skip}} skip</span>{{end}}
-      {{if gt .QA.Untested 0}}<span><i class="untested"></i>{{.QA.Untested}} untested</span>{{end}}
-    </div>
-  </div>
-  {{end}}
-  {{$blockers := .ProblemSummary.Blockers}}
-  {{$ready := and (or (eq .QA.Total 0) .QA.Passed) (eq $blockers 0)}}
-  <div class="rd-ready {{if $ready}}ok{{else}}warn{{end}}">
-    <span class="rd-ready-verdict">{{if $ready}}Ready to publish{{else}}Not ready{{end}}</span>
-    <span class="rd-ready-detail">
-      {{if not $ready}}{{.QA.Untested}} untested · {{.QA.Fail}} failed · {{$blockers}} open blocker{{if ne $blockers 1}}s{{end}} · {{end}}{{if .Release.SignedOffBy}}dev sign-off ✓ {{.Release.SignedOffBy}}{{else}}dev sign-off pending{{end}}
-    </span>
-  </div>
-  {{if and (gt .QA.Total 0) (not .CanRecord)}}<div class="qa-flash">Read-only — only the tester role can mark cases. {{if gt .QA.Untested 0}}{{.QA.Untested}} still untested.{{end}}</div>{{end}}
-  {{if and (not (eq .Role "admin")) .Release.SkipBaseTests}}<div class="qa-flash">Base cases skipped — only this release's own cases apply.</div>{{end}}
-{{end}}
-
-{{define "rd-qa-row"}}
-{{$st := .Item.Status}}{{$role := .Role}}{{$relID := .RelID}}
-<div class="qa-row {{$st}}" data-status="{{$st}}" data-area="{{if .Item.Area}}{{.Item.Area}}{{else}}General{{end}}">
-  <span class="qa-dot"></span>
-  <div class="qa-id">
-    <div class="qa-title">{{.Item.Title}}{{if .Item.Base}} <span class="qa-star" title="standard case — every release">★</span>{{end}}</div>
-    <div class="qa-meta">{{if .Item.Area}}{{.Item.Area}}{{else}}General{{end}}{{if .Item.Steps}} · {{.Item.Steps}}{{end}}{{if .Item.Expected}} · Expected: {{.Item.Expected}}{{end}}{{if and (not .Item.Base) (eq $role "admin")}} · <a href="#" onclick="document.getElementById('qa-del-{{.Item.ID}}').submit();return false;" class="qa-del">remove</a>{{end}}</div>
-    {{if and (not .Item.Base) (eq $role "admin")}}<form id="qa-del-{{.Item.ID}}" action="/test-cases/{{.Item.ID}}/delete" method="POST" hidden hx-confirm="Remove this test case from this release?"><input type="hidden" name="redirect" value="/releases/{{$relID}}"></form>{{end}}
-  </div>
-  {{if .CanRecord}}
-  <form class="qa-rec" action="/releases/{{$relID}}/test-results" method="POST"
-        hx-post="/releases/{{$relID}}/test-results" hx-target="closest .qa-row" hx-swap="outerHTML">
-    <input type="hidden" name="test_case_id" value="{{.Item.ID}}">
-    <input name="notes" class="qa-notes form-input" value="{{.Item.Notes}}" placeholder="notes…">
-    <div class="qa-pills">
-      <button type="submit" name="status" value="pass" class="qa-pill pass{{if eq $st "pass"}} on{{end}}">Pass</button>
-      <button type="submit" name="status" value="fail" class="qa-pill fail{{if eq $st "fail"}} on{{end}}">Fail</button>
-      <button type="submit" name="status" value="blocked" class="qa-pill blocked{{if eq $st "blocked"}} on{{end}}">Block</button>
-      <button type="submit" name="status" value="skip" class="qa-pill skip{{if eq $st "skip"}} on{{end}}">Skip</button>
-    </div>
-  </form>
-  {{else}}
-  <div class="qa-ro">
-    <span class="status-badge {{if eq $st "pass"}}ok{{else if eq $st "fail"}}danger{{else if eq $st "blocked"}}warn{{else}}muted{{end}}">{{$st}}</span>
-    {{if .Item.TestedBy}}<span class="qa-tested">{{.Item.TestedBy}}{{if .Item.Notes}} — {{.Item.Notes}}{{end}}</span>{{end}}
-  </div>
-  {{end}}
-</div>
-{{end}}
-
-{{define "rd-prob-list"}}
-{{$relID := .Release.ID}}{{$canReport := .CanReport}}
-{{if .Problems}}
-<div class="prob-list">
-  {{range .Problems}}
-  {{$open := not (or (eq .Status "verified") (eq .Status "wontfix"))}}
-  <div class="prob{{if not $open}} closed{{end}}" data-open="{{if $open}}1{{else}}0{{end}}" data-severity="{{.Severity}}">
-    <div class="prob-h">
-      <span class="prob-sev {{.Severity}}">{{.Severity}}</span>
-      <span class="prob-title">{{.Title}}</span>
-      {{if eq .Source "qa"}}<span class="prob-qa" title="Auto-created from a failed QA case; resolves when the case passes">from QA</span>{{end}}
-      <span class="prob-status st-{{.Status}}">{{.Status}}</span>
-    </div>
-    {{if .Description}}<div class="prob-desc">{{.Description}}</div>{{end}}
-    <div class="prob-meta">
-      {{if .TestCaseTitle}}case: <b>{{.TestCaseTitle}}</b> · {{end}}
-      {{if .DeviceSerial}}<a href="/devices/{{.DeviceSerial}}" class="link-detail mono">{{.DeviceSerial}}</a> · {{end}}
-      {{if .BuildID}}build {{.BuildID}} · {{end}}{{if .ReportedBy}}{{.ReportedBy}} · {{end}}{{timeSince .CreatedAt}}
-    </div>
-    {{if $canReport}}
-    <form action="/releases/{{$relID}}/problems/{{.ID}}" method="POST" class="prob-actions"
-          hx-post="/releases/{{$relID}}/problems/{{.ID}}" hx-swap="none">
-      {{if $open}}
-        <button name="status" value="fixed" class="qa-pill{{if eq .Status "fixed"}} on{{end}}">Fixed</button>
-        <button name="status" value="verified" class="qa-pill pass">Verified ✓</button>
-        <button name="status" value="wontfix" class="qa-pill skip">Won't fix</button>
-      {{else}}
-        <span class="prob-resolved">{{if eq .Status "verified"}}Verified fixed{{else}}Won't fix{{end}}</span>
-        <button name="status" value="open" class="qa-pill">Reopen</button>
-      {{end}}
-    </form>
-    {{end}}
-  </div>
-  {{end}}
-</div>
-{{else}}
-<div class="empty" style="padding:16px;">No problems reported for this release.{{if .CanReport}} File one above when a test turns up an issue.{{end}}</div>
-{{end}}
-{{end}}
-
-{{define "release-oob"}}
-<span id="rd-qa-badge" hx-swap-oob="innerHTML">{{template "rd-qa-badge" .}}</span>
-<span id="rd-prob-badge" hx-swap-oob="innerHTML">{{template "rd-prob-badge" .}}</span>
-<span id="rd-prob-count" hx-swap-oob="innerHTML">{{template "rd-prob-count" .}}</span>
-<div id="rd-qa-summary" hx-swap-oob="innerHTML">{{template "rd-qa-summary" .}}</div>
-<div id="rd-prob-list" hx-swap-oob="innerHTML">{{template "rd-prob-list" .}}</div>
 {{end}}

@@ -5022,19 +5022,16 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	packages, _ := h.db.ListPackagesByRelease(r.Context(), id)
 	qfilPackages, _ := h.db.ListQFILPackagesByRelease(r.Context(), id)
 	deployments, _ := h.db.ListDeploymentsByRelease(r.Context(), id)
-	groups, _ := h.db.ListGroups(r.Context())
-	// Adoption: which devices are currently on this version (the artifact's real-world reach).
-	// Full device rows so the roster renders with the same fleet card as /devices.
+	// Adoption: which devices are currently on this version (full rows so the roster
+	// renders with the same fleet card as /devices).
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	devicesOnVersion, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{BuildID: rel.Version}, 0, 500, "serial", "asc")
 
-	// hasFull gates the "Add full package" form constraints; canPush gates the
-	// Push Update form. An incremental-only release is pushable — the per-device
-	// resolver (ResolveUpdateForDevice) sends each incremental only to devices
-	// whose current build matches its source_build_id.
+	// hasFull gates the "Add full package" form; canPush gates the deploy CTA. An
+	// incremental-only release is still pushable — the per-device resolver matches
+	// each incremental to devices on its source build.
 	hasFull := false
 	canPush := false
-	sourceBuilds := map[string]bool{}
 	for _, p := range packages {
 		if p.Status != "active" {
 			continue
@@ -5042,36 +5039,14 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		canPush = true
 		if p.Type == "full" {
 			hasFull = true
-		} else if p.SourceBuildID != "" {
-			sourceBuilds[p.SourceBuildID] = true
 		}
 	}
 
 	role := h.role(r)
-	canOp := role == "admin" || role == "dev" || role == "operator" || role == "tester"
-
-	// The Push Update device picker only renders for an operator on a pushable
-	// release — skip the full-fleet (10k) load otherwise. When incremental-only,
-	// mirror the resolver's eligibility: only devices on a matching source build.
-	var devices []db.Device
-	if canOp && canPush {
-		devices, _ = h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 10000, "", "")
-		if !hasFull {
-			eligible := devices[:0]
-			for _, d := range devices {
-				if sourceBuilds[d.BuildID] {
-					eligible = append(eligible, d)
-				}
-			}
-			devices = eligible
-		}
-	}
-
-	checklist, _ := h.db.GetReleaseChecklist(r.Context(), id)
+	// The QA + problem summaries drive the release page's QA status card; the full
+	// checklist / problems / crashes live on the dedicated QA page (ReleaseQAPage).
 	qa, _ := h.db.ReleaseQASummary(r.Context(), id)
-	problems, _ := h.db.ListReleaseProblems(r.Context(), id)
 	problemSummary, _ := h.db.ReleaseProblemSummary(r.Context(), id)
-	buildCrashes, _ := h.db.CrashesOnBuild(r.Context(), rel.Version, 20)
 
 	connected := h.hub.ConnectedIDs()
 	online := make(map[uuid.UUID]bool, len(connected))
@@ -5086,21 +5061,37 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		"QFILPackages":        qfilPackages,
 		"CanManageQFIL":       role == "admin" || role == "dev",
 		"Deployments":         deployments,
-		"Devices":             devices,
 		"Online":              online,
-		"Groups":              groups,
 		"HasFull":             hasFull,
 		"CanPush":             canPush,
 		"DevicesOnVersion":    devicesOnVersion,
 		"ActiveThresholdSecs": activeThreshold,
-		"Checklist":           checklist,
 		"QA":                  qa,
-		"CanRecord":           role == "tester",
-		"Problems":            problems,
 		"ProblemSummary":      problemSummary,
-		"BuildCrashes":        buildCrashes,
-		"CanReport":           canOp, // admin/dev/operator/tester can file & triage problems
 	})
+}
+
+// ReleaseQAPage is the per-release QA / testing workspace (moved off the release
+// detail page): the checklist, problems, auto-detected crashes and readiness for one
+// release. Mutations here reuse the same htmx handlers/partials as before.
+func (h *Handler) ReleaseQAPage(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	rel, err := h.db.GetRelease(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	data := h.releaseQAData(r, rel)
+	crashes, _ := h.db.CrashesOnBuild(r.Context(), rel.Version, 20)
+	devs, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{BuildID: rel.Version}, 0, 500, "serial", "asc")
+	data["Title"] = "QA · " + rel.Version
+	data["BuildCrashes"] = crashes
+	data["DevicesOnVersion"] = devs
+	h.render(w, r, "qa.html", data)
 }
 
 // ReleaseProblemCreate files a new problem report against a release. Any operator
@@ -5123,7 +5114,7 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
-		http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
+		http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
 		return
 	}
 	p := db.ReleaseProblem{
@@ -5157,7 +5148,7 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 		h.writeReleaseQAResponse(w, r, id, nil)
 		return
 	}
-	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
 }
 
 // ReleaseProblemUpdate changes a problem's status (and optionally severity).
@@ -5182,7 +5173,7 @@ func (h *Handler) ReleaseProblemUpdate(w http.ResponseWriter, r *http.Request) {
 		h.writeReleaseQAResponse(w, r, id, nil)
 		return
 	}
-	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
 }
 
 // ReleaseProblemDelete removes a problem (admin only).
@@ -5201,7 +5192,7 @@ func (h *Handler) ReleaseProblemDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"#problems", http.StatusFound)
+	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
 }
 
 // ReleasePublish moves a release to published (deployable).
@@ -5232,7 +5223,7 @@ func (h *Handler) ReleaseSignOff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.sign_off", strconv.Itoa(id), "")
-	http.Redirect(w, r, "/releases", http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
 }
 
 // ReleaseClearSignOff revokes a previously recorded dev sign-off. Dev-only.
@@ -5247,7 +5238,7 @@ func (h *Handler) ReleaseClearSignOff(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.sign_off_clear", strconv.Itoa(id), "")
-	http.Redirect(w, r, "/releases", http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
 }
 
 // ── Test team / QA handlers ──────────────────────────────────────────────────
@@ -5275,7 +5266,7 @@ func (h *Handler) TestCaseCreate(w http.ResponseWriter, r *http.Request) {
 	if rid := strings.TrimSpace(r.FormValue("release_id")); rid != "" {
 		if id, err := strconv.Atoi(rid); err == nil {
 			tc.ReleaseID = &id
-			redirect = fmt.Sprintf("/releases/%d", id)
+			redirect = fmt.Sprintf("/releases/%d/qa", id)
 		}
 	} else {
 		tc.Base = true // a library case applies to every release
@@ -5371,7 +5362,7 @@ func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 		h.writeReleaseQAResponse(w, r, id, &caseID)
 		return
 	}
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
 }
 
 // releaseQAData gathers the QA + Problems state that the release page and its htmx
@@ -5458,7 +5449,7 @@ func (h *Handler) ReleaseSetSkipBase(w http.ResponseWriter, r *http.Request) {
 		state = "specific-only"
 	}
 	h.audit(r, "release.qa_scope", strconv.Itoa(id), state)
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
 }
 
 // PackageDelete removes a single package from a release.
@@ -9787,6 +9778,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /releases", h.requireAdminOrTester(h.ReleaseList))
 	post("POST /releases", h.requireAdmin(h.ReleaseCreate))
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrTester(h.ReleaseDetail))
+	mux.HandleFunc("GET /releases/{id}/qa", h.requireAdminOrTester(h.ReleaseQAPage))
 	post("POST /releases/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /releases/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
 	post("POST /releases/{id}/qfil", h.requireAdmin(h.ReleaseAddQFIL))
