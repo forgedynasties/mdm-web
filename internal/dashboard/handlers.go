@@ -1154,8 +1154,6 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "releases"
 	case strings.HasPrefix(path, "/updates"):
 		data["ActivePage"] = "updates"
-	case strings.HasPrefix(path, "/testing"):
-		data["ActivePage"] = "testing"
 	case strings.HasPrefix(path, "/setup"):
 		data["ActivePage"] = "setup"
 	case strings.HasPrefix(path, "/settings"):
@@ -4635,51 +4633,6 @@ func (h *Handler) latestQfilURL(r *http.Request, releaseID int) string {
 		return qpkgs[0].URL
 	}
 	return ""
-}
-
-// testingRow is one release on the Testing hub, with its QA + problem rollups.
-type testingRow struct {
-	ID          int
-	Version     string
-	Name        string
-	Status      string
-	SignedOffBy string
-	QA          db.QASummary
-	Problems    db.ProblemSummary
-}
-
-// TestingHub is the global testing landing: every tracked release bucketed by QA
-// state (needs attention / in progress / ready), each linking to its QA workspace.
-func (h *Handler) TestingHub(w http.ResponseWriter, r *http.Request) {
-	releases, err := h.db.ListReleases(r.Context())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	problemsByRelease, _ := h.db.ProblemSummariesByRelease(r.Context())
-	var needs, inProgress, ready []testingRow
-	for _, rel := range releases {
-		if rel.Hidden {
-			continue
-		}
-		qa, _ := h.db.ReleaseQASummary(r.Context(), rel.ID)
-		pr := problemsByRelease[rel.ID]
-		row := testingRow{rel.ID, rel.Version, rel.Name, rel.Status, rel.SignedOffBy, qa, pr}
-		switch {
-		case qa.Fail > 0 || qa.Blocked > 0 || pr.Blockers > 0:
-			needs = append(needs, row)
-		case qa.Total > 0 && qa.Passed() && pr.Open == 0:
-			ready = append(ready, row)
-		default:
-			inProgress = append(inProgress, row)
-		}
-	}
-	h.render(w, r, "testing.html", map[string]any{
-		"Title":          "Testing",
-		"NeedsAttention": needs,
-		"InProgress":     inProgress,
-		"Ready":          ready,
-	})
 }
 
 func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
@@ -9899,7 +9852,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 
-	mux.HandleFunc("GET /testing", h.requireAdminOrTester(h.TestingHub))
 	mux.HandleFunc("GET /releases", h.requireAdminOrTester(h.ReleaseList))
 	post("POST /releases", h.requireAdmin(h.ReleaseCreate))
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrTester(h.ReleaseDetail))

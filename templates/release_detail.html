@@ -4,10 +4,9 @@
 {{$rel := .Release}}
 {{$role := .Role}}
 {{$blockers := .ProblemSummary.Blockers}}
-{{$hasPkg := gt (len .Packages) 0}}
 {{$qaDone := and (gt .QA.Total 0) .QA.Passed (eq $blockers 0)}}
 {{$signed := ne $rel.SignedOffBy ""}}
-{{$stage := "packages"}}{{if $hasPkg}}{{$stage = "qa"}}{{if $qaDone}}{{$stage = "signoff"}}{{if $signed}}{{$stage = "done"}}{{end}}{{end}}{{end}}
+{{$stage := "qa"}}{{if $qaDone}}{{$stage = "signoff"}}{{if $signed}}{{$stage = "done"}}{{end}}{{end}}
 
 <a href="/releases" class="back-link">← Releases</a>
 
@@ -43,9 +42,8 @@
 {{end}}
 
 <!-- Release lifecycle pipeline — Created → Packages → QA → Sign-off. Deploy is optional. -->
-<div class="pipe">
+<div class="pipe pipe-3">
   <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Created</div><div class="st-sub">{{timeSince $rel.CreatedAt}}</div></div>
-  <div class="stage {{if $hasPkg}}done{{else if eq $stage "packages"}}now{{else}}todo{{end}}"><div class="node">{{if $hasPkg}}<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>{{end}}</div><div class="st-name">Packages</div><div class="st-sub">{{if $hasPkg}}{{len .Packages}} package{{if ne (len .Packages) 1}}s{{end}}{{else}}none yet{{end}}</div></div>
   <div class="stage {{if $qaDone}}done{{else if eq $stage "qa"}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="st-name">QA</div><div class="st-sub">{{if gt .QA.Total 0}}{{.QA.Pass}}/{{.QA.Total}}{{if gt .QA.Fail 0}} · {{.QA.Fail}} failed{{end}}{{else}}no cases{{end}}</div></div>
   <div class="stage finish {{if $signed}}done{{else if eq $stage "signoff"}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V3"/></svg></div><div class="st-name">Sign-off</div><div class="st-sub">{{if $signed}}by {{$rel.SignedOffBy}}{{else}}the finish line{{end}}</div></div>
 </div>

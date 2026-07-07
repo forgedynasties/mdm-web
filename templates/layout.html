@@ -234,7 +234,6 @@
     <a href="/fleet-health" class="nav-link js-dest{{if eq .ActivePage "health"}} active{{end}}" data-cmdk-label="Health"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 12h4l2 6 4-14 2 8h6"/></svg></span><span class="dock-lbl">Health</span></a>
     {{if canAct .Role}}<a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span></a>{{end}}
     {{if canAdminOrTester .Role}}<a href="/releases" class="nav-link js-dest{{if eq .ActivePage "releases"}} active{{end}}" data-cmdk-label="Releases"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Releases</span></a>{{end}}
-    {{if canAdminOrTester .Role}}<a href="/testing" class="nav-link js-dest{{if eq .ActivePage "testing"}} active{{end}}" data-cmdk-label="Testing"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><span class="dock-lbl">Testing</span></a>{{end}}
   </nav>
 
   <script>
