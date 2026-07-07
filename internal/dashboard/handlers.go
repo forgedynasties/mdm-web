@@ -34,6 +34,7 @@ import (
 	"mdm/internal/db"
 	"mdm/internal/logstream"
 	"mdm/internal/notify"
+	"mdm/internal/ota"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
@@ -4620,9 +4621,9 @@ type versionRow struct {
 	DeviceCount  int
 	PackageCount int
 	DeployCount  int
-	QA           db.QASummary       // QA/test status; zero value (Total 0) when not tracked
-	Problems     db.ProblemSummary  // open/blocker problem counts for the tracked release
-	SignedOffBy  string             // dev who signed off ("" = not signed off)
+	QA           db.QASummary      // QA/test status; zero value (Total 0) when not tracked
+	Problems     db.ProblemSummary // open/blocker problem counts for the tracked release
+	SignedOffBy  string            // dev who signed off ("" = not signed off)
 	SignedOffAt  *time.Time
 	QfilURL      string // newest active QFIL flashing bundle URL ("" = none set)
 }
@@ -4741,7 +4742,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
 			Problems:    problemsByRelease[rel.ID],
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
-			QfilURL:     h.latestQfilURL(r, rel.ID),
+			QfilURL: h.latestQfilURL(r, rel.ID),
 		})
 	}
 	// Default order is alphabetical by version; any saved manual (drag) order takes
@@ -4991,6 +4992,60 @@ func (h *Handler) ReleaseAddPackage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
+// packageURLFromForm reads the OTA package URL from the add/inspect form, honoring the
+// base64 (WAF-bypass) field the dashboard sends; falls back to the plain field.
+func packageURLFromForm(r *http.Request) string {
+	if b64 := strings.TrimSpace(r.FormValue("update_url_b64")); b64 != "" {
+		if dec, err := base64.RawURLEncoding.DecodeString(b64); err == nil {
+			return strings.TrimSpace(string(dec))
+		}
+	}
+	return strings.TrimSpace(r.FormValue("update_url"))
+}
+
+// PackageInspect reads an OTA package's metadata straight from its URL (HTTP range
+// requests — no multi-GB download) so the Add-package composer can auto-fill type and
+// source/target build. Admin-only; returns JSON the composer consumes.
+func (h *Handler) PackageInspect(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if _, err := h.db.GetRelease(r.Context(), id); err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	w.Header().Set("Content-Type", "application/json")
+	url := packageURLFromForm(r)
+	if url == "" {
+		json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": "Enter a package URL first."})
+		return
+	}
+	m, err := ota.Inspect(r.Context(), url)
+	if err != nil {
+		json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": "Couldn't read the package: " + err.Error()})
+		return
+	}
+	typ := "full"
+	if m.IsIncremental {
+		typ = "incremental"
+	}
+	// Deliberately NOT surfaced: any build id from the fingerprint. The device
+	// fingerprint (and ro.build.id) is held constant for Play Integrity, so it doesn't
+	// identify the version — reporting it would be misleading. We return what IS
+	// meaningful: full vs incremental, the target device, and size/reachability.
+	json.NewEncoder(w).Encode(map[string]any{
+		"ok":             true,
+		"size_bytes":     m.SizeBytes,
+		"ota_type":       m.OTAType,
+		"type":           typ,
+		"is_incremental": m.IsIncremental,
+		"device":         m.Device,
+	})
+}
+
 // ReleaseAddQFIL attaches a QFIL flashing bundle to a release. Admin/dev only
 // (see the requireAdmin route guard); the test team reads the resulting list on
 // the release page. The bundle is referenced by an external URL like an OTA
@@ -5095,17 +5150,17 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 	problemSummary, _ := h.db.ReleaseProblemSummary(r.Context(), id)
 
 	h.render(w, r, "release_detail.html", map[string]any{
-		"Title":         "Release " + rel.Version,
-		"Release":       rel,
-		"Packages":      packages,
-		"QFILPackages":  qfilPackages,
-		"CanManageQFIL": role == "admin" || role == "dev",
-		"Deployments":   deployments,
-		"HasFull":       hasFull,
-		"CanPush":       canPush,
-		"DevicesCount":  devicesCount,
-		"QA":            qa,
-		"ProblemSummary":      problemSummary,
+		"Title":          "Release " + rel.Version,
+		"Release":        rel,
+		"Packages":       packages,
+		"QFILPackages":   qfilPackages,
+		"CanManageQFIL":  role == "admin" || role == "dev",
+		"Deployments":    deployments,
+		"HasFull":        hasFull,
+		"CanPush":        canPush,
+		"DevicesCount":   devicesCount,
+		"QA":             qa,
+		"ProblemSummary": problemSummary,
 	})
 }
 
@@ -6093,7 +6148,6 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-
 	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
 	logcatRecent, logcatFrequent, _ := h.db.FleetLogcatSuggestions(r.Context(), 8)
 	productions, _ := h.db.ListProductions(r.Context())
@@ -6246,30 +6300,30 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
 
 	h.render(w, r, "commands.html", map[string]any{
-		"Title":          "Actions",
-		"Commands":       cmds,
-		"Attention":      attnShown,
-		"InProgress":     progShown,
-		"Completed":      doneShown,
-		"AttnCount":      len(attn),
-		"ProgCount":      len(prog),
-		"DoneCount":      len(doneAll),
-		"Groups":         groups,
+		"Title":            "Actions",
+		"Commands":         cmds,
+		"Attention":        attnShown,
+		"InProgress":       progShown,
+		"Completed":        doneShown,
+		"AttnCount":        len(attn),
+		"ProgCount":        len(prog),
+		"DoneCount":        len(doneAll),
+		"Groups":           groups,
 		"ScopeRestaurants": scopeRestaurants,
 		"ScopeReleases":    scopeReleases,
-		"Productions":    productions,
-		"Builds":         builds,
-		"Apps":           apps,
-		"FleetPackages":  fleetPackages,
-		"Recipes":        recipes,
-		"Summaries":      summaries,
-		"TargetSerials":  targetSerials,
-		"ShellRecent":    shellRecent,
-		"ShellPopular":   shellPopular,
-		"LogcatRecent":   logcatRecent,
-		"LogcatFrequent": logcatFrequent,
-		"AIEnabled":      h.cfg.AIEnabled(),
-		"Prefill":        prefill,
+		"Productions":      productions,
+		"Builds":           builds,
+		"Apps":             apps,
+		"FleetPackages":    fleetPackages,
+		"Recipes":          recipes,
+		"Summaries":        summaries,
+		"TargetSerials":    targetSerials,
+		"ShellRecent":      shellRecent,
+		"ShellPopular":     shellPopular,
+		"LogcatRecent":     logcatRecent,
+		"LogcatFrequent":   logcatFrequent,
+		"AIEnabled":        h.cfg.AIEnabled(),
+		"Prefill":          prefill,
 	})
 }
 
@@ -8632,10 +8686,10 @@ func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[wrapped] compute: %v", err)
 	}
 	h.render(w, r, "wrapped.html", map[string]any{
-		"Title":       "Fleet Wrapped",
-		"W":           wr,
-		"OnlineDays":  wr.OnlineMinutes / 1440,
-		"WorkerDays":  int(wr.HardestWorker.Value) / 1440,
+		"Title":      "Fleet Wrapped",
+		"W":          wr,
+		"OnlineDays": wr.OnlineMinutes / 1440,
+		"WorkerDays": int(wr.HardestWorker.Value) / 1440,
 	})
 }
 
@@ -9820,6 +9874,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrTester(h.ReleaseDetail))
 	mux.HandleFunc("GET /releases/{id}/qa", h.requireAdminOrTester(h.ReleaseQAPage))
 	post("POST /releases/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
+	post("POST /releases/{id}/packages/inspect", h.requireAdmin(h.PackageInspect))
 	post("POST /releases/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
 	post("POST /releases/{id}/qfil", h.requireAdmin(h.ReleaseAddQFIL))
 	post("POST /releases/{id}/qfil/{qid}/delete", h.requireAdmin(h.ReleaseDeleteQFIL))
