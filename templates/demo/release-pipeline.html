@@ -32,8 +32,12 @@
   .btn.primary:hover{background:var(--accent-h)}
 
   /* ── Signature: the release pipeline ── */
-  .pipe{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:0;margin:0 0 26px;padding:22px 8px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm)}
-  .pipe::before{content:"";position:absolute;left:calc(100%/12);right:calc(100%/12);top:44px;height:2px;background:var(--border);z-index:0}
+  .pipe{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin:0 0 12px;padding:22px 8px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm)}
+  .pipe::before{content:"";position:absolute;left:calc(100%/8);right:calc(100%/8);top:44px;height:2px;background:var(--border);z-index:0}
+  .stage.finish .node{border-color:var(--p);color:var(--p)}
+  .stage.finish .st-name{color:var(--p)}
+  .pipe-note{font-size:12px;color:var(--muted);margin:0 0 26px;padding-left:2px}
+  .pipe-note a{color:var(--accent);text-decoration:none;font-weight:600}
   .stage{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;gap:9px;padding:0 6px}
   .node{width:44px;height:44px;border-radius:50%;background:var(--surface);border:2px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--faint)}
   .node svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
@@ -117,19 +121,18 @@
       <span class="name">June security update</span>
     </div>
     <div class="sp"></div>
-    <a class="btn" href="#">Open QA →</a>
-    <a class="btn primary" href="#">Deploy →</a>
+    <a class="btn" href="#">Deploy</a>
+    <a class="btn primary" href="#">Open QA →</a>
   </div>
 
   <!-- SIGNATURE: release lifecycle pipeline -->
   <div class="pipe">
-    <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Draft</div><div class="st-sub">created</div></div>
+    <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Created</div><div class="st-sub">3 days ago</div></div>
     <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Packages</div><div class="st-sub">full + 2 inc</div></div>
     <div class="stage now"><div class="node"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="st-name">QA</div><div class="st-sub">12/15 · 2 failed</div></div>
-    <div class="stage todo"><div class="node"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></div><div class="st-name">Sign-off</div><div class="st-sub">pending</div></div>
-    <div class="stage todo"><div class="node"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></div><div class="st-name">Deploy</div><div class="st-sub">—</div></div>
-    <div class="stage todo"><div class="node"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/></svg></div><div class="st-name">Adopted</div><div class="st-sub">—</div></div>
+    <div class="stage finish todo"><div class="node"><svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V3"/></svg></div><div class="st-name">Sign-off</div><div class="st-sub">the finish line</div></div>
   </div>
+  <div class="pipe-note">Testing is done at sign-off. Deploying to devices is optional — push this build anytime from <a href="#">Updates →</a></div>
 
   <div class="cols">
     <div class="main">
