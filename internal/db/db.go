@@ -7322,10 +7322,6 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 -- device_crash alert grabs the device's error logs). NULL for manual captures.
 ALTER TABLE logcat_requests ADD COLUMN IF NOT EXISTS alert_id UUID;
 
--- How a release problem was filed: 'manual' (tester filed it) or 'qa' (auto-created
--- when a QA test case was marked failed). One 'qa' problem per (release, test_case).
-ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
-
 -- Structured problem reports filed by testers against a release. A problem is
 -- release-scoped (auto-links the build), optionally references a specific test
 -- case and the device it was seen on, carries a severity + lifecycle status, and
@@ -7346,6 +7342,11 @@ CREATE TABLE IF NOT EXISTS release_problems (
 	updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_release_problems_release ON release_problems(release_id);
+-- How a release problem was filed: 'manual' (tester filed it) or 'qa' (auto-created
+-- when a QA test case was marked failed). One 'qa' problem per (release, test_case).
+-- (Must run AFTER the CREATE TABLE above — the migration executes as one ordered
+-- script, so a fresh database has no release_problems table until this point.)
+ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
 
 -- Full DropBox crash/ANR/tombstone body (the stack trace) for a crash event, so the
 -- crash alert and release page can show the real diagnostic, not just the headline.
