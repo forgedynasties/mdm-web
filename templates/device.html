@@ -467,11 +467,17 @@
   const pollIntervalMs = {{.Device.PollIntervalMs}};
   const gapThresholdMs = Math.max((pollIntervalMs > 0 ? pollIntervalMs : 300000) * 3, 390000);
 
+  // Whether the device currently has a live WebSocket connection. When it does,
+  // the device is demonstrably reachable, so we draw the curve continuously and
+  // never break it — a gap here would read as "offline" and be misleading.
+  const deviceOnline = {{if .Online}}true{{else}}false{{end}};
+
   // Insert a null sample between consecutive points that are further apart
   // than gapThresholdMs, so the line shows a break over inactive periods.
-  // Expects a time-sorted {x,y} array; returns a new array.
+  // Expects a time-sorted {x,y} array; returns a new array. While the device is
+  // WS-connected this is a no-op, so the whole curve stays unbroken.
   function insertGaps(pts) {
-    if (!pts || pts.length < 2) return pts;
+    if (deviceOnline || !pts || pts.length < 2) return pts;
     const out = [];
     for (let i = 0; i < pts.length; i++) {
       if (i > 0 && (pts[i].x - pts[i - 1].x) > gapThresholdMs) {
