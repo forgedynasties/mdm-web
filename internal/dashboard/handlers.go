@@ -29,6 +29,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"mdm/internal/ai"
 	"mdm/internal/alerts"
+	"mdm/internal/apkmeta"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/logstream"
@@ -4369,6 +4370,10 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	payload := buildPayload(cmdType, r)
+	if cmdType == "install_apk" {
+		// Capture APK size + ETag so the device can verify/resume the download.
+		payload = apkmeta.Augment(r.Context(), apkURL, payload)
+	}
 
 	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "groups", []uuid.UUID{id})
 	if err != nil {
@@ -8902,6 +8907,10 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	payload := buildPayload(cmdType, r)
+	if cmdType == "install_apk" {
+		// Capture APK size + ETag so the device can verify/resume the download.
+		payload = apkmeta.Augment(r.Context(), apkURL, payload)
+	}
 
 	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID})
 	if err != nil {
