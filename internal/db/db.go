@@ -492,7 +492,7 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 // across the many check-ins of one boot). No-op when neither signal is present — cheap
 // on the hot path. Best-effort: parse/insert errors are swallowed rather than failing
 // the check-in the caller already committed.
-func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, extra json.RawMessage) {
+func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, buildID string, extra json.RawMessage) {
 	if len(extra) == 0 {
 		return
 	}
@@ -523,15 +523,19 @@ func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, extra j
 		if len(detail) > 64*1024 {
 			detail = detail[:64*1024]
 		}
+		// build_id is the build the device is running as it reports this crash — crashes
+		// are reported within the hour they occur, so this attributes the event to the
+		// build it happened on, not whatever the device later updates to. That's what
+		// keeps a v2.0.2-era crash off a newer release's page (see CrashesOnBuild).
 		// DO UPDATE (not DO NOTHING) so a later report of the same crash can backfill
 		// the trace if the first report happened to carry only the summary.
 		_, _ = d.pool.Exec(ctx, `
-			INSERT INTO device_events (device_id, kind, summary, detail, occurred_at)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO device_events (device_id, kind, summary, detail, build_id, occurred_at)
+			VALUES ($1, $2, $3, $4, $5, $6)
 			ON CONFLICT (device_id, kind, occurred_at)
 			DO UPDATE SET detail = EXCLUDED.detail
 			WHERE device_events.detail = '' AND EXCLUDED.detail <> ''`,
-			deviceID, c.Kind, summary, detail, time.UnixMilli(c.TimeMs).UTC())
+			deviceID, c.Kind, summary, detail, buildID, time.UnixMilli(c.TimeMs).UTC())
 	}
 	if e.BootID != "" {
 		var prev string
@@ -7389,6 +7393,17 @@ ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAU
 -- Full DropBox crash/ANR/tombstone body (the stack trace) for a crash event, so the
 -- crash alert and release page can show the real diagnostic, not just the headline.
 ALTER TABLE device_events ADD COLUMN IF NOT EXISTS detail TEXT NOT NULL DEFAULT '';
+-- The build the device was running when it reported the event, so a crash is
+-- attributed to the build it happened on (not whatever the device later updates
+-- to). CrashesOnBuild filters on this. One-time backfill: attribute existing crash
+-- events from the nearest prior check-in. Self-limiting (only un-attributed rows).
+ALTER TABLE device_events ADD COLUMN IF NOT EXISTS build_id TEXT NOT NULL DEFAULT '';
+UPDATE device_events e SET build_id = COALESCE((
+        SELECT c.build_id FROM checkins c
+        WHERE c.device_id = e.device_id AND c.created_at <= e.occurred_at AND c.build_id <> ''
+        ORDER BY c.created_at DESC LIMIT 1), '')
+WHERE e.build_id = '' AND e.kind <> 'reboot'
+  AND EXISTS (SELECT 1 FROM checkins c WHERE c.device_id = e.device_id AND c.created_at <= e.occurred_at AND c.build_id <> '');
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -8803,11 +8818,14 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 	if limit <= 0 {
 		limit = 20
 	}
+	// Filter by the build the event was reported on (e.build_id), NOT the device's
+	// current build (dv.build_id) — otherwise a device that has since updated drags
+	// its old crashes onto the new release's page.
 	rows, err := d.pool.Query(ctx, `
 		SELECT dv.serial_number, e.kind, e.summary, e.detail, e.occurred_at
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
-		WHERE dv.build_id = $1 AND e.kind <> 'reboot'
+		WHERE e.build_id = $1 AND e.kind <> 'reboot'
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, buildID, limit)
 	if err != nil {
