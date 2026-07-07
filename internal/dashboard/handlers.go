@@ -408,6 +408,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// alertTypeLabel maps a raw alert type to its friendly catalog label
 		// (falls back to the raw type when unknown).
 		"alertTypeLabel": alertTypeLabel,
+		// alertsQuery builds the /alerts query string preserving the active filters.
+		"alertsQuery": alertsQueryString,
 		// hasStr reports membership of s in list (template helper for checkbox state).
 		"hasStr": func(list []string, s string) bool {
 			for _, x := range list {
@@ -2839,28 +2841,52 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	default:
 		severity = ""
 	}
+	// Filter by alert category (Thermal, Storage, Connectivity, …), derived from the
+	// rule catalog. Done in-memory like severity, over the already status/severity-
+	// filtered set.
+	category := r.URL.Query().Get("category")
+	if category != "" {
+		filtered := alerts[:0]
+		for _, a := range alerts {
+			if alertCategory(a.Type) == category {
+				filtered = append(filtered, a)
+			}
+		}
+		alerts = filtered
+	}
 	summary, err := h.db.AlertSummaryCounts(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// Auto-captured crash logs, keyed by alert id, for the expandable detail row.
+	// For each crash alert, surface the DropBox trace (stack / ANR / tombstone) the
+	// client reported with the crash, plus any legacy auto-captured logcat that older
+	// alerts may still carry. Built over the final (filtered) set only.
+	alertTraces := make(map[uuid.UUID]string)
 	alertLogs := make(map[uuid.UUID]*db.AlertLogcat)
 	for _, a := range alerts {
 		if a.Type != "device_crash" {
 			continue
+		}
+		if a.DeviceID != nil {
+			if tr, ok, _ := h.db.LatestCrashTrace(r.Context(), *a.DeviceID); ok {
+				alertTraces[a.ID] = tr
+			}
 		}
 		if lc, ok, _ := h.db.GetAlertLogcat(r.Context(), a.ID); ok {
 			alertLogs[a.ID] = lc
 		}
 	}
 	h.render(w, r, "alerts.html", map[string]any{
-		"Title":     "Alerts",
-		"Alerts":    alerts,
-		"AlertLogs": alertLogs,
-		"Summary":   summary,
-		"Filter":    status,
-		"Severity":  severity,
+		"Title":       "Alerts",
+		"Alerts":      alerts,
+		"AlertLogs":   alertLogs,
+		"AlertTraces": alertTraces,
+		"Summary":     summary,
+		"Filter":      status,
+		"Severity":    severity,
+		"Category":    category,
+		"Categories":  alertCategories(),
 	})
 }
 
@@ -7664,35 +7690,11 @@ func (h *Handler) RunRecentAlerts(ctx context.Context) {
 		log.Printf("[recent-alerts] %d new, %d resolved", len(created), resolved)
 		h.hub.PublishAlertUpdate()
 	}
-	// On a new crash/ANR alert, auto-capture the device's error logs so the alert
-	// carries the relevant logs (reuses the existing logcat pipeline — no client
-	// change). Once per alert (AlertHasLogcat), so a repeat crasher isn't spammed.
-	for _, n := range created {
-		if n.Type == "device_crash" {
-			h.captureCrashLogs(ctx, n.DeviceID)
-		}
-	}
+	// A crash/ANR alert carries the real diagnostic — the DropBox stack/ANR/tombstone
+	// trace the client now sends with the crash event (see LatestCrashTrace, rendered
+	// on the alert). We deliberately do NOT auto-capture logcat here: a delayed *:E grab
+	// fires a minute+ after the crash and returns ambient system noise, not the crash.
 	h.dispatchAlertNotifications(ctx, created)
-}
-
-// captureCrashLogs issues a one-shot errors-level logcat capture for a device that
-// just raised a crash alert, linked to that alert for display. Best-effort: pushed
-// over WS if connected, otherwise delivered on the device's next reconnect.
-func (h *Handler) captureCrashLogs(ctx context.Context, deviceID uuid.UUID) {
-	alertID, ok, err := h.db.GetOpenAlertID(ctx, "device_crash", deviceID)
-	if err != nil || !ok {
-		return
-	}
-	if has, _ := h.db.AlertHasLogcat(ctx, alertID); has {
-		return // already captured for this alert (rate limit)
-	}
-	req, err := h.db.CreateLogcatRequestForAlert(ctx, deviceID, "E", 500, "", alertID)
-	if err != nil {
-		log.Printf("[crash-logs] create logcat request: %v", err)
-		return
-	}
-	h.pushLogcatRequest(ctx, req)
-	log.Printf("[crash-logs] requested error logs for device %s (alert %s)", deviceID, alertID)
 }
 
 // dispatchAlertNotifications routes freshly-created alerts to the configured
@@ -8241,6 +8243,48 @@ func alertTypeLabel(t string) string {
 		}
 	}
 	return t
+}
+
+// alertCategory returns the catalog category (Thermal, Storage, …) for an alert
+// type, or "" when the type isn't in the catalog.
+func alertCategory(t string) string {
+	for _, g := range alertTypeCatalog() {
+		for _, o := range g.Types {
+			if o.Type == t {
+				return g.Category
+			}
+		}
+	}
+	return ""
+}
+
+// alertCategories lists the catalog categories in display order, for the Alerts
+// page type filter.
+func alertCategories() []string {
+	out := make([]string, 0, 8)
+	for _, g := range alertTypeCatalog() {
+		out = append(out, g.Category)
+	}
+	return out
+}
+
+// alertsQueryString builds the /alerts query string preserving the active filters,
+// so each filter control can change one dimension without dropping the others.
+func alertsQueryString(status, severity, category string) string {
+	q := url.Values{}
+	if status != "" {
+		q.Set("status", status)
+	}
+	if severity != "" {
+		q.Set("severity", severity)
+	}
+	if category != "" {
+		q.Set("category", category)
+	}
+	if len(q) == 0 {
+		return ""
+	}
+	return "?" + q.Encode()
 }
 
 // validAlertType reports whether t is a known dispatchable alert type.
