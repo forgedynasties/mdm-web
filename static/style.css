@@ -5103,14 +5103,17 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .qa-add { padding: 14px 18px; border-top: 1px solid var(--border-soft); }
 @media (max-width: 720px) { .qa-row { grid-template-columns: auto 1fr; } .qa-rec { grid-column: 1 / -1; justify-content: flex-start; } }
 /* QA readiness strip + checklist/problem filter chips (release detail) */
-.rd-ready { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0; padding: 9px 14px; border-radius: 10px; font-size: 12.5px; }
+.rd-ready { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 14px 18px; padding: 11px 16px; border-radius: 10px; font-size: 12.5px; }
 .rd-ready.ok { background: var(--ok-bg); }
 .rd-ready.warn { background: var(--warn-bg); }
-.rd-ready-verdict { font-weight: 700; }
+.rd-ready-verdict { font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; gap: 8px; }
+.rd-ready-verdict::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: currentColor; flex: none; }
 .rd-ready.ok .rd-ready-verdict { color: var(--ok); }
 .rd-ready.warn .rd-ready-verdict { color: var(--warn); }
 .rd-ready-detail { color: var(--muted); }
 .qa-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+/* Align the QA-card filter chips with the rest of the card body (18px inset). */
+#rd-qa-filter { padding: 0 18px; margin-bottom: 14px; align-items: center; }
 .qa-fchip { border: 1px solid var(--border); background: var(--surface); border-radius: 99px; padding: 4px 12px; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
 .qa-fchip:hover { border-color: var(--rule-2); }
 .qa-fchip.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-edge); }
