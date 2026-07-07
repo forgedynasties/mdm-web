@@ -5118,9 +5118,6 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .qa-fchip:hover { border-color: var(--rule-2); }
 .qa-fchip.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-edge); }
 .qa-fchip .c { font-size: 11px; opacity: .7; }
-.qa-fchip.jump { margin-left: auto; color: var(--accent); border-style: dashed; }
-.qa-row.qa-flash-focus { animation: qaFocusFlash 1.2s ease-out; }
-@keyframes qaFocusFlash { 0%, 40% { background: var(--accent-soft); } 100% { background: transparent; } }
 /* Brief "saved" flash on an htmx-swapped checklist row */
 .qa-list .qa-row.htmx-added { animation: qaSaved 1.1s ease-out; }
 @keyframes qaSaved { 0% { background: var(--ok-bg); } 100% { background: transparent; } }
