@@ -526,6 +526,12 @@
         <span class="prob-crash-when muted small">{{timeSince .OccurredAt}}</span>
         <button type="button" class="qa-pill" onclick="probFromCrash(this)" data-kind="{{.Kind}}" data-serial="{{.Serial}}" data-sum="{{.Summary}}">Report</button>
       </div>
+      {{if .Detail}}
+      <details class="prob-crash-trace">
+        <summary class="muted small">View crash / ANR trace</summary>
+        <pre class="logcat-terminal">{{colorizeLogcat .Detail}}</pre>
+      </details>
+      {{end}}
       {{end}}
     </div>
     {{end}}

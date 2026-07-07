@@ -43,20 +43,29 @@
   <div class="alert-filter-group">
     <span class="alert-filter-label">Status</span>
     <div class="filter-pills">
-      <a href="/alerts{{if .Severity}}?severity={{.Severity}}{{end}}" class="filter-pill{{if eq .Filter ""}} active{{end}}">All</a>
-      <a href="/alerts?status=open{{if .Severity}}&severity={{.Severity}}{{end}}" class="filter-pill{{if eq .Filter "open"}} active{{end}}">Open</a>
-      <a href="/alerts?status=acknowledged{{if .Severity}}&severity={{.Severity}}{{end}}" class="filter-pill{{if eq .Filter "acknowledged"}} active{{end}}">Acknowledged</a>
-      <a href="/alerts?status=resolved{{if .Severity}}&severity={{.Severity}}{{end}}" class="filter-pill{{if eq .Filter "resolved"}} active{{end}}">Resolved</a>
+      <a href="/alerts{{alertsQuery "" .Severity .Category}}" class="filter-pill{{if eq .Filter ""}} active{{end}}">All</a>
+      <a href="/alerts{{alertsQuery "open" .Severity .Category}}" class="filter-pill{{if eq .Filter "open"}} active{{end}}">Open</a>
+      <a href="/alerts{{alertsQuery "acknowledged" .Severity .Category}}" class="filter-pill{{if eq .Filter "acknowledged"}} active{{end}}">Acknowledged</a>
+      <a href="/alerts{{alertsQuery "resolved" .Severity .Category}}" class="filter-pill{{if eq .Filter "resolved"}} active{{end}}">Resolved</a>
     </div>
   </div>
   <div class="alert-filter-group">
     <span class="alert-filter-label">Severity</span>
     <div class="filter-pills">
-      <a href="/alerts{{if .Filter}}?status={{.Filter}}{{end}}" class="filter-pill{{if eq .Severity ""}} active{{end}}">Any</a>
-      <a href="/alerts?severity=critical{{if .Filter}}&status={{.Filter}}{{end}}" class="filter-pill{{if eq .Severity "critical"}} active{{end}}">Critical</a>
-      <a href="/alerts?severity=warning{{if .Filter}}&status={{.Filter}}{{end}}" class="filter-pill{{if eq .Severity "warning"}} active{{end}}">Warning</a>
-      <a href="/alerts?severity=info{{if .Filter}}&status={{.Filter}}{{end}}" class="filter-pill{{if eq .Severity "info"}} active{{end}}">Info</a>
+      <a href="/alerts{{alertsQuery .Filter "" .Category}}" class="filter-pill{{if eq .Severity ""}} active{{end}}">Any</a>
+      <a href="/alerts{{alertsQuery .Filter "critical" .Category}}" class="filter-pill{{if eq .Severity "critical"}} active{{end}}">Critical</a>
+      <a href="/alerts{{alertsQuery .Filter "warning" .Category}}" class="filter-pill{{if eq .Severity "warning"}} active{{end}}">Warning</a>
+      <a href="/alerts{{alertsQuery .Filter "info" .Category}}" class="filter-pill{{if eq .Severity "info"}} active{{end}}">Info</a>
     </div>
+  </div>
+  <div class="alert-filter-group">
+    <span class="alert-filter-label">Type</span>
+    <select class="filter-select" onchange="location.href=this.value">
+      <option value="/alerts{{alertsQuery .Filter .Severity ""}}"{{if eq .Category ""}} selected{{end}}>All types</option>
+      {{range .Categories}}
+      <option value="/alerts{{alertsQuery $.Filter $.Severity .}}"{{if eq $.Category .}} selected{{end}}>{{.}}</option>
+      {{end}}
+    </select>
   </div>
 </div>
 
@@ -156,6 +165,21 @@
             <div class="alert-detail-item"><span class="alert-detail-k">Occurrences</span><span class="alert-detail-v">{{.Occurrences}}</span></div>
             {{if .ResolvedAt}}<div class="alert-detail-item"><span class="alert-detail-k">Resolved</span><span class="alert-detail-v">{{localTime .ResolvedAt}}</span></div>{{end}}
             {{if .Detail}}<div class="alert-detail-item alert-detail-raw"><span class="alert-detail-k">Detail</span><code class="alert-detail-json">{{printf "%s" .Detail}}</code></div>{{end}}
+            {{$tr := index $.AlertTraces .ID}}
+            {{if $tr}}
+            <div class="alert-detail-item alert-detail-raw">
+              <span class="alert-detail-k">Trace</span>
+              <div class="alert-logs" data-alert="{{.ID}}">
+                <div class="alert-logs-h">
+                  <span>Crash / ANR trace · from device</span>
+                  <span class="alert-logs-acts">
+                    <button type="button" class="lg-btn" onclick="copyLog(this)">Copy</button>
+                  </span>
+                </div>
+                <pre class="logcat-terminal alert-logs-pre">{{colorizeLogcat $tr}}</pre>
+              </div>
+            </div>
+            {{end}}
             {{$lc := index $.AlertLogs .ID}}
             {{if $lc}}
             <div class="alert-detail-item alert-detail-raw">

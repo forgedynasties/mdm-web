@@ -504,6 +504,7 @@ func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, extra j
 			Kind    string `json:"kind"`
 			TimeMs  int64  `json:"time_ms"`
 			Summary string `json:"summary"`
+			Trace   string `json:"trace"`
 		} `json:"crash_events"`
 	}
 	if err := json.Unmarshal(extra, &e); err != nil {
@@ -518,11 +519,19 @@ func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, extra j
 		if len(summary) > 300 {
 			summary = summary[:300]
 		}
+		detail := c.Trace
+		if len(detail) > 64*1024 {
+			detail = detail[:64*1024]
+		}
+		// DO UPDATE (not DO NOTHING) so a later report of the same crash can backfill
+		// the trace if the first report happened to carry only the summary.
 		_, _ = d.pool.Exec(ctx, `
-			INSERT INTO device_events (device_id, kind, summary, occurred_at)
-			VALUES ($1, $2, $3, $4)
-			ON CONFLICT (device_id, kind, occurred_at) DO NOTHING`,
-			deviceID, c.Kind, summary, time.UnixMilli(c.TimeMs).UTC())
+			INSERT INTO device_events (device_id, kind, summary, detail, occurred_at)
+			VALUES ($1, $2, $3, $4, $5)
+			ON CONFLICT (device_id, kind, occurred_at)
+			DO UPDATE SET detail = EXCLUDED.detail
+			WHERE device_events.detail = '' AND EXCLUDED.detail <> ''`,
+			deviceID, c.Kind, summary, detail, time.UnixMilli(c.TimeMs).UTC())
 	}
 	if e.BootID != "" {
 		var prev string
@@ -7337,6 +7346,10 @@ CREATE TABLE IF NOT EXISTS release_problems (
 	updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_release_problems_release ON release_problems(release_id);
+
+-- Full DropBox crash/ANR/tombstone body (the stack trace) for a crash event, so the
+-- crash alert and release page can show the real diagnostic, not just the headline.
+ALTER TABLE device_events ADD COLUMN IF NOT EXISTS detail TEXT NOT NULL DEFAULT '';
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -8720,7 +8733,26 @@ type BuildCrash struct {
 	Serial     string
 	Kind       string
 	Summary    string
+	Detail     string // full DropBox trace (stack / ANR / tombstone), may be empty
 	OccurredAt time.Time
+}
+
+// LatestCrashTrace returns the full stored trace of the most recent crash/ANR/
+// tombstone event for a device (not a reboot), for the crash alert detail panel.
+// ok is false when there is no event or the event carried no trace body.
+func (d *DB) LatestCrashTrace(ctx context.Context, deviceID uuid.UUID) (string, bool, error) {
+	var detail string
+	err := d.pool.QueryRow(ctx, `
+		SELECT detail FROM device_events
+		WHERE device_id = $1 AND kind <> 'reboot'
+		ORDER BY occurred_at DESC LIMIT 1`, deviceID).Scan(&detail)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, err
+	}
+	return detail, detail != "", nil
 }
 
 // CrashesOnBuild returns recent crash/ANR/tombstone events (not reboots) from
@@ -8733,7 +8765,7 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 		limit = 20
 	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT dv.serial_number, e.kind, e.summary, e.occurred_at
+		SELECT dv.serial_number, e.kind, e.summary, e.detail, e.occurred_at
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		WHERE dv.build_id = $1 AND e.kind <> 'reboot'
@@ -8746,7 +8778,7 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 	var out []BuildCrash
 	for rows.Next() {
 		var c BuildCrash
-		if err := rows.Scan(&c.Serial, &c.Kind, &c.Summary, &c.OccurredAt); err != nil {
+		if err := rows.Scan(&c.Serial, &c.Kind, &c.Summary, &c.Detail, &c.OccurredAt); err != nil {
 			return nil, err
 		}
 		out = append(out, c)

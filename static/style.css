@@ -5139,6 +5139,9 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .prob-crash-kind { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--danger); background: var(--danger-bg); padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
 .prob-crash-sum { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prob-crash-when { white-space: nowrap; }
+.prob-crash-trace { margin: 2px 0 6px; }
+.prob-crash-trace > summary { cursor: pointer; user-select: none; padding: 2px 0; }
+.prob-crash-trace > .logcat-terminal { margin-top: 6px; max-height: 320px; overflow: auto; }
 
 /* device detail: Install app form (Applications tab) */
 .app-install { border-bottom: 1px solid var(--border-soft); }
