@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"mdm/internal/alerts"
+	"mdm/internal/apkmeta"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/remote"
@@ -1036,6 +1037,12 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+
+	// Capture the APK's size + ETag so the device can verify completeness and
+	// resume a dropped download via HTTP Range. Best-effort: never blocks creation.
+	if body.Type == "install_apk" {
+		body.Payload = apkmeta.Augment(r.Context(), body.ApkURL, body.Payload)
 	}
 
 	cmd, err := h.db.CreateCommand(r.Context(), body.Type, body.ApkURL, body.Payload, body.TargetType, targetIDs)
