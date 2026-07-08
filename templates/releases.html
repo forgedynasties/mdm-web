@@ -171,7 +171,7 @@
 
 
 {{if canAdmin .Role}}
-<!-- Create Release Modal: creates the first package, which creates the release. -->
+<!-- New Release modal: creates the release (draft) first; packages are attached afterward. -->
 <div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
   <div class="modal-box" style="max-width:540px;">
     <div class="modal-header">

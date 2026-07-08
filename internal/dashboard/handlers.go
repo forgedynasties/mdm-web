@@ -4641,27 +4641,27 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 // whether it's a tracked release (with lifecycle) or only seen on devices, and how many
 // devices report it.
 type versionRow struct {
-	Version      string
-	ReleaseID    *int
-	Name         string
-	Status       string // "" when not tracked
-	Tracked      bool
-	Hidden       bool
-	DeviceCount  int
-	PackageCount int
-	DeployCount  int
-	QA           db.QASummary      // QA/test status; zero value (Total 0) when not tracked
-	Problems     db.ProblemSummary // open/blocker problem counts for the tracked release
-	SignedOffBy   string            // dev who signed off ("" = not signed off)
-	SignedOffAt   *time.Time
-	TestingDone   bool   // testing finished — the release is inactive (retired from active slot)
-	IsBranch          bool        // off-mainline branch build (shown nested under its parent in the list)
-	ParentID          *int        // for a branch/derivative, the release id it forks from / matches
-	ParentVersion     string      // for a branch, the release it forked from; for a derivative, the release it matches
-	AdoptableParentID *int        // set when this is an UNTRACKED reported build matching a release's naming — one-click adopt as a branch of it
+	Version           string
+	ReleaseID         *int
+	Name              string
+	Status            string // "" when not tracked
+	Tracked           bool
+	Hidden            bool
+	DeviceCount       int
+	PackageCount      int
+	DeployCount       int
+	QA                db.QASummary      // QA/test status; zero value (Total 0) when not tracked
+	Problems          db.ProblemSummary // open/blocker problem counts for the tracked release
+	SignedOffBy       string            // dev who signed off ("" = not signed off)
+	SignedOffAt       *time.Time
+	TestingDone       bool         // testing finished — the release is inactive (retired from active slot)
+	IsBranch          bool         // off-mainline branch build (shown nested under its parent in the list)
+	ParentID          *int         // for a branch/derivative, the release id it forks from / matches
+	ParentVersion     string       // for a branch, the release it forked from; for a derivative, the release it matches
+	AdoptableParentID *int         // set when this is an UNTRACKED reported build matching a release's naming — one-click adopt as a branch of it
 	Children          []versionRow // branch builds + adoptable derivative builds forked off this release, shown indented beneath it
-	SuggestedBranch   string      // next branch version to suggest for this release (version + -tN)
-	QfilURL           string      // newest active QFIL flashing bundle URL ("" = none set)
+	SuggestedBranch   string       // next branch version to suggest for this release (version + -tN)
+	QfilURL           string       // newest active QFIL flashing bundle URL ("" = none set)
 }
 
 // latestQfilURL returns the newest active QFIL bundle URL for a release, or ""
@@ -5631,6 +5631,53 @@ func (h *Handler) ReleaseCreateBranch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.branch.create", version, fmt.Sprintf("from=%s", parent.Version))
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", newID), http.StatusSeeOther)
+}
+
+// ReleaseMerge merges a validated branch onto the main line as a new draft mainline
+// release at the given version. Gated on the branch being testing-done — its proving run
+// must be complete before its delta graduates to main. The new release starts as a draft
+// so the real v-next build is attached via the normal release-first flow.
+func (h *Handler) ReleaseMerge(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	branch, err := h.db.GetRelease(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	if !branch.IsBranch {
+		http.Error(w, "Only a branch build can be merged to main.", http.StatusBadRequest)
+		return
+	}
+	if branch.MergedIntoReleaseID != nil {
+		http.Error(w, "This branch has already been merged.", http.StatusBadRequest)
+		return
+	}
+	if branch.TestingDoneAt == nil {
+		http.Error(w, "Finish testing on this branch before merging it to main.", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	version := strings.TrimSpace(r.FormValue("version"))
+	if version == "" {
+		http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusFound)
+		return
+	}
+	changelog := strings.TrimSpace(r.FormValue("changelog"))
+	if changelog == "" {
+		changelog = branch.Changelog // start the mainline release from the branch's notes
+	}
+	newID, err := h.db.MergeBranch(r.Context(), id, version, strings.TrimSpace(r.FormValue("name")), changelog, h.currentUsername(r))
+	if err != nil {
+		http.Error(w, "Could not merge — that version may already exist.", http.StatusBadRequest)
+		return
+	}
+	h.audit(r, "release.merge", version, fmt.Sprintf("from=%s", branch.Version))
+	h.hub.PublishProblemUpdate() // refresh any open releases list (new node + branch closed)
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", newID), http.StatusSeeOther)
 }
 
@@ -10245,6 +10292,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/testing-done", h.requireAdminOrTester(h.ReleaseTestingDone))
 	post("POST /releases/{id}/testing-done/clear", h.requireAdminOrTester(h.ReleaseReopenTesting))
 	post("POST /releases/{id}/branch", h.requireAdmin(h.ReleaseCreateBranch))
+	post("POST /releases/{id}/merge", h.requireAdmin(h.ReleaseMerge))
 	post("POST /releases/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
 	// Problem reports: any operator/tester can file and triage; admins can delete.
 	post("POST /releases/{id}/problems", h.requireOperatorOrAdmin(h.ReleaseProblemCreate))
