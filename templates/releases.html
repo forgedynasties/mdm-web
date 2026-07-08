@@ -61,6 +61,7 @@
           {{end}}
           {{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}{{if gt .Problems.Blockers 0}} · {{.Problems.Blockers}} blocker{{if ne .Problems.Blockers 1}}s{{end}}{{end}} · {{.Problems.Total}} total">{{if gt .Problems.Blockers 0}}⚠ {{end}}{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}
           {{if .SignedOffBy}}<span class="rchip ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="rchip warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
+          {{if .MergedFromVersion}}<span class="rchip branch-merged" title="Created by merging branch {{.MergedFromVersion}} onto main">merged from {{.MergedFromVersion}}</span>{{end}}
         {{end}}
       </div>
       <div class="rlc-act">
@@ -107,10 +108,12 @@
             </a>
           {{end}}
           {{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}{{if gt .Problems.Blockers 0}} · {{.Problems.Blockers}} blocker{{if ne .Problems.Blockers 1}}s{{end}}{{end}} · {{.Problems.Total}} total">{{if gt .Problems.Blockers 0}}⚠ {{end}}{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}
-          {{if .SignedOffBy}}<span class="rchip ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="rchip warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
+          {{if .Merged}}<span class="rchip branch-merged" title="Merged onto main as {{.MergedIntoVersion}}">merged → {{.MergedIntoVersion}}</span>
+          {{else if .SignedOffBy}}<span class="rchip ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="rchip warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
         {{end}}
       </div>
       <div class="rlc-act">
+        {{if and (canAdmin $.Role) .Tracked .TestingDone (not .Merged)}}<button type="button" class="btn-primary btn-sm rlc-merge" data-branch="{{.ReleaseID}}" data-ver="{{.Version}}" data-parent="{{.ParentVersion}}" title="Merge this validated branch onto the main line as a new release">Merge ▸</button>{{end}}
         {{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open branch build"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
         {{else if and (canAdmin $.Role) .AdoptableParentID}}<form action="/releases/{{.AdoptableParentID}}/branch" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Adopt as a branch build of {{.ParentVersion}}">Adopt as branch</button></form>{{end}}
       </div>
@@ -200,10 +203,56 @@
   </div>
 </div>
 
+<!-- Merge branch → main modal (shared; the Merge button on a validated branch populates it). -->
+<div id="merge-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
+  <div class="modal-box" style="max-width:540px;">
+    <div class="modal-header">
+      <span class="modal-title">Merge to main</span>
+      <button class="modal-close" aria-label="Close" type="button" onclick="document.getElementById('merge-modal').classList.remove('modal-open')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <form id="merge-form" action="" method="POST" class="command-form" style="padding:0;">
+        <div class="branch-banner" style="margin-bottom:14px;">
+          <span class="bb-mark">⑂</span>
+          <span>Merging validated branch <b id="merge-branch-ver" class="mono"></b> onto the main line. This creates the next mainline release as a <b>draft</b> — attach its built package afterward, then publish.</span>
+        </div>
+        <div class="form-row">
+          <label class="form-label">New release version</label>
+          <input type="text" name="version" id="merge-version" class="form-input" placeholder="e.g. v2.0.4" required autocomplete="off">
+          <div class="form-hint">The next mainline version devices will report. Must be unique.</div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Name <span class="muted small">(optional)</span></label>
+          <input type="text" name="name" class="form-input" placeholder="e.g. June point release">
+        </div>
+        <button type="submit" class="btn-primary">Create release &amp; close branch</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') document.getElementById('create-pkg-modal').classList.remove('modal-open');
+  if (e.key === 'Escape') {
+    document.getElementById('create-pkg-modal').classList.remove('modal-open');
+    document.getElementById('merge-modal').classList.remove('modal-open');
+  }
 });
+// Merge button → populate + open the shared merge modal. Suggests the next mainline
+// version by bumping the trailing number of the branch's base (v2.0.3 → v2.0.4).
+(function () {
+  function bump(v) { return v ? v.replace(/(\d+)(\D*)$/, function (_, n, s) { return (parseInt(n, 10) + 1) + s; }) : ''; }
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.rlc-merge') : null;
+    if (!b) return;
+    document.getElementById('merge-form').setAttribute('action', '/releases/' + b.getAttribute('data-branch') + '/merge');
+    document.getElementById('merge-branch-ver').textContent = b.getAttribute('data-ver') || '';
+    var vi = document.getElementById('merge-version');
+    vi.value = bump(b.getAttribute('data-parent') || '');
+    document.getElementById('merge-modal').classList.add('modal-open');
+    setTimeout(function () { vi.focus(); vi.select(); }, 30);
+  });
+})();
 </script>
 {{end}}
 
