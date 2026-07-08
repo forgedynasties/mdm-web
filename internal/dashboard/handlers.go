@@ -4781,15 +4781,22 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	problemBoard, _ := h.db.ListProblemBoard(r.Context())
 	globalProblems, _ := h.db.GlobalProblemSummary(r.Context())
 
-	// Release train: the most recent tracked releases oldest→newest, so the hub can show
-	// the repeating ship→test→fix cycle at a glance. `releases` is newest-first.
-	var releaseTrain []map[string]any
-	trainMax := len(releases)
-	if trainMax > 6 {
-		trainMax = 6
+	// Release train: the blessed timeline — only visible (non-hidden), dev-signed-off
+	// builds, most recent 6, shown oldest→newest. `releases` is newest-first; the release
+	// currently under test lives in the focus band below, not here.
+	var trainRels []db.Release
+	for _, rel := range releases {
+		if rel.Hidden || rel.SignedOffBy == "" {
+			continue
+		}
+		trainRels = append(trainRels, rel)
+		if len(trainRels) == 6 {
+			break
+		}
 	}
-	for i := trainMax - 1; i >= 0; i-- {
-		rel := releases[i]
+	var releaseTrain []map[string]any
+	for i := len(trainRels) - 1; i >= 0; i-- {
+		rel := trainRels[i]
 		releaseTrain = append(releaseTrain, map[string]any{
 			"ID":          rel.ID,
 			"Version":     rel.Version,
