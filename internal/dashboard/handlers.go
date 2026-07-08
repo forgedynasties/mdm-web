@@ -5798,6 +5798,7 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 		"ProblemSummary": ps,
 		"CanRecord":      role == "tester",
 		"CanReport":      role == "admin" || role == "dev" || role == "operator" || role == "tester",
+		"CanAct":         role == "admin" || role == "dev" || role == "operator", // act on existing problems (fixed/verified/wontfix) — testers file only
 	}
 }
 
