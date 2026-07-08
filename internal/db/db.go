@@ -8728,13 +8728,15 @@ func (d *DB) VerifyProblemForCase(ctx context.Context, caseID uuid.UUID, release
 }
 
 // ReopenProblemForCase reopens the problem linked to a test case (if any) — called when a
-// "Verify fix" case fails, meaning the fix didn't hold: the bug goes back to open with its
-// fix/verify trail cleared, so it carries forward onto the next build. Returns true when a
-// linked problem was found and reopened.
+// "Verify fix" case fails, meaning the fix didn't hold. The bug goes back to open but its
+// fixed_in_release_id is KEPT (it records the dev's claim, which is now disputed), so the
+// trail reads "reported v2.0.2 → dev says fixed in v2.0.3 → QA says still broken".
+// The carry-forward query handles open bugs with a fixed_in set.
+// Returns true when a linked problem was found and reopened.
 func (d *DB) ReopenProblemForCase(ctx context.Context, caseID uuid.UUID) (bool, error) {
 	tag, err := d.pool.Exec(ctx, `
 		UPDATE release_problems
-		SET status = 'open', fixed_in_release_id = NULL, verified_in_release_id = NULL, updated_at = NOW()
+		SET status = 'open', updated_at = NOW()
 		WHERE id = (SELECT problem_id FROM test_cases WHERE id = $1 AND problem_id IS NOT NULL)`,
 		caseID)
 	if err != nil {
@@ -8993,10 +8995,11 @@ func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]Relea
 		  AND NOT orel.is_branch                                        -- branch bugs never carry onto mainline
 		  AND EXISTS (SELECT 1 FROM releases WHERE id = $1 AND NOT is_branch) -- branches inherit nothing
 		  AND (
-			p.fixed_in_release_id = $1
+			p.fixed_in_release_id = $1                                  -- dev claimed fix in THIS build
 			OR (p.status NOT IN ('verified','wontfix')
-			    AND p.fixed_in_release_id IS NULL
 			    AND orel.created_at < (SELECT created_at FROM releases WHERE id = $1))
+			    -- open bug from an earlier release; carries forward whether or not a
+			    -- previous dev claimed a fix (that QA later disputed)
 		)`+releaseProblemOrder, releaseID)
 	if err != nil {
 		return nil, err
