@@ -10,6 +10,7 @@
 {{$tdone := false}}{{if $rel.TestingDoneAt}}{{$tdone = true}}{{end}}
 {{$isBranch := .IsBranch}}
 {{$isAdmin := canAdmin $role}}
+{{$canFinish := or $isAdmin (eq $role "tester")}}
 {{$canDownloadQfil := and .QFILPackages (or (eq $role "admin") (eq $role "dev") (eq $role "tester"))}}
 
 <a href="/releases" class="back-link">← Releases</a>
@@ -35,7 +36,7 @@
       </form>
       {{end}}
     {{end}}
-    {{if $isAdmin}}
+    {{if $canFinish}}
       {{if $tdone}}<form action="/releases/{{$rel.ID}}/testing-done/clear" method="POST" style="display:inline;"><button type="submit" class="btn-outline btn-sm" title="Reopen — make this release active again">Reopen testing</button></form>
       {{else}}<form action="/releases/{{$rel.ID}}/testing-done" method="POST" style="display:inline;"><button type="submit" class="btn-primary btn-sm" title="Mark testing complete — the finish line; moves the release from active to inactive">Testing done</button></form>{{end}}
     {{end}}
