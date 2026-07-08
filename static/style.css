@@ -5273,6 +5273,41 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .prob-trail .tr-arrow { color: var(--text-faint); }
 .carried-sec { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--border); }
 .carried-h { font-size: 12.5px; font-weight: 600; margin-bottom: 10px; }
+
+/* ── Releases hub: focus band + cross-release problems board (Phase 3) ───── */
+.hub-focus { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; padding: 16px 20px; margin: 4px 0 16px; background: var(--surface2); border: 1px solid var(--border-soft); border-radius: 14px; }
+.hub-focus-main { flex: 1; min-width: 260px; display: flex; flex-direction: column; gap: 9px; }
+.hub-eyebrow { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.hub-focus-ver { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.hub-focus-verlink { font-size: 18px; font-weight: 700; color: var(--text); text-decoration: none; }
+.hub-focus-verlink:hover { color: var(--accent); }
+.hub-qa-bar { min-width: 0; max-width: 420px; }
+.hub-verdict { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; }
+.hub-verdict .d { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.hub-verdict.ok { color: var(--ok); } .hub-verdict.warn { color: var(--warn); }
+.hub-focus-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+.hub-stat { display: flex; flex-direction: column; gap: 2px; min-width: 62px; }
+.hub-stat .n { font-size: 20px; font-weight: 700; line-height: 1; }
+.hub-stat .k { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+.hub-stat.bad .n { color: var(--danger); }
+.hub-focus-cta { flex: none; }
+.hub-list-h { font-size: 14px; font-weight: 700; margin: 22px 0 10px; color: var(--muted); }
+
+.hub-board { margin-bottom: 8px; }
+.board-list { display: flex; flex-direction: column; }
+.board-row { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border-top: 1px solid var(--border-soft); text-decoration: none; color: var(--text); font-size: 13px; border-radius: 6px; }
+.board-row:first-child { border-top: 0; }
+.board-row:hover { background: var(--surface2); }
+.board-row.closed { opacity: .55; }
+.board-title { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-ver { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.board-row .tr-step.fixed { font-size: 10.5px; padding: 1px 6px; border-radius: 99px; background: var(--warn-bg); color: #9a6512; white-space: nowrap; }
+.board-when { white-space: nowrap; flex: none; }
+@media (max-width: 640px) {
+  .board-ver, .board-when { display: none; }
+  .hub-focus-cta { width: 100%; }
+  .hub-focus-cta .btn-primary { width: 100%; justify-content: center; }
+}
 /* Tab count badge (QA / Problems tabs). Hidden when the inner pill is empty. */
 .dd-tab .tab-badge { display: inline-flex; margin-left: 3px; vertical-align: middle; }
 .dd-tab .tab-badge:empty { display: none; }
