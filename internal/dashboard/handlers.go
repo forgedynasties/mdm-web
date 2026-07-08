@@ -4725,6 +4725,23 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		hidden = nil
 	}
 	fleetTotal, _ := h.db.CountDevices(r.Context(), db.DeviceFilter{})
+
+	// Hub: the release currently under test drives the focus band, and every problem
+	// across all releases drives the "all problems at a glance" board.
+	activeRel, _ := h.db.ActiveRelease(r.Context())
+	var activeQA db.QASummary
+	var activeProblems db.ProblemSummary
+	activeCarried := 0
+	if activeRel != nil {
+		activeQA, _ = h.db.ReleaseQASummary(r.Context(), activeRel.ID)
+		activeProblems, _ = h.db.ReleaseProblemSummary(r.Context(), activeRel.ID)
+		if carried, err := h.db.CarriedForwardProblems(r.Context(), activeRel.ID); err == nil {
+			activeCarried = len(carried)
+		}
+	}
+	problemBoard, _ := h.db.ListProblemBoard(r.Context())
+	globalProblems, _ := h.db.GlobalProblemSummary(r.Context())
+
 	h.render(w, r, "releases.html", map[string]any{
 		"Title":           "Releases",
 		"Versions":        active,
@@ -4733,6 +4750,12 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"NotTrackedCount": notTrackedCount,
 		"FleetTotal":      fleetTotal,
 		"BaseCases":       baseCases,
+		"ActiveRelease":   activeRel,
+		"ActiveQA":        activeQA,
+		"ActiveProblems":  activeProblems,
+		"ActiveCarried":   activeCarried,
+		"ProblemBoard":    problemBoard,
+		"GlobalProblems":  globalProblems,
 	})
 }
 
