@@ -5034,6 +5034,8 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rchip.ok { background: #e6f6ee; color: #1c7d50; }
 .rchip.warn { background: var(--warn-bg); color: #9a6512; }
 .rchip.bad { background: var(--danger-bg); color: var(--danger); }
+.rchip.active { background: var(--accent-soft); color: var(--accent); }
+.rchip.muted { background: var(--surface-3); color: var(--muted); }
 .rlc-act { display: flex; align-items: center; gap: 6px; justify-self: end; flex-wrap: wrap; justify-content: flex-end; }
 .rlc-act form { display: inline; margin: 0; }
 .rlc-open { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); flex: none; }
