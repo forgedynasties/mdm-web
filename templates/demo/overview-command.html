@@ -1,0 +1,308 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overview · Command — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.1);--peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.1);--warn:#b45309;--warn-soft:rgba(180,83,9,.12);--warn-edge:rgba(180,83,9,.28);
+  --danger:#b42318;--danger-soft:rgba(180,35,24,.08);--danger-edge:rgba(180,35,24,.26);
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1.pt{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:74ch}
+
+/* ── hero ── */
+.hero{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;background:linear-gradient(118deg,var(--warn-soft),var(--surface) 60%);border:1px solid var(--warn-edge);border-radius:var(--r5);padding:24px 28px;margin-bottom:20px}
+@media(max-width:760px){.hero{grid-template-columns:1fr;gap:18px}}
+.hero .eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
+.hero .head{font-size:25px;font-weight:750;letter-spacing:-.02em;margin-top:5px}
+.hero .head .warn{color:var(--warn)}
+.hero .sub{font-size:14px;color:var(--text2);margin-top:6px}
+.hero .sub b{color:var(--text);font-weight:650}
+.hero .ctas{display:flex;gap:9px;margin-top:15px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:650;padding:8px 15px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.btn:hover{border-color:var(--rule)}
+.btn.primary{background:var(--text);color:#fff;border-color:transparent}.btn.primary:hover{background:#000}
+.btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.hero-ring{display:flex;align-items:center;gap:16px;padding-left:28px;border-left:1px solid var(--warn-edge)}
+@media(max-width:760px){.hero-ring{border-left:none;padding-left:0}}
+.ring{position:relative;width:92px;height:92px;flex:none}
+.ring svg{width:92px;height:92px}
+.ring .trk{fill:none;stroke:var(--surface3);stroke-width:8}
+.ring .val{fill:none;stroke:var(--warn);stroke-width:8;stroke-linecap:round}
+.ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:750;color:var(--warn)}
+.hero-ring .rt{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.hero-ring .rc{display:inline-block;margin-top:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--warn-soft);color:var(--warn)}
+.hero-ring .rl{font-size:11.5px;color:var(--muted);margin-top:8px}
+
+/* ── signal strip ── */
+.sigs{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:22px}
+@media(max-width:980px){.sigs{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.sigs{grid-template-columns:repeat(2,1fr)}}
+.sig{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);padding:14px 15px;transition:border-color .14s,transform .1s}
+.sig:hover{border-color:var(--rule);transform:translateY(-1px)}
+.sig .k{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.sig .k svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.sig .mid{display:flex;align-items:flex-end;justify-content:space-between;margin-top:9px}
+.sig .v{font-size:26px;font-weight:750;letter-spacing:-.01em;line-height:1;font-variant-numeric:tabular-nums}
+.sig .v.ok{color:var(--ok)}.sig .v.warn{color:var(--warn)}.sig .v.bad{color:var(--danger)}
+.sig .spark{width:56px;height:22px}
+.sig .d{font-size:11.5px;margin-top:7px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.sig .delta{font-weight:650;display:inline-flex;align-items:center;gap:2px}
+.sig .delta.up{color:var(--danger)}.sig .delta.down{color:var(--ok)}.sig .delta.flat{color:var(--muted)}
+.sig .delta svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.6}
+
+/* ── main grid ── */
+.grid{display:grid;grid-template-columns:1.55fr 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.col{display:flex;flex-direction:column;gap:18px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);overflow:hidden}
+.card-h{display:flex;align-items:center;gap:8px;padding:14px 17px;border-bottom:1px solid var(--border-soft)}
+.card-h h3{font-size:14px;font-weight:700}
+.card-h .live{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--ok)}
+.card-h .live .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(21,127,60,.4)}70%{box-shadow:0 0 0 6px rgba(21,127,60,0)}100%{box-shadow:0 0 0 0 rgba(21,127,60,0)}}
+.card-h .r{margin-left:auto;font-size:12px;font-weight:600;color:var(--coral)}
+.card-h .m{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* where to look */
+.loc{display:flex;align-items:center;gap:13px;padding:13px 17px;border-top:1px solid var(--border-soft);color:inherit}
+.loc:first-of-type{border-top:none}.loc:hover{background:var(--surface2)}
+.loc .sc{width:40px;height:40px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:750;font-variant-numeric:tabular-nums}
+.loc .sc.danger{background:var(--danger-soft);color:var(--danger)}.loc .sc.warn{background:var(--warn-soft);color:var(--warn)}
+.loc .m{flex:1;min-width:0}
+.loc .n{font-size:14px;font-weight:700}
+.loc .why{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.chip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.chip.bad{background:var(--danger-soft);color:var(--danger)}.chip.warn{background:var(--warn-soft);color:var(--warn)}.chip.mut{background:var(--surface2);color:var(--muted)}
+.loc .go{flex:none;font-size:12.5px;font-weight:650;color:var(--coral);display:inline-flex;align-items:center;gap:4px}
+.loc .go svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+.allclear{display:flex;align-items:center;gap:12px;padding:16px 18px}
+.allclear .i{width:34px;height:34px;flex:none;border-radius:9px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center}
+.allclear .i svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4}
+
+/* top crashing devices */
+.cdev{display:block;padding:12px 17px;border-top:1px solid var(--border-soft);color:inherit}
+.cdev:first-of-type{border-top:none}.cdev:hover{background:var(--surface2)}
+.cdev-top{display:flex;align-items:center;gap:9px}
+.cdev .kind{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;flex:none}
+.cdev .kind.crash{background:var(--danger-soft);color:var(--danger)}.cdev .kind.anr{background:var(--warn-soft);color:var(--warn)}.cdev .kind.tomb{background:var(--peri-soft);color:var(--peri)}
+.cdev .sn{font-family:var(--mono);font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cdev .x{margin-left:auto;flex:none;font-weight:700;color:var(--danger);font-variant-numeric:tabular-nums;font-size:12.5px}
+.cdev .cmeta{display:flex;flex-wrap:wrap;gap:4px 11px;font-size:11.5px;color:var(--muted);margin-top:5px}
+.cdev .cmeta .bd{color:var(--text);font-weight:600}
+
+/* activity chart */
+.bars{display:flex;align-items:flex-end;gap:10px;height:120px;padding:18px 18px 8px}
+.bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%}
+.bar .track{width:100%;flex:1;display:flex;align-items:flex-end;background:var(--surface2);border-radius:6px 6px 0 0;overflow:hidden}
+.bar .fill{width:100%;background:linear-gradient(180deg,var(--peri),#9aa0ff);border-radius:6px 6px 0 0;position:relative}
+.bar.cur .fill{background:linear-gradient(180deg,var(--coral),#ff8a72)}
+.bar .cap{font-size:10px;font-weight:600;color:var(--muted)}
+.bar .day{font-size:10.5px;color:var(--faint)}
+
+/* alerts list */
+.al{display:flex;gap:11px;padding:11px 17px;border-top:1px solid var(--border-soft)}
+.al:first-of-type{border-top:none}
+.al .dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px}
+.al .dot.bad{background:var(--danger)}.al .dot.warn{background:var(--warn)}.al .dot.info{background:var(--peri)}
+.al .b{min-width:0}
+.al .t1{font-size:12.5px;font-weight:600;line-height:1.3}
+.al .t2{font-size:11px;color:var(--muted);margin-top:1px}
+.al .t2 .mono{font-family:var(--mono)}
+.card-foot{display:block;text-align:center;padding:11px;font-size:12.5px;font-weight:600;color:var(--coral);border-top:1px solid var(--border-soft)}
+
+/* quick actions */
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:15px 17px}
+.qa a{display:flex;align-items:center;gap:9px;padding:11px 13px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:600;color:var(--text2)}
+.qa a:hover{border-color:var(--rule);background:var(--surface2)}
+.qa a .ic{width:26px;height:26px;flex:none;border-radius:7px;display:flex;align-items:center;justify-content:center;background:var(--surface2)}
+.qa a .ic svg{width:15px;height:15px;fill:none;stroke:var(--coral);stroke-width:2}
+
+/* recent activity */
+.r{display:flex;gap:11px;padding:11px 17px;border-top:1px solid var(--border-soft)}
+.r:first-of-type{border-top:none}
+.r .av{width:28px;height:28px;flex:none;border-radius:8px;background:var(--peri-soft);color:var(--peri);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;text-transform:uppercase}
+.r .b{min-width:0}.r .t1{font-size:12.5px;line-height:1.35}.r .t1 b{font-weight:650}
+.r .t2{font-size:11px;color:var(--muted);margin-top:1px}.r .t2 .mono{font-family:var(--mono)}
+
+/* AI report */
+.report{margin-top:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm)}
+.report-h{display:flex;align-items:center;gap:11px;padding:15px 18px;border-bottom:1px solid var(--border-soft)}
+.report-h .orb{width:34px;height:34px;flex:none;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;color:#fff}
+.report-h .orb svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2}
+.report-h .t{font-size:14.5px;font-weight:700}.report-h .s{font-size:12px;color:var(--muted)}
+.report-h .stamp{margin-left:auto;font-size:11.5px;color:var(--faint)}
+.report-b{padding:16px 18px}
+.bubble{background:var(--surface2);border:1px solid var(--border-soft);border-radius:5px 16px 16px 16px;padding:14px 16px;font-size:14px;color:var(--text2)}
+.rab-h{display:flex;align-items:baseline;gap:10px;margin:16px 0 9px}
+.rab-t{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.rab-total{margin-left:auto;font-size:12px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.rab-total .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:pulse 2s infinite}
+.rab{display:flex;align-items:center;gap:12px;padding:9px 11px;border-radius:9px;color:inherit}
+.rab:hover{background:var(--surface2)}
+.rab .n{font-weight:600;font-size:13.5px;flex:1}
+.rab .p{display:flex;gap:6px}
+.rab .pill{font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:99px}
+.rab .pill.crit{background:var(--danger-soft);color:var(--danger)}.rab .pill.warn{background:var(--warn-soft);color:var(--warn)}
+.rab .c{font-weight:750;font-variant-numeric:tabular-nums;font-size:14px;min-width:20px;text-align:right}
+.note{margin-top:24px;padding:14px 17px;background:var(--surface2);border:1px dashed var(--rule);border-radius:var(--r4);font-size:12.5px;color:var(--muted)}
+.note b{color:var(--text2)}.note .mono{font-family:var(--mono)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/index">← All demos</a><span class="tag">Overview · Command</span></div>
+  <h1 class="pt">Overview — Command center</h1>
+  <p class="lede">The home page reworked to route, not duplicate: a welcome hero with the live fleet verdict, a signal strip with trends (now including <b>crashes</b>), a "where to look" bridge into triage, live alerts, quick actions, and the AI briefing with its live per-restaurant alerts. One consolidated set of numbers — no more two overlapping stat blocks.</p>
+
+  <!-- hero -->
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Good evening · Tuesday, July 8</div>
+      <div class="head"><span class="warn">3 restaurants</span> need a look today</div>
+      <div class="sub"><b>846</b> of 900 devices online · <b>19</b> crashes in the last 24h · <b>12</b> open alerts. Downtown Diner is the worst — 8 offline and a unit running hot.</div>
+      <div class="ctas">
+        <a class="btn primary" href="#"><svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>View fleet health</a>
+        <a class="btn" href="#"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>12 open alerts</a>
+        <a class="btn" href="#"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Send action</a>
+      </div>
+    </div>
+    <div class="hero-ring">
+      <div class="ring"><svg viewBox="0 0 92 92"><circle class="trk" cx="46" cy="46" r="36"/><circle class="val" cx="46" cy="46" r="36" stroke-dasharray="226.2" stroke-dashoffset="49.8" transform="rotate(-90 46 46)"/></svg><b>78</b></div>
+      <div><div class="rt">Fleet health</div><span class="rc">Watch</span><div class="rl">last 7 days<br>↘ −6 vs last week</div></div>
+    </div>
+  </div>
+
+  <!-- signal strip with trends -->
+  <div class="sigs">
+    <a class="sig" href="#"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online</span>
+      <div class="mid"><span class="v ok">846</span><svg class="spark" viewBox="0 0 56 22"><polyline fill="none" stroke="#157f3c" stroke-width="2" points="0,14 11,12 22,15 33,11 44,10 56,9"/></svg></div>
+      <div class="d">of 900 · <span class="delta flat">steady</span></div></a>
+    <a class="sig" href="#"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span>
+      <div class="mid"><span class="v warn">54</span><svg class="spark" viewBox="0 0 56 22"><polyline fill="none" stroke="#b45309" stroke-width="2" points="0,16 11,15 22,13 33,12 44,9 56,6"/></svg></div>
+      <div class="d"><span class="delta up"><svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>12</span> today</div></a>
+    <a class="sig" href="#"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span>
+      <div class="mid"><span class="v warn">7</span><svg class="spark" viewBox="0 0 56 22"><polyline fill="none" stroke="#b45309" stroke-width="2" points="0,10 11,12 22,9 33,13 44,11 56,12"/></svg></div>
+      <div class="d">under 20% · <span class="delta down"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>3</span></div></a>
+    <a class="sig" href="#"><span class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Overheating</span>
+      <div class="mid"><span class="v bad">2</span><svg class="spark" viewBox="0 0 56 22"><polyline fill="none" stroke="#b42318" stroke-width="2" points="0,15 11,14 22,15 33,12 44,13 56,10"/></svg></div>
+      <div class="d">over 54°C</div></a>
+    <a class="sig" href="#"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes · 24h</span>
+      <div class="mid"><span class="v bad">19</span><svg class="spark" viewBox="0 0 56 22"><polyline fill="none" stroke="#b42318" stroke-width="2" points="0,18 11,16 22,17 33,13 44,9 56,3"/></svg></div>
+      <div class="d"><span class="delta up"><svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>9</span> · 6 devices</div></a>
+    <a class="sig" href="#"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Open alerts</span>
+      <div class="mid"><span class="v warn">12</span><svg class="spark" viewBox="0 0 56 22"><polyline fill="none" stroke="#b45309" stroke-width="2" points="0,12 11,10 22,13 33,11 44,12 56,10"/></svg></div>
+      <div class="d">unresolved</div></a>
+  </div>
+
+  <div class="grid">
+    <div class="col">
+      <!-- where to look -->
+      <div class="card">
+        <div class="card-h"><h3>Where to look</h3><span class="m">worst first · 3 of 45</span></div>
+        <a class="loc" href="#">
+          <span class="sc danger">38</span>
+          <div class="m"><div class="n">Downtown Diner</div><div class="why"><span class="chip bad">8 offline</span><span class="chip bad">55°C</span><span class="chip bad">6 crashes</span><span class="chip mut">24 devices</span></div></div>
+          <span class="go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </a>
+        <a class="loc" href="#">
+          <span class="sc warn">54</span>
+          <div class="m"><div class="n">Tom's Ducci 6th</div><div class="why"><span class="chip warn">3 offline</span><span class="chip warn">4 low battery</span><span class="chip warn">9 ANRs</span><span class="chip mut">18 devices</span></div></div>
+          <span class="go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </a>
+        <a class="loc" href="#">
+          <span class="sc warn">66</span>
+          <div class="m"><div class="n">Harbor Point Grill</div><div class="why"><span class="chip warn">3 builds behind</span><span class="chip warn">battery −14%</span><span class="chip mut">15 devices</span></div></div>
+          <span class="go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </a>
+      </div>
+
+      <!-- top crashing devices -->
+      <div class="card">
+        <div class="card-h"><h3>Top crashing devices</h3><span class="m">24h · 6 devices · 19 events</span></div>
+        <a class="cdev" href="#"><div class="cdev-top"><span class="kind anr">ANR</span><span class="sn">AT070AA260027</span><span class="x">×9</span></div><div class="cmeta"><span>Tom's Ducci 6th</span><span class="bd">build 2.4.1</span><span>14m ago</span></div></a>
+        <a class="cdev" href="#"><div class="cdev-top"><span class="kind crash">Crash</span><span class="sn">AT070AA260024</span><span class="x">×5</span></div><div class="cmeta"><span>Downtown Diner</span><span class="bd">build 2.4.1</span><span>1h ago</span></div></a>
+        <a class="cdev" href="#"><div class="cdev-top"><span class="kind tomb">Native</span><span class="sn">AT070AA260031</span><span class="x">×3</span></div><div class="cmeta"><span>Downtown Diner</span><span class="bd">build 2.4.0</span><span>3h ago</span></div></a>
+        <a class="card-foot" href="#">View all crashes →</a>
+      </div>
+
+      <!-- fleet activity -->
+      <div class="card">
+        <div class="card-h"><h3>Fleet activity</h3><span class="m">7 days · peak 892</span></div>
+        <div class="bars">
+          <div class="bar"><div class="track"><div class="fill" style="height:82%"><span></span></div></div><span class="cap">861</span><span class="day">Wed</span></div>
+          <div class="bar"><div class="track"><div class="fill" style="height:88%"></div></div><span class="cap">878</span><span class="day">Thu</span></div>
+          <div class="bar"><div class="track"><div class="fill" style="height:100%"></div></div><span class="cap">892</span><span class="day">Fri</span></div>
+          <div class="bar"><div class="track"><div class="fill" style="height:74%"></div></div><span class="cap">840</span><span class="day">Sat</span></div>
+          <div class="bar"><div class="track"><div class="fill" style="height:80%"></div></div><span class="cap">858</span><span class="day">Sun</span></div>
+          <div class="bar"><div class="track"><div class="fill" style="height:90%"></div></div><span class="cap">881</span><span class="day">Mon</span></div>
+          <div class="bar cur"><div class="track"><div class="fill" style="height:85%"></div></div><span class="cap">846</span><span class="day">Today</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col">
+      <!-- live alerts -->
+      <div class="card">
+        <div class="card-h"><h3>Open alerts</h3><span class="live"><span class="dot"></span>Live</span><a class="r" href="#" style="margin-left:12px">all →</a></div>
+        <div class="al"><span class="dot bad"></span><div class="b"><div class="t1">Temperature 55°C (limit 54°C)</div><div class="t2"><span class="mono">AT070AA260024</span> · 14m ago</div></div></div>
+        <div class="al"><span class="dot warn"></span><div class="b"><div class="t1">3rd app crash in 20m — com.aioapp.pos</div><div class="t2"><span class="mono">AT070AA260027</span> · 22m ago</div></div></div>
+        <div class="al"><span class="dot warn"></span><div class="b"><div class="t1">8 devices offline over 3h</div><div class="t2">Downtown Diner · 3h ago</div></div></div>
+        <div class="al"><span class="dot info"></span><div class="b"><div class="t1">Battery under 20%</div><div class="t2"><span class="mono">AT070AA260031</span> · 5h ago</div></div></div>
+        <a class="card-foot" href="#">+ 8 more →</a>
+      </div>
+
+      <!-- quick actions -->
+      <div class="card">
+        <div class="card-h"><h3>Quick actions</h3></div>
+        <div class="qa">
+          <a href="#"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Send action</a>
+          <a href="#"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>New release</a>
+          <a href="#"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>All devices</a>
+          <a href="#"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9M3 20h4M3 4v16"/><circle cx="12" cy="8" r="3"/></svg></span>Alert rules</a>
+        </div>
+      </div>
+
+      <!-- recent activity -->
+      <div class="card">
+        <div class="card-h"><h3>Recent activity</h3></div>
+        <div class="r"><span class="av">A</span><div class="b"><div class="t1"><b>ana</b> pushed reboot to 8 devices</div><div class="t2">Downtown Diner · 12m ago</div></div></div>
+        <div class="r"><span class="av">M</span><div class="b"><div class="t1"><b>mo</b> marked <span class="mono">AT070AA260090</span> inactive</div><div class="t2">31m ago</div></div></div>
+        <div class="r"><span class="av">S</span><div class="b"><div class="t1"><b>sam</b> released v2.4.1 to Ring 1</div><div class="t2">2h ago</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI daily report with live per-restaurant alerts -->
+  <div class="report">
+    <div class="report-h">
+      <span class="orb"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span>
+      <div><div class="t">Daily Report</div><div class="s">your fleet briefing</div></div>
+      <span class="stamp">updated 9:14 PM</span>
+    </div>
+    <div class="report-b">
+      <div class="bubble">Urgent — Downtown Diner units are charging poorly and overheating; Tom's Ducci 6th also has a hot unit and low charging coverage. Everything else is nominal.</div>
+      <div class="rab-h"><span class="rab-t">Open alerts by restaurant</span><span class="rab-total"><span class="dot"></span>12 open · live</span></div>
+      <a class="rab" href="#"><span class="n">Downtown Diner</span><span class="p"><span class="pill crit">5 critical</span><span class="pill warn">3 warning</span></span><span class="c">8</span></a>
+      <a class="rab" href="#"><span class="n">Tom's Ducci 6th</span><span class="p"><span class="pill crit">1 critical</span><span class="pill warn">2 warning</span></span><span class="c">3</span></a>
+      <a class="rab" href="#"><span class="n">Harbor Point Grill</span><span class="p"><span class="pill warn">1 warning</span></span><span class="c">1</span></a>
+    </div>
+  </div>
+
+  <div class="note"><b>vs today's Overview:</b> adds crashes as a signal, wires the already-computed trend sparklines (currently dead data), replaces the two overlapping stat blocks with one strip, bridges into triage via "Where to look", and makes alerts + the per-restaurant breakdown live. All maps to data we already load — <span class="mono">GetSummary</span>, <span class="mono">GetRestaurantHealth</span>, <span class="mono">GetFleetCrashStats</span>, <span class="mono">GetFleetDailyStats</span>, audit.</div>
+</div>
+</body></html>
