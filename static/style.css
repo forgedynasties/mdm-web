@@ -5036,6 +5036,21 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rchip.bad { background: var(--danger-bg); color: var(--danger); }
 .rchip.active { background: var(--accent-soft); color: var(--accent); }
 .rchip.muted { background: var(--surface-3); color: var(--muted); }
+
+/* ── Branch builds (off-mainline forks) — periwinkle accent ──────────────── */
+.status-badge.branch { background: rgba(122,128,246,.16); color: #5b61d6; }
+.rlc-badge.branch { background: rgba(122,128,246,.16); color: #5b61d6; }
+[data-theme="dark"] .status-badge.branch, [data-theme="dark"] .rlc-badge.branch { color: #a6abfa; }
+.branch-banner { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; padding: 11px 16px; border-radius: 10px; background: rgba(122,128,246,.10); border: 1px solid rgba(122,128,246,.30); font-size: 13px; line-height: 1.5; }
+.branch-banner a { color: #5b61d6; }
+[data-theme="dark"] .branch-banner a { color: #a6abfa; }
+.bb-mark { color: #7a80f6; font-weight: 700; flex: none; }
+.branch-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.branch-list { display: flex; flex-direction: column; }
+.branch-row { display: flex; align-items: center; gap: 10px; padding: 10px 6px; border-top: 1px solid var(--border-soft); text-decoration: none; color: var(--text); border-radius: 6px; }
+.branch-row:first-child { border-top: 0; }
+.branch-row:hover { background: var(--surface2); }
+.branch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .rlc-act { display: flex; align-items: center; gap: 6px; justify-self: end; flex-wrap: wrap; justify-content: flex-end; }
 .rlc-act form { display: inline; margin: 0; }
 .rlc-open { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); flex: none; }
