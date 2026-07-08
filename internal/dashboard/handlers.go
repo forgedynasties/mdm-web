@@ -8577,6 +8577,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"export", "export-builder", "export-compact", "timesel",
 		"health-pulse", "health-triage", "health-grid",
 		"health-command", "health-reliability", "health-stream", "health-icons",
+		"overview-command",
 		"release-pipeline", "release-cockpit":
 	default:
 		http.NotFound(w, r)
