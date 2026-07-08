@@ -4924,6 +4924,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"ProblemBoard":    problemBoard,
 		"GlobalProblems":  globalProblems,
 		"ReleaseTrain":    releaseTrain,
+		"Graph":           buildReleaseGraph(releases),
 	}
 	// Live refresh: the #hub-live region refetches this on the problem-updated body event
 	// (focus band + problems board only), so the hub stays current without a full reload.
@@ -4932,6 +4933,148 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, "releases.html", data)
+}
+
+// ── Release lineage graph ─────────────────────────────────────────────────────
+// A commit-style graph of the single main line: mainline releases form the spine
+// (oldest→newest), each branch forks off its base node and, if merged, rejoins the
+// main line at the successor it merged into. Coordinates are computed server-side and
+// rendered as inline SVG by releases.html.
+
+type relGraphNode struct {
+	ID       int
+	Label    string
+	Sub      string
+	IsBranch bool
+	Merged   bool
+	Fill     string
+	X, Y, R  int
+}
+
+type relGraphEdge struct {
+	Path string // SVG path 'd'
+	Kind string // main | fork | merge
+}
+
+type relGraph struct {
+	Nodes []relGraphNode
+	Edges []relGraphEdge
+	W, H  int
+}
+
+func statusFill(status string) string {
+	switch status {
+	case "published":
+		return "#1c7d50"
+	case "draft":
+		return "#9a6512"
+	default:
+		return "#9aa0aa"
+	}
+}
+
+// buildReleaseGraph lays out the release lineage. Mainline nodes are spaced evenly along
+// the spine; branches are packed into stacked lanes above it (a greedy interval colouring
+// so non-overlapping forks share a lane), with a fork edge down to their base and a merge
+// edge across to the release they merged into.
+func buildReleaseGraph(rels []db.Release) relGraph {
+	var main, branch []db.Release
+	for _, r := range rels {
+		if r.Hidden {
+			continue
+		}
+		if r.IsBranch {
+			branch = append(branch, r)
+		} else {
+			main = append(main, r)
+		}
+	}
+	if len(main)+len(branch) == 0 {
+		return relGraph{}
+	}
+	sort.Slice(main, func(i, j int) bool { return main[i].CreatedAt.Before(main[j].CreatedAt) })
+	sort.Slice(branch, func(i, j int) bool { return branch[i].CreatedAt.Before(branch[j].CreatedAt) })
+
+	const stepX, marginX, laneStep, topPad, botPad, nodeR = 175, 72, 46, 30, 56, 7
+	mainX := map[int]int{}
+	for i, r := range main {
+		mainX[r.ID] = marginX + i*stepX
+	}
+	baseXof := func(b db.Release) int {
+		if b.ParentReleaseID != nil {
+			if x, ok := mainX[*b.ParentReleaseID]; ok {
+				return x
+			}
+		}
+		return marginX
+	}
+
+	branchX := map[int]int{}
+	laneOf := map[int]int{}
+	var laneEnds []int // rightmost x used on each lane so far
+	for _, b := range branch {
+		baseX := baseXof(b)
+		bx, x2 := baseX+stepX/2, baseX+stepX/2+nodeR
+		if b.MergedIntoReleaseID != nil {
+			if mx, ok := mainX[*b.MergedIntoReleaseID]; ok {
+				bx, x2 = (baseX+mx)/2, mx
+			}
+		}
+		lane := -1
+		for l, end := range laneEnds {
+			if end < baseX-24 {
+				lane, laneEnds[l] = l, x2
+				break
+			}
+		}
+		if lane == -1 {
+			lane = len(laneEnds)
+			laneEnds = append(laneEnds, x2)
+		}
+		branchX[b.ID], laneOf[b.ID] = bx, lane
+	}
+
+	laneCount := len(laneEnds)
+	spineY := topPad + laneCount*laneStep
+	laneY := func(l int) int { return spineY - (l+1)*laneStep }
+	// Width spans the rightmost node (a branch forking off the last main node can sit past
+	// the spine) plus a margin so its label isn't clipped.
+	maxX := marginX
+	for _, x := range mainX {
+		if x > maxX {
+			maxX = x
+		}
+	}
+	for _, x := range branchX {
+		if x > maxX {
+			maxX = x
+		}
+	}
+	g := relGraph{W: maxX + marginX, H: spineY + botPad}
+
+	// Edges first so nodes paint on top.
+	for i := 1; i < len(main); i++ {
+		x0, x1 := mainX[main[i-1].ID], mainX[main[i].ID]
+		g.Edges = append(g.Edges, relGraphEdge{Kind: "main", Path: fmt.Sprintf("M%d %d L%d %d", x0, spineY, x1, spineY)})
+	}
+	for _, b := range branch {
+		bx, by := branchX[b.ID], laneY(laneOf[b.ID])
+		baseX := baseXof(b)
+		ymid := (spineY + by) / 2
+		g.Edges = append(g.Edges, relGraphEdge{Kind: "fork", Path: fmt.Sprintf("M%d %d C%d %d %d %d %d %d", baseX, spineY, baseX, ymid, bx, ymid, bx, by)})
+		if b.MergedIntoReleaseID != nil {
+			if mx, ok := mainX[*b.MergedIntoReleaseID]; ok {
+				g.Edges = append(g.Edges, relGraphEdge{Kind: "merge", Path: fmt.Sprintf("M%d %d C%d %d %d %d %d %d", bx, by, bx, ymid, mx, ymid, mx, spineY)})
+			}
+		}
+	}
+	for _, r := range main {
+		g.Nodes = append(g.Nodes, relGraphNode{ID: r.ID, Label: r.Version, Sub: r.Status, Fill: statusFill(r.Status), X: mainX[r.ID], Y: spineY, R: nodeR})
+	}
+	for _, b := range branch {
+		g.Nodes = append(g.Nodes, relGraphNode{ID: b.ID, Label: b.Version, Sub: "branch", IsBranch: true, Merged: b.MergedIntoReleaseID != nil, X: branchX[b.ID], Y: laneY(laneOf[b.ID]), R: nodeR - 1})
+	}
+	return g
 }
 
 // ReleaseTrack starts tracking a device-reported version: it creates (or finds) a draft
