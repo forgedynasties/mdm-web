@@ -4842,6 +4842,18 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
+	// Branch builds hang off their parent node in the timeline. Group non-hidden branches
+	// by parent so each train node can render its forks below it (like a git graph).
+	childrenByParent := map[int][]map[string]any{}
+	for _, rel := range releases {
+		if !rel.IsBranch || rel.ParentReleaseID == nil || rel.Hidden {
+			continue
+		}
+		pid := *rel.ParentReleaseID
+		childrenByParent[pid] = append(childrenByParent[pid], map[string]any{
+			"ID": rel.ID, "Version": rel.Version, "Name": rel.Name, "Status": rel.Status,
+		})
+	}
 	var releaseTrain []map[string]any
 	for i := len(trainRels) - 1; i >= 0; i-- {
 		rel := trainRels[i]
@@ -4853,6 +4865,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			"SignedOffBy": rel.SignedOffBy,
 			"Open":        problemsByRelease[rel.ID].Open,
 			"Active":      activeRel != nil && activeRel.ID == rel.ID,
+			"Branches":    childrenByParent[rel.ID],
 		})
 	}
 
