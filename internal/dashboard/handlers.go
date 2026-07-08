@@ -4655,10 +4655,13 @@ type versionRow struct {
 	SignedOffBy   string            // dev who signed off ("" = not signed off)
 	SignedOffAt   *time.Time
 	TestingDone   bool   // testing finished — the release is inactive (retired from active slot)
-	IsBranch          bool   // off-mainline branch build (shown under Branches, not the main path)
-	ParentVersion     string // for a branch, the release it forked from; for a derivative, the release it matches
-	AdoptableParentID *int   // set when this is an UNTRACKED reported build matching a release's naming — one-click adopt as a branch of it
-	QfilURL           string // newest active QFIL flashing bundle URL ("" = none set)
+	IsBranch          bool        // off-mainline branch build (shown nested under its parent in the list)
+	ParentID          *int        // for a branch/derivative, the release id it forks from / matches
+	ParentVersion     string      // for a branch, the release it forked from; for a derivative, the release it matches
+	AdoptableParentID *int        // set when this is an UNTRACKED reported build matching a release's naming — one-click adopt as a branch of it
+	Children          []versionRow // branch builds + adoptable derivative builds forked off this release, shown indented beneath it
+	SuggestedBranch   string      // next branch version to suggest for this release (version + -tN)
+	QfilURL           string      // newest active QFIL flashing bundle URL ("" = none set)
 }
 
 // latestQfilURL returns the newest active QFIL bundle URL for a release, or ""
@@ -4713,14 +4716,22 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		}
 		return &bid, bver
 	}
-	var active, hidden, branches []versionRow
+	var active, hidden []versionRow
 	var trackedCount, notTrackedCount int
+	var untrackedBuilds []string // all untracked reported builds, for the New-branch picker
 	seen := make(map[string]bool)
+	childrenByParent := map[int][]versionRow{}
 	addRow := func(row versionRow) {
-		// Branch builds and adoptable derivative builds are off the main path — collected
-		// separately for the Branches tab.
+		// Branch builds and adoptable derivative builds hang off their parent — collected
+		// by parent id and rendered indented beneath it in the list (no separate tab).
 		if row.IsBranch || row.AdoptableParentID != nil {
-			branches = append(branches, row)
+			pid := 0
+			if row.AdoptableParentID != nil {
+				pid = *row.AdoptableParentID
+			} else if row.ParentID != nil {
+				pid = *row.ParentID
+			}
+			childrenByParent[pid] = append(childrenByParent[pid], row)
 			return
 		}
 		if row.Hidden {
@@ -4737,6 +4748,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	branchRow := func(row *versionRow, rel db.Release) {
 		row.IsBranch = rel.IsBranch
 		if rel.ParentReleaseID != nil {
+			row.ParentID = rel.ParentReleaseID
 			row.ParentVersion = relByID[*rel.ParentReleaseID].Version
 		}
 	}
@@ -4756,9 +4768,10 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.QfilURL = h.latestQfilURL(r, rel.ID)
 		} else {
 			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
-			// Auto-match by naming: an untracked reported build that looks like a variant
-			// of a mainline release is offered under Branches for one-click adoption.
 			if !row.Hidden {
+				untrackedBuilds = append(untrackedBuilds, fv.Version)
+				// Auto-match by naming: an untracked reported build that looks like a variant
+				// of a mainline release is shown under it for one-click adoption.
 				if pid, pver := bestBranchParent(fv.Version); pid != nil {
 					row.AdoptableParentID, row.ParentVersion = pid, pver
 				}
@@ -4799,6 +4812,27 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		}
 		return active[i].Version < active[j].Version
 	})
+	// Attach each release's branch forks (+ adoptable derivative builds) so they render
+	// nested beneath it, and suggest the next branch version (version + -tN).
+	for i := range active {
+		if active[i].ReleaseID == nil {
+			continue
+		}
+		pid := *active[i].ReleaseID
+		active[i].Children = childrenByParent[pid]
+		delete(childrenByParent, pid)
+		n := 0
+		for _, c := range active[i].Children {
+			if c.IsBranch {
+				n++
+			}
+		}
+		active[i].SuggestedBranch = fmt.Sprintf("%s-t%d", active[i].Version, n+1)
+	}
+	// Orphan forks (parent hidden or not shown) — surface standalone so they aren't lost.
+	for _, kids := range childrenByParent {
+		active = append(active, kids...)
+	}
 	// Base ("standard, every release") test cases are managed inline on this page
 	// by admins, so the Testing/Test-cases tabs can go away.
 	role := h.role(r)
@@ -4844,13 +4878,13 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	}
 	// Branch builds hang off their parent node in the timeline. Group non-hidden branches
 	// by parent so each train node can render its forks below it (like a git graph).
-	childrenByParent := map[int][]map[string]any{}
+	trainChildren := map[int][]map[string]any{}
 	for _, rel := range releases {
 		if !rel.IsBranch || rel.ParentReleaseID == nil || rel.Hidden {
 			continue
 		}
 		pid := *rel.ParentReleaseID
-		childrenByParent[pid] = append(childrenByParent[pid], map[string]any{
+		trainChildren[pid] = append(trainChildren[pid], map[string]any{
 			"ID": rel.ID, "Version": rel.Version, "Name": rel.Name, "Status": rel.Status,
 		})
 	}
@@ -4865,7 +4899,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			"SignedOffBy": rel.SignedOffBy,
 			"Open":        problemsByRelease[rel.ID].Open,
 			"Active":      activeRel != nil && activeRel.ID == rel.ID,
-			"Branches":    childrenByParent[rel.ID],
+			"Branches":    trainChildren[rel.ID],
 		})
 	}
 
@@ -4873,8 +4907,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"Title":           "Releases",
 		"Versions":        active,
 		"HiddenReleases":  hidden,
-		"BranchReleases":  branches,
-		"BranchCount":     len(branches),
+		"UntrackedBuilds": untrackedBuilds,
 		"TrackedCount":    trackedCount,
 		"NotTrackedCount": notTrackedCount,
 		"FleetTotal":      fleetTotal,
@@ -5322,7 +5355,7 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	}
 
 	switch tab {
-	case "overview", "qa", "problems", "packages", "rollout", "branches":
+	case "overview", "qa", "problems", "packages", "rollout":
 		// valid
 	default:
 		tab = "overview"
@@ -5331,41 +5364,14 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	if tab == "packages" && !(role == "admin" || role == "dev") {
 		tab = "overview"
 	}
-	// Branch context: a branch build shows a banner linking to its parent (and has no
-	// Branches tab); a mainline release lists its child branch builds under a Branches tab.
+	// Branch context: a branch build shows a banner linking to its parent. Branch builds
+	// themselves are created / listed on the main /releases page (nested under the parent),
+	// not as a workspace tab.
 	data["IsBranch"] = rel.IsBranch
-	if rel.IsBranch {
-		if tab == "branches" {
-			tab = "overview"
+	if rel.IsBranch && rel.ParentReleaseID != nil {
+		if parent, err := h.db.GetRelease(ctx, *rel.ParentReleaseID); err == nil {
+			data["Parent"] = parent
 		}
-		if rel.ParentReleaseID != nil {
-			if parent, err := h.db.GetRelease(ctx, *rel.ParentReleaseID); err == nil {
-				data["Parent"] = parent
-			}
-		}
-	} else {
-		branches, _ := h.db.ListBranchReleases(ctx, rel.ID)
-		data["Branches"] = branches
-		data["SuggestedBranchVersion"] = fmt.Sprintf("%s-t%d", rel.Version, len(branches)+1)
-		// Auto-match by naming: reported device builds that look like a variant of this
-		// release (version + "-…") but aren't tracked yet — offered for one-click adopt.
-		// Every other untracked reported build is offered too (the datalist) so you can
-		// still adopt a build that doesn't match the naming.
-		fleet, _ := h.db.GetFleetVersions(ctx)
-		prefix := rel.Version + "-"
-		var matching []map[string]any
-		var untracked []string
-		for _, fv := range fleet {
-			if fv.ReleaseID != nil {
-				continue // already a tracked release
-			}
-			untracked = append(untracked, fv.Version)
-			if strings.HasPrefix(fv.Version, prefix) {
-				matching = append(matching, map[string]any{"Version": fv.Version, "DeviceCount": fv.DeviceCount})
-			}
-		}
-		data["MatchingBuilds"] = matching
-		data["UntrackedBuilds"] = untracked
 	}
 	title := "Release " + rel.Version
 	switch tab {
