@@ -2618,6 +2618,45 @@ func (h *Handler) DeploymentEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ReleaseProblemEvents streams SSE notifications to the releases hub and any open
+// release workspace, so the cross-release problems board and the workspace fragments
+// refresh live when a problem (or a QA result that creates/resolves one) changes
+// anywhere — no polling. Payload-less; each listener re-fetches its own scoped fragment.
+func (h *Handler) ReleaseProblemEvents(w http.ResponseWriter, r *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	fmt.Fprint(w, ": connected\n\n")
+	flusher.Flush()
+
+	sub := h.hub.SubscribeProblemUpdates()
+	defer h.hub.UnsubscribeProblemUpdates(sub)
+	heartbeat := time.NewTicker(25 * time.Second)
+	defer heartbeat.Stop()
+	ctx := r.Context()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-heartbeat.C:
+			fmt.Fprint(w, ": keep-alive\n\n")
+			flusher.Flush()
+		case _, ok := <-sub:
+			if !ok {
+				return
+			}
+			fmt.Fprint(w, "event: problem-update\ndata: refresh\n\n")
+			flusher.Flush()
+		}
+	}
+}
+
 // DeviceEvents streams SSE notifications for a single device detail page.
 func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -4742,7 +4781,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	problemBoard, _ := h.db.ListProblemBoard(r.Context())
 	globalProblems, _ := h.db.GlobalProblemSummary(r.Context())
 
-	h.render(w, r, "releases.html", map[string]any{
+	data := map[string]any{
 		"Title":           "Releases",
 		"Versions":        active,
 		"HiddenReleases":  hidden,
@@ -4756,7 +4795,14 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"ActiveCarried":   activeCarried,
 		"ProblemBoard":    problemBoard,
 		"GlobalProblems":  globalProblems,
-	})
+	}
+	// Live refresh: the #hub-live region refetches this on the problem-updated body event
+	// (focus band + problems board only), so the hub stays current without a full reload.
+	if r.URL.Query().Get("partial") == "hub-live" {
+		_ = h.tmpl.ExecuteTemplate(w, "hub-live", h.withRole(r, data))
+		return
+	}
+	h.render(w, r, "releases.html", data)
 }
 
 // ReleaseTrack starts tracking a device-reported version: it creates (or finds) a draft
@@ -5140,6 +5186,13 @@ func (h *Handler) renderReleaseWorkspace(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
+	// Live refresh: a hidden element on the workspace refetches ?partial=problems on the
+	// problem-updated body event, and the returned OOB fragments swap the QA summary,
+	// problem lists and tab badges in place — so another user's change lands here too.
+	if r.URL.Query().Get("partial") == "problems" {
+		h.writeReleaseQAResponse(w, r, id, nil)
+		return
+	}
 	h.render(w, r, "release_workspace.html", h.releaseWorkspaceData(r, rel, tab))
 }
 
@@ -5260,6 +5313,7 @@ func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.problem.create", rel.Version, fmt.Sprintf("severity=%s, title=%s", p.Severity, title))
+	h.hub.PublishProblemUpdate() // live-refresh the hub board + any open workspace
 	if hxReq(r) {
 		h.writeReleaseQAResponse(w, r, id, nil)
 		return
@@ -5300,6 +5354,7 @@ func (h *Handler) ReleaseProblemUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.problem.update", strconv.Itoa(id), fmt.Sprintf("problem=%s, status=%s", pid, status))
+	h.hub.PublishProblemUpdate()
 	if hxReq(r) {
 		h.writeReleaseQAResponse(w, r, id, nil)
 		return
@@ -5323,6 +5378,7 @@ func (h *Handler) ReleaseProblemDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.hub.PublishProblemUpdate()
 	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
 }
 
@@ -5489,6 +5545,7 @@ func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	h.audit(r, "testresult.set", fmt.Sprintf("release %d / %s = %s", id, caseID, status), "")
+	h.hub.PublishProblemUpdate() // QA marks can create/resolve problems + shift readiness
 	if hxReq(r) {
 		h.writeReleaseQAResponse(w, r, id, &caseID)
 		return
@@ -9912,6 +9969,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 
 	mux.HandleFunc("GET /releases", h.requireAdminOrTester(h.ReleaseList))
+	mux.HandleFunc("GET /releases/events", h.requireAdminOrTester(h.ReleaseProblemEvents))
 	post("POST /releases", h.requireAdmin(h.ReleaseCreate))
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrTester(h.ReleaseDetail))
 	mux.HandleFunc("GET /releases/{id}/qa", h.requireAdminOrTester(h.ReleaseQAPage))
