@@ -1,5 +1,9 @@
 {{define "header"}}
-{{if .Boosted}}{{/* boosted nav: return only <main> so htmx swaps just the content */}}
+{{if .Boosted}}{{/* boosted nav: return only <main>, plus a <title> so htmx updates the
+     browser tab. The <head> (and its <title>) is not re-sent on a boosted swap, so
+     without this the tab keeps whatever the first full page load set. htmx finds a
+     <title> anywhere in the response and applies it to document.title + history. */}}
+  <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
   <main class="container">
 {{else}}
 <!DOCTYPE html>
