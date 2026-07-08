@@ -1,0 +1,23 @@
+{{define "report-alerts-by-restaurant"}}
+<div class="rab-h">
+  <span class="rab-t">Open alerts by restaurant</span>
+  <span class="rab-total">{{.Total}} open · live</span>
+</div>
+{{if .Rows}}
+<div class="rab-list">
+  {{range .Rows}}
+  <a class="rab-row" href="/restaurants/{{.RestaurantID}}">
+    <span class="rab-name">{{.Name}}</span>
+    <span class="rab-pills">
+      {{if .Critical}}<span class="rab-pill crit">{{.Critical}} critical</span>{{end}}
+      {{if .Warning}}<span class="rab-pill warn">{{.Warning}} warning</span>{{end}}
+    </span>
+    <span class="rab-count">{{.Total}}</span>
+  </a>
+  {{end}}
+</div>
+{{if .More}}<a class="rab-more" href="/alerts?status=open">+{{.More}} more restaurant{{if ne .More 1}}s{{end}} with open alerts →</a>{{end}}
+{{else}}
+<div class="rab-empty">No open alerts — every restaurant is quiet.</div>
+{{end}}
+{{end}}

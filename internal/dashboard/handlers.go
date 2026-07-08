@@ -2582,6 +2582,32 @@ func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ReportAlertsByRestaurant renders the Daily Report's per-restaurant open-alert
+// breakdown as an htmx fragment. The card re-fetches it on every mdm:alerts-update
+// (fired by the global /alerts/events stream) so the breakdown tracks new, acked,
+// and resolved alerts live without its own SSE connection.
+func (h *Handler) ReportAlertsByRestaurant(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.db.AlertsByRestaurant(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	total := 0
+	for _, ra := range rows {
+		total += ra.Total
+	}
+	// Cap the visible list; the header link covers the rest.
+	shown := rows
+	more := 0
+	if len(shown) > 8 {
+		more = len(shown) - 8
+		shown = shown[:8]
+	}
+	h.tmpl.ExecuteTemplate(w, "report-alerts-by-restaurant", map[string]any{
+		"Rows": shown, "Total": total, "More": more,
+	})
+}
+
 // DeploymentEvents streams SSE notifications to open deployment pages so OTA
 // progress and operator actions (retry/cancel/edit) refresh live without polling.
 func (h *Handler) DeploymentEvents(w http.ResponseWriter, r *http.Request) {
@@ -10438,6 +10464,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
+	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdminOrTester(h.AlertConfigView))

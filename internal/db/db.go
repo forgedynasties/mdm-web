@@ -4993,6 +4993,47 @@ func (d *DB) CountOpenAlerts(ctx context.Context) (int, error) {
 	return n, err
 }
 
+// RestaurantAlerts is a per-restaurant open-alert rollup for the Daily Report's
+// live breakdown.
+type RestaurantAlerts struct {
+	RestaurantID uuid.UUID
+	Name         string
+	Critical     int
+	Warning      int
+	Total        int
+}
+
+// AlertsByRestaurant groups open alerts by the restaurant the alerting device
+// belongs to, worst-first (most critical, then most total). Restaurants with no
+// open alerts are omitted; alerts on unassigned devices don't appear. Uses
+// status = 'open' so the total reconciles with CountOpenAlerts / the nav badge.
+func (d *DB) AlertsByRestaurant(ctx context.Context) ([]RestaurantAlerts, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT r.id, r.name,
+			COUNT(*) FILTER (WHERE a.severity = 'critical'),
+			COUNT(*) FILTER (WHERE a.severity <> 'critical'),
+			COUNT(*)
+		FROM alerts a
+		JOIN devices d ON d.id = a.device_id
+		JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE a.status = 'open' AND NOT d.hidden
+		GROUP BY r.id, r.name
+		ORDER BY COUNT(*) FILTER (WHERE a.severity = 'critical') DESC, COUNT(*) DESC, r.name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []RestaurantAlerts
+	for rows.Next() {
+		var ra RestaurantAlerts
+		if err := rows.Scan(&ra.RestaurantID, &ra.Name, &ra.Critical, &ra.Warning, &ra.Total); err != nil {
+			return nil, err
+		}
+		out = append(out, ra)
+	}
+	return out, rows.Err()
+}
+
 // BulkSetAlertStatus transitions every applicable alert to status and returns the
 // number changed. "acknowledged" affects open alerts; "resolved" affects every
 // non-resolved alert (open + acknowledged). resolved sets resolved_at.
