@@ -7404,6 +7404,15 @@ UPDATE device_events e SET build_id = COALESCE((
         ORDER BY c.created_at DESC LIMIT 1), '')
 WHERE e.build_id = '' AND e.kind <> 'reboot'
   AND EXISTS (SELECT 1 FROM checkins c WHERE c.device_id = e.device_id AND c.created_at <= e.occurred_at AND c.build_id <> '');
+
+-- Release-problem continuity ("rides the release train"): a manual bug is a thread that
+-- follows the releases forward until a tester verifies it fixed. fixed_in_release_id is
+-- the build a dev claims the fix landed in; verified_in_release_id is the build a tester
+-- confirmed it on. Origin stays in release_id ("reported in"). Prior/next ordering uses
+-- releases.created_at chronology — the manual version_order table is display-only.
+ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS fixed_in_release_id    INTEGER REFERENCES releases(id) ON DELETE SET NULL;
+ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS verified_in_release_id INTEGER REFERENCES releases(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_release_problems_fixed_in ON release_problems(fixed_in_release_id);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -8696,6 +8705,15 @@ type ReleaseProblem struct {
 	ReportedBy    string
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
+
+	// Continuity ("rides the release train"): a manual bug reported on one build can be
+	// fixed in a later build and verified there. OriginVersion is release_id's version.
+	OriginVersion       string // version the problem was first reported on (= ReleaseID)
+	FixedInReleaseID    *int   // build a dev claims the fix landed in; nil until claimed
+	FixedInVersion      string // joined version of FixedInReleaseID, "" when unset
+	VerifiedInReleaseID *int   // build a tester confirmed the fix on; nil until verified
+	VerifiedInVersion   string // joined version of VerifiedInReleaseID, "" when unset
+	Inherited           bool   // true when surfaced on a release later than its origin (carried forward)
 }
 
 // ProblemSummary is the per-release rollup used by badges: how many problems are
@@ -8728,22 +8746,53 @@ func (d *DB) CreateReleaseProblem(ctx context.Context, p ReleaseProblem) (uuid.U
 	return id, err
 }
 
-// ListReleaseProblems returns a release's problems, open first then by severity
-// (blocker → minor) and newest, with the joined case title and device serial.
+// releaseProblemCols / releaseProblemJoins are the canonical column list and joins for
+// selecting problems with their origin/fixed/verified release versions and the joined
+// case title + device serial. Shared by ListReleaseProblems, CarriedForwardProblems and
+// ListProblemBoard so the scan order stays in lock-step (see scanReleaseProblem).
+const releaseProblemCols = `
+	p.id, p.release_id, orel.version,
+	p.test_case_id, COALESCE(tc.title, ''),
+	p.device_id, COALESCE(d.serial_number, ''), p.build_id,
+	p.title, p.description, p.severity, p.status, p.source, p.reported_by,
+	p.fixed_in_release_id, COALESCE(fr.version, ''),
+	p.verified_in_release_id, COALESCE(vr.version, ''),
+	p.created_at, p.updated_at`
+
+const releaseProblemJoins = `
+	FROM release_problems p
+	JOIN releases orel ON orel.id = p.release_id
+	LEFT JOIN test_cases tc ON tc.id = p.test_case_id
+	LEFT JOIN devices d ON d.id = p.device_id
+	LEFT JOIN releases fr ON fr.id = p.fixed_in_release_id
+	LEFT JOIN releases vr ON vr.id = p.verified_in_release_id`
+
+// releaseProblemOrder sorts open-first, then blocker→minor, then newest.
+const releaseProblemOrder = `
+	ORDER BY
+		(p.status NOT IN ('verified','wontfix')) DESC,
+		CASE p.severity WHEN 'blocker' THEN 0 WHEN 'major' THEN 1 ELSE 2 END,
+		p.created_at DESC`
+
+// scanReleaseProblem scans one row selected with releaseProblemCols. It does NOT set
+// Inherited — the caller sets that based on which release it queried for.
+func scanReleaseProblem(rows pgx.Rows, p *ReleaseProblem) error {
+	return rows.Scan(&p.ID, &p.ReleaseID, &p.OriginVersion,
+		&p.TestCaseID, &p.TestCaseTitle,
+		&p.DeviceID, &p.DeviceSerial, &p.BuildID,
+		&p.Title, &p.Description, &p.Severity, &p.Status, &p.Source, &p.ReportedBy,
+		&p.FixedInReleaseID, &p.FixedInVersion,
+		&p.VerifiedInReleaseID, &p.VerifiedInVersion,
+		&p.CreatedAt, &p.UpdatedAt)
+}
+
+// ListReleaseProblems returns a release's OWN (native) problems — those reported against
+// it — open first then by severity (blocker → minor) and newest. Carried-over problems
+// from earlier builds are returned separately by CarriedForwardProblems.
 func (d *DB) ListReleaseProblems(ctx context.Context, releaseID int) ([]ReleaseProblem, error) {
-	rows, err := d.pool.Query(ctx, `
-		SELECT p.id, p.release_id, p.test_case_id, COALESCE(tc.title, ''),
-		       p.device_id, COALESCE(d.serial_number, ''), p.build_id,
-		       p.title, p.description, p.severity, p.status, p.source, p.reported_by,
-		       p.created_at, p.updated_at
-		FROM release_problems p
-		LEFT JOIN test_cases tc ON tc.id = p.test_case_id
-		LEFT JOIN devices d ON d.id = p.device_id
-		WHERE p.release_id = $1
-		ORDER BY
-			(p.status NOT IN ('verified','wontfix')) DESC,
-			CASE p.severity WHEN 'blocker' THEN 0 WHEN 'major' THEN 1 ELSE 2 END,
-			p.created_at DESC`, releaseID)
+	rows, err := d.pool.Query(ctx,
+		`SELECT`+releaseProblemCols+releaseProblemJoins+`
+		WHERE p.release_id = $1`+releaseProblemOrder, releaseID)
 	if err != nil {
 		return nil, err
 	}
@@ -8751,9 +8800,59 @@ func (d *DB) ListReleaseProblems(ctx context.Context, releaseID int) ([]ReleaseP
 	var out []ReleaseProblem
 	for rows.Next() {
 		var p ReleaseProblem
-		if err := rows.Scan(&p.ID, &p.ReleaseID, &p.TestCaseID, &p.TestCaseTitle,
-			&p.DeviceID, &p.DeviceSerial, &p.BuildID, &p.Title, &p.Description,
-			&p.Severity, &p.Status, &p.Source, &p.ReportedBy, &p.CreatedAt, &p.UpdatedAt); err != nil {
+		if err := scanReleaseProblem(rows, &p); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// CarriedForwardProblems returns manual problems that should follow the release train
+// onto releaseID but were NOT reported against it: (a) still-unresolved bugs from an
+// earlier build that haven't been claimed fixed in any build yet, and (b) problems whose
+// fix is claimed to land in THIS build (awaiting a tester's verification here). All rows
+// are flagged Inherited. Chronology is releases.created_at. This is the surface behind
+// "problems get solved in the next release".
+func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]ReleaseProblem, error) {
+	rows, err := d.pool.Query(ctx,
+		`SELECT`+releaseProblemCols+releaseProblemJoins+`
+		WHERE p.release_id <> $1 AND p.source = 'manual' AND (
+			p.fixed_in_release_id = $1
+			OR (p.status NOT IN ('verified','wontfix')
+			    AND p.fixed_in_release_id IS NULL
+			    AND orel.created_at < (SELECT created_at FROM releases WHERE id = $1))
+		)`+releaseProblemOrder, releaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReleaseProblem
+	for rows.Next() {
+		var p ReleaseProblem
+		if err := scanReleaseProblem(rows, &p); err != nil {
+			return nil, err
+		}
+		p.Inherited = true
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+// ListProblemBoard returns every problem across all releases (open first), for the hub's
+// cross-release "all the problems at a glance" board. Each row is canonical (origin =
+// ReleaseID / OriginVersion); Inherited is left false.
+func (d *DB) ListProblemBoard(ctx context.Context) ([]ReleaseProblem, error) {
+	rows, err := d.pool.Query(ctx,
+		`SELECT`+releaseProblemCols+releaseProblemJoins+releaseProblemOrder)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ReleaseProblem
+	for rows.Next() {
+		var p ReleaseProblem
+		if err := scanReleaseProblem(rows, &p); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -8824,6 +8923,72 @@ func (d *DB) UpdateReleaseProblem(ctx context.Context, id uuid.UUID, status, sev
 func (d *DB) DeleteReleaseProblem(ctx context.Context, id uuid.UUID) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM release_problems WHERE id = $1`, id)
 	return err
+}
+
+// MarkProblemFixedIn records that a dev landed the fix for a problem in fixedInReleaseID
+// and moves it to 'fixed' (awaiting a tester's verification on that build). Passing 0
+// clears the fixed-in link and reopens the problem.
+func (d *DB) MarkProblemFixedIn(ctx context.Context, id uuid.UUID, fixedInReleaseID int) error {
+	if fixedInReleaseID <= 0 {
+		_, err := d.pool.Exec(ctx, `
+			UPDATE release_problems
+			SET fixed_in_release_id = NULL, status = 'open', updated_at = NOW()
+			WHERE id = $1`, id)
+		return err
+	}
+	_, err := d.pool.Exec(ctx, `
+		UPDATE release_problems
+		SET fixed_in_release_id = $2, status = 'fixed', updated_at = NOW()
+		WHERE id = $1`, id, fixedInReleaseID)
+	return err
+}
+
+// VerifyProblem marks a problem verified-fixed on verifiedInReleaseID (a tester confirmed
+// the fix on that build). If no fixed-in build was recorded, the verifying build is taken
+// as the fix build too.
+func (d *DB) VerifyProblem(ctx context.Context, id uuid.UUID, verifiedInReleaseID int) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE release_problems
+		SET verified_in_release_id = $2,
+		    fixed_in_release_id    = COALESCE(fixed_in_release_id, $2),
+		    status = 'verified', updated_at = NOW()
+		WHERE id = $1`, id, verifiedInReleaseID)
+	return err
+}
+
+// GlobalProblemSummary returns the open/blocker/total rollup across every release, for
+// the hub's headline "all the problems at a glance" stat.
+func (d *DB) GlobalProblemSummary(ctx context.Context) (ProblemSummary, error) {
+	var s ProblemSummary
+	err := d.pool.QueryRow(ctx, `
+		SELECT
+			COUNT(*) FILTER (WHERE status NOT IN ('verified','wontfix')),
+			COUNT(*) FILTER (WHERE status NOT IN ('verified','wontfix') AND severity='blocker'),
+			COUNT(*)
+		FROM release_problems`).Scan(&s.Open, &s.Blockers, &s.Total)
+	return s, err
+}
+
+// ActiveRelease returns the release currently "under test" — the newest non-hidden draft,
+// or if there is no draft, the newest non-hidden release. It anchors the hub focus band
+// and is the default carry-forward target. Returns (nil, nil) when there are no releases.
+func (d *DB) ActiveRelease(ctx context.Context) (*Release, error) {
+	var r Release
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, version, name, changelog, status, hidden, skip_base_tests, created_at, published_at,
+		       signed_off_by, signed_off_at
+		FROM releases
+		WHERE NOT hidden
+		ORDER BY (status = 'draft') DESC, created_at DESC
+		LIMIT 1`).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.SkipBaseTests,
+		&r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &r, nil
 }
 
 // ReleaseProblemSummary returns the open/blocker/total counts for one release.
