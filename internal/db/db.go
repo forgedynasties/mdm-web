@@ -475,6 +475,9 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			SET build_id           = EXCLUDED.build_id,
 			    last_seen_at       = NOW(),
 			    latest_battery_pct = COALESCE($3, devices.latest_battery_pct),
+			    -- A check-in reactivates an inactive device: it was only hidden for going
+			    -- silent, so hearing from it again brings it back into every list and count.
+			    hidden             = false,
 			    latest_extra       = %s
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
 	`, extraExpr), serial, buildID, batteryPct, extra).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
@@ -1775,14 +1778,14 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs, windowDays int
 				COUNT(DISTINCT NULLIF(s.build_id, '')) AS builds
 			FROM device_daily_stats s
 			JOIN devices d ON d.id = s.device_id
-			WHERE s.day > CURRENT_DATE - $2::int AND d.restaurant_id IS NOT NULL
+			WHERE s.day > CURRENT_DATE - $2::int AND d.restaurant_id IS NOT NULL AND NOT d.hidden
 			GROUP BY d.restaurant_id
 		),
 		prior AS (
 			SELECT d.restaurant_id, AVG(s.battery_max) AS battery_avg
 			FROM device_daily_stats s
 			JOIN devices d ON d.id = s.device_id
-			WHERE s.day <= CURRENT_DATE - $2::int AND s.day > CURRENT_DATE - ($2::int * 2) AND d.restaurant_id IS NOT NULL
+			WHERE s.day <= CURRENT_DATE - $2::int AND s.day > CURRENT_DATE - ($2::int * 2) AND d.restaurant_id IS NOT NULL AND NOT d.hidden
 			GROUP BY d.restaurant_id
 		),
 		hottest AS (
@@ -1791,7 +1794,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs, windowDays int
 			SELECT DISTINCT ON (d.restaurant_id) d.restaurant_id, d.serial_number AS hot_serial
 			FROM device_daily_stats s
 			JOIN devices d ON d.id = s.device_id
-			WHERE s.day > CURRENT_DATE - $2::int AND d.restaurant_id IS NOT NULL AND s.temp_max IS NOT NULL
+			WHERE s.day > CURRENT_DATE - $2::int AND d.restaurant_id IS NOT NULL AND s.temp_max IS NOT NULL AND NOT d.hidden
 			ORDER BY d.restaurant_id, s.temp_max DESC
 		),
 		devs AS (
@@ -1809,7 +1812,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs, windowDays int
 				COUNT(*) FILTER (WHERE a.severity <> 'critical') AS warn
 			FROM alerts a
 			JOIN devices d ON d.id = a.device_id
-			WHERE a.status <> 'resolved' AND d.restaurant_id IS NOT NULL
+			WHERE a.status <> 'resolved' AND d.restaurant_id IS NOT NULL AND NOT d.hidden
 			GROUP BY d.restaurant_id
 		)
 		SELECT r.id, r.name,
@@ -4989,7 +4992,12 @@ func (d *DB) AlertSummaryCounts(ctx context.Context) (AlertSummary, error) {
 // CountOpenAlerts returns the number of alerts in the 'open' status (for nav badge).
 func (d *DB) CountOpenAlerts(ctx context.Context) (int, error) {
 	var n int
-	err := d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM alerts WHERE status = 'open'`).Scan(&n)
+	// Exclude alerts on inactive (hidden) devices so silenced units don't inflate the
+	// count; fleet-level alerts (no device) always count.
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM alerts a
+		LEFT JOIN devices d ON d.id = a.device_id
+		WHERE a.status = 'open' AND (a.device_id IS NULL OR NOT d.hidden)`).Scan(&n)
 	return n, err
 }
 

@@ -8677,6 +8677,11 @@ func (h *Handler) dispatchAlertNotifications(ctx context.Context, created []db.A
 
 // RunHousekeeping applies the configured auto-hide and retention policies.
 // Safe to call repeatedly; each step is a no-op when its setting is 0.
+// inactiveAfterDays is how long a device may go silent before it is auto-marked
+// inactive (hidden) and dropped from every list, count, and health stat. It comes
+// back automatically the moment it checks in again.
+const inactiveAfterDays = 10
+
 func (h *Handler) RunHousekeeping(ctx context.Context) {
 	// Roll up daily stats first — refresh today and finalize yesterday — so checkins
 	// are always aggregated before the retention prune below can delete them.
@@ -8701,6 +8706,16 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 			h.hub.PublishAlertUpdate()
 		}
 		h.dispatchAlertNotifications(ctx, created)
+	}
+	// Auto-inactivate devices that have been silent for over inactiveAfterDays: they
+	// stop appearing in every list, count, and health stat so long-dead units don't
+	// skew the fleet. They return automatically on their next check-in (UpsertCheckin
+	// clears hidden). Runs before the summary refresh so the cached counts drop them.
+	if n, err := h.db.HideStaleDevices(ctx, inactiveAfterDays); err != nil {
+		log.Printf("[housekeeping] auto-inactivate stale devices: %v", err)
+	} else if n > 0 {
+		log.Printf("[housekeeping] marked %d device(s) inactive (silent > %dd)", n, inactiveAfterDays)
+		h.hub.PublishAlertUpdate() // nudge the dashboard's live counts to refresh
 	}
 	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
