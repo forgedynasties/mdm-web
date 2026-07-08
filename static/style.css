@@ -5002,7 +5002,7 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .rlc-list { display: grid; grid-template-columns: 16px 40px minmax(0, 1.4fr) minmax(0, 1fr) auto auto; column-gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
 /* Rows share the list's column tracks (subgrid) so every progress bar lines up,
    including nested branch rows whose meta/action cells are near-empty. */
-.rlc { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; column-gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border-soft); }
+.rlc { position: relative; grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; column-gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border-soft); }
 .nb-details { grid-column: 1 / -1; }
 .rlc:last-child { border-bottom: 0; }
 .rlc:hover { background: var(--hover); }
@@ -5079,6 +5079,12 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rlc-open svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
 .rlc-open:hover { border-color: var(--accent-edge); color: var(--accent); }
 .rlc-open.disabled { opacity: .3; pointer-events: none; cursor: default; }
+/* Subtle dismiss (×) tucked in the row's top-right corner, clear of the action icons. */
+.rlc-x { position: absolute; top: 6px; right: 8px; margin: 0; z-index: 2; }
+.rlc-x button { display: flex; align-items: center; justify-content: center; width: 19px; height: 19px; padding: 0; border: 0; background: transparent; border-radius: 5px; color: var(--text-faint); opacity: .35; cursor: pointer; transition: opacity .12s, color .12s, background .12s; }
+.rlc:hover .rlc-x button { opacity: .6; }
+.rlc-x button:hover { opacity: 1; color: var(--danger); background: var(--danger-bg); }
+.rlc-x svg { width: 11px; height: 11px; stroke: currentColor; stroke-width: 2.4; fill: none; }
 @media (max-width: 760px) {
   .rlc-list { grid-template-columns: 16px 40px 1fr auto; }
   .rlc-roll, .rlc-meta { display: none; }
