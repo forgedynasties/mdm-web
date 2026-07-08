@@ -1,0 +1,649 @@
+{{define "release_workspace.html"}}
+{{template "header" .}}
+
+{{$rel := .Release}}
+{{$role := .Role}}
+{{$tab := .Tab}}
+{{$blockers := .ProblemSummary.Blockers}}
+{{$qaDone := and (gt .QA.Total 0) .QA.Passed (eq $blockers 0)}}
+{{$signed := ne $rel.SignedOffBy ""}}
+{{$stage := "qa"}}{{if $qaDone}}{{$stage = "signoff"}}{{if $signed}}{{$stage = "done"}}{{end}}{{end}}
+{{$isAdmin := canAdmin $role}}
+{{$canDownloadQfil := and .QFILPackages (or (eq $role "admin") (eq $role "dev") (eq $role "tester"))}}
+
+<a href="/releases" class="back-link">← Releases</a>
+
+<div class="ov-greet">
+  <h1 class="ov-title">
+    <span class="status-badge {{releaseStatusClass $rel.Status}}" style="font-size:12px;vertical-align:middle;">{{$rel.Status}}</span>
+    <span class="mono">{{$rel.Version}}</span>
+  </h1>
+  {{if $rel.Name}}<span class="ov-date">{{$rel.Name}}</span>{{end}}
+  <span class="acts">
+    {{if eq $role "dev"}}
+      {{if $signed}}<form action="/releases/{{$rel.ID}}/sign-off/clear" method="POST" style="display:inline;"><button type="submit" class="btn-outline btn-sm" title="Revoke this dev sign-off">Revoke sign-off</button></form>
+      {{else}}<form action="/releases/{{$rel.ID}}/sign-off" method="POST" style="display:inline;"><button type="submit" class="btn-primary btn-sm" title="Mark as smoke-tested by dev">Sign off (smoke-tested)</button></form>{{end}}
+    {{end}}
+    {{if eq $role "admin"}}
+      {{if and (eq $rel.Status "published") .CanPush}}<a href="/updates?release={{$rel.ID}}" class="btn-outline btn-sm">Deploy</a>{{end}}
+      {{if ne $rel.Status "published"}}
+      <form action="/releases/{{$rel.ID}}/publish" method="POST" style="display:inline;">
+        <button type="submit" class="btn-outline btn-sm"
+          {{if and (gt .QA.Total 0) (not .QA.Passed)}}onclick="return confirm('QA is not complete — {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}}, {{.QA.Fail}} failed{{end}}{{if gt .QA.Untested 0}}, {{.QA.Untested}} untested{{end}}. Publish anyway?')"{{end}}>Publish</button>
+      </form>
+      {{end}}
+    {{end}}
+    {{if $canDownloadQfil}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download hx-boost="false" title="Download the QFIL flashing bundle" style="display:inline-flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>{{end}}
+    {{if .CanManageQFIL}}<button type="button" class="btn-outline btn-sm" onclick="qfilModalOpen()">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</button>{{end}}
+  </span>
+</div>
+
+{{if eq $rel.Status "draft"}}
+<div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg);border:1px solid var(--warn);color:var(--warn);font-size:13px;">
+  This release is a draft. Add its full package (Packages tab), then <strong>Publish</strong> it before deploying.
+</div>
+{{end}}
+
+<!-- Tabs: Overview / QA / Problems / Packages (admin) / Rollout -->
+<div class="dd-tabs" role="tablist" id="rel-tabs">
+  <button class="dd-tab{{if eq $tab "overview"}} active{{end}}" role="tab" type="button" data-rel-tab="overview" onclick="setRelTab('overview',this)">Overview</button>
+  <button class="dd-tab{{if eq $tab "qa"}} active{{end}}" role="tab" type="button" data-rel-tab="qa" onclick="setRelTab('qa',this)">QA <span id="rd-qa-badge" class="tab-badge">{{template "rd-qa-badge" .}}</span></button>
+  <button class="dd-tab{{if eq $tab "problems"}} active{{end}}" role="tab" type="button" data-rel-tab="problems" onclick="setRelTab('problems',this)">Problems <span id="rd-prob-badge" class="tab-badge">{{template "rd-prob-badge" .}}</span></button>
+  {{if $isAdmin}}<button class="dd-tab{{if eq $tab "packages"}} active{{end}}" role="tab" type="button" data-rel-tab="packages" onclick="setRelTab('packages',this)">Packages</button>{{end}}
+  <button class="dd-tab{{if eq $tab "rollout"}} active{{end}}" role="tab" type="button" data-rel-tab="rollout" onclick="setRelTab('rollout',this)">Rollout</button>
+</div>
+
+<!-- ── Overview ─────────────────────────────────────────────────────────── -->
+<section class="dd-panel" data-rel-panel="overview"{{if ne $tab "overview"}} hidden{{end}}>
+  <!-- Release lifecycle pipeline — Created → QA → Sign-off. Deploy is optional. -->
+  <div class="pipe pipe-3">
+    <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Created</div><div class="st-sub">{{timeSince $rel.CreatedAt}}</div></div>
+    <div class="stage {{if $qaDone}}done{{else if eq $stage "qa"}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="st-name">QA</div><div class="st-sub">{{if gt .QA.Total 0}}{{.QA.Pass}}/{{.QA.Total}}{{if gt .QA.Fail 0}} · {{.QA.Fail}} failed{{end}}{{else}}no cases{{end}}</div></div>
+    <div class="stage finish {{if $signed}}done{{else if eq $stage "signoff"}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V3"/></svg></div><div class="st-name">Sign-off</div><div class="st-sub">{{if $signed}}by {{$rel.SignedOffBy}}{{else}}the finish line{{end}}</div></div>
+  </div>
+  <div class="pipe-note">Testing is done at sign-off. Deploying to devices is optional — push this build anytime from the Rollout tab.</div>
+
+  <div class="rel-cols">
+    <div class="rel-main">
+      <!-- Changelog -->
+      {{if $isAdmin}}
+      <div class="card" style="margin-bottom:18px;">
+        <div class="card-header"><h3>Name &amp; changelog</h3><span class="muted small">editable any time</span></div>
+        <form action="/releases/{{$rel.ID}}/meta" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+          <div class="form-row">
+            <label class="form-label">Name <span class="muted small">(optional)</span></label>
+            <input type="text" name="name" class="form-input" placeholder="e.g. June security update" value="{{$rel.Name}}">
+          </div>
+          <div class="form-row">
+            <label class="form-label">Changelog</label>
+            <textarea name="changelog" class="form-textarea" rows="14" style="resize:vertical;min-height:280px;" placeholder="What changed in this release…">{{$rel.Changelog}}</textarea>
+          </div>
+          <div><button type="submit" class="btn-primary">Save changelog</button></div>
+        </form>
+      </div>
+      {{else if $rel.Changelog}}
+      <div class="card" style="margin-bottom:18px;">
+        <div class="card-header"><h3>Changelog</h3></div>
+        <div style="padding:14px 18px;white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$rel.Changelog}}</div>
+      </div>
+      {{end}}
+    </div>
+
+    <div class="rel-rail">
+      <!-- QA readiness -->
+      <div class="card" style="margin-bottom:18px;">
+        <div class="card-header"><h3>QA readiness</h3></div>
+        <div style="padding:16px 18px;">
+          <div class="rel-ready-top">
+            {{if gt .QA.Total 0}}{{$pass := pctOf .QA.Pass .QA.Total}}{{$passfail := pctOf (add .QA.Pass .QA.Fail) .QA.Total}}
+            <div class="rel-donut" style="background:conic-gradient(var(--ok) 0 {{$pass}}%, var(--danger) {{$pass}}% {{$passfail}}%, var(--surface3) {{$passfail}}% 100%);"><span class="rel-donut-c">{{.QA.Pass}}/{{.QA.Total}}</span></div>
+            {{else}}
+            <div class="rel-donut" style="background:var(--surface3);"><span class="rel-donut-c muted">—</span></div>
+            {{end}}
+            <div>
+              <span class="rel-verdict {{if $qaDone}}ok{{else}}warn{{end}}"><span class="d"></span>{{if gt .QA.Total 0}}{{if $qaDone}}Ready to publish{{else}}Not ready{{end}}{{else}}No test cases{{end}}</span>
+            </div>
+          </div>
+          <div class="rel-facts">
+            {{if gt .QA.Fail 0}}<div class="rf"><span class="k">Failed</span><span class="v bad">{{.QA.Fail}}</span></div>{{end}}
+            {{if gt .QA.Untested 0}}<div class="rf"><span class="k">Untested</span><span class="v">{{.QA.Untested}}</span></div>{{end}}
+            <div class="rf"><span class="k">Open problems</span><span class="v {{if gt $blockers 0}}bad{{end}}">{{.ProblemSummary.Open}}{{if gt $blockers 0}} · {{$blockers}} blocker{{if ne $blockers 1}}s{{end}}{{end}}</span></div>
+            <div class="rf"><span class="k">Dev sign-off</span><span class="v {{if $signed}}ok{{end}}">{{if $signed}}✓ {{$rel.SignedOffBy}}{{else}}pending{{end}}</span></div>
+          </div>
+          <button type="button" class="btn-primary" style="width:100%;justify-content:center;margin-top:14px;" onclick="setRelTab('qa')">Open QA →</button>
+        </div>
+      </div>
+
+      <!-- Devices -->
+      <div class="card" style="margin-bottom:18px;">
+        <div class="card-header"><h3>Devices on this version</h3></div>
+        <div style="padding:16px 18px;">
+          {{if gt .DevicesCount 0}}
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px;"><span class="ovx-big" style="font-size:26px;">{{.DevicesCount}}</span><span class="muted small">reporting {{$rel.Version}}</span></div>
+          <a href="/devices?build={{urlquery $rel.Version}}" class="btn-outline btn-sm" style="width:100%;justify-content:center;">Open in Fleet →</a>
+          {{else}}
+          <span class="muted small">No devices are currently reporting this version.</span>
+          {{end}}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── QA ───────────────────────────────────────────────────────────────── -->
+<section class="dd-panel" data-rel-panel="qa"{{if ne $tab "qa"}} hidden{{end}}>
+  <div class="card">
+    <div class="card-header">
+      <h3>Testing &amp; QA</h3>
+      {{if eq $role "admin"}}
+      <form action="/releases/{{$rel.ID}}/qa-base" method="POST" style="margin:0;">
+        <label class="checkbox-label small" style="display:flex;align-items:center;gap:6px;margin:0;color:var(--muted);">
+          <input type="checkbox" name="skip_base_tests" {{if $rel.SkipBaseTests}}checked{{end}} onchange="this.form.submit()">
+          Skip base cases
+        </label>
+        <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
+      </form>
+      {{end}}
+    </div>
+
+    <div id="rd-qa-summary">{{template "rd-qa-summary" .}}</div>
+
+    {{if .Checklist}}
+    {{if .CanRecord}}
+    <div class="qa-filter" id="rd-qa-filter">
+      <button type="button" class="qa-fchip on" data-qafilter="all" onclick="qaFilter('all',this)">All <span class="c">{{.QA.Total}}</span></button>
+      <button type="button" class="qa-fchip" data-qafilter="untested" onclick="qaFilter('untested',this)">Untested <span class="c">{{.QA.Untested}}</span></button>
+      <button type="button" class="qa-fchip" data-qafilter="failed" onclick="qaFilter('failed',this)">Failed <span class="c">{{add .QA.Fail .QA.Blocked}}</span></button>
+    </div>
+    {{end}}
+    <div class="qa-list" id="rd-qa-list">
+      {{$canRecord := .CanRecord}}
+      {{range .Checklist}}
+      {{template "rd-qa-row" (dict "Item" . "CanRecord" $canRecord "Role" $role "RelID" $rel.ID)}}
+      {{end}}
+    </div>
+    {{else}}
+    <div class="empty" style="padding:18px;">No test cases apply to this release yet.{{if eq $role "admin"}} Add base cases from the Releases page, or a release-specific case below.{{end}}</div>
+    {{end}}
+
+    {{if eq $role "admin"}}
+    <div class="qa-add">
+      <form action="/test-cases" method="POST" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="hidden" name="release_id" value="{{$rel.ID}}">
+        <input name="title" class="form-input" placeholder="Add a release-specific test case…" required style="flex:1;min-width:240px;">
+        <input name="area" class="form-input" placeholder="Area" style="width:150px;">
+        <button type="submit" class="btn-outline btn-sm">Add case</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+</section>
+
+<!-- ── Problems ─────────────────────────────────────────────────────────── -->
+<section class="dd-panel" data-rel-panel="problems"{{if ne $tab "problems"}} hidden{{end}}>
+  <div class="card">
+    <div class="card-header">
+      <h3>Problems</h3>
+      <span class="muted small" id="rd-prob-count">{{template "rd-prob-count" .}}</span>
+    </div>
+    <div style="padding:14px 16px;">
+      {{if .CanReport}}
+      <form action="/releases/{{$rel.ID}}/problems" method="POST" class="prob-form" id="prob-form"
+            hx-post="/releases/{{$rel.ID}}/problems" hx-swap="none" hx-on::after-request="if(event.detail.successful){this.reset();}">
+        <input name="title" id="prob-title-input" class="form-input" placeholder="What went wrong? (short title)" required maxlength="200">
+        <textarea name="description" id="prob-desc-input" class="form-input" rows="3" placeholder="Repro steps, what you saw, paste a relevant log snippet…" style="resize:vertical;"></textarea>
+        <div class="prob-form-row">
+          <select name="severity" class="form-input" title="Severity">
+            <option value="blocker">Blocker</option>
+            <option value="major" selected>Major</option>
+            <option value="minor">Minor</option>
+          </select>
+          <select name="test_case_id" class="form-input" title="Related test case">
+            <option value="">— related test case (optional) —</option>
+            {{range .Checklist}}<option value="{{.ID}}">{{.Title}}</option>{{end}}
+          </select>
+          <input name="device_serial" id="prob-device-input" class="form-input" placeholder="Device serial (optional)" list="prob-devices" autocapitalize="off">
+          <datalist id="prob-devices">{{range .DevicesOnVersion}}<option value="{{.SerialNumber}}"></option>{{end}}</datalist>
+          <button type="submit" class="btn-primary">Report problem</button>
+        </div>
+      </form>
+
+      {{if .BuildCrashes}}
+      <div class="prob-crashes">
+        <div class="prob-crashes-h">Crashes seen on devices running {{$rel.Version}} <span class="muted small">— auto-detected; report the relevant ones</span></div>
+        {{range .BuildCrashes}}
+        <div class="prob-crash">
+          <span class="prob-crash-kind">{{.Kind}}</span>
+          <a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>
+          <span class="prob-crash-sum">{{if .Summary}}{{.Summary}}{{else}}—{{end}}</span>
+          <span class="prob-crash-when muted small">{{timeSince .OccurredAt}}</span>
+          <button type="button" class="qa-pill" onclick="probFromCrash(this)" data-kind="{{.Kind}}" data-serial="{{.Serial}}" data-sum="{{.Summary}}">Report</button>
+          {{if eq $role "admin"}}<form action="/releases/{{$rel.ID}}/crashes/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Remove this crash? It also disappears from the Alerts page."><button type="submit" class="qa-pill" title="Remove this crash — also clears it from Alerts">Remove</button></form>{{end}}
+          {{if .Detail}}
+          <details class="prob-crash-trace">
+            <summary class="muted small">View crash / ANR trace</summary>
+            <pre class="logcat-terminal">{{colorizeLogcat .Detail}}</pre>
+          </details>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+      {{end}}
+
+      {{if .Problems}}
+      <div class="qa-filter" style="margin-top:14px;">
+        <button type="button" class="qa-fchip on" data-probfilter="all" onclick="probFilter('all',this)">All</button>
+        <button type="button" class="qa-fchip" data-probfilter="open" onclick="probFilter('open',this)">Open</button>
+        <button type="button" class="qa-fchip" data-probfilter="blocker" onclick="probFilter('blocker',this)">Blockers</button>
+      </div>
+      {{end}}
+      <div id="rd-prob-list">{{template "rd-prob-list" .}}</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Packages (admin/dev) ─────────────────────────────────────────────── -->
+{{if $isAdmin}}
+<section class="dd-panel" data-rel-panel="packages"{{if ne $tab "packages"}} hidden{{end}}>
+  <div class="card" style="margin-bottom:18px;">
+    <div class="card-header"><h3>Packages</h3><span class="muted small">the server picks the right artifact per device</span></div>
+    <div style="padding:16px 18px;">
+      {{if .Packages}}
+      <div class="pkg-stack">
+        {{range .Packages}}
+        <div class="pkg {{if eq .Type "incremental"}}inc{{else}}base{{end}}"{{if eq .Status "yanked"}} style="opacity:.5"{{end}}>
+          <span class="ptype">{{.Type}}</span>
+          <div class="pmeta">
+            <b>{{if eq .Type "incremental"}}{{if .SourceBuildID}}from {{.SourceBuildID}}{{else}}from any build{{end}}{{else}}Baseline image{{end}}</b>
+            <a href="{{.UpdateURL}}" target="_blank" rel="noopener" class="u" title="{{.UpdateURL}}">{{truncate .UpdateURL 54}}</a>
+          </div>
+          <span class="pwhen muted small">{{timeSince .CreatedAt}}</span>
+          {{if eq $role "admin"}}<form action="/releases/{{$rel.ID}}/packages/{{.ID}}/delete" method="POST" style="margin:0;" hx-confirm="Delete this package from the release?"><button type="submit" class="pkg-x" title="Delete package">✕</button></form>{{end}}
+        </div>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="empty" style="padding:8px 0 16px;">No packages yet — add the full image below.</div>
+      {{end}}
+
+      {{if eq $role "admin"}}
+      <!-- Package composer: paste a URL, we read the OTA metadata (no full download). -->
+      <div class="composer">
+        <div class="composer-h">Add package <span class="muted small">for {{$rel.Version}}</span></div>
+        <div class="tcards">
+          <button type="button" class="tcard{{if not .HasFull}} on{{end}}" data-mode="full" {{if .HasFull}}disabled{{end}} onclick="setPkgType('full')">
+            <div class="tt"><span class="dot b"></span>Full image</div>
+            <div class="td">The complete build — any device can install it.{{if .HasFull}} Already added.{{end}}</div>
+          </button>
+          <button type="button" class="tcard{{if .HasFull}} on{{end}}" data-mode="incremental" onclick="setPkgType('incremental')">
+            <div class="tt"><span class="dot i"></span>Incremental</div>
+            <div class="td">A smaller patch from one specific build.</div>
+          </button>
+        </div>
+        <form id="add-pkg-form" action="/releases/{{$rel.ID}}/packages" method="POST">
+          <input type="hidden" name="type" id="pkg-type-input" value="{{if .HasFull}}incremental{{else}}full{{end}}">
+          <div class="field" id="source-build-row" style="display:{{if .HasFull}}block{{else}}none{{end}};">
+            <label>From build</label>
+            <select name="source_build_id" id="pkg-source-build" class="sel">
+              <option value="">— choose the source release —</option>
+              {{range .SourceReleases}}{{if ne .Version $rel.Version}}<option value="{{.Version}}">{{.Version}}{{if .Name}} — {{.Name}}{{end}}</option>{{end}}{{end}}
+            </select>
+            <div class="form-hint">Only devices on this build receive the incremental.</div>
+          </div>
+          <div class="field">
+            <label>Package URL</label>
+            <div class="urlbox">
+              <input type="url" name="update_url" id="pkg-update-url" placeholder="https://…/update.zip" required oninput="pkgReset()">
+              <button type="button" class="verify" onclick="pkgVerify()">Verify</button>
+            </div>
+            <input type="hidden" name="update_url_b64" id="pkg-update-url-b64">
+            <div id="pkg-detected" class="detected-line"></div>
+          </div>
+          <button type="submit" class="btn-primary">Add package</button>
+        </form>
+      </div>
+      {{end}}
+    </div>
+  </div>
+</section>
+{{end}}
+
+<!-- ── Rollout ──────────────────────────────────────────────────────────── -->
+<section class="dd-panel" data-rel-panel="rollout"{{if ne $tab "rollout"}} hidden{{end}}>
+  <div class="card" style="margin-bottom:18px;">
+    <div class="card-header"><h3>Rollout</h3>{{if eq $role "admin"}}<a class="muted small" href="/updates?release={{$rel.ID}}" style="text-decoration:none;">Deploy →</a>{{end}}</div>
+    <div style="padding:6px 18px 8px;">
+      <div class="rf"><span class="k">Deployments</span><span class="v stat">{{len .Deployments}}</span></div>
+      <div class="rf"><span class="k">On this version</span><span class="v stat">{{.DevicesCount}}</span></div>
+      <div class="rf"><span class="k">Full image</span><span class="v {{if .HasFull}}ok{{end}}">{{if .HasFull}}ready{{else}}none yet{{end}}</span></div>
+      <div class="rf"><span class="k">QFIL bundle</span><span class="v {{if .QFILPackages}}ok{{end}}">{{if .QFILPackages}}ready{{else}}none{{end}}</span></div>
+    </div>
+    {{if .Deployments}}
+    <div style="border-top:1px solid var(--border-soft);">
+      {{range .Deployments}}
+      <a href="/releases/{{$rel.ID}}/deployments/{{.ID}}" class="rel-deploy-row">
+        <span class="mono small">#{{.ID}}</span>
+        <span class="status-badge {{deployStatusClass .Status}}">{{.Status}}</span>
+        <span class="muted small" style="margin-left:auto;">{{if gt .DeviceTotal 0}}{{.DeviceInstalled}}/{{.DeviceTotal}}{{else}}—{{end}}</span>
+      </a>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="empty" style="padding:8px 18px 16px;">No deployments yet.{{if eq $role "admin"}} Push this build from <a href="/updates?release={{$rel.ID}}">Updates →</a>{{end}}</div>
+    {{end}}
+  </div>
+
+  <div class="card" style="margin-bottom:18px;">
+    <div class="card-header"><h3>Devices on this version</h3></div>
+    <div style="padding:16px 18px;">
+      {{if gt .DevicesCount 0}}
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:12px;"><span class="ovx-big" style="font-size:26px;">{{.DevicesCount}}</span><span class="muted small">reporting {{$rel.Version}}</span></div>
+      <a href="/devices?build={{urlquery $rel.Version}}" class="btn-outline btn-sm" style="width:100%;justify-content:center;">Open in Fleet →</a>
+      {{else}}
+      <span class="muted small">No devices are currently reporting this version.</span>
+      {{end}}
+    </div>
+  </div>
+</section>
+
+<!-- QFIL flashing bundle modal -->
+{{if .CanManageQFIL}}
+<div id="qfil-modal" class="modal-backdrop" onclick="qfilBackdrop(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</span>
+      <button type="button" class="modal-close" aria-label="Close" onclick="qfilModalClose()">&times;</button>
+    </div>
+    <div class="modal-body">
+      {{if .QFILPackages}}{{$q := index .QFILPackages 0}}
+      <div class="card" style="margin:0 0 14px;padding:12px 14px;background:var(--surface2);border-radius:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <div style="min-width:0;">
+            <div style="font-weight:600;font-size:13px;">Current: {{if $q.Label}}{{$q.Label}}{{else}}QFIL package{{end}}</div>
+            <div class="muted small">{{if $q.AddedBy}}by {{$q.AddedBy}} · {{end}}{{localTime $q.CreatedAt}}{{if $q.Notes}} · {{$q.Notes}}{{end}}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex:none;">
+            <a href="{{$q.URL}}" class="rlc-open" title="Download QFIL flashing package" download><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>
+            <form action="/releases/{{$rel.ID}}/qfil/{{$q.ID}}/delete" method="POST" style="margin:0;" hx-confirm="Remove the QFIL package from this release?">
+              <button type="submit" class="btn-outline btn-sm">Delete</button>
+            </form>
+          </div>
+        </div>
+      </div>
+      <div class="muted small">Update the fields below and save to replace it — one QFIL bundle per release.</div>
+      {{else}}
+      <div class="muted small">The Qualcomm flashing bundle for {{$rel.Version}}. The test team downloads it from the Releases list.</div>
+      {{end}}
+      <form id="add-qfil-form" action="/releases/{{$rel.ID}}/qfil" method="POST" class="command-form" style="padding:0;margin-top:12px;">
+        <div class="form-row">
+          <label class="form-label">Label <span class="muted small">(optional)</span></label>
+          <input type="text" name="label" class="form-input" placeholder="e.g. variant A / full flash"{{if .QFILPackages}} value="{{(index .QFILPackages 0).Label}}"{{end}}>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Package URL</label>
+          <input type="url" name="qfil_url" id="qfil-url" class="form-input" placeholder="https://..." required{{if .QFILPackages}} value="{{(index .QFILPackages 0).URL}}"{{end}}>
+          <input type="hidden" name="qfil_url_b64" id="qfil-url-b64">
+          <div class="form-hint">External URL where the QFIL flashing bundle is hosted.</div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Notes <span class="muted small">(optional)</span></label>
+          <input type="text" name="notes" class="form-input" placeholder="e.g. flash with QFIL 2.0, EDL mode"{{if .QFILPackages}} value="{{(index .QFILPackages 0).Notes}}"{{end}}>
+        </div>
+        <button type="submit" class="btn-primary">{{if .QFILPackages}}Save changes{{else}}Add QFIL Package{{end}}</button>
+      </form>
+    </div>
+  </div>
+</div>
+{{end}}
+
+<script>
+// ── Release workspace tabs (client-side; all panels are on the page so htmx OOB
+//    swaps into #rd-qa-summary / #rd-prob-list / the tab badges keep working
+//    regardless of which tab is showing). Deep-linkable via ?tab= and remembered. ──
+(function () {
+  var relTabKey = 'rel-tab:{{$rel.ID}}';
+  function apply(name) {
+    document.querySelectorAll('#rel-tabs .dd-tab').forEach(function (t) {
+      t.classList.toggle('active', t.getAttribute('data-rel-tab') === name);
+    });
+    document.querySelectorAll('.dd-panel[data-rel-panel]').forEach(function (p) {
+      p.hidden = p.getAttribute('data-rel-panel') !== name;
+    });
+  }
+  window.setRelTab = function (name, btn) {
+    // Guard against a tab that isn't present for this role (e.g. packages).
+    if (!document.querySelector('.dd-panel[data-rel-panel="' + name + '"]')) name = 'overview';
+    apply(name);
+    try { localStorage.setItem(relTabKey, name); } catch (e) {}
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.set('tab', name);
+      history.replaceState(history.state, '', u);
+    } catch (e) {}
+  };
+})();
+
+// Prefill the problem report form from an auto-detected crash and jump to it.
+function probFromCrash(btn) {
+  var t = document.getElementById('prob-title-input');
+  var d = document.getElementById('prob-device-input');
+  var desc = document.getElementById('prob-desc-input');
+  var kind = btn.dataset.kind || 'crash', sum = btn.dataset.sum || '', serial = btn.dataset.serial || '';
+  if (t) t.value = kind + (sum ? ': ' + sum : '') + (serial ? ' on ' + serial : '');
+  if (d) d.value = serial;
+  if (desc && !desc.value) desc.value = 'Auto-detected ' + kind + (serial ? ' on ' + serial : '') + '.';
+  var f = document.getElementById('prob-form');
+  if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (t) t.focus();
+}
+// ── QA checklist filter/focus (client-side; all rows are on the page) ──
+function qaFilter(mode, btn) {
+  document.querySelectorAll('#rd-qa-filter .qa-fchip[data-qafilter]').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  document.querySelectorAll('#rd-qa-list .qa-row').forEach(function (row) {
+    var s = row.getAttribute('data-status');
+    var show = mode === 'all'
+      || (mode === 'untested' && s === 'untested')
+      || (mode === 'failed' && (s === 'fail' || s === 'blocked'));
+    row.style.display = show ? '' : 'none';
+  });
+}
+function probFilter(mode, btn) {
+  btn.parentElement.querySelectorAll('.qa-fchip[data-probfilter]').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  document.querySelectorAll('#rd-prob-list .prob').forEach(function (row) {
+    var show = mode === 'all'
+      || (mode === 'open' && row.getAttribute('data-open') === '1')
+      || (mode === 'blocker' && row.getAttribute('data-severity') === 'blocker');
+    row.style.display = show ? '' : 'none';
+  });
+}
+</script>
+
+{{if .CanManageQFIL}}
+<script>
+function qfilModalOpen() { var m = document.getElementById('qfil-modal'); if (m) m.classList.add('modal-open'); }
+function qfilModalClose() { var m = document.getElementById('qfil-modal'); if (m) m.classList.remove('modal-open'); }
+function qfilBackdrop(e) { if (e.target.id === 'qfil-modal') qfilModalClose(); }
+</script>
+{{end}}
+
+{{if canAdmin $role}}
+<script>
+// Package composer type toggle (Full / Incremental).
+function setPkgType(mode) {
+  var box = document.querySelector('.composer'); if (!box) return;
+  var fullBtn = box.querySelector('.tcard[data-mode="full"]');
+  if (mode === 'full' && fullBtn && fullBtn.disabled) return; // only one full per release
+  document.getElementById('pkg-type-input').value = mode;
+  var srcRow = document.getElementById('source-build-row');
+  var srcInput = document.getElementById('pkg-source-build');
+  if (srcRow) srcRow.style.display = mode === 'incremental' ? 'block' : 'none';
+  if (srcInput) srcInput.required = mode === 'incremental';
+  box.querySelectorAll('.tcard').forEach(function (b) { b.classList.toggle('on', b.dataset.mode === mode); });
+}
+function pkgReset() { var o = document.getElementById('pkg-detected'); if (o) o.innerHTML = ''; }
+// Verify: read the OTA package's metadata by URL (server range-reads it, no download)
+// and auto-set full vs incremental + show the target device and size.
+function pkgVerify() {
+  var el = document.getElementById('pkg-update-url'); var url = (el.value || '').trim();
+  var out = document.getElementById('pkg-detected'); if (!out) return;
+  if (!url) { out.innerHTML = '<span class="pkg-bad">Enter a package URL first.</span>'; return; }
+  out.innerHTML = '<span class="muted small"><span class="ws-dot"></span>Reading package metadata…</span>';
+  var url64 = btoa(unescape(encodeURIComponent(url))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  var body = new URLSearchParams(); body.set('update_url_b64', url64);
+  fetch('/releases/{{$rel.ID}}/packages/inspect', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (!d.ok) { out.innerHTML = '<span class="pkg-bad">✗ ' + (d.error || 'Could not read the package') + '</span>'; return; }
+      if (d.type) setPkgType(d.type);
+      var sz = d.size_bytes > 1073741824 ? (d.size_bytes / 1073741824).toFixed(2) + ' GB' : Math.round(d.size_bytes / 1048576) + ' MB';
+      out.innerHTML = '<span class="pkg-ok">✓ Reachable</span> <span class="pkg-chip">' + sz + '</span> <span class="pkg-chip">' + d.type + (d.device ? ' · for ' + d.device : '') + '</span>';
+    })
+    .catch(function () { out.innerHTML = '<span class="pkg-bad">✗ Couldn’t reach the package.</span>'; });
+}
+// base64-encode the add-package URL on submit (WAF bypass), mirroring the QFIL form.
+(function () {
+  var form = document.getElementById('add-pkg-form');
+  if (!form) return;
+  form.addEventListener('submit', function () {
+    var urlInput = document.getElementById('pkg-update-url');
+    var b64Input = document.getElementById('pkg-update-url-b64');
+    if (!urlInput || !b64Input || !urlInput.value) return;
+    b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    urlInput.removeAttribute('name');
+  });
+})();
+(function () {
+  var form = document.getElementById('add-qfil-form');
+  if (!form) return;
+  form.addEventListener('submit', function () {
+    var urlInput = document.getElementById('qfil-url');
+    var b64Input = document.getElementById('qfil-url-b64');
+    if (!urlInput || !b64Input || !urlInput.value) return;
+    b64Input.value = btoa(unescape(encodeURIComponent(urlInput.value))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    urlInput.removeAttribute('name');
+  });
+})();
+</script>
+{{end}}
+
+{{template "footer" .}}
+{{end}}
+
+{{/* ── QA / Problems partials — shared by the initial page render and the htmx
+      OOB swaps returned by the mark-case / file-problem / update-problem handlers,
+      so those actions update in place with no full-page reload. ── */}}
+
+{{define "rd-qa-badge"}}{{if gt .QA.Total 0}}<span class="pill">{{.QA.Pass}}/{{.QA.Total}}</span>{{end}}{{end}}
+
+{{define "rd-prob-badge"}}{{if gt .ProblemSummary.Open 0}}<span class="pill"{{if gt .ProblemSummary.Blockers 0}} style="background:var(--danger-bg);color:var(--danger)"{{end}}>{{.ProblemSummary.Open}}</span>{{end}}{{end}}
+
+{{define "rd-prob-count"}}{{.ProblemSummary.Open}} open{{if gt .ProblemSummary.Blockers 0}} · {{.ProblemSummary.Blockers}} blocker{{if ne .ProblemSummary.Blockers 1}}s{{end}}{{end}} · {{.ProblemSummary.Total}} total{{end}}
+
+{{define "rd-qa-summary"}}
+  {{if gt .QA.Total 0}}
+  <div class="qa-progress">
+    <div class="qa-bar" title="{{.QA.Pass}} pass · {{.QA.Fail}} fail · {{.QA.Blocked}} blocked · {{.QA.Skip}} skip · {{.QA.Untested}} untested">
+      {{if gt .QA.Pass 0}}<i class="pass" style="width:{{pctOf .QA.Pass .QA.Total}}%"></i>{{end}}
+      {{if gt .QA.Fail 0}}<i class="fail" style="width:{{pctOf .QA.Fail .QA.Total}}%"></i>{{end}}
+      {{if gt .QA.Blocked 0}}<i class="blocked" style="width:{{pctOf .QA.Blocked .QA.Total}}%"></i>{{end}}
+      {{if gt .QA.Skip 0}}<i class="skip" style="width:{{pctOf .QA.Skip .QA.Total}}%"></i>{{end}}
+    </div>
+    <div class="qa-legend">
+      <span><i class="pass"></i>{{.QA.Pass}} pass</span>
+      {{if gt .QA.Fail 0}}<span><i class="fail"></i>{{.QA.Fail}} fail</span>{{end}}
+      {{if gt .QA.Blocked 0}}<span><i class="blocked"></i>{{.QA.Blocked}} blocked</span>{{end}}
+      {{if gt .QA.Skip 0}}<span><i class="skip"></i>{{.QA.Skip}} skip</span>{{end}}
+      {{if gt .QA.Untested 0}}<span><i class="untested"></i>{{.QA.Untested}} untested</span>{{end}}
+    </div>
+  </div>
+  {{end}}
+  {{$blockers := .ProblemSummary.Blockers}}
+  {{$ready := and (or (eq .QA.Total 0) .QA.Passed) (eq $blockers 0)}}
+  <div class="rd-ready {{if $ready}}ok{{else}}warn{{end}}">
+    <span class="rd-ready-verdict">{{if $ready}}Ready to publish{{else}}Not ready{{end}}</span>
+    <span class="rd-ready-detail">
+      {{if not $ready}}{{.QA.Untested}} untested · {{.QA.Fail}} failed · {{$blockers}} open blocker{{if ne $blockers 1}}s{{end}} · {{end}}{{if .Release.SignedOffBy}}dev sign-off ✓ {{.Release.SignedOffBy}}{{else}}dev sign-off pending{{end}}
+    </span>
+  </div>
+  {{if and (gt .QA.Total 0) (not .CanRecord)}}<div class="qa-flash">Read-only — only the tester role can mark cases. {{if gt .QA.Untested 0}}{{.QA.Untested}} still untested.{{end}}</div>{{end}}
+  {{if and (not (eq .Role "admin")) .Release.SkipBaseTests}}<div class="qa-flash">Base cases skipped — only this release's own cases apply.</div>{{end}}
+{{end}}
+
+{{define "rd-qa-row"}}
+{{$st := .Item.Status}}{{$role := .Role}}{{$relID := .RelID}}
+<div class="qa-row {{$st}}" data-status="{{$st}}" data-area="{{if .Item.Area}}{{.Item.Area}}{{else}}General{{end}}">
+  <span class="qa-dot"></span>
+  <div class="qa-id">
+    <div class="qa-title">{{.Item.Title}}{{if .Item.Base}} <span class="qa-star" title="standard case — every release">★</span>{{end}}</div>
+    <div class="qa-meta">{{if .Item.Area}}{{.Item.Area}}{{else}}General{{end}}{{if .Item.Steps}} · {{.Item.Steps}}{{end}}{{if .Item.Expected}} · Expected: {{.Item.Expected}}{{end}}{{if and (not .Item.Base) (eq $role "admin")}} · <a href="#" onclick="document.getElementById('qa-del-{{.Item.ID}}').submit();return false;" class="qa-del">remove</a>{{end}}</div>
+    {{if and (not .Item.Base) (eq $role "admin")}}<form id="qa-del-{{.Item.ID}}" action="/test-cases/{{.Item.ID}}/delete" method="POST" hidden hx-confirm="Remove this test case from this release?"><input type="hidden" name="redirect" value="/releases/{{$relID}}?tab=qa"></form>{{end}}
+  </div>
+  {{if .CanRecord}}
+  <form class="qa-rec" action="/releases/{{$relID}}/test-results" method="POST"
+        hx-post="/releases/{{$relID}}/test-results" hx-target="closest .qa-row" hx-swap="outerHTML">
+    <input type="hidden" name="test_case_id" value="{{.Item.ID}}">
+    <input name="notes" class="qa-notes form-input" value="{{.Item.Notes}}" placeholder="notes…">
+    <div class="qa-pills">
+      <button type="submit" name="status" value="pass" class="qa-pill pass{{if eq $st "pass"}} on{{end}}">Pass</button>
+      <button type="submit" name="status" value="fail" class="qa-pill fail{{if eq $st "fail"}} on{{end}}">Fail</button>
+      <button type="submit" name="status" value="blocked" class="qa-pill blocked{{if eq $st "blocked"}} on{{end}}">Block</button>
+      <button type="submit" name="status" value="skip" class="qa-pill skip{{if eq $st "skip"}} on{{end}}">Skip</button>
+    </div>
+  </form>
+  {{else}}
+  <div class="qa-ro">
+    <span class="status-badge {{if eq $st "pass"}}ok{{else if eq $st "fail"}}danger{{else if eq $st "blocked"}}warn{{else}}muted{{end}}">{{$st}}</span>
+    {{if .Item.TestedBy}}<span class="qa-tested">{{.Item.TestedBy}}{{if .Item.Notes}} — {{.Item.Notes}}{{end}}</span>{{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "rd-prob-list"}}
+{{$relID := .Release.ID}}{{$canReport := .CanReport}}
+{{if .Problems}}
+<div class="prob-list">
+  {{range .Problems}}
+  {{$open := not (or (eq .Status "verified") (eq .Status "wontfix"))}}
+  <div class="prob{{if not $open}} closed{{end}}" data-open="{{if $open}}1{{else}}0{{end}}" data-severity="{{.Severity}}">
+    <div class="prob-h">
+      <span class="prob-sev {{.Severity}}">{{.Severity}}</span>
+      <span class="prob-title">{{.Title}}</span>
+      {{if eq .Source "qa"}}<span class="prob-qa" title="Auto-created from a failed QA case; resolves when the case passes">from QA</span>{{end}}
+      <span class="prob-status st-{{.Status}}">{{.Status}}</span>
+    </div>
+    {{if .Description}}<div class="prob-desc">{{.Description}}</div>{{end}}
+    <div class="prob-meta">
+      {{if .TestCaseTitle}}case: <b>{{.TestCaseTitle}}</b> · {{end}}
+      {{if .DeviceSerial}}<a href="/devices/{{.DeviceSerial}}" class="link-detail mono">{{.DeviceSerial}}</a> · {{end}}
+      {{if .BuildID}}build {{.BuildID}} · {{end}}{{if .ReportedBy}}{{.ReportedBy}} · {{end}}{{timeSince .CreatedAt}}
+    </div>
+    {{if $canReport}}
+    <form action="/releases/{{$relID}}/problems/{{.ID}}" method="POST" class="prob-actions"
+          hx-post="/releases/{{$relID}}/problems/{{.ID}}" hx-swap="none">
+      {{if $open}}
+        <button name="status" value="fixed" class="qa-pill{{if eq .Status "fixed"}} on{{end}}">Fixed</button>
+        <button name="status" value="verified" class="qa-pill pass">Verified ✓</button>
+        <button name="status" value="wontfix" class="qa-pill skip">Won't fix</button>
+      {{else}}
+        <span class="prob-resolved">{{if eq .Status "verified"}}Verified fixed{{else}}Won't fix{{end}}</span>
+        <button name="status" value="open" class="qa-pill">Reopen</button>
+      {{end}}
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{else}}
+<div class="empty" style="padding:16px;">No problems reported for this release.{{if .CanReport}} File one above when a test turns up an issue.{{end}}</div>
+{{end}}
+{{end}}
+
+{{define "release-oob"}}
+<span id="rd-qa-badge" hx-swap-oob="innerHTML">{{template "rd-qa-badge" .}}</span>
+<span id="rd-prob-badge" hx-swap-oob="innerHTML">{{template "rd-prob-badge" .}}</span>
+<span id="rd-prob-count" hx-swap-oob="innerHTML">{{template "rd-prob-count" .}}</span>
+<div id="rd-qa-summary" hx-swap-oob="innerHTML">{{template "rd-qa-summary" .}}</div>
+<div id="rd-prob-list" hx-swap-oob="innerHTML">{{template "rd-prob-list" .}}</div>
+{{end}}
