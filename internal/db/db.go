@@ -142,10 +142,12 @@ type Release struct {
 	PublishedAt   *time.Time `json:"published_at"`
 	SignedOffBy   string     `json:"signed_off_by"` // dev who smoke-tested; "" when not signed off
 	SignedOffAt   *time.Time `json:"signed_off_at"`
-	TestingDoneAt *time.Time `json:"testing_done_at"` // finish line: nil = active (under test), set = inactive
-	TestingDoneBy string     `json:"testing_done_by"`
-	PackageCount  int        `json:"package_count,omitempty"` // populated by ListReleases
-	DeployCount   int        `json:"deploy_count,omitempty"`  // populated by ListReleases
+	TestingDoneAt   *time.Time `json:"testing_done_at"` // finish line: nil = active (under test), set = inactive
+	TestingDoneBy   string     `json:"testing_done_by"`
+	ParentReleaseID *int       `json:"parent_release_id"` // set for branch builds — the release this forked from
+	IsBranch        bool       `json:"is_branch"`         // off-mainline temporary test build
+	PackageCount    int        `json:"package_count,omitempty"` // populated by ListReleases
+	DeployCount     int        `json:"deploy_count,omitempty"`  // populated by ListReleases
 }
 
 // FleetVersion is one release version actually reported by devices in the field, with the
@@ -7423,6 +7425,16 @@ CREATE INDEX IF NOT EXISTS idx_release_problems_fixed_in ON release_problems(fix
 -- intermediate gate, not the finish.
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS testing_done_at TIMESTAMPTZ;
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS testing_done_by TEXT NOT NULL DEFAULT '';
+
+-- Branch builds: an off-mainline, temporary test build forked from a release (like a git
+-- branch off main). parent_release_id is what it forked from; is_branch marks it so it's
+-- kept out of the mainline path — it never becomes the active release, never joins the
+-- release train, and its problems are fully isolated (no carry-forward either direction,
+-- absent from the cross-release board). It can still hold packages + deploy like any
+-- release. Nested under its parent in the UI.
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS parent_release_id INTEGER REFERENCES releases(id) ON DELETE SET NULL;
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS is_branch BOOLEAN NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_releases_parent ON releases(parent_release_id);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -7577,10 +7589,10 @@ func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 	var r Release
 	err := d.pool.QueryRow(ctx, `
 		SELECT id, version, name, changelog, status, skip_base_tests, created_at, published_at,
-		       signed_off_by, signed_off_at, testing_done_at, testing_done_by
+		       signed_off_by, signed_off_at, testing_done_at, testing_done_by, parent_release_id, is_branch
 		FROM releases WHERE id = $1
 	`, id).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.CreatedAt, &r.PublishedAt,
-		&r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy)
+		&r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch)
 	if err != nil {
 		return nil, err
 	}
@@ -7591,6 +7603,7 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT r.id, r.version, r.name, r.changelog, r.status, r.hidden, r.created_at, r.published_at,
 		       r.signed_off_by, r.signed_off_at, r.testing_done_at, r.testing_done_by,
+		       r.parent_release_id, r.is_branch,
 		       COUNT(DISTINCT p.id) AS package_count,
 		       COUNT(DISTINCT u.id) AS deploy_count
 		FROM releases r
@@ -7606,7 +7619,7 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.PackageCount, &r.DeployCount); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch, &r.PackageCount, &r.DeployCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -7868,6 +7881,42 @@ func (d *DB) SetReleaseTestingDone(ctx context.Context, id int, by string) error
 func (d *DB) ClearReleaseTestingDone(ctx context.Context, id int) error {
 	_, err := d.pool.Exec(ctx, `UPDATE releases SET testing_done_at = NULL, testing_done_by = '' WHERE id = $1`, id)
 	return err
+}
+
+// CreateBranchRelease forks an off-mainline branch build from parentID: a new release with
+// is_branch + parent_release_id set. version must be unique. Returns the new release id.
+func (d *DB) CreateBranchRelease(ctx context.Context, parentID int, version, name, changelog string) (int, error) {
+	var id int
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO releases (version, name, changelog, is_branch, parent_release_id)
+		VALUES ($1, $2, $3, true, $4) RETURNING id`,
+		version, name, changelog, parentID).Scan(&id)
+	return id, err
+}
+
+// ListBranchReleases returns the branch builds forked from parentID, newest first, each
+// with its open-problem count so the parent's Branches tab can summarise them.
+func (d *DB) ListBranchReleases(ctx context.Context, parentID int) ([]Release, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, version, name, status, created_at, signed_off_by, testing_done_at
+		FROM releases WHERE parent_release_id = $1 AND is_branch
+		ORDER BY created_at DESC`, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Release
+	for rows.Next() {
+		var r Release
+		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Status, &r.CreatedAt, &r.SignedOffBy, &r.TestingDoneAt); err != nil {
+			return nil, err
+		}
+		r.IsBranch = true
+		pid := parentID
+		r.ParentReleaseID = &pid
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // SetReleaseMeta updates the editable release fields (name, changelog).
@@ -8843,7 +8892,10 @@ func (d *DB) ListReleaseProblems(ctx context.Context, releaseID int) ([]ReleaseP
 func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]ReleaseProblem, error) {
 	rows, err := d.pool.Query(ctx,
 		`SELECT`+releaseProblemCols+releaseProblemJoins+`
-		WHERE p.release_id <> $1 AND p.source = 'manual' AND (
+		WHERE p.release_id <> $1 AND p.source = 'manual'
+		  AND NOT orel.is_branch                                        -- branch bugs never carry onto mainline
+		  AND EXISTS (SELECT 1 FROM releases WHERE id = $1 AND NOT is_branch) -- branches inherit nothing
+		  AND (
 			p.fixed_in_release_id = $1
 			OR (p.status NOT IN ('verified','wontfix')
 			    AND p.fixed_in_release_id IS NULL
@@ -8870,7 +8922,8 @@ func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]Relea
 // ReleaseID / OriginVersion); Inherited is left false.
 func (d *DB) ListProblemBoard(ctx context.Context) ([]ReleaseProblem, error) {
 	rows, err := d.pool.Query(ctx,
-		`SELECT`+releaseProblemCols+releaseProblemJoins+releaseProblemOrder)
+		`SELECT`+releaseProblemCols+releaseProblemJoins+`
+		WHERE NOT orel.is_branch`+releaseProblemOrder) // branch bugs are off-mainline, not on the board
 	if err != nil {
 		return nil, err
 	}
@@ -8993,7 +9046,8 @@ func (d *DB) GlobalProblemSummary(ctx context.Context) (ProblemSummary, error) {
 			COUNT(*) FILTER (WHERE status NOT IN ('verified','wontfix')),
 			COUNT(*) FILTER (WHERE status NOT IN ('verified','wontfix') AND severity='blocker'),
 			COUNT(*)
-		FROM release_problems`).Scan(&s.Open, &s.Blockers, &s.Total)
+		FROM release_problems
+		WHERE release_id IN (SELECT id FROM releases WHERE NOT is_branch)`).Scan(&s.Open, &s.Blockers, &s.Total)
 	return s, err
 }
 
@@ -9008,7 +9062,7 @@ func (d *DB) ActiveRelease(ctx context.Context) (*Release, error) {
 		SELECT id, version, name, changelog, status, hidden, skip_base_tests, created_at, published_at,
 		       signed_off_by, signed_off_at, testing_done_at, testing_done_by
 		FROM releases
-		WHERE NOT hidden AND testing_done_at IS NULL
+		WHERE NOT hidden AND testing_done_at IS NULL AND NOT is_branch
 		ORDER BY (status = 'draft') DESC, created_at DESC
 		LIMIT 1`).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.SkipBaseTests,
 		&r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy)
