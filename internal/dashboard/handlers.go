@@ -4662,6 +4662,9 @@ type versionRow struct {
 	Children          []versionRow // branch builds + adoptable derivative builds forked off this release, shown indented beneath it
 	SuggestedBranch   string       // next branch version to suggest for this release (version + -tN)
 	QfilURL           string       // newest active QFIL flashing bundle URL ("" = none set)
+	Merged            bool         // branch: has been merged onto main (terminal)
+	MergedIntoVersion string       // branch: the mainline release it merged into
+	MergedFromVersion string       // mainline node: the branch it absorbed on merge
 }
 
 // latestQfilURL returns the newest active QFIL bundle URL for a release, or ""
@@ -4750,6 +4753,15 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		if rel.ParentReleaseID != nil {
 			row.ParentID = rel.ParentReleaseID
 			row.ParentVersion = relByID[*rel.ParentReleaseID].Version
+		}
+		// Merge lineage: a merged branch is terminal; a mainline node born from a merge
+		// carries a back-reference to the branch it absorbed. Both drive list chips.
+		if rel.MergedIntoReleaseID != nil {
+			row.Merged = true
+			row.MergedIntoVersion = relByID[*rel.MergedIntoReleaseID].Version
+		}
+		if rel.MergedFromReleaseID != nil {
+			row.MergedFromVersion = relByID[*rel.MergedFromReleaseID].Version
 		}
 	}
 	for _, fv := range fleet {
