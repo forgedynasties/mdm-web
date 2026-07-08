@@ -23,6 +23,33 @@
 {{template "hub-live" .}}
 </div>
 
+{{if gt (len .Graph.Nodes) 1}}
+<div class="card dv-rise-1 lineage-card" style="margin-bottom:16px;">
+  <div class="card-header collapsible-header" role="button" tabindex="0"
+       onclick="this.classList.toggle('open');var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';"
+       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"
+       style="cursor:pointer;user-select:none;">
+    <h3><span class="collapse-caret">▸</span> Lineage</h3>
+    <span class="muted small">main line · branch forks · merges back</span>
+  </div>
+  <div class="collapsible-body" style="display:none;">
+    <div class="lineage-scroll">
+      <svg class="lineage-svg" width="{{.Graph.W}}" height="{{.Graph.H}}" viewBox="0 0 {{.Graph.W}} {{.Graph.H}}" role="img" aria-label="Release lineage graph">
+        {{range .Graph.Edges}}<path d="{{.Path}}" class="lg-edge lg-{{.Kind}}" fill="none"/>{{end}}
+        {{range .Graph.Nodes}}
+        <a href="/releases/{{.ID}}" class="lg-node{{if .IsBranch}} lg-branch{{end}}{{if .Merged}} lg-merged{{end}}">
+          <title>{{.Label}} · {{.Sub}}</title>
+          <circle cx="{{.X}}" cy="{{.Y}}" r="{{.R}}"{{if .IsBranch}} fill="{{if .Merged}}#5b61d6{{else}}var(--surface){{end}}" stroke="#5b61d6" stroke-width="2"{{else}} fill="{{.Fill}}"{{end}}/>
+          {{if .IsBranch}}<text x="{{.X}}" y="{{sub .Y 13}}" class="lg-label lg-blabel" text-anchor="middle">{{.Label}}</text>
+          {{else}}<text x="{{.X}}" y="{{add .Y 21}}" class="lg-label" text-anchor="middle">{{.Label}}</text><text x="{{.X}}" y="{{add .Y 33}}" class="lg-sub" text-anchor="middle">{{.Sub}}</text>{{end}}
+        </a>
+        {{end}}
+      </svg>
+    </div>
+  </div>
+</div>
+{{end}}
+
 {{if or .Versions .HiddenReleases}}
 <h2 class="hub-list-h">All releases</h2>
 <div class="rel-tabs">
