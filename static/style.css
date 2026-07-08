@@ -5043,6 +5043,8 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 /* ── Branch builds (off-mainline forks) — periwinkle accent ──────────────── */
 .status-badge.branch { background: rgba(122,128,246,.16); color: #5b61d6; }
 .rlc-badge.branch { background: rgba(122,128,246,.16); color: #5b61d6; }
+.rchip.branch-merged { background: rgba(122,128,246,.16); color: #5b61d6; }
+[data-theme="dark"] .rchip.branch-merged { color: #a6abfa; }
 [data-theme="dark"] .status-badge.branch, [data-theme="dark"] .rlc-badge.branch { color: #a6abfa; }
 .branch-banner { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; padding: 11px 16px; border-radius: 10px; background: rgba(122,128,246,.10); border: 1px solid rgba(122,128,246,.30); font-size: 13px; line-height: 1.5; }
 .branch-banner a { color: #5b61d6; }
