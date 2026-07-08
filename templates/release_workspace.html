@@ -7,7 +7,7 @@
 {{$blockers := .ProblemSummary.Blockers}}
 {{$qaDone := and (gt .QA.Total 0) .QA.Passed (eq $blockers 0)}}
 {{$signed := ne $rel.SignedOffBy ""}}
-{{$stage := "qa"}}{{if $qaDone}}{{$stage = "signoff"}}{{if $signed}}{{$stage = "done"}}{{end}}{{end}}
+{{$tdone := false}}{{if $rel.TestingDoneAt}}{{$tdone = true}}{{end}}
 {{$isAdmin := canAdmin $role}}
 {{$canDownloadQfil := and .QFILPackages (or (eq $role "admin") (eq $role "dev") (eq $role "tester"))}}
 
@@ -16,6 +16,7 @@
 <div class="ov-greet">
   <h1 class="ov-title">
     <span class="status-badge {{releaseStatusClass $rel.Status}}" style="font-size:12px;vertical-align:middle;">{{$rel.Status}}</span>
+    {{if $tdone}}<span class="status-badge muted" style="font-size:12px;vertical-align:middle;" title="Testing complete — this release is inactive">testing done</span>{{else}}<span class="status-badge ok" style="font-size:12px;vertical-align:middle;" title="Under test — this is an active release">active</span>{{end}}
     <span class="mono">{{$rel.Version}}</span>
   </h1>
   {{if $rel.Name}}<span class="ov-date">{{$rel.Name}}</span>{{end}}
@@ -32,6 +33,10 @@
           {{if and (gt .QA.Total 0) (not .QA.Passed)}}onclick="return confirm('QA is not complete — {{.QA.Pass}}/{{.QA.Total}} passed{{if gt .QA.Fail 0}}, {{.QA.Fail}} failed{{end}}{{if gt .QA.Untested 0}}, {{.QA.Untested}} untested{{end}}. Publish anyway?')"{{end}}>Publish</button>
       </form>
       {{end}}
+    {{end}}
+    {{if $isAdmin}}
+      {{if $tdone}}<form action="/releases/{{$rel.ID}}/testing-done/clear" method="POST" style="display:inline;"><button type="submit" class="btn-outline btn-sm" title="Reopen — make this release active again">Reopen testing</button></form>
+      {{else}}<form action="/releases/{{$rel.ID}}/testing-done" method="POST" style="display:inline;"><button type="submit" class="btn-primary btn-sm" title="Mark testing complete — the finish line; moves the release from active to inactive">Testing done</button></form>{{end}}
     {{end}}
     {{if $canDownloadQfil}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download hx-boost="false" title="Download the QFIL flashing bundle" style="display:inline-flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>{{end}}
     {{if .CanManageQFIL}}<button type="button" class="btn-outline btn-sm" onclick="qfilModalOpen()">{{if .QFILPackages}}Replace{{else}}Add{{end}} QFIL package</button>{{end}}
@@ -55,13 +60,14 @@
 
 <!-- ── Overview ─────────────────────────────────────────────────────────── -->
 <section class="dd-panel" data-rel-panel="overview"{{if ne $tab "overview"}} hidden{{end}}>
-  <!-- Release lifecycle pipeline — Created → QA → Sign-off. Deploy is optional. -->
-  <div class="pipe pipe-3">
+  <!-- Release lifecycle pipeline — Created → QA → Sign-off → Testing done (finish). -->
+  <div class="pipe">
     <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Created</div><div class="st-sub">{{timeSince $rel.CreatedAt}}</div></div>
-    <div class="stage {{if $qaDone}}done{{else if eq $stage "qa"}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="st-name">QA</div><div class="st-sub">{{if gt .QA.Total 0}}{{.QA.Pass}}/{{.QA.Total}}{{if gt .QA.Fail 0}} · {{.QA.Fail}} failed{{end}}{{else}}no cases{{end}}</div></div>
-    <div class="stage finish {{if $signed}}done{{else if eq $stage "signoff"}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V3"/></svg></div><div class="st-name">Sign-off</div><div class="st-sub">{{if $signed}}by {{$rel.SignedOffBy}}{{else}}the finish line{{end}}</div></div>
+    <div class="stage {{if $qaDone}}done{{else}}now{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div class="st-name">QA</div><div class="st-sub">{{if gt .QA.Total 0}}{{.QA.Pass}}/{{.QA.Total}}{{if gt .QA.Fail 0}} · {{.QA.Fail}} failed{{end}}{{else}}no cases{{end}}</div></div>
+    <div class="stage {{if $signed}}done{{else if $qaDone}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></svg></div><div class="st-name">Sign-off</div><div class="st-sub">{{if $signed}}by {{$rel.SignedOffBy}}{{else}}dev gate{{end}}</div></div>
+    <div class="stage finish {{if $tdone}}done{{else if $signed}}now{{else}}todo{{end}}"><div class="node"><svg viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V3"/></svg></div><div class="st-name">Testing done</div><div class="st-sub">{{if $tdone}}by {{$rel.TestingDoneBy}}{{else}}the finish line{{end}}</div></div>
   </div>
-  <div class="pipe-note">Testing is done at sign-off. Deploying to devices is optional — push this build anytime from the Rollout tab.</div>
+  <div class="pipe-note">Sign-off is the dev gate; <strong>Testing done</strong> is the finish line — it retires the release from the active slot. Deploying to devices is optional — push anytime from the Rollout tab.</div>
 
   <div class="rel-cols">
     <div class="rel-main">

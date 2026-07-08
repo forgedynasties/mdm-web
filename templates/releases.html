@@ -50,6 +50,7 @@
       </div>
       <div class="rlc-meta">
         {{if .Tracked}}
+          {{if .TestingDone}}<span class="rchip muted" title="Testing complete — this release is inactive">testing done</span>{{else}}<span class="rchip active" title="Under test — active release">● active</span>{{end}}
           {{if gt .QA.Total 0}}
             {{$qaTitle := printf "%d passed · %d failed · %d blocked · %d untested of %d — open QA" .QA.Pass .QA.Fail .QA.Blocked .QA.Untested .QA.Total}}
             <a href="/releases/{{.ReleaseID}}/qa" class="rchip-a">
@@ -302,9 +303,9 @@ function relTab(group, btn) {
 <div class="rel-train" title="The release cycle — oldest to newest">
   {{range $i, $t := .ReleaseTrain}}
   {{if $i}}<span class="rt-link"></span>{{end}}
-  <a href="/releases/{{$t.ID}}" class="rt-node st-{{$t.Status}}{{if $t.Active}} active{{end}}" title="{{$t.Version}} — {{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}} open problem{{if ne $t.Open 1}}s{{end}}{{end}}{{if $t.SignedOffBy}} · signed off{{end}}">
+  <a href="/releases/{{$t.ID}}" class="rt-node st-{{$t.Status}}{{if $t.Active}} active{{end}}" title="{{$t.Version}}{{if $t.Name}} — {{$t.Name}}{{end}} — {{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}} open problem{{if ne $t.Open 1}}s{{end}}{{end}}{{if $t.SignedOffBy}} · signed off{{end}}">
     <span class="rt-dot"></span>
-    <span class="rt-ver mono">{{$t.Version}}</span>
+    <span class="rt-ver{{if not $t.Name}} mono{{end}}">{{if $t.Name}}{{$t.Name}}{{else}}{{$t.Version}}{{end}}</span>
     <span class="rt-meta">{{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}}⚠{{end}}</span>
   </a>
   {{end}}
@@ -339,6 +340,14 @@ function relTab(group, btn) {
   <div class="hub-focus-cta">
     <a href="/releases/{{$a.ID}}?tab={{if eq .Role "tester"}}qa{{else if eq .Role "dev"}}problems{{else}}overview{{end}}" class="btn-primary btn-sm">Open workspace →</a>
   </div>
+</div>
+{{else}}
+<div class="hub-focus dv-rise-1">
+  <div class="hub-focus-main">
+    <span class="hub-eyebrow">No active release</span>
+    <div class="muted small">Every release has finished testing. Create the next build to start a new cycle.</div>
+  </div>
+  {{if canAdmin .Role}}<div class="hub-focus-cta"><button type="button" class="btn-primary btn-sm" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">+ New Release</button></div>{{end}}
 </div>
 {{end}}
 

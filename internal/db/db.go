@@ -142,6 +142,8 @@ type Release struct {
 	PublishedAt   *time.Time `json:"published_at"`
 	SignedOffBy   string     `json:"signed_off_by"` // dev who smoke-tested; "" when not signed off
 	SignedOffAt   *time.Time `json:"signed_off_at"`
+	TestingDoneAt *time.Time `json:"testing_done_at"` // finish line: nil = active (under test), set = inactive
+	TestingDoneBy string     `json:"testing_done_by"`
 	PackageCount  int        `json:"package_count,omitempty"` // populated by ListReleases
 	DeployCount   int        `json:"deploy_count,omitempty"`  // populated by ListReleases
 }
@@ -7413,6 +7415,14 @@ WHERE e.build_id = '' AND e.kind <> 'reboot'
 ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS fixed_in_release_id    INTEGER REFERENCES releases(id) ON DELETE SET NULL;
 ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS verified_in_release_id INTEGER REFERENCES releases(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_release_problems_fixed_in ON release_problems(fixed_in_release_id);
+
+-- Release lifecycle finish line: "testing done" moves a release from active to inactive.
+-- A release is ACTIVE (under test — shown in the hub focus band) while testing_done_at is
+-- NULL; marking testing complete stamps it, retiring the release from the active slot so
+-- the next build takes over. This is the real end of the cycle — dev sign-off is only an
+-- intermediate gate, not the finish.
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS testing_done_at TIMESTAMPTZ;
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS testing_done_by TEXT NOT NULL DEFAULT '';
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -7566,9 +7576,11 @@ func (d *DB) GetReleaseByVersion(ctx context.Context, version string) (*Release,
 func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 	var r Release
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, version, name, changelog, status, skip_base_tests, created_at, published_at
+		SELECT id, version, name, changelog, status, skip_base_tests, created_at, published_at,
+		       signed_off_by, signed_off_at, testing_done_at, testing_done_by
 		FROM releases WHERE id = $1
-	`, id).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.CreatedAt, &r.PublishedAt)
+	`, id).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.CreatedAt, &r.PublishedAt,
+		&r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy)
 	if err != nil {
 		return nil, err
 	}
@@ -7578,7 +7590,7 @@ func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT r.id, r.version, r.name, r.changelog, r.status, r.hidden, r.created_at, r.published_at,
-		       r.signed_off_by, r.signed_off_at,
+		       r.signed_off_by, r.signed_off_at, r.testing_done_at, r.testing_done_by,
 		       COUNT(DISTINCT p.id) AS package_count,
 		       COUNT(DISTINCT u.id) AS deploy_count
 		FROM releases r
@@ -7594,7 +7606,7 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.PackageCount, &r.DeployCount); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.PackageCount, &r.DeployCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -7841,6 +7853,20 @@ func (d *DB) SetReleaseSignOff(ctx context.Context, id int, signer string) error
 // ClearReleaseSignOff revokes a previously recorded dev sign-off.
 func (d *DB) ClearReleaseSignOff(ctx context.Context, id int) error {
 	_, err := d.pool.Exec(ctx, `UPDATE releases SET signed_off_by = '', signed_off_at = NULL WHERE id = $1`, id)
+	return err
+}
+
+// SetReleaseTestingDone marks a release's testing complete — the finish line. This
+// retires it from the active slot (ActiveRelease skips finished releases). by is the
+// username who closed it out.
+func (d *DB) SetReleaseTestingDone(ctx context.Context, id int, by string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET testing_done_at = NOW(), testing_done_by = $2 WHERE id = $1`, id, by)
+	return err
+}
+
+// ClearReleaseTestingDone reopens a finished release, making it active again.
+func (d *DB) ClearReleaseTestingDone(ctx context.Context, id int) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET testing_done_at = NULL, testing_done_by = '' WHERE id = $1`, id)
 	return err
 }
 
@@ -8971,19 +8997,21 @@ func (d *DB) GlobalProblemSummary(ctx context.Context) (ProblemSummary, error) {
 	return s, err
 }
 
-// ActiveRelease returns the release currently "under test" — the newest non-hidden draft,
-// or if there is no draft, the newest non-hidden release. It anchors the hub focus band
-// and is the default carry-forward target. Returns (nil, nil) when there are no releases.
+// ActiveRelease returns the release currently "under test" — the newest non-hidden
+// release whose testing is NOT yet done (testing_done_at IS NULL), preferring a draft.
+// Marking testing done retires a release from this slot so the next build takes over. It
+// anchors the hub focus band and is the default carry-forward target. Returns (nil, nil)
+// when every release is hidden or finished.
 func (d *DB) ActiveRelease(ctx context.Context) (*Release, error) {
 	var r Release
 	err := d.pool.QueryRow(ctx, `
 		SELECT id, version, name, changelog, status, hidden, skip_base_tests, created_at, published_at,
-		       signed_off_by, signed_off_at
+		       signed_off_by, signed_off_at, testing_done_at, testing_done_by
 		FROM releases
-		WHERE NOT hidden
+		WHERE NOT hidden AND testing_done_at IS NULL
 		ORDER BY (status = 'draft') DESC, created_at DESC
 		LIMIT 1`).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.SkipBaseTests,
-		&r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt)
+		&r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
