@@ -1,165 +1,295 @@
 {{define "overview.html"}}
 {{template "header" .}}
 
-<div class="ovx">
+<style>
+/* ── Overview · Command center ───────────────────────────── */
+.ov2-wrap{max-width:1180px;margin:0 auto}
+/* hero */
+.ov2-hero{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;background:linear-gradient(118deg,var(--warn-bg),var(--surface) 60%);border:1px solid var(--warn-edge);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:24px 28px;margin-bottom:20px}
+.ov2-hero.is-ok{background:linear-gradient(118deg,var(--ok-bg),var(--surface) 60%);border-color:var(--border)}
+.ov2-hero.is-danger{background:linear-gradient(118deg,var(--danger-bg),var(--surface) 60%);border-color:var(--danger-edge)}
+@media(max-width:760px){.ov2-hero{grid-template-columns:1fr;gap:18px}}
+.ov2-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint)}
+.ov2-head{font-size:25px;font-weight:750;letter-spacing:-.02em;margin-top:5px}
+.ov2-head .hl{color:var(--warn)}
+.ov2-hero.is-danger .ov2-head .hl{color:var(--danger)}
+.ov2-hero.is-ok .ov2-head .hl{color:var(--ok)}
+.ov2-sub{font-size:14px;color:var(--muted);margin-top:6px;max-width:70ch;line-height:1.5}
+.ov2-sub b{color:var(--text);font-weight:650}
+.ov2-ctas{display:flex;gap:9px;margin-top:15px;flex-wrap:wrap}
+.ov2-btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:650;padding:8px 15px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--muted)}
+.ov2-btn:hover{border-color:var(--rule-2);color:var(--text)}
+.ov2-btn.primary{background:var(--text);color:#fff;border-color:transparent}.ov2-btn.primary:hover{background:#000;color:#fff}
+.ov2-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.ov2-heroring{display:flex;align-items:center;gap:16px;padding-left:28px;border-left:1px solid var(--warn-edge)}
+.ov2-hero.is-ok .ov2-heroring{border-color:var(--border)}.ov2-hero.is-danger .ov2-heroring{border-color:var(--danger-edge)}
+@media(max-width:760px){.ov2-heroring{border-left:none;padding-left:0}}
+.ov2-ring{position:relative;width:92px;height:92px;flex:none}
+.ov2-ring svg{width:92px;height:92px}
+.ov2-ring .trk{fill:none;stroke:var(--surface-3);stroke-width:8}
+.ov2-ring .val{fill:none;stroke:var(--warn);stroke-width:8;stroke-linecap:round}
+.ov2-hero.is-ok .ov2-ring .val{stroke:var(--ok)}.ov2-hero.is-danger .ov2-ring .val{stroke:var(--danger)}
+.ov2-ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:750;color:var(--warn)}
+.ov2-hero.is-ok .ov2-ring b{color:var(--ok)}.ov2-hero.is-danger .ov2-ring b{color:var(--danger)}
+.ov2-rt{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.ov2-rc{display:inline-block;margin-top:6px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;background:var(--warn-bg);color:var(--warn)}
+.ov2-hero.is-ok .ov2-rc{background:var(--ok-bg);color:var(--ok)}.ov2-hero.is-danger .ov2-rc{background:var(--danger-bg);color:var(--danger)}
+.ov2-rl{font-size:11.5px;color:var(--muted);margin-top:8px}
 
-  {{/* ── Greeting bar ── */}}
-  <header class="ovx-top">
-    <div class="ovx-hello">
-      <h1>{{.Greeting}}</h1>
-      <p>{{.DateLine}} · here's how your fleet is doing</p>
+/* signal strip */
+.ov2-sigs{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:22px}
+@media(max-width:980px){.ov2-sigs{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.ov2-sigs{grid-template-columns:repeat(2,1fr)}}
+.ov2-sig{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:14px 15px;text-decoration:none;color:inherit;transition:border-color .14s,transform .1s}
+.ov2-sig:hover{border-color:var(--rule-2);transform:translateY(-1px);color:inherit}
+.ov2-sig .k{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+.ov2-sig .k svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.ov2-sig .mid{display:flex;align-items:flex-end;justify-content:space-between;margin-top:9px}
+.ov2-sig .v{font-size:26px;font-weight:750;letter-spacing:-.01em;line-height:1;font-variant-numeric:tabular-nums}
+.ov2-sig .v.ok{color:var(--ok)}.ov2-sig .v.warn{color:var(--warn)}.ov2-sig .v.bad{color:var(--danger)}
+.ov2-spark{width:56px;height:22px}
+.ov2-sig .d{font-size:11.5px;margin-top:7px;color:var(--muted);display:flex;align-items:center;gap:5px}
+.ov2-delta{font-weight:650;display:inline-flex;align-items:center;gap:2px}
+.ov2-delta.bad{color:var(--danger)}.ov2-delta.good{color:var(--ok)}
+.ov2-delta svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.6}
+
+/* grid */
+.ov2-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.ov2-grid{grid-template-columns:1fr}}
+.ov2-col{display:flex;flex-direction:column;gap:18px}
+.ov2-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
+.ov2-ch{display:flex;align-items:center;gap:8px;padding:14px 17px;border-bottom:1px solid var(--border-soft)}
+.ov2-ch h3{font-size:14px;font-weight:700;margin:0}
+.ov2-ch .live{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--ok)}
+.ov2-ch .live .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:ov2pulse 2s infinite}
+@keyframes ov2pulse{0%{box-shadow:0 0 0 0 rgba(21,127,60,.4)}70%{box-shadow:0 0 0 6px rgba(21,127,60,0)}100%{box-shadow:0 0 0 0 rgba(21,127,60,0)}}
+.ov2-ch .r{margin-left:auto;font-size:12px;font-weight:600;color:var(--accent)}
+.ov2-ch .live+.r{margin-left:12px}
+.ov2-ch .m{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* where to look */
+.ov2-loc{display:flex;align-items:center;gap:13px;padding:13px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none}
+.ov2-loc:first-of-type{border-top:none}.ov2-loc:hover{background:var(--surface2);color:inherit}
+.ov2-sc{width:40px;height:40px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:750;font-variant-numeric:tabular-nums}
+.ov2-sc.danger{background:var(--danger-bg);color:var(--danger)}.ov2-sc.warn{background:var(--warn-bg);color:var(--warn)}
+.ov2-locm{flex:1;min-width:0}
+.ov2-locn{font-size:14px;font-weight:700}
+.ov2-why{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.ov2-chip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;white-space:nowrap}
+.ov2-chip.bad{background:var(--danger-bg);color:var(--danger)}.ov2-chip.warn{background:var(--warn-bg);color:var(--warn)}.ov2-chip.mut{background:var(--surface2);color:var(--muted)}
+.ov2-go{flex:none;font-size:12.5px;font-weight:650;color:var(--accent);display:inline-flex;align-items:center;gap:4px}
+.ov2-go svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+.ov2-clear{display:flex;align-items:center;gap:12px;padding:16px 18px}
+.ov2-clear .i{width:34px;height:34px;flex:none;border-radius:9px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center}
+.ov2-clear .i svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4}
+.ov2-clear .t{font-size:13.5px;font-weight:650}.ov2-clear .s{font-size:12.5px;color:var(--muted)}
+
+/* top crashing devices */
+.ov2-cdev{display:block;padding:12px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none}
+.ov2-cdev:first-of-type{border-top:none}.ov2-cdev:hover{background:var(--surface2);color:inherit}
+.ov2-cdev-top{display:flex;align-items:center;gap:9px}
+.ov2-kind{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;flex:none}
+.ov2-kind.crash{background:var(--danger-bg);color:var(--danger)}.ov2-kind.anr{background:var(--warn-bg);color:var(--warn)}.ov2-kind.tomb{background:var(--accent-2-soft);color:var(--accent-2)}
+.ov2-sn{font-family:var(--mono);font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.ov2-x{margin-left:auto;flex:none;font-weight:700;color:var(--danger);font-variant-numeric:tabular-nums;font-size:12.5px}
+.ov2-cmeta{display:flex;flex-wrap:wrap;gap:4px 11px;font-size:11.5px;color:var(--muted);margin-top:5px}
+.ov2-cmeta .bd{color:var(--text);font-weight:600}
+.ov2-foot{display:block;text-align:center;padding:11px;font-size:12.5px;font-weight:600;color:var(--accent);border-top:1px solid var(--border-soft);text-decoration:none}
+
+/* activity chart */
+.ov2-bars{display:flex;align-items:flex-end;gap:10px;height:120px;padding:18px 18px 8px}
+.ov2-bar{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;height:100%}
+.ov2-track{width:100%;flex:1;display:flex;align-items:flex-end;background:var(--surface2);border-radius:6px 6px 0 0;overflow:hidden}
+.ov2-fill{width:100%;background:var(--accent-2);border-radius:6px 6px 0 0}
+.ov2-bar.cur .ov2-fill{background:var(--accent)}
+.ov2-cap{font-size:10px;font-weight:600;color:var(--muted)}
+.ov2-day{font-size:10.5px;color:var(--text-faint)}
+.ov2-bars-empty{padding:26px;color:var(--muted);font-size:13px;text-align:center;width:100%}
+
+/* alerts list */
+.ov2-al{display:flex;gap:11px;padding:11px 17px;border-top:1px solid var(--border-soft)}
+.ov2-al:first-of-type{border-top:none}
+.ov2-dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px}
+.ov2-dot.bad{background:var(--danger)}.ov2-dot.warn{background:var(--warn)}.ov2-dot.info{background:var(--accent-2)}
+.ov2-alb{min-width:0}
+.ov2-alt1{font-size:12.5px;font-weight:600;line-height:1.3}
+.ov2-alt2{font-size:11px;color:var(--muted);margin-top:1px}
+.ov2-alt2 .mono{font-family:var(--mono)}
+.ov2-empty{display:flex;align-items:center;gap:9px;padding:18px;font-size:13px;color:var(--muted)}
+.ov2-empty svg{width:18px;height:18px;fill:none;stroke:var(--ok);stroke-width:2.2;flex:none}
+
+/* quick actions */
+.ov2-qa{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:15px 17px}
+.ov2-qa a{display:flex;align-items:center;gap:9px;padding:11px 13px;border:1px solid var(--border);border-radius:10px;font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none}
+.ov2-qa a:hover{border-color:var(--rule-2);background:var(--surface2);color:var(--text)}
+.ov2-qa a .ic{width:26px;height:26px;flex:none;border-radius:7px;display:flex;align-items:center;justify-content:center;background:var(--surface2)}
+.ov2-qa a .ic svg{width:15px;height:15px;fill:none;stroke:var(--accent);stroke-width:2}
+
+/* recent activity */
+.ov2-r{display:flex;gap:11px;padding:11px 17px;border-top:1px solid var(--border-soft)}
+.ov2-r:first-of-type{border-top:none}
+.ov2-av{width:28px;height:28px;flex:none;border-radius:8px;background:var(--accent-2-soft);color:var(--accent-2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;text-transform:uppercase}
+.ov2-rb{min-width:0}.ov2-rt1{font-size:12.5px;line-height:1.35}.ov2-rt1 b{font-weight:650}
+.ov2-rt2{font-size:11px;color:var(--muted);margin-top:1px}.ov2-rt2 .mono{font-family:var(--mono)}
+</style>
+
+<div class="ov2-wrap">
+
+  {{/* ── Hero ── */}}
+  <div class="ov2-hero is-{{.ScoreClass}}">
+    <div>
+      <div class="ov2-eyebrow">{{.Greeting}} · {{.DateLine}}</div>
+      <div class="ov2-head">{{if gt .AttentionRest 0}}<span class="hl">{{.AttentionRest}} restaurant{{if ne .AttentionRest 1}}s{{end}}</span> need{{if eq .AttentionRest 1}}s{{end}} a look today{{else}}Your fleet is in good shape{{end}}</div>
+      <div class="ov2-sub">{{.HeroSentence}}</div>
+      <div class="ov2-ctas">
+        <a class="ov2-btn primary" href="/fleet-health"><svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>View fleet health</a>
+        <a class="ov2-btn" href="/alerts?status=open"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>{{.AlertsOpenCount}} open alert{{if ne .AlertsOpenCount 1}}s{{end}}</a>
+        {{if canAct .Role}}<a class="ov2-btn" href="/commands"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Send action</a>{{end}}
+      </div>
     </div>
-  </header>
-
-  <div class="ovx-grid">
-
-    {{/* ─────────────── MAIN COLUMN ─────────────── */}}
-    <div class="ovx-main">
-
-      <div class="ovx-sec"><h2>Fleet at a glance</h2><a href="/devices">View all</a></div>
-      <div class="ovx-stats">
-        <a class="ovx-stat" href="/devices">
-          <div class="ovx-stat-top">
-            <span class="ovx-ico i-violet"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
-            <span class="ovx-big">{{.Summary.Total}}</span>
-          </div>
-          <span class="ovx-lbl">Total devices</span>
-          <span class="ovx-sub">{{.GroupsCount}} group{{if ne .GroupsCount 1}}s{{end}} enrolled</span>
-        </a>
-        <a class="ovx-stat" href="/devices?status=online">
-          <div class="ovx-stat-top">
-            <span class="ovx-ico i-blue"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg></span>
-            <span class="ovx-big">{{.Summary.RecentlyActive}}</span>
-          </div>
-          <span class="ovx-lbl">Online now</span>
-          <span class="ovx-sub">active last {{.ActiveThresholdLabel}}</span>
-        </a>
-        <a class="ovx-stat{{if gt .Offline 0}} alerty{{end}}" href="/devices?status=offline">
-          <div class="ovx-stat-top">
-            <span class="ovx-ico i-rose"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M2 2l20 20M12 2a9 9 0 0 1 9 9"/></svg></span>
-            <span class="ovx-big{{if gt .Offline 0}} bad{{end}}">{{.Offline}}</span>
-          </div>
-          <span class="ovx-lbl">Offline</span>
-          <span class="ovx-sub">silent &gt; {{.ActiveThresholdLabel}}</span>
-        </a>
-        <a class="ovx-stat" href="/devices?battery=low">
-          <div class="ovx-stat-top">
-            <span class="ovx-ico i-amber"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/><path d="M5 10v4"/></svg></span>
-            <span class="ovx-big{{if gt .Summary.LowBattery 0}} warn{{end}}">{{.Summary.LowBattery}}</span>
-          </div>
-          <span class="ovx-lbl">Low battery</span>
-          <span class="ovx-sub">under 20%</span>
-        </a>
+    <div class="ov2-heroring">
+      <div class="ov2-ring">
+        <svg viewBox="0 0 104 104"><circle class="trk" cx="52" cy="52" r="44"/><circle class="val" cx="52" cy="52" r="44" stroke-dasharray="276.5" stroke-dashoffset="{{.RingOffset}}" transform="rotate(-90 52 52)"><animate attributeName="stroke-dashoffset" from="276.5" to="{{.RingOffset}}" dur="0.9s" fill="freeze" calcMode="spline" keySplines="0.2 0.7 0.3 1"/></circle></svg>
+        <b>{{.Score}}</b>
       </div>
-
-      {{if gt .Attention 0}}
-      <a class="ovx-strip" href="/devices?status=offline">
-        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></span>
-        <span class="tx"><b>{{.Attention}} device{{if ne .Attention 1}}s{{end}} need{{if eq .Attention 1}}s{{end}} attention</b> — {{.Offline}} offline, {{.Summary.LowBattery}} low battery, {{.Hot}} running hot.</span>
-        <span class="go">Review →</span>
-      </a>
-      {{end}}
-
-      <div class="ovx-two">
-        <div class="ovx-card ovx-activity">
-          <div class="ovx-ch"><h3>Fleet activity</h3><span class="ovx-tag">7 days · peak {{.ActivityPeak}}</span></div>
-          <div class="ovx-bars">
-            {{range .ActivityBars}}
-            <div class="ovx-bar{{if .Cur}} cur{{end}}">
-              <div class="track"><div class="fill" style="height:{{.Pct}}%"><span class="cap">{{.Val}}</span></div></div>
-              <span class="day">{{.Label}}</span>
-            </div>
-            {{else}}
-            <div class="ovx-bars-empty">No activity recorded yet.</div>
-            {{end}}
-          </div>
-        </div>
-
-        <div class="ovx-card ovx-alerts">
-          <div class="ovx-ch"><h3>Open alerts</h3><a href="/alerts?status=open">all →</a></div>
-          {{if .OpenAlerts}}
-          <div class="ovx-alist">
-            {{range .OpenAlerts}}
-            <div class="ovx-al">
-              <span class="dot {{if eq .Severity "critical"}}danger{{else if eq .Severity "warning"}}warn{{else}}muted{{end}}"></span>
-              <div class="body">
-                <div class="t1">{{.Summary}}</div>
-                <div class="t2">{{if .Serial}}<a href="/devices/{{.Serial}}" class="mono">{{.Serial}}</a> · {{end}}{{timeSince .FiredAt}}</div>
-              </div>
-            </div>
-            {{end}}
-            {{if gt .AlertsOpenCount (len .OpenAlerts)}}
-            <a class="ovx-al-more" href="/alerts?status=open">+ {{sub .AlertsOpenCount (len .OpenAlerts)}} more →</a>
-            {{end}}
-          </div>
-          {{else}}
-          <div class="ovx-empty">
-            <svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>
-            <span>All clear — nothing firing right now.</span>
-          </div>
-          {{end}}
-        </div>
+      <div>
+        <div class="ov2-rt">Fleet health</div>
+        <span class="ov2-rc">{{.StatusWord}}</span>
+        <div class="ov2-rl">last 7 days{{if ne .ScoreDelta 0}}<br>{{if lt .ScoreDelta 0}}↘ {{.ScoreDelta}}{{else}}↗ +{{.ScoreDelta}}{{end}} vs last week{{end}}</div>
       </div>
-
-      {{if .AISummary}}
-        {{template "ai-report-card" .}}
-      {{end}}
-
-
-    </div>
-
-    {{/* ─────────────── SIDE COLUMN ─────────────── */}}
-    <div class="ovx-side">
-
-      {{$status := "Healthy"}}{{if eq .ScoreClass "warn"}}{{$status = "Watch"}}{{else if eq .ScoreClass "danger"}}{{$status = "At risk"}}{{end}}
-      <div class="ovx-pulse is-{{.ScoreClass}}">
-        <div class="ovx-pulse-head"><span class="d"></span>FLEET PULSE<span class="ovx-chip">{{$status}}</span></div>
-        <div class="ovx-ring-row">
-          <svg class="ovx-ring" viewBox="0 0 104 104">
-            <circle class="trk" cx="52" cy="52" r="44"/>
-            <circle class="val" cx="52" cy="52" r="44"
-                    stroke-dasharray="276.5" stroke-dashoffset="{{.RingOffset}}"
-                    transform="rotate(-90 52 52)">
-              <animate attributeName="stroke-dashoffset" from="276.5" to="{{.RingOffset}}" dur="0.9s" fill="freeze"
-                       calcMode="spline" keySplines="0.2 0.7 0.3 1"/>
-            </circle>
-          </svg>
-          <div class="ovx-score"><b>{{.Score}}</b><span>fleet health<br>last 7 days</span></div>
-        </div>
-        <p class="ovx-verdict">{{.Verdict}}</p>
-        <a class="ovx-cta" href="/fleet-health">View fleet health →</a>
-      </div>
-
-      <div class="ovx-card ovx-snap">
-        <div class="ovx-ch"><h3>Snapshot</h3></div>
-        <div class="ovx-snap-grid">
-          <a class="snap" href="/devices?kiosk=enabled"><span class="v">{{.Summary.KioskCount}}</span><span class="k">In kiosk</span></a>
-          <a class="snap" href="/releases"><span class="v">{{.Summary.UniqueBuilds}}</span><span class="k">Releases</span></a>
-          <a class="snap" href="/devices?sort=temp&dir=desc"><span class="v{{if gt .Hot 0}} hot{{end}}">{{.Hot}}</span><span class="k">Running hot</span></a>
-          <a class="snap" href="/alerts"><span class="v{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</span><span class="k">Open alerts</span></a>
-        </div>
-      </div>
-
-      {{if .Audit}}
-      <div class="ovx-card ovx-recent">
-        <div class="ovx-ch"><h3>Recent activity</h3></div>
-        <div class="ovx-rlist">
-          {{range .Audit}}
-          <div class="ovx-r">
-            <span class="av">{{if .Actor}}{{slice .Actor 0 1}}{{else}}·{{end}}</span>
-            <div class="body">
-              <div class="t1"><b>{{.Actor}}</b> {{.Action}}</div>
-              <div class="t2">{{if .Target}}<span class="mono">{{.Target}}</span> · {{end}}{{timeSince .CreatedAt}}</div>
-            </div>
-          </div>
-          {{end}}
-        </div>
-      </div>
-      {{end}}
-
     </div>
   </div>
+
+  {{/* ── Signal strip with trends ── */}}
+  <div class="ov2-sigs">
+    <a class="ov2-sig" href="/devices?status=online"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online</span>
+      <div class="mid"><span class="v ok">{{.Summary.RecentlyActive}}</span>{{if .SparkActive}}<svg class="ov2-spark" viewBox="0 0 58 22"><polyline fill="none" style="stroke:var(--ok)" stroke-width="2" points="{{.SparkActive}}"/></svg>{{end}}</div>
+      <div class="d">of {{.Summary.Total}} · {{with .OnlineDelta}}{{if .Show}}<span class="ov2-delta {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span>{{else}}steady{{end}}{{end}}</div></a>
+
+    <a class="ov2-sig" href="/devices?status=offline"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span>
+      <div class="mid"><span class="v{{if gt .Offline 0}} warn{{end}}">{{.Offline}}</span>{{if .SparkOff}}<svg class="ov2-spark" viewBox="0 0 58 22"><polyline fill="none" style="stroke:var(--warn)" stroke-width="2" points="{{.SparkOff}}"/></svg>{{end}}</div>
+      <div class="d">{{with .OfflineDelta}}{{if .Show}}<span class="ov2-delta {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span> today{{else}}not checking in{{end}}{{end}}</div></a>
+
+    <a class="ov2-sig" href="/devices?battery=low"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span>
+      <div class="mid"><span class="v{{if gt .Summary.LowBattery 0}} warn{{end}}">{{.Summary.LowBattery}}</span>{{if .SparkLow}}<svg class="ov2-spark" viewBox="0 0 58 22"><polyline fill="none" style="stroke:var(--warn)" stroke-width="2" points="{{.SparkLow}}"/></svg>{{end}}</div>
+      <div class="d">under 20% {{with .LowDelta}}{{if .Show}}· <span class="ov2-delta {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span>{{end}}{{end}}</div></a>
+
+    <a class="ov2-sig" href="/devices?sort=temp&dir=desc"><span class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Overheating</span>
+      <div class="mid"><span class="v{{if gt .Hot 0}} bad{{end}}">{{.Hot}}</span>{{if .SparkHot}}<svg class="ov2-spark" viewBox="0 0 58 22"><polyline fill="none" style="stroke:var(--danger)" stroke-width="2" points="{{.SparkHot}}"/></svg>{{end}}</div>
+      <div class="d">over threshold</div></a>
+
+    <a class="ov2-sig" href="/fleet-health"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes · 24h</span>
+      <div class="mid"><span class="v{{if gt .Crashes24h 0}} bad{{end}}">{{.Crashes24h}}</span>{{if .CrashSpark}}<svg class="ov2-spark" viewBox="0 0 58 22"><polyline fill="none" style="stroke:var(--danger)" stroke-width="2" points="{{.CrashSpark}}"/></svg>{{end}}</div>
+      <div class="d">{{with .CrashDelta}}{{if .Show}}<span class="ov2-delta {{if .Bad}}bad{{else}}good{{end}}">{{if .Up}}<svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M7 7l10 10M9 17h8V9"/></svg>{{end}}{{.N}}</span> · {{end}}{{end}}{{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</div></a>
+
+    <a class="ov2-sig" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Open alerts</span>
+      <div class="mid"><span class="v{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</span></div>
+      <div class="d">unresolved</div></a>
+  </div>
+
+  {{/* ── Main grid ── */}}
+  <div class="ov2-grid">
+    <div class="ov2-col">
+
+      {{/* Where to look */}}
+      <div class="ov2-card">
+        <div class="ov2-ch"><h3>Where to look</h3><span class="m">{{if gt .AttentionRest 0}}worst first · {{.AttentionRest}} of {{.GroupsCount}}{{else}}all healthy{{end}}</span></div>
+        {{if .WorstGroups}}
+        {{range .WorstGroups}}
+        {{$crashes := index $.RestaurantCrashes .GroupID}}
+        <a class="ov2-loc" href="/restaurants/{{.GroupID}}">
+          <span class="ov2-sc {{.ScoreClass}}">{{.Score}}</span>
+          <div class="ov2-locm">
+            <div class="ov2-locn">{{.Name}}</div>
+            <div class="ov2-why">
+              {{if gt .OfflineCount 0}}<span class="ov2-chip bad">{{.OfflineCount}} offline</span>{{end}}
+              {{if .TempMax}}<span class="ov2-chip warn">max {{fnum .TempMax}}°C</span>{{end}}
+              {{if $crashes}}<span class="ov2-chip bad">{{$crashes}} crash{{if ne $crashes 1}}es{{end}}</span>{{end}}
+              {{if gt .DistinctBuilds 1}}<span class="ov2-chip warn">{{.DistinctBuilds}} builds</span>{{end}}
+              <span class="ov2-chip mut">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
+            </div>
+          </div>
+          <span class="ov2-go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </a>
+        {{end}}
+        {{else}}
+        <div class="ov2-clear"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">Every restaurant is healthy</div><div class="s">All locations scoring 80+ — nothing to send a tech to.</div></div></div>
+        {{end}}
+      </div>
+
+      {{/* Top crashing devices */}}
+      {{if .CrashList}}
+      <div class="ov2-card">
+        <div class="ov2-ch"><h3>Top crashing devices</h3><span class="m">24h · {{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}} · {{.Crashes24h}} events</span></div>
+        {{range .CrashList}}
+        <a class="ov2-cdev" href="/devices/{{.Serial}}">
+          <div class="ov2-cdev-top"><span class="ov2-kind {{.KindClass}}">{{.KindLabel}}</span><span class="ov2-sn">{{.Serial}}</span><span class="ov2-x">×{{.Count}}</span></div>
+          <div class="ov2-cmeta">{{if .Restaurant}}<span>{{.Restaurant}}</span>{{end}}{{if .BuildID}}<span class="bd">build {{.BuildID}}</span>{{end}}<span>{{.Ago}}</span></div>
+        </a>
+        {{end}}
+        <a class="ov2-foot" href="/fleet-health">View all crashes →</a>
+      </div>
+      {{end}}
+
+      {{/* Fleet activity */}}
+      <div class="ov2-card">
+        <div class="ov2-ch"><h3>Fleet activity</h3><span class="m">7 days · peak {{.ActivityPeak}}</span></div>
+        <div class="ov2-bars">
+          {{range .ActivityBars}}
+          <div class="ov2-bar{{if .Cur}} cur{{end}}"><div class="ov2-track"><div class="ov2-fill" style="height:{{.Pct}}%"></div></div><span class="ov2-cap">{{.Val}}</span><span class="ov2-day">{{.Label}}</span></div>
+          {{else}}
+          <div class="ov2-bars-empty">No activity recorded yet.</div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <div class="ov2-col">
+      {{/* Live open alerts */}}
+      <div class="ov2-card">
+        <div class="ov2-ch"><h3>Open alerts</h3><span class="live"><span class="dot"></span>Live</span><a class="r" href="/alerts?status=open">all →</a></div>
+        <div id="ov-alerts" hx-get="/overview/alerts" hx-trigger="mdm:alerts-update from:document" hx-target="this" hx-swap="innerHTML">
+          {{template "overview-alerts" .}}
+        </div>
+      </div>
+
+      {{/* Quick actions */}}
+      <div class="ov2-card">
+        <div class="ov2-ch"><h3>Quick actions</h3></div>
+        <div class="ov2-qa">
+          {{if canAct .Role}}<a href="/commands"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Send action</a>{{end}}
+          {{if canAdminOrTester .Role}}<a href="/releases"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>New release</a>{{end}}
+          <a href="/devices"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>All devices</a>
+          {{if canAdminOrTester .Role}}<a href="/alert-config"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9M3 20h4M3 4v16"/><circle cx="12" cy="8" r="3"/></svg></span>Alert rules</a>{{end}}
+        </div>
+      </div>
+
+      {{/* Recent activity */}}
+      {{if .Audit}}
+      <div class="ov2-card">
+        <div class="ov2-ch"><h3>Recent activity</h3></div>
+        {{range .Audit}}
+        <div class="ov2-r"><span class="ov2-av">{{if .Actor}}{{slice .Actor 0 1}}{{else}}·{{end}}</span><div class="ov2-rb"><div class="ov2-rt1"><b>{{.Actor}}</b> {{.Action}}</div><div class="ov2-rt2">{{if .Target}}<span class="mono">{{.Target}}</span> · {{end}}{{timeSince .CreatedAt}}</div></div></div>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+  </div>
+
+  {{if .AISummary}}{{template "ai-report-card" .}}{{end}}
+
 </div>
 
 {{template "footer" .}}
+{{end}}
+
+{{define "overview-alerts"}}
+{{if .OpenAlerts}}
+{{range .OpenAlerts}}
+<div class="ov2-al"><span class="ov2-dot {{if eq .Severity "critical"}}bad{{else if eq .Severity "warning"}}warn{{else}}info{{end}}"></span><div class="ov2-alb"><div class="ov2-alt1">{{.Summary}}</div><div class="ov2-alt2">{{if .Serial}}<a href="/devices/{{.Serial}}" class="mono">{{.Serial}}</a> · {{end}}{{timeSince .FiredAt}}</div></div></div>
+{{end}}
+{{if gt .AlertsOpenCount (len .OpenAlerts)}}<a class="ov2-foot" href="/alerts?status=open">+ {{sub .AlertsOpenCount (len .OpenAlerts)}} more →</a>{{end}}
+{{else}}
+<div class="ov2-empty"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>All clear — nothing firing right now.</div>
+{{end}}
 {{end}}

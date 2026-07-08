@@ -1919,6 +1919,117 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		greeting = "Good afternoon"
 	}
 
+	// ── Command-center additions ──
+	sIf := func(n int) string {
+		if n == 1 {
+			return ""
+		}
+		return "s"
+	}
+	openCount, _ := h.db.CountOpenAlerts(ctx)
+
+	// Crash surfaces (24h rollup): signal tile, per-restaurant chips, top devices.
+	crashStats, _ := h.db.GetFleetCrashStats(ctx, 4)
+	crashRows := make([]crashRow, 0, len(crashStats.ByDevice))
+	for _, c := range crashStats.ByDevice {
+		label, class := crashKindBadge(c.Kind)
+		crashRows = append(crashRows, crashRow{
+			Serial: c.Serial, Restaurant: c.Restaurant, KindLabel: label, KindClass: class,
+			BuildID: c.BuildID, Ago: agoShort(c.LatestAt), Count: c.Count,
+		})
+	}
+	var crS []float64
+	for _, v := range crashStats.Daily {
+		crS = append(crS, float64(v))
+	}
+
+	// Restaurant-level verdict + worst-first list for the "Where to look" bridge.
+	sort.SliceStable(groups, func(i, j int) bool { return groups[i].Score < groups[j].Score })
+	attentionRest := 0
+	worst := make([]db.GroupHealth, 0, 3)
+	for _, g := range groups {
+		if g.DeviceCount > 0 && g.ScoreClass != "ok" {
+			attentionRest++
+			if len(worst) < 3 {
+				worst = append(worst, g)
+			}
+		}
+	}
+	restVerdict := "All restaurants healthy"
+	switch {
+	case attentionRest == 1:
+		restVerdict = "1 restaurant needs a look today"
+	case attentionRest > 1:
+		restVerdict = fmt.Sprintf("%d restaurants need a look today", attentionRest)
+	}
+	statusWord := map[string]string{"ok": "Healthy", "warn": "Watch", "danger": "At risk"}[scoreClass]
+
+	// Hero sentence: real live counts + the single worst location's reason.
+	crashWord := "crashes"
+	if crashStats.Total24h == 1 {
+		crashWord = "crash"
+	}
+	heroSentence := fmt.Sprintf("%d of %d devices online · %d %s in the last 24h · %d open alert%s.",
+		summary.RecentlyActive, summary.Total, crashStats.Total24h, crashWord,
+		openCount, sIf(openCount))
+	if len(worst) > 0 {
+		w := worst[0]
+		var bits []string
+		if w.OfflineCount > 0 {
+			bits = append(bits, fmt.Sprintf("%d offline", w.OfflineCount))
+		}
+		if w.TempMax != nil && *w.TempMax >= 45 {
+			bits = append(bits, "a unit running hot")
+		}
+		if c := crashStats.ByRestaurant[w.GroupID]; c > 0 {
+			bits = append(bits, fmt.Sprintf("%d crashes", c))
+		}
+		if len(bits) > 0 {
+			heroSentence += fmt.Sprintf(" %s is the worst — %s.", w.Name, strings.Join(bits, ", "))
+		}
+	}
+
+	// Week-over-week fleet-health trend: a connectivity proxy (100 − 40·offline-ratio,
+	// the same fallback the ring uses) averaged this week vs the prior week.
+	scoreDelta := 0
+	if d14, err := h.db.GetFleetDailyStats(ctx, 14); err == nil && summary.Total > 0 {
+		proxy := func(active int) float64 {
+			off := float64(summary.Total - active)
+			if off < 0 {
+				off = 0
+			}
+			return 100 - 40*off/float64(summary.Total)
+		}
+		var recent, prior float64
+		var rc, pc int
+		n := len(d14)
+		for i, ds := range d14 {
+			if i >= n-7 {
+				recent += proxy(ds.Active)
+				rc++
+			} else {
+				prior += proxy(ds.Active)
+				pc++
+			}
+		}
+		if rc > 0 && pc > 0 {
+			scoreDelta = int(math.Round(recent/float64(rc) - prior/float64(pc)))
+		}
+	}
+
+	// Today-vs-yesterday deltas for the signal tiles.
+	onToday, onYest, offToday, offYest, lowToday, lowYest := 0, 0, 0, 0, 0, 0
+	if len(daily) >= 2 {
+		a, b := daily[len(daily)-1], daily[len(daily)-2]
+		onToday, onYest = a.Active, b.Active
+		offToday, offYest = summary.Total-a.Active, summary.Total-b.Active
+		lowToday, lowYest = a.LowBattery, b.LowBattery
+	}
+	crToday, crYest := 0, 0
+	if n := len(crashStats.Daily); n >= 2 {
+		crToday, crYest = crashStats.Daily[n-1], crashStats.Daily[n-2]
+	}
+
 	data := map[string]any{
 		"Title": "Overview",
 		// withRole overwrites this on success; the default keeps the template's
@@ -1945,6 +2056,22 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		"Audit":                audit,
 		"OpenAlerts":           openAlerts,
 		"ActiveThresholdLabel": fmt.Sprintf("%d min", activeSecs/60),
+		// Command-center fields.
+		"RestVerdict":       restVerdict,
+		"StatusWord":        statusWord,
+		"ScoreDelta":        scoreDelta,
+		"HeroSentence":      heroSentence,
+		"AttentionRest":     attentionRest,
+		"WorstGroups":       worst,
+		"RestaurantCrashes": crashStats.ByRestaurant,
+		"Crashes24h":        crashStats.Total24h,
+		"CrashDevices24h":   crashStats.Devices24h,
+		"CrashList":         crashRows,
+		"CrashSpark":        sparkPoints(crS),
+		"OnlineDelta":       tileDelta(onToday, onYest, false),
+		"OfflineDelta":      tileDelta(offToday, offYest, true),
+		"LowDelta":          tileDelta(lowToday, lowYest, true),
+		"CrashDelta":        tileDelta(crToday, crYest, true),
 	}
 
 	// Same cached hourly AI fleet report the devices page used to host.
@@ -2580,6 +2707,16 @@ func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
 			emitCount()
 		}
 	}
+}
+
+// OverviewAlerts renders the overview's live "Open alerts" list as an htmx
+// fragment, refetched on every mdm:alerts-update so the card tracks alerts live.
+func (h *Handler) OverviewAlerts(w http.ResponseWriter, r *http.Request) {
+	alerts, _ := h.db.ListAlerts(r.Context(), "open", 5)
+	total, _ := h.db.CountOpenAlerts(r.Context())
+	h.tmpl.ExecuteTemplate(w, "overview-alerts", map[string]any{
+		"OpenAlerts": alerts, "AlertsOpenCount": total,
+	})
 }
 
 // ReportAlertsByRestaurant renders the Daily Report's per-restaurant open-alert
@@ -3278,6 +3415,26 @@ func agoShort(t time.Time) string {
 	default:
 		return fmt.Sprintf("%dd ago", int(d.Hours())/24)
 	}
+}
+
+// absInt returns the absolute value of an int.
+func absInt(n int) int {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
+// tileDelta formats a today-vs-yesterday change for an overview signal tile.
+// badWhenUp says whether an increase is bad (offline/crashes) or good (online).
+// Returns Show=false when there's no change so the tile reads "steady".
+func tileDelta(today, yesterday int, badWhenUp bool) map[string]any {
+	d := today - yesterday
+	if d == 0 {
+		return map[string]any{"Show": false}
+	}
+	up := d > 0
+	return map[string]any{"Show": true, "N": absInt(d), "Up": up, "Bad": up == badWhenUp}
 }
 
 // crashSparkBars turns 7 daily counts into scaled, colour-coded bars. The tallest
@@ -10481,6 +10638,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
+	mux.HandleFunc("GET /overview/alerts", h.requireAuth(h.OverviewAlerts))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdminOrTester(h.AlertConfigView))
