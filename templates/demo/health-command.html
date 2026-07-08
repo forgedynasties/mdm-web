@@ -25,27 +25,43 @@ svg{display:block}a{color:inherit;text-decoration:none}button{font:inherit;curso
 h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
 .lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:70ch}
 
-/* ── hero ── */
-.hero{display:grid;grid-template-columns:auto 1fr auto;gap:26px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-sm);padding:20px 26px;margin-bottom:16px}
-@media(max-width:760px){.hero{grid-template-columns:auto 1fr}.hero .toggle{grid-column:1/-1;justify-self:start}}
-.ring{position:relative;width:112px;height:112px;flex:none}
-.ring svg{width:112px;height:112px}
-.ring .trk{fill:none;stroke:var(--surface3);stroke-width:9}
-.ring .val{fill:none;stroke-width:9;stroke-linecap:round;stroke:var(--warn)}
-.ring .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.ring .n b{font-size:34px;font-weight:750;letter-spacing:-.02em;line-height:1;color:var(--warn)}
-.ring .n span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:3px}
-.hero-m{min-width:0}
+/* ── hero (score + crash-trend card) ── */
+.hero{display:grid;grid-template-columns:auto 1fr auto;gap:30px;align-items:center;background:linear-gradient(118deg,var(--warn-soft),var(--surface) 58%);border:1px solid var(--warn-edge);border-radius:var(--r5);box-shadow:var(--sh-sm);padding:22px 28px;margin-bottom:22px}
+@media(max-width:900px){.hero{grid-template-columns:1fr;gap:20px}}
 .eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
-.verdict{font-size:22px;font-weight:750;letter-spacing:-.01em;margin-top:3px}
-.verdict .up{color:var(--warn)}
-.sub{font-size:13.5px;color:var(--muted);margin-top:4px}
-.sub b{color:var(--text2);font-weight:600}
-.trend{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--danger);margin-left:8px}
-.trend svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4}
-.toggle{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px}
+
+/* left · score */
+.hscore{padding-right:30px;border-right:1px solid var(--warn-edge)}
+@media(max-width:900px){.hscore{border-right:none;border-bottom:1px solid var(--warn-edge);padding-right:0;padding-bottom:16px}}
+.hscore .big{font-size:54px;font-weight:750;letter-spacing:-.03em;line-height:1;color:var(--warn);font-variant-numeric:tabular-nums;margin-top:7px}
+.hscore .big small{font-size:15px;font-weight:600;color:var(--muted);margin-left:5px;letter-spacing:0}
+.hscore .delta{margin-top:10px;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:650;color:var(--danger)}
+.hscore .delta svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.4}
+
+/* middle · message */
+.hmsg{min-width:0}
+.hmsg .verdict{font-size:22px;font-weight:750;letter-spacing:-.01em}
+.hmsg .verdict .up{color:var(--warn)}
+.hmsg .s{font-size:13.5px;color:var(--text2);margin-top:7px;max-width:58ch;line-height:1.5}
+.hmsg .s b{color:var(--text);font-weight:650}
+.facts{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px}
+.fact{font-size:12px;font-weight:600;color:var(--text2);background:rgba(255,255,255,.62);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+.fact b{color:var(--text);font-variant-numeric:tabular-nums}
+.fact.bad{color:var(--danger);border-color:var(--danger-edge)}.fact.bad b{color:var(--danger)}
+
+/* right · crash trend + window toggle */
+.htrend{display:flex;flex-direction:column;align-items:flex-end;gap:15px}
+@media(max-width:900px){.htrend{align-items:flex-start}}
+.toggle{display:inline-flex;background:rgba(255,255,255,.7);border:1px solid var(--border);border-radius:99px;padding:3px}
 .toggle a{font-size:12px;font-weight:600;color:var(--muted);padding:5px 13px;border-radius:99px}
 .toggle a.on{background:var(--surface);color:var(--text);box-shadow:var(--sh-sm)}
+.trendbox{text-align:right}
+@media(max-width:900px){.trendbox{text-align:left}}
+.spark-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);margin-bottom:11px}
+.spark{display:inline-flex;align-items:flex-end;gap:6px;height:58px;margin-bottom:16px}
+.spark .b{width:15px;background:var(--surface3);border-radius:4px 4px 0 0;position:relative}
+.spark .b.hi{background:var(--danger)}.spark .b.md{background:var(--warn)}
+.spark .b span{position:absolute;bottom:-17px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--faint)}
 
 /* ── signal strip ── */
 .signals{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:22px}
@@ -131,18 +147,38 @@ h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
   <h1>Fleet Health — Command</h1>
   <p class="lede">Triage-first, action-oriented, and crash-aware. Score up top, a signal strip where <b>crashes are a first-class vital</b>, a worst-first list of exactly what to fix with one-tap actions, and a dedicated crashes panel that groups by app so you see the offender at a glance.</p>
 
-  <!-- hero -->
+  <!-- hero: score + crash-trend card -->
   <div class="hero">
-    <div class="ring">
-      <svg viewBox="0 0 112 112"><circle class="trk" cx="56" cy="56" r="44"/><circle class="val" cx="56" cy="56" r="44" stroke-dasharray="276.5" stroke-dashoffset="60.8" transform="rotate(-90 56 56)"/></svg>
-      <div class="n"><b>78</b><span>Health</span></div>
+    <div class="hscore">
+      <div class="eyebrow">Fleet health · 7 days</div>
+      <div class="big">78<small>/ 100</small></div>
+      <div class="delta"><svg viewBox="0 0 24 24"><path d="M7 7l10 10"/><path d="M17 9v8h-8"/></svg>−6 vs last week</div>
     </div>
-    <div class="hero-m">
-      <div class="eyebrow">Fleet health · last 7 days</div>
-      <div class="verdict"><span class="up">3 restaurants</span> need a look<span class="trend"><svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>−6 vs last week</span></div>
-      <div class="sub"><b>846</b> of 900 devices online · <b>12</b> open alerts · <b>19</b> crashes today · <b>3</b> builds</div>
+    <div class="hmsg">
+      <div class="verdict"><span class="up">3 restaurants</span> need a look</div>
+      <div class="s"><b>Downtown Diner</b> is the worst — 8 devices offline, a unit at 55°C, and 6 crashes today. Crashes are climbing fleet-wide, almost all on build <b>2.4.1</b>.</div>
+      <div class="facts">
+        <span class="fact"><b>846</b> / 900 online</span>
+        <span class="fact"><b>12</b> open alerts</span>
+        <span class="fact bad"><b>19</b> crashes today</span>
+        <span class="fact"><b>3</b> builds</span>
+      </div>
     </div>
-    <div class="toggle"><a class="on" href="#">7 days</a><a href="#">Today</a></div>
+    <div class="htrend">
+      <div class="toggle"><a class="on" href="#">7 days</a><a href="#">Today</a></div>
+      <div class="trendbox">
+        <div class="spark-lbl">Crashes / day</div>
+        <div class="spark" title="crashes per day, last 7 days">
+          <div class="b" style="height:22%"><span>Mon</span></div>
+          <div class="b" style="height:30%"><span>Tue</span></div>
+          <div class="b" style="height:18%"><span>Wed</span></div>
+          <div class="b md" style="height:40%"><span>Thu</span></div>
+          <div class="b md" style="height:52%"><span>Fri</span></div>
+          <div class="b hi" style="height:74%"><span>Sat</span></div>
+          <div class="b hi" style="height:100%"><span>Today</span></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- signal strip: crashes is now a vital -->
