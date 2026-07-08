@@ -5293,6 +5293,23 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .hub-focus-cta { flex: none; }
 .hub-list-h { font-size: 14px; font-weight: 700; margin: 22px 0 10px; color: var(--muted); }
 
+/* Release train: the repeating ship -> test -> fix cycle, oldest -> newest. */
+.rel-train { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 2px 0 14px; padding: 2px; overflow-x: auto; }
+.rt-link { width: 26px; height: 2px; background: var(--border); flex: none; }
+.rt-node { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 1px solid var(--border-soft); border-radius: 99px; background: var(--surface); text-decoration: none; color: var(--text); white-space: nowrap; flex: none; }
+.rt-node:hover { border-color: var(--accent); }
+.rt-node.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.rt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex: none; }
+.rt-node.st-published .rt-dot { background: var(--ok); }
+.rt-node.st-draft .rt-dot { background: var(--warn); }
+.rt-ver { font-size: 12px; font-weight: 600; }
+.rt-meta { font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .02em; }
+
+/* Live pulse — signals the region auto-updates via SSE. */
+.live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); vertical-align: middle; margin-left: 2px; box-shadow: 0 0 0 0 var(--ok); animation: livepulse 2.4s ease-out infinite; }
+@keyframes livepulse { 0% { box-shadow: 0 0 0 0 rgba(21,127,60,.4); } 70% { box-shadow: 0 0 0 6px rgba(21,127,60,0); } 100% { box-shadow: 0 0 0 0 rgba(21,127,60,0); } }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
 .hub-board { margin-bottom: 8px; }
 .board-list { display: flex; flex-direction: column; }
 .board-row { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border-top: 1px solid var(--border-soft); text-decoration: none; color: var(--text); font-size: 13px; border-radius: 6px; }

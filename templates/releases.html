@@ -298,6 +298,18 @@ function relTab(group, btn) {
 {{/* ── hub-live: focus band + problems board. Rendered inline by releases.html and
       re-fetched via GET /releases?partial=hub-live on the problem SSE. ──────── */}}
 {{define "hub-live"}}
+{{if gt (len .ReleaseTrain) 1}}
+<div class="rel-train" title="The release cycle — oldest to newest">
+  {{range $i, $t := .ReleaseTrain}}
+  {{if $i}}<span class="rt-link"></span>{{end}}
+  <a href="/releases/{{$t.ID}}" class="rt-node st-{{$t.Status}}{{if $t.Active}} active{{end}}" title="{{$t.Version}} — {{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}} open problem{{if ne $t.Open 1}}s{{end}}{{end}}{{if $t.SignedOffBy}} · signed off{{end}}">
+    <span class="rt-dot"></span>
+    <span class="rt-ver mono">{{$t.Version}}</span>
+    <span class="rt-meta">{{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}}⚠{{end}}</span>
+  </a>
+  {{end}}
+</div>
+{{end}}
 {{if .ActiveRelease}}
 {{$a := .ActiveRelease}}
 {{$aReady := and (gt .ActiveQA.Total 0) .ActiveQA.Passed (eq .ActiveProblems.Blockers 0)}}
@@ -332,7 +344,7 @@ function relTab(group, btn) {
 
 <div class="card hub-board dv-rise-1">
   <div class="card-header">
-    <h3>Problems <span class="muted small">across all releases</span></h3>
+    <h3>Problems <span class="muted small">across all releases</span> <span class="live-dot" title="Updates live as testers report"></span></h3>
     <span class="muted small">{{.GlobalProblems.Open}} open{{if gt .GlobalProblems.Blockers 0}} · {{.GlobalProblems.Blockers}} blocker{{if ne .GlobalProblems.Blockers 1}}s{{end}}{{end}} · {{.GlobalProblems.Total}} total</span>
   </div>
   <div style="padding:12px 16px;">

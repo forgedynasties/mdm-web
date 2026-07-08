@@ -4781,6 +4781,25 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	problemBoard, _ := h.db.ListProblemBoard(r.Context())
 	globalProblems, _ := h.db.GlobalProblemSummary(r.Context())
 
+	// Release train: the most recent tracked releases oldest→newest, so the hub can show
+	// the repeating ship→test→fix cycle at a glance. `releases` is newest-first.
+	var releaseTrain []map[string]any
+	trainMax := len(releases)
+	if trainMax > 6 {
+		trainMax = 6
+	}
+	for i := trainMax - 1; i >= 0; i-- {
+		rel := releases[i]
+		releaseTrain = append(releaseTrain, map[string]any{
+			"ID":          rel.ID,
+			"Version":     rel.Version,
+			"Status":      rel.Status,
+			"SignedOffBy": rel.SignedOffBy,
+			"Open":        problemsByRelease[rel.ID].Open,
+			"Active":      activeRel != nil && activeRel.ID == rel.ID,
+		})
+	}
+
 	data := map[string]any{
 		"Title":           "Releases",
 		"Versions":        active,
@@ -4795,6 +4814,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"ActiveCarried":   activeCarried,
 		"ProblemBoard":    problemBoard,
 		"GlobalProblems":  globalProblems,
+		"ReleaseTrain":    releaseTrain,
 	}
 	// Live refresh: the #hub-live region refetches this on the problem-updated body event
 	// (focus band + problems board only), so the hub stays current without a full reload.
