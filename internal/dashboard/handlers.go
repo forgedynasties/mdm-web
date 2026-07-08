@@ -404,6 +404,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"canOperate": func(role string) bool {
 			return role == "admin" || role == "dev" || role == "operator" || role == "tester"
 		},
+		// plainAlert strips a humanized alert sentence to plain text (for search).
+		"plainAlert": plainSentence,
 		// alertTypeGroups feeds the per-channel alert-type filter in settings.
 		"alertTypeGroups": alertTypeCatalog,
 		// alertTypeLabel maps a raw alert type to its friendly catalog label
@@ -3023,86 +3025,86 @@ func (h *Handler) GroupDailyStatsJSON(w http.ResponseWriter, r *http.Request) {
 
 // AlertList renders the alerts page, optionally filtered by ?status=open|acknowledged|resolved.
 func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
-	status := r.URL.Query().Get("status")
-	switch status {
-	case "", "open", "acknowledged", "resolved":
+	// The inbox has one segmented control: All / Needs action / Watching / Resolved.
+	view := r.URL.Query().Get("view")
+	switch view {
+	case "", "needs", "watching", "resolved":
 	default:
-		status = ""
+		view = ""
 	}
-	severity := r.URL.Query().Get("severity")
-	switch severity {
-	case "critical", "warning", "info":
-	default:
-		severity = ""
-	}
-	// Filter by alert category (Thermal, Storage, Connectivity, …): map the category to
-	// its set of alert types and push that into the query, so filtering + pagination all
-	// happen in SQL and only the page's rows are loaded.
-	category := r.URL.Query().Get("category")
-	var types []string
-	if category != "" {
-		types = alertTypesForCategory(category)
-	}
-	// Paginate: 10 per page, server-side (LIMIT/OFFSET) — load only the page, not the lot.
-	const alertsPageSize = 10
-	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
-	if page < 1 {
-		page = 1
-	}
-	alerts, total, err := h.db.ListAlertsPage(r.Context(), status, severity, types, alertsPageSize, (page-1)*alertsPageSize)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	totalPages := (total + alertsPageSize - 1) / alertsPageSize
 	summary, err := h.db.AlertSummaryCounts(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// For each crash alert, surface the DropBox trace (stack / ANR / tombstone) the
-	// client reported with the crash, plus any legacy auto-captured logcat that older
-	// alerts may still carry. Built over the final (filtered) set only.
-	alertTraces := make(map[uuid.UUID]string)
-	alertLogs := make(map[uuid.UUID]*db.AlertLogcat)
-	for _, a := range alerts {
-		if a.Type != "device_crash" {
-			continue
+	data := map[string]any{
+		"Title":         "Alerts",
+		"Summary":       summary,
+		"View":          view,
+		"ResolvedCount": summary.Resolved,
+	}
+	role := h.role(r)
+	canAct := role == "admin" || role == "dev" || role == "operator" || role == "tester"
+	if view == "resolved" {
+		resolved, _ := h.db.ListAlerts(r.Context(), "resolved", 60)
+		data["Resolved"] = humanizeAll(resolved)
+	} else {
+		active, err := h.db.ListActiveAlerts(r.Context(), 150)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
 		}
-		if a.DeviceID != nil {
-			if tr, ok, _ := h.db.LatestCrashTrace(r.Context(), *a.DeviceID); ok {
-				alertTraces[a.ID] = tr
+		var crit, watch []humanAlert
+		for _, a := range active {
+			ha := humanizeAlert(a)
+			ha.CanAct = canAct
+			if a.Severity == "critical" {
+				crit = append(crit, ha)
+			} else {
+				watch = append(watch, ha)
 			}
 		}
-		if lc, ok, _ := h.db.GetAlertLogcat(r.Context(), a.ID); ok {
-			alertLogs[a.ID] = lc
-		}
+		data["Critical"] = crit
+		data["Watching"] = watch
+		data["NeedsCount"] = len(crit)
+		data["WatchCount"] = len(watch)
+		data["ActiveCount"] = len(crit) + len(watch)
 	}
-	h.render(w, r, "alerts.html", map[string]any{
-		"Title":       "Alerts",
-		"Alerts":      alerts,
-		"AlertLogs":   alertLogs,
-		"AlertTraces": alertTraces,
-		"Summary":     summary,
-		"Filter":      status,
-		"Severity":    severity,
-		"Category":    category,
-		"Categories":  alertCategories(),
-		"Page":        page,
-		"TotalPages":  totalPages,
-		"Total":       total,
+	h.render(w, r, "alerts.html", data)
+}
+
+// AlertNewest returns the single most urgent active alert in friendly form as JSON,
+// for the toast that pops when a new critical alert arrives.
+func (h *Handler) AlertNewest(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	alerts, _ := h.db.ListActiveAlerts(r.Context(), 1)
+	if len(alerts) == 0 {
+		w.Write([]byte("null"))
+		return
+	}
+	ha := humanizeAlert(alerts[0])
+	href := ""
+	if ha.Primary != nil {
+		href = ha.Primary.Href
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"id":       ha.ID.String(),
+		"severity": ha.Severity,
+		"headline": ha.Headline,
+		"sentence": plainSentence(ha.Sentence),
+		"href":     href,
 	})
 }
 
 // AlertsRecent renders a compact list of the latest open alerts for the top-bar
 // bell dropdown (lazy-loaded via htmx when the dropdown opens).
 func (h *Handler) AlertsRecent(w http.ResponseWriter, r *http.Request) {
-	alerts, err := h.db.ListAlerts(r.Context(), "open", 6)
+	alerts, err := h.db.ListActiveAlerts(r.Context(), 6)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.tmpl.ExecuteTemplate(w, "alerts-recent", map[string]any{"Alerts": alerts})
+	h.tmpl.ExecuteTemplate(w, "alerts-recent", map[string]any{"Alerts": humanizeAll(alerts)})
 }
 
 // AlertBulk applies an action (acknowledge|resolve) to the alert IDs selected via
@@ -10640,6 +10642,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
 	mux.HandleFunc("GET /overview/alerts", h.requireAuth(h.OverviewAlerts))
+	mux.HandleFunc("GET /alerts/newest", h.requireAuth(h.AlertNewest))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdminOrTester(h.AlertConfigView))

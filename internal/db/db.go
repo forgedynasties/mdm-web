@@ -4929,6 +4929,41 @@ func (d *DB) ListAlerts(ctx context.Context, status string, limit int) ([]Alert,
 	return out, rows.Err()
 }
 
+// ListActiveAlerts returns non-resolved alerts (open + acknowledged) for the alerts
+// inbox, worst-severity first then newest. Alerts on inactive (hidden) devices are
+// excluded so silenced units don't clutter the list. limit <= 0 means 200.
+func (d *DB) ListActiveAlerts(ctx context.Context, limit int) ([]Alert, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
+		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
+		       a.occurrences, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
+		FROM alerts a
+		LEFT JOIN devices d ON d.id = a.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE a.status <> 'resolved' AND (a.device_id IS NULL OR NOT d.hidden)
+		ORDER BY CASE a.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+		         a.fired_at DESC
+		LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Alert
+	for rows.Next() {
+		var a Alert
+		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
+			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
+			&a.Occurrences, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
 // ListAlertsPage returns one page of alerts matching the status/severity/type filters,
 // newest first, plus the total number of matches (via COUNT(*) OVER()) for pagination.
 // All filtering is done in SQL so only the page's rows are loaded, not the whole set.
