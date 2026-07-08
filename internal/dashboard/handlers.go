@@ -3098,6 +3098,30 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 			healthy++
 		}
 	}
+
+	// Crash surfaces: 24h rollup (signal tile + hero facts), the worst devices for
+	// the crashes panel, a 7-day sparkline, and per-restaurant counts for the chips.
+	crashStats, _ := h.db.GetFleetCrashStats(r.Context(), 6)
+	crashRows := make([]crashRow, 0, len(crashStats.ByDevice))
+	for _, c := range crashStats.ByDevice {
+		label, class := crashKindBadge(c.Kind)
+		crashRows = append(crashRows, crashRow{
+			Serial: c.Serial, Restaurant: c.Restaurant,
+			KindLabel: label, KindClass: class,
+			BuildID: c.BuildID, Ago: agoShort(c.LatestAt), Count: c.Count,
+		})
+	}
+	// Memory-pressure signal count (open alerts of that type).
+	memory := 0
+	for _, a := range alerts {
+		if a.Type == "memory_pressure" {
+			memory++
+		}
+	}
+	// Triage list is worst-first (GetRestaurantHealth returns name order).
+	sort.SliceStable(groups, func(i, j int) bool { return groups[i].Score < groups[j].Score })
+	statusWord := map[string]string{"ok": "Healthy", "warn": "Watch", "danger": "Critical"}[scoreClass]
+
 	data := map[string]any{
 		"Title":           "Fleet Health",
 		"Groups":          groups,
@@ -3120,6 +3144,16 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		"RingOffset": fmt.Sprintf("%.1f", 251.3*float64(100-score)/100),
 		"Verdict":    verdict,
 		"Attention":  attention,
+		"StatusWord": statusWord,
+		// Crash surfaces.
+		"Crashes24h":       crashStats.Total24h,
+		"CrashDevices24h":  crashStats.Devices24h,
+		"CrashWorstBuild":  crashStats.WorstBuild,
+		"CrashWorstBuildN": crashStats.WorstBuildN,
+		"CrashList":        crashRows,
+		"CrashSpark":       crashSparkBars(crashStats.Daily),
+		"RestaurantCrashes": crashStats.ByRestaurant,
+		"MemoryCount":       memory,
 	}
 	// Show the same cached fleet report as the main page (latest of hourly or manual).
 	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
@@ -3168,6 +3202,91 @@ func groupAlertsBySignal(alerts []db.Alert) []reportEvidence {
 		evidence = append(evidence, reportEvidence{sig.Key, sig.Label, matched})
 	}
 	return evidence
+}
+
+// ── Fleet Health crash presentation ─────────────────────────────────────────
+
+// crashRow is one row of the health page's crashes panel: a device that has been
+// crashing, with its latest kind badge, count, build and a relative time.
+type crashRow struct {
+	Serial     string
+	Restaurant string
+	KindLabel  string
+	KindClass  string
+	BuildID    string
+	Ago        string
+	Count      int
+}
+
+// sparkBar is one bar of the hero's 7-day crashes-per-day sparkline.
+type sparkBar struct {
+	Label string
+	Pct   int
+	Class string // "hi" (danger) | "md" (warn) | "" — colour by height
+}
+
+// crashKindBadge maps a raw DropBox event kind to a short label + CSS class:
+// ANR, native tombstone, or everything-else-is-a-crash.
+func crashKindBadge(kind string) (label, class string) {
+	k := strings.ToLower(kind)
+	switch {
+	case strings.Contains(k, "anr"):
+		return "ANR", "anr"
+	case strings.Contains(k, "tombstone") || strings.Contains(k, "native"):
+		return "Native", "tomb"
+	default:
+		return "Crash", "crash"
+	}
+}
+
+// agoShort renders a compact relative time ("just now", "14m ago", "3h ago").
+func agoShort(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd ago", int(d.Hours())/24)
+	}
+}
+
+// crashSparkBars turns 7 daily counts into scaled, colour-coded bars. The tallest
+// day sets the scale; empty days keep a small stub so the axis still reads. The
+// last bar is labelled "Today", earlier ones by weekday.
+func crashSparkBars(daily []int) []sparkBar {
+	n := len(daily)
+	max := 1
+	for _, v := range daily {
+		if v > max {
+			max = v
+		}
+	}
+	bars := make([]sparkBar, n)
+	for i, v := range daily {
+		pct := v * 100 / max
+		if pct < 6 {
+			pct = 6
+		}
+		class := ""
+		if v > 0 {
+			switch {
+			case float64(v) >= 0.7*float64(max):
+				class = "hi"
+			case float64(v) >= 0.4*float64(max):
+				class = "md"
+			}
+		}
+		label := "Today"
+		if i < n-1 {
+			label = time.Now().AddDate(0, 0, -(n-1-i)).Format("Mon")
+		}
+		bars[i] = sparkBar{Label: label, Pct: pct, Class: class}
+	}
+	return bars
 }
 
 // hotSerialsFromHealth returns the serial of each restaurant's hottest unit whose
