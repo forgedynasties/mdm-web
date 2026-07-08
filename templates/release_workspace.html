@@ -636,7 +636,7 @@ function pkgVerify() {
 {{end}}
 
 {{/* prob-card renders one problem with its fix/verify trail and contextual actions.
-     Input: dict "P" <ReleaseProblem> "RelID" <int> "CanAct" <bool>. Shared by the
+     Input: dict "P" <ReleaseProblem> "RelID" <int> "CanAct" <bool> "IsAdmin" <bool>. Shared by the
      native list, the carried-over list and the hub problems board. Status buttons post
      to THIS release so the fixed-in / verified-in build is captured as the bug moves. */}}
 {{define "prob-card"}}
@@ -690,6 +690,12 @@ function pkgVerify() {
     {{end}}
   </form>
   {{end}}
+  {{if .IsAdmin}}
+  <form action="/releases/{{$relID}}/problems/{{$p.ID}}/delete" method="POST" class="prob-del"
+        hx-post="/releases/{{$relID}}/problems/{{$p.ID}}/delete" hx-swap="none" hx-confirm="Remove this problem?">
+    <button type="submit" class="prob-x" title="Remove this problem" aria-label="Remove">×</button>
+  </form>
+  {{end}}
 </div>
 {{end}}
 
@@ -697,7 +703,7 @@ function pkgVerify() {
 {{$relID := .Release.ID}}{{$canReport := .CanReport}}
 {{if .Problems}}
 <div class="prob-list">
-  {{range .Problems}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct)}}{{end}}
+  {{range .Problems}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct "IsAdmin" (canAdmin .Role))}}{{end}}
 </div>
 {{else}}
 <div class="empty" style="padding:16px;">No problems reported on this build.{{if .CanReport}} File one above when a test turns up an issue.{{end}}</div>
@@ -710,7 +716,7 @@ function pkgVerify() {
 <div class="carried-sec">
   <div class="carried-h">Carried over from earlier builds <span class="muted small">— {{len .Carried}} unresolved bug{{if ne (len .Carried) 1}}s{{end}} riding the train onto {{.RelVersion}}; mark them <b>fixed here</b> and a QA case is added to verify the fix</span></div>
   <div class="prob-list">
-    {{range .Carried}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct)}}{{end}}
+    {{range .Carried}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct "IsAdmin" (canAdmin .Role))}}{{end}}
   </div>
 </div>
 {{end}}
