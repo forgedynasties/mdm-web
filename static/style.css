@@ -4999,8 +4999,11 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 }
 
 /* ── Releases list — fleet-card row language ── */
-.rlc-list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-.rlc { display: grid; grid-template-columns: 16px 40px minmax(0, 1.4fr) minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border-soft); }
+.rlc-list { display: grid; grid-template-columns: 16px 40px minmax(0, 1.4fr) minmax(0, 1fr) auto auto; column-gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+/* Rows share the list's column tracks (subgrid) so every progress bar lines up,
+   including nested branch rows whose meta/action cells are near-empty. */
+.rlc { grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; column-gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border-soft); }
+.nb-details { grid-column: 1 / -1; }
 .rlc:last-child { border-bottom: 0; }
 .rlc:hover { background: var(--hover); }
 .rlc.dragging { opacity: .5; }
@@ -5057,9 +5060,11 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .branch-suggest-row:first-of-type { border-top: 0; }
 
 /* Branch builds nested under their parent in the releases list. */
-.rlc-child { margin-left: 26px; position: relative; }
-.rlc-child::before { content: ""; position: absolute; left: -14px; top: -9px; height: calc(50% + 9px); width: 13px; border-left: 2px solid rgba(122,128,246,.45); border-bottom: 2px solid rgba(122,128,246,.45); border-bottom-left-radius: 7px; }
-.nb-details { margin: 0 0 8px 26px; }
+/* Branch rows keep every column aligned with parents (subgrid); nesting is shown
+   by the elbow connector drawn in the first (drag-handle) column, not a row shift. */
+.rlc-child { position: relative; }
+.rlc-child::before { content: ""; position: absolute; left: 23px; top: -9px; height: calc(50% + 9px); width: 21px; border-left: 2px solid rgba(122,128,246,.45); border-bottom: 2px solid rgba(122,128,246,.45); border-bottom-left-radius: 8px; }
+.nb-details { margin: 0 0 8px 30px; }
 .nb-summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 3px 2px; list-style: none; user-select: none; display: inline-flex; align-items: center; gap: 5px; }
 .nb-summary::-webkit-details-marker { display: none; }
 .nb-summary::marker { content: ""; }
@@ -5075,7 +5080,7 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rlc-open:hover { border-color: var(--accent-edge); color: var(--accent); }
 .rlc-open.disabled { opacity: .3; pointer-events: none; cursor: default; }
 @media (max-width: 760px) {
-  .rlc { grid-template-columns: 16px 40px 1fr auto; }
+  .rlc-list { grid-template-columns: 16px 40px 1fr auto; }
   .rlc-roll, .rlc-meta { display: none; }
 }
 
