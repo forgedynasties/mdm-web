@@ -329,14 +329,26 @@ function relTab(group, btn) {
       re-fetched via GET /releases?partial=hub-live on the problem SSE. ──────── */}}
 {{define "hub-live"}}
 {{if gt (len .ReleaseTrain) 1}}
-<div class="rel-train" title="The release cycle — oldest to newest">
+<div class="rel-train" title="The release cycle — oldest to newest; forks hang below their build">
   {{range $i, $t := .ReleaseTrain}}
   {{if $i}}<span class="rt-link"></span>{{end}}
-  <a href="/releases/{{$t.ID}}" class="rt-node st-{{$t.Status}}{{if $t.Active}} active{{end}}" title="{{$t.Version}}{{if $t.Name}} — {{$t.Name}}{{end}} — {{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}} open problem{{if ne $t.Open 1}}s{{end}}{{end}}{{if $t.SignedOffBy}} · signed off{{end}}">
-    <span class="rt-dot"></span>
-    <span class="rt-ver{{if not $t.Name}} mono{{end}}">{{if $t.Name}}{{$t.Name}}{{else}}{{$t.Version}}{{end}}</span>
-    <span class="rt-meta">{{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}}⚠{{end}}</span>
-  </a>
+  <div class="rt-col">
+    <a href="/releases/{{$t.ID}}" class="rt-node st-{{$t.Status}}{{if $t.Active}} active{{end}}" title="{{$t.Version}}{{if $t.Name}} — {{$t.Name}}{{end}} — {{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}} open problem{{if ne $t.Open 1}}s{{end}}{{end}}{{if $t.SignedOffBy}} · signed off{{end}}">
+      <span class="rt-dot"></span>
+      <span class="rt-ver{{if not $t.Name}} mono{{end}}">{{if $t.Name}}{{$t.Name}}{{else}}{{$t.Version}}{{end}}</span>
+      <span class="rt-meta">{{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}}⚠{{end}}</span>
+    </a>
+    {{if $t.Branches}}
+    <div class="rt-branches">
+      {{range $t.Branches}}
+      <a href="/releases/{{.ID}}" class="rt-branch" title="branch build {{.Version}} · {{.Status}}">
+        <span class="rt-branch-mark">⑂</span>
+        <span class="rt-branch-ver mono">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span>
+      </a>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
   {{end}}
 </div>
 {{end}}
