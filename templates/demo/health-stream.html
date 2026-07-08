@@ -1,0 +1,193 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Health · Stream — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.1);--peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.1);--warn:#b45309;--warn-soft:rgba(180,83,9,.12);
+  --danger:#b42318;--danger-soft:rgba(180,35,24,.08);--danger-edge:rgba(180,35,24,.26);
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+.wrap{max-width:1120px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:70ch}
+
+.grid{display:grid;grid-template-columns:1fr 300px;gap:22px;align-items:start}
+@media(max-width:880px){.grid{grid-template-columns:1fr}}
+
+/* filter chips */
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+.chip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--text2)}
+.chip:hover{border-color:var(--rule)}
+.chip.on{background:var(--text);color:#fff;border-color:transparent}
+.chip svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+.chip .c{font-variant-numeric:tabular-nums;opacity:.85}
+.chip.crash.on{background:var(--danger);}
+.live{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--ok)}
+.live .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 0 var(--ok-soft);animation:pulse 2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(21,127,60,.4)}70%{box-shadow:0 0 0 7px rgba(21,127,60,0)}100%{box-shadow:0 0 0 0 rgba(21,127,60,0)}}
+
+/* timeline */
+.tl-cap{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:20px 2px 12px}
+.tl-cap:first-child{margin-top:0}
+.ev{position:relative;display:flex;gap:14px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);margin-bottom:10px}
+.ev.bad{border-left:4px solid var(--danger)}.ev.warn{border-left:4px solid var(--warn)}.ev.info{border-left:4px solid var(--peri)}
+.ev .ic{width:36px;height:36px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center}
+.ev.bad .ic{background:var(--danger-soft);color:var(--danger)}.ev.warn .ic{background:var(--warn-soft);color:var(--warn)}.ev.info .ic{background:var(--peri-soft);color:var(--peri)}
+.ev .ic svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2}
+.ev .m{flex:1;min-width:0}
+.ev .top{display:flex;align-items:baseline;gap:8px}
+.ev .t{font-size:14px;font-weight:700}
+.ev .kind{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:5px}
+.ev .kind.crash{background:var(--danger-soft);color:var(--danger)}.ev .kind.anr{background:var(--warn-soft);color:var(--warn)}
+.ev .when{margin-left:auto;font-size:11.5px;color:var(--faint);flex:none}
+.ev .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+.ev .s .mono{font-family:var(--mono)}.ev .s a{color:var(--text2);font-weight:600;border-bottom:1px solid var(--rule)}
+.ev .act{margin-top:9px;display:flex;gap:7px;flex-wrap:wrap}
+.abtn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--text2);display:inline-flex;align-items:center;gap:6px}
+.abtn:hover{border-color:var(--rule)}
+.abtn.primary{border-color:transparent;background:var(--text);color:#fff}
+.abtn svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2}
+.tl-more{display:block;text-align:center;padding:11px;font-size:12.5px;font-weight:600;color:var(--coral);margin-top:2px}
+
+/* rail */
+.rail{position:sticky;top:20px;display:flex;flex-direction:column;gap:14px}
+.rcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);padding:18px}
+.rscore{display:flex;align-items:center;gap:14px}
+.rscore .ring{position:relative;width:66px;height:66px;flex:none}
+.rscore .ring svg{width:66px;height:66px}
+.rscore .ring .trk{fill:none;stroke:var(--surface3);stroke-width:7}
+.rscore .ring .val{fill:none;stroke:var(--warn);stroke-width:7;stroke-linecap:round}
+.rscore .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:750;color:var(--warn)}
+.rscore .t{font-size:13px;font-weight:700}.rscore .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+.rlist{margin-top:4px}
+.rrow{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft)}
+.rrow:first-child{border-top:none}
+.rrow .d{width:9px;height:9px;border-radius:50%;flex:none}
+.rrow .d.bad{background:var(--danger)}.rrow .d.warn{background:var(--warn)}.rrow .d.ok{background:var(--ok)}
+.rrow .k{font-size:12.5px;color:var(--text2);flex:1}
+.rrow .v{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.rcard h4{font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+.note{margin-top:26px;padding:14px 17px;background:var(--surface2);border:1px dashed var(--rule);border-radius:var(--r4);font-size:12.5px;color:var(--muted)}
+.note b{color:var(--text2)}.note .mono{font-family:var(--mono)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/index">← All demos</a><span class="tag">Health · Stream</span></div>
+  <h1>Fleet Health — Stream</h1>
+  <p class="lede">Time-first. One live, chronological feed of everything happening to the fleet — crashes, devices dropping, overheating, batteries dying — each with the device, the value, and a one-tap action. Filter to just crashes when that's the fire. The rail keeps the score and signal counts pinned.</p>
+
+  <div class="grid">
+    <div>
+      <div class="filters">
+        <button class="chip on">All <span class="c">31</span></button>
+        <button class="chip crash"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes <span class="c">19</span></button>
+        <button class="chip"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline <span class="c">6</span></button>
+        <button class="chip"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Heat <span class="c">2</span></button>
+        <button class="chip"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/></svg>Battery <span class="c">4</span></button>
+        <span class="live"><span class="dot"></span>Live</span>
+      </div>
+
+      <div class="tl-cap">Now · last hour</div>
+
+      <div class="ev bad">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span>
+        <div class="m">
+          <div class="top"><span class="t">com.aioapp.pos</span><span class="kind anr">ANR</span><span class="when">14m ago</span></div>
+          <div class="s">3rd ANR in 20m on <span class="mono">AT070AA260027</span> · <a href="#">Tom's Ducci 6th</a> · build 2.4.1</div>
+          <div class="act"><a class="abtn primary" href="#"><svg viewBox="0 0 24 24"><path d="M4 4h16v13H4z"/><path d="M8 21h8"/></svg>Pull logcat</a><a class="abtn" href="#"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open device</a></div>
+        </div>
+      </div>
+
+      <div class="ev bad">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg></span>
+        <div class="m">
+          <div class="top"><span class="t">Overheating — 55°C</span><span class="when">18m ago</span></div>
+          <div class="s"><span class="mono">AT070AA260024</span> register 3 · <a href="#">Downtown Diner</a> · limit 54°C</div>
+          <div class="act"><a class="abtn primary" href="#"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5M4 4v6h6"/></svg>Reboot</a><a class="abtn" href="#"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open device</a></div>
+        </div>
+      </div>
+
+      <div class="ev bad">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span>
+        <div class="m">
+          <div class="top"><span class="t">com.aioapp.kds</span><span class="kind crash">Crash</span><span class="when">42m ago</span></div>
+          <div class="s">NullPointerException in CartView · <span class="mono">AT070AA260024</span> · build 2.4.1</div>
+          <div class="act"><a class="abtn primary" href="#"><svg viewBox="0 0 24 24"><path d="M4 4h16v13H4z"/><path d="M8 21h8"/></svg>View trace</a></div>
+        </div>
+      </div>
+
+      <div class="tl-cap">Earlier today</div>
+
+      <div class="ev warn">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg></span>
+        <div class="m">
+          <div class="top"><span class="t">8 devices offline</span><span class="when">3h ago</span></div>
+          <div class="s"><a href="#">Downtown Diner</a> · no check-in for 3h — likely a network or router issue</div>
+          <div class="act"><a class="abtn" href="#"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open restaurant</a></div>
+        </div>
+      </div>
+
+      <div class="ev info">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span>
+        <div class="m">
+          <div class="top"><span class="t">com.android.systemui</span><span class="kind crash">Native</span><span class="when">3h ago</span></div>
+          <div class="s">SIGSEGV in surfaceflinger · <span class="mono">AT070AA260031</span> · build 2.4.0 · device auto-recovered</div>
+        </div>
+      </div>
+
+      <div class="ev warn">
+        <span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg></span>
+        <div class="m">
+          <div class="top"><span class="t">Battery at 12%</span><span class="when">5h ago</span></div>
+          <div class="s"><span class="mono">AT070AA260031</span> · <a href="#">Tom's Ducci 6th</a> · not charging during service</div>
+        </div>
+      </div>
+
+      <a class="tl-more" href="#">Load earlier events →</a>
+    </div>
+
+    <div class="rail">
+      <div class="rcard">
+        <div class="rscore">
+          <div class="ring"><svg viewBox="0 0 66 66"><circle class="trk" cx="33" cy="33" r="26"/><circle class="val" cx="33" cy="33" r="26" stroke-dasharray="163.4" stroke-dashoffset="35.9" transform="rotate(-90 33 33)"/></svg><b>78</b></div>
+          <div><div class="t">Fleet health</div><div class="s">3 restaurants need a look</div></div>
+        </div>
+      </div>
+      <div class="rcard">
+        <h4>Right now</h4>
+        <div class="rlist">
+          <div class="rrow"><span class="d bad"></span><span class="k">Crashes · 24h</span><span class="v" style="color:var(--danger)">19</span></div>
+          <div class="rrow"><span class="d warn"></span><span class="k">Offline</span><span class="v" style="color:var(--warn)">54</span></div>
+          <div class="rrow"><span class="d bad"></span><span class="k">Overheating</span><span class="v" style="color:var(--danger)">2</span></div>
+          <div class="rrow"><span class="d warn"></span><span class="k">Low battery</span><span class="v" style="color:var(--warn)">7</span></div>
+          <div class="rrow"><span class="d ok"></span><span class="k">Online</span><span class="v" style="color:var(--ok)">846</span></div>
+        </div>
+      </div>
+      <div class="rcard">
+        <h4>Hotspots</h4>
+        <div class="rlist">
+          <div class="rrow"><span class="d bad"></span><span class="k">Downtown Diner</span><span class="v">38</span></div>
+          <div class="rrow"><span class="d warn"></span><span class="k">Tom's Ducci 6th</span><span class="v">54</span></div>
+          <div class="rrow"><span class="d warn"></span><span class="k">Harbor Point Grill</span><span class="v">66</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note"><b>Data behind it:</b> a merged, time-ordered feed of <span class="mono">device_events</span> (crashes) and open <span class="mono">alerts</span> — both already stored with device, value, and timestamp. New work: one "recent fleet incidents" query unioning the two; the filter chips are client-side.</div>
+</div>
+</body></html>
