@@ -5745,13 +5745,16 @@ func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 	// linked problem; passing it later resolves that problem. Best-effort.
 	switch status {
 	case "fail":
-		if err := h.db.UpsertQAProblem(r.Context(), id, caseID, notes, h.currentUsername(r)); err != nil {
-			log.Printf("[qa] upsert problem from fail: %v", err)
-		}
-		// A "Verify fix" case that fails means the fix didn't hold — reopen the
-		// linked problem (clearing its fix/verify trail) so it rides the train.
-		if err := h.db.ReopenProblemForCase(r.Context(), caseID); err != nil {
+		// A "Verify fix" case (linked to a manual bug via problem_id) reopens that
+		// bug directly — no separate QA-source problem needed, or we'd show a
+		// duplicate on the board. For a plain QA case (no problem_id link), the
+		// usual UpsertQAProblem creates/opens the QA-source record.
+		if reopened, err := h.db.ReopenProblemForCase(r.Context(), caseID); err != nil {
 			log.Printf("[qa] reopen linked problem on fail: %v", err)
+		} else if !reopened {
+			if err := h.db.UpsertQAProblem(r.Context(), id, caseID, notes, h.currentUsername(r)); err != nil {
+				log.Printf("[qa] upsert problem from fail: %v", err)
+			}
 		}
 	case "pass":
 		if err := h.db.ResolveQAProblem(r.Context(), id, caseID); err != nil {

@@ -8729,14 +8729,18 @@ func (d *DB) VerifyProblemForCase(ctx context.Context, caseID uuid.UUID, release
 
 // ReopenProblemForCase reopens the problem linked to a test case (if any) — called when a
 // "Verify fix" case fails, meaning the fix didn't hold: the bug goes back to open with its
-// fix/verify trail cleared, so it carries forward onto the next build.
-func (d *DB) ReopenProblemForCase(ctx context.Context, caseID uuid.UUID) error {
-	_, err := d.pool.Exec(ctx, `
+// fix/verify trail cleared, so it carries forward onto the next build. Returns true when a
+// linked problem was found and reopened.
+func (d *DB) ReopenProblemForCase(ctx context.Context, caseID uuid.UUID) (bool, error) {
+	tag, err := d.pool.Exec(ctx, `
 		UPDATE release_problems
 		SET status = 'open', fixed_in_release_id = NULL, verified_in_release_id = NULL, updated_at = NOW()
 		WHERE id = (SELECT problem_id FROM test_cases WHERE id = $1 AND problem_id IS NOT NULL)`,
 		caseID)
-	return err
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
 }
 
 // UpdateTestCase edits an existing case's content and active flag.
