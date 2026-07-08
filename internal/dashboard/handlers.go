@@ -5683,7 +5683,8 @@ func (h *Handler) ReleaseMerge(w http.ResponseWriter, r *http.Request) {
 	if changelog == "" {
 		changelog = branch.Changelog // start the mainline release from the branch's notes
 	}
-	newID, err := h.db.MergeBranch(r.Context(), id, version, strings.TrimSpace(r.FormValue("name")), changelog, h.currentUsername(r))
+	carryBuild := r.FormValue("carry_build") == "on"
+	newID, err := h.db.MergeBranch(r.Context(), id, branch.Version, version, strings.TrimSpace(r.FormValue("name")), changelog, h.currentUsername(r), carryBuild)
 	if err != nil {
 		http.Error(w, "Could not merge — that version may already exist.", http.StatusBadRequest)
 		return

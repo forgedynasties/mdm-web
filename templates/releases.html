@@ -214,7 +214,7 @@
       <form id="merge-form" action="" method="POST" class="command-form" style="padding:0;">
         <div class="branch-banner" style="margin-bottom:14px;">
           <span class="bb-mark">⑂</span>
-          <span>Merging validated branch <b id="merge-branch-ver" class="mono"></b> onto the main line. This creates the next mainline release as a <b>draft</b> — attach its built package afterward, then publish.</span>
+          <span>Merging validated branch <b id="merge-branch-ver" class="mono"></b> onto the main line. This creates the next mainline release as a <b>draft</b> and closes the branch. Its QA results on base cases and any still-open problems carry over automatically.</span>
         </div>
         <div class="form-row">
           <label class="form-label">New release version</label>
@@ -224,6 +224,12 @@
         <div class="form-row">
           <label class="form-label">Name <span class="muted small">(optional)</span></label>
           <input type="text" name="name" class="form-input" placeholder="e.g. June point release">
+        </div>
+        <div class="form-row">
+          <label class="small" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;">
+            <input type="checkbox" name="carry_build" style="margin-top:2px;">
+            <span>Carry the branch's build as this release's package<div class="form-hint" style="margin-top:2px;">Only if your firmware pipeline relabels images. Normally the real v-next build is rebuilt to report the new version and attached afterward.</div></span>
+          </label>
         </div>
         <button type="submit" class="btn-primary">Create release &amp; close branch</button>
       </form>
