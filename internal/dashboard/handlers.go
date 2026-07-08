@@ -5091,7 +5091,22 @@ func (h *Handler) ReleaseDeleteQFIL(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
+// ReleaseWorkspace is the unified per-release workspace: Overview / QA / Problems /
+// Packages / Rollout tabs on one page (release_workspace.html). It replaces the old
+// split between the release detail page and a separate QA page. ReleaseDetail serves
+// /releases/{id} (tab from ?tab=, default overview); ReleaseQAPage serves the legacy
+// /releases/{id}/qa URL as a deep-link to the QA tab.
 func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
+	h.renderReleaseWorkspace(w, r, r.URL.Query().Get("tab"))
+}
+
+// ReleaseQAPage keeps the legacy /releases/{id}/qa URL working (bookmarks + the non-JS
+// POST-redirect fallbacks) by deep-linking into the QA tab of the unified workspace.
+func (h *Handler) ReleaseQAPage(w http.ResponseWriter, r *http.Request) {
+	h.renderReleaseWorkspace(w, r, "qa")
+}
+
+func (h *Handler) renderReleaseWorkspace(w http.ResponseWriter, r *http.Request, tab string) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -5102,18 +5117,33 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Release not found", http.StatusNotFound)
 		return
 	}
-	packages, _ := h.db.ListPackagesByRelease(r.Context(), id)
-	qfilPackages, _ := h.db.ListQFILPackagesByRelease(r.Context(), id)
-	deployments, _ := h.db.ListDeploymentsByRelease(r.Context(), id)
-	// Adoption count only — the release page shows the number and links out to the
-	// Fleet page (filtered by this build) instead of embedding the device roster.
-	devicesCount, _ := h.db.CountDevicesByVersion(r.Context(), rel.Version)
+	h.render(w, r, "release_workspace.html", h.releaseWorkspaceData(r, rel, tab))
+}
+
+// releaseWorkspaceData assembles the union of the release overview data and the
+// QA/Problems data for the unified tabbed workspace. It builds on releaseQAData (which
+// supplies Release/Role/Checklist/QA/Problems/ProblemSummary/CanRecord/CanReport) and
+// adds packages, deployments, crashes and rollout facts.
+func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab string) map[string]any {
+	ctx := r.Context()
+	data := h.releaseQAData(r, rel)
+	role, _ := data["Role"].(string)
+
+	packages, _ := h.db.ListPackagesByRelease(ctx, rel.ID)
+	qfilPackages, _ := h.db.ListQFILPackagesByRelease(ctx, rel.ID)
+	deployments, _ := h.db.ListDeploymentsByRelease(ctx, rel.ID)
+	// Adoption count only — links out to the Fleet page (filtered by this build) rather
+	// than embedding the device roster.
+	devicesCount, _ := h.db.CountDevicesByVersion(ctx, rel.Version)
+	// Tracked releases back the incremental package's "From build" picker (its source).
+	sourceReleases, _ := h.db.ListReleases(ctx)
+	crashes, _ := h.db.CrashesOnBuild(ctx, rel.Version, 20)
+	devs, _ := h.db.ListDevices(ctx, db.DeviceFilter{BuildID: rel.Version}, 0, 500, "serial", "asc")
 
 	// hasFull gates the "Add full package" form; canPush gates the deploy CTA. An
-	// incremental-only release is still pushable — the per-device resolver matches
-	// each incremental to devices on its source build.
-	hasFull := false
-	canPush := false
+	// incremental-only release is still pushable — the per-device resolver matches each
+	// incremental to devices on its source build.
+	hasFull, canPush := false, false
 	for _, p := range packages {
 		if p.Status != "active" {
 			continue
@@ -5124,51 +5154,37 @@ func (h *Handler) ReleaseDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	role := h.role(r)
-	// The QA + problem summaries drive the release page's pipeline + QA rail; the full
-	// checklist / problems / crashes live on the dedicated QA page (ReleaseQAPage).
-	qa, _ := h.db.ReleaseQASummary(r.Context(), id)
-	problemSummary, _ := h.db.ReleaseProblemSummary(r.Context(), id)
-	// Tracked releases back the incremental package's "From build" picker (its source).
-	sourceReleases, _ := h.db.ListReleases(r.Context())
-
-	h.render(w, r, "release_detail.html", map[string]any{
-		"Title":          "Release " + rel.Version,
-		"Release":        rel,
-		"Packages":       packages,
-		"QFILPackages":   qfilPackages,
-		"CanManageQFIL":  role == "admin" || role == "dev",
-		"Deployments":    deployments,
-		"HasFull":        hasFull,
-		"CanPush":        canPush,
-		"DevicesCount":   devicesCount,
-		"QA":             qa,
-		"ProblemSummary": problemSummary,
-		"SourceReleases": sourceReleases,
-	})
-}
-
-// ReleaseQAPage is the per-release QA / testing workspace (moved off the release
-// detail page): the checklist, problems, auto-detected crashes and readiness for one
-// release. Mutations here reuse the same htmx handlers/partials as before.
-func (h *Handler) ReleaseQAPage(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
+	switch tab {
+	case "overview", "qa", "problems", "packages", "rollout":
+		// valid
+	default:
+		tab = "overview"
 	}
-	rel, err := h.db.GetRelease(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Release not found", http.StatusNotFound)
-		return
+	// Non-admins have no Packages tab; fall back so a stale deep-link isn't a blank page.
+	if tab == "packages" && !(role == "admin" || role == "dev") {
+		tab = "overview"
 	}
-	data := h.releaseQAData(r, rel)
-	crashes, _ := h.db.CrashesOnBuild(r.Context(), rel.Version, 20)
-	devs, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{BuildID: rel.Version}, 0, 500, "serial", "asc")
-	data["Title"] = "QA · " + rel.Version
+	title := "Release " + rel.Version
+	switch tab {
+	case "qa":
+		title = "QA · " + rel.Version
+	case "problems":
+		title = "Problems · " + rel.Version
+	}
+
+	data["Tab"] = tab
+	data["Title"] = title
+	data["Packages"] = packages
+	data["QFILPackages"] = qfilPackages
+	data["CanManageQFIL"] = role == "admin" || role == "dev"
+	data["Deployments"] = deployments
+	data["HasFull"] = hasFull
+	data["CanPush"] = canPush
+	data["DevicesCount"] = devicesCount
+	data["SourceReleases"] = sourceReleases
 	data["BuildCrashes"] = crashes
 	data["DevicesOnVersion"] = devs
-	h.render(w, r, "qa.html", data)
+	return data
 }
 
 // ReleaseProblemCreate files a new problem report against a release. Any operator
