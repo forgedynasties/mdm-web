@@ -5000,7 +5000,7 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 
 /* ── Releases list — fleet-card row language ── */
 .rlc-list { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-.rlc { display: grid; grid-template-columns: 16px 40px minmax(0, 1.4fr) minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border-soft); }
+.rlc { display: grid; grid-template-columns: 16px 40px minmax(0, 1fr) 180px auto auto; align-items: center; gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border-soft); }
 .rlc:last-child { border-bottom: 0; }
 .rlc:hover { background: var(--hover); }
 .rlc.dragging { opacity: .5; }

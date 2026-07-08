@@ -5748,6 +5748,11 @@ func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 		if err := h.db.UpsertQAProblem(r.Context(), id, caseID, notes, h.currentUsername(r)); err != nil {
 			log.Printf("[qa] upsert problem from fail: %v", err)
 		}
+		// A "Verify fix" case that fails means the fix didn't hold — reopen the
+		// linked problem (clearing its fix/verify trail) so it rides the train.
+		if err := h.db.ReopenProblemForCase(r.Context(), caseID); err != nil {
+			log.Printf("[qa] reopen linked problem on fail: %v", err)
+		}
 	case "pass":
 		if err := h.db.ResolveQAProblem(r.Context(), id, caseID); err != nil {
 			log.Printf("[qa] resolve problem on pass: %v", err)
@@ -5807,18 +5812,10 @@ func (h *Handler) writeReleaseQAResponse(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	data := h.releaseQAData(r, rel)
-	if markedCase != nil {
-		if items, ok := data["Checklist"].([]db.ChecklistItem); ok {
-			for _, it := range items {
-				if it.ID == *markedCase {
-					_ = h.tmpl.ExecuteTemplate(w, "rd-qa-row", map[string]any{
-						"Item": it, "CanRecord": data["CanRecord"], "Role": data["Role"], "RelID": rel.ID,
-					})
-					break
-				}
-			}
-		}
-	}
+	// Everything updates via the out-of-band swap set (which now includes the full QA
+	// checklist), so QA marks and problem changes stay live without a reload — including a
+	// newly-added "Verify fix" case appearing in the checklist.
+	_ = markedCase // retained for call-site clarity; the whole checklist is re-rendered
 	_ = h.tmpl.ExecuteTemplate(w, "release-oob", data)
 }
 

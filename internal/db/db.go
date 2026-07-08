@@ -8727,6 +8727,18 @@ func (d *DB) VerifyProblemForCase(ctx context.Context, caseID uuid.UUID, release
 	return err
 }
 
+// ReopenProblemForCase reopens the problem linked to a test case (if any) — called when a
+// "Verify fix" case fails, meaning the fix didn't hold: the bug goes back to open with its
+// fix/verify trail cleared, so it carries forward onto the next build.
+func (d *DB) ReopenProblemForCase(ctx context.Context, caseID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE release_problems
+		SET status = 'open', fixed_in_release_id = NULL, verified_in_release_id = NULL, updated_at = NOW()
+		WHERE id = (SELECT problem_id FROM test_cases WHERE id = $1 AND problem_id IS NOT NULL)`,
+		caseID)
+	return err
+}
+
 // UpdateTestCase edits an existing case's content and active flag.
 func (d *DB) UpdateTestCase(ctx context.Context, id uuid.UUID, title, area, steps, expected string, active bool) error {
 	_, err := d.pool.Exec(ctx, `
