@@ -55,6 +55,11 @@ type AlertUpdateEvent struct{}
 // open deployment pages re-fetch their own (scoped, ETag-cached) targets partial.
 type DeploymentUpdateEvent struct{}
 
+// ProblemUpdateEvent is emitted when a release problem (or a QA test result that
+// creates/resolves one) changes anywhere. Payload-less: the releases hub board and any
+// open release workspace re-fetch their own (release-scoped) fragments.
+type ProblemUpdateEvent struct{}
+
 // Hub maintains the set of active WebSocket clients keyed by device ID.
 type Hub struct {
 	mu              sync.RWMutex
@@ -73,6 +78,8 @@ type Hub struct {
 	alertUpdates    map[chan AlertUpdateEvent]struct{}
 	deployMu        sync.RWMutex
 	deployUpdates   map[chan DeploymentUpdateEvent]struct{}
+	problemMu       sync.RWMutex
+	problemUpdates  map[chan ProblemUpdateEvent]struct{}
 	pingMu          sync.Mutex
 	pingWaiters     map[string]chan struct{}
 }
@@ -105,8 +112,9 @@ func NewHub() *Hub {
 		cmdUpdates:    make(map[chan CommandUpdateEvent]struct{}),
 		logcatUpdates: make(map[chan LogcatUpdateEvent]struct{}),
 		alertUpdates:  make(map[chan AlertUpdateEvent]struct{}),
-		deployUpdates: make(map[chan DeploymentUpdateEvent]struct{}),
-		pingWaiters:   make(map[string]chan struct{}),
+		deployUpdates:  make(map[chan DeploymentUpdateEvent]struct{}),
+		problemUpdates: make(map[chan ProblemUpdateEvent]struct{}),
+		pingWaiters:    make(map[string]chan struct{}),
 	}
 }
 
@@ -229,6 +237,38 @@ func (h *Hub) PublishDeploymentUpdate() {
 	for ch := range h.deployUpdates {
 		select {
 		case ch <- DeploymentUpdateEvent{}:
+		default:
+		}
+	}
+}
+
+// SubscribeProblemUpdates returns a channel that receives release-problem update events.
+func (h *Hub) SubscribeProblemUpdates() chan ProblemUpdateEvent {
+	ch := make(chan ProblemUpdateEvent, 32)
+	h.problemMu.Lock()
+	h.problemUpdates[ch] = struct{}{}
+	h.problemMu.Unlock()
+	return ch
+}
+
+// UnsubscribeProblemUpdates closes the channel and removes it from the subscriber set.
+func (h *Hub) UnsubscribeProblemUpdates(ch chan ProblemUpdateEvent) {
+	h.problemMu.Lock()
+	if _, ok := h.problemUpdates[ch]; ok {
+		delete(h.problemUpdates, ch)
+		close(ch)
+	}
+	h.problemMu.Unlock()
+}
+
+// PublishProblemUpdate notifies subscribers that a release problem (or a QA result that
+// creates/resolves one) changed.
+func (h *Hub) PublishProblemUpdate() {
+	h.problemMu.RLock()
+	defer h.problemMu.RUnlock()
+	for ch := range h.problemUpdates {
+		select {
+		case ch <- ProblemUpdateEvent{}:
 		default:
 		}
 	}
