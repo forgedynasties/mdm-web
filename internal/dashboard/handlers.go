@@ -4318,9 +4318,9 @@ func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
 
 // DeviceSearch is a generic serial type-ahead (not scoped to a group), used by the
 // command builder's "specific devices" target to look devices up instead of typing serials.
-// CmdkIndex returns the navigable entities (groups, restaurants, releases, and —
-// for admin/dev — productions) as JSON, so the Cmd-K palette can fuzzy-match them
-// alongside pages and devices.
+// CmdkIndex returns the navigable entities (groups, restaurants, releases) as JSON, so
+// the Cmd-K palette can fuzzy-match them alongside pages and devices. Productions are
+// deliberately excluded — they're a manufacturing concern, not a navigation target.
 func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 	type entry struct {
 		Label string `json:"label"`
@@ -4346,13 +4346,6 @@ func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 				label = rel.Version + " · " + rel.Name
 			}
 			out = append(out, entry{label, "Release", fmt.Sprintf("/releases/%d", rel.ID), "Release"})
-		}
-	}
-	if role := h.role(r); role == "admin" || role == "dev" {
-		if ps, err := h.db.ListProductions(r.Context()); err == nil {
-			for _, p := range ps {
-				out = append(out, entry{p.Name, "Production", "/productions/" + p.ID.String(), "Production"})
-			}
 		}
 	}
 	w.Header().Set("Content-Type", "application/json")
