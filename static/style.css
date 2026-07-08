@@ -5055,6 +5055,19 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .branch-suggest-h { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
 .branch-suggest-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border-soft); }
 .branch-suggest-row:first-of-type { border-top: 0; }
+
+/* Branch builds nested under their parent in the releases list. */
+.rlc-child { margin-left: 26px; position: relative; }
+.rlc-child::before { content: ""; position: absolute; left: -14px; top: -9px; height: calc(50% + 9px); width: 13px; border-left: 2px solid rgba(122,128,246,.45); border-bottom: 2px solid rgba(122,128,246,.45); border-bottom-left-radius: 7px; }
+.nb-details { margin: 0 0 8px 26px; }
+.nb-summary { cursor: pointer; font-size: 12px; color: var(--muted); padding: 3px 2px; list-style: none; user-select: none; display: inline-flex; align-items: center; gap: 5px; }
+.nb-summary::-webkit-details-marker { display: none; }
+.nb-summary::marker { content: ""; }
+.nb-summary:hover { color: var(--accent); }
+.nb-details[open] .nb-summary { color: var(--text); font-weight: 600; }
+.nb-mark { color: #7a80f6; font-weight: 700; }
+.nb-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 8px 0 4px; }
+.nb-name { flex: 1; min-width: 180px; }
 .rlc-act { display: flex; align-items: center; gap: 6px; justify-self: end; flex-wrap: wrap; justify-content: flex-end; }
 .rlc-act form { display: inline; margin: 0; }
 .rlc-open { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); flex: none; }
