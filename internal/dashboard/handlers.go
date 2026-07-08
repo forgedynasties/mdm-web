@@ -4663,9 +4663,10 @@ type versionRow struct {
 	SignedOffBy   string            // dev who signed off ("" = not signed off)
 	SignedOffAt   *time.Time
 	TestingDone   bool   // testing finished — the release is inactive (retired from active slot)
-	IsBranch      bool   // off-mainline branch build (shown under Branches, not the main path)
-	ParentVersion string // for a branch, the release it forked from
-	QfilURL       string // newest active QFIL flashing bundle URL ("" = none set)
+	IsBranch          bool   // off-mainline branch build (shown under Branches, not the main path)
+	ParentVersion     string // for a branch, the release it forked from; for a derivative, the release it matches
+	AdoptableParentID *int   // set when this is an UNTRACKED reported build matching a release's naming — one-click adopt as a branch of it
+	QfilURL           string // newest active QFIL flashing bundle URL ("" = none set)
 }
 
 // latestQfilURL returns the newest active QFIL bundle URL for a release, or ""
@@ -4694,12 +4695,39 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		relByVersion[rel.Version] = rel
 		relByID[rel.ID] = rel
 	}
+	// Mainline release versions for naming-based branch matching (longest prefix wins), so
+	// a reported build like "v2.0.3-t1" is recognised as a variant of release "v2.0.3".
+	type mrel struct {
+		id  int
+		ver string
+	}
+	var mainline []mrel
+	for _, rel := range releases {
+		if !rel.IsBranch {
+			mainline = append(mainline, mrel{rel.ID, rel.Version})
+		}
+	}
+	bestBranchParent := func(build string) (*int, string) {
+		bestLen := -1
+		var bid int
+		var bver string
+		for _, m := range mainline {
+			if strings.HasPrefix(build, m.ver+"-") && len(m.ver) > bestLen {
+				bestLen, bid, bver = len(m.ver), m.id, m.ver
+			}
+		}
+		if bestLen < 0 {
+			return nil, ""
+		}
+		return &bid, bver
+	}
 	var active, hidden, branches []versionRow
 	var trackedCount, notTrackedCount int
 	seen := make(map[string]bool)
 	addRow := func(row versionRow) {
-		// Branch builds are off the main path — collected separately for the Branches tab.
-		if row.IsBranch {
+		// Branch builds and adoptable derivative builds are off the main path — collected
+		// separately for the Branches tab.
+		if row.IsBranch || row.AdoptableParentID != nil {
 			branches = append(branches, row)
 			return
 		}
@@ -4736,6 +4764,13 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.QfilURL = h.latestQfilURL(r, rel.ID)
 		} else {
 			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
+			// Auto-match by naming: an untracked reported build that looks like a variant
+			// of a mainline release is offered under Branches for one-click adoption.
+			if !row.Hidden {
+				if pid, pver := bestBranchParent(fv.Version); pid != nil {
+					row.AdoptableParentID, row.ParentVersion = pid, pver
+				}
+			}
 		}
 		addRow(row)
 	}
@@ -5307,6 +5342,25 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 		branches, _ := h.db.ListBranchReleases(ctx, rel.ID)
 		data["Branches"] = branches
 		data["SuggestedBranchVersion"] = fmt.Sprintf("%s-t%d", rel.Version, len(branches)+1)
+		// Auto-match by naming: reported device builds that look like a variant of this
+		// release (version + "-…") but aren't tracked yet — offered for one-click adopt.
+		// Every other untracked reported build is offered too (the datalist) so you can
+		// still adopt a build that doesn't match the naming.
+		fleet, _ := h.db.GetFleetVersions(ctx)
+		prefix := rel.Version + "-"
+		var matching []map[string]any
+		var untracked []string
+		for _, fv := range fleet {
+			if fv.ReleaseID != nil {
+				continue // already a tracked release
+			}
+			untracked = append(untracked, fv.Version)
+			if strings.HasPrefix(fv.Version, prefix) {
+				matching = append(matching, map[string]any{"Version": fv.Version, "DeviceCount": fv.DeviceCount})
+			}
+		}
+		data["MatchingBuilds"] = matching
+		data["UntrackedBuilds"] = untracked
 	}
 	title := "Release " + rel.Version
 	switch tab {
