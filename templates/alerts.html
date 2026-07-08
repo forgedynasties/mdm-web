@@ -212,6 +212,21 @@
   </div>
   {{end}}
 </div>
+
+{{if gt .TotalPages 1}}
+<div class="pagination">
+  {{if gt .Page 1}}<a class="page-btn" href="/alerts{{alertsPageURL .Filter .Severity .Category (sub .Page 1)}}">&#8592; Prev</a>{{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
+  <div class="page-numbers">
+    {{range pageList .Page .TotalPages}}
+      {{if eq . 0}}<span class="page-num disabled">…</span>
+      {{else if eq . $.Page}}<span class="page-num active">{{.}}</span>
+      {{else}}<a class="page-num" href="/alerts{{alertsPageURL $.Filter $.Severity $.Category .}}">{{.}}</a>{{end}}
+    {{end}}
+  </div>
+  {{if lt .Page .TotalPages}}<a class="page-btn" href="/alerts{{alertsPageURL .Filter .Severity .Category (add .Page 1)}}">Next &#8594;</a>{{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
+</div>
+<div class="muted small" style="text-align:center;padding:2px 0 10px;">Page {{.Page}} of {{.TotalPages}} · {{.Total}} alert{{if ne .Total 1}}s{{end}}</div>
+{{end}}
 </div><!-- /#alerts-live -->
 
 <script>

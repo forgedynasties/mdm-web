@@ -4922,6 +4922,50 @@ func (d *DB) ListAlerts(ctx context.Context, status string, limit int) ([]Alert,
 	return out, rows.Err()
 }
 
+// ListAlertsPage returns one page of alerts matching the status/severity/type filters,
+// newest first, plus the total number of matches (via COUNT(*) OVER()) for pagination.
+// All filtering is done in SQL so only the page's rows are loaded, not the whole set.
+// types == nil/empty means "any type"; a non-empty slice restricts to those alert types
+// (the set of types belonging to a category).
+func (d *DB) ListAlertsPage(ctx context.Context, status, severity string, types []string, limit, offset int) ([]Alert, int, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
+		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
+		       a.occurrences, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at,
+		       COUNT(*) OVER() AS total
+		FROM alerts a
+		LEFT JOIN devices d ON d.id = a.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE ($1 = '' OR a.status = $1)
+		  AND ($2 = '' OR a.severity = $2)
+		  AND (array_length($3::text[], 1) IS NULL OR a.type = ANY($3))
+		ORDER BY a.fired_at DESC
+		LIMIT $4 OFFSET $5
+	`, status, severity, types, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []Alert
+	total := 0
+	for rows.Next() {
+		var a Alert
+		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
+			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
+			&a.Occurrences, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt, &total); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, a)
+	}
+	return out, total, rows.Err()
+}
+
 // AlertSummaryCounts returns headline counts for the alerts page in a single query.
 func (d *DB) AlertSummaryCounts(ctx context.Context) (AlertSummary, error) {
 	var s AlertSummary

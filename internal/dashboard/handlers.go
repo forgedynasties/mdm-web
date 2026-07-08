@@ -410,7 +410,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// (falls back to the raw type when unknown).
 		"alertTypeLabel": alertTypeLabel,
 		// alertsQuery builds the /alerts query string preserving the active filters.
-		"alertsQuery": alertsQueryString,
+		"alertsQuery":   alertsQueryString,
+		"alertsPageURL": alertsPageQueryString,
 		// hasStr reports membership of s in list (template helper for checkbox state).
 		"hasStr": func(list []string, s string) bool {
 			for _, x := range list {
@@ -2865,37 +2866,32 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	default:
 		status = ""
 	}
-	alerts, err := h.db.ListAlerts(r.Context(), status, 200)
+	severity := r.URL.Query().Get("severity")
+	switch severity {
+	case "critical", "warning", "info":
+	default:
+		severity = ""
+	}
+	// Filter by alert category (Thermal, Storage, Connectivity, …): map the category to
+	// its set of alert types and push that into the query, so filtering + pagination all
+	// happen in SQL and only the page's rows are loaded.
+	category := r.URL.Query().Get("category")
+	var types []string
+	if category != "" {
+		types = alertTypesForCategory(category)
+	}
+	// Paginate: 10 per page, server-side (LIMIT/OFFSET) — load only the page, not the lot.
+	const alertsPageSize = 10
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page < 1 {
+		page = 1
+	}
+	alerts, total, err := h.db.ListAlertsPage(r.Context(), status, severity, types, alertsPageSize, (page-1)*alertsPageSize)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	severity := r.URL.Query().Get("severity")
-	switch severity {
-	case "critical", "warning", "info":
-		filtered := alerts[:0]
-		for _, a := range alerts {
-			if a.Severity == severity {
-				filtered = append(filtered, a)
-			}
-		}
-		alerts = filtered
-	default:
-		severity = ""
-	}
-	// Filter by alert category (Thermal, Storage, Connectivity, …), derived from the
-	// rule catalog. Done in-memory like severity, over the already status/severity-
-	// filtered set.
-	category := r.URL.Query().Get("category")
-	if category != "" {
-		filtered := alerts[:0]
-		for _, a := range alerts {
-			if alertCategory(a.Type) == category {
-				filtered = append(filtered, a)
-			}
-		}
-		alerts = filtered
-	}
+	totalPages := (total + alertsPageSize - 1) / alertsPageSize
 	summary, err := h.db.AlertSummaryCounts(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -2929,6 +2925,9 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"Severity":    severity,
 		"Category":    category,
 		"Categories":  alertCategories(),
+		"Page":        page,
+		"TotalPages":  totalPages,
+		"Total":       total,
 	})
 }
 
@@ -8857,9 +8856,31 @@ func alertCategories() []string {
 	return out
 }
 
+// alertTypesForCategory returns the alert types belonging to a catalog category, so the
+// category filter can be pushed into the SQL query.
+func alertTypesForCategory(category string) []string {
+	var types []string
+	for _, g := range alertTypeCatalog() {
+		if g.Category != category {
+			continue
+		}
+		for _, o := range g.Types {
+			types = append(types, o.Type)
+		}
+	}
+	return types
+}
+
 // alertsQueryString builds the /alerts query string preserving the active filters,
-// so each filter control can change one dimension without dropping the others.
+// so each filter control can change one dimension without dropping the others. Changing a
+// filter resets pagination (no page param), which is what you want.
 func alertsQueryString(status, severity, category string) string {
+	return alertsPageQueryString(status, severity, category, 1)
+}
+
+// alertsPageQueryString is alertsQueryString plus a page number (omitted for page 1), for
+// the pagination links which preserve the active filters.
+func alertsPageQueryString(status, severity, category string, page int) string {
 	q := url.Values{}
 	if status != "" {
 		q.Set("status", status)
@@ -8869,6 +8890,9 @@ func alertsQueryString(status, severity, category string) string {
 	}
 	if category != "" {
 		q.Set("category", category)
+	}
+	if page > 1 {
+		q.Set("page", strconv.Itoa(page))
 	}
 	if len(q) == 0 {
 		return ""
