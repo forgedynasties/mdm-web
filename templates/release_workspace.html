@@ -239,6 +239,7 @@
       </div>
       {{end}}
       <div id="rd-prob-list">{{template "rd-prob-list" .}}</div>
+      <div id="rd-carried-list">{{template "rd-carried-list" .}}</div>
     </div>
   </div>
 </section>
@@ -450,7 +451,7 @@ function qaFilter(mode, btn) {
 }
 function probFilter(mode, btn) {
   btn.parentElement.querySelectorAll('.qa-fchip[data-probfilter]').forEach(function (b) { b.classList.toggle('on', b === btn); });
-  document.querySelectorAll('#rd-prob-list .prob').forEach(function (row) {
+  document.querySelectorAll('[data-rel-panel="problems"] .prob').forEach(function (row) {
     var show = mode === 'all'
       || (mode === 'open' && row.getAttribute('data-open') === '1')
       || (mode === 'blocker' && row.getAttribute('data-severity') === 'blocker');
@@ -600,43 +601,70 @@ function pkgVerify() {
 </div>
 {{end}}
 
+{{/* prob-card renders one problem with its fix/verify trail and contextual actions.
+     Input: dict "P" <ReleaseProblem> "RelID" <int> "CanReport" <bool>. Shared by the
+     native list, the carried-over list and the hub problems board. Status buttons post
+     to THIS release so the fixed-in / verified-in build is captured as the bug moves. */}}
+{{define "prob-card"}}
+{{$p := .P}}{{$relID := .RelID}}{{$canReport := .CanReport}}
+{{$open := not (or (eq $p.Status "verified") (eq $p.Status "wontfix"))}}
+<div class="prob{{if not $open}} closed{{end}}" data-open="{{if $open}}1{{else}}0{{end}}" data-severity="{{$p.Severity}}">
+  <div class="prob-h">
+    <span class="prob-sev {{$p.Severity}}">{{$p.Severity}}</span>
+    <span class="prob-title">{{$p.Title}}</span>
+    {{if eq $p.Source "qa"}}<span class="prob-qa" title="Auto-created from a failed QA case; resolves when the case passes">from QA</span>{{end}}
+    {{if $p.Inherited}}<span class="prob-carry" title="Carried over from an earlier build — fix &amp; verify it here">↪ carried</span>{{end}}
+    <span class="prob-status st-{{$p.Status}}">{{$p.Status}}</span>
+  </div>
+  {{if $p.Description}}<div class="prob-desc">{{$p.Description}}</div>{{end}}
+  <div class="prob-meta">
+    {{if $p.TestCaseTitle}}case: <b>{{$p.TestCaseTitle}}</b> · {{end}}
+    {{if $p.DeviceSerial}}<a href="/devices/{{$p.DeviceSerial}}" class="link-detail mono">{{$p.DeviceSerial}}</a> · {{end}}
+    {{if $p.ReportedBy}}{{$p.ReportedBy}} · {{end}}{{timeSince $p.CreatedAt}}
+  </div>
+  {{if or $p.Inherited $p.FixedInVersion $p.VerifiedInVersion}}
+  <div class="prob-trail">
+    <span class="tr-step">reported <b>{{$p.OriginVersion}}</b></span>
+    {{if $p.FixedInVersion}}<span class="tr-arrow">→</span><span class="tr-step fixed">fixed <b>{{$p.FixedInVersion}}</b></span>{{end}}
+    {{if $p.VerifiedInVersion}}<span class="tr-arrow">→</span><span class="tr-step verified">verified <b>{{$p.VerifiedInVersion}}</b></span>{{end}}
+  </div>
+  {{end}}
+  {{if $canReport}}
+  <form action="/releases/{{$relID}}/problems/{{$p.ID}}" method="POST" class="prob-actions"
+        hx-post="/releases/{{$relID}}/problems/{{$p.ID}}" hx-swap="none">
+    {{if $open}}
+      <button name="status" value="fixed" class="qa-pill{{if eq $p.Status "fixed"}} on{{end}}" title="Mark the fix as landed in this build (awaiting verification)">Fixed here</button>
+      <button name="status" value="verified" class="qa-pill pass" title="Confirm the fix on this build">Verified ✓</button>
+      <button name="status" value="wontfix" class="qa-pill skip">Won't fix</button>
+    {{else}}
+      <span class="prob-resolved">{{if eq $p.Status "verified"}}Verified fixed{{if $p.VerifiedInVersion}} in {{$p.VerifiedInVersion}}{{end}}{{else}}Won't fix{{end}}</span>
+      <button name="status" value="open" class="qa-pill">Reopen</button>
+    {{end}}
+  </form>
+  {{end}}
+</div>
+{{end}}
+
 {{define "rd-prob-list"}}
 {{$relID := .Release.ID}}{{$canReport := .CanReport}}
 {{if .Problems}}
 <div class="prob-list">
-  {{range .Problems}}
-  {{$open := not (or (eq .Status "verified") (eq .Status "wontfix"))}}
-  <div class="prob{{if not $open}} closed{{end}}" data-open="{{if $open}}1{{else}}0{{end}}" data-severity="{{.Severity}}">
-    <div class="prob-h">
-      <span class="prob-sev {{.Severity}}">{{.Severity}}</span>
-      <span class="prob-title">{{.Title}}</span>
-      {{if eq .Source "qa"}}<span class="prob-qa" title="Auto-created from a failed QA case; resolves when the case passes">from QA</span>{{end}}
-      <span class="prob-status st-{{.Status}}">{{.Status}}</span>
-    </div>
-    {{if .Description}}<div class="prob-desc">{{.Description}}</div>{{end}}
-    <div class="prob-meta">
-      {{if .TestCaseTitle}}case: <b>{{.TestCaseTitle}}</b> · {{end}}
-      {{if .DeviceSerial}}<a href="/devices/{{.DeviceSerial}}" class="link-detail mono">{{.DeviceSerial}}</a> · {{end}}
-      {{if .BuildID}}build {{.BuildID}} · {{end}}{{if .ReportedBy}}{{.ReportedBy}} · {{end}}{{timeSince .CreatedAt}}
-    </div>
-    {{if $canReport}}
-    <form action="/releases/{{$relID}}/problems/{{.ID}}" method="POST" class="prob-actions"
-          hx-post="/releases/{{$relID}}/problems/{{.ID}}" hx-swap="none">
-      {{if $open}}
-        <button name="status" value="fixed" class="qa-pill{{if eq .Status "fixed"}} on{{end}}">Fixed</button>
-        <button name="status" value="verified" class="qa-pill pass">Verified ✓</button>
-        <button name="status" value="wontfix" class="qa-pill skip">Won't fix</button>
-      {{else}}
-        <span class="prob-resolved">{{if eq .Status "verified"}}Verified fixed{{else}}Won't fix{{end}}</span>
-        <button name="status" value="open" class="qa-pill">Reopen</button>
-      {{end}}
-    </form>
-    {{end}}
-  </div>
-  {{end}}
+  {{range .Problems}}{{template "prob-card" (dict "P" . "RelID" $relID "CanReport" $canReport)}}{{end}}
 </div>
 {{else}}
-<div class="empty" style="padding:16px;">No problems reported for this release.{{if .CanReport}} File one above when a test turns up an issue.{{end}}</div>
+<div class="empty" style="padding:16px;">No problems reported on this build.{{if .CanReport}} File one above when a test turns up an issue.{{end}}</div>
+{{end}}
+{{end}}
+
+{{define "rd-carried-list"}}
+{{$relID := .Release.ID}}{{$canReport := .CanReport}}
+{{if .Carried}}
+<div class="carried-sec">
+  <div class="carried-h">Carried over from earlier builds <span class="muted small">— {{len .Carried}} unresolved bug{{if ne (len .Carried) 1}}s{{end}} riding the train onto {{.RelVersion}}; fix &amp; verify them here</span></div>
+  <div class="prob-list">
+    {{range .Carried}}{{template "prob-card" (dict "P" . "RelID" $relID "CanReport" $canReport)}}{{end}}
+  </div>
+</div>
 {{end}}
 {{end}}
 
@@ -646,4 +674,5 @@ function pkgVerify() {
 <span id="rd-prob-count" hx-swap-oob="innerHTML">{{template "rd-prob-count" .}}</span>
 <div id="rd-qa-summary" hx-swap-oob="innerHTML">{{template "rd-qa-summary" .}}</div>
 <div id="rd-prob-list" hx-swap-oob="innerHTML">{{template "rd-prob-list" .}}</div>
+<div id="rd-carried-list" hx-swap-oob="innerHTML">{{template "rd-carried-list" .}}</div>
 {{end}}

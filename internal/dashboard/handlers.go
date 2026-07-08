@@ -5257,11 +5257,26 @@ func (h *Handler) ReleaseProblemUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	r.ParseForm()
-	if err := h.db.UpdateReleaseProblem(r.Context(), pid, r.FormValue("status"), r.FormValue("severity")); err != nil {
+	status := r.FormValue("status")
+	// Status transitions record the fix/verify trail against THIS release (the build the
+	// user is looking at), so a bug's "fixed in / verified in" is captured as it moves
+	// through the release train. Severity-only edits still go through UpdateReleaseProblem.
+	var uerr error
+	switch status {
+	case "fixed":
+		uerr = h.db.MarkProblemFixedIn(r.Context(), pid, id)
+	case "verified":
+		uerr = h.db.VerifyProblem(r.Context(), pid, id)
+	case "open":
+		uerr = h.db.MarkProblemFixedIn(r.Context(), pid, 0) // reopen: clears the fix/verify trail
+	default: // wontfix, or a severity-only change
+		uerr = h.db.UpdateReleaseProblem(r.Context(), pid, status, r.FormValue("severity"))
+	}
+	if uerr != nil {
 		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
-	h.audit(r, "release.problem.update", strconv.Itoa(id), fmt.Sprintf("problem=%s, status=%s", pid, r.FormValue("status")))
+	h.audit(r, "release.problem.update", strconv.Itoa(id), fmt.Sprintf("problem=%s, status=%s", pid, status))
 	if hxReq(r) {
 		h.writeReleaseQAResponse(w, r, id, nil)
 		return
@@ -5465,14 +5480,19 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 	checklist, _ := h.db.GetReleaseChecklist(ctx, rel.ID)
 	qa, _ := h.db.ReleaseQASummary(ctx, rel.ID)
 	problems, _ := h.db.ListReleaseProblems(ctx, rel.ID)
+	// Bugs that ride the release train onto this build (reported on an earlier build and
+	// not yet verified fixed, plus any claimed fixed in this build awaiting verification).
+	carried, _ := h.db.CarriedForwardProblems(ctx, rel.ID)
 	ps, _ := h.db.ReleaseProblemSummary(ctx, rel.ID)
 	role := h.role(r)
 	return map[string]any{
 		"Release":        rel,
+		"RelVersion":     rel.Version,
 		"Role":           role,
 		"Checklist":      checklist,
 		"QA":             qa,
 		"Problems":       problems,
+		"Carried":        carried,
 		"ProblemSummary": ps,
 		"CanRecord":      role == "tester",
 		"CanReport":      role == "admin" || role == "dev" || role == "operator" || role == "tester",
