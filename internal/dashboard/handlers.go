@@ -5519,6 +5519,10 @@ func (h *Handler) ReleaseProblemDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.hub.PublishProblemUpdate()
+	if hxReq(r) {
+		h.writeReleaseQAResponse(w, r, id, nil)
+		return
+	}
 	http.Redirect(w, r, "/releases/"+strconv.Itoa(id)+"/qa", http.StatusFound)
 }
 
