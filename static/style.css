@@ -5357,6 +5357,22 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rt-branch-ver { font-size: 11px; font-weight: 600; }
 .rt-node { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 1px solid var(--border-soft); border-radius: 99px; background: var(--surface); text-decoration: none; color: var(--text); white-space: nowrap; flex: none; }
 .rt-node:hover { border-color: var(--accent); }
+
+/* ── Lineage graph (commit-style: main spine + branch forks/merges) ── */
+.collapsible-header .collapse-caret { transition: transform .15s; display: inline-block; }
+.collapsible-header.open .collapse-caret { transform: rotate(90deg); }
+.lineage-scroll { overflow-x: auto; padding: 20px 16px 10px; }
+.lineage-svg { display: block; }
+.lg-edge { stroke-width: 2; }
+.lg-main { stroke: var(--rule-2, #d6d8e0); }
+.lg-fork { stroke: rgba(122,128,246,.5); stroke-dasharray: 4 3; }
+.lg-merge { stroke: #7a80f6; }
+.lg-node { cursor: pointer; }
+.lg-node:hover circle { stroke: #7a80f6; stroke-width: 2.5; }
+.lg-label { font-size: 11px; font-weight: 700; fill: var(--text); font-family: var(--mono); }
+.lg-blabel { fill: #5b61d6; font-size: 10.5px; }
+[data-theme="dark"] .lg-blabel { fill: #a6abfa; }
+.lg-sub { font-size: 9.5px; fill: var(--muted); text-transform: capitalize; }
 .rt-node.active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .rt-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); flex: none; }
 .rt-node.st-published .rt-dot { background: var(--ok); }
