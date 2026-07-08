@@ -4833,13 +4833,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	for _, kids := range childrenByParent {
 		active = append(active, kids...)
 	}
-	// Base ("standard, every release") test cases are managed inline on this page
-	// by admins, so the Testing/Test-cases tabs can go away.
 	role := h.role(r)
-	var baseCases []db.TestCase
-	if role == "admin" {
-		baseCases, _ = h.db.ListBaseTestCases(r.Context(), false)
-	}
 	// Hidden releases are admin-only housekeeping — don't surface them (or the
 	// "N hidden" count) to operators/testers.
 	if role != "admin" {
@@ -4911,7 +4905,6 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"TrackedCount":    trackedCount,
 		"NotTrackedCount": notTrackedCount,
 		"FleetTotal":      fleetTotal,
-		"BaseCases":       baseCases,
 		"ActiveRelease":   activeRel,
 		"ActiveQA":        activeQA,
 		"ActiveProblems":  activeProblems,
@@ -5662,7 +5655,10 @@ func (h *Handler) TestCaseCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Title required", http.StatusBadRequest)
 		return
 	}
-	redirect := "/releases"
+	redirect := strings.TrimSpace(r.FormValue("redirect"))
+	if redirect == "" {
+		redirect = "/releases"
+	}
 	if rid := strings.TrimSpace(r.FormValue("release_id")); rid != "" {
 		if id, err := strconv.Atoi(rid); err == nil {
 			tc.ReleaseID = &id
@@ -5700,7 +5696,11 @@ func (h *Handler) TestCaseUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "testcase.update", id.String(), "")
-	http.Redirect(w, r, "/releases", http.StatusSeeOther)
+	redirect := strings.TrimSpace(r.FormValue("redirect"))
+	if redirect == "" {
+		redirect = "/releases"
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
 // TestCaseDelete removes a test case (and its results).
@@ -8165,8 +8165,10 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	aiDailyJSON, _ := json.Marshal(aiDaily)
 	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
 	channels, _ := h.db.ListAlertChannels(r.Context(), false)
+	baseCases, _ := h.db.ListBaseTestCases(r.Context(), false)
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":                "Settings",
+		"BaseCases":            baseCases,
 		"ExtraColumns":         h.cfg.Columns(),
 		"LegacyCheckin":        h.cfg.LegacyCheckin(),
 		"CheckinInterval":      h.cfg.CheckinInterval(),
