@@ -67,13 +67,13 @@
         {{if .Tracked}}
           {{if eq $.Role "dev"}}{{if .SignedOffBy}}<form action="/releases/{{.ReleaseID}}/sign-off/clear" method="POST"><button type="submit" class="btn-outline btn-sm" title="Revoke this dev sign-off">Revoke</button></form>{{else}}<form action="/releases/{{.ReleaseID}}/sign-off" method="POST"><button type="submit" class="btn-primary btn-sm" title="Mark as smoke-tested by dev">Sign off</button></form>{{end}}{{end}}
           {{if canAdmin $.Role}}
-          <form action="/releases/{{.ReleaseID}}/hide" method="POST"><input type="hidden" name="hidden" value="1"><button type="submit" class="btn-outline btn-sm" title="Hide from the list">Hide</button></form>
+          <form action="/releases/{{.ReleaseID}}/hide" method="POST" class="rlc-x"><input type="hidden" name="hidden" value="1"><button type="submit" title="Hide from the list"><svg viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18"/></svg></button></form>
           {{end}}
           {{if $canQfil}}{{if .QfilURL}}<a href="{{.QfilURL}}" class="rlc-open" title="Download QFIL flashing package" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{else}}<span class="rlc-open disabled" title="No QFIL package set for this release" aria-disabled="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>{{end}}{{end}}
           <a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open release"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
         {{else if canAdmin $.Role}}
           <form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Create a draft release for this version">+ Add as release</button></form>
-          <form action="/releases/version/hide" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-outline btn-sm" title="Dismiss this version">Hide</button></form>
+          <form action="/releases/version/hide" method="POST" class="rlc-x"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" title="Dismiss this version"><svg viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18"/></svg></button></form>
         {{end}}
       </div>
     </div>
@@ -96,7 +96,19 @@
         <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{$pct}}%</span>
       </div>
       <div class="rlc-meta">
-        {{if .Tracked}}{{if .TestingDone}}<span class="rchip muted" title="Testing complete">testing done</span>{{end}}{{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}">{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}{{end}}
+        {{if .Tracked}}
+          {{if .TestingDone}}<span class="rchip muted" title="Testing complete — this branch is inactive">testing done</span>{{else}}<span class="rchip active" title="Under test — active branch">● active</span>{{end}}
+          {{if gt .QA.Total 0}}
+            {{$qaTitle := printf "%d passed · %d failed · %d blocked · %d untested of %d — open QA" .QA.Pass .QA.Fail .QA.Blocked .QA.Untested .QA.Total}}
+            <a href="/releases/{{.ReleaseID}}/qa" class="rchip-a">
+            {{if gt .QA.Fail 0}}<span class="rchip bad" title="{{$qaTitle}}">QA {{.QA.Fail}}✗ · {{.QA.Pass}}/{{.QA.Total}}</span>
+            {{else if .QA.Passed}}<span class="rchip ok" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} ✓</span>
+            {{else}}<span class="rchip qa" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} · {{.QA.Untested}} left</span>{{end}}
+            </a>
+          {{end}}
+          {{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}{{if gt .Problems.Blockers 0}} · {{.Problems.Blockers}} blocker{{if ne .Problems.Blockers 1}}s{{end}}{{end}} · {{.Problems.Total}} total">{{if gt .Problems.Blockers 0}}⚠ {{end}}{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}
+          {{if .SignedOffBy}}<span class="rchip ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="rchip warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
+        {{end}}
       </div>
       <div class="rlc-act">
         {{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open branch build"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
