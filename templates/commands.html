@@ -82,6 +82,9 @@
 .sd-search input{border:none;background:none;outline:none;font:inherit;font-size:13px;width:100%;color:var(--text);}
 .sd-search input::placeholder{color:var(--text-faint,#a49c90);}
 .sd-count{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap;}.sd-count b{color:var(--text);}
+.sd-paste{width:100%;box-sizing:border-box;resize:vertical;font:inherit;font-size:12px;padding:7px 10px;border-radius:8px;border:1px dashed var(--border);background:var(--surface);color:var(--text);margin-bottom:8px;transition:border-color .12s;line-height:1.4;font-family:var(--mono);}
+.sd-paste:focus{border-color:var(--accent-edge);outline:none;}
+.sd-paste::placeholder{color:var(--text-faint);}
 .scope-dev-list{max-height:240px;overflow:auto;border:1px solid var(--border);border-radius:9px;}
 @media(max-width:700px){.scope-wrap{grid-template-columns:1fr;}}
 
@@ -463,6 +466,8 @@
                   <button type="button" class="btn-link small" onclick="cmdSetSerials([])">Clear</button>
                   <span class="sd-count"><b id="cmd-sel-count">0</b> picked</span>
                 </div>
+                <textarea id="scope-paste" class="sd-paste" placeholder="Paste a list of serials here…" rows="2"
+                          oninput="clearTimeout(window.__scopePasteTimer);window.__scopePasteTimer=setTimeout(function(){var v=document.getElementById('scope-paste').value;if(v.trim()){cmdAddSerial(v);document.getElementById('scope-paste').value='';}},400)"></textarea>
                 <div id="cmd-device-browser" class="scope-dev-list"
                      hx-get="/commands/browse-devices" hx-select="unset" hx-trigger="load"
                      hx-target="#cmd-device-browser" hx-swap="innerHTML">{{template "skel-rows" .}}</div>
