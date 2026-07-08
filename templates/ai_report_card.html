@@ -19,6 +19,11 @@
       <div id="ai-sum-preview" class="ai-lede">{{.AISummaryPreview}}</div>
       <div id="ai-sum-full" class="ai-text"></div>
     </div>
+    {{/* Live per-restaurant open-alert breakdown — refetched on every alert change */}}
+    <div class="rab" id="report-rest-alerts"
+         hx-get="/reports/alerts-by-restaurant"
+         hx-trigger="load, mdm:alerts-update from:document"
+         hx-target="this" hx-swap="innerHTML"></div>
   </div>
 </div>
 {{end}}
