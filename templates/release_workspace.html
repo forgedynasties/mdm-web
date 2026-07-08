@@ -65,7 +65,6 @@
   <button class="dd-tab{{if eq $tab "problems"}} active{{end}}" role="tab" type="button" data-rel-tab="problems" onclick="setRelTab('problems',this)">Problems <span id="rd-prob-badge" class="tab-badge">{{template "rd-prob-badge" .}}</span></button>
   {{if $isAdmin}}<button class="dd-tab{{if eq $tab "packages"}} active{{end}}" role="tab" type="button" data-rel-tab="packages" onclick="setRelTab('packages',this)">Packages</button>{{end}}
   <button class="dd-tab{{if eq $tab "rollout"}} active{{end}}" role="tab" type="button" data-rel-tab="rollout" onclick="setRelTab('rollout',this)">Rollout</button>
-  {{if not $isBranch}}<button class="dd-tab{{if eq $tab "branches"}} active{{end}}" role="tab" type="button" data-rel-tab="branches" onclick="setRelTab('branches',this)">Branches{{if .Branches}} <span class="tab-badge"><span class="pill">{{len .Branches}}</span></span>{{end}}</button>{{end}}
 </div>
 
 <!-- ── Overview ─────────────────────────────────────────────────────────── -->
@@ -363,56 +362,6 @@
     </div>
   </div>
 </section>
-
-<!-- ── Branches (mainline releases only) ────────────────────────────────── -->
-{{if not $isBranch}}
-<section class="dd-panel" data-rel-panel="branches"{{if ne $tab "branches"}} hidden{{end}}>
-  <div class="card">
-    <div class="card-header"><h3>Branch builds</h3><span class="muted small">temporary forks off {{$rel.Version}} — off the release path, with isolated QA &amp; problems</span></div>
-    <div style="padding:14px 16px;">
-      {{if $isAdmin}}
-      {{if .MatchingBuilds}}
-      <div class="branch-suggest">
-        <div class="branch-suggest-h">Seen on devices, matching <span class="mono">{{$rel.Version}}-*</span> — adopt in one click:</div>
-        {{range .MatchingBuilds}}
-        <form action="/releases/{{$rel.ID}}/branch" method="POST" class="branch-suggest-row">
-          <input type="hidden" name="version" value="{{.Version}}">
-          <span class="bb-mark">⑂</span>
-          <span class="mono">{{.Version}}</span>
-          <span class="muted small">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
-          <button type="submit" class="btn-outline btn-sm" style="margin-left:auto;">Adopt as branch</button>
-        </form>
-        {{end}}
-      </div>
-      {{end}}
-      <form action="/releases/{{$rel.ID}}/branch" method="POST" class="branch-form">
-        <input name="version" class="form-input" value="{{.SuggestedBranchVersion}}" required title="A reported build, or a new version — must be unique" list="untracked-builds" autocomplete="off" style="max-width:240px;">
-        <datalist id="untracked-builds">{{range .UntrackedBuilds}}<option value="{{.}}"></option>{{end}}</datalist>
-        <input name="name" class="form-input" placeholder="What is this branch testing? (optional)" style="flex:1;min-width:200px;">
-        <button type="submit" class="btn-primary">+ New branch</button>
-      </form>
-      <div class="muted small" style="margin-top:7px;">Matching builds are suggested automatically. You can also pick any reported build from the field, or type a new version that doesn't match.</div>
-      {{end}}
-      {{if .Branches}}
-      <div class="branch-list">
-        {{range .Branches}}
-        <a href="/releases/{{.ID}}" class="branch-row">
-          <span class="bb-mark">⑂</span>
-          <span class="mono">{{.Version}}</span>
-          {{if .Name}}<span class="muted small branch-name">{{.Name}}</span>{{end}}
-          <span class="status-badge {{releaseStatusClass .Status}}">{{.Status}}</span>
-          {{if .TestingDoneAt}}<span class="rchip muted">testing done</span>{{end}}
-          <span class="muted small" style="margin-left:auto;">{{timeSince .CreatedAt}}</span>
-        </a>
-        {{end}}
-      </div>
-      {{else}}
-      <div class="empty" style="padding:12px 0 4px;">No branch builds yet. Fork one to test something specific without touching the main path.</div>
-      {{end}}
-    </div>
-  </div>
-</section>
-{{end}}
 
 <!-- Live refresh: when a problem changes anywhere (this or another user's tab), the
      problem SSE fires "problem-updated" and this element refetches the OOB fragment set

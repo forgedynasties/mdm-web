@@ -28,7 +28,6 @@
 <div class="rel-tabs">
   <button type="button" class="rel-tab on" data-g="tracked" onclick="relTab('tracked',this)">Tracked <span class="rel-tab-n">{{.TrackedCount}}</span></button>
   <button type="button" class="rel-tab" data-g="nottracked" onclick="relTab('nottracked',this)">Not tracked <span class="rel-tab-n">{{.NotTrackedCount}}</span></button>
-  {{if .BranchReleases}}<button type="button" class="rel-tab" data-g="branches" onclick="relTab('branches',this)">Branches <span class="rel-tab-n">{{.BranchCount}}</span></button>{{end}}
   {{if .HiddenReleases}}<button type="button" class="rel-tab" data-g="hidden" onclick="relTab('hidden',this)">Hidden <span class="rel-tab-n">{{len .HiddenReleases}}</span></button>{{end}}
 </div>
 <div class="rlc-list dv-rise-1" id="versions-tbody">
@@ -78,6 +77,43 @@
         {{end}}
       </div>
     </div>
+    {{/* Branch forks + adoptable derivative builds, nested under this release. */}}
+    {{$pg := "tracked"}}{{if not .Tracked}}{{$pg = "nottracked"}}{{end}}
+    {{range .Children}}
+    {{$pct := pctOf .DeviceCount $.FleetTotal}}
+    <div class="rlc rlc-child" data-rel-group="{{$pg}}" data-version="{{.Version}}">
+      <span></span>
+      <span class="rlc-badge branch" title="Branch build"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 8.4v7.2M18 10.4a6 6 0 0 1-6 6H8.4"/></svg></span>
+      <div class="rlc-id">
+        <div class="rlc-top">
+          {{if .Tracked}}<span class="rlc-stat {{releaseStatusClass .Status}}">{{.Status}}</span><a href="/releases/{{.ReleaseID}}" class="rlc-ver">{{.Version}}</a>
+          {{else}}<span class="rlc-stat muted" title="Seen on devices — matches this release's naming, not adopted yet">untracked</span><span class="rlc-ver">{{.Version}}</span>{{end}}
+        </div>
+        <span class="rlc-sub">⑂ {{if .Tracked}}branch{{else}}matches {{.ParentVersion}} · seen on devices{{end}}{{if .Name}} · {{.Name}}{{end}}</span>
+      </div>
+      <div class="rlc-roll">
+        <div class="rlc-meter"><i class="muted" style="width:{{$pct}}%"></i></div>
+        <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{$pct}}%</span>
+      </div>
+      <div class="rlc-meta">
+        {{if .Tracked}}{{if .TestingDone}}<span class="rchip muted" title="Testing complete">testing done</span>{{end}}{{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}">{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}{{end}}
+      </div>
+      <div class="rlc-act">
+        {{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open branch build"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
+        {{else if and (canAdmin $.Role) .AdoptableParentID}}<form action="/releases/{{.AdoptableParentID}}/branch" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Adopt as a branch build of {{.ParentVersion}}">Adopt as branch</button></form>{{end}}
+      </div>
+    </div>
+    {{end}}
+    {{if and (canAdmin $.Role) .ReleaseID}}
+    <details class="nb-details" data-rel-group="{{$pg}}">
+      <summary class="nb-summary"><span class="nb-mark">⑂</span> New branch off {{.Version}}</summary>
+      <form action="/releases/{{.ReleaseID}}/branch" method="POST" class="nb-form">
+        <input name="version" class="form-input" value="{{.SuggestedBranch}}" list="untracked-builds" autocomplete="off" required title="A reported build, or a new version — must be unique">
+        <input name="name" class="form-input nb-name" placeholder="what this branch tests (optional)">
+        <button type="submit" class="btn-outline btn-sm">Create branch</button>
+      </form>
+    </details>
+    {{end}}
     {{end}}
     {{range .HiddenReleases}}
     {{$pct := pctOf .DeviceCount $.FleetTotal}}
@@ -100,35 +136,8 @@
       </div>
     </div>
     {{end}}
-    {{range .BranchReleases}}
-    {{$pct := pctOf .DeviceCount $.FleetTotal}}
-    <div class="rlc" data-rel-group="branches" data-version="{{.Version}}" style="display:none;">
-      <span></span>
-      <span class="rlc-badge branch" title="Branch build"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 8.4v7.2M18 10.4a6 6 0 0 1-6 6H8.4"/></svg></span>
-      <div class="rlc-id">
-        <div class="rlc-top">
-          {{if .Tracked}}<span class="rlc-stat {{releaseStatusClass .Status}}">{{.Status}}</span><a href="/releases/{{.ReleaseID}}" class="rlc-ver">{{.Version}}</a>
-          {{else}}<span class="rlc-stat muted" title="Seen on devices — matches this release's naming, not adopted yet">untracked</span><span class="rlc-ver">{{.Version}}</span>{{end}}
-        </div>
-        <span class="rlc-sub">⑂ {{if .Tracked}}branch of {{if .ParentVersion}}{{.ParentVersion}}{{else}}—{{end}}{{else}}matches {{.ParentVersion}} · seen on devices{{end}}{{if .Name}} · {{.Name}}{{end}}</span>
-      </div>
-      <div class="rlc-roll">
-        <div class="rlc-meter"><i class="muted" style="width:{{$pct}}%"></i></div>
-        <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{$pct}}%</span>
-      </div>
-      <div class="rlc-meta">
-        {{if .Tracked}}
-        {{if .TestingDone}}<span class="rchip muted" title="Testing complete">testing done</span>{{end}}
-        {{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}">{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}
-        {{end}}
-      </div>
-      <div class="rlc-act">
-        {{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open branch build"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
-        {{else if and (canAdmin $.Role) .AdoptableParentID}}<form action="/releases/{{.AdoptableParentID}}/branch" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Adopt as a branch build of {{.ParentVersion}}">Adopt as branch</button></form>{{end}}
-      </div>
-    </div>
-    {{end}}
   </div>
+  <datalist id="untracked-builds">{{range .UntrackedBuilds}}<option value="{{.}}"></option>{{end}}</datalist>
 {{else}}
 <div class="card">
   <div class="empty-state">
@@ -270,7 +279,7 @@ function boardFilter(mode, btn) {
 // Releases tab filter (Tracked / Not tracked / Hidden).
 function relTab(group, btn) {
   document.querySelectorAll('.rel-tab').forEach(function (t) { t.classList.toggle('on', t === btn); });
-  document.querySelectorAll('#versions-tbody .rlc').forEach(function (r) {
+  document.querySelectorAll('#versions-tbody [data-rel-group]').forEach(function (r) {
     r.style.display = (r.getAttribute('data-rel-group') === group) ? '' : 'none';
   });
 }
