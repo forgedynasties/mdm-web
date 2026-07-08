@@ -1,370 +1,199 @@
 {{define "alerts.html"}}
 {{template "header" .}}
 
-{{$canAct := canOperate .Role}}
+<style>
+/* ── Alerts · Inbox ─────────────────────────────────────── */
+.alx-head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+.alx-head h1{font-size:24px;font-weight:750;letter-spacing:-.02em;margin:0}
+.alx-head .sum{font-size:14px;color:var(--muted)}
+.alx-head .sum b{color:var(--danger)}
+.alx-head .clear{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--muted)}
+.alx-head .clear:hover{color:var(--danger)}
 
-<div id="alerts-live" data-can-act="{{if $canAct}}1{{else}}0{{end}}">
+.alx-controls{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.alx-seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px}
+.alx-seg a{font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:99px;text-decoration:none}
+.alx-seg a.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
+.alx-seg a .n{font-variant-numeric:tabular-nums;opacity:.7;margin-left:3px}
+.alx-search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 13px}
+.alx-search svg{width:15px;height:15px;fill:none;stroke:var(--text-faint);stroke-width:2}
+.alx-search input{border:none;outline:none;background:none;font:inherit;font-size:13.5px;width:100%;color:var(--text)}
 
-<div class="ov-greet">
-  <h1 class="ov-title">Alerts</h1>
-  <span class="ov-date">{{.Summary.Total}} alert{{if ne .Summary.Total 1}}s{{end}} total</span>
-</div>
+.alx-sec{display:flex;align-items:center;gap:9px;margin:22px 2px 12px}
+.alx-sec .st{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint)}
+.alx-sec.crit .st{color:var(--danger)}
+.alx-sec .sc{font-size:11px;font-weight:700;color:var(--muted);background:var(--surface2);border-radius:99px;padding:2px 9px}
+.alx-sec .line{flex:1;height:1px;background:var(--border-soft)}
 
-<!-- Summary cards (overview .ov-vital style): active counts by severity + lifecycle. -->
-<div class="ov-vitals alert-vitals">
-  <a class="ov-vital{{if eq .Filter "open"}} is-active{{end}}" href="/alerts?status=open">
-    <div class="k">Open</div><div class="v{{if gt .Summary.Open 0}} warn{{end}}">{{.Summary.Open}}</div>
-    <div class="d">awaiting action</div>
-  </a>
-  <a class="ov-vital{{if gt .Summary.Critical 0}} alerty{{end}}{{if eq .Severity "critical"}} is-active{{end}}" href="/alerts?severity=critical">
-    <div class="k">Critical</div><div class="v{{if gt .Summary.Critical 0}} bad{{end}}">{{.Summary.Critical}}</div>
-    <div class="d">active now</div>
-  </a>
-  <a class="ov-vital{{if eq .Severity "warning"}} is-active{{end}}" href="/alerts?severity=warning">
-    <div class="k">Warning</div><div class="v{{if gt .Summary.Warning 0}} warn{{end}}">{{.Summary.Warning}}</div>
-    <div class="d">active now</div>
-  </a>
-  <a class="ov-vital{{if eq .Severity "info"}} is-active{{end}}" href="/alerts?severity=info">
-    <div class="k">Info</div><div class="v{{if gt .Summary.Info 0}} info{{end}}">{{.Summary.Info}}</div>
-    <div class="d">active now</div>
-  </a>
-  <a class="ov-vital{{if eq .Filter "resolved"}} is-active{{end}}" href="/alerts?status=resolved">
-    <div class="k">Resolved</div><div class="v ok">{{.Summary.Resolved}}</div>
-    <div class="d">cleared</div>
-  </a>
-</div>
+.alx-al{display:flex;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:15px 17px;margin-bottom:10px;align-items:flex-start}
+.alx-ico{width:38px;height:38px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center}
+.alx-ico svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+.alx-al.crit .alx-ico{background:var(--danger-bg);color:var(--danger)}
+.alx-al.warn .alx-ico{background:var(--warn-bg);color:var(--warn)}
+.alx-al.info .alx-ico{background:var(--accent-2-soft);color:var(--accent-2)}
+.alx-al.done .alx-ico{background:var(--ok-bg);color:var(--ok)}
+.alx-al.done{opacity:.72}.alx-al.done .alx-t{font-weight:650}
+.alx-m{flex:1;min-width:0}
+.alx-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.alx-t{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.alx-occ{font-size:11px;font-weight:700;color:var(--danger);background:var(--danger-bg);border-radius:99px;padding:1px 8px}
+.alx-when{margin-left:auto;font-size:11.5px;color:var(--text-faint);flex:none}
+.alx-s{font-size:13px;color:var(--text2, var(--muted));margin-top:4px;line-height:1.5}
+.alx-s b{color:var(--text);font-weight:650}
+.alx-foot{display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap}
+.alx-foot form{display:inline}
+.alx-btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px;text-decoration:none;cursor:pointer}
+.alx-btn:hover{border-color:var(--rule-2);color:var(--text)}
+.alx-btn.primary{border-color:transparent;background:var(--text);color:#fff}.alx-btn.primary:hover{background:#000;color:#fff}
+.alx-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+.alx-dev{margin-left:auto;font-size:12px;color:var(--muted)}
+.alx-dev a{font-family:var(--mono);color:var(--text2, var(--muted));border-bottom:1px solid var(--rule-2)}
+.alx-fold{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:14px 18px;font-size:13px;color:var(--muted);text-decoration:none;margin-top:6px}
+.alx-fold b{color:var(--ok)}.alx-fold .chev{margin-left:auto;color:var(--text-faint);font-weight:600}
+.alx-clear-state{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:18px}
+.alx-clear-state .i{width:38px;height:38px;flex:none;border-radius:10px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center}
+.alx-clear-state .i svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.4}
+.alx-clear-state .t{font-size:14px;font-weight:650}.alx-clear-state .s{font-size:12.5px;color:var(--muted)}
+#alx-nomatch{padding:22px;text-align:center;color:var(--muted);font-size:13px;display:none}
+</style>
 
-<!-- Sticky control bar: search + grouped status/severity filters. -->
-<div class="alert-controls">
-  <div class="alert-search">
-    <span class="ui-icon ui-icon-sm"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
-    <input type="text" id="alert-search" class="search-input" placeholder="Search device, alert, type…" oninput="filterAlerts()" autocomplete="off">
+<div id="alerts-live">
+
+  <div class="alx-head">
+    <h1>Alerts</h1>
+    <span class="sum">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} your attention</b> · {{end}}{{.Summary.Open}} open · {{.Summary.Resolved}} resolved</span>
+    {{if and (canAdmin .Role) (or .Critical .Watching)}}
+    <form action="/alerts/clear-all" method="POST" class="clear" hx-confirm="Clear ALL alerts? Any whose condition still holds will re-fire on the next check.">
+      <button type="submit" class="alx-head clear" style="background:none;border:none;cursor:pointer;font:inherit;">Clear all</button>
+    </form>
+    {{end}}
   </div>
-  <div class="alert-filter-group">
-    <span class="alert-filter-label">Status</span>
-    <div class="filter-pills">
-      <a href="/alerts{{alertsQuery "" .Severity .Category}}" class="filter-pill{{if eq .Filter ""}} active{{end}}">All</a>
-      <a href="/alerts{{alertsQuery "open" .Severity .Category}}" class="filter-pill{{if eq .Filter "open"}} active{{end}}">Open</a>
-      <a href="/alerts{{alertsQuery "acknowledged" .Severity .Category}}" class="filter-pill{{if eq .Filter "acknowledged"}} active{{end}}">Acknowledged</a>
-      <a href="/alerts{{alertsQuery "resolved" .Severity .Category}}" class="filter-pill{{if eq .Filter "resolved"}} active{{end}}">Resolved</a>
+
+  <div class="alx-controls">
+    <div class="alx-seg">
+      <a href="/alerts" class="{{if eq .View ""}}on{{end}}">All{{if .ActiveCount}}<span class="n">{{.ActiveCount}}</span>{{end}}</a>
+      <a href="/alerts?view=needs" class="{{if eq .View "needs"}}on{{end}}">Needs action<span class="n">{{.NeedsCount}}</span></a>
+      <a href="/alerts?view=watching" class="{{if eq .View "watching"}}on{{end}}">Watching<span class="n">{{.WatchCount}}</span></a>
+      <a href="/alerts?view=resolved" class="{{if eq .View "resolved"}}on{{end}}">Resolved</a>
     </div>
+    <div class="alx-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
   </div>
-  <div class="alert-filter-group">
-    <span class="alert-filter-label">Severity</span>
-    <div class="filter-pills">
-      <a href="/alerts{{alertsQuery .Filter "" .Category}}" class="filter-pill{{if eq .Severity ""}} active{{end}}">Any</a>
-      <a href="/alerts{{alertsQuery .Filter "critical" .Category}}" class="filter-pill{{if eq .Severity "critical"}} active{{end}}">Critical</a>
-      <a href="/alerts{{alertsQuery .Filter "warning" .Category}}" class="filter-pill{{if eq .Severity "warning"}} active{{end}}">Warning</a>
-      <a href="/alerts{{alertsQuery .Filter "info" .Category}}" class="filter-pill{{if eq .Severity "info"}} active{{end}}">Info</a>
-    </div>
-  </div>
-  <div class="alert-filter-group">
-    <span class="alert-filter-label">Type</span>
-    <select class="filter-select" onchange="location.href=this.value">
-      <option value="/alerts{{alertsQuery .Filter .Severity ""}}"{{if eq .Category ""}} selected{{end}}>All types</option>
-      {{range .Categories}}
-      <option value="/alerts{{alertsQuery $.Filter $.Severity .}}"{{if eq $.Category .}} selected{{end}}>{{.}}</option>
-      {{end}}
-    </select>
-  </div>
-</div>
 
-<div class="card dv-rise-1">
-  {{if not .Alerts}}
-  <div class="empty-state">
-    <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20 6 9 17l-5-5"/></svg></div>
-    <div class="empty-state-copy">
-      <div class="empty-state-title">{{if eq .Filter "open"}}No open alerts{{else if .Filter}}No {{.Filter}} alerts{{else if .Severity}}No {{.Severity}} alerts{{else}}All clear{{end}}</div>
-      <div class="empty-state-text">{{if or (eq .Filter "open") (eq .Filter "")}}Everything is operating normally. Alerts are raised automatically from device telemetry.{{else}}Nothing matches this filter.{{end}}</div>
-    </div>
-  </div>
+  {{if eq .View "resolved"}}
+    <div class="alx-sec"><span class="st">Resolved</span><span class="line"></span></div>
+    {{if .Resolved}}{{range .Resolved}}{{template "alx-card" .}}{{end}}
+    {{else}}<div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">No resolved alerts</div><div class="s">Nothing has been resolved recently.</div></div></div>{{end}}
+
   {{else}}
-
-  {{if $canAct}}
-  {{/* Standalone bulk form: row checkboxes attach via form="alert-bulk-form" so
-       they're not nested inside the per-row ack/resolve forms (nested forms are invalid). */}}
-  <div class="table-toolbar">
-    <label class="checkbox-label" style="gap:8px;font-size:13px;color:var(--muted);">
-      <input type="checkbox" id="alert-select-all" onchange="alertToggleAll(this)"> Select all
-    </label>
-    <form id="alert-bulk-form" action="/alerts/bulk" method="POST" class="bulk-actions" style="display:none;">
-      <span class="bulk-count" id="alert-bulk-count">0 selected</span>
-      <button type="submit" name="action" value="acknowledge" class="btn-outline" style="padding:3px 12px;font-size:12px;">Acknowledge selected</button>
-      <button type="submit" name="action" value="resolve" class="btn-primary" style="padding:3px 12px;font-size:12px;">Resolve selected</button>
-    </form>
-    {{if canAdmin .Role}}
-    <form action="/alerts/clear-all" method="POST" style="margin-left:auto;" hx-confirm="Delete ALL alerts? Any whose condition still holds will re-fire on the next check.">
-      <button type="submit" class="btn-link-danger">Clear all</button>
-    </form>
+    {{if and (not .Critical) (not .Watching)}}
+    <div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">All clear</div><div class="s">Everything is operating normally. Alerts are raised automatically from device telemetry.</div></div></div>
     {{end}}
-  </div>
+
+    {{if and .Critical (ne .View "watching")}}
+    <div class="alx-sec crit"><span class="st">Needs attention now</span><span class="sc">{{.NeedsCount}}</span><span class="line"></span></div>
+    {{range .Critical}}{{template "alx-card" .}}{{end}}
+    {{end}}
+
+    {{if and .Watching (ne .View "needs")}}
+    <div class="alx-sec"><span class="st">Worth watching</span><span class="sc">{{.WatchCount}}</span><span class="line"></span></div>
+    {{range .Watching}}{{template "alx-card" .}}{{end}}
+    {{end}}
+
+    {{if and (eq .View "") (gt .ResolvedCount 0)}}
+    <div class="alx-sec"><span class="st">Resolved</span><span class="line"></span></div>
+    <a class="alx-fold" href="/alerts?view=resolved"><span><b>✓ {{.ResolvedCount}} alert{{if ne .ResolvedCount 1}}s{{end}}</b> resolved — cleared on their own or by the team</span><span class="chev">Show ›</span></a>
+    {{end}}
   {{end}}
 
-  <div class="scroll-x"><table class="table alerts-table">
-    <thead>
-      <tr>
-        {{if $canAct}}<th style="width:34px;"></th>{{end}}
-        <th style="width:130px;">Severity</th>
-        <th>Device</th>
-        <th>Alert</th>
-        <th style="width:110px;">Time</th>
-        <th style="width:120px;">Status</th>
-        <th style="width:150px;"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {{range .Alerts}}
-      <tr class="alert-row" data-search="{{.Serial}} {{.RestaurantName}} {{.Summary}} {{.Type}} {{alertTypeLabel .Type}} {{.Severity}}">
-        {{if $canAct}}
-        <td><input type="checkbox" form="alert-bulk-form" name="ids" value="{{.ID}}" class="alert-cb" onclick="event.stopPropagation()" onchange="alertUpdateBulk()"></td>
-        {{end}}
-        <td>
-          <span class="sev-cell sev-{{.Severity}}">
-            <span class="sev-icon">{{if eq .Severity "critical"}}{{template "sev-icon-critical"}}{{else if eq .Severity "warning"}}{{template "sev-icon-warning"}}{{else}}{{template "sev-icon-info"}}{{end}}</span>
-            <span class="sev-text">{{.Severity}}</span>
-          </span>
-        </td>
-        <td>
-          {{if .Serial}}
-            <a href="/devices/{{.Serial}}" class="link-detail mono" onclick="event.stopPropagation()">{{.Serial}}</a>
-            {{if .RestaurantName}}<div class="muted small">{{.RestaurantName}}</div>{{else}}<div class="muted small">In lab</div>{{end}}
-          {{else}}<span class="muted">—</span>{{end}}
-        </td>
-        <td class="alert-expand-cell" onclick="alertToggle(this)">
-          <span class="alert-caret">▸</span>
-          <span class="alert-summary">{{.Summary}}</span>
-          {{if gt .Occurrences 1}}<span class="occ-badge" title="Occurrences">×{{.Occurrences}}</span>{{end}}
-          <div class="muted small">{{alertTypeLabel .Type}}</div>
-        </td>
-        <td class="muted small" title="{{localTime .FiredAt}}">{{timeSince .FiredAt}}</td>
-        <td>
-          <span class="status-badge {{if eq .Status "open"}}danger{{else if eq .Status "acknowledged"}}warn{{else}}ok{{end}}" style="white-space:nowrap;">{{if eq .Status "open"}}●{{else if eq .Status "acknowledged"}}◐{{else}}✓{{end}} {{.Status}}</span>
-        </td>
-        <td style="white-space:nowrap;text-align:right;">
-          {{if $canAct}}
-          {{if eq .Status "open"}}
-          <form action="/alerts/{{.ID}}/ack" method="POST" style="display:inline" onclick="event.stopPropagation()">
-            <button type="submit" class="btn-outline btn-sm">Ack</button>
-          </form>
-          {{end}}
-          {{if ne .Status "resolved"}}
-          <form action="/alerts/{{.ID}}/resolve" method="POST" style="display:inline" onclick="event.stopPropagation()">
-            <button type="submit" class="btn-outline btn-sm">Resolve</button>
-          </form>
-          {{end}}
-          {{end}}
-        </td>
-      </tr>
-      <tr class="alert-detail-row" style="display:none;">
-        <td colspan="{{if $canAct}}7{{else}}6{{end}}">
-          <div class="alert-detail">
-            <div class="alert-detail-item"><span class="alert-detail-k">Type</span><span class="alert-detail-v">{{alertTypeLabel .Type}} <span class="muted mono small">({{.Type}})</span></span></div>
-            {{if .Serial}}<div class="alert-detail-item"><span class="alert-detail-k">Device</span><span class="alert-detail-v"><a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>{{if .RestaurantName}} · {{.RestaurantName}}{{end}}</span></div>{{end}}
-            <div class="alert-detail-item"><span class="alert-detail-k">First seen</span><span class="alert-detail-v">{{localTime .FiredAt}}</span></div>
-            <div class="alert-detail-item"><span class="alert-detail-k">Last seen</span><span class="alert-detail-v">{{localTime .LastSeenAt}}</span></div>
-            <div class="alert-detail-item"><span class="alert-detail-k">Occurrences</span><span class="alert-detail-v">{{.Occurrences}}</span></div>
-            {{if .ResolvedAt}}<div class="alert-detail-item"><span class="alert-detail-k">Resolved</span><span class="alert-detail-v">{{localTime .ResolvedAt}}</span></div>{{end}}
-            {{if .Detail}}<div class="alert-detail-item alert-detail-raw"><span class="alert-detail-k">Detail</span><code class="alert-detail-json">{{printf "%s" .Detail}}</code></div>{{end}}
-            {{$tr := index $.AlertTraces .ID}}
-            {{if $tr}}
-            <div class="alert-detail-item alert-detail-raw">
-              <span class="alert-detail-k">Trace</span>
-              <div class="alert-logs" data-alert="{{.ID}}">
-                <div class="alert-logs-h">
-                  <span>Crash / ANR trace · from device</span>
-                  <span class="alert-logs-acts">
-                    <button type="button" class="lg-btn" onclick="copyLog(this)">Copy</button>
-                  </span>
-                </div>
-                <pre class="logcat-terminal alert-logs-pre">{{colorizeLogcat $tr}}</pre>
-              </div>
-            </div>
-            {{end}}
-            {{$lc := index $.AlertLogs .ID}}
-            {{if $lc}}
-            <div class="alert-detail-item alert-detail-raw">
-              <span class="alert-detail-k">Logs</span>
-              {{if eq $lc.Status "fulfilled"}}
-                <div class="alert-logs" data-alert="{{.ID}}">
-                  <div class="alert-logs-h">
-                    <span>Auto-captured {{$lc.Level}}-level · {{timeSince $lc.CapturedAt}}</span>
-                    <span class="alert-logs-acts">
-                      <button type="button" class="lg-btn" onclick="copyLog(this)">Copy</button>
-                      <button type="button" class="lg-btn ai" onclick="analyzeLog(this,'{{.ID}}')">✦ Analyze</button>
-                    </span>
-                  </div>
-                  <pre class="logcat-terminal alert-logs-pre">{{colorizeLogcat $lc.Content}}</pre>
-                  <div class="alert-logs-ai" hidden></div>
-                </div>
-              {{else}}
-                <span class="alert-detail-v muted"><span class="ws-dot"></span>Capturing device logs… (requested {{timeSince $lc.RequestAt}}{{if ne $lc.Status "pending"}} · sent{{end}})</span>
-              {{end}}
-            </div>
-            {{end}}
-          </div>
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table></div>
-  <div id="alert-no-match" class="empty-state" style="display:none;">
-    <div class="empty-state-copy"><div class="empty-state-title">No matches</div><div class="empty-state-text">No alerts match your search.</div></div>
-  </div>
-  {{end}}
+  <div id="alx-nomatch">No alerts match your search.</div>
 </div>
-
-{{if gt .TotalPages 1}}
-<div class="pagination">
-  {{if gt .Page 1}}<a class="page-btn" href="/alerts{{alertsPageURL .Filter .Severity .Category (sub .Page 1)}}">&#8592; Prev</a>{{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
-  <div class="page-numbers">
-    {{range pageList .Page .TotalPages}}
-      {{if eq . 0}}<span class="page-num disabled">…</span>
-      {{else if eq . $.Page}}<span class="page-num active">{{.}}</span>
-      {{else}}<a class="page-num" href="/alerts{{alertsPageURL $.Filter $.Severity $.Category .}}">{{.}}</a>{{end}}
-    {{end}}
-  </div>
-  {{if lt .Page .TotalPages}}<a class="page-btn" href="/alerts{{alertsPageURL .Filter .Severity .Category (add .Page 1)}}">Next &#8594;</a>{{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
-</div>
-<div class="muted small" style="text-align:center;padding:2px 0 10px;">Page {{.Page}} of {{.TotalPages}} · {{.Total}} alert{{if ne .Total 1}}s{{end}}</div>
-{{end}}
-</div><!-- /#alerts-live -->
 
 <script>
-// ── Search: filter rendered rows client-side; preserved across live refresh. ──
-window.__alertQuery = window.__alertQuery || "";
-function filterAlerts() {
-  var input = document.getElementById('alert-search');
-  if (input) window.__alertQuery = input.value;
-  applyAlertFilter();
-}
-function applyAlertFilter() {
-  var q = (window.__alertQuery || "").trim().toLowerCase();
-  var rows = document.querySelectorAll('#alerts-live tr.alert-row');
-  var shown = 0;
-  rows.forEach(function (row) {
-    var hay = (row.getAttribute('data-search') || "").toLowerCase();
-    var match = !q || hay.indexOf(q) !== -1;
-    row.style.display = match ? "" : "none";
-    // keep each row's detail sibling hidden when its row is filtered out
-    var detail = row.nextElementSibling;
-    if (detail && detail.classList.contains('alert-detail-row') && !match) detail.style.display = "none";
-    if (match) shown++;
+// Client-side search: hide cards whose text doesn't match, preserved across the
+// live refresh below.
+window.__alxQ = window.__alxQ || "";
+function alxFilter(){
+  var inp=document.getElementById('alx-q'); if(inp) window.__alxQ=inp.value;
+  var q=(window.__alxQ||"").trim().toLowerCase(), shown=0;
+  var cards=document.querySelectorAll('#alerts-live .alx-al');
+  cards.forEach(function(c){
+    var hay=(c.getAttribute('data-search')||"").toLowerCase();
+    var ok=!q||hay.indexOf(q)!==-1; c.style.display=ok?"":"none"; if(ok)shown++;
   });
-  var none = document.getElementById('alert-no-match');
-  var table = document.querySelector('#alerts-live .alerts-table');
-  if (none && table) {
-    var hasRows = rows.length > 0;
-    none.style.display = (hasRows && shown === 0) ? "" : "none";
+  document.querySelectorAll('#alerts-live .alx-sec, #alerts-live .alx-fold').forEach(function(s){ s.style.display=q?"none":""; });
+  var nm=document.getElementById('alx-nomatch'); if(nm) nm.style.display=(q&&cards.length&&shown===0)?"block":"none";
+}
+// Live refresh: re-fetch the current (filter-preserving) URL and swap the region.
+(function(){
+  var pending=false;
+  function refresh(){
+    if(pending) return; pending=true;
+    fetch(location.href,{credentials:'same-origin'}).then(function(r){return r.text();}).then(function(html){
+      pending=false;
+      var doc=new DOMParser().parseFromString(html,'text/html');
+      var fresh=doc.getElementById('alerts-live'), cur=document.getElementById('alerts-live');
+      if(fresh&&cur){ cur.innerHTML=fresh.innerHTML; var inp=document.getElementById('alx-q'); if(inp)inp.value=window.__alxQ||""; alxFilter(); }
+    }).catch(function(){pending=false;});
   }
-}
-
-// ── Row expansion: toggle the detail sibling row. ──
-function alertToggle(cell) {
-  var row = cell.closest('tr');
-  var detail = row.nextElementSibling;
-  if (!detail || !detail.classList.contains('alert-detail-row')) return;
-  var open = detail.style.display !== "none";
-  detail.style.display = open ? "none" : "";
-  row.classList.toggle('is-expanded', !open);
-}
-
-// ── Bulk selection. ──
-function alertToggleAll(box) {
-  document.querySelectorAll('#alerts-live .alert-cb').forEach(function (cb) {
-    if (cb.closest('tr').style.display !== "none") cb.checked = box.checked;
-  });
-  alertUpdateBulk();
-}
-function alertUpdateBulk() {
-  var checked = document.querySelectorAll('#alerts-live .alert-cb:checked');
-  var bar = document.getElementById('alert-bulk-form');
-  var count = document.getElementById('alert-bulk-count');
-  if (count) count.textContent = checked.length + " selected";
-  if (bar) bar.style.display = checked.length ? "" : "none";
-  document.querySelectorAll('#alerts-live .alert-cb').forEach(function (cb) {
-    cb.closest('tr').classList.toggle('is-selected', cb.checked);
-  });
-}
-
-// ── Live refresh: the layout listener fires 'mdm:alerts-update'. Re-fetch the
-// current (filter-preserving) URL, swap the region, then restore search state. ──
-(function () {
-  var pending = false;
-  function refresh() {
-    if (pending) return;
-    pending = true;
-    fetch(location.href, { credentials: 'same-origin' })
-      .then(function (r) { return r.text(); })
-      .then(function (html) {
-        pending = false;
-        var doc = new DOMParser().parseFromString(html, 'text/html');
-        var fresh = doc.getElementById('alerts-live');
-        var cur = document.getElementById('alerts-live');
-        if (fresh && cur) {
-          cur.innerHTML = fresh.innerHTML;
-          var input = document.getElementById('alert-search');
-          if (input) input.value = window.__alertQuery || "";
-          applyAlertFilter();
-        }
-      })
-      .catch(function () { pending = false; });
-  }
-  document.addEventListener('mdm:alerts-update', refresh);
+  document.addEventListener('mdm:alerts-update',refresh);
 })();
-
-// Copy the captured log buffer (plain text from the <pre>) to the clipboard.
-function copyLog(btn) {
-  var box = btn.closest('.alert-logs');
-  var pre = box.querySelector('.alert-logs-pre');
-  var text = pre ? pre.innerText : '';
-  navigator.clipboard.writeText(text).then(function () {
-    var old = btn.textContent; btn.textContent = 'Copied ✓';
-    setTimeout(function () { btn.textContent = old; }, 1500);
-  }).catch(function () { btn.textContent = 'Copy failed'; });
-}
-// AI-triage the captured logs for this alert; render the summary inline.
-function analyzeLog(btn, alertId) {
-  var box = btn.closest('.alert-logs');
-  var out = box.querySelector('.alert-logs-ai');
-  out.hidden = false;
-  out.className = 'alert-logs-ai loading';
-  out.textContent = 'Analyzing logs…';
-  btn.disabled = true;
-  fetch('/alerts/' + alertId + '/logcat/analyze', { method: 'POST', headers: { 'X-Requested-With': 'fetch' } })
-    .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-    .then(function (res) {
-      btn.disabled = false;
-      if (!res.ok) { out.className = 'alert-logs-ai err'; out.textContent = res.d.error || 'Analysis failed.'; return; }
-      out.className = 'alert-logs-ai';
-      out.innerHTML = '<div class="ai-tag">✦ AI triage · ' + (res.d.model || '') + '</div><div class="ai-body"></div>';
-      out.querySelector('.ai-body').textContent = res.d.text || '';
-    })
-    .catch(function () { btn.disabled = false; out.className = 'alert-logs-ai err'; out.textContent = 'Analysis failed.'; });
-}
 </script>
 
 {{template "footer" .}}
 {{end}}
 
-{{/* Severity icon partials, defined at top level so they're callable from alerts.html. */}}
-{{define "sev-icon-critical"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>{{end}}
-{{define "sev-icon-warning"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>{{end}}
-{{define "sev-icon-info"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>{{end}}
+{{/* One friendly alert card. Dot is a humanAlert. */}}
+{{define "alx-card"}}
+{{$sev := "info"}}{{if eq .Severity "critical"}}{{$sev = "crit"}}{{else if eq .Severity "warning"}}{{$sev = "warn"}}{{end}}{{if eq .Status "resolved"}}{{$sev = "done"}}{{end}}
+<div class="alx-al {{$sev}}" data-search="{{.Headline}} {{.Serial}} {{.Restaurant}} {{plainAlert .Sentence}}">
+  <span class="alx-ico">{{template "alx-icon" .IconKey}}</span>
+  <div class="alx-m">
+    <div class="alx-top">
+      <span class="alx-t">{{.Headline}}</span>
+      {{if gt .Occurrences 1}}<span class="alx-occ">×{{.Occurrences}}</span>{{end}}
+      <span class="alx-when">{{timeSince .FiredAt}}</span>
+    </div>
+    <div class="alx-s">{{.Sentence}}</div>
+    <div class="alx-foot">
+      {{if ne .Status "resolved"}}
+        {{if .Primary}}<a class="alx-btn primary" href="{{.Primary.Href}}">{{if eq .Primary.Icon "logs"}}<svg viewBox="0 0 24 24"><path d="M4 4h16v13H4z"/><path d="M8 21h8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>{{end}}{{.Primary.Label}}</a>{{end}}
+        {{if .CanAct}}
+          {{if eq .Status "open"}}<form action="/alerts/{{.ID}}/ack" method="POST"><button type="submit" class="alx-btn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Acknowledge</button></form>{{end}}
+          <form action="/alerts/{{.ID}}/resolve" method="POST"><button type="submit" class="alx-btn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button></form>
+        {{end}}
+      {{else if .Primary}}
+        <a class="alx-btn" href="{{.Primary.Href}}">{{.Primary.Label}}</a>
+      {{end}}
+      {{if .Serial}}<span class="alx-dev">on <a href="/devices/{{.Serial}}" onclick="event.stopPropagation()">{{.Serial}}</a></span>{{end}}
+    </div>
+  </div>
+</div>
+{{end}}
 
-{{/* Compact recent-alerts list for the top-bar bell dropdown (lazy-loaded via htmx). */}}
+{{/* Alert icon by key. Dot is the IconKey string. */}}
+{{define "alx-icon"}}{{if eq . "heat"}}<svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>{{else if eq . "crash"}}<svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{else if eq . "offline"}}<svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>{{else if eq . "battery"}}<svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2M5 10v4"/></svg>{{else if eq . "memory"}}<svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>{{else if eq . "wifi"}}<svg viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01"/></svg>{{else if eq . "storage"}}<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg>{{else if eq . "charge"}}<svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>{{end}}{{end}}
+
+{{/* Compact friendly list for the top-bar bell dropdown. */}}
 {{define "alerts-recent"}}
 {{if .Alerts}}
-{{range .Alerts}}
+{{$crit := false}}{{$other := false}}
+{{range .Alerts}}{{if eq .Severity "critical"}}{{$crit = true}}{{else}}{{$other = true}}{{end}}{{end}}
+{{if $crit}}<div class="nbar-al-sec">Needs attention</div>{{end}}
+{{range .Alerts}}{{if eq .Severity "critical"}}
 <a class="nbar-al" href="/alerts">
   <span class="nbar-al-dot sev-{{.Severity}}"></span>
-  <span class="nbar-al-main">
-    <span class="nbar-al-t">{{.Summary}}</span>
-    <span class="nbar-al-s">{{if .Serial}}<span class="mono">{{.Serial}}</span> · {{end}}{{timeSince .FiredAt}}{{if gt .Occurrences 1}} · ×{{.Occurrences}}{{end}}</span>
-  </span>
+  <span class="nbar-al-main"><span class="nbar-al-t">{{.Headline}}</span><span class="nbar-al-s">{{if .Restaurant}}{{.Restaurant}} · {{end}}{{timeSince .FiredAt}}{{if gt .Occurrences 1}} · ×{{.Occurrences}}{{end}}</span></span>
 </a>
-{{end}}
+{{end}}{{end}}
+{{if and $crit $other}}<div class="nbar-al-sec">Earlier</div>{{end}}
+{{range .Alerts}}{{if ne .Severity "critical"}}
+<a class="nbar-al" href="/alerts">
+  <span class="nbar-al-dot sev-{{.Severity}}"></span>
+  <span class="nbar-al-main"><span class="nbar-al-t">{{.Headline}}</span><span class="nbar-al-s">{{if .Restaurant}}{{.Restaurant}} · {{end}}{{timeSince .FiredAt}}{{if gt .Occurrences 1}} · ×{{.Occurrences}}{{end}}</span></span>
+</a>
+{{end}}{{end}}
 <a class="nbar-al-all" href="/alerts">View all alerts →</a>
 {{else}}
-<div class="nbar-al-empty">No open alerts.</div>
+<div class="nbar-al-empty">All clear — nothing firing right now.</div>
 {{end}}
 {{end}}

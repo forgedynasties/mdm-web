@@ -1304,6 +1304,38 @@
       document.dispatchEvent(new CustomEvent('mdm:alerts-update', { detail: { count: n } }));
     });
   })();
+
+  // Friendly toast when a NEW critical alert arrives. Listens to the same signal;
+  // on a count rise it fetches the most urgent alert and pops it once (deduped).
+  (function () {
+    var seen = {}, last = null, box = null;
+    function ensure() {
+      if (!box) { box = document.createElement('div'); box.id = 'mdm-toasts'; document.body.appendChild(box); }
+      return box;
+    }
+    function show(a) {
+      var el = document.createElement('div');
+      el.className = 'mtoast';
+      el.innerHTML = '<span class="mt-i"></span><div class="mt-m"><div class="mt-t"></div><div class="mt-s"></div><div class="mt-a"></div></div><button class="mt-x" aria-label="Dismiss">×</button>';
+      el.querySelector('.mt-t').textContent = a.headline;
+      el.querySelector('.mt-s').textContent = a.sentence;
+      var av = el.querySelector('.mt-a');
+      if (a.href) { var l = document.createElement('a'); l.className = 'mt-b p'; l.href = a.href; l.textContent = 'View'; av.appendChild(l); }
+      var all = document.createElement('a'); all.className = 'mt-b'; all.href = '/alerts'; all.textContent = 'All alerts'; av.appendChild(all);
+      el.querySelector('.mt-x').onclick = function () { el.remove(); };
+      ensure().appendChild(el);
+      setTimeout(function () { el.classList.add('leaving'); setTimeout(function () { el.remove(); }, 400); }, 9000);
+    }
+    document.addEventListener('mdm:alerts-update', function (e) {
+      var n = e.detail && e.detail.count;
+      var rose = last !== null && n > last; last = n;
+      if (!rose) return;
+      fetch('/alerts/newest', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (a) { if (a && a.severity === 'critical' && !seen[a.id]) { seen[a.id] = 1; show(a); } })
+        .catch(function () {});
+    });
+  })();
   </script>
   <script>
   // ── Tiered confirmation ──────────────────────────────────────────────────
