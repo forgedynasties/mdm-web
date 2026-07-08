@@ -9353,6 +9353,113 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 	return out, rows.Err()
 }
 
+// DeviceCrash is a per-device crash rollup for the Fleet Health page: how many
+// crash/ANR/tombstone events a unit reported in the last 24h, its latest kind and
+// build, when, and the restaurant it belongs to. Ordered worst-first by the query.
+type DeviceCrash struct {
+	DeviceID     uuid.UUID
+	Serial       string
+	RestaurantID *uuid.UUID
+	Restaurant   string
+	Kind         string
+	Count        int
+	BuildID      string
+	LatestAt     time.Time
+}
+
+// FleetCrashStats aggregates recent crashes for the Fleet Health page: the 24h
+// totals, the worst build, a 7-day daily sparkline, the worst devices, and a
+// per-restaurant 24h count (so the triage list can show a crash chip).
+type FleetCrashStats struct {
+	Total24h     int
+	Devices24h   int
+	WorstBuild   string
+	WorstBuildN  int
+	Daily        []int             // crash count per day, oldest→newest, last 7 incl. today
+	ByDevice     []DeviceCrash     // worst-first, capped at the caller's limit
+	ByRestaurant map[uuid.UUID]int // restaurant_id → 24h crash count
+}
+
+// GetFleetCrashStats rolls up crash/ANR/tombstone events (not reboots) across the
+// visible fleet for the health page. limit caps the worst-devices list.
+func (d *DB) GetFleetCrashStats(ctx context.Context, limit int) (FleetCrashStats, error) {
+	st := FleetCrashStats{ByRestaurant: map[uuid.UUID]int{}}
+	if limit <= 0 {
+		limit = 6
+	}
+	// Per-device 24h rollup — drives Total24h, Devices24h, ByDevice and ByRestaurant.
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, d.serial_number, d.restaurant_id, COALESCE(r.name, ''),
+		       COUNT(*),
+		       (array_agg(e.kind ORDER BY e.occurred_at DESC))[1],
+		       (array_agg(NULLIF(e.build_id, '') ORDER BY e.occurred_at DESC))[1],
+		       MAX(e.occurred_at)
+		FROM device_events e
+		JOIN devices d ON d.id = e.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE e.kind <> 'reboot' AND NOT d.hidden
+		  AND e.occurred_at > NOW() - INTERVAL '24 hours'
+		GROUP BY d.id, d.serial_number, d.restaurant_id, r.name
+		ORDER BY COUNT(*) DESC, MAX(e.occurred_at) DESC`)
+	if err != nil {
+		return st, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var c DeviceCrash
+		var build *string
+		if err := rows.Scan(&c.DeviceID, &c.Serial, &c.RestaurantID, &c.Restaurant,
+			&c.Count, &c.Kind, &build, &c.LatestAt); err != nil {
+			return st, err
+		}
+		if build != nil {
+			c.BuildID = *build
+		}
+		st.Total24h += c.Count
+		st.Devices24h++
+		if c.RestaurantID != nil {
+			st.ByRestaurant[*c.RestaurantID] += c.Count
+		}
+		if len(st.ByDevice) < limit {
+			st.ByDevice = append(st.ByDevice, c)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return st, err
+	}
+
+	// Worst build in the last 24h (most crashes). Ignored if there are none.
+	_ = d.pool.QueryRow(ctx, `
+		SELECT COALESCE(NULLIF(e.build_id, ''), 'unknown'), COUNT(*)
+		FROM device_events e JOIN devices d ON d.id = e.device_id
+		WHERE e.kind <> 'reboot' AND NOT d.hidden
+		  AND e.occurred_at > NOW() - INTERVAL '24 hours'
+		GROUP BY 1 ORDER BY 2 DESC, 1 LIMIT 1`).Scan(&st.WorstBuild, &st.WorstBuildN)
+
+	// Crashes per day for the last 7 days (incl. today), zero-filled, UTC day buckets.
+	st.Daily = make([]int, 7)
+	drows, err := d.pool.Query(ctx, `
+		SELECT COALESCE(x.c, 0)
+		FROM generate_series((CURRENT_DATE - 6)::date, CURRENT_DATE::date, INTERVAL '1 day') g
+		LEFT JOIN (
+			SELECT date_trunc('day', e.occurred_at)::date AS day, COUNT(*) c
+			FROM device_events e JOIN devices d ON d.id = e.device_id
+			WHERE e.kind <> 'reboot' AND NOT d.hidden AND e.occurred_at >= CURRENT_DATE - 6
+			GROUP BY 1
+		) x ON x.day = g::date
+		ORDER BY g`)
+	if err != nil {
+		return st, err
+	}
+	defer drows.Close()
+	for i := 0; drows.Next() && i < 7; i++ {
+		if err := drows.Scan(&st.Daily[i]); err != nil {
+			return st, err
+		}
+	}
+	return st, drows.Err()
+}
+
 // DeleteCrashEvent removes a single crash/ANR/tombstone event (admin cleanup of a
 // noisy or irrelevant crash). Returns the device it belonged to so the caller can
 // also clear that device's crash alert. ok is false if the event didn't exist.
