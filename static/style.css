@@ -4978,6 +4978,23 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .nbar-al-t { display: block; font-size: 12.5px; font-weight: var(--fw-semibold); color: var(--text); }
 .nbar-al-s { display: block; font-size: 11.5px; color: var(--muted); }
 .nbar-al-all { display: block; text-align: center; font-size: 12px; font-weight: var(--fw-semibold); color: var(--accent); padding: 9px; border-top: 1px solid var(--border-soft); margin-top: 4px; text-decoration: none; }
+.nbar-al-sec { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); padding: 8px 9px 3px; }
+
+/* ── Friendly alert toasts (new critical alert) ── */
+#mdm-toasts { position: fixed; right: 18px; bottom: 18px; z-index: 1200; display: flex; flex-direction: column; gap: 10px; max-width: 380px; }
+.mtoast { display: flex; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-left: 3px solid var(--danger); border-radius: 12px; box-shadow: 0 12px 40px rgba(28,26,24,.18); padding: 14px 15px; animation: mtoast-in .32s cubic-bezier(.2,.7,.3,1); }
+.mtoast.leaving { animation: mtoast-out .4s forwards; }
+@keyframes mtoast-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes mtoast-out { to { opacity: 0; transform: translateX(24px); } }
+.mtoast .mt-i { width: 34px; height: 34px; flex: none; border-radius: 9px; background: var(--danger-bg); position: relative; }
+.mtoast .mt-i::after { content: "!"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--danger); font-weight: 800; font-size: 18px; }
+.mtoast .mt-m { min-width: 0; flex: 1; }
+.mtoast .mt-t { font-size: 13.5px; font-weight: 700; color: var(--text); }
+.mtoast .mt-s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.mtoast .mt-a { display: flex; gap: 7px; margin-top: 9px; }
+.mtoast .mt-b { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 7px; border: 1px solid var(--border); color: var(--muted); text-decoration: none; }
+.mtoast .mt-b.p { border-color: transparent; background: var(--text); color: #fff; }
+.mtoast .mt-x { flex: none; align-self: flex-start; background: none; border: none; color: var(--text-faint); font-size: 17px; line-height: 1; cursor: pointer; }
 .nbar-al-empty { padding: 16px 11px; text-align: center; color: var(--muted); font-size: 12.5px; }
 
 /* ── floating bottom-center dock (solid + coral ring for visibility) ── */
