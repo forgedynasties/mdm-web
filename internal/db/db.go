@@ -131,23 +131,27 @@ type QFILPackage struct {
 // Release groups the packages for one target build version under a single
 // lifecycle. Version equals the target build id.
 type Release struct {
-	ID            int        `json:"id"`
-	Version       string     `json:"version"`
-	Name          string     `json:"name"`
-	Changelog     string     `json:"changelog"`
-	Status        string     `json:"status"`          // "draft" | "published"
-	Hidden        bool       `json:"hidden"`          // hidden from the main releases list (irrelevant)
-	SkipBaseTests bool       `json:"skip_base_tests"` // QA tests only release-specific cases, not base
-	CreatedAt     time.Time  `json:"created_at"`
-	PublishedAt   *time.Time `json:"published_at"`
-	SignedOffBy   string     `json:"signed_off_by"` // dev who smoke-tested; "" when not signed off
-	SignedOffAt   *time.Time `json:"signed_off_at"`
-	TestingDoneAt   *time.Time `json:"testing_done_at"` // finish line: nil = active (under test), set = inactive
-	TestingDoneBy   string     `json:"testing_done_by"`
-	ParentReleaseID *int       `json:"parent_release_id"` // set for branch builds — the release this forked from
-	IsBranch        bool       `json:"is_branch"`         // off-mainline temporary test build
-	PackageCount    int        `json:"package_count,omitempty"` // populated by ListReleases
-	DeployCount     int        `json:"deploy_count,omitempty"`  // populated by ListReleases
+	ID                  int        `json:"id"`
+	Version             string     `json:"version"`
+	Name                string     `json:"name"`
+	Changelog           string     `json:"changelog"`
+	Status              string     `json:"status"`          // "draft" | "published"
+	Hidden              bool       `json:"hidden"`          // hidden from the main releases list (irrelevant)
+	SkipBaseTests       bool       `json:"skip_base_tests"` // QA tests only release-specific cases, not base
+	CreatedAt           time.Time  `json:"created_at"`
+	PublishedAt         *time.Time `json:"published_at"`
+	SignedOffBy         string     `json:"signed_off_by"` // dev who smoke-tested; "" when not signed off
+	SignedOffAt         *time.Time `json:"signed_off_at"`
+	TestingDoneAt       *time.Time `json:"testing_done_at"` // finish line: nil = active (under test), set = inactive
+	TestingDoneBy       string     `json:"testing_done_by"`
+	ParentReleaseID     *int       `json:"parent_release_id"`       // set for branch builds — the release this forked from
+	IsBranch            bool       `json:"is_branch"`               // off-mainline temporary test build
+	PackageCount        int        `json:"package_count,omitempty"` // populated by ListReleases
+	DeployCount         int        `json:"deploy_count,omitempty"`  // populated by ListReleases
+	MergedFromReleaseID *int       `json:"merged_from_release_id"`  // mainline node: the branch it absorbed on merge
+	MergedIntoReleaseID *int       `json:"merged_into_release_id"`  // branch: the mainline release it merged into (terminal)
+	MergedAt            *time.Time `json:"merged_at"`
+	MergedBy            string     `json:"merged_by"`
 }
 
 // FleetVersion is one release version actually reported by devices in the field, with the
@@ -3379,8 +3383,8 @@ func (d *DB) AlertHasLogcat(ctx context.Context, alertID uuid.UUID) (bool, error
 
 // AlertLogcat is the auto-captured log attached to an alert, for display.
 type AlertLogcat struct {
-	Status     string    // pending | delivered | fulfilled
-	Content    string    // set when fulfilled
+	Status     string // pending | delivered | fulfilled
+	Content    string // set when fulfilled
 	Level      string
 	Lines      int
 	RequestAt  time.Time
@@ -3833,7 +3837,7 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 			FROM device_packages dp
 			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 			WHERE (dp.package_name ILIKE $1 OR dp.app_name ILIKE $1)
-			  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)` + notSystemHeuristicSQL + `
+			  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)`+notSystemHeuristicSQL+`
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -3847,7 +3851,7 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
 			FROM device_packages dp
 			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
-			WHERE NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)` + notSystemHeuristicSQL + `
+			WHERE NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)`+notSystemHeuristicSQL+`
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
 			LIMIT 200
@@ -3891,7 +3895,7 @@ func (d *DB) PackagesForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]F
 		FROM device_packages dp
 		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
 		WHERE dp.device_id = ANY($1)
-		  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)` + notSystemHeuristicSQL + `
+		  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)`+notSystemHeuristicSQL+`
 		GROUP BY dp.package_name
 		ORDER BY device_count DESC, dp.package_name
 		LIMIT 200
@@ -6042,8 +6046,8 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// runs hotter by design, so it only alerts at the higher limit; off the pad the
 		// lower limit applies. Point-in-time on the latest reading, so the alert lands
 		// within ~1 min of the spike and auto-resolves once it cools.
-		limit := param(p, "temp_c", 45)         // off-pad limit
-		limitWLC := param(p, "temp_c_wlc", 65)   // on-pad (wireless charging) limit
+		limit := param(p, "temp_c", 45)        // off-pad limit
+		limitWLC := param(p, "temp_c_wlc", 65) // on-pad (wireless charging) limit
 		rows, err := d.pool.Query(ctx, `
 			SELECT d.id, d.serial_number, (d.latest_extra->>'battery_temp_c')::numeric,
 			       d.last_seen_at, d.latest_extra->>'timezone',
@@ -7480,6 +7484,16 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS parent_release_id INTEGER REFERENC
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS is_branch BOOLEAN NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS idx_releases_parent ON releases(parent_release_id);
 
+-- Merge a validated branch back onto the main line. Merging creates a NEW mainline release
+-- (the next version) that carries the branch's delta; the branch is then closed out.
+-- merged_from_release_id is set on the new mainline node (the branch it absorbed);
+-- merged_into_release_id is set on the branch (where it landed). A branch with
+-- merged_into_release_id set is terminal ("merged") and offers no further merge.
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS merged_from_release_id INTEGER REFERENCES releases(id) ON DELETE SET NULL;
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS merged_into_release_id INTEGER REFERENCES releases(id) ON DELETE SET NULL;
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS merged_at TIMESTAMPTZ;
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS merged_by TEXT NOT NULL DEFAULT '';
+
 -- A test case can be tied to the release problem it verifies. When a dev marks a
 -- carried-over bug "fixed here", a "Verify fix: …" case is added to the release's QA
 -- checklist (problem_id set); passing that case verifies the linked problem. One such
@@ -7640,10 +7654,12 @@ func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 	var r Release
 	err := d.pool.QueryRow(ctx, `
 		SELECT id, version, name, changelog, status, skip_base_tests, created_at, published_at,
-		       signed_off_by, signed_off_at, testing_done_at, testing_done_by, parent_release_id, is_branch
+		       signed_off_by, signed_off_at, testing_done_at, testing_done_by, parent_release_id, is_branch,
+		       merged_from_release_id, merged_into_release_id, merged_at, merged_by
 		FROM releases WHERE id = $1
 	`, id).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.CreatedAt, &r.PublishedAt,
-		&r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch)
+		&r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch,
+		&r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy)
 	if err != nil {
 		return nil, err
 	}
@@ -7655,6 +7671,7 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 		SELECT r.id, r.version, r.name, r.changelog, r.status, r.hidden, r.created_at, r.published_at,
 		       r.signed_off_by, r.signed_off_at, r.testing_done_at, r.testing_done_by,
 		       r.parent_release_id, r.is_branch,
+		       r.merged_from_release_id, r.merged_into_release_id, r.merged_at, r.merged_by,
 		       COUNT(DISTINCT p.id) AS package_count,
 		       COUNT(DISTINCT u.id) AS deploy_count
 		FROM releases r
@@ -7670,7 +7687,7 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch, &r.PackageCount, &r.DeployCount); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch, &r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy, &r.PackageCount, &r.DeployCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -7943,6 +7960,43 @@ func (d *DB) CreateBranchRelease(ctx context.Context, parentID int, version, nam
 		VALUES ($1, $2, $3, true, $4) RETURNING id`,
 		version, name, changelog, parentID).Scan(&id)
 	return id, err
+}
+
+// MergeBranch merges a validated branch onto the main line as a NEW mainline release at
+// newVersion: a draft node that sits on main in the branch's lineage (its parent is what
+// the branch forked from) and whose merged_from points back at the branch. The branch is
+// then stamped merged into that node. The v-next build and any QA-ledger carrying happen
+// afterward via the normal release-first flow. Runs in one transaction. The WHERE guard on
+// the base lookup rejects a non-branch or already-merged source. Returns the new release id.
+func (d *DB) MergeBranch(ctx context.Context, branchID int, newVersion, name, changelog, mergedBy string) (int, error) {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+
+	var baseID *int // what the branch forked from; the new node lands on that line
+	if err := tx.QueryRow(ctx,
+		`SELECT parent_release_id FROM releases WHERE id = $1 AND is_branch AND merged_into_release_id IS NULL`,
+		branchID).Scan(&baseID); err != nil {
+		return 0, err
+	}
+	var newID int
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO releases (version, name, changelog, is_branch, parent_release_id, merged_from_release_id)
+		VALUES ($1, $2, $3, false, $4, $5) RETURNING id`,
+		newVersion, name, changelog, baseID, branchID).Scan(&newID); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE releases SET merged_into_release_id = $2, merged_at = NOW(), merged_by = $3 WHERE id = $1`,
+		branchID, newID, mergedBy); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return newID, nil
 }
 
 // ListBranchReleases returns the branch builds forked from parentID, newest first, each
