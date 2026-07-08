@@ -5286,6 +5286,10 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .prob-meta { font-size: 11.5px; color: var(--text-faint); }
 .prob-actions { display: flex; align-items: center; gap: 6px; margin-top: 10px; }
 .prob-resolved { font-size: 12px; color: var(--muted); margin-right: auto; }
+.prob { position: relative; }
+.prob-del { position: absolute; top: 6px; right: 8px; margin: 0; }
+.prob-x { width: 20px; height: 20px; border-radius: 5px; border: none; background: transparent; display: flex; align-items: center; justify-content: center; color: var(--text-faint); cursor: pointer; padding: 0; font-size: 15px; line-height: 1; }
+.prob-x:hover { color: var(--danger); background: var(--danger-bg); }
 .prob-crashes { margin: 0 0 16px; padding: 10px 12px; border: 1px dashed var(--border); border-radius: 10px; }
 .prob-crashes-h { font-size: 12px; font-weight: 600; margin-bottom: 8px; }
 .prob-crash { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border-soft); font-size: 12.5px; }
