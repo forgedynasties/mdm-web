@@ -348,6 +348,12 @@
   </div>
 </section>
 
+<!-- Live refresh: when a problem changes anywhere (this or another user's tab), the
+     problem SSE fires "problem-updated" and this element refetches the OOB fragment set
+     (?partial=problems) — swapping the QA summary, problem lists and tab badges in place. -->
+<div hx-get="/releases/{{$rel.ID}}?partial=problems" hx-trigger="problem-updated from:body"
+     hx-swap="none" hx-select="unset" style="display:none" aria-hidden="true"></div>
+
 <!-- QFIL flashing bundle modal -->
 {{if .CanManageQFIL}}
 <div id="qfil-modal" class="modal-backdrop" onclick="qfilBackdrop(event)">
@@ -423,6 +429,17 @@
       history.replaceState(history.state, '', u);
     } catch (e) {}
   };
+})();
+
+// Live refresh: subscribe to the release problem stream so a change made here (or by
+// another user) re-swaps the QA/Problems fragments via the hidden refetch element above.
+// mdmStream (layout head) auto-closes on the next in-app navigation.
+(function () {
+  if (!window.EventSource || !window.mdmStream) return;
+  var es = window.mdmStream('/releases/events');
+  es.addEventListener('problem-update', function () {
+    document.body.dispatchEvent(new CustomEvent('problem-updated'));
+  });
 })();
 
 // Prefill the problem report form from an auto-detected crash and jump to it.
