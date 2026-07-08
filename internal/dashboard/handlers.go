@@ -1843,7 +1843,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	// The audit page itself is admin-only; keep the activity feed consistent.
 	var audit []db.AuditEntry
 	if h.role(r) == "admin" {
-		audit, _ = h.db.ListAudit(ctx, 8)
+		audit, _ = h.db.ListAudit(ctx, 6)
 	}
 
 	// Fleet score: device-weighted mean of the per-group health scores. Without
@@ -8735,6 +8735,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"health-pulse", "health-triage", "health-grid",
 		"health-command", "health-reliability", "health-stream", "health-icons",
 		"overview-command",
+		"alerts-inbox", "alerts-grouped", "notifications",
 		"release-pipeline", "release-cockpit":
 	default:
 		http.NotFound(w, r)

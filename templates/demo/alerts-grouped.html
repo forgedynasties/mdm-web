@@ -1,0 +1,128 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alerts · Grouped — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.1);--warn:#b45309;--warn-soft:rgba(180,83,9,.12);
+  --danger:#b42318;--danger-soft:rgba(180,35,24,.08);--danger-edge:rgba(180,35,24,.26);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--sh-sm:0 1px 2px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+.wrap{max-width:1000px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:70ch}
+
+.controls{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px}
+.seg a{font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:99px}
+.seg a.on{background:var(--surface);color:var(--text);box-shadow:var(--sh-sm)}
+.seg .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);padding:6px 10px 6px 12px;align-self:center}
+.search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 13px}
+.search svg{width:15px;height:15px;fill:none;stroke:var(--faint);stroke-width:2}
+.search input{border:none;outline:none;background:none;font:inherit;font-size:13.5px;width:100%;color:var(--text)}
+
+/* group card */
+.grp{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);margin-bottom:13px;overflow:hidden}
+.grp-h{display:flex;align-items:center;gap:13px;padding:15px 18px;cursor:pointer}
+.grp-h:hover{background:var(--surface2)}
+.grp-ico{width:40px;height:40px;flex:none;border-radius:11px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.grp-ico svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+.grp.hot .grp-ico{background:var(--danger-soft);color:var(--danger)}
+.grp-m{flex:1;min-width:0}
+.grp-n{font-size:15.5px;font-weight:750;letter-spacing:-.01em}
+.grp-s{font-size:12.5px;color:var(--muted);margin-top:2px}
+.grp-pills{display:flex;gap:6px;flex:none}
+.pill{font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:99px;display:inline-flex;align-items:center;gap:5px}
+.pill.crit{background:var(--danger-soft);color:var(--danger)}.pill.warn{background:var(--warn-soft);color:var(--warn)}.pill.info{background:var(--peri-soft);color:var(--peri)}
+.grp-chev{flex:none;color:var(--faint);transition:transform .15s}
+.grp.open .grp-chev{transform:rotate(90deg)}
+.grp-body{border-top:1px solid var(--border-soft)}
+.grp.closed .grp-body{display:none}
+
+.row{display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid var(--border-soft)}
+.row:first-child{border-top:none}
+.row .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.row .dot.crit{background:var(--danger)}.row .dot.warn{background:var(--warn)}.row .dot.info{background:var(--peri)}
+.row .rm{flex:1;min-width:0}
+.row .rt{font-size:13.5px;font-weight:650}
+.row .rt .occ{font-size:10.5px;font-weight:700;color:var(--danger);margin-left:6px}
+.row .rs{font-size:12px;color:var(--muted);margin-top:2px}
+.row .rs .mono{font-family:var(--mono)}
+.row .when{font-size:11.5px;color:var(--faint);flex:none}
+.row .acts{display:flex;gap:6px;flex:none}
+.abtn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--text2)}
+.abtn:hover{border-color:var(--rule)}
+.abtn.p{border-color:transparent;background:var(--text);color:#fff}
+.grp-foot{display:flex;gap:8px;padding:11px 18px;border-top:1px solid var(--border-soft);background:var(--surface2)}
+.grp-foot .abtn{background:var(--surface)}
+.note{margin-top:26px;padding:14px 17px;background:var(--surface2);border:1px dashed var(--rule);border-radius:var(--r4);font-size:12.5px;color:var(--muted)}
+.note b{color:var(--text2)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/index">← All demos</a><span class="tag">Alerts · Grouped</span></div>
+  <h1>Alerts — Grouped by place</h1>
+  <p class="lede">Built for scale. Instead of 50 rows, alerts roll up under the restaurant they came from — worst location first, with a one-line severity summary. Expand a place to see its issues in plain language and act on the whole group at once.</p>
+
+  <div class="controls">
+    <div class="seg"><span class="lbl">Group by</span><a class="on">Place</a><a>Device</a><a>Type</a></div>
+    <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search a device, place, or issue…"></div>
+  </div>
+
+  <div class="grp hot open">
+    <div class="grp-h">
+      <span class="grp-ico"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg></span>
+      <div class="grp-m"><div class="grp-n">Downtown Diner</div><div class="grp-s">24 devices · worst location right now</div></div>
+      <div class="grp-pills"><span class="pill crit">2 critical</span><span class="pill warn">3 warning</span></div>
+      <span class="grp-chev"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+    </div>
+    <div class="grp-body">
+      <div class="row"><span class="dot crit"></span><div class="rm"><div class="rt">A register is overheating</div><div class="rs">Register 3 hit 55°C, above the 54°C limit · <span class="mono">AT070AA260024</span></div></div><span class="when">14m</span><div class="acts"><button class="abtn p">Reboot</button><button class="abtn">Resolve</button></div></div>
+      <div class="row"><span class="dot crit"></span><div class="rm"><div class="rt">8 devices stopped checking in</div><div class="rs">No report for over 3 hours — likely a network issue</div></div><span class="when">3h</span><div class="acts"><button class="abtn">Resolve</button></div></div>
+      <div class="row"><span class="dot warn"></span><div class="rm"><div class="rt">Low on memory <span class="occ">×2</span></div><div class="rs">Using 94% of memory — apps may slow or crash · <span class="mono">AT070AA260201</span></div></div><span class="when">1h</span><div class="acts"><button class="abtn p">Reboot</button><button class="abtn">Resolve</button></div></div>
+      <div class="row"><span class="dot warn"></span><div class="rm"><div class="rt">Charging pad hasn't worked all day</div><div class="rs">A unit hasn't charged since 6am · <span class="mono">AT070AA260205</span></div></div><span class="when">5h</span><div class="acts"><button class="abtn">Resolve</button></div></div>
+      <div class="grp-foot"><button class="abtn">Acknowledge all</button><button class="abtn">Resolve all</button><button class="abtn" style="margin-left:auto">Open restaurant →</button></div>
+    </div>
+  </div>
+
+  <div class="grp open">
+    <div class="grp-h">
+      <span class="grp-ico"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg></span>
+      <div class="grp-m"><div class="grp-n">Tom's Ducci 6th</div><div class="grp-s">18 devices</div></div>
+      <div class="grp-pills"><span class="pill crit">1 critical</span><span class="pill warn">2 warning</span></div>
+      <span class="grp-chev"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+    </div>
+    <div class="grp-body">
+      <div class="row"><span class="dot crit"></span><div class="rm"><div class="rt">An app keeps crashing <span class="occ">×9</span></div><div class="rs">com.aioapp.pos crashed 9× in 20 min on build 2.4.1 · <span class="mono">AT070AA260027</span></div></div><span class="when">22m</span><div class="acts"><button class="abtn p">View logs</button><button class="abtn">Resolve</button></div></div>
+      <div class="row"><span class="dot warn"></span><div class="rm"><div class="rt">Battery running low during service</div><div class="rs">Dropped to 12% and not charging · <span class="mono">AT070AA260031</span></div></div><span class="when">40m</span><div class="acts"><button class="abtn">Resolve</button></div></div>
+      <div class="row"><span class="dot warn"></span><div class="rm"><div class="rt">Wi-Fi keeps dropping</div><div class="rs">6 disconnects in the last hour · <span class="mono">AT070AA260033</span></div></div><span class="when">55m</span><div class="acts"><button class="abtn">Resolve</button></div></div>
+      <div class="grp-foot"><button class="abtn">Acknowledge all</button><button class="abtn">Resolve all</button><button class="abtn" style="margin-left:auto">Open restaurant →</button></div>
+    </div>
+  </div>
+
+  <div class="grp closed">
+    <div class="grp-h">
+      <span class="grp-ico"><svg viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg></span>
+      <div class="grp-m"><div class="grp-n">Harbor Point Grill</div><div class="grp-s">15 devices</div></div>
+      <div class="grp-pills"><span class="pill info">1 info</span></div>
+      <span class="grp-chev"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></span>
+    </div>
+    <div class="grp-body">
+      <div class="row"><span class="dot info"></span><div class="rm"><div class="rt">A device left kiosk mode</div><div class="rs">Exited locked kiosk mode 2h ago · <span class="mono">AT070AA260302</span></div></div><span class="when">2h</span><div class="acts"><button class="abtn p">Re-lock</button><button class="abtn">Resolve</button></div></div>
+    </div>
+  </div>
+
+  <div class="note"><b>Same friendly copy</b> as the Inbox, but rolled up by place so a big fleet stays scannable — you triage a location, not a spreadsheet. The "Group by" switch also does Device or Type. Resolve-all acts on the whole group.</div>
+</div>
+</body></html>

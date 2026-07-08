@@ -1,0 +1,181 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Alerts · Inbox — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.1);--warn:#b45309;--warn-soft:rgba(180,83,9,.12);
+  --danger:#b42318;--danger-soft:rgba(180,35,24,.08);--danger-edge:rgba(180,35,24,.26);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--sh-sm:0 1px 2px rgba(16,24,40,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+.wrap{max-width:1000px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:70ch}
+
+/* summary line */
+.head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+.head h2{font-size:20px;font-weight:750;letter-spacing:-.01em}
+.head .sum{font-size:14px;color:var(--muted)}
+.head .sum b{color:var(--danger)}
+
+/* control row — deliberately minimal */
+.controls{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px}
+.seg a{font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:99px;display:inline-flex;align-items:center;gap:6px}
+.seg a.on{background:var(--surface);color:var(--text);box-shadow:var(--sh-sm)}
+.seg a .n{font-variant-numeric:tabular-nums;opacity:.7}
+.search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 13px}
+.search svg{width:15px;height:15px;fill:none;stroke:var(--faint);stroke-width:2}
+.search input{border:none;outline:none;background:none;font:inherit;font-size:13.5px;width:100%;color:var(--text)}
+.gbtn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--muted);border:1px solid var(--border);background:var(--surface);border-radius:10px;padding:8px 12px}
+.gbtn:hover{border-color:var(--rule)}.gbtn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+
+/* section */
+.sec{display:flex;align-items:center;gap:9px;margin:22px 2px 12px}
+.sec .st{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--faint)}
+.sec .sc{font-size:11px;font-weight:700;color:var(--muted);background:var(--surface2);border-radius:99px;padding:2px 9px}
+.sec.crit .st{color:var(--danger)}
+.sec .line{flex:1;height:1px;background:var(--border-soft)}
+
+/* alert card */
+.al{display:flex;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);padding:15px 17px;margin-bottom:10px;align-items:flex-start}
+.al .ico{width:38px;height:38px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center}
+.al .ico svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+.al.crit .ico{background:var(--danger-soft);color:var(--danger)}
+.al.warn .ico{background:var(--warn-soft);color:var(--warn)}
+.al.info .ico{background:var(--peri-soft);color:var(--peri)}
+.al.done .ico{background:var(--ok-soft);color:var(--ok)}
+.al .m{flex:1;min-width:0}
+.al .top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.al .t{font-size:14.5px;font-weight:700;letter-spacing:-.01em}
+.al .occ{font-size:11px;font-weight:700;color:var(--danger);background:var(--danger-soft);border-radius:99px;padding:1px 8px}
+.al .when{margin-left:auto;font-size:11.5px;color:var(--faint);flex:none}
+.al .s{font-size:13px;color:var(--text2);margin-top:4px;line-height:1.5}
+.al .s .loc{font-weight:600;color:var(--text)}
+.al .s .mono{font-family:var(--mono);font-size:12px}
+.al .foot{display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap}
+.abtn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--text2);display:inline-flex;align-items:center;gap:6px}
+.abtn:hover{border-color:var(--rule)}
+.abtn.primary{border-color:transparent;background:var(--text);color:#fff}.abtn.primary:hover{background:#000}
+.abtn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+.al .foot .dev{margin-left:auto;font-size:12px;color:var(--muted)}
+.al .foot .dev a{font-family:var(--mono);color:var(--text2);border-bottom:1px solid var(--rule)}
+.al.done{opacity:.75}
+.al.done .t{font-weight:650}
+.resolved-fold{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);padding:14px 18px;font-size:13px;color:var(--muted);cursor:pointer}
+.resolved-fold b{color:var(--ok)}.resolved-fold .chev{margin-left:auto;color:var(--faint)}
+.note{margin-top:26px;padding:14px 17px;background:var(--surface2);border:1px dashed var(--rule);border-radius:var(--r4);font-size:12.5px;color:var(--muted)}
+.note b{color:var(--text2)}.note code{font-family:var(--mono);font-size:11.5px;background:var(--surface);padding:1px 5px;border-radius:4px}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/index">← All demos</a><span class="tag">Alerts · Inbox</span></div>
+  <h1>Alerts — Inbox</h1>
+  <p class="lede">Reads like a calm inbox, not a data table. Every alert is a plain-language headline with the location, the numbers, and a one-tap fix — grouped by urgency, with resolved noise folded away. One segmented control replaces the four stacked filter widgets.</p>
+
+  <div class="head"><h2>Alerts</h2><span class="sum"><b>3 need your attention</b> · 12 open · 5 resolved today</span></div>
+
+  <div class="controls">
+    <div class="seg"><a class="on">All <span class="n">12</span></a><a>Needs action <span class="n">3</span></a><a>Watching <span class="n">9</span></a><a>Resolved</a></div>
+    <div class="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search a device, place, or issue…"></div>
+    <button class="gbtn"><svg viewBox="0 0 24 24"><path d="M4 6h16M6 12h12M9 18h6"/></svg>Group</button>
+  </div>
+
+  <div class="sec crit"><span class="st">Needs attention now</span><span class="sc">3</span><span class="line"></span></div>
+
+  <div class="al crit">
+    <span class="ico"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg></span>
+    <div class="m">
+      <div class="top"><span class="t">A register is overheating</span><span class="when">14 min ago</span></div>
+      <div class="s"><span class="loc">Register 3 at Downtown Diner</span> hit <b>55°C</b> — above the 54°C limit. It may throttle or shut down if it keeps climbing.</div>
+      <div class="foot">
+        <button class="abtn primary"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5M4 4v6h6"/></svg>Reboot device</button>
+        <button class="abtn"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Acknowledge</button>
+        <button class="abtn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button>
+        <span class="dev">on <a href="#">AT070AA260024</a></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="al crit">
+    <span class="ico"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span>
+    <div class="m">
+      <div class="top"><span class="t">An app keeps crashing</span><span class="occ">×9</span><span class="when">22 min ago</span></div>
+      <div class="s"><span class="loc">A device at Tom's Ducci 6th</span> has crashed <b>9 times in 20 minutes</b> — the point-of-sale app (<span class="mono">com.aioapp.pos</span>) on build 2.4.1. Staff may be seeing it restart.</div>
+      <div class="foot">
+        <button class="abtn primary"><svg viewBox="0 0 24 24"><path d="M4 4h16v13H4z"/><path d="M8 21h8"/></svg>View crash logs</button>
+        <button class="abtn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button>
+        <span class="dev">on <a href="#">AT070AA260027</a></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="al crit">
+    <span class="ico"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg></span>
+    <div class="m">
+      <div class="top"><span class="t">8 devices stopped checking in</span><span class="when">3 hours ago</span></div>
+      <div class="s"><span class="loc">Downtown Diner</span> went quiet — <b>8 of 24 devices</b> haven't reported for over 3 hours. Often a Wi-Fi or router problem at the location.</div>
+      <div class="foot">
+        <button class="abtn primary"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open restaurant</button>
+        <button class="abtn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec"><span class="st">Worth watching</span><span class="sc">9</span><span class="line"></span></div>
+
+  <div class="al warn">
+    <span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/><path d="M5 10v4"/></svg></span>
+    <div class="m">
+      <div class="top"><span class="t">Battery running low during service</span><span class="when">40 min ago</span></div>
+      <div class="s"><span class="loc">A device at Tom's Ducci 6th</span> dropped to <b>12%</b> and isn't charging. It could die before the shift ends.</div>
+      <div class="foot">
+        <button class="abtn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button>
+        <span class="dev">on <a href="#">AT070AA260031</a></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="al warn">
+    <span class="ico"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg></span>
+    <div class="m">
+      <div class="top"><span class="t">Low on memory</span><span class="occ">×2</span><span class="when">1 hour ago</span></div>
+      <div class="s"><span class="loc">A device at Downtown Diner</span> is using <b>94% of its memory</b> — apps may slow down or crash. A reboot usually clears it.</div>
+      <div class="foot">
+        <button class="abtn"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5M4 4v6h6"/></svg>Reboot device</button>
+        <button class="abtn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button>
+        <span class="dev">on <a href="#">AT070AA260201</a></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="al info">
+    <span class="ico"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+    <div class="m">
+      <div class="top"><span class="t">A device left kiosk mode</span><span class="when">2 hours ago</span></div>
+      <div class="s"><span class="loc">A device at Harbor Point Grill</span> exited locked kiosk mode — someone may have accessed the full device.</div>
+      <div class="foot">
+        <button class="abtn primary"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Re-lock kiosk</button>
+        <button class="abtn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button>
+        <span class="dev">on <a href="#">AT070AA260302</a></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec"><span class="st">Resolved today</span><span class="line"></span></div>
+  <div class="resolved-fold"><span><b>✓ 5 alerts</b> cleared on their own or were resolved by the team today</span><span class="chev">Show ›</span></div>
+
+  <div class="note"><b>What makes it friendly:</b> a <b>plain-language layer</b> turns each alert type + its values into a sentence (<code>overheating</code> → "A register is overheating — 55°C, above the 54°C limit"). The device becomes "a device at &lt;restaurant&gt;", severity becomes grouping not a column, and each card offers the <b>right fix</b> (reboot / view logs / re-lock) instead of generic ack/resolve only.</div>
+</div>
+</body></html>
