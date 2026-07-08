@@ -636,11 +636,11 @@ function pkgVerify() {
 {{end}}
 
 {{/* prob-card renders one problem with its fix/verify trail and contextual actions.
-     Input: dict "P" <ReleaseProblem> "RelID" <int> "CanReport" <bool>. Shared by the
+     Input: dict "P" <ReleaseProblem> "RelID" <int> "CanAct" <bool>. Shared by the
      native list, the carried-over list and the hub problems board. Status buttons post
      to THIS release so the fixed-in / verified-in build is captured as the bug moves. */}}
 {{define "prob-card"}}
-{{$p := .P}}{{$relID := .RelID}}{{$canReport := .CanReport}}
+{{$p := .P}}{{$relID := .RelID}}{{$canAct := .CanAct}}
 {{$open := not (or (eq $p.Status "verified") (eq $p.Status "wontfix"))}}
 <div class="prob{{if not $open}} closed{{end}}" data-open="{{if $open}}1{{else}}0{{end}}" data-severity="{{$p.Severity}}">
   <div class="prob-h">
@@ -663,7 +663,7 @@ function pkgVerify() {
     {{if $p.VerifiedInVersion}}<span class="tr-arrow">→</span><span class="tr-step verified">verified <b>{{$p.VerifiedInVersion}}</b></span>{{end}}
   </div>
   {{end}}
-  {{if $canReport}}
+  {{if $canAct}}
   <form action="/releases/{{$relID}}/problems/{{$p.ID}}" method="POST" class="prob-actions"
         hx-post="/releases/{{$relID}}/problems/{{$p.ID}}" hx-swap="none">
     {{if $p.Inherited}}
@@ -697,7 +697,7 @@ function pkgVerify() {
 {{$relID := .Release.ID}}{{$canReport := .CanReport}}
 {{if .Problems}}
 <div class="prob-list">
-  {{range .Problems}}{{template "prob-card" (dict "P" . "RelID" $relID "CanReport" $canReport)}}{{end}}
+  {{range .Problems}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct)}}{{end}}
 </div>
 {{else}}
 <div class="empty" style="padding:16px;">No problems reported on this build.{{if .CanReport}} File one above when a test turns up an issue.{{end}}</div>
@@ -710,7 +710,7 @@ function pkgVerify() {
 <div class="carried-sec">
   <div class="carried-h">Carried over from earlier builds <span class="muted small">— {{len .Carried}} unresolved bug{{if ne (len .Carried) 1}}s{{end}} riding the train onto {{.RelVersion}}; mark them <b>fixed here</b> and a QA case is added to verify the fix</span></div>
   <div class="prob-list">
-    {{range .Carried}}{{template "prob-card" (dict "P" . "RelID" $relID "CanReport" $canReport)}}{{end}}
+    {{range .Carried}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct)}}{{end}}
   </div>
 </div>
 {{end}}
