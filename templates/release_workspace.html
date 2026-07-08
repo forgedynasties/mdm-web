@@ -664,7 +664,21 @@ function pkgVerify() {
   {{if $canReport}}
   <form action="/releases/{{$relID}}/problems/{{$p.ID}}" method="POST" class="prob-actions"
         hx-post="/releases/{{$relID}}/problems/{{$p.ID}}" hx-swap="none">
-    {{if $open}}
+    {{if $p.Inherited}}
+      {{/* Carried-over bug: dev just marks it fixed here, which adds a QA case to verify. */}}
+      {{if eq $p.Status "fixed"}}
+        <span class="prob-resolved">Fixed{{if $p.FixedInVersion}} in {{$p.FixedInVersion}}{{end}} — added to QA to verify</span>
+        <button name="status" value="open" class="qa-pill">Reopen</button>
+      {{else if eq $p.Status "verified"}}
+        <span class="prob-resolved">Verified fixed{{if $p.VerifiedInVersion}} in {{$p.VerifiedInVersion}}{{end}}</span>
+        <button name="status" value="open" class="qa-pill">Reopen</button>
+      {{else if eq $p.Status "wontfix"}}
+        <span class="prob-resolved">Won't fix</span>
+        <button name="status" value="open" class="qa-pill">Reopen</button>
+      {{else}}
+        <button name="status" value="fixed" class="qa-pill" title="This is fixed in this build — adds a QA case so the test team verifies the fix">Fixed here</button>
+      {{end}}
+    {{else if $open}}
       <button name="status" value="fixed" class="qa-pill{{if eq $p.Status "fixed"}} on{{end}}" title="Mark the fix as landed in this build (awaiting verification)">Fixed here</button>
       <button name="status" value="verified" class="qa-pill pass" title="Confirm the fix on this build">Verified ✓</button>
       <button name="status" value="wontfix" class="qa-pill skip">Won't fix</button>
@@ -692,7 +706,7 @@ function pkgVerify() {
 {{$relID := .Release.ID}}{{$canReport := .CanReport}}
 {{if .Carried}}
 <div class="carried-sec">
-  <div class="carried-h">Carried over from earlier builds <span class="muted small">— {{len .Carried}} unresolved bug{{if ne (len .Carried) 1}}s{{end}} riding the train onto {{.RelVersion}}; fix &amp; verify them here</span></div>
+  <div class="carried-h">Carried over from earlier builds <span class="muted small">— {{len .Carried}} unresolved bug{{if ne (len .Carried) 1}}s{{end}} riding the train onto {{.RelVersion}}; mark them <b>fixed here</b> and a QA case is added to verify the fix</span></div>
   <div class="prob-list">
     {{range .Carried}}{{template "prob-card" (dict "P" . "RelID" $relID "CanReport" $canReport)}}{{end}}
   </div>

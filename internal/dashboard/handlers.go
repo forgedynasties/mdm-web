@@ -5475,6 +5475,13 @@ func (h *Handler) ReleaseProblemUpdate(w http.ResponseWriter, r *http.Request) {
 	switch status {
 	case "fixed":
 		uerr = h.db.MarkProblemFixedIn(r.Context(), pid, id)
+		// Marking a bug fixed in this build adds a "Verify fix: …" case to QA so the test
+		// team confirms it (best-effort; de-duped per release+problem).
+		if uerr == nil {
+			if e := h.db.EnsureFixVerificationCase(r.Context(), id, pid, h.currentUsername(r)); e != nil {
+				log.Printf("[qa] add fix-verify case: %v", e)
+			}
+		}
 	case "verified":
 		uerr = h.db.VerifyProblem(r.Context(), pid, id)
 	case "open":
@@ -5745,6 +5752,10 @@ func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 		if err := h.db.ResolveQAProblem(r.Context(), id, caseID); err != nil {
 			log.Printf("[qa] resolve problem on pass: %v", err)
 		}
+		// A "Verify fix" case (linked to a carried-over bug) verifies that bug when it passes.
+		if err := h.db.VerifyProblemForCase(r.Context(), caseID, id); err != nil {
+			log.Printf("[qa] verify linked problem on pass: %v", err)
+		}
 	}
 	h.audit(r, "testresult.set", fmt.Sprintf("release %d / %s = %s", id, caseID, status), "")
 	h.hub.PublishProblemUpdate() // QA marks can create/resolve problems + shift readiness
@@ -5762,11 +5773,15 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 	checklist, _ := h.db.GetReleaseChecklist(ctx, rel.ID)
 	qa, _ := h.db.ReleaseQASummary(ctx, rel.ID)
 	problems, _ := h.db.ListReleaseProblems(ctx, rel.ID)
-	// Bugs that ride the release train onto this build (reported on an earlier build and
-	// not yet verified fixed, plus any claimed fixed in this build awaiting verification).
-	carried, _ := h.db.CarriedForwardProblems(ctx, rel.ID)
 	ps, _ := h.db.ReleaseProblemSummary(ctx, rel.ID)
 	role := h.role(r)
+	// Bugs that ride the release train onto this build (reported on an earlier build and
+	// not yet verified fixed, plus any claimed fixed in this build awaiting verification).
+	// Carry-forward is a dev/admin concern — testers/operators don't see it.
+	var carried []db.ReleaseProblem
+	if role == "admin" || role == "dev" {
+		carried, _ = h.db.CarriedForwardProblems(ctx, rel.ID)
+	}
 	return map[string]any{
 		"Release":        rel,
 		"RelVersion":     rel.Version,
