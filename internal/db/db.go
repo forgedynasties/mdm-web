@@ -7479,6 +7479,13 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS testing_done_by TEXT NOT NULL DEFA
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS parent_release_id INTEGER REFERENCES releases(id) ON DELETE SET NULL;
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS is_branch BOOLEAN NOT NULL DEFAULT false;
 CREATE INDEX IF NOT EXISTS idx_releases_parent ON releases(parent_release_id);
+
+-- A test case can be tied to the release problem it verifies. When a dev marks a
+-- carried-over bug "fixed here", a "Verify fix: …" case is added to the release's QA
+-- checklist (problem_id set); passing that case verifies the linked problem. One such
+-- case per (release, problem).
+ALTER TABLE test_cases ADD COLUMN IF NOT EXISTS problem_id UUID REFERENCES release_problems(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_test_cases_problem ON test_cases(problem_id);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -8688,6 +8695,36 @@ func (d *DB) CreateTestCase(ctx context.Context, tc TestCase) (uuid.UUID, error)
 		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
 		tc.Title, tc.Area, tc.Steps, tc.Expected, tc.Base, tc.ReleaseID, tc.CreatedBy).Scan(&id)
 	return id, err
+}
+
+// EnsureFixVerificationCase adds a "Verify fix: …" case to releaseID's checklist for the
+// given problem (so the test team confirms the fix), unless one already exists for that
+// (release, problem). Title/steps are taken from the problem. Called when a carried-over
+// bug is marked "fixed here".
+func (d *DB) EnsureFixVerificationCase(ctx context.Context, releaseID int, problemID uuid.UUID, createdBy string) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO test_cases (title, area, steps, expected_result, base, release_id, created_by, problem_id)
+		SELECT 'Verify fix: ' || p.title, 'Regression',
+		       COALESCE(NULLIF(p.description, ''), 'Confirm the reported issue no longer occurs.'),
+		       'Issue no longer reproduces.', false, $1, $2, p.id
+		FROM release_problems p
+		WHERE p.id = $3
+		  AND NOT EXISTS (SELECT 1 FROM test_cases WHERE release_id = $1 AND problem_id = $3)`,
+		releaseID, createdBy, problemID)
+	return err
+}
+
+// VerifyProblemForCase verifies the problem linked to a test case (if any) on releaseID —
+// called when that "Verify fix" case is marked pass, closing the loop that a manual
+// carried-over bug is fixed and confirmed. No-op when the case links no problem.
+func (d *DB) VerifyProblemForCase(ctx context.Context, caseID uuid.UUID, releaseID int) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE release_problems
+		SET status = 'verified', verified_in_release_id = $2,
+		    fixed_in_release_id = COALESCE(fixed_in_release_id, $2), updated_at = NOW()
+		WHERE id = (SELECT problem_id FROM test_cases WHERE id = $1 AND problem_id IS NOT NULL)`,
+		caseID, releaseID)
+	return err
 }
 
 // UpdateTestCase edits an existing case's content and active flag.
