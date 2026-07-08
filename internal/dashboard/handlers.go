@@ -4660,10 +4660,12 @@ type versionRow struct {
 	DeployCount  int
 	QA           db.QASummary      // QA/test status; zero value (Total 0) when not tracked
 	Problems     db.ProblemSummary // open/blocker problem counts for the tracked release
-	SignedOffBy  string            // dev who signed off ("" = not signed off)
-	SignedOffAt  *time.Time
-	TestingDone  bool   // testing finished — the release is inactive (retired from active slot)
-	QfilURL      string // newest active QFIL flashing bundle URL ("" = none set)
+	SignedOffBy   string            // dev who signed off ("" = not signed off)
+	SignedOffAt   *time.Time
+	TestingDone   bool   // testing finished — the release is inactive (retired from active slot)
+	IsBranch      bool   // off-mainline branch build (shown under Branches, not the main path)
+	ParentVersion string // for a branch, the release it forked from
+	QfilURL       string // newest active QFIL flashing bundle URL ("" = none set)
 }
 
 // latestQfilURL returns the newest active QFIL bundle URL for a release, or ""
@@ -4687,13 +4689,20 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	hiddenVersions, _ := h.db.ListHiddenVersions(r.Context())
 	problemsByRelease, _ := h.db.ProblemSummariesByRelease(r.Context())
 	relByVersion := make(map[string]db.Release, len(releases))
+	relByID := make(map[int]db.Release, len(releases))
 	for _, rel := range releases {
 		relByVersion[rel.Version] = rel
+		relByID[rel.ID] = rel
 	}
-	var active, hidden []versionRow
+	var active, hidden, branches []versionRow
 	var trackedCount, notTrackedCount int
 	seen := make(map[string]bool)
 	addRow := func(row versionRow) {
+		// Branch builds are off the main path — collected separately for the Branches tab.
+		if row.IsBranch {
+			branches = append(branches, row)
+			return
+		}
 		if row.Hidden {
 			hidden = append(hidden, row)
 			return
@@ -4705,6 +4714,12 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		}
 		active = append(active, row)
 	}
+	branchRow := func(row *versionRow, rel db.Release) {
+		row.IsBranch = rel.IsBranch
+		if rel.ParentReleaseID != nil {
+			row.ParentVersion = relByID[*rel.ParentReleaseID].Version
+		}
+	}
 	for _, fv := range fleet {
 		seen[fv.Version] = true
 		row := versionRow{Version: fv.Version, DeviceCount: fv.DeviceCount}
@@ -4715,6 +4730,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
 			row.SignedOffBy, row.SignedOffAt = rel.SignedOffBy, rel.SignedOffAt
 			row.TestingDone = rel.TestingDoneAt != nil
+			branchRow(&row, rel)
 			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
 			row.Problems = problemsByRelease[rel.ID]
 			row.QfilURL = h.latestQfilURL(r, rel.ID)
@@ -4730,7 +4746,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		}
 		id := rel.ID
 		qa, _ := h.db.ReleaseQASummary(r.Context(), rel.ID)
-		addRow(versionRow{
+		row := versionRow{
 			Version: rel.Version, Tracked: true, ReleaseID: &id, Name: rel.Name,
 			Status: rel.Status, Hidden: rel.Hidden,
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
@@ -4738,7 +4754,9 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
 			TestingDone: rel.TestingDoneAt != nil,
 			QfilURL:     h.latestQfilURL(r, rel.ID),
-		})
+		}
+		branchRow(&row, rel)
+		addRow(row)
 	}
 	// Default order is alphabetical by version; any saved manual (drag) order takes
 	// precedence, with positioned rows first and the rest alphabetical after them.
@@ -4789,7 +4807,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	// currently under test lives in the focus band below, not here.
 	var trainRels []db.Release
 	for _, rel := range releases {
-		if rel.Hidden || rel.SignedOffBy == "" {
+		if rel.Hidden || rel.IsBranch || rel.SignedOffBy == "" {
 			continue
 		}
 		trainRels = append(trainRels, rel)
@@ -4815,6 +4833,8 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"Title":           "Releases",
 		"Versions":        active,
 		"HiddenReleases":  hidden,
+		"BranchReleases":  branches,
+		"BranchCount":     len(branches),
 		"TrackedCount":    trackedCount,
 		"NotTrackedCount": notTrackedCount,
 		"FleetTotal":      fleetTotal,
@@ -5262,7 +5282,7 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	}
 
 	switch tab {
-	case "overview", "qa", "problems", "packages", "rollout":
+	case "overview", "qa", "problems", "packages", "rollout", "branches":
 		// valid
 	default:
 		tab = "overview"
@@ -5270,6 +5290,23 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	// Non-admins have no Packages tab; fall back so a stale deep-link isn't a blank page.
 	if tab == "packages" && !(role == "admin" || role == "dev") {
 		tab = "overview"
+	}
+	// Branch context: a branch build shows a banner linking to its parent (and has no
+	// Branches tab); a mainline release lists its child branch builds under a Branches tab.
+	data["IsBranch"] = rel.IsBranch
+	if rel.IsBranch {
+		if tab == "branches" {
+			tab = "overview"
+		}
+		if rel.ParentReleaseID != nil {
+			if parent, err := h.db.GetRelease(ctx, *rel.ParentReleaseID); err == nil {
+				data["Parent"] = parent
+			}
+		}
+	} else {
+		branches, _ := h.db.ListBranchReleases(ctx, rel.ID)
+		data["Branches"] = branches
+		data["SuggestedBranchVersion"] = fmt.Sprintf("%s-t%d", rel.Version, len(branches)+1)
 	}
 	title := "Release " + rel.Version
 	switch tab {
@@ -5491,6 +5528,40 @@ func (h *Handler) ReleaseReopenTesting(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "release.testing_reopen", strconv.Itoa(id), "")
 	h.hub.PublishProblemUpdate()
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+}
+
+// ReleaseCreateBranch forks an off-mainline branch build from a release (admin/dev) — a
+// temporary test build that stays off the main path (see CreateBranchRelease). Redirects
+// to the new branch's workspace.
+func (h *Handler) ReleaseCreateBranch(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	parent, err := h.db.GetRelease(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	if parent.IsBranch {
+		http.Error(w, "Cannot branch from a branch build", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	version := strings.TrimSpace(r.FormValue("version"))
+	if version == "" {
+		http.Redirect(w, r, fmt.Sprintf("/releases/%d?tab=branches", id), http.StatusFound)
+		return
+	}
+	// Seed the branch with the parent's changelog so it starts from the same baseline.
+	newID, err := h.db.CreateBranchRelease(r.Context(), id, version, strings.TrimSpace(r.FormValue("name")), parent.Changelog)
+	if err != nil {
+		http.Error(w, "Could not create branch — that version may already exist.", http.StatusBadRequest)
+		return
+	}
+	h.audit(r, "release.branch.create", version, fmt.Sprintf("from=%s", parent.Version))
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", newID), http.StatusSeeOther)
 }
 
 // ── Test team / QA handlers ──────────────────────────────────────────────────
@@ -10060,6 +10131,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
 	post("POST /releases/{id}/testing-done", h.requireAdmin(h.ReleaseTestingDone))
 	post("POST /releases/{id}/testing-done/clear", h.requireAdmin(h.ReleaseReopenTesting))
+	post("POST /releases/{id}/branch", h.requireAdmin(h.ReleaseCreateBranch))
 	post("POST /releases/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
 	// Problem reports: any operator/tester can file and triage; admins can delete.
 	post("POST /releases/{id}/problems", h.requireOperatorOrAdmin(h.ReleaseProblemCreate))
