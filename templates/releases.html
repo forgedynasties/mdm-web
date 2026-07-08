@@ -44,11 +44,11 @@
         </div>
         <span class="rlc-sub">{{if .Name}}{{.Name}}{{if .Tracked}} · {{end}}{{end}}{{if .Tracked}}{{.PackageCount}} pkg · {{.DeployCount}} deploy{{else}}seen on devices{{end}}</span>
       </div>
-      <div class="rlc-roll">
-        <div class="rlc-meter"><i class="{{if not .Tracked}}muted{{end}}" style="width:{{$pct}}%"></i></div>
-        <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{$pct}}%</span>
-      </div>
       <div class="rlc-meta">
+        <div class="rlc-roll">
+          <div class="rlc-meter"><i class="{{if not .Tracked}}muted{{end}}" style="width:{{$pct}}%"></i></div>
+          <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{$pct}}%</span>
+        </div>
         {{if .Tracked}}
           {{if .TestingDone}}<span class="rchip muted" title="Testing complete — this release is inactive">testing done</span>{{else}}<span class="rchip active" title="Under test — active release">● active</span>{{end}}
           {{if gt .QA.Total 0}}
@@ -91,11 +91,11 @@
         </div>
         <span class="rlc-sub">⑂ {{if .Tracked}}branch{{else}}matches {{.ParentVersion}} · seen on devices{{end}}{{if .Name}} · {{.Name}}{{end}}</span>
       </div>
-      <div class="rlc-roll">
-        <div class="rlc-meter"><i class="muted" style="width:{{$pct}}%"></i></div>
-        <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{$pct}}%</span>
-      </div>
       <div class="rlc-meta">
+        <div class="rlc-roll">
+          <div class="rlc-meter"><i class="muted" style="width:{{$pct}}%"></i></div>
+          <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{$pct}}%</span>
+        </div>
         {{if .Tracked}}{{if .TestingDone}}<span class="rchip muted" title="Testing complete">testing done</span>{{end}}{{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}">{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}{{end}}
       </div>
       <div class="rlc-act">
@@ -125,11 +125,12 @@
         <div class="rlc-top">{{if .Tracked}}<span class="rlc-stat {{releaseStatusClass .Status}}">{{.Status}}</span><a href="/releases/{{.ReleaseID}}" class="rlc-ver">{{.Version}}</a>{{else}}<span class="rlc-stat muted">not tracked</span><span class="rlc-ver">{{.Version}}</span>{{end}}</div>
         <span class="rlc-sub">{{if .Name}}{{.Name}}{{else}}hidden{{end}}</span>
       </div>
-      <div class="rlc-roll">
-        <div class="rlc-meter"><i class="muted" style="width:{{$pct}}%"></i></div>
-        <span class="rlc-rollf"><b>{{.DeviceCount}}</b> of {{$.FleetTotal}} · {{$pct}}%</span>
+      <div class="rlc-meta">
+        <div class="rlc-roll">
+          <div class="rlc-meter"><i class="muted" style="width:{{$pct}}%"></i></div>
+          <span class="rlc-rollf"><b>{{.DeviceCount}}</b> of {{$.FleetTotal}} · {{$pct}}%</span>
+        </div>
       </div>
-      <div class="rlc-meta"></div>
       <div class="rlc-act">
         {{if .Tracked}}{{if canAdmin $.Role}}<form action="/releases/{{.ReleaseID}}/hide" method="POST"><input type="hidden" name="hidden" value="0"><button type="submit" class="btn-outline btn-sm" title="Show again">Unhide</button></form>{{end}}<a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open release"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
         {{else if canAdmin $.Role}}<form action="/releases/version/unhide" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-outline btn-sm" title="Show again">Unhide</button></form>{{end}}
