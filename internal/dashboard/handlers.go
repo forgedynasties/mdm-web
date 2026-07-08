@@ -5497,8 +5497,9 @@ func (h *Handler) ReleaseClearSignOff(w http.ResponseWriter, r *http.Request) {
 }
 
 // ReleaseTestingDone marks a release's testing complete — the finish line that moves it
-// from active to inactive (it drops out of the hub's active slot). Admin/dev (see
-// requireAdmin). Advisory, not gated on QA/sign-off state.
+// from active to inactive (it drops out of the hub's active slot). Admin/dev/tester (see
+// requireAdminOrTester) — the test team closes out their own testing. Advisory, not gated
+// on QA/sign-off state.
 func (h *Handler) ReleaseTestingDone(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -10129,8 +10130,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
-	post("POST /releases/{id}/testing-done", h.requireAdmin(h.ReleaseTestingDone))
-	post("POST /releases/{id}/testing-done/clear", h.requireAdmin(h.ReleaseReopenTesting))
+	post("POST /releases/{id}/testing-done", h.requireAdminOrTester(h.ReleaseTestingDone))
+	post("POST /releases/{id}/testing-done/clear", h.requireAdminOrTester(h.ReleaseReopenTesting))
 	post("POST /releases/{id}/branch", h.requireAdmin(h.ReleaseCreateBranch))
 	post("POST /releases/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
 	// Problem reports: any operator/tester can file and triage; admins can delete.
