@@ -8930,9 +8930,11 @@ func (d *DB) DeleteReleaseProblem(ctx context.Context, id uuid.UUID) error {
 // clears the fixed-in link and reopens the problem.
 func (d *DB) MarkProblemFixedIn(ctx context.Context, id uuid.UUID, fixedInReleaseID int) error {
 	if fixedInReleaseID <= 0 {
+		// Reopen: clear the whole fix/verify trail so the bug rides the train again.
 		_, err := d.pool.Exec(ctx, `
 			UPDATE release_problems
-			SET fixed_in_release_id = NULL, status = 'open', updated_at = NOW()
+			SET fixed_in_release_id = NULL, verified_in_release_id = NULL,
+			    status = 'open', updated_at = NOW()
 			WHERE id = $1`, id)
 		return err
 	}
