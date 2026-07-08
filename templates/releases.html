@@ -16,7 +16,74 @@
   {{end}}
 </div>
 
+{{/* ── Focus band: the release currently under test ─────────────────────── */}}
+{{if .ActiveRelease}}
+{{$a := .ActiveRelease}}
+{{$aReady := and (gt .ActiveQA.Total 0) .ActiveQA.Passed (eq .ActiveProblems.Blockers 0)}}
+<div class="hub-focus dv-rise-1">
+  <div class="hub-focus-main">
+    <span class="hub-eyebrow">{{if eq .Role "tester"}}Now testing{{else if eq .Role "dev"}}In the shop{{else}}Active release{{end}}</span>
+    <div class="hub-focus-ver">
+      <span class="status-badge {{releaseStatusClass $a.Status}}">{{$a.Status}}</span>
+      <a href="/releases/{{$a.ID}}" class="mono hub-focus-verlink">{{$a.Version}}</a>
+      {{if $a.Name}}<span class="muted small">· {{$a.Name}}</span>{{end}}
+    </div>
+    {{if gt .ActiveQA.Total 0}}
+    <div class="qa-bar hub-qa-bar" title="{{.ActiveQA.Pass}} pass · {{.ActiveQA.Fail}} fail · {{.ActiveQA.Blocked}} blocked · {{.ActiveQA.Untested}} untested">
+      {{if gt .ActiveQA.Pass 0}}<i class="pass" style="width:{{pctOf .ActiveQA.Pass .ActiveQA.Total}}%"></i>{{end}}
+      {{if gt .ActiveQA.Fail 0}}<i class="fail" style="width:{{pctOf .ActiveQA.Fail .ActiveQA.Total}}%"></i>{{end}}
+      {{if gt .ActiveQA.Blocked 0}}<i class="blocked" style="width:{{pctOf .ActiveQA.Blocked .ActiveQA.Total}}%"></i>{{end}}
+    </div>
+    {{end}}
+    <span class="hub-verdict {{if $aReady}}ok{{else}}warn{{end}}"><span class="d"></span>{{if gt .ActiveQA.Total 0}}{{if $aReady}}Ready to publish{{else}}Not ready{{end}}{{else}}No test cases yet{{end}}</span>
+  </div>
+  <div class="hub-focus-stats">
+    <div class="hub-stat"><span class="n">{{.ActiveQA.Pass}}/{{.ActiveQA.Total}}</span><span class="k">QA passed</span></div>
+    <div class="hub-stat{{if gt .ActiveProblems.Blockers 0}} bad{{end}}"><span class="n">{{.ActiveProblems.Blockers}}</span><span class="k">open blocker{{if ne .ActiveProblems.Blockers 1}}s{{end}}</span></div>
+    <div class="hub-stat"><span class="n">{{.ActiveCarried}}</span><span class="k">carried over</span></div>
+    <div class="hub-stat"><span class="n">{{if $a.SignedOffBy}}✓{{else}}—{{end}}</span><span class="k">sign-off</span></div>
+  </div>
+  <div class="hub-focus-cta">
+    <a href="/releases/{{$a.ID}}?tab={{if eq .Role "tester"}}qa{{else if eq .Role "dev"}}problems{{else}}overview{{end}}" class="btn-primary btn-sm">Open workspace →</a>
+  </div>
+</div>
+{{end}}
+
+{{/* ── Problems board: every problem across all releases, at a glance ────── */}}
+<div class="card hub-board dv-rise-1">
+  <div class="card-header">
+    <h3>Problems <span class="muted small">across all releases</span></h3>
+    <span class="muted small">{{.GlobalProblems.Open}} open{{if gt .GlobalProblems.Blockers 0}} · {{.GlobalProblems.Blockers}} blocker{{if ne .GlobalProblems.Blockers 1}}s{{end}}{{end}} · {{.GlobalProblems.Total}} total</span>
+  </div>
+  <div style="padding:12px 16px;">
+    {{if .ProblemBoard}}
+    <div class="qa-filter" style="margin-bottom:10px;">
+      <button type="button" class="qa-fchip on" data-boardfilter="open" onclick="boardFilter('open',this)">Open <span class="c">{{.GlobalProblems.Open}}</span></button>
+      <button type="button" class="qa-fchip" data-boardfilter="blocker" onclick="boardFilter('blocker',this)">Blockers <span class="c">{{.GlobalProblems.Blockers}}</span></button>
+      <button type="button" class="qa-fchip" data-boardfilter="all" onclick="boardFilter('all',this)">All <span class="c">{{.GlobalProblems.Total}}</span></button>
+    </div>
+    <div class="board-list" id="prob-board">
+      {{range .ProblemBoard}}
+      {{$open := not (or (eq .Status "verified") (eq .Status "wontfix"))}}
+      <a href="/releases/{{.ReleaseID}}?tab=problems" class="board-row{{if not $open}} closed{{end}}" data-open="{{if $open}}1{{else}}0{{end}}" data-severity="{{.Severity}}">
+        <span class="prob-sev {{.Severity}}">{{.Severity}}</span>
+        <span class="board-title">{{.Title}}</span>
+        {{if .Inherited}}<span class="prob-carry">↪</span>{{end}}
+        <span class="board-ver mono" title="reported on {{.OriginVersion}}">{{.OriginVersion}}</span>
+        {{if .FixedInVersion}}<span class="tr-step fixed" title="fix claimed in {{.FixedInVersion}}">→ {{.FixedInVersion}}</span>{{end}}
+        <span class="prob-status st-{{.Status}}">{{.Status}}</span>
+        <span class="muted small board-when">{{timeSince .CreatedAt}}</span>
+      </a>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="empty" style="padding:10px 0;">No problems filed yet — they'll appear here as testers report them.</div>
+    {{end}}
+  </div>
+</div>
+
 {{if or .Versions .HiddenReleases}}
+<h2 class="hub-list-h">All releases</h2>
 <div class="rel-tabs">
   <button type="button" class="rel-tab on" data-g="tracked" onclick="relTab('tracked',this)">Tracked <span class="rel-tab-n">{{.TrackedCount}}</span></button>
   <button type="button" class="rel-tab" data-g="nottracked" onclick="relTab('nottracked',this)">Not tracked <span class="rel-tab-n">{{.NotTrackedCount}}</span></button>
@@ -208,6 +275,23 @@ document.addEventListener('keydown', function(e) {
 {{end}}
 
 <script>
+// Cross-release problems board filter (Open / Blockers / All).
+function boardFilter(mode, btn) {
+  btn.parentElement.querySelectorAll('.qa-fchip[data-boardfilter]').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  document.querySelectorAll('#prob-board .board-row').forEach(function (row) {
+    var show = mode === 'all'
+      || (mode === 'open' && row.getAttribute('data-open') === '1')
+      || (mode === 'blocker' && row.getAttribute('data-severity') === 'blocker' && row.getAttribute('data-open') === '1');
+    row.style.display = show ? '' : 'none';
+  });
+}
+// Apply the default (Open) view immediately — runs on both a full load and an
+// hx-boost swap (DOMContentLoaded would not fire on a boosted navigation).
+(function () {
+  var b = document.querySelector('.hub-board .qa-fchip[data-boardfilter="open"]');
+  if (b) boardFilter('open', b);
+})();
+
 // Releases tab filter (Tracked / Not tracked / Hidden).
 function relTab(group, btn) {
   document.querySelectorAll('.rel-tab').forEach(function (t) { t.classList.toggle('on', t === btn); });
