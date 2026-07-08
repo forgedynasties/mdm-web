@@ -7965,10 +7965,16 @@ func (d *DB) CreateBranchRelease(ctx context.Context, parentID int, version, nam
 // MergeBranch merges a validated branch onto the main line as a NEW mainline release at
 // newVersion: a draft node that sits on main in the branch's lineage (its parent is what
 // the branch forked from) and whose merged_from points back at the branch. The branch is
-// then stamped merged into that node. The v-next build and any QA-ledger carrying happen
-// afterward via the normal release-first flow. Runs in one transaction. The WHERE guard on
-// the base lookup rejects a non-branch or already-merged source. Returns the new release id.
-func (d *DB) MergeBranch(ctx context.Context, branchID int, newVersion, name, changelog, mergedBy string) (int, error) {
+// then stamped merged into that node. Runs in one transaction; the WHERE guard on the base
+// lookup rejects a non-branch or already-merged source. Returns the new release id.
+//
+// The merge carries the branch's delta onto the new release:
+//   - QA ledger (always): the branch's results on shared BASE cases seed the new release's
+//     QA, and its still-open problems carry over as open problems on main.
+//   - Build (carryBuild): the branch's newest full OTA package + active QFIL bundles are
+//     copied onto the new release, relabelled to newVersion. Opt-in, because a firmware
+//     image usually must be rebuilt to report the new version rather than relabelled.
+func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVersion, name, changelog, mergedBy string, carryBuild bool) (int, error) {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return 0, err
@@ -7993,6 +7999,49 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, newVersion, name, ch
 		branchID, newID, mergedBy); err != nil {
 		return 0, err
 	}
+
+	// Seed the new release's QA from the branch's results on shared BASE cases, so testers
+	// pick up where the branch left off instead of a blank checklist.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO release_test_results (release_id, test_case_id, status, notes, tested_by, tested_at)
+		SELECT $2, r.test_case_id, r.status, r.notes, r.tested_by, r.tested_at
+		FROM release_test_results r JOIN test_cases c ON c.id = r.test_case_id
+		WHERE r.release_id = $1 AND c.base
+		ON CONFLICT (release_id, test_case_id) DO NOTHING`, branchID, newID); err != nil {
+		return 0, err
+	}
+	// Carry the branch's still-open problems onto main as manual problems on the new release
+	// (test_case link dropped — the branch's cases don't belong to the mainline board).
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO release_problems (release_id, build_id, title, description, severity, status, source, reported_by, created_at, updated_at)
+		SELECT $2, $3, title,
+		       CASE WHEN description = '' THEN '(carried from branch ' || $4 || ')'
+		            ELSE description || E'\n\n(carried from branch ' || $4 || ')' END,
+		       severity, status, 'manual', reported_by, NOW(), NOW()
+		FROM release_problems
+		WHERE release_id = $1 AND status NOT IN ('verified', 'wontfix')`,
+		branchID, newID, newVersion, branchVersion); err != nil {
+		return 0, err
+	}
+
+	if carryBuild {
+		// Newest full OTA package, relabelled to the new version (one full per release, so
+		// build_id = newVersion stays unique for the fresh node).
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO ota_packages (release_id, type, target_build_id, source_build_id, build_id, update_url, changelog, status, release_date)
+			SELECT $2, 'full', $3, '', $3, update_url, changelog, 'active', NOW()
+			FROM ota_packages WHERE release_id = $1 AND status = 'active' AND type = 'full'
+			ORDER BY created_at DESC LIMIT 1`, branchID, newID, newVersion); err != nil {
+			return 0, err
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO qfil_packages (release_id, label, url, notes, added_by, status)
+			SELECT $2, label, url, notes, added_by, 'active'
+			FROM qfil_packages WHERE release_id = $1 AND status = 'active'`, branchID, newID); err != nil {
+			return 0, err
+		}
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return 0, err
 	}
