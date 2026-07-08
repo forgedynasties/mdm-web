@@ -4662,6 +4662,7 @@ type versionRow struct {
 	Problems     db.ProblemSummary // open/blocker problem counts for the tracked release
 	SignedOffBy  string            // dev who signed off ("" = not signed off)
 	SignedOffAt  *time.Time
+	TestingDone  bool   // testing finished — the release is inactive (retired from active slot)
 	QfilURL      string // newest active QFIL flashing bundle URL ("" = none set)
 }
 
@@ -4713,6 +4714,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.Status, row.Hidden = rel.Status, rel.Hidden
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
 			row.SignedOffBy, row.SignedOffAt = rel.SignedOffBy, rel.SignedOffAt
+			row.TestingDone = rel.TestingDoneAt != nil
 			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
 			row.Problems = problemsByRelease[rel.ID]
 			row.QfilURL = h.latestQfilURL(r, rel.ID)
@@ -4734,7 +4736,8 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
 			Problems:    problemsByRelease[rel.ID],
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
-			QfilURL: h.latestQfilURL(r, rel.ID),
+			TestingDone: rel.TestingDoneAt != nil,
+			QfilURL:     h.latestQfilURL(r, rel.ID),
 		})
 	}
 	// Default order is alphabetical by version; any saved manual (drag) order takes
@@ -4800,6 +4803,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		releaseTrain = append(releaseTrain, map[string]any{
 			"ID":          rel.ID,
 			"Version":     rel.Version,
+			"Name":        rel.Name,
 			"Status":      rel.Status,
 			"SignedOffBy": rel.SignedOffBy,
 			"Open":        problemsByRelease[rel.ID].Open,
@@ -5453,6 +5457,40 @@ func (h *Handler) ReleaseClearSignOff(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "release.sign_off_clear", strconv.Itoa(id), "")
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
+}
+
+// ReleaseTestingDone marks a release's testing complete — the finish line that moves it
+// from active to inactive (it drops out of the hub's active slot). Admin/dev (see
+// requireAdmin). Advisory, not gated on QA/sign-off state.
+func (h *Handler) ReleaseTestingDone(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetReleaseTestingDone(r.Context(), id, h.currentUsername(r)); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.testing_done", strconv.Itoa(id), "")
+	h.hub.PublishProblemUpdate() // the hub's active release changed — refresh open hubs
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+}
+
+// ReleaseReopenTesting reopens a finished release, making it active again. Admin/dev.
+func (h *Handler) ReleaseReopenTesting(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.ClearReleaseTestingDone(r.Context(), id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.testing_reopen", strconv.Itoa(id), "")
+	h.hub.PublishProblemUpdate()
+	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
 }
 
 // ── Test team / QA handlers ──────────────────────────────────────────────────
@@ -10020,6 +10058,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
+	post("POST /releases/{id}/testing-done", h.requireAdmin(h.ReleaseTestingDone))
+	post("POST /releases/{id}/testing-done/clear", h.requireAdmin(h.ReleaseReopenTesting))
 	post("POST /releases/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
 	// Problem reports: any operator/tester can file and triage; admins can delete.
 	post("POST /releases/{id}/problems", h.requireOperatorOrAdmin(h.ReleaseProblemCreate))
