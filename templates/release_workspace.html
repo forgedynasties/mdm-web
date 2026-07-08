@@ -163,23 +163,16 @@
 
     <div id="rd-qa-summary">{{template "rd-qa-summary" .}}</div>
 
-    {{if .Checklist}}
-    {{if .CanRecord}}
+    {{if and .Checklist .CanRecord}}
     <div class="qa-filter" id="rd-qa-filter">
       <button type="button" class="qa-fchip on" data-qafilter="all" onclick="qaFilter('all',this)">All <span class="c">{{.QA.Total}}</span></button>
       <button type="button" class="qa-fchip" data-qafilter="untested" onclick="qaFilter('untested',this)">Untested <span class="c">{{.QA.Untested}}</span></button>
       <button type="button" class="qa-fchip" data-qafilter="failed" onclick="qaFilter('failed',this)">Failed <span class="c">{{add .QA.Fail .QA.Blocked}}</span></button>
     </div>
     {{end}}
-    <div class="qa-list" id="rd-qa-list">
-      {{$canRecord := .CanRecord}}
-      {{range .Checklist}}
-      {{template "rd-qa-row" (dict "Item" . "CanRecord" $canRecord "Role" $role "RelID" $rel.ID)}}
-      {{end}}
-    </div>
-    {{else}}
-    <div class="empty" style="padding:18px;">No test cases apply to this release yet.{{if eq $role "admin"}} Add base cases from the Releases page, or a release-specific case below.{{end}}</div>
-    {{end}}
+    {{/* Always present so a newly-added case (e.g. a "Verify fix" case) can be swapped in
+         live via the release-oob response — no reload needed. */}}
+    <div class="qa-list" id="rd-qa-list">{{template "rd-qa-list" .}}</div>
 
     {{if eq $role "admin"}}
     <div class="qa-add">
@@ -603,6 +596,15 @@ function pkgVerify() {
   {{if and (not (eq .Role "admin")) .Release.SkipBaseTests}}<div class="qa-flash">Base cases skipped — only this release's own cases apply.</div>{{end}}
 {{end}}
 
+{{define "rd-qa-list"}}
+{{if .Checklist}}
+{{$canRecord := .CanRecord}}{{$role := .Role}}{{$relID := .Release.ID}}
+{{range .Checklist}}{{template "rd-qa-row" (dict "Item" . "CanRecord" $canRecord "Role" $role "RelID" $relID)}}{{end}}
+{{else}}
+<div class="empty" style="padding:18px;">No test cases apply to this release yet.{{if eq .Role "admin"}} Add base cases from the Releases page, or a release-specific case below.{{end}}</div>
+{{end}}
+{{end}}
+
 {{define "rd-qa-row"}}
 {{$st := .Item.Status}}{{$role := .Role}}{{$relID := .RelID}}
 <div class="qa-row {{$st}}" data-status="{{$st}}" data-area="{{if .Item.Area}}{{.Item.Area}}{{else}}General{{end}}">
@@ -614,7 +616,7 @@ function pkgVerify() {
   </div>
   {{if .CanRecord}}
   <form class="qa-rec" action="/releases/{{$relID}}/test-results" method="POST"
-        hx-post="/releases/{{$relID}}/test-results" hx-target="closest .qa-row" hx-swap="outerHTML">
+        hx-post="/releases/{{$relID}}/test-results" hx-swap="none">
     <input type="hidden" name="test_case_id" value="{{.Item.ID}}">
     <input name="notes" class="qa-notes form-input" value="{{.Item.Notes}}" placeholder="notes…">
     <div class="qa-pills">
@@ -719,6 +721,7 @@ function pkgVerify() {
 <span id="rd-prob-badge" hx-swap-oob="innerHTML">{{template "rd-prob-badge" .}}</span>
 <span id="rd-prob-count" hx-swap-oob="innerHTML">{{template "rd-prob-count" .}}</span>
 <div id="rd-qa-summary" hx-swap-oob="innerHTML">{{template "rd-qa-summary" .}}</div>
+<div id="rd-qa-list" hx-swap-oob="innerHTML">{{template "rd-qa-list" .}}</div>
 <div id="rd-prob-list" hx-swap-oob="innerHTML">{{template "rd-prob-list" .}}</div>
 <div id="rd-carried-list" hx-swap-oob="innerHTML">{{template "rd-carried-list" .}}</div>
 {{end}}
