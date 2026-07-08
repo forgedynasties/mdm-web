@@ -171,65 +171,6 @@
 
 
 {{if canAdmin .Role}}
-<!-- Base (standard) test cases — checked on every release. Managed inline here so
-     there's no separate Testing/Test-cases tab. -->
-<div class="card dv-rise-1" style="margin-top:16px;">
-  <div class="card-header collapsible-header" role="button" tabindex="0"
-       aria-expanded="false"
-       onclick="this.classList.toggle('open');var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';"
-       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"
-       style="cursor:pointer;user-select:none;">
-    <h3>Base test cases <span class="muted small">{{len .BaseCases}}</span></h3>
-    <span class="muted small">Standard cases applied to every release · testers mark them per-release</span>
-  </div>
-  <div class="collapsible-body" style="display:none;">
-    <form action="/test-cases" method="POST" class="basecase-add" style="display:grid;gap:10px;padding:16px 20px;max-width:680px;border-bottom:1px solid var(--border-soft);">
-      <input name="title" class="form-input" placeholder="Title (e.g. Bluetooth pairing works)" required>
-      <input name="area" class="form-input" placeholder="Area (e.g. Connectivity)">
-      <textarea name="steps" class="form-input" rows="2" placeholder="Steps (optional)"></textarea>
-      <textarea name="expected" class="form-input" rows="2" placeholder="Expected result (optional)"></textarea>
-      <button type="submit" class="btn-primary" style="justify-self:start;">Add base test case</button>
-    </form>
-    {{if .BaseCases}}
-    <table class="table">
-      <thead>
-        <tr><th>Title</th><th>Area</th><th>Status</th><th></th></tr>
-      </thead>
-      <tbody>
-        {{range .BaseCases}}
-        <tr {{if not .Active}}style="opacity:0.6;"{{end}}>
-          <td>{{.Title}}{{if .Steps}}<div class="muted small">{{.Steps}}</div>{{end}}{{if .Expected}}<div class="muted small">Expected: {{.Expected}}</div>{{end}}</td>
-          <td class="small">{{if .Area}}{{.Area}}{{else}}<span class="muted">—</span>{{end}}</td>
-          <td>{{if .Active}}<span class="status-badge ok">active</span>{{else}}<span class="status-badge muted">archived</span>{{end}}</td>
-          <td style="white-space:nowrap;">
-            <button type="button" class="btn-outline btn-sm" onclick="var e=document.getElementById('bc-edit-{{.ID}}');e.style.display=e.style.display==='table-row'?'none':'table-row';">Edit</button>
-            <form action="/test-cases/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete this base test case and its results?">
-              <input type="hidden" name="redirect" value="/releases">
-              <button type="submit" class="btn-danger-sm">Delete</button>
-            </form>
-          </td>
-        </tr>
-        <tr id="bc-edit-{{.ID}}" style="display:none;">
-          <td colspan="4">
-            <form action="/test-cases/{{.ID}}/edit" method="POST" style="display:grid;gap:8px;padding:8px 0;max-width:680px;">
-              <input name="title" class="form-input" value="{{.Title}}" required>
-              <input name="area" class="form-input" value="{{.Area}}" placeholder="Area">
-              <textarea name="steps" class="form-input" rows="2" placeholder="Steps">{{.Steps}}</textarea>
-              <textarea name="expected" class="form-input" rows="2" placeholder="Expected result">{{.Expected}}</textarea>
-              <label class="small"><input type="checkbox" name="active" {{if .Active}}checked{{end}}> Active</label>
-              <button type="submit" class="btn-primary btn-sm" style="justify-self:start;">Save</button>
-            </form>
-          </td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-    {{else}}
-    <div class="empty" style="padding:16px 20px;">No base test cases yet — add one above.</div>
-    {{end}}
-  </div>
-</div>
-
 <!-- Create Release Modal: creates the first package, which creates the release. -->
 <div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
   <div class="modal-box" style="max-width:540px;">
