@@ -5051,6 +5051,10 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .branch-row:first-child { border-top: 0; }
 .branch-row:hover { background: var(--surface2); }
 .branch-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.branch-suggest { margin-bottom: 12px; padding: 10px 12px; border: 1px dashed rgba(122,128,246,.35); border-radius: 10px; background: rgba(122,128,246,.06); }
+.branch-suggest-h { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.branch-suggest-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border-soft); }
+.branch-suggest-row:first-of-type { border-top: 0; }
 .rlc-act { display: flex; align-items: center; gap: 6px; justify-self: end; flex-wrap: wrap; justify-content: flex-end; }
 .rlc-act form { display: inline; margin: 0; }
 .rlc-open { width: 30px; height: 30px; border-radius: 8px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; color: var(--muted); flex: none; }
