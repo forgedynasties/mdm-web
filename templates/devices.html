@@ -13,7 +13,7 @@
       </span>
     </div>
     <div class="dl-id">
-      <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">retired</span>{{end}}</div>
+      <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">inactive</span>{{end}}</div>
       <span class="dl-rel">{{.BuildID}}</span>
       <span class="dl-onboard">Onboarded {{shortDate .CreatedAt}}</span>
     </div>
@@ -43,7 +43,7 @@
       <button type="button" class="fleet-view" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
       <button type="button" class="fleet-view" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
       <button type="button" class="fleet-view" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
-      {{if canAdmin $.Role}}<button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Retired</button>{{end}}
+      {{if canAdmin $.Role}}<button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
 {{end}}
 
 {{/* Out-of-band bits refreshed when the roster is re-scoped in place (rail click):
@@ -66,7 +66,7 @@
   {{if .FilterKiosk}}<span class="fchip"><span class="k">Kiosk</span> {{if eq .FilterKiosk "enabled"}}Enabled{{else}}Disabled{{end}} <button type="button" class="x" onclick="clearOne('filter-kiosk')" aria-label="Clear kiosk">×</button></span>{{end}}
   {{if .FilterCharging}}<span class="fchip"><span class="k">Charging</span> {{if eq .FilterCharging "yes"}}Charging{{else}}Not charging{{end}} <button type="button" class="x" onclick="clearOne('filter-charging')" aria-label="Clear charging">×</button></span>{{end}}
   {{if .FilterTimezone}}<span class="fchip"><span class="k">Timezone</span> {{.FilterTimezone}} <button type="button" class="x" onclick="clearOne('filter-timezone')" aria-label="Clear timezone">×</button></span>{{end}}
-  {{if eq .FilterHidden "only"}}<span class="fchip"><span class="k">Visibility</span> Retired <button type="button" class="x" onclick="setHidden('')" aria-label="Clear visibility">×</button></span>{{end}}
+  {{if eq .FilterHidden "only"}}<span class="fchip"><span class="k">Visibility</span> Inactive <button type="button" class="x" onclick="setHidden('')" aria-label="Clear visibility">×</button></span>{{end}}
   <button type="button" class="fchip-clear" onclick="clearFilters()">Clear all</button>
 </div>
 {{end}}
@@ -79,7 +79,7 @@
     {{if canAdmin .Role}}
     <form action="/devices/bulk-hide" method="POST" id="bulk-hide-form" style="display:inline;"
           onsubmit="return confirmBulkHide(event)">
-      <button type="submit" class="btn-danger-sm">Retire Selected</button>
+      <button type="submit" class="btn-danger-sm">Mark Inactive</button>
     </form>
     <form action="/devices/bulk-unhide" method="POST" id="bulk-unhide-form" style="display:none;">
       <button type="submit" class="btn-outline" style="padding:3px 10px;font-size:12px;">Reactivate Selected</button>
@@ -374,7 +374,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       <div class="fp-cap">Visibility</div>
       <div class="fleet-seg">
         <button type="button" data-vis="" class="{{if not .FilterHidden}}on{{end}}" onclick="setHidden('')">Active</button>
-        <button type="button" data-vis="only" class="{{if eq .FilterHidden "only"}}on{{end}}" onclick="setHidden('only')">Retired</button>
+        <button type="button" data-vis="only" class="{{if eq .FilterHidden "only"}}on{{end}}" onclick="setHidden('only')">Inactive</button>
       </div>
       {{end}}
       <div class="fp-foot">
@@ -1259,10 +1259,10 @@ document.addEventListener('keydown', function(e) {
     window.mdmInspectorHide = function (serial) {
       if (!serial || !window.mdmConfirm) return;
       window.mdmConfirm({
-        title: 'Retire device',
-        body: 'Retire ' + serial + '?',
-        scope: 'It stops appearing in every list and search (data is kept). It stays retired until an admin reactivates it — check-ins no longer bring it back.',
-        tier: 'danger', confirmLabel: 'Retire'
+        title: 'Mark device inactive',
+        body: 'Mark ' + serial + ' inactive?',
+        scope: 'It drops out of every list, search, and count — including health stats — while all its data is kept. It comes back automatically the next time it checks in.',
+        tier: 'danger', confirmLabel: 'Mark inactive'
       }).then(function (ok) {
         if (ok) window.mdmPostForm('/devices/' + encodeURIComponent(serial) + '/hide', {});
       });
