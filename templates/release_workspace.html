@@ -691,8 +691,7 @@ function pkgVerify() {
   </form>
   {{end}}
   {{if .IsAdmin}}
-  <form action="/releases/{{$relID}}/problems/{{$p.ID}}/delete" method="POST" class="prob-del"
-        hx-post="/releases/{{$relID}}/problems/{{$p.ID}}/delete" hx-swap="none" hx-confirm="Remove this problem?">
+  <form action="/releases/{{$relID}}/problems/{{$p.ID}}/delete" method="POST" class="prob-del">
     <button type="submit" class="prob-x" title="Remove this problem" aria-label="Remove">×</button>
   </form>
   {{end}}
@@ -700,10 +699,10 @@ function pkgVerify() {
 {{end}}
 
 {{define "rd-prob-list"}}
-{{$relID := .Release.ID}}{{$canReport := .CanReport}}
+{{$relID := .Release.ID}}{{$canReport := .CanReport}}{{$isAdmin := canAdmin .Role}}
 {{if .Problems}}
 <div class="prob-list">
-  {{range .Problems}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct "IsAdmin" (canAdmin .Role))}}{{end}}
+  {{range .Problems}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct "IsAdmin" $isAdmin)}}{{end}}
 </div>
 {{else}}
 <div class="empty" style="padding:16px;">No problems reported on this build.{{if .CanReport}} File one above when a test turns up an issue.{{end}}</div>
@@ -711,12 +710,12 @@ function pkgVerify() {
 {{end}}
 
 {{define "rd-carried-list"}}
-{{$relID := .Release.ID}}{{$canReport := .CanReport}}
+{{$relID := .Release.ID}}{{$canReport := .CanReport}}{{$isAdmin := canAdmin .Role}}
 {{if .Carried}}
 <div class="carried-sec">
   <div class="carried-h">Carried over from earlier builds <span class="muted small">— {{len .Carried}} unresolved bug{{if ne (len .Carried) 1}}s{{end}} riding the train onto {{.RelVersion}}; mark them <b>fixed here</b> and a QA case is added to verify the fix</span></div>
   <div class="prob-list">
-    {{range .Carried}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct "IsAdmin" (canAdmin .Role))}}{{end}}
+    {{range .Carried}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct "IsAdmin" $isAdmin)}}{{end}}
   </div>
 </div>
 {{end}}
