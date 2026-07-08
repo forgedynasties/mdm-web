@@ -1,0 +1,175 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Health · Reliability — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.1);--peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.1);--warn:#b45309;--warn-soft:rgba(180,83,9,.12);
+  --danger:#b42318;--danger-soft:rgba(180,35,24,.08);--danger-edge:rgba(180,35,24,.26);
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:70ch}
+
+/* ── crash hero ── */
+.chero{display:grid;grid-template-columns:auto 1fr auto;gap:28px;align-items:center;background:linear-gradient(120deg,var(--danger-soft),var(--surface) 62%);border:1px solid var(--danger-edge);border-radius:var(--r5);padding:22px 26px;margin-bottom:16px}
+@media(max-width:820px){.chero{grid-template-columns:1fr}.chero .spark{width:100%}}
+.chero .big{font-size:52px;font-weight:750;letter-spacing:-.03em;line-height:1;color:var(--danger)}
+.chero .big small{font-size:15px;font-weight:600;color:var(--muted);margin-left:8px;letter-spacing:0}
+.chero .eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
+.chero .verdict{font-size:19px;font-weight:750;letter-spacing:-.01em;margin-top:4px}
+.chero .s{font-size:13.5px;color:var(--text2);margin-top:3px}
+.chero .s b{color:var(--danger)}
+.spark{display:flex;align-items:flex-end;gap:5px;height:66px}
+.spark .b{width:15px;background:var(--surface3);border-radius:4px 4px 0 0;position:relative}
+.spark .b.hi{background:var(--danger)}.spark .b.md{background:var(--warn)}
+.spark .b span{position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);font-size:9.5px;color:var(--faint)}
+
+/* ── mini signals ── */
+.mini{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin-bottom:22px}
+@media(max-width:680px){.mini{grid-template-columns:repeat(2,1fr)}}
+.mcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);padding:14px 16px}
+.mcard .k{font-size:11.5px;color:var(--muted)}
+.mcard .v{font-size:24px;font-weight:750;letter-spacing:-.01em;margin-top:7px;font-variant-numeric:tabular-nums}
+.mcard .v.ok{color:var(--ok)}.mcard .v.warn{color:var(--warn)}.mcard .v.bad{color:var(--danger)}
+.mcard .d{font-size:11.5px;color:var(--muted);margin-top:4px}
+
+.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);overflow:hidden}
+.panel-h{display:flex;align-items:center;gap:8px;padding:15px 18px;border-bottom:1px solid var(--border-soft)}
+.panel-h h3{font-size:14.5px;font-weight:700}
+.panel-h .m{margin-left:auto;font-size:12px;color:var(--muted)}
+
+/* top crashing apps ranked */
+.app{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:14px 18px;border-top:1px solid var(--border-soft)}
+.app:first-of-type{border-top:none}.app:hover{background:var(--surface2)}
+.app-name{font-family:var(--mono);font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;min-width:0}
+.app-name .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kind{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 6px;border-radius:5px;flex:none}
+.kind.crash{background:var(--danger-soft);color:var(--danger)}.kind.anr{background:var(--warn-soft);color:var(--warn)}.kind.tomb{background:var(--peri-soft);color:var(--peri)}
+.app-n{font-size:15px;font-weight:750;color:var(--danger);text-align:right;font-variant-numeric:tabular-nums;align-self:center}
+.app-bar{grid-column:1/-1;height:7px;border-radius:99px;background:var(--surface3);overflow:hidden;margin-top:3px}
+.app-bar i{display:block;height:100%;border-radius:99px;background:var(--danger)}
+.app-meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:5px 12px;font-size:11.5px;color:var(--muted);margin-top:5px}
+.app-meta .mono{font-family:var(--mono)}
+.app-meta .trend{font-weight:650;color:var(--danger);display:inline-flex;align-items:center;gap:3px}
+.app-meta .trend svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.4}
+
+/* worst builds */
+.bld{display:flex;align-items:center;gap:12px;padding:13px 18px;border-top:1px solid var(--border-soft)}
+.bld:first-of-type{border-top:none}.bld:hover{background:var(--surface2)}
+.bld .ver{font-family:var(--mono);font-size:13px;font-weight:700;flex:none;width:52px}
+.bld .m{flex:1;min-width:0}
+.bld .r{display:flex;align-items:baseline;justify-content:space-between;font-size:12px}
+.bld .r .rate{font-weight:700}.bld .r .rate.bad{color:var(--danger)}.bld .r .rate.warn{color:var(--warn)}.bld .r .rate.ok{color:var(--ok)}
+.bld .r .dev{color:var(--muted)}
+.bld .bar{height:6px;border-radius:99px;background:var(--surface3);overflow:hidden;margin-top:6px}
+.bld .bar i{display:block;height:100%;border-radius:99px}
+.bld .bar i.bad{background:var(--danger)}.bld .bar i.warn{background:var(--warn)}.bld .bar i.ok{background:var(--ok)}
+
+.foot{margin-top:20px;display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);padding:15px 18px}
+.foot .ring{position:relative;width:52px;height:52px;flex:none}
+.foot .ring svg{width:52px;height:52px}
+.foot .ring .trk{fill:none;stroke:var(--surface3);stroke-width:6}
+.foot .ring .val{fill:none;stroke:var(--warn);stroke-width:6;stroke-linecap:round}
+.foot .ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:750;color:var(--warn)}
+.foot .m{flex:1}.foot .t{font-size:14px;font-weight:650}.foot .s{font-size:12.5px;color:var(--muted)}
+.foot .go{font-size:12.5px;font-weight:600;color:var(--coral)}
+.note{margin-top:26px;padding:14px 17px;background:var(--surface2);border:1px dashed var(--rule);border-radius:var(--r4);font-size:12.5px;color:var(--muted)}
+.note b{color:var(--text2)}.note .mono{font-family:var(--mono)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/index">← All demos</a><span class="tag">Health · Reliability</span></div>
+  <h1>Fleet Health — Reliability</h1>
+  <p class="lede">Crash-forward. When stability is the worry, this puts crashes at the center: a 7-day crash trend, the apps and builds actually failing ranked worst-first, and the devices to pull. The health scorecard sits at the foot for context.</p>
+
+  <div class="chero">
+    <div><div class="eyebrow">Crashes · last 24h</div><div class="big">19<small>events</small></div></div>
+    <div>
+      <div class="verdict">Stability is slipping</div>
+      <div class="s">Up <b>90%</b> vs the 7-day average — almost all on build <b>2.4.1</b>. <b>com.aioapp.pos</b> is the driver (9 ANRs across 3 devices).</div>
+    </div>
+    <div class="spark" title="crashes per day, last 7 days">
+      <div class="b" style="height:22%"><span>Mon</span></div>
+      <div class="b" style="height:30%"><span>Tue</span></div>
+      <div class="b" style="height:18%"><span>Wed</span></div>
+      <div class="b md" style="height:40%"><span>Thu</span></div>
+      <div class="b md" style="height:52%"><span>Fri</span></div>
+      <div class="b hi" style="height:74%"><span>Sat</span></div>
+      <div class="b hi" style="height:100%"><span>Today</span></div>
+    </div>
+  </div>
+
+  <div class="mini">
+    <div class="mcard"><div class="k">Crash-free devices</div><div class="v warn">99.3%</div><div class="d">894 of 900 clean · 24h</div></div>
+    <div class="mcard"><div class="k">ANR share</div><div class="v warn">58%</div><div class="d">11 of 19 are ANRs</div></div>
+    <div class="mcard"><div class="k">Worst build</div><div class="v bad">2.4.1</div><div class="d">16 of 19 crashes</div></div>
+    <div class="mcard"><div class="k">Repeat offenders</div><div class="v bad">2</div><div class="d">devices crashing 3×+</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-h"><h3>Top crashing apps</h3><span class="m">last 24h · worst first</span></div>
+
+      <div class="app">
+        <div class="app-name"><span class="kind anr">ANR</span><span class="nm">com.aioapp.pos</span></div>
+        <div class="app-n">9</div>
+        <div class="app-bar"><i style="width:100%"></i></div>
+        <div class="app-meta"><span>3 devices</span><span class="bd">build 2.4.1</span><span class="trend"><svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>new this build</span><span class="mono">latest AT070AA260027 · 14m</span></div>
+      </div>
+      <div class="app">
+        <div class="app-name"><span class="kind crash">Crash</span><span class="nm">com.aioapp.kds</span></div>
+        <div class="app-n">5</div>
+        <div class="app-bar"><i style="width:56%"></i></div>
+        <div class="app-meta"><span>2 devices</span><span class="bd">build 2.4.1</span><span class="mono">NullPointerException · CartView</span></div>
+      </div>
+      <div class="app">
+        <div class="app-name"><span class="kind tomb">Native</span><span class="nm">com.android.systemui</span></div>
+        <div class="app-n">3</div>
+        <div class="app-bar"><i style="width:33%"></i></div>
+        <div class="app-meta"><span>1 device</span><span class="bd">build 2.4.0</span><span class="mono">SIGSEGV · surfaceflinger</span></div>
+      </div>
+      <div class="app">
+        <div class="app-name"><span class="kind crash">Crash</span><span class="nm">com.aioapp.pos</span></div>
+        <div class="app-n">2</div>
+        <div class="app-bar"><i style="width:22%"></i></div>
+        <div class="app-meta"><span>2 devices</span><span class="bd">build 2.4.1</span><span class="mono">IllegalStateException</span></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-h"><h3>Crashes by build</h3></div>
+      <div class="bld"><span class="ver">2.4.1</span><div class="m"><div class="r"><span class="rate bad">16 crashes</span><span class="dev">312 devices · 84% of fleet</span></div><div class="bar"><i class="bad" style="width:100%"></i></div></div></div>
+      <div class="bld"><span class="ver">2.4.0</span><div class="m"><div class="r"><span class="rate warn">3 crashes</span><span class="dev">58 devices</span></div><div class="bar"><i class="warn" style="width:19%"></i></div></div></div>
+      <div class="bld"><span class="ver">2.3.4</span><div class="m"><div class="r"><span class="rate ok">0 crashes</span><span class="dev">530 devices</span></div><div class="bar"><i class="ok" style="width:2%"></i></div></div></div>
+      <div class="panel-h" style="border-top:1px solid var(--border-soft);border-bottom:none"><h3 style="font-size:13px">Repeat offenders</h3></div>
+      <div class="bld"><span class="ver" style="width:auto;font-size:12px">AT..027</span><div class="m"><div class="r"><span class="rate bad">5 crashes</span><span class="dev">Tom's Ducci 6th</span></div></div><a class="go" href="#" style="font-size:12px;font-weight:600;color:var(--coral)">Logcat →</a></div>
+      <div class="bld"><span class="ver" style="width:auto;font-size:12px">AT..024</span><div class="m"><div class="r"><span class="rate bad">4 crashes</span><span class="dev">Downtown Diner</span></div></div><a class="go" href="#" style="font-size:12px;font-weight:600;color:var(--coral)">Logcat →</a></div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div class="ring"><svg viewBox="0 0 52 52"><circle class="trk" cx="26" cy="26" r="20"/><circle class="val" cx="26" cy="26" r="20" stroke-dasharray="125.6" stroke-dashoffset="27.6" transform="rotate(-90 26 26)"/></svg><b>78</b></div>
+    <div class="m"><div class="t">Fleet health 78 · 3 restaurants need a look</div><div class="s">846 of 900 online · 12 open alerts · full scorecard and per-restaurant triage</div></div>
+    <a class="go" href="#">Open scorecard →</a>
+  </div>
+
+  <div class="note"><b>Data behind it:</b> the trend, per-app and per-build rollups all come from <span class="mono">device_events</span> (kind = app_crash / app_anr / native) joined to <span class="mono">devices.build_id</span> — the same table already powering the release page's crash list. New work: one fleet-wide crash-rollup query; everything else is presentation.</div>
+</div>
+</body></html>

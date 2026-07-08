@@ -1,0 +1,237 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Health · Command — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<style>
+:root{
+  --bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--surface3:#ece7e0;
+  --border:#e8e2da;--border-soft:#efe9e2;--rule:#cfc6ba;
+  --text:#1c1a18;--text2:#534e47;--muted:#7e776d;--faint:#aaa298;
+  --coral:#f9674e;--coral-h:#ec4f33;--coral-soft:rgba(249,103,78,.1);--peri:#7a80f6;--peri-soft:rgba(122,128,246,.12);
+  --ok:#157f3c;--ok-soft:rgba(21,127,60,.1);--warn:#b45309;--warn-soft:rgba(180,83,9,.12);--warn-edge:rgba(180,83,9,.28);
+  --danger:#b42318;--danger-soft:rgba(180,35,24,.08);--danger-edge:rgba(180,35,24,.26);
+  --grad:linear-gradient(94deg,#f9674e,#7a80f6);
+  --font:'IBM Plex Sans',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,monospace;
+  --r3:9px;--r4:14px;--r5:18px;
+  --sh-sm:0 1px 2px rgba(16,24,40,.05);--sh-md:0 3px 12px rgba(28,26,24,.07);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+svg{display:block}a{color:inherit;text-decoration:none}button{font:inherit;cursor:pointer}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 24px 90px}
+.dbar{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.dbar a.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}.dbar a.back:hover{color:var(--coral)}
+.dbar .tag{margin-left:auto;font-size:11px;font-weight:600;color:var(--faint);border:1px solid var(--border);border-radius:99px;padding:4px 11px}
+h1{font-size:26px;font-weight:700;letter-spacing:-.02em}
+.lede{color:var(--muted);font-size:14.5px;margin:5px 0 22px;max-width:70ch}
+
+/* ── hero ── */
+.hero{display:grid;grid-template-columns:auto 1fr auto;gap:26px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r5);box-shadow:var(--sh-sm);padding:20px 26px;margin-bottom:16px}
+@media(max-width:760px){.hero{grid-template-columns:auto 1fr}.hero .toggle{grid-column:1/-1;justify-self:start}}
+.ring{position:relative;width:112px;height:112px;flex:none}
+.ring svg{width:112px;height:112px}
+.ring .trk{fill:none;stroke:var(--surface3);stroke-width:9}
+.ring .val{fill:none;stroke-width:9;stroke-linecap:round;stroke:var(--warn)}
+.ring .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .n b{font-size:34px;font-weight:750;letter-spacing:-.02em;line-height:1;color:var(--warn)}
+.ring .n span{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:3px}
+.hero-m{min-width:0}
+.eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
+.verdict{font-size:22px;font-weight:750;letter-spacing:-.01em;margin-top:3px}
+.verdict .up{color:var(--warn)}
+.sub{font-size:13.5px;color:var(--muted);margin-top:4px}
+.sub b{color:var(--text2);font-weight:600}
+.trend{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;color:var(--danger);margin-left:8px}
+.trend svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4}
+.toggle{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px}
+.toggle a{font-size:12px;font-weight:600;color:var(--muted);padding:5px 13px;border-radius:99px}
+.toggle a.on{background:var(--surface);color:var(--text);box-shadow:var(--sh-sm)}
+
+/* ── signal strip ── */
+.signals{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:22px}
+@media(max-width:980px){.signals{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.signals{grid-template-columns:repeat(2,1fr)}}
+.sig{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);padding:14px 15px;transition:border-color .14s,transform .1s;overflow:hidden}
+.sig:hover{border-color:var(--rule);transform:translateY(-1px)}
+.sig .k{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);font-weight:500}
+.sig .k svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
+.sig .v{display:block;font-size:26px;font-weight:750;letter-spacing:-.01em;margin-top:9px;line-height:1;font-variant-numeric:tabular-nums}
+.sig .v.ok{color:var(--ok)}.sig .v.warn{color:var(--warn)}.sig .v.bad{color:var(--danger)}
+.sig .d{display:flex;align-items:center;gap:6px;font-size:11.5px;margin-top:6px;color:var(--muted)}
+.sig .delta{font-weight:650;display:inline-flex;align-items:center;gap:2px}
+.sig .delta.up{color:var(--danger)}.sig .delta.down{color:var(--ok)}
+.sig .delta svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.6}
+.sig.hot::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--danger)}
+.sig.warm::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--warn)}
+
+/* ── working grid ── */
+.grid{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.cap{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:0 2px 12px}
+.cap .n{margin-left:auto;font-weight:600;letter-spacing:0;text-transform:none;color:var(--muted);font-size:12px}
+
+/* triage cards */
+.tcard{display:flex;gap:14px;background:var(--surface);border:1px solid var(--border);border-left-width:4px;border-radius:var(--r4);box-shadow:var(--sh-sm);padding:15px 17px;margin-bottom:11px;align-items:center}
+.tcard.bad{border-left-color:var(--danger)}.tcard.warn{border-left-color:var(--warn)}
+.tcard .sc{width:44px;height:44px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:750;font-variant-numeric:tabular-nums}
+.tcard.bad .sc{background:var(--danger-soft);color:var(--danger)}.tcard.warn .sc{background:var(--warn-soft);color:var(--warn)}
+.tcard .m{flex:1;min-width:0}
+.tcard .rn{font-size:15px;font-weight:700}
+.tcard .why{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+.badge{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px}
+.badge.bad{background:var(--danger-soft);color:var(--danger)}.badge.warn{background:var(--warn-soft);color:var(--warn)}
+.badge.mut{background:var(--surface2);color:var(--muted)}
+.badge svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.2}
+.tcard .acts{display:flex;flex-direction:column;gap:7px;flex:none}
+.abtn{border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:7px 13px;font-size:12.5px;font-weight:600;color:var(--text2);white-space:nowrap;display:inline-flex;align-items:center;gap:7px}
+.abtn:hover{border-color:var(--rule)}
+.abtn.primary{border-color:transparent;background:var(--text);color:#fff}.abtn.primary:hover{background:#000}
+.abtn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+@media(max-width:600px){.tcard{flex-wrap:wrap}.tcard .acts{flex-direction:row;flex-basis:100%}}
+.healthy{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);padding:15px 18px;margin-top:4px}
+.healthy .hi{width:38px;height:38px;flex:none;border-radius:10px;background:var(--ok-soft);display:flex;align-items:center;justify-content:center;color:var(--ok)}
+.healthy .hi svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.4}
+.healthy .m{flex:1}.healthy .t{font-size:14px;font-weight:650}.healthy .s{font-size:12.5px;color:var(--muted)}
+.healthy .go{font-size:12.5px;font-weight:600;color:var(--coral)}
+
+/* ── crashes panel ── */
+.crash{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-sm);overflow:hidden}
+.crash-h{display:flex;align-items:center;gap:11px;padding:15px 17px;border-bottom:1px solid var(--border-soft)}
+.crash-h .ci{width:34px;height:34px;flex:none;border-radius:9px;background:var(--danger-soft);color:var(--danger);display:flex;align-items:center;justify-content:center}
+.crash-h .ci svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2}
+.crash-h .m{flex:1;min-width:0}
+.crash-h .t{font-size:14.5px;font-weight:700}
+.crash-h .s{font-size:12px;color:var(--muted);margin-top:1px}
+.crash-h .cnt{font-size:22px;font-weight:750;color:var(--danger);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.cgroup{display:block;padding:13px 17px;border-top:1px solid var(--border-soft)}
+.cgroup:first-of-type{border-top:none}
+.cgroup:hover{background:var(--surface2)}
+.cgroup-top{display:flex;align-items:center;gap:9px}
+.kind{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;flex:none}
+.kind.crash{background:var(--danger-soft);color:var(--danger)}
+.kind.anr{background:var(--warn-soft);color:var(--warn)}
+.kind.tomb{background:var(--peri-soft);color:var(--peri)}
+.capp{font-family:var(--mono);font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.cx{margin-left:auto;flex:none;font-size:12.5px;font-weight:700;color:var(--danger);font-variant-numeric:tabular-nums}
+.cmeta{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:11.5px;color:var(--muted);margin-top:6px}
+.cmeta .mono{font-family:var(--mono)}
+.cmeta .bd{color:var(--text2);font-weight:600}
+.crash-all{display:block;text-align:center;padding:12px;font-size:12.5px;font-weight:600;color:var(--coral);border-top:1px solid var(--border-soft)}
+.crash-empty{display:flex;align-items:center;gap:12px;padding:18px}
+.crash-empty .i{width:34px;height:34px;flex:none;border-radius:9px;background:var(--ok-soft);color:var(--ok);display:flex;align-items:center;justify-content:center}
+.crash-empty .i svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4}
+.crash-empty .t{font-size:13.5px;font-weight:650}.crash-empty .s{font-size:12px;color:var(--muted)}
+
+.note{margin-top:26px;padding:14px 17px;background:var(--surface2);border:1px dashed var(--rule);border-radius:var(--r4);font-size:12.5px;color:var(--muted)}
+.note b{color:var(--text2)}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="dbar"><a class="back" href="/demo/index">← All demos</a><span class="tag">Health · Command</span></div>
+  <h1>Fleet Health — Command</h1>
+  <p class="lede">Triage-first, action-oriented, and crash-aware. Score up top, a signal strip where <b>crashes are a first-class vital</b>, a worst-first list of exactly what to fix with one-tap actions, and a dedicated crashes panel that groups by app so you see the offender at a glance.</p>
+
+  <!-- hero -->
+  <div class="hero">
+    <div class="ring">
+      <svg viewBox="0 0 112 112"><circle class="trk" cx="56" cy="56" r="44"/><circle class="val" cx="56" cy="56" r="44" stroke-dasharray="276.5" stroke-dashoffset="60.8" transform="rotate(-90 56 56)"/></svg>
+      <div class="n"><b>78</b><span>Health</span></div>
+    </div>
+    <div class="hero-m">
+      <div class="eyebrow">Fleet health · last 7 days</div>
+      <div class="verdict"><span class="up">3 restaurants</span> need a look<span class="trend"><svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>−6 vs last week</span></div>
+      <div class="sub"><b>846</b> of 900 devices online · <b>12</b> open alerts · <b>19</b> crashes today · <b>3</b> builds</div>
+    </div>
+    <div class="toggle"><a class="on" href="#">7 days</a><a href="#">Today</a></div>
+  </div>
+
+  <!-- signal strip: crashes is now a vital -->
+  <div class="signals">
+    <div class="sig"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12h4l2 6 4-14 2 8h6"/></svg>Online</span><span class="v ok">846</span><span class="d">of 900 devices</span></div>
+    <div class="sig warm"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span><span class="v warn">54</span><span class="d"><span class="delta up"><svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>12</span> since yesterday</span></div>
+    <div class="sig warm"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span><span class="v warn">7</span><span class="d">under 20%</span></div>
+    <div class="sig hot"><span class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Overheating</span><span class="v bad">2</span><span class="d">over 54°C</span></div>
+    <div class="sig"><span class="k"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>Memory</span><span class="v ok">0</span><span class="d">under pressure</span></div>
+    <div class="sig hot"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6l3-3M12 8L9 5M4.2 10.5l5.3 3M19.8 10.5l-5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5"/></svg>Crashes · 24h</span><span class="v bad">19</span><span class="d"><span class="delta up"><svg viewBox="0 0 24 24"><path d="M7 17l10-10M9 7h8v8"/></svg>9</span> · 6 devices</span></div>
+  </div>
+
+  <!-- working grid: triage + crashes -->
+  <div class="grid">
+    <div>
+      <div class="cap">Needs action — worst first <span class="n">3 of 45 restaurants</span></div>
+
+      <div class="tcard bad">
+        <span class="sc">38</span>
+        <div class="m"><div class="rn">Downtown Diner</div>
+          <div class="why">
+            <span class="badge bad"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>8 offline · 3h</span>
+            <span class="badge bad"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>55°C at register 3</span>
+            <span class="badge bad"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5"/></svg>6 crashes</span>
+            <span class="badge mut">24 devices</span>
+          </div>
+        </div>
+        <div class="acts"><a class="abtn primary" href="#"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open</a><a class="abtn" href="#"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5M4 4v6h6"/></svg>Reboot</a></div>
+      </div>
+
+      <div class="tcard warn">
+        <span class="sc">54</span>
+        <div class="m"><div class="rn">Tom's Ducci 6th</div>
+          <div class="why">
+            <span class="badge warn"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>3 offline</span>
+            <span class="badge warn"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/></svg>4 under 20%</span>
+            <span class="badge warn"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5"/></svg>9 ANRs · pos</span>
+            <span class="badge mut">18 devices</span>
+          </div>
+        </div>
+        <div class="acts"><a class="abtn primary" href="#"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open</a><a class="abtn" href="#"><svg viewBox="0 0 24 24"><path d="M4 4h16v13H4z"/><path d="M8 21h8"/></svg>Logcat</a></div>
+      </div>
+
+      <div class="tcard warn">
+        <span class="sc">66</span>
+        <div class="m"><div class="rn">Harbor Point Grill</div>
+          <div class="why">
+            <span class="badge warn"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>3 builds behind</span>
+            <span class="badge warn"><svg viewBox="0 0 24 24"><path d="M23 6l-9.5 9.5-5-5L1 18"/></svg>battery −14% wk</span>
+            <span class="badge mut">15 devices</span>
+          </div>
+        </div>
+        <div class="acts"><a class="abtn primary" href="#"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Open</a><a class="abtn" href="#"><svg viewBox="0 0 24 24"><path d="M12 2v6l4 2"/><circle cx="12" cy="12" r="9"/></svg>Update</a></div>
+      </div>
+
+      <div class="healthy">
+        <span class="hi"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
+        <div class="m"><div class="t">42 restaurants healthy</div><div class="s">Scoring 80–98 · online, cool, and charged — nothing to do there</div></div>
+        <a class="go" href="#">View all →</a>
+      </div>
+    </div>
+
+    <div class="crash">
+      <div class="crash-h">
+        <span class="ci"><svg viewBox="0 0 24 24"><path d="M12 2v6l3-3M12 8L9 5M4.2 10.5l5.3 3M19.8 10.5l-5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5"/></svg></span>
+        <div class="m"><div class="t">Crashes · last 24h</div><div class="s">19 events · 6 devices · worst on build 2.4.1</div></div>
+        <span class="cnt">19</span>
+      </div>
+
+      <a class="cgroup" href="#">
+        <div class="cgroup-top"><span class="kind anr">ANR</span><span class="capp">com.aioapp.pos</span><span class="cx">×9</span></div>
+        <div class="cmeta"><span>3 devices</span><span class="bd">build 2.4.1</span><span class="mono">AT070AA260027</span><span>latest 14m ago</span></div>
+      </a>
+      <a class="cgroup" href="#">
+        <div class="cgroup-top"><span class="kind crash">Crash</span><span class="capp">com.aioapp.kds</span><span class="cx">×5</span></div>
+        <div class="cmeta"><span>2 devices</span><span class="bd">build 2.4.1</span><span class="mono">AT070AA260024</span><span>latest 1h ago</span></div>
+      </a>
+      <a class="cgroup" href="#">
+        <div class="cgroup-top"><span class="kind tomb">Native</span><span class="capp">com.android.systemui</span><span class="cx">×3</span></div>
+        <div class="cmeta"><span>1 device</span><span class="bd">build 2.4.0</span><span class="mono">AT070AA260031</span><span>latest 3h ago</span></div>
+      </a>
+      <a class="cgroup" href="#">
+        <div class="cgroup-top"><span class="kind crash">Crash</span><span class="capp">com.aioapp.pos</span><span class="cx">×2</span></div>
+        <div class="cmeta"><span>2 devices</span><span class="bd">build 2.4.1</span><span class="mono">AT070AA260012</span><span>latest 5h ago</span></div>
+      </a>
+      <a class="crash-all" href="#">View all crashes →</a>
+    </div>
+  </div>
+
+  <div class="note"><b>What changes vs the current page:</b> crashes become a top-line vital and a dedicated grouped panel (app · kind · count · devices · build), and the triage list carries crash chips + one-tap actions (Reboot / Logcat / Update). Everything shown here maps to data we already store — <span class="mono">device_events</span> for crashes, <span class="mono">GetRestaurantHealth</span> for scores. Wiring is a new fleet-wide crash query + this template promoted over <span class="mono">health.html</span>.</div>
+</div>
+</body></html>
