@@ -53,10 +53,11 @@
 .ov2-delta.bad{color:var(--danger)}.ov2-delta.good{color:var(--ok)}
 .ov2-delta svg{width:10px;height:10px;fill:none;stroke:currentColor;stroke-width:2.6}
 
-/* grid */
-.ov2-grid{display:grid;grid-template-columns:1.55fr 1fr;gap:20px;align-items:start}
-@media(max-width:900px){.ov2-grid{grid-template-columns:1fr}}
-.ov2-col{display:flex;flex-direction:column;gap:18px}
+/* grid — JS masonry: each card flows into the shortest column, so the two
+   columns stay even regardless of how tall any individual card is. */
+.ov2-masonry{display:flex;flex-direction:column;gap:18px}
+.ov2-masonry.is-cols{flex-direction:row;align-items:flex-start;gap:20px}
+.ov2-mcol{flex:1;min-width:0;display:flex;flex-direction:column;gap:18px}
 .ov2-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
 .ov2-ch{display:flex;align-items:center;gap:8px;padding:14px 17px;border-bottom:1px solid var(--border-soft)}
 .ov2-ch h3{font-size:14px;font-weight:700;margin:0}
@@ -188,8 +189,7 @@
   </div>
 
   {{/* ── Main grid ── */}}
-  <div class="ov2-grid">
-    <div class="ov2-col">
+  <div class="ov2-masonry" id="ov2-masonry">
 
       {{/* Where to look */}}
       <div class="ov2-card">
@@ -242,9 +242,7 @@
           {{end}}
         </div>
       </div>
-    </div>
 
-    <div class="ov2-col">
       {{/* Live open alerts */}}
       <div class="ov2-card">
         <div class="ov2-ch"><h3>Open alerts</h3><span class="live"><span class="dot"></span>Live</span><a class="r" href="/alerts?status=open">all →</a></div>
@@ -273,12 +271,55 @@
         {{end}}
       </div>
       {{end}}
-    </div>
   </div>
 
   {{if .AISummary}}{{template "ai-report-card" .}}{{end}}
 
 </div>
+
+<script>
+// Masonry: pack the overview cards into the shortest of two columns so the layout
+// stays balanced whatever the card heights are. Collapses to one column on narrow
+// screens, and re-balances after the live open-alerts card swaps in new content.
+(function () {
+  var m = document.getElementById('ov2-masonry');
+  if (!m) return;
+  var cards = Array.prototype.slice.call(m.children).filter(function (el) {
+    return el.classList && el.classList.contains('ov2-card');
+  });
+  function layout() {
+    Array.prototype.slice.call(m.querySelectorAll('.ov2-mcol')).forEach(function (c) { c.remove(); });
+    if (window.innerWidth <= 900) {
+      m.classList.remove('is-cols');
+      cards.forEach(function (c) { m.appendChild(c); });
+      return;
+    }
+    m.classList.add('is-cols');
+    var c1 = document.createElement('div'), c2 = document.createElement('div');
+    c1.className = c2.className = 'ov2-mcol';
+    m.appendChild(c1); m.appendChild(c2);
+    // Measure every card at its real column width (all stacked in c1, c2 empty).
+    cards.forEach(function (c) { c1.appendChild(c); });
+    var h = cards.map(function (c) { return c.offsetHeight; });
+    cards.forEach(function (c) { c.remove(); });
+    // Decide each card's column with largest-first bin-packing for tight balance,
+    // but keep the first card (Where to look) pinned top-left.
+    var col = new Array(cards.length), s1 = 0, s2 = 0;
+    col[0] = 1; s1 = h[0];
+    cards.map(function (_, i) { return i; }).slice(1)
+      .sort(function (a, b) { return h[b] - h[a]; })
+      .forEach(function (i) { if (s1 <= s2) { col[i] = 1; s1 += h[i]; } else { col[i] = 2; s2 += h[i]; } });
+    // Re-attach in natural source order within each column.
+    cards.forEach(function (c, i) { (col[i] === 1 ? c1 : c2).appendChild(c); });
+  }
+  layout();
+  var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(layout, 120); });
+  // The live alerts card grows/shrinks on refresh — re-balance after its swap.
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (e.target && e.target.id === 'ov-alerts') setTimeout(layout, 0);
+  });
+})();
+</script>
 
 {{template "footer" .}}
 {{end}}
