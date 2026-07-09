@@ -357,14 +357,24 @@ function relTab(group, btn) {
         var target = train.querySelector('.rt-node[data-ver="' + into + '"]');
         if (!target) return;
         var b = br.getBoundingClientRect(), n = target.getBoundingClientRect();
-        // Flat S-curve: leave the branch's right edge horizontally, sweep right, then
-        // hook up into the merge target node's bottom-right.
-        var sx = b.right - tr.left, sy = b.top - tr.top + b.height / 2;       // branch right edge, mid-height
-        var ex = n.left - tr.left + n.width * 0.72, ey = n.bottom - tr.top;   // node bottom, right side
-        var c1x = sx + (ex - sx) * 0.55;                                       // horizontal control off the start
-        var c2y = ey + (sy - ey) * 0.45;                                       // vertical control below the end
+        // Orthogonal connector with rounded corners: leave the branch's right edge
+        // straight, turn up, run straight up, then turn and merge onto the MAIN LINE
+        // (the horizontal connector at node height) just before the target node.
+        var sx = b.right - tr.left, sy = b.top - tr.top + b.height / 2;   // branch right edge, mid-height
+        var lineY = n.top - tr.top + n.height / 2;                        // main-line height (node centre)
+        var ex = n.left - tr.left;                                        // merge point: on the line at the node's left
+        var r = 9;                                                        // corner radius
+        var turnX = ex - 22;                                             // where the line turns up (just before the node)
+        if (turnX < sx + r) turnX = sx + r;
+        if (sy - lineY < 2 * r) r = Math.max(3, (sy - lineY) / 2);       // clamp radius to the vertical gap
+        var d = 'M ' + sx + ' ' + sy
+              + ' L ' + (turnX - r) + ' ' + sy
+              + ' Q ' + turnX + ' ' + sy + ' ' + turnX + ' ' + (sy - r)
+              + ' L ' + turnX + ' ' + (lineY + r)
+              + ' Q ' + turnX + ' ' + lineY + ' ' + (turnX + r) + ' ' + lineY
+              + ' L ' + ex + ' ' + lineY;
         var p = document.createElementNS(NS, 'path');
-        p.setAttribute('d', 'M ' + sx + ' ' + sy + ' C ' + c1x + ' ' + sy + ', ' + ex + ' ' + c2y + ', ' + ex + ' ' + ey);
+        p.setAttribute('d', d);
         svg.appendChild(p);
       });
     });
