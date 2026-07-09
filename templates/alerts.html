@@ -150,7 +150,6 @@ function alxFilter(){
   <div class="alx-m">
     <div class="alx-top">
       <span class="alx-t">{{.Headline}}</span>
-      {{if gt .Occurrences 1}}<span class="alx-occ">×{{.Occurrences}}</span>{{end}}
       <span class="alx-when">{{timeSince .FiredAt}}</span>
     </div>
     <div class="alx-s">{{.Sentence}}</div>
@@ -182,14 +181,14 @@ function alxFilter(){
 {{range .Alerts}}{{if eq .Severity "critical"}}
 <a class="nbar-al" href="/alerts">
   <span class="nbar-al-dot sev-{{.Severity}}"></span>
-  <span class="nbar-al-main"><span class="nbar-al-t">{{.Headline}}</span><span class="nbar-al-s">{{if .Restaurant}}{{.Restaurant}} · {{end}}{{timeSince .FiredAt}}{{if gt .Occurrences 1}} · ×{{.Occurrences}}{{end}}</span></span>
+  <span class="nbar-al-main"><span class="nbar-al-t">{{.Headline}}</span><span class="nbar-al-s">{{if .Restaurant}}{{.Restaurant}} · {{end}}{{timeSince .FiredAt}}</span></span>
 </a>
 {{end}}{{end}}
 {{if and $crit $other}}<div class="nbar-al-sec">Earlier</div>{{end}}
 {{range .Alerts}}{{if ne .Severity "critical"}}
 <a class="nbar-al" href="/alerts">
   <span class="nbar-al-dot sev-{{.Severity}}"></span>
-  <span class="nbar-al-main"><span class="nbar-al-t">{{.Headline}}</span><span class="nbar-al-s">{{if .Restaurant}}{{.Restaurant}} · {{end}}{{timeSince .FiredAt}}{{if gt .Occurrences 1}} · ×{{.Occurrences}}{{end}}</span></span>
+  <span class="nbar-al-main"><span class="nbar-al-t">{{.Headline}}</span><span class="nbar-al-s">{{if .Restaurant}}{{.Restaurant}} · {{end}}{{timeSince .FiredAt}}</span></span>
 </a>
 {{end}}{{end}}
 <a class="nbar-al-all" href="/alerts">View all alerts →</a>
