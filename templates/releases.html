@@ -72,7 +72,17 @@
           {{if eq .DeviceCount 0}}<form action="/releases/{{.ReleaseID}}/delete" method="POST" class="rlc-x rlc-del" hx-confirm="Delete release {{.Version}}? No devices are running it. This permanently removes the release and its packages & deployments and can't be undone."><button type="submit" title="Delete release (no devices are running it)"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6"/></svg></button></form>{{end}}
           <form action="/releases/{{.ReleaseID}}/hide" method="POST" class="rlc-x"><input type="hidden" name="hidden" value="1"><button type="submit" title="Hide from the list"><svg viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18"/></svg></button></form>
           {{end}}
-          {{if $canQfil}}{{if .QfilURL}}<a href="{{.QfilURL}}" class="rlc-open" title="Download QFIL flashing package" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{else}}<span class="rlc-open disabled" title="No QFIL package set for this release" aria-disabled="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>{{end}}{{end}}
+          {{if $canQfil}}<span class="rlc-qfil">
+            {{if .QfilURL}}<a href="{{.QfilURL}}" class="rlc-open" title="Download QFIL flashing package" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{else}}<span class="rlc-open disabled" title="No QFIL link set — click the pencil to add one" aria-disabled="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>{{end}}
+            {{if canAdmin $.Role}}<details class="rlc-qfil-edit">
+              <summary class="rlc-open" title="{{if .QfilURL}}Replace{{else}}Set{{end}} the QFIL download link"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></summary>
+              <form action="/releases/{{.ReleaseID}}/qfil" method="POST" class="rlc-qfil-pop">
+                <input type="url" name="qfil_url" class="form-input" placeholder="QFIL download link (https://…)" required{{if .QfilURL}} value="{{.QfilURL}}"{{end}}>
+                <input type="hidden" name="redirect" value="/releases">
+                <button type="submit" class="btn-primary btn-sm">Save</button>
+              </form>
+            </details>{{end}}
+          </span>{{end}}
           <a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open release"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
         {{else if canAdmin $.Role}}
           <form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Create a draft release for this version">+ Add as release</button></form>

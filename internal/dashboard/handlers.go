@@ -5723,7 +5723,13 @@ func (h *Handler) ReleaseAddQFIL(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "release.qfil.add", strconv.Itoa(id), label)
-	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
+	// Return to wherever the edit came from (the list uses redirect=/releases);
+	// only same-app release paths are honoured, defaulting to the release page.
+	redirect := strings.TrimSpace(r.FormValue("redirect"))
+	if !strings.HasPrefix(redirect, "/releases") {
+		redirect = fmt.Sprintf("/releases/%d", id)
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
 // ReleaseDeleteQFIL removes a QFIL bundle from a release. Admin/dev only.
