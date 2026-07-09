@@ -1,0 +1,268 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Daily Report — redesign directions — AIO MDM demo</title></head><body>
+<style>
+  :root{
+    --bg:#faf8f5; --surface:#fff; --surface2:#f6f3ee;
+    --border:#e8e2da; --border-soft:#efe9e1;
+    --text:#1c1a18; --text2:#4a453e; --muted:#7e776d; --faint:#a49c90;
+    --accent:#f9674e; --accent-h:#ec4f33; --accent-soft:rgba(249,103,78,.10);
+    --p:#7a80f6; --p-soft:rgba(122,128,246,.12);
+    --ok:#157f3c; --ok-soft:rgba(21,127,60,.11);
+    --warn:#b45309; --warn-soft:rgba(180,83,9,.12);
+    --danger:#b42318; --danger-soft:rgba(180,35,24,.10);
+    --r2:6px; --r3:9px; --r4:14px;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","IBM Plex Mono",Menlo,monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);
+  }
+  *{box-sizing:border-box}
+  .wrap{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased;padding:0 0 90px}
+  h1,h2,h3{margin:0;letter-spacing:-.01em;text-wrap:balance}
+  .mono{font-family:var(--mono)}
+  a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+
+  .top{max-width:960px;margin:0 auto;padding:42px 24px 4px}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:19px;letter-spacing:-.02em;margin-bottom:20px}
+  .brand .a{background:linear-gradient(96deg,var(--accent),var(--p));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  .top h1{font-size:28px;font-weight:700}
+  .top .lede{color:var(--muted);font-size:15px;margin-top:8px;max-width:70ch}
+  .top .lede b{color:var(--text2);font-weight:600}
+
+  .sec{max-width:960px;margin:34px auto 0;padding:0 24px}
+  .sec-h{display:flex;align-items:baseline;gap:11px;margin-bottom:12px}
+  .tag{font-size:11.5px;font-weight:700;letter-spacing:.04em;padding:3px 9px;border-radius:99px}
+  .tag-new{background:var(--accent-soft);color:var(--accent)}
+  .tag-rec{background:var(--ok-soft);color:var(--ok)}
+  .sec-h h2{font-size:19px;font-weight:700}
+  .sec-h .n{color:var(--muted);font-size:13px}
+  .why{max-width:960px;margin:8px auto 0;padding:0 24px;font-size:13px;color:var(--muted);max-width:78ch}
+
+  /* shared card shell (mirrors the real dashboard card) */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);overflow:hidden}
+  .card-h{display:flex;align-items:center;gap:9px;padding:13px 18px;border-bottom:1px solid var(--border-soft)}
+  .card-h .ci{width:16px;height:16px;color:var(--muted)}
+  .card-h h3{font-size:15px;font-weight:650}
+  .card-h .r{margin-left:auto;display:flex;align-items:center;gap:12px;font-size:12px;color:var(--muted)}
+  .btn{font-size:12px;font-weight:600;padding:5px 11px;border-radius:var(--r2);border:1px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer}
+  .orb{width:20px;height:20px;color:var(--p)}
+
+  /* delta chips shared */
+  .d-up{color:var(--warn)} .d-dn{color:var(--ok)} .d-flat{color:var(--faint)}
+  .delta{font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;display:inline-flex;align-items:center;gap:2px}
+  .delta svg{width:11px;height:11px}
+
+  /* ══════════ 1 · VERDICT BAND ══════════ */
+  .v-band{display:flex;gap:14px;align-items:flex-start;padding:17px 20px;border-bottom:1px solid var(--border-soft);
+          background:linear-gradient(102deg,var(--warn-soft),transparent 60%)}
+  .v-band.ok{background:linear-gradient(102deg,var(--ok-soft),transparent 60%)}
+  .v-dot{width:40px;height:40px;flex:none;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--warn);color:#fff;box-shadow:0 5px 14px rgba(180,83,9,.28)}
+  .v-band.ok .v-dot{background:var(--ok);box-shadow:0 5px 14px rgba(21,127,60,.26)}
+  .v-dot svg{width:21px;height:21px}
+  .v-status{font-size:10.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--warn);margin-bottom:4px}
+  .v-band.ok .v-status{color:var(--ok)}
+  .v-verdict{font-size:16.5px;font-weight:650;line-height:1.4;color:var(--text)}
+  .v-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:1px;background:var(--border-soft)}
+  .v-tile{background:var(--surface);padding:13px 16px}
+  .v-tile .v{font-size:23px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1;display:flex;align-items:baseline;gap:7px}
+  .v-tile .l{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);margin-top:6px}
+  .v-rows{padding:14px 20px 6px}
+  .v-row{position:relative;padding:11px 0 11px 15px}
+  .v-row + .v-row{border-top:1px solid var(--border-soft)}
+  .v-row .ind{position:absolute;left:0;top:13px;bottom:13px;width:3px;border-radius:2px;background:var(--warn)}
+  .v-row.crit .ind{background:var(--danger)}
+  .v-line{font-size:13.5px;line-height:1.6;color:var(--text2)}
+  .v-area{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--warn);background:var(--warn-soft);padding:2px 7px;border-radius:5px;margin-right:7px;vertical-align:1px}
+  .v-scope{font-weight:650;color:var(--text)}
+  .v-act{display:inline-block;color:var(--accent);font-weight:600;font-size:12.5px;margin-left:2px}
+  .v-quiet{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 20px 16px;padding-top:12px;border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--muted)}
+  .v-chip{display:inline-flex;align-items:center;gap:5px;background:var(--ok-soft);color:var(--ok);font-weight:600;font-size:11.5px;padding:3px 9px;border-radius:99px}
+  .v-chip svg{width:11px;height:11px}
+  .v-lab{margin:0 20px 16px;padding:10px 13px;background:var(--surface2);border:1px solid var(--border-soft);border-radius:10px;font-size:12.5px;color:var(--text2)}
+  .v-lab b{color:var(--text);font-weight:650}
+
+  /* ══════════ 2 · BRIEFING / EDITORIAL ══════════ */
+  .e-body{padding:18px 22px 20px}
+  .e-mast{display:flex;align-items:baseline;gap:10px;padding-bottom:11px;border-bottom:2px solid var(--text);margin-bottom:14px}
+  .e-mast .t{font-size:13px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+  .e-mast .date{font-size:12px;color:var(--muted);margin-left:auto}
+  .e-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--warn);background:var(--warn-soft);padding:2px 8px;border-radius:99px;margin-right:8px;vertical-align:2px}
+  .e-lede{font-size:16px;line-height:1.55;color:var(--text);font-weight:500;margin:0 0 12px}
+  .e-lede .scope{font-weight:650}
+  .e-p{font-size:13.5px;line-height:1.62;color:var(--text2);margin:0 0 12px}
+  .e-p .fix{color:var(--accent);font-weight:600}
+  .e-ch-h{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin:16px 0 8px}
+  .e-changes{list-style:none;margin:0 0 4px;padding:0;display:flex;flex-direction:column;gap:2px}
+  .e-changes li{display:flex;align-items:center;gap:10px;font-size:13.5px;padding:5px 0;border-bottom:1px dashed var(--border-soft)}
+  .e-changes li:last-child{border-bottom:0}
+  .e-cd{width:58px;flex:none;text-align:right;font-variant-numeric:tabular-nums;font-weight:700;font-size:13px}
+  .e-cl{color:var(--text2)}
+  .e-good{font-size:13px;color:var(--muted);margin-top:12px}
+  .e-good b{color:var(--text2);font-weight:600}
+
+  /* ══════════ 3 · DATA-FORWARD TILES ══════════ */
+  .t-body{padding:16px 18px 18px}
+  .t-status{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--warn);margin-bottom:12px}
+  .t-status i{width:8px;height:8px;border-radius:50%;background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft)}
+  .t-status .sub{margin-left:auto;font-weight:500;letter-spacing:0;text-transform:none;color:var(--muted);font-size:12.5px}
+  .t-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:14px}
+  .t-tile{border:1px solid var(--border-soft);border-radius:12px;padding:13px 15px;background:var(--bg)}
+  .t-tile .v{font-size:27px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .t-tile .l{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.04em;margin:6px 0 8px}
+  .t-tile .d{font-size:12px;font-weight:700}
+  .t-tbl{border-top:1px solid var(--border-soft)}
+  .t-tr{display:flex;align-items:center;gap:11px;padding:11px 2px;border-bottom:1px solid var(--border-soft);font-size:13px}
+  .t-tr:last-child{border-bottom:0}
+  .t-ic{width:22px;height:22px;flex:none;border-radius:6px;display:flex;align-items:center;justify-content:center}
+  .t-ic.warn{background:var(--warn-soft);color:var(--warn)} .t-ic.ok{background:var(--ok-soft);color:var(--ok)}
+  .t-ic svg{width:13px;height:13px}
+  .t-sc{font-weight:650;min-width:130px}
+  .t-de{color:var(--text2);flex:1}
+  .t-tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--warn);background:var(--warn-soft);padding:2px 8px;border-radius:99px;flex:none}
+
+  .note{max-width:960px;margin:18px auto 0;padding:0 24px;font-size:12px;color:var(--faint);max-width:80ch}
+  @media(max-width:560px){.card-h .r a{display:none}}
+</style>
+
+<div class="wrap">
+  <div class="top">
+    <div class="brand"><span class="a">AIO</span><span class="m">MDM</span></div>
+    <h1>Daily Report — redesign directions</h1>
+    <p class="lede">Three ways to rebuild the card — and, more importantly, three ways to make it <b>say something worth reading</b>. Each shows the new content: it leads with <b>what changed since yesterday</b>, every metric carries a <b>trend</b>, and the lab-heavy days get a real <b>testing read</b> instead of "all clear, nothing to do." Same live sample story across all three so you can compare the look directly.</p>
+  </div>
+
+  <!-- ═══════════ DIRECTION 1 · VERDICT BAND ═══════════ -->
+  <section class="sec">
+    <div class="sec-h"><span class="tag tag-rec">Direction 1 · recommended</span><h2>Verdict band</h2><span class="n">state in one second</span></div>
+    <div class="card">
+      <div class="card-h">
+        <span class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span>
+        <h3>Daily Report</h3>
+        <div class="r"><span>updated 5:02 PM</span><button class="btn">Refresh</button><a href="#">Detailed analysis →</a></div>
+      </div>
+      <div class="v-band">
+        <span class="v-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0z"/></svg></span>
+        <div>
+          <div class="v-status">Watch · 1 call-out</div>
+          <div class="v-verdict"><a href="#">Downtown Diner</a> ran 4° hotter than yesterday — <a class="mono" href="#">SN-003</a> is worth a look. The eight lab units held steady.</div>
+        </div>
+      </div>
+      <div class="v-tiles">
+        <div class="v-tile"><div class="v">41°C <span class="delta d-up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>4°</span></div><div class="l">Hottest today</div></div>
+        <div class="v-tile"><div class="v">94% <span class="delta d-flat">flat</span></div><div class="l">Charging</div></div>
+        <div class="v-tile"><div class="v">68% <span class="delta d-dn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>5%</span></div><div class="l">Peak RAM</div></div>
+        <div class="v-tile"><div class="v">8</div><div class="l">Units under test</div></div>
+      </div>
+      <div class="v-rows">
+        <div class="v-row">
+          <span class="ind"></span>
+          <div class="v-line"><span class="v-area">heat</span><span class="v-scope"><a href="#">Downtown Diner</a></span> — <a class="mono" href="#">SN-003</a> peaked at 41°C for 18 min at the pass, <b>+4° vs yesterday</b> but still under the 45° limit. <span class="v-act">Watch airflow before tomorrow's dinner service.</span></div>
+        </div>
+      </div>
+      <div class="v-lab"><b>Lab bench:</b> 8 units under test · 312 charge cycles logged today · no thermal faults. Warmest bench unit <a class="mono" href="#">SN-021</a> at 39°C — normal for a unit on continuous charge.</div>
+      <div class="v-quiet">
+        <span class="v-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Battery</span>
+        <span class="v-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Chargers</span>
+        <span class="v-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Memory</span>
+        <span>reporting normally fleet-wide</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ DIRECTION 2 · BRIEFING / EDITORIAL ═══════════ -->
+  <section class="sec">
+    <div class="sec-h"><span class="tag tag-new">Direction 2</span><h2>Briefing / editorial</h2><span class="n">reads like an analyst's note</span></div>
+    <div class="card">
+      <div class="card-h">
+        <span class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span>
+        <h3>Daily Report</h3>
+        <div class="r"><span>updated 5:02 PM</span><button class="btn">Refresh</button><a href="#">Detailed analysis →</a></div>
+      </div>
+      <div class="e-body">
+        <div class="e-mast"><span class="t">Fleet Briefing</span><span class="date">Friday, July 9 · today's check-ins</span></div>
+        <p class="e-lede"><span class="e-badge">Watch</span>Eight units under test held steady today. <span class="scope"><a href="#">Downtown Diner</a></span> is the one to watch — <a class="mono" href="#">SN-003</a> ran 4° hotter than yesterday.</p>
+        <p class="e-p"><a class="mono" href="#">SN-003</a> peaked at 41°C for 18 minutes at the pass, four degrees above yesterday, though still under the 45° limit. Nothing else moved out of band. <span class="fix">Keep an eye on airflow before tomorrow's dinner service.</span></p>
+        <div class="e-ch-h">What changed since yesterday</div>
+        <ul class="e-changes">
+          <li><span class="e-cd d-up">▲ +4°C</span><span class="e-cl"><a class="mono" href="#">SN-003</a> peak temperature — the only unit trending up</span></li>
+          <li><span class="e-cd d-dn">▼ −5%</span><span class="e-cl">Fleet peak RAM eased to 68% — memory pressure down across the bench</span></li>
+          <li><span class="e-cd d-flat">= 94%</span><span class="e-cl">Charging coverage flat — chargers doing their job</span></li>
+          <li><span class="e-cd d-flat">+18</span><span class="e-cl">Charge cycles logged on the lab units under test</span></li>
+        </ul>
+        <p class="e-good"><a href="#">San Jose Office</a> and the seven other bench units are reporting normal battery, charging and memory.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ DIRECTION 3 · DATA-FORWARD TILES ═══════════ -->
+  <section class="sec">
+    <div class="sec-h"><span class="tag tag-new">Direction 3</span><h2>Data-forward tiles</h2><span class="n">glance and go</span></div>
+    <div class="card">
+      <div class="card-h">
+        <span class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span>
+        <h3>Daily Report</h3>
+        <div class="r"><span>updated 5:02 PM</span><button class="btn">Refresh</button><a href="#">Detailed analysis →</a></div>
+      </div>
+      <div class="t-body">
+        <div class="t-status"><i></i>Watch<span class="sub">Downtown Diner running warm · 8 lab units steady</span></div>
+        <div class="t-grid">
+          <div class="t-tile"><div class="v">41°C</div><div class="l">Hottest today</div><div class="d d-up">▲ +4° vs yesterday</div></div>
+          <div class="t-tile"><div class="v">94%</div><div class="l">Charging</div><div class="d d-flat">= flat</div></div>
+          <div class="t-tile"><div class="v">68%</div><div class="l">Peak RAM</div><div class="d d-dn">▼ −5%</div></div>
+          <div class="t-tile"><div class="v">312</div><div class="l">Cycles logged</div><div class="d d-flat">8 units under test</div></div>
+        </div>
+        <div class="t-tbl">
+          <div class="t-tr">
+            <span class="t-ic warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v10a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0z"/></svg></span>
+            <span class="t-sc"><a href="#">Downtown Diner</a></span>
+            <span class="t-de"><a class="mono" href="#">SN-003</a> · 41°C peak (+4°), still under limit</span>
+            <span class="t-tag">watch</span>
+          </div>
+          <div class="t-tr">
+            <span class="t-ic ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span class="t-sc">8 lab units</span>
+            <span class="t-de">battery · charging · memory all normal — warmest is <a class="mono" href="#">SN-021</a> at 39°C</span>
+            <span class="t-tag" style="color:var(--ok);background:var(--ok-soft)">ok</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ THE BLAND-DAY TEST ═══════════ -->
+  <section class="sec">
+    <div class="sec-h"><span class="tag tag-new">The bland-day test</span><h2>A quiet, all-lab day</h2><span class="n">Direction 1, nothing deployed</span></div>
+    <div class="why">This is the case that reads "all clear, nothing to do" today. With the content upgrade it still delivers a real status read — cycles logged, the warmest unit, what moved — instead of dead air.</div>
+    <div class="card" style="margin-top:12px">
+      <div class="card-h">
+        <span class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span>
+        <h3>Daily Report</h3>
+        <div class="r"><span>updated 5:02 PM</span><button class="btn">Refresh</button><a href="#">Detailed analysis →</a></div>
+      </div>
+      <div class="v-band ok">
+        <span class="v-dot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+        <div>
+          <div class="v-status">All clear · lab</div>
+          <div class="v-verdict">All eight bench units held steady — <b>312 charge cycles</b> logged and nothing ran hot. Testing is progressing cleanly.</div>
+        </div>
+      </div>
+      <div class="v-tiles">
+        <div class="v-tile"><div class="v">39°C <span class="delta d-flat">−1°</span></div><div class="l">Warmest unit</div></div>
+        <div class="v-tile"><div class="v">312</div><div class="l">Cycles logged</div></div>
+        <div class="v-tile"><div class="v">61% <span class="delta d-flat">flat</span></div><div class="l">Peak RAM</div></div>
+        <div class="v-tile"><div class="v">8 / 8</div><div class="l">Reporting</div></div>
+      </div>
+      <div class="v-lab"><b>Under test:</b> batteries cycling 20→90% cleanly, chargers all engaging, no ANRs or thermal trips in the last 24h. <a class="mono" href="#">SN-021</a> is the warmest at 39°C on continuous charge — expected, worth a periodic glance, not a fault.</div>
+      <div class="v-quiet">
+        <span class="v-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Battery</span>
+        <span class="v-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Charging</span>
+        <span class="v-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Heat</span>
+        <span class="v-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Memory</span>
+        <span>all nominal</span>
+      </div>
+    </div>
+  </section>
+
+  <p class="note">Sample data — nothing here touches live fleet telemetry. Serials and restaurant names stay live links to their device / venue page. The thinking-log + streamed typewriter reveal on Refresh is unchanged — only the finished card's structure and the report's content differ. Pick a direction (or mix), and I'll wire it into the real card on the Overview and Fleet Health pages plus the prompt changes behind it.</p>
+</div>
+
+</body></html>
