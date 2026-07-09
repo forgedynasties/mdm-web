@@ -4792,12 +4792,12 @@ var defaultAlertRules = []struct {
 	{"overheating", "Device overheating", `{"temp_c":45,"temp_c_wlc":65}`, "always", true},
 	// Memory pressure gives the report a configurable RAM cutoff; off by default.
 	{"memory_pressure", "Memory pressure", `{"ram_pct":85}`, "always", false},
-	{"storage_filling", "Storage filling fast", `{"low_gb":1.5,"drop_gb":0.2}`, "always", true},
+	{"storage_filling", "Storage filling fast", `{"drop_gb":0.2}`, "always", true},
 	{"wlc_dead", "Wireless charger not functional all day", `{}`, "always", true},
 	// Recent-tier rules (T7 matrix).
 	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
 	{"storage_low", "Storage critically low", `{"free_gb":1}`, "always", true},
-	{"storage_warning", "Storage low", `{"free_gb":14,"floor_gb":1}`, "always", true},
+	{"storage_warning", "Storage low", `{"free_gb":14}`, "always", true},
 	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", true},
 	{"memory_low", "Memory low (available)", `{"avail_mb":400}`, "always", true},
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
@@ -5360,6 +5360,24 @@ func param(p map[string]float64, key string, def float64) float64 {
 	return def
 }
 
+// criticalStorageFloor returns the free-GB level the critical storage_low rule fires
+// at. The storage_warning and storage_filling rules use it as their lower hand-off
+// point so a low device escalates to the critical alert instead of double-firing —
+// keeping those rules to a single user-facing setting each. Defaults to 0.5 (matching
+// storage_low's own fallback) if the rule row has no free_gb.
+func (d *DB) criticalStorageFloor(ctx context.Context) float64 {
+	var raw json.RawMessage
+	if err := d.pool.QueryRow(ctx,
+		`SELECT params FROM alert_rules WHERE type = 'storage_low' LIMIT 1`).Scan(&raw); err != nil {
+		return 0.5
+	}
+	var p map[string]float64
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &p)
+	}
+	return param(p, "free_gb", 0.5)
+}
+
 // gmtOffset parses a device-reported timezone like "GMT+5"/"GMT-3"/"GMT+0" to an
 // hour offset. Anything unrecognized is treated as UTC (0).
 func gmtOffset(tz string) int {
@@ -5894,10 +5912,12 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		return hits, "warning", rows.Err()
 
 	case "storage_filling":
-		lowGB := param(p, "low_gb", 1.5)
 		dropGB := param(p, "drop_gb", 0.2)
-		// Today's free storage is below the warning floor, or dropped sharply vs
-		// yesterday — but still above the critical floor (storage_low owns < 0.5 GB).
+		floorGB := d.criticalStorageFloor(ctx)
+		// Pure rate rule: free storage fell by more than drop_gb since yesterday. "How low"
+		// is owned by storage_low / storage_warning; this one only watches how FAST it drops.
+		// Skip devices already at/below the critical floor — storage_low owns those, so a
+		// fast-dropping unit doesn't double-fire once it's also critically low.
 		rows, err := d.pool.Query(ctx, `
 			SELECT t.device_id, dv.serial_number, t.today, t.yday FROM (
 				SELECT today.device_id,
@@ -5908,8 +5928,8 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 				  ON yday.device_id = today.device_id AND yday.day = CURRENT_DATE - 1
 				WHERE today.day = CURRENT_DATE
 			) t JOIN devices dv ON dv.id = t.device_id
-			WHERE t.today IS NOT NULL AND t.today >= 0.5
-			  AND (t.today < $1 OR (t.yday IS NOT NULL AND (t.yday - t.today) > $2))`, lowGB, dropGB)
+			WHERE t.today IS NOT NULL AND t.today >= $1
+			  AND t.yday IS NOT NULL AND (t.yday - t.today) > $2`, floorGB, dropGB)
 		if err != nil {
 			return nil, "warning", err
 		}
@@ -5918,17 +5938,16 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 		for rows.Next() {
 			var id uuid.UUID
 			var serial string
-			var today float64
-			var yday *float64
+			var today, yday float64
 			if err := rows.Scan(&id, &serial, &today, &yday); err != nil {
 				return nil, "warning", err
 			}
-			summary := fmt.Sprintf("Storage down to %.1f GB free", today)
-			if yday != nil && (*yday-today) > dropGB {
-				summary = fmt.Sprintf("Storage dropped %.1f→%.1f GB in 24h", *yday, today)
-			}
+			drop := yday - today
+			summary := fmt.Sprintf("Storage dropped %.1f→%.1f GB in 24h", yday, today)
+			// Store the measured 24h drop (not the threshold) so the humanized card shows
+			// the real number, plus today's free level for context.
 			hits = append(hits, alertHit{id, serial, summary,
-				map[string]any{"today_gb": today, "low_gb": lowGB, "drop_gb": dropGB}})
+				map[string]any{"today_gb": today, "drop_gb": drop}})
 		}
 		return hits, "warning", rows.Err()
 
@@ -6311,10 +6330,11 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 
 	case "storage_warning":
 		// Point-in-time warning band: free storage at/under warn_gb but still above the
-		// critical floor (storage_low owns < floor_gb), so a low disk warns once and only
-		// escalates to critical when it gets dire.
+		// critical floor, so a low disk warns once and only escalates to critical when it
+		// gets dire. The floor is the critical storage_low rule's own trigger — the warning
+		// hands off to it automatically, so there's no separate floor setting to keep in sync.
 		warnGB := param(p, "free_gb", 14)
-		floorGB := param(p, "floor_gb", 1)
+		floorGB := d.criticalStorageFloor(ctx)
 		rows, err := d.pool.Query(ctx, `
 			SELECT d.id, d.serial_number, (d.latest_extra->>'storage_free_gb')::numeric
 			FROM devices d
