@@ -17,6 +17,19 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.30.0",
+		Date:    "2026-07-09",
+		Changes: []string{
+			"Spot a failing charger at a glance. When a device's charging keeps flicking on and off — more than ten times a minute, a classic sign of a faulty charger, dock, or cable — a broken-plug symbol now appears on its battery on the Fleet cards and its device page, and a new “Faulty charger” alert flags it. A chatty faulty unit no longer makes the page churn, either: its rapid check-ins are smoothed out so the dashboard stays calm.",
+			"Releases now work like a git history: one main line with branches hanging off it, drawn as a commit-style timeline, newest-first. Merge a tested branch back into the main line — carrying its build, QA results, and any open problems — delete releases that never reached a device, and edit each release's download link right in the list.",
+			"The Alerts page is now a plain-language inbox — every alert reads as a friendly headline and sentence with the key numbers, mirrored in the top-bar bell and in pop-up toasts when something new fires. It's quieter too: one offline alert per device (no runaway repeats) and resolved alerts are tidied away automatically.",
+			"A crash or freeze alert now shows the actual crash trace right on the alert, so you can see what happened without pulling logs. And the three storage alerts have each been simplified to a single setting.",
+			"Redesigned home Overview as a live command center, and Fleet Health is now crash-aware — surfacing which builds and units are crashing alongside battery and heat.",
+			"Devices that go quiet for a while are now set aside as “inactive” automatically, and come back the moment they check in again — so long-dead units don't clutter your lists or skew the fleet stats.",
+			"Smaller touches: a streamlined Shell action, consoles that follow your light/dark theme, admins can reset any user's password, and you can paste a whole list of serials straight into a command's targets.",
+		},
+	},
+	{
 		Version: "1.21.0",
 		Date:    "2026-07-06",
 		Changes: []string{
