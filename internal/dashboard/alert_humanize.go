@@ -155,7 +155,7 @@ func humanizeAlert(a db.Alert) humanAlert {
 		h.IconKey, h.Headline = "charge", "Charged slowly overnight"
 		s = fmt.Sprintf("%s charged all night but only went %s%%→%s%% — likely a weak charger.", place, fnum1(num("first_pct")), b(fnum1(num("last_pct"))))
 	case "charger_flapping":
-		h.IconKey, h.Headline = "charge", "Charger keeps cutting out"
+		h.IconKey, h.Headline = "charge", "Faulty charger"
 		s = fmt.Sprintf("%s is flipping between charging and not about %s times a minute — the charger, dock, or cable is likely faulty.",
 			place, b(fmt.Sprintf("%d×", int(num("rate")))))
 	case "memory_pressure":

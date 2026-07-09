@@ -70,6 +70,8 @@ type Hub struct {
 	subscribers     map[chan PresenceEvent]struct{}
 	updateMu        sync.RWMutex
 	updates         map[chan DeviceUpdateEvent]struct{}
+	updThrottleMu   sync.Mutex
+	lastUpdateAt    map[uuid.UUID]time.Time // per-device last broadcast, to coalesce floods
 	cmdMu           sync.RWMutex
 	cmdUpdates      map[chan CommandUpdateEvent]struct{}
 	logcatMu        sync.RWMutex
@@ -109,6 +111,7 @@ func NewHub() *Hub {
 		clients:       make(map[uuid.UUID]*Client),
 		subscribers:   make(map[chan PresenceEvent]struct{}),
 		updates:       make(map[chan DeviceUpdateEvent]struct{}),
+		lastUpdateAt:  make(map[uuid.UUID]time.Time),
 		cmdUpdates:    make(map[chan CommandUpdateEvent]struct{}),
 		logcatUpdates: make(map[chan LogcatUpdateEvent]struct{}),
 		alertUpdates:  make(map[chan AlertUpdateEvent]struct{}),
@@ -357,8 +360,24 @@ func (h *Hub) publishPresence(ev PresenceEvent) {
 	}
 }
 
-// PublishDeviceUpdate notifies dashboard subscribers that a device changed.
+// deviceUpdateThrottle bounds how often a single device may push a live update to
+// dashboards. A misbehaving unit (e.g. a faulty charger toggling on/off every second)
+// checks in constantly; without this it would repaint the fleet card and re-fetch the
+// device page many times a second. One update per device per window is plenty for the UI.
+const deviceUpdateThrottle = 4 * time.Second
+
+// PublishDeviceUpdate notifies dashboard subscribers that a device changed, rate-limited
+// per device so a check-in flood can't spam the dashboard.
 func (h *Hub) PublishDeviceUpdate(deviceID uuid.UUID) {
+	h.updThrottleMu.Lock()
+	now := time.Now()
+	if last, ok := h.lastUpdateAt[deviceID]; ok && now.Sub(last) < deviceUpdateThrottle {
+		h.updThrottleMu.Unlock()
+		return
+	}
+	h.lastUpdateAt[deviceID] = now
+	h.updThrottleMu.Unlock()
+
 	ev := DeviceUpdateEvent{DeviceID: deviceID}
 	h.updateMu.RLock()
 	defer h.updateMu.RUnlock()
