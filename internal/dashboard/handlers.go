@@ -5108,8 +5108,9 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		branchRow(&row, rel)
 		addRow(row)
 	}
-	// Default order is alphabetical by version; any saved manual (drag) order takes
-	// precedence, with positioned rows first and the rest alphabetical after them.
+	// Default order is latest-first (newest release first — `active` was built from the
+	// newest-first release list, so we keep that insertion order). Any saved manual
+	// (drag) order still takes precedence, positioned rows first.
 	order, _ := h.db.GetVersionOrder(r.Context())
 	sort.SliceStable(active, func(i, j int) bool {
 		pi, iok := order[active[i].Version]
@@ -5120,7 +5121,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		if iok != jok {
 			return iok
 		}
-		return active[i].Version < active[j].Version
+		return false // preserve newest-first insertion order
 	})
 	// Attach each release's branch forks (+ adoptable derivative builds) so they render
 	// nested beneath it, and suggest the next branch version (version + -tN).
@@ -5167,12 +5168,17 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	problemBoard, _ := h.db.ListProblemBoard(r.Context())
 	globalProblems, _ := h.db.GlobalProblemSummary(r.Context())
 
-	// Release train: the blessed timeline — only visible (non-hidden), dev-signed-off
-	// builds, most recent 6, shown latest→oldest (newest first). `releases` is
-	// newest-first; the release currently under test lives in the focus band below.
+	// Map release id → version to resolve merge relationships for the timeline.
+	verByID := make(map[int]string, len(releases))
+	for _, rel := range releases {
+		verByID[rel.ID] = rel.Version
+	}
+	// Release train: the mainline timeline — visible (non-hidden), non-branch builds
+	// including the current draft, most recent 6, shown oldest→newest. `releases` is
+	// newest-first. A merged branch shows which mainline release it merged into.
 	var trainRels []db.Release
 	for _, rel := range releases {
-		if rel.Hidden || rel.IsBranch || rel.SignedOffBy == "" {
+		if rel.Hidden || rel.IsBranch {
 			continue
 		}
 		trainRels = append(trainRels, rel)
@@ -5180,21 +5186,30 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	// Branch builds hang off their parent node in the timeline. Group non-hidden branches
-	// by parent so each train node can render its forks below it (like a git graph).
+	// Branch forks hang off their parent node in the timeline; a merged branch also
+	// carries the version it merged into so the graph can show the merge back to main.
 	trainChildren := map[int][]map[string]any{}
 	for _, rel := range releases {
 		if !rel.IsBranch || rel.ParentReleaseID == nil || rel.Hidden {
 			continue
 		}
 		pid := *rel.ParentReleaseID
+		mergedInto := ""
+		if rel.MergedIntoReleaseID != nil {
+			mergedInto = verByID[*rel.MergedIntoReleaseID]
+		}
 		trainChildren[pid] = append(trainChildren[pid], map[string]any{
 			"ID": rel.ID, "Version": rel.Version, "Name": rel.Name, "Status": rel.Status,
+			"MergedInto": mergedInto, "Merged": mergedInto != "",
 		})
 	}
 	var releaseTrain []map[string]any
-	for i := 0; i < len(trainRels); i++ {
+	for i := len(trainRels) - 1; i >= 0; i-- {
 		rel := trainRels[i]
+		mergedFrom := ""
+		if rel.MergedFromReleaseID != nil {
+			mergedFrom = verByID[*rel.MergedFromReleaseID]
+		}
 		releaseTrain = append(releaseTrain, map[string]any{
 			"ID":          rel.ID,
 			"Version":     rel.Version,
@@ -5204,6 +5219,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			"Open":        problemsByRelease[rel.ID].Open,
 			"Active":      activeRel != nil && activeRel.ID == rel.ID,
 			"Branches":    trainChildren[rel.ID],
+			"MergedFrom":  mergedFrom,
 		})
 	}
 

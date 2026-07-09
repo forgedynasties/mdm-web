@@ -5385,6 +5385,9 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rt-branch:hover { border-color: #7a80f6; }
 .rt-branch-mark { color: #7a80f6; font-weight: 700; }
 .rt-branch-ver { font-size: 11px; font-weight: 600; }
+.rt-branch.merged { background: rgba(122,128,246,.16); border-color: #7a80f6; }
+.rt-branch-into { font-size: 10.5px; font-weight: 700; color: #5b61d6; }
+.rt-merge-in { color: #7a80f6; font-weight: 700; font-size: 12px; margin-left: 1px; }
 .rt-node { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border: 1px solid var(--border-soft); border-radius: 99px; background: var(--surface); text-decoration: none; color: var(--text); white-space: nowrap; flex: none; }
 .rt-node:hover { border-color: var(--accent); }
 
