@@ -4803,6 +4803,7 @@ var defaultAlertRules = []struct {
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
 	{"battery_high_night", "Battery high overnight", `{"soc_pct":60}`, "overnight", true},
 	{"wlc_continuous", "Continuous wireless charging", `{"sustain_min":60}`, "always", true},
+	{"charger_flapping", "Charger flapping / faulty", `{"window_min":30,"min_flaps":6}`, "always", true},
 	{"battery_low", "Battery low during peak", `{"soc_pct":20}`, "peak", true},
 	{"offline_peak", "Offline during peak", `{"offline_minutes":5}`, "peak", true},
 	// Client-telemetry rules (need the new charger/wifi/crash fields the client reports).
@@ -5376,6 +5377,76 @@ func (d *DB) criticalStorageFloor(ctx context.Context) float64 {
 		_ = json.Unmarshal(raw, &p)
 	}
 	return param(p, "free_gb", 0.5)
+}
+
+// chargingFlapSQL counts how many times a device's charging state toggled within a
+// recent window, off the raw check-in stream. A faulty charger/dock connection drops
+// in and out, so `charging` oscillates true↔false check-in to check-in — a healthy
+// unit shows 0–1 transitions over hours, a flapping one dozens per minute. Rows
+// missing the field are skipped so a partial payload can't fake a transition.
+const chargingFlapSQL = `
+	WITH seq AS (
+		SELECT device_id,
+		       (extra->>'charging')::boolean AS charging,
+		       LAG((extra->>'charging')::boolean) OVER (PARTITION BY device_id ORDER BY created_at) AS prev
+		FROM checkins
+		WHERE created_at > NOW() - ($1 * INTERVAL '1 minute')
+		  AND extra->>'charging' IS NOT NULL
+	)
+	SELECT device_id, COUNT(*) AS flaps
+	FROM seq
+	WHERE prev IS NOT NULL AND charging <> prev
+	GROUP BY device_id`
+
+// FlappingChargers returns devices whose charging state toggled at least minFlaps
+// times within the last windowMin minutes — the signature of a faulty charger — as a
+// map of device ID → transition count. Used by both the fleet-list symbol and the
+// charger_flapping alert rule.
+func (d *DB) FlappingChargers(ctx context.Context, windowMin, minFlaps int) (map[uuid.UUID]int, error) {
+	if windowMin <= 0 {
+		windowMin = 30
+	}
+	if minFlaps <= 0 {
+		minFlaps = 6
+	}
+	rows, err := d.pool.Query(ctx, chargingFlapSQL+` HAVING COUNT(*) >= $2`, windowMin, minFlaps)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]int)
+	for rows.Next() {
+		var id uuid.UUID
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}
+
+// DeviceChargerFlapCount counts one device's charging-state transitions within the
+// last windowMin minutes (0 if none) — for the device page's charger-fault callout.
+func (d *DB) DeviceChargerFlapCount(ctx context.Context, deviceID uuid.UUID, windowMin int) (int, error) {
+	if windowMin <= 0 {
+		windowMin = 30
+	}
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		WITH seq AS (
+			SELECT (extra->>'charging')::boolean AS charging,
+			       LAG((extra->>'charging')::boolean) OVER (ORDER BY created_at) AS prev
+			FROM checkins
+			WHERE device_id = $1 AND created_at > NOW() - ($2 * INTERVAL '1 minute')
+			  AND extra->>'charging' IS NOT NULL
+		)
+		SELECT COUNT(*) FROM seq WHERE prev IS NOT NULL AND charging <> prev`,
+		deviceID, windowMin).Scan(&n)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 // gmtOffset parses a device-reported timezone like "GMT+5"/"GMT-3"/"GMT+0" to an
@@ -6009,6 +6080,7 @@ var recentRuleTypes = map[string]bool{
 	"wifi_unstable":      true,
 	"battery_high_night": true,
 	"wlc_continuous":     true,
+	"charger_flapping":   true,
 	"device_crash":       true,
 	"slow_charge_night":  true,
 }
@@ -6356,6 +6428,43 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			hits = append(hits, alertHit{id, serial,
 				fmt.Sprintf("Storage low: %.1f GB free (warn ≤ %.0f GB)", free, warnGB),
 				map[string]any{"storage_free_gb": free, "limit_gb": warnGB}})
+		}
+		return hits, "warning", rows.Err()
+
+	case "charger_flapping":
+		// Faulty charger/dock: the charging state oscillates true↔false as the
+		// connection drops in and out. Count transitions per device over the window
+		// and flag any at/over the threshold. Excludes hidden devices.
+		windowMin := int(param(p, "window_min", 30))
+		minFlaps := int(param(p, "min_flaps", 6))
+		flapping, err := d.FlappingChargers(ctx, windowMin, minFlaps)
+		if err != nil {
+			return nil, "warning", err
+		}
+		if len(flapping) == 0 {
+			return nil, "warning", nil
+		}
+		ids := make([]uuid.UUID, 0, len(flapping))
+		for id := range flapping {
+			ids = append(ids, id)
+		}
+		rows, err := d.pool.Query(ctx, `
+			SELECT id, serial_number FROM devices WHERE id = ANY($1) AND NOT hidden`, ids)
+		if err != nil {
+			return nil, "warning", err
+		}
+		defer rows.Close()
+		var hits []alertHit
+		for rows.Next() {
+			var id uuid.UUID
+			var serial string
+			if err := rows.Scan(&id, &serial); err != nil {
+				return nil, "warning", err
+			}
+			n := flapping[id]
+			hits = append(hits, alertHit{id, serial,
+				fmt.Sprintf("Charger flapping — charging toggled %d× in %d min", n, windowMin),
+				map[string]any{"flaps": n, "window_min": windowMin}})
 		}
 		return hits, "warning", rows.Err()
 
