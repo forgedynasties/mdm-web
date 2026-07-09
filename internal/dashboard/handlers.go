@@ -8878,6 +8878,13 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 		log.Printf("[housekeeping] marked %d device(s) inactive (silent > %dd)", n, inactiveAfterDays)
 		h.hub.PublishAlertUpdate() // nudge the dashboard's live counts to refresh
 	}
+	// Clear out any alerts still open on now-inactive devices.
+	if n, err := h.db.ResolveAlertsForHiddenDevices(ctx); err != nil {
+		log.Printf("[housekeeping] resolve inactive-device alerts: %v", err)
+	} else if n > 0 {
+		log.Printf("[housekeeping] resolved %d alert(s) on inactive devices", n)
+		h.hub.PublishAlertUpdate()
+	}
 	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
 	h.applyPrunes(ctx)
@@ -8900,10 +8907,19 @@ func (h *Handler) applyPrunes(ctx context.Context) {
 			log.Printf("[retention] pruned %d logcat row(s) older than %dd", n, d)
 		}
 	}
+	if n, err := h.db.PruneResolvedAlerts(ctx, resolvedAlertRetentionDays); err != nil {
+		log.Printf("[retention] prune resolved alerts: %v", err)
+	} else if n > 0 {
+		log.Printf("[retention] pruned %d resolved alert(s) older than %dd", n, resolvedAlertRetentionDays)
+	}
 	if err := h.db.DeleteExpiredSessions(ctx); err != nil {
 		log.Printf("[retention] prune sessions: %v", err)
 	}
 }
+
+// resolvedAlertRetentionDays is how long resolved alerts are kept before the
+// housekeeping prune deletes them (open/acknowledged alerts are never pruned).
+const resolvedAlertRetentionDays = 90
 
 // refreshFleetSummary regenerates the cached fleet AI summary shown on the main
 // page, at most hourly. It's a no-op unless AI is configured, and it skips when the
@@ -9294,9 +9310,6 @@ var alertRuleDefs = []struct {
 	// ── Connectivity ──
 	{"offline", "Device offline", "Fires when any device (deployed or bench) is silent longer than the threshold. Self-suppresses overnight via its own quiet window.", "Connectivity", []alertParamField{
 		{"offline_minutes", "Offline after", "min", 1, 5},
-	}, false, true},
-	{"offline_long", "Device offline 1h+", "Fires when a device is silent for the (longer) threshold, any time of day. Warning severity.", "Connectivity", []alertParamField{
-		{"offline_minutes", "Offline after", "min", 5, 60},
 	}, false, true},
 	{"offline_peak", "Offline during peak", "Fires when a deployed device goes offline during its restaurant's peak hours. Configure peak ranges per restaurant.", "Connectivity", []alertParamField{
 		{"offline_minutes", "Offline after", "min", 1, 5},
