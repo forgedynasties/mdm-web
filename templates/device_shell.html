@@ -106,10 +106,10 @@
   .sh-statdot.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(43,182,115,.18); }
   .sh-body { padding: 16px 20px; }
   .sh-term { height: 420px; overflow: auto; margin: 0 0 12px; white-space: pre-wrap; word-break: break-word;
-    background: #11161c; color: #cdd3da; border-radius: 12px; padding: 14px 16px;
+    background: var(--console-bg); color: var(--console-text); border: 1px solid var(--console-border); border-radius: 12px; padding: 14px 16px;
     font-family: var(--mono); font-size: 12.5px; line-height: 1.7; }
-  .sh-term .sh-prompt { color: #7ad19a; font-weight: 600; }
-  .sh-term .sh-error { color: #f08a8d; }
+  .sh-term .sh-prompt { color: var(--ok); font-weight: 600; }
+  .sh-term .sh-error { color: var(--danger); }
   .sh-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
   .sh-chip { font: inherit; font-size: 12px; font-weight: 600; font-family: var(--mono); padding: 5px 11px;
     border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; }
