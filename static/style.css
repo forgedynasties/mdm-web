@@ -4400,6 +4400,7 @@ html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22
 .dl-serial:hover { color: var(--accent-h); text-decoration: underline; }
 .dl-kiosk { color: var(--muted); display: inline-flex; flex: none; }
 .dl-flap { color: var(--warn); display: inline-flex; flex: none; vertical-align: -1px; }
+.vitals-flap { color: var(--warn); display: inline-flex; align-items: center; vertical-align: -2px; }
 .ddc-flap-alert { display: flex; align-items: flex-start; gap: 11px; margin: 14px 0 2px; padding: 11px 14px;
   background: var(--warn-bg); border: 1px solid var(--warn); border-radius: 10px; font-size: 13px; line-height: 1.5; color: var(--text2, var(--muted)); }
 .ddc-flap-alert .ic { flex: none; color: var(--warn); display: inline-flex; margin-top: 1px; }
