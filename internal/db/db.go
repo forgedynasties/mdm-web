@@ -5391,7 +5391,7 @@ const chargingFlapSQL = `
 		       LAG((extra->>'charging')::boolean) OVER (PARTITION BY device_id ORDER BY created_at) AS prev
 		FROM checkins
 		WHERE created_at > NOW() - ($1 * INTERVAL '1 minute')
-		  AND extra->>'charging' IS NOT NULL
+		  AND extra->>'charging' IN ('true','false')
 	)
 	SELECT device_id, COUNT(*) AS flaps
 	FROM seq
@@ -5450,7 +5450,7 @@ func (d *DB) DeviceChargerFlapRate(ctx context.Context, deviceID uuid.UUID, wind
 			       LAG((extra->>'charging')::boolean) OVER (ORDER BY created_at) AS prev
 			FROM checkins
 			WHERE device_id = $1 AND created_at > NOW() - ($2 * INTERVAL '1 minute')
-			  AND extra->>'charging' IS NOT NULL
+			  AND extra->>'charging' IN ('true','false')
 		)
 		SELECT COUNT(*) FROM seq WHERE prev IS NOT NULL AND charging <> prev`,
 		deviceID, windowMin).Scan(&n)
