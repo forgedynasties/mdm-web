@@ -61,7 +61,7 @@
 
   <div class="alx-head">
     <h1>Alerts</h1>
-    <span class="sum">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} your attention</b> · {{end}}{{.Summary.Open}} open · {{.Summary.Resolved}} resolved</span>
+    <span class="sum">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} your attention</b> · {{end}}{{.Summary.Open}} open</span>
     {{if and (canAdmin .Role) (or .Critical .Watching)}}
     <form action="/alerts/clear-all" method="POST" class="clear" hx-confirm="Clear ALL alerts? Any whose condition still holds will re-fire on the next check.">
       <button type="submit" class="alx-head clear" style="background:none;border:none;cursor:pointer;font:inherit;">Clear all</button>
@@ -74,35 +74,22 @@
       <a href="/alerts" class="{{if eq .View ""}}on{{end}}">All{{if .ActiveCount}}<span class="n">{{.ActiveCount}}</span>{{end}}</a>
       <a href="/alerts?view=needs" class="{{if eq .View "needs"}}on{{end}}">Needs action<span class="n">{{.NeedsCount}}</span></a>
       <a href="/alerts?view=watching" class="{{if eq .View "watching"}}on{{end}}">Watching<span class="n">{{.WatchCount}}</span></a>
-      <a href="/alerts?view=resolved" class="{{if eq .View "resolved"}}on{{end}}">Resolved</a>
     </div>
     <div class="alx-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
   </div>
 
-  {{if eq .View "resolved"}}
-    <div class="alx-sec"><span class="st">Resolved</span><span class="line"></span></div>
-    {{if .Resolved}}{{range .Resolved}}{{template "alx-card" .}}{{end}}
-    {{else}}<div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">No resolved alerts</div><div class="s">Nothing has been resolved recently.</div></div></div>{{end}}
+  {{if and (not .Critical) (not .Watching)}}
+  <div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">All clear</div><div class="s">Everything is operating normally. Alerts are raised automatically from device telemetry.</div></div></div>
+  {{end}}
 
-  {{else}}
-    {{if and (not .Critical) (not .Watching)}}
-    <div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">All clear</div><div class="s">Everything is operating normally. Alerts are raised automatically from device telemetry.</div></div></div>
-    {{end}}
+  {{if and .Critical (ne .View "watching")}}
+  <div class="alx-sec crit"><span class="st">Needs attention now</span><span class="sc">{{.NeedsCount}}</span><span class="line"></span></div>
+  {{range .Critical}}{{template "alx-card" .}}{{end}}
+  {{end}}
 
-    {{if and .Critical (ne .View "watching")}}
-    <div class="alx-sec crit"><span class="st">Needs attention now</span><span class="sc">{{.NeedsCount}}</span><span class="line"></span></div>
-    {{range .Critical}}{{template "alx-card" .}}{{end}}
-    {{end}}
-
-    {{if and .Watching (ne .View "needs")}}
-    <div class="alx-sec"><span class="st">Worth watching</span><span class="sc">{{.WatchCount}}</span><span class="line"></span></div>
-    {{range .Watching}}{{template "alx-card" .}}{{end}}
-    {{end}}
-
-    {{if and (eq .View "") (gt .ResolvedCount 0)}}
-    <div class="alx-sec"><span class="st">Resolved</span><span class="line"></span></div>
-    <a class="alx-fold" href="/alerts?view=resolved"><span><b>✓ {{.ResolvedCount}} alert{{if ne .ResolvedCount 1}}s{{end}}</b> resolved — cleared on their own or by the team</span><span class="chev">Show ›</span></a>
-    {{end}}
+  {{if and .Watching (ne .View "needs")}}
+  <div class="alx-sec"><span class="st">Worth watching</span><span class="sc">{{.WatchCount}}</span><span class="line"></span></div>
+  {{range .Watching}}{{template "alx-card" .}}{{end}}
   {{end}}
 
   <div id="alx-nomatch">No alerts match your search.</div>
