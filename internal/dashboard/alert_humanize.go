@@ -36,7 +36,8 @@ type humanAlert struct {
 	ResolvedAt  *time.Time
 	Occurrences int
 	Primary     *alertAction
-	CanAct      bool // whether the viewer may acknowledge/resolve (set by the handler)
+	Trace       string // crash/ANR/tombstone stack trace, shown inline (set by the handler)
+	CanAct      bool   // whether the viewer may acknowledge/resolve (set by the handler)
 }
 
 // fnum1 renders a float without a trailing ".0" (so "55", not "55.0").
@@ -181,13 +182,11 @@ func humanizeAlert(a db.Alert) humanAlert {
 	}
 	h.Sentence = template.HTML(s)
 
-	// Primary action — a safe link to where the fix lives.
+	// Primary action — a safe link to where the fix lives. Crash alerts carry the
+	// stack trace inline (attached by the handler), so they don't need a "View logs"
+	// link to the old logcat page — the device link in the footer is enough.
 	if a.Serial != "" {
-		if a.Type == "device_crash" {
-			h.Primary = &alertAction{Label: "View logs", Href: "/devices/" + a.Serial + "/logcat", Icon: "logs"}
-		} else {
-			h.Primary = &alertAction{Label: "Open device", Href: "/devices/" + a.Serial, Icon: "arrow"}
-		}
+		h.Primary = &alertAction{Label: "Open device", Href: "/devices/" + a.Serial, Icon: "arrow"}
 	}
 	return h
 }

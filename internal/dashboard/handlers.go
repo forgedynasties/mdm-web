@@ -3049,6 +3049,14 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	for _, a := range active {
 		ha := humanizeAlert(a)
 		ha.CanAct = canAct
+		// Crash/ANR alerts carry the real diagnostic: attach the latest stored stack
+		// trace so it renders inline on the card (same as the release problems page),
+		// instead of linking out to the old logcat capture.
+		if a.Type == "device_crash" && a.DeviceID != nil {
+			if trace, ok, _ := h.db.LatestCrashTrace(r.Context(), *a.DeviceID); ok {
+				ha.Trace = trace
+			}
+		}
 		if a.Severity == "critical" {
 			crit = append(crit, ha)
 		} else {
