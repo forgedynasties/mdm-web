@@ -5122,6 +5122,15 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rlc-qfil-edit > summary::-webkit-details-marker { display: none; }
 .rlc-qfil-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; display: flex; gap: 6px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 30px rgba(28,26,24,.16); padding: 8px; }
 .rlc-qfil-pop input { width: 240px; }
+/* QFIL download + pencil-edit on the release detail page */
+.qfil-ctl { display: inline-flex; align-items: center; gap: 6px; }
+.qfil-edit { position: relative; display: inline-flex; }
+.qfil-edit > summary { list-style: none; cursor: pointer; }
+.qfil-edit > summary::-webkit-details-marker { display: none; }
+.qfil-pencil { display: inline-flex; align-items: center; justify-content: center; }
+.qfil-edit-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: flex; flex-direction: column; gap: 9px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 34px rgba(28,26,24,.18); padding: 12px; }
+.qfil-remove { background: none; border: none; color: var(--danger); font-size: 12px; font-weight: 600; cursor: pointer; text-align: left; padding: 0; }
+.qfil-remove:hover { text-decoration: underline; }
 /* Subtle dismiss (×) tucked in the row's top-right corner, clear of the action icons. */
 .rlc-x { position: absolute; top: 6px; right: 8px; margin: 0; z-index: 2; }
 .rlc-x button { display: flex; align-items: center; justify-content: center; width: 19px; height: 19px; padding: 0; border: 0; background: transparent; border-radius: 5px; color: var(--text-faint); opacity: .35; cursor: pointer; transition: opacity .12s, color .12s, background .12s; }
