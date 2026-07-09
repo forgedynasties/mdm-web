@@ -4672,18 +4672,6 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .pkg-opt.active, .pkg-opt:hover { background: var(--accent-soft); }
 .pkg-opt-name { font-size: 13px; font-weight: 600; }
 .pkg-opt-pkg { font-size: 11px; color: var(--muted); }
-/* One-off shell-command modal: terminal output + command bar. */
-.ddsh-term { max-height: 340px; overflow: auto; margin: 12px 0 0; white-space: pre-wrap; word-break: break-word;
-  background: var(--console-bg); color: var(--console-text); border: 1px solid var(--console-border); border-radius: 12px; padding: 14px 16px;
-  font-family: var(--mono); font-size: 12.5px; line-height: 1.7; }
-.ddsh-term .ddsh-prompt { color: var(--ok); font-weight: 600; }
-.ddsh-term .ddsh-error { color: var(--danger); }
-.ddsh-bar { display: flex; align-items: center; gap: 10px; margin-top: 12px;
-  border: 1px solid var(--border); border-radius: 11px; padding: 6px 6px 6px 13px; }
-.ddsh-bar:focus-within { border-color: var(--accent-2); }
-.ddsh-sign { color: var(--accent); font-weight: 700; font-family: var(--mono); }
-.ddsh-bar .ddsh-input { flex: 1; border: 0; outline: 0; box-shadow: none; background: none; font-size: 13.5px; color: var(--text); font-family: var(--mono); }
-.ddsh-bar .ddsh-input:focus { border: 0; outline: 0; box-shadow: none; }
 
 /* Bulk-kiosk: an app present on only some selected devices is greyed but usable. */
 .pkg-opt-partial .pkg-opt-name, .pkg-opt-partial .pkg-opt-pkg { opacity: .5; }
