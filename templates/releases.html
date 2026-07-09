@@ -340,6 +340,41 @@ function relTab(group, btn) {
 })();
 </script>
 
+<script>
+// Draw the git-style merge curve from a merged branch node up to the mainline
+// release it merged into. Runs on load, on resize, and after the hub-live swap.
+(function () {
+  function draw() {
+    document.querySelectorAll('.rel-train').forEach(function (train) {
+      var svg = train.querySelector('.rt-lines');
+      if (!svg) return;
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      var tr = train.getBoundingClientRect();
+      var NS = 'http://www.w3.org/2000/svg';
+      train.querySelectorAll('.rt-branch[data-merge-into]').forEach(function (br) {
+        var into = (br.getAttribute('data-merge-into') || '').replace(/"/g, '\\"');
+        var target = train.querySelector('.rt-node[data-ver="' + into + '"]');
+        if (!target) return;
+        var b = br.getBoundingClientRect(), n = target.getBoundingClientRect();
+        var sx = b.left - tr.left + b.width / 2, sy = b.top - tr.top;       // branch top-centre
+        var ex = n.left - tr.left + n.width * 0.5, ey = n.bottom - tr.top;   // target node bottom
+        var my = (sy + ey) / 2;
+        var p = document.createElementNS(NS, 'path');
+        p.setAttribute('d', 'M ' + sx + ' ' + sy + ' C ' + sx + ' ' + my + ', ' + ex + ' ' + my + ', ' + ex + ' ' + ey);
+        svg.appendChild(p);
+        var c = document.createElementNS(NS, 'circle');
+        c.setAttribute('cx', ex); c.setAttribute('cy', ey); c.setAttribute('r', '2.6');
+        svg.appendChild(c);
+      });
+    });
+  }
+  draw();
+  setTimeout(draw, 60);
+  var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(draw, 100); });
+  document.body.addEventListener('htmx:afterSwap', function (e) { if (e.target && e.target.id === 'hub-live') setTimeout(draw, 0); });
+})();
+</script>
+
 {{template "footer" .}}
 {{end}}
 
@@ -348,10 +383,11 @@ function relTab(group, btn) {
 {{define "hub-live"}}
 {{if gt (len .ReleaseTrain) 1}}
 <div class="rel-train" title="The release cycle — oldest to newest; branches fork below their build and merge back into a later release">
+  <svg class="rt-lines" aria-hidden="true"></svg>
   {{range $i, $t := .ReleaseTrain}}
   {{if $i}}<span class="rt-link"></span>{{end}}
   <div class="rt-col">
-    <a href="/releases/{{$t.ID}}" class="rt-node st-{{$t.Status}}{{if $t.Active}} active{{end}}" title="{{$t.Version}}{{if $t.Name}} — {{$t.Name}}{{end}} — {{$t.Status}}{{if $t.MergedFrom}} · merged from {{$t.MergedFrom}}{{end}}{{if gt $t.Open 0}} · {{$t.Open}} open problem{{if ne $t.Open 1}}s{{end}}{{end}}{{if $t.SignedOffBy}} · signed off{{end}}">
+    <a href="/releases/{{$t.ID}}" data-ver="{{$t.Version}}" class="rt-node st-{{$t.Status}}{{if $t.Active}} active{{end}}" title="{{$t.Version}}{{if $t.Name}} — {{$t.Name}}{{end}} — {{$t.Status}}{{if $t.MergedFrom}} · merged from {{$t.MergedFrom}}{{end}}{{if gt $t.Open 0}} · {{$t.Open}} open problem{{if ne $t.Open 1}}s{{end}}{{end}}{{if $t.SignedOffBy}} · signed off{{end}}">
       <span class="rt-dot"></span>
       <span class="rt-ver{{if not $t.Name}} mono{{end}}">{{if $t.Name}}{{$t.Name}}{{else}}{{$t.Version}}{{end}}</span>
       <span class="rt-meta">{{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}}⚠{{end}}</span>
@@ -360,10 +396,9 @@ function relTab(group, btn) {
     {{if $t.Branches}}
     <div class="rt-branches">
       {{range $t.Branches}}
-      <a href="/releases/{{.ID}}" class="rt-branch{{if .Merged}} merged{{end}}" title="branch build {{.Version}} · {{.Status}}{{if .Merged}} · merged into {{.MergedInto}}{{end}}">
+      <a href="/releases/{{.ID}}"{{if .Merged}} data-merge-into="{{.MergedInto}}"{{end}} class="rt-branch{{if .Merged}} merged{{end}}" title="branch build {{.Version}} · {{.Status}}{{if .Merged}} · merged into {{.MergedInto}}{{end}}">
         <span class="rt-branch-mark">⑂</span>
         <span class="rt-branch-ver mono">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span>
-        {{if .Merged}}<span class="rt-branch-into">→ {{.MergedInto}}</span>{{end}}
       </a>
       {{end}}
     </div>

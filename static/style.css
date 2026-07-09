@@ -5375,7 +5375,11 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .hub-list-h { font-size: 14px; font-weight: 700; margin: 22px 0 10px; color: var(--muted); }
 
 /* Release train: the repeating ship -> test -> fix cycle, oldest -> newest. */
-.rel-train { display: flex; align-items: flex-start; gap: 0; flex-wrap: wrap; margin: 2px 0 14px; padding: 2px; overflow-x: auto; }
+.rel-train { position: relative; display: flex; align-items: flex-start; gap: 0; flex-wrap: wrap; margin: 2px 0 14px; padding: 2px; overflow-x: auto; }
+.rt-lines { position: absolute; left: 0; top: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 0; }
+.rt-lines path { fill: none; stroke: #7a80f6; stroke-width: 2; stroke-linecap: round; }
+.rt-lines circle { fill: #7a80f6; }
+.rt-col { position: relative; z-index: 1; }
 .rt-link { width: 26px; height: 2px; background: var(--border); flex: none; margin-top: 15px; }
 .rt-col { display: inline-flex; flex-direction: column; align-items: center; flex: none; }
 /* Branch forks hang below their build like a git graph. */
