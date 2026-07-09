@@ -3025,10 +3025,11 @@ func (h *Handler) GroupDailyStatsJSON(w http.ResponseWriter, r *http.Request) {
 
 // AlertList renders the alerts page, optionally filtered by ?status=open|acknowledged|resolved.
 func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
-	// The inbox has one segmented control: All / Needs action / Watching / Resolved.
+	// The inbox has one segmented control: All / Needs action / Watching. Resolved
+	// history is intentionally not a view here — the inbox is about what's active.
 	view := r.URL.Query().Get("view")
 	switch view {
-	case "", "needs", "watching", "resolved":
+	case "", "needs", "watching":
 	default:
 		view = ""
 	}
@@ -3037,40 +3038,33 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	data := map[string]any{
-		"Title":         "Alerts",
-		"Summary":       summary,
-		"View":          view,
-		"ResolvedCount": summary.Resolved,
-	}
 	role := h.role(r)
 	canAct := role == "admin" || role == "dev" || role == "operator" || role == "tester"
-	if view == "resolved" {
-		resolved, _ := h.db.ListAlerts(r.Context(), "resolved", 60)
-		data["Resolved"] = humanizeAll(resolved)
-	} else {
-		active, err := h.db.ListActiveAlerts(r.Context(), 150)
-		if err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		var crit, watch []humanAlert
-		for _, a := range active {
-			ha := humanizeAlert(a)
-			ha.CanAct = canAct
-			if a.Severity == "critical" {
-				crit = append(crit, ha)
-			} else {
-				watch = append(watch, ha)
-			}
-		}
-		data["Critical"] = crit
-		data["Watching"] = watch
-		data["NeedsCount"] = len(crit)
-		data["WatchCount"] = len(watch)
-		data["ActiveCount"] = len(crit) + len(watch)
+	active, err := h.db.ListActiveAlerts(r.Context(), 150)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
 	}
-	h.render(w, r, "alerts.html", data)
+	var crit, watch []humanAlert
+	for _, a := range active {
+		ha := humanizeAlert(a)
+		ha.CanAct = canAct
+		if a.Severity == "critical" {
+			crit = append(crit, ha)
+		} else {
+			watch = append(watch, ha)
+		}
+	}
+	h.render(w, r, "alerts.html", map[string]any{
+		"Title":       "Alerts",
+		"Summary":     summary,
+		"View":        view,
+		"Critical":    crit,
+		"Watching":    watch,
+		"NeedsCount":  len(crit),
+		"WatchCount":  len(watch),
+		"ActiveCount": len(crit) + len(watch),
+	})
 }
 
 // AlertNewest returns the single most urgent active alert in friendly form as JSON,
@@ -10573,6 +10567,32 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
+// UserSetPassword resets a team user's password (admin-only). The built-in admin
+// account's password comes from the environment and can't be changed here.
+func (h *Handler) UserSetPassword(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+	password := r.FormValue("password")
+	if len(password) < 6 {
+		http.Error(w, "Password must be at least 6 characters", http.StatusBadRequest)
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := h.db.SetUserPassword(r.Context(), id, string(hash)); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "user.password_reset", id.String(), "")
+	http.Redirect(w, r, "/users", http.StatusFound)
+}
+
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// post registers a state-changing route behind the same-origin (CSRF) guard.
 	// Use it for every POST so cross-site requests can't drive an authenticated
@@ -10810,6 +10830,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /users", h.requireStrictAdmin(h.UserList))
 	post("POST /users", h.requireStrictAdmin(h.UserCreate))
 	post("POST /users/{id}/role", h.requireStrictAdmin(h.UserSetRole))
+	post("POST /users/{id}/password", h.requireStrictAdmin(h.UserSetPassword))
 	post("POST /users/{id}/delete", h.requireStrictAdmin(h.UserDelete))
 
 	// Command output SSE

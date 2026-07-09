@@ -1,6 +1,17 @@
 {{define "users.html"}}
 {{template "header" .}}
 
+<style>
+.user-pw{position:relative;display:inline-block}
+.user-pw>summary{list-style:none;cursor:pointer}
+.user-pw>summary::-webkit-details-marker{display:none}
+.user-pw-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:20;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md,0 8px 30px rgba(28,26,24,.14));padding:8px}
+.user-pw-pop input{width:158px}
+.user-pw-btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:5px 10px;font-size:12.5px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
+.user-pw-btn:hover{border-color:var(--rule-2);color:var(--text)}
+.user-pw-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+</style>
+
 <div class="ov-greet">
   <h1 class="ov-title">Users</h1>
   <span class="ov-date">viewers are read-only; operators can also send shell and reboot; testers add QA recording; devs get full ops + release sign-off</span>
@@ -32,6 +43,13 @@
             </select>
             <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
           </form>
+          <details class="user-pw">
+            <summary class="user-pw-btn" title="Change password"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Password</summary>
+            <form action="/users/{{.ID}}/password" method="POST" class="user-pw-pop">
+              <input type="password" name="password" class="form-input" placeholder="New password" required autocomplete="new-password" minlength="6">
+              <button type="submit" class="btn-primary btn-sm">Set</button>
+            </form>
+          </details>
           <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete user {{.Username}}?">
             <button type="submit" class="user-del" title="Delete user" aria-label="Delete">&times;</button>
           </form>

@@ -368,6 +368,12 @@ func (d *DB) UpdateUserRole(ctx context.Context, id uuid.UUID, role string) erro
 	return err
 }
 
+// SetUserPassword replaces a user's bcrypt password hash.
+func (d *DB) SetUserPassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1`, id, passwordHash)
+	return err
+}
+
 // ProductionDevice is a device row augmented with connection status for production detail view.
 type ProductionDevice struct {
 	Serial           string    `json:"serial"`
