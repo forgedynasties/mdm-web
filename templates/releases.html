@@ -222,6 +222,7 @@
           <label class="form-label">New release version</label>
           <input type="text" name="version" id="merge-version" class="form-input" placeholder="e.g. v2.0.4" required autocomplete="off">
           <div class="form-hint">The next mainline version devices will report. Must be unique.</div>
+          <div class="form-hint" id="merge-version-warn" style="display:none;color:var(--danger);font-weight:600;"></div>
         </div>
         <div class="form-row">
           <label class="form-label">Name <span class="muted small">(optional)</span></label>
@@ -250,16 +251,36 @@ document.addEventListener('keydown', function(e) {
 // version by bumping the trailing number of the branch's base (v2.0.3 → v2.0.4).
 (function () {
   function bump(v) { return v ? v.replace(/(\d+)(\D*)$/, function (_, n, s) { return (parseInt(n, 10) + 1) + s; }) : ''; }
+  // Every version already in use (list rows + timeline nodes) — so we never suggest or
+  // accept a name that would make the merge fail on a unique-name clash.
+  function existing() {
+    var s = new Set();
+    document.querySelectorAll('.rlc-ver').forEach(function (e) { s.add(e.textContent.trim()); });
+    document.querySelectorAll('.rt-node[data-ver]').forEach(function (e) { s.add((e.getAttribute('data-ver') || '').trim()); });
+    return s;
+  }
+  function nextFree(v) { var ex = existing(), n = 0; while (v && ex.has(v) && n < 60) { v = bump(v); n++; } return v; }
+  var vi = document.getElementById('merge-version');
+  var warn = document.getElementById('merge-version-warn');
   document.addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('.rlc-merge') : null;
     if (!b) return;
     document.getElementById('merge-form').setAttribute('action', '/releases/' + b.getAttribute('data-branch') + '/merge');
     document.getElementById('merge-branch-ver').textContent = b.getAttribute('data-ver') || '';
-    var vi = document.getElementById('merge-version');
-    vi.value = bump(b.getAttribute('data-parent') || '');
+    if (warn) warn.style.display = 'none';
+    vi.value = nextFree(bump(b.getAttribute('data-parent') || '')); // skip a leftover draft
     document.getElementById('merge-modal').classList.add('modal-open');
     setTimeout(function () { vi.focus(); vi.select(); }, 30);
   });
+  var mf = document.getElementById('merge-form');
+  if (mf) mf.addEventListener('submit', function (e) {
+    var v = (vi.value || '').trim();
+    if (v && existing().has(v)) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      if (warn) { warn.textContent = 'A release named "' + v + '" already exists — pick a different version, or delete that release first.'; warn.style.display = ''; }
+      vi.focus(); vi.select();
+    }
+  }, true);
 })();
 </script>
 {{end}}
