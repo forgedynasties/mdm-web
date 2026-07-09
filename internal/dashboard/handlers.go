@@ -9349,12 +9349,10 @@ var alertRuleDefs = []struct {
 	{"storage_low", "Storage critically low", "Fires when free storage falls below the critical floor.", "Storage", []alertParamField{
 		{"free_gb", "Free floor", "GB", 0.1, 1},
 	}, false, true},
-	{"storage_warning", "Storage low", "Fires when free storage is at/below the warning level but still above the critical floor.", "Storage", []alertParamField{
+	{"storage_warning", "Storage low", "An earlier, gentler heads-up: fires when free storage drops below this level. Automatically stops once it falls low enough for the critical alert to take over.", "Storage", []alertParamField{
 		{"free_gb", "Warning level", "GB", 1, 14},
-		{"floor_gb", "Critical floor", "GB", 0.1, 1},
 	}, false, true},
-	{"storage_filling", "Storage filling fast", "Fires when free storage is below the warning floor or dropped sharply over 24 h (above the critical floor).", "Storage", []alertParamField{
-		{"low_gb", "Warning floor", "GB", 0.1, 1.5},
+	{"storage_filling", "Storage filling fast", "Watches how FAST space is disappearing, not how low it is: fires when a device loses more than this much free storage in 24 h.", "Storage", []alertParamField{
 		{"drop_gb", "24h drop", "GB", 0.1, 0.2},
 	}, false, false},
 	// ── Battery ──
