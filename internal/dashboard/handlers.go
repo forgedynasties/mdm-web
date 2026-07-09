@@ -3905,9 +3905,12 @@ func (h *Handler) DeviceVitalsPartial(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
 	h.renderCachedHTML(w, r, "device-vitals", map[string]any{
 		"Device":              device,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+		"ChargerFlapRate":     flapRate,
+		"ChargerFlapping":     flapRate > 10,
 	})
 }
 
