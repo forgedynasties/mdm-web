@@ -202,6 +202,8 @@ type DeviceRowJSON struct {
 	KioskPackage string `json:"kiosk_package"`
 	Hidden       bool   `json:"hidden"` // true once hidden; tells the live row patch to drop the row
 	Charging     bool   `json:"charging"`
+	Flapping     bool   `json:"flapping"`  // charger toggling >10×/min — show the fault glyph
+	FlapRate     int    `json:"flap_rate"` // observed toggles/min, for the tooltip
 	RowClasses   string `json:"row_classes"`
 }
 
@@ -2496,6 +2498,11 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		row := deviceToRowJSON(*dev, h.hub.IsConnected(deviceID), activeThreshold)
+		// The live row-patch repaints the battery chip, so it must carry the flap state
+		// too — otherwise it overwrites the server-rendered fault glyph with a plain bolt.
+		if rate, _ := h.db.DeviceChargerFlapRate(r.Context(), deviceID, 5); rate > 10 {
+			row.Flapping, row.FlapRate = true, rate
+		}
 		b, err := json.Marshal(row)
 		if err != nil {
 			return
