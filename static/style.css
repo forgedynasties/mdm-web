@@ -5120,6 +5120,7 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rlc-x button { display: flex; align-items: center; justify-content: center; width: 19px; height: 19px; padding: 0; border: 0; background: transparent; border-radius: 5px; color: var(--text-faint); opacity: .35; cursor: pointer; transition: opacity .12s, color .12s, background .12s; }
 .rlc:hover .rlc-x button { opacity: .6; }
 .rlc-x button:hover { opacity: 1; color: var(--danger); background: var(--danger-bg); }
+.rlc-x.rlc-del { right: 30px; } /* sit left of the hide button so they don't overlap */
 .rlc-x svg { width: 11px; height: 11px; stroke: currentColor; stroke-width: 2.4; fill: none; }
 @media (max-width: 760px) {
   .rlc-list { grid-template-columns: 16px 40px 1fr auto; }
