@@ -4175,6 +4175,34 @@ func (d *DB) HideStaleDevices(ctx context.Context, days int) (int64, error) {
 	return tag.RowsAffected(), nil
 }
 
+// PruneResolvedAlerts deletes resolved alerts older than `days` days so the table
+// doesn't grow without bound (open/acknowledged alerts are always kept).
+func (d *DB) PruneResolvedAlerts(ctx context.Context, days int) (int64, error) {
+	if days <= 0 {
+		return 0, nil
+	}
+	tag, err := d.pool.Exec(ctx, fmt.Sprintf(
+		`DELETE FROM alerts WHERE status = 'resolved' AND resolved_at < NOW() - INTERVAL '%d days'`, days))
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// ResolveAlertsForHiddenDevices resolves any open/acknowledged alert belonging to a
+// device that is now inactive (hidden), so an auto-inactivated unit's alerts clear
+// out instead of lingering. Runs after the stale-device sweep.
+func (d *DB) ResolveAlertsForHiddenDevices(ctx context.Context) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+		WHERE status <> 'resolved'
+		  AND device_id IN (SELECT id FROM devices WHERE hidden)`)
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
 // PruneCheckins deletes check-in rows older than `days` days.
 func (d *DB) PruneCheckins(ctx context.Context, days int) (int64, error) {
 	if days <= 0 {
@@ -4762,7 +4790,6 @@ var defaultAlertRules = []struct {
 	{"wlc_dead", "Wireless charger not functional all day", `{}`, "always", true},
 	// Recent-tier rules (T7 matrix).
 	{"offline", "Device offline", `{"offline_minutes":5}`, "always", true},
-	{"offline_long", "Device offline 1h+", `{"offline_minutes":60}`, "always", true},
 	{"storage_low", "Storage critically low", `{"free_gb":1}`, "always", true},
 	{"storage_warning", "Storage low", `{"free_gb":14,"floor_gb":1}`, "always", true},
 	{"temp_elevated", "Temperature elevated", `{"temp_min":38,"temp_max":45}`, "always", true},
@@ -4859,17 +4886,18 @@ func (d *DB) CreateAlertIfAbsent(ctx context.Context, ruleID *uuid.UUID, typ str
 		}
 		detailJSON = b
 	}
-	// On a re-fire of the same open (type, device) condition, bump the occurrence
-	// count and refresh the summary/detail/last-seen instead of dropping the row.
-	// The (xmax = 0) flag is true only for a genuine INSERT, so callers still
-	// broadcast/notify exactly once per distinct occurrence (not on every re-fire).
+	// While a condition holds continuously we refresh the row's summary/detail/last-seen
+	// but do NOT bump occurrences — the evaluator runs every minute, so counting each pass
+	// produced meaningless "×4000" badges for a single ongoing outage. The alert's age
+	// (fired_at → now) already conveys "how long", which is the useful signal. The
+	// (xmax = 0) flag is true only for a genuine INSERT, so callers still notify exactly
+	// once per episode, not on every re-fire.
 	var inserted bool
 	err := d.pool.QueryRow(ctx, `
 		INSERT INTO alerts (rule_id, type, device_id, severity, summary, detail)
 		VALUES ($1, $2, $3, $4, $5, $6::jsonb)
 		ON CONFLICT (type, device_id) WHERE status <> 'resolved'
-		DO UPDATE SET occurrences  = alerts.occurrences + 1,
-		              last_seen_at  = NOW(),
+		DO UPDATE SET last_seen_at  = NOW(),
 		              severity      = EXCLUDED.severity,
 		              summary       = EXCLUDED.summary,
 		              detail        = EXCLUDED.detail,
@@ -5830,7 +5858,10 @@ func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) (
 				fmt.Sprintf("Offline — last check-in %dm ago", down),
 				map[string]any{"offline_minutes": down, "last_seen": lastSeen, "timezone": tz}})
 		}
-		return hits, "critical", rows.Err()
+		// One offline alert per device at warning severity — a plain outage isn't a
+		// page. The genuinely urgent case (offline during peak service) is a separate
+		// critical alert (offline_peak). offline_long is retired (redundant).
+		return hits, "warning", rows.Err()
 
 	case "memory_pressure":
 		limit := param(p, "ram_pct", 85)
@@ -6098,7 +6129,8 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				fmt.Sprintf("Offline — last check-in %dm ago", down),
 				map[string]any{"offline_minutes": down, "last_seen": last}})
 		}
-		return hits, "critical", rows.Err()
+		// A plain outage is a warning, not a page; offline_peak stays critical.
+		return hits, "warning", rows.Err()
 
 	case "storage_low":
 		freeGB := param(p, "free_gb", 0.5)
@@ -6365,31 +6397,10 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		return hits, "critical", rows.Err()
 
 	case "offline_long":
-		// Anytime long-outage warning (distinct type from the critical `offline` so both
-		// can hold an open alert). For the non-legacy fleet, last_seen_at is refreshed by
-		// the 30s WS check-in, so "silent > N min" == "no live WS" — the offline-means-no-
-		// websocket definition, without a separate presence path.
-		mins := int(param(p, "offline_minutes", 60))
-		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline_long")
-		if err != nil {
-			return nil, "warning", err
-		}
-		defer rows.Close()
-		now := time.Now().UTC()
-		var hits []alertHit
-		for rows.Next() {
-			var id uuid.UUID
-			var serial string
-			var last time.Time
-			if err := rows.Scan(&id, &serial, &last); err != nil {
-				return nil, "warning", err
-			}
-			down := int(now.Sub(last).Minutes())
-			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("Offline %dm (last check-in)", down),
-				map[string]any{"offline_minutes": down, "last_seen": last}})
-		}
-		return hits, "warning", rows.Err()
+		// Retired: it duplicated the `offline` alert (one device raised both). `offline`
+		// is now the single per-device outage alert. Returning no hits means the eval loop
+		// auto-resolves any lingering open offline_long alerts on the next pass.
+		return nil, "warning", nil
 
 	case "battery_low":
 		// Point-in-time low SoC. Peak-windowed + deployed-only (gated by the caller), so
@@ -7584,6 +7595,12 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS merged_by TEXT NOT NULL DEFAULT ''
 -- case per (release, problem).
 ALTER TABLE test_cases ADD COLUMN IF NOT EXISTS problem_id UUID REFERENCES release_problems(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_test_cases_problem ON test_cases(problem_id);
+
+-- Retire the offline_long alert: it duplicated the offline alert on every offline
+-- device. Drop its rule and resolve any open ones so they clear from the inbox.
+DELETE FROM alert_rules WHERE type = 'offline_long';
+UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
+    WHERE type = 'offline_long' AND status <> 'resolved';
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
