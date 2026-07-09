@@ -4674,10 +4674,10 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .pkg-opt-pkg { font-size: 11px; color: var(--muted); }
 /* One-off shell-command modal: terminal output + command bar. */
 .ddsh-term { max-height: 340px; overflow: auto; margin: 12px 0 0; white-space: pre-wrap; word-break: break-word;
-  background: #11161c; color: #cdd3da; border-radius: 12px; padding: 14px 16px;
+  background: var(--console-bg); color: var(--console-text); border: 1px solid var(--console-border); border-radius: 12px; padding: 14px 16px;
   font-family: var(--mono); font-size: 12.5px; line-height: 1.7; }
-.ddsh-term .ddsh-prompt { color: #7ad19a; font-weight: 600; }
-.ddsh-term .ddsh-error { color: #f08a8d; }
+.ddsh-term .ddsh-prompt { color: var(--ok); font-weight: 600; }
+.ddsh-term .ddsh-error { color: var(--danger); }
 .ddsh-bar { display: flex; align-items: center; gap: 10px; margin-top: 12px;
   border: 1px solid var(--border); border-radius: 11px; padding: 6px 6px 6px 13px; }
 .ddsh-bar:focus-within { border-color: var(--accent-2); }
