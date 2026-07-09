@@ -5115,14 +5115,7 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rlc-open svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; }
 .rlc-open:hover { border-color: var(--accent-edge); color: var(--accent); }
 .rlc-open.disabled { opacity: .3; pointer-events: none; cursor: default; }
-/* QFIL download + inline pencil-edit for its link */
-.rlc-qfil { display: inline-flex; align-items: center; gap: 3px; }
-.rlc-qfil-edit { position: relative; display: inline-flex; }
-.rlc-qfil-edit > summary { list-style: none; cursor: pointer; }
-.rlc-qfil-edit > summary::-webkit-details-marker { display: none; }
-.rlc-qfil-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; display: flex; gap: 6px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 30px rgba(28,26,24,.16); padding: 8px; }
-.rlc-qfil-pop input { width: 240px; }
-/* QFIL download + pencil-edit on the release detail page */
+/* Release download + pencil-edit on the release detail page */
 .qfil-ctl { display: inline-flex; align-items: center; gap: 6px; }
 .qfil-edit { position: relative; display: inline-flex; }
 .qfil-edit > summary { list-style: none; cursor: pointer; }
