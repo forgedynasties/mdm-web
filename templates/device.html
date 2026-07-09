@@ -223,7 +223,7 @@
     <div class="modal-body">
       <div class="muted small">One-off command on <span class="mono">{{.Device.SerialNumber}}</span>. Output streams in below.</div>
       <pre id="shell-modal-out" class="ddsh-term" hidden></pre>
-      <form id="shell-modal-form" class="ddsh-bar">
+      <form id="shell-modal-form" class="ddsh-bar" hx-boost="false">
         <span class="ddsh-sign">$</span>
         <input type="text" id="shell-modal-input" class="ddsh-input" autocomplete="off" spellcheck="false" placeholder="e.g. getprop ro.build.id">
         <button type="submit" class="btn-primary" id="shell-modal-run">Run</button>

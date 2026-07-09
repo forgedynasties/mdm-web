@@ -21,7 +21,7 @@
       <button type="button" class="sh-chip" onclick="shFill('dumpsys battery')">dumpsys battery</button>
       <button type="button" class="sh-chip" onclick="shFill('logcat -d -t 100')">logcat tail</button>
     </div>
-    <form id="sh-form" class="sh-bar">
+    <form id="sh-form" class="sh-bar" hx-boost="false">
       <span class="sh-sign mono">$</span>
       <input id="sh-input" type="text" class="sh-input mono" autocomplete="off" autocapitalize="off"
              spellcheck="false" placeholder="type a command and press Enter">
