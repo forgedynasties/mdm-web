@@ -5168,8 +5168,8 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	globalProblems, _ := h.db.GlobalProblemSummary(r.Context())
 
 	// Release train: the blessed timeline — only visible (non-hidden), dev-signed-off
-	// builds, most recent 6, shown oldest→newest. `releases` is newest-first; the release
-	// currently under test lives in the focus band below, not here.
+	// builds, most recent 6, shown latest→oldest (newest first). `releases` is
+	// newest-first; the release currently under test lives in the focus band below.
 	var trainRels []db.Release
 	for _, rel := range releases {
 		if rel.Hidden || rel.IsBranch || rel.SignedOffBy == "" {
@@ -5193,7 +5193,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	var releaseTrain []map[string]any
-	for i := len(trainRels) - 1; i >= 0; i-- {
+	for i := 0; i < len(trainRels); i++ {
 		rel := trainRels[i]
 		releaseTrain = append(releaseTrain, map[string]any{
 			"ID":          rel.ID,
