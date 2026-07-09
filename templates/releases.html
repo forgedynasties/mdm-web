@@ -357,15 +357,15 @@ function relTab(group, btn) {
         var target = train.querySelector('.rt-node[data-ver="' + into + '"]');
         if (!target) return;
         var b = br.getBoundingClientRect(), n = target.getBoundingClientRect();
-        var sx = b.left - tr.left + b.width / 2, sy = b.top - tr.top;       // branch top-centre
-        var ex = n.left - tr.left + n.width * 0.5, ey = n.bottom - tr.top;   // target node bottom
-        var my = (sy + ey) / 2;
+        // Flat S-curve: leave the branch's right edge horizontally, sweep right, then
+        // hook up into the merge target node's bottom-right.
+        var sx = b.right - tr.left, sy = b.top - tr.top + b.height / 2;       // branch right edge, mid-height
+        var ex = n.left - tr.left + n.width * 0.72, ey = n.bottom - tr.top;   // node bottom, right side
+        var c1x = sx + (ex - sx) * 0.55;                                       // horizontal control off the start
+        var c2y = ey + (sy - ey) * 0.45;                                       // vertical control below the end
         var p = document.createElementNS(NS, 'path');
-        p.setAttribute('d', 'M ' + sx + ' ' + sy + ' C ' + sx + ' ' + my + ', ' + ex + ' ' + my + ', ' + ex + ' ' + ey);
+        p.setAttribute('d', 'M ' + sx + ' ' + sy + ' C ' + c1x + ' ' + sy + ', ' + ex + ' ' + c2y + ', ' + ex + ' ' + ey);
         svg.appendChild(p);
-        var c = document.createElementNS(NS, 'circle');
-        c.setAttribute('cx', ex); c.setAttribute('cy', ey); c.setAttribute('r', '2.6');
-        svg.appendChild(c);
       });
     });
   }
