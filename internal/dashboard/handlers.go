@@ -1674,9 +1674,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		online[id] = true
 	}
 
-	// Devices whose charger is flapping (charging toggling on/off) get a fault symbol
+	// Devices whose charger is flapping (charging toggling >10×/min) get a fault symbol
 	// on their card. Same window/threshold as the charger_flapping alert default.
-	flapping, err := h.db.FlappingChargers(r.Context(), 30, 6)
+	flapping, err := h.db.FlappingChargers(r.Context(), 5, 10)
 	if err != nil {
 		flapping = map[uuid.UUID]int{}
 	}
@@ -2289,14 +2289,15 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		release, _ = h.db.GetReleaseByVersion(r.Context(), device.BuildID)
 	}
 	notes, _ := h.db.GetDeviceNotes(r.Context(), device.ID)
-	// Charger-fault detection: how many times charging toggled recently. A high count
-	// means the charger/dock connection is dropping in and out (faulty hardware).
-	flapCount, _ := h.db.DeviceChargerFlapCount(r.Context(), device.ID, 30)
+	// Charger-fault detection: charging toggles per minute recently. A high rate means
+	// the charger/dock connection is dropping in and out (faulty hardware). >10/min is
+	// the flapping threshold (matches the charger_flapping alert default).
+	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
-		"ChargerFlaps":        flapCount,
-		"ChargerFlapWindow":   30,
+		"ChargerFlapRate":     flapRate,
+		"ChargerFlapping":     flapRate > 10,
 		"Notes":               notes,
 		"Release":             release,
 		"Online":              h.hub.IsConnected(device.ID),
@@ -9380,9 +9381,9 @@ var alertRuleDefs = []struct {
 		{"sustain_min", "Continuous for", "min", 5, 60},
 	}, false, true},
 	{"wlc_dead", "Wireless charger not functional all day", "Fires when a deployed unit's pad was never readable for a whole day, though it worked within the prior week (daily).", "Power", []alertParamField{}, false, false},
-	{"charger_flapping", "Charger flapping / faulty", "Fires when a device's charging state toggles on/off at least this many times within the window — a faulty charger, dock, or cable dropping the connection in and out.", "Power", []alertParamField{
-		{"min_flaps", "Min toggles", "", 1, 6},
-		{"window_min", "Within", "min", 1, 30},
+	{"charger_flapping", "Charger flapping / faulty", "Fires when a device's charging state toggles on/off more than this many times per minute — a faulty charger, dock, or cable dropping the connection in and out.", "Power", []alertParamField{
+		{"flaps_per_min", "Toggles / min", "", 1, 10},
+		{"window_min", "Measured over", "min", 1, 5},
 	}, false, true},
 	{"slow_charge_night", "Slow overnight charging", "Fires when a device charges overnight but its battery gains at most this much over the window (stalled/trickle charge).", "Power", []alertParamField{
 		{"max_gain_pct", "Max gain", "%", 1, 15},

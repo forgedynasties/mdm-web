@@ -4803,7 +4803,7 @@ var defaultAlertRules = []struct {
 	{"wifi_weak", "Weak Wi-Fi signal", `{"rssi_dbm":-75,"sustain_min":10}`, "always", true},
 	{"battery_high_night", "Battery high overnight", `{"soc_pct":60}`, "overnight", true},
 	{"wlc_continuous", "Continuous wireless charging", `{"sustain_min":60}`, "always", true},
-	{"charger_flapping", "Charger flapping / faulty", `{"window_min":30,"min_flaps":6}`, "always", true},
+	{"charger_flapping", "Charger flapping / faulty", `{"window_min":5,"flaps_per_min":10}`, "always", true},
 	{"battery_low", "Battery low during peak", `{"soc_pct":20}`, "peak", true},
 	{"offline_peak", "Offline during peak", `{"offline_minutes":5}`, "peak", true},
 	// Client-telemetry rules (need the new charger/wifi/crash fields the client reports).
@@ -5398,18 +5398,21 @@ const chargingFlapSQL = `
 	WHERE prev IS NOT NULL AND charging <> prev
 	GROUP BY device_id`
 
-// FlappingChargers returns devices whose charging state toggled at least minFlaps
-// times within the last windowMin minutes — the signature of a faulty charger — as a
-// map of device ID → transition count. Used by both the fleet-list symbol and the
-// charger_flapping alert rule.
-func (d *DB) FlappingChargers(ctx context.Context, windowMin, minFlaps int) (map[uuid.UUID]int, error) {
+// FlappingChargers returns devices whose charging state is toggling faster than
+// flapsPerMin times per minute over the last windowMin minutes — the signature of a
+// faulty charger. Maps device ID → observed toggles-per-minute rate (rounded). Used
+// by both the fleet-list symbol and the charger_flapping alert rule.
+func (d *DB) FlappingChargers(ctx context.Context, windowMin, flapsPerMin int) (map[uuid.UUID]int, error) {
 	if windowMin <= 0 {
-		windowMin = 30
+		windowMin = 5
 	}
-	if minFlaps <= 0 {
-		minFlaps = 6
+	if flapsPerMin <= 0 {
+		flapsPerMin = 10
 	}
-	rows, err := d.pool.Query(ctx, chargingFlapSQL+` HAVING COUNT(*) >= $2`, windowMin, minFlaps)
+	// "More than flapsPerMin per minute" over the window = strictly more than
+	// flapsPerMin*windowMin total transitions.
+	minCount := flapsPerMin * windowMin
+	rows, err := d.pool.Query(ctx, chargingFlapSQL+` HAVING COUNT(*) > $2`, windowMin, minCount)
 	if err != nil {
 		return nil, err
 	}
@@ -5421,16 +5424,24 @@ func (d *DB) FlappingChargers(ctx context.Context, windowMin, minFlaps int) (map
 		if err := rows.Scan(&id, &n); err != nil {
 			return nil, err
 		}
-		out[id] = n
+		out[id] = flapRate(n, windowMin)
 	}
 	return out, rows.Err()
 }
 
-// DeviceChargerFlapCount counts one device's charging-state transitions within the
-// last windowMin minutes (0 if none) — for the device page's charger-fault callout.
-func (d *DB) DeviceChargerFlapCount(ctx context.Context, deviceID uuid.UUID, windowMin int) (int, error) {
+// flapRate rounds a transition count over windowMin minutes to a per-minute rate.
+func flapRate(count, windowMin int) int {
 	if windowMin <= 0 {
-		windowMin = 30
+		return count
+	}
+	return (count + windowMin/2) / windowMin
+}
+
+// DeviceChargerFlapRate returns one device's charging toggles-per-minute over the last
+// windowMin minutes (0 if none) — for the device page's charger-fault callout.
+func (d *DB) DeviceChargerFlapRate(ctx context.Context, deviceID uuid.UUID, windowMin int) (int, error) {
+	if windowMin <= 0 {
+		windowMin = 5
 	}
 	var n int
 	err := d.pool.QueryRow(ctx, `
@@ -5446,7 +5457,7 @@ func (d *DB) DeviceChargerFlapCount(ctx context.Context, deviceID uuid.UUID, win
 	if err != nil {
 		return 0, err
 	}
-	return n, nil
+	return flapRate(n, windowMin), nil
 }
 
 // gmtOffset parses a device-reported timezone like "GMT+5"/"GMT-3"/"GMT+0" to an
@@ -6433,11 +6444,11 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 
 	case "charger_flapping":
 		// Faulty charger/dock: the charging state oscillates true↔false as the
-		// connection drops in and out. Count transitions per device over the window
-		// and flag any at/over the threshold. Excludes hidden devices.
-		windowMin := int(param(p, "window_min", 30))
-		minFlaps := int(param(p, "min_flaps", 6))
-		flapping, err := d.FlappingChargers(ctx, windowMin, minFlaps)
+		// connection drops in and out. Flag devices toggling faster than the
+		// per-minute rate over the window. Excludes hidden devices.
+		windowMin := int(param(p, "window_min", 5))
+		flapsPerMin := int(param(p, "flaps_per_min", 10))
+		flapping, err := d.FlappingChargers(ctx, windowMin, flapsPerMin)
 		if err != nil {
 			return nil, "warning", err
 		}
@@ -6461,10 +6472,10 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			if err := rows.Scan(&id, &serial); err != nil {
 				return nil, "warning", err
 			}
-			n := flapping[id]
+			rate := flapping[id]
 			hits = append(hits, alertHit{id, serial,
-				fmt.Sprintf("Charger flapping — charging toggled %d× in %d min", n, windowMin),
-				map[string]any{"flaps": n, "window_min": windowMin}})
+				fmt.Sprintf("Charger flapping — charging toggling ~%d×/min", rate),
+				map[string]any{"rate": rate, "window_min": windowMin}})
 		}
 		return hits, "warning", rows.Err()
 
