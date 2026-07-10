@@ -1574,7 +1574,25 @@ input[type="checkbox"]:hover {
   border: 1px solid transparent;
   transition: background var(--dur) var(--ease),
               border-color var(--dur) var(--ease),
-              color var(--dur) var(--ease);
+              color var(--dur) var(--ease),
+              transform var(--dur-fast) var(--ease),
+              opacity var(--dur) var(--ease);
+}
+/* Tactile press + a busy state while an htmx action is in flight, so every
+   button reacts to a click even before the swap/204 lands. */
+.btn-primary:active,
+.btn-outline:active,
+.btn-outline-sm:active,
+.btn-danger-sm:active { transform: translateY(1px); }
+.btn-primary.htmx-request,
+.btn-outline.htmx-request,
+.btn-outline-sm.htmx-request,
+.btn-danger-sm.htmx-request { opacity: .65; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary:active,
+  .btn-outline:active,
+  .btn-outline-sm:active,
+  .btn-danger-sm:active { transform: none; }
 }
 
 .btn-primary {
@@ -1874,18 +1892,30 @@ input[type="checkbox"]:hover {
   justify-content: center;
   padding: var(--s-4);
 }
-.modal-backdrop.modal-open { display: flex; }
+.modal-backdrop.modal-open { display: flex; animation: modal-fade var(--dur) var(--ease); }
+@keyframes modal-fade { from { opacity: 0; } to { opacity: 1; } }
 
 .modal-box {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: var(--r-2);
+  border-radius: var(--r-4);
+  box-shadow: var(--shadow-pop);
   width: 100%;
   max-width: 520px;
   max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+/* Rise + settle the dialog in rather than hard-appearing. */
+.modal-backdrop.modal-open .modal-box { animation: modal-rise var(--dur-slow) var(--ease); }
+@keyframes modal-rise {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop.modal-open,
+  .modal-backdrop.modal-open .modal-box { animation: none; }
 }
 .modal-box.modal-wide { max-width: 640px; }
 
