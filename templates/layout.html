@@ -695,8 +695,8 @@
   //   1. Any refetch container marked  data-diff-guard  swaps ONLY when the server
   //      HTML actually differs from what's on screen (fail-open on empty/error).
   //   2. Relative times render client-side from a stable epoch: the server emits
-  //      <span class="reltime" data-ts="{{unix}}"></span> (no churning text), and
-  //      we tick them here every second. Combined, an idle live update is a true
+  //      a reltime span carrying a stable data-ts unix-seconds value (no churning
+  //      text), and we tick it here every second. Combined, an idle update is a true
   //      no-op: no DOM mutation, no lost scroll/hover/focus, no restarted anim.
   (function () {
     var lastHtml = {};
