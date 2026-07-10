@@ -4558,7 +4558,34 @@ func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request)
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.hub.PublishDeviceUpdate(device.ID)
 	}
-	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+	h.hxDone(w, r, "/restaurants/"+id.String(), "restaurant-updated")
+}
+
+// RestaurantMembers renders just the devices card of a restaurant for an in-place
+// htmx refresh (fired by "restaurant-updated" after a device is removed).
+func (h *Handler) RestaurantMembers(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	rest, err := h.db.GetRestaurant(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		return
+	}
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 1000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.tmpl.ExecuteTemplate(w, "restaurant-members", h.withRole(r, map[string]any{
+		"Restaurant":          rest,
+		"Devices":             devices,
+		"Online":              h.onlineMap(),
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+	}))
 }
 
 // RestaurantSetServiceWindow upserts (or resets) this restaurant's service window.
@@ -4776,7 +4803,34 @@ func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.hub.PublishDeviceUpdate(device.ID)
 	}
-	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+	h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
+}
+
+// GroupMembers renders just the members card of a group for an in-place htmx
+// refresh (fired by "group-updated" after a device is removed) — no page reload.
+func (h *Handler) GroupMembers(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	g, err := h.db.GetGroup(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{GroupID: id}, 0, 1000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	h.tmpl.ExecuteTemplate(w, "group-members", h.withRole(r, map[string]any{
+		"Group":               g,
+		"Devices":             devices,
+		"Online":              h.onlineMap(),
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+	}))
 }
 
 func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
@@ -8903,9 +8957,20 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// settingsToggleResponse renders the on/off switch back in place for htmx (so the
+// setting flips without a full-page reload), or redirects to /settings without JS.
+func (h *Handler) settingsToggleResponse(w http.ResponseWriter, r *http.Request, action string, on bool) {
+	if hxReq(r) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		h.tmpl.ExecuteTemplate(w, "settings-toggle", map[string]any{"Action": action, "On": on})
+		return
+	}
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
 func (h *Handler) SettingsToggleLegacyCheckin(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetLegacyCheckin(!h.cfg.LegacyCheckin())
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsToggleResponse(w, r, "/settings/legacy-checkin/toggle", h.cfg.LegacyCheckin())
 }
 
 // DemoPage serves a self-contained devices-page UI/UX exploration from
@@ -8969,7 +9034,7 @@ func (h *Handler) SettingsSetCommandExpiry(w http.ResponseWriter, r *http.Reques
 		sec = n
 	}
 	h.cfg.SetCommandExpiry(sec)
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
 }
 
 func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) {
@@ -8979,7 +9044,7 @@ func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) 
 		n = v
 	}
 	h.cfg.SetMaxTargets(n)
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
 }
 
 func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Request) {
@@ -8995,7 +9060,7 @@ func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Reques
 		}
 	}
 	h.cfg.SetOperatorDenied(denied)
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
 }
 
 // RunRecentAlerts evaluates the recent-tier rules (point-in-time + rate/sustained T7
@@ -9248,12 +9313,12 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 	)
 	// Prunes can delete many rows, so run them in the background to keep Save snappy.
 	go h.applyPrunes(context.Background())
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
 }
 
 func (h *Handler) SettingsToggleRequireReason(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetRequireReason(!h.cfg.RequireReason())
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsToggleResponse(w, r, "/settings/require-reason", h.cfg.RequireReason())
 }
 
 func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
@@ -9275,7 +9340,7 @@ func (h *Handler) SettingsSetAlertWebhook(w http.ResponseWriter, r *http.Request
 	r.ParseForm()
 	h.cfg.SetAlertWebhookURL(strings.TrimSpace(r.FormValue("alert_webhook_url")))
 	h.audit(r, "alerts.webhook", "", "")
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
 }
 
 // hhmm renders minutes-past-midnight as a "HH:MM" string for <input type=time>.
@@ -10047,7 +10112,7 @@ func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Reque
 	}
 	h.cfg.SetSessionTimeout(sec)
 	h.store.MaxAge(sec) // apply to cookie + codec at runtime
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
 }
 
 func (h *Handler) SettingsLogoutAll(w http.ResponseWriter, r *http.Request) {
@@ -10061,12 +10126,12 @@ func (h *Handler) SettingsLogoutAll(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) SettingsToggleShell(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetShellEnabled(!h.cfg.ShellEnabled())
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsToggleResponse(w, r, "/settings/shell/toggle", h.cfg.ShellEnabled())
 }
 
 func (h *Handler) SettingsToggleRemote(w http.ResponseWriter, r *http.Request) {
 	h.cfg.SetRemoteEnabled(!h.cfg.RemoteEnabled())
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.settingsToggleResponse(w, r, "/settings/remote/toggle", h.cfg.RemoteEnabled())
 }
 
 func (h *Handler) SettingsSetCheckinInterval(w http.ResponseWriter, r *http.Request) {
@@ -10078,7 +10143,7 @@ func (h *Handler) SettingsSetCheckinInterval(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	h.cfg.SetCheckinInterval(sec)
-	http.Redirect(w, r, "/settings", http.StatusFound)
+	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
 }
 
 func (h *Handler) SettingsAddColumn(w http.ResponseWriter, r *http.Request) {
@@ -10868,6 +10933,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /groups", h.requireAdminOrTester(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
+	mux.HandleFunc("GET /groups/{id}/members", h.requireAuth(h.GroupMembers))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
@@ -10896,6 +10962,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /restaurants/{id}", h.requireAuth(h.RestaurantDetail))
 	mux.HandleFunc("GET /restaurants/{id}/edit", h.requireAdminOrTester(h.RestaurantEdit))
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
+	mux.HandleFunc("GET /restaurants/{id}/members", h.requireAuth(h.RestaurantMembers))
 	post("POST /restaurants/{id}", h.requireAdminOrTester(h.RestaurantUpdate))
 	post("POST /restaurants/{id}/delete", h.requireAdminOrTester(h.RestaurantDelete))
 	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.requireAdminOrTester(h.RestaurantDevicePicker))
