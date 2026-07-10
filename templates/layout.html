@@ -35,7 +35,15 @@
     // the "works in incognito but not after a hard refresh" symptom, because
     // localStorage survives a hard refresh (only HTTP cache is bypassed). We'd
     // rather re-fetch on back/forward than ever show a cached-blank page.
-    if (window.htmx) { htmx.config.historyCacheSize = 0; htmx.config.refreshOnHistoryMiss = true; }
+    if (window.htmx) {
+      htmx.config.historyCacheSize = 0; htmx.config.refreshOnHistoryMiss = true;
+      // Crossfade every swap through the View Transitions API so navigating and
+      // in-place fragment swaps ease in instead of hard-cutting. The header/dock
+      // don't change across a boosted swap, so only <main> visibly transitions.
+      // Honoured only where supported; reduced-motion users get an instant swap
+      // (see the ::view-transition rules in style.css).
+      htmx.config.globalViewTransitions = true;
+    }
     try { localStorage.removeItem('htmx-history-cache'); } catch (e) {}
   </script>
   <script>
@@ -103,11 +111,18 @@
     // htmx:abort instead of afterRequest): the page is stuck on a skeleton, so recover
     // immediately with a full load of the destination. Guarded by _navActive so an
     // aborted polling partial doesn't trigger a reload.
+    // Is <main> currently stuck on a skeleton or blank? Only then is a hard reload
+    // the right recovery — a transient error on an already-rendered page must not
+    // blow the good content away.
+    function mdmMainStuck() {
+      var main = document.querySelector('main');
+      return !!(main && (!main.textContent.trim() || main.querySelector('.skel')));
+    }
     function mdmNavFail() {
       mdmCancelSkeleton(); mdmClearWatchdog();
       if (!_navActive) return;
       _navActive = false;
-      window.location.href = _navDest || window.location.href;
+      if (mdmMainStuck()) window.location.href = _navDest || window.location.href;
     }
     document.addEventListener('htmx:beforeRequest', function (e) {
       var d = e.detail || {};
@@ -119,21 +134,32 @@
       // Highlight the destination in the dock immediately (don't wait for the
       // page to load) — mdmSyncDockActive is defined in the footer script.
       if (window.mdmSyncDockActive) window.mdmSyncDockActive(path.split('?')[0].split('#')[0]);
+      // Only reveal the skeleton once the response is clearly slow. On a LAN/local
+      // server most pages return in well under this, so a fast nav goes straight
+      // content→content (crossfaded) and never flashes a blank/skeleton frame.
       _skelTimer = setTimeout(function () {
         var tpl = document.getElementById(mdmSkeletonFor(path));
         main.innerHTML = '';
         if (tpl && tpl.content) main.appendChild(tpl.content.cloneNode(true));
         window.scrollTo(0, 0);
-      }, 120);
-      // Watchdog: if the nav neither succeeds nor fires a failure event within 8s
-      // (hung request), force a full reload so the page can never stay blank.
+      }, 280);
+      // Watchdog: if the nav neither succeeds nor fails within 12s (genuinely hung)
+      // AND left <main> stuck on a skeleton/blank, force a full reload so the page
+      // can never stay blank — but never reload away good, already-rendered content.
       _navActive = true; _navDest = path;
       mdmClearWatchdog();
-      _navWatchdog = setTimeout(function () { if (_navActive) { _navActive = false; window.location.href = _navDest || window.location.href; } }, 8000);
+      _navWatchdog = setTimeout(function () {
+        if (!_navActive) return;
+        _navActive = false;
+        if (mdmMainStuck()) window.location.href = _navDest || window.location.href;
+      }, 12000);
     });
     document.addEventListener('htmx:beforeSwap', mdmNavOk);
     document.addEventListener('htmx:afterSettle', mdmNavOk);
-    ['htmx:responseError', 'htmx:sendError', 'htmx:abort', 'htmx:timeout'].forEach(function (ev) {
+    // htmx:abort is intentionally NOT here: an abort is almost always benign — the
+    // user started a newer navigation that superseded this one, or clicked away.
+    // Treating it as a failure was reloading the whole page mid-navigation.
+    ['htmx:responseError', 'htmx:sendError', 'htmx:timeout'].forEach(function (ev) {
       document.addEventListener(ev, mdmNavFail);
     });
   </script>
@@ -691,7 +717,7 @@
       setInterval(function () {
         if (document.body.classList.contains('htmx-requesting-progress')) {
           if (!stuckSince) { stuckSince = Date.now(); return; }
-          if (Date.now() - stuckSince < 6000) return;
+          if (Date.now() - stuckSince < 12000) return;
           stuckSince = 0;
           document.body.classList.remove('htmx-requesting-progress');
           if (progress) progress.style.width = '0';

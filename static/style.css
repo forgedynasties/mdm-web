@@ -236,6 +236,23 @@ body > .modal-backdrop {
   z-index: 1;
 }
 
+/* View Transitions: htmx wraps every swap in document.startViewTransition()
+   (globalViewTransitions, set in layout.html). Keep the crossfade short so the
+   app feels snappy rather than animated. Because the header/dock DOM is identical
+   across a boosted swap, only <main> visibly crossfades. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 130ms;
+  animation-timing-function: ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
 /* Dock layout: full-width canvas; leave room at the bottom for the floating dock. */
 body.has-dock { padding-left: 0; }
 body.has-dock .container { padding-bottom: 104px; }
