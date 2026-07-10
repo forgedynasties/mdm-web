@@ -569,7 +569,7 @@ function pkgVerify() {
   <span class="qa-dot"></span>
   <div class="qa-id">
     <div class="qa-title">{{.Item.Title}}{{if .Item.Base}} <span class="qa-star" title="standard case — every release">★</span>{{end}}</div>
-    <div class="qa-meta">{{if .Item.Area}}{{.Item.Area}}{{else}}General{{end}}{{if .Item.Steps}} · {{.Item.Steps}}{{end}}{{if .Item.Expected}} · Expected: {{.Item.Expected}}{{end}}{{if and (not .Item.Base) (eq $role "admin")}} · <a href="#" onclick="document.getElementById('qa-del-{{.Item.ID}}').submit();return false;" class="qa-del">remove</a>{{end}}</div>
+    <div class="qa-meta">{{if hasPrefix .Item.Title "Verify fix:"}}{{/* auto-added fix-verify case: its Area (Regression) and Expected (Issue no longer reproduces.) are boilerplate — show only the description */}}{{.Item.Steps}}{{else}}{{if .Item.Area}}{{.Item.Area}}{{else}}General{{end}}{{if .Item.Steps}} · {{.Item.Steps}}{{end}}{{if .Item.Expected}} · Expected: {{.Item.Expected}}{{end}}{{end}}{{if and (not .Item.Base) (eq $role "admin")}} · <a href="#" onclick="document.getElementById('qa-del-{{.Item.ID}}').submit();return false;" class="qa-del">remove</a>{{end}}</div>
     {{if and (not .Item.Base) (eq $role "admin")}}<form id="qa-del-{{.Item.ID}}" action="/test-cases/{{.Item.ID}}/delete" method="POST" hidden hx-confirm="Remove this test case from this release?"><input type="hidden" name="redirect" value="/releases/{{$relID}}?tab=qa"></form>{{end}}
   </div>
   {{if .CanRecord}}
