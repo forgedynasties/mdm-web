@@ -1180,7 +1180,17 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 }
 
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data map[string]any) {
-	h.tmpl.ExecuteTemplate(w, name, h.withRole(r, data))
+	// Execute into a buffer first: a template runtime error partway through
+	// otherwise leaves a half-written page (header/dock already flushed, body
+	// truncated) with the error silently discarded — the "blank page, no log"
+	// failure mode. Buffering lets us turn that into a logged 500 instead.
+	var buf bytes.Buffer
+	if err := h.tmpl.ExecuteTemplate(&buf, name, h.withRole(r, data)); err != nil {
+		log.Printf("template render %s (%s %s): %v", name, r.Method, r.URL.Path, err)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	buf.WriteTo(w)
 }
 
 // Changelog renders the "What's new" page from the in-binary version.Changelog.
