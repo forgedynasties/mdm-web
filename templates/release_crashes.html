@@ -1,0 +1,51 @@
+{{define "release_crashes.html"}}
+{{template "header" .}}
+{{$rel := .Release}}{{$role := .Role}}
+
+<a href="/releases/{{$rel.ID}}?tab=problems" class="back-link">← {{$rel.Version}}</a>
+<div class="ov-greet">
+  <h1 class="ov-title">Crashes on {{$rel.Version}}</h1>
+  <span class="ov-date">auto-detected, grouped by signature · {{.Total}} crash type{{if ne .Total 1}}s{{end}}</span>
+</div>
+
+<div class="card">
+  <div class="prob-crashes">
+    {{if .CrashGroups}}
+      {{$back := printf "/releases/%d/crashes?page=%d" $rel.ID .Page}}
+      {{range .CrashGroups}}{{template "crash-group-row" (dict "G" . "RelID" $rel.ID "Role" $role "Back" $back)}}{{end}}
+    {{else}}
+      <div class="empty" style="padding:18px;">No crashes recorded on this build.</div>
+    {{end}}
+  </div>
+
+  {{if gt .TotalPages 1}}
+  <div class="pagination">
+    {{if gt .Page 1}}<a class="page-btn page-nav" href="?page={{sub .Page 1}}">&#8592; Prev</a>
+    {{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
+    <div class="page-numbers">
+      {{range pageList .Page .TotalPages}}
+        {{if eq . 0}}<span class="page-num disabled">…</span>
+        {{else if eq . $.Page}}<span class="page-num active">{{.}}</span>
+        {{else}}<a class="page-num" href="?page={{.}}">{{.}}</a>{{end}}
+      {{end}}
+    </div>
+    {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="?page={{add .Page 1}}">Next &#8594;</a>
+    {{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
+  </div>
+  <div class="table-footer">Page {{.Page}} of {{.TotalPages}} · {{.Total}} crash type{{if ne .Total 1}}s{{end}}</div>
+  {{end}}
+</div>
+
+<script>
+// The full crashes page has no inline report form; "Report" jumps to the release's
+// Problems tab with the crash seeded (consumed by probFromCrash's on-load hook there).
+function probFromCrash(btn) {
+  var p = new URLSearchParams({
+    rc_kind: btn.dataset.kind || '', rc_sum: btn.dataset.sum || '', rc_serial: btn.dataset.serial || ''
+  });
+  location.href = '/releases/{{$rel.ID}}?tab=problems&' + p.toString();
+}
+</script>
+
+{{template "footer" .}}
+{{end}}

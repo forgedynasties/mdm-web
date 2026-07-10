@@ -5344,6 +5344,9 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .prob-crash { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid var(--border-soft); font-size: 12.5px; }
 .prob-crash:first-of-type { border-top: 0; }
 .prob-crash-kind { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--danger); background: var(--danger-bg); padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
+.crash-count { font-size: 11px; font-weight: 700; color: var(--danger); background: var(--danger-bg); padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
+.crash-devs { white-space: nowrap; }
+.crash-more { margin-top: 10px; }
 .prob-crash-sum { flex: 1; min-width: 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .prob-crash-when { white-space: nowrap; }
 .prob-crash-trace { margin: 2px 0 6px; }

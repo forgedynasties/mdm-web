@@ -5714,6 +5714,90 @@ func (h *Handler) ReleaseCrashDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d/qa", id), http.StatusSeeOther)
 }
 
+// ReleaseCrashes is the full, paginated list of a release's auto-detected crashes,
+// collapsed into signature groups (busiest first). Reached from the workspace's "Show
+// all …" link when there are more crash groups than the workspace previews.
+func (h *Handler) ReleaseCrashes(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	rel, err := h.db.GetRelease(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	const pageSize = 25
+	page := 1
+	if p, e := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("page"))); e == nil && p > 0 {
+		page = p
+	}
+	groups, total, _ := h.db.CrashGroupsOnBuild(r.Context(), rel.Version, pageSize, (page-1)*pageSize)
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	// An out-of-range page (stale link) returns no rows and total 0; clamp and re-query so
+	// the pager and count stay honest.
+	if len(groups) == 0 && page > 1 {
+		page = 1
+		groups, total, _ = h.db.CrashGroupsOnBuild(r.Context(), rel.Version, pageSize, 0)
+		totalPages = (total + pageSize - 1) / pageSize
+		if totalPages < 1 {
+			totalPages = 1
+		}
+	}
+	h.render(w, r, "release_crashes.html", map[string]any{
+		"Title":       "Crashes · " + rel.Version,
+		"Release":     rel,
+		"CrashGroups": groups,
+		"Page":        page,
+		"Total":       total,
+		"TotalPages":  totalPages,
+	})
+}
+
+// ReleaseCrashGroupDelete removes every crash matching a group's kind + signature on this
+// build (admin cleanup of a noisy crash class) and clears each affected device's crash
+// alert, so the group also disappears from the Alerts page.
+func (h *Handler) ReleaseCrashGroupDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	rel, err := h.db.GetRelease(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	kind := strings.TrimSpace(r.FormValue("kind"))
+	sig := strings.TrimSpace(r.FormValue("signature"))
+	if kind == "" || sig == "" {
+		http.Error(w, "kind and signature are required", http.StatusBadRequest)
+		return
+	}
+	devIDs, err := h.db.DeleteCrashGroup(r.Context(), rel.Version, kind, sig)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	for _, dev := range devIDs {
+		_ = h.db.DeleteDeviceCrashAlert(r.Context(), dev)
+	}
+	if len(devIDs) > 0 {
+		h.hub.PublishAlertUpdate() // refresh the Alerts page live
+	}
+	h.audit(r, "release.crash.group.delete", strconv.Itoa(id), kind+" "+sig)
+	redirect := strings.TrimSpace(r.FormValue("redirect"))
+	if !strings.HasPrefix(redirect, "/releases") {
+		redirect = fmt.Sprintf("/releases/%d/qa", id)
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
+}
+
 // ReleaseAddQFIL attaches a QFIL flashing bundle to a release. Admin/dev only
 // (see the requireAdmin route guard); the test team reads the resulting list on
 // the release page. The bundle is referenced by an external URL like an OTA
@@ -5837,7 +5921,9 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	devicesCount, _ := h.db.CountDevicesByVersion(ctx, rel.Version)
 	// Tracked releases back the incremental package's "From build" picker (its source).
 	sourceReleases, _ := h.db.ListReleases(ctx)
-	crashes, _ := h.db.CrashesOnBuild(ctx, rel.Version, 20)
+	// Top crash groups for the workspace; crashTotal drives the "Show all …" link to the
+	// full paginated /releases/{id}/crashes page.
+	crashGroups, crashTotal, _ := h.db.CrashGroupsOnBuild(ctx, rel.Version, 5, 0)
 	devs, _ := h.db.ListDevices(ctx, db.DeviceFilter{BuildID: rel.Version}, 0, 500, "serial", "asc")
 
 	// hasFull gates the "Add full package" form; canPush gates the deploy CTA. An
@@ -5891,7 +5977,8 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	data["CanPush"] = canPush
 	data["DevicesCount"] = devicesCount
 	data["SourceReleases"] = sourceReleases
-	data["BuildCrashes"] = crashes
+	data["CrashGroups"] = crashGroups
+	data["CrashGroupTotal"] = crashTotal
 	data["DevicesOnVersion"] = devs
 	return data
 }
@@ -10841,6 +10928,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /releases/{id}/qa", h.requireAdminOrTester(h.ReleaseQAPage))
 	post("POST /releases/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /releases/{id}/packages/inspect", h.requireAdmin(h.PackageInspect))
+	mux.HandleFunc("GET /releases/{id}/crashes", h.requireAdminOrTester(h.ReleaseCrashes))
+	post("POST /releases/{id}/crashes/group/delete", h.requireAdmin(h.ReleaseCrashGroupDelete))
 	post("POST /releases/{id}/crashes/{eid}/delete", h.requireAdmin(h.ReleaseCrashDelete))
 	post("POST /releases/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
 	post("POST /releases/{id}/qfil", h.requireAdmin(h.ReleaseAddQFIL))
