@@ -16,10 +16,17 @@
   {{end}}
 </div>
 
-{{/* Focus band + cross-release problems board. Wrapped in #hub-live so the problem
-     SSE (problem-updated body event) refetches just this region — no full reload. */}}
-<div id="hub-live" hx-get="/releases?partial=hub-live" hx-trigger="problem-updated from:body"
-     hx-target="this" hx-swap="innerHTML" hx-select="unset">
+{{/* Focus band + cross-release problems board. The problem SSE (problem-updated body
+     event) refetches just this region — no full reload. The refetch trigger lives on a
+     hidden SIBLING (not on #hub-live itself): hx-target/hx-swap are INHERITED attributes,
+     so putting hx-target="this" on the wrapper leaked to every boosted link inside it
+     (release-train nodes, "Open workspace →", problem rows), making them load the release
+     workspace NESTED into #hub-live instead of replacing <main> — two <main>s, and a
+     later QA Pass/Fail then collapsed the page. Keeping the wrapper attribute-free lets
+     those links inherit the body's hx-target="main". */}}
+<span id="hub-live-refresh" hx-get="/releases?partial=hub-live" hx-trigger="problem-updated from:body"
+      hx-target="#hub-live" hx-swap="innerHTML" hx-select="unset" style="display:none" aria-hidden="true"></span>
+<div id="hub-live">
 {{template "hub-live" .}}
 </div>
 
