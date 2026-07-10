@@ -1,6 +1,6 @@
 {{define "device-stats"}}
 <div class="dd-details"
-  id="device-stats"
+  id="device-stats" data-diff-guard
   hx-get="/devices/{{.Device.SerialNumber}}/stats" hx-select="unset" hx-target="this"
   hx-trigger="device-updated from:body, every 180s"
   hx-swap="outerHTML">
@@ -42,7 +42,7 @@
 {{$hasPending := false}}
 {{range .Commands}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{end}}{{end}}
 <div class="card" style="margin-bottom:16px;"
-  id="device-commands"
+  id="device-commands" data-diff-guard
   {{if $hasPending}}
   hx-get="/devices/{{.Device.SerialNumber}}/commands-status" hx-select="unset" hx-target="this"
   hx-trigger="device-updated from:body, every 60s"
@@ -65,7 +65,7 @@
       <a class="ddc-tl ddc-tl-link{{if ge $i 10}} ch-extra{{end}}" data-ct="{{$c.Type}}" href="/commands/{{$c.ID}}">
         <span class="dot {{if eq $c.Status "success"}}ok{{else if or (eq $c.Status "failed") (eq $c.Status "expired")}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
         <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{$c.Status}}{{if $c.TargetType}} <span class="muted">· {{$c.TargetType}}</span>{{end}}</span>
-        <span class="when">{{timeSince $c.CreatedAt}}</span>
+        <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}"></span>
       </a>
       {{end}}
     </div>
@@ -108,7 +108,7 @@
     <div class="ddc-id">
       {{if .Online}}<span id="ws-badge" class="ddc-status on"><i></i>Online</span>{{else}}<span id="ws-badge" class="ddc-status off"><i></i>Offline</span>{{end}}
       <span class="ddc-serial mono">{{.Device.SerialNumber}}</span>
-      <span class="ddc-meta">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}} · Onboarded {{shortDate .Device.CreatedAt}} · Synced {{timeSince .Device.LastSeenAt}}</span>
+      <span class="ddc-meta">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}} · Onboarded {{shortDate .Device.CreatedAt}} · Synced <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>
     </div>
     <div class="ddc-actions">
       {{if and (canOperate .Role) .RemoteEnabled}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
@@ -139,7 +139,7 @@
   </div>
   {{end}}
   <div class="ddc-vitals">
-    <span class="ddc-vitals-live" style="display:contents"
+    <span class="ddc-vitals-live" id="device-vitals-live" data-diff-guard style="display:contents"
           hx-get="/devices/{{.Device.SerialNumber}}/vitals" hx-select="unset"
           hx-trigger="device-updated from:body, every 60s"
           hx-target="this" hx-swap="innerHTML">
@@ -1167,7 +1167,7 @@
     <a class="ddc-tl ddc-tl-link" href="/commands/{{$c.ID}}">
       <span class="dot {{if eq $c.Status "success"}}ok{{else if eq $c.Status "failed"}}err{{else if eq $c.Status "expired"}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
       <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{$c.Status}}</span>
-      <span class="when">{{timeSince $c.CreatedAt}}</span>
+      <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}">{{timeSince $c.CreatedAt}}</span>
     </a>
     {{end}}{{end}}
   </div>
@@ -1212,7 +1212,7 @@
       </form>
     </div>
     {{end}}
-    <div id="apps-live"
+    <div id="apps-live" data-diff-guard
          hx-get="/devices/{{.Device.SerialNumber}}/apps-list" hx-select="unset" hx-target="this"
          hx-trigger="device-updated from:body delay:600ms"
          hx-swap="innerHTML"
