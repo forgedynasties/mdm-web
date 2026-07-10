@@ -9601,6 +9601,107 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 	return out, rows.Err()
 }
 
+// CrashGroup collapses identical crash/ANR events on a build into one row: same kind +
+// normalized signature, counted across occurrences and distinct devices. The signature
+// strips the volatile ", for safety source: X" tail so every variant of one underlying
+// crash groups together. Sample* describe the newest occurrence (for the trace expander
+// and the "Report" seed).
+type CrashGroup struct {
+	Kind         string
+	Signature    string // normalized summary, shown as the group title
+	Count        int    // total occurrences
+	DeviceCount  int    // distinct devices affected
+	LastOccurred time.Time
+	SampleSerial string // newest occurrence's device serial
+	SampleDetail string // newest non-empty trace, for the expander (may be empty)
+}
+
+// crashSig normalizes a crash summary column into a grouping signature: it strips the
+// volatile ", for safety source: X" tail so all variants of one crash collapse into one
+// group. col is the qualified summary column (e.g. "e.summary" or "summary").
+func crashSig(col string) string {
+	return `btrim(regexp_replace(` + col + `, ',?\s*for safety source:.*$', '', 'i'))`
+}
+
+// CrashGroupsOnBuild returns crash/ANR events on buildID collapsed into signature groups
+// (busiest first), plus the total number of groups (for pagination). Pass limit<=0 for a
+// default page size; offset pages through the groups. Scoped by e.build_id — the build the
+// event was reported on — so a device that has since updated doesn't drag old crashes
+// forward. See CrashGroup for the grouping rule.
+func (d *DB) CrashGroupsOnBuild(ctx context.Context, buildID string, limit, offset int) ([]CrashGroup, int, error) {
+	if buildID == "" {
+		return nil, 0, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	sig := crashSig("e.summary")
+	rows, err := d.pool.Query(ctx, `
+		WITH grp AS (
+			SELECT e.kind AS kind,
+			       `+sig+` AS sig,
+			       COUNT(*) AS cnt,
+			       COUNT(DISTINCT e.device_id) AS devs,
+			       MAX(e.occurred_at) AS last_at,
+			       (array_agg(dv.serial_number ORDER BY e.occurred_at DESC))[1] AS sample_serial,
+			       (array_agg(e.detail ORDER BY (e.detail <> '') DESC, e.occurred_at DESC))[1] AS sample_detail
+			FROM device_events e
+			JOIN devices dv ON dv.id = e.device_id
+			WHERE e.build_id = $1 AND e.kind <> 'reboot'
+			GROUP BY e.kind, `+sig+`
+		)
+		SELECT kind, sig, cnt, devs, last_at, sample_serial, sample_detail,
+		       COUNT(*) OVER() AS total_groups
+		FROM grp
+		ORDER BY cnt DESC, last_at DESC
+		LIMIT $2 OFFSET $3`, buildID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []CrashGroup
+	total := 0
+	for rows.Next() {
+		var g CrashGroup
+		if err := rows.Scan(&g.Kind, &g.Signature, &g.Count, &g.DeviceCount, &g.LastOccurred,
+			&g.SampleSerial, &g.SampleDetail, &total); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, g)
+	}
+	return out, total, rows.Err()
+}
+
+// DeleteCrashGroup removes every crash event on buildID matching kind + the given
+// normalized signature (an admin clearing a noisy group) and returns the distinct device
+// IDs affected, so the caller can clear each device's crash alert too.
+func (d *DB) DeleteCrashGroup(ctx context.Context, buildID, kind, signature string) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `
+		DELETE FROM device_events
+		WHERE build_id = $1 AND kind = $2 AND `+crashSig("summary")+` = $3
+		RETURNING device_id`, buildID, kind, signature)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	seen := map[uuid.UUID]bool{}
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	return out, rows.Err()
+}
+
 // DeviceCrash is a per-device crash rollup for the Fleet Health page: how many
 // crash/ANR/tombstone events a unit reported in the last 24h, its latest kind and
 // build, when, and the restaurant it belongs to. Ordered worst-first by the query.

@@ -233,24 +233,13 @@
         </div>
       </form>
 
-      {{if .BuildCrashes}}
+      {{if .CrashGroups}}
       <div class="prob-crashes">
-        <div class="prob-crashes-h">Crashes seen on devices running {{$rel.Version}} <span class="muted small">— auto-detected; report the relevant ones</span></div>
-        {{range .BuildCrashes}}
-        <div class="prob-crash">
-          <span class="prob-crash-kind">{{.Kind}}</span>
-          <a href="/devices/{{.Serial}}" class="link-detail mono">{{.Serial}}</a>
-          <span class="prob-crash-sum">{{if .Summary}}{{.Summary}}{{else}}—{{end}}</span>
-          <span class="prob-crash-when muted small">{{timeSince .OccurredAt}}</span>
-          <button type="button" class="qa-pill" onclick="probFromCrash(this)" data-kind="{{.Kind}}" data-serial="{{.Serial}}" data-sum="{{.Summary}}">Report</button>
-          {{if eq $role "admin"}}<form action="/releases/{{$rel.ID}}/crashes/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Remove this crash? It also disappears from the Alerts page."><button type="submit" class="qa-pill" title="Remove this crash — also clears it from Alerts">Remove</button></form>{{end}}
-          {{if .Detail}}
-          <details class="prob-crash-trace">
-            <summary class="muted small">View crash / ANR trace</summary>
-            <pre class="logcat-terminal">{{colorizeLogcat .Detail}}</pre>
-          </details>
-          {{end}}
-        </div>
+        <div class="prob-crashes-h">Crashes seen on devices running {{$rel.Version}} <span class="muted small">— auto-detected &amp; grouped; report the relevant ones</span></div>
+        {{$back := printf "/releases/%d?tab=problems" $rel.ID}}
+        {{range .CrashGroups}}{{template "crash-group-row" (dict "G" . "RelID" $rel.ID "Role" $role "Back" $back)}}{{end}}
+        {{if gt .CrashGroupTotal (len .CrashGroups)}}
+        <div class="crash-more"><a href="/releases/{{$rel.ID}}/crashes" class="qa-pill">Show all {{.CrashGroupTotal}} crash types →</a></div>
         {{end}}
       </div>
       {{end}}
@@ -431,6 +420,14 @@ function probFromCrash(btn) {
   if (f) f.scrollIntoView({ behavior: 'smooth', block: 'center' });
   if (t) t.focus();
 }
+// Seed the report form when arriving from the full crashes page's "Report" link
+// (/releases/{id}?tab=problems&rc_kind=…&rc_sum=…&rc_serial=…).
+(function () {
+  var p = new URLSearchParams(location.search);
+  if (p.get('rc_kind') || p.get('rc_sum')) {
+    probFromCrash({ dataset: { kind: p.get('rc_kind') || '', sum: p.get('rc_sum') || '', serial: p.get('rc_serial') || '' } });
+  }
+})();
 // ── QA checklist filter/focus (client-side; all rows are on the page) ──
 function qaFilter(mode, btn) {
   document.querySelectorAll('#rd-qa-filter .qa-fchip[data-qafilter]').forEach(function (b) { b.classList.toggle('on', b === btn); });
@@ -684,6 +681,29 @@ function pkgVerify() {
   </div>
 </div>
 {{end}}
+{{end}}
+
+{{/* crash-group-row renders one collapsed crash group (a kind + normalized signature
+     with occurrence and device counts). Shared by the workspace preview and the full
+     /releases/{id}/crashes page. Input: dict "G" <CrashGroup> "RelID" <int> "Role"
+     <string> "Back" <string redirect after a group delete>. */}}
+{{define "crash-group-row"}}
+{{$g := .G}}{{$relID := .RelID}}{{$role := .Role}}
+<div class="prob-crash">
+  <span class="prob-crash-kind">{{$g.Kind}}</span>
+  <span class="crash-count" title="{{$g.Count}} occurrence{{if ne $g.Count 1}}s{{end}} across {{$g.DeviceCount}} device{{if ne $g.DeviceCount 1}}s{{end}}">×{{$g.Count}}</span>
+  <span class="prob-crash-sum">{{if $g.Signature}}{{$g.Signature}}{{else}}—{{end}}</span>
+  <span class="crash-devs muted small">{{$g.DeviceCount}} device{{if ne $g.DeviceCount 1}}s{{end}}</span>
+  <span class="prob-crash-when muted small">{{timeSince $g.LastOccurred}}</span>
+  <button type="button" class="qa-pill" onclick="probFromCrash(this)" data-kind="{{$g.Kind}}" data-serial="{{$g.SampleSerial}}" data-sum="{{$g.Signature}}">Report</button>
+  {{if eq $role "admin"}}<form action="/releases/{{$relID}}/crashes/group/delete" method="POST" style="display:inline;" hx-confirm="Remove all {{$g.Count}} occurrences of this crash? It also clears them from the Alerts page."><input type="hidden" name="kind" value="{{$g.Kind}}"><input type="hidden" name="signature" value="{{$g.Signature}}"><input type="hidden" name="redirect" value="{{.Back}}"><button type="submit" class="qa-pill" title="Remove this crash group — also clears from Alerts">Remove</button></form>{{end}}
+  {{if $g.SampleDetail}}
+  <details class="prob-crash-trace">
+    <summary class="muted small">View latest trace</summary>
+    <pre class="logcat-terminal">{{colorizeLogcat $g.SampleDetail}}</pre>
+  </details>
+  {{end}}
+</div>
 {{end}}
 
 {{define "release-oob"}}
