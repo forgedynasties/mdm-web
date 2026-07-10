@@ -9333,11 +9333,12 @@ func (d *DB) ListReleaseProblems(ctx context.Context, releaseID int) ([]ReleaseP
 }
 
 // CarriedForwardProblems returns manual problems that should follow the release train
-// onto releaseID but were NOT reported against it: (a) still-unresolved bugs from an
-// earlier build that haven't been claimed fixed in any build yet, and (b) problems whose
-// fix is claimed to land in THIS build (awaiting a tester's verification here). All rows
-// are flagged Inherited. Chronology is releases.created_at. This is the surface behind
-// "problems get solved in the next release".
+// onto releaseID but were NOT reported against it: (a) problems that were reported fixed
+// in an EARLIER build but whose QA verification then FAILED (reopened to 'open' while
+// keeping fixed_in_release_id) — these ride forward until a fix holds — and (b) problems
+// whose fix is claimed to land in THIS build (awaiting a tester's verification here). A
+// plain still-open bug that was never claimed fixed does NOT carry; it stays on its origin
+// build. All rows are flagged Inherited. Chronology is releases.created_at.
 func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]ReleaseProblem, error) {
 	rows, err := d.pool.Query(ctx,
 		`SELECT`+releaseProblemCols+releaseProblemJoins+`
@@ -9345,11 +9346,11 @@ func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]Relea
 		  AND NOT orel.is_branch                                        -- branch bugs never carry onto mainline
 		  AND EXISTS (SELECT 1 FROM releases WHERE id = $1 AND NOT is_branch) -- branches inherit nothing
 		  AND (
-			p.fixed_in_release_id = $1                                  -- dev claimed fix in THIS build
-			OR (p.status NOT IN ('verified','wontfix')
+			p.fixed_in_release_id = $1                                  -- dev claimed fix in THIS build (verify here)
+			OR (p.status = 'open' AND p.fixed_in_release_id IS NOT NULL
 			    AND orel.created_at < (SELECT created_at FROM releases WHERE id = $1))
-			    -- open bug from an earlier release; carries forward whether or not a
-			    -- previous dev claimed a fix (that QA later disputed)
+			    -- reported fixed in an earlier build but QA verification failed (reopened,
+			    -- fixed_in kept); only these ride the train forward
 		)`+releaseProblemOrder, releaseID)
 	if err != nil {
 		return nil, err
