@@ -1,0 +1,611 @@
+openapi: 3.0.3
+info:
+  title: AIO MDM Server API
+  version: "1.0"
+  description: >
+    HTTP API for the AIO MDM server. Two API-key surfaces (device + admin) plus
+    unauthenticated and WebSocket endpoints. See API_REFERENCE.md and AUTH_MODEL.md
+    for the full model, WebSocket protocol, and security notes.
+    NOTE: the HTMX dashboard (cookie-session, RBAC) and the WebSocket message
+    protocol are documented in the Markdown companions, not modelled here.
+
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: mdm.example.com
+
+tags:
+  - name: device
+    description: Device-authenticated (X-API-Key = DEVICE_API_KEY)
+  - name: admin
+    description: Admin-authenticated (X-API-Key = ADMIN_API_KEY)
+  - name: public
+    description: Unauthenticated
+
+components:
+  securitySchemes:
+    DeviceApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: DEVICE_API_KEY shared secret.
+    AdminApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: ADMIN_API_KEY shared secret.
+  schemas:
+    Ok:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+    Error:
+      type: object
+      properties:
+        error: { type: string, example: unauthorized }
+    InstalledApp:
+      type: object
+      properties:
+        package: { type: string }
+        name: { type: string }
+        version_name: { type: string }
+        is_system: { type: boolean, nullable: true }
+    OtaProgress:
+      type: object
+      properties:
+        command_id: { type: string, format: uuid }
+        phase: { type: string }
+        percent: { type: integer }
+    CheckinRequest:
+      type: object
+      required: [serial_number, build_id]
+      properties:
+        serial_number: { type: string }
+        build_id: { type: string }
+        battery_pct: { type: integer, nullable: true, minimum: 0, maximum: 100 }
+        extra: { type: object, additionalProperties: true }
+        installed_apps:
+          type: array
+          items: { $ref: '#/components/schemas/InstalledApp' }
+        ota_progress: { $ref: '#/components/schemas/OtaProgress' }
+    Command:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type:
+          type: string
+          enum: [install_apk, shell, screenshot, reboot, ota, update_splash]
+        apk_url: { type: string }
+        payload: { type: object, additionalProperties: true }
+        target_type: { type: string, enum: [all, devices, groups] }
+        created_at: { type: string, format: date-time }
+    CheckinResponse:
+      type: object
+      properties:
+        status: { type: string }
+        commands:
+          type: array
+          items: { $ref: '#/components/schemas/Command' }
+        config:
+          type: object
+          properties:
+            kiosk_enabled: { type: boolean }
+            kiosk_package: { type: string }
+            kiosk_features: { type: integer }
+            checkin_interval_seconds: { type: integer }
+    AckRequest:
+      type: object
+      required: [serial_number, status]
+      properties:
+        serial_number: { type: string }
+        status: { type: string, enum: [downloading, installing, installed, failed, completed] }
+        output: { type: string }
+        progress: { type: integer, nullable: true, minimum: 0, maximum: 100 }
+        package: { type: string }
+    LogcatRequest:
+      type: object
+      required: [serial_number, request_id, content]
+      properties:
+        serial_number: { type: string }
+        request_id: { type: string, format: uuid }
+        content: { type: string }
+    OtaStatusRequest:
+      type: object
+      required: [serial_number, command_id, status]
+      properties:
+        serial_number: { type: string }
+        command_id: { type: string, format: uuid }
+        status: { type: string, enum: [downloaded, installed, error] }
+        error_code: { type: string }
+    Device:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        serial_number: { type: string }
+        build_id: { type: string }
+        battery_pct: { type: integer }
+        last_seen_at: { type: string, format: date-time }
+        created_at: { type: string, format: date-time }
+        poll_interval_ms: { type: integer }
+        kiosk_enabled: { type: boolean }
+        kiosk_package: { type: string }
+        latest_extra: { type: object, additionalProperties: true }
+        hidden: { type: boolean }
+        discharge_total_pct: { type: integer }
+        discharge_backfilled: { type: boolean }
+        restaurant_id: { type: string, format: uuid, nullable: true }
+        restaurant_name: { type: string }
+        deployed_effective: { type: boolean }
+    Group:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        device_count: { type: integer }
+        created_at: { type: string, format: date-time }
+    CreateGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+    AddDeviceRequest:
+      type: object
+      required: [serial_number]
+      properties:
+        serial_number: { type: string }
+    Production:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        product_code: { type: string }
+        model_code: { type: string }
+        variant: { type: string }
+        sku: { type: string }
+        batch: { type: string }
+        batch_month: { type: integer }
+        batch_year: { type: integer }
+        start_sequence: { type: integer }
+        end_sequence: { type: integer }
+        notes: { type: string }
+        created_at: { type: string, format: date-time }
+        total: { type: integer }
+        deployed: { type: integer }
+        online: { type: integer }
+    CreateProductionRequest:
+      type: object
+      required: [name, product_code, model_code, batch_month, batch_year, start_sequence, end_sequence]
+      properties:
+        name: { type: string }
+        product_code: { type: string }
+        model_code: { type: string }
+        variant: { type: string, default: "0" }
+        sku: { type: string, default: "AA" }
+        batch_month: { type: integer, minimum: 1, maximum: 12 }
+        batch_year: { type: integer, minimum: 0, maximum: 99 }
+        start_sequence: { type: integer, minimum: 1 }
+        end_sequence: { type: integer }
+        notes: { type: string }
+    CreateCommandRequest:
+      type: object
+      required: [target_type]
+      properties:
+        type:
+          type: string
+          enum: [install_apk, shell, screenshot, reboot, ota, update_splash]
+          default: install_apk
+        apk_url: { type: string, description: required when type=install_apk }
+        payload:
+          type: object
+          additionalProperties: true
+          description: >
+            Type-specific. For update_splash: {"url":"...","partition_size":N}.
+            For type=shell this is arbitrary command input executed on target devices.
+        target_type: { type: string, enum: [all, devices, groups] }
+        targets:
+          type: array
+          items: { type: string }
+          description: required unless target_type=all (serials or group IDs)
+    PingResponse:
+      type: object
+      properties:
+        connected: { type: boolean }
+        responsive: { type: boolean }
+        latency_ms: { type: integer }
+        error: { type: string }
+  responses:
+    Unauthorized:
+      description: Missing/invalid API key (identical body for both key classes)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    RateLimited:
+      description: Too many failed auth attempts (30/min per IP)
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+paths:
+  /health:
+    get:
+      tags: [public]
+      summary: Liveness probe (no auth; minimal body)
+      security: []
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Ok' } } } }
+        '503': { description: DB unreachable }
+
+  /api/v1/checkin:
+    post:
+      tags: [device]
+      summary: Device check-in; returns pending commands + config
+      security: [{ DeviceApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckinRequest' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CheckinResponse' } } } }
+        '400': { description: Missing required fields }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { description: Internal error }
+
+  /api/v1/commands/{id}/ack:
+    post:
+      tags: [device]
+      summary: Device acknowledges/updates a command
+      security: [{ DeviceApiKey: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AckRequest' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Ok' } } } }
+        '400': { description: Invalid status }
+        '403': { description: Command does not target this device }
+        '404': { description: Device not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/logcat:
+    post:
+      tags: [device]
+      summary: Device uploads a requested logcat dump
+      security: [{ DeviceApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LogcatRequest' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Ok' } } } }
+        '400': { description: Missing fields }
+        '404': { description: Device not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/ota/status:
+    post:
+      tags: [device]
+      summary: Device reports OTA install progress
+      security: [{ DeviceApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OtaStatusRequest' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Ok' } } } }
+        '400': { description: Missing/invalid status }
+        '403': { description: Command does not target this device }
+        '404': { description: Device not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/ws:
+    get:
+      tags: [device]
+      summary: WebSocket upgrade for server-push delivery (see API_REFERENCE.md §5)
+      description: >
+        X-API-Key is validated before the upgrade. Query param `serial` required.
+        Message protocol is documented in API_REFERENCE.md, not modelled in OpenAPI.
+      security: [{ DeviceApiKey: [] }]
+      parameters:
+        - { name: serial, in: query, required: true, schema: { type: string } }
+      responses:
+        '101': { description: Switching Protocols (WebSocket) }
+        '400': { description: Missing serial }
+        '404': { description: Device not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/remote/{serial}:
+    get:
+      tags: [public]
+      summary: Remote-control WebSocket (single-use token, NO API key)
+      description: >
+        Registered with no API-key middleware. Auth is a single-use `token` query
+        param minted by an authenticated dashboard session and bound to the device.
+        See API_REFERENCE.md §4.
+      security: []
+      parameters:
+        - { name: serial, in: path, required: true, schema: { type: string } }
+        - { name: token, in: query, required: true, schema: { type: string } }
+      responses:
+        '101': { description: Switching Protocols (WebSocket) }
+        '400': { description: Missing serial }
+        '401': { description: Invalid/expired/mismatched token }
+        '404': { description: Device not found }
+        '503': { description: Device not connected }
+
+  /api/v1/devices:
+    get:
+      tags: [admin]
+      summary: List all devices
+      security: [{ AdminApiKey: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Device' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/devices/{serial}:
+    get:
+      tags: [admin]
+      summary: Device detail + recent checkins
+      security: [{ AdminApiKey: [] }]
+      parameters:
+        - { name: serial, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device: { $ref: '#/components/schemas/Device' }
+                  checkins: { type: array, items: { type: object, additionalProperties: true } }
+        '404': { description: Device not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/devices/{serial}/ping:
+    post:
+      tags: [admin]
+      summary: Live WS liveness/latency probe
+      security: [{ AdminApiKey: [] }]
+      parameters:
+        - { name: serial, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/PingResponse' } } } }
+        '404': { description: Device not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/groups:
+    get:
+      tags: [admin]
+      summary: List groups
+      security: [{ AdminApiKey: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Group' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [admin]
+      summary: Create a group
+      security: [{ AdminApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateGroupRequest' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Group' } } } }
+        '400': { description: Missing name }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/groups/{id}:
+    get:
+      tags: [admin]
+      summary: Group + member devices
+      security: [{ AdminApiKey: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  group: { $ref: '#/components/schemas/Group' }
+                  devices: { type: array, items: { $ref: '#/components/schemas/Device' } }
+        '400': { description: Invalid UUID }
+        '404': { description: Group not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [admin]
+      summary: Delete group
+      security: [{ AdminApiKey: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Ok' } } } }
+        '400': { description: Invalid UUID }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/groups/{id}/devices:
+    post:
+      tags: [admin]
+      summary: Add a device to a group
+      security: [{ AdminApiKey: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddDeviceRequest' }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Ok' } } } }
+        '400': { description: Invalid UUID / missing serial }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/groups/{id}/devices/{serial}:
+    delete:
+      tags: [admin]
+      summary: Remove a device from a group
+      security: [{ AdminApiKey: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: serial, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Ok' } } } }
+        '400': { description: Invalid UUID }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/productions:
+    get:
+      tags: [admin]
+      summary: List production batches
+      security: [{ AdminApiKey: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Production' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [admin]
+      summary: Create a production batch
+      security: [{ AdminApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProductionRequest' }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Production' } } } }
+        '400': { description: Invalid fields }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/productions/{id}:
+    get:
+      tags: [admin]
+      summary: Production + devices
+      security: [{ AdminApiKey: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  production: { $ref: '#/components/schemas/Production' }
+                  devices: { type: array, items: { $ref: '#/components/schemas/Device' } }
+        '400': { description: Invalid UUID }
+        '404': { description: Not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    delete:
+      tags: [admin]
+      summary: Delete production
+      security: [{ AdminApiKey: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Ok' } } } }
+        '400': { description: Invalid UUID }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/commands:
+    get:
+      tags: [admin]
+      summary: List commands
+      security: [{ AdminApiKey: [] }]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Command' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [admin]
+      summary: Create a command and fan out to targets (type=shell → RCE on devices)
+      security: [{ AdminApiKey: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateCommandRequest' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  command: { $ref: '#/components/schemas/Command' }
+                  skipped: { type: array, items: { type: string } }
+        '200':
+          description: All targets already installing (nothing created)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created: { type: boolean, example: false }
+                  skipped: { type: array, items: { type: string } }
+                  message: { type: string }
+        '400': { description: Invalid fields }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/commands/{id}:
+    get:
+      tags: [admin]
+      summary: Command + per-device delivery status
+      security: [{ AdminApiKey: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  command: { $ref: '#/components/schemas/Command' }
+                  deliveries:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        device_id: { type: string, format: uuid }
+                        serial_number: { type: string }
+                        status: { type: string, enum: [pending, delivered, downloading, installing, installed, failed, completed] }
+                        progress: { type: integer }
+                        updated_at: { type: string, format: date-time }
+                        output: { type: string }
+                        last_seen_at: { type: string, format: date-time }
+                        online: { type: boolean }
+        '400': { description: Invalid UUID }
+        '404': { description: Command not found }
+        '401': { $ref: '#/components/responses/Unauthorized' }
