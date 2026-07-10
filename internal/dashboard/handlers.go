@@ -93,6 +93,45 @@ func (h *Handler) hxRedirect(w http.ResponseWriter, r *http.Request, url string)
 	http.Redirect(w, r, url, http.StatusSeeOther)
 }
 
+// hxDone completes an in-place mutation without a full-page reload. For htmx
+// requests it returns 204 No Content (htmx swaps nothing, so the content area
+// never blinks) plus any HX-Trigger events, letting the affected regions refresh
+// through their existing live listeners; plain (no-JS) requests fall back to a
+// redirect. Most callers pass no events and rely on the hub/SSE broadcast the
+// handler already published (the actor's own tab is subscribed too), which keeps
+// every open tab consistent with a single refresh rather than a full <main> swap.
+func (h *Handler) hxDone(w http.ResponseWriter, r *http.Request, redirectURL string, events ...string) {
+	if hxReq(r) {
+		if len(events) > 0 {
+			hxTriggerEvents(w, events...)
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
+// plural returns "s" unless n == 1, for building "N device(s)" toast messages.
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
+}
+
+// hxDoneToast is hxDone plus a confirmation toast for htmx requests — used for
+// bulk actions where the in-place change alone may not be obvious enough to
+// reassure the operator it happened. The toast rides HX-Trigger; the affected
+// regions still refresh via the hub/SSE broadcast the handler published.
+func (h *Handler) hxDoneToast(w http.ResponseWriter, r *http.Request, redirectURL, msg, typ string) {
+	if hxReq(r) {
+		hxToast(w, msg, typ)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
 type Handler struct {
 	db          *db.DB
 	hub         *ws.Hub
@@ -3152,7 +3191,7 @@ func (h *Handler) AlertBulk(w http.ResponseWriter, r *http.Request) {
 	case "resolve":
 		status = "resolved"
 	default:
-		http.Redirect(w, r, "/alerts", http.StatusSeeOther)
+		h.hxDone(w, r, "/alerts")
 		return
 	}
 	var ids []uuid.UUID
@@ -3169,7 +3208,7 @@ func (h *Handler) AlertBulk(w http.ResponseWriter, r *http.Request) {
 		h.audit(r, "alert."+status+"_selected", "", strconv.Itoa(len(ids)))
 		h.hub.PublishAlertUpdate()
 	}
-	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
+	h.hxDone(w, r, "/alerts")
 }
 
 // AlertAck marks an alert acknowledged. AlertResolve resolves it.
@@ -3192,7 +3231,7 @@ func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status 
 	}
 	h.audit(r, "alert."+status, id.String(), "")
 	h.hub.PublishAlertUpdate()
-	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
+	h.hxDone(w, r, "/alerts")
 }
 
 // AlertAckAll acknowledges every open alert; AlertResolveAll resolves every
@@ -3214,7 +3253,7 @@ func (h *Handler) AlertClearAll(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "alert.clear_all", "", strconv.FormatInt(n, 10))
 	h.hub.PublishAlertUpdate()
-	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
+	h.hxDone(w, r, "/alerts")
 }
 
 func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status string) {
@@ -3225,7 +3264,7 @@ func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status
 	}
 	h.audit(r, "alert."+status+"_all", "", strconv.FormatInt(n, 10))
 	h.hub.PublishAlertUpdate()
-	http.Redirect(w, r, "/alerts", http.StatusSeeOther)
+	h.hxDone(w, r, "/alerts")
 }
 
 // FleetHealth renders the Tier 3 fleet/group health overview: a fleet summary plus a
@@ -3345,12 +3384,12 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		"Attention":  attention,
 		"StatusWord": statusWord,
 		// Crash surfaces.
-		"Crashes24h":       crashStats.Total24h,
-		"CrashDevices24h":  crashStats.Devices24h,
-		"CrashWorstBuild":  crashStats.WorstBuild,
-		"CrashWorstBuildN": crashStats.WorstBuildN,
-		"CrashList":        crashRows,
-		"CrashSpark":       crashSparkBars(crashStats.Daily),
+		"Crashes24h":        crashStats.Total24h,
+		"CrashDevices24h":   crashStats.Devices24h,
+		"CrashWorstBuild":   crashStats.WorstBuild,
+		"CrashWorstBuildN":  crashStats.WorstBuildN,
+		"CrashList":         crashRows,
+		"CrashSpark":        crashSparkBars(crashStats.Daily),
 		"RestaurantCrashes": crashStats.ByRestaurant,
 		"MemoryCount":       memory,
 	}
@@ -3501,7 +3540,7 @@ func crashSparkBars(daily []int) []sparkBar {
 		}
 		label := "Today"
 		if i < n-1 {
-			label = time.Now().AddDate(0, 0, -(n-1-i)).Format("Mon")
+			label = time.Now().AddDate(0, 0, -(n - 1 - i)).Format("Mon")
 		}
 		bars[i] = sparkBar{Label: label, Pct: pct, Class: class}
 	}
@@ -4599,7 +4638,7 @@ func (h *Handler) DeviceSetRestaurant(w http.ResponseWriter, r *http.Request) {
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.hub.PublishDeviceUpdate(device.ID)
 	}
-	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+	h.hxDone(w, r, "/devices/"+serial)
 }
 
 func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
@@ -4834,7 +4873,7 @@ func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.hub.PublishDeviceUpdate(device.ID)
-	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
+	h.hxDone(w, r, "/devices/"+serial)
 }
 
 func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
@@ -4854,7 +4893,7 @@ func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
 			h.hub.PublishDeviceUpdate(id)
 		}
 	}
-	http.Redirect(w, r, "/devices", http.StatusSeeOther)
+	h.hxDoneToast(w, r, "/devices", fmt.Sprintf("Hid %d device%s", len(serials), plural(len(serials))), "success")
 }
 
 func (h *Handler) BulkUnhideDevices(w http.ResponseWriter, r *http.Request) {
@@ -4874,7 +4913,7 @@ func (h *Handler) BulkUnhideDevices(w http.ResponseWriter, r *http.Request) {
 			h.hub.PublishDeviceUpdate(id)
 		}
 	}
-	http.Redirect(w, r, "/devices?hidden=only", http.StatusSeeOther)
+	h.hxDoneToast(w, r, "/devices?hidden=only", fmt.Sprintf("Unhid %d device%s", len(serials), plural(len(serials))), "success")
 }
 
 // BulkAssignRestaurant assigns the selected devices to a restaurant from the devices-page
@@ -4897,7 +4936,7 @@ func (h *Handler) BulkAssignRestaurant(w http.ResponseWriter, r *http.Request) {
 			h.hub.PublishDeviceUpdate(id)
 		}
 	}
-	http.Redirect(w, r, "/restaurants/"+rid.String(), http.StatusSeeOther)
+	h.hxDoneToast(w, r, "/restaurants/"+rid.String(), fmt.Sprintf("Assigned %d device%s to restaurant", len(serials), plural(len(serials))), "success")
 }
 
 // pushKioskConfigToDevices fetches the current device_config for each device and
@@ -4973,7 +5012,11 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushKioskConfigToDevices(r.Context(), deviceIDs)
-	http.Redirect(w, r, "/devices", http.StatusSeeOther)
+	verb := "Disabled kiosk on"
+	if enabled {
+		verb = "Enabled kiosk on"
+	}
+	h.hxDoneToast(w, r, "/devices", fmt.Sprintf("%s %d device%s", verb, len(serials), plural(len(serials))), "success")
 }
 
 // ── OTA Packages & Deployments ────────────────────────────────────────────────
@@ -10327,7 +10370,7 @@ func (h *Handler) DeviceSetPollInterval(w http.ResponseWriter, r *http.Request) 
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.hub.PublishDeviceUpdate(device.ID)
 	}
-	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+	h.hxDone(w, r, "/devices/"+serial)
 }
 
 // DeviceNotesUpdate saves freeform operator notes for a device and returns the
@@ -10385,7 +10428,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
-	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+	h.hxDone(w, r, "/devices/"+serial)
 }
 
 // ── Packages ──────────────────────────────────────────────────────────────────
