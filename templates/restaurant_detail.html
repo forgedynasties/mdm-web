@@ -143,9 +143,19 @@
 <script src="/static/device-picker.js"></script>
 {{end}}
 
-<!-- Members -->
-<div class="card">
-  <div class="card-header"><h3>Devices</h3></div>
+<!-- Members — refreshes in place on device add/remove via a "restaurant-updated" event -->
+<div class="card" id="restaurant-members"
+     hx-get="/restaurants/{{.Restaurant.ID}}/members" hx-trigger="restaurant-updated from:body"
+     hx-target="this" hx-swap="innerHTML" hx-select="unset">
+  {{template "restaurant-members" .}}
+</div>
+
+{{template "footer" .}}
+{{end}}
+
+{{/* Devices list — refreshed in place (see #restaurant-members) after add/remove. */}}
+{{define "restaurant-members"}}
+  <div class="card-header"><h3>Devices{{if .Devices}} <span class="muted small">{{len .Devices}}</span>{{end}}</h3></div>
   {{if not .Devices}}
   <div class="empty-state">
     <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
@@ -158,7 +168,4 @@
   {{$rm := ""}}{{if canAdminOrTester .Role}}{{$rm = printf "/restaurants/%s/devices/" .Restaurant.ID}}{{end}}
   {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm)}}
   {{end}}
-</div>
-
-{{template "footer" .}}
 {{end}}

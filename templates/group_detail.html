@@ -44,22 +44,12 @@
 <script src="/static/device-picker.js"></script>
 {{end}}
 
-<div class="card">
-  <div class="card-header">
-    <h3>Members</h3>
-  </div>
-  {{if not .Devices}}
-  <div class="empty-state">
-    <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
-    <div class="empty-state-copy">
-      <div class="empty-state-title">No devices in this group yet</div>
-      <div class="empty-state-text">Add devices above to target actions and exports.</div>
-    </div>
-  </div>
-  {{else}}
-  {{$rm := ""}}{{if canAdminOrTester .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{end}}
-  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm)}}
-  {{end}}
+{{/* Members list refreshes in place when a device is added/removed — the add/remove
+     handlers fire a "group-updated" body event instead of reloading the page. */}}
+<div class="card" id="group-members"
+     hx-get="/groups/{{.Group.ID}}/members" hx-trigger="group-updated from:body"
+     hx-target="this" hx-swap="innerHTML" hx-select="unset">
+  {{template "group-members" .}}
 </div>
 
 <script>
@@ -79,4 +69,23 @@ function toggleSection(header) {
 </script>
 
 {{template "footer" .}}
+{{end}}
+
+{{/* Members list — refreshed in place (see #group-members) after add/remove. */}}
+{{define "group-members"}}
+  <div class="card-header">
+    <h3>Members{{if .Devices}} <span class="muted small">{{len .Devices}}</span>{{end}}</h3>
+  </div>
+  {{if not .Devices}}
+  <div class="empty-state">
+    <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No devices in this group yet</div>
+      <div class="empty-state-text">Add devices above to target actions and exports.</div>
+    </div>
+  </div>
+  {{else}}
+  {{$rm := ""}}{{if canAdminOrTester .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{end}}
+  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm)}}
+  {{end}}
 {{end}}

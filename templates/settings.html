@@ -1,3 +1,11 @@
+{{/* Reusable on/off switch that flips in place: htmx posts the toggle and swaps
+     just this form back with the new state — no full-page reload. Params:
+     Action (POST url), On (current bool). */}}
+{{define "settings-toggle"}}
+<form action="{{.Action}}" method="POST" hx-post="{{.Action}}" hx-target="this" hx-swap="outerHTML" style="display:inline">
+  <button type="submit" class="sw-toggle{{if .On}} on{{end}}" title="{{if .On}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .On}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
+</form>
+{{end}}
 {{define "chan-fields"}}
       <input type="text" name="name" value="{{.Name}}" placeholder="Name (e.g. On-call)" class="form-input" style="width:140px;">
       <select name="kind" class="form-input" style="width:120px;" title="Destination type">
@@ -181,9 +189,7 @@
       <strong>Legacy Checkin Actions</strong>
       <div class="muted small">Deliver pending actions via checkin response for devices not connected over WebSocket.</div>
     </div>
-    <form action="/settings/legacy-checkin/toggle" method="POST">
-      <button type="submit" class="sw-toggle{{if .LegacyCheckin}} on{{end}}" title="{{if .LegacyCheckin}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .LegacyCheckin}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
-    </form>
+    {{template "settings-toggle" (dict "Action" "/settings/legacy-checkin/toggle" "On" .LegacyCheckin)}}
   </div>
 </div>
 
@@ -222,9 +228,7 @@
       <strong>Require a reason for destructive actions</strong>
       <div class="muted small">Reboot / OTA / boot-logo actions must include a reason, recorded in the audit log.</div>
     </div>
-    <form action="/settings/require-reason" method="POST">
-      <button type="submit" class="sw-toggle{{if .RequireReason}} on{{end}}" title="{{if .RequireReason}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .RequireReason}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
-    </form>
+    {{template "settings-toggle" (dict "Action" "/settings/require-reason" "On" .RequireReason)}}
   </div>
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small" style="margin-bottom:8px;">A pending shell/screenshot/reboot action is shown as <em>expired</em> after this long.</div>
@@ -263,18 +267,14 @@
       <strong>Interactive Shell</strong>
       <div class="muted small">Allow operators to send one-off shell commands to devices. When off, the shell action is hidden and shell commands are rejected.</div>
     </div>
-    <form action="/settings/shell/toggle" method="POST">
-      <button type="submit" class="sw-toggle{{if .ShellEnabled}} on{{end}}" title="{{if .ShellEnabled}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .ShellEnabled}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
-    </form>
+    {{template "settings-toggle" (dict "Action" "/settings/shell/toggle" "On" .ShellEnabled)}}
   </div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
     <div>
       <strong>Remote Control</strong>
       <div class="muted small">Allow viewing and controlling device screens in real time. When off, the remote screen is blocked.</div>
     </div>
-    <form action="/settings/remote/toggle" method="POST">
-      <button type="submit" class="sw-toggle{{if .RemoteEnabled}} on{{end}}" title="{{if .RemoteEnabled}}Disable{{else}}Enable{{end}}" aria-pressed="{{if .RemoteEnabled}}true{{else}}false{{end}}"><span class="sw-knob"></span></button>
-    </form>
+    {{template "settings-toggle" (dict "Action" "/settings/remote/toggle" "On" .RemoteEnabled)}}
   </div>
 </div>
   </section>
