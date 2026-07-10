@@ -5,7 +5,7 @@
 {{range .Deliveries}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{if not .Online}}{{$offlinePending = add $offlinePending 1}}{{end}}{{end}}{{if or (eq .Status "downloading") (eq .Status "installing")}}{{$hasPending = true}}{{end}}{{end}}
 {{$verb := "done"}}{{if eq $cmd.Type "install_apk"}}{{$verb = "installed"}}{{else if eq $cmd.Type "uninstall"}}{{$verb = "removed"}}{{else if eq $cmd.Type "screenshot"}}{{$verb = "captured"}}{{else if eq $cmd.Type "reboot"}}{{$verb = "rebooted"}}{{else if eq $cmd.Type "shell"}}{{$verb = "responded"}}{{end}}
 <div class="ad-body"
-  id="deliveries-card"
+  id="deliveries-card" data-diff-guard
   {{if $hasPending}}
   hx-get="/commands/{{$cmd.ID}}/status" hx-select="unset" hx-target="this"
   hx-trigger="command-updated from:body, every 30s"
@@ -78,9 +78,9 @@
           <span class="status-badge active">installing</span><span class="ad-bar run"><i></i></span>
         {{else}}
           <span class="status-badge {{statusClass .Status}}">{{.Status}}</span>
-          {{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered"))}}<span class="muted small"><span class="ws-dot"></span>offline · last seen {{timeSince .LastSeenAt}}</span>
+          {{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered"))}}<span class="muted small"><span class="ws-dot"></span>offline · last seen <span class="reltime" data-ts="{{.LastSeenAt.Unix}}"></span></span>
           {{else if .Output}}<span class="muted small">{{.Output}}</span>
-          {{else}}<span class="when">{{timeSince .UpdatedAt}}</span>{{end}}
+          {{else}}<span class="when reltime" data-ts="{{.UpdatedAt.Unix}}"></span>{{end}}
         {{end}}
       </div>
       <div class="ad-row-act">{{if and $.CanResend (or (eq .Status "failed") (eq .Status "expired") (not .Online))}}<form action="/commands/{{$cmd.ID}}/resend/{{.SerialNumber}}" method="POST"><button type="submit" class="ad-mini">Resend</button></form>{{end}}</div>

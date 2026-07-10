@@ -685,6 +685,50 @@
     var full = document.getElementById('ai-sum-full');
     if (full && full.dataset.rendered !== '1' && document.getElementById('ai-sum-raw')) window.mdmInitReportCard();
   });
+
+  // ── Live-region helpers: no-op swap guard + client-side relative time ─────────
+  // Live pages refetch a region on every SSE tick. If the fragment carries a
+  // server-rendered "3m ago", it is never byte-identical between ticks, so the
+  // region repaints (and any afterSwap relayout re-runs) even when nothing
+  // actually changed — the flicker the operator sees. Two shared primitives fix
+  // this everywhere:
+  //   1. Any refetch container marked  data-diff-guard  swaps ONLY when the server
+  //      HTML actually differs from what's on screen (fail-open on empty/error).
+  //   2. Relative times render client-side from a stable epoch: the server emits
+  //      <span class="reltime" data-ts="{{unix}}"></span> (no churning text), and
+  //      we tick them here every second. Combined, an idle live update is a true
+  //      no-op: no DOM mutation, no lost scroll/hover/focus, no restarted anim.
+  (function () {
+    var lastHtml = {};
+    document.body.addEventListener('htmx:beforeSwap', function (e) {
+      var t = e.target;
+      if (!t || !t.id || !t.hasAttribute || !t.hasAttribute('data-diff-guard')) return;
+      var html = e.detail && e.detail.serverResponse;
+      if (typeof html !== 'string' || html === '') return; // fail open — never suppress on empty/error
+      if (lastHtml[t.id] === html) { e.detail.shouldSwap = false; }
+      else { lastHtml[t.id] = html; }
+    });
+    function ago(sec) {
+      var d = Math.max(0, Math.floor(Date.now() / 1000) - sec);
+      if (d < 45) return 'just now';
+      if (d < 90) return '1m ago';
+      if (d < 3600) return Math.floor(d / 60) + 'm ago';
+      if (d < 5400) return '1h ago';
+      if (d < 86400) return Math.floor(d / 3600) + 'h ago';
+      return Math.floor(d / 86400) + 'd ago';
+    }
+    window.mdmTickRel = function (root) {
+      (root || document).querySelectorAll('.reltime[data-ts]').forEach(function (el) {
+        var ts = parseInt(el.dataset.ts, 10); if (!ts) return;
+        var txt = ago(ts);
+        if (el.textContent !== txt) el.textContent = txt;
+      });
+    };
+    // Re-tick after any swap brings fresh .reltime spans in, and once a second.
+    document.body.addEventListener('htmx:afterSwap', function () { window.mdmTickRel(); });
+    setInterval(function () { window.mdmTickRel(); }, 1000);
+    window.mdmTickRel();
+  })();
 </script>
   <script>
   (function () {
