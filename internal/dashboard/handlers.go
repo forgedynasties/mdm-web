@@ -425,6 +425,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return false
 		},
+		"hasPrefix": strings.HasPrefix,
 		"batteryClass": func(pct int) string {
 			switch {
 			case pct < 20:
