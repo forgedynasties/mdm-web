@@ -933,6 +933,33 @@
     }
     window.showToast = showToast;
 
+    // Copy text to the clipboard with a toast + brief button feedback. Falls back to a
+    // hidden textarea + execCommand where the async Clipboard API is unavailable
+    // (older/insecure-origin browsers). Usage: copyText(theText, theButton).
+    function copyText(text, btn) {
+      function done(ok) {
+        showToast(ok ? 'Copied to clipboard' : 'Copy failed', ok ? 'success' : 'error');
+        if (ok && btn) {
+          var prev = btn.textContent;
+          btn.textContent = 'Copied';
+          setTimeout(function () { btn.textContent = prev; }, 1500);
+        }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+        return;
+      }
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        done(ok);
+      } catch (e) { done(false); }
+    }
+    window.copyText = copyText;
+
     // Flash-via-URL: a redirect (which swallows HX-Trigger toasts) can carry
     // ?flash=<msg>&flash_type=<t>; show it once, then strip it from the address bar.
     // Runs on load and after each boosted navigation.

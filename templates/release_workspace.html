@@ -700,7 +700,10 @@ function pkgVerify() {
   {{if $g.SampleDetail}}
   <details class="prob-crash-trace">
     <summary class="muted small">View latest trace</summary>
-    <pre class="logcat-terminal">{{colorizeLogcat $g.SampleDetail}}</pre>
+    <div class="trace-wrap">
+      <button type="button" class="qa-pill trace-copy" onclick="copyText(this.parentNode.querySelector('pre').textContent, this)">Copy</button>
+      <pre class="logcat-terminal">{{colorizeLogcat $g.SampleDetail}}</pre>
+    </div>
   </details>
   {{end}}
 </div>
