@@ -5351,7 +5351,10 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .prob-crash-when { white-space: nowrap; }
 .prob-crash-trace { margin: 2px 0 6px; }
 .prob-crash-trace > summary { cursor: pointer; user-select: none; padding: 2px 0; }
-.prob-crash-trace > .logcat-terminal { margin-top: 6px; max-height: 320px; overflow: auto; }
+.prob-crash-trace .logcat-terminal { margin-top: 6px; max-height: 320px; overflow: auto; }
+.trace-wrap { position: relative; }
+.trace-copy { position: absolute; top: 8px; right: 8px; z-index: 2; opacity: .85; }
+.trace-copy:hover { opacity: 1; }
 
 /* ── Release problem trail + carried-over (Phase 2) ─────────────────────── */
 .prob-carry { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 99px; padding: 2px 7px; }
