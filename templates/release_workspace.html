@@ -603,13 +603,16 @@ function pkgVerify() {
 {{define "prob-card"}}
 {{$p := .P}}{{$relID := .RelID}}{{$canAct := .CanAct}}
 {{$open := not (or (eq $p.Status "verified") (eq $p.Status "wontfix"))}}
+{{/* Carried bug that was reported fixed in an earlier build but failed QA verification
+     (reopened to 'open' with the fix build still recorded). */}}
+{{$failedVerify := and $p.Inherited (eq $p.Status "open") (ne $p.FixedInVersion "")}}
 <div class="prob{{if not $open}} closed{{end}}" data-open="{{if $open}}1{{else}}0{{end}}" data-severity="{{$p.Severity}}">
   <div class="prob-h">
     <span class="prob-sev {{$p.Severity}}">{{$p.Severity}}</span>
     <span class="prob-title">{{$p.Title}}</span>
     {{if eq $p.Source "qa"}}<span class="prob-qa" title="Auto-created from a failed QA case; resolves when the case passes">from QA</span>{{end}}
     {{if $p.Inherited}}<span class="prob-carry" title="Carried over from an earlier build — fix &amp; verify it here">↪ carried</span>{{end}}
-    <span class="prob-status st-{{$p.Status}}">{{$p.Status}}</span>
+    {{if $failedVerify}}<span class="prob-status st-failverify" title="Reported fixed in an earlier build, but QA verification failed">verify failed</span>{{else}}<span class="prob-status st-{{$p.Status}}">{{$p.Status}}</span>{{end}}
   </div>
   {{if $p.Description}}<div class="prob-desc">{{$p.Description}}</div>{{end}}
   <div class="prob-meta">
@@ -639,6 +642,7 @@ function pkgVerify() {
         <span class="prob-resolved">Won't fix</span>
         <button name="status" value="open" class="qa-pill">Reopen</button>
       {{else}}
+        {{if $p.FixedInVersion}}<span class="prob-failverify" title="A previous build claimed this fixed, but QA verification failed — it rides the train until a fix holds">Reported fixed in {{$p.FixedInVersion}} — QA verification failed</span>{{end}}
         <button name="status" value="fixed" class="qa-pill" title="This is fixed in this build — adds a QA case so the test team verifies the fix">Fixed here</button>
       {{end}}
     {{else if $open}}
