@@ -1,76 +1,353 @@
 {{template "header" .}}
 
 <style>
-#remote-container {
+/* ── Remote control cockpit ─────────────────────────────────────────────────
+   Two panes: the live device screen in a bezel (left) and a control deck of
+   hardware keys + keyboard capture (right). Stacks on narrow viewports. */
+#rc {
+  --rc-gap: 18px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--rc-gap);
+  align-items: start;
+}
+@media (max-width: 860px) {
+  #rc { grid-template-columns: 1fr; }
+}
+
+/* Header row above the stage */
+.rc-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+.rc-head h2 {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rc-head .rc-serial { font-family: var(--mono); font-size: 15px; }
+.rc-head-spacer { flex: 1; }
+
+/* Live status pill with a pulsing dot */
+.rc-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: var(--t-12);
+  font-weight: var(--fw-semibold);
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  padding: 4px 11px 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--surface2);
+  white-space: nowrap;
+}
+.rc-status .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.rc-status.live      { color: var(--ok);     background: var(--ok-bg);     border-color: transparent; }
+.rc-status.connecting{ color: var(--warn);   background: var(--warn-bg);   border-color: transparent; }
+.rc-status.offline   { color: var(--muted);  background: var(--surface-3); border-color: transparent; }
+.rc-status.error     { color: var(--danger); background: var(--danger-bg); border-color: transparent; }
+.rc-status.live .dot { animation: rc-pulse 1.6s ease-in-out infinite; }
+@keyframes rc-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(21,127,60,.5); }
+  50%      { box-shadow: 0 0 0 5px rgba(21,127,60,0); }
+}
+
+/* ── Stage: the device screen in a bezel ─────────────────────────────────── */
+.rc-stage {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
 }
-#remote-screen {
+.rc-bezel {
+  position: relative;
+  background: #0a0a0c;
+  border-radius: 26px;
+  padding: 12px;
+  box-shadow: var(--shadow-lg), inset 0 0 0 1px rgba(255,255,255,.05);
+  max-width: 100%;
+  line-height: 0;
+}
+.rc-screen {
   position: relative;
   background: #000;
-  border-radius: 8px;
+  border-radius: 14px;
   overflow: hidden;
   max-width: 100%;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.3);
 }
-#remote-screen img, #remote-screen canvas {
+.rc-screen canvas {
   display: block;
   max-width: 100%;
+  max-height: calc(100vh - 260px);
+  width: auto;
   height: auto;
   touch-action: none;
   user-select: none;
+  cursor: crosshair;
 }
-#remote-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-#remote-toolbar .stat {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  color: var(--muted, #888);
-}
-#remote-toolbar .stat span {
-  color: var(--fg, #fff);
-}
-.remote-disconnected {
+/* Placeholder shown before/without a stream */
+.rc-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 300px;
-  color: var(--muted, #888);
-  gap: 12px;
+  gap: 14px;
+  min-width: 260px;
+  min-height: 360px;
+  padding: 32px;
+  color: var(--muted);
+  text-align: center;
 }
-.remote-disconnected h3 {
-  color: var(--fg, #fff);
-  margin: 0;
+.rc-placeholder .rc-ph-icon {
+  width: 46px; height: 46px;
+  color: var(--muted);
+  opacity: .7;
 }
+.rc-placeholder .rc-ph-icon svg { width: 100%; height: 100%; }
+.rc-placeholder h3 { color: #fff; margin: 0; font-size: 15px; }
+.rc-spinner {
+  width: 26px; height: 26px;
+  border: 3px solid rgba(255,255,255,.15);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: rc-spin .8s linear infinite;
+}
+@keyframes rc-spin { to { transform: rotate(360deg); } }
+
+/* Stats strip under the screen */
+.rc-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.rc-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: var(--t-12);
+  color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.rc-chip b { color: var(--text); font-weight: 600; }
+.rc-chip.err { color: var(--danger); border-color: var(--danger-edge); background: var(--danger-bg); }
+
+/* ── Control deck ─────────────────────────────────────────────────────────── */
+.rc-deck {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rc-gap);
+  position: sticky;
+  top: 12px;
+}
+@media (max-width: 860px) {
+  .rc-deck { position: static; }
+}
+.rc-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-4);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+}
+.rc-card h4 {
+  font-size: var(--t-11);
+  font-weight: var(--fw-semibold);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+/* Hardware key buttons */
+.rc-nav-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.rc-key {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 11px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-3);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, transform .05s;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.rc-key svg { width: 20px; height: 20px; stroke-width: 1.8; }
+.rc-key:hover:not(:disabled) { background: var(--surface); border-color: var(--accent-edge); color: var(--accent); }
+.rc-key:active:not(:disabled) { transform: translateY(1px); background: var(--accent-soft); }
+.rc-key:disabled { opacity: .4; cursor: not-allowed; }
+.rc-key-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* Keyboard capture */
+.rc-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  font-size: var(--t-13);
+  color: var(--text);
+}
+.rc-switch {
+  position: relative;
+  width: 40px; height: 22px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border);
+  flex: none;
+  transition: background .15s;
+}
+.rc-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 2px;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: transform .15s;
+}
+.rc-toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.rc-toggle input:checked + .rc-switch { background: var(--accent); border-color: var(--accent); }
+.rc-toggle input:checked + .rc-switch::after { transform: translateX(18px); }
+.rc-hint { font-size: var(--t-12); color: var(--muted); margin: 8px 0 0; line-height: 1.4; }
+
+/* Type-text row */
+.rc-type {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.rc-type input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-2);
+  background: var(--surface2);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--t-13);
+}
+.rc-type input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 </style>
 
-<div id="remote-container">
-  <div id="remote-toolbar">
-    <div class="stat">FPS: <span id="stat-fps">—</span></div>
-    <div class="stat">KB/s: <span id="stat-kbps">—</span></div>
-    <div class="stat" id="stat-err-wrap" style="display:none;color:var(--danger,#e5484d)">Decode errors: <span id="stat-err">0</span></div>
-    <div class="stat" id="stat-size" style="display:none">Frame: <span></span></div>
-    <button id="btn-disconnect" class="btn-danger" onclick="disconnect()" style="display:none">Disconnect</button>
-    <span id="badge-status" class="status-badge pending">connecting…</span>
+<div id="rc">
+  <div class="rc-head">
+    <h2>Remote control
+      <a href="/devices/{{.Serial}}" class="rc-serial link-detail">{{.Serial}}</a>
+    </h2>
+    <div class="rc-head-spacer"></div>
+    <span id="rc-status" class="rc-status {{if .Online}}connecting{{else}}offline{{end}}"><span class="dot"></span><span id="rc-status-text">{{if .Online}}connecting{{else}}offline{{end}}</span></span>
+    <button id="rc-disconnect" class="btn-outline-sm" type="button" onclick="rcDisconnect()" style="display:none">Disconnect</button>
   </div>
 
-  <div id="remote-screen">
-    <div id="remote-placeholder" class="remote-disconnected">
-      <h3><a href="/devices/{{.Serial}}" class="link-detail">{{.Serial}}</a></h3>
-      {{if .Online}}
-      <p>Connecting…</p>
-      {{else}}
-      <p class="muted">Device is offline</p>
-      <button class="btn-outline" onclick="location.reload()">Retry</button>
-      {{end}}
+  <div class="rc-stage">
+    <div class="rc-bezel">
+      <div class="rc-screen" id="rc-screen">
+        <div id="rc-placeholder" class="rc-placeholder">
+          {{if .Online}}
+          <div class="rc-spinner"></div>
+          <h3>{{.Serial}}</h3>
+          <p>Starting screen mirror…</p>
+          {{else}}
+          <div class="rc-ph-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/><path d="M4 4l16 16" stroke="var(--danger)"/></svg></div>
+          <h3>Device is offline</h3>
+          <p>The device must be connected to start a remote session.</p>
+          <button class="btn-outline-sm" type="button" onclick="location.reload()">Retry</button>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <div class="rc-stats">
+      <span class="rc-chip"><b id="rc-fps">—</b> fps</span>
+      <span class="rc-chip"><b id="rc-kbps">—</b> KB/s</span>
+      <span class="rc-chip"><b id="rc-res">—</b></span>
+      <span class="rc-chip err" id="rc-err-chip" style="display:none"><b id="rc-err">0</b> decode errors</span>
+    </div>
+  </div>
+
+  <div class="rc-deck">
+    <div class="rc-card">
+      <h4>Navigation</h4>
+      <div class="rc-nav-row">
+        <button class="rc-key" type="button" onclick="rcTap(4)" title="Back" disabled data-needs-conn>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>Back
+        </button>
+        <button class="rc-key" type="button" onclick="rcTap(3)" title="Home" disabled data-needs-conn>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>Home
+        </button>
+        <button class="rc-key" type="button" onclick="rcTap(187)" title="Recent apps" disabled data-needs-conn>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>Recents
+        </button>
+      </div>
+      <div class="rc-key-grid">
+        <button class="rc-key" type="button" onclick="rcTap(24)" title="Volume up" disabled data-needs-conn>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a9 9 0 0 1 0 14"/></svg>Vol +
+        </button>
+        <button class="rc-key" type="button" onclick="rcTap(25)" title="Volume down" disabled data-needs-conn>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>Vol −
+        </button>
+        <button class="rc-key" type="button" onclick="rcWake()" title="Wake screen" disabled data-needs-conn>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Wake
+        </button>
+        <button class="rc-key" type="button" onclick="rcTap(26)" title="Power (toggle screen)" disabled data-needs-conn>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>Power
+        </button>
+      </div>
+    </div>
+
+    <div class="rc-card">
+      <h4>Keyboard</h4>
+      <label class="rc-toggle">
+        <span>Capture physical keyboard</span>
+        <input type="checkbox" id="rc-kbd" onchange="rcSetCapture(this.checked)" disabled data-needs-conn>
+        <span class="rc-switch"></span>
+      </label>
+      <p class="rc-hint" id="rc-kbd-hint">When on, keys you press are sent to the device.</p>
+      <div class="rc-type">
+        <input type="text" id="rc-text" placeholder="Type text to send…" autocomplete="off" spellcheck="false"
+               onkeydown="if(event.key==='Enter'){event.preventDefault();rcSendText();}" disabled data-needs-conn>
+        <button class="btn-primary" type="button" onclick="rcSendText()" disabled data-needs-conn>Send</button>
+      </div>
     </div>
   </div>
 </div>
@@ -79,199 +356,211 @@
 (function() {
   var serial = {{.Serial}};
   var online = {{.Online}};
-  if (!online) return;
 
   var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial) + '?token=' + encodeURIComponent('{{.Token}}');
 
-  var ws;
+  var ws = null;
   var view = null;   // <canvas> showing the device screen
   var ctx = null;
+  var captureKbd = false;
   var decodeErrors = 0;
   var frameCount = 0;
-  var byteCount = 0;
-  var fpsStart = performance.now();
-  var bwStart = performance.now();
+  var fpsStart = 0;
+  var bwStart = 0;
   var bwBytes = 0;
-  var displayWidth = 1080;
-  var displayHeight = 1920;
+
+  // ── Browser key → Android keycode map (for keyboard capture & type-to-send) ──
+  // The device injects a KeyEvent with this keycode. Only keys we can map reach
+  // the device; anything unmapped is ignored so we never inject a bogus code.
+  var AKEY = {
+    'Backspace': 67, 'Tab': 61, 'Enter': 66, 'Escape': 111, ' ': 62,
+    'ArrowUp': 19, 'ArrowDown': 20, 'ArrowLeft': 21, 'ArrowRight': 22,
+    'Home': 122, 'End': 123, 'Delete': 112, 'PageUp': 92, 'PageDown': 93,
+    '.': 56, ',': 55, '-': 69, '=': 70, '/': 76, ';': 74, "'": 75,
+    '[': 71, ']': 72, '\\': 73, '`': 68, '@': 77, '+': 81, '*': 17, '#': 18
+  };
+  function keycodeFor(key) {
+    if (key == null) return 0;
+    if (AKEY.hasOwnProperty(key)) return AKEY[key];
+    if (key.length === 1) {
+      var c = key.toLowerCase();
+      if (c >= 'a' && c <= 'z') return 29 + (c.charCodeAt(0) - 97); // KEYCODE_A=29
+      if (c >= '0' && c <= '9') return 7 + (c.charCodeAt(0) - 48);  // KEYCODE_0=7
+    }
+    return 0;
+  }
+
+  function setStatus(cls, text) {
+    var el = document.getElementById('rc-status');
+    el.className = 'rc-status ' + cls;
+    document.getElementById('rc-status-text').textContent = text;
+  }
+  function enableControls(on) {
+    document.querySelectorAll('[data-needs-conn]').forEach(function(el){ el.disabled = !on; });
+    document.getElementById('rc-disconnect').style.display = on ? '' : 'none';
+  }
 
   function connect() {
     ws = window.mdmTrackStream(new WebSocket(wsUrl));
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = function() {
-      setStatus('connected', 'connected');
-      document.getElementById('btn-disconnect').style.display = '';
-      var ph = document.getElementById('remote-placeholder');
-      if (ph) {
+      setStatus('live', 'live');
+      enableControls(true);
+      fpsStart = bwStart = performance.now();
+    };
+
+    ws.onmessage = function(e) {
+      if (typeof e.data === 'string') return; // JSON control messages (none currently)
+
+      // First binary frame: swap the placeholder for a canvas and wire up input.
+      if (!ctx) {
+        var ph = document.getElementById('rc-placeholder');
+        if (!ph) return;
         view = document.createElement('canvas');
-        view.id = 'remote-canvas';
-        view.width = 1; view.height = 1; // sized to the first frame
+        view.id = 'rc-canvas';
+        view.width = 1; view.height = 1;
         ctx = view.getContext('2d');
         ph.parentNode.replaceChild(view, ph);
         setupInput(view);
       }
-    };
 
-    ws.onmessage = function(e) {
-      if (typeof e.data === 'string') {
-        return; // JSON control messages (none currently)
-      }
-      if (!ctx) return;
       // Binary frame — WebP. Decode via createImageBitmap and paint to the canvas.
       // A canvas keeps intrinsic dimensions (unlike <img max-width:100%> in a
-      // shrink-to-fit container, which collapses to nothing), and the .catch
+      // shrink-to-fit container, which collapses to nothing) and the .catch
       // surfaces decode failures instead of silently showing a broken image.
       var blob = new Blob([e.data], {type: 'image/webp'});
       createImageBitmap(blob).then(function(bmp) {
         if (view.width !== bmp.width || view.height !== bmp.height) {
           view.width = bmp.width;
           view.height = bmp.height;
+          document.getElementById('rc-res').textContent = bmp.width + '×' + bmp.height;
         }
         ctx.drawImage(bmp, 0, 0);
         bmp.close();
       }).catch(function(err) {
         decodeErrors++;
-        var es = document.getElementById('stat-err');
-        if (es) { es.parentNode.style.display = ''; es.textContent = decodeErrors; }
+        var chip = document.getElementById('rc-err-chip');
+        chip.style.display = '';
+        document.getElementById('rc-err').textContent = decodeErrors;
         if (decodeErrors <= 3) console.error('[remote] frame decode failed (' + e.data.byteLength + ' bytes):', err);
       });
 
       frameCount++;
-      byteCount += e.data.byteLength;
       bwBytes += e.data.byteLength;
-
       var now = performance.now();
       if (now - fpsStart >= 1000) {
-        document.getElementById('stat-fps').textContent = frameCount;
-        frameCount = 0;
-        fpsStart = now;
+        document.getElementById('rc-fps').textContent = frameCount;
+        frameCount = 0; fpsStart = now;
       }
       if (now - bwStart >= 1000) {
-        var kbps = (bwBytes / 1024 / ((now - bwStart) / 1000)).toFixed(1);
-        document.getElementById('stat-kbps').textContent = kbps;
-        bwBytes = 0;
-        bwStart = now;
+        document.getElementById('rc-kbps').textContent = (bwBytes / 1024 / ((now - bwStart) / 1000)).toFixed(1);
+        bwBytes = 0; bwStart = now;
       }
     };
 
     ws.onclose = function() {
-      setStatus('disconnected', 'disconnected');
-      document.getElementById('btn-disconnect').style.display = 'none';
-      var screen = document.getElementById('remote-screen');
-      if (view) {
-        view.replaceWith(document.createElement('div'));
-        view = null; ctx = null;
-      }
-      var ph = document.createElement('div');
-      ph.id = 'remote-placeholder';
-      ph.className = 'remote-disconnected';
-      ph.innerHTML = '<h3>' + serial + '</h3><p>Connection lost</p><button class="btn-outline" onclick="location.reload()">Reconnect</button>';
-      screen.appendChild(ph);
+      setStatus('offline', 'disconnected');
+      enableControls(false);
+      captureKbd = false;
+      var kbd = document.getElementById('rc-kbd'); if (kbd) kbd.checked = false;
+      if (view) { view = null; ctx = null; }
+      var screen = document.getElementById('rc-screen');
+      screen.innerHTML =
+        '<div class="rc-placeholder">' +
+        '<div class="rc-ph-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22"/><path d="M16.7 11.1a6 6 0 0 0-1.8-1.2M5 12.6a10 10 0 0 1 5.1-2.5M2 8.8a15 15 0 0 1 4.2-2.5M9 16l3-3 3 3"/></svg></div>' +
+        '<h3>Connection ended</h3><p>The remote session was closed.</p>' +
+        '<button class="btn-outline-sm" type="button" onclick="location.reload()">Reconnect</button></div>';
     };
 
-    ws.onerror = function() {
-      setStatus('error', 'error');
-    };
+    ws.onerror = function() { setStatus('error', 'error'); };
   }
 
   function setupInput(el) {
     var pointerId = null;
 
     el.addEventListener('pointerdown', function(e) {
-      if (e.button > 0) return;  // non-primary (e.g. right) button handled by contextmenu
+      if (e.button > 0) return; // non-primary (e.g. right) button handled by contextmenu
       pointerId = e.pointerId;
       el.setPointerCapture(pointerId);
-      sendInput('touch', e, 'down');
+      sendTouch(e, 'down');
       e.preventDefault();
     });
-
     el.addEventListener('pointermove', function(e) {
       if (e.pointerId !== pointerId) return;
-      sendInput('touch', e, 'move');
+      sendTouch(e, 'move');
       e.preventDefault();
     });
-
     el.addEventListener('pointerup', function(e) {
       if (e.pointerId !== pointerId) return;
-      sendInput('touch', e, 'up');
+      sendTouch(e, 'up');
       pointerId = null;
       e.preventDefault();
     });
-
     el.addEventListener('pointercancel', function(e) {
       if (e.pointerId !== pointerId) return;
-      sendInput('touch', e, 'up');
+      sendTouch(e, 'up');
       pointerId = null;
     });
-
     // Right-click wakes the device screen instead of injecting a touch.
     el.addEventListener('contextmenu', function(e) {
       e.preventDefault();
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'wake_screen' }));
-      }
-    });
-
-    // Keyboard events — forwarded for text input
-    document.addEventListener('keydown', function(e) {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        sendKeyEvent(e.key, e.keyCode, 'down');
-      }
-    });
-    document.addEventListener('keyup', function(e) {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        sendKeyEvent(e.key, e.keyCode, 'up');
-      }
+      rcWake();
     });
   }
 
-  function sendInput(action, e, eventName) {
+  // Physical keyboard capture — only active while the toggle is on, and never
+  // while a form field (the type-to-send box) has focus.
+  document.addEventListener('keydown', function(e) { forwardKey(e, 'down'); });
+  document.addEventListener('keyup',   function(e) { forwardKey(e, 'up'); });
+  function forwardKey(e, event) {
+    if (!captureKbd || !ws || ws.readyState !== WebSocket.OPEN) return;
+    var t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+    var kc = keycodeFor(e.key);
+    if (!kc) return;
+    e.preventDefault();
+    sendKey(kc, event);
+  }
+
+  function sendTouch(e, event) {
     if (!ws || ws.readyState !== WebSocket.OPEN || !view) return;
     var rect = view.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-
-    // Normalized 0..1 coords from the click position over the rendered canvas.
-    var x = (e.clientX - rect.left) / rect.width;
-    var y = (e.clientY - rect.top) / rect.height;
-
-    // Clamp
-    x = Math.max(0, Math.min(1, x));
-    y = Math.max(0, Math.min(1, y));
-
-    var msg = JSON.stringify({
-      type: 'input_event',
-      action: 'touch',
-      event: eventName,
-      x: x,
-      y: y
-    });
-    ws.send(msg);
+    var x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    var y = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    ws.send(JSON.stringify({ type: 'input_event', action: 'touch', event: event, x: x, y: y }));
+  }
+  function sendKey(keycode, event) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(JSON.stringify({ type: 'input_event', action: 'key', event: event, keycode: keycode }));
   }
 
-  function sendKeyEvent(key, keyCode, eventName) {
-    var msg = JSON.stringify({
-      type: 'input_event',
-      action: 'key',
-      event: eventName,
-      key: key,
-      keycode: keyCode
-    });
-    ws.send(msg);
-  }
-
-  function setStatus(text, cls) {
-    var badge = document.getElementById('badge-status');
-    badge.textContent = text;
-    badge.className = 'status-badge ' + cls;
-  }
-
-  window.disconnect = function() {
-    if (ws) ws.close();
+  // ── Public control-deck handlers ──────────────────────────────────────────
+  window.rcTap = function(keycode) { sendKey(keycode, 'down'); sendKey(keycode, 'up'); };
+  window.rcWake = function() {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'wake_screen' }));
   };
+  window.rcSetCapture = function(on) {
+    captureKbd = on;
+    document.getElementById('rc-kbd-hint').textContent = on
+      ? 'Capturing — keys go to the device. Toggle off to type here again.'
+      : 'When on, keys you press are sent to the device.';
+  };
+  window.rcSendText = function() {
+    var input = document.getElementById('rc-text');
+    var text = input.value;
+    if (!text || !ws || ws.readyState !== WebSocket.OPEN) return;
+    for (var i = 0; i < text.length; i++) {
+      var kc = keycodeFor(text[i]);
+      if (kc) { sendKey(kc, 'down'); sendKey(kc, 'up'); }
+    }
+    input.value = '';
+  };
+  window.rcDisconnect = function() { if (ws) ws.close(); };
 
-  connect();
+  if (online) connect();
 })();
 </script>
 
