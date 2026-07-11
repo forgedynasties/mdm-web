@@ -132,6 +132,26 @@ func (h *Handler) hxDoneToast(w http.ResponseWriter, r *http.Request, redirectUR
 	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
 }
 
+// hxDoneToastEvents is hxDoneToast that ALSO fires named client events in the same
+// HX-Trigger payload (e.g. "refresh-devices" to make the fleet roster refetch).
+// Use this instead of relying on the hub broadcast when the actor's own refresh
+// must be reliable: hub.PublishDeviceUpdate is throttled to once per 4s per device,
+// so a device that just checked in would drop the actor's update — a direct client
+// event is not throttled and lets the listening region refetch unconditionally.
+func (h *Handler) hxDoneToastEvents(w http.ResponseWriter, r *http.Request, redirectURL, msg, typ string, events ...string) {
+	if hxReq(r) {
+		payload := map[string]any{"toast": map[string]string{"msg": msg, "type": typ}}
+		for _, e := range events {
+			payload[e] = nil
+		}
+		b, _ := json.Marshal(payload)
+		w.Header().Set("HX-Trigger", string(b))
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+}
+
 type Handler struct {
 	db          *db.DB
 	hub         *ws.Hub
@@ -4665,7 +4685,7 @@ func (h *Handler) DeviceSetRestaurant(w http.ResponseWriter, r *http.Request) {
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.hub.PublishDeviceUpdate(device.ID)
 	}
-	h.hxDone(w, r, "/devices/"+serial)
+	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
 func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
@@ -4927,7 +4947,7 @@ func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.hub.PublishDeviceUpdate(device.ID)
-	h.hxDone(w, r, "/devices/"+serial)
+	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
 func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
@@ -4947,7 +4967,7 @@ func (h *Handler) BulkHideDevices(w http.ResponseWriter, r *http.Request) {
 			h.hub.PublishDeviceUpdate(id)
 		}
 	}
-	h.hxDoneToast(w, r, "/devices", fmt.Sprintf("Hid %d device%s", len(serials), plural(len(serials))), "success")
+	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("Hid %d device%s", len(serials), plural(len(serials))), "success", "refresh-devices")
 }
 
 func (h *Handler) BulkUnhideDevices(w http.ResponseWriter, r *http.Request) {
@@ -4967,7 +4987,7 @@ func (h *Handler) BulkUnhideDevices(w http.ResponseWriter, r *http.Request) {
 			h.hub.PublishDeviceUpdate(id)
 		}
 	}
-	h.hxDoneToast(w, r, "/devices?hidden=only", fmt.Sprintf("Unhid %d device%s", len(serials), plural(len(serials))), "success")
+	h.hxDoneToastEvents(w, r, "/devices?hidden=only", fmt.Sprintf("Unhid %d device%s", len(serials), plural(len(serials))), "success", "refresh-devices")
 }
 
 // BulkAssignRestaurant assigns the selected devices to a restaurant from the devices-page
@@ -4990,7 +5010,10 @@ func (h *Handler) BulkAssignRestaurant(w http.ResponseWriter, r *http.Request) {
 			h.hub.PublishDeviceUpdate(id)
 		}
 	}
-	h.hxDoneToast(w, r, "/restaurants/"+rid.String(), fmt.Sprintf("Assigned %d device%s to restaurant", len(serials), plural(len(serials))), "success")
+	// Navigate to the restaurant so the operator lands on the result (the default
+	// /devices view doesn't reflect a restaurant change in place). Boosted, so this
+	// is a smooth <main> crossfade, not a hard reload.
+	h.hxRedirect(w, r, "/restaurants/"+rid.String())
 }
 
 // pushKioskConfigToDevices fetches the current device_config for each device and
@@ -5070,7 +5093,7 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	if enabled {
 		verb = "Enabled kiosk on"
 	}
-	h.hxDoneToast(w, r, "/devices", fmt.Sprintf("%s %d device%s", verb, len(serials), plural(len(serials))), "success")
+	h.hxDoneToastEvents(w, r, "/devices", fmt.Sprintf("%s %d device%s", verb, len(serials), plural(len(serials))), "success", "refresh-devices")
 }
 
 // ── OTA Packages & Deployments ────────────────────────────────────────────────
@@ -9034,7 +9057,9 @@ func (h *Handler) SettingsSetCommandExpiry(w http.ResponseWriter, r *http.Reques
 		sec = n
 	}
 	h.cfg.SetCommandExpiry(sec)
-	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
+	// Redirect (not 204): the value may have been clamped to a default, so re-render
+	// the form to show the actually-stored value rather than the rejected input.
+	h.hxRedirect(w, r, "/settings")
 }
 
 func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) {
@@ -9044,7 +9069,7 @@ func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) 
 		n = v
 	}
 	h.cfg.SetMaxTargets(n)
-	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
+	h.hxRedirect(w, r, "/settings") // may clamp to 0/default — re-render the stored value
 }
 
 func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Request) {
@@ -9313,7 +9338,7 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 	)
 	// Prunes can delete many rows, so run them in the background to keep Save snappy.
 	go h.applyPrunes(context.Background())
-	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
+	h.hxRedirect(w, r, "/settings") // retention fields may be normalized — re-render them
 }
 
 func (h *Handler) SettingsToggleRequireReason(w http.ResponseWriter, r *http.Request) {
@@ -10111,8 +10136,8 @@ func (h *Handler) SettingsSetSessionTimeout(w http.ResponseWriter, r *http.Reque
 		sec = n
 	}
 	h.cfg.SetSessionTimeout(sec)
-	h.store.MaxAge(sec) // apply to cookie + codec at runtime
-	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
+	h.store.MaxAge(sec)             // apply to cookie + codec at runtime
+	h.hxRedirect(w, r, "/settings") // may clamp to default — re-render the stored value
 }
 
 func (h *Handler) SettingsLogoutAll(w http.ResponseWriter, r *http.Request) {
@@ -10143,7 +10168,7 @@ func (h *Handler) SettingsSetCheckinInterval(w http.ResponseWriter, r *http.Requ
 		}
 	}
 	h.cfg.SetCheckinInterval(sec)
-	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
+	h.hxRedirect(w, r, "/settings") // may clamp to default — re-render the stored value
 }
 
 func (h *Handler) SettingsAddColumn(w http.ResponseWriter, r *http.Request) {
@@ -10435,7 +10460,7 @@ func (h *Handler) DeviceSetPollInterval(w http.ResponseWriter, r *http.Request) 
 	if device, err := h.db.GetDevice(r.Context(), serial); err == nil {
 		h.hub.PublishDeviceUpdate(device.ID)
 	}
-	h.hxDone(w, r, "/devices/"+serial)
+	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
 // DeviceNotesUpdate saves freeform operator notes for a device and returns the
@@ -10493,7 +10518,7 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
-	h.hxDone(w, r, "/devices/"+serial)
+	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
 // ── Packages ──────────────────────────────────────────────────────────────────
