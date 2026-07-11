@@ -406,9 +406,16 @@ func New(ctx context.Context, connStr string) (*DB, error) {
 	// plus dashboard traffic, serializing requests. Raise it unless the connection
 	// string already specifies pool_max_conns.
 	if cfg.MaxConns < 20 && !strings.Contains(connStr, "pool_max_conns") {
-		cfg.MaxConns = 25
+		// 25 was tight: the device-list page fans out ~12 concurrent queries, so a
+		// couple of dashboards loading it plus check-in upserts could saturate the pool.
+		cfg.MaxConns = 40
 	}
 	cfg.MinConns = 2
+	// Recycle connections so a long-lived pool rebalances after failovers/restarts;
+	// jitter avoids all conns expiring at once (thundering-herd reconnect).
+	cfg.MaxConnLifetime = time.Hour
+	cfg.MaxConnLifetimeJitter = 5 * time.Minute
+	cfg.MaxConnIdleTime = 30 * time.Minute
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -4098,20 +4105,23 @@ func (d *DB) SetPackageSystemOverride(ctx context.Context, pkg string, flagged b
 // ── Device Config / Kiosk ─────────────────────────────────────────────────────
 
 func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*DeviceConfig, error) {
-	// Ensure a row exists, then read it.
-	_, err := d.pool.Exec(ctx, `
-		INSERT INTO device_config (device_id) VALUES ($1)
-		ON CONFLICT (device_id) DO NOTHING
-	`, deviceID)
-	if err != nil {
+	// Read first — this runs on every check-in and the row exists after the device's
+	// first one, so the INSERT below (a wasted write attempt at 900 dev × every 60s)
+	// only ever fires once per device.
+	const sel = `SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features, updated_at
+		FROM device_config WHERE device_id = $1`
+	var cfg DeviceConfig
+	err := d.pool.QueryRow(ctx, sel, deviceID).Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures, &cfg.UpdatedAt)
+	if err == nil {
+		return &cfg, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
 	}
-	var cfg DeviceConfig
-	err = d.pool.QueryRow(ctx, `
-		SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features, updated_at
-		FROM device_config WHERE device_id = $1
-	`, deviceID).Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures, &cfg.UpdatedAt)
-	if err != nil {
+	if _, err := d.pool.Exec(ctx, `INSERT INTO device_config (device_id) VALUES ($1) ON CONFLICT (device_id) DO NOTHING`, deviceID); err != nil {
+		return nil, err
+	}
+	if err := d.pool.QueryRow(ctx, sel, deviceID).Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures, &cfg.UpdatedAt); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
