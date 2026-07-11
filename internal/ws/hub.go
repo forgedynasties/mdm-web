@@ -416,9 +416,14 @@ func (h *Hub) Unregister(c *Client) {
 
 // Push sends msg to a specific device. Returns true if the device is connected.
 func (h *Hub) Push(deviceID uuid.UUID, msg []byte) bool {
+	// Hold RLock across the send. register() closes a client's Send channel under
+	// the write lock on a same-device reconnect; if we released the lock before
+	// sending, a reconnect in that window would close c.Send and this send would
+	// panic (a send on a closed channel is a "ready" select case — default does
+	// not save it). Broadcast() already sends under RLock for the same reason.
 	h.mu.RLock()
+	defer h.mu.RUnlock()
 	c, ok := h.clients[deviceID]
-	h.mu.RUnlock()
 	if !ok {
 		return false
 	}
