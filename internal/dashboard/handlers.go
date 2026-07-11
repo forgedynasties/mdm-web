@@ -737,7 +737,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				// Try parsing as "GMT+N" or "GMT-N"
 				if strings.HasPrefix(strings.ToUpper(tz), "GMT") {
 					offset := strings.TrimPrefix(strings.ToUpper(tz), "GMT")
-					if h, err := strconv.Atoi(offset); err == nil {
+					// Clamp to a real UTC-offset range; a device sending "GMT+999999"
+					// would otherwise overflow h*3600 into a garbage zone.
+					if h, err := strconv.Atoi(offset); err == nil && h >= -14 && h <= 14 {
 						loc = time.FixedZone(tz, h*3600)
 					}
 				}
@@ -958,7 +960,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
-		"div": func(a, b int) int { return a / b },
+		"div": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
 		// dur formats a duration in seconds as a compact "1h 2m" / "4m 23s" / "45s".
 		// Negative means "not available" and renders as an em dash.
 		"dur": func(sec int) string {
@@ -8414,6 +8421,14 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		targetIDs = ids
 	}
 
+	// Reject a command that resolves to no devices (e.g. "all" on an empty fleet, or
+	// serials that match nothing) rather than inserting an orphan command with no
+	// targets that no device will ever pick up.
+	if len(targetIDs) == 0 {
+		http.Error(w, "No matching target devices.", http.StatusBadRequest)
+		return
+	}
+
 	// Build the per-command work items (apkURL + payload).
 	type cmdItem struct {
 		apkURL  string
@@ -10933,7 +10948,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
-	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAuth(h.DeviceRemote))
+	// Remote screen capture + input injection is as sensitive as the shell page
+	// (which is requireOperatorOrAdmin), so it must not be reachable by a viewer.
+	mux.HandleFunc("GET /devices/{serial}/remote", h.requireOperatorOrAdmin(h.DeviceRemote))
 	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
@@ -10967,7 +10984,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdminOrTester(h.AlertConfigView))
-	mux.HandleFunc("GET /wrapped", h.WrappedPage) // public — shareable, standalone page
+	// Requires auth: the page exposes real device serials and restaurant/venue names,
+	// so it must not be anonymous even though it's a standalone "wrapped" page.
+	mux.HandleFunc("GET /wrapped", h.requireAuth(h.WrappedPage))
 	mux.HandleFunc("GET /alerts/recent", h.requireAuth(h.AlertsRecent))
 	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
 	post("POST /alerts/bulk", h.requireOperatorOrAdmin(h.AlertBulk))
