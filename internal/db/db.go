@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2909,11 +2910,15 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 		return ErrCommandNotTargeted
 	}
 
+	// Don't let a device move a command backwards out of a terminal state (e.g.
+	// re-report 'downloading'/'failed' after 'installed') — that would corrupt OTA
+	// and deployment rollups. Re-acking the same terminal status is a harmless no-op.
 	_, err = d.pool.Exec(ctx, `
 		INSERT INTO command_status (command_id, device_id, status, updated_at)
 		VALUES ($1, $2, $3, NOW())
 		ON CONFLICT (command_id, device_id) DO UPDATE
 			SET status = EXCLUDED.status, progress = NULL, updated_at = NOW()
+			WHERE command_status.status NOT IN ('installed', 'failed', 'completed')
 	`, commandID, deviceID, status)
 	return err
 }
@@ -2938,11 +2943,14 @@ func (d *DB) SetCommandProgress(ctx context.Context, commandID, deviceID uuid.UU
 		}
 		progress = &p
 	}
+	// Interim progress must never overwrite a terminal state (a late 'downloading'
+	// arriving after 'installed' would revert the row).
 	_, err = d.pool.Exec(ctx, `
 		INSERT INTO command_status (command_id, device_id, status, progress, updated_at)
 		VALUES ($1, $2, $3, $4, NOW())
 		ON CONFLICT (command_id, device_id) DO UPDATE
 			SET status = EXCLUDED.status, progress = EXCLUDED.progress, updated_at = NOW()
+			WHERE command_status.status NOT IN ('installed', 'failed', 'completed')
 	`, commandID, deviceID, status, progress)
 	return err
 }
@@ -8883,6 +8891,35 @@ func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool
 		)
 	`, deviceID).Scan(&exists)
 	return exists, err
+}
+
+// CreateOTACommandIfNone atomically creates an OTA command for a device unless one
+// is already in flight, returning nil when one already exists. A Postgres advisory
+// lock keyed on the device serializes concurrent check-ins (a device using both
+// HTTP check-in and WS telemetry, or two rapid check-ins) so they can't both pass
+// the no-pending check and dispatch duplicate OTA downloads.
+func (d *DB) CreateOTACommandIfNone(ctx context.Context, deviceID uuid.UUID, payload json.RawMessage) (*Command, error) {
+	conn, err := d.pool.Acquire(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer conn.Release()
+
+	key := int64(binary.BigEndian.Uint64(deviceID[:8]))
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, key); err != nil {
+		return nil, err
+	}
+	// Use a background context for unlock so a cancelled request still releases it.
+	defer conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, key)
+
+	hasPending, err := d.HasPendingOTACommand(ctx, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	if hasPending {
+		return nil, nil
+	}
+	return d.CreateCommand(ctx, "ota", "", payload, "devices", []uuid.UUID{deviceID})
 }
 
 // ClearPendingOTACommands marks in-progress OTA commands for a device as

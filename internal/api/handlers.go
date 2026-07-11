@@ -426,9 +426,13 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 						p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
 					}
 					payload, _ := json.Marshal(p)
-					if cmd, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
+					// Atomic check-and-create under a device advisory lock: stops a
+					// concurrent HTTP check-in + WS telemetry from both passing the
+					// no-pending check and creating duplicate OTA commands. Returns nil
+					// if one is already in flight.
+					if cmd, err := h.db.CreateOTACommandIfNone(r.Context(), deviceID, payload); err != nil {
 						log.Printf("[checkin] create OTA command error: %v", err)
-					} else {
+					} else if cmd != nil {
 						_ = h.db.SetUpdateDeviceStatus(r.Context(), upd.ID, deviceID, "downloading")
 						h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
 					}
@@ -772,9 +776,11 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 						p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
 					}
 					payload, _ := json.Marshal(p)
-					if cmd, err := h.db.CreateCommand(ctx, "ota", "", payload, "devices", []uuid.UUID{id}); err != nil {
+					// Atomic check-and-create (device advisory lock) — see the checkin
+					// path; prevents duplicate OTA commands from dual-transport devices.
+					if cmd, err := h.db.CreateOTACommandIfNone(ctx, id, payload); err != nil {
 						log.Printf("[ws-telemetry] create OTA command error: %v", err)
-					} else {
+					} else if cmd != nil {
 						_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, id, "downloading")
 						h.pushCommand(ctx, cmd, "devices", []uuid.UUID{id})
 					}
