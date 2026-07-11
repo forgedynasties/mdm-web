@@ -719,8 +719,10 @@
     }
     window.mdmTickRel = function (root) {
       (root || document).querySelectorAll('.reltime[data-ts]').forEach(function (el) {
-        var ts = parseInt(el.dataset.ts, 10); if (!ts) return;
-        var txt = ago(ts);
+        var ts = parseInt(el.dataset.ts, 10);
+        // A never-set timestamp (Go zero time) serializes to a large negative Unix
+        // value; show a dash instead of an absurd "78652d ago".
+        var txt = (!ts || ts < 0) ? '—' : ago(ts);
         if (el.textContent !== txt) el.textContent = txt;
       });
     };
