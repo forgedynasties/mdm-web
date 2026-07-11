@@ -24,7 +24,7 @@
     <div class="user-list">
       {{range .Users}}
       <div class="user-row">
-        <span class="user-av role-av-{{.Role}}">{{slice .Username 0 1}}</span>
+        <span class="user-av role-av-{{.Role}}">{{if .Username}}{{slice .Username 0 1}}{{end}}</span>
         <div class="user-id">
           <div class="user-name mono">{{.Username}}</div>
           <div class="user-meta muted small">Joined {{shortDate .CreatedAt}}</div>

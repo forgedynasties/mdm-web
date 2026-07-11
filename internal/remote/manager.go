@@ -108,19 +108,22 @@ func (m *Manager) Start(deviceID uuid.UUID) (*Session, error) {
 
 // Stop tears down the session and sends a stop_capture command to the device.
 func (m *Manager) Stop(deviceID uuid.UUID) {
+	// Delete AND close under the same lock RelayFrame holds across its send, so a
+	// frame can never be relayed onto a channel that Stop is closing (which would
+	// panic the device's ReadPump goroutine — send on a closed channel).
 	m.mu.Lock()
 	s, ok := m.sessions[deviceID]
 	if ok {
 		delete(m.sessions, deviceID)
+		s.closeOnce.Do(func() {
+			close(s.frameCh)
+			close(s.inputCh)
+		})
 	}
 	m.mu.Unlock()
 	if !ok {
 		return
 	}
-	s.closeOnce.Do(func() {
-		close(s.frameCh)
-		close(s.inputCh)
-	})
 	stopMsg, _ := json.Marshal(map[string]any{"type": "stop_capture"})
 	m.hub.Push(deviceID, stopMsg)
 	log.Printf("[remote] session stopped for device %s", deviceID)
@@ -128,11 +131,12 @@ func (m *Manager) Stop(deviceID uuid.UUID) {
 
 // RelayFrame is called by the hub when a binary frame arrives from the device.
 // Drops the oldest frame in the channel if the buffer is full so the dashboard
-// always gets the freshest frame.
+// always gets the freshest frame. The lock is held across the send (the sends are
+// all non-blocking) so Stop cannot close frameCh mid-send.
 func (m *Manager) RelayFrame(deviceID uuid.UUID, data []byte) {
 	m.mu.Lock()
+	defer m.mu.Unlock()
 	s, ok := m.sessions[deviceID]
-	m.mu.Unlock()
 	if !ok {
 		return
 	}

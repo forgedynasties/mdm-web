@@ -108,13 +108,13 @@ type Client struct {
 
 func NewHub() *Hub {
 	return &Hub{
-		clients:       make(map[uuid.UUID]*Client),
-		subscribers:   make(map[chan PresenceEvent]struct{}),
-		updates:       make(map[chan DeviceUpdateEvent]struct{}),
-		lastUpdateAt:  make(map[uuid.UUID]time.Time),
-		cmdUpdates:    make(map[chan CommandUpdateEvent]struct{}),
-		logcatUpdates: make(map[chan LogcatUpdateEvent]struct{}),
-		alertUpdates:  make(map[chan AlertUpdateEvent]struct{}),
+		clients:        make(map[uuid.UUID]*Client),
+		subscribers:    make(map[chan PresenceEvent]struct{}),
+		updates:        make(map[chan DeviceUpdateEvent]struct{}),
+		lastUpdateAt:   make(map[uuid.UUID]time.Time),
+		cmdUpdates:     make(map[chan CommandUpdateEvent]struct{}),
+		logcatUpdates:  make(map[chan LogcatUpdateEvent]struct{}),
+		alertUpdates:   make(map[chan AlertUpdateEvent]struct{}),
 		deployUpdates:  make(map[chan DeploymentUpdateEvent]struct{}),
 		problemUpdates: make(map[chan ProblemUpdateEvent]struct{}),
 		pingWaiters:    make(map[string]chan struct{}),
@@ -149,7 +149,6 @@ func (h *Hub) SignalPong(nonce string) {
 		close(ch)
 	}
 }
-
 
 // SubscribeCommandUpdates returns a channel that receives command update events.
 func (h *Hub) SubscribeCommandUpdates() chan CommandUpdateEvent {
@@ -408,6 +407,13 @@ func (h *Hub) Unregister(c *Client) {
 		removed = true
 	}
 	h.mu.Unlock()
+	if removed {
+		// Drop the device's throttle timestamp so the map stays bounded by the set
+		// of currently-connected devices rather than growing over the process' life.
+		h.updThrottleMu.Lock()
+		delete(h.lastUpdateAt, c.DeviceID)
+		h.updThrottleMu.Unlock()
+	}
 	log.Printf("[ws] disconnected: %s", c.DeviceID)
 	if removed {
 		h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: false})
@@ -416,9 +422,14 @@ func (h *Hub) Unregister(c *Client) {
 
 // Push sends msg to a specific device. Returns true if the device is connected.
 func (h *Hub) Push(deviceID uuid.UUID, msg []byte) bool {
+	// Hold RLock across the send. register() closes a client's Send channel under
+	// the write lock on a same-device reconnect; if we released the lock before
+	// sending, a reconnect in that window would close c.Send and this send would
+	// panic (a send on a closed channel is a "ready" select case — default does
+	// not save it). Broadcast() already sends under RLock for the same reason.
 	h.mu.RLock()
+	defer h.mu.RUnlock()
 	c, ok := h.clients[deviceID]
-	h.mu.RUnlock()
 	if !ok {
 		return false
 	}
