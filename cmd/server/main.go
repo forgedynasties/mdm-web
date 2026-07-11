@@ -183,15 +183,20 @@ func main() {
 
 	deviceAuth := func(h http.Handler) http.Handler { return middleware.DeviceAPIKeyAuth(deviceAPIKey, h) }
 	adminAuth := func(h http.Handler) http.Handler { return middleware.AdminAPIKeyAuth(adminAPIKey, h) }
+	// maxDeviceBody caps device POST bodies (post-inflation). Check-ins carry the
+	// installed-app list and a logcat result can be sizable, so it's generous, but
+	// it stops a single device from exhausting memory with an unbounded body.
+	const maxDeviceBody = 8 << 20 // 8 MiB
+	devicePost := func(h http.HandlerFunc) http.Handler { return deviceAuth(middleware.MaxBytes(maxDeviceBody, h)) }
 
 	// WebSocket — device connects here for server-push command delivery
 	mux.Handle("GET /api/v1/ws", deviceAuth(http.HandlerFunc(apiHandler.Connect)))
 
-	// Device-authenticated endpoints
-	mux.Handle("POST /api/v1/checkin", deviceAuth(http.HandlerFunc(apiHandler.Checkin)))
-	mux.Handle("POST /api/v1/commands/{id}/ack", deviceAuth(http.HandlerFunc(apiHandler.AckCommand)))
-	mux.Handle("POST /api/v1/logcat", deviceAuth(http.HandlerFunc(apiHandler.SubmitLogcat)))
-	mux.Handle("POST /api/v1/ota/status", deviceAuth(http.HandlerFunc(apiHandler.OtaStatus)))
+	// Device-authenticated endpoints (body-size limited)
+	mux.Handle("POST /api/v1/checkin", devicePost(apiHandler.Checkin))
+	mux.Handle("POST /api/v1/commands/{id}/ack", devicePost(apiHandler.AckCommand))
+	mux.Handle("POST /api/v1/logcat", devicePost(apiHandler.SubmitLogcat))
+	mux.Handle("POST /api/v1/ota/status", devicePost(apiHandler.OtaStatus))
 
 	// Admin-authenticated API endpoints
 	mux.Handle("GET /api/v1/devices", adminAuth(http.HandlerFunc(apiHandler.ListDevices)))

@@ -391,6 +391,10 @@ type DB struct {
 
 var ErrCommandNotTargeted = errors.New("command does not target device")
 
+// ErrLogcatNotTargeted is returned when a device submits a logcat result for a
+// request that was not issued to it.
+var ErrLogcatNotTargeted = errors.New("logcat request does not target device")
+
 func New(ctx context.Context, connStr string) (*DB, error) {
 	cfg, err := pgxpool.ParseConfig(connStr)
 	if err != nil {
@@ -3471,6 +3475,21 @@ func (d *DB) SaveLogcatResult(ctx context.Context, requestID, deviceID uuid.UUID
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+
+	// A logcat request is issued to a specific device. Since every device shares the
+	// same DEVICE_API_KEY, the submitted request_id is an unauthenticated identity
+	// claim — verify the request was actually issued to THIS device before storing a
+	// result and marking it fulfilled, so a device can't forge/deny another's logs.
+	var reqDevice uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT device_id FROM logcat_requests WHERE id = $1`, requestID).Scan(&reqDevice); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrLogcatNotTargeted
+		}
+		return nil, err
+	}
+	if reqDevice != deviceID {
+		return nil, ErrLogcatNotTargeted
+	}
 
 	var result LogcatResult
 	err = tx.QueryRow(ctx, `
