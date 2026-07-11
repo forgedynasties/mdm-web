@@ -15,6 +15,18 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	// maxOutputChunks caps how many output chunks a single stream retains, so one
+	// very chatty command can't grow the buffer without bound. Trimmed to this when
+	// it reaches 2× (amortized O(1)).
+	maxOutputChunks = 2000
+	// outputRetention is how long a finished stream's buffer is kept for late
+	// replay before it's freed from the map (else every command ever run leaks).
+	outputRetention = 2 * time.Minute
+	// replayBuffer is the per-subscriber channel size (also bounds replay).
+	replayBuffer = 512
+)
+
 // outputKey identifies a command output stream for a specific (command, device) pair.
 type outputKey struct {
 	CommandID uuid.UUID
@@ -88,6 +100,11 @@ func (m *Manager) appendCommandOutput(key outputKey, chunk string) {
 		return
 	}
 	s.chunks = append(s.chunks, chunk)
+	// Bound retained output: keep the most recent maxOutputChunks, trimming only
+	// when we hit 2× so this is amortized O(1) rather than a copy per chunk.
+	if len(s.chunks) > 2*maxOutputChunks {
+		s.chunks = append([]string(nil), s.chunks[len(s.chunks)-maxOutputChunks:]...)
+	}
 	for _, ch := range s.subs {
 		select {
 		case ch <- chunk:
@@ -109,6 +126,13 @@ func (m *Manager) closeCommandOutput(key outputKey) {
 		close(ch)
 	}
 	s.subs = nil
+	// Free the buffered output after a grace period (lets a late viewer still
+	// replay it), so finished commands don't accumulate in the map forever.
+	time.AfterFunc(outputRetention, func() {
+		m.outMu.Lock()
+		delete(m.outputs, key)
+		m.outMu.Unlock()
+	})
 }
 
 // SubscribeCommandOutput returns a channel that receives output chunks for the
@@ -117,12 +141,19 @@ func (m *Manager) closeCommandOutput(key outputKey) {
 // disconnects before the stream ends.
 func (m *Manager) SubscribeCommandOutput(commandID, deviceID uuid.UUID) (<-chan string, func()) {
 	key := outputKey{commandID, deviceID}
-	ch := make(chan string, 512)
+	ch := make(chan string, replayBuffer)
 
 	m.outMu.Lock()
 	s := m.ensureStream(key)
-	// Replay buffered chunks so a late subscriber doesn't miss anything.
-	for _, c := range s.chunks {
+	// Replay the most recent chunks that fit the buffer. Replaying an unbounded
+	// backlog into a fixed channel while holding outMu previously blocked on the
+	// (buffer+1)th send with the lock held — deadlocking the whole shell subsystem.
+	// Bounding to cap(ch) guarantees the replay never blocks.
+	start := 0
+	if n := len(s.chunks); n > cap(ch) {
+		start = n - cap(ch)
+	}
+	for _, c := range s.chunks[start:] {
 		ch <- c
 	}
 	if s.closed {
@@ -160,6 +191,13 @@ func (m *Manager) ensureStream(key outputKey) *outputStream {
 // ── OTA progress ─────────────────────────────────────────────────────────────
 
 func (m *Manager) updateOTAProgress(deviceID, commandID uuid.UUID, phase string, percent int) {
+	// Clamp device-reported percent to 0–100; it's rendered into a CSS width and
+	// drives "stalled/complete" heuristics, so an out-of-range value distorts both.
+	if percent < 0 {
+		percent = 0
+	} else if percent > 100 {
+		percent = 100
+	}
 	m.otaMu.Lock()
 	// UpdatedAt tracks the last time progress actually advanced (phase or percent
 	// changed), not merely the last report — so a device that keeps checking in but is
