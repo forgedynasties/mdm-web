@@ -21,6 +21,10 @@ import (
 	"mdm/internal/ws"
 )
 
+// maxPackagesPerDevice caps how many installed-app rows a single check-in will
+// persist, so an oversized list can't blow up the per-device package upsert.
+const maxPackagesPerDevice = 2000
+
 type Handler struct {
 	db          *db.DB
 	hub         *ws.Hub
@@ -355,6 +359,9 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 			}
 			seen[p.Package] = struct{}{}
 			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem})
+			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
+				break
+			}
 		}
 		if err := h.db.UpsertDevicePackages(r.Context(), deviceID, pkgs); err != nil {
 			log.Printf("[checkin] UpsertDevicePackages error: %v", err)
@@ -419,9 +426,13 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 						p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
 					}
 					payload, _ := json.Marshal(p)
-					if cmd, err := h.db.CreateCommand(r.Context(), "ota", "", payload, "devices", []uuid.UUID{deviceID}); err != nil {
+					// Atomic check-and-create under a device advisory lock: stops a
+					// concurrent HTTP check-in + WS telemetry from both passing the
+					// no-pending check and creating duplicate OTA commands. Returns nil
+					// if one is already in flight.
+					if cmd, err := h.db.CreateOTACommandIfNone(r.Context(), deviceID, payload); err != nil {
 						log.Printf("[checkin] create OTA command error: %v", err)
-					} else {
+					} else if cmd != nil {
 						_ = h.db.SetUpdateDeviceStatus(r.Context(), upd.ID, deviceID, "downloading")
 						h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
 					}
@@ -715,6 +726,9 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 			}
 			seen[p.Package] = struct{}{}
 			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem})
+			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
+				break
+			}
 		}
 		if err := h.db.UpsertDevicePackages(ctx, id, pkgs); err != nil {
 			log.Printf("[ws-telemetry] UpsertDevicePackages error: %v", err)
@@ -762,9 +776,11 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 						p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
 					}
 					payload, _ := json.Marshal(p)
-					if cmd, err := h.db.CreateCommand(ctx, "ota", "", payload, "devices", []uuid.UUID{id}); err != nil {
+					// Atomic check-and-create (device advisory lock) — see the checkin
+					// path; prevents duplicate OTA commands from dual-transport devices.
+					if cmd, err := h.db.CreateOTACommandIfNone(ctx, id, payload); err != nil {
 						log.Printf("[ws-telemetry] create OTA command error: %v", err)
-					} else {
+					} else if cmd != nil {
 						_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, id, "downloading")
 						h.pushCommand(ctx, cmd, "devices", []uuid.UUID{id})
 					}
@@ -813,6 +829,10 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := h.db.SaveLogcatResult(r.Context(), body.RequestID, device.ID, body.Content); err != nil {
+		if errors.Is(err, db.ErrLogcatNotTargeted) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "logcat request does not target this device"})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}

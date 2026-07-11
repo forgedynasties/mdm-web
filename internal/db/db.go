@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -390,6 +391,10 @@ type DB struct {
 }
 
 var ErrCommandNotTargeted = errors.New("command does not target device")
+
+// ErrLogcatNotTargeted is returned when a device submits a logcat result for a
+// request that was not issued to it.
+var ErrLogcatNotTargeted = errors.New("logcat request does not target device")
 
 func New(ctx context.Context, connStr string) (*DB, error) {
 	cfg, err := pgxpool.ParseConfig(connStr)
@@ -863,7 +868,10 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 				orderClause = "d.last_seen_at DESC"
 			}
 		}
-		base += "\nORDER BY " + orderClause
+		// Append the primary key as a tiebreaker so rows sharing the sort value
+		// (e.g. twenty devices at 15% battery) have a stable total order — otherwise
+		// tied rows can reorder between page requests and be skipped or duplicated.
+		base += "\nORDER BY " + orderClause + ", d.id"
 
 		base += fmt.Sprintf("\nLIMIT $%d OFFSET $%d", argN, argN+1)
 		args = append(args, limit, offset)
@@ -1371,7 +1379,7 @@ func (d *DB) GetCheckinsPaged(ctx context.Context, deviceID uuid.UUID, limit, of
 		SELECT id, device_id, battery_pct, build_id, extra, created_at
 		FROM checkins
 		WHERE device_id = $1
-		ORDER BY created_at DESC
+		ORDER BY created_at DESC, id DESC
 		LIMIT $2 OFFSET $3
 	`, deviceID, limit, offset)
 	if err != nil {
@@ -2905,11 +2913,15 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 		return ErrCommandNotTargeted
 	}
 
+	// Don't let a device move a command backwards out of a terminal state (e.g.
+	// re-report 'downloading'/'failed' after 'installed') — that would corrupt OTA
+	// and deployment rollups. Re-acking the same terminal status is a harmless no-op.
 	_, err = d.pool.Exec(ctx, `
 		INSERT INTO command_status (command_id, device_id, status, updated_at)
 		VALUES ($1, $2, $3, NOW())
 		ON CONFLICT (command_id, device_id) DO UPDATE
 			SET status = EXCLUDED.status, progress = NULL, updated_at = NOW()
+			WHERE command_status.status NOT IN ('installed', 'failed', 'completed')
 	`, commandID, deviceID, status)
 	return err
 }
@@ -2934,11 +2946,14 @@ func (d *DB) SetCommandProgress(ctx context.Context, commandID, deviceID uuid.UU
 		}
 		progress = &p
 	}
+	// Interim progress must never overwrite a terminal state (a late 'downloading'
+	// arriving after 'installed' would revert the row).
 	_, err = d.pool.Exec(ctx, `
 		INSERT INTO command_status (command_id, device_id, status, progress, updated_at)
 		VALUES ($1, $2, $3, $4, NOW())
 		ON CONFLICT (command_id, device_id) DO UPDATE
 			SET status = EXCLUDED.status, progress = EXCLUDED.progress, updated_at = NOW()
+			WHERE command_status.status NOT IN ('installed', 'failed', 'completed')
 	`, commandID, deviceID, status, progress)
 	return err
 }
@@ -3471,6 +3486,21 @@ func (d *DB) SaveLogcatResult(ctx context.Context, requestID, deviceID uuid.UUID
 		return nil, err
 	}
 	defer tx.Rollback(ctx)
+
+	// A logcat request is issued to a specific device. Since every device shares the
+	// same DEVICE_API_KEY, the submitted request_id is an unauthenticated identity
+	// claim — verify the request was actually issued to THIS device before storing a
+	// result and marking it fulfilled, so a device can't forge/deny another's logs.
+	var reqDevice uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT device_id FROM logcat_requests WHERE id = $1`, requestID).Scan(&reqDevice); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrLogcatNotTargeted
+		}
+		return nil, err
+	}
+	if reqDevice != deviceID {
+		return nil, ErrLogcatNotTargeted
+	}
 
 	var result LogcatResult
 	err = tx.QueryRow(ctx, `
@@ -4694,6 +4724,7 @@ func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth,
 				COUNT(*) FILTER (WHERE a.severity <> 'critical') AS warn
 			FROM alerts a
 			JOIN device_groups dg ON dg.device_id = a.device_id
+			JOIN devices d ON d.id = a.device_id AND NOT d.hidden
 			WHERE a.status <> 'resolved'
 			GROUP BY dg.group_id
 		)
@@ -5022,7 +5053,7 @@ func (d *DB) ListAlertsPage(ctx context.Context, status, severity string, types 
 		WHERE ($1 = '' OR a.status = $1)
 		  AND ($2 = '' OR a.severity = $2)
 		  AND (array_length($3::text[], 1) IS NULL OR a.type = ANY($3))
-		ORDER BY a.fired_at DESC
+		ORDER BY a.fired_at DESC, a.id DESC
 		LIMIT $4 OFFSET $5
 	`, status, severity, types, limit, offset)
 	if err != nil {
@@ -8559,18 +8590,30 @@ func (d *DB) UpdateDeploymentRebootSettings(ctx context.Context, id int, rebootB
 // SendUpdateToDevices adds devices as targets of an update. Skips devices that
 // already have an active (non-complete) update. Sets the update status to "active".
 func (d *DB) SendUpdateToDevices(ctx context.Context, updateID int, deviceIDs []uuid.UUID) error {
+	// One transaction so target inserts and the activation commit together — a
+	// mid-loop failure previously left the deployment armed with missing targets,
+	// and the per-row insert error was silently discarded.
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
 	for _, did := range deviceIDs {
-		_, _ = d.pool.Exec(ctx, `
+		if _, err := tx.Exec(ctx, `
 			INSERT INTO update_devices (update_id, device_id, status)
 			VALUES ($1, $2, 'pending')
 			ON CONFLICT DO NOTHING
-		`, updateID, did)
+		`, updateID, did); err != nil {
+			return err
+		}
 	}
 	// Activate the deployment. Reactivate a 'complete' one too: adding targets to
 	// a finished deployment must re-arm it, or the new pending rows are stranded
 	// (ResolveUpdateForDevice only serves status='active').
-	_, err := d.pool.Exec(ctx, `UPDATE updates SET status = 'active' WHERE id = $1 AND status IN ('pending', 'complete')`, updateID)
-	return err
+	if _, err := tx.Exec(ctx, `UPDATE updates SET status = 'active' WHERE id = $1 AND status IN ('pending', 'complete')`, updateID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // DeviceHasActiveUpdate returns true if the device is a target of any non-complete update.
@@ -8804,16 +8847,26 @@ func (d *DB) ReconcileStrandedUpdates(ctx context.Context) (int64, error) {
 // ResolveUpdateForDevice no longer hands it out on check-in. Devices already
 // downloading/installed are left alone — their work continues on-device.
 func (d *DB) CancelDeployment(ctx context.Context, updateID int) error {
-	if _, err := d.pool.Exec(ctx, `
+	// Atomic: cancel the pending device rows and the deployment together, so a
+	// failure between the two can't leave devices canceled while the deployment
+	// stays 'active' (a half-cancelled state).
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `
 		UPDATE update_devices SET status = 'canceled', error_code = '', updated_at = NOW()
 		WHERE update_id = $1 AND status = 'pending'
 	`, updateID); err != nil {
 		return err
 	}
-	_, err := d.pool.Exec(ctx, `
+	if _, err := tx.Exec(ctx, `
 		UPDATE updates SET status = 'canceled' WHERE id = $1 AND status = 'active'
-	`, updateID)
-	return err
+	`, updateID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // GetUpdateTargets returns the device targets for an update.
@@ -8864,6 +8917,51 @@ func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool
 		)
 	`, deviceID).Scan(&exists)
 	return exists, err
+}
+
+// CreateOTACommandIfNone atomically creates an OTA command for a device unless one
+// is already in flight, returning nil when one already exists. A Postgres advisory
+// lock keyed on the device serializes concurrent check-ins (a device using both
+// HTTP check-in and WS telemetry, or two rapid check-ins) so they can't both pass
+// the no-pending check and dispatch duplicate OTA downloads.
+func (d *DB) CreateOTACommandIfNone(ctx context.Context, deviceID uuid.UUID, payload json.RawMessage) (*Command, error) {
+	var cmd *Command
+	err := d.withAdvisoryLock(ctx, advisoryKeyUUID(deviceID), func(ctx context.Context) error {
+		hasPending, err := d.HasPendingOTACommand(ctx, deviceID)
+		if err != nil {
+			return err
+		}
+		if hasPending {
+			return nil
+		}
+		cmd, err = d.CreateCommand(ctx, "ota", "", payload, "devices", []uuid.UUID{deviceID})
+		return err
+	})
+	return cmd, err
+}
+
+// withAdvisoryLock runs fn while holding a Postgres session advisory lock for key,
+// serializing callers so a check-then-insert cannot race into duplicate rows. The
+// lock lives on one pooled connection and is released even if ctx is cancelled.
+func (d *DB) withAdvisoryLock(ctx context.Context, key int64, fn func(context.Context) error) error {
+	conn, err := d.pool.Acquire(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Release()
+	if _, err := conn.Exec(ctx, `SELECT pg_advisory_lock($1)`, key); err != nil {
+		return err
+	}
+	defer conn.Exec(context.Background(), `SELECT pg_advisory_unlock($1)`, key)
+	return fn(ctx)
+}
+
+// advisoryKeyUUID / advisoryKeyIntUUID derive a stable advisory-lock key from a
+// uuid, or an (int, uuid) pair. Occasional key collisions only cause unrelated
+// operations to serialize briefly, which is harmless.
+func advisoryKeyUUID(id uuid.UUID) int64 { return int64(binary.BigEndian.Uint64(id[:8])) }
+func advisoryKeyIntUUID(n int, id uuid.UUID) int64 {
+	return int64(n)<<32 | int64(binary.BigEndian.Uint32(id[:4]))
 }
 
 // ClearPendingOTACommands marks in-progress OTA commands for a device as
@@ -9052,16 +9150,20 @@ func (d *DB) CreateTestCase(ctx context.Context, tc TestCase) (uuid.UUID, error)
 // (release, problem). Title/steps are taken from the problem. Called when a carried-over
 // bug is marked "fixed here".
 func (d *DB) EnsureFixVerificationCase(ctx context.Context, releaseID int, problemID uuid.UUID, createdBy string) error {
-	_, err := d.pool.Exec(ctx, `
-		INSERT INTO test_cases (title, area, steps, expected_result, base, release_id, created_by, problem_id)
-		SELECT 'Verify fix: ' || p.title, 'Regression',
-		       COALESCE(NULLIF(p.description, ''), 'Confirm the reported issue no longer occurs.'),
-		       'Issue no longer reproduces.', false, $1, $2, p.id
-		FROM release_problems p
-		WHERE p.id = $3
-		  AND NOT EXISTS (SELECT 1 FROM test_cases WHERE release_id = $1 AND problem_id = $3)`,
-		releaseID, createdBy, problemID)
-	return err
+	// Advisory lock so two concurrent submits can't both pass NOT EXISTS and insert
+	// duplicate "Verify fix" cases (there's no unique constraint to lean on).
+	return d.withAdvisoryLock(ctx, advisoryKeyIntUUID(releaseID, problemID), func(ctx context.Context) error {
+		_, err := d.pool.Exec(ctx, `
+			INSERT INTO test_cases (title, area, steps, expected_result, base, release_id, created_by, problem_id)
+			SELECT 'Verify fix: ' || p.title, 'Regression',
+			       COALESCE(NULLIF(p.description, ''), 'Confirm the reported issue no longer occurs.'),
+			       'Issue no longer reproduces.', false, $1, $2, p.id
+			FROM release_problems p
+			WHERE p.id = $3
+			  AND NOT EXISTS (SELECT 1 FROM test_cases WHERE release_id = $1 AND problem_id = $3)`,
+			releaseID, createdBy, problemID)
+		return err
+	})
 }
 
 // VerifyProblemForCase verifies the problem linked to a test case (if any) on releaseID —
@@ -9398,16 +9500,21 @@ func (d *DB) UpsertQAProblem(ctx context.Context, releaseID int, testCaseID uuid
 	if strings.TrimSpace(notes) == "" {
 		notes = "Marked failed in QA."
 	}
-	if _, err := d.pool.Exec(ctx, `
-		INSERT INTO release_problems
-			(release_id, test_case_id, build_id, title, description, severity, status, reported_by, source)
-		SELECT $1, $2,
-		       COALESCE((SELECT version FROM releases WHERE id = $1), ''),
-		       'QA fail: ' || COALESCE((SELECT title FROM test_cases WHERE id = $2), 'test case'),
-		       $3, 'major', 'open', $4, 'qa'
-		WHERE NOT EXISTS (
-			SELECT 1 FROM release_problems WHERE release_id = $1 AND test_case_id = $2 AND source = 'qa')
-	`, releaseID, testCaseID, notes, reportedBy); err != nil {
+	// Advisory lock so two testers failing the same case at once can't both pass
+	// NOT EXISTS and insert duplicate QA problems (no unique constraint exists).
+	if err := d.withAdvisoryLock(ctx, advisoryKeyIntUUID(releaseID, testCaseID), func(ctx context.Context) error {
+		_, err := d.pool.Exec(ctx, `
+			INSERT INTO release_problems
+				(release_id, test_case_id, build_id, title, description, severity, status, reported_by, source)
+			SELECT $1, $2,
+			       COALESCE((SELECT version FROM releases WHERE id = $1), ''),
+			       'QA fail: ' || COALESCE((SELECT title FROM test_cases WHERE id = $2), 'test case'),
+			       $3, 'major', 'open', $4, 'qa'
+			WHERE NOT EXISTS (
+				SELECT 1 FROM release_problems WHERE release_id = $1 AND test_case_id = $2 AND source = 'qa')
+		`, releaseID, testCaseID, notes, reportedBy)
+		return err
+	}); err != nil {
 		return err
 	}
 	// Reopen (and refresh notes on) an existing QA problem that had been closed.
