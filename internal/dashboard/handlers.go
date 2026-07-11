@@ -10800,7 +10800,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
-	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAuth(h.DeviceRemote))
+	// Remote screen capture + input injection is as sensitive as the shell page
+	// (which is requireOperatorOrAdmin), so it must not be reachable by a viewer.
+	mux.HandleFunc("GET /devices/{serial}/remote", h.requireOperatorOrAdmin(h.DeviceRemote))
 	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
@@ -10833,7 +10835,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
 	mux.HandleFunc("GET /alert-config", h.requireAdminOrTester(h.AlertConfigView))
-	mux.HandleFunc("GET /wrapped", h.WrappedPage) // public — shareable, standalone page
+	// Requires auth: the page exposes real device serials and restaurant/venue names,
+	// so it must not be anonymous even though it's a standalone "wrapped" page.
+	mux.HandleFunc("GET /wrapped", h.requireAuth(h.WrappedPage))
 	mux.HandleFunc("GET /alerts/recent", h.requireAuth(h.AlertsRecent))
 	mux.HandleFunc("GET /alerts/events", h.requireAuth(h.AlertEvents))
 	post("POST /alerts/bulk", h.requireOperatorOrAdmin(h.AlertBulk))
