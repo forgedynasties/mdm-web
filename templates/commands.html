@@ -302,7 +302,7 @@
             <div class="appgrid" id="app-grid">
               {{range .Apps}}
               <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}}{{if canAdmin $.Role}} {{.ApkURL}}{{end}}" onclick="pickApp(this)">
-                <span class="thumb">{{slice .Name 0 1}}</span>
+                <span class="thumb">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>
                 <span class="m"><span class="nm">{{.Name}}</span>{{if canAdmin $.Role}}<span class="meta">{{.ApkURL}}</span>{{end}}</span>
                 <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
               </button>

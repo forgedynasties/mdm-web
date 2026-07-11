@@ -678,7 +678,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				// Try parsing as "GMT+N" or "GMT-N"
 				if strings.HasPrefix(strings.ToUpper(tz), "GMT") {
 					offset := strings.TrimPrefix(strings.ToUpper(tz), "GMT")
-					if h, err := strconv.Atoi(offset); err == nil {
+					// Clamp to a real UTC-offset range; a device sending "GMT+999999"
+					// would otherwise overflow h*3600 into a garbage zone.
+					if h, err := strconv.Atoi(offset); err == nil && h >= -14 && h <= 14 {
 						loc = time.FixedZone(tz, h*3600)
 					}
 				}
@@ -899,7 +901,12 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
-		"div": func(a, b int) int { return a / b },
+		"div": func(a, b int) int {
+			if b == 0 {
+				return 0
+			}
+			return a / b
+		},
 		// dur formats a duration in seconds as a compact "1h 2m" / "4m 23s" / "45s".
 		// Negative means "not available" and renders as an em dash.
 		"dur": func(sec int) string {
@@ -3345,12 +3352,12 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		"Attention":  attention,
 		"StatusWord": statusWord,
 		// Crash surfaces.
-		"Crashes24h":       crashStats.Total24h,
-		"CrashDevices24h":  crashStats.Devices24h,
-		"CrashWorstBuild":  crashStats.WorstBuild,
-		"CrashWorstBuildN": crashStats.WorstBuildN,
-		"CrashList":        crashRows,
-		"CrashSpark":       crashSparkBars(crashStats.Daily),
+		"Crashes24h":        crashStats.Total24h,
+		"CrashDevices24h":   crashStats.Devices24h,
+		"CrashWorstBuild":   crashStats.WorstBuild,
+		"CrashWorstBuildN":  crashStats.WorstBuildN,
+		"CrashList":         crashRows,
+		"CrashSpark":        crashSparkBars(crashStats.Daily),
 		"RestaurantCrashes": crashStats.ByRestaurant,
 		"MemoryCount":       memory,
 	}
@@ -3501,7 +3508,7 @@ func crashSparkBars(daily []int) []sparkBar {
 		}
 		label := "Today"
 		if i < n-1 {
-			label = time.Now().AddDate(0, 0, -(n-1-i)).Format("Mon")
+			label = time.Now().AddDate(0, 0, -(n - 1 - i)).Format("Mon")
 		}
 		bars[i] = sparkBar{Label: label, Pct: pct, Class: class}
 	}
@@ -8292,6 +8299,14 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		targetType = "devices"
 		targetIDs = ids
+	}
+
+	// Reject a command that resolves to no devices (e.g. "all" on an empty fleet, or
+	// serials that match nothing) rather than inserting an orphan command with no
+	// targets that no device will ever pick up.
+	if len(targetIDs) == 0 {
+		http.Error(w, "No matching target devices.", http.StatusBadRequest)
+		return
 	}
 
 	// Build the per-command work items (apkURL + payload).

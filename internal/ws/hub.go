@@ -108,13 +108,13 @@ type Client struct {
 
 func NewHub() *Hub {
 	return &Hub{
-		clients:       make(map[uuid.UUID]*Client),
-		subscribers:   make(map[chan PresenceEvent]struct{}),
-		updates:       make(map[chan DeviceUpdateEvent]struct{}),
-		lastUpdateAt:  make(map[uuid.UUID]time.Time),
-		cmdUpdates:    make(map[chan CommandUpdateEvent]struct{}),
-		logcatUpdates: make(map[chan LogcatUpdateEvent]struct{}),
-		alertUpdates:  make(map[chan AlertUpdateEvent]struct{}),
+		clients:        make(map[uuid.UUID]*Client),
+		subscribers:    make(map[chan PresenceEvent]struct{}),
+		updates:        make(map[chan DeviceUpdateEvent]struct{}),
+		lastUpdateAt:   make(map[uuid.UUID]time.Time),
+		cmdUpdates:     make(map[chan CommandUpdateEvent]struct{}),
+		logcatUpdates:  make(map[chan LogcatUpdateEvent]struct{}),
+		alertUpdates:   make(map[chan AlertUpdateEvent]struct{}),
 		deployUpdates:  make(map[chan DeploymentUpdateEvent]struct{}),
 		problemUpdates: make(map[chan ProblemUpdateEvent]struct{}),
 		pingWaiters:    make(map[string]chan struct{}),
@@ -149,7 +149,6 @@ func (h *Hub) SignalPong(nonce string) {
 		close(ch)
 	}
 }
-
 
 // SubscribeCommandUpdates returns a channel that receives command update events.
 func (h *Hub) SubscribeCommandUpdates() chan CommandUpdateEvent {
@@ -408,6 +407,13 @@ func (h *Hub) Unregister(c *Client) {
 		removed = true
 	}
 	h.mu.Unlock()
+	if removed {
+		// Drop the device's throttle timestamp so the map stays bounded by the set
+		// of currently-connected devices rather than growing over the process' life.
+		h.updThrottleMu.Lock()
+		delete(h.lastUpdateAt, c.DeviceID)
+		h.updThrottleMu.Unlock()
+	}
 	log.Printf("[ws] disconnected: %s", c.DeviceID)
 	if removed {
 		h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: false})
