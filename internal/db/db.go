@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"sort"
 	"strconv"
 	"strings"
@@ -3785,7 +3786,40 @@ type FleetPackage struct {
 }
 
 // UpsertDevicePackages replaces all packages for a device atomically.
+// devicePackagesHash fingerprints the (order-independent) installed-app set so an
+// unchanged list can be detected cheaply.
+func devicePackagesHash(packages []DevicePackage) string {
+	sorted := make([]DevicePackage, len(packages))
+	copy(sorted, packages)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].PackageName < sorted[j].PackageName })
+	h := fnv.New64a()
+	for _, p := range sorted {
+		sys := "n"
+		if p.IsSystem != nil {
+			if *p.IsSystem {
+				sys = "1"
+			} else {
+				sys = "0"
+			}
+		}
+		fmt.Fprintf(h, "%s\x00%s\x00%s\x00%s\n", p.PackageName, p.AppName, p.VersionName, sys)
+	}
+	return strconv.FormatUint(h.Sum64(), 16)
+}
+
 func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packages []DevicePackage) error {
+	// The installed-app list is re-sent on every check-in but changes very rarely.
+	// A full delete+reinsert of ~200 rows per check-in was ~90% of all check-in DB
+	// time (and a huge autovacuum generator). Skip it when the set is unchanged: a
+	// single-column PK lookup replaces the whole rewrite on >99% of check-ins.
+	newHash := devicePackagesHash(packages)
+	var curHash string
+	if err := d.pool.QueryRow(ctx, `SELECT COALESCE(packages_hash, '') FROM devices WHERE id = $1`, deviceID).Scan(&curHash); err == nil {
+		if curHash == newHash {
+			return nil
+		}
+	}
+
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -3814,6 +3848,10 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 		`, deviceID, names, appNames, versions, systems); err != nil {
 			return err
 		}
+	}
+
+	if _, err := tx.Exec(ctx, `UPDATE devices SET packages_hash = $2 WHERE id = $1`, deviceID, newHash); err != nil {
+		return err
 	}
 
 	return tx.Commit(ctx)
@@ -7778,6 +7816,24 @@ CREATE INDEX IF NOT EXISTS idx_test_cases_problem ON test_cases(problem_id);
 DELETE FROM alert_rules WHERE type = 'offline_long';
 UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
     WHERE type = 'offline_long' AND status <> 'resolved';
+
+-- Perf: a fingerprint of the device's installed-app set. Lets UpsertDevicePackages
+-- skip the (expensive) full delete+reinsert on the >99% of check-ins where the app
+-- list is unchanged.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS packages_hash TEXT;
+
+-- Perf: indexes for hot query paths found in the scale audit.
+-- commands.type is filtered on every check-in (pending-command / OTA / install checks).
+CREATE INDEX IF NOT EXISTS idx_commands_type ON commands(type);
+-- command_targets is probed by target_id (device) alone; the PK leads with command_id.
+CREATE INDEX IF NOT EXISTS idx_command_targets_target ON command_targets(target_id);
+-- Retention prunes DELETE these by created_at; without an index they full-scan a wide table.
+CREATE INDEX IF NOT EXISTS idx_logcat_results_created_at ON logcat_results(created_at);
+CREATE INDEX IF NOT EXISTS idx_logcat_requests_created_at ON logcat_requests(created_at);
+-- NOTE: JSONB expression indexes for the device-list RAM%/temperature sorts were
+-- considered and rejected — at ~900 devices the planner picks a seq-scan+sort anyway
+-- (measured), and the index would have to be maintained on latest_extra on EVERY
+-- check-in. Revisit only if the fleet grows past several thousand devices.
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
