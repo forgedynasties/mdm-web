@@ -265,25 +265,9 @@
     else { lastHtml = html; }
   });
 
-  // Relative "x ago" rendered client-side so the server HTML carries only a stable
-  // timestamp (keeps the partial unchanged between real status/progress changes).
-  function ago(sec) {
-    var d = Math.max(0, Math.floor(Date.now() / 1000) - sec);
-    if (d < 60) return d + 's ago';
-    if (d < 3600) return Math.floor(d / 60) + 'm ago';
-    if (d < 86400) return Math.floor(d / 3600) + 'h ago';
-    return Math.floor(d / 86400) + 'd ago';
-  }
-  function tick() {
-    box.querySelectorAll('.reltime[data-ts]').forEach(function (el) {
-      el.textContent = ago(parseInt(el.dataset.ts, 10) || 0);
-    });
-  }
-  document.body.addEventListener('htmx:afterSwap', function (e) {
-    if (e.target && e.target.id === 'deployment-targets') tick();
-  });
-  setInterval(tick, 1000);
-  tick();
+  // Relative "x ago" for the .reltime[data-ts] cells is rendered by the global
+  // ticker (window.mdmTickRel in layout.html), which owns every .reltime span —
+  // a second page-local ticker here would fight it over the same nodes.
 })();
 
 function setReboot(mode) {
