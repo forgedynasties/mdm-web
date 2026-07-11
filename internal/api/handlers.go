@@ -21,6 +21,10 @@ import (
 	"mdm/internal/ws"
 )
 
+// maxPackagesPerDevice caps how many installed-app rows a single check-in will
+// persist, so an oversized list can't blow up the per-device package upsert.
+const maxPackagesPerDevice = 2000
+
 type Handler struct {
 	db          *db.DB
 	hub         *ws.Hub
@@ -355,6 +359,9 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 			}
 			seen[p.Package] = struct{}{}
 			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem})
+			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
+				break
+			}
 		}
 		if err := h.db.UpsertDevicePackages(r.Context(), deviceID, pkgs); err != nil {
 			log.Printf("[checkin] UpsertDevicePackages error: %v", err)
@@ -715,6 +722,9 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 			}
 			seen[p.Package] = struct{}{}
 			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem})
+			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
+				break
+			}
 		}
 		if err := h.db.UpsertDevicePackages(ctx, id, pkgs); err != nil {
 			log.Printf("[ws-telemetry] UpsertDevicePackages error: %v", err)
@@ -813,6 +823,10 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := h.db.SaveLogcatResult(r.Context(), body.RequestID, device.ID, body.Content); err != nil {
+		if errors.Is(err, db.ErrLogcatNotTargeted) {
+			writeJSON(w, http.StatusForbidden, map[string]string{"error": "logcat request does not target this device"})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
