@@ -8276,8 +8276,12 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVe
 	defer tx.Rollback(ctx)
 
 	var baseID *int // what the branch forked from; the new node lands on that line
+	// Enforce the "branch testing must be done" gate at the SQL level too (the handler
+	// also checks it) so no other caller — or a race that clears testing_done between
+	// the handler's read and here — can merge an untested branch. No row → ErrNoRows →
+	// the merge aborts.
 	if err := tx.QueryRow(ctx,
-		`SELECT parent_release_id FROM releases WHERE id = $1 AND is_branch AND merged_into_release_id IS NULL`,
+		`SELECT parent_release_id FROM releases WHERE id = $1 AND is_branch AND merged_into_release_id IS NULL AND testing_done_at IS NOT NULL`,
 		branchID).Scan(&baseID); err != nil {
 		return 0, err
 	}
@@ -8304,14 +8308,18 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVe
 		ON CONFLICT (release_id, test_case_id) DO NOTHING`, branchID, newID); err != nil {
 		return 0, err
 	}
-	// Carry the branch's still-open problems onto main as manual problems on the new release
-	// (test_case link dropped — the branch's cases don't belong to the mainline board).
+	// Carry the branch's still-open problems onto main as manual problems on the new
+	// release (test_case link dropped — the branch's cases don't belong to the mainline
+	// board). They land as 'open' regardless of their branch status: the branch's
+	// fix trail (fixed_in/verified_in) is branch-scoped and not copied, so carrying a
+	// 'fixed' status would leave an inconsistent 'fixed'-with-no-fix-build row that can
+	// never be verified. On main they must be (re-)triaged and verified afresh.
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO release_problems (release_id, build_id, title, description, severity, status, source, reported_by, created_at, updated_at)
 		SELECT $2, $3, title,
 		       CASE WHEN description = '' THEN '(carried from branch ' || $4 || ')'
 		            ELSE description || E'\n\n(carried from branch ' || $4 || ')' END,
-		       severity, status, 'manual', reported_by, NOW(), NOW()
+		       severity, 'open', 'manual', reported_by, NOW(), NOW()
 		FROM release_problems
 		WHERE release_id = $1 AND status NOT IN ('verified', 'wontfix')`,
 		branchID, newID, newVersion, branchVersion); err != nil {
@@ -9503,9 +9511,11 @@ func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]Relea
 		  AND (
 			p.fixed_in_release_id = $1                                  -- dev claimed fix in THIS build (verify here)
 			OR (p.status = 'open' AND p.fixed_in_release_id IS NOT NULL
-			    AND orel.created_at < (SELECT created_at FROM releases WHERE id = $1))
+			    AND (SELECT created_at FROM releases WHERE id = p.fixed_in_release_id)
+			        < (SELECT created_at FROM releases WHERE id = $1))
 			    -- reported fixed in an earlier build but QA verification failed (reopened,
-			    -- fixed_in kept); only these ride the train forward
+			    -- fixed_in kept); only rides onto builds created AFTER the claimed-fix
+			    -- build — a build predating the fix claim can't have the fix pending
 		)`+releaseProblemOrder, releaseID)
 	if err != nil {
 		return nil, err
@@ -10009,6 +10019,40 @@ func (d *DB) ProblemSummariesByRelease(ctx context.Context) (map[int]ProblemSumm
 		var rid int
 		var s ProblemSummary
 		if err := rows.Scan(&rid, &s.Open, &s.Blockers, &s.Total); err != nil {
+			return nil, err
+		}
+		out[rid] = s
+	}
+	return out, rows.Err()
+}
+
+// CarriedProblemCountsByRelease returns, per non-branch release, the count of
+// problems that CARRY onto it (mirrors the CarriedForwardProblems rule) — all
+// carried problems are active/awaiting-verification, so they count as open. Used
+// to make the release-list problem badge match the workspace board (native +
+// carried) instead of counting only native problems.
+func (d *DB) CarriedProblemCountsByRelease(ctx context.Context) (map[int]ProblemSummary, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT r.id, COUNT(*), COUNT(*) FILTER (WHERE p.severity = 'blocker')
+		FROM releases r
+		JOIN release_problems p ON p.source = 'manual' AND p.release_id <> r.id
+		JOIN releases orel ON orel.id = p.release_id AND NOT orel.is_branch
+		WHERE NOT r.is_branch
+		  AND (
+		     p.fixed_in_release_id = r.id
+		     OR (p.status = 'open' AND p.fixed_in_release_id IS NOT NULL
+		         AND (SELECT created_at FROM releases WHERE id = p.fixed_in_release_id) < r.created_at)
+		  )
+		GROUP BY r.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int]ProblemSummary)
+	for rows.Next() {
+		var rid int
+		var s ProblemSummary
+		if err := rows.Scan(&rid, &s.Open, &s.Blockers); err != nil {
 			return nil, err
 		}
 		out[rid] = s
