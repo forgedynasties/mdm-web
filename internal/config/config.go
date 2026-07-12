@@ -2,11 +2,23 @@ package config
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 )
+
+// writeFileAtomic writes data to a temp file in the same directory and renames it
+// over path (rename is atomic on the same filesystem), so a crash mid-write can't
+// leave a truncated/corrupt config file — which would fail Load and brick startup.
+func writeFileAtomic(path string, data []byte) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
 
 type ExtraColumn struct {
 	Key   string `json:"key"`
@@ -81,7 +93,14 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 	if err := json.Unmarshal(data, c); err != nil {
-		return nil, err
+		// A corrupt config file must not crash-loop the whole service on boot. Preserve
+		// the bad file for inspection and start from defaults + env overrides. (Atomic
+		// writes make corruption unlikely; this is the last-resort safety net.)
+		log.Printf("[config] %s is corrupt (%v) — backing it up to %s.corrupt and starting from defaults", path, err, path)
+		_ = os.Rename(path, path+".corrupt")
+		fresh := &Config{path: path, ExtraColumns: []ExtraColumn{}}
+		fresh.applyEnvOverrides()
+		return fresh, nil
 	}
 	c.applyEnvOverrides()
 	return c, nil
@@ -127,7 +146,7 @@ func (c *Config) Add(col ExtraColumn) error {
 	c.ExtraColumns = append(c.ExtraColumns, col)
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) LegacyCheckin() bool {
@@ -141,7 +160,7 @@ func (c *Config) SetLegacyCheckin(v bool) error {
 	c.LegacyCheckinOn = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) CheckinInterval() int {
@@ -158,7 +177,7 @@ func (c *Config) SetCheckinInterval(sec int) error {
 	c.CheckinIntervalSec = sec
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) ShellEnabled() bool {
@@ -172,7 +191,7 @@ func (c *Config) SetShellEnabled(v bool) error {
 	c.ShellDisabledFlag = !v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) RemoteEnabled() bool {
@@ -186,7 +205,7 @@ func (c *Config) SetRemoteEnabled(v bool) error {
 	c.RemoteDisabledFlag = !v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) CommandExpiry() int {
@@ -203,7 +222,7 @@ func (c *Config) SetCommandExpiry(sec int) error {
 	c.CommandExpirySecVal = sec
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) MaxTargets() int {
@@ -220,7 +239,7 @@ func (c *Config) SetMaxTargets(n int) error {
 	c.MaxTargetsVal = n
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 // OperatorDenied returns the command types operators are barred from sending.
@@ -249,7 +268,7 @@ func (c *Config) SetOperatorDenied(denied []string) error {
 	c.OperatorDeniedCmds = denied
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) SessionTimeout() int {
@@ -266,7 +285,7 @@ func (c *Config) SetSessionTimeout(sec int) error {
 	c.SessionTimeoutSecVal = sec
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) SessionEpoch() int64 {
@@ -280,7 +299,7 @@ func (c *Config) SetSessionEpoch(ts int64) error {
 	c.SessionEpochVal = ts
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) AutoHideDays() int {
@@ -317,7 +336,7 @@ func (c *Config) SetDataLifecycle(autoHide, checkinRet, logcatRet int) error {
 	c.LogcatRetentionDaysVal = logcatRet
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) RequireReason() bool {
@@ -331,7 +350,7 @@ func (c *Config) SetRequireReason(v bool) error {
 	c.RequireReasonFlag = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) PageSize() int {
@@ -348,7 +367,7 @@ func (c *Config) SetPageSize(n int) error {
 	c.PageSizeVal = n
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) DefaultSort() string {
@@ -365,7 +384,7 @@ func (c *Config) SetDefaultSort(s string) error {
 	c.DefaultSortVal = s
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) Density() string {
@@ -382,7 +401,7 @@ func (c *Config) SetDensity(s string) error {
 	c.DensityVal = s
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) BrandName() string {
@@ -415,7 +434,7 @@ func (c *Config) SetAlertWebhookURL(s string) error {
 	c.AlertWebhookURLVal = s
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 // AnthropicAPIKey returns the configured key ("" = AI analysis disabled).
@@ -430,7 +449,7 @@ func (c *Config) SetAnthropicAPIKey(s string) error {
 	c.AnthropicAPIKeyVal = s
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 // AIEnabled reports whether AI analysis can run (a key is set).
@@ -453,7 +472,7 @@ func (c *Config) SetAnthropicModel(s string) error {
 	c.AnthropicModelVal = s
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 // AIProvider returns the configured provider, defaulting to "anthropic".
@@ -471,7 +490,7 @@ func (c *Config) SetAIProvider(s string) error {
 	c.AIProviderVal = s
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 // AIBaseURL returns the optional endpoint override ("" = use provider default).
@@ -486,7 +505,7 @@ func (c *Config) SetAIBaseURL(s string) error {
 	c.AIBaseURLVal = s
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) AIDigestEnabled() bool {
@@ -500,7 +519,7 @@ func (c *Config) SetAIDigestEnabled(v bool) error {
 	c.AIDigestEnabledVal = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) SetBrandName(s string) error {
@@ -508,7 +527,7 @@ func (c *Config) SetBrandName(s string) error {
 	c.BrandNameVal = s
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) Use24Hour() bool {
@@ -522,7 +541,7 @@ func (c *Config) SetUse24Hour(v bool) error {
 	c.Use24HourFlag = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) Remove(key string) error {
@@ -536,5 +555,5 @@ func (c *Config) Remove(key string) error {
 	c.ExtraColumns = filtered
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
-	return os.WriteFile(c.path, data, 0644)
+	return writeFileAtomic(c.path, data)
 }
