@@ -33,10 +33,10 @@
 
 {{if or .Versions .HiddenReleases}}
 <h2 class="hub-list-h">All releases</h2>
-<div class="rel-tabs">
-  <button type="button" class="rel-tab on" data-g="tracked" onclick="relTab('tracked',this)">Tracked <span class="rel-tab-n">{{.TrackedCount}}</span></button>
-  <button type="button" class="rel-tab" data-g="nottracked" onclick="relTab('nottracked',this)">Not tracked <span class="rel-tab-n">{{.NotTrackedCount}}</span></button>
-  {{if .HiddenReleases}}<button type="button" class="rel-tab" data-g="hidden" onclick="relTab('hidden',this)">Hidden <span class="rel-tab-n">{{len .HiddenReleases}}</span></button>{{end}}
+<div class="rel-tabs" role="radiogroup" aria-label="Filter releases">
+  <button type="button" class="rel-tab on" data-g="tracked" onclick="relTab('tracked',this)" role="radio" aria-checked="true">Tracked <span class="rel-tab-n">{{.TrackedCount}}</span></button>
+  <button type="button" class="rel-tab" data-g="nottracked" onclick="relTab('nottracked',this)" role="radio" aria-checked="false">Not tracked <span class="rel-tab-n">{{.NotTrackedCount}}</span></button>
+  {{if .HiddenReleases}}<button type="button" class="rel-tab" data-g="hidden" onclick="relTab('hidden',this)" role="radio" aria-checked="false">Hidden <span class="rel-tab-n">{{len .HiddenReleases}}</span></button>{{end}}
 </div>
 <div class="rlc-list dv-rise-1" id="versions-tbody">
     {{range .Versions}}
@@ -317,7 +317,7 @@ function boardFilter(mode, btn) {
 
 // Releases tab filter (Tracked / Not tracked / Hidden).
 function relTab(group, btn) {
-  document.querySelectorAll('.rel-tab').forEach(function (t) { t.classList.toggle('on', t === btn); });
+  document.querySelectorAll('.rel-tab').forEach(function (t) { var sel = t === btn; t.classList.toggle('on', sel); t.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   document.querySelectorAll('#versions-tbody [data-rel-group]').forEach(function (r) {
     r.style.display = (r.getAttribute('data-rel-group') === group) ? '' : 'none';
   });

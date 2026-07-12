@@ -31,12 +31,12 @@
     <input type="hidden" name="level" id="lc-level" value="W">
     <div class="lc-field">
       <label class="lc-lbl">Level</label>
-      <div class="lc-levels">
-        <button type="button" class="lc-lv" data-lv="E" onclick="lcSetLevel('E',this)" title="Error only">E</button>
-        <button type="button" class="lc-lv on" data-lv="W" onclick="lcSetLevel('W',this)" title="Warning+">W</button>
-        <button type="button" class="lc-lv" data-lv="I" onclick="lcSetLevel('I',this)" title="Info+">I</button>
-        <button type="button" class="lc-lv" data-lv="D" onclick="lcSetLevel('D',this)" title="Debug+">D</button>
-        <button type="button" class="lc-lv" data-lv="V" onclick="lcSetLevel('V',this)" title="Verbose (all)">V</button>
+      <div class="lc-levels" role="radiogroup" aria-label="Log level">
+        <button type="button" class="lc-lv" data-lv="E" onclick="lcSetLevel('E',this)" title="Error only" role="radio" aria-checked="false">E</button>
+        <button type="button" class="lc-lv on" data-lv="W" onclick="lcSetLevel('W',this)" title="Warning+" role="radio" aria-checked="true">W</button>
+        <button type="button" class="lc-lv" data-lv="I" onclick="lcSetLevel('I',this)" title="Info+" role="radio" aria-checked="false">I</button>
+        <button type="button" class="lc-lv" data-lv="D" onclick="lcSetLevel('D',this)" title="Debug+" role="radio" aria-checked="false">D</button>
+        <button type="button" class="lc-lv" data-lv="V" onclick="lcSetLevel('V',this)" title="Verbose (all)" role="radio" aria-checked="false">V</button>
       </div>
     </div>
     <div class="lc-field"><label class="lc-lbl" for="lc-lines">Lines</label><input type="number" name="lines" id="lc-lines" class="form-input" value="500" min="50" max="5000" style="width:90px;"></div>
@@ -54,7 +54,7 @@
 <script>
 function lcSetLevel(lv, btn) {
   document.getElementById('lc-level').value = lv;
-  document.querySelectorAll('.lc-lv').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-lv') === lv); });
+  document.querySelectorAll('.lc-lv').forEach(function (b) { var sel = b.getAttribute('data-lv') === lv; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
 }
 function lcFill(level, lines, tag) {
   lcSetLevel(level, null);

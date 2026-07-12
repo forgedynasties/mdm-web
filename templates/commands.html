@@ -268,14 +268,14 @@
   <!-- Inline pill picker — every action visible, one tap to switch -->
   <div class="pick-wrap dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
     <div class="pick-cap">Choose an action</div>
-    <div class="pills">
-      <button type="button" class="pill on" data-type="install_apk" onclick="selectType('install_apk', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app<span class="g">Apps</span></button>
-      <button type="button" class="pill" data-type="uninstall" onclick="selectType('uninstall', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall<span class="g">Apps</span></button>
-      <button type="button" class="pill" data-type="screenshot" onclick="selectType('screenshot', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot<span class="g">Diag</span></button>
-      {{if canAdmin .Role}}<button type="button" class="pill" data-type="logcat" onclick="selectType('logcat', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Log capture<span class="g">Diag</span></button>{{end}}
-      <button type="button" class="pill" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>
-      <button type="button" class="pill" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
-      {{if canAdminOrTester .Role}}<button type="button" class="pill" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
+    <div class="pills" role="radiogroup" aria-label="Choose an action">
+      <button type="button" class="pill on" role="radio" aria-checked="true" data-type="install_apk" onclick="selectType('install_apk', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app<span class="g">Apps</span></button>
+      <button type="button" class="pill" role="radio" aria-checked="false" data-type="uninstall" onclick="selectType('uninstall', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall<span class="g">Apps</span></button>
+      <button type="button" class="pill" role="radio" aria-checked="false" data-type="screenshot" onclick="selectType('screenshot', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot<span class="g">Diag</span></button>
+      {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="logcat" onclick="selectType('logcat', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Log capture<span class="g">Diag</span></button>{{end}}
+      <button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>
+      <button type="button" class="pill" role="radio" aria-checked="false" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
+      {{if canAdminOrTester .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
     </div>
     <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
   </div>
@@ -358,9 +358,9 @@
         <div id="kiosk-fields" class="payload-section">
           <input type="hidden" name="kiosk_enabled" id="kiosk-enabled" value="1">
           <div class="lvl-lbl">Mode</div>
-          <div class="levels" id="kiosk-mode">
-            <button type="button" class="lv on" data-k="1" onclick="setKioskMode('1', this)">Lock<small>to one app</small></button>
-            <button type="button" class="lv" data-k="0" onclick="setKioskMode('0', this)">Unlock<small>exit kiosk</small></button>
+          <div class="levels" id="kiosk-mode" role="radiogroup" aria-label="Kiosk mode">
+            <button type="button" class="lv on" role="radio" aria-checked="true" data-k="1" onclick="setKioskMode('1', this)">Lock<small>to one app</small></button>
+            <button type="button" class="lv" role="radio" aria-checked="false" data-k="0" onclick="setKioskMode('0', this)">Unlock<small>exit kiosk</small></button>
           </div>
           <div id="kiosk-app-wrap" style="margin-top:16px">
             <div class="lvl-lbl">Locked app</div>
@@ -404,12 +404,12 @@
           </div>
           {{end}}
           <div class="pl-row">
-            <div><div class="lvl-lbl">Level</div><div class="levels" id="lc-levels">
-              <button type="button" class="lv" data-lv="E" onclick="setLevel(this)">E<small>Error</small></button>
-              <button type="button" class="lv on" data-lv="W" onclick="setLevel(this)">W<small>Warn+</small></button>
-              <button type="button" class="lv" data-lv="I" onclick="setLevel(this)">I<small>Info+</small></button>
-              <button type="button" class="lv" data-lv="D" onclick="setLevel(this)">D<small>Debug+</small></button>
-              <button type="button" class="lv" data-lv="V" onclick="setLevel(this)">V<small>All</small></button>
+            <div><div class="lvl-lbl">Level</div><div class="levels" id="lc-levels" role="radiogroup" aria-label="Log level">
+              <button type="button" class="lv" role="radio" aria-checked="false" data-lv="E" onclick="setLevel(this)">E<small>Error</small></button>
+              <button type="button" class="lv on" role="radio" aria-checked="true" data-lv="W" onclick="setLevel(this)">W<small>Warn+</small></button>
+              <button type="button" class="lv" role="radio" aria-checked="false" data-lv="I" onclick="setLevel(this)">I<small>Info+</small></button>
+              <button type="button" class="lv" role="radio" aria-checked="false" data-lv="D" onclick="setLevel(this)">D<small>Debug+</small></button>
+              <button type="button" class="lv" role="radio" aria-checked="false" data-lv="V" onclick="setLevel(this)">V<small>All</small></button>
             </div></div>
             <div><div class="lvl-lbl">Lines</div><div class="stepper"><button type="button" onclick="stepLines(-100)">−</button><input type="number" name="lines" id="lc-cmd-lines" value="500" min="50" max="5000" oninput="updatePreview()"><button type="button" onclick="stepLines(100)">+</button></div></div>
             <div style="flex:1;min-width:180px"><div class="lvl-lbl">Tag <span style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0">optional</span></div><input type="text" name="tag" id="lc-cmd-tag" class="pl-field" placeholder="e.g. MdmService" oninput="updatePreview()"></div>
@@ -444,19 +444,19 @@
           <textarea name="target_serials" id="cmd-serials" style="display:none"></textarea>
 
           <div class="scope-wrap">
-            <aside class="scope-rail" id="scope-rail">
-              <button type="button" class="sri on" data-mode="all" onclick="selectScope('all','',this)"><span class="dot ok"></span><span class="nm">All devices</span></button>
-              {{if .ScopeRestaurants}}<div class="src">Restaurants</div>{{range .ScopeRestaurants}}<button type="button" class="sri" data-mode="restaurant" data-id="{{.GroupID}}" onclick="selectScope('restaurant','{{.GroupID}}',this)"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
-              {{if .Groups}}<div class="src">Groups</div>{{range .Groups}}<button type="button" class="sri" data-mode="group" data-id="{{.ID}}" onclick="selectScope('group','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
-              {{if .ScopeReleases}}<div class="src">Releases</div>{{range .ScopeReleases}}<button type="button" class="sri" data-mode="build" data-id="{{.Version}}" onclick="selectScope('build','{{.Version}}',this)"><span class="dot muted"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+            <aside class="scope-rail" id="scope-rail" role="radiogroup" aria-label="Target scope">
+              <button type="button" class="sri on" role="radio" aria-checked="true" data-mode="all" onclick="selectScope('all','',this)"><span class="dot ok"></span><span class="nm">All devices</span></button>
+              {{if .ScopeRestaurants}}<div class="src">Restaurants</div>{{range .ScopeRestaurants}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="restaurant" data-id="{{.GroupID}}" onclick="selectScope('restaurant','{{.GroupID}}',this)"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+              {{if .Groups}}<div class="src">Groups</div>{{range .Groups}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="group" data-id="{{.ID}}" onclick="selectScope('group','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+              {{if .ScopeReleases}}<div class="src">Releases</div>{{range .ScopeReleases}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="build" data-id="{{.Version}}" onclick="selectScope('build','{{.Version}}',this)"><span class="dot muted"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
             </aside>
             <div class="scope-side">
               <div class="scope-refine" id="scope-refine">
                 <div class="sr-cap">Refine</div>
                 <div class="sr-pills">
-                  <button type="button" class="sr-pill" data-k="status" data-v="online" onclick="toggleRefine(this)">Online only</button>
-                  <button type="button" class="sr-pill" data-k="battery" data-v="low" onclick="toggleRefine(this)">Low battery</button>
-                  <button type="button" class="sr-pill" data-k="kiosk" data-v="enabled" onclick="toggleRefine(this)">In kiosk</button>
+                  <button type="button" class="sr-pill" aria-pressed="false" data-k="status" data-v="online" onclick="toggleRefine(this)">Online only</button>
+                  <button type="button" class="sr-pill" aria-pressed="false" data-k="battery" data-v="low" onclick="toggleRefine(this)">Low battery</button>
+                  <button type="button" class="sr-pill" aria-pressed="false" data-k="kiosk" data-v="enabled" onclick="toggleRefine(this)">In kiosk</button>
                 </div>
               </div>
               <div class="scope-devices">
@@ -668,7 +668,7 @@ var ACT_META = {
 };
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
-  document.querySelectorAll('.pill').forEach(function(c) { c.classList.toggle('on', c.dataset.type === val); });
+  document.querySelectorAll('.pill').forEach(function(c) { var sel = c.dataset.type === val; c.classList.toggle('on', sel); c.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   // reflect the chosen action in the sheet header
   var m = ACT_META[val] || { name: val, sub: '', icon: '<circle cx="12" cy="12" r="8"/>' };
   var ic = document.getElementById('sheet-ic'); if (ic) ic.innerHTML = '<svg viewBox="0 0 24 24">' + m.icon + '</svg>';
@@ -714,7 +714,7 @@ function filterApps(q) {
 // Kiosk: lock/unlock toggle, app pick, and app-list filter.
 function setKioskMode(v, btn) {
   var h = document.getElementById('kiosk-enabled'); if (h) h.value = v;
-  document.querySelectorAll('#kiosk-mode .lv').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  document.querySelectorAll('#kiosk-mode .lv').forEach(function (b) { var sel = b === btn; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   var lock = v === '1';
   var wrap = document.getElementById('kiosk-app-wrap'); if (wrap) wrap.style.display = lock ? '' : 'none';
   var note = document.getElementById('kiosk-unlock-note'); if (note) note.style.display = lock ? 'none' : '';
@@ -736,7 +736,7 @@ function filterKioskApps(q) {
 // Log capture: level segmented control writes the hidden #lc-cmd-level.
 function setLevelValue(v) {
   var h = document.getElementById('lc-cmd-level'); if (h) h.value = v;
-  document.querySelectorAll('#lc-levels .lv').forEach(function (b) { b.classList.toggle('on', b.dataset.lv === v); });
+  document.querySelectorAll('#lc-levels .lv').forEach(function (b) { var sel = b.dataset.lv === v; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
 }
 function setLevel(el) { setLevelValue(el.dataset.lv); updatePreview(); }
 function stepLines(d) {
@@ -775,13 +775,14 @@ function selectScope(mode, id, el) {
   scopeMode = mode; scopeId = id || '';
   document.getElementById('scope-mode').value = mode;
   document.getElementById('scope-id').value = id || '';
-  document.querySelectorAll('#scope-rail .sri').forEach(function (b) { b.classList.toggle('on', b === el); });
+  document.querySelectorAll('#scope-rail .sri').forEach(function (b) { var sel = b === el; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   scopeBrowseReload();
   applyTarget();
 }
 function toggleRefine(el) {
   var on = !el.classList.contains('on');
   el.classList.toggle('on', on);
+  el.setAttribute('aria-pressed', on ? 'true' : 'false');
   var hid = document.getElementById('scope-' + el.dataset.k);
   if (hid) hid.value = on ? el.dataset.v : '';
   scopeBrowseReload();
@@ -878,7 +879,7 @@ function cmdSortBy(key) {
   cmdSort.dir = (cmdSort.key === key) ? (cmdSort.dir === 'desc' ? 'asc' : 'desc') : (key === 'serial' ? 'asc' : 'desc');
   cmdSort.key = key;
   document.querySelectorAll('#cmd-sort-pop .sortopt').forEach(function (b) {
-    var on = b.dataset.sort === key; b.classList.toggle('on', on);
+    var on = b.dataset.sort === key; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on ? 'true' : 'false');
     var d = b.querySelector('.dir'); if (d) d.textContent = on ? (cmdSort.dir === 'asc' ? '↑' : '↓') : '';
   });
   cmdToggleSort(); cmdBrowseReload();

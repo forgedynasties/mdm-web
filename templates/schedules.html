@@ -40,12 +40,12 @@
       </div>
       <div class="form-row">
         <label class="form-label">How often</label>
-        <div class="sch-freq" id="sch-freq">
-          <button type="button" class="sfb on" data-f="daily" onclick="schPick('daily')">Daily</button>
-          <button type="button" class="sfb" data-f="weekly" onclick="schPick('weekly')">Weekly</button>
-          <button type="button" class="sfb" data-f="monthly" onclick="schPick('monthly')">Monthly</button>
-          <button type="button" class="sfb" data-f="minutes" onclick="schPick('minutes')">Every few minutes</button>
-          <button type="button" class="sfb" data-f="advanced" onclick="schPick('advanced')">Advanced</button>
+        <div class="sch-freq" id="sch-freq" role="radiogroup" aria-label="How often">
+          <button type="button" class="sfb on" data-f="daily" onclick="schPick('daily')" role="radio" aria-checked="true">Daily</button>
+          <button type="button" class="sfb" data-f="weekly" onclick="schPick('weekly')" role="radio" aria-checked="false">Weekly</button>
+          <button type="button" class="sfb" data-f="monthly" onclick="schPick('monthly')" role="radio" aria-checked="false">Monthly</button>
+          <button type="button" class="sfb" data-f="minutes" onclick="schPick('minutes')" role="radio" aria-checked="false">Every few minutes</button>
+          <button type="button" class="sfb" data-f="advanced" onclick="schPick('advanced')" role="radio" aria-checked="false">Advanced</button>
         </div>
       </div>
     </div>
@@ -161,7 +161,7 @@ function schCurFreq() {
 }
 
 function schPick(f) {
-  document.querySelectorAll('#sch-freq .sfb').forEach(function (b) { b.classList.toggle('on', b.dataset.f === f); });
+  document.querySelectorAll('#sch-freq .sfb').forEach(function (b) { var sel = b.dataset.f === f; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   document.querySelectorAll('.sch-panel').forEach(function (p) { p.hidden = p.dataset.p !== f; });
   schUpdate();
 }

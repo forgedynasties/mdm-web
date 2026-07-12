@@ -1344,6 +1344,10 @@
       else if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
       else if (e.key === 'Enter') { e.preventDefault(); choose(active); }
       else if (e.key === 'Escape') { e.preventDefault(); close(); }
+      // Trap Tab within the open palette: the input is its only focusable control
+      // (results are arrow-navigated), so keep focus here instead of escaping to the
+      // page behind the overlay (WCAG 2.4.3).
+      else if (e.key === 'Tab') { e.preventDefault(); }
     });
 
     // Click the dimmed backdrop (but not the panel) to dismiss.
