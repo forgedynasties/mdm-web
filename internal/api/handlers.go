@@ -293,8 +293,8 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 // ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
 type checkinRequest struct {
-	SerialNumber  string          `json:"serial_number"`
-	BuildID       string          `json:"build_id"`
+	SerialNumber string `json:"serial_number"`
+	BuildID      string `json:"build_id"`
 	// Pointer so a delta telemetry frame that omits an unchanged battery_pct is
 	// distinguishable from a real 0 — the server keeps the prior value in that case.
 	BatteryPct    *int            `json:"battery_pct"`
@@ -349,7 +349,6 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		h.notifyDeviceOnboarded(r.Context(), deviceID, req.SerialNumber)
 	}
 
-	log.Printf("[checkin] serial=%s packages_count=%d", req.SerialNumber, len(req.InstalledApps))
 	if len(req.InstalledApps) > 0 {
 		seen := make(map[string]struct{})
 		var pkgs []db.DevicePackage
@@ -716,7 +715,6 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		h.notifyDeviceOnboarded(ctx, id, req.SerialNumber)
 	}
 
-	log.Printf("[ws-telemetry] serial=%s packages_count=%d", req.SerialNumber, len(req.InstalledApps))
 	if len(req.InstalledApps) > 0 {
 		seen := make(map[string]struct{})
 		var pkgs []db.DevicePackage
