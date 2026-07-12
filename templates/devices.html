@@ -39,12 +39,12 @@
 {{/* Quick-view filter pills — shared by the inline roster and the OOB refresh
      that a rail collection switch performs (counts come from the scoped summary). */}}
 {{define "fleet-view-pills"}}
-      <button type="button" class="fleet-view" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
-      <button type="button" class="fleet-view" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
-      <button type="button" class="fleet-view" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
-      <button type="button" class="fleet-view" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
-      <button type="button" class="fleet-view" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
-      {{if canAdmin $.Role}}<button type="button" class="fleet-view" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
+      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="all" onclick="setView('all')">All <span class="n">{{.Summary.Total}}</span></button>
+      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="online" onclick="setView('online')">Online <span class="n">{{.Summary.RecentlyActive}}</span></button>
+      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="offline" onclick="setView('offline')">Offline <span class="n">{{sub .Summary.Total .Summary.RecentlyActive}}</span></button>
+      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="lowbatt" onclick="setView('lowbatt')">Low battery <span class="n">{{.Summary.LowBattery}}</span></button>
+      <button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="nokiosk" onclick="setView('nokiosk')">Out of kiosk <span class="n">{{sub .Summary.Total .Summary.KioskCount}}</span></button>
+      {{if canAdmin $.Role}}<button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
 {{end}}
 
 {{/* Out-of-band bits refreshed when the roster is re-scoped in place (rail click):
@@ -53,7 +53,7 @@
 {{define "roster-meta-oob"}}
 <span class="t" id="roster-title" hx-swap-oob="true">{{.SelectedCollection}}</span>
 <span class="c" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
-<div class="fleet-views" id="fleet-views" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>
+<div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>
 {{end}}
 
 {{define "device-table"}}
@@ -308,7 +308,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     </div>
 
     {{/* ── Quick views: one-click common filters (counts from the fleet summary) ── */}}
-    <div class="fleet-views" id="fleet-views">{{template "fleet-view-pills" .}}</div>
+    <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view">{{template "fleet-view-pills" .}}</div>
 
 
 <div class="fleet-bar dv-rise-1">
@@ -373,9 +373,9 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       </div>
       {{if canAdmin $.Role}}
       <div class="fp-cap">Visibility</div>
-      <div class="fleet-seg">
-        <button type="button" data-vis="" class="{{if not .FilterHidden}}on{{end}}" onclick="setHidden('')">Active</button>
-        <button type="button" data-vis="only" class="{{if eq .FilterHidden "only"}}on{{end}}" onclick="setHidden('only')">Inactive</button>
+      <div class="fleet-seg" role="radiogroup" aria-label="Visibility">
+        <button type="button" data-vis="" role="radio" aria-checked="{{if not .FilterHidden}}true{{else}}false{{end}}" class="{{if not .FilterHidden}}on{{end}}" onclick="setHidden('')">Active</button>
+        <button type="button" data-vis="only" role="radio" aria-checked="{{if eq .FilterHidden "only"}}true{{else}}false{{end}}" class="{{if eq .FilterHidden "only"}}on{{end}}" onclick="setHidden('only')">Inactive</button>
       </div>
       {{end}}
       <div class="fp-foot">
@@ -394,13 +394,13 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     <div class="fleet-pop fleet-sortpop" id="sort-pop" hidden>
       <div class="fp-cap">Sort devices by</div>
       <div class="sortpop">
-        <button type="button" class="sortopt" data-sort="last_seen" onclick="sortBy('last_seen')"><span>Last seen</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" data-sort="battery" onclick="sortBy('battery')"><span>Battery</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" data-sort="cycles" onclick="sortBy('cycles')"><span>Battery cycles</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" data-sort="temp" onclick="sortBy('temp')"><span>Temperature</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" data-sort="ram" onclick="sortBy('ram')"><span>RAM</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" data-sort="serial" onclick="sortBy('serial')"><span>Serial</span><span class="dir"></span></button>
-        <button type="button" class="sortopt" data-sort="created_at" onclick="sortBy('created_at')"><span>Onboarded</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" aria-pressed="false" data-sort="last_seen" onclick="sortBy('last_seen')"><span>Last seen</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" aria-pressed="false" data-sort="battery" onclick="sortBy('battery')"><span>Battery</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" aria-pressed="false" data-sort="cycles" onclick="sortBy('cycles')"><span>Battery cycles</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" aria-pressed="false" data-sort="temp" onclick="sortBy('temp')"><span>Temperature</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" aria-pressed="false" data-sort="ram" onclick="sortBy('ram')"><span>RAM</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" aria-pressed="false" data-sort="serial" onclick="sortBy('serial')"><span>Serial</span><span class="dir"></span></button>
+        <button type="button" class="sortopt" aria-pressed="false" data-sort="created_at" onclick="sortBy('created_at')"><span>Onboarded</span><span class="dir"></span></button>
       </div>
     </div>
   </div>
@@ -611,6 +611,7 @@ function syncSortUI() {
   document.querySelectorAll('.sortopt').forEach(function(b) {
     var on = b.dataset.sort === sort;
     b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
     var d = b.querySelector('.dir');
     if (d) d.textContent = on ? (dir === 'asc' ? '↑' : '↓') : '';
   });
@@ -656,7 +657,7 @@ function syncFilterUI() {
   else if (kiosk === 'disabled') view = 'nokiosk';
   else if (status === 'online') view = 'online';
   else if (status === 'offline') view = 'offline';
-  document.querySelectorAll('.fleet-view').forEach(function(b) { b.classList.toggle('on', b.dataset.view === view); });
+  document.querySelectorAll('.fleet-view').forEach(function(b) { var sel = b.dataset.view === view; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   // Filters badge: popover filters only (group/restaurant are the rail's job).
   var cnt = 0; ['status', 'production', 'build', 'battery', 'kiosk', 'charging', 'timezone'].forEach(function(k) { if (p.get(k)) cnt++; });
   var btn = document.getElementById('filters-btn');
@@ -665,7 +666,7 @@ function syncFilterUI() {
     var badge = btn.querySelector('.cnt');
     if (badge) { badge.textContent = cnt; if (cnt > 0) badge.removeAttribute('hidden'); else badge.setAttribute('hidden', ''); }
   }
-  document.querySelectorAll('.fleet-seg [data-vis]').forEach(function(b) { b.classList.toggle('on', b.dataset.vis === hidden); });
+  document.querySelectorAll('.fleet-seg [data-vis]').forEach(function(b) { var sel = b.dataset.vis === hidden; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   syncSortUI();
   // Applying a filter swaps the whole toolbar (this partial), which would close the
   // Filters popover. Re-open it when it was open, so several filters can be picked

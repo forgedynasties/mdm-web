@@ -262,13 +262,13 @@
   {{template "device-notes" .}}
 </aside>
 <div class="ddc-main">
-<div class="dd-tabs" role="tablist">
-  <button class="dd-tab active" role="tab" type="button" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
-  <button class="dd-tab" role="tab" type="button" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>
-  <button class="dd-tab" role="tab" type="button" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>
+<div class="dd-tabs" role="tablist" aria-label="Device details">
+  <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
+  <button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>
+  <button class="dd-tab" id="dd-tab-history" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-history" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>
 </div>
 
-<section class="dd-panel" data-dd-panel="summary">
+<section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
 
 <style>
 .chart-card{position:relative;}
@@ -1178,7 +1178,7 @@
 
 </section><!-- /summary -->
 
-<section class="dd-panel" data-dd-panel="apps" hidden>
+<section class="dd-panel" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
   <div class="card">
     <div class="card-header">
       <h3>Installed applications</h3>
@@ -1273,7 +1273,7 @@ function filterInstalledApps(q) {
 </script>
 
 
-<section class="dd-panel" data-dd-panel="history" hidden>
+<section class="dd-panel" data-dd-panel="history" id="dd-panel-history" role="tabpanel" aria-labelledby="dd-tab-history" tabindex="0" hidden>
   {{template "device-commands" .}}
 </section><!-- /history -->
 <script>
@@ -1336,7 +1336,7 @@ function filterInstalledApps(q) {
   // the same tab instead of snapping back to the summary.
   var ddTabKey = 'dd-tab:{{.Device.SerialNumber}}';
   function setDeviceTab(name, btn) {
-    document.querySelectorAll('.dd-tab').forEach(function (t) { t.classList.toggle('active', t === btn); });
+    document.querySelectorAll('.dd-tab').forEach(function (t) { var sel = t === btn; t.classList.toggle('active', sel); t.setAttribute('aria-selected', sel ? 'true' : 'false'); });
     document.querySelectorAll('.dd-panel').forEach(function (p) {
       p.hidden = p.getAttribute('data-dd-panel') !== name;
     });
