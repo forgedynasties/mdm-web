@@ -31,6 +31,10 @@ type Device struct {
 	// DischargeTotalPct is the lifetime cumulative percent of battery capacity
 	// discharged (never resets). BatteryCycles() renders it as equivalent full cycles.
 	DischargeTotalPct int64 `json:"discharge_total_pct"`
+	// DischargeLegacyPct is the prior range-based estimate, kept during the transition
+	// to the corrected discharge accounting so the two can be compared. Zero once the
+	// difference no longer matters. Rendered by BatteryCyclesLegacy().
+	DischargeLegacyPct int64 `json:"discharge_legacy_pct"`
 	// DischargeBackfilled is false until the one-time history seed has run for this
 	// device. While false the cycle count is not yet meaningful (show "—", not 0.0).
 	DischargeBackfilled bool `json:"discharge_backfilled"`
@@ -47,6 +51,12 @@ type Device struct {
 // battery cycles (1 cycle = 100% of capacity discharged). 250% total => 2.5 cycles.
 func (d Device) BatteryCycles() float64 {
 	return float64(d.DischargeTotalPct) / 100
+}
+
+// BatteryCyclesLegacy renders the prior range-based estimate as cycles, for
+// side-by-side comparison during the transition to corrected discharge accounting.
+func (d Device) BatteryCyclesLegacy() float64 {
+	return float64(d.DischargeLegacyPct) / 100
 }
 
 // Restaurant is a real venue a device physically lives in. It owns the venue semantics
@@ -1111,14 +1121,14 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
 			d.latest_extra AS latest_extra,
-			d.discharge_total_pct, d.discharge_backfilled,
+			d.discharge_total_pct, d.discharge_legacy_pct, d.discharge_backfilled,
 			d.restaurant_id, COALESCE(r.name, ''),
 			(d.restaurant_id IS NOT NULL) AS deployed_effective
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeLegacyPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -1139,16 +1149,25 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 func (d *DB) RecomputeDischargeCycles(ctx context.Context) (int, error) {
 	tag, err := d.pool.Exec(ctx, `
 		UPDATE devices dv SET
+			-- Corrected: exact per-day discharge where we have it (days rolled after the
+			-- fix), falling back to the old range estimate for pre-existing days — so
+			-- history is estimated and going-forward is exact, without rescanning check-ins.
 			discharge_total_pct  = COALESCE(s.total, 0),
+			-- Legacy: the pure old range-based figure, kept for transition comparison.
+			discharge_legacy_pct = COALESCE(s.legacy, 0),
 			discharge_backfilled = true
 		FROM (
-			SELECT device_id, SUM(GREATEST(0, battery_max - battery_min))::bigint AS total
+			SELECT device_id,
+			       SUM(COALESCE(discharge_pct, GREATEST(0, battery_max - battery_min)))::bigint AS total,
+			       SUM(GREATEST(0, battery_max - battery_min))::bigint AS legacy
 			FROM device_daily_stats
 			WHERE battery_max IS NOT NULL AND battery_min IS NOT NULL
 			GROUP BY device_id
 		) s
 		WHERE dv.id = s.device_id
-		  AND (dv.discharge_total_pct <> COALESCE(s.total, 0) OR NOT dv.discharge_backfilled)`)
+		  AND (dv.discharge_total_pct <> COALESCE(s.total, 0)
+		       OR dv.discharge_legacy_pct <> COALESCE(s.legacy, 0)
+		       OR NOT dv.discharge_backfilled)`)
 	if err != nil {
 		return 0, err
 	}
@@ -4285,7 +4304,8 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			SELECT c.device_id, c.battery_pct, c.build_id, c.created_at, c.extra,
 				COALESCE(LEAST(EXTRACT(EPOCH FROM (
 					LEAD(c.created_at) OVER (PARTITION BY c.device_id ORDER BY c.created_at)
-					- c.created_at)), 600), 0) AS w
+					- c.created_at)), 600), 0) AS w,
+				LAG(c.battery_pct) OVER (PARTITION BY c.device_id ORDER BY c.created_at) AS prev_batt
 			FROM checkins c
 			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
 		)
@@ -4293,7 +4313,7 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			device_id, day, checkin_count, battery_min, battery_max, battery_avg,
 			temp_max, ram_pct_peak, charging_frac, online_minutes, build_id,
 			first_seen_at, last_seen_at,
-			wlc_guest_frac, pad_readable, storage_free_last_gb, computed_at)
+			wlc_guest_frac, pad_readable, storage_free_last_gb, discharge_pct, computed_at)
 		SELECT
 			device_id,
 			$1::date,
@@ -4320,6 +4340,10 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 				AVG(CASE WHEN extra->>'wlc_status' = '1' THEN 1 ELSE 0 END)::real),
 			bool_or(extra->>'wlc_status' IS NOT NULL AND extra->>'wlc_status' <> '-1'),
 			(ARRAY_AGG((extra->>'storage_free_gb')::numeric ORDER BY created_at DESC))[1]::real,
+			-- True discharge: sum of per-step battery DROPS (charge climbs contribute 0,
+			-- so a device that only charges accrues 0). NULL prev_batt (day's first
+			-- sample) contributes nothing, so a discharge spanning midnight isn't split.
+			COALESCE(SUM(GREATEST(0, prev_batt - battery_pct)), 0)::real,
 			NOW()
 		FROM samples
 		GROUP BY device_id
@@ -4338,6 +4362,7 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			wlc_guest_frac       = EXCLUDED.wlc_guest_frac,
 			pad_readable         = EXCLUDED.pad_readable,
 			storage_free_last_gb = EXCLUDED.storage_free_last_gb,
+			discharge_pct  = EXCLUDED.discharge_pct,
 			computed_at    = EXCLUDED.computed_at
 	`, dayStr)
 	if err != nil {
@@ -7808,6 +7833,15 @@ CREATE INDEX IF NOT EXISTS idx_test_cases_problem ON test_cases(problem_id);
 DELETE FROM alert_rules WHERE type = 'offline_long';
 UPDATE alerts SET status = 'resolved', resolved_at = NOW(), updated_at = NOW()
     WHERE type = 'offline_long' AND status <> 'resolved';
+
+-- Battery-cycle accuracy: per-day TRUE discharge (sum of battery DROPS only, ignoring
+-- charge climbs), so cycles reflect actual wear rather than the day's SoC range (which
+-- counted charging as wear). NULL on pre-existing days → the cycle recompute falls back
+-- to the old max-min estimate for history and uses this exact value going forward.
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS discharge_pct REAL;
+-- The old range-based cumulative, kept as a separate "legacy" figure during the
+-- transition so operators can compare the corrected number against the prior estimate.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS discharge_legacy_pct BIGINT NOT NULL DEFAULT 0;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
