@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"mdm/internal/safehttp"
 )
 
 // metadataPath is where the build info lives in every Android OTA zip.
@@ -30,12 +32,18 @@ type Metadata struct {
 	SizeBytes     int64  `json:"size_bytes"`     // total package size
 }
 
-var client = &http.Client{Timeout: 20 * time.Second}
+// client is SSRF-hardened: an operator/dev-supplied update_url that resolves or
+// redirects to an internal address is refused at dial time. This path reads response
+// bytes back to the caller (the zip central directory), so the block matters more here.
+var client = safehttp.Client(20 * time.Second)
 
 // Inspect fetches an OTA package's metadata by URL using HTTP range requests. It never
 // downloads the payload. Returns an error if the URL is unreachable, isn't a zip, or
 // has no OTA metadata entry.
 func Inspect(ctx context.Context, url string) (*Metadata, error) {
+	if err := safehttp.CheckURL(url, false); err != nil {
+		return nil, err
+	}
 	size, err := objectSize(ctx, url)
 	if err != nil {
 		return nil, err

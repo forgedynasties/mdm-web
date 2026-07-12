@@ -12,6 +12,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go/option"
 
 	"mdm/internal/db"
+	"mdm/internal/safehttp"
 )
 
 // personaContext grounds every prompt in the same framing and voice. The four
@@ -157,8 +159,10 @@ type Client struct {
 }
 
 // httpClient is reused for OpenAI-compatible calls; the per-call context carries
-// the real deadline.
-var httpClient = &http.Client{Timeout: 120 * time.Second}
+// the real deadline. It is SSRF-hardened because ai_base_url is operator-configurable
+// and every request carries the provider API key as a bearer token — a base URL
+// pointed at an internal/attacker host would both SSRF and exfiltrate that key.
+var httpClient = safehttp.Client(120 * time.Second)
 
 // New builds a client, filling provider-appropriate defaults for an empty model or
 // base URL. An empty provider means Anthropic (back-compat with earlier configs).
@@ -218,7 +222,12 @@ func (c *Client) complete(ctx context.Context, system, user string) (string, Usa
 func (c *Client) anthropicComplete(ctx context.Context, system, user string) (string, Usage, error) {
 	var opts []option.RequestOption
 	if c.baseURL != "" {
-		opts = append(opts, option.WithBaseURL(c.baseURL), option.WithAuthToken(c.apiKey))
+		// Custom Anthropic-compatible gateway: validate the operator-supplied URL and
+		// route it through the SSRF-hardened client (it carries the API key).
+		if err := safehttp.CheckURL(c.baseURL, true); err != nil {
+			return "", Usage{}, err
+		}
+		opts = append(opts, option.WithBaseURL(c.baseURL), option.WithAuthToken(c.apiKey), option.WithHTTPClient(httpClient))
 	} else {
 		opts = append(opts, option.WithAPIKey(c.apiKey))
 	}
@@ -255,6 +264,11 @@ func (c *Client) anthropicComplete(ctx context.Context, system, user string) (st
 // OpenAI, Groq, OpenRouter, local servers, …). The system context and user data
 // map onto the system/user chat roles.
 func (c *Client) openaiComplete(ctx context.Context, system, user string) (string, Usage, error) {
+	// baseURL is operator-configurable (ai_base_url) and the request below sends the
+	// API key as a bearer token, so validate the scheme before dialing.
+	if err := safehttp.CheckURL(c.baseURL, true); err != nil {
+		return "", Usage{}, err
+	}
 	type msg struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
@@ -284,6 +298,10 @@ func (c *Client) openaiComplete(ctx context.Context, system, user string) (strin
 	}
 	defer resp.Body.Close()
 
+	// Bound the response from a config-controlled host (2 MiB is ample for a chat
+	// completion) so an oversized/hostile reply can't exhaust memory.
+	body := io.LimitReader(resp.Body, 2<<20)
+
 	var parsed struct {
 		Choices []struct {
 			Message struct {
@@ -298,7 +316,7 @@ func (c *Client) openaiComplete(ctx context.Context, system, user string) (strin
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+	if err := json.NewDecoder(body).Decode(&parsed); err != nil {
 		return "", Usage{}, fmt.Errorf("%s returned status %d (unparseable body)", c.provider, resp.StatusCode)
 	}
 	if resp.StatusCode >= 300 {
