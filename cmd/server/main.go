@@ -7,7 +7,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"runtime/debug"
 	"strings"
+	"syscall"
 	"time"
 	_ "time/tzdata" // embed the IANA tz database so LoadLocation works without OS tzdata
 
@@ -16,8 +19,8 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
-	"mdm/internal/middleware"
 	"mdm/internal/logstream"
+	"mdm/internal/middleware"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
@@ -100,7 +103,10 @@ func main() {
 	shellMgr := shell.NewManager()
 	remoteMgr := remote.New(hub)
 	logMgr := logstream.NewManager()
-	hub.SetOnBinaryMessage(remoteMgr.RelayFrame)
+	hub.SetOnBinaryMessage(func(deviceID uuid.UUID, data []byte) {
+		defer recoverLog("ws binary from " + deviceID.String())
+		remoteMgr.RelayFrame(deviceID, data)
+	})
 
 	mux := http.NewServeMux()
 
@@ -155,6 +161,9 @@ func main() {
 
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, remoteMgr, adminAPIKey)
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
+		// This runs on the device's WS read-loop goroutine, which net/http does not
+		// protect — a panic here would crash the process and drop the whole fleet.
+		defer recoverLog("ws message from " + deviceID.String())
 		var peek struct {
 			Type string `json:"type"`
 		}
@@ -225,61 +234,93 @@ func main() {
 	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
 	dash.RegisterRoutes(mux)
 
+	// bgCtx is cancelled on shutdown so the background loops below stop cleanly.
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+
 	// One-time backfill of daily stats for any historical days not yet rolled up.
-	// Runs in the background so it never blocks startup.
-	go func() {
-		if n, err := database.BackfillDailyStats(context.Background(), cfg.CheckinRetentionDays()); err != nil {
+	safego("backfill-daily-stats", func() {
+		if n, err := database.BackfillDailyStats(bgCtx, cfg.CheckinRetentionDays()); err != nil {
 			log.Printf("[startup] backfill daily stats: %v", err)
 		} else if n > 0 {
 			log.Printf("[startup] backfilled daily stats for %d day(s)", n)
 		}
-	}()
+	})
 
-	// One-time seed of battery discharge-cycle counters for devices that predate the
-	// counter, from the pre-aggregated device_daily_stats (cheap — no raw checkins
-	// scan). Backgrounded so it never blocks startup.
-	go func() {
-		if n, err := database.BackfillDischargeCycles(context.Background()); err != nil {
+	// One-time seed of battery discharge-cycle counters (from pre-aggregated stats).
+	safego("backfill-discharge-cycles", func() {
+		if n, err := database.BackfillDischargeCycles(bgCtx); err != nil {
 			log.Printf("[startup] backfill discharge cycles: %v", err)
 		} else if n > 0 {
 			log.Printf("[startup] backfilled discharge cycles for %d device(s)", n)
 		}
-	}()
+	})
 
-	// Periodic housekeeping: daily-stats rollup + retention pruning.
-	go func() {
+	// Periodic housekeeping: daily-stats rollup + retention pruning (hourly).
+	safego("housekeeping-loop", func() {
+		runJob(bgCtx, "housekeeping", 10*time.Minute, dash.RunHousekeeping)
 		t := time.NewTicker(1 * time.Hour)
 		defer t.Stop()
-		dash.RunHousekeeping(context.Background())
-		for range t.C {
-			dash.RunHousekeeping(context.Background())
+		for {
+			select {
+			case <-bgCtx.Done():
+				return
+			case <-t.C:
+				runJob(bgCtx, "housekeeping", 10*time.Minute, dash.RunHousekeeping)
+			}
 		}
-	}()
+	})
 
-	// OTA scheduled-reboot dispatcher: devices that installed an update under a
-	// "scheduled" reboot policy get their reboot command once the time arrives.
-	go func() {
+	// Minute dispatcher: scheduled reboots + recent-tier alerts + scheduled recipes.
+	safego("minute-loop", func() {
 		t := time.NewTicker(1 * time.Minute)
 		defer t.Stop()
-		for range t.C {
-			apiHandler.ProcessDueScheduledReboots(context.Background())
-			// Recent-tier alert rules (point-in-time + rate/sustained); see Tier 5 §10.
-			dash.RunRecentAlerts(context.Background())
-			// Fire any scheduled recipes whose cron time has arrived.
-			dash.ProcessDueScheduledRecipes(context.Background())
+		for {
+			select {
+			case <-bgCtx.Done():
+				return
+			case <-t.C:
+				runJob(bgCtx, "scheduled-reboots", time.Minute, apiHandler.ProcessDueScheduledReboots)
+				runJob(bgCtx, "recent-alerts", time.Minute, dash.RunRecentAlerts)
+				runJob(bgCtx, "scheduled-recipes", time.Minute, dash.ProcessDueScheduledRecipes)
+			}
+		}
+	})
+
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: middleware.SecurityHeaders(middleware.DecompressRequest(mux)),
+		// ReadHeaderTimeout bounds a slow header send (slowloris) without breaking the
+		// long-lived WS/SSE endpoints: after the WS upgrade the conn is hijacked, so the
+		// server's read/write timeouts no longer apply. No global WriteTimeout for the
+		// same reason (it would kill streaming responses).
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+
+	// Graceful shutdown: on SIGTERM/SIGINT (docker stop / rolling deploy), stop
+	// accepting, drain in-flight requests, close device WebSockets cleanly so devices
+	// back off instead of stampeding the new container, stop background loops, then
+	// the deferred database.Close() drains the pool.
+	shutCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		log.Printf("Server listening on :%s", port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server error: %v", err)
 		}
 	}()
 
-	server := &http.Server{
-		Addr:        ":" + port,
-		Handler:     middleware.SecurityHeaders(middleware.DecompressRequest(mux)),
-		IdleTimeout: 120 * time.Second,
+	<-shutCtx.Done()
+	log.Println("shutdown: draining in-flight requests…")
+	sdCtx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	if err := server.Shutdown(sdCtx); err != nil {
+		log.Printf("shutdown: %v", err)
 	}
-
-	log.Printf("Server listening on :%s", port)
-	if err := server.ListenAndServe(); err != nil {
-		log.Fatalf("server error: %v", err)
-	}
+	bgCancel()     // stop the background ticker loops
+	hub.CloseAll() // send close frames to all device sockets
+	log.Println("shutdown: complete")
 }
 
 func getEnv(key, fallback string) string {
@@ -295,4 +336,32 @@ func mustEnv(key string) string {
 		log.Fatalf("required environment variable %s is not set", key)
 	}
 	return v
+}
+
+// recoverLog is a deferred panic guard for goroutines that net/http does NOT
+// protect (background loops, the WS read-loop dispatch). Without it, a panic on one
+// device's malformed frame — or in a ticker job — crashes the whole process and
+// drops all 900 connections.
+func recoverLog(what string) {
+	if r := recover(); r != nil {
+		log.Printf("[panic] %s: %v\n%s", what, r, debug.Stack())
+	}
+}
+
+// safego runs fn in a panic-recovering goroutine.
+func safego(name string, fn func()) {
+	go func() {
+		defer recoverLog(name)
+		fn()
+	}()
+}
+
+// runJob runs a periodic-job function with a timeout and panic recovery, so a hung
+// query or a panic in one tick can neither wedge the ticker loop forever nor crash
+// the process.
+func runJob(ctx context.Context, name string, timeout time.Duration, fn func(context.Context)) {
+	defer recoverLog("job " + name)
+	jctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	fn(jctx)
 }
