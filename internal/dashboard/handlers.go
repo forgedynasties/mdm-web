@@ -5184,6 +5184,17 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	fleet, _ := h.db.GetFleetVersions(r.Context())
 	hiddenVersions, _ := h.db.ListHiddenVersions(r.Context())
 	problemsByRelease, _ := h.db.ProblemSummariesByRelease(r.Context())
+	// The list-row problem badge should reflect what the workspace board shows —
+	// native PLUS carried-forward problems — so a build whose only open blockers are
+	// inherited doesn't read "0 open" in the list.
+	carriedByRelease, _ := h.db.CarriedProblemCountsByRelease(r.Context())
+	badgeFor := func(id int) db.ProblemSummary {
+		s := problemsByRelease[id]
+		c := carriedByRelease[id]
+		s.Open += c.Open
+		s.Blockers += c.Blockers
+		return s
+	}
 	relByVersion := make(map[string]db.Release, len(releases))
 	relByID := make(map[int]db.Release, len(releases))
 	for _, rel := range releases {
@@ -5273,7 +5284,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			row.TestingDone = rel.TestingDoneAt != nil
 			branchRow(&row, rel)
 			row.QA, _ = h.db.ReleaseQASummary(r.Context(), rel.ID)
-			row.Problems = problemsByRelease[rel.ID]
+			row.Problems = badgeFor(rel.ID)
 			row.QfilURL = h.latestQfilURL(r, rel.ID)
 		} else {
 			row.Hidden = hiddenVersions[fv.Version] // not-tracked versions dismissed by ops
@@ -5299,7 +5310,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			Version: rel.Version, Tracked: true, ReleaseID: &id, Name: rel.Name,
 			Status: rel.Status, Hidden: rel.Hidden,
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
-			Problems:    problemsByRelease[rel.ID],
+			Problems:    badgeFor(rel.ID),
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
 			TestingDone: rel.TestingDoneAt != nil,
 			QfilURL:     h.latestQfilURL(r, rel.ID),
