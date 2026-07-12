@@ -16,7 +16,7 @@
     <p class="login-subtitle">Device management dashboard</p>
 
     {{if .Error}}
-    <div class="alert alert-error">{{.Error}}</div>
+    <div class="alert alert-error" role="alert">{{.Error}}</div>
     {{end}}
 
     <form action="/login" method="POST" class="login-form">

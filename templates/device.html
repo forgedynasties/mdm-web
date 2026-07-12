@@ -106,7 +106,7 @@
 <div class="ddc-hero">
   <div class="ddc-top">
     <div class="ddc-id">
-      {{if .Online}}<span id="ws-badge" class="ddc-status on"><i></i>Online</span>{{else}}<span id="ws-badge" class="ddc-status off"><i></i>Offline</span>{{end}}
+      {{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite"><i></i>Online</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite"><i></i>Offline</span>{{end}}
       <span class="ddc-serial mono">{{.Device.SerialNumber}}</span>
       <span class="ddc-meta">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}} · Onboarded {{shortDate .Device.CreatedAt}} · Synced <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>
     </div>
@@ -1682,7 +1682,7 @@ async function saveNewApp() {
       <button type="button" class="modal-close" aria-label="Close" onclick="aiClose()">&times;</button>
     </div>
     <div class="ai-modal-body">
-      <div id="ai-result" class="ai-result"><span class="muted">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action.</span></div>
+      <div id="ai-result" class="ai-result" role="status" aria-live="polite"><span class="muted">Reads this device's last 30 days of daily stats and any open alerts, then summarizes the risk and a recommended action.</span></div>
       <div class="ai-modal-foot">
         <span id="ai-meta" class="muted small"></span>
         <span style="flex:1"></span>
