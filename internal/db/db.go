@@ -8702,6 +8702,34 @@ func (d *DB) ListDueScheduledReboots(ctx context.Context) ([]DueReboot, error) {
 	return out, rows.Err()
 }
 
+// ListStaleRebootSent returns devices stuck at 'reboot_sent' on an active
+// deployment for longer than staleMinutes — the reboot command was likely lost or
+// declined, so it must be re-issued. Without this a device that took the OTA but
+// never rebooted sits in limbo forever, keeping the deployment 'active'.
+func (d *DB) ListStaleRebootSent(ctx context.Context, staleMinutes int) ([]DueReboot, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT ud.update_id, ud.device_id
+		FROM update_devices ud
+		JOIN updates u ON u.id = ud.update_id
+		WHERE u.status = 'active'
+		  AND ud.status = 'reboot_sent'
+		  AND ud.updated_at < NOW() - ($1 * INTERVAL '1 minute')
+	`, staleMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DueReboot
+	for rows.Next() {
+		var dr DueReboot
+		if err := rows.Scan(&dr.UpdateID, &dr.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, dr)
+	}
+	return out, rows.Err()
+}
+
 // SetUpdateDeviceStatus updates the status of a device within an update. It
 // stamps updated_at and clears any prior error_code, so a device that moves on
 // from a failure (e.g. on retry) doesn't keep showing a stale reason.
@@ -8751,7 +8779,11 @@ func (d *DB) CompleteUpdatesAtTargetBuild(ctx context.Context, deviceID uuid.UUI
 		FROM updates u
 		WHERE ud.update_id = u.id
 		  AND ud.device_id = $1
-		  AND u.status = 'active'
+		  -- Include 'canceled' deployments so a device that was mid-flight when the
+		  -- deployment was canceled still gets its row reconciled to 'installed' when
+		  -- it lands on the target build (it was told to finish), rather than being
+		  -- stranded at 'downloading'/'reboot_sent'.
+		  AND u.status IN ('active', 'canceled')
 		  AND ud.status NOT IN ('installed', 'canceled')
 		  AND EXISTS (
 		      SELECT 1 FROM ota_packages pk
@@ -8799,11 +8831,16 @@ func (d *DB) SetUpdateDeviceForceFull(ctx context.Context, updateID int, deviceI
 
 // CheckAndCompleteUpdate marks an update as "complete" if all its targets are "installed".
 func (d *DB) CheckAndCompleteUpdate(ctx context.Context, updateID int) error {
+	// A deployment is complete once every device has reached a TERMINAL state.
+	// 'installed', 'failed' and 'canceled' are all terminal for the device — using
+	// only "!= 'installed'" left a deployment stuck 'active' forever the moment any
+	// device failed or was canceled (there is no periodic sweep to unstick it).
 	_, err := d.pool.Exec(ctx, `
 		UPDATE updates SET status = 'complete'
 		WHERE id = $1 AND status = 'active'
 		AND NOT EXISTS (
-			SELECT 1 FROM update_devices WHERE update_id = $1 AND status != 'installed'
+			SELECT 1 FROM update_devices
+			WHERE update_id = $1 AND status NOT IN ('installed', 'failed', 'canceled')
 		)
 	`, updateID)
 	return err
