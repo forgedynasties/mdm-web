@@ -161,7 +161,7 @@
       <div class="query" id="query">
         <span class="seed">Everyone</span>
         <span class="addwrap">
-          <button class="add" id="addBtn">+ Add filter</button>
+          <button class="add" id="addBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menu">+ Add filter</button>
           <div class="menu" id="menu">
             <div class="mc">Restaurant</div><select data-f="restaurant"><option value="">— any —</option>{{range .Restaurants}}<option value="{{.GroupID}}">{{.Name}} ({{.DeviceCount}})</option>{{end}}</select>
             <div class="mc">Group</div><select data-f="group"><option value="">— any —</option>{{range .Groups}}<option value="{{.GroupID}}">{{.Name}} ({{.DeviceCount}})</option>{{end}}</select>
@@ -267,8 +267,10 @@
     });
     audEval();
   }
-  $("addBtn").onclick=function(e){e.stopPropagation();$("menu").classList.toggle("open");};
-  document.addEventListener("click",function(){$("menu").classList.remove("open");});
+  $("addBtn").onclick=function(e){e.stopPropagation();var open=$("menu").classList.toggle("open");this.setAttribute("aria-expanded",open?"true":"false");};
+  document.addEventListener("click",function(){$("menu").classList.remove("open");$("addBtn").setAttribute("aria-expanded","false");});
+  // ESC closes the menu and returns focus to its trigger (WCAG 2.1.2 / 2.4.3).
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape" && $("menu").classList.contains("open")){ $("menu").classList.remove("open"); $("addBtn").setAttribute("aria-expanded","false"); $("addBtn").focus(); } });
   $("menu").onclick=function(e){e.stopPropagation();};
   document.querySelectorAll("#menu select").forEach(function(sel){ sel.onchange=function(){
     if(!sel.value)return; var f=sel.dataset.f, label=sel.options[sel.selectedIndex].text.replace(/\s*\(\d+\)$/,"");
@@ -300,8 +302,14 @@
     var host=$("splitList"); host.innerHTML="";
     roster.forEach(function(d){ var row=document.createElement("div"); row.className="row"+(picked[d.serial]?" sel":"");
       var low=d.battery>0&&d.battery<20;
+      // Keyboard-operable multi-select (WCAG 2.1.1 / 4.1.2): checkbox semantics + Space/Enter.
+      row.setAttribute("role","checkbox"); row.setAttribute("tabindex","0");
+      row.setAttribute("aria-checked", picked[d.serial]?"true":"false");
+      row.setAttribute("aria-label","Select "+d.serial);
       row.innerHTML='<span class="cbx"></span><span class="dot '+(d.online?"ok":"muted")+'"></span><span class="ser">'+d.serial+'</span><span class="bt'+(low?" low":"")+'" style="margin-left:auto;font-size:11px;color:var(--muted)">'+(d.battery||0)+'%</span>';
-      row.onclick=function(){ if(picked[d.serial])delete picked[d.serial]; else picked[d.serial]=1; row.classList.toggle("sel"); splitEval(); };
+      var toggle=function(){ if(picked[d.serial])delete picked[d.serial]; else picked[d.serial]=1; row.classList.toggle("sel"); row.setAttribute("aria-checked", picked[d.serial]?"true":"false"); splitEval(); };
+      row.onclick=toggle;
+      row.onkeydown=function(e){ if(e.key===" "||e.key==="Enter"){ e.preventDefault(); toggle(); } };
       host.appendChild(row); });
   }
   document.querySelectorAll("#railB .ri").forEach(function(b){ b.onclick=function(){
