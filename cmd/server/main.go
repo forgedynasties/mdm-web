@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"expvar"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"runtime/debug"
 	"strings"
 	"syscall"
@@ -149,6 +151,13 @@ func main() {
 		w.Write([]byte(`{"status":"ok"}`))
 	})
 
+	// Live metrics for /debug/vars (admin-gated below): the DB pool (saturation is the
+	// most likely silent degradation), connected-device count (mass disconnect), and
+	// goroutine count (leak). Plus http_requests_total / http_errors_total from AccessLog.
+	expvar.Publish("db_pool", expvar.Func(func() any { return database.PoolStats() }))
+	expvar.Publish("ws_connected_devices", expvar.Func(func() any { return len(hub.ConnectedIDs()) }))
+	expvar.Publish("goroutines", expvar.Func(func() any { return runtime.NumGoroutine() }))
+
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
@@ -197,6 +206,10 @@ func main() {
 	// it stops a single device from exhausting memory with an unbounded body.
 	const maxDeviceBody = 8 << 20 // 8 MiB
 	devicePost := func(h http.HandlerFunc) http.Handler { return deviceAuth(middleware.MaxBytes(maxDeviceBody, h)) }
+
+	// Metrics for monitoring (admin-gated): db pool, ws connected, goroutines, request
+	// counters. Scrape as JSON; not exposed to devices or the public.
+	mux.Handle("GET /debug/vars", adminAuth(expvar.Handler()))
 
 	// WebSocket — device connects here for server-push command delivery
 	mux.Handle("GET /api/v1/ws", deviceAuth(http.HandlerFunc(apiHandler.Connect)))
@@ -288,7 +301,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: middleware.SecurityHeaders(middleware.DecompressRequest(mux)),
+		Handler: middleware.AccessLog(middleware.SecurityHeaders(middleware.DecompressRequest(mux))),
 		// ReadHeaderTimeout bounds a slow header send (slowloris) without breaking the
 		// long-lived WS/SSE endpoints: after the WS upgrade the conn is hijacked, so the
 		// server's read/write timeouts no longer apply. No global WriteTimeout for the
