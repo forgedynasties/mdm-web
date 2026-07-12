@@ -80,7 +80,6 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 	}
 	switch frame.Type {
 	case "command_output":
-		log.Printf("[shell] output device=%s command=%s chunk_len=%d", deviceID, frame.CommandID, len(frame.Chunk))
 		m.appendCommandOutput(outputKey{frame.CommandID, deviceID}, frame.Chunk)
 	case "command_done":
 		log.Printf("[shell] done device=%s command=%s", deviceID, frame.CommandID)
@@ -213,7 +212,6 @@ func (m *Manager) updateOTAProgress(deviceID, commandID uuid.UUID, phase string,
 		UpdatedAt: updatedAt,
 	}
 	m.otaMu.Unlock()
-	log.Printf("[ota] device %s: %s %d%%", deviceID, phase, percent)
 }
 
 // SetOTAProgress records OTA progress reported outside the WebSocket path —
