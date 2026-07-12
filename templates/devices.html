@@ -119,7 +119,7 @@
 {{if gt .TotalPages 1}}
 <div class="pagination">
   {{if gt .Page 1}}
-    <a class="page-btn page-nav" data-page="{{sub .Page 1}}">&#8592; Prev</a>
+    <button type="button" class="page-btn page-nav" data-page="{{sub .Page 1}}">&#8592; Prev</button>
   {{else}}
     <span class="page-btn disabled">&#8592; Prev</span>
   {{end}}
@@ -129,15 +129,15 @@
       {{if eq . 0}}
         <span class="page-num disabled">…</span>
       {{else if eq . $.Page}}
-        <span class="page-num active">{{.}}</span>
+        <span class="page-num active" aria-current="page">{{.}}</span>
       {{else}}
-        <a class="page-num page-nav" data-page="{{.}}">{{.}}</a>
+        <button type="button" class="page-num page-nav" data-page="{{.}}">{{.}}</button>
       {{end}}
     {{end}}
   </div>
 
   {{if lt .Page .TotalPages}}
-    <a class="page-btn page-nav" data-page="{{add .Page 1}}">Next &#8594;</a>
+    <button type="button" class="page-btn page-nav" data-page="{{add .Page 1}}">Next &#8594;</button>
   {{else}}
     <span class="page-btn disabled">Next &#8594;</span>
   {{end}}
