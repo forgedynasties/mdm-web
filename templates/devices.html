@@ -315,7 +315,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
   {{/* ── Search ── */}}
   <div class="fleet-search">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-    <input type="search" id="search-input" name="q" value="{{.Query}}" placeholder="Search serial…">
+    <input type="search" id="search-input" name="q" value="{{.Query}}" placeholder="Search serial…" aria-label="Search devices by serial">
   </div>
 
   {{/* ── Filters popover: the seven dropdowns live here, grouped ── */}}
@@ -1291,7 +1291,7 @@ document.addEventListener('keydown', function(e) {
         <span>I understand this cannot be undone from the bulk toolbar.</span>
       </label>
       <div class="form-row" style="margin-top:12px;">
-        <label class="form-label">Type the device count to continue</label>
+        <label class="form-label" for="confirm-input">Type the device count to continue</label>
         <input type="text" id="confirm-input" class="form-input confirm-input" inputmode="numeric" autocomplete="off">
         <div class="confirm-hint">Enter the exact number shown above.</div>
       </div>
@@ -1310,8 +1310,8 @@ document.addEventListener('keydown', function(e) {
       <div class="muted small"><span id="bulk-group-count">0</span> selected devices will be added to this group.</div>
       <form action="/groups" method="POST" id="bulk-group-form" class="command-form" style="padding:0;margin-top:12px;">
         <div class="form-row">
-          <label class="form-label">Group Name</label>
-          <input type="text" name="name" id="bulk-group-name" class="form-input" placeholder="Field Team A" required>
+          <label class="form-label" for="bulk-group-name">Group Name</label>
+          <input type="text" name="name" id="bulk-group-name" class="form-input" placeholder="Field Team A" required aria-required="true">
         </div>
         <button type="submit" class="btn-primary">Create Group</button>
       </form>
@@ -1329,8 +1329,8 @@ document.addEventListener('keydown', function(e) {
       <div class="muted small"><span id="bulk-rest-count">0</span> selected device(s) will be assigned to this restaurant (and moved off any current one).</div>
       <form action="/devices/bulk-restaurant" method="POST" id="bulk-restaurant-form" class="command-form" style="padding:0;margin-top:12px;">
         <div class="form-row">
-          <label class="form-label">Restaurant</label>
-          <select name="restaurant_id" class="form-input" required>
+          <label class="form-label" for="bulk-restaurant-select">Restaurant</label>
+          <select name="restaurant_id" id="bulk-restaurant-select" class="form-input" required aria-required="true">
             {{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{else}}<option value="" disabled selected>No restaurants yet — create one first</option>{{end}}
           </select>
         </div>
@@ -1358,7 +1358,7 @@ document.addEventListener('keydown', function(e) {
           </label>
         </div>
         <div class="form-row" id="bulk-kiosk-pkg-row" style="margin-top:14px;">
-          <label class="form-label">Locked app</label>
+          <label class="form-label" for="bulk-kiosk-pkg-search">Locked app</label>
           <div class="pkg-combo" id="bulk-kiosk-pkg-combo">
             <input type="hidden" name="kiosk_package" id="bulk-kiosk-package" value="">
             <input type="text" id="bulk-kiosk-pkg-search" class="form-input" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search apps or type a package…">

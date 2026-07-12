@@ -7,22 +7,22 @@
 </form>
 {{end}}
 {{define "chan-fields"}}
-      <input type="text" name="name" value="{{.Name}}" placeholder="Name (e.g. On-call)" class="form-input" style="width:140px;">
-      <select name="kind" class="form-input" style="width:120px;" title="Destination type">
+      <input type="text" name="name" value="{{.Name}}" placeholder="Name (e.g. On-call)" aria-label="Channel name" class="form-input" style="width:140px;">
+      <select name="kind" class="form-input" style="width:120px;" title="Destination type" aria-label="Destination type">
         <option value="webhook"{{if ne .Kind "teams"}} selected{{end}}>Slack/Discord</option>
         <option value="teams"{{if eq .Kind "teams"}} selected{{end}}>MS Teams</option>
       </select>
-      <input type="url" name="url" value="" placeholder="{{if .URL}}•••• configured — leave blank to keep{{else}}webhook URL{{end}}" class="form-input" style="flex:1;min-width:200px;" autocomplete="off">
-      <select name="min_severity" class="form-input" style="width:120px;" title="Minimum severity">
+      <input type="url" name="url" value="" placeholder="{{if .URL}}•••• configured — leave blank to keep{{else}}webhook URL{{end}}" aria-label="Webhook URL" class="form-input" style="flex:1;min-width:200px;" autocomplete="off">
+      <select name="min_severity" class="form-input" style="width:120px;" title="Minimum severity" aria-label="Minimum severity">
         <option value="info"{{if eq .MinSeverity "info"}} selected{{end}}>Info+</option>
         <option value="warning"{{if eq .MinSeverity "warning"}} selected{{end}}>Warning+</option>
         <option value="critical"{{if eq .MinSeverity "critical"}} selected{{end}}>Critical</option>
       </select>
-      <select name="mode" class="form-input" style="width:110px;" title="Delivery">
+      <select name="mode" class="form-input" style="width:110px;" title="Delivery" aria-label="Delivery mode">
         <option value="realtime"{{if eq .Mode "realtime"}} selected{{end}}>Realtime</option>
         <option value="digest"{{if eq .Mode "digest"}} selected{{end}}>Digest</option>
       </select>
-      <select name="active_window" class="form-input" style="width:130px;" title="Active window">
+      <select name="active_window" class="form-input" style="width:130px;" title="Active window" aria-label="Active window">
         <option value=""{{if eq .ActiveWindow ""}} selected{{end}}>Always</option>
         <option value="service"{{if eq .ActiveWindow "service"}} selected{{end}}>Service</option>
         <option value="overnight"{{if eq .ActiveWindow "overnight"}} selected{{end}}>Overnight</option>
@@ -134,12 +134,12 @@
   <div class="card-header"><h3>Dashboard</h3></div>
   <form action="/settings/dashboard" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;">
     <div class="form-group">
-      <label>Devices per page</label>
-      <input type="number" name="page_size" value="{{.PageSize}}" min="1" max="500" step="1" class="form-input">
+      <label for="set-page-size">Devices per page</label>
+      <input type="number" name="page_size" id="set-page-size" value="{{.PageSize}}" min="1" max="500" step="1" class="form-input">
     </div>
     <div class="form-group">
-      <label>Default sort</label>
-      <select name="default_sort" class="form-input">
+      <label for="set-default-sort">Default sort</label>
+      <select name="default_sort" id="set-default-sort" class="form-input">
         <option value="last_seen" {{if eq .DefaultSort "last_seen"}}selected{{end}}>Last seen</option>
         <option value="created_at" {{if eq .DefaultSort "created_at"}}selected{{end}}>First seen</option>
         <option value="serial" {{if eq .DefaultSort "serial"}}selected{{end}}>Serial number</option>
@@ -150,15 +150,15 @@
       </select>
     </div>
     <div class="form-group">
-      <label>Default table density</label>
-      <select name="density" class="form-input">
+      <label for="set-density">Default table density</label>
+      <select name="density" id="set-density" class="form-input">
         <option value="comfortable" {{if eq .Density "comfortable"}}selected{{end}}>Comfortable</option>
         <option value="compact" {{if eq .Density "compact"}}selected{{end}}>Compact</option>
       </select>
     </div>
     <div class="form-group">
-      <label>Time format</label>
-      <select name="time_format" class="form-input">
+      <label for="set-time-format">Time format</label>
+      <select name="time_format" id="set-time-format" class="form-input">
         <option value="12" {{if not .Use24Hour}}selected{{end}}>12-hour (AM/PM)</option>
         <option value="24" {{if .Use24Hour}}selected{{end}}>24-hour</option>
       </select>
@@ -175,7 +175,7 @@
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:8px;">How often devices check in with the server (seconds). Applies to all devices, including ones added later.</div>
     <form action="/settings/checkin-interval" method="POST" style="display:flex;align-items:center;gap:8px;">
-      <input type="number" name="interval" value="{{.CheckinInterval}}" min="10" step="1" class="form-input" style="width:100px;">
+      <input type="number" name="interval" value="{{.CheckinInterval}}" min="10" step="1" class="form-input" aria-label="Check-in interval (seconds)" style="width:100px;">
       <span class="muted small">seconds</span>
       <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
@@ -198,12 +198,12 @@
   <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small">Background housekeeping runs hourly. Leave a field blank to disable that policy (keep forever).</div>
     <div class="form-group">
-      <label>Delete check-ins older than (days)</label>
-      <input type="number" name="checkin_retention_days" value="{{if .CheckinRetentionDays}}{{.CheckinRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
+      <label for="set-checkin-retention">Delete check-ins older than (days)</label>
+      <input type="number" name="checkin_retention_days" id="set-checkin-retention" value="{{if .CheckinRetentionDays}}{{.CheckinRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
     </div>
     <div class="form-group">
-      <label>Delete logcat results older than (days)</label>
-      <input type="number" name="logcat_retention_days" value="{{if .LogcatRetentionDays}}{{.LogcatRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
+      <label for="set-logcat-retention">Delete logcat results older than (days)</label>
+      <input type="number" name="logcat_retention_days" id="set-logcat-retention" value="{{if .LogcatRetentionDays}}{{.LogcatRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
     </div>
     <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
   </form>
@@ -233,7 +233,7 @@
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small" style="margin-bottom:8px;">A pending shell/screenshot/reboot action is shown as <em>expired</em> after this long.</div>
     <form action="/settings/command-expiry" method="POST" style="display:flex;align-items:center;gap:8px;">
-      <input type="number" name="expiry" value="{{.CommandExpiry}}" min="30" step="1" class="form-input" style="width:120px;">
+      <input type="number" name="expiry" value="{{.CommandExpiry}}" min="30" step="1" class="form-input" aria-label="Pending action expiry (seconds)" style="width:120px;">
       <span class="muted small">seconds</span>
       <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
@@ -241,7 +241,7 @@
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small" style="margin-bottom:8px;">Maximum number of devices a single action may target by explicit serial list (0 = unlimited). Does not affect "all devices".</div>
     <form action="/settings/max-targets" method="POST" style="display:flex;align-items:center;gap:8px;">
-      <input type="number" name="max_targets" value="{{.MaxTargets}}" min="0" step="1" class="form-input" style="width:120px;">
+      <input type="number" name="max_targets" value="{{.MaxTargets}}" min="0" step="1" class="form-input" aria-label="Maximum devices per action (0 = unlimited)" style="width:120px;">
       <span class="muted small">devices</span>
       <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
@@ -336,7 +336,7 @@
   <div style="padding:16px;{{if not .ChannelTest}}display:none;{{end}}">
     <div class="muted small" style="margin-bottom:8px;">Default webhook (Slack / Discord / Mattermost). Used when no channel matches; leave blank to disable.</div>
     <form action="/settings/alert-webhook" method="POST" style="display:flex;align-items:center;gap:8px;max-width:560px;margin-bottom:18px;">
-      <input type="url" name="alert_webhook_url" value="" placeholder="{{if .AlertWebhookSet}}•••• configured — leave blank to keep{{else}}https://hooks.slack.com/services/…{{end}}" class="form-input" style="flex:1;" autocomplete="off">
+      <input type="url" name="alert_webhook_url" value="" placeholder="{{if .AlertWebhookSet}}•••• configured — leave blank to keep{{else}}https://hooks.slack.com/services/…{{end}}" aria-label="Default alert webhook URL" class="form-input" style="flex:1;" autocomplete="off">
       <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
     {{if eq .ChannelTest "ok"}}<div class="status-badge ok" style="margin-bottom:10px;">Test alert sent — check the channel.</div>{{end}}
@@ -513,7 +513,7 @@
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small" style="margin-bottom:8px;">How long a dashboard login stays valid before requiring sign-in again.</div>
     <form action="/settings/session-timeout" method="POST" style="display:flex;align-items:center;gap:8px;">
-      <input type="number" name="timeout" value="{{.SessionTimeout}}" min="300" step="1" class="form-input" style="width:120px;">
+      <input type="number" name="timeout" value="{{.SessionTimeout}}" min="300" step="1" class="form-input" aria-label="Session timeout (seconds)" style="width:120px;">
       <span class="muted small">seconds</span>
       <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>

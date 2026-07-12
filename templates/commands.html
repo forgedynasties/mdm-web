@@ -298,7 +298,7 @@
           <!-- One hidden apk_url input per selected app; the server creates one command each. -->
           <span id="apk-hidden"></span>
           {{if .Apps}}
-            <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" autocomplete="off" oninput="filterApps(this.value)"></div>
+            <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" aria-label="Search your app library" autocomplete="off" oninput="filterApps(this.value)"></div>
             <div class="appgrid" id="app-grid">
               {{range .Apps}}
               <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}}{{if canAdmin $.Role}} {{.ApkURL}}{{end}}" onclick="pickApp(this)">
@@ -323,7 +323,7 @@
         <div id="uninstall-fields" class="payload-section">
           <!-- One hidden package input per selected app; the server creates one command each. -->
           <span id="pkg-hidden"></span>
-          <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="uninstall-filter" placeholder="Search installed apps…" autocomplete="off" oninput="filterUninstallApps(this.value)"></div>
+          <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="uninstall-filter" placeholder="Search installed apps…" aria-label="Search installed apps" autocomplete="off" oninput="filterUninstallApps(this.value)"></div>
           <!-- Populated from the selected target's installed packages; reloads on target change. -->
           <div class="pkgs" id="uninstall-list"
                hx-get="/commands/target-packages" hx-include="#cmd-form" hx-target="#uninstall-list"
@@ -366,7 +366,7 @@
             <div class="lvl-lbl">Locked app</div>
             {{if .FleetPackages}}
               <input type="hidden" name="kiosk_package" id="kiosk-pkg" value="">
-              <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="kiosk-filter" placeholder="Search apps seen across the fleet…" autocomplete="off" oninput="filterKioskApps(this.value)"></div>
+              <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="kiosk-filter" placeholder="Search apps seen across the fleet…" aria-label="Search apps seen across the fleet" autocomplete="off" oninput="filterKioskApps(this.value)"></div>
               <div class="pkgs" id="kiosk-list">
                 {{range .FleetPackages}}
                 <button type="button" class="pkg" data-pkg="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickKiosk(this)">
@@ -379,7 +379,7 @@
               <div id="kiosk-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
               <div class="pl-sub">Devices lock to this app on their next check-in — it must already be installed on the target.</div>
             {{else}}
-              <input type="text" name="kiosk_package" id="kiosk-pkg-text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" oninput="updatePreview()">
+              <input type="text" name="kiosk_package" id="kiosk-pkg-text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" aria-label="Package name to lock to" oninput="updatePreview()">
               <div class="pl-sub">No package data reported yet — type the exact package to lock to.</div>
             {{end}}
           </div>
@@ -461,12 +461,12 @@
               </div>
               <div class="scope-devices">
                 <div class="sd-head">
-                  <div class="filter-search sd-search"><svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="scope-search" autocomplete="off" placeholder="Search serial · Enter to add exact…" oninput="scopeSearchDebounced()" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}"></div>
+                  <div class="filter-search sd-search"><svg viewBox="0 0 20 20" fill="currentColor" width="13" height="13"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="scope-search" autocomplete="off" placeholder="Search serial · Enter to add exact…" aria-label="Search devices by serial" oninput="scopeSearchDebounced()" onkeydown="if(event.key==='Enter'){event.preventDefault();cmdAddSerial(this.value);}"></div>
                   <button type="button" class="btn-link small" onclick="cmdSelectAllMatching()">Select all</button>
                   <button type="button" class="btn-link small" onclick="cmdSetSerials([])">Clear</button>
                   <span class="sd-count"><b id="cmd-sel-count">0</b> picked</span>
                 </div>
-                <textarea id="scope-paste" class="sd-paste" placeholder="Paste a list of serials here…" rows="2"
+                <textarea id="scope-paste" class="sd-paste" placeholder="Paste a list of serials here…" aria-label="Paste a list of serials" rows="2"
                           oninput="clearTimeout(window.__scopePasteTimer);window.__scopePasteTimer=setTimeout(function(){var v=document.getElementById('scope-paste').value;if(v.trim()){cmdAddSerial(v);document.getElementById('scope-paste').value='';}},400)"></textarea>
                 <div id="cmd-device-browser" class="scope-dev-list"
                      hx-get="/commands/browse-devices" hx-select="unset" hx-trigger="load"
@@ -511,9 +511,9 @@
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
           <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
         </svg>
-        <input type="search" id="cmd-search" class="form-input" style="width:180px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Search type, action, serial…" oninput="filterCommands()">
+        <input type="search" id="cmd-search" class="form-input" style="width:180px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Search type, action, serial…" aria-label="Search action history" oninput="filterCommands()">
       </div>
-      <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="filterCommands()">
+      <select id="filter-type" class="filter-select" style="font-size:12px;" aria-label="Filter by action type" onchange="filterCommands()">
         <option value="">All Types</option>
         <option value="install_apk">Install APK</option>
         <option value="uninstall">Uninstall</option>
@@ -521,7 +521,7 @@
         <option value="screenshot">Screenshot</option>
         <option value="reboot">Reboot</option>
       </select>
-      <select id="filter-target" class="filter-select" style="font-size:12px;" onchange="filterCommands()">
+      <select id="filter-target" class="filter-select" style="font-size:12px;" aria-label="Filter by target" onchange="filterCommands()">
         <option value="">All Targets</option>
         <option value="all">All Devices</option>
         <option value="devices">Devices</option>
@@ -581,16 +581,16 @@
     </div>
     <div class="modal-body">
       <div class="form-row" style="margin-bottom:12px;">
-        <label class="form-label">App Name</label>
+        <label class="form-label" for="new-app-name">App Name</label>
         <input type="text" id="new-app-name" class="form-input" placeholder="My App">
       </div>
       <div class="form-row" style="margin-bottom:12px;">
-        <label class="form-label">Package name <span class="muted small" style="font-weight:400;">— e.g. com.example.app</span></label>
+        <label class="form-label" for="new-app-pkg">Package name <span class="muted small" style="font-weight:400;">— e.g. com.example.app</span></label>
         <input type="text" id="new-app-pkg" class="form-input" style="font-family:var(--mono)" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="com.example.app">
         <div class="muted small" style="margin-top:4px;">Optional — lets installs skip devices that already have this app.</div>
       </div>
       <div class="form-row" style="margin-bottom:16px;">
-        <label class="form-label">APK URL</label>
+        <label class="form-label" for="new-app-url">APK URL</label>
         <input type="url" id="new-app-url" class="form-input" placeholder="https://example.com/app.apk">
       </div>
       <div id="app-modal-error" class="alert alert-error" style="display:none;"></div>
@@ -610,7 +610,7 @@
     <div class="modal-body">
       <p class="muted small" style="margin:0 0 12px;">Saves the current action, payload and target as a one-tap preset.</p>
       <div class="form-row" style="margin-bottom:14px;">
-        <label class="form-label">Recipe name</label>
+        <label class="form-label" for="recipe-name">Recipe name</label>
         <input type="text" id="recipe-name" class="form-input" placeholder="e.g. Screenshot kiosks">
       </div>
       <div id="recipe-modal-error" class="alert alert-error" style="display:none;"></div>

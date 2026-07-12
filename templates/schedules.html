@@ -51,7 +51,7 @@
     </div>
 
     <div class="sch-panel" data-p="daily">
-      <label class="form-label">At what time</label>
+      <label class="form-label" for="sch-time-d">At what time</label>
       <input type="time" id="sch-time-d" class="form-input sch-narrow" value="03:00" onchange="schUpdate()">
     </div>
 
@@ -66,19 +66,19 @@
         <label><input type="checkbox" value="6" onchange="schUpdate()"><span>Sat</span></label>
         <label><input type="checkbox" value="0" onchange="schUpdate()"><span>Sun</span></label>
       </div>
-      <label class="form-label" style="margin-top:12px;">At what time</label>
+      <label class="form-label" for="sch-time-w" style="margin-top:12px;">At what time</label>
       <input type="time" id="sch-time-w" class="form-input sch-narrow" value="03:00" onchange="schUpdate()">
     </div>
 
     <div class="sch-panel" data-p="monthly" hidden>
-      <label class="form-label">On day of month</label>
+      <label class="form-label" for="sch-dom">On day of month</label>
       <select id="sch-dom" class="form-input sch-narrow" onchange="schUpdate()"></select>
-      <label class="form-label" style="margin-top:12px;">At what time</label>
+      <label class="form-label" for="sch-time-m" style="margin-top:12px;">At what time</label>
       <input type="time" id="sch-time-m" class="form-input sch-narrow" value="03:00" onchange="schUpdate()">
     </div>
 
     <div class="sch-panel" data-p="minutes" hidden>
-      <label class="form-label">Run every</label>
+      <label class="form-label" for="sch-min">Run every</label>
       <select id="sch-min" class="form-input sch-narrow" onchange="schUpdate()">
         <option value="5">5 minutes</option>
         <option value="10">10 minutes</option>

@@ -70,17 +70,17 @@
     </div>
     <form action="/setup/apps" method="POST" class="modal-body" id="repository-app-form">
       <div class="form-row">
-        <label class="form-label">App Name</label>
-        <input type="text" name="name" id="repository-app-name" placeholder="My App" class="form-input" required>
+        <label class="form-label" for="repository-app-name">App Name</label>
+        <input type="text" name="name" id="repository-app-name" placeholder="My App" class="form-input" required aria-required="true">
       </div>
       <div class="form-row">
-        <label class="form-label">Package name <span class="muted small" style="font-weight:400;">— e.g. com.example.app</span></label>
+        <label class="form-label" for="repository-app-pkg">Package name <span class="muted small" style="font-weight:400;">— e.g. com.example.app</span></label>
         <input type="text" name="package_name" id="repository-app-pkg" placeholder="com.example.app" class="form-input mono" autocapitalize="off" autocorrect="off" spellcheck="false">
         <div class="muted small" style="margin-top:4px;">Optional, but recommended: lets installs skip devices that already have this app instead of re-downloading it.</div>
       </div>
       <div class="form-row">
-        <label class="form-label">APK URL</label>
-        <input type="url" name="apk_url" id="repository-app-apk" placeholder="https://example.com/app.apk" class="form-input" required>
+        <label class="form-label" for="repository-app-apk">APK URL</label>
+        <input type="url" name="apk_url" id="repository-app-apk" placeholder="https://example.com/app.apk" class="form-input" required aria-required="true">
       </div>
       <div>
         <button type="submit" class="btn-primary" id="repository-app-submit"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add App</button>

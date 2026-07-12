@@ -39,8 +39,8 @@
         <button type="button" class="lc-lv" data-lv="V" onclick="lcSetLevel('V',this)" title="Verbose (all)">V</button>
       </div>
     </div>
-    <div class="lc-field"><label class="lc-lbl">Lines</label><input type="number" name="lines" id="lc-lines" class="form-input" value="500" min="50" max="5000" style="width:90px;"></div>
-    <div class="lc-field"><label class="lc-lbl">Tag filter</label><input type="text" name="tag" id="lc-tag" class="form-input" placeholder="optional" style="width:170px;"></div>
+    <div class="lc-field"><label class="lc-lbl" for="lc-lines">Lines</label><input type="number" name="lines" id="lc-lines" class="form-input" value="500" min="50" max="5000" style="width:90px;"></div>
+    <div class="lc-field"><label class="lc-lbl" for="lc-tag">Tag filter</label><input type="text" name="tag" id="lc-tag" class="form-input" placeholder="optional" style="width:170px;"></div>
     <button type="submit" class="btn-primary">Request logs</button>
   </form>
   {{if or .LogcatRecent .LogcatFrequent}}
