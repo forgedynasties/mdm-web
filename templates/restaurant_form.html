@@ -63,13 +63,13 @@
         <div class="rf-section">
           <div class="rf-section-title">Basics</div>
           <div class="rf-field">
-            <label>Name <span class="rf-req">*</span></label>
-            <input type="text" name="name" id="rf-name" class="form-input" required autofocus
+            <label for="rf-name">Name <span class="rf-req">*</span></label>
+            <input type="text" name="name" id="rf-name" class="form-input" required aria-required="true" autofocus
                    placeholder="e.g. Downtown Diner — 5th Ave"
                    value="{{with .Restaurant}}{{.Name}}{{end}}" oninput="rfPrev()">
           </div>
           <div class="rf-field">
-            <label>Address</label>
+            <label for="rf-address">Address</label>
             <input type="text" name="address" id="rf-address" class="form-input" placeholder="Street, city"
                    value="{{with .Restaurant}}{{.Address}}{{end}}" oninput="rfPrev()">
             <span class="rf-hint">Optional — handy for the techs you dispatch.</span>
@@ -79,26 +79,26 @@
         <div class="rf-section">
           <div class="rf-section-title">Location &amp; service timezone</div>
           <div class="rf-field">
-            <label>Coordinates</label>
+            <label for="rest-lat">Coordinates</label>
             <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-              <input type="number" id="rest-lat" name="latitude" class="form-input" step="any" min="-90" max="90" placeholder="Latitude · 37.7749"
+              <input type="number" id="rest-lat" name="latitude" class="form-input" step="any" min="-90" max="90" placeholder="Latitude · 37.7749" aria-label="Latitude"
                      style="width:190px;" value="{{with .Restaurant}}{{with .Latitude}}{{.}}{{end}}{{end}}">
-              <input type="number" id="rest-lng" name="longitude" class="form-input" step="any" min="-180" max="180" placeholder="Longitude · -122.4194"
+              <input type="number" id="rest-lng" name="longitude" class="form-input" step="any" min="-180" max="180" placeholder="Longitude · -122.4194" aria-label="Longitude"
                      style="width:190px;" value="{{with .Restaurant}}{{with .Longitude}}{{.}}{{end}}{{end}}">
               <a id="rest-map-link" href="#" target="_blank" rel="noopener" class="btn-outline" style="display:none;">Open in maps ↗</a>
             </div>
             <div class="rf-hint" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px;">
               <span>Paste “lat, lng” to fill both:</span>
-              <input type="text" id="rest-coord-paste" class="form-input" placeholder="37.7749, -122.4194" style="max-width:220px;">
+              <input type="text" id="rest-coord-paste" class="form-input" placeholder="37.7749, -122.4194" aria-label="Paste latitude, longitude" style="max-width:220px;">
               <a href="https://www.google.com/maps" target="_blank" rel="noopener" class="link">Find coordinates ↗</a>
             </div>
           </div>
           <div class="rf-field">
-            <label>Timezone</label>
+            <label for="tz-search">Timezone</label>
             <div class="tz-combo" id="tz-combo">
               <input type="hidden" name="timezone" id="tz-value" value="{{$tz}}">
               <input type="text" id="tz-search" class="form-input" autocomplete="off" spellcheck="false"
-                     role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search a city or GMT offset…">
+                     role="combobox" aria-autocomplete="list" aria-expanded="false" aria-label="Timezone" placeholder="Search a city or GMT offset…">
               <div class="tz-list" id="tz-list" role="listbox">
                 <div class="tz-opt" data-value="" data-search="use each device reported timezone none default">Use each device's reported timezone</div>
                 {{range $.Timezones}}
@@ -113,7 +113,7 @@
         <div class="rf-section">
           <div class="rf-section-title">Notes</div>
           <div class="rf-field">
-            <textarea name="notes" class="form-textarea" rows="3" style="resize:vertical;"
+            <textarea name="notes" class="form-textarea" rows="3" style="resize:vertical;" aria-label="Notes"
                       placeholder="Anything ops should know about this venue…">{{with .Restaurant}}{{.Notes}}{{end}}</textarea>
           </div>
         </div>
@@ -147,7 +147,7 @@
           <div class="dp-pane-h"><span class="t">Available devices</span><span class="n">lab shown first</span></div>
           <div class="dp-search">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-            <input type="search" id="dp-q" placeholder="Search serial…" autocomplete="off" oninput="dpReloadDebounced()">
+            <input type="search" id="dp-q" placeholder="Search serial…" aria-label="Search available devices by serial" autocomplete="off" oninput="dpReloadDebounced()">
           </div>
           <div class="dp-pills">
             <button type="button" class="dp-pill sel" onclick="dpPill(this)">All</button>

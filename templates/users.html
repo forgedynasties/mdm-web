@@ -46,7 +46,7 @@
           <details class="user-pw">
             <summary class="user-pw-btn" title="Change password"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Password</summary>
             <form action="/users/{{.ID}}/password" method="POST" class="user-pw-pop">
-              <input type="password" name="password" class="form-input" placeholder="New password" required autocomplete="new-password" minlength="6">
+              <input type="password" name="password" class="form-input" placeholder="New password" aria-label="New password" required autocomplete="new-password" minlength="6">
               <button type="submit" class="btn-primary btn-sm">Set</button>
             </form>
           </details>
@@ -67,16 +67,16 @@
     <div class="card-header"><h3>Add user</h3></div>
     <form action="/users" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
       <div class="form-row">
-        <label class="form-label">Username</label>
-        <input type="text" name="username" class="form-input" required autocomplete="off">
+        <label class="form-label" for="f-username">Username</label>
+        <input type="text" name="username" id="f-username" class="form-input" required aria-required="true" autocomplete="off">
       </div>
       <div class="form-row">
-        <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-input" required autocomplete="new-password">
+        <label class="form-label" for="f-password">Password</label>
+        <input type="password" name="password" id="f-password" class="form-input" required aria-required="true" autocomplete="new-password">
       </div>
       <div class="form-row">
-        <label class="form-label">Role</label>
-        <select name="role" class="form-input">
+        <label class="form-label" for="f-role">Role</label>
+        <select name="role" id="f-role" class="form-input">
           <option value="viewer">Viewer — read-only + screenshot + logcat</option>
           <option value="operator">Operator — viewer + shell + reboot</option>
           <option value="tester">Tester — operator + record release QA</option>

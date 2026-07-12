@@ -15,8 +15,8 @@
   {{if .Releases}}
   <form action="/updates" method="POST" class="command-form">
     <div class="form-row">
-      <label class="form-label">Release</label>
-      <select name="release_id" class="form-input" required style="max-width:380px;">
+      <label class="form-label" for="f-release">Release</label>
+      <select name="release_id" id="f-release" class="form-input" required aria-required="true" style="max-width:380px;">
         <option value="">— choose a published release —</option>
         {{range .Releases}}<option value="{{.ID}}"{{if eq (printf "%d" .ID) $.PreRelease}} selected{{end}}>{{.Version}}{{if .Name}} — {{.Name}}{{end}}</option>{{end}}
       </select>
@@ -33,8 +33,8 @@
       <input type="hidden" name="reboot_behavior" id="reboot-input" value="immediate">
     </div>
     <div class="form-row" id="scheduled-time-row" style="display:none;">
-      <label class="form-label">Scheduled Time (UTC / GMT+0)</label>
-      <input type="datetime-local" name="scheduled_time" class="form-input" style="max-width:260px;">
+      <label class="form-label" for="f-scheduled-time">Scheduled Time (UTC / GMT+0)</label>
+      <input type="datetime-local" name="scheduled_time" id="f-scheduled-time" class="form-input" style="max-width:260px;">
       <div class="form-hint">This field is interpreted as UTC.</div>
     </div>
 
@@ -51,12 +51,12 @@
       <div class="dp-tp">
         <div class="dp-pane">
           <div class="dp-pane-h"><span class="t">Available devices</span><button type="button" class="btn-link" style="font-size:12px;font-weight:600;" onclick="deployAll('tab-devices','serials')">Select all matching</button></div>
-          <div class="filter-search" style="margin:11px 12px 0;"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" class="filter-search-input" placeholder="Filter serial…" oninput="deployFilter('tab-devices')"></div>
+          <div class="filter-search" style="margin:11px 12px 0;"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" class="filter-search-input" placeholder="Filter serial…" aria-label="Filter available devices by serial" oninput="deployFilter('tab-devices')"></div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 12px 0;">
-            <select class="filter-select dp-f-status" onchange="deployFilter('tab-devices')"><option value="">Status</option><option value="online">Online</option><option value="offline">Offline</option></select>
-            <select class="filter-select dp-f-release" onchange="deployFilter('tab-devices')"><option value="">Build</option></select>
-            <select class="filter-select dp-f-batt" onchange="deployFilter('tab-devices')"><option value="">Battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select>
-            <select class="filter-select dp-f-rest" onchange="deployFilter('tab-devices')"><option value="">Restaurant</option></select>
+            <select class="filter-select dp-f-status" aria-label="Filter by status" onchange="deployFilter('tab-devices')"><option value="">Status</option><option value="online">Online</option><option value="offline">Offline</option></select>
+            <select class="filter-select dp-f-release" aria-label="Filter by build" onchange="deployFilter('tab-devices')"><option value="">Build</option></select>
+            <select class="filter-select dp-f-batt" aria-label="Filter by battery" onchange="deployFilter('tab-devices')"><option value="">Battery</option><option value="low">Critical &lt;20%</option><option value="mid">Low 20-49%</option><option value="ok">Healthy 50%+</option></select>
+            <select class="filter-select dp-f-rest" aria-label="Filter by restaurant" onchange="deployFilter('tab-devices')"><option value="">Restaurant</option></select>
           </div>
           <div class="cb-list" style="margin:8px;max-height:320px;overflow:auto;">
             {{range .Devices}}
@@ -82,7 +82,7 @@
       <div class="dp-tp">
         <div class="dp-pane">
           <div class="dp-pane-h"><span class="t">Available groups</span><button type="button" class="btn-link" style="font-size:12px;font-weight:600;" onclick="deployAll('tab-groups','group_ids')">Select all matching</button></div>
-          <div class="filter-search" style="margin:11px 12px 0;"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" class="filter-search-input" placeholder="Filter groups…" oninput="deployFilter('tab-groups')"></div>
+          <div class="filter-search" style="margin:11px 12px 0;"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" class="filter-search-input" placeholder="Filter groups…" aria-label="Filter available groups" oninput="deployFilter('tab-groups')"></div>
           <div class="cb-list" style="margin:8px;max-height:320px;overflow:auto;">
             {{range .Groups}}
             <div class="dp-av cb-row" data-search="{{.Name}}" onclick="deployToggle(this,'tab-groups','group_ids')">
@@ -103,8 +103,8 @@
     </div>
 
     <div class="form-row">
-      <label class="form-label">Stage Limit <span class="muted small">(optional)</span></label>
-      <input type="number" name="limit" class="form-input" min="1" style="max-width:120px;" placeholder="e.g. 10">
+      <label class="form-label" for="f-stage-limit">Stage Limit <span class="muted small">(optional)</span></label>
+      <input type="number" name="limit" id="f-stage-limit" class="form-input" min="1" style="max-width:120px;" placeholder="e.g. 10">
       <div class="form-hint">Cap how many devices receive this deployment. Useful for staged rollouts.</div>
     </div>
 
