@@ -14,7 +14,9 @@ import (
 // leave a truncated/corrupt config file — which would fail Load and brick startup.
 func writeFileAtomic(path string, data []byte) error {
 	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	// 0600: this file holds secrets (anthropic_api_key, alert webhook URLs), so it must
+	// not be world/group-readable by other users on the host.
+	if err := os.WriteFile(tmp, data, 0o600); err != nil {
 		return err
 	}
 	return os.Rename(tmp, path)
@@ -81,7 +83,7 @@ func Load(path string) (*Config, error) {
 	// Ensure the parent directory exists so setters (os.WriteFile) can persist.
 	// Without this, a missing dir makes every settings write fail silently.
 	if dir := filepath.Dir(path); dir != "" && dir != "." {
-		_ = os.MkdirAll(dir, 0o755)
+		_ = os.MkdirAll(dir, 0o700) // secrets live here; keep it owner-only
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {

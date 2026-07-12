@@ -43,9 +43,16 @@ func main() {
 	adminAPIKey := mustEnv("ADMIN_API_KEY")
 	dashUser := getEnv("DASHBOARD_USER", "admin")
 	dashPass := mustEnv("DASHBOARD_PASSWORD")
-	sessionSecret := getEnv("SESSION_SECRET", deviceAPIKey)
+	// SESSION_SECRET signs the dashboard session cookie. It must be its OWN secret:
+	// the previous fallback to DEVICE_API_KEY meant the cookie-signing key was the
+	// fleet-wide key every managed device holds, so a single extracted device key
+	// handed an attacker the dashboard's cookie integrity key. No fallback now.
+	sessionSecret := mustEnv("SESSION_SECRET")
 	if len(sessionSecret) < 32 {
-		log.Fatalf("SESSION_SECRET (or DEVICE_API_KEY, used as the fallback) must be at least 32 bytes for secure session cookie encryption")
+		log.Fatalf("SESSION_SECRET must be at least 32 bytes for secure session cookie signing")
+	}
+	if sessionSecret == deviceAPIKey || sessionSecret == adminAPIKey {
+		log.Fatalf("SESSION_SECRET must be distinct from DEVICE_API_KEY and ADMIN_API_KEY")
 	}
 	configPath := getEnv("CONFIG_PATH", "config/display.json")
 

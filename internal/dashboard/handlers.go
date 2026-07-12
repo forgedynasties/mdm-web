@@ -9014,7 +9014,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"DefaultSort":          h.cfg.DefaultSort(),
 		"Density":              h.cfg.Density(),
 		"Use24Hour":            h.cfg.Use24Hour(),
-		"AlertWebhookURL":      h.cfg.AlertWebhookURL(),
+		"AlertWebhookSet":      h.cfg.AlertWebhookURL() != "",
 		"AlertRules":           h.buildAlertRuleViews(r.Context()),
 		"FleetWindow":          fleetWindow,
 		"GroupWindows":         groupWindows,
@@ -9426,7 +9426,11 @@ func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) SettingsSetAlertWebhook(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	h.cfg.SetAlertWebhookURL(strings.TrimSpace(r.FormValue("alert_webhook_url")))
+	// The form masks the stored URL (a bearer secret) and never re-sends it, so a blank
+	// submission means "keep the existing value" rather than "clear it".
+	if u := strings.TrimSpace(r.FormValue("alert_webhook_url")); u != "" {
+		h.cfg.SetAlertWebhookURL(u)
+	}
 	h.audit(r, "alerts.webhook", "", "")
 	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
 }
@@ -9528,14 +9532,14 @@ func (h *Handler) SettingsSaveChannel(w http.ResponseWriter, r *http.Request) {
 	if kind != "teams" {
 		kind = "webhook"
 	}
+	// Unescape HTML entities (e.g. "&amp;" -> "&") before storing: a webhook URL pasted
+	// from a rendered HTML source would otherwise persist a mangled query string
+	// (sp/sv/sig become amp;sp/...), silently breaking all delivery.
+	url := html.UnescapeString(strings.TrimSpace(r.FormValue("url")))
 	c := db.AlertChannel{
-		Name: strings.TrimSpace(r.FormValue("name")),
-		Kind: kind,
-		// Unescape HTML entities (e.g. "&amp;" -> "&") before storing: a webhook
-		// URL pasted from a rendered HTML source, or re-saved from this page where
-		// the value renders escaped, would otherwise persist a mangled query string
-		// (sp/sv/sig become amp;sp/...), silently breaking all delivery.
-		URL:           html.UnescapeString(strings.TrimSpace(r.FormValue("url"))),
+		Name:          strings.TrimSpace(r.FormValue("name")),
+		Kind:          kind,
+		URL:           url,
 		MinSeverity:   r.FormValue("min_severity"),
 		Mode:          r.FormValue("mode"),
 		ActiveWindow:  r.FormValue("active_window"),
@@ -9570,6 +9574,13 @@ func (h *Handler) SettingsSaveChannel(w http.ResponseWriter, r *http.Request) {
 		if c.ID, err = uuid.Parse(idStr); err != nil {
 			http.Error(w, "Invalid channel", http.StatusBadRequest)
 			return
+		}
+		// The edit form masks the stored URL and never re-sends it, so a blank URL on
+		// an update means "keep the existing one" rather than blanking delivery.
+		if url == "" {
+			if existing, e := h.db.GetAlertChannel(r.Context(), c.ID); e == nil {
+				c.URL = existing.URL
+			}
 		}
 		err = h.db.UpdateAlertChannel(r.Context(), c)
 	} else {
