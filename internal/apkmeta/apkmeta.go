@@ -15,17 +15,23 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"mdm/internal/safehttp"
 )
 
 // client issues a HEAD to the APK URL. The timeout is short because this runs
-// inline on the command-creation request path. The default client follows
-// redirects (S3 may 301 to a regional endpoint).
-var client = &http.Client{Timeout: 10 * time.Second}
+// inline on the command-creation request path. It follows redirects (S3 may 301 to a
+// regional endpoint) but is SSRF-hardened: an operator-supplied apk_url that resolves
+// (or redirects) to an internal address is refused at dial time.
+var client = safehttp.Client(10 * time.Second)
 
 // Fetch returns the object's size (Content-Length) and ETag via a HEAD request.
 // The ETag is returned verbatim (including its surrounding quotes) so it can be
 // echoed back in an If-Range header and byte-compared by the origin.
 func Fetch(ctx context.Context, url string) (size int64, etag string, err error) {
+	if err := safehttp.CheckURL(url, false); err != nil {
+		return 0, "", err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
 	if err != nil {
 		return 0, "", err

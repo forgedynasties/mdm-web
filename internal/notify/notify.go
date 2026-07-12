@@ -8,9 +8,14 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"mdm/internal/safehttp"
 )
 
-var client = &http.Client{Timeout: 10 * time.Second}
+// client is SSRF-hardened: an admin-supplied webhook URL that resolves/redirects to an
+// internal address is refused at dial time. Webhook URLs are bearer secrets, so https
+// is required (see postJSON).
+var client = safehttp.Client(10 * time.Second)
 
 // SendWebhook POSTs a Slack/Discord/Mattermost-compatible {"text": ...} payload to
 // the given webhook URL. Best-effort: a non-2xx response is reported as an error so
@@ -57,6 +62,9 @@ func SendTeams(ctx context.Context, url, title, text, severity, when string) err
 // postJSON POSTs body as JSON to url. A non-2xx response is an error so the caller can
 // log it; delivery is never retried.
 func postJSON(ctx context.Context, url string, body any) error {
+	if err := safehttp.CheckURL(url, true); err != nil {
+		return err
+	}
 	b, _ := json.Marshal(body)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(b))
 	if err != nil {
