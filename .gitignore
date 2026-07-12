@@ -1,4 +1,7 @@
 .env
+# Runtime-mutated live config — the dashboard writes secrets (e.g. anthropic_api_key)
+# into it. Ship config/display.json.example as the template instead.
+config/display.json
 client-app
 __pycache__/
 *.py

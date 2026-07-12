@@ -6,6 +6,7 @@ services:
       POSTGRES_USER:     ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB:       ${DB_NAME}
+      TZ:                UTC
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init.sh:/docker-entrypoint-initdb.d/init.sh
@@ -14,23 +15,38 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 1g
 
   server:
     build: .
     restart: unless-stopped
     ports:
-      - "${PORT:-8082}:8082"
+      # Host and container both use $PORT so a non-default value still reaches the
+      # server (which reads PORT from env_file); default 8082.
+      - "${PORT:-8082}:${PORT:-8082}"
     env_file: .env
     environment:
       DB_HOST: postgres
+      # UTC everywhere so logged/stored timestamps are unambiguous across hosts.
+      TZ: UTC
       # Persist the settings/config file on the data volume so all settings
       # survive container restarts and rebuilds (default config/ is not mounted).
       CONFIG_PATH: ${CONFIG_PATH:-/app/data/config.json}
     volumes:
       - splashdata:/app/data
+    # Give the server time to finish in-flight requests and drain WebSockets on
+    # `docker compose down`/redeploy — matches the 25s graceful server.Shutdown.
+    stop_grace_period: 30s
     depends_on:
       postgres:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512m
 
 volumes:
   pgdata:
