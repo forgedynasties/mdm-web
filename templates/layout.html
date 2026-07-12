@@ -1057,6 +1057,10 @@
     document.body.addEventListener('htmx:afterRequest', function (evt) {
       var tgt = evt.detail.target;
       if (!tgt || !tgt.closest) return;
+      // Only confirm actual mutations. GET fetches (e.g. hx-trigger="load" partials
+      // that populate a form) must not pop a "Done" toast just for opening the page.
+      var verb = ((evt.detail.requestConfig && evt.detail.requestConfig.verb) || '').toLowerCase();
+      if (verb === '' || verb === 'get') return;
       // Skip polling / SSE triggers
       var form = tgt.closest('form');
       if (!form) return;
