@@ -263,6 +263,9 @@ func main() {
 		defer t.Stop()
 		for range t.C {
 			apiHandler.ProcessDueScheduledReboots(context.Background())
+			// Re-issue reboots that were sent but never applied, so an installed-but-
+			// unrebooted device can't keep its deployment 'active' forever.
+			apiHandler.RedriveStuckReboots(context.Background())
 			// Recent-tier alert rules (point-in-time + rate/sustained); see Tier 5 §10.
 			dash.RunRecentAlerts(context.Background())
 			// Fire any scheduled recipes whose cron time has arrived.
