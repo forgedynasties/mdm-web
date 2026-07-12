@@ -12,7 +12,7 @@
         <option value="webhook"{{if ne .Kind "teams"}} selected{{end}}>Slack/Discord</option>
         <option value="teams"{{if eq .Kind "teams"}} selected{{end}}>MS Teams</option>
       </select>
-      <input type="url" name="url" value="{{.URL}}" placeholder="webhook URL" class="form-input" style="flex:1;min-width:200px;">
+      <input type="url" name="url" value="" placeholder="{{if .URL}}•••• configured — leave blank to keep{{else}}webhook URL{{end}}" class="form-input" style="flex:1;min-width:200px;" autocomplete="off">
       <select name="min_severity" class="form-input" style="width:120px;" title="Minimum severity">
         <option value="info"{{if eq .MinSeverity "info"}} selected{{end}}>Info+</option>
         <option value="warning"{{if eq .MinSeverity "warning"}} selected{{end}}>Warning+</option>
@@ -336,7 +336,7 @@
   <div style="padding:16px;{{if not .ChannelTest}}display:none;{{end}}">
     <div class="muted small" style="margin-bottom:8px;">Default webhook (Slack / Discord / Mattermost). Used when no channel matches; leave blank to disable.</div>
     <form action="/settings/alert-webhook" method="POST" style="display:flex;align-items:center;gap:8px;max-width:560px;margin-bottom:18px;">
-      <input type="url" name="alert_webhook_url" value="{{.AlertWebhookURL}}" placeholder="https://hooks.slack.com/services/…" class="form-input" style="flex:1;">
+      <input type="url" name="alert_webhook_url" value="" placeholder="{{if .AlertWebhookSet}}•••• configured — leave blank to keep{{else}}https://hooks.slack.com/services/…{{end}}" class="form-input" style="flex:1;" autocomplete="off">
       <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
     {{if eq .ChannelTest "ok"}}<div class="status-badge ok" style="margin-bottom:10px;">Test alert sent — check the channel.</div>{{end}}
