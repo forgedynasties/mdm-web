@@ -243,7 +243,7 @@
   <div class="recipes">
     {{range .Recipes}}
     <button type="button" class="recipe{{if eq .Name "Re-run last"}} last{{end}}" data-prefill="{{.Prefill}}" onclick="applyRecipe(this)">
-      {{if .Deletable}}<button type="button" class="rx" aria-label="Delete recipe {{.Name}}" title="Delete recipe" onclick="event.stopPropagation();deleteRecipe(event,'{{.ID}}')">&times;</button>{{end}}
+      {{if .Deletable}}<span class="rx" role="button" tabindex="0" aria-label="Delete recipe {{.Name}}" title="Delete recipe" onclick="event.stopPropagation();deleteRecipe(event,'{{.ID}}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.stopPropagation();event.preventDefault();deleteRecipe(event,'{{.ID}}');}">&times;</span>{{end}}
       <span class="ic">
         {{if eq .Name "Re-run last"}}<svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         {{else if eq .Type "install_apk"}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>
