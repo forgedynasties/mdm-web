@@ -9147,7 +9147,15 @@ func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Reques
 // matrix rules) and dispatches any new alerts. Called every minute from main.go so
 // 5-minute-offline / SoC-now / discharge-rate alerts fire promptly, not hourly.
 func (h *Handler) RunRecentAlerts(ctx context.Context) {
-	created, resolved, err := h.db.EvaluateRecentAlerts(ctx)
+	// The offline-family rules must not page a device that still has a live WebSocket,
+	// so pass the currently-connected set (see offlineHitsQuery / the alerts-offline
+	// design note).
+	connSet := h.hub.ConnectedIDs()
+	connected := make([]uuid.UUID, 0, len(connSet))
+	for id := range connSet {
+		connected = append(connected, id)
+	}
+	created, resolved, err := h.db.EvaluateRecentAlerts(ctx, connected)
 	if err != nil {
 		log.Printf("[recent-alerts] evaluate: %v", err)
 		return
