@@ -480,6 +480,21 @@ func (h *Hub) Broadcast(msg []byte) {
 	}
 }
 
+// CloseAll closes every connected client's Send channel, which prompts each
+// WritePump to send a WebSocket close frame and exit — used on graceful shutdown so
+// devices see a clean close and reconnect with backoff rather than detecting a dead
+// socket. Holds the write lock, so it's mutually exclusive with register()/Push()
+// (no send-on-closed race). Call only during shutdown, after the HTTP server has
+// stopped accepting new upgrades.
+func (h *Hub) CloseAll() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for id, c := range h.clients {
+		close(c.Send)
+		delete(h.clients, id)
+	}
+}
+
 // Upgrade performs the HTTP→WebSocket upgrade and registers the client with the hub.
 func (h *Hub) Upgrade(w http.ResponseWriter, r *http.Request, deviceID uuid.UUID) (*Client, error) {
 	conn, err := upgrader.Upgrade(w, r, nil)

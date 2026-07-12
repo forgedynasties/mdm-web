@@ -448,6 +448,22 @@ func (d *DB) Ping(ctx context.Context) error {
 	return d.pool.Ping(ctx)
 }
 
+// PoolStats returns connection-pool metrics for observability (surfaced at
+// /debug/vars). Pool saturation — AcquiredConns approaching MaxConns with a rising
+// EmptyAcquireCount — is otherwise invisible and the most likely silent degradation.
+func (d *DB) PoolStats() map[string]int64 {
+	s := d.pool.Stat()
+	return map[string]int64{
+		"max_conns":           int64(s.MaxConns()),
+		"total_conns":         int64(s.TotalConns()),
+		"acquired_conns":      int64(s.AcquiredConns()),
+		"idle_conns":          int64(s.IdleConns()),
+		"empty_acquire_count": s.EmptyAcquireCount(),
+		"acquire_count":       s.AcquireCount(),
+		"canceled_acquire":    s.CanceledAcquireCount(),
+	}
+}
+
 func (d *DB) RunMigrations(ctx context.Context) error {
 	// Run on a single connection inside one transaction so SET LOCAL lock_timeout
 	// scopes to the migration only. The lock_timeout makes a schema statement
