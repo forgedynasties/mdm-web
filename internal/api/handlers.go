@@ -293,8 +293,8 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 // ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
 type checkinRequest struct {
-	SerialNumber  string          `json:"serial_number"`
-	BuildID       string          `json:"build_id"`
+	SerialNumber string `json:"serial_number"`
+	BuildID      string `json:"build_id"`
 	// Pointer so a delta telemetry frame that omits an unchanged battery_pct is
 	// distinguishable from a real 0 — the server keeps the prior value in that case.
 	BatteryPct    *int            `json:"battery_pct"`
@@ -1266,7 +1266,7 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 // ── Productions ───────────────────────────────────────────────────────────────
 
 func (h *Handler) ListProductions(w http.ResponseWriter, r *http.Request) {
-	productions, err := h.db.ListProductions(r.Context())
+	productions, err := h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -1296,6 +1296,15 @@ func (h *Handler) CreateProduction(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(body.Name) == "" || body.ProductCode == "" || body.ModelCode == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name, product_code, model_code required"})
+		return
+	}
+	// The serial schema is a fixed 9-char prefix (product2+model2+variant1+sku2+batch2)
+	// + 5-digit sequence = 14 chars, and the device-matching queries hard-code
+	// LENGTH(serial)=14 and read the sequence at positions 10-14. A wrong-length code
+	// shifts those positions and matches the wrong devices — the dashboard enforces
+	// this, so the API must too.
+	if len(body.ProductCode) != 2 || len(body.ModelCode) != 2 || len(body.Variant) != 1 || len(body.SKU) != 2 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "product_code and sku must be 2 chars, model_code 2, variant 1"})
 		return
 	}
 	if body.BatchMonth < 1 || body.BatchMonth > 12 || body.BatchYear < 0 || body.BatchYear > 99 {
@@ -1341,12 +1350,12 @@ func (h *Handler) GetProduction(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid production id"})
 		return
 	}
-	prod, err := h.db.GetProduction(r.Context(), id)
+	prod, err := h.db.GetProduction(r.Context(), id, h.cfg.CheckinInterval()*3)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "production not found"})
 		return
 	}
-	devices, err := h.db.GetProductionDevices(r.Context(), id)
+	devices, err := h.db.GetProductionDevices(r.Context(), id, h.cfg.CheckinInterval()*3)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
