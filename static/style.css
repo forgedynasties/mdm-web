@@ -1830,7 +1830,7 @@ input[type="checkbox"]:hover {
   padding: 2px 6px;
   border-radius: 4px;
 }
-.range-input:focus { outline: none; border-color: var(--accent); }
+.range-input:focus-visible { outline: none; border-color: var(--accent); box-shadow: var(--ring); }
 .range-input::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 
 .active-range-chip {
@@ -2655,7 +2655,7 @@ input[type="checkbox"]:hover {
   transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .filter-select:hover { color: var(--text); border-color: var(--border); }
-.filter-select:focus { border-color: var(--accent); color: var(--text); }
+.filter-select:focus-visible { border-color: var(--accent); color: var(--text); box-shadow: var(--ring); }
 .filter-select.active {
   color: var(--accent-text);
   border-color: var(--accent);
@@ -4403,7 +4403,11 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 /* ════════════════════════════════════════════════════════
    FLEET · device list as cards (C2 row cards) + sort control
    ════════════════════════════════════════════════════════ */
-#device-table-container { container-type: inline-size; }
+/* Scroll the roster horizontally instead of clipping it: the .card wrapper sets
+   overflow:hidden, and the columns have min-widths, so at ~320px / 400% zoom the
+   right-hand columns were cut off (data loss). overflow-x:auto keeps them reachable
+   (WCAG 1.4.10); overflow-y stays hidden so the card's rounded corners are preserved. */
+#device-table-container { container-type: inline-size; overflow-x: auto; }
 .dl-list { display: flex; flex-direction: column; }
 /* Column-count control. The whole segment hides when there's no room for >1
    column; the "3" option appears only when there's room for three. */
@@ -5779,4 +5783,20 @@ a.hl-row:hover { background: var(--hover); }
      (overflow:hidden); relax that only when they hold a raw table. */
   .card:has(> .table),
   .card:has(> table) { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+}
+
+/* ── Global reduced-motion safety net (WCAG 2.3.3 / 2.2.2) ──────────────────────
+   The app gates most animations individually, but the overview entrance motion
+   (ov-rise, ovx-grow, dvp-in), infinite decorative pulses (ovx-pulse), the error
+   toast slide (mtoast-in/out), and a few inline template keyframes were not covered.
+   This catch-all neutralises any remaining animation/transition for users who ask
+   for reduced motion — entrance animations that use fill-mode `both`/`forwards` snap
+   straight to their final (visible, in-place) state, so nothing is hidden. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
