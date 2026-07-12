@@ -261,7 +261,11 @@ type DeviceFilter struct {
 	Charging            string    // "yes" (charging), "no" (not charging), or "" (no filter)
 	Timezone            string    // exact timezone match (latest_extra->>'timezone'), or "" (no filter)
 	Hidden              string    // "include" (show all), "only" (hidden only), or "" (active only)
-	ActiveThresholdSecs int       // seconds before a device is considered offline (0 = default 180)
+	ActiveThresholdSecs int       // legacy: seconds before a device is considered offline (unused for online/offline now)
+	// Connected is the set of device IDs with a live WebSocket, used to compute
+	// online/offline from real presence rather than check-in recency. Supplied by the
+	// handler from ws.Hub; nil means "nobody connected" (all offline).
+	Connected []uuid.UUID
 }
 
 // ── Productions ───────────────────────────────────────────────────────────────
@@ -678,15 +682,16 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		args = append(args, f.Timezone)
 		argN++
 	}
-	args = append(args, activeSecs)
-	thrArg := argN
+	_ = activeSecs // retained for signature compatibility; online is now WS-based
+	args = append(args, f.Connected)
+	connArg := argN
 	q := fmt.Sprintf(`SELECT
 			COUNT(d.id),
-			COUNT(*) FILTER (WHERE d.last_seen_at > NOW() - ($%d * INTERVAL '1 second')),
+			COUNT(*) FILTER (WHERE d.id = ANY($%d::uuid[])),
 			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20),
 			COUNT(DISTINCT d.build_id),
 			COUNT(*) FILTER (WHERE EXISTS (SELECT 1 FROM device_config dck WHERE dck.device_id = d.id AND dck.kiosk_enabled = true))
-		FROM devices d`, thrArg)
+		FROM devices d`, connArg)
 	for _, j := range joins {
 		q += "\n" + j
 	}
@@ -696,22 +701,22 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 	return s, err
 }
 
-func (d *DB) GetSummary(ctx context.Context, activeSecs int) (Summary, error) {
-	if activeSecs <= 0 {
-		activeSecs = 180
-	}
+// GetSummary returns fleet counts. RecentlyActive is the number of devices with a live
+// WebSocket (from the connected set), so "online" matches the dashboard's per-device
+// WS indicator rather than check-in recency. A nil/empty set means none online.
+func (d *DB) GetSummary(ctx context.Context, connected []uuid.UUID) (Summary, error) {
 	var s Summary
 	err := d.pool.QueryRow(ctx, `
 		SELECT
 			COUNT(d.id),
-			COUNT(*) FILTER (WHERE d.last_seen_at > NOW() - ($1 * INTERVAL '1 second')),
+			COUNT(*) FILTER (WHERE d.id = ANY($1::uuid[])),
 			COUNT(*) FILTER (WHERE d.latest_battery_pct < 20),
 			COUNT(DISTINCT d.build_id),
 			COUNT(*) FILTER (WHERE dc.kiosk_enabled = true)
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE NOT d.hidden
-	`, activeSecs).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.UniqueBuilds, &s.KioskCount)
+	`, connected).Scan(&s.Total, &s.RecentlyActive, &s.LowBattery, &s.UniqueBuilds, &s.KioskCount)
 	return s, err
 }
 
@@ -790,15 +795,13 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	}
 
 	if f.Online == "online" || f.Online == "offline" {
-		threshold := f.ActiveThresholdSecs
-		if threshold <= 0 {
-			threshold = 180
-		}
-		args = append(args, threshold)
+		// Online/offline is live WebSocket presence, not check-in recency: filter by
+		// membership in the connected set the handler supplied.
+		args = append(args, f.Connected)
 		if f.Online == "online" {
-			wheres = append(wheres, fmt.Sprintf("d.last_seen_at > NOW() - ($%d * INTERVAL '1 second')", argN))
+			wheres = append(wheres, fmt.Sprintf("d.id = ANY($%d::uuid[])", argN))
 		} else {
-			wheres = append(wheres, fmt.Sprintf("d.last_seen_at <= NOW() - ($%d * INTERVAL '1 second')", argN))
+			wheres = append(wheres, fmt.Sprintf("d.id <> ALL($%d::uuid[])", argN))
 		}
 		argN++
 	}
@@ -1741,12 +1744,9 @@ func (d *DB) ListRestaurantDevices(ctx context.Context, restaurantID uuid.UUID) 
 // non-hidden device NOT already in this restaurant, optionally filtered by serial, with
 // its current restaurant name. Unassigned (lab) devices sort first, then most-recently
 // seen. Powers the restaurant device picker.
-func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, query, status, battery string, limit, activeThresholdSecs int) ([]Device, error) {
+func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, query, status, battery string, limit int, connected []uuid.UUID) ([]Device, error) {
 	if limit <= 0 {
 		limit = 20
-	}
-	if activeThresholdSecs <= 0 {
-		activeThresholdSecs = 180
 	}
 	args := []any{restaurantID, query}
 	q := `
@@ -1757,12 +1757,13 @@ func (d *DB) ListAssignableDevices(ctx context.Context, restaurantID uuid.UUID, 
 		  AND d.restaurant_id IS DISTINCT FROM $1
 		  AND ($2 = '' OR d.serial_number ILIKE '%' || $2 || '%')`
 	if status == "online" || status == "offline" {
-		args = append(args, activeThresholdSecs)
-		op := ">"
+		// Online/offline is live WebSocket presence, not check-in recency.
+		args = append(args, connected)
+		op := "= ANY"
 		if status == "offline" {
-			op = "<="
+			op = "<> ALL"
 		}
-		q += fmt.Sprintf(" AND d.last_seen_at %s NOW() - ($%d * INTERVAL '1 second')", op, len(args))
+		q += fmt.Sprintf(" AND d.id %s($%d::uuid[])", op, len(args))
 	}
 	switch battery {
 	case "low":
@@ -1834,10 +1835,9 @@ func (d *DB) GetRestaurantDailyStats(ctx context.Context, restaurantID uuid.UUID
 // name). activeSecs is the offline threshold. windowDays sizes the recent aggregation
 // window and the equal-length prior window used for the delta: pass 7 for the dashboard's
 // week-over-week view, or 1 for the Daily Report (today vs yesterday).
-func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs, windowDays int) ([]GroupHealth, error) {
-	if activeSecs <= 0 {
-		activeSecs = 180
-	}
+// GetRestaurantHealth rolls up per-restaurant health. offline_count is devices WITHOUT
+// a live WebSocket (from the connected set), matching the WS-based online status.
+func (d *DB) GetRestaurantHealth(ctx context.Context, connected []uuid.UUID, windowDays int) ([]GroupHealth, error) {
 	if windowDays <= 0 {
 		windowDays = 7
 	}
@@ -1872,7 +1872,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs, windowDays int
 		devs AS (
 			SELECT d.restaurant_id,
 				COUNT(*) AS device_count,
-				COUNT(*) FILTER (WHERE d.last_seen_at < NOW() - ($1 * INTERVAL '1 second')) AS offline_count,
+				COUNT(*) FILTER (WHERE d.id <> ALL($1::uuid[])) AS offline_count,
 				COUNT(*) AS deployed_count  -- every device in a restaurant is deployed
 			FROM devices d
 			WHERE NOT d.hidden AND d.restaurant_id IS NOT NULL
@@ -1899,7 +1899,7 @@ func (d *DB) GetRestaurantHealth(ctx context.Context, activeSecs, windowDays int
 		LEFT JOIN prior   ON prior.restaurant_id   = r.id
 		LEFT JOIN hottest ON hottest.restaurant_id = r.id
 		LEFT JOIN al      ON al.restaurant_id      = r.id
-		ORDER BY r.name`, activeSecs, windowDays)
+		ORDER BY r.name`, connected, windowDays)
 	if err != nil {
 		return nil, err
 	}
@@ -1954,17 +1954,16 @@ func (d *DB) CreateProduction(ctx context.Context, p ProductionParams) (*Product
 	return &prod, nil
 }
 
-func (d *DB) ListProductions(ctx context.Context, activeSecs int) ([]Production, error) {
-	if activeSecs <= 0 {
-		activeSecs = 180
-	}
+// ListProductions returns productions with per-batch counts. "online" is devices with
+// a live WebSocket (from the connected set), matching the WS-based status elsewhere.
+func (d *DB) ListProductions(ctx context.Context, connected []uuid.UUID) ([]Production, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			p.id, p.name, p.product_code, p.model_code, p.variant, p.sku, p.batch,
 			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
-			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - ($1 * INTERVAL '1 second')) AS online
+			COUNT(d.id) FILTER (WHERE d.id = ANY($1::uuid[])) AS online
 		FROM productions p
 		LEFT JOIN devices d ON
 			d.serial_number LIKE (p.product_code || p.model_code || p.variant || p.sku || p.batch || '%')
@@ -1973,7 +1972,7 @@ func (d *DB) ListProductions(ctx context.Context, activeSecs int) ([]Production,
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
 		GROUP BY p.id
 		ORDER BY p.created_at DESC
-	`, activeSecs)
+	`, connected)
 	if err != nil {
 		return nil, err
 	}
@@ -1992,10 +1991,7 @@ func (d *DB) ListProductions(ctx context.Context, activeSecs int) ([]Production,
 	return productions, rows.Err()
 }
 
-func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, activeSecs int) (*Production, error) {
-	if activeSecs <= 0 {
-		activeSecs = 180
-	}
+func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, connected []uuid.UUID) (*Production, error) {
 	var p Production
 	err := d.pool.QueryRow(ctx, `
 		SELECT
@@ -2003,7 +1999,7 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, activeSecs int) (*
 			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
-			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - ($2 * INTERVAL '1 second')) AS online
+			COUNT(d.id) FILTER (WHERE d.id = ANY($2::uuid[])) AS online
 		FROM productions p
 		LEFT JOIN devices d ON
 			d.serial_number LIKE (p.product_code || p.model_code || p.variant || p.sku || p.batch || '%')
@@ -2012,7 +2008,7 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, activeSecs int) (*
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
 		WHERE p.id = $1
 		GROUP BY p.id
-	`, id, activeSecs).Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
+	`, id, connected).Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
 		&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.CreatedAt,
 		&p.Total, &p.EverConnected, &p.Online)
 	if err != nil {
@@ -2028,10 +2024,7 @@ func (d *DB) DeleteProduction(ctx context.Context, id uuid.UUID) error {
 
 // GetProductionDevices returns connected devices for a production.
 // Devices that have never connected are not in this list but can be inferred from total - ever_connected.
-func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID, activeSecs int) ([]ProductionDevice, error) {
-	if activeSecs <= 0 {
-		activeSecs = 180
-	}
+func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID, connected []uuid.UUID) ([]ProductionDevice, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			d.serial_number,
@@ -2041,7 +2034,7 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID, activeSecs 
 			d.last_seen_at,
 			d.created_at,
 			CASE
-				WHEN d.last_seen_at > NOW() - ($2 * INTERVAL '1 second') THEN 'online'
+				WHEN d.id = ANY($2::uuid[]) THEN 'online'
 				ELSE 'offline'
 			END AS connection_status
 		FROM productions p
@@ -2052,7 +2045,7 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID, activeSecs 
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
 		WHERE p.id = $1 AND NOT d.hidden
 		ORDER BY d.serial_number
-	`, id, activeSecs)
+	`, id, connected)
 	if err != nil {
 		return nil, err
 	}
@@ -4799,10 +4792,9 @@ func (g *GroupHealth) computeScore() {
 // GetGroupHealth returns a health scorecard per group, worst score first. activeSecs is
 // the offline threshold (a device quieter than this counts as offline). Recent window is
 // the last 7 days; battery delta compares it to the prior 7 days.
-func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth, error) {
-	if activeSecs <= 0 {
-		activeSecs = 180
-	}
+// GetGroupHealth rolls up per-group health. offline_count is devices WITHOUT a live
+// WebSocket (from the connected set), matching the dashboard's WS-based online status.
+func (d *DB) GetGroupHealth(ctx context.Context, connected []uuid.UUID) ([]GroupHealth, error) {
 	rows, err := d.pool.Query(ctx, `
 		WITH recent AS (
 			SELECT dg.group_id,
@@ -4825,7 +4817,7 @@ func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth,
 		devs AS (
 			SELECT dg.group_id,
 				COUNT(*) AS device_count,
-				COUNT(*) FILTER (WHERE d.last_seen_at < NOW() - ($1 * INTERVAL '1 second')) AS offline_count,
+				COUNT(*) FILTER (WHERE d.id <> ALL($1::uuid[])) AS offline_count,
 				COUNT(*) FILTER (WHERE d.restaurant_id IS NOT NULL) AS deployed_count
 			FROM device_groups dg
 			JOIN devices d ON d.id = dg.device_id AND NOT d.hidden
@@ -4852,7 +4844,7 @@ func (d *DB) GetGroupHealth(ctx context.Context, activeSecs int) ([]GroupHealth,
 		LEFT JOIN recent ON recent.group_id = g.id
 		LEFT JOIN prior  ON prior.group_id  = g.id
 		LEFT JOIN al     ON al.group_id     = g.id
-		ORDER BY g.name`, activeSecs)
+		ORDER BY g.name`, connected)
 	if err != nil {
 		return nil, err
 	}
@@ -6026,7 +6018,7 @@ func (d *DB) effectivePeakWindows(ctx context.Context) (map[uuid.UUID][]PeakWind
 // EvaluateAlerts runs every enabled fleet-scoped rule against device_daily_stats,
 // creating alerts for violators (deduped) and resolving alerts whose condition has
 // cleared. Returns counts of created and resolved alerts. Called from housekeeping.
-func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, resolved int, err error) {
+func (d *DB) EvaluateAlerts(ctx context.Context, connected []uuid.UUID) (created []AlertNotification, resolved int, err error) {
 	rules, err := d.ListAlertRules(ctx, true)
 	if err != nil {
 		return nil, 0, err
@@ -6042,7 +6034,7 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, r
 		if len(r.Params) > 0 {
 			_ = json.Unmarshal(r.Params, &p)
 		}
-		hits, severity, e := d.detectRule(ctx, r.Type, p)
+		hits, severity, e := d.detectRule(ctx, r.Type, p, connected)
 		if e != nil {
 			return created, resolved, e
 		}
@@ -6075,16 +6067,20 @@ func (d *DB) EvaluateAlerts(ctx context.Context) (created []AlertNotification, r
 
 // detectRule returns the devices currently violating a rule type plus the severity
 // to record. Unknown rule types return no hits.
-func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64) ([]alertHit, string, error) {
+func (d *DB) detectRule(ctx context.Context, typ string, p map[string]float64, connected []uuid.UUID) ([]alertHit, string, error) {
 	switch typ {
 	case "offline":
 		mins := int(param(p, "offline_minutes", 30))
 		qs := int(param(p, "quiet_start", 0))
 		qe := int(param(p, "quiet_end", 6))
+		// A device with a live WebSocket is not offline even if last_seen_at is stale —
+		// exclude the connected set so this matches the recent-tier rule and the
+		// dashboard's WS-based online indicator (was inconsistent before).
 		rows, err := d.pool.Query(ctx, `
 			SELECT id, serial_number, last_seen_at, COALESCE(latest_extra->>'timezone', '')
 			FROM devices
-			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')`, mins)
+			WHERE NOT hidden AND last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
+			  AND id <> ALL($2::uuid[])`, mins, connected)
 		if err != nil {
 			return nil, "critical", err
 		}

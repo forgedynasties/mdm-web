@@ -56,6 +56,17 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Conf
 	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, remote: rm, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute)}
 }
 
+// connectedSlice returns the live WebSocket-connected device IDs as a slice, so DB
+// queries derive online/offline from real presence rather than check-in recency.
+func (h *Handler) connectedSlice() []uuid.UUID {
+	set := h.hub.ConnectedIDs()
+	out := make([]uuid.UUID, 0, len(set))
+	for id := range set {
+		out = append(out, id)
+	}
+	return out
+}
+
 // decodeDeviceJSON reads a device request body (already MaxBytes-capped by the route
 // wrapper) and decodes it into v, first rejecting pathologically nested JSON. The
 // depth pre-scan uses encoding/json's iterative tokenizer (no recursion), so it can't
@@ -1349,7 +1360,7 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 // ── Productions ───────────────────────────────────────────────────────────────
 
 func (h *Handler) ListProductions(w http.ResponseWriter, r *http.Request) {
-	productions, err := h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
+	productions, err := h.db.ListProductions(r.Context(), h.connectedSlice())
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -1433,12 +1444,12 @@ func (h *Handler) GetProduction(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid production id"})
 		return
 	}
-	prod, err := h.db.GetProduction(r.Context(), id, h.cfg.CheckinInterval()*3)
+	prod, err := h.db.GetProduction(r.Context(), id, h.connectedSlice())
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "production not found"})
 		return
 	}
-	devices, err := h.db.GetProductionDevices(r.Context(), id, h.cfg.CheckinInterval()*3)
+	devices, err := h.db.GetProductionDevices(r.Context(), id, h.connectedSlice())
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return

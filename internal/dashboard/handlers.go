@@ -1578,6 +1578,18 @@ func summarizePreview(md string) string {
 	return ""
 }
 
+// connectedSlice returns the live WebSocket-connected device IDs as a slice, for DB
+// queries that compute online/offline from real presence (the ws.Hub) instead of
+// check-in recency. Empty slice = nobody online.
+func (h *Handler) connectedSlice() []uuid.UUID {
+	set := h.hub.ConnectedIDs()
+	out := make([]uuid.UUID, 0, len(set))
+	for id := range set {
+		out = append(out, id)
+	}
+	return out
+}
+
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// A ?page_size=N from the main-page selector persists to config (survives
 	// restarts) so the choice sticks across sessions and machines.
@@ -1665,6 +1677,9 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		Timezone:            r.URL.Query().Get("timezone"),
 		Hidden:              hiddenParam,
 		ActiveThresholdSecs: activeThreshold,
+		// Online/offline is live WebSocket presence: the status filter and the pill
+		// counts (GetSummaryFiltered) resolve it against this connected set.
+		Connected: h.connectedSlice(),
 	}
 
 	var (
@@ -1725,7 +1740,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	})
 	run(func() error {
 		var err error
-		productions, err = h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
+		productions, err = h.db.ListProductions(r.Context(), h.connectedSlice())
 		return err
 	})
 	run(func() error {
@@ -1745,12 +1760,12 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	})
 	run(func() error {
 		var err error
-		railGroups, err = h.db.GetGroupHealth(r.Context(), activeThreshold)
+		railGroups, err = h.db.GetGroupHealth(r.Context(), h.connectedSlice())
 		return err
 	})
 	run(func() error {
 		var err error
-		railRests, err = h.db.GetRestaurantHealth(r.Context(), activeThreshold, 7)
+		railRests, err = h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7)
 		return err
 	})
 	run(func() error {
@@ -1946,12 +1961,12 @@ func sparkPoints(vals []float64) string {
 func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	activeSecs := h.cfg.CheckinInterval() * 3
-	summary, err := h.db.GetSummary(ctx, activeSecs)
+	summary, err := h.db.GetSummary(ctx, h.connectedSlice())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	groups, _ := h.db.GetRestaurantHealth(ctx, activeSecs, 7)
+	groups, _ := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7)
 	hot, _ := h.db.CountHotDevices(ctx)
 	daily, _ := h.db.GetFleetDailyStats(ctx, 7)
 	openAlerts, _ := h.db.ListAlerts(ctx, "open", 5)
@@ -3333,18 +3348,17 @@ func (h *Handler) bulkAlertStatus(w http.ResponseWriter, r *http.Request, status
 // so the page can never cite a device the model invented. The "Detailed analysis"
 // button on the hourly-report card points here.
 func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
-	activeSecs := h.cfg.CheckinInterval() * 3
 	// Scorecard window: 7 days by default, or 1 day (today vs yesterday) via ?days=1.
 	windowDays := 7
 	if r.URL.Query().Get("days") == "1" {
 		windowDays = 1
 	}
-	groups, err := h.db.GetRestaurantHealth(r.Context(), activeSecs, windowDays)
+	groups, err := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), windowDays)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	summary, _ := h.db.GetSummary(r.Context(), activeSecs)
+	summary, _ := h.db.GetSummary(r.Context(), h.connectedSlice())
 	openAlerts, _ := h.db.CountOpenAlerts(r.Context())
 	alerts, _ := h.db.ListAlerts(r.Context(), "open", 500)
 	serials, _ := h.db.ListAllSerials(r.Context())
@@ -4082,7 +4096,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	groups, _ := h.db.ListGroups(r.Context())
-	productions, _ := h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
+	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 	connected := h.hub.ConnectedIDs()
 	online := make(map[uuid.UUID]bool, len(connected))
@@ -4148,7 +4162,7 @@ func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 	}
 	// Per-group health scores for the card grid; missing entries render as "—".
 	health := make(map[uuid.UUID]db.GroupHealth)
-	if ghs, err := h.db.GetGroupHealth(r.Context(), h.cfg.CheckinInterval()*3); err == nil {
+	if ghs, err := h.db.GetGroupHealth(r.Context(), h.connectedSlice()); err == nil {
 		for _, gh := range ghs {
 			health[gh.GroupID] = gh
 		}
@@ -4323,7 +4337,7 @@ func (h *Handler) RestaurantList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	health := make(map[uuid.UUID]db.GroupHealth)
-	if rhs, err := h.db.GetRestaurantHealth(r.Context(), h.cfg.CheckinInterval()*3, 7); err == nil {
+	if rhs, err := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7); err == nil {
 		for _, rh := range rhs {
 			health[rh.GroupID] = rh // GroupHealth.GroupID carries the restaurant id
 		}
@@ -4382,7 +4396,7 @@ func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) RestaurantNewDevices(w http.ResponseWriter, r *http.Request) {
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	devices, err := h.db.ListAssignableDevices(r.Context(), uuid.Nil, q,
-		r.URL.Query().Get("status"), r.URL.Query().Get("battery"), 60, h.cfg.CheckinInterval()*3)
+		r.URL.Query().Get("status"), r.URL.Query().Get("battery"), 60, h.connectedSlice())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -4587,7 +4601,7 @@ func (h *Handler) RestaurantDevicePicker(w http.ResponseWriter, r *http.Request)
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
 	status := r.URL.Query().Get("status")
 	battery := r.URL.Query().Get("battery")
-	devices, err := h.db.ListAssignableDevices(r.Context(), id, q, status, battery, 25, h.cfg.CheckinInterval()*3)
+	devices, err := h.db.ListAssignableDevices(r.Context(), id, q, status, battery, 25, h.connectedSlice())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -7293,7 +7307,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 
 	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
 	logcatRecent, logcatFrequent, _ := h.db.FleetLogcatSuggestions(r.Context(), 8)
-	productions, _ := h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
+	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), actionsWindowDays)
 
@@ -7439,7 +7453,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	targetSerials, _ := h.db.GetCommandTargetSerialsBatch(r.Context(), serialIDs)
 
 	// Collections for the scope-rail target picker (restaurants + releases with counts).
-	scopeRestaurants, _ := h.db.GetRestaurantHealth(r.Context(), h.cfg.CheckinInterval()*3, 7)
+	scopeRestaurants, _ := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7)
 	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
 
 	h.render(w, r, "commands.html", map[string]any{
@@ -7756,8 +7770,8 @@ func (h *Handler) CommandTargetPackages(w http.ResponseWriter, r *http.Request) 
 func (h *Handler) TargetLivePage(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	at := h.cfg.CheckinInterval() * 3
-	rests, _ := h.db.GetRestaurantHealth(ctx, at, 7)
-	groups, _ := h.db.GetGroupHealth(ctx, at)
+	rests, _ := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7)
+	groups, _ := h.db.GetGroupHealth(ctx, h.connectedSlice())
 	rels, _ := h.db.ListPublishedReleasesForRail(ctx)
 	all, _ := h.db.ListDevices(ctx, db.DeviceFilter{ActiveThresholdSecs: at}, 0, 20000, "serial", "asc")
 	connected := h.hub.ConnectedIDs()
@@ -9202,7 +9216,7 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 		log.Printf("[housekeeping] recomputed discharge cycles for %d device(s)", n)
 	}
 	// Evaluate daily-tier alert rules against the freshly rolled-up stats, then notify.
-	if created, resolved, err := h.db.EvaluateAlerts(ctx); err != nil {
+	if created, resolved, err := h.db.EvaluateAlerts(ctx, h.connectedSlice()); err != nil {
 		log.Printf("[housekeeping] evaluate alerts: %v", err)
 	} else {
 		if len(created) > 0 || resolved > 0 {
@@ -9288,12 +9302,11 @@ func (h *Handler) refreshFleetSummary(ctx context.Context) {
 // generateFleetSummary runs the fleet analysis (health + open alerts), records token
 // usage, caches the result, and returns it. Always generates — callers gate freshness.
 func (h *Handler) generateFleetSummary(ctx context.Context) (db.AISummary, error) {
-	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, err := h.db.GetRestaurantHealth(ctx, activeSecs, 1) // Daily Report: one day
+	groups, err := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 1) // Daily Report: one day
 	if err != nil {
 		return db.AISummary{}, err
 	}
-	summary, _ := h.db.GetSummary(ctx, activeSecs)
+	summary, _ := h.db.GetSummary(ctx, h.connectedSlice())
 	openAlerts, _ := h.db.CountOpenAlerts(ctx)
 	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
 
@@ -9352,13 +9365,12 @@ func (h *Handler) maybeSendDigest(ctx context.Context) {
 	if h.lastDigestDay == today || now.Hour() < 8 {
 		return
 	}
-	activeSecs := h.cfg.CheckinInterval() * 3
-	groups, err := h.db.GetRestaurantHealth(ctx, activeSecs, 1) // Daily Report: one day
+	groups, err := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 1) // Daily Report: one day
 	if err != nil {
 		log.Printf("[digest] group health: %v", err)
 		return
 	}
-	summary, _ := h.db.GetSummary(ctx, activeSecs)
+	summary, _ := h.db.GetSummary(ctx, h.connectedSlice())
 	openAlerts, _ := h.db.CountOpenAlerts(ctx)
 	alerts, _ := h.db.ListAlerts(ctx, "open", 40)
 
@@ -10657,7 +10669,7 @@ func (h *Handler) DevicePackages(w http.ResponseWriter, r *http.Request) {
 // ── Productions ───────────────────────────────────────────────────────────────
 
 func (h *Handler) ProductionList(w http.ResponseWriter, r *http.Request) {
-	productions, err := h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
+	productions, err := h.db.ListProductions(r.Context(), h.connectedSlice())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -10738,7 +10750,7 @@ func (h *Handler) ProductionDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid production ID", http.StatusBadRequest)
 		return
 	}
-	prod, err := h.db.GetProduction(r.Context(), id, h.cfg.CheckinInterval()*3)
+	prod, err := h.db.GetProduction(r.Context(), id, h.connectedSlice())
 	if err != nil {
 		http.Error(w, "Production not found", http.StatusNotFound)
 		return
@@ -10762,12 +10774,12 @@ func (h *Handler) ProductionExportCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid production ID", http.StatusBadRequest)
 		return
 	}
-	prod, err := h.db.GetProduction(r.Context(), id, h.cfg.CheckinInterval()*3)
+	prod, err := h.db.GetProduction(r.Context(), id, h.connectedSlice())
 	if err != nil {
 		http.Error(w, "Production not found", http.StatusNotFound)
 		return
 	}
-	devices, err := h.db.GetProductionDevices(r.Context(), id, h.cfg.CheckinInterval()*3)
+	devices, err := h.db.GetProductionDevices(r.Context(), id, h.connectedSlice())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
