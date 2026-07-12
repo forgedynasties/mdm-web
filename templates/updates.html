@@ -25,10 +25,10 @@
 
     <div class="form-row">
       <label class="form-label">Reboot After Install</label>
-      <div class="seg-control" id="reboot-seg">
-        <button type="button" class="seg-btn active" data-mode="immediate" onclick="setReboot('immediate')">Immediate</button>
-        <button type="button" class="seg-btn"        data-mode="scheduled" onclick="setReboot('scheduled')">Scheduled</button>
-        <button type="button" class="seg-btn"        data-mode="manual"    onclick="setReboot('manual')">Manual</button>
+      <div class="seg-control" id="reboot-seg" role="radiogroup" aria-label="Reboot after install">
+        <button type="button" class="seg-btn active" data-mode="immediate" onclick="setReboot('immediate')" role="radio" aria-checked="true">Immediate</button>
+        <button type="button" class="seg-btn"        data-mode="scheduled" onclick="setReboot('scheduled')" role="radio" aria-checked="false">Scheduled</button>
+        <button type="button" class="seg-btn"        data-mode="manual"    onclick="setReboot('manual')" role="radio" aria-checked="false">Manual</button>
       </div>
       <input type="hidden" name="reboot_behavior" id="reboot-input" value="immediate">
     </div>
@@ -40,9 +40,9 @@
 
     <div class="form-row">
       <label class="form-label">Targets</label>
-      <div class="seg-control" id="target-seg">
-        <button type="button" class="seg-btn active" data-tab="devices" onclick="setTargetTab('devices')">Devices</button>
-        <button type="button" class="seg-btn"        data-tab="groups"  onclick="setTargetTab('groups')">Groups</button>
+      <div class="seg-control" id="target-seg" role="radiogroup" aria-label="Target type">
+        <button type="button" class="seg-btn active" data-tab="devices" onclick="setTargetTab('devices')" role="radio" aria-checked="true">Devices</button>
+        <button type="button" class="seg-btn"        data-tab="groups"  onclick="setTargetTab('groups')" role="radio" aria-checked="false">Groups</button>
       </div>
       <div class="form-hint">A device that doesn't match the release's artifact (e.g. wrong source build for an incremental) is skipped automatically at delivery.</div>
     </div>
@@ -151,12 +151,12 @@
 function setReboot(mode) {
   document.getElementById('reboot-input').value = mode;
   document.getElementById('scheduled-time-row').style.display = mode === 'scheduled' ? '' : 'none';
-  document.querySelectorAll('#reboot-seg .seg-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.mode === mode); });
+  document.querySelectorAll('#reboot-seg .seg-btn').forEach(function(b) { var sel = b.dataset.mode === mode; b.classList.toggle('active', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
 }
 function setTargetTab(tab) {
   document.getElementById('tab-devices').style.display = tab === 'devices' ? '' : 'none';
   document.getElementById('tab-groups').style.display  = tab === 'groups'  ? '' : 'none';
-  document.querySelectorAll('#target-seg .seg-btn').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === tab); });
+  document.querySelectorAll('#target-seg .seg-btn').forEach(function(b) { var sel = b.dataset.tab === tab; b.classList.toggle('active', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
 }
 function deployFilter(panelId) {
   var el = document.getElementById(panelId);

@@ -76,16 +76,16 @@
 {{end}}
 
 <!-- Tabs: Overview / QA / Problems / Packages (admin) / Rollout -->
-<div class="dd-tabs" role="tablist" id="rel-tabs">
-  <button class="dd-tab{{if eq $tab "overview"}} active{{end}}" role="tab" type="button" data-rel-tab="overview" onclick="setRelTab('overview',this)">Overview</button>
-  <button class="dd-tab{{if eq $tab "qa"}} active{{end}}" role="tab" type="button" data-rel-tab="qa" onclick="setRelTab('qa',this)">QA <span id="rd-qa-badge" class="tab-badge">{{template "rd-qa-badge" .}}</span></button>
-  <button class="dd-tab{{if eq $tab "problems"}} active{{end}}" role="tab" type="button" data-rel-tab="problems" onclick="setRelTab('problems',this)">Problems <span id="rd-prob-badge" class="tab-badge">{{template "rd-prob-badge" .}}</span></button>
-  {{if $isAdmin}}<button class="dd-tab{{if eq $tab "packages"}} active{{end}}" role="tab" type="button" data-rel-tab="packages" onclick="setRelTab('packages',this)">Packages</button>{{end}}
-  <button class="dd-tab{{if eq $tab "rollout"}} active{{end}}" role="tab" type="button" data-rel-tab="rollout" onclick="setRelTab('rollout',this)">Rollout</button>
+<div class="dd-tabs" role="tablist" id="rel-tabs" aria-label="Release workspace">
+  <button class="dd-tab{{if eq $tab "overview"}} active{{end}}" id="rel-tab-overview" role="tab" type="button" aria-selected="{{if eq $tab "overview"}}true{{else}}false{{end}}" aria-controls="rel-panel-overview" data-rel-tab="overview" onclick="setRelTab('overview',this)">Overview</button>
+  <button class="dd-tab{{if eq $tab "qa"}} active{{end}}" id="rel-tab-qa" role="tab" type="button" aria-selected="{{if eq $tab "qa"}}true{{else}}false{{end}}" aria-controls="rel-panel-qa" data-rel-tab="qa" onclick="setRelTab('qa',this)">QA <span id="rd-qa-badge" class="tab-badge">{{template "rd-qa-badge" .}}</span></button>
+  <button class="dd-tab{{if eq $tab "problems"}} active{{end}}" id="rel-tab-problems" role="tab" type="button" aria-selected="{{if eq $tab "problems"}}true{{else}}false{{end}}" aria-controls="rel-panel-problems" data-rel-tab="problems" onclick="setRelTab('problems',this)">Problems <span id="rd-prob-badge" class="tab-badge">{{template "rd-prob-badge" .}}</span></button>
+  {{if $isAdmin}}<button class="dd-tab{{if eq $tab "packages"}} active{{end}}" id="rel-tab-packages" role="tab" type="button" aria-selected="{{if eq $tab "packages"}}true{{else}}false{{end}}" aria-controls="rel-panel-packages" data-rel-tab="packages" onclick="setRelTab('packages',this)">Packages</button>{{end}}
+  <button class="dd-tab{{if eq $tab "rollout"}} active{{end}}" id="rel-tab-rollout" role="tab" type="button" aria-selected="{{if eq $tab "rollout"}}true{{else}}false{{end}}" aria-controls="rel-panel-rollout" data-rel-tab="rollout" onclick="setRelTab('rollout',this)">Rollout</button>
 </div>
 
 <!-- ── Overview ─────────────────────────────────────────────────────────── -->
-<section class="dd-panel" data-rel-panel="overview"{{if ne $tab "overview"}} hidden{{end}}>
+<section class="dd-panel" data-rel-panel="overview" id="rel-panel-overview" role="tabpanel" aria-labelledby="rel-tab-overview" tabindex="0"{{if ne $tab "overview"}} hidden{{end}}>
   <!-- Release lifecycle pipeline — Created → Sign-off → QA → Testing done (finish). -->
   <div class="pipe">
     <div class="stage done"><div class="node"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></div><div class="st-name">Created</div><div class="st-sub">{{timeSince $rel.CreatedAt}}</div></div>
@@ -163,7 +163,7 @@
 </section>
 
 <!-- ── QA ───────────────────────────────────────────────────────────────── -->
-<section class="dd-panel" data-rel-panel="qa"{{if ne $tab "qa"}} hidden{{end}}>
+<section class="dd-panel" data-rel-panel="qa" id="rel-panel-qa" role="tabpanel" aria-labelledby="rel-tab-qa" tabindex="0"{{if ne $tab "qa"}} hidden{{end}}>
   <div class="card">
     <div class="card-header">
       <h3>Testing &amp; QA</h3>
@@ -205,7 +205,7 @@
 </section>
 
 <!-- ── Problems ─────────────────────────────────────────────────────────── -->
-<section class="dd-panel" data-rel-panel="problems"{{if ne $tab "problems"}} hidden{{end}}>
+<section class="dd-panel" data-rel-panel="problems" id="rel-panel-problems" role="tabpanel" aria-labelledby="rel-tab-problems" tabindex="0"{{if ne $tab "problems"}} hidden{{end}}>
   <div class="card">
     <div class="card-header">
       <h3>Problems</h3>
@@ -260,7 +260,7 @@
 
 <!-- ── Packages (admin/dev) ─────────────────────────────────────────────── -->
 {{if $isAdmin}}
-<section class="dd-panel" data-rel-panel="packages"{{if ne $tab "packages"}} hidden{{end}}>
+<section class="dd-panel" data-rel-panel="packages" id="rel-panel-packages" role="tabpanel" aria-labelledby="rel-tab-packages" tabindex="0"{{if ne $tab "packages"}} hidden{{end}}>
   <div class="card" style="margin-bottom:18px;">
     <div class="card-header"><h3>Packages</h3><span class="muted small">the server picks the right artifact per device</span></div>
     <div style="padding:16px 18px;">
@@ -325,7 +325,7 @@
 {{end}}
 
 <!-- ── Rollout ──────────────────────────────────────────────────────────── -->
-<section class="dd-panel" data-rel-panel="rollout"{{if ne $tab "rollout"}} hidden{{end}}>
+<section class="dd-panel" data-rel-panel="rollout" id="rel-panel-rollout" role="tabpanel" aria-labelledby="rel-tab-rollout" tabindex="0"{{if ne $tab "rollout"}} hidden{{end}}>
   <div class="card" style="margin-bottom:18px;">
     <div class="card-header"><h3>Rollout</h3>{{if eq $role "admin"}}<a class="muted small" href="/updates?release={{$rel.ID}}" style="text-decoration:none;">Deploy →</a>{{end}}</div>
     <div style="padding:6px 18px 8px;">
@@ -377,7 +377,9 @@
   var relTabKey = 'rel-tab:{{$rel.ID}}';
   function apply(name) {
     document.querySelectorAll('#rel-tabs .dd-tab').forEach(function (t) {
-      t.classList.toggle('active', t.getAttribute('data-rel-tab') === name);
+      var sel = t.getAttribute('data-rel-tab') === name;
+      t.classList.toggle('active', sel);
+      t.setAttribute('aria-selected', sel ? 'true' : 'false');
     });
     document.querySelectorAll('.dd-panel[data-rel-panel]').forEach(function (p) {
       p.hidden = p.getAttribute('data-rel-panel') !== name;
