@@ -6161,7 +6161,10 @@ func defaultActiveWindow(typ string) string {
 // EvaluateRecentAlerts runs every enabled recent-tier rule against current telemetry,
 // gating each hit to the rule's active window (per-venue service hours), then creating
 // and auto-resolving alerts exactly like EvaluateAlerts. Called from the 1-minute ticker.
-func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotification, resolved int, err error) {
+// EvaluateRecentAlerts runs the recent-tier rules. `connected` is the set of
+// device ids with a live WebSocket, used so the offline family doesn't page a
+// device that is still connected (see offlineHitsQuery).
+func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (created []AlertNotification, resolved int, err error) {
 	rules, err := d.ListAlertRules(ctx, true)
 	if err != nil {
 		return nil, 0, err
@@ -6187,7 +6190,7 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 		if len(r.Params) > 0 {
 			_ = json.Unmarshal(r.Params, &p)
 		}
-		hits, severity, e := d.detectRecentRule(ctx, r.Type, p)
+		hits, severity, e := d.detectRecentRule(ctx, r.Type, p, connected)
 		if e != nil {
 			return created, resolved, e
 		}
@@ -6253,6 +6256,11 @@ const recentReportingCutoff = "15 minutes"
 const offlineHitsQuery = `
 	SELECT d.id, d.serial_number, d.last_seen_at FROM devices d
 	WHERE NOT d.hidden AND d.last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
+	  -- A device with a live WebSocket is NOT offline, even if its last_seen_at has
+	  -- gone stale — this keeps the alert consistent with the dashboard's WS-based
+	  -- online indicator instead of paging a still-connected device. $3 is the set of
+	  -- currently-connected device ids (empty array = nobody connected → excludes none).
+	  AND d.id <> ALL($3::uuid[])
 	  AND NOT EXISTS (
 	    SELECT 1 FROM alerts a
 	    WHERE a.device_id = d.id AND a.type = $2 AND a.status = 'resolved'
@@ -6261,11 +6269,11 @@ const offlineHitsQuery = `
 
 // detectRecentRule returns devices currently violating a recent-tier rule. Window gating
 // is applied by the caller (EvaluateRecentAlerts).
-func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]float64) ([]alertHit, string, error) {
+func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]float64, connected []uuid.UUID) ([]alertHit, string, error) {
 	switch typ {
 	case "offline":
 		mins := int(param(p, "offline_minutes", 5))
-		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline")
+		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline", connected)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -6569,7 +6577,9 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			) c JOIN devices dv ON dv.id = c.device_id
 			WHERE NOT dv.hidden
 			GROUP BY c.device_id, dv.serial_number
-			HAVING bool_and(c.wlc = '1')
+			-- A missing wlc_status must break continuity too (the comment above says so);
+			-- bool_and skips NULLs, so treat NULL as "not on the pad" explicitly.
+			HAVING bool_and(c.wlc IS NOT NULL AND c.wlc = '1')
 			   AND (MAX(c.created_at) - MIN(c.created_at)) >= ($1 * INTERVAL '1 minute')`, sustain)
 		if err != nil {
 			return nil, "critical", err
@@ -6626,7 +6636,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// Offline during peak hours (peak-windowed + deployed-only via the caller). Shorter
 		// fuse than the anytime rules because an outage mid-service is urgent.
 		mins := int(param(p, "offline_minutes", 5))
-		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline_peak")
+		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline_peak", connected)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -6717,7 +6727,11 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				SELECT device_id,
 				       (array_agg(battery_pct ORDER BY created_at ASC))[1]  AS first_batt,
 				       (array_agg(battery_pct ORDER BY created_at DESC))[1] AS last_batt,
-				       bool_and((extra->>'charging')::boolean) AS always_charging,
+				       -- COALESCE missing charging to FALSE: a check-in that doesn't
+				       -- confirm charging breaks "always charging" (bool_and silently
+				       -- SKIPS NULLs, so without this an unplugged stretch that omitted
+				       -- the field still counted as continuously charging).
+				       bool_and(COALESCE((extra->>'charging')::boolean, false)) AS always_charging,
 				       COUNT(*) AS n,
 				       (MAX(created_at) - MIN(created_at)) AS span
 				FROM checkins
