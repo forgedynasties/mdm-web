@@ -293,8 +293,8 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 // ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
 type checkinRequest struct {
-	SerialNumber  string          `json:"serial_number"`
-	BuildID       string          `json:"build_id"`
+	SerialNumber string `json:"serial_number"`
+	BuildID      string `json:"build_id"`
 	// Pointer so a delta telemetry frame that omits an unchanged battery_pct is
 	// distinguishable from a real 0 — the server keeps the prior value in that case.
 	BatteryPct    *int            `json:"battery_pct"`
@@ -329,6 +329,11 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
 		return
 	}
+	// Trim the device-reported build id so trailing/leading whitespace can't make it
+	// mismatch a stored target_build_id (which would miss "already on target" and
+	// re-send an OTA to an up-to-date device, or block deployment completion).
+	req.SerialNumber = strings.TrimSpace(req.SerialNumber)
+	req.BuildID = strings.TrimSpace(req.BuildID)
 	if req.SerialNumber == "" || req.BuildID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and build_id are required"})
 		return
@@ -595,22 +600,30 @@ func (h *Handler) afterOtaTerminal(ctx context.Context, deviceID uuid.UUID, stat
 			if upd.OtaPackage != nil && upd.OtaPackage.Type == "incremental" {
 				_ = h.db.SetUpdateDeviceForceFull(ctx, upd.ID, deviceID)
 			}
+			// 'failed' is terminal for this device — this may have been the last
+			// non-terminal device, so re-check whether the deployment is now complete
+			// (otherwise a failed device leaves it stuck 'active' forever).
+			_ = h.db.CheckAndCompleteUpdate(ctx, upd.ID)
 		}
 		return
 	}
 	// status == "installed": the new build is applied to the inactive slot and
 	// takes effect at the next reboot. What happens now is the deployment's call.
-	behavior := "immediate"
-	if upd != nil {
-		behavior = upd.RebootBehavior
-		_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "awaiting_reboot")
+	// If we can't resolve which deployment this device belongs to, we don't know its
+	// reboot policy — do NOT synthesize an immediate reboot (that would reboot a
+	// 'manual' deployment's device and leave the row untracked). Let a later, re-
+	// resolving checkin or an operator handle it.
+	if upd == nil {
+		return
 	}
+	behavior := upd.RebootBehavior
+	_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "awaiting_reboot")
 	switch behavior {
 	case "manual":
 		// An operator reboots the device when convenient — never auto-reboot.
 		return
 	case "scheduled":
-		if upd != nil && upd.ScheduledTime != nil && upd.ScheduledTime.After(time.Now()) {
+		if upd.ScheduledTime != nil && upd.ScheduledTime.After(time.Now()) {
 			return // ProcessDueScheduledReboots pushes the reboot when due
 		}
 		// No schedule or already past due — reboot now.
@@ -650,6 +663,31 @@ func (h *Handler) ProcessDueScheduledReboots(ctx context.Context) {
 		h.pushCommand(ctx, cmd, "devices", []uuid.UUID{dr.DeviceID})
 		h.hub.PublishDeviceUpdate(dr.DeviceID)
 		log.Printf("[ota-scheduler] scheduled reboot pushed device=%s update=%d", dr.DeviceID, dr.UpdateID)
+	}
+}
+
+// RedriveStuckReboots re-issues the reboot for devices stuck at 'reboot_sent' (the
+// reboot command was lost or declined) so a device that installed but never rebooted
+// doesn't keep its deployment 'active' forever. Only auto-reboot ('immediate'/
+// 'scheduled') deployments reach 'reboot_sent', so re-driving matches the intent.
+func (h *Handler) RedriveStuckReboots(ctx context.Context) {
+	const staleMinutes = 15
+	stuck, err := h.db.ListStaleRebootSent(ctx, staleMinutes)
+	if err != nil {
+		log.Printf("[ota-scheduler] ListStaleRebootSent error: %v", err)
+		return
+	}
+	for _, dr := range stuck {
+		cmd, err := h.db.CreateCommand(ctx, "reboot", "", nil, "devices", []uuid.UUID{dr.DeviceID})
+		if err != nil {
+			log.Printf("[ota-scheduler] re-drive reboot command error: %v", err)
+			continue
+		}
+		// Refresh updated_at so this device isn't re-driven again for another window.
+		_ = h.db.SetUpdateDeviceStatus(ctx, dr.UpdateID, dr.DeviceID, "reboot_sent")
+		h.pushCommand(ctx, cmd, "devices", []uuid.UUID{dr.DeviceID})
+		h.hub.PublishDeviceUpdate(dr.DeviceID)
+		log.Printf("[ota-scheduler] re-drove stuck reboot device=%s update=%d", dr.DeviceID, dr.UpdateID)
 	}
 }
 
@@ -698,6 +736,8 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		log.Printf("[ws-telemetry] parse error: %v", err)
 		return
 	}
+	req.SerialNumber = strings.TrimSpace(req.SerialNumber)
+	req.BuildID = strings.TrimSpace(req.BuildID)
 	if req.SerialNumber == "" || req.BuildID == "" {
 		log.Printf("[ws-telemetry] missing serial_number or build_id")
 		return
@@ -1226,7 +1266,7 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 // ── Productions ───────────────────────────────────────────────────────────────
 
 func (h *Handler) ListProductions(w http.ResponseWriter, r *http.Request) {
-	productions, err := h.db.ListProductions(r.Context())
+	productions, err := h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -1256,6 +1296,15 @@ func (h *Handler) CreateProduction(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.TrimSpace(body.Name) == "" || body.ProductCode == "" || body.ModelCode == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "name, product_code, model_code required"})
+		return
+	}
+	// The serial schema is a fixed 9-char prefix (product2+model2+variant1+sku2+batch2)
+	// + 5-digit sequence = 14 chars, and the device-matching queries hard-code
+	// LENGTH(serial)=14 and read the sequence at positions 10-14. A wrong-length code
+	// shifts those positions and matches the wrong devices — the dashboard enforces
+	// this, so the API must too.
+	if len(body.ProductCode) != 2 || len(body.ModelCode) != 2 || len(body.Variant) != 1 || len(body.SKU) != 2 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "product_code and sku must be 2 chars, model_code 2, variant 1"})
 		return
 	}
 	if body.BatchMonth < 1 || body.BatchMonth > 12 || body.BatchYear < 0 || body.BatchYear > 99 {
@@ -1301,12 +1350,12 @@ func (h *Handler) GetProduction(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid production id"})
 		return
 	}
-	prod, err := h.db.GetProduction(r.Context(), id)
+	prod, err := h.db.GetProduction(r.Context(), id, h.cfg.CheckinInterval()*3)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "production not found"})
 		return
 	}
-	devices, err := h.db.GetProductionDevices(r.Context(), id)
+	devices, err := h.db.GetProductionDevices(r.Context(), id, h.cfg.CheckinInterval()*3)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return

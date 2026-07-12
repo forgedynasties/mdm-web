@@ -32,6 +32,10 @@ type Device struct {
 	// DischargeTotalPct is the lifetime cumulative percent of battery capacity
 	// discharged (never resets). BatteryCycles() renders it as equivalent full cycles.
 	DischargeTotalPct int64 `json:"discharge_total_pct"`
+	// DischargeLegacyPct is the prior range-based estimate, kept during the transition
+	// to the corrected discharge accounting so the two can be compared. Zero once the
+	// difference no longer matters. Rendered by BatteryCyclesLegacy().
+	DischargeLegacyPct int64 `json:"discharge_legacy_pct"`
 	// DischargeBackfilled is false until the one-time history seed has run for this
 	// device. While false the cycle count is not yet meaningful (show "—", not 0.0).
 	DischargeBackfilled bool `json:"discharge_backfilled"`
@@ -48,6 +52,12 @@ type Device struct {
 // battery cycles (1 cycle = 100% of capacity discharged). 250% total => 2.5 cycles.
 func (d Device) BatteryCycles() float64 {
 	return float64(d.DischargeTotalPct) / 100
+}
+
+// BatteryCyclesLegacy renders the prior range-based estimate as cycles, for
+// side-by-side comparison during the transition to corrected discharge accounting.
+func (d Device) BatteryCyclesLegacy() float64 {
+	return float64(d.DischargeLegacyPct) / 100
 }
 
 // Restaurant is a real venue a device physically lives in. It owns the venue semantics
@@ -416,6 +426,13 @@ func New(ctx context.Context, connStr string) (*DB, error) {
 	cfg.MaxConnLifetime = time.Hour
 	cfg.MaxConnLifetimeJitter = 5 * time.Minute
 	cfg.MaxConnIdleTime = 30 * time.Minute
+	// Pin the session timezone to UTC so `::date` bucketing in the daily-stats
+	// rollup is deterministic regardless of the server/container locale (and matches
+	// the Go side, which uses time.Now().UTC()).
+	if cfg.ConnConfig.RuntimeParams == nil {
+		cfg.ConnConfig.RuntimeParams = map[string]string{}
+	}
+	cfg.ConnConfig.RuntimeParams["timezone"] = "UTC"
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -623,7 +640,7 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		argN++
 	}
 	if f.ProductionID != uuid.Nil {
-		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
+		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$' AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
 		args = append(args, f.ProductionID)
 		argN++
 	}
@@ -743,7 +760,7 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	}
 
 	if f.ProductionID != uuid.Nil {
-		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
+		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$' AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
 		args = append(args, f.ProductionID)
 		argN++
 	}
@@ -1112,14 +1129,14 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
 			d.latest_extra AS latest_extra,
-			d.discharge_total_pct, d.discharge_backfilled,
+			d.discharge_total_pct, d.discharge_legacy_pct, d.discharge_backfilled,
 			d.restaurant_id, COALESCE(r.name, ''),
 			(d.restaurant_id IS NOT NULL) AS deployed_effective
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeLegacyPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -1140,16 +1157,25 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 func (d *DB) RecomputeDischargeCycles(ctx context.Context) (int, error) {
 	tag, err := d.pool.Exec(ctx, `
 		UPDATE devices dv SET
+			-- Corrected: exact per-day discharge where we have it (days rolled after the
+			-- fix), falling back to the old range estimate for pre-existing days — so
+			-- history is estimated and going-forward is exact, without rescanning check-ins.
 			discharge_total_pct  = COALESCE(s.total, 0),
+			-- Legacy: the pure old range-based figure, kept for transition comparison.
+			discharge_legacy_pct = COALESCE(s.legacy, 0),
 			discharge_backfilled = true
 		FROM (
-			SELECT device_id, SUM(GREATEST(0, battery_max - battery_min))::bigint AS total
+			SELECT device_id,
+			       SUM(COALESCE(discharge_pct, GREATEST(0, battery_max - battery_min)))::bigint AS total,
+			       SUM(GREATEST(0, battery_max - battery_min))::bigint AS legacy
 			FROM device_daily_stats
 			WHERE battery_max IS NOT NULL AND battery_min IS NOT NULL
 			GROUP BY device_id
 		) s
 		WHERE dv.id = s.device_id
-		  AND (dv.discharge_total_pct <> COALESCE(s.total, 0) OR NOT dv.discharge_backfilled)`)
+		  AND (dv.discharge_total_pct <> COALESCE(s.total, 0)
+		       OR dv.discharge_legacy_pct <> COALESCE(s.legacy, 0)
+		       OR NOT dv.discharge_backfilled)`)
 	if err != nil {
 		return 0, err
 	}
@@ -1904,14 +1930,17 @@ func (d *DB) CreateProduction(ctx context.Context, p ProductionParams) (*Product
 	return &prod, nil
 }
 
-func (d *DB) ListProductions(ctx context.Context) ([]Production, error) {
+func (d *DB) ListProductions(ctx context.Context, activeSecs int) ([]Production, error) {
+	if activeSecs <= 0 {
+		activeSecs = 180
+	}
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			p.id, p.name, p.product_code, p.model_code, p.variant, p.sku, p.batch,
 			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
-			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes') AS online
+			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - ($1 * INTERVAL '1 second')) AS online
 		FROM productions p
 		LEFT JOIN devices d ON
 			d.serial_number LIKE (p.product_code || p.model_code || p.variant || p.sku || p.batch || '%')
@@ -1920,7 +1949,7 @@ func (d *DB) ListProductions(ctx context.Context) ([]Production, error) {
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
 		GROUP BY p.id
 		ORDER BY p.created_at DESC
-	`)
+	`, activeSecs)
 	if err != nil {
 		return nil, err
 	}
@@ -1939,7 +1968,10 @@ func (d *DB) ListProductions(ctx context.Context) ([]Production, error) {
 	return productions, rows.Err()
 }
 
-func (d *DB) GetProduction(ctx context.Context, id uuid.UUID) (*Production, error) {
+func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, activeSecs int) (*Production, error) {
+	if activeSecs <= 0 {
+		activeSecs = 180
+	}
 	var p Production
 	err := d.pool.QueryRow(ctx, `
 		SELECT
@@ -1947,7 +1979,7 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID) (*Production, erro
 			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
-			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes') AS online
+			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - ($2 * INTERVAL '1 second')) AS online
 		FROM productions p
 		LEFT JOIN devices d ON
 			d.serial_number LIKE (p.product_code || p.model_code || p.variant || p.sku || p.batch || '%')
@@ -1956,7 +1988,7 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID) (*Production, erro
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
 		WHERE p.id = $1
 		GROUP BY p.id
-	`, id).Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
+	`, id, activeSecs).Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
 		&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.CreatedAt,
 		&p.Total, &p.EverConnected, &p.Online)
 	if err != nil {
@@ -1972,7 +2004,10 @@ func (d *DB) DeleteProduction(ctx context.Context, id uuid.UUID) error {
 
 // GetProductionDevices returns connected devices for a production.
 // Devices that have never connected are not in this list but can be inferred from total - ever_connected.
-func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]ProductionDevice, error) {
+func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID, activeSecs int) ([]ProductionDevice, error) {
+	if activeSecs <= 0 {
+		activeSecs = 180
+	}
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			d.serial_number,
@@ -1982,7 +2017,7 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]Producti
 			d.last_seen_at,
 			d.created_at,
 			CASE
-				WHEN d.last_seen_at > NOW() - INTERVAL '3 minutes' THEN 'online'
+				WHEN d.last_seen_at > NOW() - ($2 * INTERVAL '1 second') THEN 'online'
 				ELSE 'offline'
 			END AS connection_status
 		FROM productions p
@@ -1993,7 +2028,7 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]Producti
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
 		WHERE p.id = $1 AND NOT d.hidden
 		ORDER BY d.serial_number
-	`, id)
+	`, id, activeSecs)
 	if err != nil {
 		return nil, err
 	}
@@ -4317,7 +4352,8 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			SELECT c.device_id, c.battery_pct, c.build_id, c.created_at, c.extra,
 				COALESCE(LEAST(EXTRACT(EPOCH FROM (
 					LEAD(c.created_at) OVER (PARTITION BY c.device_id ORDER BY c.created_at)
-					- c.created_at)), 600), 0) AS w
+					- c.created_at)), 600), 0) AS w,
+				LAG(c.battery_pct) OVER (PARTITION BY c.device_id ORDER BY c.created_at) AS prev_batt
 			FROM checkins c
 			WHERE c.created_at >= $1::date AND c.created_at < ($1::date + INTERVAL '1 day')
 		)
@@ -4325,7 +4361,7 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			device_id, day, checkin_count, battery_min, battery_max, battery_avg,
 			temp_max, ram_pct_peak, charging_frac, online_minutes, build_id,
 			first_seen_at, last_seen_at,
-			wlc_guest_frac, pad_readable, storage_free_last_gb, computed_at)
+			wlc_guest_frac, pad_readable, storage_free_last_gb, discharge_pct, computed_at)
 		SELECT
 			device_id,
 			$1::date,
@@ -4352,6 +4388,10 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 				AVG(CASE WHEN extra->>'wlc_status' = '1' THEN 1 ELSE 0 END)::real),
 			bool_or(extra->>'wlc_status' IS NOT NULL AND extra->>'wlc_status' <> '-1'),
 			(ARRAY_AGG((extra->>'storage_free_gb')::numeric ORDER BY created_at DESC))[1]::real,
+			-- True discharge: sum of per-step battery DROPS (charge climbs contribute 0,
+			-- so a device that only charges accrues 0). NULL prev_batt (day's first
+			-- sample) contributes nothing, so a discharge spanning midnight isn't split.
+			COALESCE(SUM(GREATEST(0, prev_batt - battery_pct)), 0)::real,
 			NOW()
 		FROM samples
 		GROUP BY device_id
@@ -4370,6 +4410,7 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			wlc_guest_frac       = EXCLUDED.wlc_guest_frac,
 			pad_readable         = EXCLUDED.pad_readable,
 			storage_free_last_gb = EXCLUDED.storage_free_last_gb,
+			discharge_pct  = EXCLUDED.discharge_pct,
 			computed_at    = EXCLUDED.computed_at
 	`, dayStr)
 	if err != nil {
@@ -6193,7 +6234,10 @@ func defaultActiveWindow(typ string) string {
 // EvaluateRecentAlerts runs every enabled recent-tier rule against current telemetry,
 // gating each hit to the rule's active window (per-venue service hours), then creating
 // and auto-resolving alerts exactly like EvaluateAlerts. Called from the 1-minute ticker.
-func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotification, resolved int, err error) {
+// EvaluateRecentAlerts runs the recent-tier rules. `connected` is the set of
+// device ids with a live WebSocket, used so the offline family doesn't page a
+// device that is still connected (see offlineHitsQuery).
+func (d *DB) EvaluateRecentAlerts(ctx context.Context, connected []uuid.UUID) (created []AlertNotification, resolved int, err error) {
 	rules, err := d.ListAlertRules(ctx, true)
 	if err != nil {
 		return nil, 0, err
@@ -6219,7 +6263,7 @@ func (d *DB) EvaluateRecentAlerts(ctx context.Context) (created []AlertNotificat
 		if len(r.Params) > 0 {
 			_ = json.Unmarshal(r.Params, &p)
 		}
-		hits, severity, e := d.detectRecentRule(ctx, r.Type, p)
+		hits, severity, e := d.detectRecentRule(ctx, r.Type, p, connected)
 		if e != nil {
 			return created, resolved, e
 		}
@@ -6285,6 +6329,11 @@ const recentReportingCutoff = "15 minutes"
 const offlineHitsQuery = `
 	SELECT d.id, d.serial_number, d.last_seen_at FROM devices d
 	WHERE NOT d.hidden AND d.last_seen_at < NOW() - ($1 * INTERVAL '1 minute')
+	  -- A device with a live WebSocket is NOT offline, even if its last_seen_at has
+	  -- gone stale — this keeps the alert consistent with the dashboard's WS-based
+	  -- online indicator instead of paging a still-connected device. $3 is the set of
+	  -- currently-connected device ids (empty array = nobody connected → excludes none).
+	  AND d.id <> ALL($3::uuid[])
 	  AND NOT EXISTS (
 	    SELECT 1 FROM alerts a
 	    WHERE a.device_id = d.id AND a.type = $2 AND a.status = 'resolved'
@@ -6293,11 +6342,11 @@ const offlineHitsQuery = `
 
 // detectRecentRule returns devices currently violating a recent-tier rule. Window gating
 // is applied by the caller (EvaluateRecentAlerts).
-func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]float64) ([]alertHit, string, error) {
+func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]float64, connected []uuid.UUID) ([]alertHit, string, error) {
 	switch typ {
 	case "offline":
 		mins := int(param(p, "offline_minutes", 5))
-		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline")
+		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline", connected)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -6601,7 +6650,9 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 			) c JOIN devices dv ON dv.id = c.device_id
 			WHERE NOT dv.hidden
 			GROUP BY c.device_id, dv.serial_number
-			HAVING bool_and(c.wlc = '1')
+			-- A missing wlc_status must break continuity too (the comment above says so);
+			-- bool_and skips NULLs, so treat NULL as "not on the pad" explicitly.
+			HAVING bool_and(c.wlc IS NOT NULL AND c.wlc = '1')
 			   AND (MAX(c.created_at) - MIN(c.created_at)) >= ($1 * INTERVAL '1 minute')`, sustain)
 		if err != nil {
 			return nil, "critical", err
@@ -6658,7 +6709,7 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 		// Offline during peak hours (peak-windowed + deployed-only via the caller). Shorter
 		// fuse than the anytime rules because an outage mid-service is urgent.
 		mins := int(param(p, "offline_minutes", 5))
-		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline_peak")
+		rows, err := d.pool.Query(ctx, offlineHitsQuery, mins, "offline_peak", connected)
 		if err != nil {
 			return nil, "critical", err
 		}
@@ -6749,7 +6800,11 @@ func (d *DB) detectRecentRule(ctx context.Context, typ string, p map[string]floa
 				SELECT device_id,
 				       (array_agg(battery_pct ORDER BY created_at ASC))[1]  AS first_batt,
 				       (array_agg(battery_pct ORDER BY created_at DESC))[1] AS last_batt,
-				       bool_and((extra->>'charging')::boolean) AS always_charging,
+				       -- COALESCE missing charging to FALSE: a check-in that doesn't
+				       -- confirm charging breaks "always charging" (bool_and silently
+				       -- SKIPS NULLs, so without this an unplugged stretch that omitted
+				       -- the field still counted as continuously charging).
+				       bool_and(COALESCE((extra->>'charging')::boolean, false)) AS always_charging,
 				       COUNT(*) AS n,
 				       (MAX(created_at) - MIN(created_at)) AS span
 				FROM checkins
@@ -7844,6 +7899,15 @@ CREATE INDEX IF NOT EXISTS idx_logcat_requests_created_at ON logcat_requests(cre
 -- considered and rejected — at ~900 devices the planner picks a seq-scan+sort anyway
 -- (measured), and the index would have to be maintained on latest_extra on EVERY
 -- check-in. Revisit only if the fleet grows past several thousand devices.
+
+-- Battery-cycle accuracy: per-day TRUE discharge (sum of battery DROPS only, ignoring
+-- charge climbs), so cycles reflect actual wear rather than the day's SoC range (which
+-- counted charging as wear). NULL on pre-existing days → the cycle recompute falls back
+-- to the old max-min estimate for history and uses this exact value going forward.
+ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS discharge_pct REAL;
+-- The old range-based cumulative, kept as a separate "legacy" figure during the
+-- transition so operators can compare the corrected number against the prior estimate.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS discharge_legacy_pct BIGINT NOT NULL DEFAULT 0;
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -8326,8 +8390,12 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVe
 	defer tx.Rollback(ctx)
 
 	var baseID *int // what the branch forked from; the new node lands on that line
+	// Enforce the "branch testing must be done" gate at the SQL level too (the handler
+	// also checks it) so no other caller — or a race that clears testing_done between
+	// the handler's read and here — can merge an untested branch. No row → ErrNoRows →
+	// the merge aborts.
 	if err := tx.QueryRow(ctx,
-		`SELECT parent_release_id FROM releases WHERE id = $1 AND is_branch AND merged_into_release_id IS NULL`,
+		`SELECT parent_release_id FROM releases WHERE id = $1 AND is_branch AND merged_into_release_id IS NULL AND testing_done_at IS NOT NULL`,
 		branchID).Scan(&baseID); err != nil {
 		return 0, err
 	}
@@ -8354,14 +8422,18 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVe
 		ON CONFLICT (release_id, test_case_id) DO NOTHING`, branchID, newID); err != nil {
 		return 0, err
 	}
-	// Carry the branch's still-open problems onto main as manual problems on the new release
-	// (test_case link dropped — the branch's cases don't belong to the mainline board).
+	// Carry the branch's still-open problems onto main as manual problems on the new
+	// release (test_case link dropped — the branch's cases don't belong to the mainline
+	// board). They land as 'open' regardless of their branch status: the branch's
+	// fix trail (fixed_in/verified_in) is branch-scoped and not copied, so carrying a
+	// 'fixed' status would leave an inconsistent 'fixed'-with-no-fix-build row that can
+	// never be verified. On main they must be (re-)triaged and verified afresh.
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO release_problems (release_id, build_id, title, description, severity, status, source, reported_by, created_at, updated_at)
 		SELECT $2, $3, title,
 		       CASE WHEN description = '' THEN '(carried from branch ' || $4 || ')'
 		            ELSE description || E'\n\n(carried from branch ' || $4 || ')' END,
-		       severity, status, 'manual', reported_by, NOW(), NOW()
+		       severity, 'open', 'manual', reported_by, NOW(), NOW()
 		FROM release_problems
 		WHERE release_id = $1 AND status NOT IN ('verified', 'wontfix')`,
 		branchID, newID, newVersion, branchVersion); err != nil {
@@ -8768,6 +8840,34 @@ func (d *DB) ListDueScheduledReboots(ctx context.Context) ([]DueReboot, error) {
 	return out, rows.Err()
 }
 
+// ListStaleRebootSent returns devices stuck at 'reboot_sent' on an active
+// deployment for longer than staleMinutes — the reboot command was likely lost or
+// declined, so it must be re-issued. Without this a device that took the OTA but
+// never rebooted sits in limbo forever, keeping the deployment 'active'.
+func (d *DB) ListStaleRebootSent(ctx context.Context, staleMinutes int) ([]DueReboot, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT ud.update_id, ud.device_id
+		FROM update_devices ud
+		JOIN updates u ON u.id = ud.update_id
+		WHERE u.status = 'active'
+		  AND ud.status = 'reboot_sent'
+		  AND ud.updated_at < NOW() - ($1 * INTERVAL '1 minute')
+	`, staleMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DueReboot
+	for rows.Next() {
+		var dr DueReboot
+		if err := rows.Scan(&dr.UpdateID, &dr.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, dr)
+	}
+	return out, rows.Err()
+}
+
 // SetUpdateDeviceStatus updates the status of a device within an update. It
 // stamps updated_at and clears any prior error_code, so a device that moves on
 // from a failure (e.g. on retry) doesn't keep showing a stale reason.
@@ -8817,7 +8917,11 @@ func (d *DB) CompleteUpdatesAtTargetBuild(ctx context.Context, deviceID uuid.UUI
 		FROM updates u
 		WHERE ud.update_id = u.id
 		  AND ud.device_id = $1
-		  AND u.status = 'active'
+		  -- Include 'canceled' deployments so a device that was mid-flight when the
+		  -- deployment was canceled still gets its row reconciled to 'installed' when
+		  -- it lands on the target build (it was told to finish), rather than being
+		  -- stranded at 'downloading'/'reboot_sent'.
+		  AND u.status IN ('active', 'canceled')
 		  AND ud.status NOT IN ('installed', 'canceled')
 		  AND EXISTS (
 		      SELECT 1 FROM ota_packages pk
@@ -8865,11 +8969,16 @@ func (d *DB) SetUpdateDeviceForceFull(ctx context.Context, updateID int, deviceI
 
 // CheckAndCompleteUpdate marks an update as "complete" if all its targets are "installed".
 func (d *DB) CheckAndCompleteUpdate(ctx context.Context, updateID int) error {
+	// A deployment is complete once every device has reached a TERMINAL state.
+	// 'installed', 'failed' and 'canceled' are all terminal for the device — using
+	// only "!= 'installed'" left a deployment stuck 'active' forever the moment any
+	// device failed or was canceled (there is no periodic sweep to unstick it).
 	_, err := d.pool.Exec(ctx, `
 		UPDATE updates SET status = 'complete'
 		WHERE id = $1 AND status = 'active'
 		AND NOT EXISTS (
-			SELECT 1 FROM update_devices WHERE update_id = $1 AND status != 'installed'
+			SELECT 1 FROM update_devices
+			WHERE update_id = $1 AND status NOT IN ('installed', 'failed', 'canceled')
 		)
 	`, updateID)
 	return err
@@ -9516,9 +9625,11 @@ func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]Relea
 		  AND (
 			p.fixed_in_release_id = $1                                  -- dev claimed fix in THIS build (verify here)
 			OR (p.status = 'open' AND p.fixed_in_release_id IS NOT NULL
-			    AND orel.created_at < (SELECT created_at FROM releases WHERE id = $1))
+			    AND (SELECT created_at FROM releases WHERE id = p.fixed_in_release_id)
+			        < (SELECT created_at FROM releases WHERE id = $1))
 			    -- reported fixed in an earlier build but QA verification failed (reopened,
-			    -- fixed_in kept); only these ride the train forward
+			    -- fixed_in kept); only rides onto builds created AFTER the claimed-fix
+			    -- build — a build predating the fix claim can't have the fix pending
 		)`+releaseProblemOrder, releaseID)
 	if err != nil {
 		return nil, err
@@ -10022,6 +10133,40 @@ func (d *DB) ProblemSummariesByRelease(ctx context.Context) (map[int]ProblemSumm
 		var rid int
 		var s ProblemSummary
 		if err := rows.Scan(&rid, &s.Open, &s.Blockers, &s.Total); err != nil {
+			return nil, err
+		}
+		out[rid] = s
+	}
+	return out, rows.Err()
+}
+
+// CarriedProblemCountsByRelease returns, per non-branch release, the count of
+// problems that CARRY onto it (mirrors the CarriedForwardProblems rule) — all
+// carried problems are active/awaiting-verification, so they count as open. Used
+// to make the release-list problem badge match the workspace board (native +
+// carried) instead of counting only native problems.
+func (d *DB) CarriedProblemCountsByRelease(ctx context.Context) (map[int]ProblemSummary, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT r.id, COUNT(*), COUNT(*) FILTER (WHERE p.severity = 'blocker')
+		FROM releases r
+		JOIN release_problems p ON p.source = 'manual' AND p.release_id <> r.id
+		JOIN releases orel ON orel.id = p.release_id AND NOT orel.is_branch
+		WHERE NOT r.is_branch
+		  AND (
+		     p.fixed_in_release_id = r.id
+		     OR (p.status = 'open' AND p.fixed_in_release_id IS NOT NULL
+		         AND (SELECT created_at FROM releases WHERE id = p.fixed_in_release_id) < r.created_at)
+		  )
+		GROUP BY r.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int]ProblemSummary)
+	for rows.Next() {
+		var rid int
+		var s ProblemSummary
+		if err := rows.Scan(&rid, &s.Open, &s.Blockers); err != nil {
 			return nil, err
 		}
 		out[rid] = s
