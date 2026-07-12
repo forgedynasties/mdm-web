@@ -4,7 +4,7 @@
      without this the tab keeps whatever the first full page load set. htmx finds a
      <title> anywhere in the response and applies it to document.title + history. */}}
   <title>{{.Title}} — {{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</title>
-  <main class="container">
+  <main id="main" class="container" tabindex="-1">
 {{else}}
 <!DOCTYPE html>
 <html lang="en">
@@ -168,6 +168,7 @@
      is swapped (hx-select/target/swap), preserving the dock and footer scripts.
      Downloads, the export form and cross-origin links opt out with hx-boost="false". */}}
 <body class="has-dock" hx-boost="true" hx-target="main" hx-swap="outerHTML"{{if .Use24Hour}} data-time24="1"{{end}}>
+  <a href="#main" class="skip-link">Skip to content</a>
   <div id="htmx-progress"></div>
   {{/* Global chrome: a slim top bar (brand + search + alerts + account) and a
        floating bottom-center dock for primary nav. No left sidebar. */}}
@@ -331,7 +332,7 @@
       </div>
     </div>
   </div>
-  <main class="container">
+  <main id="main" class="container" tabindex="-1">
 {{end}}{{/* end boosted/non-boosted chrome; <main> is now open in both paths */}}
     {{/* The overview is the home page — no Back affordance there. */}}
     {{if ne .ActivePage "overview"}}

@@ -518,6 +518,13 @@
     if (!captureKbd || !ws || ws.readyState !== WebSocket.OPEN) return;
     var t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+    // Never trap the keys a keyboard-only user needs to leave capture (WCAG 2.1.2):
+    // Tab must move focus away, and Escape exits capture. Let both reach the browser.
+    if (e.key === 'Tab') return;
+    if (e.key === 'Escape') {
+      if (event === 'down') rcSetCapture(false);
+      return;
+    }
     var kc = keycodeFor(e.key);
     if (!kc) return;
     e.preventDefault();
@@ -544,8 +551,10 @@
   };
   window.rcSetCapture = function(on) {
     captureKbd = on;
+    // Keep the checkbox in sync so Escape (which exits capture) also unchecks it.
+    var kbd = document.getElementById('rc-kbd'); if (kbd) kbd.checked = on;
     document.getElementById('rc-kbd-hint').textContent = on
-      ? 'Capturing — keys go to the device. Toggle off to type here again.'
+      ? 'Capturing — keys go to the device. Press Esc or toggle off to type here again.'
       : 'When on, keys you press are sent to the device.';
   };
   window.rcSendText = function() {
