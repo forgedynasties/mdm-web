@@ -400,7 +400,7 @@
               <textarea id="lc-ai-problem" class="lc-ai-ta" rows="2" placeholder="e.g. The app keeps dropping out of kiosk mode after the screen wakes"></textarea>
               <button type="button" class="btn-outline lc-ai-go" id="lc-ai-go" onclick="lcAiSuggest()">Suggest</button>
             </div>
-            <div class="lc-ai-out" id="lc-ai-out" hidden></div>
+            <div class="lc-ai-out" id="lc-ai-out" role="status" aria-live="polite" hidden></div>
           </div>
           {{end}}
           <div class="pl-row">
@@ -482,7 +482,7 @@
     <!-- sheet footer: live blast radius + send. #cmd-impact reloads from
          /commands/impact on every builder change; the Send button reads its counts. -->
     <div class="sheet-f">
-      <div class="cr-impact" id="cmd-impact"
+      <div class="cr-impact" id="cmd-impact" role="status" aria-live="polite"
            hx-get="/commands/impact" hx-select="unset" hx-target="this" hx-include="#cmd-form"
            hx-trigger="load, impact from:body delay:200ms" hx-swap="innerHTML"></div>
       {{if canOperate .Role}}

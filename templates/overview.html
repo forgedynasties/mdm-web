@@ -246,7 +246,7 @@
       {{/* Live open alerts */}}
       <div class="ov2-card">
         <div class="ov2-ch"><h3>Open alerts</h3><span class="live"><span class="dot"></span>Live</span><a class="r" href="/alerts?status=open">all →</a></div>
-        <div id="ov-alerts" data-diff-guard hx-get="/overview/alerts" hx-trigger="mdm:alerts-update from:document" hx-target="this" hx-swap="innerHTML">
+        <div id="ov-alerts" data-diff-guard aria-live="polite" hx-get="/overview/alerts" hx-trigger="mdm:alerts-update from:document" hx-target="this" hx-swap="innerHTML">
           {{template "overview-alerts" .}}
         </div>
       </div>
