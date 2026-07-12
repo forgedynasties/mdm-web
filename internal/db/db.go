@@ -573,6 +573,14 @@ func (d *DB) IngestDeviceEvents(ctx context.Context, deviceID uuid.UUID, buildID
 	if err := json.Unmarshal(extra, &e); err != nil {
 		return
 	}
+	// Cap the device-supplied crash list: without this, a single check-in could pack
+	// tens of thousands of tiny crash objects and drive one INSERT round-trip each,
+	// amplifying a flood into hundreds of thousands of queries. 200 is far more than an
+	// hour of genuine crashes (crashes are reported within the hour they occur).
+	const maxCrashEvents = 200
+	if len(e.Crashes) > maxCrashEvents {
+		e.Crashes = e.Crashes[:maxCrashEvents]
+	}
 	now := time.Now().UTC()
 	for _, c := range e.Crashes {
 		if c.Kind == "" || c.TimeMs <= 0 {

@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -14,6 +15,12 @@ const (
 	writeWait  = 10 * time.Second
 	pongWait   = 60 * time.Second
 	pingPeriod = 45 * time.Second
+	// maxClients bounds total concurrent device sockets. The shared device key means a
+	// hostile client could otherwise open one socket per known serial (each ~2 goroutines
+	// + a 256-slot channel) without limit. 5000 leaves generous headroom over a 900-unit
+	// fleet while capping the blast radius. A reconnecting known device replaces its own
+	// slot, so this never rejects an existing device.
+	maxClients = 5000
 )
 
 var upgrader = websocket.Upgrader{
@@ -497,6 +504,18 @@ func (h *Hub) CloseAll() {
 
 // Upgrade performs the HTTP→WebSocket upgrade and registers the client with the hub.
 func (h *Hub) Upgrade(w http.ResponseWriter, r *http.Request, deviceID uuid.UUID) (*Client, error) {
+	// Reject new devices once at capacity, but always admit a reconnect of a device that
+	// already holds a slot (register would just replace it). Checked before the upgrade
+	// so we can return a plain HTTP 503 rather than a half-open WebSocket.
+	h.mu.RLock()
+	_, existing := h.clients[deviceID]
+	n := len(h.clients)
+	h.mu.RUnlock()
+	if !existing && n >= maxClients {
+		http.Error(w, "server at capacity", http.StatusServiceUnavailable)
+		return nil, fmt.Errorf("ws hub at capacity (%d clients)", n)
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return nil, err

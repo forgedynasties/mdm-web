@@ -1,12 +1,15 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +19,7 @@ import (
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
@@ -25,6 +29,18 @@ import (
 // persist, so an oversized list can't blow up the per-device package upsert.
 const maxPackagesPerDevice = 2000
 
+// Device-input bounds. Every device shares one API key, so treat each request as
+// hostile: cap identifier lengths, the telemetry blob size, JSON nesting depth (a
+// deeply-nested body can overflow the goroutine stack — a fatal, unrecoverable crash
+// net/http's per-request recover does NOT catch), and the request rate per device.
+const (
+	maxSerialLen    = 64
+	maxBuildIDLen   = 128
+	maxExtraBytes   = 256 * 1024
+	maxJSONDepth    = 64
+	deviceRateBurst = 120 // max device requests per serial per minute
+)
+
 type Handler struct {
 	db          *db.DB
 	hub         *ws.Hub
@@ -33,10 +49,54 @@ type Handler struct {
 	remote      *remote.Manager
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
+	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
 }
 
 func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, rm *remote.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, remote: rm, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg)}
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, remote: rm, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute)}
+}
+
+// decodeDeviceJSON reads a device request body (already MaxBytes-capped by the route
+// wrapper) and decodes it into v, first rejecting pathologically nested JSON. The
+// depth pre-scan uses encoding/json's iterative tokenizer (no recursion), so it can't
+// itself be overflowed, and it runs before the recursive Unmarshal that could be.
+func decodeDeviceJSON(body io.Reader, v any) error {
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	dec := json.NewDecoder(bytes.NewReader(data))
+	depth := 0
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break // EOF or malformed — let Unmarshal below surface the real error
+		}
+		if d, ok := tok.(json.Delim); ok {
+			switch d {
+			case '[', '{':
+				if depth++; depth > maxJSONDepth {
+					return fmt.Errorf("json nesting too deep")
+				}
+			case ']', '}':
+				depth--
+			}
+		}
+	}
+	return json.Unmarshal(data, v)
+}
+
+// deviceRateLimited records one request for serial and, if the per-minute burst is
+// exceeded, writes a 429 and returns true. Keyed by serial (the device identity)
+// rather than IP, since many devices share a restaurant/lab NAT.
+func (h *Handler) deviceRateLimited(w http.ResponseWriter, serial string) bool {
+	n, retry := h.deviceRate.Hit(serial)
+	if n > deviceRateBurst {
+		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "rate limited"})
+		return true
+	}
+	return false
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -325,7 +385,7 @@ func (h *Handler) recordCheckinOtaProgress(deviceID uuid.UUID, req *checkinReque
 
 func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	var req checkinRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := decodeDeviceJSON(r.Body, &req); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
 		return
 	}
@@ -336,6 +396,17 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	req.BuildID = strings.TrimSpace(req.BuildID)
 	if req.SerialNumber == "" || req.BuildID == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and build_id are required"})
+		return
+	}
+	if len(req.SerialNumber) > maxSerialLen || len(req.BuildID) > maxBuildIDLen {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number or build_id too long"})
+		return
+	}
+	if len(req.Extra) > maxExtraBytes {
+		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "extra telemetry too large"})
+		return
+	}
+	if h.deviceRateLimited(w, req.SerialNumber) {
 		return
 	}
 	if req.BatteryPct != nil && (*req.BatteryPct < 0 || *req.BatteryPct > 100) {
@@ -731,7 +802,7 @@ func (h *Handler) HandleWsOtaStatus(deviceID uuid.UUID, raw []byte) {
 func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 	ctx := context.Background()
 	var req checkinRequest
-	if err := json.Unmarshal(raw, &req); err != nil {
+	if err := decodeDeviceJSON(bytes.NewReader(raw), &req); err != nil {
 		log.Printf("[ws-telemetry] parse error: %v", err)
 		return
 	}
@@ -739,6 +810,10 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 	req.BuildID = strings.TrimSpace(req.BuildID)
 	if req.SerialNumber == "" || req.BuildID == "" {
 		log.Printf("[ws-telemetry] missing serial_number or build_id")
+		return
+	}
+	if len(req.SerialNumber) > maxSerialLen || len(req.BuildID) > maxBuildIDLen || len(req.Extra) > maxExtraBytes {
+		log.Printf("[ws-telemetry] oversized field from %s", req.SerialNumber)
 		return
 	}
 
@@ -851,12 +926,15 @@ func (h *Handler) SubmitLogcat(w http.ResponseWriter, r *http.Request) {
 		RequestID    uuid.UUID `json:"request_id"`
 		Content      string    `json:"content"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeDeviceJSON(r.Body, &body); err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
 		return
 	}
 	if body.SerialNumber == "" || body.RequestID == uuid.Nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and request_id are required"})
+		return
+	}
+	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
 
@@ -1159,8 +1237,11 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		Progress     *int   `json:"progress"` // 0-100, meaningful while downloading
 		Package      string `json:"package"`  // package the APK installed (learned on 'installed')
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SerialNumber == "" {
+	if err := decodeDeviceJSON(r.Body, &body); err != nil || body.SerialNumber == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number is required"})
+		return
+	}
+	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
 	interim := body.Status == "downloading" || body.Status == "installing"
@@ -1218,8 +1299,11 @@ func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 		Status       string    `json:"status"`     // downloaded | installed | error
 		ErrorCode    string    `json:"error_code"` // optional, set when status=error
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.SerialNumber == "" {
+	if err := decodeDeviceJSON(r.Body, &body); err != nil || body.SerialNumber == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and command_id are required"})
+		return
+	}
+	if h.deviceRateLimited(w, body.SerialNumber) {
 		return
 	}
 	if body.Status != "downloaded" && body.Status != "installed" && body.Status != "error" {
