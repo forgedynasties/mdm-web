@@ -408,6 +408,13 @@ func New(ctx context.Context, connStr string) (*DB, error) {
 		cfg.MaxConns = 25
 	}
 	cfg.MinConns = 2
+	// Pin the session timezone to UTC so `::date` bucketing in the daily-stats
+	// rollup is deterministic regardless of the server/container locale (and matches
+	// the Go side, which uses time.Now().UTC()).
+	if cfg.ConnConfig.RuntimeParams == nil {
+		cfg.ConnConfig.RuntimeParams = map[string]string{}
+	}
+	cfg.ConnConfig.RuntimeParams["timezone"] = "UTC"
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, err
@@ -615,7 +622,7 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		argN++
 	}
 	if f.ProductionID != uuid.Nil {
-		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
+		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$' AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
 		args = append(args, f.ProductionID)
 		argN++
 	}
@@ -735,7 +742,7 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 	}
 
 	if f.ProductionID != uuid.Nil {
-		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
+		joins = append(joins, fmt.Sprintf("JOIN productions prod ON prod.id = $%d AND d.serial_number LIKE (prod.product_code || prod.model_code || prod.variant || prod.sku || prod.batch || '%%') AND LENGTH(d.serial_number) = 14 AND SUBSTRING(d.serial_number FROM 10 FOR 5) ~ '^[0-9]+$' AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN prod.start_sequence AND prod.end_sequence", argN))
 		args = append(args, f.ProductionID)
 		argN++
 	}
@@ -1896,14 +1903,17 @@ func (d *DB) CreateProduction(ctx context.Context, p ProductionParams) (*Product
 	return &prod, nil
 }
 
-func (d *DB) ListProductions(ctx context.Context) ([]Production, error) {
+func (d *DB) ListProductions(ctx context.Context, activeSecs int) ([]Production, error) {
+	if activeSecs <= 0 {
+		activeSecs = 180
+	}
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			p.id, p.name, p.product_code, p.model_code, p.variant, p.sku, p.batch,
 			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
-			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes') AS online
+			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - ($1 * INTERVAL '1 second')) AS online
 		FROM productions p
 		LEFT JOIN devices d ON
 			d.serial_number LIKE (p.product_code || p.model_code || p.variant || p.sku || p.batch || '%')
@@ -1912,7 +1922,7 @@ func (d *DB) ListProductions(ctx context.Context) ([]Production, error) {
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
 		GROUP BY p.id
 		ORDER BY p.created_at DESC
-	`)
+	`, activeSecs)
 	if err != nil {
 		return nil, err
 	}
@@ -1931,7 +1941,10 @@ func (d *DB) ListProductions(ctx context.Context) ([]Production, error) {
 	return productions, rows.Err()
 }
 
-func (d *DB) GetProduction(ctx context.Context, id uuid.UUID) (*Production, error) {
+func (d *DB) GetProduction(ctx context.Context, id uuid.UUID, activeSecs int) (*Production, error) {
+	if activeSecs <= 0 {
+		activeSecs = 180
+	}
 	var p Production
 	err := d.pool.QueryRow(ctx, `
 		SELECT
@@ -1939,7 +1952,7 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID) (*Production, erro
 			p.batch_month, p.batch_year, p.start_sequence, p.end_sequence, p.notes, p.created_at,
 			p.end_sequence - p.start_sequence + 1 AS total,
 			COUNT(d.id) AS ever_connected,
-			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - INTERVAL '3 minutes') AS online
+			COUNT(d.id) FILTER (WHERE d.last_seen_at > NOW() - ($2 * INTERVAL '1 second')) AS online
 		FROM productions p
 		LEFT JOIN devices d ON
 			d.serial_number LIKE (p.product_code || p.model_code || p.variant || p.sku || p.batch || '%')
@@ -1948,7 +1961,7 @@ func (d *DB) GetProduction(ctx context.Context, id uuid.UUID) (*Production, erro
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
 		WHERE p.id = $1
 		GROUP BY p.id
-	`, id).Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
+	`, id, activeSecs).Scan(&p.ID, &p.Name, &p.ProductCode, &p.ModelCode, &p.Variant, &p.SKU, &p.Batch,
 		&p.BatchMonth, &p.BatchYear, &p.StartSequence, &p.EndSequence, &p.Notes, &p.CreatedAt,
 		&p.Total, &p.EverConnected, &p.Online)
 	if err != nil {
@@ -1964,7 +1977,10 @@ func (d *DB) DeleteProduction(ctx context.Context, id uuid.UUID) error {
 
 // GetProductionDevices returns connected devices for a production.
 // Devices that have never connected are not in this list but can be inferred from total - ever_connected.
-func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]ProductionDevice, error) {
+func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID, activeSecs int) ([]ProductionDevice, error) {
+	if activeSecs <= 0 {
+		activeSecs = 180
+	}
 	rows, err := d.pool.Query(ctx, `
 		SELECT
 			d.serial_number,
@@ -1974,7 +1990,7 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]Producti
 			d.last_seen_at,
 			d.created_at,
 			CASE
-				WHEN d.last_seen_at > NOW() - INTERVAL '3 minutes' THEN 'online'
+				WHEN d.last_seen_at > NOW() - ($2 * INTERVAL '1 second') THEN 'online'
 				ELSE 'offline'
 			END AS connection_status
 		FROM productions p
@@ -1985,7 +2001,7 @@ func (d *DB) GetProductionDevices(ctx context.Context, id uuid.UUID) ([]Producti
 			AND CAST(SUBSTRING(d.serial_number FROM 10 FOR 5) AS INT) BETWEEN p.start_sequence AND p.end_sequence
 		WHERE p.id = $1 AND NOT d.hidden
 		ORDER BY d.serial_number
-	`, id)
+	`, id, activeSecs)
 	if err != nil {
 		return nil, err
 	}

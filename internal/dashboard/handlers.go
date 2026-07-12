@@ -299,6 +299,9 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 					if total > 0 {
 						r.HasRam = true
 						r.RamPct = ram["used"] * 100 / total
+						if r.RamPct > 100 {
+							r.RamPct = 100
+						}
 					}
 				}
 			}
@@ -728,20 +731,36 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			if err := json.Unmarshal(v, &tz); err != nil {
 				return ""
 			}
-			// Map timezone string to offset
+			// Map timezone string to offset.
 			var loc *time.Location
-			switch strings.ToUpper(tz) {
-			case "GMT", "UTC", "GMT+0", "GMT-0":
+			up := strings.ToUpper(tz)
+			switch up {
+			case "GMT", "UTC", "GMT+0", "GMT-0", "GMT+00:00", "GMT-00:00":
 				loc = time.UTC
 			default:
-				// Try parsing as "GMT+N" or "GMT-N"
-				if strings.HasPrefix(strings.ToUpper(tz), "GMT") {
-					offset := strings.TrimPrefix(strings.ToUpper(tz), "GMT")
-					// Clamp to a real UTC-offset range; a device sending "GMT+999999"
-					// would otherwise overflow h*3600 into a garbage zone.
-					if h, err := strconv.Atoi(offset); err == nil && h >= -14 && h <= 14 {
-						loc = time.FixedZone(tz, h*3600)
+				if strings.HasPrefix(up, "GMT") {
+					// Parse "GMT±H" AND "GMT±H:MM" (e.g. GMT+5:30 India, GMT-3:30) —
+					// the old whole-hour-only parse silently fell back to UTC for
+					// half-hour zones, showing a clock hours off with a wrong label.
+					off := strings.TrimPrefix(up, "GMT")
+					sign := 1
+					if strings.HasPrefix(off, "-") {
+						sign, off = -1, off[1:]
+					} else {
+						off = strings.TrimPrefix(off, "+")
 					}
+					hm := strings.SplitN(off, ":", 2)
+					if h, err := strconv.Atoi(hm[0]); err == nil && h >= 0 && h <= 14 {
+						mins := 0
+						if len(hm) == 2 {
+							mins, _ = strconv.Atoi(hm[1])
+						}
+						if mins >= 0 && mins < 60 {
+							loc = time.FixedZone(tz, sign*(h*3600+mins*60))
+						}
+					}
+				} else if l, err := time.LoadLocation(tz); err == nil {
+					loc = l // IANA name (e.g. Asia/Kolkata) — DST-aware
 				}
 			}
 			if loc == nil {
@@ -792,7 +811,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			if !ok {
 				return 0
 			}
-			return used * 100 / total
+			pct := used * 100 / total
+			if pct > 100 { // used>total can happen from free/cached accounting skew
+				pct = 100
+			}
+			return pct
 		},
 		"extraTempC": func(raw json.RawMessage) template.JS {
 			temp, ok := extractBatteryTempC(raw)
@@ -828,6 +851,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return "null"
 			}
 			pct := float64(ram["used"]) * 100 / float64(total)
+			if pct > 100 {
+				pct = 100
+			}
 			return template.JS(fmt.Sprintf("%.1f", pct))
 		},
 		"wlcStatus": func(raw json.RawMessage) template.JS {
@@ -1699,7 +1725,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	})
 	run(func() error {
 		var err error
-		productions, err = h.db.ListProductions(r.Context())
+		productions, err = h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
 		return err
 	})
 	run(func() error {
@@ -2651,6 +2677,9 @@ func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 				var ram map[string]int
 				if json.Unmarshal(v, &ram) == nil && ram["total"] > 0 {
 					pct := float64(ram["used"]) * 100 / float64(ram["total"])
+					if pct > 100 {
+						pct = 100
+					}
 					p.RamPct = &pct
 				}
 			}
@@ -4052,7 +4081,7 @@ func (h *Handler) GroupNew(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	groups, _ := h.db.ListGroups(r.Context())
-	productions, _ := h.db.ListProductions(r.Context())
+	productions, _ := h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 	connected := h.hub.ConnectedIDs()
 	online := make(map[uuid.UUID]bool, len(connected))
@@ -7252,7 +7281,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 
 	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
 	logcatRecent, logcatFrequent, _ := h.db.FleetLogcatSuggestions(r.Context(), 8)
-	productions, _ := h.db.ListProductions(r.Context())
+	productions, _ := h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), actionsWindowDays)
 
@@ -9140,7 +9169,7 @@ const inactiveAfterDays = 10
 func (h *Handler) RunHousekeeping(ctx context.Context) {
 	// Roll up daily stats first — refresh today and finalize yesterday — so checkins
 	// are always aggregated before the retention prune below can delete them.
-	now := time.Now()
+	now := time.Now().UTC() // roll by UTC day (matches the DB session tz) for a stable boundary
 	for _, day := range []time.Time{now, now.AddDate(0, 0, -1)} {
 		if _, err := h.db.RollupDailyStats(ctx, day); err != nil {
 			log.Printf("[housekeeping] rollup daily stats %s: %v", day.Format("2006-01-02"), err)
@@ -10597,7 +10626,7 @@ func (h *Handler) DevicePackages(w http.ResponseWriter, r *http.Request) {
 // ── Productions ───────────────────────────────────────────────────────────────
 
 func (h *Handler) ProductionList(w http.ResponseWriter, r *http.Request) {
-	productions, err := h.db.ListProductions(r.Context())
+	productions, err := h.db.ListProductions(r.Context(), h.cfg.CheckinInterval()*3)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -10678,7 +10707,7 @@ func (h *Handler) ProductionDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid production ID", http.StatusBadRequest)
 		return
 	}
-	prod, err := h.db.GetProduction(r.Context(), id)
+	prod, err := h.db.GetProduction(r.Context(), id, h.cfg.CheckinInterval()*3)
 	if err != nil {
 		http.Error(w, "Production not found", http.StatusNotFound)
 		return
@@ -10702,12 +10731,12 @@ func (h *Handler) ProductionExportCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid production ID", http.StatusBadRequest)
 		return
 	}
-	prod, err := h.db.GetProduction(r.Context(), id)
+	prod, err := h.db.GetProduction(r.Context(), id, h.cfg.CheckinInterval()*3)
 	if err != nil {
 		http.Error(w, "Production not found", http.StatusNotFound)
 		return
 	}
-	devices, err := h.db.GetProductionDevices(r.Context(), id)
+	devices, err := h.db.GetProductionDevices(r.Context(), id, h.cfg.CheckinInterval()*3)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
