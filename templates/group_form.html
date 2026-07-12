@@ -21,8 +21,8 @@ html[data-theme="dark"] .gf-chip{color:#a9adfb;}
   <div class="card" style="margin-bottom:16px;">
     <div class="gf-2col" style="padding:18px 20px;">
       <div class="form-row" style="margin:0;">
-        <label class="form-label">Group name</label>
-        <input type="text" name="name" id="group-name" class="form-input" placeholder="e.g. Field Team A" required autofocus oninput="gfSync()">
+        <label class="form-label" for="group-name">Group name</label>
+        <input type="text" name="name" id="group-name" class="form-input" placeholder="e.g. Field Team A" required aria-required="true" autofocus oninput="gfSync()">
       </div>
       <div class="gf-preview">
         <span class="lab">Preview</span>
@@ -38,7 +38,7 @@ html[data-theme="dark"] .gf-chip{color:#a9adfb;}
           <div class="dp-pane-h"><span class="t">Available devices</span><span class="n">all devices</span></div>
           <div class="dp-search">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-            <input type="search" id="dp-q" placeholder="Search serial…" autocomplete="off" oninput="dpReloadDebounced()">
+            <input type="search" id="dp-q" placeholder="Search serial…" aria-label="Search available devices by serial" autocomplete="off" oninput="dpReloadDebounced()">
           </div>
           <div class="dp-pills">
             <button type="button" class="dp-pill sel" onclick="dpPill(this)">All</button>

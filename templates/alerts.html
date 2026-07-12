@@ -78,7 +78,7 @@
       <a href="/alerts?view=needs" class="{{if eq .View "needs"}}on{{end}}">Needs action<span class="n">{{.NeedsCount}}</span></a>
       <a href="/alerts?view=watching" class="{{if eq .View "watching"}}on{{end}}">Watching<span class="n">{{.WatchCount}}</span></a>
     </div>
-    <div class="alx-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
+    <div class="alx-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" type="search" aria-label="Search alerts" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
   </div>
 
   {{if and (not .Critical) (not .Watching)}}
