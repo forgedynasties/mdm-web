@@ -1246,6 +1246,12 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 }
 
 .page-btn,
+/* These are now <button>s (keyboard-operable pagination); inherit the page font so
+   they don't fall back to the UA default, and strip the native button appearance. */
+.page-num, .page-btn { font-family: inherit; -webkit-appearance: none; appearance: none; }
+/* Recipe delete "×" — now a <button> (keyboard-operable); render as a plain glyph. */
+.rx { background: none; border: 0; padding: 0 4px; cursor: pointer; color: var(--muted); font-size: 15px; line-height: 1; font-family: inherit; }
+.rx:hover { color: var(--danger); }
 .page-num {
   display: inline-flex;
   align-items: center;

@@ -330,7 +330,7 @@
 </div>
 
 <div class="card" style="margin-bottom:16px;" id="channels">
-  <div class="card-header collapsible-header{{if .ChannelTest}} open{{end}}" role="button" tabindex="0" onclick="this.classList.toggle('open');var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
+  <div class="card-header collapsible-header{{if .ChannelTest}} open{{end}}" role="button" tabindex="0" aria-expanded="{{if .ChannelTest}}true{{else}}false{{end}}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
     <h3><span class="collapse-caret">▸</span> Notifications</h3><span class="muted small">where alerts are sent · {{len .AlertChannels}} channel(s)</span>
   </div>
   <div style="padding:16px;{{if not .ChannelTest}}display:none;{{end}}">
@@ -387,7 +387,7 @@
 </script>
 
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header collapsible-header" role="button" tabindex="0" onclick="this.classList.toggle('open');var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
+  <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
     <h3><span class="collapse-caret">▸</span> Service hours</h3><span class="muted small">when operational alerts fire</span>
   </div>
   <div style="padding:16px;display:none;">
