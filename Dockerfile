@@ -18,6 +18,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 
 FROM alpine:3.21
 
+# wget (busybox) drives the HEALTHCHECK below; ca-certificates/tzdata for TLS + timezones.
 RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
@@ -26,6 +27,22 @@ COPY --from=builder /app/server .
 COPY templates/ templates/
 COPY static/    static/
 
-EXPOSE 8080
+# Run as an unprivileged user, not root. /app/data is where CONFIG_PATH lives and is
+# the only path the server writes to at runtime; create it owned by that user so the
+# named volume mounted there (see docker-compose.yml) inherits writable ownership on
+# first mount. Everything else in /app is read-only to the process.
+RUN addgroup -S mdm && adduser -S -G mdm -H mdm \
+    && mkdir -p /app/data \
+    && chown -R mdm:mdm /app/data
+USER mdm
+
+# Container listens on $PORT (compose passes it through; default 8082, matching
+# docker-compose.yml and .env). EXPOSE is documentation only, so hard-code the default.
+EXPOSE 8082
+
+# Fail the container health check if the server stops answering /health. --start-period
+# gives the process time to run migrations and bind before the first probe counts.
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-8082}/health" || exit 1
 
 CMD ["./server"]
