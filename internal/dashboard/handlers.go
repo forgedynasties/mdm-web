@@ -11090,13 +11090,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdminOrTester(h.GroupRemoveDevice))
 	post("POST /groups/{id}/commands", h.requireAdminOrTester(h.GroupCommandCreate))
 
-	// Productions is an admin-only area (nav link is admin-gated too).
-	mux.HandleFunc("GET /productions", h.requireAdmin(h.ProductionList))
-	mux.HandleFunc("GET /productions/new", h.requireAdmin(h.ProductionNew))
-	post("POST /productions", h.requireAdmin(h.ProductionCreate))
-	mux.HandleFunc("GET /productions/preview-serial", h.requireAdmin(h.ProductionPreviewSerial))
-	mux.HandleFunc("GET /productions/{id}", h.requireAdmin(h.ProductionDetail))
-	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdmin(h.ProductionExportCSV))
+	// Productions is owned by the test team: admin/dev/tester can list, view,
+	// create and export (requireAdminOrTester). Deletion stays admin/dev-only.
+	mux.HandleFunc("GET /productions", h.requireAdminOrTester(h.ProductionList))
+	mux.HandleFunc("GET /productions/new", h.requireAdminOrTester(h.ProductionNew))
+	post("POST /productions", h.requireAdminOrTester(h.ProductionCreate))
+	mux.HandleFunc("GET /productions/preview-serial", h.requireAdminOrTester(h.ProductionPreviewSerial))
+	mux.HandleFunc("GET /productions/{id}", h.requireAdminOrTester(h.ProductionDetail))
+	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdminOrTester(h.ProductionExportCSV))
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
