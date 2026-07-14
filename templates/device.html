@@ -339,7 +339,7 @@
       <div class="chart-legend" id="wlc-legend">
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Unreadable</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
       </div>
     </div>
@@ -433,9 +433,10 @@
 
   function segColor(ctx) {
     const raw = ctx.p1 && ctx.p1.raw;
-    if (!raw || raw.wlc === undefined) return "#7a7f9a";
-    if (raw.wlc === 2) return "#f39c12";
-    return raw.wlc ? "#e84393" : "#6c5ce7";
+    if (!raw || raw.wlc === undefined || raw.wlc === null) return "#7a7f9a";
+    if (raw.wlc === 1) return "#e84393";  // guest device on pad — WLC On
+    if (raw.wlc === 0) return "#6c5ce7";  // pad idle — WLC Off
+    return "#f39c12";                     // -1 unreadable (or legacy 2) — pad not readable
   }
 
 
@@ -545,8 +546,9 @@
       // WLC text comes from the raw nearest reading (not the smoothed line), so the
       // label is the exact wireless-charging state recorded at that checkin.
       let s = 'Battery: ' + bPt.y + '%';
-      if (bPt.wlc === 2) s += ' · ⚠ Pad Disconnected';
-      else if (bPt.wlc !== undefined && bPt.wlc !== null) s += bPt.wlc ? ' · ⚡ WLC On' : ' · WLC Off';
+      if (bPt.wlc === 1) s += ' · ⚡ WLC On';
+      else if (bPt.wlc === 0) s += ' · WLC Off';
+      else if (bPt.wlc !== undefined && bPt.wlc !== null) s += ' · ⚠ Pad Unreadable';
       parts.push(s);
     }
     if (tPt != null) parts.push('Temp: ' + tPt.y.toFixed(1) + '°C');
@@ -804,9 +806,10 @@
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
-    if (pt.wlc === undefined) return line;
-    if (pt.wlc === 2) return line + ' ⚠ WLC Pad Disconnected';
-    return line + (pt.wlc ? ' ⚡ WLC On' : ' — WLC Off');
+    if (pt.wlc === 1) return line + ' ⚡ WLC On';
+    if (pt.wlc === 0) return line + ' — WLC Off';
+    if (pt.wlc !== undefined && pt.wlc !== null) return line + ' ⚠ WLC Pad Unreadable';
+    return line;
   };
   batteryChart._commandMarkers = commandMarkers;
   batteryChart._accent = 'battery';
