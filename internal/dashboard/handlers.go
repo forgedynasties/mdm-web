@@ -3064,8 +3064,8 @@ func wlcStatusFromExtra(raw json.RawMessage) string {
 		return "not_charging"
 	case 1:
 		return "charging"
-	case 2:
-		return "pad_disconnected"
+	case -1, 2: // -1 = pad GPIO unreadable (current); 2 = legacy "disconnected"
+		return "pad_unreadable"
 	default:
 		return ""
 	}
