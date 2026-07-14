@@ -4493,9 +4493,23 @@ html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22
 .dl-status.off { color: var(--muted); } .dl-status.off i { background: var(--text-faint); }
 .dl-synced { font-size: 11px; color: var(--text-faint); }
 .dl-synced.hidden { display: none; }
-.dl-synced.stale { color: var(--warn); }
-/* Detail-page "Last seen" heartbeat: warn colour only when online-but-stale. */
-.ddc-lastseen.stale { color: var(--warn); }
+/* Legacy-device tag (WS-incapable firmware — always shows Offline by design). */
+.ddc-legacy-tag, .dl-legacy-tag {
+  display: inline-flex; align-items: center; gap: 4px; vertical-align: middle;
+  border-radius: 99px; font-weight: 600; white-space: nowrap; cursor: help;
+  background: rgba(122,128,246,.10); color: #5a4bd0; border: 1px solid transparent;
+}
+.ddc-legacy-tag { margin-left: 8px; padding: 2px 9px; font-size: 11.5px; }
+.dl-legacy-tag { margin-top: 4px; padding: 1px 7px; font-size: 10px; }
+.ddc-info-ic { opacity: .75; flex: none; }
+html[data-theme="dark"] .ddc-legacy-tag,
+html[data-theme="dark"] .dl-legacy-tag { background: rgba(122,128,246,.2); color: #b3a8f5; }
+/* Settings: legacy-build chips (add/remove list). */
+.legacy-build-chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px 4px 12px;
+  border-radius: 99px; background: rgba(122,128,246,.10); color: #5a4bd0; font-size: 12.5px; font-weight: 600; }
+.legacy-build-x { border: none; background: transparent; color: inherit; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 4px; opacity: .6; }
+.legacy-build-x:hover { opacity: 1; }
+html[data-theme="dark"] .legacy-build-chip { background: rgba(122,128,246,.2); color: #b3a8f5; }
 
 /* metrics column: RAM / Temp stacked */
 .dl-metrics { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }

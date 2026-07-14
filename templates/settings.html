@@ -191,6 +191,23 @@
     </div>
     {{template "settings-toggle" (dict "Action" "/settings/legacy-checkin/toggle" "On" .LegacyCheckin)}}
   </div>
+  <div style="padding:0 16px 16px;border-top:1px solid var(--border-soft);">
+    <div style="padding-top:14px;">
+      <strong>Legacy device builds</strong>
+      <div class="muted small">Devices on these firmware build IDs only HTTP check-in (no WebSocket), so they always show as <b>Offline</b> with a “Legacy device” tag. Add the build ID of any legacy firmware.</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0;">
+      {{range .LegacyBuilds}}
+      <span class="legacy-build-chip">{{.}}<form action="/settings/legacy-builds/remove" method="POST" style="display:inline;margin:0;"><input type="hidden" name="build_id" value="{{.}}"><button type="submit" class="legacy-build-x" title="Remove {{.}}" aria-label="Remove {{.}}">&times;</button></form></span>
+      {{else}}
+      <span class="muted small">No legacy builds configured.</span>
+      {{end}}
+    </div>
+    <form action="/settings/legacy-builds/add" method="POST" style="display:flex;gap:8px;max-width:420px;">
+      <input type="text" name="build_id" class="form-input" placeholder="e.g. A15-v1.62-user" style="flex:1;width:auto;" required>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;white-space:nowrap;">Add build</button>
+    </form>
+  </div>
 </div>
 
 <div class="card" style="margin-bottom:16px;">

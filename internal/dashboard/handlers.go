@@ -264,7 +264,6 @@ type DeviceRowJSON struct {
 	Flapping     bool   `json:"flapping"`  // charger toggling >10×/min — show the fault glyph
 	FlapRate     int    `json:"flap_rate"` // observed toggles/min, for the tooltip
 	RowClasses   string `json:"row_classes"`
-	Stale        bool   `json:"stale"` // last check-in older than the active threshold (heartbeat lapsed)
 }
 
 func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) DeviceRowJSON {
@@ -279,7 +278,6 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 		KioskPackage: dev.KioskPackage,
 		Hidden:       dev.Hidden,
 		RowClasses:   deviceRowClasses(dev),
-		Stale:        staleThreshold > 0 && !dev.LastSeenAt.IsZero() && time.Since(dev.LastSeenAt) > staleThreshold,
 	}
 
 	switch {
@@ -424,6 +422,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	funcMap := template.FuncMap{
 		// atoi parses a string to int (0 on failure) for arithmetic in templates.
 		"atoi": atoi,
+		// isLegacyBuild reports whether a build ID is on the configured legacy (WS-incapable)
+		// firmware list — such devices only HTTP check-in and never hold a live WebSocket.
+		"isLegacyBuild": cfg.IsLegacyBuild,
 		// pct returns done/total as an integer percentage (0-100), for progress bars.
 		"pct": func(done, total int) int {
 			if total <= 0 {
@@ -9016,6 +9017,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"BaseCases":            baseCases,
 		"ExtraColumns":         h.cfg.Columns(),
 		"LegacyCheckin":        h.cfg.LegacyCheckin(),
+		"LegacyBuilds":         h.cfg.LegacyBuilds(),
 		"CheckinInterval":      h.cfg.CheckinInterval(),
 		"ShellEnabled":         h.cfg.ShellEnabled(),
 		"RemoteEnabled":        h.cfg.RemoteEnabled(),
@@ -10278,6 +10280,20 @@ func (h *Handler) SettingsRemoveColumn(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
+func (h *Handler) SettingsAddLegacyBuild(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	if id := strings.TrimSpace(r.FormValue("build_id")); id != "" {
+		h.cfg.AddLegacyBuild(id)
+	}
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+func (h *Handler) SettingsRemoveLegacyBuild(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	h.cfg.RemoveLegacyBuild(strings.TrimSpace(r.FormValue("build_id")))
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
 // LogcatEvents streams SSE notifications for the logcat page of a device.
 func (h *Handler) LogcatEvents(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -11134,6 +11150,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
 	post("POST /settings/columns/add", h.requireStrictAdmin(h.SettingsAddColumn))
 	post("POST /settings/columns/{key}/remove", h.requireStrictAdmin(h.SettingsRemoveColumn))
+	post("POST /settings/legacy-builds/add", h.requireStrictAdmin(h.SettingsAddLegacyBuild))
+	post("POST /settings/legacy-builds/remove", h.requireStrictAdmin(h.SettingsRemoveLegacyBuild))
 	post("POST /settings/legacy-checkin/toggle", h.requireStrictAdmin(h.SettingsToggleLegacyCheckin))
 	post("POST /settings/shell/toggle", h.requireStrictAdmin(h.SettingsToggleShell))
 	post("POST /settings/remote/toggle", h.requireStrictAdmin(h.SettingsToggleRemote))
