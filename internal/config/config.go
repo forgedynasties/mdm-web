@@ -30,7 +30,11 @@ type ExtraColumn struct {
 type Config struct {
 	ExtraColumns       []ExtraColumn `json:"extra_columns"`
 	LegacyCheckinOn    bool          `json:"legacy_checkin"`
-	CheckinIntervalSec int           `json:"checkin_interval_sec"`
+	// Build IDs that identify legacy (WebSocket-incapable) firmware. Devices on these
+	// builds only HTTP check-in, so they never hold a live WS and are shown Offline with a
+	// "Legacy device" tag. Seeded with a default; admins can add/remove via Settings.
+	LegacyBuildIDs     []string `json:"legacy_build_ids"`
+	CheckinIntervalSec int      `json:"checkin_interval_sec"`
 	// Stored as "disabled" so an existing config file (without these keys)
 	// defaults to enabled.
 	ShellDisabledFlag  bool `json:"shell_disabled"`
@@ -78,6 +82,9 @@ type Config struct {
 // DefaultAnthropicModel is used when no model has been configured.
 const DefaultAnthropicModel = "claude-opus-4-8"
 
+// defaultLegacyBuilds is the seed list of WebSocket-incapable firmware build IDs.
+func defaultLegacyBuilds() []string { return []string{"A15-v1.62-user"} }
+
 func Load(path string) (*Config, error) {
 	c := &Config{path: path}
 	// Ensure the parent directory exists so setters (os.WriteFile) can persist.
@@ -89,6 +96,7 @@ func Load(path string) (*Config, error) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			c.ExtraColumns = []ExtraColumn{}
+			c.LegacyBuildIDs = defaultLegacyBuilds()
 			c.applyEnvOverrides()
 			return c, nil
 		}
@@ -100,9 +108,14 @@ func Load(path string) (*Config, error) {
 		// writes make corruption unlikely; this is the last-resort safety net.)
 		log.Printf("[config] %s is corrupt (%v) — backing it up to %s.corrupt and starting from defaults", path, err, path)
 		_ = os.Rename(path, path+".corrupt")
-		fresh := &Config{path: path, ExtraColumns: []ExtraColumn{}}
+		fresh := &Config{path: path, ExtraColumns: []ExtraColumn{}, LegacyBuildIDs: defaultLegacyBuilds()}
 		fresh.applyEnvOverrides()
 		return fresh, nil
+	}
+	// A config file predating the legacy_build_ids key (nil, not an explicit []) gets the
+	// default seed; an admin who clears the list leaves a non-nil empty slice, respected as-is.
+	if c.LegacyBuildIDs == nil {
+		c.LegacyBuildIDs = defaultLegacyBuilds()
 	}
 	c.applyEnvOverrides()
 	return c, nil
@@ -160,6 +173,62 @@ func (c *Config) LegacyCheckin() bool {
 func (c *Config) SetLegacyCheckin(v bool) error {
 	c.mu.Lock()
 	c.LegacyCheckinOn = v
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// LegacyBuilds returns the configured legacy (WS-incapable) build IDs.
+func (c *Config) LegacyBuilds() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := make([]string, len(c.LegacyBuildIDs))
+	copy(out, c.LegacyBuildIDs)
+	return out
+}
+
+// IsLegacyBuild reports whether a build ID is on the legacy list.
+func (c *Config) IsLegacyBuild(buildID string) bool {
+	if buildID == "" {
+		return false
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	for _, b := range c.LegacyBuildIDs {
+		if b == buildID {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *Config) AddLegacyBuild(id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return nil
+	}
+	c.mu.Lock()
+	for _, b := range c.LegacyBuildIDs {
+		if b == id {
+			c.mu.Unlock()
+			return nil // already present
+		}
+	}
+	c.LegacyBuildIDs = append(c.LegacyBuildIDs, id)
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+func (c *Config) RemoveLegacyBuild(id string) error {
+	c.mu.Lock()
+	filtered := c.LegacyBuildIDs[:0]
+	for _, b := range c.LegacyBuildIDs {
+		if b != id {
+			filtered = append(filtered, b)
+		}
+	}
+	c.LegacyBuildIDs = filtered
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)
