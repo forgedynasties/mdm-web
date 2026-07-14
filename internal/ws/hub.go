@@ -78,7 +78,8 @@ type Hub struct {
 	updateMu        sync.RWMutex
 	updates         map[chan DeviceUpdateEvent]struct{}
 	updThrottleMu   sync.Mutex
-	lastUpdateAt    map[uuid.UUID]time.Time // per-device last broadcast, to coalesce floods
+	lastUpdateAt    map[uuid.UUID]time.Time     // per-device last broadcast, to coalesce floods
+	pendingUpdate   map[uuid.UUID]struct{}      // devices with a coalesced update awaiting a trailing flush
 	cmdMu           sync.RWMutex
 	cmdUpdates      map[chan CommandUpdateEvent]struct{}
 	logcatMu        sync.RWMutex
@@ -119,6 +120,7 @@ func NewHub() *Hub {
 		subscribers:    make(map[chan PresenceEvent]struct{}),
 		updates:        make(map[chan DeviceUpdateEvent]struct{}),
 		lastUpdateAt:   make(map[uuid.UUID]time.Time),
+		pendingUpdate:  make(map[uuid.UUID]struct{}),
 		cmdUpdates:     make(map[chan CommandUpdateEvent]struct{}),
 		logcatUpdates:  make(map[chan LogcatUpdateEvent]struct{}),
 		alertUpdates:   make(map[chan AlertUpdateEvent]struct{}),
@@ -374,16 +376,48 @@ const deviceUpdateThrottle = 4 * time.Second
 
 // PublishDeviceUpdate notifies dashboard subscribers that a device changed, rate-limited
 // per device so a check-in flood can't spam the dashboard.
+//
+// The throttle is trailing-edge: the first update in a window broadcasts immediately, and
+// any update arriving inside the 4s window is coalesced into a single delayed broadcast that
+// fires when the window closes. This guarantees the device's *final* state always reaches the
+// dashboard — a plain leading-edge throttle would silently drop the last event in a burst
+// (e.g. an unplug immediately followed by a plug-in), leaving the UI stale until the next
+// unrelated change, since devices only push on change.
 func (h *Hub) PublishDeviceUpdate(deviceID uuid.UUID) {
 	h.updThrottleMu.Lock()
 	now := time.Now()
 	if last, ok := h.lastUpdateAt[deviceID]; ok && now.Sub(last) < deviceUpdateThrottle {
+		// Inside the throttle window — schedule one trailing flush (coalescing any
+		// further updates that land before it fires) so the latest state still lands.
+		if _, pending := h.pendingUpdate[deviceID]; !pending {
+			h.pendingUpdate[deviceID] = struct{}{}
+			time.AfterFunc(deviceUpdateThrottle-now.Sub(last), func() { h.flushDeviceUpdate(deviceID) })
+		}
 		h.updThrottleMu.Unlock()
 		return
 	}
 	h.lastUpdateAt[deviceID] = now
 	h.updThrottleMu.Unlock()
 
+	h.broadcastDeviceUpdate(deviceID)
+}
+
+// flushDeviceUpdate delivers a coalesced trailing update scheduled by PublishDeviceUpdate.
+func (h *Hub) flushDeviceUpdate(deviceID uuid.UUID) {
+	h.updThrottleMu.Lock()
+	if _, pending := h.pendingUpdate[deviceID]; !pending {
+		// Cleared out from under us (e.g. the device disconnected) — nothing to send.
+		h.updThrottleMu.Unlock()
+		return
+	}
+	delete(h.pendingUpdate, deviceID)
+	h.lastUpdateAt[deviceID] = time.Now()
+	h.updThrottleMu.Unlock()
+
+	h.broadcastDeviceUpdate(deviceID)
+}
+
+func (h *Hub) broadcastDeviceUpdate(deviceID uuid.UUID) {
 	ev := DeviceUpdateEvent{DeviceID: deviceID}
 	h.updateMu.RLock()
 	defer h.updateMu.RUnlock()
@@ -419,6 +453,7 @@ func (h *Hub) Unregister(c *Client) {
 		// of currently-connected devices rather than growing over the process' life.
 		h.updThrottleMu.Lock()
 		delete(h.lastUpdateAt, c.DeviceID)
+		delete(h.pendingUpdate, c.DeviceID)
 		h.updThrottleMu.Unlock()
 	}
 	log.Printf("[ws] disconnected: %s", c.DeviceID)
