@@ -109,7 +109,7 @@
     <div class="ddc-id">
       {{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite"><i></i>Online</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite"><i></i>Offline</span>{{end}}
       <span class="ddc-serial mono">{{.Device.SerialNumber}}</span>
-      <span class="ddc-meta">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}} · Onboarded {{shortDate .Device.CreatedAt}}{{if or (not .Online) $stale}} · <span class="ddc-lastseen{{if and .Online $stale}} stale{{end}}"{{if and .Online $stale}} title="Online, but hasn't checked in within the expected interval"{{end}}>Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{end}}</span>
+      <span class="ddc-meta">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}} · Onboarded {{shortDate .Device.CreatedAt}}{{if not .Online}} · <span class="ddc-lastseen">Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{end}}</span>
     </div>
     <div class="ddc-actions">
       {{if and (canOperate .Role) .RemoteEnabled}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}

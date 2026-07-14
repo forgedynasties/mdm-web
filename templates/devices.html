@@ -25,7 +25,7 @@
     </div>
     <div class="dl-status-col">
       {{if index $.Online .ID}}<span class="dl-status on"><i></i>Online</span>{{else}}<span class="dl-status off"><i></i>Offline</span>{{end}}
-      {{$rowOnline := index $.Online .ID}}{{$rowStale := not (notStale .LastSeenAt $.ActiveThresholdSecs)}}<span class="dl-synced{{if and $rowOnline (not $rowStale)}} hidden{{end}}{{if and $rowOnline $rowStale}} stale{{end}}"{{if and $rowOnline $rowStale}} title="Online, but hasn't checked in within the expected interval"{{end}}>Last seen {{timeSince .LastSeenAt}}</span>
+      <span class="dl-synced{{if index $.Online .ID}} hidden{{end}}">Last seen {{timeSince .LastSeenAt}}</span>
     </div>
     <div class="dl-act">
       {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
@@ -1140,11 +1140,10 @@ document.addEventListener('keydown', function(e) {
       if (st) { st.className = 'dl-status ' + (d.online ? 'on' : 'off'); st.innerHTML = '<i></i>' + (d.online ? 'Online' : 'Offline'); }
       var sy = card.querySelector('.dl-synced');
       if (sy) {
-        // Heartbeat text: hidden when online & fresh (the badge says it all), shown as
-        // "Last seen …" when offline, and flagged when online-but-stale (lapsed check-in).
+        // Heartbeat text: hidden while the WebSocket is live (the Online badge says it all),
+        // shown as "Last seen …" only when the device is offline.
         sy.textContent = 'Last seen ' + d.time_since;
-        sy.className = 'dl-synced' + (d.online && !d.stale ? ' hidden' : '') + (d.online && d.stale ? ' stale' : '');
-        sy.title = (d.online && d.stale) ? "Online, but hasn't checked in within the expected interval" : '';
+        sy.className = 'dl-synced' + (d.online ? ' hidden' : '');
       }
 
       // Preserve inspector selection, which lives in a class the patch would clobber.
