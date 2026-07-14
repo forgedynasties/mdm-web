@@ -11038,9 +11038,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
-	// Remote screen capture + input injection is as sensitive as the shell page
-	// (which is requireOperatorOrAdmin), so it must not be reachable by a viewer.
-	mux.HandleFunc("GET /devices/{serial}/remote", h.requireOperatorOrAdmin(h.DeviceRemote))
+	// Remote screen capture + input injection is highly sensitive (full control of the
+	// device), so it is restricted to admins only.
+	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdmin(h.DeviceRemote))
 	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
