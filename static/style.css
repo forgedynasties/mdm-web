@@ -4492,6 +4492,10 @@ html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22
 .dl-status.on { color: var(--ok); } .dl-status.on i { background: var(--ok); }
 .dl-status.off { color: var(--muted); } .dl-status.off i { background: var(--text-faint); }
 .dl-synced { font-size: 11px; color: var(--text-faint); }
+.dl-synced.hidden { display: none; }
+.dl-synced.stale { color: var(--warn); }
+/* Detail-page "Last seen" heartbeat: warn colour only when online-but-stale. */
+.ddc-lastseen.stale { color: var(--warn); }
 
 /* metrics column: RAM / Temp stacked */
 .dl-metrics { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
