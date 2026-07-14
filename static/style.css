@@ -4668,6 +4668,13 @@ html[data-theme="dark"] .ddc-chip.battery-ok { background: rgba(43,182,115,.2); 
 html[data-theme="dark"] .ddc-chip.battery-mid { background: rgba(232,161,58,.22); color: #f0b765; }
 html[data-theme="dark"] .ddc-chip.battery-low { background: rgba(229,72,77,.22); color: #f08a8d; }
 .ddc-chip .k { color: var(--text-faint); font-weight: 600; }
+/* Wireless-charging (WLC) state chip — colours mirror the battery-graph legend. */
+.ddc-chip.wlc-on  { background: rgba(232,67,147,.13); color: #c0267a; border-color: transparent; }
+.ddc-chip.wlc-off { background: rgba(108,92,231,.12); color: #5a4bd0; border-color: transparent; }
+.ddc-chip.wlc-bad { background: rgba(243,156,18,.15); color: #9a6512; border-color: transparent; }
+html[data-theme="dark"] .ddc-chip.wlc-on  { background: rgba(232,67,147,.22); color: #f48fbf; }
+html[data-theme="dark"] .ddc-chip.wlc-off { background: rgba(108,92,231,.24); color: #b3a8f5; }
+html[data-theme="dark"] .ddc-chip.wlc-bad { background: rgba(243,156,18,.22); color: #f0b765; }
 /* placement strip */
 .ddc-place { display: flex; gap: 26px; flex-wrap: wrap; align-items: center; background: var(--surface); border: 1px solid var(--border);
   border-radius: 14px; padding: 13px 18px; margin-bottom: 16px; }
