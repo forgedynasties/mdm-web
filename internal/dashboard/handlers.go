@@ -264,6 +264,7 @@ type DeviceRowJSON struct {
 	Flapping     bool   `json:"flapping"`  // charger toggling >10×/min — show the fault glyph
 	FlapRate     int    `json:"flap_rate"` // observed toggles/min, for the tooltip
 	RowClasses   string `json:"row_classes"`
+	Stale        bool   `json:"stale"` // last check-in older than the active threshold (heartbeat lapsed)
 }
 
 func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) DeviceRowJSON {
@@ -278,6 +279,7 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 		KioskPackage: dev.KioskPackage,
 		Hidden:       dev.Hidden,
 		RowClasses:   deviceRowClasses(dev),
+		Stale:        staleThreshold > 0 && !dev.LastSeenAt.IsZero() && time.Since(dev.LastSeenAt) > staleThreshold,
 	}
 
 	switch {
