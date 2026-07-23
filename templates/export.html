@@ -65,33 +65,36 @@
   <div class="card" style="margin-top:16px;">
     <div class="card-header">
       <h3>Row Timestamps</h3>
-      <span class="muted small" id="mode-summary">Check-in times</span>
+      <span class="muted small" id="mode-summary">Fixed cycle marks</span>
     </div>
     <div style="padding:16px 20px;">
       <p class="muted small" style="margin-bottom:10px;">
         <strong>Check-ins</strong> exports rows at the devices' actual check-in times.
         <strong>Cycles</strong> exports one row per device at fixed marks — start, start&nbsp;+&nbsp;interval, … —
-        each carrying the latest check-in within one interval of the mark (cells are blank if the device was silent).
+        each carrying the last value the device reported, held forward until it reports something different.
+        Devices only transmit when a value actually changes, so a held value is what the device was reading, not a guess.
+        Cells go blank only once a device has been silent long enough to count as genuinely offline.
       </p>
       <div class="dur-btns" id="export-mode-btns">
-        <button type="button" class="dur-btn active" onclick="setMode(this, '')">Check-ins</button>
-        <button type="button" class="dur-btn" onclick="setMode(this, '1')">Cycles</button>
+        <button type="button" class="dur-btn" data-mode="" onclick="setMode(this, '')">Check-ins</button>
+        <button type="button" class="dur-btn active" data-mode="1" onclick="setMode(this, '1')">Cycles</button>
       </div>
-      <input type="hidden" name="cycles" id="export-cycles" value="">
+      <input type="hidden" name="cycles" id="export-cycles" value="1">
     </div>
   </div>
 
   <div class="card" style="margin-top:16px;">
     <div class="card-header">
       <h3>Sampling Interval</h3>
-      <span class="muted small" id="interval-summary">All rows</span>
+      <span class="muted small" id="interval-summary">1 row / 30 sec</span>
     </div>
     <div style="padding:16px 20px;">
       <p class="muted small" style="margin-bottom:10px;">
         Reduce data volume by picking one row per interval per device. "All" exports every checkin.
       </p>
       <div class="dur-btns" id="export-interval-btns">
-        <button type="button" class="dur-btn active" data-label="All rows" onclick="setSampleInterval(this, 0)">All</button>
+        <button type="button" class="dur-btn" data-label="All rows" onclick="setSampleInterval(this, 0)">All</button>
+        <button type="button" class="dur-btn active" data-label="1 row / 30 sec" onclick="setSampleInterval(this, 30)">30 sec</button>
         <button type="button" class="dur-btn" data-label="1 row / minute" onclick="setSampleInterval(this, 60)">1 min</button>
         <button type="button" class="dur-btn" data-label="1 row / 5 min" onclick="setSampleInterval(this, 300)">5 min</button>
         <button type="button" class="dur-btn" data-label="1 row / 15 min" onclick="setSampleInterval(this, 900)">15 min</button>
@@ -100,7 +103,7 @@
         <button type="button" class="dur-btn" data-label="1 row / 6 hr" onclick="setSampleInterval(this, 21600)">6 hr</button>
         <button type="button" class="dur-btn" data-label="1 row / day" onclick="setSampleInterval(this, 86400)">1 day</button>
       </div>
-      <input type="hidden" name="interval" id="export-interval" value="0">
+      <input type="hidden" name="interval" id="export-interval" value="30">
     </div>
   </div>
 
@@ -176,7 +179,7 @@
         <strong id="summary-devices">{{len .Serials}}</strong> device{{if ne (len .Serials) 1}}s{{end}}
         · <strong id="summary-cols">0</strong> columns
         · <span id="summary-range">Last 48 hours</span>
-        · <span id="summary-interval">All rows</span>
+        · <span id="summary-interval">1 row / 30 sec</span>
       </span>
     </div>
     <button type="submit" class="btn-primary" id="export-submit">
@@ -337,8 +340,14 @@ document.getElementById('export-form').addEventListener('submit', function() {
   }, 250);
 });
 
-// Default: last 48 hours, "Common" preset
+// Default: last 48 hours, "Common" preset, Cycles on a 30-second grid.
+// Cycles is the default because check-in times are the device's own transmit
+// schedule — change-gated, jittered and Doze-batched — so a raw export looks
+// full of gaps that are not data loss. A fixed grid holds the last reported
+// value forward and gives evenly spaced rows.
 setRange(document.querySelector('#export-range-btns .dur-btn[data-hours="48"]'), 48);
+setMode(document.querySelector('#export-mode-btns .dur-btn[data-mode="1"]'), '1');
+setSampleInterval(document.querySelector('#export-interval-btns .dur-btn[data-label="1 row / 30 sec"]'), 30);
 updateColCount();
 </script>
 

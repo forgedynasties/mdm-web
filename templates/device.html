@@ -32,7 +32,10 @@
     <span class="ddc-chip battery-{{if lt .Device.BatteryPct 20}}low{{else if lt .Device.BatteryPct 50}}mid{{else}}ok{{end}}" title="Battery">
       <svg viewBox="0 0 30 15" width="18" height="11" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .Device.BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.Device.BatteryPct}}%{{if .ChargerFlapping}} <span class="vitals-flap" title="Charger flapping — charging toggling ~{{.ChargerFlapRate}}×/min; faulty charger, dock, or cable suspected" aria-label="Charger flapping"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>{{else if and (charging .Device.LatestExtra) (notStale .Device.LastSeenAt .ActiveThresholdSecs)}} ⚡{{end}}
     </span>
-    {{$wlc := extraField .Device.LatestExtra "wlc_status"}}{{if and (ne $wlc "") (ne $wlc "—")}}<span class="ddc-chip wlc-{{if eq $wlc "1"}}on{{else if eq $wlc "0"}}off{{else}}bad{{end}}" title="Wireless charging pad — guest-device detection (1 = device on pad, 0 = pad idle, -1 = pad unreadable)"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>{{if eq $wlc "1"}}WLC On{{else if eq $wlc "0"}}WLC idle{{else}}WLC pad ✕{{end}}</span>{{end}}
+    {{/* 2 = no pad attached. Only the client can determine that: it needs the GPIO's edge
+         rate (2.8 Hz floating vs ~0.1 Hz for a working pad), and the client's 1 s poll
+         aliases that away before any of it reaches the server. */}}
+    {{$wlc := extraField .Device.LatestExtra "wlc_status"}}{{if and (ne $wlc "") (ne $wlc "—")}}<span class="ddc-chip wlc-{{if eq $wlc "1"}}on{{else if eq $wlc "0"}}off{{else}}bad{{end}}" title="Wireless charging pad — guest-device detection (1 = device on pad, 0 = pad idle, 2 = no pad connected, -1 = pad unreadable)"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>{{if eq $wlc "1"}}WLC On{{else if eq $wlc "0"}}WLC idle{{else if eq $wlc "2"}}No pad{{else}}WLC pad ✕{{end}}</span>{{end}}
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
@@ -99,7 +102,27 @@
 {{define "device.html"}}
 {{template "header" .}}
 
-<script src="/static/vendor/chart.umd.min.js"></script>
+{{/* Chart.js is loaded here rather than in layout.html so pages without charts
+     don't pay for it. That makes ordering the caller's problem: on a full page
+     load the browser blocks on a plain <script src>, but under hx-boost htmx
+     injects this fragment's scripts and an external one resolves asynchronously,
+     so the inline bootstrap below would run with Chart still undefined, throw,
+     and leave the chart card stuck on "Loading graphs…" until a manual refresh.
+     Everything else on the page is server-rendered, so only the chart looked broken.
+     mdmChartReady makes the dependency explicit; the bootstrap awaits it. */}}
+<script>
+window.mdmChartReady = window.mdmChartReady || (window.Chart
+  ? Promise.resolve()
+  : new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = '/static/vendor/chart.umd.min.js';
+      s.onload = resolve;
+      s.onerror = function () { reject(new Error('Chart.js failed to load')); };
+      // head, not the swapped <main>: this survives boosted navigation, so
+      // returning to a device page reuses the already-parsed library.
+      document.head.appendChild(s);
+    }));
+</script>
 
 <div class="device-detail">
 <a href="/devices" class="back-link" onclick="try{var r=document.referrer;if(r&&new URL(r).origin===location.origin&&new URL(r).pathname==='/devices'&&history.length>1){history.back();return false;}}catch(e){}">← Fleet</a>
@@ -339,7 +362,8 @@
       <div class="chart-legend" id="wlc-legend">
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Unreadable</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#b2bec3;"></span> Pad Unreadable</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
       </div>
     </div>
@@ -374,7 +398,7 @@
 </div>
 
 <script>
-(function () {
+function mdmBootCharts() {
   // Theme-aware chart colors (grid/ticks) read from CSS tokens.
   const _cs = getComputedStyle(document.documentElement);
   const GRID = (_cs.getPropertyValue('--chart-grid') || '').trim() || 'rgba(46,51,71,0.8)';
@@ -385,32 +409,49 @@
   const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
   const markerStorageKey = 'mdm-chart-markers:v2:{{.Device.SerialNumber}}';
 
-  // A device is treated as inactive once it misses ~3 expected check-ins;
-  // gaps larger than this break the chart line instead of bridging across.
-  // Floored at 6.5 min so a 5-min poll (300s) with normal network jitter
-  // doesn't break the line every time a check-in lands a little late, and
-  // fast-polling devices (e.g. 30s) don't break over brief interruptions —
-  // 30s × 3 = 90s would be far too twitchy.
+  // A device is silent between check-ins by design: telemetry is change-gated, the
+  // HTTP safety net floors the interval at 5 min when unplugged, alarms carry up to
+  // 20% jitter, and Doze batches them further. So silence only means "offline" once
+  // it outlasts all of that. This mirrors the staleness cap in StreamExportCycles
+  // (db.go) — GREATEST(poll × 10, 15 min) — so the chart and the CSV export agree
+  // about when a device went dark. Change one, change the other.
   const pollIntervalMs = {{.Device.PollIntervalMs}};
-  const gapThresholdMs = Math.max((pollIntervalMs > 0 ? pollIntervalMs : 300000) * 3, 390000);
+  const gapThresholdMs = Math.max((pollIntervalMs > 0 ? pollIntervalMs : 30000) * 10, 900000);
 
-  // Whether the device currently has a live WebSocket connection. When it does,
-  // the device is demonstrably reachable, so we draw the curve continuously and
-  // never break it — a gap here would read as "offline" and be misleading.
-  const deviceOnline = {{if .Online}}true{{else}}false{{end}};
+  // Whether the device currently has a live WebSocket connection. This says nothing
+  // about the past — see insertGaps.
+  // Not const: the presence SSE event keeps it current, so a device dropping off
+  // grows a trailing gap without needing a reload.
+  let deviceOnline = {{if .Online}}true{{else}}false{{end}};
 
-  // Insert a null sample between consecutive points that are further apart
-  // than gapThresholdMs, so the line shows a break over inactive periods.
-  // Expects a time-sorted {x,y} array; returns a new array. While the device is
-  // WS-connected this is a no-op, so the whole curve stays unbroken.
+  // Insert a null sample between consecutive points further apart than
+  // gapThresholdMs, so the line breaks over windows where the device was dark.
+  // Expects a time-sorted {x,y} array; returns a new array.
+  //
+  // Historical gaps are drawn whether or not the device is connected right now.
+  // Reconnecting does not retroactively fill in the hours it was unreachable, and
+  // suppressing gaps while online made the chart depend on when the page happened
+  // to be loaded: the same outage was visible on one reload and gone on the next.
+  //
+  // deviceOnline only governs the trailing edge, below.
   function insertGaps(pts) {
-    if (deviceOnline || !pts || pts.length < 2) return pts;
+    if (!pts || pts.length < 2) return pts;
     const out = [];
     for (let i = 0; i < pts.length; i++) {
       if (i > 0 && (pts[i].x - pts[i - 1].x) > gapThresholdMs) {
         out.push({ x: (pts[i - 1].x + pts[i].x) / 2, y: null });
       }
       out.push(pts[i]);
+    }
+    // Trailing edge: a device that is offline now has been silent since its last
+    // point. Once that silence exceeds the threshold, break the line at the end so
+    // the curve doesn't trail off looking current. A connected device is exempt —
+    // it simply has nothing new to report.
+    if (!deviceOnline && out.length) {
+      const last = out[out.length - 1];
+      if (last.y !== null && (Date.now() - last.x) > gapThresholdMs) {
+        out.push({ x: last.x + gapThresholdMs, y: null });
+      }
     }
     return out;
   }
@@ -431,12 +472,16 @@
     return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
   }
 
+  // A segment spans p0 -> p1. The WLC state that held across that span is p0's:
+  // p1 was only measured at the far end, so colouring by p1 repaints the whole
+  // preceding poll interval with a state that had not happened yet.
   function segColor(ctx) {
-    const raw = ctx.p1 && ctx.p1.raw;
+    const raw = ctx.p0 && ctx.p0.raw;
     if (!raw || raw.wlc === undefined || raw.wlc === null) return "#7a7f9a";
     if (raw.wlc === 1) return "#e84393";  // guest device on pad — WLC On
     if (raw.wlc === 0) return "#6c5ce7";  // pad idle — WLC Off
-    return "#f39c12";                     // -1 unreadable (or legacy 2) — pad not readable
+    if (raw.wlc === 2) return "#f39c12";  // no pad connected — gpio27 floating (~2.8 Hz)
+    return "#b2bec3";                     // -1 — the sysfs read failed; state unknown
   }
 
 
@@ -548,6 +593,7 @@
       let s = 'Battery: ' + bPt.y + '%';
       if (bPt.wlc === 1) s += ' · ⚡ WLC On';
       else if (bPt.wlc === 0) s += ' · WLC Off';
+      else if (bPt.wlc === 2) s += ' · ⚠ WLC Pad Disconnected';
       else if (bPt.wlc !== undefined && bPt.wlc !== null) s += ' · ⚠ Pad Unreadable';
       parts.push(s);
     }
@@ -808,6 +854,7 @@
     const line = 'Battery: ' + pt.y + '%';
     if (pt.wlc === 1) return line + ' ⚡ WLC On';
     if (pt.wlc === 0) return line + ' — WLC Off';
+    if (pt.wlc === 2) return line + ' ⚠ WLC Pad Disconnected';
     if (pt.wlc !== undefined && pt.wlc !== null) return line + ' ⚠ WLC Pad Unreadable';
     return line;
   };
@@ -1142,7 +1189,15 @@
     var cl = document.getElementById('chart-loading');
     if (cl) { cl.classList.add('hide'); setTimeout(function () { cl.style.display = 'none'; }, 300); }
   });
-  window.mdmChart = { allBattery, allTemp, allRam, updateCharts };
+  // setOnline is how the presence SSE handler (a separate <script> block) reaches
+  // deviceOnline — going through the export instead of relying on cross-script
+  // script-scope resolution for a top-level `let`.
+  function setOnline(v) {
+    if (deviceOnline === v) return;
+    deviceOnline = v;
+    updateCharts();
+  }
+  window.mdmChart = { allBattery, allTemp, allRam, updateCharts, setOnline };
 
   // Recolor chart grid/ticks live when the theme is toggled.
   window.addEventListener('mdm:themechange', function () {
@@ -1160,7 +1215,21 @@
       ch.update('none');
     });
   });
-})();
+}
+
+// Wait for Chart.js. Failures surface in the overlay instead of leaving it
+// spinning — a stuck spinner reads as "still working" and costs the user a
+// refresh to find out otherwise.
+window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
+  console.error('[mdm] chart bootstrap failed:', err);
+  var cl = document.getElementById('chart-loading');
+  if (cl) {
+    var t = cl.querySelector('.chart-loading-t');
+    if (t) t.textContent = 'Charts unavailable — reload the page';
+    var sp = cl.querySelector('.chart-spin');
+    if (sp) sp.style.display = 'none';
+  }
+});
 </script>
 
 <div class="ddc-actsec">
@@ -1461,14 +1530,23 @@ function filterInstalledApps(q) {
 
       // push new point into charts
       if (d.ts_ms && window.mdmChart) {
-        var wlc = d.wlc !== undefined && d.wlc !== null ? d.wlc : undefined;
-        window.mdmChart.allBattery.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});
-        if (d.temp_c !== null && d.temp_c !== undefined)
-          window.mdmChart.allTemp.push({x: d.ts_ms, y: d.temp_c});
-        if (d.ram_pct !== null && d.ram_pct !== undefined)
-          window.mdmChart.allRam.push({x: d.ts_ms, y: d.ram_pct});
-        console.log('[mdm] pushing to chart, allBattery length:', window.mdmChart.allBattery.length);
-        window.mdmChart.updateCharts();
+        // insertGaps measures the distance between neighbouring points, so it needs
+        // the series strictly increasing in x. A device can emit two frames for one
+        // poll (WS telemetry plus the HTTP safety net fire in the same pass), and
+        // those can also land out of order. Either one hides a gap: a duplicate makes
+        // the delta 0, an out-of-order point makes it negative. Drop anything not
+        // newer than the last point already plotted.
+        var series = window.mdmChart.allBattery;
+        var newest = series.length ? series[series.length - 1].x : -Infinity;
+        if (d.ts_ms > newest) {
+          var wlc = d.wlc !== undefined && d.wlc !== null ? d.wlc : undefined;
+          series.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});
+          if (d.temp_c !== null && d.temp_c !== undefined)
+            window.mdmChart.allTemp.push({x: d.ts_ms, y: d.temp_c});
+          if (d.ram_pct !== null && d.ram_pct !== undefined)
+            window.mdmChart.allRam.push({x: d.ts_ms, y: d.ram_pct});
+          window.mdmChart.updateCharts();
+        }
       }
 
     });
@@ -1477,6 +1555,7 @@ function filterInstalledApps(q) {
       var badge = document.getElementById('ws-badge');
       if (!badge) return;
       var online = event.data === 'online';
+      if (window.mdmChart) window.mdmChart.setOnline(online);
       badge.className = 'ddc-status ' + (online ? 'on' : 'off');
       badge.innerHTML = '<i></i>' + (online ? 'Online' : 'Offline');
       badge.setAttribute('title', online ? 'WebSocket connected' : 'No WebSocket connection');
