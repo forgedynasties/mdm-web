@@ -25,8 +25,8 @@ services:
     restart: unless-stopped
     ports:
       # Host and container both use $PORT so a non-default value still reaches the
-      # server (which reads PORT from env_file); default 8082.
-      - "${PORT:-8082}:${PORT:-8082}"
+      # server (which reads PORT from env_file); default 8089.
+      - "${PORT:-8089}:${PORT:-8089}"
     env_file: .env
     environment:
       DB_HOST: postgres
