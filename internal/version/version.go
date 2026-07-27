@@ -17,6 +17,15 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.31.0",
+		Date:    "2026-07-27",
+		Changes: []string{
+			"See wireless charging live. A device on a Qi pad now shows its charging status the moment it changes — a status chip on the device's vitals, and the battery graph shades exactly when the pad was powering it. The graph also tells apart a pad that's switched off, a pad the device was lifted off of, and a pad it simply couldn't read — instead of lumping them all together as “on.” The same detail carries through to the battery CSV export (an unreadable pad now exports as “pad_unreadable”).",
+			"Offline gaps in the graph now draw correctly. When a device goes quiet, the battery line breaks with a visible empty stretch — and it now appears right away while the device is still dark, not only after it comes back.",
+			"Battery graphs now load reliably. A graph that could previously come up blank or stuck now draws every time you open a device, showing a loading spinner while it fills in.",
+		},
+	},
+	{
 		Version: "1.30.0",
 		Date:    "2026-07-09",
 		Changes: []string{
