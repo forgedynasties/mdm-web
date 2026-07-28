@@ -1,0 +1,144 @@
+name: Build & Deploy to EC2
+
+on:
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-west-2
+
+jobs:
+  build:
+    name: Build & Push Image to ECR
+    runs-on: ubuntu-latest-l
+    environment: dev
+    permissions:
+      id-token: write   # required for OIDC
+      contents: read
+    outputs:
+      image_tag: ${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # SHA-based tag of the commit that was built.
+          tags: ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy on EC2 (SSM)
+    needs: build
+    runs-on: ubuntu-latest
+    environment: dev
+    permissions:
+      id-token: write   # required for OIDC
+      contents: read
+    env:
+      IMAGE_TAG: ${{ needs.build.outputs.image_tag }}   # deploy the exact image built above
+      ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
+      EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+      APP_DIR: ${{ vars.EC2_APP_DIR }}              # dir on the EC2 that holds .env
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy via SSM Run Command
+        run: |
+          set -euo pipefail
+
+          IMAGE="$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+          # Build the script that SSM will run on the instance (as root).
+          # cd into APP_DIR first so the relative `.env` resolves like the
+          # original manual run command.
+          REMOTE_SCRIPT=$(cat <<EOF
+          set -eu
+          cd "$APP_DIR"
+
+          echo "Logging in to ECR..."
+          aws ecr get-login-password --region "$AWS_REGION" \
+            | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+          echo "Pulling image: $IMAGE"
+          docker pull "$IMAGE"
+
+          echo "Stopping & removing existing '$CONTAINER_NAME' container (if any)..."
+          docker rm -f "$CONTAINER_NAME" 2>/dev/null || true
+
+          echo "Starting new container..."
+          docker run -d \
+            --name "$CONTAINER_NAME" \
+            --restart unless-stopped \
+            -p 8089:8089 \
+            --env-file .env \
+            -e TZ=UTC \
+            -e CONFIG_PATH=/app/data/config.json \
+            -v mdm_splashdata:/app/data \
+            --stop-timeout 30 \
+            "$IMAGE"
+
+          echo "Deployment complete."
+          docker ps --filter "name=$CONTAINER_NAME"
+          EOF
+          )
+
+          # Wrap the script as a single-element JSON commands array (safe escaping via jq).
+          PARAMS=$(jq -nc --arg s "$REMOTE_SCRIPT" '{commands: [$s]}')
+
+          echo "Sending SSM command to $EC2_INSTANCE_ID ..."
+          CMD_ID=$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy $CONTAINER_NAME @ $IMAGE_TAG" \
+            --parameters "$PARAMS" \
+            --region "$AWS_REGION" \
+            --query "Command.CommandId" --output text)
+          echo "SSM CommandId: $CMD_ID"
+
+          # Wait for the command to finish (don't fail the step yet — we want to print output first).
+          aws ssm wait command-executed \
+            --command-id "$CMD_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --region "$AWS_REGION" || true
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$EC2_INSTANCE_ID" \
+            --region "$AWS_REGION" --query "Status" --output text)
+
+          echo "----- STDOUT -----"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$EC2_INSTANCE_ID" \
+            --region "$AWS_REGION" --query "StandardOutputContent" --output text
+          echo "----- STDERR -----"
+          aws ssm get-command-invocation \
+            --command-id "$CMD_ID" --instance-id "$EC2_INSTANCE_ID" \
+            --region "$AWS_REGION" --query "StandardErrorContent" --output text
+
+          echo "Final SSM status: $STATUS"
+          [ "$STATUS" = "Success" ] || exit 1
+
+
+
