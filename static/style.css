@@ -4484,6 +4484,12 @@ html[data-theme="dark"] .dl-chip.battery-low { background: rgba(229, 72, 77, .22
   color: var(--muted); background: var(--surface2); border-radius: 4px; padding: 1px 5px; }
 .dl-rel { font-family: var(--mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dl-onboard { font-size: 10.5px; color: var(--text-faint); white-space: nowrap; }
+/* Product category tag on a device card (e.g. "Kiosk 27"). */
+.dl-product { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 8px;
+  background: var(--surface-2, rgba(127,127,127,.14)); color: var(--text-faint);
+  font-family: var(--sans, inherit); font-size: 10px; letter-spacing: .02em; vertical-align: middle; }
+/* Mains-power chip shown in place of the battery chip for wall-powered kiosks. */
+.dl-chip.dl-mains { color: var(--muted); }
 
 /* status column: online/offline + last sync */
 .dl-status-col { display: flex; flex-direction: column; gap: 2px; white-space: nowrap; }
