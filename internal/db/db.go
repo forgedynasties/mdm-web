@@ -15,6 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	prod "mdm/internal/product"
 )
 
 type Device struct {
@@ -29,6 +31,10 @@ type Device struct {
 	KioskPackage   string          `json:"kiosk_package"`
 	LatestExtra    json.RawMessage `json:"latest_extra,omitempty"`
 	Hidden         bool            `json:"hidden"`
+	// Product is the hardware category the device reports (e.g. "t7", "kiosk27"), or
+	// "" if it never reported one. Use ProductLabel()/Caps() rather than reading this
+	// raw so empty/unknown resolves to the default product. See internal/product.
+	Product string `json:"product"`
 	// DischargeTotalPct is the lifetime cumulative percent of battery capacity
 	// discharged (never resets). BatteryCycles() renders it as equivalent full cycles.
 	DischargeTotalPct int64 `json:"discharge_total_pct"`
@@ -47,6 +53,26 @@ type Device struct {
 	// false = lab/bench unit. There is no separate deployed flag — assignment is the signal.
 	DeployedEffective bool `json:"deployed_effective"`
 }
+
+// ProductLabel is the human display label for the device's product ("T7", "Kiosk 27"),
+// resolving empty/unknown to the default product. Safe to call from templates.
+func (d Device) ProductLabel() string { return prod.Label(d.Product) }
+
+// ProductKey is the canonical product key ("t7", "kiosk27"), default-substituted so
+// legacy devices with an empty product still report as the default. Use for grouping.
+func (d Device) ProductKey() string {
+	p, _ := prod.Resolve(d.Product)
+	return p.Key
+}
+
+// Caps returns the hardware capabilities of the device's product. Gate wlc/charging
+// UI and telemetry on these instead of checking whether a telemetry key is present.
+func (d Device) Caps() prod.Caps { return prod.CapsFor(d.Product) }
+
+// HasWLC / HasCharging / HasBattery are template-friendly capability shortcuts.
+func (d Device) HasWLC() bool      { return d.Caps().HasWLC }
+func (d Device) HasCharging() bool { return d.Caps().HasCharging }
+func (d Device) HasBattery() bool  { return d.Caps().HasBattery }
 
 // BatteryCycles converts the lifetime cumulative discharge into equivalent full
 // battery cycles (1 cycle = 100% of capacity discharged). 250% total => 2.5 cycles.
@@ -507,10 +533,14 @@ func (d *DB) RunMigrations(ctx context.Context) error {
 // when nil (omitted from a delta) the prior value is carried forward. RETURNING the resolved
 // extra + battery makes the checkins history row a full snapshot regardless of frame type
 // (windowed alerts + daily rollups read checkins.extra).
-func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct *int, extra json.RawMessage, mergeExtra bool) (deviceID uuid.UUID, pollIntervalMs int, isNew bool, err error) {
+func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryPct *int, extra json.RawMessage, mergeExtra bool, product string) (deviceID uuid.UUID, pollIntervalMs int, isNew bool, err error) {
 	if len(extra) == 0 {
 		extra = json.RawMessage("{}")
 	}
+	// Normalize once here so every check-in path (HTTP keyframe, WS delta) stores the
+	// same canonical key. Empty is left as-is: a delta frame that omits product must
+	// not wipe a product already learned from an earlier keyframe (see COALESCE below).
+	product = prod.Normalize(product)
 
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
@@ -525,8 +555,8 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	var merged json.RawMessage
 	var battery int
 	err = tx.QueryRow(ctx, fmt.Sprintf(`
-		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra)
-		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4)
+		INSERT INTO devices (serial_number, build_id, last_seen_at, latest_battery_pct, latest_extra, product)
+		VALUES ($1, $2, NOW(), COALESCE($3, 0), $4, $5)
 		ON CONFLICT (serial_number) DO UPDATE
 			SET build_id           = EXCLUDED.build_id,
 			    last_seen_at       = NOW(),
@@ -534,9 +564,12 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 			    -- A check-in reactivates an inactive device: it was only hidden for going
 			    -- silent, so hearing from it again brings it back into every list and count.
 			    hidden             = false,
+			    -- Only overwrite product when the device actually reported one; an empty
+			    -- value (delta frame / legacy client) keeps whatever was last learned.
+			    product            = COALESCE(NULLIF(EXCLUDED.product, ''), devices.product),
 			    latest_extra       = %s
 		RETURNING id, poll_interval_ms, (xmax = 0) AS is_new, latest_battery_pct, latest_extra
-	`, extraExpr), serial, buildID, batteryPct, extra).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
+	`, extraExpr), serial, buildID, batteryPct, extra, product).Scan(&deviceID, &pollIntervalMs, &isNew, &battery, &merged)
 	if err != nil {
 		return uuid.Nil, 0, false, err
 	}
@@ -7928,6 +7961,13 @@ ALTER TABLE device_daily_stats ADD COLUMN IF NOT EXISTS discharge_pct REAL;
 -- The old range-based cumulative, kept as a separate "legacy" figure during the
 -- transition so operators can compare the corrected number against the prior estimate.
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS discharge_legacy_pct BIGINT NOT NULL DEFAULT 0;
+
+-- Multi-product support: the hardware category the device reports on check-in
+-- (e.g. 't7', 'kiosk27'). Empty means the device predates the field / didn't report;
+-- capability resolution treats empty as the default product (T7). Drives capability
+-- gating (wlc/charging) and dashboard grouping/filtering. See internal/product.
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT '';
+CREATE INDEX IF NOT EXISTS idx_devices_product ON devices(product);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
