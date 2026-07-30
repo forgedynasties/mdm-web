@@ -28,6 +28,7 @@ import (
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 	"mdm/internal/ai"
+	"mdm/internal/product"
 	"mdm/internal/alerts"
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
@@ -1678,6 +1679,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		Kiosk:               r.URL.Query().Get("kiosk"),
 		Charging:            r.URL.Query().Get("charging"),
 		Timezone:            r.URL.Query().Get("timezone"),
+		Product:             r.URL.Query().Get("product"),
 		Hidden:              hiddenParam,
 		ActiveThresholdSecs: activeThreshold,
 		// Online/offline is live WebSocket presence: the status filter and the pill
@@ -1894,10 +1896,12 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Groups":               groups,
 		"Restaurants":          restaurants,
 		"Productions":          productions,
+		"Products":             product.All(),
 		"Builds":               builds,
 		"Timezones":            timezones,
 		"FilterGroup":          r.URL.Query().Get("group"),
 		"FilterProduction":     r.URL.Query().Get("production"),
+		"FilterProduct":        r.URL.Query().Get("product"),
 		"FilterStatus":         r.URL.Query().Get("status"),
 		"FilterBuild":          r.URL.Query().Get("build"),
 		"FilterBattery":        r.URL.Query().Get("battery"),

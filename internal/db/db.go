@@ -280,6 +280,7 @@ type DeviceFilter struct {
 	ExcludeGroupID      uuid.UUID // exclude devices already in this group (uuid.Nil = no filter)
 	RestaurantID        uuid.UUID // filter by restaurant/venue (uuid.Nil = no filter)
 	ProductionID        uuid.UUID // filter by production (uuid.Nil = no filter)
+	Product             string    // filter by hardware product key ("t7", "kiosk27", ...), or "" (no filter)
 	Online              string    // "online", "offline", or "" (no filter)
 	BuildID             string    // exact build_id match, or "" (no filter)
 	Battery             string    // "low" (<20%), "mid" (20-49%), "ok" (>=50%), or "" (no filter)
@@ -715,6 +716,10 @@ func (d *DB) GetSummaryFiltered(ctx context.Context, f DeviceFilter) (Summary, e
 		args = append(args, f.Timezone)
 		argN++
 	}
+	if w, a := productWhere(f.Product, &argN); w != "" {
+		wheres = append(wheres, w)
+		args = append(args, a...)
+	}
 	_ = activeSecs // retained for signature compatibility; online is now WS-based
 	args = append(args, f.Connected)
 	connArg := argN
@@ -765,7 +770,7 @@ func (d *DB) ListDevices(ctx context.Context, f DeviceFilter, offset, limit int,
 	var devices []Device
 	for rows.Next() {
 		var dev Device
-		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled); err != nil {
+		if err := rows.Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.RestaurantName, &dev.DischargeTotalPct, &dev.DischargeBackfilled, &dev.Product); err != nil {
 			return nil, err
 		}
 		devices = append(devices, dev)
@@ -779,6 +784,25 @@ func (d *DB) CountDevices(ctx context.Context, f DeviceFilter) (int, error) {
 	var count int
 	err := d.pool.QueryRow(ctx, query, args...).Scan(&count)
 	return count, err
+}
+
+// productWhere builds the SQL predicate for a product filter, appending positional
+// args and advancing *argN. Returns "" (no clause) when key is empty. Filtering by the
+// default product (T7) also matches legacy devices with an empty product, since those
+// resolve to T7 — otherwise the pre-product fleet would vanish from the T7 view.
+func productWhere(key string, argN *int) (string, []interface{}) {
+	key = prod.Normalize(key)
+	if key == "" {
+		return "", nil
+	}
+	if key == prod.DefaultKey {
+		w := fmt.Sprintf("(d.product = $%d OR d.product = '')", *argN)
+		*argN++
+		return w, []interface{}{key}
+	}
+	w := fmt.Sprintf("d.product = $%d", *argN)
+	*argN++
+	return w, []interface{}{key}
 }
 
 func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool, limit, offset int) (string, []interface{}) {
@@ -863,6 +887,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, "COALESCE((d.latest_extra->>'charging')::boolean, false) = false")
 	}
 
+	if w, a := productWhere(f.Product, &argN); w != "" {
+		wheres = append(wheres, w)
+		args = append(args, a...)
+	}
+
 	if selectRows {
 		base := `SELECT
 			d.id, d.serial_number, d.build_id, d.last_seen_at, d.created_at,
@@ -873,7 +902,8 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 			d.latest_extra AS latest_extra,
 			d.hidden,
 			COALESCE(r.name, ''),
-			d.discharge_total_pct, d.discharge_backfilled
+			d.discharge_total_pct, d.discharge_backfilled,
+			d.product
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id`
