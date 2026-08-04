@@ -1133,7 +1133,14 @@ document.addEventListener('keydown', function(e) {
       if (rel) rel.textContent = d.build_id;
 
       var chip = card.querySelector('.dl-chip');
-      if (chip) {
+      if (chip && !d.has_battery) {
+        // Wall-powered kiosk: keep the mains "AC" chip; never repaint it as a battery
+        // (which would show a bogus 0%). Mirrors the server-rendered dl-mains chip.
+        chip.className = 'dl-chip dl-mains';
+        chip.setAttribute('aria-label', 'Mains powered');
+        chip.setAttribute('title', 'Mains powered — no battery');
+        chip.innerHTML = '<span class="bat-glyph"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg></span><span class="battery-label">AC</span>';
+      } else if (chip) {
         chip.className = 'dl-chip ' + d.battery_class;
         chip.setAttribute('aria-label', 'Battery ' + d.battery_pct + '%');
         var glyph = d.flapping
