@@ -261,6 +261,7 @@ type DeviceRowJSON struct {
 	KioskEnabled bool   `json:"kiosk_enabled"`
 	KioskPackage string `json:"kiosk_package"`
 	Hidden       bool   `json:"hidden"` // true once hidden; tells the live row patch to drop the row
+	HasBattery   bool   `json:"has_battery"` // false = wall-powered (kiosk); live patch shows AC, not 0%
 	Charging     bool   `json:"charging"`
 	Flapping     bool   `json:"flapping"`  // charger toggling >10×/min — show the fault glyph
 	FlapRate     int    `json:"flap_rate"` // observed toggles/min, for the tooltip
@@ -278,6 +279,7 @@ func deviceToRowJSON(dev db.Device, online bool, staleThreshold time.Duration) D
 		KioskEnabled: dev.KioskEnabled,
 		KioskPackage: dev.KioskPackage,
 		Hidden:       dev.Hidden,
+		HasBattery:   dev.HasBattery(),
 		RowClasses:   deviceRowClasses(dev),
 	}
 

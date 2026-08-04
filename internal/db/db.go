@@ -1221,12 +1221,13 @@ func (d *DB) GetDevice(ctx context.Context, serial string) (*Device, error) {
 			d.latest_extra AS latest_extra,
 			d.discharge_total_pct, d.discharge_legacy_pct, d.discharge_backfilled,
 			d.restaurant_id, COALESCE(r.name, ''),
-			(d.restaurant_id IS NOT NULL) AS deployed_effective
+			(d.restaurant_id IS NOT NULL) AS deployed_effective,
+			d.product
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		LEFT JOIN restaurants r ON r.id = d.restaurant_id
 		WHERE d.serial_number = $1
-	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeLegacyPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective)
+	`, serial).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.DischargeTotalPct, &dev.DischargeLegacyPct, &dev.DischargeBackfilled, &dev.RestaurantID, &dev.RestaurantName, &dev.DeployedEffective, &dev.Product)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
@@ -1295,11 +1296,12 @@ func (d *DB) GetDeviceByID(ctx context.Context, id uuid.UUID) (*Device, error) {
 			COALESCE(dc.kiosk_enabled, false),
 			COALESCE(dc.kiosk_package, ''),
 			d.latest_extra AS latest_extra,
-			d.hidden
+			d.hidden,
+			d.product
 		FROM devices d
 		LEFT JOIN device_config dc ON dc.device_id = d.id
 		WHERE d.id = $1
-	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden)
+	`, id).Scan(&dev.ID, &dev.SerialNumber, &dev.BuildID, &dev.LastSeenAt, &dev.CreatedAt, &dev.BatteryPct, &dev.PollIntervalMs, &dev.KioskEnabled, &dev.KioskPackage, &dev.LatestExtra, &dev.Hidden, &dev.Product)
 	if err != nil {
 		return nil, fmt.Errorf("device not found: %w", err)
 	}
