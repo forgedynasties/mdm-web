@@ -1057,6 +1057,34 @@ func (d *DB) GetDistinctTimezones(ctx context.Context) ([]string, error) {
 	return tzs, rows.Err()
 }
 
+// CountDevicesByProduct returns the number of non-hidden devices per catalog
+// product key. The stored product column is normalized the same way the rest of
+// the app resolves it (empty/unknown → default T7), so legacy rows with no
+// product land under the default rather than vanishing. Keys are catalog keys.
+func (d *DB) CountDevicesByProduct(ctx context.Context) (map[string]int, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT COALESCE(product, ''), COUNT(*)
+		FROM devices
+		WHERE NOT hidden
+		GROUP BY COALESCE(product, '')
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	counts := make(map[string]int)
+	for rows.Next() {
+		var raw string
+		var n int
+		if err := rows.Scan(&raw, &n); err != nil {
+			return nil, err
+		}
+		p, _ := prod.Resolve(raw) // empty/unknown → default product
+		counts[p.Key] += n
+	}
+	return counts, rows.Err()
+}
+
 // StreamExportCheckins runs the same query as ExportCheckins but invokes
 // fn for each row as it is read, so the caller can write directly to a
 // response without buffering the whole result set. If fn returns an error,
