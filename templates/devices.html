@@ -194,7 +194,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
 <div class="fleet-md dv-rise-1">
   {{/* ── Collections rail: All devices + restaurants + groups (replaces the tabs) ── */}}
   <aside class="fleet-rail" aria-label="Collections">
-    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild)}} on{{end}}" href="/devices">
+    <a class="fleet-rail-item{{if and (not .ActiveRestaurant) (not .ActiveGroup) (not .View) (not .FilterBuild) (not .FilterProduct)}} on{{end}}" href="/devices">
       <span class="dot ok"></span><span class="nm">All devices</span><span class="ct">{{.FleetTotal}}</span>
     </a>
 
@@ -234,6 +234,16 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     {{end}}{{end}}
     {{if not .RailReleases}}
     <div class="fleet-rail-empty">None published</div>
+    {{end}}
+
+    <div class="fleet-rail-cap"><span>Products</span></div>
+    {{range .RailProducts}}
+    <a class="fleet-rail-item{{if eq .Key $.FilterProduct}} on{{end}}" href="/devices?product={{.Key}}">
+      <span class="dot ok"></span><span class="nm">{{.Label}}</span><span class="ct">{{.DeviceCount}}</span>
+    </a>
+    {{end}}
+    {{if not .RailProducts}}
+    <div class="fleet-rail-empty">None reporting</div>
     {{end}}
   </aside>
 

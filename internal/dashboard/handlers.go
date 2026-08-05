@@ -1702,6 +1702,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		railGroups  []db.GroupHealth
 		railRests   []db.GroupHealth
 		railRels    []db.ReleaseRailItem
+		prodCounts  map[string]int
 	)
 
 	errCh := make(chan error, 10)
@@ -1780,6 +1781,11 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		railRels, err = h.db.ListPublishedReleasesForRail(r.Context())
 		return err
 	})
+	run(func() error {
+		var err error
+		prodCounts, err = h.db.CountDevicesByProduct(r.Context())
+		return err
+	})
 
 	wg.Wait()
 	close(errCh)
@@ -1853,6 +1859,21 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Products rail: one entry per catalog product that has at least one device
+	// (0-device products are noise, same rule as releases). Counts come from the
+	// normalized product column.
+	type railProduct struct {
+		Key         string
+		Label       string
+		DeviceCount int
+	}
+	var railProducts []railProduct
+	for _, p := range product.All() {
+		if n := prodCounts[p.Key]; n > 0 {
+			railProducts = append(railProducts, railProduct{p.Key, p.Label, n})
+		}
+	}
+
 	// For a detail view, the active collection's health entry (header + stats).
 	var viewColl *db.GroupHealth
 	if view == "restaurant" {
@@ -1879,6 +1900,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"RailGroups":           railGroups,
 		"RailRestaurants":      railRests,
 		"RailReleases":         railRels,
+		"RailProducts":         railProducts,
 		"FilterRestaurant":     qv.Get("restaurant"),
 		"SelectedCollection":   selectedCollection,
 		"SelectedCount":        selectedCount,
