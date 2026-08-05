@@ -24,7 +24,7 @@
     </div>
     <div class="dl-id">
       <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">inactive</span>{{end}}</div>
-      <span class="dl-rel">{{.BuildID}} <span class="dl-product" title="Product">{{.ProductLabel}}</span></span>
+      <span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span> <span class="dl-product" title="Product">{{.ProductLabel}}</span></span>
       <span class="dl-onboard">Onboarded {{shortDate .CreatedAt}}</span>
     </div>
     <div class="dl-metrics">
@@ -1139,7 +1139,10 @@ document.addEventListener('keydown', function(e) {
       // A device that just became hidden should leave the (hidden-excluded) fleet view.
       if (d.hidden) { card.remove(); return; }
 
-      var rel = card.querySelector('.dl-rel');
+      // Update only the build-id text node, NOT the whole .dl-rel — that span also
+      // holds the .dl-product pill, and setting .dl-rel.textContent would wipe it
+      // (the pill would vanish on live patch and only return on a full reload).
+      var rel = card.querySelector('.dl-buildid');
       if (rel) rel.textContent = d.build_id;
 
       var chip = card.querySelector('.dl-chip');
