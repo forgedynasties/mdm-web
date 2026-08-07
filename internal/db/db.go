@@ -1062,9 +1062,20 @@ func exportCheckinsQuery(deviceIDs []uuid.UUID, start, end time.Time, intervalSe
 }
 
 // StreamExportCycles streams one row per device per grid mark: start, start+interval,
-// …, end (inclusive). Each mark carries the latest check-in at or before it, but only
-// if that check-in is within one interval of the mark — otherwise the row comes back
-// with Empty=true so the CSV shows a visible gap instead of stale carried-forward data.
+// …, end (inclusive). Each mark carries the latest check-in at or before it, held
+// forward until the device reports something different.
+//
+// Carrying forward is correct, not a fabrication: client telemetry is change-gated
+// (a frame is only sent when a gated key or the battery level actually moves), so the
+// absence of a check-in means "identical to the last one", not "unknown". A grid finer
+// than the device's reporting cadence would otherwise come back mostly empty — a 30 s
+// grid against a device reporting every ~2 min is 3 empty marks in 4.
+//
+// The carry stops at a staleness cap, so a device that goes dark shows a real gap
+// instead of a value frozen forever. The cap is per-device rather than fixed: a plugged
+// kiosk polling at 30 s and a battery-powered unit deferred to 5 min by the HTTP safety
+// net plus Doze cannot share one threshold. It is also never shorter than the grid step
+// itself, which would reintroduce the empty marks this exists to avoid.
 func (d *DB) StreamExportCycles(ctx context.Context, deviceIDs []uuid.UUID, start, end time.Time, intervalSec int, fn func(ExportRow) error) error {
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.serial_number, c.battery_pct, c.build_id, c.extra, g.ts, d.last_seen_at
@@ -1075,7 +1086,10 @@ func (d *DB) StreamExportCycles(ctx context.Context, deviceIDs []uuid.UUID, star
 			FROM checkins c
 			WHERE c.device_id = d.id
 			  AND c.created_at <= g.ts
-			  AND c.created_at > g.ts - make_interval(secs => $4)
+			  AND c.created_at > g.ts - GREATEST(
+			        make_interval(secs => $4),
+			        make_interval(secs => COALESCE(d.poll_interval_ms, 30000) / 1000.0 * 10),
+			        INTERVAL '15 minutes')
 			ORDER BY c.created_at DESC
 			LIMIT 1
 		) c ON true
@@ -4403,7 +4417,10 @@ func (d *DB) RollupDailyStats(ctx context.Context, day time.Time) (int64, error)
 			COALESCE(
 				(SUM(CASE WHEN extra->>'wlc_status' = '1' THEN w ELSE 0 END) / NULLIF(SUM(w), 0))::real,
 				AVG(CASE WHEN extra->>'wlc_status' = '1' THEN 1 ELSE 0 END)::real),
-			bool_or(extra->>'wlc_status' IS NOT NULL AND extra->>'wlc_status' <> '-1'),
+			-- Readable means the pad answered: 0 or 1. Excludes -1 (sysfs read failed) and
+			-- 2 (no pad attached) — 2 is a successful read of a floating pin, so treating
+			-- it as readable would report a healthy pad on a unit that has none.
+			bool_or(extra->>'wlc_status' IN ('0', '1')),
 			(ARRAY_AGG((extra->>'storage_free_gb')::numeric ORDER BY created_at DESC))[1]::real,
 			-- True discharge: sum of per-step battery DROPS (charge climbs contribute 0,
 			-- so a device that only charges accrues 0). NULL prev_batt (day's first
