@@ -36,13 +36,13 @@ RUN addgroup -S mdm && adduser -S -G mdm -H mdm \
     && chown -R mdm:mdm /app/data
 USER mdm
 
-# Container listens on $PORT (compose passes it through; default 8082, matching
+# Container listens on $PORT (compose passes it through; default 8089, matching
 # docker-compose.yml and .env). EXPOSE is documentation only, so hard-code the default.
-EXPOSE 8082
+EXPOSE 8089
 
 # Fail the container health check if the server stops answering /health. --start-period
 # gives the process time to run migrations and bind before the first probe counts.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
-    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-8082}/health" || exit 1
+    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT:-8089}/health" || exit 1
 
 CMD ["./server"]
