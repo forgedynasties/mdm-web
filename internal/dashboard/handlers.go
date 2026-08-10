@@ -5394,9 +5394,9 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		branchRow(&row, rel)
 		addRow(row)
 	}
-	// Default order is latest-first (newest release first — `active` was built from the
-	// newest-first release list, so we keep that insertion order). Any saved manual
-	// (drag) order still takes precedence, positioned rows first.
+	// Default order is by release date, newest first. Any saved manual (drag) order
+	// still takes precedence, positioned rows first. Undated rows (reported builds
+	// that aren't managed releases) have no release date and sort to the bottom.
 	order, _ := h.db.GetVersionOrder(r.Context())
 	sort.SliceStable(active, func(i, j int) bool {
 		pi, iok := order[active[i].Version]
@@ -5407,7 +5407,13 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		if iok != jok {
 			return iok
 		}
-		return false // preserve newest-first insertion order
+		// Neither is manually positioned: newest release date first; undated
+		// (reported-only) builds sort after all dated ones.
+		ri, rj := active[i].ReleasedAt, active[j].ReleasedAt
+		if ri == nil || rj == nil {
+			return ri != nil // dated (ri!=nil) sorts before undated; two undated keep order
+		}
+		return ri.After(*rj)
 	})
 	// Attach each release's branch forks (+ adoptable derivative builds) so they render
 	// nested beneath it, and suggest the next branch version (version + -tN).
