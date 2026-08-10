@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base32"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -110,7 +112,12 @@ type DeviceConfig struct {
 	KioskEnabled  bool      `json:"kiosk_enabled"`
 	KioskPackage  string    `json:"kiosk_package"`
 	KioskFeatures int       `json:"kiosk_features"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	// Offline kiosk-exit: a per-device TOTP seed (base32) lets a technician leave
+	// kiosk mode on-device with no server access. Seed is generated on enable.
+	OfflineExitEnabled bool   `json:"offline_exit_enabled"`
+	OfflineExitSeed    string `json:"offline_exit_seed"`
+	OfflineExitRelock  string `json:"offline_exit_relock"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type Summary struct {
@@ -4272,10 +4279,15 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	// Read first — this runs on every check-in and the row exists after the device's
 	// first one, so the INSERT below (a wasted write attempt at 900 dev × every 60s)
 	// only ever fires once per device.
-	const sel = `SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features, updated_at
+	const sel = `SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features,
+		offline_exit_enabled, offline_exit_seed, offline_exit_relock, updated_at
 		FROM device_config WHERE device_id = $1`
 	var cfg DeviceConfig
-	err := d.pool.QueryRow(ctx, sel, deviceID).Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures, &cfg.UpdatedAt)
+	scan := func(row pgx.Row) error {
+		return row.Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures,
+			&cfg.OfflineExitEnabled, &cfg.OfflineExitSeed, &cfg.OfflineExitRelock, &cfg.UpdatedAt)
+	}
+	err := scan(d.pool.QueryRow(ctx, sel, deviceID))
 	if err == nil {
 		return &cfg, nil
 	}
@@ -4285,10 +4297,56 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	if _, err := d.pool.Exec(ctx, `INSERT INTO device_config (device_id) VALUES ($1) ON CONFLICT (device_id) DO NOTHING`, deviceID); err != nil {
 		return nil, err
 	}
-	if err := d.pool.QueryRow(ctx, sel, deviceID).Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures, &cfg.UpdatedAt); err != nil {
+	if err := scan(d.pool.QueryRow(ctx, sel, deviceID)); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// RecordOfflineExit logs a device_events row when a device reports it was taken out of
+// kiosk mode offline. Idempotent per (device, kind, occurred_at) so repeated reports
+// (the client resends until acked) don't create duplicates.
+func (d *DB) RecordOfflineExit(ctx context.Context, deviceID uuid.UUID, atEpoch int64) {
+	_, _ = d.pool.Exec(ctx, `
+		INSERT INTO device_events (device_id, kind, summary, occurred_at)
+		SELECT $1, 'kiosk_exit_offline', 'Kiosk exited offline (unlock code)', to_timestamp($2)
+		WHERE NOT EXISTS (
+			SELECT 1 FROM device_events
+			WHERE device_id = $1 AND kind = 'kiosk_exit_offline' AND occurred_at = to_timestamp($2))`,
+		deviceID, atEpoch)
+}
+
+// newBase32Seed returns a 20-byte (160-bit) random TOTP seed, RFC 4648 base32
+// (no padding), matching the on-device Totp verifier.
+func newBase32Seed() string {
+	b := make([]byte, 20)
+	_, _ = rand.Read(b)
+	return strings.TrimRight(base32.StdEncoding.EncodeToString(b), "=")
+}
+
+// SetOfflineExit enables/disables offline kiosk exit for a device. On the first
+// enable it generates a random base32 TOTP seed; disabling keeps the seed so a
+// re-enable reuses it (rotate by passing rotate=true).
+func (d *DB) SetOfflineExit(ctx context.Context, deviceID uuid.UUID, enabled bool, relock string, rotate bool) (string, error) {
+	if relock == "" {
+		relock = "reboot"
+	}
+	// Ensure the row exists.
+	if _, err := d.pool.Exec(ctx, `INSERT INTO device_config (device_id) VALUES ($1) ON CONFLICT (device_id) DO NOTHING`, deviceID); err != nil {
+		return "", err
+	}
+	var seed string
+	if err := d.pool.QueryRow(ctx, `SELECT offline_exit_seed FROM device_config WHERE device_id=$1`, deviceID).Scan(&seed); err != nil {
+		return "", err
+	}
+	if (enabled && seed == "") || rotate {
+		seed = newBase32Seed()
+	}
+	_, err := d.pool.Exec(ctx, `
+		UPDATE device_config
+		   SET offline_exit_enabled=$2, offline_exit_seed=$3, offline_exit_relock=$4, updated_at=NOW()
+		 WHERE device_id=$1`, deviceID, enabled, seed, relock)
+	return seed, err
 }
 
 func (d *DB) SetKioskConfig(ctx context.Context, deviceID uuid.UUID, enabled bool, pkg string, features int) error {
@@ -7318,6 +7376,12 @@ CREATE TABLE IF NOT EXISTS device_config (
 	kiosk_features INTEGER NOT NULL DEFAULT 1,
 	updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- Offline kiosk-exit: a provisioned TOTP seed lets a technician leave kiosk lock
+-- mode on-device without server access; the seed is generated on enable.
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_seed TEXT NOT NULL DEFAULT '';
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_relock TEXT NOT NULL DEFAULT 'reboot';
 
 CREATE TABLE IF NOT EXISTS ota_packages (
 	id              SERIAL      PRIMARY KEY,

@@ -29,6 +29,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"mdm/internal/ai"
 	"mdm/internal/product"
+	"mdm/internal/totp"
 	"mdm/internal/alerts"
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
@@ -2454,9 +2455,19 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// the charger/dock connection is dropping in and out (faulty hardware). >10/min is
 	// the flapping threshold (matches the charger_flapping alert default).
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
+	// Current offline-exit unlock code (admins only) — the technician reads this to
+	// leave kiosk mode on-device. Computed from the device's TOTP seed; rotates every period.
+	offlineCode, offlineSecs := "", 0
+	if kioskCfg.OfflineExitEnabled && kioskCfg.OfflineExitSeed != "" && h.role(r) == "admin" {
+		now := time.Now()
+		offlineCode, _ = totp.Code(kioskCfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
+		offlineSecs = totp.SecondsRemaining(now, totp.DefaultPeriod)
+	}
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
+		"OfflineCode":         offlineCode,
+		"OfflineCodeSecs":     offlineSecs,
 		"ChargerFlapRate":     flapRate,
 		"ChargerFlapping":     flapRate > 10,
 		"Notes":               notes,
@@ -2476,6 +2487,34 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"DeviceGroups":        deviceGroups,
 		"AddableGroups":       addableGroups,
 	})
+}
+
+// DeviceOfflineExit enables/disables offline kiosk exit for one device and (on enable)
+// provisions its TOTP seed. Admin-only.
+func (h *Handler) DeviceOfflineExit(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	enabled := r.FormValue("enabled") == "1"
+	relock := strings.TrimSpace(r.FormValue("relock"))
+	rotate := r.FormValue("rotate") == "1"
+	if _, err := h.db.SetOfflineExit(r.Context(), device.ID, enabled, relock, rotate); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	detail := "disabled"
+	if enabled {
+		detail = "enabled"
+	}
+	if rotate {
+		detail += "+rotated"
+	}
+	h.audit(r, "device.offline_exit", serial, detail)
+	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
 }
 
 func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
@@ -11317,6 +11356,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))
+	post("POST /devices/{serial}/offline-exit", h.requireAdmin(h.DeviceOfflineExit))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))

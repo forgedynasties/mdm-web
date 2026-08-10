@@ -208,6 +208,31 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             <span class="muted small">Pick the app, then turn kiosk on. Applied on the next check-in.</span>
           </div>
         </form>
+        {{if canAdmin .Role}}
+        <div class="ddc-kpop-h" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">Offline exit</div>
+        <form action="/devices/{{.Device.SerialNumber}}/offline-exit" method="POST">
+          <input type="hidden" name="relock" value="reboot">
+          <input type="hidden" name="enabled" value="{{if .KioskConfig.OfflineExitEnabled}}0{{else}}1{{end}}">
+          <div class="ddc-kpop-row">
+            <span class="form-label" style="margin:0;">Allow exit without server (TOTP)</span>
+            <button type="submit" class="btn-outline btn-sm">{{if .KioskConfig.OfflineExitEnabled}}Disable{{else}}Enable{{end}}</button>
+          </div>
+        </form>
+        {{if .KioskConfig.OfflineExitEnabled}}
+        <div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:var(--r-4);">
+          <div class="muted small">Current unlock code (rotates every {{.OfflineCodeSecs}}s → reload to refresh)</div>
+          <div class="mono" style="font-size:26px;letter-spacing:4px;">{{if .OfflineCode}}{{.OfflineCode}}{{else}}——————{{end}}</div>
+          <div class="muted small">read this to the on-site technician · re-locks on reboot</div>
+          <div class="muted small" style="margin-top:6px;">On device: long-press <b>Back</b> in kiosk, then enter the code.</div>
+          <form action="/devices/{{.Device.SerialNumber}}/offline-exit" method="POST" style="margin-top:8px;">
+            <input type="hidden" name="enabled" value="1">
+            <input type="hidden" name="relock" value="reboot">
+            <input type="hidden" name="rotate" value="1">
+            <button type="submit" class="btn-outline btn-sm" hx-confirm="Rotate the unlock seed? The old codes stop working immediately.">Rotate seed</button>
+          </form>
+        </div>
+        {{end}}
+        {{end}}
       </div>
     </span>
     {{else}}
