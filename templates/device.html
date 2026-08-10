@@ -1872,6 +1872,66 @@ async function saveNewApp() {
   </div>
 </div>
 
+<script>
+// Live offline-exit unlock code + countdown ring. The code is fetched from the server
+// (works over plain HTTP, no browser crypto); the ring depletes locally each second and
+// a fresh code is fetched only when the window rolls over. Re-initialises on htmx swaps.
+(function () {
+  function initOfflineCode() {
+    var card = document.getElementById('oe-card');
+    if (!card || card.dataset.oeInit === '1') return;
+    card.dataset.oeInit = '1';
+    var serial = card.dataset.serial;
+    var period = parseInt(card.dataset.period, 10) || 60;
+    var digits = parseInt(card.dataset.digits, 10) || 6;
+    var codeEl = document.getElementById('oe-code');
+    var ring = document.getElementById('oe-ring');
+    var R = 15.5, C = 2 * Math.PI * R;
+    ring.style.strokeDasharray = C.toFixed(2);
+    var boundary = 0;
+    var fetching = false;
+
+    function group(c) { return (digits === 6 && c.length === 6) ? c.slice(0, 3) + ' ' + c.slice(3) : c; }
+
+    function refresh() {
+      if (fetching) return;
+      fetching = true;
+      fetch('/devices/' + encodeURIComponent(serial) + '/offline-code', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          fetching = false;
+          if (!d || !d.enabled) return;
+          if (d.code) codeEl.textContent = group(String(d.code));
+          boundary = Date.now() / 1000 + (d.seconds || period);
+        })
+        .catch(function () { fetching = false; });
+    }
+
+    function tick() {
+      var now = Date.now() / 1000;
+      var remaining = boundary - now;
+      if (remaining <= 0) { refresh(); remaining = period; }
+      if (remaining > period) remaining = period;
+      ring.style.transition = remaining > period - 1.2 ? 'none' : '';
+      ring.style.strokeDashoffset = (C * (1 - remaining / period)).toFixed(2);
+      card.classList.toggle('expiring', remaining <= 6);
+    }
+
+    if (window._oeTimer) clearInterval(window._oeTimer);
+    refresh();
+    tick();
+    window._oeTimer = setInterval(function () {
+      if (!document.getElementById('oe-card')) { clearInterval(window._oeTimer); return; }
+      tick();
+    }, 1000);
+  }
+  document.addEventListener('DOMContentLoaded', initOfflineCode);
+  document.body.addEventListener('htmx:load', initOfflineCode);
+  document.body.addEventListener('htmx:afterSettle', initOfflineCode);
+  initOfflineCode();
+})();
+</script>
+
 {{template "footer" .}}
 {{end}}
 
