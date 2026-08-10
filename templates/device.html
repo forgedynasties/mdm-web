@@ -174,7 +174,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if canAdminOrTester .Role}}
     <span class="ddc-kpop-wrap">
       <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskPopToggle(event)" aria-haspopup="true" aria-expanded="false" title="Configure kiosk mode">
-        <span class="k">Kiosk</span>{{if .KioskSuspended}}exited{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}} <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        <span class="k">Kiosk</span>{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}} <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
       <div class="ddc-kpop" id="kiosk-pop" hidden>
         <div class="ddc-kpop-h">Kiosk mode</div>
@@ -208,21 +208,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             <span class="muted small">Pick the app, then turn kiosk on. Applied on the next check-in.</span>
           </div>
         </form>
-        {{if canAdmin .Role}}
-        <div class="ddc-kpop-h" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">Offline exit</div>
-        {{if .KioskSuspended}}<div class="muted small" style="margin-bottom:8px;color:var(--warn);">This device is currently <b>out of kiosk</b> (exited offline). It re-locks on reboot, or push kiosk again below.</div>{{end}}
-        <form action="/devices/{{.Device.SerialNumber}}/offline-exit" method="POST">
-          <input type="hidden" name="relock" value="reboot">
-          <input type="hidden" name="enabled" value="{{if .KioskConfig.OfflineExitEnabled}}0{{else}}1{{end}}">
-          <div class="ddc-kpop-row">
-            <span class="form-label" style="margin:0;">Allow exit without server (TOTP)</span>
-            <button type="submit" class="btn-outline btn-sm">{{if .KioskConfig.OfflineExitEnabled}}Disable{{else}}Enable{{end}}</button>
-          </div>
-        </form>
-        {{if .KioskConfig.OfflineExitEnabled}}
+        {{if and (canAdmin .Role) .KioskConfig.KioskEnabled}}
+        <div class="ddc-kpop-h" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">Unlock code</div>
         <div class="oe-card" id="oe-card" data-serial="{{.Device.SerialNumber}}" data-period="{{.OfflinePeriod}}" data-digits="{{.OfflineDigits}}">
           <div class="oe-top">
-            <span class="oe-label">Unlock code</span>
+            <span class="oe-label">To leave kiosk on the device</span>
             <svg class="oe-ring" viewBox="0 0 36 36" aria-hidden="true">
               <circle class="oe-ring-bg" cx="18" cy="18" r="15.5"/>
               <circle class="oe-ring-fg" id="oe-ring" cx="18" cy="18" r="15.5"/>
@@ -231,20 +221,16 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           <div class="oe-code" id="oe-code">{{.OfflineCode}}</div>
           <div class="oe-hint">Read to the on-site technician · rotates every {{.OfflinePeriod}}s</div>
           <div class="oe-hint">On the device: long-press <b>Back</b> in kiosk, then enter this code.</div>
-          <div class="oe-hint oe-relock">Re-locks on reboot.</div>
-          <form action="/devices/{{.Device.SerialNumber}}/offline-exit" method="POST" class="oe-rotate">
-            <input type="hidden" name="enabled" value="1">
-            <input type="hidden" name="relock" value="reboot">
-            <input type="hidden" name="rotate" value="1">
+          <div class="oe-hint oe-relock">Entering it turns kiosk <b>off</b> here. Flip Kiosk back on to re-lock.</div>
+          <form action="/devices/{{.Device.SerialNumber}}/offline-code/rotate" method="POST" class="oe-rotate">
             <button type="submit" class="oe-rotate-btn" onclick="return confirm('Rotate the unlock seed? Old codes stop working immediately and the device picks up the new one on its next check-in.')">↻ Rotate</button>
           </form>
         </div>
         {{end}}
-        {{end}}
       </div>
     </span>
     {{else}}
-    <span class="ddc-chip"><span class="k">Kiosk</span>{{if .KioskSuspended}}exited{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
+    <span class="ddc-chip"><span class="k">Kiosk</span>{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
     {{end}}
   </div>
 </div>
