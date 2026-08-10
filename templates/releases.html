@@ -31,7 +31,7 @@
 </div>
 
 {{if .Versions}}
-{{if gt .NotTrackedCount 0}}
+{{if and (canAdmin $.Role) (gt .NotTrackedCount 0)}}
 <label class="rel-reported-toggle" title="Builds seen on devices that aren't managed releases yet — hidden by default to reduce clutter">
   <input type="checkbox" onchange="document.querySelector('.rlc-list').classList.toggle('show-reported', this.checked)">
   Show {{.NotTrackedCount}} reported build{{if ne .NotTrackedCount 1}}s{{end}} not yet added
