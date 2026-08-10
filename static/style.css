@@ -1626,7 +1626,7 @@ input[type="checkbox"]:hover {
   padding: 8px 16px;
   font-size: var(--t-13);
 }
-.btn-primary:hover  { background: var(--accent-h); border-color: var(--accent-h); }
+.btn-primary:hover  { background: var(--accent-h); border-color: var(--accent-h); color: var(--accent-ink); }
 .btn-primary:active { background: var(--accent); }
 .btn-primary:disabled {
   background: var(--surface2);

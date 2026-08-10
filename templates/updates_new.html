@@ -1,0 +1,125 @@
+{{define "updates_new.html"}}
+{{template "header" .}}
+{{/* Standalone push screen. Pick a publishable release (auto-navigates with ?release=)
+     and the Devices + Options panes below fill in place — they are always present, not
+     spawned on selection. Then POST /updates. */}}
+
+{{$rel := .Release}}
+{{/* Delivery choice only matters when both artifact kinds exist. */}}
+{{$showDelivery := and .HasFull .HasIncremental}}
+
+<div class="upd-wrap" style="max-width:960px;margin:0 auto;">
+
+<a href="/updates" class="back-link">← Updates</a>
+<div class="ov-greet">
+  <h1 class="ov-title">New Update</h1>
+  <span class="ov-date">choose a release, pick the devices, and push</span>
+</div>
+
+{{/* ── Step 1 · release ── */}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>1 · Release</h3>
+    <span class="muted small">only published releases with an active package</span>
+  </div>
+  <div style="padding:14px 16px;">
+    {{if .Releases}}
+    <select class="form-input" style="max-width:420px;" onchange="if(this.value)location.href='/updates/new?release='+this.value;">
+      <option value="" {{if not $rel}}selected{{end}} disabled>Choose a release…</option>
+      {{range .Releases}}<option value="{{.ID}}" {{if and $rel (eq .ID $rel.ID)}}selected{{end}}>{{.Version}} · {{productLabel .Product}}</option>{{end}}
+    </select>
+    {{else}}
+    <div class="muted small">No publishable releases. <a href="/releases">Publish a release and add an update package first →</a></div>
+    {{end}}
+  </div>
+</div>
+
+<form action="/updates" method="POST" id="push-form">
+  <input type="hidden" name="release_id" value="{{with $rel}}{{.ID}}{{end}}">
+  {{if not $showDelivery}}<input type="hidden" name="delivery" value="smart">{{end}}
+
+  {{/* ── Step 2 · devices ── always present; fills once a release is chosen ── */}}
+  <div class="card{{if not $rel}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $rel}}opacity:.55;pointer-events:none;{{end}}">
+    <div class="card-header">
+      <h3>2 · Devices</h3>
+      {{if $rel}}<span class="muted small">{{len .PushDevices}} {{productLabel $rel.Product}} device{{if ne (len .PushDevices) 1}}s{{end}} · this release targets {{productLabel $rel.Product}}</span>
+      {{else}}<span class="muted small">choose a release to load its devices</span>{{end}}
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+      <input type="text" id="push-search" class="form-input" placeholder="Search devices…" style="max-width:240px;" oninput="pushFilter()"{{if not $rel}} disabled{{end}}>
+      <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="push-all" onclick="pushToggleAll(this)"{{if not $rel}} disabled{{end}}> Select all eligible</label>
+    </div>
+    <div id="push-list" style="max-height:380px;overflow:auto;">
+      {{if $rel}}
+        {{range .PushDevices}}
+        {{$onTarget := eq .BuildID $rel.Version}}
+        {{$updating := index $.DevicesUpdating .SerialNumber}}
+        {{$newer := index $.DevicesBlocked .SerialNumber}}
+        {{/* incremental-only release + device not on a source build → no artifact applies */}}
+        {{$noArtifact := and (not $.HasFull) (not (index $.SourceBuilds .BuildID))}}
+        {{$blocked := or $onTarget (ne $updating "") (ne $newer "") $noArtifact}}
+        <label class="push-dev" data-search="{{.SerialNumber}} {{.BuildID}} {{.RestaurantName}}" style="display:flex;align-items:center;gap:11px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:{{if $blocked}}default{{else}}pointer{{end}};{{if $blocked}}opacity:.5;{{end}}">
+          <input type="checkbox" name="serials" value="{{.SerialNumber}}" class="push-ck"{{if $blocked}} disabled{{end}} onchange="pushCount()">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{if notStale .LastSeenAt $.ActiveThresholdSecs}}#3ecf8e{{else}}#7a7f9a{{end}};" title="{{if notStale .LastSeenAt $.ActiveThresholdSecs}}online{{else}}offline{{end}}"></span>
+          <span style="min-width:0;">
+            <span class="mono" style="font-weight:600;">{{.SerialNumber}}</span>
+            <span class="muted small"> · {{if .BuildID}}{{.BuildID}}{{else}}—{{end}}{{if .RestaurantName}} · {{.RestaurantName}}{{end}}</span>
+          </span>
+          <span style="flex:1;"></span>
+          {{if $onTarget}}<span class="rchip muted">up to date</span>
+          {{else if $newer}}<span class="rchip" style="color:#e0982a;border-color:rgba(224,152,42,.4);" title="On a newer release ({{$newer}}) — can't OTA an older release onto it">newer installed</span>
+          {{else if $updating}}<span class="rchip" style="color:#5aa9e6;border-color:rgba(90,169,230,.4);">● updating{{if ne $updating $rel.Version}} → {{$updating}}{{end}}</span>
+          {{else if $noArtifact}}<span class="rchip muted" title="Incremental-only release with no update from build {{if .BuildID}}{{.BuildID}}{{else}}—{{end}}">no update for this build</span>{{end}}
+        </label>
+        {{end}}
+        {{if not .PushDevices}}<div class="muted small" style="padding:16px;">No {{productLabel $rel.Product}} devices reporting yet.</div>{{end}}
+      {{else}}
+        <div class="muted small" style="padding:20px 16px;text-align:center;">Devices appear here once you choose a release above.</div>
+      {{end}}
+    </div>
+  </div>
+
+  {{/* ── Step 3 · options + push — always present ── */}}
+  <div class="card{{if not $rel}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $rel}}opacity:.55;pointer-events:none;{{end}}">
+    <div class="card-header"><h3>3 · Options</h3></div>
+    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <div class="form-label" style="margin-bottom:7px;">Reboot</div>
+        <input type="hidden" name="reboot_behavior" id="push-reboot" value="immediate">
+        <span class="seg-control" role="radiogroup" aria-label="Reboot behavior">
+          <button type="button" class="seg-btn active" onclick="pushReboot('immediate',this)">Immediate</button>
+          <button type="button" class="seg-btn" onclick="pushReboot('manual',this)">Manual</button>
+        </span>
+        <div class="form-hint">Immediate reboots each device once the update installs; manual waits for a reboot command.</div>
+      </div>
+      {{if $showDelivery}}
+      <div>
+        <div class="form-label" style="margin-bottom:7px;">Delivery</div>
+        <input type="hidden" name="delivery" id="push-delivery" value="smart">
+        <span class="seg-control" role="radiogroup" aria-label="Delivery mode">
+          <button type="button" class="seg-btn active" onclick="pushDelivery('smart',this)">Smart</button>
+          <button type="button" class="seg-btn" onclick="pushDelivery('full',this)">Full image</button>
+        </span>
+        <div class="form-hint"><b>Smart</b> sends an incremental to devices whose current build matches one, and the full image to the rest. <b>Full image</b> forces the complete package to every device.</div>
+      </div>
+      {{end}}
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--border);">
+      <span style="flex:1;"></span>
+      <button type="submit" class="btn-primary" id="push-btn" disabled>Push to <span id="push-n">0</span> device<span id="push-s">s</span></button>
+    </div>
+  </div>
+</form>
+
+</div>
+
+<script>
+function pushFilter(){var q=(document.getElementById('push-search').value||'').toLowerCase().trim();document.querySelectorAll('#push-list .push-dev').forEach(function(r){r.style.display=(r.getAttribute('data-search')||'').toLowerCase().indexOf(q)>=0?'':'none';});}
+function pushToggleAll(cb){document.querySelectorAll('#push-list .push-ck:not([disabled])').forEach(function(c){var row=c.closest('.push-dev');if(row&&row.style.display!=='none')c.checked=cb.checked;});pushCount();}
+function pushCount(){var n=document.querySelectorAll('#push-list .push-ck:checked').length;var e=document.getElementById('push-n');if(e)e.textContent=n;var s=document.getElementById('push-s');if(s)s.style.display=n===1?'none':'';var b=document.getElementById('push-btn');if(b)b.disabled=n===0;}
+function pushReboot(v,btn){document.getElementById('push-reboot').value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
+function pushDelivery(v,btn){var el=document.getElementById('push-delivery');if(el)el.value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
+</script>
+
+{{template "footer" .}}
+{{end}}

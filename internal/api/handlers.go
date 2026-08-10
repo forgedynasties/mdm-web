@@ -36,7 +36,11 @@ const maxPackagesPerDevice = 2000
 const (
 	maxSerialLen    = 64
 	maxBuildIDLen   = 128
-	maxExtraBytes   = 256 * 1024
+	// The client's crash_events trace budget alone is 256 KiB (MAX_TOTAL_TRACE_BYTES),
+	// and the rest of extra (wifi/ram/storage/boot/summaries) stacks on top — a
+	// crash-heavy full-GMS device then blew past a 256 KiB cap and every check-in 413'd.
+	// Keep the server ceiling comfortably above the client's max legitimate extra.
+	maxExtraBytes   = 512 * 1024
 	maxJSONDepth    = 64
 	deviceRateBurst = 120 // max device requests per serial per minute
 )
