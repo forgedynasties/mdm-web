@@ -321,10 +321,10 @@
     </div>
   </div>
   <div class="chart-tabs">
-    <button class="chart-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">
+    {{if .Device.HasBattery}}<button class="chart-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="8" width="16" height="8" rx="2"/><path d="M20 11v2"/><path d="M6 12h4"/></svg>Battery
-    </button>
-    <button class="chart-tab" data-chart-tab="temp" onclick="setChartTab('temp')">
+    </button>{{end}}
+    <button class="chart-tab{{if not .Device.HasBattery}} active{{end}}" data-chart-tab="temp" onclick="setChartTab('temp')">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/></svg>Temp
     </button>
     <button class="chart-tab" data-chart-tab="ram" onclick="setChartTab('ram')">
@@ -335,7 +335,8 @@
     </button>
   </div>
 
-  <!-- Battery -->
+  <!-- Battery — omitted entirely for devices with no battery (kiosks) -->
+  {{if .Device.HasBattery}}
   <div id="chart-panel-battery">
     <div class="wlc-bar">
       <div class="chart-legend" id="wlc-legend">
@@ -347,6 +348,7 @@
     </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
   </div>
+  {{end}}
 
   <!-- Temp -->
   <div id="chart-panel-temp" style="display:none;">
@@ -362,7 +364,7 @@
   <div id="chart-panel-all" style="display:none;">
     <div style="padding:8px 16px 0;">
       <div class="chart-legend">
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f9674e;"></span> Battery %</span>
+        {{if .Device.HasBattery}}<span class="chart-legend-item"><span class="chart-legend-line" style="background:#f9674e;"></span> Battery %</span>{{end}}
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e8a13a;"></span> Temp °C</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#7a80f6;"></span> RAM %</span>
       </div>
@@ -381,7 +383,10 @@
   const _cs = getComputedStyle(document.documentElement);
   const GRID = (_cs.getPropertyValue('--chart-grid') || '').trim() || 'rgba(46,51,71,0.8)';
   const TICK = (_cs.getPropertyValue('--chart-tick') || '').trim() || '#7a7f9a';
-  const allBattery = [{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}];
+  // Devices without a battery (kiosks) get no battery series at all — the tab,
+  // panel, and unified legend/line are all omitted, so this stays empty.
+  const HAS_BATTERY = {{if .Device.HasBattery}}true{{else}}false{{end}};
+  const allBattery = [{{if .Device.HasBattery}}{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}{{end}}];
   const allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
   const allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
   const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
@@ -427,7 +432,10 @@
   // The chart tab is driven by context (a ?focus deep-link), not remembered across
   // visits — so a battery unit never reopens on the Temp tab just because it was
   // viewed there once. Defaults to Battery when there's no focus.
-  let activeTab = 'battery';
+  // Tab set + default depend on whether this device has a battery. Kiosks drop
+  // the battery tab entirely and default to temp.
+  const CHART_TABS = HAS_BATTERY ? ['battery','temp','ram','all'] : ['temp','ram','all'];
+  let activeTab = HAS_BATTERY ? 'battery' : 'temp';
 
   function fmtTime(ms) {
     return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
@@ -469,7 +477,7 @@
 
   window.setChartTab = function setChartTab(tab) {
     activeTab = tab;
-    ['battery','temp','ram','all'].forEach(function(t) {
+    CHART_TABS.forEach(function(t) {
       document.getElementById('chart-panel-' + t).style.display = t === tab ? '' : 'none';
       var btn = document.querySelector('[data-chart-tab="' + t + '"]');
       if (btn) btn.classList.toggle('active', t === tab);
@@ -760,7 +768,9 @@
     },
   };
 
-  // Battery chart
+  // Battery chart — only built when the device has a battery; kiosks omit the
+  // #batteryChart canvas entirely, so creating it here would throw on null.
+  {{if .Device.HasBattery}}
   batteryChart = new Chart(document.getElementById("batteryChart").getContext("2d"), {
     type: "line",
     data: {
@@ -815,6 +825,7 @@
   };
   batteryChart._commandMarkers = commandMarkers;
   batteryChart._accent = 'battery';
+  {{end}}
 
   // Temperature chart
   tempChart = new Chart(document.getElementById("tempChart").getContext("2d"), {
@@ -984,7 +995,7 @@
     showMarkers = !showMarkers;
     localStorage.setItem(markerStorageKey, showMarkers ? 'visible' : 'hidden');
     syncMarkerToggle();
-    batteryChart.update();
+    if (batteryChart) batteryChart.update();
     tempChart.update();
     ramChart.update();
     unifiedChart.update();
@@ -1464,7 +1475,7 @@ function filterInstalledApps(q) {
       // push new point into charts
       if (d.ts_ms && window.mdmChart) {
         var wlc = d.wlc !== undefined && d.wlc !== null ? d.wlc : undefined;
-        window.mdmChart.allBattery.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});
+        {{if .Device.HasBattery}}window.mdmChart.allBattery.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});{{end}}
         if (d.temp_c !== null && d.temp_c !== undefined)
           window.mdmChart.allTemp.push({x: d.ts_ms, y: d.temp_c});
         if (d.ram_pct !== null && d.ram_pct !== undefined)

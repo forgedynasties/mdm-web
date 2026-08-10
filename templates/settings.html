@@ -243,7 +243,7 @@
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
     <div>
       <strong>Require a reason for destructive actions</strong>
-      <div class="muted small">Reboot / OTA / boot-logo actions must include a reason, recorded in the audit log.</div>
+      <div class="muted small">Reboot / Update / boot-logo actions must include a reason, recorded in the audit log.</div>
     </div>
     {{template "settings-toggle" (dict "Action" "/settings/require-reason" "On" .RequireReason)}}
   </div>

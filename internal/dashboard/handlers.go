@@ -590,6 +590,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 		},
 		"cmdLabel": cmdTypeLabel,
+		// productLabel maps a product key (e.g. "kiosk22") to its display label for the
+		// releases UI, mirroring Device.ProductLabel() on the device side.
+		"productLabel": product.Label,
 		"cmdDetail": func(cmd db.Command) string {
 			if cmd.ApkURL != "" {
 				return cmd.ApkURL
@@ -2437,7 +2440,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// device.build_id). nil = the device runs a build with no matching release.
 	var release *db.Release
 	if device.BuildID != "" {
-		release, _ = h.db.GetReleaseByVersion(r.Context(), device.BuildID)
+		release, _ = h.db.GetReleaseByVersion(r.Context(), device.BuildID, device.Product)
 	}
 	notes, _ := h.db.GetDeviceNotes(r.Context(), device.ID)
 	// Charger-fault detection: charging toggles per minute recently. A high rate means
@@ -4087,7 +4090,7 @@ func (h *Handler) DeviceInspectorPanel(w http.ResponseWriter, r *http.Request) {
 	}
 	var release *db.Release
 	if device.BuildID != "" {
-		release, _ = h.db.GetReleaseByVersion(r.Context(), device.BuildID)
+		release, _ = h.db.GetReleaseByVersion(r.Context(), device.BuildID, device.Product)
 	}
 	h.renderCachedHTML(w, r, "device-panel", map[string]any{
 		"Device":              device,
@@ -5186,8 +5189,11 @@ func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
 type versionRow struct {
 	Version           string
 	ReleaseID         *int
+	Product           string // hardware product a tracked release targets ("" for untracked builds)
 	Name              string
+	Changelog         string // release notes (tracked releases only) — shown as a snippet on the lean list
 	Status            string // "" when not tracked
+	ReleasedAt        *time.Time // release date (tracked releases only) — the release's created_at, which also defines ordering
 	Tracked           bool
 	Hidden            bool
 	DeviceCount       int
@@ -5278,7 +5284,21 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	var untrackedBuilds []string // all untracked reported builds, for the New-branch picker
 	seen := make(map[string]bool)
 	childrenByParent := map[int][]versionRow{}
+	// Optional per-product filter (?product=): a release/build is kept when its product
+	// resolves to the selected one (empty/legacy -> t7). Empty filter shows everything.
+	filterProduct := strings.TrimSpace(r.URL.Query().Get("product"))
+	productMatches := func(p string) bool {
+		if filterProduct == "" {
+			return true
+		}
+		want, _ := product.Resolve(filterProduct)
+		got, _ := product.Resolve(p)
+		return want.Key == got.Key
+	}
 	addRow := func(row versionRow) {
+		if !productMatches(row.Product) {
+			return
+		}
 		// Branch builds and adoptable derivative builds hang off their parent — collected
 		// by parent id and rendered indented beneath it in the list (no separate tab).
 		if row.IsBranch || row.AdoptableParentID != nil {
@@ -5320,11 +5340,15 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, fv := range fleet {
 		seen[fv.Version] = true
-		row := versionRow{Version: fv.Version, DeviceCount: fv.DeviceCount}
+		row := versionRow{Version: fv.Version, DeviceCount: fv.DeviceCount, Product: fv.Product}
 		if rel, ok := relByVersion[fv.Version]; ok {
 			id := rel.ID
 			row.Tracked, row.ReleaseID, row.Name = true, &id, rel.Name
+			row.Product = rel.Product
+			row.Changelog = rel.Changelog
 			row.Status, row.Hidden = rel.Status, rel.Hidden
+			ca := rel.CreatedAt
+			row.ReleasedAt = &ca
 			row.PackageCount, row.DeployCount = rel.PackageCount, rel.DeployCount
 			row.SignedOffBy, row.SignedOffAt = rel.SignedOffBy, rel.SignedOffAt
 			row.TestingDone = rel.TestingDoneAt != nil
@@ -5351,10 +5375,14 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		id := rel.ID
+		ca := rel.CreatedAt
 		qa, _ := h.db.ReleaseQASummary(r.Context(), rel.ID)
 		row := versionRow{
 			Version: rel.Version, Tracked: true, ReleaseID: &id, Name: rel.Name,
-			Status: rel.Status, Hidden: rel.Hidden,
+			Product:    rel.Product,
+			Changelog:  rel.Changelog,
+			ReleasedAt: &ca,
+			Status:     rel.Status, Hidden: rel.Hidden,
 			PackageCount: rel.PackageCount, DeployCount: rel.DeployCount, QA: qa,
 			Problems:    badgeFor(rel.ID),
 			SignedOffBy: rel.SignedOffBy, SignedOffAt: rel.SignedOffAt,
@@ -5495,11 +5523,32 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		"GlobalProblems":  globalProblems,
 		"ReleaseTrain":    releaseTrain,
 		"Graph":           buildReleaseGraph(releases),
+		"Products":        product.All(),
+		"FilterProduct":   r.URL.Query().Get("product"),
 	}
-	// Live refresh: the #hub-live region refetches this on the problem-updated body event
-	// (focus band + problems board only), so the hub stays current without a full reload.
-	if r.URL.Query().Get("partial") == "hub-live" {
-		_ = h.tmpl.ExecuteTemplate(w, "hub-live", h.withRole(r, data))
+	// Live "OTA in progress" summary card — devices mid-OTA with their last-reported
+	// percent. The card polls itself (htmx) via ?partial=ota-progress.
+	activeOTA, _ := h.db.ActiveOTADevices(r.Context())
+	// Overlay the live in-memory OTA progress (updated on every ota_progress WS frame —
+	// verifying/finalizing land here in real time) over the lagging latest_extra copy.
+	for i := range activeOTA {
+		if p := h.shell.GetOTAProgress(activeOTA[i].DeviceID); p != nil {
+			if p.Phase != "" {
+				activeOTA[i].Phase = p.Phase
+			}
+			if p.Percent > 0 {
+				activeOTA[i].Percent = p.Percent
+			}
+			// A device whose live progress is flowing is actively downloading/installing,
+			// even if its update_devices row still reads "pending".
+			if activeOTA[i].Status == "pending" {
+				activeOTA[i].Status = "downloading"
+			}
+		}
+	}
+	data["ActiveOTA"] = activeOTA
+	if r.URL.Query().Get("partial") == "ota-progress" {
+		_ = h.tmpl.ExecuteTemplate(w, "ota-progress", h.withRole(r, data))
 		return
 	}
 	h.render(w, r, "releases.html", data)
@@ -5655,7 +5704,9 @@ func (h *Handler) ReleaseTrack(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/releases", http.StatusSeeOther)
 		return
 	}
-	rel, err := h.db.GetOrCreateRelease(r.Context(), version)
+	// A version tracked from the live fleet inherits the product of the devices on it.
+	product, _ := h.db.ProductForVersion(r.Context(), version)
+	rel, err := h.db.GetOrCreateRelease(r.Context(), version, product)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -5756,7 +5807,7 @@ func (h *Handler) ReleaseDelete(w http.ResponseWriter, r *http.Request) {
 // release. When forcedTargetBuild is non-empty (adding to an existing release)
 // it overrides the form's target build. Returns the created package or false
 // after having written an error response.
-func (h *Handler) createPackageFromForm(w http.ResponseWriter, r *http.Request, forcedTargetBuild string) (*db.OTAPackage, bool) {
+func (h *Handler) createPackageFromForm(w http.ResponseWriter, r *http.Request, forcedTargetBuild, forcedProduct string) (*db.OTAPackage, bool) {
 	r.ParseForm()
 
 	typ := r.FormValue("type")
@@ -5783,6 +5834,14 @@ func (h *Handler) createPackageFromForm(w http.ResponseWriter, r *http.Request, 
 		updateURL = strings.TrimSpace(string(dec))
 	}
 	changelog := strings.TrimSpace(r.FormValue("changelog"))
+	// Product tags a NEWLY-created release. When adding a package to an EXISTING release
+	// the caller forces the release's own product — otherwise an empty form product would
+	// resolve to t7 in CreateOTAPackage and silently attach the package to (or create) a
+	// DIFFERENT t7 release of the same version instead of this one.
+	product := strings.TrimSpace(r.FormValue("product"))
+	if forcedProduct != "" {
+		product = forcedProduct
+	}
 
 	if targetBuildID == "" || updateURL == "" {
 		http.Error(w, "target_build_id and update_url are required", http.StatusBadRequest)
@@ -5793,7 +5852,7 @@ func (h *Handler) createPackageFromForm(w http.ResponseWriter, r *http.Request, 
 		return nil, false
 	}
 
-	pkg, err := h.db.CreateOTAPackage(r.Context(), typ, targetBuildID, sourceBuildID, updateURL, changelog, time.Now().UTC())
+	pkg, err := h.db.CreateOTAPackage(r.Context(), typ, targetBuildID, sourceBuildID, updateURL, changelog, product, time.Now().UTC())
 	if err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return nil, false
@@ -5811,7 +5870,8 @@ func (h *Handler) ReleaseCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "release build id is required", http.StatusBadRequest)
 		return
 	}
-	rel, err := h.db.GetOrCreateRelease(r.Context(), version)
+	product := strings.TrimSpace(r.FormValue("product"))
+	rel, err := h.db.GetOrCreateRelease(r.Context(), version, product)
 	if err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -5850,7 +5910,7 @@ func (h *Handler) ReleaseAddPackage(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if _, ok := h.createPackageFromForm(w, r, rel.Version); !ok {
+	if _, ok := h.createPackageFromForm(w, r, rel.Version, rel.Product); !ok {
 		return
 	}
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
@@ -6154,6 +6214,10 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	// incremental-only release is still pushable — the per-device resolver matches each
 	// incremental to devices on its source build.
 	hasFull, canPush := false, false
+	// sourceBuilds: current builds an active incremental can update FROM. Used to mark
+	// devices in the push picker that have no applicable artifact (incremental-only
+	// release + a device on some other build → nothing to send it).
+	sourceBuilds := map[string]bool{}
 	for _, p := range packages {
 		if p.Status != "active" {
 			continue
@@ -6161,6 +6225,8 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 		canPush = true
 		if p.Type == "full" {
 			hasFull = true
+		} else if p.SourceBuildID != "" {
+			sourceBuilds[p.SourceBuildID] = true
 		}
 	}
 
@@ -6199,11 +6265,34 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	data["Deployments"] = deployments
 	data["HasFull"] = hasFull
 	data["CanPush"] = canPush
+	// SourceBuilds + HasFull let the push picker mark devices with no applicable artifact
+	// (incremental-only release, device not on a source build) as ineligible.
+	data["SourceBuilds"] = sourceBuilds
 	data["DevicesCount"] = devicesCount
 	data["SourceReleases"] = sourceReleases
+	// Fleet build distribution for this product — guides which source builds are worth an
+	// incremental (make deltas from the builds a meaningful chunk of the fleet runs).
+	fleetBuilds, _ := h.db.FleetBuildDistribution(ctx, rel.Product, rel.Version)
+	data["FleetBuilds"] = fleetBuilds
 	data["CrashGroups"] = crashGroups
 	data["CrashGroupTotal"] = crashTotal
 	data["DevicesOnVersion"] = devs
+	// Approach A — inline "push to devices" panel: every device of this release's product
+	// (productWhere folds legacy/empty -> t7), so the picker is auto-scoped and a
+	// wrong-product device can never be selected. The template marks devices already on
+	// this build as "up to date". ActiveThresholdSecs drives the online dot.
+	pushDevices, _ := h.db.ListDevices(ctx, db.DeviceFilter{Product: rel.Product}, 0, 500, "serial", "asc")
+	data["PushDevices"] = pushDevices
+	data["ActiveThresholdSecs"] = h.cfg.CheckinInterval() * 3
+	// Devices already mid-OTA (pending/downloading on an active deployment) — the picker
+	// marks them "updating" and disables them, since their build_id still shows the old
+	// version until they reboot.
+	updating, _ := h.db.SerialsUpdating(ctx)
+	data["DevicesUpdating"] = updating
+	// Devices already on a strictly newer release of this product — the picker disables
+	// them and labels them "newer installed" (OTAing an older release onto them is blocked).
+	blocked, _ := h.db.SerialsOnNewerRelease(ctx, rel.ID)
+	data["DevicesBlocked"] = blocked
 	return data
 }
 
@@ -6761,6 +6850,20 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 	deployable, _ := h.db.ListDeployableReleases(r.Context())
 	groups, _ := h.db.ListGroups(r.Context())
 
+	// Optional per-product filter (?product=): keep deployments whose release product
+	// resolves to the selected one (empty/legacy -> t7). Empty filter shows everything.
+	filterProduct := strings.TrimSpace(r.URL.Query().Get("product"))
+	if filterProduct != "" {
+		want, _ := product.Resolve(filterProduct)
+		kept := deployments[:0]
+		for _, d := range deployments {
+			if got, _ := product.Resolve(d.Product); got.Key == want.Key {
+				kept = append(kept, d)
+			}
+		}
+		deployments = kept
+	}
+
 	canDeploy := role == "admin" || role == "dev"
 	var devices []db.Device
 	if canDeploy {
@@ -6772,15 +6875,73 @@ func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 		online[cid] = true
 	}
 	h.render(w, r, "updates.html", map[string]any{
-		"Title":       "Updates",
-		"Deployments": deployments,
-		"Releases":    deployable,
-		"Devices":     devices,
-		"Groups":      groups,
-		"Online":      online,
-		"CanDeploy":   canDeploy,
-		"PreRelease":  r.URL.Query().Get("release"),
+		"Title":         "Updates",
+		"Deployments":   deployments,
+		"Releases":      deployable,
+		"Devices":       devices,
+		"Groups":        groups,
+		"Online":        online,
+		"CanDeploy":     canDeploy,
+		"PreRelease":    r.URL.Query().Get("release"),
+		"Products":      product.All(),
+		"FilterProduct": filterProduct,
 	})
+}
+
+// NewUpdatePage is the standalone "push an update" screen reached from the Updates
+// page's "+ New Update" button. Step 1: pick a publishable release. Step 2 (once
+// ?release= is set): pick the specific devices, reboot and delivery mode, then POST
+// to /updates (DeployCreate). Device selection is scoped to the release's product.
+func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
+	deployable, _ := h.db.ListDeployableReleases(r.Context())
+
+	data := map[string]any{
+		"Title":               "New Update",
+		"Releases":            deployable,
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+	}
+
+	// Step 2 only renders once a release is chosen.
+	if relRaw := strings.TrimSpace(r.URL.Query().Get("release")); relRaw != "" {
+		if relID, err := strconv.Atoi(relRaw); err == nil {
+			if rel, err := h.db.GetRelease(r.Context(), relID); err == nil {
+				data["Release"] = rel
+
+				// Delivery relevance: forcing full only makes sense when the release has a
+				// full image; smart-vs-full only differs when an incremental also exists.
+				pkgs, _ := h.db.ListPackagesByRelease(r.Context(), relID)
+				hasFull, hasIncremental := false, false
+				sourceBuilds := map[string]bool{}
+				for _, p := range pkgs {
+					if p.Status != "active" {
+						continue
+					}
+					if p.Type == "full" {
+						hasFull = true
+					} else {
+						hasIncremental = true
+						if p.SourceBuildID != "" {
+							sourceBuilds[p.SourceBuildID] = true
+						}
+					}
+				}
+				data["HasFull"] = hasFull
+				data["HasIncremental"] = hasIncremental
+				data["SourceBuilds"] = sourceBuilds
+
+				// Every device of the release's product; the template marks devices already
+				// on this build as up to date and ones mid-update as updating.
+				pushDevices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{Product: rel.Product}, 0, 500, "serial", "asc")
+				data["PushDevices"] = pushDevices
+				updating, _ := h.db.SerialsUpdating(r.Context())
+				data["DevicesUpdating"] = updating
+				blocked, _ := h.db.SerialsOnNewerRelease(r.Context(), relID)
+				data["DevicesBlocked"] = blocked
+			}
+		}
+	}
+
+	h.render(w, r, "updates_new.html", data)
 }
 
 // ReleaseDeploy deploys a whole release; the per-device artifact (full vs
@@ -6825,11 +6986,13 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 	// (ResolveUpdateForDevice) hands each incremental only to devices whose
 	// current build matches its source_build_id, and skips the rest.
 	pkgs, _ := h.db.ListPackagesByRelease(r.Context(), relID)
-	hasActive := false
+	hasActive, hasFull := false, false
 	for _, p := range pkgs {
 		if p.Status == "active" {
 			hasActive = true
-			break
+			if p.Type == "full" {
+				hasFull = true
+			}
 		}
 	}
 	if !hasActive {
@@ -6844,19 +7007,42 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 	}
 	scheduledTime := parseScheduledUTC(r.FormValue("scheduled_time"), rebootBehavior)
 
+	// Delivery: "smart" (default) lets the resolver pick an incremental per device where
+	// its current build matches, falling back to full. "full" pins every target to the
+	// full image. Only meaningful when the release actually has a full package.
+	forceFull := r.FormValue("delivery") == "full"
+	if forceFull && !hasFull {
+		http.Error(w, "This release has no full image — add one before forcing full delivery.", http.StatusBadRequest)
+		return
+	}
+
 	deployment, err := h.db.CreateReleaseUpdate(r.Context(), relID, rebootBehavior, scheduledTime)
 	if err != nil {
 		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	eligible, err := h.resolveEligibleDevices(r)
+	eligible, err := h.resolveEligibleDevices(r, rel.Product)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	// Drop devices already on a same-or-newer release — OTAing an older release onto them
+	// is not allowed (they'd sit pending forever; the resolver would refuse to serve it).
+	eligible, err = h.db.RemoveDowngradeTargets(r.Context(), relID, eligible)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	// Drop devices with no applicable artifact (incremental-only release + device not on a
+	// source build) — the resolver could never serve them, so they'd strand as pending.
+	eligible, err = h.db.RemoveInapplicableTargets(r.Context(), relID, eligible)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	if len(eligible) > 0 {
-		if err := h.db.SendUpdateToDevices(r.Context(), deployment.ID, eligible); err != nil {
+		if err := h.db.SendUpdateToDevices(r.Context(), deployment.ID, eligible, forceFull); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -6981,9 +7167,15 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	for _, t := range targets {
 		existing[t.DeviceID] = true
 	}
+	// A deployment is restricted to its release's product — the resolver only ever
+	// hands the update to matching devices, so the picker must only offer those.
+	wantProduct, _ := product.Resolve(upd.Release.Product)
 	eligible := devices[:0]
 	for _, d := range devices {
 		if existing[d.ID] {
+			continue
+		}
+		if got, _ := product.Resolve(d.Product); got.Key != wantProduct.Key {
 			continue
 		}
 		if !hasFull && !sourceBuilds[d.BuildID] {
@@ -7186,14 +7378,49 @@ func (h *Handler) DeploymentAddTargets(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Deployment not found", http.StatusNotFound)
 		return
 	}
+	rel, err := h.db.GetRelease(r.Context(), relID)
+	if err != nil {
+		http.Error(w, "Release not found", http.StatusNotFound)
+		return
+	}
 	r.ParseForm()
-	eligible, err := h.resolveEligibleDevices(r)
+	// Delivery choice mirrors the initial push: "full" pins the newly added devices
+	// to the full image; default "smart" lets the resolver pick an incremental.
+	forceFull := r.FormValue("delivery") == "full"
+	if forceFull {
+		pkgs, _ := h.db.ListPackagesByRelease(r.Context(), relID)
+		hasFull := false
+		for _, p := range pkgs {
+			if p.Status == "active" && p.Type == "full" {
+				hasFull = true
+				break
+			}
+		}
+		if !hasFull {
+			http.Error(w, "This release has no full image — add one before forcing full delivery.", http.StatusBadRequest)
+			return
+		}
+	}
+	eligible, err := h.resolveEligibleDevices(r, rel.Product)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	// Same monotonicity guard as the initial push — never add a device that's already on a
+	// same-or-newer release.
+	eligible, err = h.db.RemoveDowngradeTargets(r.Context(), relID, eligible)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	// And drop devices with no applicable artifact for this release.
+	eligible, err = h.db.RemoveInapplicableTargets(r.Context(), relID, eligible)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
 	if len(eligible) > 0 {
-		if err := h.db.SendUpdateToDevices(r.Context(), did, eligible); err != nil {
+		if err := h.db.SendUpdateToDevices(r.Context(), did, eligible, forceFull); err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
@@ -7219,7 +7446,12 @@ func parseScheduledUTC(raw, rebootBehavior string) *time.Time {
 	return &utc
 }
 
-func (h *Handler) resolveEligibleDevices(r *http.Request) ([]uuid.UUID, error) {
+// resolveEligibleDevices builds the target set from the form's serials/group_ids,
+// dropping devices that already have an active update. When product != "" it also drops
+// devices of a different product, so a release is never deployed cross-product (the
+// resolver enforces this too, but filtering here keeps mismatched devices out of the
+// deployment entirely).
+func (h *Handler) resolveEligibleDevices(r *http.Request, product string) ([]uuid.UUID, error) {
 	var deviceIDs []uuid.UUID
 
 	serials := r.Form["serials"]
@@ -7247,6 +7479,16 @@ func (h *Handler) resolveEligibleDevices(r *http.Request) ([]uuid.UUID, error) {
 		if !seen[did] {
 			seen[did] = true
 			unique = append(unique, did)
+		}
+	}
+
+	// Keep only devices matching the release's product (wrong-product devices can't be
+	// targeted at all). Skipped when no product is supplied.
+	if product != "" && len(unique) > 0 {
+		var err error
+		unique, err = h.db.FilterDeviceIDsByProduct(r.Context(), unique, product)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -9117,7 +9359,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"health-command", "health-reliability", "health-stream", "health-icons",
 		"overview-command",
 		"alerts-inbox", "alerts-grouped", "notifications",
-		"release-pipeline", "release-cockpit":
+		"release-pipeline", "release-cockpit", "ota-flow":
 	default:
 		http.NotFound(w, r)
 		return
@@ -11230,6 +11472,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/delete", h.requireAdmin(h.ReleaseDelete))
 	post("POST /releases/{id}/publish", h.requireAdmin(h.ReleasePublish))
 	mux.HandleFunc("GET /updates", h.requireAdminOrTester(h.UpdatesHub))
+	mux.HandleFunc("GET /updates/new", h.requireAdmin(h.NewUpdatePage))
 	post("POST /updates", h.requireAdmin(h.DeployCreate))
 	post("POST /releases/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
