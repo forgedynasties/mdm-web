@@ -2506,6 +2506,34 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DeviceOfflineCode returns the current offline-exit unlock code + seconds remaining as
+// JSON, so the device page can show a live, self-rotating code without a page reload and
+// without needing browser crypto (works over plain HTTP). Admin-only.
+func (h *Handler) DeviceOfflineCode(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	cfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	out := map[string]any{"enabled": false, "period": totp.DefaultPeriod}
+	if cfg.OfflineExitEnabled && cfg.OfflineExitSeed != "" {
+		now := time.Now()
+		code, _ := totp.Code(cfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
+		out["enabled"] = true
+		out["code"] = code
+		out["seconds"] = totp.SecondsRemaining(now, totp.DefaultPeriod)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(out)
+}
+
 // DeviceOfflineExit enables/disables offline kiosk exit for one device and (on enable)
 // provisions its TOTP seed. Admin-only.
 func (h *Handler) DeviceOfflineExit(w http.ResponseWriter, r *http.Request) {
@@ -11374,6 +11402,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))
 	post("POST /devices/{serial}/offline-exit", h.requireAdmin(h.DeviceOfflineExit))
+	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireAdmin(h.DeviceOfflineCode))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))

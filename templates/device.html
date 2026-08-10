@@ -220,7 +220,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           </div>
         </form>
         {{if .KioskConfig.OfflineExitEnabled}}
-        <div class="oe-card" id="oe-card" data-seed="{{.OfflineSeed}}" data-period="{{.OfflinePeriod}}" data-digits="{{.OfflineDigits}}">
+        <div class="oe-card" id="oe-card" data-serial="{{.Device.SerialNumber}}" data-period="{{.OfflinePeriod}}" data-digits="{{.OfflineDigits}}">
           <div class="oe-top">
             <span class="oe-label">Unlock code</span>
             <svg class="oe-ring" viewBox="0 0 36 36" aria-hidden="true">
@@ -2008,61 +2008,63 @@ document.addEventListener('keydown', function (e) {
 </script>
 
 <script>
-// Live offline-exit unlock code: recompute the TOTP in the browser (SubtleCrypto
-// HMAC-SHA1) from the embedded seed and deplete the ring each second, like an
-// authenticator app. Falls back to the server-rendered code if crypto is unavailable
-// (e.g. non-HTTPS), still animating the ring off the wall clock.
+// Live offline-exit unlock code + countdown ring. The code is fetched from the server
+// (works over plain HTTP, no browser crypto); the ring depletes locally each second and
+// a fresh code is fetched only when the window rolls over. Re-initialises on htmx swaps.
 (function () {
-  var card = document.getElementById('oe-card');
-  if (!card) return;
-  var seedB32 = (card.dataset.seed || '').toUpperCase().replace(/=+$/, '');
-  var period = parseInt(card.dataset.period, 10) || 60;
-  var digits = parseInt(card.dataset.digits, 10) || 6;
-  var codeEl = document.getElementById('oe-code');
-  var ring = document.getElementById('oe-ring');
-  var R = 15.5, C = 2 * Math.PI * R;
-  ring.style.strokeDasharray = C.toFixed(2);
+  function initOfflineCode() {
+    var card = document.getElementById('oe-card');
+    if (!card || card.dataset.oeInit === '1') return;
+    card.dataset.oeInit = '1';
+    var serial = card.dataset.serial;
+    var period = parseInt(card.dataset.period, 10) || 60;
+    var digits = parseInt(card.dataset.digits, 10) || 6;
+    var codeEl = document.getElementById('oe-code');
+    var ring = document.getElementById('oe-ring');
+    var R = 15.5, C = 2 * Math.PI * R;
+    ring.style.strokeDasharray = C.toFixed(2);
+    var boundary = 0; // wall-clock secs when the current code expires
+    var fetching = false;
 
-  function b32decode(s) {
-    var A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', buf = 0, bits = 0, out = [];
-    for (var i = 0; i < s.length; i++) {
-      var v = A.indexOf(s[i]); if (v < 0) continue;
-      buf = (buf << 5) | v; bits += 5;
-      if (bits >= 8) { bits -= 8; out.push((buf >> bits) & 0xff); }
+    function group(c) { return (digits === 6 && c.length === 6) ? c.slice(0, 3) + ' ' + c.slice(3) : c; }
+
+    function refresh() {
+      if (fetching) return;
+      fetching = true;
+      fetch('/devices/' + encodeURIComponent(serial) + '/offline-code', { credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          fetching = false;
+          if (!d || !d.enabled) return;
+          if (d.code) codeEl.textContent = group(String(d.code));
+          boundary = Date.now() / 1000 + (d.seconds || period);
+        })
+        .catch(function () { fetching = false; });
     }
-    return new Uint8Array(out);
-  }
-  function group(c) { return digits === 6 ? c.slice(0, 3) + ' ' + c.slice(3) : c; }
-  if (codeEl.textContent.trim()) codeEl.textContent = group(codeEl.textContent.trim());
 
-  var haveCrypto = !!(window.crypto && crypto.subtle && seedB32);
-  var keyP = haveCrypto ? crypto.subtle.importKey('raw', b32decode(seedB32), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']) : null;
-  var last = -1;
-
-  async function code(counter) {
-    var msg = new ArrayBuffer(8), dv = new DataView(msg);
-    dv.setUint32(4, counter >>> 0);
-    var sig = new Uint8Array(await crypto.subtle.sign('HMAC', await keyP, msg));
-    var o = sig[sig.length - 1] & 0xf;
-    var bin = ((sig[o] & 0x7f) << 24) | (sig[o + 1] << 16) | (sig[o + 2] << 8) | sig[o + 3];
-    var s = (bin % Math.pow(10, digits)).toString();
-    while (s.length < digits) s = '0' + s;
-    return s;
-  }
-  async function tick() {
-    var now = Date.now() / 1000;
-    var counter = Math.floor(now / period);
-    var remaining = period - (now % period);
-    ring.style.transition = remaining > period - 1.2 ? 'none' : '';
-    ring.style.strokeDashoffset = (C * (1 - remaining / period)).toFixed(2);
-    card.classList.toggle('expiring', remaining <= 6);
-    if (haveCrypto && counter !== last) {
-      last = counter;
-      try { codeEl.textContent = group(await code(counter)); } catch (e) {}
+    function tick() {
+      var now = Date.now() / 1000;
+      var remaining = boundary - now;
+      if (remaining <= 0) { refresh(); remaining = period; }
+      if (remaining > period) remaining = period;
+      ring.style.transition = remaining > period - 1.2 ? 'none' : '';
+      ring.style.strokeDashoffset = (C * (1 - remaining / period)).toFixed(2);
+      card.classList.toggle('expiring', remaining <= 6);
     }
+
+    // Stop the old timer if the card is swapped away, then start fresh.
+    if (window._oeTimer) clearInterval(window._oeTimer);
+    refresh();
+    tick();
+    window._oeTimer = setInterval(function () {
+      if (!document.getElementById('oe-card')) { clearInterval(window._oeTimer); return; }
+      tick();
+    }, 1000);
   }
-  tick();
-  setInterval(tick, 1000);
+  document.addEventListener('DOMContentLoaded', initOfflineCode);
+  document.body.addEventListener('htmx:load', initOfflineCode);
+  document.body.addEventListener('htmx:afterSettle', initOfflineCode);
+  initOfflineCode();
 })();
 </script>
 
