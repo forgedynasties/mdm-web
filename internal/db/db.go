@@ -171,6 +171,7 @@ type QFILPackage struct {
 type Release struct {
 	ID                  int        `json:"id"`
 	Version             string     `json:"version"`
+	Product             string     `json:"product"` // hardware product this release targets (t7/kiosk18/22/27)
 	Name                string     `json:"name"`
 	Changelog           string     `json:"changelog"`
 	Status              string     `json:"status"`          // "draft" | "published"
@@ -201,6 +202,7 @@ type FleetVersion struct {
 	ReleaseID     *int     `json:"release_id"`     // non-nil when this version is a managed release
 	ReleaseStatus string   `json:"release_status"` // "" when unmanaged
 	ReleaseHidden bool     `json:"release_hidden"`
+	Product       string   `json:"product"` // product of the devices reporting this build (empty->t7)
 }
 
 type Update struct {
@@ -214,9 +216,12 @@ type Update struct {
 	OtaPackage      *OTAPackage    `json:"ota_package,omitempty"`
 	Release         *Release       `json:"release,omitempty"`
 	Targets         []UpdateTarget `json:"targets,omitempty"`
-	DeviceTotal     int            `json:"device_total,omitempty"`     // populated by ListDeploymentsByPackage
-	DeviceInstalled int            `json:"device_installed,omitempty"` // populated by ListDeploymentsByPackage
-	DeviceStatus    string         `json:"device_status,omitempty"`    // populated by ResolveUpdateForDevice
+	DeviceTotal       int          `json:"device_total,omitempty"`       // populated by ListDeploymentsByPackage
+	DeviceInstalled   int          `json:"device_installed,omitempty"`   // populated by ListDeploymentsByPackage
+	DeviceDownloading int          `json:"device_downloading,omitempty"` // populated by ListDeployments
+	DeviceFailed      int          `json:"device_failed,omitempty"`      // populated by ListDeployments
+	Product           string       `json:"product,omitempty"`            // release product (populated by ListDeployments)
+	DeviceStatus      string       `json:"device_status,omitempty"`      // populated by ResolveUpdateForDevice
 }
 
 type UpdateTarget struct {
@@ -7527,6 +7532,18 @@ CREATE TABLE IF NOT EXISTS releases (
 ALTER TABLE ota_packages ADD COLUMN IF NOT EXISTS release_id INTEGER REFERENCES releases(id);
 ALTER TABLE updates      ADD COLUMN IF NOT EXISTS release_id INTEGER REFERENCES releases(id);
 
+-- Per-product releases: a release targets one hardware product (t7/kiosk18/22/27), so a
+-- device is only ever offered/sent a release matching its own product (enforced in
+-- ResolveUpdateForDevice). Existing releases predate multi-product and were all T7, so
+-- backfill + default to t7 — consistent with the devices empty->t7 rule.
+-- Identity is (version, product), NOT version alone: the same version string can exist
+-- for different products (a t7 "2026.06.01" and a kiosk22 "2026.06.01" are two distinct
+-- releases). This must run BEFORE the backfill seed below, whose ON CONFLICT targets the
+-- composite index.
+ALTER TABLE releases ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT 't7';
+ALTER TABLE releases DROP CONSTRAINT IF EXISTS releases_version_key;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_releases_version_product ON releases(version, product);
+
 -- Backfill one release per existing target build (falling back to the legacy
 -- build_id when target_build_id is blank). Existing packages are marked published
 -- so deployments already in flight keep resolving; then link packages and updates.
@@ -7534,7 +7551,7 @@ INSERT INTO releases (version, status, changelog, created_at, published_at)
   SELECT COALESCE(NULLIF(target_build_id,''), build_id), 'published', MAX(changelog), MIN(created_at), MIN(created_at)
   FROM ota_packages
   GROUP BY COALESCE(NULLIF(target_build_id,''), build_id)
-  ON CONFLICT (version) DO NOTHING;
+  ON CONFLICT (version, product) DO NOTHING;
 UPDATE ota_packages p SET release_id = r.id
   FROM releases r
   WHERE r.version = COALESCE(NULLIF(p.target_build_id,''), p.build_id) AND p.release_id IS NULL;
@@ -8032,8 +8049,8 @@ CREATE INDEX IF NOT EXISTS idx_devices_product ON devices(product);
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
 
-func (d *DB) CreateOTAPackage(ctx context.Context, typ, targetBuildID, sourceBuildID, updateURL, changelog string, releaseDate time.Time) (*OTAPackage, error) {
-	rel, err := d.GetOrCreateRelease(ctx, targetBuildID)
+func (d *DB) CreateOTAPackage(ctx context.Context, typ, targetBuildID, sourceBuildID, updateURL, changelog, product string, releaseDate time.Time) (*OTAPackage, error) {
+	rel, err := d.GetOrCreateRelease(ctx, targetBuildID, product)
 	if err != nil {
 		return nil, err
 	}
@@ -8156,22 +8173,33 @@ func (d *DB) DeleteQFILPackagesByRelease(ctx context.Context, releaseID int) err
 
 // ── Releases ──────────────────────────────────────────────────────────────────
 
-// GetOrCreateRelease returns the release for a version (target build id),
-// creating it in 'draft' if absent.
-func (d *DB) GetOrCreateRelease(ctx context.Context, version string) (*Release, error) {
+// GetOrCreateRelease creates the release for a version (target build id) if absent,
+// tagging a newly-created one with the given product (normalized; empty -> t7). An
+// existing release keeps its product — this never re-tags one.
+func (d *DB) GetOrCreateRelease(ctx context.Context, version, product string) (*Release, error) {
+	// Resolve default-substitutes an empty/unknown product to t7, so a release always
+	// carries a valid catalog key regardless of what the form/derivation supplied.
+	p, _ := prod.Resolve(product)
+	product = p.Key
+	// Identity is (version, product) — the same version for a different product is a
+	// distinct release, so conflict is only when BOTH match.
 	if _, err := d.pool.Exec(ctx,
-		`INSERT INTO releases (version) VALUES ($1) ON CONFLICT (version) DO NOTHING`, version); err != nil {
+		`INSERT INTO releases (version, product) VALUES ($1, $2) ON CONFLICT (version, product) DO NOTHING`, version, product); err != nil {
 		return nil, err
 	}
-	return d.GetReleaseByVersion(ctx, version)
+	return d.GetReleaseByVersion(ctx, version, product)
 }
 
-func (d *DB) GetReleaseByVersion(ctx context.Context, version string) (*Release, error) {
+// GetReleaseByVersion returns the release for a (version, product) pair. product is
+// default-substituted (empty/legacy -> t7) so a device's raw product can be passed
+// straight through.
+func (d *DB) GetReleaseByVersion(ctx context.Context, version, product string) (*Release, error) {
+	p, _ := prod.Resolve(product)
 	var r Release
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, version, name, changelog, status, created_at, published_at
-		FROM releases WHERE version = $1
-	`, version).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.CreatedAt, &r.PublishedAt)
+		SELECT id, version, product, name, changelog, status, created_at, published_at
+		FROM releases WHERE version = $1 AND product = $2
+	`, version, p.Key).Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.CreatedAt, &r.PublishedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -8181,11 +8209,11 @@ func (d *DB) GetReleaseByVersion(ctx context.Context, version string) (*Release,
 func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 	var r Release
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, version, name, changelog, status, skip_base_tests, created_at, published_at,
+		SELECT id, version, product, name, changelog, status, skip_base_tests, created_at, published_at,
 		       signed_off_by, signed_off_at, testing_done_at, testing_done_by, parent_release_id, is_branch,
 		       merged_from_release_id, merged_into_release_id, merged_at, merged_by
 		FROM releases WHERE id = $1
-	`, id).Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.CreatedAt, &r.PublishedAt,
+	`, id).Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.SkipBaseTests, &r.CreatedAt, &r.PublishedAt,
 		&r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch,
 		&r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy)
 	if err != nil {
@@ -8196,7 +8224,7 @@ func (d *DB) GetRelease(ctx context.Context, id int) (*Release, error) {
 
 func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT r.id, r.version, r.name, r.changelog, r.status, r.hidden, r.created_at, r.published_at,
+		SELECT r.id, r.version, r.product, r.name, r.changelog, r.status, r.hidden, r.created_at, r.published_at,
 		       r.signed_off_by, r.signed_off_at, r.testing_done_at, r.testing_done_by,
 		       r.parent_release_id, r.is_branch,
 		       r.merged_from_release_id, r.merged_into_release_id, r.merged_at, r.merged_by,
@@ -8215,7 +8243,7 @@ func (d *DB) ListReleases(ctx context.Context) ([]Release, error) {
 	var out []Release
 	for rows.Next() {
 		var r Release
-		if err := rows.Scan(&r.ID, &r.Version, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch, &r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy, &r.PackageCount, &r.DeployCount); err != nil {
+		if err := rows.Scan(&r.ID, &r.Version, &r.Product, &r.Name, &r.Changelog, &r.Status, &r.Hidden, &r.CreatedAt, &r.PublishedAt, &r.SignedOffBy, &r.SignedOffAt, &r.TestingDoneAt, &r.TestingDoneBy, &r.ParentReleaseID, &r.IsBranch, &r.MergedFromReleaseID, &r.MergedIntoReleaseID, &r.MergedAt, &r.MergedBy, &r.PackageCount, &r.DeployCount); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -8240,6 +8268,7 @@ func (d *DB) ListPublishedReleasesForRail(ctx context.Context) ([]ReleaseRailIte
 		SELECT r.id, r.version, r.name, COUNT(dev.build_id)::int AS device_count
 		FROM releases r
 		LEFT JOIN devices dev ON dev.build_id = r.version AND NOT dev.hidden
+		    AND (CASE WHEN dev.product = '' THEN 't7' ELSE dev.product END) = r.product
 		WHERE r.status = 'published' AND NOT r.hidden
 		GROUP BY r.id, r.version, r.name, r.published_at, r.created_at
 		ORDER BY r.published_at DESC NULLS LAST, r.created_at DESC
@@ -8275,15 +8304,61 @@ func (d *DB) DeleteRelease(ctx context.Context, id int) error {
 // GetFleetVersions returns every release version actually reported by non-hidden devices,
 // with the devices on each and a link to the managed release (if one exists). This is the
 // "what's really running in the field" view for release tracking.
+// FleetBuild is one current-build population for a product: how many devices run
+// build_id, and whether that build is a managed release of the product (so a delta can
+// be generated FROM it). Powers the package composer's "which builds to make an
+// incremental from" hint.
+type FleetBuild struct {
+	BuildID  string `json:"build_id"`
+	Count    int    `json:"count"`
+	IsSource bool   `json:"is_source"` // a published, managed release of this product exists with this version
+}
+
+// FleetBuildDistribution returns the build populations for a product's fleet, biggest
+// first, excluding devices already on excludeVersion (the release being authored). Use it
+// to decide which source builds are worth an incremental: make deltas from the builds a
+// meaningful chunk of the fleet runs, ship one full image for the long tail.
+func (d *DB) FleetBuildDistribution(ctx context.Context, product, excludeVersion string) ([]FleetBuild, error) {
+	p, _ := prod.Resolve(product)
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.build_id, COUNT(*)::int,
+		       EXISTS (SELECT 1 FROM releases r
+		               WHERE r.version = d.build_id AND r.product = $1
+		                 AND r.status = 'published') AS is_source
+		FROM devices d
+		WHERE NOT d.hidden AND d.build_id <> '' AND d.build_id <> $2
+		  AND (CASE WHEN d.product = '' THEN 't7' ELSE d.product END) = $1
+		GROUP BY d.build_id
+		ORDER BY COUNT(*) DESC, d.build_id
+	`, p.Key, excludeVersion)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []FleetBuild
+	for rows.Next() {
+		var b FleetBuild
+		if err := rows.Scan(&b.BuildID, &b.Count, &b.IsSource); err != nil {
+			return nil, err
+		}
+		out = append(out, b)
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) GetFleetVersions(ctx context.Context) ([]FleetVersion, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.build_id, COUNT(*)::int,
 		       array_agg(d.serial_number ORDER BY d.serial_number),
-		       rel.id, COALESCE(rel.status, ''), COALESCE(rel.hidden, false)
+		       rel.id, COALESCE(rel.status, ''), COALESCE(rel.hidden, false),
+		       COALESCE(rel.product, MAX(CASE WHEN d.product = '' THEN 't7' ELSE d.product END))
 		FROM devices d
+		-- Match a device to the release for ITS product (empty/legacy -> t7): a same-version
+		-- release for another product is a different release and must not link here.
 		LEFT JOIN releases rel ON rel.version = d.build_id
+		    AND rel.product = CASE WHEN d.product = '' THEN 't7' ELSE d.product END
 		WHERE NOT d.hidden AND d.build_id <> ''
-		GROUP BY d.build_id, rel.id, rel.status, rel.hidden
+		GROUP BY d.build_id, rel.id, rel.status, rel.hidden, rel.product
 		ORDER BY COUNT(*) DESC, d.build_id
 	`)
 	if err != nil {
@@ -8293,10 +8368,225 @@ func (d *DB) GetFleetVersions(ctx context.Context) ([]FleetVersion, error) {
 	var out []FleetVersion
 	for rows.Next() {
 		var v FleetVersion
-		if err := rows.Scan(&v.Version, &v.DeviceCount, &v.Serials, &v.ReleaseID, &v.ReleaseStatus, &v.ReleaseHidden); err != nil {
+		if err := rows.Scan(&v.Version, &v.DeviceCount, &v.Serials, &v.ReleaseID, &v.ReleaseStatus, &v.ReleaseHidden, &v.Product); err != nil {
 			return nil, err
 		}
 		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// ProductForVersion returns the product of the devices currently reporting a build
+// version (the most common one), so a release tracked from a live fleet version inherits
+// the right product. Returns "" when no device reports it (caller defaults to t7).
+func (d *DB) ProductForVersion(ctx context.Context, version string) (string, error) {
+	var p string
+	err := d.pool.QueryRow(ctx, `
+		SELECT CASE WHEN product = '' THEN 't7' ELSE product END AS p
+		FROM devices WHERE build_id = $1 AND NOT hidden
+		GROUP BY p ORDER BY COUNT(*) DESC LIMIT 1
+	`, version).Scan(&p)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return p, err
+}
+
+// FilterDeviceIDsByProduct returns the subset of ids whose device product matches the
+// given product (an empty/legacy device product counts as t7). Used to keep a
+// deployment's targets to the release's own product so a wrong-product device can't be
+// rowed into a deployment in the first place.
+func (d *DB) FilterDeviceIDsByProduct(ctx context.Context, ids []uuid.UUID, product string) ([]uuid.UUID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	p, _ := prod.Resolve(product)
+	rows, err := d.pool.Query(ctx, `
+		SELECT id FROM devices
+		WHERE id = ANY($1) AND (CASE WHEN product = '' THEN 't7' ELSE product END) = $2`, ids, p.Key)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// OTAInProgress is one device currently taking an OTA, with its live download/install
+// percent (from the device's last ota_progress telemetry). Powers the releases-page
+// "OTA in progress" summary card.
+type OTAInProgress struct {
+	DeviceID      uuid.UUID
+	Serial        string
+	TargetVersion string
+	Product       string
+	Status        string // "pending" (awaiting check-in) | "downloading" (command sent)
+	Percent       int    // from telemetry; the handler overlays the live shell value
+	Phase         string // from telemetry; the handler overlays the live shell value
+}
+
+// ActiveOTADevices lists every device in an in-flight OTA (pending/downloading on an
+// active deployment), newest progress first, with the live percent/phase it last reported.
+func (d *DB) ActiveOTADevices(ctx context.Context) ([]OTAInProgress, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.id, d.serial_number, COALESCE(rel.version, ''), COALESCE(rel.product, 't7'), ud.status,
+		       COALESCE((d.latest_extra->'ota_progress'->>'percent')::int, 0),
+		       COALESCE(d.latest_extra->'ota_progress'->>'phase', '')
+		FROM update_devices ud
+		JOIN updates u ON u.id = ud.update_id AND u.status = 'active'
+		LEFT JOIN releases rel ON rel.id = u.release_id
+		JOIN devices d ON d.id = ud.device_id
+		WHERE ud.status IN ('pending', 'downloading')
+		ORDER BY (d.latest_extra->'ota_progress'->>'percent')::int DESC NULLS LAST, d.serial_number`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []OTAInProgress
+	for rows.Next() {
+		var o OTAInProgress
+		if err := rows.Scan(&o.DeviceID, &o.Serial, &o.TargetVersion, &o.Product, &o.Status, &o.Percent, &o.Phase); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// SerialsUpdating returns serial_number -> target version for every device currently in an
+// in-flight OTA (pending/downloading on an active deployment). A push picker uses this to
+// mark such devices "updating" instead of offering them again — the device's build_id
+// still shows the OLD version until it reboots, so a build_id check alone misses them.
+func (d *DB) SerialsUpdating(ctx context.Context) (map[string]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT d.serial_number, COALESCE(rel.version, '')
+		FROM update_devices ud
+		JOIN updates u ON u.id = ud.update_id AND u.status = 'active'
+		LEFT JOIN releases rel ON rel.id = u.release_id
+		JOIN devices d ON d.id = ud.device_id
+		WHERE ud.status IN ('pending', 'downloading')`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]string)
+	for rows.Next() {
+		var s, v string
+		if err := rows.Scan(&s, &v); err != nil {
+			return nil, err
+		}
+		out[s] = v
+	}
+	return out, rows.Err()
+}
+
+// RemoveDowngradeTargets returns the subset of ids that may receive the given release —
+// i.e. devices whose current build is NOT already a same-or-newer release of the same
+// product. Prevents OTAing an older (or identical) release onto a device: without this a
+// device on ota-test-3 could be sent ota-test-2 and sit pending forever. Ordering within a
+// product is (created_at, id), both creation-monotonic. A device whose current build is not
+// a managed release can't be proven a regression, so it is kept.
+func (d *DB) RemoveDowngradeTargets(ctx context.Context, releaseID int, ids []uuid.UUID) ([]uuid.UUID, error) {
+	if len(ids) == 0 {
+		return ids, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT dv.id
+		FROM devices dv, releases tgt
+		WHERE tgt.id = $1
+		  AND dv.id = ANY($2)
+		  AND NOT EXISTS (
+		      SELECT 1 FROM releases cur
+		      WHERE cur.product = tgt.product
+		        AND cur.version = dv.build_id
+		        AND (cur.created_at, cur.id) >= (tgt.created_at, tgt.id)
+		  )`, releaseID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// RemoveInapplicableTargets drops devices that have NO applicable artifact for the
+// release: a device is kept only if the release has an active full image (covers any
+// device) OR the device's current build matches an active incremental's source_build_id.
+// Without this, selecting a device on an unrelated build for an incremental-only release
+// creates a pending row the resolver can never satisfy — it sits "pending" forever.
+func (d *DB) RemoveInapplicableTargets(ctx context.Context, releaseID int, ids []uuid.UUID) ([]uuid.UUID, error) {
+	if len(ids) == 0 {
+		return ids, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT dv.id
+		FROM devices dv
+		WHERE dv.id = ANY($2)
+		  AND (
+		      EXISTS (SELECT 1 FROM ota_packages p
+		              WHERE p.release_id = $1 AND p.status = 'active' AND p.type = 'full')
+		   OR EXISTS (SELECT 1 FROM ota_packages p
+		              WHERE p.release_id = $1 AND p.status = 'active' AND p.type = 'incremental'
+		                AND p.source_build_id = dv.build_id)
+		  )`, releaseID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// SerialsOnNewerRelease returns serial_number -> current build for every device whose
+// current build is a STRICTLY newer release (same product) than the given release. A push
+// picker uses this to disable such devices and label them "newer installed", since OTAing
+// an older release onto them is not allowed (see RemoveDowngradeTargets / the resolver
+// monotonicity gate). Devices already on the target version are handled separately as
+// "up to date".
+func (d *DB) SerialsOnNewerRelease(ctx context.Context, releaseID int) (map[string]string, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT dv.serial_number, dv.build_id
+		FROM devices dv, releases tgt
+		WHERE tgt.id = $1
+		  AND EXISTS (
+		      SELECT 1 FROM releases cur
+		      WHERE cur.product = tgt.product
+		        AND cur.version = dv.build_id
+		        AND cur.version <> tgt.version
+		        AND (cur.created_at, cur.id) > (tgt.created_at, tgt.id)
+		  )`, releaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]string)
+	for rows.Next() {
+		var s, b string
+		if err := rows.Scan(&s, &b); err != nil {
+			return nil, err
+		}
+		out[s] = b
 	}
 	return out, rows.Err()
 }
@@ -8484,8 +8774,8 @@ func (d *DB) ClearReleaseTestingDone(ctx context.Context, id int) error {
 func (d *DB) CreateBranchRelease(ctx context.Context, parentID int, version, name, changelog string) (int, error) {
 	var id int
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO releases (version, name, changelog, is_branch, parent_release_id)
-		VALUES ($1, $2, $3, true, $4) RETURNING id`,
+		INSERT INTO releases (version, name, changelog, is_branch, parent_release_id, product)
+		VALUES ($1, $2, $3, true, $4, (SELECT product FROM releases WHERE id = $4)) RETURNING id`,
 		version, name, changelog, parentID).Scan(&id)
 	return id, err
 }
@@ -8521,8 +8811,8 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVe
 	}
 	var newID int
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO releases (version, name, changelog, is_branch, parent_release_id, merged_from_release_id)
-		VALUES ($1, $2, $3, false, $4, $5) RETURNING id`,
+		INSERT INTO releases (version, name, changelog, is_branch, parent_release_id, merged_from_release_id, product)
+		VALUES ($1, $2, $3, false, $4, $5, (SELECT product FROM releases WHERE id = $5)) RETURNING id`,
 		newVersion, name, changelog, baseID, branchID).Scan(&newID); err != nil {
 		return 0, err
 	}
@@ -8734,13 +9024,15 @@ func (d *DB) ListDeploymentsByRelease(ctx context.Context, releaseID int) ([]Upd
 func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT u.id, COALESCE(u.ota_package_id, 0), COALESCE(u.release_id, 0), u.reboot_behavior,
-		       u.scheduled_time, u.status, u.created_at, COALESCE(rel.version, ''),
+		       u.scheduled_time, u.status, u.created_at, COALESCE(rel.version, ''), COALESCE(rel.product, 't7'),
 		       COUNT(ud.device_id) AS device_total,
-		       COUNT(CASE WHEN ud.status = 'installed' THEN 1 END) AS device_installed
+		       COUNT(CASE WHEN ud.status = 'installed' THEN 1 END) AS device_installed,
+		       COUNT(CASE WHEN ud.status = 'downloading' THEN 1 END) AS device_downloading,
+		       COUNT(CASE WHEN ud.status = 'failed' THEN 1 END) AS device_failed
 		FROM updates u
 		LEFT JOIN releases rel ON rel.id = u.release_id
 		LEFT JOIN update_devices ud ON ud.update_id = u.id
-		GROUP BY u.id, rel.version
+		GROUP BY u.id, rel.version, rel.product
 		ORDER BY u.created_at DESC
 		LIMIT 200
 	`)
@@ -8751,12 +9043,14 @@ func (d *DB) ListDeployments(ctx context.Context) ([]Update, error) {
 	var out []Update
 	for rows.Next() {
 		var u Update
-		var version string
+		var version, product string
 		if err := rows.Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime,
-			&u.Status, &u.CreatedAt, &version, &u.DeviceTotal, &u.DeviceInstalled); err != nil {
+			&u.Status, &u.CreatedAt, &version, &product, &u.DeviceTotal, &u.DeviceInstalled,
+			&u.DeviceDownloading, &u.DeviceFailed); err != nil {
 			return nil, err
 		}
-		u.Release = &Release{ID: u.ReleaseID, Version: version}
+		u.Product = product
+		u.Release = &Release{ID: u.ReleaseID, Version: version, Product: product}
 		out = append(out, u)
 	}
 	return out, rows.Err()
@@ -8847,7 +9141,7 @@ func (d *DB) UpdateDeploymentRebootSettings(ctx context.Context, id int, rebootB
 
 // SendUpdateToDevices adds devices as targets of an update. Skips devices that
 // already have an active (non-complete) update. Sets the update status to "active".
-func (d *DB) SendUpdateToDevices(ctx context.Context, updateID int, deviceIDs []uuid.UUID) error {
+func (d *DB) SendUpdateToDevices(ctx context.Context, updateID int, deviceIDs []uuid.UUID, forceFull bool) error {
 	// One transaction so target inserts and the activation commit together — a
 	// mid-loop failure previously left the deployment armed with missing targets,
 	// and the per-row insert error was silently discarded.
@@ -8857,11 +9151,13 @@ func (d *DB) SendUpdateToDevices(ctx context.Context, updateID int, deviceIDs []
 	}
 	defer tx.Rollback(ctx)
 	for _, did := range deviceIDs {
+		// force_full pins these rows to the full image so ResolveUpdateForDevice never
+		// offers a matching incremental — the operator explicitly chose full delivery.
 		if _, err := tx.Exec(ctx, `
-			INSERT INTO update_devices (update_id, device_id, status)
-			VALUES ($1, $2, 'pending')
+			INSERT INTO update_devices (update_id, device_id, status, force_full)
+			VALUES ($1, $2, 'pending', $3)
 			ON CONFLICT DO NOTHING
-		`, updateID, did); err != nil {
+		`, updateID, did, forceFull); err != nil {
 			return err
 		}
 	}
@@ -8912,6 +9208,19 @@ func (d *DB) ResolveUpdateForDevice(ctx context.Context, deviceID uuid.UUID) (*U
 			LIMIT 1
 		) p ON true
 		WHERE ud.device_id = $1 AND u.status = 'active' AND ud.status != 'installed' AND rel.status = 'published'
+		  -- Per-product safety gate: never resolve a release whose product differs from the
+		  -- device's own. A legacy/empty device product counts as t7 (the pre-product fleet).
+		  AND rel.product = CASE WHEN d.product = '' THEN 't7' ELSE d.product END
+		  -- Monotonicity gate: never OTA a release that is older than (or the same as) the
+		  -- release the device is already running. Order within a product is (created_at, id),
+		  -- both creation-monotonic. If the device's current build isn't a managed release we
+		  -- can't prove a regression, so we allow it (NOT EXISTS is true).
+		  AND NOT EXISTS (
+		      SELECT 1 FROM releases cur
+		      WHERE cur.product = rel.product
+		        AND cur.version = d.build_id
+		        AND (cur.created_at, cur.id) >= (rel.created_at, rel.id)
+		  )
 		ORDER BY u.created_at DESC
 		LIMIT 1
 	`, deviceID).Scan(&u.ID, &u.OtaPackageID, &u.ReleaseID, &u.RebootBehavior, &u.ScheduledTime, &u.Status, &u.CreatedAt, &u.DeviceStatus,
