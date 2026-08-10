@@ -49,9 +49,10 @@
     <div class="rlc-id">
       <div class="rlc-top">
         <span class="rlc-stat {{releaseStatusClass .Status}}">{{.Status}}</span>
-        <a href="/releases/{{.ReleaseID}}" class="rlc-ver">{{.Version}}</a>
+        <a href="/releases/{{.ReleaseID}}" class="rlc-ver" title="{{.Version}}">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</a>
+        {{if .Name}}<span class="rchip muted" title="Build id">{{.Version}}</span>{{end}}
         {{if .Product}}<span class="rchip muted" title="Target product — only {{productLabel .Product}} devices are offered this release">{{productLabel .Product}}</span>{{end}}
-        {{if .ReleasedAt}}<span class="rchip muted" title="Release date — {{localTime (deref .ReleasedAt)}}"><svg viewBox="0 0 24 24" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;fill:none;stroke:currentColor;stroke-width:2;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>{{shortDate (deref .ReleasedAt)}}</span>{{end}}
+        {{if .ReleasedAt}}<span class="rchip muted rlc-date" title="Release date — {{localTime (deref .ReleasedAt)}}"><svg viewBox="0 0 24 24" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;fill:none;stroke:currentColor;stroke-width:2;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>{{shortDate (deref .ReleasedAt)}}</span>{{end}}
       </div>
       <span class="rlc-sub">{{if .Changelog}}{{truncate .Changelog 90}}{{else}}<span class="muted">No changelog</span>{{end}}</span>
     </div>
@@ -62,7 +63,6 @@
     <div class="rlc-act">
       {{if $canQfil}}{{if .QfilURL}}<a href="{{.QfilURL}}" class="rlc-open" title="Download flashing bundle" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{end}}{{end}}
       <a href="/releases/{{.ReleaseID}}" class="btn-outline btn-sm" title="Manage changelog &amp; update packages">Manage</a>
-      {{if and (canAdmin $.Role) (eq .DeviceCount 0)}}<form action="/releases/{{.ReleaseID}}/delete" method="POST" class="rlc-x rlc-del" hx-confirm="Delete release {{.Version}}? No devices are running it. This permanently removes the release and its packages & deployments."><button type="submit" title="Delete release (no devices are running it)"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6"/></svg></button></form>{{end}}
     </div>
   </div>
   {{else}}

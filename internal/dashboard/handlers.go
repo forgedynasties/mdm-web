@@ -5394,21 +5394,11 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		branchRow(&row, rel)
 		addRow(row)
 	}
-	// Default order is by release date, newest first. Any saved manual (drag) order
-	// still takes precedence, positioned rows first. Undated rows (reported builds
+	// Order strictly by release date, newest first. Undated rows (reported builds
 	// that aren't managed releases) have no release date and sort to the bottom.
-	order, _ := h.db.GetVersionOrder(r.Context())
+	// The legacy manual drag order is no longer applied — the drag handle was
+	// removed from the list and its version_order table is stale/unreachable.
 	sort.SliceStable(active, func(i, j int) bool {
-		pi, iok := order[active[i].Version]
-		pj, jok := order[active[j].Version]
-		if iok && jok {
-			return pi < pj
-		}
-		if iok != jok {
-			return iok
-		}
-		// Neither is manually positioned: newest release date first; undated
-		// (reported-only) builds sort after all dated ones.
 		ri, rj := active[i].ReleasedAt, active[j].ReleasedAt
 		if ri == nil || rj == nil {
 			return ri != nil // dated (ri!=nil) sorts before undated; two undated keep order
