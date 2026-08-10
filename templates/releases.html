@@ -50,7 +50,6 @@
       <div class="rlc-top">
         <span class="rlc-stat {{releaseStatusClass .Status}}">{{.Status}}</span>
         <a href="/releases/{{.ReleaseID}}" class="rlc-ver" title="{{.Version}}">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</a>
-        {{if .Name}}<span class="rchip muted" title="Build id">{{.Version}}</span>{{end}}
         {{if .Product}}<span class="rchip muted" title="Target product — only {{productLabel .Product}} devices are offered this release">{{productLabel .Product}}</span>{{end}}
         {{if .ReleasedAt}}<span class="rchip muted rlc-date" title="Release date — {{localTime (deref .ReleasedAt)}}"><svg viewBox="0 0 24 24" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;fill:none;stroke:currentColor;stroke-width:2;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>{{shortDate (deref .ReleasedAt)}}</span>{{end}}
       </div>
