@@ -174,7 +174,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if canAdminOrTester .Role}}
     <span class="ddc-kpop-wrap">
       <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskPopToggle(event)" aria-haspopup="true" aria-expanded="false" title="Configure kiosk mode">
-        <span class="k">Kiosk</span>{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}} <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        <span class="k">Kiosk</span>{{if .KioskSuspended}}exited{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}} <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
       <div class="ddc-kpop" id="kiosk-pop" hidden>
         <div class="ddc-kpop-h">Kiosk mode</div>
@@ -210,6 +210,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         </form>
         {{if canAdmin .Role}}
         <div class="ddc-kpop-h" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">Offline exit</div>
+        {{if .KioskSuspended}}<div class="muted small" style="margin-bottom:8px;color:var(--warn);">This device is currently <b>out of kiosk</b> (exited offline). It re-locks on reboot, or push kiosk again below.</div>{{end}}
         <form action="/devices/{{.Device.SerialNumber}}/offline-exit" method="POST">
           <input type="hidden" name="relock" value="reboot">
           <input type="hidden" name="enabled" value="{{if .KioskConfig.OfflineExitEnabled}}0{{else}}1{{end}}">
@@ -219,16 +220,23 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           </div>
         </form>
         {{if .KioskConfig.OfflineExitEnabled}}
-        <div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:var(--r-4);">
-          <div class="muted small">Current unlock code (rotates every {{.OfflineCodeSecs}}s → reload to refresh)</div>
-          <div class="mono" style="font-size:26px;letter-spacing:4px;">{{if .OfflineCode}}{{.OfflineCode}}{{else}}——————{{end}}</div>
-          <div class="muted small">read this to the on-site technician · re-locks on reboot</div>
-          <div class="muted small" style="margin-top:6px;">On device: long-press <b>Back</b> in kiosk, then enter the code.</div>
-          <form action="/devices/{{.Device.SerialNumber}}/offline-exit" method="POST" style="margin-top:8px;">
+        <div class="oe-card" id="oe-card" data-seed="{{.OfflineSeed}}" data-period="{{.OfflinePeriod}}" data-digits="{{.OfflineDigits}}">
+          <div class="oe-top">
+            <span class="oe-label">Unlock code</span>
+            <svg class="oe-ring" viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="oe-ring-bg" cx="18" cy="18" r="15.5"/>
+              <circle class="oe-ring-fg" id="oe-ring" cx="18" cy="18" r="15.5"/>
+            </svg>
+          </div>
+          <div class="oe-code" id="oe-code">{{.OfflineCode}}</div>
+          <div class="oe-hint">Read to the on-site technician · rotates every {{.OfflinePeriod}}s</div>
+          <div class="oe-hint">On the device: long-press <b>Back</b> in kiosk, then enter this code.</div>
+          <div class="oe-hint oe-relock">Re-locks on reboot.</div>
+          <form action="/devices/{{.Device.SerialNumber}}/offline-exit" method="POST" class="oe-rotate">
             <input type="hidden" name="enabled" value="1">
             <input type="hidden" name="relock" value="reboot">
             <input type="hidden" name="rotate" value="1">
-            <button type="submit" class="btn-outline btn-sm" hx-confirm="Rotate the unlock seed? The old codes stop working immediately.">Rotate seed</button>
+            <button type="submit" class="oe-rotate-btn" onclick="return confirm('Rotate the unlock seed? Old codes stop working immediately and the device picks up the new one on its next check-in.')">↻ Rotate</button>
           </form>
         </div>
         {{end}}
@@ -236,7 +244,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </div>
     </span>
     {{else}}
-    <span class="ddc-chip"><span class="k">Kiosk</span>{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
+    <span class="ddc-chip"><span class="k">Kiosk</span>{{if .KioskSuspended}}exited{{else if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
     {{end}}
   </div>
 </div>
@@ -1997,6 +2005,65 @@ function closeModal(e) {
 document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') document.getElementById('checkin-modal').classList.remove('modal-open');
 });
+</script>
+
+<script>
+// Live offline-exit unlock code: recompute the TOTP in the browser (SubtleCrypto
+// HMAC-SHA1) from the embedded seed and deplete the ring each second, like an
+// authenticator app. Falls back to the server-rendered code if crypto is unavailable
+// (e.g. non-HTTPS), still animating the ring off the wall clock.
+(function () {
+  var card = document.getElementById('oe-card');
+  if (!card) return;
+  var seedB32 = (card.dataset.seed || '').toUpperCase().replace(/=+$/, '');
+  var period = parseInt(card.dataset.period, 10) || 60;
+  var digits = parseInt(card.dataset.digits, 10) || 6;
+  var codeEl = document.getElementById('oe-code');
+  var ring = document.getElementById('oe-ring');
+  var R = 15.5, C = 2 * Math.PI * R;
+  ring.style.strokeDasharray = C.toFixed(2);
+
+  function b32decode(s) {
+    var A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567', buf = 0, bits = 0, out = [];
+    for (var i = 0; i < s.length; i++) {
+      var v = A.indexOf(s[i]); if (v < 0) continue;
+      buf = (buf << 5) | v; bits += 5;
+      if (bits >= 8) { bits -= 8; out.push((buf >> bits) & 0xff); }
+    }
+    return new Uint8Array(out);
+  }
+  function group(c) { return digits === 6 ? c.slice(0, 3) + ' ' + c.slice(3) : c; }
+  if (codeEl.textContent.trim()) codeEl.textContent = group(codeEl.textContent.trim());
+
+  var haveCrypto = !!(window.crypto && crypto.subtle && seedB32);
+  var keyP = haveCrypto ? crypto.subtle.importKey('raw', b32decode(seedB32), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']) : null;
+  var last = -1;
+
+  async function code(counter) {
+    var msg = new ArrayBuffer(8), dv = new DataView(msg);
+    dv.setUint32(4, counter >>> 0);
+    var sig = new Uint8Array(await crypto.subtle.sign('HMAC', await keyP, msg));
+    var o = sig[sig.length - 1] & 0xf;
+    var bin = ((sig[o] & 0x7f) << 24) | (sig[o + 1] << 16) | (sig[o + 2] << 8) | sig[o + 3];
+    var s = (bin % Math.pow(10, digits)).toString();
+    while (s.length < digits) s = '0' + s;
+    return s;
+  }
+  async function tick() {
+    var now = Date.now() / 1000;
+    var counter = Math.floor(now / period);
+    var remaining = period - (now % period);
+    ring.style.transition = remaining > period - 1.2 ? 'none' : '';
+    ring.style.strokeDashoffset = (C * (1 - remaining / period)).toFixed(2);
+    card.classList.toggle('expiring', remaining <= 6);
+    if (haveCrypto && counter !== last) {
+      last = counter;
+      try { codeEl.textContent = group(await code(counter)); } catch (e) {}
+    }
+  }
+  tick();
+  setInterval(tick, 1000);
+})();
 </script>
 
 {{template "footer" .}}

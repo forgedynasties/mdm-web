@@ -2455,17 +2455,34 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// the charger/dock connection is dropping in and out (faulty hardware). >10/min is
 	// the flapping threshold (matches the charger_flapping alert default).
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
-	// Current offline-exit unlock code (admins only) — the technician reads this to
-	// leave kiosk mode on-device. Computed from the device's TOTP seed; rotates every period.
-	offlineCode, offlineSecs := "", 0
+	// Offline-exit unlock code (admins only). The seed + period are handed to the page so
+	// it can render a live, self-rotating code (authenticator style) in the browser via
+	// SubtleCrypto — no reloads. A server-computed code is also passed as a no-JS fallback.
+	offlineSeed, offlineCode, offlineSecs := "", "", 0
 	if kioskCfg.OfflineExitEnabled && kioskCfg.OfflineExitSeed != "" && h.role(r) == "admin" {
 		now := time.Now()
+		offlineSeed = kioskCfg.OfflineExitSeed
 		offlineCode, _ = totp.Code(kioskCfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
 		offlineSecs = totp.SecondsRemaining(now, totp.DefaultPeriod)
+	}
+	// Reported live kiosk state: the device sets kiosk_suspended=true after an offline
+	// exit (it's out of lock-task even though the desired config still says kiosk on).
+	kioskSuspended := false
+	if len(device.LatestExtra) > 0 {
+		var ke struct {
+			KioskSuspended bool `json:"kiosk_suspended"`
+		}
+		if json.Unmarshal(device.LatestExtra, &ke) == nil {
+			kioskSuspended = ke.KioskSuspended
+		}
 	}
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
+		"KioskSuspended":      kioskSuspended && kioskCfg.KioskEnabled,
+		"OfflineSeed":         offlineSeed,
+		"OfflinePeriod":       totp.DefaultPeriod,
+		"OfflineDigits":       totp.DefaultDigits,
 		"OfflineCode":         offlineCode,
 		"OfflineCodeSecs":     offlineSecs,
 		"ChargerFlapRate":     flapRate,

@@ -15,7 +15,7 @@ import (
 
 const (
 	DefaultDigits = 6
-	DefaultPeriod = 30
+	DefaultPeriod = 60 // unlock code rotates every 60s
 )
 
 // Code returns the TOTP code for a base32 seed at time t.

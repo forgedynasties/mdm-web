@@ -4289,6 +4289,7 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	}
 	err := scan(d.pool.QueryRow(ctx, sel, deviceID))
 	if err == nil {
+		d.ensureOfflineExitSeed(ctx, &cfg)
 		return &cfg, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -4300,7 +4301,23 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	if err := scan(d.pool.QueryRow(ctx, sel, deviceID)); err != nil {
 		return nil, err
 	}
+	d.ensureOfflineExitSeed(ctx, &cfg)
 	return &cfg, nil
+}
+
+// ensureOfflineExitSeed lazily provisions a TOTP seed the first time a device with
+// offline-exit enabled is read (offline exit is on by default), so no admin action is
+// needed for the feature to work. Persists the seed and updates cfg in place.
+func (d *DB) ensureOfflineExitSeed(ctx context.Context, cfg *DeviceConfig) {
+	if !cfg.OfflineExitEnabled || cfg.OfflineExitSeed != "" {
+		return
+	}
+	seed := newBase32Seed()
+	if _, err := d.pool.Exec(ctx,
+		`UPDATE device_config SET offline_exit_seed=$2 WHERE device_id=$1 AND offline_exit_seed=''`,
+		cfg.DeviceID, seed); err == nil {
+		cfg.OfflineExitSeed = seed
+	}
 }
 
 // RecordOfflineExit logs a device_events row when a device reports it was taken out of
@@ -7378,8 +7395,9 @@ CREATE TABLE IF NOT EXISTS device_config (
 );
 
 -- Offline kiosk-exit: a provisioned TOTP seed lets a technician leave kiosk lock
--- mode on-device without server access; the seed is generated on enable.
-ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+-- mode on-device without server access. Enabled by default (opt-out per device);
+-- the seed is generated lazily on first read (see GetOrCreateDeviceConfig).
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_enabled BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_seed TEXT NOT NULL DEFAULT '';
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_relock TEXT NOT NULL DEFAULT 'reboot';
 
