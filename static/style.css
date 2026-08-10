@@ -5137,6 +5137,12 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 /* Rows share the list's column tracks (subgrid) so every progress bar lines up,
    including nested branch rows whose meta/action cells are near-empty. */
 .rlc { position: relative; grid-column: 1 / -1; display: grid; grid-template-columns: subgrid; align-items: center; column-gap: 14px; padding: 13px 16px; border-bottom: 1px solid var(--border-soft); }
+/* Reported (not-yet-a-release) builds are hidden by default to reduce clutter;
+   the "Show reported builds" toggle adds .show-reported to the list to reveal them. */
+.rlc-list .rlc-reported { display: none; }
+.rlc-list.show-reported .rlc-reported { display: grid; }
+.rel-reported-toggle { display: inline-flex; align-items: center; gap: 7px; margin-top: 12px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
+.rel-reported-toggle input { cursor: pointer; }
 .nb-details { grid-column: 1 / -1; }
 .rlc:last-child { border-bottom: 0; }
 .rlc:hover { background: var(--hover); }

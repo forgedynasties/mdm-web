@@ -31,6 +31,13 @@
 </div>
 
 {{if .Versions}}
+{{if gt .NotTrackedCount 0}}
+<label class="rel-reported-toggle" title="Builds seen on devices that aren't managed releases yet — hidden by default to reduce clutter">
+  <input type="checkbox" onchange="document.querySelector('.rlc-list').classList.toggle('show-reported', this.checked)">
+  Show {{.NotTrackedCount}} reported build{{if ne .NotTrackedCount 1}}s{{end}} not yet added
+</label>
+{{end}}
+<div class="rlc-list-wrap">
 <div class="rlc-list dv-rise-1" style="margin-top:12px;">
   {{range .Versions}}
   {{$pct := pctOf .DeviceCount $.FleetTotal}}
@@ -59,8 +66,9 @@
     </div>
   </div>
   {{else}}
-  {{/* A version seen on devices but not yet a managed release. */}}
-  <div class="rlc">
+  {{/* A version seen on devices but not yet a managed release. Hidden by default;
+       revealed by the "Show reported builds" toggle. */}}
+  <div class="rlc rlc-reported">
     <span></span>
     <span class="rlc-badge muted"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg></span>
     <div class="rlc-id">
@@ -81,6 +89,7 @@
   </div>
   {{end}}
   {{end}}
+</div>
 </div>
 {{else}}
 <div class="card" style="margin-top:12px;">
