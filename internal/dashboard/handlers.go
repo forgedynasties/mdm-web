@@ -2455,32 +2455,18 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// the charger/dock connection is dropping in and out (faulty hardware). >10/min is
 	// the flapping threshold (matches the charger_flapping alert default).
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
-	// Offline-exit unlock code (admins only). The seed + period are handed to the page so
-	// it can render a live, self-rotating code (authenticator style) in the browser via
-	// SubtleCrypto — no reloads. A server-computed code is also passed as a no-JS fallback.
-	offlineSeed, offlineCode, offlineSecs := "", "", 0
-	if kioskCfg.OfflineExitEnabled && kioskCfg.OfflineExitSeed != "" && h.role(r) == "admin" {
+	// Kiosk unlock code (admins only) — shown inside the Kiosk section whenever kiosk is
+	// on, so an admin can read it to a technician who needs to leave kiosk on-device.
+	// The initial code renders server-side; the page then keeps it live via /offline-code.
+	offlineCode, offlineSecs := "", 0
+	if kioskCfg.KioskEnabled && kioskCfg.OfflineExitSeed != "" && h.role(r) == "admin" {
 		now := time.Now()
-		offlineSeed = kioskCfg.OfflineExitSeed
 		offlineCode, _ = totp.Code(kioskCfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
 		offlineSecs = totp.SecondsRemaining(now, totp.DefaultPeriod)
-	}
-	// Reported live kiosk state: the device sets kiosk_suspended=true after an offline
-	// exit (it's out of lock-task even though the desired config still says kiosk on).
-	kioskSuspended := false
-	if len(device.LatestExtra) > 0 {
-		var ke struct {
-			KioskSuspended bool `json:"kiosk_suspended"`
-		}
-		if json.Unmarshal(device.LatestExtra, &ke) == nil {
-			kioskSuspended = ke.KioskSuspended
-		}
 	}
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
-		"KioskSuspended":      kioskSuspended && kioskCfg.KioskEnabled,
-		"OfflineSeed":         offlineSeed,
 		"OfflinePeriod":       totp.DefaultPeriod,
 		"OfflineDigits":       totp.DefaultDigits,
 		"OfflineCode":         offlineCode,
@@ -2522,7 +2508,7 @@ func (h *Handler) DeviceOfflineCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := map[string]any{"enabled": false, "period": totp.DefaultPeriod}
-	if cfg.OfflineExitEnabled && cfg.OfflineExitSeed != "" {
+	if cfg.KioskEnabled && cfg.OfflineExitSeed != "" {
 		now := time.Now()
 		code, _ := totp.Code(cfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
 		out["enabled"] = true
@@ -2534,31 +2520,20 @@ func (h *Handler) DeviceOfflineCode(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(out)
 }
 
-// DeviceOfflineExit enables/disables offline kiosk exit for one device and (on enable)
-// provisions its TOTP seed. Admin-only.
-func (h *Handler) DeviceOfflineExit(w http.ResponseWriter, r *http.Request) {
+// DeviceRotateOfflineCode rotates a device's kiosk unlock seed. Old codes stop working
+// immediately; the device picks up the new seed on its next check-in. Admin-only.
+func (h *Handler) DeviceRotateOfflineCode(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	r.ParseForm()
-	enabled := r.FormValue("enabled") == "1"
-	relock := strings.TrimSpace(r.FormValue("relock"))
-	rotate := r.FormValue("rotate") == "1"
-	if _, err := h.db.SetOfflineExit(r.Context(), device.ID, enabled, relock, rotate); err != nil {
+	if _, err := h.db.SetOfflineExit(r.Context(), device.ID, true, "", true); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	detail := "disabled"
-	if enabled {
-		detail = "enabled"
-	}
-	if rotate {
-		detail += "+rotated"
-	}
-	h.audit(r, "device.offline_exit", serial, detail)
+	h.audit(r, "device.offline_code_rotate", serial, "")
 	http.Redirect(w, r, "/devices/"+serial, http.StatusSeeOther)
 }
 
@@ -11401,7 +11376,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))
-	post("POST /devices/{serial}/offline-exit", h.requireAdmin(h.DeviceOfflineExit))
+	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.DeviceRotateOfflineCode))
 	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireAdmin(h.DeviceOfflineCode))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))

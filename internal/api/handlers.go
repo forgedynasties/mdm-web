@@ -573,7 +573,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
 	}
 	addOfflineExit(cfgMap, deviceCfg)
-	h.ackOfflineExit(r.Context(), deviceID, req.SerialNumber, req.Extra, cfgMap)
+	h.processOfflineExit(r.Context(), deviceID, req.SerialNumber, req.Extra, deviceCfg, cfgMap)
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":   "ok",
@@ -582,25 +582,22 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// addOfflineExit adds the offline kiosk-exit block to a config map. The TOTP seed is
-// included only while the feature is enabled (never leaked when off).
+// addOfflineExit hands the device its unlock seed. Offline exit isn't a separate feature —
+// it's part of kiosk — so the seed always rides the config; the code is only ever usable
+// while the device is in kiosk (the on-device trigger is long-press Back in lock-task).
 func addOfflineExit(cfgMap map[string]any, cfg *db.DeviceConfig) {
-	seed := ""
-	if cfg.OfflineExitEnabled {
-		seed = cfg.OfflineExitSeed
-	}
 	cfgMap["offline_exit"] = map[string]any{
-		"enabled": cfg.OfflineExitEnabled,
-		"seed":    seed,
-		"digits":  totp.DefaultDigits,
-		"period":  totp.DefaultPeriod,
-		"relock":  cfg.OfflineExitRelock,
+		"seed":   cfg.OfflineExitSeed,
+		"digits": totp.DefaultDigits,
+		"period": totp.DefaultPeriod,
 	}
 }
 
-// ackOfflineExit reads a device-reported offline_exit_at from the check-in extra; if
-// present it records the event and echoes offline_exit_ack so the client stops resending.
-func (h *Handler) ackOfflineExit(ctx context.Context, deviceID uuid.UUID, serial string, extra json.RawMessage, cfgMap map[string]any) {
+// processOfflineExit handles a device-reported offline kiosk exit: it flips the kiosk
+// toggle OFF (the exit's effect on the server), reflects that in this same config response
+// so the device converges to kiosk-off without re-locking, records the event, and acks so
+// the client stops resending and clears its local "exited" guard.
+func (h *Handler) processOfflineExit(ctx context.Context, deviceID uuid.UUID, serial string, extra json.RawMessage, cfg *db.DeviceConfig, cfgMap map[string]any) {
 	if len(extra) == 0 {
 		return
 	}
@@ -610,7 +607,13 @@ func (h *Handler) ackOfflineExit(ctx context.Context, deviceID uuid.UUID, serial
 	if err := json.Unmarshal(extra, &e); err != nil || e.OfflineExitAt <= 0 {
 		return
 	}
-	log.Printf("[offline-exit] device %s (%s) reported offline kiosk exit at %d", serial, deviceID, e.OfflineExitAt)
+	log.Printf("[offline-exit] device %s (%s) exited kiosk offline at %d — disabling kiosk", serial, deviceID, e.OfflineExitAt)
+	if cfg.KioskEnabled {
+		if err := h.db.SetKioskConfig(ctx, deviceID, false, cfg.KioskPackage, cfg.KioskFeatures); err == nil {
+			cfg.KioskEnabled = false
+			cfgMap["kiosk_enabled"] = false
+		}
+	}
 	h.db.RecordOfflineExit(ctx, deviceID, e.OfflineExitAt)
 	cfgMap["offline_exit_ack"] = e.OfflineExitAt
 }
@@ -974,6 +977,7 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
 	}
 	addOfflineExit(wsCfg, deviceCfg)
+	h.processOfflineExit(ctx, id, req.SerialNumber, req.Extra, deviceCfg, wsCfg)
 	cfgMsg, _ := json.Marshal(wsCfg)
 	h.hub.Push(deviceID, cfgMsg)
 }

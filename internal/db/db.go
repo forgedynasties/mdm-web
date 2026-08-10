@@ -4305,11 +4305,11 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	return &cfg, nil
 }
 
-// ensureOfflineExitSeed lazily provisions a TOTP seed the first time a device with
-// offline-exit enabled is read (offline exit is on by default), so no admin action is
-// needed for the feature to work. Persists the seed and updates cfg in place.
+// ensureOfflineExitSeed lazily provisions a TOTP seed the first time a device is read.
+// Offline exit is part of kiosk (not a separate opt-in), so every device gets a seed;
+// the code is only ever usable while the device is in kiosk. Updates cfg in place.
 func (d *DB) ensureOfflineExitSeed(ctx context.Context, cfg *DeviceConfig) {
-	if !cfg.OfflineExitEnabled || cfg.OfflineExitSeed != "" {
+	if cfg.OfflineExitSeed != "" {
 		return
 	}
 	seed := newBase32Seed()
