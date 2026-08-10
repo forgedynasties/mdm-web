@@ -1,191 +1,107 @@
 {{define "releases.html"}}
 {{template "header" .}}
-{{/* QFIL flashing bundle is for the test/dev/admin workflow only — viewers and
-     operators don't get the download icon. */}}
+{{/* Lean releases page: a release is just version + product + changelog + update packages.
+     Pushing OTA lives on its own page (/updates). QA/sign-off/testing/problems/branches
+     were removed. */}}
 {{$canQfil := or (eq .Role "admin") (eq .Role "dev") (eq .Role "tester")}}
 
 <div class="ov-greet">
   <h1 class="ov-title">Releases</h1>
-  <span class="ov-date">{{.TrackedCount}} tracked · {{.NotTrackedCount}} not tracked{{if .HiddenReleases}} · {{len .HiddenReleases}} hidden{{end}}</span>
-  {{if canAdmin .Role}}
+  <span class="ov-date">{{.TrackedCount}} release{{if ne .TrackedCount 1}}s{{end}}{{if gt .NotTrackedCount 0}} · {{.NotTrackedCount}} reported version{{if ne .NotTrackedCount 1}}s{{end}}{{end}}</span>
   <span class="acts">
-    <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
-      + New Release
-    </button>
+    <a href="/updates" class="btn-outline">Updates →</a>
+    {{if canAdmin .Role}}<button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">+ New Release</button>{{end}}
   </span>
+</div>
+
+{{/* Per-product filter — releases are product-scoped. Always shown so the products are
+     discoverable; server-side filter via ?product=, "All products" clears it. */}}
+<div class="rel-tabs rel-prod-tabs" role="group" aria-label="Filter releases by product" style="margin-top:8px;">
+  <a class="rel-tab{{if not .FilterProduct}} on{{end}}" href="/releases">All products</a>
+  {{range .Products}}
+  <a class="rel-tab{{if eq .Key $.FilterProduct}} on{{end}}" href="/releases?product={{.Key}}">{{.Label}}</a>
   {{end}}
 </div>
 
-{{/* Focus band + cross-release problems board. The problem SSE (problem-updated body
-     event) refetches just this region — no full reload. The refetch trigger lives on a
-     hidden SIBLING (not on #hub-live itself): hx-target/hx-swap are INHERITED attributes,
-     so putting hx-target="this" on the wrapper leaked to every boosted link inside it
-     (release-train nodes, "Open workspace →", problem rows), making them load the release
-     workspace NESTED into #hub-live instead of replacing <main> — two <main>s, and a
-     later QA Pass/Fail then collapsed the page. Keeping the wrapper attribute-free lets
-     those links inherit the body's hx-target="main". */}}
-<span id="hub-live-refresh" hx-get="/releases?partial=hub-live" hx-trigger="problem-updated from:body"
-      hx-target="#hub-live" hx-swap="innerHTML" hx-select="unset" style="display:none" aria-hidden="true"></span>
-<div id="hub-live">
-{{template "hub-live" .}}
+{{/* Live "Updates in progress" summary — polls itself every 4s; empty (renders nothing)
+     when no OTA is in flight. */}}
+<div id="ota-progress-live" hx-get="/releases?partial=ota-progress" hx-trigger="load, every 4s"
+     hx-target="this" hx-swap="innerHTML" hx-select="unset">
+  {{template "ota-progress" .}}
 </div>
 
-
-{{if or .Versions .HiddenReleases}}
-<h2 class="hub-list-h">All releases</h2>
-<div class="rel-tabs" role="radiogroup" aria-label="Filter releases">
-  <button type="button" class="rel-tab on" data-g="tracked" onclick="relTab('tracked',this)" role="radio" aria-checked="true">Tracked <span class="rel-tab-n">{{.TrackedCount}}</span></button>
-  <button type="button" class="rel-tab" data-g="nottracked" onclick="relTab('nottracked',this)" role="radio" aria-checked="false">Not tracked <span class="rel-tab-n">{{.NotTrackedCount}}</span></button>
-  {{if .HiddenReleases}}<button type="button" class="rel-tab" data-g="hidden" onclick="relTab('hidden',this)" role="radio" aria-checked="false">Hidden <span class="rel-tab-n">{{len .HiddenReleases}}</span></button>{{end}}
-</div>
-<div class="rlc-list dv-rise-1" id="versions-tbody">
-    {{range .Versions}}
-    {{$pct := pctOf .DeviceCount $.FleetTotal}}
-    {{$badge := "muted"}}{{if .Tracked}}{{if eq .Status "draft"}}{{$badge = "draft"}}{{else}}{{$badge = "ok"}}{{end}}{{end}}
-    <div class="rlc" data-rel-group="{{if .Tracked}}tracked{{else}}nottracked{{end}}" data-version="{{.Version}}"{{if and (canAdmin $.Role) .Tracked}} draggable="true"{{end}}>
-      {{if canAdmin $.Role}}<span class="rlc-drag drag-handle" title="Drag to reorder"{{if not .Tracked}} style="visibility:hidden"{{end}}>⠿</span>{{else}}<span></span>{{end}}
-      <span class="rlc-badge {{$badge}}">{{if eq $badge "ok"}}<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{else if eq $badge "draft"}}<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>{{end}}</span>
-      <div class="rlc-id">
-        <div class="rlc-top">
-          {{if .Tracked}}<span class="rlc-stat {{releaseStatusClass .Status}}">{{.Status}}</span><a href="/releases/{{.ReleaseID}}" class="rlc-ver">{{.Version}}</a>
-          {{else}}<span class="rlc-stat muted" title="Seen on devices but not a managed release">not tracked</span><span class="rlc-ver">{{.Version}}</span>{{end}}
-        </div>
-        <span class="rlc-sub">{{if .Name}}{{.Name}}{{if .Tracked}} · {{end}}{{end}}{{if .Tracked}}{{.PackageCount}} pkg · {{.DeployCount}} deploy{{else}}seen on devices{{end}}</span>
+{{if .Versions}}
+<div class="rlc-list dv-rise-1" style="margin-top:12px;">
+  {{range .Versions}}
+  {{$pct := pctOf .DeviceCount $.FleetTotal}}
+  {{if .Tracked}}
+  {{$badge := "ok"}}{{if eq .Status "draft"}}{{$badge = "draft"}}{{end}}
+  <div class="rlc">
+    <span></span>
+    <span class="rlc-badge {{$badge}}">{{if eq $badge "draft"}}<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{end}}</span>
+    <div class="rlc-id">
+      <div class="rlc-top">
+        <span class="rlc-stat {{releaseStatusClass .Status}}">{{.Status}}</span>
+        <a href="/releases/{{.ReleaseID}}" class="rlc-ver">{{.Version}}</a>
+        {{if .Product}}<span class="rchip muted" title="Target product — only {{productLabel .Product}} devices are offered this release">{{productLabel .Product}}</span>{{end}}
+        {{if .ReleasedAt}}<span class="rchip muted" title="Release date — {{localTime (deref .ReleasedAt)}}"><svg viewBox="0 0 24 24" style="width:11px;height:11px;vertical-align:-1px;margin-right:3px;fill:none;stroke:currentColor;stroke-width:2;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>{{shortDate (deref .ReleasedAt)}}</span>{{end}}
       </div>
-      <div class="rlc-roll">
-        <div class="rlc-meter"><i class="{{if not .Tracked}}muted{{end}}" style="width:{{$pct}}%"></i></div>
-        <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{$pct}}%</span>
-      </div>
-      <div class="rlc-meta">
-        {{if .Tracked}}
-          {{if .TestingDone}}<span class="rchip muted" title="Testing complete — this release is inactive">testing done</span>{{else}}<span class="rchip active" title="Under test — active release">● active</span>{{end}}
-          {{if gt .QA.Total 0}}
-            {{$qaTitle := printf "%d passed · %d failed · %d blocked · %d untested of %d — open QA" .QA.Pass .QA.Fail .QA.Blocked .QA.Untested .QA.Total}}
-            <a href="/releases/{{.ReleaseID}}/qa" class="rchip-a">
-            {{if gt .QA.Fail 0}}<span class="rchip bad" title="{{$qaTitle}}">QA {{.QA.Fail}}✗ · {{.QA.Pass}}/{{.QA.Total}}</span>
-            {{else if .QA.Passed}}<span class="rchip ok" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} ✓</span>
-            {{else}}<span class="rchip qa" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} · {{.QA.Untested}} left</span>{{end}}
-            </a>
-          {{end}}
-          {{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}{{if gt .Problems.Blockers 0}} · {{.Problems.Blockers}} blocker{{if ne .Problems.Blockers 1}}s{{end}}{{end}} · {{.Problems.Total}} total">{{if gt .Problems.Blockers 0}}⚠ {{end}}{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}
-          {{if .SignedOffBy}}<span class="rchip ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="rchip warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
-          {{if .MergedFromVersion}}<span class="rchip branch-merged" title="Created by merging branch {{.MergedFromVersion}} onto main">merged from {{.MergedFromVersion}}</span>{{end}}
-        {{end}}
-      </div>
-      <div class="rlc-act">
-        {{if .Tracked}}
-          {{if eq $.Role "dev"}}{{if .SignedOffBy}}<form action="/releases/{{.ReleaseID}}/sign-off/clear" method="POST"><button type="submit" class="btn-outline btn-sm" title="Revoke this dev sign-off">Revoke</button></form>{{else}}<form action="/releases/{{.ReleaseID}}/sign-off" method="POST"><button type="submit" class="btn-primary btn-sm" title="Mark as smoke-tested by dev">Sign off</button></form>{{end}}{{end}}
-          {{if canAdmin $.Role}}
-          {{if eq .DeviceCount 0}}<form action="/releases/{{.ReleaseID}}/delete" method="POST" class="rlc-x rlc-del" hx-confirm="Delete release {{.Version}}? No devices are running it. This permanently removes the release and its packages & deployments and can't be undone."><button type="submit" title="Delete release (no devices are running it)"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6"/></svg></button></form>{{end}}
-          <form action="/releases/{{.ReleaseID}}/hide" method="POST" class="rlc-x"><input type="hidden" name="hidden" value="1"><button type="submit" title="Hide from the list"><svg viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18"/></svg></button></form>
-          {{end}}
-          {{if $canQfil}}{{if .QfilURL}}<a href="{{.QfilURL}}" class="rlc-open" title="Download release" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{else}}<span class="rlc-open disabled" title="No download link set" aria-disabled="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>{{end}}{{end}}
-          <a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open release"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
-        {{else if canAdmin $.Role}}
-          <form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Create a draft release for this version">+ Add as release</button></form>
-          <form action="/releases/version/hide" method="POST" class="rlc-x"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" title="Dismiss this version"><svg viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18"/></svg></button></form>
-        {{end}}
-      </div>
+      <span class="rlc-sub">{{if .Changelog}}{{truncate .Changelog 90}}{{else}}<span class="muted">No changelog</span>{{end}}</span>
     </div>
-    {{/* Branch forks + adoptable derivative builds, nested under this release. */}}
-    {{$pg := "tracked"}}{{if not .Tracked}}{{$pg = "nottracked"}}{{end}}
-    {{range .Children}}
-    {{$pct := pctOf .DeviceCount $.FleetTotal}}
-    <div class="rlc rlc-child" data-rel-group="{{$pg}}" data-version="{{.Version}}">
-      <span></span>
-      <span class="rlc-badge branch" title="Branch build"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.4"/><circle cx="6" cy="18" r="2.4"/><circle cx="18" cy="8" r="2.4"/><path d="M6 8.4v7.2M18 10.4a6 6 0 0 1-6 6H8.4"/></svg></span>
-      <div class="rlc-id">
-        <div class="rlc-top">
-          {{if .Tracked}}<span class="rlc-stat {{releaseStatusClass .Status}}">{{.Status}}</span><a href="/releases/{{.ReleaseID}}" class="rlc-ver">{{.Version}}</a>
-          {{else}}<span class="rlc-stat muted" title="Seen on devices — matches this release's naming, not adopted yet">untracked</span><span class="rlc-ver">{{.Version}}</span>{{end}}
-        </div>
-        <span class="rlc-sub">⑂ {{if .Tracked}}branch{{else}}matches {{.ParentVersion}} · seen on devices{{end}}{{if .Name}} · {{.Name}}{{end}}</span>
-      </div>
-      <div class="rlc-roll">
-        <div class="rlc-meter"><i class="muted" style="width:{{$pct}}%"></i></div>
-        <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{$pct}}%</span>
-      </div>
-      <div class="rlc-meta">
-        {{if .Tracked}}
-          {{if .TestingDone}}<span class="rchip muted" title="Testing complete — this branch is inactive">testing done</span>{{else}}<span class="rchip active" title="Under test — active branch">● active</span>{{end}}
-          {{if gt .QA.Total 0}}
-            {{$qaTitle := printf "%d passed · %d failed · %d blocked · %d untested of %d — open QA" .QA.Pass .QA.Fail .QA.Blocked .QA.Untested .QA.Total}}
-            <a href="/releases/{{.ReleaseID}}/qa" class="rchip-a">
-            {{if gt .QA.Fail 0}}<span class="rchip bad" title="{{$qaTitle}}">QA {{.QA.Fail}}✗ · {{.QA.Pass}}/{{.QA.Total}}</span>
-            {{else if .QA.Passed}}<span class="rchip ok" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} ✓</span>
-            {{else}}<span class="rchip qa" title="{{$qaTitle}}">QA {{.QA.Pass}}/{{.QA.Total}} · {{.QA.Untested}} left</span>{{end}}
-            </a>
-          {{end}}
-          {{if gt .Problems.Open 0}}<span class="rchip {{if gt .Problems.Blockers 0}}bad{{else}}warn{{end}}" title="{{.Problems.Open}} open problem{{if ne .Problems.Open 1}}s{{end}}{{if gt .Problems.Blockers 0}} · {{.Problems.Blockers}} blocker{{if ne .Problems.Blockers 1}}s{{end}}{{end}} · {{.Problems.Total}} total">{{if gt .Problems.Blockers 0}}⚠ {{end}}{{.Problems.Open}} problem{{if ne .Problems.Open 1}}s{{end}}</span>{{end}}
-          {{if .Merged}}<span class="rchip branch-merged" title="Merged onto main as {{.MergedIntoVersion}}">merged → {{.MergedIntoVersion}}</span>
-          {{else if .SignedOffBy}}<span class="rchip ok" title="Dev sign-off by {{.SignedOffBy}} — smoke-tested, OK for QA">✓ {{.SignedOffBy}}</span>{{else}}<span class="rchip warn" title="Awaiting dev sign-off before QA">sign-off pending</span>{{end}}
-        {{end}}
-      </div>
-      <div class="rlc-act">
-        {{if and (eq $.Role "dev") .Tracked (not .Merged)}}{{if .SignedOffBy}}<form action="/releases/{{.ReleaseID}}/sign-off/clear" method="POST"><button type="submit" class="btn-outline btn-sm" title="Revoke this dev sign-off">Revoke</button></form>{{else}}<form action="/releases/{{.ReleaseID}}/sign-off" method="POST"><button type="submit" class="btn-primary btn-sm" title="Mark this branch build as smoke-tested by dev">Sign off</button></form>{{end}}{{end}}
-        {{if and (canAdmin $.Role) .Tracked .TestingDone (not .Merged)}}<button type="button" class="btn-primary btn-sm rlc-merge" data-branch="{{.ReleaseID}}" data-ver="{{.Version}}" data-parent="{{.ParentVersion}}" title="Merge this validated branch onto the main line as a new release">Merge ▸</button>{{end}}
-        {{if and .Tracked $canQfil}}{{if .QfilURL}}<a href="{{.QfilURL}}" class="rlc-open" title="Download release" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{else}}<span class="rlc-open disabled" title="No download link set" aria-disabled="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>{{end}}{{end}}
-        {{if .Tracked}}<a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open branch build"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
-        {{else if and (canAdmin $.Role) .AdoptableParentID}}<form action="/releases/{{.AdoptableParentID}}/branch" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Adopt as a branch build of {{.ParentVersion}}">Adopt as branch</button></form>{{end}}
-      </div>
+    <div class="rlc-roll">
+      <div class="rlc-meter"><i style="width:{{$pct}}%"></i></div>
+      <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}} · {{.PackageCount}} pkg</span>
     </div>
-    {{end}}
-    {{if and (canAdmin $.Role) .ReleaseID}}
-    <details class="nb-details" data-rel-group="{{$pg}}">
-      <summary class="nb-summary"><span class="nb-mark">⑂</span> New branch off {{.Version}}</summary>
-      <form action="/releases/{{.ReleaseID}}/branch" method="POST" class="nb-form">
-        <input name="version" class="form-input" value="{{.SuggestedBranch}}" list="untracked-builds" autocomplete="off" required title="A reported build, or a new version — must be unique">
-        <input name="name" class="form-input nb-name" placeholder="what this branch tests (optional)">
-        <button type="submit" class="btn-outline btn-sm">Create branch</button>
-      </form>
-    </details>
-    {{end}}
-    {{end}}
-    {{range .HiddenReleases}}
-    {{$pct := pctOf .DeviceCount $.FleetTotal}}
-    {{$badge := "muted"}}{{if .Tracked}}{{if eq .Status "draft"}}{{$badge = "draft"}}{{else}}{{$badge = "ok"}}{{end}}{{end}}
-    <div class="rlc" data-rel-group="hidden" style="display:none;opacity:.85;">
-      {{if canAdmin $.Role}}<span class="rlc-drag" style="visibility:hidden">⠿</span>{{else}}<span></span>{{end}}
-      <span class="rlc-badge {{$badge}}">{{if eq $badge "ok"}}<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>{{else if eq $badge "draft"}}<svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>{{end}}</span>
-      <div class="rlc-id">
-        <div class="rlc-top">{{if .Tracked}}<span class="rlc-stat {{releaseStatusClass .Status}}">{{.Status}}</span><a href="/releases/{{.ReleaseID}}" class="rlc-ver">{{.Version}}</a>{{else}}<span class="rlc-stat muted">not tracked</span><span class="rlc-ver">{{.Version}}</span>{{end}}</div>
-        <span class="rlc-sub">{{if .Name}}{{.Name}}{{else}}hidden{{end}}</span>
-      </div>
-      <div class="rlc-roll">
-        <div class="rlc-meter"><i class="muted" style="width:{{$pct}}%"></i></div>
-        <span class="rlc-rollf"><b>{{.DeviceCount}}</b> of {{$.FleetTotal}} · {{$pct}}%</span>
-      </div>
-      <div class="rlc-meta"></div>
-      <div class="rlc-act">
-        {{if .Tracked}}{{if canAdmin $.Role}}<form action="/releases/{{.ReleaseID}}/hide" method="POST"><input type="hidden" name="hidden" value="0"><button type="submit" class="btn-outline btn-sm" title="Show again">Unhide</button></form>{{end}}<a href="/releases/{{.ReleaseID}}" class="rlc-open" title="Open release"><svg viewBox="0 0 24 24"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
-        {{else if canAdmin $.Role}}<form action="/releases/version/unhide" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-outline btn-sm" title="Show again">Unhide</button></form>{{end}}
-      </div>
+    <div class="rlc-act">
+      {{if $canQfil}}{{if .QfilURL}}<a href="{{.QfilURL}}" class="rlc-open" title="Download flashing bundle" download hx-boost="false"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>{{end}}{{end}}
+      <a href="/releases/{{.ReleaseID}}" class="btn-outline btn-sm" title="Manage changelog &amp; update packages">Manage</a>
+      {{if and (canAdmin $.Role) (eq .DeviceCount 0)}}<form action="/releases/{{.ReleaseID}}/delete" method="POST" class="rlc-x rlc-del" hx-confirm="Delete release {{.Version}}? No devices are running it. This permanently removes the release and its packages & deployments."><button type="submit" title="Delete release (no devices are running it)"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6M10 11v6M14 11v6"/></svg></button></form>{{end}}
     </div>
-    {{end}}
   </div>
-  <datalist id="untracked-builds">{{range .UntrackedBuilds}}<option value="{{.}}"></option>{{end}}</datalist>
+  {{else}}
+  {{/* A version seen on devices but not yet a managed release. */}}
+  <div class="rlc">
+    <span></span>
+    <span class="rlc-badge muted"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg></span>
+    <div class="rlc-id">
+      <div class="rlc-top">
+        <span class="rlc-stat muted" title="Seen on devices but not a managed release">reported</span>
+        <span class="rlc-ver">{{.Version}}</span>
+        {{if .Product}}<span class="rchip muted" title="Reported by {{productLabel .Product}} devices">{{productLabel .Product}}</span>{{end}}
+      </div>
+      <span class="rlc-sub muted">seen on devices — not a release yet</span>
+    </div>
+    <div class="rlc-roll">
+      <div class="rlc-meter"><i class="muted" style="width:{{$pct}}%"></i></div>
+      <span class="rlc-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-cnt"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}</span>
+    </div>
+    <div class="rlc-act">
+      {{if canAdmin $.Role}}<form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="btn-primary btn-sm" title="Create a release for this version (product inferred from the devices on it)">+ Add as release</button></form>{{end}}
+    </div>
+  </div>
+  {{end}}
+  {{end}}
+</div>
 {{else}}
-<div class="card">
+<div class="card" style="margin-top:12px;">
   <div class="empty-state">
     <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></div>
     <div class="empty-state-copy">
+      {{if .FilterProduct}}
+      <div class="empty-state-title">No releases for {{productLabel .FilterProduct}} yet</div>
+      <div class="empty-state-text">No {{productLabel .FilterProduct}} releases or reported versions. Create one, or <a href="/releases">clear the product filter</a>.</div>
+      {{else}}
       <div class="empty-state-title">No releases or device versions yet</div>
-      <div class="empty-state-text">Create a release to manage firmware, or versions will appear here as devices report them.</div>
+      <div class="empty-state-text">Create a release to manage a changelog and update packages, or versions appear here as devices report them.</div>
+      {{end}}
     </div>
-    {{if canAdmin .Role}}
-    <div class="empty-state-actions">
-      <button type="button" class="btn-primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Release
-      </button>
-    </div>
-    {{end}}
+    {{if canAdmin .Role}}<div class="empty-state-actions muted small">Use <b>+ New Release</b> (top right) to create one.</div>{{end}}
   </div>
 </div>
 {{end}}
 
-
 {{if canAdmin .Role}}
-<!-- New Release modal: creates the release (draft) first; packages are attached afterward. -->
+<!-- New Release modal: version + product + changelog. update packages are attached on the next screen. -->
 <div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
   <div class="modal-box" style="max-width:540px;">
     <div class="modal-header">
@@ -197,326 +113,60 @@
         <div class="form-row">
           <label class="form-label">Release version</label>
           <input type="text" name="version" class="form-input" placeholder="e.g. 2026.06.01-release" required autofocus>
-          <div class="form-hint">The version devices will report after this release. This is the unique release identifier.</div>
+          <div class="form-hint">The version devices report after this release — its unique identifier (per product).</div>
         </div>
         <div class="form-row">
-          <label class="form-label">Name <span class="muted small">(optional)</span></label>
-          <input type="text" name="name" class="form-input" placeholder="e.g. June security update">
+          <label class="form-label">Product</label>
+          <select name="product" class="form-input" required>
+            {{range $.Products}}<option value="{{.Key}}">{{.Label}}</option>{{end}}
+          </select>
+          <div class="form-hint">The hardware this release targets. Only devices of this product are ever offered or sent it.</div>
         </div>
         <div class="form-row">
           <label class="form-label">Changelog <span class="muted small">(optional)</span></label>
-          <textarea name="changelog" class="form-textarea" rows="10" placeholder="What changed in this release…" style="resize:vertical;min-height:220px;"></textarea>
+          <textarea name="changelog" class="form-textarea" rows="8" placeholder="What changed in this release…" style="resize:vertical;min-height:180px;"></textarea>
         </div>
         <button type="submit" class="btn-primary">Create Release</button>
-        <div class="form-hint" style="margin-top:8px;">You'll add the full OTA package and incrementals on the next screen.</div>
+        <div class="form-hint" style="margin-top:8px;">You'll add the update package (and incrementals) on the next screen.</div>
       </form>
     </div>
   </div>
 </div>
-
-<!-- Merge branch → main modal (shared; the Merge button on a validated branch populates it). -->
-<div id="merge-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
-  <div class="modal-box" style="max-width:540px;">
-    <div class="modal-header">
-      <span class="modal-title">Merge to main</span>
-      <button class="modal-close" aria-label="Close" type="button" onclick="document.getElementById('merge-modal').classList.remove('modal-open')">&times;</button>
-    </div>
-    <div class="modal-body">
-      <form id="merge-form" action="" method="POST" class="command-form" style="padding:0;">
-        <div class="branch-banner" style="margin-bottom:14px;">
-          <span class="bb-mark">⑂</span>
-          <span>Merging validated branch <b id="merge-branch-ver" class="mono"></b> onto the main line. This creates the next mainline release as a <b>draft</b> and closes the branch. Its QA results on base cases and any still-open problems carry over automatically.</span>
-        </div>
-        <div class="form-row">
-          <label class="form-label">New release version</label>
-          <input type="text" name="version" id="merge-version" class="form-input" placeholder="e.g. v2.0.4" required autocomplete="off">
-          <div class="form-hint">The next mainline version devices will report. Must be unique.</div>
-          <div class="form-hint" id="merge-version-warn" style="display:none;color:var(--danger);font-weight:600;"></div>
-        </div>
-        <div class="form-row">
-          <label class="form-label">Name <span class="muted small">(optional)</span></label>
-          <input type="text" name="name" class="form-input" placeholder="e.g. June point release">
-        </div>
-        <div class="form-row">
-          <label class="small" style="display:flex;gap:8px;align-items:flex-start;cursor:pointer;">
-            <input type="checkbox" name="carry_build" style="margin-top:2px;">
-            <span>Carry the branch's build as this release's package<div class="form-hint" style="margin-top:2px;">Only if your firmware pipeline relabels images. Normally the real v-next build is rebuilt to report the new version and attached afterward.</div></span>
-          </label>
-        </div>
-        <button type="submit" class="btn-primary">Create release &amp; close branch</button>
-      </form>
-    </div>
-  </div>
-</div>
-
 <script>
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') {
-    document.getElementById('create-pkg-modal').classList.remove('modal-open');
-    document.getElementById('merge-modal').classList.remove('modal-open');
-  }
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') { var m = document.getElementById('create-pkg-modal'); if (m) m.classList.remove('modal-open'); }
 });
-// Merge button → populate + open the shared merge modal. Suggests the next mainline
-// version by bumping the trailing number of the branch's base (v2.0.3 → v2.0.4).
-(function () {
-  function bump(v) { return v ? v.replace(/(\d+)(\D*)$/, function (_, n, s) { return (parseInt(n, 10) + 1) + s; }) : ''; }
-  // Every version already in use (list rows + timeline nodes) — so we never suggest or
-  // accept a name that would make the merge fail on a unique-name clash.
-  function existing() {
-    var s = new Set();
-    document.querySelectorAll('.rlc-ver').forEach(function (e) { s.add(e.textContent.trim()); });
-    document.querySelectorAll('.rt-node[data-ver]').forEach(function (e) { s.add((e.getAttribute('data-ver') || '').trim()); });
-    return s;
-  }
-  function nextFree(v) { var ex = existing(), n = 0; while (v && ex.has(v) && n < 60) { v = bump(v); n++; } return v; }
-  var vi = document.getElementById('merge-version');
-  var warn = document.getElementById('merge-version-warn');
-  document.addEventListener('click', function (e) {
-    var b = e.target.closest ? e.target.closest('.rlc-merge') : null;
-    if (!b) return;
-    document.getElementById('merge-form').setAttribute('action', '/releases/' + b.getAttribute('data-branch') + '/merge');
-    document.getElementById('merge-branch-ver').textContent = b.getAttribute('data-ver') || '';
-    if (warn) warn.style.display = 'none';
-    vi.value = nextFree(bump(b.getAttribute('data-parent') || '')); // skip a leftover draft
-    document.getElementById('merge-modal').classList.add('modal-open');
-    setTimeout(function () { vi.focus(); vi.select(); }, 30);
-  });
-  var mf = document.getElementById('merge-form');
-  if (mf) mf.addEventListener('submit', function (e) {
-    var v = (vi.value || '').trim();
-    if (v && existing().has(v)) {
-      e.preventDefault(); e.stopImmediatePropagation();
-      if (warn) { warn.textContent = 'A release named "' + v + '" already exists — pick a different version, or delete that release first.'; warn.style.display = ''; }
-      vi.focus(); vi.select();
-    }
-  }, true);
-})();
 </script>
 {{end}}
-
-<script>
-// Cross-release problems board filter (Open / Blockers / All). Purely a class swap on
-// the list container — CSS hides the non-matching rows — so the default (rendered as
-// .filter-open) is correct on first paint, under hx-boost, and after a live refetch,
-// with no JS needed to initialise.
-function boardFilter(mode, btn) {
-  btn.parentElement.querySelectorAll('.qa-fchip[data-boardfilter]').forEach(function (b) { b.classList.toggle('on', b === btn); });
-  var list = document.getElementById('prob-board');
-  if (list) list.className = 'board-list filter-' + mode;
-}
-
-// Problems board live-refresh: subscribe to the release problem stream and dispatch a
-// body event that #hub-live refetches on. mdmStream (defined in the layout head) is
-// torn down by htmx:beforeSwap so it never leaks past the SSE connection cap.
-(function () {
-  if (!window.EventSource || !window.mdmStream) return;
-  var es = window.mdmStream('/releases/events');
-  es.addEventListener('problem-update', function () {
-    document.body.dispatchEvent(new CustomEvent('problem-updated'));
-  });
-})();
-
-// Releases tab filter (Tracked / Not tracked / Hidden).
-function relTab(group, btn) {
-  document.querySelectorAll('.rel-tab').forEach(function (t) { var sel = t === btn; t.classList.toggle('on', sel); t.setAttribute('aria-checked', sel ? 'true' : 'false'); });
-  document.querySelectorAll('#versions-tbody [data-rel-group]').forEach(function (r) {
-    r.style.display = (r.getAttribute('data-rel-group') === group) ? '' : 'none';
-  });
-}
-</script>
-
-<script>
-// Drag-to-reorder the releases list; saves the order (by version) to the server.
-(function () {
-  var tbody = document.getElementById('versions-tbody');
-  if (!tbody) return;
-  var rows = tbody.querySelectorAll('[draggable="true"]');
-  if (!rows.length) return;
-  var dragEl = null;
-
-  function afterElement(y) {
-    var els = [].slice.call(tbody.querySelectorAll('[draggable="true"]:not(.dragging)'));
-    var best = { offset: -Infinity, el: null };
-    els.forEach(function (el) {
-      var box = el.getBoundingClientRect();
-      var offset = y - box.top - box.height / 2;
-      if (offset < 0 && offset > best.offset) best = { offset: offset, el: el };
-    });
-    return best.el;
-  }
-
-  function saveOrder() {
-    var versions = [].slice.call(tbody.querySelectorAll('[draggable="true"]'))
-      .map(function (r) { return r.getAttribute('data-version'); });
-    fetch('/releases/order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ versions: versions })
-    });
-  }
-
-  rows.forEach(function (row) {
-    row.addEventListener('dragstart', function () { dragEl = row; row.classList.add('dragging'); });
-    row.addEventListener('dragend', function () {
-      row.classList.remove('dragging'); dragEl = null; saveOrder();
-    });
-  });
-  tbody.addEventListener('dragover', function (e) {
-    if (!dragEl) return;
-    e.preventDefault();
-    var after = afterElement(e.clientY);
-    if (after == null) tbody.appendChild(dragEl);
-    else tbody.insertBefore(dragEl, after);
-  });
-})();
-</script>
-
-<script>
-// Draw the git-style merge curve from a merged branch node up to the mainline
-// release it merged into. Runs on load, on resize, and after the hub-live swap.
-(function () {
-  function draw() {
-    document.querySelectorAll('.rel-train').forEach(function (train) {
-      var svg = train.querySelector('.rt-lines');
-      if (!svg) return;
-      while (svg.firstChild) svg.removeChild(svg.firstChild);
-      var tr = train.getBoundingClientRect();
-      var NS = 'http://www.w3.org/2000/svg';
-      train.querySelectorAll('.rt-branch[data-merge-into]').forEach(function (br) {
-        var into = (br.getAttribute('data-merge-into') || '').replace(/"/g, '\\"');
-        var target = train.querySelector('.rt-node[data-ver="' + into + '"]');
-        if (!target) return;
-        var b = br.getBoundingClientRect(), n = target.getBoundingClientRect();
-        // Orthogonal connector with rounded corners: leave the branch's right edge
-        // straight, turn up, run straight up, then turn and merge onto the MAIN LINE
-        // (the horizontal connector at node height) just before the target node.
-        var sx = b.right - tr.left, sy = b.top - tr.top + b.height / 2;   // branch right edge, mid-height
-        var lineY = n.top - tr.top + n.height / 2;                        // main-line height (node centre)
-        var ex = n.left - tr.left;                                        // merge point: on the line at the node's left
-        var r = 9;                                                        // corner radius
-        var turnX = ex - 22;                                             // where the line turns up (just before the node)
-        if (turnX < sx + r) turnX = sx + r;
-        if (sy - lineY < 2 * r) r = Math.max(3, (sy - lineY) / 2);       // clamp radius to the vertical gap
-        var d = 'M ' + sx + ' ' + sy
-              + ' L ' + (turnX - r) + ' ' + sy
-              + ' Q ' + turnX + ' ' + sy + ' ' + turnX + ' ' + (sy - r)
-              + ' L ' + turnX + ' ' + (lineY + r)
-              + ' Q ' + turnX + ' ' + lineY + ' ' + (turnX + r) + ' ' + lineY
-              + ' L ' + ex + ' ' + lineY;
-        var p = document.createElementNS(NS, 'path');
-        p.setAttribute('d', d);
-        svg.appendChild(p);
-      });
-    });
-  }
-  draw();
-  setTimeout(draw, 60);
-  var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(draw, 100); });
-  document.body.addEventListener('htmx:afterSwap', function (e) { if (e.target && e.target.id === 'hub-live') setTimeout(draw, 0); });
-})();
-</script>
 
 {{template "footer" .}}
 {{end}}
 
-{{/* ── hub-live: focus band + problems board. Rendered inline by releases.html and
-      re-fetched via GET /releases?partial=hub-live on the problem SSE. ──────── */}}
-{{define "hub-live"}}
-{{if gt (len .ReleaseTrain) 1}}
-<div class="rel-train" title="The release cycle — oldest to newest; branches fork below their build and merge back into a later release">
-  <svg class="rt-lines" aria-hidden="true"></svg>
-  {{range $i, $t := .ReleaseTrain}}
-  {{if $i}}<span class="rt-link"></span>{{end}}
-  <div class="rt-col">
-    <a href="/releases/{{$t.ID}}" data-ver="{{$t.Version}}" class="rt-node st-{{$t.Status}}{{if $t.Active}} active{{end}}" title="{{$t.Version}}{{if $t.Name}} — {{$t.Name}}{{end}} — {{$t.Status}}{{if $t.MergedFrom}} · merged from {{$t.MergedFrom}}{{end}}{{if gt $t.Open 0}} · {{$t.Open}} open problem{{if ne $t.Open 1}}s{{end}}{{end}}{{if $t.SignedOffBy}} · signed off{{end}}">
-      <span class="rt-dot"></span>
-      <span class="rt-ver{{if not $t.Name}} mono{{end}}">{{if $t.Name}}{{$t.Name}}{{else}}{{$t.Version}}{{end}}</span>
-      <span class="rt-meta">{{$t.Status}}{{if gt $t.Open 0}} · {{$t.Open}}⚠{{end}}</span>
-      {{if $t.MergedFrom}}<span class="rt-merge-in" title="Merged from branch {{$t.MergedFrom}}">⑂</span>{{end}}
-    </a>
-    {{if $t.Branches}}
-    <div class="rt-branches">
-      {{range $t.Branches}}
-      <a href="/releases/{{.ID}}"{{if .Merged}} data-merge-into="{{.MergedInto}}"{{end}} class="rt-branch{{if .Merged}} merged{{end}}" title="branch build {{.Version}} · {{.Status}}{{if .Merged}} · merged into {{.MergedInto}}{{end}}">
-        <span class="rt-branch-mark">⑂</span>
-        <span class="rt-branch-ver mono">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span>
-      </a>
-      {{end}}
-    </div>
-    {{end}}
-  </div>
-  {{end}}
-</div>
-{{end}}
-{{if .ActiveRelease}}
-{{$a := .ActiveRelease}}
-{{$aReady := and (gt .ActiveQA.Total 0) .ActiveQA.Passed (eq .ActiveProblems.Blockers 0)}}
-<div class="hub-focus dv-rise-1">
-  <div class="hub-focus-main">
-    <span class="hub-eyebrow">{{if eq .Role "tester"}}Now testing{{else if eq .Role "dev"}}In the shop{{else}}Active release{{end}}</span>
-    <div class="hub-focus-ver">
-      <span class="status-badge {{releaseStatusClass $a.Status}}">{{$a.Status}}</span>
-      <a href="/releases/{{$a.ID}}" class="mono hub-focus-verlink">{{$a.Version}}</a>
-      {{if $a.Name}}<span class="muted small">· {{$a.Name}}</span>{{end}}
-    </div>
-    {{if gt .ActiveQA.Total 0}}
-    <div class="qa-bar hub-qa-bar" title="{{.ActiveQA.Pass}} pass · {{.ActiveQA.Fail}} fail · {{.ActiveQA.Blocked}} blocked · {{.ActiveQA.Untested}} untested">
-      {{if gt .ActiveQA.Pass 0}}<i class="pass" style="width:{{pctOf .ActiveQA.Pass .ActiveQA.Total}}%"></i>{{end}}
-      {{if gt .ActiveQA.Fail 0}}<i class="fail" style="width:{{pctOf .ActiveQA.Fail .ActiveQA.Total}}%"></i>{{end}}
-      {{if gt .ActiveQA.Blocked 0}}<i class="blocked" style="width:{{pctOf .ActiveQA.Blocked .ActiveQA.Total}}%"></i>{{end}}
-    </div>
-    {{end}}
-    <span class="hub-verdict {{if $aReady}}ok{{else}}warn{{end}}"><span class="d"></span>{{if gt .ActiveQA.Total 0}}{{if $aReady}}Ready to publish{{else}}Not ready{{end}}{{else}}No test cases yet{{end}}</span>
-  </div>
-  <div class="hub-focus-stats">
-    <div class="hub-stat"><span class="n">{{.ActiveQA.Pass}}/{{.ActiveQA.Total}}</span><span class="k">QA passed</span></div>
-    <div class="hub-stat{{if gt .ActiveProblems.Blockers 0}} bad{{end}}"><span class="n">{{.ActiveProblems.Blockers}}</span><span class="k">open blocker{{if ne .ActiveProblems.Blockers 1}}s{{end}}</span></div>
-    <div class="hub-stat"><span class="n">{{.ActiveCarried}}</span><span class="k">carried over</span></div>
-    <div class="hub-stat"><span class="n">{{if $a.SignedOffBy}}✓{{else}}—{{end}}</span><span class="k">sign-off</span></div>
-  </div>
-  <div class="hub-focus-cta">
-    <a href="/releases/{{$a.ID}}?tab={{if eq .Role "tester"}}qa{{else if eq .Role "dev"}}problems{{else}}overview{{end}}" class="btn-primary btn-sm">Open workspace →</a>
-  </div>
-</div>
-{{else}}
-<div class="hub-focus dv-rise-1">
-  <div class="hub-focus-main">
-    <span class="hub-eyebrow">No active release</span>
-    <div class="muted small">Every release has finished testing. Create the next build to start a new cycle.</div>
-  </div>
-  {{if canAdmin .Role}}<div class="hub-focus-cta"><button type="button" class="btn-primary btn-sm" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')">+ New Release</button></div>{{end}}
-</div>
-{{end}}
-
-<div class="card hub-board dv-rise-1">
+{{/* Live OTA-in-progress card — rendered inline on load and re-fetched every 4s via
+     GET /releases?partial=ota-progress. Renders nothing when no OTA is in flight. */}}
+{{define "ota-progress"}}
+{{if .ActiveOTA}}
+<div class="card" style="margin-top:12px;border-color:var(--accent-line,#7a80f6);">
   <div class="card-header">
-    <h3>Problems <span class="muted small">across all releases</span> <span class="live-dot" title="Updates live as testers report"></span></h3>
-    <span class="muted small">{{.GlobalProblems.Open}} open{{if gt .GlobalProblems.Blockers 0}} · {{.GlobalProblems.Blockers}} blocker{{if ne .GlobalProblems.Blockers 1}}s{{end}}{{end}} · {{.GlobalProblems.Total}} total</span>
+    <h3>Updates in progress <span class="live-dot" title="Live — updates every few seconds"></span></h3>
+    <span class="muted small">{{len .ActiveOTA}} device{{if ne (len .ActiveOTA) 1}}s{{end}} updating · <a href="/updates">all operations →</a></span>
   </div>
-  <div style="padding:12px 16px;">
-    {{if .ProblemBoard}}
-    <div class="qa-filter" style="margin-bottom:10px;">
-      <button type="button" class="qa-fchip on" data-boardfilter="open" onclick="boardFilter('open',this)">Open <span class="c">{{.GlobalProblems.Open}}</span></button>
-      <button type="button" class="qa-fchip" data-boardfilter="blocker" onclick="boardFilter('blocker',this)">Blockers <span class="c">{{.GlobalProblems.Blockers}}</span></button>
-      <button type="button" class="qa-fchip" data-boardfilter="all" onclick="boardFilter('all',this)">All <span class="c">{{.GlobalProblems.Total}}</span></button>
-    </div>
-    <div class="board-list filter-open" id="prob-board">
-      {{range .ProblemBoard}}
-      {{$open := not (or (eq .Status "verified") (eq .Status "wontfix"))}}
-      <a href="/releases/{{.ReleaseID}}?tab=problems" class="board-row{{if not $open}} closed{{end}}" data-open="{{if $open}}1{{else}}0{{end}}" data-severity="{{.Severity}}">
-        <span class="prob-sev {{.Severity}}">{{.Severity}}</span>
-        <span class="board-title">{{.Title}}</span>
-        {{if .Inherited}}<span class="prob-carry">↪</span>{{end}}
-        <span class="board-ver mono" title="reported on {{.OriginVersion}}">{{.OriginVersion}}</span>
-        {{if .FixedInVersion}}<span class="tr-step fixed" title="fix claimed in {{.FixedInVersion}}">→ {{.FixedInVersion}}</span>{{end}}
-        <span class="prob-status st-{{.Status}}">{{.Status}}</span>
-        <span class="muted small board-when">{{timeSince .CreatedAt}}</span>
-      </a>
+  <div>
+    {{range .ActiveOTA}}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);">
+      <span class="mono" style="font-weight:600;">{{.Serial}}</span>
+      <span class="muted small">→ {{.TargetVersion}}</span>
+      <span class="rchip muted">{{productLabel .Product}}</span>
+      <span style="flex:1;"></span>
+      {{if eq .Status "downloading"}}
+        <div style="width:180px;height:7px;border-radius:4px;background:var(--border);overflow:hidden;"><i style="display:block;height:100%;width:{{.Percent}}%;background:#5aa9e6;transition:width .4s ease;"></i></div>
+        <span class="small" style="font-variant-numeric:tabular-nums;min-width:104px;text-align:right;color:var(--muted);">{{.Percent}}%{{if .Phase}} · {{.Phase}}{{end}}</span>
+      {{else}}
+        <span class="rchip muted">awaiting check-in</span>
       {{end}}
     </div>
-    {{else}}
-    <div class="empty" style="padding:10px 0;">No problems filed yet — they'll appear here as testers report them.</div>
     {{end}}
   </div>
 </div>
+{{end}}
 {{end}}

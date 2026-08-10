@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -24,6 +25,54 @@ import (
 // maxRedirects caps redirect chains. Each hop is re-dialed through the same Control
 // hook, so a redirect to a blocked IP is refused at dial time regardless of this cap.
 const maxRedirects = 5
+
+// allowlist holds operator-configured IPs/CIDRs that are exempt from the private-address
+// block — e.g. an internal OTA package host on the LAN (10.x). It only ever WIDENS access
+// to explicitly-trusted ranges; everything not listed stays guarded. Empty by default.
+var (
+	allowMu     sync.RWMutex
+	allowedNets []*net.IPNet
+)
+
+// SetAllowlist configures the SSRF exemption list from entries that are either a single
+// IP ("10.32.1.113") or a CIDR ("10.32.0.0/22"). Invalid/empty entries are ignored. Call
+// once at startup; safe to call again to replace the list.
+func SetAllowlist(entries []string) {
+	var nets []*net.IPNet
+	for _, e := range entries {
+		e = strings.TrimSpace(e)
+		if e == "" {
+			continue
+		}
+		if strings.Contains(e, "/") {
+			if _, n, err := net.ParseCIDR(e); err == nil {
+				nets = append(nets, n)
+			}
+			continue
+		}
+		if ip := net.ParseIP(e); ip != nil {
+			if v4 := ip.To4(); v4 != nil {
+				ip = v4
+			}
+			bits := len(ip) * 8
+			nets = append(nets, &net.IPNet{IP: ip, Mask: net.CIDRMask(bits, bits)})
+		}
+	}
+	allowMu.Lock()
+	allowedNets = nets
+	allowMu.Unlock()
+}
+
+func isAllowed(ip net.IP) bool {
+	allowMu.RLock()
+	defer allowMu.RUnlock()
+	for _, n := range allowedNets {
+		if n.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
 
 // isBlockedIP reports whether dialing ip would reach a non-public destination we must
 // never let an operator-supplied URL target (cloud metadata, localhost, RFC1918, etc.).
@@ -33,6 +82,9 @@ func isBlockedIP(ip net.IP) bool {
 	}
 	if v4 := ip.To4(); v4 != nil {
 		ip = v4
+	}
+	if isAllowed(ip) {
+		return false // operator-trusted internal host (e.g. LAN OTA server)
 	}
 	return ip.IsLoopback() || // 127.0.0.0/8, ::1
 		ip.IsPrivate() || // 10/8, 172.16/12, 192.168/16, fc00::/7

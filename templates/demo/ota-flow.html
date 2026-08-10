@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Release → OTA — three ways to ship</title>
+<style>
+  :root {
+    --ground:#14161d; --panel:#1b1e27; --panel-2:#20242f; --border:#2a2f3c; --border-2:#353b4b;
+    --text:#e6e8ef; --muted:#949ab0; --faint:#6b7186;
+    --accent:#7a80f6; --accent-soft:rgba(122,128,246,.16); --accent-line:rgba(122,128,246,.4);
+    --ok:#3ecf8e; --ok-bg:rgba(62,207,142,.14);
+    --warn:#e8a13a; --warn-bg:rgba(232,161,58,.14);
+    --danger:#f9674e; --danger-bg:rgba(249,103,78,.14);
+    --info:#5aa9e6; --info-bg:rgba(90,169,230,.14);
+    --shadow:0 1px 0 rgba(255,255,255,.02), 0 8px 30px rgba(0,0,0,.35);
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground:#eef0f6; --panel:#ffffff; --panel-2:#f6f7fb; --border:#e2e5ee; --border-2:#d5d9e6;
+      --text:#191c26; --muted:#5c6377; --faint:#8b91a4;
+      --accent:#5a60e0; --accent-soft:rgba(90,96,224,.10); --accent-line:rgba(90,96,224,.35);
+      --ok:#1a9f6a; --ok-bg:rgba(26,159,106,.12);
+      --warn:#b9791b; --warn-bg:rgba(185,121,27,.12);
+      --danger:#d64430; --danger-bg:rgba(214,68,48,.10);
+      --info:#2c7fc0; --info-bg:rgba(44,127,192,.10);
+      --shadow:0 1px 0 rgba(0,0,0,.02), 0 10px 30px rgba(20,25,60,.08);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#14161d; --panel:#1b1e27; --panel-2:#20242f; --border:#2a2f3c; --border-2:#353b4b;
+    --text:#e6e8ef; --muted:#949ab0; --faint:#6b7186;
+    --accent:#7a80f6; --accent-soft:rgba(122,128,246,.16); --accent-line:rgba(122,128,246,.4);
+    --ok:#3ecf8e; --ok-bg:rgba(62,207,142,.14); --warn:#e8a13a; --warn-bg:rgba(232,161,58,.14);
+    --danger:#f9674e; --danger-bg:rgba(249,103,78,.14); --info:#5aa9e6; --info-bg:rgba(90,169,230,.14);
+    --shadow:0 1px 0 rgba(255,255,255,.02), 0 8px 30px rgba(0,0,0,.35);
+  }
+  :root[data-theme="light"] {
+    --ground:#eef0f6; --panel:#ffffff; --panel-2:#f6f7fb; --border:#e2e5ee; --border-2:#d5d9e6;
+    --text:#191c26; --muted:#5c6377; --faint:#8b91a4;
+    --accent:#5a60e0; --accent-soft:rgba(90,96,224,.10); --accent-line:rgba(90,96,224,.35);
+    --ok:#1a9f6a; --ok-bg:rgba(26,159,106,.12); --warn:#b9791b; --warn-bg:rgba(185,121,27,.12);
+    --danger:#d64430; --danger-bg:rgba(214,68,48,.10); --info:#2c7fc0; --info-bg:rgba(44,127,192,.10);
+    --shadow:0 1px 0 rgba(0,0,0,.02), 0 10px 30px rgba(20,25,60,.08);
+  }
+
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--text); font-family:var(--ui);
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1140px; margin:0 auto; padding:40px 24px 80px; }
+  .mono { font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  .tnum { font-variant-numeric:tabular-nums; }
+
+  /* ---- page head ---- */
+  .eyebrow { text-transform:uppercase; letter-spacing:.14em; font-size:11.5px; font-weight:700;
+    color:var(--accent); margin:0 0 10px; }
+  h1 { font-size:30px; line-height:1.15; margin:0 0 10px; font-weight:680; letter-spacing:-.015em;
+    text-wrap:balance; }
+  .lede { color:var(--muted); max-width:64ch; margin:0 0 22px; font-size:15.5px; }
+
+  .pains { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:30px; }
+  .pain { display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--border);
+    border-radius:10px; padding:9px 13px; font-size:13px; color:var(--muted); }
+  .pain b { color:var(--text); font-weight:600; }
+  .pain .n { width:20px; height:20px; border-radius:6px; background:var(--danger-bg); color:var(--danger);
+    display:grid; place-items:center; font-size:12px; font-weight:700; flex:none; }
+
+  /* ---- switcher ---- */
+  .switch { display:flex; gap:6px; background:var(--panel); border:1px solid var(--border);
+    border-radius:13px; padding:6px; margin-bottom:8px; box-shadow:var(--shadow); position:sticky; top:14px; z-index:20;
+    backdrop-filter:saturate(1.2); }
+  .switch button { flex:1; border:0; background:transparent; color:var(--muted); cursor:pointer;
+    border-radius:9px; padding:12px 14px; font:inherit; text-align:left; transition:.16s; }
+  .switch button .lab { font-weight:650; color:var(--text); font-size:14.5px; display:flex; align-items:center; gap:8px; }
+  .switch button .sub { font-size:12px; color:var(--muted); margin-top:2px; }
+  .switch button .k { width:22px;height:22px;border-radius:6px;background:var(--panel-2);border:1px solid var(--border-2);
+    display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--muted); }
+  .switch button[aria-selected="true"] { background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent-line); }
+  .switch button[aria-selected="true"] .k { background:var(--accent); color:#fff; border-color:transparent; }
+  .switch button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  .stage { margin-top:20px; }
+  .view { display:none; }
+  .view.on { display:block; animation:fade .28s ease; }
+  @keyframes fade { from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:none;} }
+  @media (prefers-reduced-motion: reduce){ .view.on{animation:none;} }
+
+  .note { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin:18px 0 4px; }
+  .note .n-card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 16px; }
+  .note h4 { margin:0 0 6px; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); font-weight:700; }
+  .note p { margin:0; font-size:13.5px; color:var(--muted); }
+  .note .good b { color:var(--ok); }
+  @media (max-width:760px){ .note{grid-template-columns:1fr;} }
+
+  /* ================= app mockup shell ================= */
+  .app { background:var(--panel); border:1px solid var(--border); border-radius:16px; overflow:hidden;
+    box-shadow:var(--shadow); }
+  .app-bar { display:flex; align-items:center; gap:10px; padding:11px 16px; border-bottom:1px solid var(--border);
+    background:linear-gradient(var(--panel-2), var(--panel)); }
+  .dots { display:flex; gap:6px; }
+  .dots i { width:11px;height:11px;border-radius:50%; background:var(--border-2); display:block; }
+  .crumbs { display:flex; align-items:center; gap:7px; font-size:13px; color:var(--muted); margin-left:6px; }
+  .crumbs a { color:var(--muted); text-decoration:none; }
+  .crumbs .cur { color:var(--text); font-weight:600; }
+  .crumbs .sep { color:var(--faint); }
+  .app-bar .spacer { flex:1; }
+  .env { font-size:11.5px; color:var(--muted); border:1px solid var(--border); border-radius:20px; padding:3px 10px; }
+
+  .app-body { padding:18px; }
+
+  /* chips / pills */
+  .chip { display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; border-radius:20px;
+    padding:3px 10px; border:1px solid var(--border-2); color:var(--muted); background:var(--panel-2); white-space:nowrap; }
+  .chip.prod { color:var(--accent); border-color:var(--accent-line); background:var(--accent-soft); }
+  .pill { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; border-radius:6px; padding:3px 8px;
+    letter-spacing:.01em; }
+  .pill.pub { color:var(--ok); background:var(--ok-bg); }
+  .pill.draft { color:var(--warn); background:var(--warn-bg); }
+  .pill.dl { color:var(--info); background:var(--info-bg); }
+  .pill.done { color:var(--ok); background:var(--ok-bg); }
+  .pill.fail { color:var(--danger); background:var(--danger-bg); }
+  .pill.wait { color:var(--muted); background:var(--panel-2); }
+  .dotp { width:7px;height:7px;border-radius:50%; display:inline-block; }
+  .dotp.ok{background:var(--ok);} .dotp.info{background:var(--info);} .dotp.mut{background:var(--faint);}
+
+  .btn { font:inherit; font-weight:640; font-size:13.5px; border-radius:9px; padding:9px 15px; cursor:pointer;
+    border:1px solid transparent; display:inline-flex; align-items:center; gap:8px; }
+  .btn.primary { background:var(--accent); color:#fff; box-shadow:0 1px 0 rgba(0,0,0,.15); }
+  .btn.ghost { background:transparent; color:var(--text); border-color:var(--border-2); }
+  .btn.sm { padding:6px 11px; font-size:12.5px; border-radius:8px; }
+  .btn:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+
+  .h-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .ver { font-family:var(--mono); font-size:19px; font-weight:600; letter-spacing:-.01em; }
+  .sub { color:var(--muted); font-size:13px; }
+  .spacer { flex:1; }
+
+  .card2 { border:1px solid var(--border); border-radius:12px; background:var(--panel); }
+  .card2 + .card2 { margin-top:14px; }
+  .c-head { display:flex; align-items:center; gap:10px; padding:12px 15px; border-bottom:1px solid var(--border); }
+  .c-head h3 { margin:0; font-size:13.5px; font-weight:650; }
+  .c-head .muted { color:var(--muted); font-size:12px; font-weight:400; }
+  .c-body { padding:14px 15px; }
+
+  .grid2 { display:grid; grid-template-columns:1.1fr .9fr; gap:16px; align-items:start; }
+  @media (max-width:820px){ .grid2{grid-template-columns:1fr;} }
+
+  /* changelog block */
+  .clog { font-size:13px; color:var(--muted); line-height:1.7; }
+  .clog b { color:var(--text); }
+
+  /* package row */
+  .pkg { display:flex; align-items:center; gap:12px; padding:11px 13px; border:1px solid var(--border); border-radius:10px;
+    background:var(--panel-2); }
+  .pkg .pt { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--accent);
+    background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:6px; padding:3px 8px; }
+  .pkg .pu { font-family:var(--mono); font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* device picker */
+  .picker { border:1px solid var(--border); border-radius:11px; overflow:hidden; }
+  .picker-top { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border);
+    background:var(--panel-2); }
+  .search { flex:1; display:flex; align-items:center; gap:8px; background:var(--panel); border:1px solid var(--border-2);
+    border-radius:8px; padding:7px 10px; color:var(--muted); font-size:13px; }
+  .search input { border:0; background:transparent; color:var(--text); font:inherit; outline:none; width:100%; }
+  .scope { font-size:12px; color:var(--muted); }
+  .scope b { color:var(--accent); }
+  .dev { display:flex; align-items:center; gap:11px; padding:10px 13px; border-top:1px solid var(--border); }
+  .dev:first-child { border-top:0; }
+  .ck { width:17px; height:17px; border-radius:5px; border:1.5px solid var(--border-2); flex:none; display:grid; place-items:center;
+    color:#fff; font-size:11px; }
+  .dev.sel .ck { background:var(--accent); border-color:var(--accent); }
+  .dev.sel { background:var(--accent-soft); }
+  .dev .nm { font-weight:600; font-size:13.5px; }
+  .dev .meta { font-size:11.5px; color:var(--faint); font-family:var(--mono); }
+  .dev .spacer{flex:1;}
+  .dev .st { font-size:11.5px; }
+  .dev.dim { opacity:.45; }
+  .dev.dim .ck { border-style:dashed; }
+
+  .push-foot { display:flex; align-items:center; gap:12px; padding:13px 15px; border-top:1px solid var(--border);
+    background:var(--panel-2); }
+  .push-foot .cnt { font-size:13px; color:var(--muted); }
+  .push-foot .cnt b { color:var(--text); }
+  .seg { display:inline-flex; background:var(--panel); border:1px solid var(--border-2); border-radius:8px; padding:3px; gap:2px; }
+  .seg button { border:0; background:transparent; color:var(--muted); padding:5px 11px; border-radius:6px; font:inherit;
+    font-size:12.5px; cursor:pointer; }
+  .seg button.on { background:var(--accent-soft); color:var(--text); box-shadow:inset 0 0 0 1px var(--accent-line); }
+
+  /* rollout table */
+  .roll { width:100%; border-collapse:collapse; font-size:13px; }
+  .roll td { padding:9px 13px; border-top:1px solid var(--border); }
+  .roll tr:first-child td { border-top:0; }
+  .roll .nm { font-weight:600; }
+  .roll .mono { color:var(--muted); font-size:12px; }
+  .bar { height:6px; border-radius:4px; background:var(--panel-2); overflow:hidden; width:120px; }
+  .bar i { display:block; height:100%; background:var(--info); }
+
+  /* wizard */
+  .steps { display:flex; align-items:center; gap:0; margin-bottom:18px; }
+  .step { display:flex; align-items:center; gap:10px; color:var(--muted); }
+  .step .b { width:26px;height:26px;border-radius:50%; border:1.5px solid var(--border-2); display:grid; place-items:center;
+    font-size:13px; font-weight:700; flex:none; }
+  .step .t { font-size:13px; font-weight:600; }
+  .step.done .b { background:var(--ok-bg); color:var(--ok); border-color:transparent; }
+  .step.cur .b { background:var(--accent); color:#fff; border-color:transparent; }
+  .step.cur .t { color:var(--text); }
+  .step-line { flex:1; height:2px; background:var(--border); margin:0 14px; min-width:26px; }
+  .step-line.done { background:var(--ok); }
+
+  .relcard { display:flex; align-items:center; gap:13px; padding:13px 14px; border:1px solid var(--border); border-radius:11px;
+    background:var(--panel-2); cursor:pointer; }
+  .relcard.sel { border-color:var(--accent-line); box-shadow:inset 0 0 0 1px var(--accent-line); background:var(--accent-soft); }
+  .relcard .radio { width:18px;height:18px;border-radius:50%; border:2px solid var(--border-2); flex:none; display:grid; place-items:center; }
+  .relcard.sel .radio { border-color:var(--accent); }
+  .relcard.sel .radio::after { content:""; width:9px;height:9px;border-radius:50%; background:var(--accent); }
+
+  /* two-pane console */
+  .console { display:grid; grid-template-columns:266px 1fr; min-height:430px; }
+  .rail { border-right:1px solid var(--border); padding:12px; background:var(--panel-2); }
+  .rail-h { font-size:11px; text-transform:uppercase; letter-spacing:.09em; color:var(--faint); font-weight:700;
+    padding:4px 8px 10px; }
+  .filt { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .filt .f { font-size:11.5px; padding:4px 9px; border-radius:20px; border:1px solid var(--border-2); color:var(--muted); cursor:pointer; }
+  .filt .f.on { background:var(--accent-soft); color:var(--accent); border-color:var(--accent-line); }
+  .rrow { display:flex; align-items:center; gap:10px; padding:10px 9px; border-radius:9px; cursor:pointer; }
+  .rrow.sel { background:var(--accent-soft); box-shadow:inset 0 0 0 1px var(--accent-line); }
+  .rrow .v { font-family:var(--mono); font-size:12.5px; font-weight:600; }
+  .rrow .m { font-size:11px; color:var(--faint); margin-top:1px; }
+  .rrow .spacer{flex:1;}
+  .pane { padding:18px; }
+
+  .kpis { display:flex; gap:22px; margin:2px 0 4px; }
+  .kpi .n { font-size:22px; font-weight:680; letter-spacing:-.01em; }
+  .kpi .l { font-size:11.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+  .kpi .n.info{color:var(--info);} .kpi .n.ok{color:var(--ok);} .kpi .n.mut{color:var(--muted);}
+
+  .footer-cta { margin-top:34px; text-align:center; color:var(--muted); font-size:14px; }
+  .footer-cta b{ color:var(--text); }
+  .legend { display:flex; gap:16px; flex-wrap:wrap; justify-content:center; margin-top:14px; font-size:12px; color:var(--faint); }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">MDM · Releases &amp; OTA</p>
+  <h1>Release → OTA, three ways to ship</h1>
+  <p class="lede">Same job every time: get a build onto the right devices. Here are three layouts that cut the step count, make target-picking obvious, and keep you oriented. Flip between them — pick the one that feels right and I'll build it for real.</p>
+
+  <div class="pains">
+    <span class="pain"><span class="n">1</span><b>Too many steps</b>&nbsp;to ship a build</span>
+    <span class="pain"><span class="n">2</span><b>Picking devices</b>&nbsp;is fiddly</span>
+    <span class="pain"><span class="n">3</span><b>Navigating</b>&nbsp;between pages</span>
+  </div>
+
+  <div class="switch" role="tablist" aria-label="Choose an approach">
+    <button role="tab" aria-selected="true" data-v="a" onclick="pick('a',this)">
+      <span class="lab"><span class="k">A</span>Ship from the release</span>
+      <span class="sub">One screen: changelog, package, push — all here</span>
+    </button>
+    <button role="tab" aria-selected="false" data-v="b" onclick="pick('b',this)">
+      <span class="lab"><span class="k">B</span>Guided push</span>
+      <span class="sub">Three clear steps: release → devices → go</span>
+    </button>
+    <button role="tab" aria-selected="false" data-v="c" onclick="pick('c',this)">
+      <span class="lab"><span class="k">C</span>Two-pane console</span>
+      <span class="sub">Releases left, push &amp; live rollout right</span>
+    </button>
+  </div>
+
+  <div class="stage">
+
+    <!-- ============================= A ============================= -->
+    <section class="view on" id="v-a" role="tabpanel" aria-label="Ship from the release">
+      <div class="app">
+        <div class="app-bar">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span class="crumbs"><a href="#">Releases</a><span class="sep">›</span><span class="cur mono">ota-test-3</span></span>
+          <span class="spacer"></span>
+          <span class="env">:8082 · test</span>
+        </div>
+        <div class="app-body">
+          <div class="h-row" style="margin-bottom:16px;">
+            <span class="pill draft">DRAFT</span>
+            <span class="ver">ota-test-3</span>
+            <span class="chip prod">T7</span>
+            <span class="spacer"></span>
+            <button class="btn ghost sm">Delete</button>
+            <button class="btn primary sm">Publish</button>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <div class="card2">
+                <div class="c-head"><h3>Changelog</h3><span class="muted">editable any time</span></div>
+                <div class="c-body clog">
+                  <b>ota-test-3</b> — parse OTA zip from cache before the /data/ota_package move (fixes the post-download <span class="mono">Permission denied</span> in UpdateParser). Crash-events trace budget trimmed to 128&nbsp;KB. API key + server URL now resolved from device props.
+                </div>
+              </div>
+              <div class="card2">
+                <div class="c-head"><h3>OTA packages</h3><span class="muted">the server picks the right artifact per device</span></div>
+                <div class="c-body">
+                  <div class="pkg">
+                    <span class="pt">full</span>
+                    <div style="min-width:0;">
+                      <div style="font-weight:600;font-size:13px;">Baseline image</div>
+                      <div class="pu">http://10.32.1.113:3001/debug-GMS/otatool/update.zip</div>
+                    </div>
+                    <span class="spacer"></span>
+                    <span class="chip">1.94 GB</span>
+                  </div>
+                  <div style="margin-top:10px;"><button class="btn ghost sm">+ Add incremental</button></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- inline push panel -->
+            <div class="card2" style="border-color:var(--accent-line);">
+              <div class="c-head" style="background:var(--accent-soft);"><h3>Push to devices</h3><span class="muted">T7 only</span></div>
+              <div class="c-body" style="padding:0;">
+                <div class="picker" style="border:0;border-radius:0;">
+                  <div class="picker-top">
+                    <span class="search">🔍 <input placeholder="Search T7 devices…" aria-label="Search devices"></span>
+                    <span class="scope"><b>3</b> match</span>
+                  </div>
+                  <div class="dev sel"><span class="ck">✓</span><div><div class="nm">Kiosk 001-lobby</div><div class="meta">1099bf42 · ota-test-1</div></div><span class="spacer"></span><span class="st"><span class="dotp ok"></span></span></div>
+                  <div class="dev sel"><span class="ck">✓</span><div><div class="nm">T7-front-01</div><div class="meta">AT070AA26 · CleanStagged</div></div><span class="spacer"></span><span class="st"><span class="dotp ok"></span></span></div>
+                  <div class="dev"><span class="ck"></span><div><div class="nm">T7-back-02</div><div class="meta">AT070AB41 · ota-test-2</div></div><span class="spacer"></span><span class="st"><span class="dotp mut"></span></span></div>
+                  <div class="dev dim"><span class="ck"></span><div><div class="nm">Kiosk22-27a</div><div class="meta">kiosk22 · hidden here</div></div><span class="spacer"></span><span class="chip">wrong product</span></div>
+                </div>
+                <div class="push-foot" style="flex-direction:column;align-items:stretch;gap:10px;">
+                  <div class="h-row">
+                    <span class="cnt"><b>2</b> of 3 selected</span>
+                    <span class="spacer"></span>
+                    <span class="seg"><button class="on">Reboot now</button><button>Scheduled</button><button>Manual</button></span>
+                  </div>
+                  <button class="btn primary" style="justify-content:center;">Push ota-test-3 to 2 devices</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <div class="n-card"><h4>How it works</h4><p>Everything for one build lives on its page — write the changelog, attach the OTA, publish, and push, without leaving. The device list is auto-scoped to the release's product (T7); kiosk devices are shown greyed as "wrong product", never pushable.</p></div>
+        <div class="n-card good"><h4>Best when</h4><p>You think <b>per release</b> — "get <i>this</i> build out." Kills pains <b>1</b> &amp; <b>3</b>: zero page hops from draft to shipped.</p></div>
+        <div class="n-card"><h4>Trade-off</h4><p>The release page gets denser. Rollout history moves to a small "Deployments" list linked from here.</p></div>
+      </div>
+    </section>
+
+    <!-- ============================= B ============================= -->
+    <section class="view" id="v-b" role="tabpanel" aria-label="Guided push" hidden>
+      <div class="app">
+        <div class="app-bar">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span class="crumbs"><span class="cur">Push OTA</span></span>
+          <span class="spacer"></span>
+          <span class="env">:8082 · test</span>
+        </div>
+        <div class="app-body">
+          <div class="steps">
+            <span class="step done"><span class="b">✓</span><span class="t">Release</span></span>
+            <span class="step-line done"></span>
+            <span class="step cur"><span class="b">2</span><span class="t">Targets</span></span>
+            <span class="step-line"></span>
+            <span class="step"><span class="b">3</span><span class="t">Review &amp; push</span></span>
+          </div>
+
+          <div class="grid2">
+            <div>
+              <div class="card2">
+                <div class="c-head"><h3>Choose targets</h3><span class="muted">T7 devices only — matches ota-test-3</span></div>
+                <div class="c-body" style="padding:0;">
+                  <div class="picker" style="border:0;border-radius:0;">
+                    <div class="picker-top">
+                      <span class="search">🔍 <input placeholder="Search devices…"></span>
+                      <span class="seg"><button class="on">Devices</button><button>Groups</button></span>
+                    </div>
+                    <div class="dev"><span class="ck"></span><label style="display:flex;gap:8px;align-items:center;"><b style="font-weight:600;font-size:13px;">Select all 3 T7 devices</b></label></div>
+                    <div class="dev sel"><span class="ck">✓</span><div><div class="nm">Kiosk 001-lobby</div><div class="meta">1099bf42 · on ota-test-1</div></div><span class="spacer"></span><span class="chip">online</span></div>
+                    <div class="dev sel"><span class="ck">✓</span><div><div class="nm">T7-front-01</div><div class="meta">AT070AA26 · on CleanStagged</div></div><span class="spacer"></span><span class="chip">online</span></div>
+                    <div class="dev"><span class="ck"></span><div><div class="nm">T7-back-02</div><div class="meta">AT070AB41 · already on ota-test-3</div></div><span class="spacer"></span><span class="chip">up to date</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="card2">
+                <div class="c-head"><h3>Summary</h3></div>
+                <div class="c-body">
+                  <div class="h-row" style="gap:8px;margin-bottom:14px;">
+                    <span class="pill pub">PUBLISHED</span><span class="ver" style="font-size:15px;">ota-test-3</span><span class="chip prod">T7</span>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:11px;font-size:13px;color:var(--muted);">
+                    <div class="h-row"><span>Artifact</span><span class="spacer"></span><span class="chip">full · 1.94 GB</span></div>
+                    <div class="h-row"><span>Reboot</span><span class="spacer"></span><span class="seg"><button class="on">Now</button><button>Manual</button></span></div>
+                    <div class="h-row"><span>Devices selected</span><span class="spacer"></span><b class="tnum" style="color:var(--text);font-size:15px;">2</b></div>
+                    <div class="h-row"><span>Skipped (up to date)</span><span class="spacer"></span><b class="tnum">1</b></div>
+                  </div>
+                </div>
+              </div>
+              <button class="btn primary" style="width:100%;justify-content:center;margin-top:14px;padding:12px;">Push to 2 devices →</button>
+              <div style="text-align:center;margin-top:8px;"><a href="#" style="color:var(--muted);font-size:12.5px;text-decoration:none;">← Back to release</a></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <div class="n-card"><h4>How it works</h4><p>A short, explicit path — Release → Targets → Review. Each step is one decision, wrong-product and up-to-date devices are filtered out for you, and the summary shows exactly what will happen before you commit.</p></div>
+        <div class="n-card good"><h4>Best when</h4><p>Pushing is occasional and you want <b>no surprises</b>. Kills pain <b>2</b>: targeting is the whole middle step, nothing else competing for attention.</p></div>
+        <div class="n-card"><h4>Trade-off</h4><p>An extra click or two for power users who push often. Deep-links from a release jump straight to step 2.</p></div>
+      </div>
+    </section>
+
+    <!-- ============================= C ============================= -->
+    <section class="view" id="v-c" role="tabpanel" aria-label="Two-pane console" hidden>
+      <div class="app">
+        <div class="app-bar">
+          <span class="dots"><i></i><i></i><i></i></span>
+          <span class="crumbs"><span class="cur">Releases &amp; OTA</span></span>
+          <span class="spacer"></span>
+          <span class="env">:8082 · test</span>
+        </div>
+        <div class="console">
+          <div class="rail">
+            <div class="rail-h">Product</div>
+            <div class="filt">
+              <span class="f on">All</span><span class="f">T7</span><span class="f">Kiosk 22</span><span class="f">Kiosk 27</span>
+            </div>
+            <div class="rail-h">Releases</div>
+            <div class="rrow sel"><span class="dotp info"></span><div><div class="v">ota-test-3</div><div class="m">T7 · published · 2 running</div></div></div>
+            <div class="rrow"><span class="dotp ok"></span><div><div class="v">ota-test-2</div><div class="m">T7 · published · 1 running</div></div></div>
+            <div class="rrow"><span class="dotp mut"></span><div><div class="v">2026.06-k22</div><div class="m">Kiosk 22 · draft</div></div></div>
+            <div style="padding:10px 8px;"><button class="btn ghost sm" style="width:100%;justify-content:center;">+ New release</button></div>
+          </div>
+          <div class="pane">
+            <div class="h-row" style="margin-bottom:6px;">
+              <span class="pill pub">PUBLISHED</span><span class="ver">ota-test-3</span><span class="chip prod">T7</span>
+              <span class="spacer"></span>
+              <button class="btn ghost sm">Manage</button>
+              <button class="btn primary sm">Push OTA</button>
+            </div>
+            <p class="sub" style="margin:0 0 16px;">Cache-parse fix + trimmed crash telemetry. Full image, 1.94 GB.</p>
+
+            <div class="kpis">
+              <div class="kpi"><div class="n info tnum">1</div><div class="l">Downloading</div></div>
+              <div class="kpi"><div class="n ok tnum">1</div><div class="l">Installed</div></div>
+              <div class="kpi"><div class="n mut tnum">1</div><div class="l">Pending</div></div>
+              <div class="kpi"><div class="n tnum" style="color:var(--danger)">0</div><div class="l">Failed</div></div>
+            </div>
+
+            <div class="card2" style="margin-top:14px;">
+              <div class="c-head"><h3>Live rollout</h3><span class="muted">updates as devices check in</span></div>
+              <table class="roll">
+                <tr><td class="nm">Kiosk 001-lobby</td><td class="mono">1099bf42</td><td><div class="bar"><i style="width:62%"></i></div></td><td><span class="pill dl"><span class="dotp info"></span>downloading 62%</span></td></tr>
+                <tr><td class="nm">T7-front-01</td><td class="mono">AT070AA26</td><td><div class="bar"><i style="width:100%;background:var(--ok)"></i></div></td><td><span class="pill done">installed</span></td></tr>
+                <tr><td class="nm">T7-back-02</td><td class="mono">AT070AB41</td><td><div class="bar"><i style="width:0"></i></div></td><td><span class="pill wait">pending check-in</span></td></tr>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note">
+        <div class="n-card"><h4>How it works</h4><p>Never leave the console. Product chips filter the left rail; click a release to see it on the right with a one-click <b>Push OTA</b> and a <b>live rollout</b> table that fills in as devices report. Manage (changelog/packages) opens from the same header.</p></div>
+        <div class="n-card good"><h4>Best when</h4><p>You watch fleets and push often. Kills pain <b>3</b>: one screen for browse → push → watch, no navigation at all.</p></div>
+        <div class="n-card"><h4>Trade-off</h4><p>Densest of the three; best on a wide screen. On mobile the rail collapses to a top dropdown.</p></div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="footer-cta">
+    <p><b>Tell me A, B, or C</b> (or mix — e.g. "A's inline push + C's live rollout") and I'll build it into the real pages.</p>
+    <div class="legend">
+      <span><span class="dotp ok"></span> installed</span>
+      <span><span class="dotp info"></span> downloading</span>
+      <span><span class="dotp mut"></span> pending</span>
+      <span><span class="chip prod" style="padding:1px 8px;">T7</span> product-scoped targeting</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  function pick(v, btn){
+    document.querySelectorAll('.switch button').forEach(function(b){ b.setAttribute('aria-selected', b===btn ? 'true':'false'); });
+    ['a','b','c'].forEach(function(k){
+      var el = document.getElementById('v-'+k);
+      var on = k===v;
+      el.classList.toggle('on', on);
+      if(on){ el.removeAttribute('hidden'); } else { el.setAttribute('hidden',''); }
+    });
+  }
+  // keyboard: A/B/C
+  document.addEventListener('keydown', function(e){
+    var m = {a:'a',b:'b',c:'c'}[e.key.toLowerCase()];
+    if(m){ var btn=document.querySelector('.switch button[data-v="'+m+'"]'); if(btn) pick(m,btn); }
+  });
+</script>
+</html>
