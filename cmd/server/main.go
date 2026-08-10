@@ -24,6 +24,7 @@ import (
 	"mdm/internal/logstream"
 	"mdm/internal/middleware"
 	"mdm/internal/remote"
+	"mdm/internal/safehttp"
 	"mdm/internal/shell"
 	"mdm/internal/ws"
 )
@@ -55,6 +56,14 @@ func main() {
 		log.Fatalf("SESSION_SECRET must be distinct from DEVICE_API_KEY and ADMIN_API_KEY")
 	}
 	configPath := getEnv("CONFIG_PATH", "config/display.json")
+
+	// SSRF allowlist: comma-separated IPs/CIDRs the OTA-inspect / webhook clients may
+	// reach despite being private (e.g. an internal LAN OTA package host). Empty by
+	// default — the private-address block stays fully in force.
+	if al := strings.TrimSpace(getEnv("SSRF_ALLOW_CIDRS", "")); al != "" {
+		safehttp.SetAllowlist(strings.Split(al, ","))
+		log.Printf("safehttp: SSRF allowlist = %s", al)
+	}
 
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		dbHost, dbPort, dbUser, dbPass, dbName)

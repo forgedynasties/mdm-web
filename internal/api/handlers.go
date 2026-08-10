@@ -36,7 +36,11 @@ const maxPackagesPerDevice = 2000
 const (
 	maxSerialLen    = 64
 	maxBuildIDLen   = 128
-	maxExtraBytes   = 256 * 1024
+	// The client's crash_events trace budget alone is 256 KiB (MAX_TOTAL_TRACE_BYTES),
+	// and the rest of extra (wifi/ram/storage/boot/summaries) stacks on top — a
+	// crash-heavy full-GMS device then blew past a 256 KiB cap and every check-in 413'd.
+	// Keep the server ceiling comfortably above the client's max legitimate extra.
+	maxExtraBytes   = 512 * 1024
 	maxJSONDepth    = 64
 	deviceRateBurst = 120 // max device requests per serial per minute
 )
@@ -367,6 +371,9 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 type checkinRequest struct {
 	SerialNumber string `json:"serial_number"`
 	BuildID      string `json:"build_id"`
+	// Product is the hardware category the device reports (e.g. "t7", "kiosk27"). Sent
+	// on the full HTTP keyframe; delta/WS frames may omit it and the stored value sticks.
+	Product string `json:"product,omitempty"`
 	// Pointer so a delta telemetry frame that omits an unchanged battery_pct is
 	// distinguishable from a real 0 — the server keeps the prior value in that case.
 	BatteryPct    *int            `json:"battery_pct"`
@@ -427,7 +434,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// HTTP check-in is the periodic full keyframe → replace latest_extra (clears stale keys).
-	deviceID, _, isNew, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, false)
+	deviceID, _, isNew, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, false, req.Product)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -829,8 +836,9 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		return
 	}
 
-	// WS telemetry frames are deltas → merge into the stored snapshot.
-	id, _, isNew, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, true)
+	// WS telemetry frames are deltas → merge into the stored snapshot. Product is
+	// usually empty on deltas; UpsertCheckin keeps the previously learned value then.
+	id, _, isNew, err := h.db.UpsertCheckin(ctx, req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, true, req.Product)
 	if err != nil {
 		log.Printf("[ws-telemetry] UpsertCheckin error: %v", err)
 		return
