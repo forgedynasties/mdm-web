@@ -1,70 +1,59 @@
 {{define "deployment-targets"}}
 {{$dep := .Deployment}}
 {{if $dep.Targets}}
-<div class="ota-rollup" style="padding:16px 20px;border-bottom:1px solid var(--border);">
-  <div class="ota-progress-bar"><div class="ota-progress-fill" style="width:{{.SummaryPct}}%"></div></div>
-  <div class="ota-rollup-summary small" style="margin-top:10px;display:flex;flex-wrap:wrap;align-items:center;gap:8px;">
-    <span class="muted">{{.SummaryDone}}/{{.SummaryTotal}} installed</span>
-    {{range .Summary}} <span class="status-badge {{deployStatusClass .Status}}">{{.Count}} {{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
-    {{if ge .AvgDuration 0}}<span class="muted">· avg update time {{dur .AvgDuration}} ({{.DoneCount}} device{{if ne .DoneCount 1}}s{{end}})</span>{{end}}
+<div class="dpl-rollup">
+  <div class="dpl-bar"><i style="width:{{.SummaryPct}}%"></i></div>
+  <div class="dpl-sum">
+    <span class="dpl-done">{{.SummaryDone}}/{{.SummaryTotal}} installed</span>
+    {{range .Summary}}<span class="status-badge {{deployStatusClass .Status}}">{{.Count}} {{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
+    {{if ge .AvgDuration 0}}<span class="muted">· avg {{dur .AvgDuration}} ({{.DoneCount}} device{{if ne .DoneCount 1}}s{{end}})</span>{{end}}
   </div>
 </div>
 {{end}}
-<div class="scroll-x"><table class="table">
-  <thead>
-    <tr>
-      <th>Serial Number</th>
-      <th>Current Build</th>
-      <th>Status</th>
-      <th>Time taken</th>
-      <th>Updated</th>
-    </tr>
-  </thead>
-  <tbody>
-    {{if $dep.Targets}}
-      {{range $dep.Targets}}
-      <tr>
-        <td class="mono"><a href="/devices/{{.SerialNumber}}" class="link-detail">{{.SerialNumber}}</a></td>
-        <td class="mono small">{{.BuildID}}</td>
-        <td>
-          {{$progress := index $.OTAProgress .DeviceID.String}}
-          {{if and $progress (eq .Status "downloading") $progress.Phase}}
-            <span class="status-badge {{deployStatusClass .Status}} phase-badge">{{$progress.Phase}}</span>
-          {{else}}
-            <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
-          {{end}}
-          {{if $progress}}
-            <div class="ota-progress-panel" style="padding:8px 10px;margin:6px 0 2px;max-width:300px;">
-              <div class="ota-progress-bar">
-                <div class="ota-progress-fill" style="width:{{$progress.Percent}}%"></div>
-              </div>
-              <span class="muted small">{{$progress.Phase}} {{$progress.Percent}}%</span>
-            </div>
-          {{end}}
-          {{if and (eq .Status "failed") .ErrorCode}}
-            <div class="muted small" style="margin-top:6px;">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
-          {{end}}
-          {{if and (eq .Status "failed") (canOperate $.Role)}}
-            <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" style="display:inline;margin-top:6px;">
-              <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
-            </form>
-          {{end}}
-          {{if and (eq .Status "pending") (canOperate $.Role)}}
-            <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" style="display:inline;margin-top:6px;"
-                  hx-confirm="Remove {{.SerialNumber}} from this deployment? It will not receive the update.">
-              <button type="submit" class="btn-outline btn-sm">Remove</button>
-            </form>
-          {{end}}
-        </td>
-        <td class="small muted" title="time from download start to installed">{{dur .DurationSeconds}}</td>
-        <td class="small muted reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></td>
-      </tr>
+{{if $dep.Targets}}
+  {{range $dep.Targets}}
+  {{$progress := index $.OTAProgress .DeviceID.String}}
+  <div class="dpl-drow">
+    <div class="dpl-dev">
+      <a href="/devices/{{.SerialNumber}}" class="dpl-sn link-detail">{{.SerialNumber}}</a>
+      <div class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}}</div>
+    </div>
+    <div class="dpl-state">
+      {{if and $progress (eq .Status "downloading") $progress.Phase}}
+        <span class="status-badge {{deployStatusClass .Status}} phase-badge">{{$progress.Phase}}</span>
+      {{else}}
+        <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
       {{end}}
-    {{else}}
-      <tr><td colspan="5" class="empty">No devices targeted yet.</td></tr>
-    {{end}}
-  </tbody>
-</table></div>
+      {{if $progress}}
+        <div class="dpl-prog">
+          <div class="dpl-pbar"><i style="width:{{$progress.Percent}}%"></i></div>
+          <span class="muted small">{{$progress.Phase}} {{$progress.Percent}}%</span>
+        </div>
+      {{end}}
+      {{if and (eq .Status "failed") .ErrorCode}}
+        <div class="muted small dpl-err">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
+      {{end}}
+      {{if and (eq .Status "failed") (canOperate $.Role)}}
+        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+          <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
+        </form>
+      {{end}}
+      {{if and (eq .Status "pending") (canOperate $.Role)}}
+        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" class="dpl-act"
+              hx-confirm="Remove {{.SerialNumber}} from this deployment? It will not receive the update.">
+          <button type="submit" class="btn-outline btn-sm">Remove</button>
+        </form>
+      {{end}}
+    </div>
+    <div class="dpl-times">
+      <span title="time from download start to installed">{{dur .DurationSeconds}}</span>
+      <span class="reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></span>
+    </div>
+  </div>
+  {{end}}
+{{else}}
+  <div class="dpl-drow dpl-none"><span class="muted">No devices targeted yet.</span></div>
+{{end}}
 {{end}}
 
 {{define "deployment_detail.html"}}
@@ -77,10 +66,46 @@
   @keyframes ota-phase-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .65; } }
   .phase-badge { animation: ota-phase-pulse 1.6s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) { .phase-badge { animation: none; } }
+
+  /* ── Deployment detail · matches the overview / updates design language ── */
+  .dpl-wrap{max-width:1180px;margin:0 auto}
+  /* metadata tiles — same card shape as the updates signal strip */
+  .dpl-meta{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin:6px 0 20px}
+  @media(max-width:940px){.dpl-meta{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:560px){.dpl-meta{grid-template-columns:repeat(2,1fr)}}
+  .dpl-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:14px 15px}
+  .dpl-tile .k{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+  .dpl-tile .v{font-size:17px;font-weight:700;margin-top:9px;line-height:1.2;word-break:break-word}
+  .dpl-tile .v.mono{font-family:var(--mono);font-size:14px}
+  .dpl-tile .s{font-size:11.5px;color:var(--muted);margin-top:6px}
+  /* rollup */
+  .dpl-rollup{padding:15px 18px;border-bottom:1px solid var(--border-soft)}
+  .dpl-bar{display:flex;height:8px;border-radius:5px;overflow:hidden;background:var(--surface3,var(--border))}
+  .dpl-bar i{display:block;height:100%;background:var(--ok)}
+  .dpl-sum{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:11px;font-size:12px}
+  .dpl-done{font-weight:650;font-variant-numeric:tabular-nums}
+  /* device rows */
+  .dpl-drow{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,2fr) auto;gap:16px;align-items:start;padding:13px 18px;border-top:1px solid var(--border-soft)}
+  .dpl-drow:first-of-type{border-top:none}
+  .dpl-drow.dpl-none{display:block;text-align:center;padding:26px}
+  @media(max-width:720px){.dpl-drow{grid-template-columns:1fr;gap:8px}}
+  .dpl-dev{min-width:0}
+  .dpl-sn{font-family:var(--mono);font-size:13px;font-weight:650;word-break:break-all}
+  .dpl-build{font-size:11.5px;color:var(--muted);margin-top:4px;word-break:break-all}
+  .dpl-state{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0}
+  .dpl-prog{width:100%;max-width:300px}
+  .dpl-pbar{display:flex;height:6px;border-radius:4px;overflow:hidden;background:var(--surface3,var(--border));margin-bottom:5px}
+  .dpl-pbar i{display:block;height:100%;background:var(--accent-2)}
+  .dpl-err{margin-top:2px}
+  .dpl-act{display:inline}
+  .dpl-times{display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:11.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+  @media(max-width:720px){.dpl-times{align-items:flex-start}}
 </style>
 
 {{$dep := .Deployment}}
 {{$rel := .Release}}
+
+<div class="dpl-wrap">
 
 <a href="/releases/{{$rel.ID}}" class="back-link">← {{$rel.Version}}</a>
 <div class="ov-greet">
@@ -99,30 +124,30 @@
   </span>
 </div>
 
-<div class="stats-grid" style="margin-bottom:16px;">
-  <div class="stat-card">
-    <div class="stat-label">Release</div>
-    <div class="stat-value small mono">{{$rel.Version}}</div>
-    <div class="stat-sub">
-      <span class="status-badge {{releaseStatusClass $rel.Status}}">{{$rel.Status}}</span>
-    </div>
+<div class="dpl-meta">
+  <div class="dpl-tile">
+    <div class="k">Release</div>
+    <div class="v mono">{{$rel.Version}}</div>
+    <div class="s"><span class="status-badge {{releaseStatusClass $rel.Status}}">{{$rel.Status}}</span></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Status</div>
-    <div class="stat-value"><span class="status-badge {{deployStatusClass $dep.Status}}">{{$dep.Status}}</span></div>
+  <div class="dpl-tile">
+    <div class="k">Product</div>
+    <div class="v">{{productLabel $rel.Product}}</div>
+    <div class="s">only {{productLabel $rel.Product}} devices are eligible</div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Reboot</div>
-    <div class="stat-value small">{{$dep.RebootBehavior}}</div>
-    {{if $dep.ScheduledTime}}
-    <div class="stat-sub">{{formatTime (deref $dep.ScheduledTime)}}</div>
-    <div class="stat-sub">{{localTime (deref $dep.ScheduledTime)}}</div>
-    {{end}}
+  <div class="dpl-tile">
+    <div class="k">Status</div>
+    <div class="v"><span class="status-badge {{deployStatusClass $dep.Status}}">{{$dep.Status}}</span></div>
   </div>
-  <div class="stat-card">
-    <div class="stat-label">Created</div>
-    <div class="stat-value small">{{timeSince $dep.CreatedAt}}</div>
-    <div class="stat-sub">{{localTime $dep.CreatedAt}}</div>
+  <div class="dpl-tile">
+    <div class="k">Reboot</div>
+    <div class="v" style="text-transform:capitalize;">{{$dep.RebootBehavior}}</div>
+    {{if $dep.ScheduledTime}}<div class="s">{{formatTime (deref $dep.ScheduledTime)}} · {{localTime (deref $dep.ScheduledTime)}}</div>{{end}}
+  </div>
+  <div class="dpl-tile">
+    <div class="k">Created</div>
+    <div class="v">{{timeSince $dep.CreatedAt}}</div>
+    <div class="s">{{localTime $dep.CreatedAt}}</div>
   </div>
 </div>
 
@@ -145,7 +170,7 @@
     <div class="form-row" id="scheduled-time-row" style="{{if eq $dep.RebootBehavior "scheduled"}}{{else}}display:none;{{end}}">
       <label class="form-label">Scheduled Time (UTC / GMT+0)</label>
       <input type="datetime-local" name="scheduled_time" value="{{if $dep.ScheduledTime}}{{utcDateTimeLocal (deref $dep.ScheduledTime)}}{{end}}" class="form-input" style="max-width:260px;">
-      <div class="form-hint">This field is interpreted as UTC. Devices that have not yet received the OTA update will use the updated reboot setting.</div>
+      <div class="form-hint">This field is interpreted as UTC. Devices that have not yet received the update will use the updated reboot setting.</div>
     </div>
     <button type="submit" class="btn-primary">Save Reboot Settings</button>
   </form>
@@ -156,7 +181,7 @@
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>Push to more devices</h3>
-    <span class="muted small">Add devices or groups to this deployment — they inherit its reboot setting.</span>
+    <span class="muted small">Only {{productLabel $rel.Product}} devices — this deployment is restricted to its release's product. They inherit its reboot setting.</span>
   </div>
   <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/add-targets" method="POST" hx-boost="true" class="command-form">
     <div class="form-row">
@@ -181,7 +206,7 @@
             <span class="muted small" style="margin-left:auto;">{{.BuildID}}</span>
           </label>
           {{else}}
-          <div class="empty" style="padding:12px;">No devices registered.</div>
+          <div class="empty" style="padding:12px;">No eligible {{productLabel $rel.Product}} devices to add.</div>
           {{end}}
         </div>
       </div>
@@ -207,6 +232,15 @@
       </div>
     </div>
     <div class="form-row">
+      <label class="form-label">Delivery</label>
+      <input type="hidden" name="delivery" id="addt-delivery" value="smart">
+      <div class="seg-control" id="addt-delivery-seg">
+        <button type="button" class="seg-btn active" onclick="setDelivery('smart')">Smart</button>
+        <button type="button" class="seg-btn" onclick="setDelivery('full')">Full image</button>
+      </div>
+      <div class="form-hint"><b>Smart</b> sends an incremental to devices whose current build matches one, and the full image to the rest. <b>Full image</b> forces the complete package (requires the release to have a full image).</div>
+    </div>
+    <div class="form-row">
       <label class="form-label">Stage Limit <span class="muted small">(optional)</span></label>
       <input type="number" name="limit" class="form-input" min="1" style="max-width:120px;" placeholder="e.g. 10">
       <div class="form-hint">Devices already updating or done are skipped automatically.</div>
@@ -229,6 +263,8 @@
        {{end}}>
     {{template "deployment-targets" .}}
   </div>
+</div>
+
 </div>
 
 <script>
@@ -275,6 +311,12 @@ function setReboot(mode) {
   document.getElementById('scheduled-time-row').style.display = mode === 'scheduled' ? '' : 'none';
   document.querySelectorAll('#reboot-seg .seg-btn').forEach(function (b) {
     b.classList.toggle('active', b.dataset.mode === mode);
+  });
+}
+function setDelivery(mode) {
+  document.getElementById('addt-delivery').value = mode;
+  document.querySelectorAll('#addt-delivery-seg .seg-btn').forEach(function (b) {
+    b.classList.toggle('active', b.textContent.toLowerCase().indexOf(mode === 'full' ? 'full' : 'smart') !== -1);
   });
 }
 function setTargetTab(tab) {
