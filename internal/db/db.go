@@ -8922,6 +8922,14 @@ func (d *DB) SetReleaseMeta(ctx context.Context, id int, name, changelog string)
 	return err
 }
 
+// SetReleaseCreatedAt overrides a release's date. created_at is what the releases
+// list orders by (newest first) and what the OTA resolver's newer/older ranking
+// keys off, so editing it moves the release consistently in both.
+func (d *DB) SetReleaseCreatedAt(ctx context.Context, id int, t time.Time) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET created_at = $2 WHERE id = $1`, id, t)
+	return err
+}
+
 // SetReleaseSkipBaseTests sets whether a release's QA skips base (standard) cases,
 // testing only its release-specific cases.
 func (d *DB) SetReleaseSkipBaseTests(ctx context.Context, id int, skip bool) error {

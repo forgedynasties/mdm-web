@@ -563,6 +563,13 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return t.Format("Jan 2, 2006")
 		},
+		// isoDate: yyyy-mm-dd for prefilling an <input type="date">.
+		"isoDate": func(t time.Time) string {
+			if t.IsZero() {
+				return ""
+			}
+			return t.Format("2006-01-02")
+		},
 		"minuteOfDay": func(t time.Time) int {
 			u := t.UTC()
 			return u.Hour()*60 + u.Minute()
@@ -6794,6 +6801,13 @@ func (h *Handler) ReleaseEditMeta(w http.ResponseWriter, r *http.Request) {
 	if err := h.db.SetReleaseMeta(r.Context(), id, name, changelog); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	// Optional release-date edit (HTML date input, yyyy-mm-dd). Setting created_at
+	// re-dates the release for the list order and the OTA newer/older ranking.
+	if d := strings.TrimSpace(r.FormValue("released_at")); d != "" {
+		if t, perr := time.Parse("2006-01-02", d); perr == nil {
+			_ = h.db.SetReleaseCreatedAt(r.Context(), id, t)
+		}
 	}
 	h.audit(r, "release.edit_meta", strconv.Itoa(id), name)
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d", id), http.StatusSeeOther)
