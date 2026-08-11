@@ -19,6 +19,7 @@ import (
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/geolocate"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
@@ -51,14 +52,15 @@ type Handler struct {
 	hub         *ws.Hub
 	shell       *shell.Manager
 	cfg         *config.Config
+	geolocate   *geolocate.Resolver
 	remote      *remote.Manager
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, rm *remote.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, remote: rm, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute)}
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, rm *remote.Manager, adminAPIKey string) *Handler {
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, remote: rm, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute)}
 }
 
 // connectedSlice returns the live WebSocket-connected device IDs as a slice, so DB
@@ -367,6 +369,39 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 	h.hub.PublishCommandUpdate(cmd.ID)
 }
 
+// enrichLocation resolves WiFi scan data to geographic coordinates and merges
+// the result into the extra JSONB payload. If the geolocate resolver is nil or
+// no wifi_scan data is present, returns unchanged extra.
+func (h *Handler) enrichLocation(ctx context.Context, extra json.RawMessage) json.RawMessage {
+	if h.geolocate == nil || len(extra) == 0 {
+		return extra
+	}
+	aps := geolocate.ExtractWifiScan(extra)
+	if len(aps) == 0 {
+		return extra
+	}
+	lat, lon, accuracy, err := h.geolocate.Resolve(ctx, aps)
+	if err != nil {
+		if err != geolocate.ErrCooldown {
+			log.Printf("[geolocate] resolve error: %v", err)
+		}
+		return extra
+	}
+	// Merge lat/lon/accuracy into the extra JSON object
+	var m map[string]any
+	if err := json.Unmarshal(extra, &m); err != nil {
+		m = make(map[string]any)
+	}
+	m["latitude"] = lat
+	m["longitude"] = lon
+	m["location_accuracy"] = accuracy
+	enriched, err := json.Marshal(m)
+	if err != nil {
+		return extra
+	}
+	return json.RawMessage(enriched)
+}
+
 // ── Checkin (telemetry only) ──────────────────────────────────────────────────
 
 type checkinRequest struct {
@@ -433,6 +468,8 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "battery_pct must be 0-100"})
 		return
 	}
+
+	req.Extra = h.enrichLocation(r.Context(), req.Extra)
 
 	// HTTP check-in is the periodic full keyframe → replace latest_extra (clears stale keys).
 	deviceID, _, isNew, err := h.db.UpsertCheckin(r.Context(), req.SerialNumber, req.BuildID, req.BatteryPct, req.Extra, false, req.Product)
@@ -876,6 +913,8 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		log.Printf("[ws-telemetry] oversized field from %s", req.SerialNumber)
 		return
 	}
+
+	req.Extra = h.enrichLocation(ctx, req.Extra)
 
 	// WS telemetry frames are deltas → merge into the stored snapshot. Product is
 	// usually empty on deltas; UpsertCheckin keeps the previously learned value then.
