@@ -510,7 +510,6 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.recordCheckinOtaProgress(deviceID, &req)
-	h.hub.PublishDeviceUpdate(deviceID)
 
 	// Reconcile completion first, independently of the resolver: if the device is
 	// now running a deployment's target build, mark it installed. For an
@@ -612,6 +611,11 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	addOfflineExit(cfgMap, deviceCfg)
 	h.processOfflineExit(r.Context(), deviceID, req.SerialNumber, req.Extra, deviceCfg, cfgMap)
 
+	// Publish AFTER processOfflineExit so this check-in's own (immediate) broadcast
+	// already carries the flipped kiosk state — the dashboard updates as promptly as
+	// battery/charging do, instead of waiting for a second trailing-throttle broadcast.
+	h.hub.PublishDeviceUpdate(deviceID)
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":   "ok",
 		"commands": cmdList,
@@ -649,10 +653,8 @@ func (h *Handler) processOfflineExit(ctx context.Context, deviceID uuid.UUID, se
 		if err := h.db.SetKioskConfig(ctx, deviceID, false, cfg.KioskPackage, cfg.KioskFeatures); err == nil {
 			cfg.KioskEnabled = false
 			cfgMap["kiosk_enabled"] = false
-			// Re-publish AFTER the flip: the checkin's earlier PublishDeviceUpdate ran
-			// before this handler, so the device page's SSE would otherwise read the
-			// stale kiosk-on state. This second event carries kiosk_enabled=false.
-			h.hub.PublishDeviceUpdate(deviceID)
+			// The caller publishes the device update AFTER this runs, so that broadcast
+			// already carries the flipped state — no separate re-publish needed here.
 		}
 	}
 	h.db.RecordOfflineExit(ctx, deviceID, e.OfflineExitAt)
@@ -953,7 +955,6 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 	}
 
 	h.recordCheckinOtaProgress(id, &req)
-	h.hub.PublishDeviceUpdate(id)
 
 	// Reconcile completion by target build before resolving — see HTTP Checkin.
 	if doneIDs, err := h.db.CompleteUpdatesAtTargetBuild(ctx, id, req.BuildID); err != nil {
@@ -1021,6 +1022,9 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 	}
 	addOfflineExit(wsCfg, deviceCfg)
 	h.processOfflineExit(ctx, id, req.SerialNumber, req.Extra, deviceCfg, wsCfg)
+	// Publish after the flip — see HTTP Checkin — so the dashboard reflects an exit
+	// on this frame's broadcast rather than a later trailing one.
+	h.hub.PublishDeviceUpdate(id)
 	cfgMsg, _ := json.Marshal(wsCfg)
 	h.hub.Push(deviceID, cfgMsg)
 }
