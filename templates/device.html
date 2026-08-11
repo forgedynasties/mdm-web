@@ -174,7 +174,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if canAdminOrTester .Role}}
     <span class="ddc-kpop-wrap">
       <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskPopToggle(event)" aria-haspopup="true" aria-expanded="false" title="Configure kiosk mode">
-        <span class="k">Kiosk</span>{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}} <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        <span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span> <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
       <div class="ddc-kpop" id="kiosk-pop" hidden>
         <div class="ddc-kpop-h">Kiosk mode</div>
@@ -1879,6 +1879,24 @@ async function saveNewApp() {
 
     function group(c) { return (digits === 6 && c.length === 6) ? c.slice(0, 3) + ' ' + c.slice(3) : c; }
 
+    // Reflect the server's kiosk on/off state in the chip pill + toggle live, so an
+    // on-device offline exit (which flips kiosk off server-side) updates here without
+    // a page reload. Updated in place — no fragment swap — so the popover/combo aren't
+    // disturbed.
+    function syncKiosk(enabled) {
+      if (enabled === undefined || enabled === null) return;
+      var btn = document.querySelector('.ddc-kpop-wrap .ddc-chip-btn');
+      if (btn) {
+        btn.classList.toggle('on', !!enabled);
+        var st = btn.querySelector('.ddc-kstate');
+        if (st) st.textContent = enabled ? 'on' : 'off';
+      }
+      var tog = document.getElementById('kiosk-toggle');
+      if (tog) tog.checked = !!enabled;
+      var hid = document.getElementById('kiosk-enabled-val');
+      if (hid) hid.value = enabled ? '1' : '0';
+    }
+
     function refresh() {
       if (fetching) return;
       fetching = true;
@@ -1886,11 +1904,20 @@ async function saveNewApp() {
         .then(function (r) { return r.json(); })
         .then(function (d) {
           fetching = false;
-          if (!d || !d.enabled) return;
+          if (!d) return;
+          syncKiosk(d.kiosk_enabled);
+          if (!d.enabled) return;
           if (d.code) codeEl.textContent = group(String(d.code));
           boundary = Date.now() / 1000 + (d.seconds || period);
         })
         .catch(function () { fetching = false; });
+    }
+
+    // Re-fetch immediately on each check-in (SSE), not just on window rollover, so the
+    // kiosk state flips the moment the device reports its offline exit.
+    if (!window._oeKioskSync) {
+      window._oeKioskSync = true;
+      document.body.addEventListener('device-updated', function () { refresh(); });
     }
 
     function tick() {
@@ -2074,6 +2101,24 @@ document.addEventListener('keydown', function (e) {
 
     function group(c) { return (digits === 6 && c.length === 6) ? c.slice(0, 3) + ' ' + c.slice(3) : c; }
 
+    // Reflect the server's kiosk on/off state in the chip pill + toggle live, so an
+    // on-device offline exit (which flips kiosk off server-side) updates here without
+    // a page reload. Updated in place — no fragment swap — so the popover/combo aren't
+    // disturbed.
+    function syncKiosk(enabled) {
+      if (enabled === undefined || enabled === null) return;
+      var btn = document.querySelector('.ddc-kpop-wrap .ddc-chip-btn');
+      if (btn) {
+        btn.classList.toggle('on', !!enabled);
+        var st = btn.querySelector('.ddc-kstate');
+        if (st) st.textContent = enabled ? 'on' : 'off';
+      }
+      var tog = document.getElementById('kiosk-toggle');
+      if (tog) tog.checked = !!enabled;
+      var hid = document.getElementById('kiosk-enabled-val');
+      if (hid) hid.value = enabled ? '1' : '0';
+    }
+
     function refresh() {
       if (fetching) return;
       fetching = true;
@@ -2081,11 +2126,20 @@ document.addEventListener('keydown', function (e) {
         .then(function (r) { return r.json(); })
         .then(function (d) {
           fetching = false;
-          if (!d || !d.enabled) return;
+          if (!d) return;
+          syncKiosk(d.kiosk_enabled);
+          if (!d.enabled) return;
           if (d.code) codeEl.textContent = group(String(d.code));
           boundary = Date.now() / 1000 + (d.seconds || period);
         })
         .catch(function () { fetching = false; });
+    }
+
+    // Re-fetch immediately on each check-in (SSE), not just on window rollover, so the
+    // kiosk state flips the moment the device reports its offline exit.
+    if (!window._oeKioskSync) {
+      window._oeKioskSync = true;
+      document.body.addEventListener('device-updated', function () { refresh(); });
     }
 
     function tick() {
