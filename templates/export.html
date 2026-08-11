@@ -119,6 +119,7 @@
         <button type="button" class="dur-btn" onclick="applyPreset('battery')">Battery</button>
         <button type="button" class="dur-btn" onclick="applyPreset('network')">Network</button>
         <button type="button" class="dur-btn" onclick="applyPreset('system')">System</button>
+        <button type="button" class="dur-btn" onclick="applyPreset('location')">Location</button>
         <button type="button" class="dur-btn" onclick="applyPreset('all')">All</button>
         <button type="button" class="dur-btn" onclick="applyPreset('none')">None</button>
       </div>
@@ -163,6 +164,17 @@
 
       <div class="export-col-group">
         <div class="export-col-group-head">
+          <strong>Location</strong>
+          <button type="button" class="link-btn" onclick="toggleGroup('location')">toggle</button>
+        </div>
+        <div class="export-columns" data-group="location">
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="latitude" onchange="updateColCount()"> Latitude</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="longitude" onchange="updateColCount()"> Longitude</label>
+        </div>
+      </div>
+
+      <div class="export-col-group">
+        <div class="export-col-group-head">
           <strong>Meta</strong>
           <button type="button" class="link-btn" onclick="toggleGroup('meta')">toggle</button>
         </div>
@@ -195,6 +207,7 @@ var COLUMN_PRESETS = {
   battery:  ['battery_pct', 'battery_temp_c', 'wlc_status', 'last_seen'],
   network:  ['wifi', 'ip_address', 'last_seen'],
   system:   ['build_id', 'ram_used_mb', 'ram_total_mb', 'storage_free_gb', 'uptime_seconds', 'timezone', 'last_seen'],
+  location: ['latitude', 'longitude', 'last_seen'],
   all:      null,  // sentinel: check everything
   none:     []
 };
