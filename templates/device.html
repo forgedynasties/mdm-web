@@ -221,7 +221,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         </form>
         {{end}}
         {{if canOperate .Role}}
-        <div class="ddc-kpop-h{{if canAdminOrTester .Role}}" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;{{end}}">Unlock code</div>
+        <div class="ddc-kpop-h"{{if canAdminOrTester .Role}} style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;"{{end}}>Unlock code</div>
         <div class="oe-card" id="oe-card" data-serial="{{.Device.SerialNumber}}" data-period="{{.OfflinePeriod}}" data-digits="{{.OfflineDigits}}">
           <div class="oe-top">
             <span class="oe-label">To leave kiosk on the device</span>
