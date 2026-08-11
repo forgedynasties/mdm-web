@@ -2469,11 +2469,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// the charger/dock connection is dropping in and out (faulty hardware). >10/min is
 	// the flapping threshold (matches the charger_flapping alert default).
 	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
-	// Kiosk unlock code (admins only) — shown inside the Kiosk section whenever kiosk is
-	// on, so an admin can read it to a technician who needs to leave kiosk on-device.
+	// Kiosk unlock code (everyone except viewers) — shown inside the Kiosk section so an
+	// operator/tester/admin can read it to a technician who needs to leave kiosk on-device.
 	// The initial code renders server-side; the page then keeps it live via /offline-code.
 	offlineCode, offlineSecs := "", 0
-	if kioskCfg.OfflineExitSeed != "" && h.role(r) == "admin" {
+	if role := h.role(r); kioskCfg.OfflineExitSeed != "" && role != "viewer" {
 		now := time.Now()
 		offlineCode, _ = totp.Code(kioskCfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
 		offlineSecs = totp.SecondsRemaining(now, totp.DefaultPeriod)
@@ -11409,7 +11409,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))
 	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.DeviceRotateOfflineCode))
-	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireAdmin(h.DeviceOfflineCode))
+	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireOperatorOrAdmin(h.DeviceOfflineCode))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
 	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
