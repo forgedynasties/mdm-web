@@ -2459,7 +2459,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// on, so an admin can read it to a technician who needs to leave kiosk on-device.
 	// The initial code renders server-side; the page then keeps it live via /offline-code.
 	offlineCode, offlineSecs := "", 0
-	if kioskCfg.KioskEnabled && kioskCfg.OfflineExitSeed != "" && h.role(r) == "admin" {
+	if kioskCfg.OfflineExitSeed != "" && h.role(r) == "admin" {
 		now := time.Now()
 		offlineCode, _ = totp.Code(kioskCfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
 		offlineSecs = totp.SecondsRemaining(now, totp.DefaultPeriod)
@@ -2508,7 +2508,7 @@ func (h *Handler) DeviceOfflineCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := map[string]any{"enabled": false, "period": totp.DefaultPeriod}
-	if cfg.KioskEnabled && cfg.OfflineExitSeed != "" {
+	if cfg.OfflineExitSeed != "" {
 		now := time.Now()
 		code, _ := totp.Code(cfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
 		out["enabled"] = true
