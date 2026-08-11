@@ -23,7 +23,7 @@
       {{end}}
     </div>
     <div class="dl-id">
-      <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail" data-full="1">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">inactive</span>{{end}}</div>
+      <div class="dl-id-top"><a href="/devices/{{.SerialNumber}}" class="dl-serial link-detail" data-full="1" hx-boost="false">{{.SerialNumber}}</a>{{if .KioskEnabled}} <span class="dl-kiosk" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}{{if .Hidden}} <span class="dl-hidden-tag">inactive</span>{{end}}</div>
       <span class="dl-rel"><span class="dl-buildid">{{.BuildID}}</span> <span class="dl-product" title="Product">{{.ProductLabel}}</span></span>
       <span class="dl-onboard">Onboarded {{shortDate .CreatedAt}}</span>
     </div>
@@ -38,7 +38,7 @@
     </div>
     <div class="dl-act">
       {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dl-remove" title="Remove" aria-label="Remove {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>{{end}}
-      <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
+      <a href="/devices/{{.SerialNumber}}" class="dl-view link-detail" data-full="1" hx-boost="false" title="Open device" aria-label="Open {{.SerialNumber}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg></a>
     </div>
   </div>
   {{end}}
@@ -305,7 +305,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
         <tbody>
           {{range .Devices}}
           <tr>
-            <td class="mono" style="white-space:nowrap;"><span class="ws-dot {{if index $.Online .ID}}online{{end}}"></span><a href="/devices/{{.SerialNumber}}" class="link-detail" data-full="1">{{.SerialNumber}}</a></td>
+            <td class="mono" style="white-space:nowrap;"><span class="ws-dot {{if index $.Online .ID}}online{{end}}"></span><a href="/devices/{{.SerialNumber}}" class="link-detail" data-full="1" hx-boost="false">{{.SerialNumber}}</a></td>
             <td class="mono small">{{.BuildID}}</td>
             <td>{{.BatteryPct}}%</td>
             <td class="muted">{{timeSince .LastSeenAt}}</td>
