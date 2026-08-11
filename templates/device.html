@@ -208,7 +208,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             <span class="muted small">Pick the app, then turn kiosk on. Applied on the next check-in.</span>
           </div>
         </form>
-        {{if and (canAdmin .Role) .KioskConfig.KioskEnabled}}
+        {{if canAdmin .Role}}
         <div class="ddc-kpop-h" style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;">Unlock code</div>
         <div class="oe-card" id="oe-card" data-serial="{{.Device.SerialNumber}}" data-period="{{.OfflinePeriod}}" data-digits="{{.OfflineDigits}}">
           <div class="oe-top">
