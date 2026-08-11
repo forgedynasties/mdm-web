@@ -2507,7 +2507,7 @@ func (h *Handler) DeviceOfflineCode(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	out := map[string]any{"enabled": false, "period": totp.DefaultPeriod}
+	out := map[string]any{"enabled": false, "period": totp.DefaultPeriod, "kiosk_enabled": cfg.KioskEnabled}
 	if cfg.OfflineExitSeed != "" {
 		now := time.Now()
 		code, _ := totp.Code(cfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
