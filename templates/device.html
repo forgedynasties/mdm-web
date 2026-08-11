@@ -181,9 +181,9 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           hx-target="this" hx-swap="innerHTML">
       {{template "device-vitals" .}}
     </span>
-    {{if canOperate .Role}}
+    {{if canAdminOrTester .Role}}
     <span class="ddc-kpop-wrap">
-      <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskPopToggle(event)" aria-haspopup="true" aria-expanded="false" title="{{if canAdminOrTester .Role}}Configure kiosk mode{{else}}Kiosk mode{{end}}">
+      <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskPopToggle(event)" aria-haspopup="true" aria-expanded="false" title="Configure kiosk mode">
         <span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span> <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
       <div class="ddc-kpop" id="kiosk-pop" hidden>
@@ -220,7 +220,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           </div>
         </form>
         {{end}}
-        {{if canOperate .Role}}
+        {{/* Unlock-code card retired: kiosk exit is now the on-device long-press-Back +
+             Power gesture. The TOTP endpoints/compute stay in the codebase but the card
+             is hidden. Flip this back to a role gate (e.g. canOperate) to re-enable. */}}
+        {{if false}}
         <div class="ddc-kpop-h"{{if canAdminOrTester .Role}} style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;"{{end}}>Unlock code</div>
         <div class="oe-card" id="oe-card" data-serial="{{.Device.SerialNumber}}" data-period="{{.OfflinePeriod}}" data-digits="{{.OfflineDigits}}">
           <div class="oe-top">
