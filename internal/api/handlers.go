@@ -649,6 +649,10 @@ func (h *Handler) processOfflineExit(ctx context.Context, deviceID uuid.UUID, se
 		if err := h.db.SetKioskConfig(ctx, deviceID, false, cfg.KioskPackage, cfg.KioskFeatures); err == nil {
 			cfg.KioskEnabled = false
 			cfgMap["kiosk_enabled"] = false
+			// Re-publish AFTER the flip: the checkin's earlier PublishDeviceUpdate ran
+			// before this handler, so the device page's SSE would otherwise read the
+			// stale kiosk-on state. This second event carries kiosk_enabled=false.
+			h.hub.PublishDeviceUpdate(deviceID)
 		}
 	}
 	h.db.RecordOfflineExit(ctx, deviceID, e.OfflineExitAt)
