@@ -244,7 +244,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </div>
     </span>
     {{else}}
-    <span class="ddc-chip"><span class="k">Kiosk</span>{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
+    <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
     {{end}}
   </div>
 </div>
@@ -1606,6 +1606,27 @@ function filterInstalledApps(q) {
 </script>
 
 <script>
+  // Single source of truth for reflecting kiosk on/off in the header, updated in
+  // place (no fragment swap) so the popover/combo aren't disturbed. Covers every
+  // chip variant: the operator+ popover button (.ddc-chip-btn) and the viewer's
+  // static chip both carry a .ddc-kstate label; the popover also has the toggle +
+  // hidden input. Driven by the SSE device payload (kiosk_enabled) so an on-device
+  // offline exit flips it live for whoever is watching, whatever their role.
+  window.mdmSyncKiosk = function (enabled) {
+    if (enabled === undefined || enabled === null) return;
+    document.querySelectorAll('.ddc-kstate').forEach(function (el) {
+      el.textContent = enabled ? 'on' : 'off';
+    });
+    var btn = document.querySelector('.ddc-kpop-wrap .ddc-chip-btn');
+    if (btn) btn.classList.toggle('on', !!enabled);
+    var tog = document.getElementById('kiosk-toggle');
+    if (tog) tog.checked = !!enabled;
+    var hid = document.getElementById('kiosk-enabled-val');
+    if (hid) hid.value = enabled ? '1' : '0';
+  };
+</script>
+
+<script>
   (function () {
     var serial = '{{.Device.SerialNumber}}';
     if (!serial || !window.EventSource) return;
@@ -1620,6 +1641,12 @@ function filterInstalledApps(q) {
       // stats block and the command history. The vitals fragment re-renders the
       // charging bolt server-side, so it tracks d.charging without a reload.
       document.body.dispatchEvent(new CustomEvent('device-updated'));
+
+      // Kiosk state travels in the SSE payload — flip the chip/toggle live when the
+      // device reports an on-device offline exit (kiosk turned off), no reload.
+      if (typeof d.kiosk_enabled === 'boolean' && window.mdmSyncKiosk) {
+        window.mdmSyncKiosk(d.kiosk_enabled);
+      }
 
       // push new point into charts
       if (d.ts_ms && window.mdmChart) {
@@ -1897,19 +1924,7 @@ async function saveNewApp() {
     // on-device offline exit (which flips kiosk off server-side) updates here without
     // a page reload. Updated in place — no fragment swap — so the popover/combo aren't
     // disturbed.
-    function syncKiosk(enabled) {
-      if (enabled === undefined || enabled === null) return;
-      var btn = document.querySelector('.ddc-kpop-wrap .ddc-chip-btn');
-      if (btn) {
-        btn.classList.toggle('on', !!enabled);
-        var st = btn.querySelector('.ddc-kstate');
-        if (st) st.textContent = enabled ? 'on' : 'off';
-      }
-      var tog = document.getElementById('kiosk-toggle');
-      if (tog) tog.checked = !!enabled;
-      var hid = document.getElementById('kiosk-enabled-val');
-      if (hid) hid.value = enabled ? '1' : '0';
-    }
+    function syncKiosk(enabled) { if (window.mdmSyncKiosk) window.mdmSyncKiosk(enabled); }
 
     function refresh() {
       if (fetching) return;
@@ -2119,19 +2134,7 @@ document.addEventListener('keydown', function (e) {
     // on-device offline exit (which flips kiosk off server-side) updates here without
     // a page reload. Updated in place — no fragment swap — so the popover/combo aren't
     // disturbed.
-    function syncKiosk(enabled) {
-      if (enabled === undefined || enabled === null) return;
-      var btn = document.querySelector('.ddc-kpop-wrap .ddc-chip-btn');
-      if (btn) {
-        btn.classList.toggle('on', !!enabled);
-        var st = btn.querySelector('.ddc-kstate');
-        if (st) st.textContent = enabled ? 'on' : 'off';
-      }
-      var tog = document.getElementById('kiosk-toggle');
-      if (tog) tog.checked = !!enabled;
-      var hid = document.getElementById('kiosk-enabled-val');
-      if (hid) hid.value = enabled ? '1' : '0';
-    }
+    function syncKiosk(enabled) { if (window.mdmSyncKiosk) window.mdmSyncKiosk(enabled); }
 
     function refresh() {
       if (fetching) return;

@@ -2783,6 +2783,10 @@ type deviceEventPayload struct {
 	Charging   *bool    `json:"charging"` // nil = no data
 	Latitude   *float64 `json:"latitude,omitempty"`
 	Longitude  *float64 `json:"longitude,omitempty"`
+	// KioskEnabled is the device's current kiosk state (from device_config, not the
+	// checkin) so the device page reflects an on-device offline exit live. Pointer so
+	// it is only sent when the SSE writer looked it up.
+	KioskEnabled *bool `json:"kiosk_enabled,omitempty"`
 }
 
 func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
@@ -3129,7 +3133,14 @@ func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 			return
 		}
-		b, _ := json.Marshal(buildDeviceEventPayload(c))
+		p := buildDeviceEventPayload(c)
+		// Carry live kiosk state so an on-device offline exit flips the toggle here
+		// without a reload (kiosk_enabled lives in device_config, not the checkin).
+		if cfg, cerr := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID); cerr == nil {
+			ke := cfg.KioskEnabled
+			p.KioskEnabled = &ke
+		}
+		b, _ := json.Marshal(p)
 		fmt.Fprintf(w, "event: device\ndata: %s\n\n", b)
 		flusher.Flush()
 	}
