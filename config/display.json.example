@@ -7,6 +7,14 @@
     {
       "key": "ip",
       "label": "IP Address"
+    },
+    {
+      "key": "latitude",
+      "label": "Latitude"
+    },
+    {
+      "key": "longitude",
+      "label": "Longitude"
     }
   ],
   "legacy_checkin": true,

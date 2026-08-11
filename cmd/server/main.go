@@ -21,6 +21,7 @@ import (
 	"mdm/internal/config"
 	"mdm/internal/dashboard"
 	"mdm/internal/db"
+	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
 	"mdm/internal/middleware"
 	"mdm/internal/remote"
@@ -184,7 +185,12 @@ func main() {
 		log.Printf("seed default alert channel: %v", err)
 	}
 
-	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, remoteMgr, adminAPIKey)
+	var geo *geolocate.Resolver
+	if key := os.Getenv("GOOGLE_GEOLOCATION_API_KEY"); key != "" {
+		geo = geolocate.New(key)
+		log.Println("Geolocation resolver enabled (Google Geolocation API)")
+	}
+	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, remoteMgr, adminAPIKey)
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
 		// This runs on the device's WS read-loop goroutine, which net/http does not
 		// protect — a panic here would crash the process and drop the whole fleet.
