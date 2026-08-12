@@ -184,22 +184,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     </span>
     {{if canAdminOrTester .Role}}
     <span class="ddc-kpop-wrap">
-      <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskPopToggle(event)" aria-haspopup="true" aria-expanded="false" title="Configure kiosk mode">
+      <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="Configure kiosk mode">
         <span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span> <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </button>
-      <div class="ddc-kpop" id="kiosk-pop" hidden>
+      <div class="modal-backdrop" id="kiosk-modal" onclick="kioskModalBackdrop(event)">
+        <div class="modal-box kiosk-modal-box" role="dialog" aria-modal="true" aria-label="Kiosk mode">
+        <div class="kiosk-modal-head"><span class="kiosk-modal-title">Kiosk mode</span><button type="button" class="modal-close" onclick="kioskModalClose()" aria-label="Close">&times;</button></div>
+        <div class="kiosk-modal-body">
         {{if canAdminOrTester .Role}}
-        <div class="ddc-kpop-h">Kiosk mode</div>
         <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" hx-boost="false" onsubmit="return false;">
           <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-val" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">
-          <div class="ddc-kpop-row">
-            <span class="form-label" style="margin:0;">Enabled</span>
-            <label class="kiosk-sw" title="Enable / disable kiosk">
-              <input type="checkbox" id="kiosk-toggle" {{if .KioskConfig.KioskEnabled}}checked{{end}} onchange="kioskToggle(this)">
-              <span class="kiosk-sw-tr"><span class="kiosk-sw-kn"></span></span>
-            </label>
-          </div>
-          <div class="form-row" style="margin-top:12px;">
+          <div class="form-row">
             <label class="form-label">Locked app</label>
             {{if .InstalledPackages}}
               {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
@@ -224,33 +219,21 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             {{end}}
             <span class="muted small">Pick the app, then turn kiosk on. Applied on the next check-in.</span>
           </div>
+          <div class="kiosk-enable">
+            <div class="kiosk-enable-txt">
+              <div class="kiosk-enable-t">Enable kiosk</div>
+              <div class="muted small">Locks the device to the selected app until you turn it off</div>
+            </div>
+            <label class="kiosk-sw" title="Enable / disable kiosk">
+              <input type="checkbox" id="kiosk-toggle" {{if .KioskConfig.KioskEnabled}}checked{{end}} onchange="kioskToggle(this)">
+              <span class="kiosk-sw-tr"><span class="kiosk-sw-kn"></span></span>
+            </label>
+          </div>
           <div id="kiosk-note" class="kiosk-note" role="status" aria-live="polite"></div>
         </form>
         {{end}}
-        {{/* Unlock-code card retired: kiosk exit is now the on-device long-press-Back +
-             Power gesture. The TOTP endpoints/compute stay in the codebase but the card
-             is hidden. Flip this back to a role gate (e.g. canOperate) to re-enable. */}}
-        {{if false}}
-        <div class="ddc-kpop-h"{{if canAdminOrTester .Role}} style="margin-top:14px;border-top:1px solid var(--border);padding-top:10px;"{{end}}>Unlock code</div>
-        <div class="oe-card" id="oe-card" data-serial="{{.Device.SerialNumber}}" data-period="{{.OfflinePeriod}}" data-digits="{{.OfflineDigits}}">
-          <div class="oe-top">
-            <span class="oe-label">To leave kiosk on the device</span>
-            <svg class="oe-ring" viewBox="0 0 36 36" aria-hidden="true">
-              <circle class="oe-ring-bg" cx="18" cy="18" r="15.5"/>
-              <circle class="oe-ring-fg" id="oe-ring" cx="18" cy="18" r="15.5"/>
-            </svg>
-          </div>
-          <div class="oe-code" id="oe-code">{{.OfflineCode}}</div>
-          <div class="oe-hint">Read to the on-site technician · rotates every {{.OfflinePeriod}}s</div>
-          <div class="oe-hint">On the device: long-press <b>Back</b> in kiosk, then enter this code.</div>
-          <div class="oe-hint oe-relock">Entering it turns kiosk <b>off</b> here. Flip Kiosk back on to re-lock.</div>
-          {{if canAdmin .Role}}
-          <form action="/devices/{{.Device.SerialNumber}}/offline-code/rotate" method="POST" class="oe-rotate">
-            <button type="submit" class="oe-rotate-btn" onclick="return confirm('Rotate the unlock seed? Old codes stop working immediately and the device picks up the new one on its next check-in.')">↻ Rotate</button>
-          </form>
-          {{end}}
         </div>
-        {{end}}
+        </div>
       </div>
     </span>
     {{else}}
@@ -352,8 +335,18 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .kiosk-note.err{color:var(--danger,#e5484d);}
 .kiosk-sw.disabled{opacity:.45;}
 .kiosk-sw.disabled .kiosk-sw-tr{cursor:not-allowed;}
+/* Kiosk configuration modal */
+.kiosk-modal-box{max-width:660px;width:100%;}
+.kiosk-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);flex:none;}
+.kiosk-modal-title{font-size:16px;font-weight:700;}
+.kiosk-modal-body{padding:20px;overflow-y:auto;flex:1;min-height:0;}
+.kiosk-modal-body .form-row{margin:0;}
+.kiosk-modal-body .form-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;display:block;}
+.kiosk-enable{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);}
+.kiosk-enable-t{font-size:14px;font-weight:650;}
+#kiosk-modal .kpk-grid{grid-template-columns:repeat(3,1fr);max-height:344px;}
+#kiosk-modal .kpk-list{max-height:344px;}
 /* Kiosk locked-app picker (grid/list) */
-#kiosk-pop{width:344px;}
 .kpk{display:flex;flex-direction:column;gap:8px;}
 .kpk-top{display:flex;gap:6px;align-items:center;}
 .kpk-search{position:relative;flex:1;display:flex;align-items:center;}
@@ -1626,15 +1619,19 @@ function filterInstalledApps(q) {
   });
 
   // Kiosk config popover, opened from the hero "Kiosk" pill.
-  window.kioskPopToggle = function (e) {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    var pop = document.getElementById('kiosk-pop');
-    var btn = pop ? pop.previousElementSibling : null;
-    if (!pop) return;
-    var open = pop.hasAttribute('hidden');
-    if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
-    if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  window.kioskModalOpen = function () {
+    var m = document.getElementById('kiosk-modal');
+    if (!m) return;
+    m.classList.add('modal-open');
+    if (window.kioskRefreshToggle) window.kioskRefreshToggle();
+    var q = document.getElementById('kpk-q');
+    if (q) setTimeout(function () { q.focus(); }, 40);
   };
+  window.kioskModalClose = function () {
+    var m = document.getElementById('kiosk-modal');
+    if (m) m.classList.remove('modal-open');
+  };
+  window.kioskModalBackdrop = function (e) { if (e.target.id === 'kiosk-modal') window.kioskModalClose(); };
   // Show a transient status line inside the popover.
   function kioskNote(msg, isErr) {
     var n = document.getElementById('kiosk-note');
@@ -1713,12 +1710,8 @@ function filterInstalledApps(q) {
     }
   });
   window.kioskRefreshToggle();
-  document.addEventListener('click', function (e) {
-    var pop = document.getElementById('kiosk-pop');
-    if (pop && !e.target.closest('.ddc-kpop-wrap')) pop.setAttribute('hidden', '');
-  });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { var p = document.getElementById('kiosk-pop'); if (p) p.setAttribute('hidden', ''); }
+    if (e.key === 'Escape') { var m = document.getElementById('kiosk-modal'); if (m && m.classList.contains('modal-open')) window.kioskModalClose(); }
   });
 
   // Opening a device always lands on Overview (no last-tab restore).
