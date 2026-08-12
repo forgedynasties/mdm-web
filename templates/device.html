@@ -2019,7 +2019,8 @@ async function saveNewApp() {
   var q = document.getElementById('kpk-q');
   var gridEl = document.getElementById('kpk-grid');
   var listEl = document.getElementById('kpk-list');
-  var apps = [{ v: '', n: 'None (release to launcher)', none: true }];
+  // No "None" option — use the Turn off kiosk button to release to launcher.
+  var apps = [];
   [].forEach.call(src.querySelectorAll('i'), function (el) {
     apps.push({ v: el.getAttribute('data-value'), n: el.getAttribute('data-name'), missing: el.hasAttribute('data-missing') });
   });
