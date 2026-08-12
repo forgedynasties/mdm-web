@@ -26,8 +26,9 @@
     <span class="dd-row-label">Location</span>
     {{$lat := extraField .Device.LatestExtra "latitude"}}
     {{$lon := extraField .Device.LatestExtra "longitude"}}
+    {{$addr := extraField .Device.LatestExtra "location_address"}}
     {{if and $lat $lon}}
-      <span class="dd-row-val"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{$lat}}, {{$lon}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if $acc}} <span class="muted">±{{$acc}}m</span>{{end}}</span>
+      <span class="dd-row-val"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if $acc}} <span class="muted">±{{$acc}}m</span>{{end}}</span>
     {{else}}
       <span class="dd-row-val muted">—</span>
     {{end}}
@@ -314,7 +315,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if .Device.HasBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{if gt .Device.DischargeLegacyPct .Device.DischargeTotalPct}} <span class="muted" title="Prior range-based estimate, kept during the transition to discharge-only accounting">(was {{printf "%.1f" .Device.BatteryCyclesLegacy}})</span>{{end}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
     <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Location</span><span class="v">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{$lat}}, {{$lon}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if and $acc (ne $acc "—")}} <span class="muted">±{{$acc}}m</span>{{end}}{{else}}—{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">Location</span><span class="v">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if and $acc (ne $acc "—")}} <span class="muted">±{{$acc}}m</span>{{end}}{{else}}—{{end}}</span></div>
   </div>
   <div class="ddc-card">
     <div class="ddc-card-t">Software</div>
@@ -442,38 +443,26 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   </div>
 </div>
 
-{{/* Location map — an OpenStreetMap embed (no API key). Rendered only when the device
-     has resolved WiFi-geolocation coordinates. The iframe src + bbox are built client-side
-     from data-lat/data-lon so we don't need float math in the template. */}}
+{{/* Location map — a Google Maps Embed iframe. Rendered only when the device has
+     resolved WiFi-geolocation coordinates AND a browser-facing Maps Embed key is
+     configured (MapsEmbedKey, referrer-restricted). The Embed API takes q=lat,lng
+     directly, so the src is built server-side — no client float math needed. */}}
 {{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
-{{if and $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
-<div class="card dev-map-card" id="dev-map-card" data-lat="{{$mlat}}" data-lon="{{$mlon}}">
+{{if and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
+<div class="card dev-map-card" id="dev-map-card">
   <div class="dev-map-head">
     <span class="ddc-card-t" style="padding:0;">Location</span>
     {{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if and $acc (ne $acc "—")}}<span class="muted small">±{{$acc}}m accuracy</span>{{end}}
   </div>
-  <iframe id="dev-map" class="dev-map" loading="lazy" title="Device location on map" referrerpolicy="no-referrer"></iframe>
+  <iframe id="dev-map" class="dev-map" loading="lazy" title="Device location on map"
+          referrerpolicy="strict-origin"
+          src="https://www.google.com/maps/embed/v1/place?key={{.MapsEmbedKey}}&q={{$mlat}},{{$mlon}}&zoom=16"></iframe>
   <div class="dev-map-foot">
-    <span class="mono">{{$mlat}}, {{$mlon}}</span>
-    <a id="dev-map-link" class="link-detail" target="_blank" rel="noopener">Open in OpenStreetMap →</a>
+    {{$maddr := extraField .Device.LatestExtra "location_address"}}
+    <span class="{{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
+    <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
   </div>
 </div>
-<script>
-(function () {
-  var c = document.getElementById('dev-map-card');
-  if (!c) return;
-  var lat = parseFloat(c.dataset.lat), lon = parseFloat(c.dataset.lon);
-  if (isNaN(lat) || isNaN(lon)) return;
-  var d = 0.008; // ~1.7km half-window around the point
-  var bbox = (lon - d).toFixed(5) + ',' + (lat - d).toFixed(5) + ',' +
-             (lon + d).toFixed(5) + ',' + (lat + d).toFixed(5);
-  document.getElementById('dev-map').src =
-    'https://www.openstreetmap.org/export/embed.html?bbox=' + bbox +
-    '&layer=mapnik&marker=' + lat + ',' + lon;
-  document.getElementById('dev-map-link').href =
-    'https://www.openstreetmap.org/?mlat=' + lat + '&mlon=' + lon + '#map=16/' + lat + '/' + lon;
-})();
-</script>
 {{end}}
 
 <script>

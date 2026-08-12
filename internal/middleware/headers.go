@@ -16,9 +16,10 @@ const contentSecurityPolicy = "default-src 'self'; " +
 	"img-src 'self' data:; " +
 	"font-src 'self'; " +
 	"connect-src 'self'; " +
-	// Device-page location map is an OpenStreetMap embed iframe (no API key). Only
-	// the OSM embed host is allowed to be framed; everything else stays same-origin.
-	"frame-src https://www.openstreetmap.org; " +
+	// Device-page location map is a Google Maps Embed iframe (browser-facing,
+	// referrer-restricted key). Only the Google Maps host is allowed to be framed;
+	// everything else stays same-origin.
+	"frame-src https://www.google.com; " +
 	"frame-ancestors 'none'; " +
 	"base-uri 'self'; " +
 	"form-action 'self'; " +

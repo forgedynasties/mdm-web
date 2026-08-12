@@ -53,14 +53,15 @@ type Handler struct {
 	shell       *shell.Manager
 	cfg         *config.Config
 	geolocate   *geolocate.Resolver
+	geocoder    *geolocate.Geocoder
 	remote      *remote.Manager
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 	deviceRate  *ratelimit.Counter // per-serial request throttle on the device API
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, rm *remote.Manager, adminAPIKey string) *Handler {
-	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, remote: rm, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute)}
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, cfg *config.Config, geo *geolocate.Resolver, geocoder *geolocate.Geocoder, rm *remote.Manager, adminAPIKey string) *Handler {
+	return &Handler{db: d, hub: hub, shell: shellMgr, cfg: cfg, geolocate: geo, geocoder: geocoder, remote: rm, adminAPIKey: adminAPIKey, alerts: alerts.NewDispatcher(d, cfg), deviceRate: ratelimit.New(time.Minute)}
 }
 
 // connectedSlice returns the live WebSocket-connected device IDs as a slice, so DB
@@ -395,6 +396,16 @@ func (h *Handler) enrichLocation(ctx context.Context, extra json.RawMessage) jso
 	m["latitude"] = lat
 	m["longitude"] = lon
 	m["location_accuracy"] = accuracy
+	// Reverse-geocode to a street address (Google Geocoding API, separate key).
+	// Best-effort and heavily cached — a failure just leaves the address absent,
+	// and the page falls back to showing the raw coordinates.
+	if h.geocoder != nil {
+		if addr, gerr := h.geocoder.Reverse(ctx, lat, lon); gerr != nil {
+			log.Printf("[geocode] reverse error: %v", gerr)
+		} else if addr != "" {
+			m["location_address"] = addr
+		}
+	}
 	enriched, err := json.Marshal(m)
 	if err != nil {
 		return extra
