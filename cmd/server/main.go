@@ -190,7 +190,12 @@ func main() {
 		geo = geolocate.New(key)
 		log.Println("Geolocation resolver enabled (Google Geolocation API)")
 	}
-	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, remoteMgr, adminAPIKey)
+	var geocoder *geolocate.Geocoder
+	if key := os.Getenv("GOOGLE_GEOCODING_API_KEY"); key != "" {
+		geocoder = geolocate.NewGeocoder(key)
+		log.Println("Reverse geocoder enabled (Google Geocoding API)")
+	}
+	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, geocoder, remoteMgr, adminAPIKey)
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
 		// This runs on the device's WS read-loop goroutine, which net/http does not
 		// protect — a panic here would crash the process and drop the whole fleet.
@@ -266,7 +271,7 @@ func main() {
 	mux.Handle("POST /api/v1/commands", adminAuth(http.HandlerFunc(apiHandler.CreateCommand)))
 	mux.Handle("GET /api/v1/commands/{id}", adminAuth(http.HandlerFunc(apiHandler.GetCommandStatus)))
 
-	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey)
+	dash := dashboard.NewHandler(database, hub, shellMgr, remoteMgr, logMgr, sessionSecret, dashUser, dashPass, cfg, adminAPIKey, os.Getenv("GOOGLE_MAPS_EMBED_API_KEY"))
 	dash.RegisterRoutes(mux)
 
 	// bgCtx is cancelled on shutdown so the background loops below stop cleanly.

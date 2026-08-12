@@ -168,6 +168,13 @@ type Handler struct {
 	adminAPIKey string
 	alerts      *alerts.Dispatcher
 
+	// mapsEmbedKey is the browser-facing Google Maps Embed API key used by the
+	// device-page location map iframe. "" disables the map (page still shows the
+	// resolved coordinates/address as text). Kept separate from the server-side
+	// geolocation/geocoding keys: this one ships to the browser, so it must be
+	// HTTP-referrer-restricted to the dashboard domain + Maps Embed API only.
+	mapsEmbedKey string
+
 	// assetVer is a cache-busting token appended to the stylesheet URL, derived
 	// from style.css's mtime at startup. Static assets are served `immutable`
 	// with a long max-age, so without a changing URL a CSS edit would never
@@ -421,7 +428,7 @@ var updateEngineErrors = map[string]string{
 	"62": "Package excluded for this device.",
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remote.Manager, logMgr *logstream.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey string) *Handler {
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remote.Manager, logMgr *logstream.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey, mapsEmbedKey string) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -1095,6 +1102,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		password:      password,
 		cfg:           cfg,
 		adminAPIKey:   adminAPIKey,
+		mapsEmbedKey:  mapsEmbedKey,
 		alerts:        alerts.NewDispatcher(d, cfg),
 		publicOrigins: parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
 		loginFails:    ratelimit.New(15 * time.Minute),
@@ -2503,6 +2511,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Restaurants":         restaurants,
 		"DeviceGroups":        deviceGroups,
 		"AddableGroups":       addableGroups,
+		"MapsEmbedKey":        h.mapsEmbedKey,
 	})
 }
 
