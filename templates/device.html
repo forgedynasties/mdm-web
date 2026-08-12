@@ -28,7 +28,7 @@
     {{$lon := extraField .Device.LatestExtra "longitude"}}
     {{$addr := extraField .Device.LatestExtra "location_address"}}
     {{if and $lat $lon}}
-      <span class="dd-row-val"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if $acc}} <span class="muted">±{{$acc}}m</span>{{end}}</span>
+      <span class="dd-row-val loc-addr"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if $acc}} <span class="muted">±{{$acc}}m</span>{{end}}</span>
     {{else}}
       <span class="dd-row-val muted">—</span>
     {{end}}
@@ -315,7 +315,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if .Device.HasBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{if gt .Device.DischargeLegacyPct .Device.DischargeTotalPct}} <span class="muted" title="Prior range-based estimate, kept during the transition to discharge-only accounting">(was {{printf "%.1f" .Device.BatteryCyclesLegacy}})</span>{{end}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
     <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Location</span><span class="v">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if and $acc (ne $acc "—")}} <span class="muted">±{{$acc}}m</span>{{end}}{{else}}—{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if and $acc (ne $acc "—")}} <span class="muted">±{{$acc}}m</span>{{end}}{{else}}—{{end}}</span></div>
   </div>
   <div class="ddc-card">
     <div class="ddc-card-t">Software</div>
@@ -346,6 +346,12 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .dev-map-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 16px 10px;}
 .dev-map{width:100%;height:300px;border:0;display:block;background:var(--surface-2,#f1ece5);}
 .dev-map-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted);}
+/* Long reverse-geocoded street addresses must wrap onto multiple lines instead of
+   forcing a single wide row (the right-aligned flex value rows otherwise overflow). */
+.dd-row-val.loc-addr{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}
+.ddc-kv .v.loc-addr{flex-wrap:wrap;}
+.ddc-kv .v.loc-addr a{min-width:0;overflow-wrap:anywhere;}
+.dev-map-foot .loc-addr{min-width:0;overflow-wrap:anywhere;}
 </style>
 <div class="card chart-card">
   <div class="chart-loading" id="chart-loading" aria-live="polite"><span class="chart-spin" aria-hidden="true"></span><span class="chart-loading-t">Loading graphs…</span></div>
@@ -459,7 +465,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           src="https://www.google.com/maps/embed/v1/place?key={{.MapsEmbedKey}}&q={{$mlat}},{{$mlon}}&zoom=16"></iframe>
   <div class="dev-map-foot">
     {{$maddr := extraField .Device.LatestExtra "location_address"}}
-    <span class="{{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
+    <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
     <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
   </div>
 </div>
