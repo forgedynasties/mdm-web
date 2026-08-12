@@ -38,7 +38,11 @@ type Resolver struct {
 	client   *http.Client
 	lastCall time.Time
 	callMu   sync.Mutex
+	meter    *Meter
 }
+
+// Stats returns a snapshot of this resolver's Google Geolocation API usage.
+func (r *Resolver) Stats() MeterSnapshot { return r.meter.Snapshot() }
 
 // New creates a Resolver bound to a Google Geolocation API key, with a 15s
 // timeout and an in-memory cache (5 min TTL). apiKey must be non-empty.
@@ -49,6 +53,7 @@ func New(apiKey string) *Resolver {
 		client: &http.Client{
 			Timeout: 15 * time.Second,
 		},
+		meter: newMeter(),
 	}
 }
 
@@ -69,6 +74,7 @@ func (r *Resolver) Resolve(ctx context.Context, aps []WifiAP) (lat, lon, accurac
 	r.callMu.Lock()
 	if elapsed := time.Since(r.lastCall); elapsed < 10*time.Second {
 		r.callMu.Unlock()
+		r.meter.MarkCooldown()
 		return 0, 0, 0, ErrCooldown
 	}
 	r.callMu.Unlock()
@@ -78,6 +84,7 @@ func (r *Resolver) Resolve(ctx context.Context, aps []WifiAP) (lat, lon, accurac
 	r.mu.RLock()
 	if c, ok := r.cache[key]; ok && time.Now().Before(c.ExpiresAt) {
 		r.mu.RUnlock()
+		r.meter.MarkHit()
 		return c.Lat, c.Lon, c.Accuracy, nil
 	}
 	r.mu.RUnlock()
@@ -89,8 +96,10 @@ func (r *Resolver) Resolve(ctx context.Context, aps []WifiAP) (lat, lon, accurac
 
 	lat, lon, accuracy, err = r.query(ctx, aps)
 	if err != nil {
+		r.meter.MarkError(err)
 		return 0, 0, 0, err
 	}
+	r.meter.MarkSuccess()
 
 	r.mu.Lock()
 	r.cache[key] = cachedLocation{
