@@ -28,7 +28,7 @@
     {{$lon := extraField .Device.LatestExtra "longitude"}}
     {{$addr := extraField .Device.LatestExtra "location_address"}}
     {{if and $lat $lon}}
-      <span class="dd-row-val loc-addr"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if $acc}} <span class="muted">±{{$acc}}m</span>{{end}}</span>
+      <span class="dd-row-val loc-addr"><a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a></span>
     {{else}}
       <span class="dd-row-val muted">—</span>
     {{end}}
@@ -315,7 +315,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if .Device.HasBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{if gt .Device.DischargeLegacyPct .Device.DischargeTotalPct}} <span class="muted" title="Prior range-based estimate, kept during the transition to discharge-only accounting">(was {{printf "%.1f" .Device.BatteryCyclesLegacy}})</span>{{end}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
     <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if and $acc (ne $acc "—")}} <span class="muted">±{{$acc}}m</span>{{end}}{{else}}—{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
   </div>
   <div class="ddc-card">
     <div class="ddc-card-t">Software</div>
@@ -461,7 +461,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 <div class="card dev-map-card" id="dev-map-card">
   <div class="dev-map-head">
     <span class="ddc-card-t" style="padding:0;">Location</span>
-    {{$acc := extraField .Device.LatestExtra "location_accuracy"}}{{if and $acc (ne $acc "—")}}<span class="muted small">±{{$acc}}m accuracy</span>{{end}}
   </div>
   <iframe id="dev-map" class="dev-map" loading="lazy" title="Device location on map"
           referrerpolicy="strict-origin"
