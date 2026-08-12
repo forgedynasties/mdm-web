@@ -58,9 +58,9 @@
     {{range .Deliveries}}
     <div class="ad-shot{{if not .Output}} pending{{end}}">
       {{if .Output}}
-      <a href="data:image/png;base64,{{.Output}}" target="_blank" class="ad-frame" hx-boost="false"><img src="data:image/png;base64,{{.Output}}" alt="screenshot of {{.SerialNumber}}"></a>
+      <a href="/commands/{{$cmd.ID}}/screenshot/{{.SerialNumber}}" target="_blank" class="ad-frame" hx-boost="false"><img src="data:image/png;base64,{{.Output}}" alt="screenshot of {{.SerialNumber}}"></a>
       {{else}}<div class="ad-frame ph"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>{{end}}
-      <div class="ad-shot-cap"><a href="/devices/{{.SerialNumber}}" class="mono">{{.SerialNumber}}</a>{{if .Output}}<a href="data:image/png;base64,{{.Output}}" download="screenshot-{{.SerialNumber}}.png" hx-boost="false" class="ad-dl" title="Download">↓</a>{{else}}<span class="when">waiting…</span>{{end}}</div>
+      <div class="ad-shot-cap"><a href="/devices/{{.SerialNumber}}" class="mono">{{.SerialNumber}}</a>{{if .Output}}<a href="/commands/{{$cmd.ID}}/screenshot/{{.SerialNumber}}?download=1" download="screenshot-{{.SerialNumber}}.png" hx-boost="false" class="ad-dl" title="Download">↓</a>{{else}}<span class="when">waiting…</span>{{end}}</div>
     </div>
     {{end}}
   </div>
