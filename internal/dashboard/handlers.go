@@ -5064,6 +5064,33 @@ func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
 	h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
 }
 
+// GroupBulkRemoveDevice removes several devices from a group in one request, so the
+// members list can drop a multi-selection at once instead of one device at a time
+// (FW-2026-000024). Serials arrive in the multi-valued "serials" field.
+func (h *Handler) GroupBulkRemoveDevice(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	serials := parseSerialsField(r.Form["serials"])
+	if len(serials) == 0 {
+		h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
+		return
+	}
+	if err := h.db.RemoveDevicesFromGroup(r.Context(), serials, id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials); err == nil {
+		for _, did := range ids {
+			h.hub.PublishDeviceUpdate(did)
+		}
+	}
+	h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
+}
+
 // GroupMembers renders just the members card of a group for an in-place htmx
 // refresh (fired by "group-updated" after a device is removed) — no page reload.
 func (h *Handler) GroupMembers(w http.ResponseWriter, r *http.Request) {
@@ -11813,6 +11840,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants/{id}/service-window", h.requireAdminOrTester(h.RestaurantSetServiceWindow))
 	post("POST /restaurants/{id}/peak-windows", h.requireAdminOrTester(h.RestaurantSetPeakWindows))
 	post("POST /devices/{serial}/restaurant", h.requireAdmin(h.DeviceSetRestaurant))
+	post("POST /groups/{id}/devices/remove", h.requireAdminOrTester(h.GroupBulkRemoveDevice))
 	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdminOrTester(h.GroupRemoveDevice))
 	post("POST /groups/{id}/commands", h.requireAdminOrTester(h.GroupCommandCreate))
 
