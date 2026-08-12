@@ -28,7 +28,11 @@ type Geocoder struct {
 
 	mu    sync.RWMutex
 	cache map[string]cachedAddress
+	meter *Meter
 }
+
+// Stats returns a snapshot of this geocoder's Google Geocoding API usage.
+func (g *Geocoder) Stats() MeterSnapshot { return g.meter.Snapshot() }
 
 type cachedAddress struct {
 	Address   string
@@ -42,6 +46,7 @@ func NewGeocoder(apiKey string) *Geocoder {
 		apiKey: apiKey,
 		client: &http.Client{Timeout: 15 * time.Second},
 		cache:  make(map[string]cachedAddress),
+		meter:  newMeter(),
 	}
 }
 
@@ -74,6 +79,7 @@ func (g *Geocoder) Reverse(ctx context.Context, lat, lon float64) (string, error
 	g.mu.RLock()
 	if c, ok := g.cache[key]; ok && time.Now().Before(c.ExpiresAt) {
 		g.mu.RUnlock()
+		g.meter.MarkHit()
 		return c.Address, nil
 	}
 	g.mu.RUnlock()
@@ -83,11 +89,13 @@ func (g *Geocoder) Reverse(ctx context.Context, lat, lon float64) (string, error
 		"&key=" + url.QueryEscape(g.apiKey)
 	req, err := http.NewRequestWithContext(ctx, "GET", endpoint, nil)
 	if err != nil {
+		g.meter.MarkError(err)
 		return "", err
 	}
 
 	resp, err := g.client.Do(req)
 	if err != nil {
+		g.meter.MarkError(err)
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -96,21 +104,30 @@ func (g *Geocoder) Reverse(ctx context.Context, lat, lon float64) (string, error
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
 		// The URL carries the key, so log only status + response body, never the URL.
 		log.Printf("[geocode] google %d — response: %s", resp.StatusCode, string(body))
-		return "", fmt.Errorf("google geocode returned %d", resp.StatusCode)
+		gerr := fmt.Errorf("google geocode returned %d", resp.StatusCode)
+		g.meter.MarkError(gerr)
+		return "", gerr
 	}
 
 	var gResp geocodeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&gResp); err != nil {
+		g.meter.MarkError(err)
 		return "", err
 	}
 
 	var addr string
 	if gResp.Status == "OK" && len(gResp.Results) > 0 {
 		addr = gResp.Results[0].FormattedAddress
-	} else if gResp.Status != "OK" && gResp.Status != "ZERO_RESULTS" {
-		// Surface quota/permission problems in the log; still cache the empty
-		// result briefly below so a broken key doesn't hammer the API.
+		g.meter.MarkSuccess()
+	} else if gResp.Status == "ZERO_RESULTS" {
+		// A valid, billable response — Google simply has no address for the point.
+		g.meter.MarkSuccess()
+	} else {
+		// Quota/permission problems (REQUEST_DENIED, OVER_QUERY_LIMIT, …). Surface in
+		// the log and count as an error so the usage panel flags it; still cache the
+		// empty result briefly below so a broken key doesn't hammer the API.
 		log.Printf("[geocode] google status=%s: %s", gResp.Status, gResp.ErrorMessage)
+		g.meter.MarkError(fmt.Errorf("geocode status %s: %s", gResp.Status, gResp.ErrorMessage))
 	}
 
 	ttl := 6 * time.Hour
