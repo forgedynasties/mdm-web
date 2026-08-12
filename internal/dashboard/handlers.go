@@ -2464,9 +2464,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		restaurants, _ = h.db.ListRestaurants(r.Context())
 	}
 	deviceGroups, _ := h.db.ListDeviceGroups(r.Context(), device.ID)
-	// Groups the device is NOT yet in — for the placement "+ group" picker.
+	// Groups the device is NOT yet in — for the placement "+ group" picker. Populated
+	// for the same roles the picker button renders for and the add endpoint accepts
+	// (admin/dev/tester, i.e. canAdminOrTester); gating this on admin alone left a
+	// tester the button and popover but an empty group list, so "+ group" did nothing.
 	var addableGroups []db.Group
-	if h.role(r) == "admin" {
+	if role := h.role(r); role == "admin" || role == "dev" || role == "tester" {
 		inGroup := make(map[uuid.UUID]bool, len(deviceGroups))
 		for _, g := range deviceGroups {
 			inGroup[g.ID] = true
