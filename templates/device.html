@@ -196,10 +196,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-val" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">
           <div class="form-row">
             <label class="form-label">Locked app</label>
-            {{if .InstalledPackages}}
+            {{if .KioskApps}}
               {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
               <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{$current}}">
-              <div id="kiosk-apps-src" hidden>{{range .InstalledPackages}}{{if eq .PackageName $current}}{{$found = true}}{{end}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}"></i>{{end}}{{if and (ne $current "") (not $found)}}<i data-value="{{$current}}" data-name="{{$current}}" data-missing="1"></i>{{end}}</div>
+              <div id="kiosk-apps-src" hidden>{{range .KioskApps}}{{if eq .PackageName $current}}{{$found = true}}{{end}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}"></i>{{end}}{{if and (ne $current "") (not $found)}}<i data-value="{{$current}}" data-name="{{$current}}" data-missing="1"></i>{{end}}</div>
               <div class="kpk" id="kiosk-picker">
                 <div class="kpk-top">
                   <span class="kpk-search">
@@ -227,7 +227,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           <div id="kiosk-note" class="kiosk-note" role="status" aria-live="polite"></div>
           <div class="kiosk-foot-btns">
             <button type="button" class="btn-outline" onclick="kioskModalClose()">Close</button>
-            <button type="button" id="kiosk-enable-btn" class="btn-primary" onclick="kioskEnableClick()">Enable kiosk</button>
+            <button type="button" id="kiosk-off-btn" class="btn-danger-sm" onclick="kioskTurnOff()" hidden>Turn off kiosk</button>
+            <button type="button" id="kiosk-apply-btn" class="btn-primary" onclick="kioskApply()">Enable kiosk</button>
           </div>
         </div>
         {{end}}
@@ -299,7 +300,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{$ram := ramUsage .Device.LatestExtra}}
     <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Total RAM</span><span class="v">{{if $ram}}{{mbToGB (index $ram "total")}}{{else}}—{{end}}</span></div>
-    {{if .Device.HasBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{if gt .Device.DischargeLegacyPct .Device.DischargeTotalPct}} <span class="muted" title="Prior range-based estimate, kept during the transition to discharge-only accounting">(was {{printf "%.1f" .Device.BatteryCyclesLegacy}})</span>{{end}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
+    {{if .Device.HasBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
     <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
     <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
@@ -1676,35 +1677,50 @@ function filterInstalledApps(q) {
   };
   // The enable toggle stays disabled until a locked app is chosen — so it can never
   // silently "snap back". Turning kiosk OFF is always allowed.
-  // Reflect the current kiosk state on the footer button: "Enable kiosk" (primary,
-  // disabled until an app is chosen) when off; "Turn off kiosk" (danger) when on.
+  // The currently-applied kiosk state (what's on the server), distinct from the
+  // in-modal selection. Seeded from the server-rendered values; updated after a
+  // successful apply/turn-off and by live SSE flips.
+  (function () {
+    var p = document.getElementById('kiosk-pkg-value');
+    var e = document.getElementById('kiosk-enabled-val');
+    window.__kioskOrig = { pkg: p ? p.value : '', on: e ? e.value === '1' : false };
+  })();
+
+  // Reflect state on the footer buttons:
+  //  - kiosk OFF        → [Enable kiosk] (disabled until an app is chosen)
+  //  - kiosk ON, same   → [Turn off kiosk]
+  //  - kiosk ON, changed→ [Turn off kiosk] [Change kiosk app]
   // Named kioskRefreshToggle for continuity with its callers (mdmSyncKiosk, SSE).
   window.kioskRefreshToggle = function () {
-    var btn = document.getElementById('kiosk-enable-btn');
-    if (!btn) return;
-    var hid = document.getElementById('kiosk-enabled-val');
+    var applyBtn = document.getElementById('kiosk-apply-btn');
+    var offBtn = document.getElementById('kiosk-off-btn');
+    if (!applyBtn) return;
     var pkg = document.getElementById('kiosk-pkg-value');
-    var on = hid && hid.value === '1';
     var hasApp = pkg ? !!pkg.value.trim() : true; // plain-input fallback: don't gate
-    if (on) {
-      btn.textContent = 'Turn off kiosk';
-      btn.classList.remove('btn-primary'); btn.classList.add('btn-danger-sm');
-      btn.disabled = false;
-    } else {
-      btn.textContent = 'Enable kiosk';
-      btn.classList.add('btn-primary'); btn.classList.remove('btn-danger-sm');
-      btn.disabled = !hasApp;
-      var n = document.getElementById('kiosk-note');
+    var orig = window.__kioskOrig || { pkg: '', on: false };
+    var changed = pkg && pkg.value !== orig.pkg;
+    var n = document.getElementById('kiosk-note');
+    if (!orig.on) {
+      if (offBtn) offBtn.hidden = true;
+      applyBtn.hidden = false;
+      applyBtn.textContent = 'Enable kiosk';
+      applyBtn.disabled = !hasApp;
       if (n && !n.classList.contains('err')) kioskNote(hasApp ? '' : 'Select a locked app to enable');
+    } else {
+      if (offBtn) offBtn.hidden = false;
+      if (changed && hasApp) {
+        applyBtn.hidden = false;
+        applyBtn.textContent = 'Change kiosk app';
+        applyBtn.disabled = false;
+      } else {
+        applyBtn.hidden = true;
+      }
     }
   };
-  // Footer button: lock to the chosen app (or turn kiosk off), then close the modal.
-  // The pill flips immediately via kioskSubmit -> mdmSyncKiosk.
-  window.kioskEnableClick = function () {
-    var hid = document.getElementById('kiosk-enabled-val');
+  // Primary button: enable kiosk (when off) or apply the newly-chosen app (when on),
+  // then close. The pill flips immediately via kioskSubmit -> mdmSyncKiosk.
+  window.kioskApply = function () {
     var pkg = document.getElementById('kiosk-pkg-value');
-    var on = hid && hid.value === '1';
-    if (on) { window.kioskSubmit(false); window.kioskModalClose(); return; }
     if (pkg && !pkg.value.trim()) {
       var s = document.getElementById('kpk-q');
       if (s) { s.focus(); s.classList.add('kiosk-need'); setTimeout(function () { s.classList.remove('kiosk-need'); }, 1200); }
@@ -1712,15 +1728,19 @@ function filterInstalledApps(q) {
       return;
     }
     window.kioskSubmit(true);
+    if (window.__kioskOrig) { window.__kioskOrig.on = true; window.__kioskOrig.pkg = pkg ? pkg.value : ''; }
     window.kioskModalClose();
   };
-  // Picking a different app: while kiosk is ON, re-apply it immediately (modal stays
-  // open); while OFF, record the choice and un-gate the Enable button.
+  // Danger button: turn kiosk off, then close.
+  window.kioskTurnOff = function () {
+    window.kioskSubmit(false);
+    if (window.__kioskOrig) window.__kioskOrig.on = false;
+    window.kioskModalClose();
+  };
+  // Picking a different app just updates the buttons (no auto-apply); an explicit
+  // Enable / Change kiosk app press commits it.
   document.addEventListener('change', function (e) {
     if (e.target && e.target.id === 'kiosk-pkg-value') {
-      var hid = document.getElementById('kiosk-enabled-val');
-      if (hid && hid.value === '1') window.kioskSubmit(true);
-      else kioskNote('App selected — press Enable kiosk to lock');
       window.kioskRefreshToggle();
     }
   });
@@ -1766,6 +1786,7 @@ function filterInstalledApps(q) {
     if (tog) tog.checked = !!enabled;
     var hid = document.getElementById('kiosk-enabled-val');
     if (hid) hid.value = enabled ? '1' : '0';
+    if (window.__kioskOrig) window.__kioskOrig.on = !!enabled;
     if (window.kioskRefreshToggle) window.kioskRefreshToggle();
   };
 </script>
