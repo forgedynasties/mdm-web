@@ -2506,6 +2506,15 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		h.mapViews.Add(1)
 	}
 
+	// Kiosk locked-app choices: this device's installed apps filtered by the kiosk
+	// allowlist (empty allowlist = all apps). Keeps the picker to policy-approved apps.
+	kioskApps := make([]db.DevicePackage, 0, len(installedPkgs))
+	for _, p := range installedPkgs {
+		if h.cfg.KioskAppAllowed(p.PackageName) {
+			kioskApps = append(kioskApps, p)
+		}
+	}
+
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
@@ -2523,6 +2532,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ExtraColumns":        h.cfg.Columns(),
 		"Apps":                apps,
 		"InstalledPackages":   installedPkgs,
+		"KioskApps":           kioskApps,
 		"PendingInstalls":     pendingInstalls,
 		"KioskConfig":         kioskCfg,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
@@ -9425,6 +9435,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
 	channels, _ := h.db.ListAlertChannels(r.Context(), false)
 	baseCases, _ := h.db.ListBaseTestCases(r.Context(), false)
+	kioskFleetApps, _ := h.db.ListPackagesAdmin(r.Context(), "")
 	googleUsage := h.buildGoogleUsage(r.Context())
 	googleUsageJSON, _ := json.Marshal(googleUsage)
 	learnedAPs, _ := h.db.ListWifiAPsRecent(r.Context(), 25)
@@ -9467,6 +9478,8 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
 		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
 		"DBStats":              dbStats,
+		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
+		"KioskFleetApps":       kioskFleetApps,
 		"GoogleUsage":          googleUsage,
 		"GoogleUsageJSON":      template.JS(googleUsageJSON),
 		"LearnedAPs":           learnedAPs,
@@ -10054,6 +10067,29 @@ func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
 		h.cfg.SetDensity(d)
 	}
 	h.cfg.SetUse24Hour(r.FormValue("time_format") == "24")
+	http.Redirect(w, r, "/settings", http.StatusFound)
+}
+
+// SettingsSetKioskAllowlist replaces the kiosk locked-app allowlist from a free-form
+// field (patterns separated by newlines, commas, or spaces). Empty = allow all.
+func (h *Handler) SettingsSetKioskAllowlist(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	seen := map[string]bool{}
+	var pats []string
+	for _, tok := range strings.FieldsFunc(r.FormValue("allowlist"), func(c rune) bool {
+		return c == '\n' || c == '\r' || c == ',' || c == ' ' || c == '\t' || c == ';'
+	}) {
+		tok = strings.TrimSpace(tok)
+		if tok == "" || seen[tok] {
+			continue
+		}
+		seen[tok] = true
+		pats = append(pats, tok)
+	}
+	if err := h.cfg.SetKioskAllowlist(pats); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
 	http.Redirect(w, r, "/settings", http.StatusFound)
 }
 
@@ -11780,6 +11816,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))
+	post("POST /settings/kiosk-allowlist", h.requireStrictAdmin(h.SettingsSetKioskAllowlist))
 	post("POST /settings/alert-webhook", h.requireStrictAdmin(h.SettingsSetAlertWebhook))
 	post("POST /settings/alert-rules/{id}", h.requireStrictAdmin(h.SettingsUpdateAlertRule))
 	post("POST /settings/service-window", h.requireStrictAdmin(h.SettingsSetServiceWindow))
