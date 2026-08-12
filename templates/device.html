@@ -1344,7 +1344,11 @@ function mdmBootCharts() {
     deviceOnline = v;
     updateCharts();
   }
-  window.mdmChart = { allBattery, allTemp, allRam, updateCharts, setOnline };
+  // lastPlottedMs — newest check-in time already drawn, so the SSE push dedups
+  // against it directly instead of inferring it from a single series (which fails
+  // for battery-less kiosk devices). Seeded lazily on the first push from whatever
+  // history rendered; reset here because hx-boost re-runs this boot on every visit.
+  window.mdmChart = { allBattery, allTemp, allRam, updateCharts, setOnline, lastPlottedMs: null };
 
   // The trailing break turns true purely by the passage of time — the device is gone,
   // so no check-in, SSE frame or presence event will arrive to trigger a redraw. The
@@ -1796,11 +1800,27 @@ function filterInstalledApps(q) {
         // those can also land out of order. Either one hides a gap: a duplicate makes
         // the delta 0, an out-of-order point makes it negative. Drop anything not
         // newer than the last point already plotted.
-        var series = window.mdmChart.allBattery;
-        var newest = series.length ? series[series.length - 1].x : -Infinity;
-        if (d.ts_ms > newest) {
+        //
+        // Dedup off the last plotted CHECK-IN time, not the battery series: a device
+        // in kiosk mode with no battery (dedicated kiosk hardware) never populates
+        // allBattery, so keying off it left newest = -Infinity forever. Every SSE
+        // frame then re-passed the guard — and frames re-fire on any device-update,
+        // e.g. a command-status change re-sends the same latest check-in — so temp/RAM
+        // got double-plotted while the chart's live edge never advanced cleanly. That
+        // is the "graphs not updating in kiosk mode" report. Track the check-in time
+        // across all series so the guard is source-agnostic.
+        var last = window.mdmChart.lastPlottedMs;
+        if (last === undefined || last === null) {
+          last = Math.max(
+            window.mdmChart.allBattery.length ? window.mdmChart.allBattery[window.mdmChart.allBattery.length - 1].x : -Infinity,
+            window.mdmChart.allTemp.length ? window.mdmChart.allTemp[window.mdmChart.allTemp.length - 1].x : -Infinity,
+            window.mdmChart.allRam.length ? window.mdmChart.allRam[window.mdmChart.allRam.length - 1].x : -Infinity
+          );
+        }
+        if (d.ts_ms > last) {
+          window.mdmChart.lastPlottedMs = d.ts_ms;
           var wlc = d.wlc !== undefined && d.wlc !== null ? d.wlc : undefined;
-          {{if .Device.HasBattery}}series.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});{{end}}
+          {{if .Device.HasBattery}}window.mdmChart.allBattery.push({x: d.ts_ms, y: d.battery_pct, wlc: wlc});{{end}}
           if (d.temp_c !== null && d.temp_c !== undefined)
             window.mdmChart.allTemp.push({x: d.ts_ms, y: d.temp_c});
           if (d.ram_pct !== null && d.ram_pct !== undefined)
