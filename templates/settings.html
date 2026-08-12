@@ -171,6 +171,53 @@
 
   <!-- ── Devices & check-in ──────────────────────────── -->
   <section class="settings-tab" data-tab="devices">
+<style>
+.kioskfleet{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;max-height:220px;overflow-y:auto;padding:2px;}
+.kioskfleet-app{display:flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;text-align:left;position:relative;}
+.kioskfleet-app:hover{border-color:var(--accent);background:var(--accent-soft,rgba(79,99,214,.1));}
+.kioskfleet-app.added{border-color:var(--accent);opacity:.6;}
+.kioskfleet-nm{font-size:12.5px;font-weight:600;}
+.kioskfleet-pk{font-size:10.5px;color:var(--muted);}
+.kioskfleet-ct{position:absolute;top:6px;right:8px;font-size:10px;color:var(--muted);}
+</style>
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Kiosk locked-app allowlist</h3><span class="muted small">limits the kiosk app picker</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:10px;">
+      Only apps matching these patterns appear in the kiosk locked-app picker on device pages. One pattern per line; <code>*</code> is a wildcard — e.g. <code>com.aioapp.*</code> allows every AIO app. Leave empty to allow any installed app.
+    </div>
+    <form action="/settings/kiosk-allowlist" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
+      <textarea name="allowlist" id="kiosk-allowlist-ta" rows="5" class="form-input" spellcheck="false" placeholder="com.aioapp.*&#10;com.android.chrome" style="font-family:var(--mono);font-size:12px;line-height:1.5;">{{.KioskAllowlist}}</textarea>
+      <div><button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save allowlist</button></div>
+    </form>
+    <div style="margin-top:16px;border-top:1px solid var(--border-soft);padding-top:14px;">
+      <strong class="small">Available apps across devices</strong>
+      <span class="muted small"> · click to add to the allowlist</span>
+      {{if .KioskFleetApps}}
+      <div class="kioskfleet" id="kioskfleet">
+        {{range .KioskFleetApps}}
+        <button type="button" class="kioskfleet-app" data-pkg="{{.PackageName}}" onclick="kioskAddPkg('{{.PackageName}}', this)" title="{{.PackageName}} · on {{.DeviceCount}} device(s)">
+          <span class="kioskfleet-nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span>
+          <span class="kioskfleet-pk mono">{{.PackageName}}</span>
+          <span class="kioskfleet-ct">{{.DeviceCount}}</span>
+        </button>
+        {{end}}
+      </div>
+      {{else}}
+      <div class="muted small" style="margin-top:8px;">No apps have been reported by devices yet.</div>
+      {{end}}
+    </div>
+  </div>
+</div>
+<script>
+function kioskAddPkg(pkg, el){
+  var ta=document.getElementById('kiosk-allowlist-ta'); if(!ta) return;
+  var lines=ta.value.split(/[\s,;]+/).map(function(s){return s.trim();}).filter(Boolean);
+  if(lines.indexOf(pkg)===-1){ lines.push(pkg); ta.value=lines.join('\n'); }
+  if(el) el.classList.add('added');
+  ta.focus();
+}
+</script>
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Checkin Interval</h3></div>
   <div style="padding:16px;">

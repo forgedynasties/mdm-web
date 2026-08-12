@@ -62,6 +62,10 @@ type Config struct {
 	BrandNameVal   string `json:"brand_name"`   // "" -> AIO MDM
 	Use24HourFlag  bool   `json:"use_24_hour"`
 
+	// Kiosk. Package-name patterns (glob, '*' wildcard, e.g. "com.aioapp.*") that
+	// may be chosen as the locked kiosk app. Empty list = any installed app is allowed.
+	KioskAllowlistVal []string `json:"kiosk_allowlist"`
+
 	// Alerting. Slack/Discord/Mattermost-compatible webhook for new alerts ("" = off).
 	AlertWebhookURLVal string `json:"alert_webhook_url"`
 
@@ -340,6 +344,70 @@ func (c *Config) SetOperatorDenied(denied []string) error {
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)
+}
+
+// KioskAllowlist returns the configured kiosk locked-app patterns.
+func (c *Config) KioskAllowlist() []string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	out := make([]string, len(c.KioskAllowlistVal))
+	copy(out, c.KioskAllowlistVal)
+	return out
+}
+
+// SetKioskAllowlist replaces the kiosk allowlist (patterns already trimmed/deduped
+// by the caller).
+func (c *Config) SetKioskAllowlist(patterns []string) error {
+	c.mu.Lock()
+	c.KioskAllowlistVal = patterns
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// KioskAppAllowed reports whether a package may be chosen as the kiosk app. An
+// empty allowlist allows everything; otherwise the package must match at least one
+// glob pattern ('*' matches any run of characters).
+func (c *Config) KioskAppAllowed(pkg string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if len(c.KioskAllowlistVal) == 0 {
+		return true
+	}
+	for _, pat := range c.KioskAllowlistVal {
+		pat = strings.TrimSpace(pat)
+		if pat != "" && globMatch(pat, pkg) {
+			return true
+		}
+	}
+	return false
+}
+
+// globMatch reports whether s matches a glob pattern whose only wildcard is '*'
+// (matching any run of characters, including dots). Everything else is literal.
+func globMatch(pattern, s string) bool {
+	p, si := 0, 0
+	star, ss := -1, 0
+	for si < len(s) {
+		if p < len(pattern) && pattern[p] == s[si] {
+			p++
+			si++
+		} else if p < len(pattern) && pattern[p] == '*' {
+			star = p
+			ss = si
+			p++
+		} else if star != -1 {
+			p = star + 1
+			ss++
+			si = ss
+		} else {
+			return false
+		}
+	}
+	for p < len(pattern) && pattern[p] == '*' {
+		p++
+	}
+	return p == len(pattern)
 }
 
 func (c *Config) SessionTimeout() int {
