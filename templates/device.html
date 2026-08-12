@@ -192,7 +192,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <div class="kiosk-modal-head"><span class="kiosk-modal-title">Kiosk mode</span><button type="button" class="modal-close" onclick="kioskModalClose()" aria-label="Close">&times;</button></div>
         <div class="kiosk-modal-body">
         {{if canAdminOrTester .Role}}
-        <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" hx-boost="false" onsubmit="return false;">
+        <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" hx-boost="false" onsubmit="return false;" data-locked-on="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}" data-locked-pkg="{{.KioskConfig.KioskPackage}}">
           <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-val" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">
           <div class="form-row">
             <label class="form-label">Locked app</label>
@@ -1626,9 +1626,15 @@ function filterInstalledApps(q) {
   window.kioskModalOpen = function () {
     var m = document.getElementById('kiosk-modal');
     if (!m) return;
+    // Discard any selection that was never applied: reset the picker to the app that
+    // is actually locked, so reopening always reflects the applied state.
+    var hid = document.getElementById('kiosk-pkg-value');
+    if (hid && window.__kioskOrig) hid.value = window.__kioskOrig.pkg;
+    var q = document.getElementById('kpk-q');
+    if (q) q.value = '';
+    if (window.kioskPickerRender) window.kioskPickerRender();
     m.classList.add('modal-open');
     if (window.kioskRefreshToggle) window.kioskRefreshToggle();
-    var q = document.getElementById('kpk-q');
     if (q) setTimeout(function () { q.focus(); }, 40);
   };
   window.kioskModalClose = function () {
@@ -1680,10 +1686,14 @@ function filterInstalledApps(q) {
   // The currently-applied kiosk state (what's on the server), distinct from the
   // in-modal selection. Seeded from the server-rendered values; updated after a
   // successful apply/turn-off and by live SSE flips.
+  // Seed from the form's dedicated data-locked-* attributes (server truth), NOT the
+  // mutable #kiosk-pkg-value — otherwise a re-render/re-run would re-seed the applied
+  // package from the in-progress selection and make "changed" wrong.
   (function () {
-    var p = document.getElementById('kiosk-pkg-value');
-    var e = document.getElementById('kiosk-enabled-val');
-    window.__kioskOrig = { pkg: p ? p.value : '', on: e ? e.value === '1' : false };
+    var f = document.getElementById('kiosk-form');
+    window.__kioskOrig = f
+      ? { pkg: f.getAttribute('data-locked-pkg') || '', on: f.getAttribute('data-locked-on') === '1' }
+      : { pkg: '', on: false };
   })();
 
   // Reflect state on the footer buttons:
@@ -1728,12 +1738,17 @@ function filterInstalledApps(q) {
       return;
     }
     window.kioskSubmit(true);
-    if (window.__kioskOrig) { window.__kioskOrig.on = true; window.__kioskOrig.pkg = pkg ? pkg.value : ''; }
+    var appliedPkg = pkg ? pkg.value : '';
+    var f = document.getElementById('kiosk-form');
+    if (f) { f.setAttribute('data-locked-on', '1'); f.setAttribute('data-locked-pkg', appliedPkg); }
+    if (window.__kioskOrig) { window.__kioskOrig.on = true; window.__kioskOrig.pkg = appliedPkg; }
     window.kioskModalClose();
   };
   // Danger button: turn kiosk off, then close.
   window.kioskTurnOff = function () {
     window.kioskSubmit(false);
+    var f = document.getElementById('kiosk-form');
+    if (f) f.setAttribute('data-locked-on', '0');
     if (window.__kioskOrig) window.__kioskOrig.on = false;
     window.kioskModalClose();
   };
@@ -1786,6 +1801,8 @@ function filterInstalledApps(q) {
     if (tog) tog.checked = !!enabled;
     var hid = document.getElementById('kiosk-enabled-val');
     if (hid) hid.value = enabled ? '1' : '0';
+    var f = document.getElementById('kiosk-form');
+    if (f) f.setAttribute('data-locked-on', enabled ? '1' : '0');
     if (window.__kioskOrig) window.__kioskOrig.on = !!enabled;
     if (window.kioskRefreshToggle) window.kioskRefreshToggle();
   };
@@ -2070,6 +2087,8 @@ async function saveNewApp() {
   document.getElementById('kpk-vgrid').onclick = function () { setView('grid'); };
   document.getElementById('kpk-vlist').onclick = function () { setView('list'); };
 
+  // Exposed so the modal can re-highlight the selection after resetting it on open.
+  window.kioskPickerRender = render;
   render();
 })();
 </script>
