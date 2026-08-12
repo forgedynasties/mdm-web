@@ -9425,8 +9425,9 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
 	channels, _ := h.db.ListAlertChannels(r.Context(), false)
 	baseCases, _ := h.db.ListBaseTestCases(r.Context(), false)
-	googleUsage := h.buildGoogleUsage()
+	googleUsage := h.buildGoogleUsage(r.Context())
 	googleUsageJSON, _ := json.Marshal(googleUsage)
+	learnedAPs, _ := h.db.ListWifiAPsRecent(r.Context(), 25)
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":                "Settings",
 		"BaseCases":            baseCases,
@@ -9468,6 +9469,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"DBStats":              dbStats,
 		"GoogleUsage":          googleUsage,
 		"GoogleUsageJSON":      template.JS(googleUsageJSON),
+		"LearnedAPs":           learnedAPs,
 	})
 }
 
@@ -9492,9 +9494,10 @@ type googleAPIStat struct {
 	Requests   uint64   `json:"requests"`  // outbound requests actually sent to Google
 	Successes  uint64   `json:"successes"`
 	Errors     uint64   `json:"errors"`
-	Hits       uint64   `json:"hits"`      // answered from cache — request avoided
-	Cooldowns  uint64   `json:"cooldowns"` // skipped by cooldown — request avoided
-	Avoided    uint64   `json:"avoided"`   // hits + cooldowns
+	Hits       uint64   `json:"hits"`       // answered from in-memory cache — request avoided
+	LocalHits  uint64   `json:"local_hits"` // answered from learned WiFi index — request avoided
+	Cooldowns  uint64   `json:"cooldowns"`  // skipped by cooldown — request avoided
+	Avoided    uint64   `json:"avoided"`    // hits + local_hits + cooldowns
 	HitRatio   int      `json:"hit_ratio"` // % of lookups served without a request
 	Last24h    uint64   `json:"last24h"`
 	Hourly     []uint64 `json:"hourly"`
@@ -9508,14 +9511,27 @@ type googleAPIStat struct {
 	ProjMonth  float64  `json:"proj_month"`   // last24h * 30 / 1000 * unit
 }
 
+// learnedIndexView summarizes the DB-persisted learned WiFi-AP index.
+type learnedIndexView struct {
+	Enabled        bool   `json:"enabled"`         // geolocation resolver is on
+	Total          int64  `json:"total"`           // learned APs (all)
+	Fresh          int64  `json:"fresh"`           // APs within the freshness window
+	DistinctPlaces int64  `json:"distinct_places"` // ~unique points
+	ServedLookups  int64  `json:"served_lookups"`  // all-time local lookups served (SUM hits)
+	LocalHits      uint64 `json:"local_hits"`      // this-session lookups served from the index
+	CostSaved      float64 `json:"cost_saved"`     // est. $ saved this session by local hits
+	LastLearnedAgo string `json:"last_learned_ago"`
+}
+
 // googleUsageView aggregates all three Google surfaces for the template + JSON.
 type googleUsageView struct {
-	AnyEnabled     bool            `json:"any_enabled"`
-	SinceUnix      int64           `json:"since_unix"`
-	SinceAgo       string          `json:"since_ago"`
-	Stats          []googleAPIStat `json:"stats"`
-	TotalCostToDay float64         `json:"total_cost_to_date"`
-	TotalProjMonth float64         `json:"total_proj_month"`
+	AnyEnabled     bool             `json:"any_enabled"`
+	SinceUnix      int64            `json:"since_unix"`
+	SinceAgo       string           `json:"since_ago"`
+	Stats          []googleAPIStat  `json:"stats"`
+	Learned        learnedIndexView `json:"learned"`
+	TotalCostToDay float64          `json:"total_cost_to_date"`
+	TotalProjMonth float64          `json:"total_proj_month"`
 }
 
 func statFromMeter(key, name, purpose string, enabled, billable bool, unitK float64, requestsOverride *uint64, m *geolocate.MeterSnapshot) googleAPIStat {
@@ -9525,6 +9541,7 @@ func statFromMeter(key, name, purpose string, enabled, billable bool, unitK floa
 		s.Successes = m.Successes
 		s.Errors = m.Errors
 		s.Hits = m.Hits
+		s.LocalHits = m.LocalHits
 		s.Cooldowns = m.Cooldowns
 		s.Last24h = m.Last24h
 		s.Hourly = m.Hourly
@@ -9536,7 +9553,7 @@ func statFromMeter(key, name, purpose string, enabled, billable bool, unitK floa
 		s.Requests = *requestsOverride
 		s.Successes = *requestsOverride
 	}
-	s.Avoided = s.Hits + s.Cooldowns
+	s.Avoided = s.Hits + s.LocalHits + s.Cooldowns
 	if lookups := s.Requests + s.Avoided; lookups > 0 {
 		s.HitRatio = int(s.Avoided * 100 / lookups)
 	}
@@ -9564,7 +9581,7 @@ func statFromMeter(key, name, purpose string, enabled, billable bool, unitK floa
 }
 
 // buildGoogleUsage snapshots all three Google API meters into a render-ready view.
-func (h *Handler) buildGoogleUsage() googleUsageView {
+func (h *Handler) buildGoogleUsage(ctx context.Context) googleUsageView {
 	v := googleUsageView{SinceUnix: h.startedAt.Unix(), SinceAgo: agoString(h.startedAt)}
 
 	var geoSnap, geoc *geolocate.MeterSnapshot
@@ -9593,6 +9610,21 @@ func (h *Handler) buildGoogleUsage() googleUsageView {
 		v.TotalCostToDay += s.CostToDate
 		v.TotalProjMonth += s.ProjMonth
 	}
+
+	// Learned WiFi-AP index summary (DB-persisted). local_hits are Google calls the
+	// index avoided this session; value them at the Geolocation unit price.
+	v.Learned.Enabled = h.geo != nil
+	if geoSnap != nil {
+		v.Learned.LocalHits = geoSnap.LocalHits
+		v.Learned.CostSaved = float64(geoSnap.LocalHits) / 1000 * costPerKGeolocation
+	}
+	if st, err := h.db.GetWifiAPStats(ctx, geolocate.LearnedFreshWindow); err == nil {
+		v.Learned.Total = st.Total
+		v.Learned.Fresh = st.Fresh
+		v.Learned.DistinctPlaces = st.DistinctPlaces
+		v.Learned.ServedLookups = st.ServedLookups
+		v.Learned.LastLearnedAgo = agoString(st.LastLearnedAt)
+	}
 	return v
 }
 
@@ -9601,7 +9633,7 @@ func (h *Handler) buildGoogleUsage() googleUsageView {
 func (h *Handler) GoogleUsageJSON(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
-	_ = json.NewEncoder(w).Encode(h.buildGoogleUsage())
+	_ = json.NewEncoder(w).Encode(h.buildGoogleUsage(r.Context()))
 }
 
 // agoString renders a compact "3m ago" / "2h ago" / "5d ago" for a timestamp, or

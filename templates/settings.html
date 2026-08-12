@@ -537,7 +537,7 @@
 .gu-spark{display:flex;align-items:flex-end;gap:2px;height:40px;padding:2px 0;}
 .gu-bar{flex:1 1 0;min-width:2px;min-height:3px;background:var(--accent,#5b8def);border-radius:2px 2px 0 0;opacity:.85;transition:height .3s ease;}
 .gu-bar.zero{background:var(--border);opacity:.5;}
-.gu-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;border-top:1px solid var(--border-soft);padding-top:10px;}
+.gu-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px;border-top:1px solid var(--border-soft);padding-top:10px;}
 .gu-grid .gu-n{font-size:18px;font-weight:600;}
 .gu-grid .gu-n.err{color:var(--danger,#e5484d);}
 .gu-cost{display:flex;flex-wrap:wrap;gap:6px 18px;border-top:1px solid var(--border-soft);padding-top:10px;font-size:13px;}
@@ -571,9 +571,10 @@
         <div class="muted small">last 24h: <span class="gu-24">{{.Last24h}}</span> requests · peak/hr <span class="gu-peak">{{.PeakHour}}</span></div>
         <div class="gu-grid">
           <div><div class="gu-n gu-hits">{{.Hits}}</div><div class="muted small">cache hits</div></div>
+          {{if eq .Key "geolocation"}}<div><div class="gu-n gu-localhits">{{.LocalHits}}</div><div class="muted small">index hits</div></div>{{end}}
           <div><div class="gu-n gu-cooldowns">{{.Cooldowns}}</div><div class="muted small">cooldown skips</div></div>
           <div><div class="gu-n err gu-errors">{{.Errors}}</div><div class="muted small">errors</div></div>
-          <div><div class="gu-n gu-hitratio">{{.HitRatio}}%</div><div class="muted small">from cache</div></div>
+          <div><div class="gu-n gu-hitratio">{{.HitRatio}}%</div><div class="muted small">avoided</div></div>
         </div>
         {{if .Billable}}
         <div class="gu-cost">
@@ -589,8 +590,46 @@
     </div>
 
     <div class="muted small" style="margin-top:14px;border-top:1px solid var(--border-soft);padding-top:12px;">
-      <strong>How metering works.</strong> <em>Geolocation</em> resolves a WiFi scan to coordinates (5-min result cache + one call / 10 s server-wide cooldown). <em>Geocoding</em> turns coordinates into a street address (6-hour cache, ~11 m precision). <em>Maps Embed</em> is the browser map — free and unlimited; the count is device-page renders that showed the map. Counters are in-memory and reset when the server restarts.
+      <strong>How metering works.</strong> <em>Geolocation</em> resolves a WiFi scan to coordinates (1-hour exact-scan cache + the learned index below + one call / 10 s server-wide cooldown). <em>Geocoding</em> turns coordinates into a street address (6-hour cache, ~11 m precision). <em>Maps Embed</em> is the browser map — free and unlimited; the count is device-page renders that showed the map. Request counters are in-memory and reset on restart; the learned index is persisted in the database.
     </div>
+  </div>
+</div>
+
+<!-- Learned WiFi-AP index -->
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Learned WiFi location index</h3><span class="muted small">persisted · avoids Google for known areas</span></div>
+  <div style="padding:16px;">
+    <div class="muted small" style="margin-bottom:12px;">
+      Every successful Geolocation lookup teaches the server which access points (BSSIDs) live at which point. A later scan that overlaps ≥3 known APs (and ≥50% of the scan) is located <strong>locally</strong> — no Google call. Entries expire after 14 days. This is what drives the <strong>index hits</strong> above.
+    </div>
+    <div class="gu-tot" style="margin-bottom:14px;">
+      <div><div class="gu-tot-n" id="gu-l-total">{{.GoogleUsage.Learned.Total}}</div><div class="muted small">access points learned</div></div>
+      <div><div class="gu-tot-n" id="gu-l-fresh">{{.GoogleUsage.Learned.Fresh}}</div><div class="muted small">fresh (&lt;14d)</div></div>
+      <div><div class="gu-tot-n" id="gu-l-places">{{.GoogleUsage.Learned.DistinctPlaces}}</div><div class="muted small">distinct places</div></div>
+      <div><div class="gu-tot-n" id="gu-l-served">{{.GoogleUsage.Learned.ServedLookups}}</div><div class="muted small">lookups served (all-time)</div></div>
+      <div><div class="gu-tot-n" id="gu-l-saved">${{printf "%.2f" .GoogleUsage.Learned.CostSaved}}</div><div class="muted small">saved this session</div></div>
+    </div>
+    <div class="muted small" style="margin-bottom:8px;">Most recently learned access points{{if .GoogleUsage.Learned.LastLearnedAgo}} · last learned {{.GoogleUsage.Learned.LastLearnedAgo}}{{end}}:</div>
+    {{if .LearnedAPs}}
+    <div style="overflow-x:auto;">
+      <table class="tbl" style="width:100%;font-size:12px;">
+        <thead><tr><th style="text-align:left;">BSSID</th><th style="text-align:left;">Location</th><th style="text-align:right;">Hits</th><th style="text-align:right;">Accuracy</th><th style="text-align:right;">Learned</th></tr></thead>
+        <tbody>
+          {{range .LearnedAPs}}
+          <tr>
+            <td class="mono">{{.BSSID}}</td>
+            <td><a class="link" href="https://maps.google.com/?q={{printf "%.6f" .Lat}},{{printf "%.6f" .Lon}}" target="_blank" rel="noopener">{{printf "%.5f" .Lat}}, {{printf "%.5f" .Lon}}</a></td>
+            <td style="text-align:right;">{{.Hits}}</td>
+            <td style="text-align:right;">±{{printf "%.0f" .Accuracy}}m</td>
+            <td style="text-align:right;" class="muted">{{timeSince .SeenAt}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="muted small">No access points learned yet — they appear here after the first successful Geolocation lookup.</div>
+    {{end}}
   </div>
 </div>
 <script>
@@ -608,6 +647,7 @@
     setText(el, '.gu-24', nf.format(s.last24h));
     setText(el, '.gu-peak', nf.format(s.peak_hour));
     setText(el, '.gu-hits', nf.format(s.hits));
+    setText(el, '.gu-localhits', nf.format(s.local_hits||0));
     setText(el, '.gu-cooldowns', nf.format(s.cooldowns));
     setText(el, '.gu-errors', nf.format(s.errors));
     setText(el, '.gu-hitratio', s.hit_ratio + '%');
@@ -632,6 +672,14 @@
     (data.stats||[]).forEach(renderCard);
     setText(root, '#gu-total-cost', money(data.total_cost_to_date));
     setText(root, '#gu-total-proj', money(data.total_proj_month));
+    var L = data.learned || {};
+    if(document.getElementById('gu-l-total')){
+      setText(document, '#gu-l-total', nf.format(L.total||0));
+      setText(document, '#gu-l-fresh', nf.format(L.fresh||0));
+      setText(document, '#gu-l-places', nf.format(L.distinct_places||0));
+      setText(document, '#gu-l-served', nf.format(L.served_lookups||0));
+      setText(document, '#gu-l-saved', money(L.cost_saved));
+    }
     setText(root, '#gu-since', data.since_ago || '');
     var u = document.getElementById('gu-updated'); if(u) u.textContent='updated just now';
   }
