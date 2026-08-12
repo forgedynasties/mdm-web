@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,6 +35,7 @@ import (
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
 	"mdm/internal/db"
+	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
 	"mdm/internal/notify"
 	"mdm/internal/ota"
@@ -174,6 +176,14 @@ type Handler struct {
 	// geolocation/geocoding keys: this one ships to the browser, so it must be
 	// HTTP-referrer-restricted to the dashboard domain + Maps Embed API only.
 	mapsEmbedKey string
+
+	// Google API usage metering (Settings → Google APIs panel). geo/geocoder may be
+	// nil when their keys are unset; mapViews counts device-page renders that emit
+	// the Maps Embed iframe (a proxy for browser-side embed loads, which are free).
+	geo       *geolocate.Resolver
+	geocoder  *geolocate.Geocoder
+	mapViews  atomic.Uint64
+	startedAt time.Time
 
 	// assetVer is a cache-busting token appended to the stylesheet URL, derived
 	// from style.css's mtime at startup. Static assets are served `immutable`
@@ -428,7 +438,7 @@ var updateEngineErrors = map[string]string{
 	"62": "Package excluded for this device.",
 }
 
-func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remote.Manager, logMgr *logstream.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey, mapsEmbedKey string) *Handler {
+func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remote.Manager, logMgr *logstream.Manager, sessionSecret, user, password string, cfg *config.Config, adminAPIKey, mapsEmbedKey string, geo *geolocate.Resolver, geocoder *geolocate.Geocoder) *Handler {
 	store := sessions.NewCookieStore([]byte(sessionSecret))
 	store.Options = &sessions.Options{
 		Path:     "/",
@@ -1103,6 +1113,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		cfg:           cfg,
 		adminAPIKey:   adminAPIKey,
 		mapsEmbedKey:  mapsEmbedKey,
+		geo:           geo,
+		geocoder:      geocoder,
+		startedAt:     time.Now(),
 		alerts:        alerts.NewDispatcher(d, cfg),
 		publicOrigins: parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
 		loginFails:    ratelimit.New(15 * time.Minute),
@@ -2486,6 +2499,13 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		offlineCode, _ = totp.Code(kioskCfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
 		offlineSecs = totp.SecondsRemaining(now, totp.DefaultPeriod)
 	}
+	// Count a Maps Embed load whenever this render will actually emit the map iframe
+	// (key configured + resolved coordinates present). Browser embed loads are free,
+	// but the count lets admins see map activity in the Google APIs usage panel.
+	if h.mapsEmbedKey != "" && extraHasCoords(device.LatestExtra) {
+		h.mapViews.Add(1)
+	}
+
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
@@ -9405,6 +9425,8 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	fleetWindow, groupWindows := h.buildServiceWindowViews(r.Context())
 	channels, _ := h.db.ListAlertChannels(r.Context(), false)
 	baseCases, _ := h.db.ListBaseTestCases(r.Context(), false)
+	googleUsage := h.buildGoogleUsage()
+	googleUsageJSON, _ := json.Marshal(googleUsage)
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":                "Settings",
 		"BaseCases":            baseCases,
@@ -9444,7 +9466,176 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
 		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
 		"DBStats":              dbStats,
+		"GoogleUsage":          googleUsage,
+		"GoogleUsageJSON":      template.JS(googleUsageJSON),
 	})
+}
+
+// ── Google API usage panel ──────────────────────────────────────────────────
+
+// Google API list-price per 1,000 requests (USD). Geolocation and Geocoding are
+// billed per request; Maps Embed is free/unlimited. Used only for the estimate
+// shown in Settings → Google APIs — Google's own billing is authoritative.
+const (
+	costPerKGeolocation = 5.0
+	costPerKGeocoding   = 5.0
+)
+
+// googleAPIStat is one Google API surface's usage, shaped for the settings panel
+// and the /settings/google-usage JSON poll.
+type googleAPIStat struct {
+	Key        string   `json:"key"`
+	Name       string   `json:"name"`
+	Purpose    string   `json:"purpose"`
+	Enabled    bool     `json:"enabled"`
+	Billable   bool     `json:"billable"`
+	Requests   uint64   `json:"requests"`  // outbound requests actually sent to Google
+	Successes  uint64   `json:"successes"`
+	Errors     uint64   `json:"errors"`
+	Hits       uint64   `json:"hits"`      // answered from cache — request avoided
+	Cooldowns  uint64   `json:"cooldowns"` // skipped by cooldown — request avoided
+	Avoided    uint64   `json:"avoided"`   // hits + cooldowns
+	HitRatio   int      `json:"hit_ratio"` // % of lookups served without a request
+	Last24h    uint64   `json:"last24h"`
+	Hourly     []uint64 `json:"hourly"`
+	BarPct     []int    `json:"bar_pct"` // per-hour bar height 0-100 (relative to peak)
+	PeakHour   uint64   `json:"peak_hour"`
+	LastErr    string   `json:"last_err"`
+	LastErrAgo string   `json:"last_err_ago"`
+	LastReqAgo string   `json:"last_req_ago"`
+	UnitCostK  float64  `json:"unit_cost_k"`  // $ per 1,000 requests
+	CostToDate float64  `json:"cost_to_date"` // requests/1000 * unit
+	ProjMonth  float64  `json:"proj_month"`   // last24h * 30 / 1000 * unit
+}
+
+// googleUsageView aggregates all three Google surfaces for the template + JSON.
+type googleUsageView struct {
+	AnyEnabled     bool            `json:"any_enabled"`
+	SinceUnix      int64           `json:"since_unix"`
+	SinceAgo       string          `json:"since_ago"`
+	Stats          []googleAPIStat `json:"stats"`
+	TotalCostToDay float64         `json:"total_cost_to_date"`
+	TotalProjMonth float64         `json:"total_proj_month"`
+}
+
+func statFromMeter(key, name, purpose string, enabled, billable bool, unitK float64, requestsOverride *uint64, m *geolocate.MeterSnapshot) googleAPIStat {
+	s := googleAPIStat{Key: key, Name: name, Purpose: purpose, Enabled: enabled, Billable: billable, UnitCostK: unitK, Hourly: make([]uint64, 24)}
+	if m != nil {
+		s.Requests = m.Requests
+		s.Successes = m.Successes
+		s.Errors = m.Errors
+		s.Hits = m.Hits
+		s.Cooldowns = m.Cooldowns
+		s.Last24h = m.Last24h
+		s.Hourly = m.Hourly
+		s.LastErr = m.LastErr
+		s.LastErrAgo = agoString(m.LastErrAt)
+		s.LastReqAgo = agoString(m.LastReqAt)
+	}
+	if requestsOverride != nil {
+		s.Requests = *requestsOverride
+		s.Successes = *requestsOverride
+	}
+	s.Avoided = s.Hits + s.Cooldowns
+	if lookups := s.Requests + s.Avoided; lookups > 0 {
+		s.HitRatio = int(s.Avoided * 100 / lookups)
+	}
+	for _, v := range s.Hourly {
+		if v > s.PeakHour {
+			s.PeakHour = v
+		}
+	}
+	s.BarPct = make([]int, len(s.Hourly))
+	for i, v := range s.Hourly {
+		if s.PeakHour > 0 {
+			// Floor non-zero hours at 6% so a single request is still a visible tick.
+			p := int(v * 100 / s.PeakHour)
+			if v > 0 && p < 6 {
+				p = 6
+			}
+			s.BarPct[i] = p
+		}
+	}
+	if billable {
+		s.CostToDate = float64(s.Requests) / 1000 * unitK
+		s.ProjMonth = float64(s.Last24h) * 30 / 1000 * unitK
+	}
+	return s
+}
+
+// buildGoogleUsage snapshots all three Google API meters into a render-ready view.
+func (h *Handler) buildGoogleUsage() googleUsageView {
+	v := googleUsageView{SinceUnix: h.startedAt.Unix(), SinceAgo: agoString(h.startedAt)}
+
+	var geoSnap, geoc *geolocate.MeterSnapshot
+	if h.geo != nil {
+		s := h.geo.Stats()
+		geoSnap = &s
+	}
+	if h.geocoder != nil {
+		s := h.geocoder.Stats()
+		geoc = &s
+	}
+	mapViews := h.mapViews.Load()
+
+	v.Stats = []googleAPIStat{
+		statFromMeter("geolocation", "Geolocation API", "WiFi scan → coordinates",
+			h.geo != nil, true, costPerKGeolocation, nil, geoSnap),
+		statFromMeter("geocoding", "Geocoding API", "Coordinates → street address",
+			h.geocoder != nil, true, costPerKGeocoding, nil, geoc),
+		statFromMeter("embed", "Maps Embed API", "Device-page location map (free)",
+			h.mapsEmbedKey != "", false, 0, &mapViews, nil),
+	}
+	for _, s := range v.Stats {
+		if s.Enabled {
+			v.AnyEnabled = true
+		}
+		v.TotalCostToDay += s.CostToDate
+		v.TotalProjMonth += s.ProjMonth
+	}
+	return v
+}
+
+// GoogleUsageJSON serves the live Google API usage snapshot for the settings
+// panel's auto-refresh poll. Admin-only.
+func (h *Handler) GoogleUsageJSON(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(h.buildGoogleUsage())
+}
+
+// agoString renders a compact "3m ago" / "2h ago" / "5d ago" for a timestamp, or
+// "never" for the zero time.
+func agoString(t time.Time) string {
+	if t.IsZero() {
+		return "never"
+	}
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	}
+}
+
+// extraHasCoords reports whether a device's latest extra payload carries a
+// resolved latitude/longitude (so the device page will render the Maps Embed).
+func extraHasCoords(raw json.RawMessage) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return false
+	}
+	lat, okLat := m["latitude"]
+	lon, okLon := m["longitude"]
+	return okLat && okLon && lat != nil && lon != nil
 }
 
 // settingsToggleResponse renders the on/off switch back in place for htmx (so the
@@ -11543,6 +11734,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /boot-logo", h.requireStrictAdmin(h.BootLogo))
 	mux.HandleFunc("GET /settings", h.requireStrictAdmin(h.SettingsPage))
+	mux.HandleFunc("GET /settings/google-usage", h.requireStrictAdmin(h.GoogleUsageJSON))
 	post("POST /settings/columns/add", h.requireStrictAdmin(h.SettingsAddColumn))
 	post("POST /settings/columns/{key}/remove", h.requireStrictAdmin(h.SettingsRemoveColumn))
 	post("POST /settings/legacy-builds/add", h.requireStrictAdmin(h.SettingsAddLegacyBuild))
