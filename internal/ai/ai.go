@@ -396,39 +396,6 @@ func (c *Client) AnalyzeFleet(ctx context.Context, groups []db.GroupHealth, tota
 	return c.complete(ctx, fleetSystem(t), b.String())
 }
 
-// logcatSystem is the system prompt for turning a plain-language problem report
-// into logcat capture settings. It grounds the model in the actual app and the
-// levels the capture form accepts.
-const logcatSystem = `You configure Android logcat captures for AIO's MDM fleet. The device runs a privileged system app, package com.aioapp.mdm (UID android.uid.system), whose main components are: MdmService (the foreground check-in loop), KioskManager (lock-task / kiosk mode), MdmAdminReceiver (DevicePolicyManager admin), and the wireless-charging + battery telemetry. The units are tableside ordering tablets with a built-in wireless charging pad.
-
-A field tech describes a problem in plain words. Turn that into the tightest logcat capture that would actually contain the evidence.
-
-Choose:
-- level: one of E, W, I, D, V. E = errors only, W = warnings and up (default, good for crashes/ANRs), I = info and up, D = debug and up (verbose, for reproducing a specific flow), V = everything (only when you truly need it).
-- lines: how many recent lines to pull, 50–5000. Use 500 for a normal issue, more (1500–3000) for intermittent or hard-to-reproduce problems, fewer for a single obvious crash.
-- tag: an OPTIONAL space-separated list of logcat tags to filter to. Prefer a real tag when the problem clearly maps to one — e.g. MdmService, KioskManager, MdmAdminReceiver, ActivityManager, WindowManager, PackageManager, BatteryService, ConnectivityService, WifiService, DropBoxManager, AndroidRuntime (Java crashes). Leave it EMPTY ("") when the cause is unknown or could come from anywhere — an empty tag captures everything at the chosen level, which is safer than guessing wrong.
-
-Respond with ONLY a JSON object — no markdown, no code fences, no prose around it — in exactly this shape:
-{"level":"W","lines":500,"tag":"MdmService","rationale":"one short sentence on why these settings fit the problem"}
-Keep the rationale to one plain sentence. If the tech's description is vague, widen the level and clear the tag rather than guessing a specific component.`
-
-// LogcatSuggestion is the structured logcat configuration the model returns for a
-// plain-language problem report.
-type LogcatSuggestion struct {
-	Level     string `json:"level"`
-	Lines     int    `json:"lines"`
-	Tag       string `json:"tag"`
-	Rationale string `json:"rationale"`
-}
-
-// SuggestLogcat asks the model for logcat capture settings that fit a plain-language
-// problem description. The returned text is the raw JSON; parse it with
-// ParseLogcatSuggestion.
-func (c *Client) SuggestLogcat(ctx context.Context, problem string) (string, Usage, error) {
-	user := "The tech wants logs because:\n" + strings.TrimSpace(problem)
-	return c.complete(ctx, logcatSystem, user)
-}
-
 const logAnalyzeSystem = `You are an Android fleet-support engineer triaging device logs (logcat and DropBox crash/ANR/tombstone dumps). Given a raw log buffer, reply in plain text with exactly these three short lines, no preamble:
 What happened: <the key error or crash, one line>
 Likely cause: <the most probable root cause, one line>
@@ -443,38 +410,6 @@ func (c *Client) AnalyzeLog(ctx context.Context, content string) (string, Usage,
 		content = "…(truncated)…\n" + content[len(content)-12000:]
 	}
 	return c.complete(ctx, logAnalyzeSystem, "Log buffer:\n\n"+content)
-}
-
-// ParseLogcatSuggestion extracts a LogcatSuggestion from the model's response,
-// tolerating ```json fences, and clamps the fields to the capture form's limits.
-// ok is false if the text isn't usable JSON.
-func ParseLogcatSuggestion(s string) (LogcatSuggestion, bool) {
-	s = strings.TrimSpace(s)
-	s = strings.TrimPrefix(s, "```json")
-	s = strings.TrimPrefix(s, "```")
-	s = strings.TrimSuffix(s, "```")
-	s = strings.TrimSpace(s)
-	if !strings.HasPrefix(s, "{") {
-		return LogcatSuggestion{}, false
-	}
-	var g LogcatSuggestion
-	if err := json.Unmarshal([]byte(s), &g); err != nil {
-		return LogcatSuggestion{}, false
-	}
-	g.Level = strings.ToUpper(strings.TrimSpace(g.Level))
-	switch g.Level {
-	case "E", "W", "I", "D", "V":
-	default:
-		g.Level = "W"
-	}
-	if g.Lines < 50 {
-		g.Lines = 500
-	}
-	if g.Lines > 5000 {
-		g.Lines = 5000
-	}
-	g.Tag = strings.TrimSpace(g.Tag)
-	return g, true
 }
 
 // writeAlerts appends a labeled alert list (or "none") to b.
