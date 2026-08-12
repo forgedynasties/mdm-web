@@ -203,16 +203,21 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             <label class="form-label">Locked app</label>
             {{if .InstalledPackages}}
               {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
-              <div class="pkg-combo" id="kiosk-pkg-combo">
-                <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{$current}}">
-                <input type="text" id="kiosk-pkg-search" class="form-input" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" placeholder="Search installed apps…">
-                <div class="pkg-list" id="kiosk-pkg-list" role="listbox">
-                  <div class="pkg-opt" data-value="" data-search="none release clear launcher"><span class="pkg-opt-name">— None (release to launcher) —</span></div>
-                  {{range .InstalledPackages}}{{if eq .PackageName $current}}{{$found = true}}{{end}}
-                  <div class="pkg-opt" data-value="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}"><span class="pkg-opt-name">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pkg-opt-pkg mono">{{.PackageName}}</span></div>
-                  {{end}}
-                  {{if and (ne $current "") (not $found)}}<div class="pkg-opt" data-value="{{$current}}" data-search="{{$current}}"><span class="pkg-opt-name mono">{{$current}}</span><span class="pkg-opt-pkg">not installed</span></div>{{end}}
+              <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{$current}}">
+              <div id="kiosk-apps-src" hidden>{{range .InstalledPackages}}{{if eq .PackageName $current}}{{$found = true}}{{end}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}"></i>{{end}}{{if and (ne $current "") (not $found)}}<i data-value="{{$current}}" data-name="{{$current}}" data-missing="1"></i>{{end}}</div>
+              <div class="kpk" id="kiosk-picker">
+                <div class="kpk-top">
+                  <span class="kpk-search">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="kpk-q" autocomplete="off" spellcheck="false" role="combobox" aria-controls="kpk-list" aria-expanded="true" placeholder="Search apps…">
+                  </span>
+                  <span class="kpk-seg" role="tablist" aria-label="View">
+                    <button type="button" id="kpk-vgrid" class="active" title="Grid" aria-label="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+                    <button type="button" id="kpk-vlist" title="List" aria-label="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+                  </span>
                 </div>
+                <div class="kpk-grid" id="kpk-grid" role="listbox" aria-label="Installed apps"></div>
+                <div class="kpk-list" id="kpk-list" role="listbox" aria-label="Installed apps"></div>
               </div>
             {{else}}
               <input type="text" name="kiosk_package" class="form-input" value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
@@ -347,6 +352,38 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .kiosk-note.err{color:var(--danger,#e5484d);}
 .kiosk-sw.disabled{opacity:.45;}
 .kiosk-sw.disabled .kiosk-sw-tr{cursor:not-allowed;}
+/* Kiosk locked-app picker (grid/list) */
+#kiosk-pop{width:344px;}
+.kpk{display:flex;flex-direction:column;gap:8px;}
+.kpk-top{display:flex;gap:6px;align-items:center;}
+.kpk-search{position:relative;flex:1;display:flex;align-items:center;}
+.kpk-search svg{position:absolute;left:9px;color:var(--muted);pointer-events:none;}
+.kpk-search input{width:100%;font:inherit;font-size:13px;padding:7px 9px 7px 28px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2,var(--surface));color:var(--text);}
+.kpk-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft,rgba(79,99,214,.18));}
+.kpk-search input.kiosk-need{border-color:var(--danger,#e5484d);box-shadow:0 0 0 3px color-mix(in srgb,var(--danger,#e5484d) 22%,transparent);}
+.kpk-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;}
+.kpk-seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;cursor:pointer;display:grid;place-items:center;}
+.kpk-seg button.active{background:var(--accent-soft,rgba(79,99,214,.14));color:var(--accent-text,var(--accent));}
+.kpk-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;max-height:232px;overflow-y:auto;padding:2px;}
+.kpk-list{display:none;flex-direction:column;max-height:232px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;}
+.kpk.listview .kpk-grid{display:none;}
+.kpk.listview .kpk-list{display:flex;}
+.kpk-opt{position:relative;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit;}
+.kpk-opt:hover{border-color:var(--border-strong,var(--border));}
+.kpk-opt.sel{border-color:var(--accent);background:var(--accent-soft,rgba(79,99,214,.12));}
+.kpk-opt.kbd{box-shadow:0 0 0 2px var(--accent);}
+.kpk-opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.kpk-tile{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none;}
+.kpk-tile.none{background:var(--surface-2,var(--surface));color:var(--muted);border:1px dashed var(--border-strong,var(--border));}
+.kpk-txt{min-width:0;display:flex;flex-direction:column;}
+.kpk-nm{font-size:12px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kpk-pk{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kpk-check{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center;}
+.kpk-opt.sel .kpk-check{display:grid;}
+.kpk-list .kpk-opt{flex-direction:row;align-items:center;border:0;border-bottom:1px solid var(--border);border-radius:0;}
+.kpk-list .kpk-opt:last-child{border-bottom:0;}
+.kpk-list .kpk-check{position:static;margin-left:auto;background:transparent;color:var(--accent);}
+.kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1;}
 .dev-map-card{margin-top:16px;overflow:hidden;}
 .dev-map-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 16px 10px;}
 .dev-map{width:100%;height:300px;border:0;display:block;background:var(--surface-2,#f1ece5);}
@@ -356,10 +393,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
    `white-space:nowrap` (+ pill border) otherwise keeps it one line — it then
    overflows right and is clipped by the map card's overflow:hidden. Override that:
    let the address wrap as plain text, no pill box. */
-.dd-row-val.loc-addr{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;}
-.ddc-kv .v.loc-addr{flex-wrap:wrap;min-width:0;}
-.ddc-kv .v.loc-addr a{white-space:normal;overflow-wrap:anywhere;min-width:0;border:0;padding:0;text-align:right;}
-.dev-map-foot .loc-addr{white-space:normal;min-width:0;overflow-wrap:anywhere;}
+.dd-row-val.loc-addr{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;flex:1;text-align:left;}
+.ddc-kv .v.loc-addr{flex:1 1 auto;flex-wrap:wrap;min-width:0;justify-content:flex-start;text-align:left;}
+.ddc-kv .v.loc-addr a{white-space:normal;overflow-wrap:anywhere;min-width:0;border:0;padding:0;text-align:left;}
+.dev-map-foot .loc-addr{white-space:normal;min-width:0;overflow-wrap:anywhere;text-align:left;}
 </style>
 <div class="card chart-card">
   <div class="chart-loading" id="chart-loading" aria-live="polite"><span class="chart-spin" aria-hidden="true"></span><span class="chart-loading-t">Loading graphs…</span></div>
@@ -1658,7 +1695,7 @@ function filterInstalledApps(q) {
     if (cb.checked && pkg && !pkg.value.trim()) {
       // No app chosen yet — don't enable; nudge the picker instead.
       cb.checked = false;
-      var s = document.getElementById('kiosk-pkg-search');
+      var s = document.getElementById('kpk-q');
       if (s) { s.focus(); s.classList.add('kiosk-need'); setTimeout(function () { s.classList.remove('kiosk-need'); }, 1200); }
       kioskNote('Pick a locked app first', true);
       return;
@@ -1924,56 +1961,70 @@ async function saveNewApp() {
 </script>
 
 <script>
-// Searchable Kiosk Package picker: type to filter installed apps; the chosen
-// package id is stored in the hidden #kiosk-pkg-value the form submits.
+// Kiosk locked-app picker: an always-visible, searchable grid/list of installed
+// apps. Selecting one writes the package id to the hidden #kiosk-pkg-value and
+// fires 'change' (which re-applies if kiosk is on and un-gates the toggle). Apps
+// come from the server-rendered #kiosk-apps-src data island so grid and list stay
+// in sync from one source.
 (function () {
-  var combo = document.getElementById('kiosk-pkg-combo');
-  if (!combo) return;
-  var input = document.getElementById('kiosk-pkg-search');
+  var picker = document.getElementById('kiosk-picker');
+  if (!picker) return;
+  var src = document.getElementById('kiosk-apps-src');
   var hidden = document.getElementById('kiosk-pkg-value');
-  var opts = [].slice.call(combo.querySelectorAll('.pkg-opt'));
-  var active = -1;
-
-  function labelFor(val) {
-    for (var i = 0; i < opts.length; i++) {
-      if (opts[i].getAttribute('data-value') === val) {
-        var n = opts[i].querySelector('.pkg-opt-name');
-        return n ? n.textContent.trim() : opts[i].textContent.trim();
-      }
-    }
-    return '';
-  }
-  input.value = labelFor(hidden.value);
-
-  function open() { combo.classList.add('open'); input.setAttribute('aria-expanded', 'true'); }
-  function close() { combo.classList.remove('open'); input.setAttribute('aria-expanded', 'false'); active = -1; paint(); }
-  function visible() { return opts.filter(function (o) { return !o.classList.contains('hidden'); }); }
-  function paint() {
-    opts.forEach(function (o) { o.classList.remove('active'); });
-    var vis = visible();
-    if (active >= 0 && active < vis.length) { vis[active].classList.add('active'); vis[active].scrollIntoView({ block: 'nearest' }); }
-  }
-  function filter(q) {
-    q = q.trim().toLowerCase();
-    opts.forEach(function (o) {
-      var s = (o.getAttribute('data-search') || '').toLowerCase();
-      o.classList.toggle('hidden', q !== '' && s.indexOf(q) === -1);
-    });
-    active = -1; paint();
-  }
-  function choose(o) { hidden.value = o.getAttribute('data-value'); input.value = (o.querySelector('.pkg-opt-name') || o).textContent.trim(); close(); hidden.dispatchEvent(new Event('change', { bubbles: true })); }
-
-  input.addEventListener('focus', function () { filter(''); open(); input.select(); });
-  input.addEventListener('input', function () { filter(input.value); open(); });
-  input.addEventListener('keydown', function (e) {
-    var vis = visible();
-    if (e.key === 'ArrowDown') { e.preventDefault(); open(); active = Math.min(active + 1, vis.length - 1); paint(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); paint(); }
-    else if (e.key === 'Enter') { if (combo.classList.contains('open')) { e.preventDefault(); if (active >= 0) choose(vis[active]); } }
-    else if (e.key === 'Escape') { input.value = labelFor(hidden.value); close(); }
+  var q = document.getElementById('kpk-q');
+  var gridEl = document.getElementById('kpk-grid');
+  var listEl = document.getElementById('kpk-list');
+  var apps = [{ v: '', n: 'None (release to launcher)', none: true }];
+  [].forEach.call(src.querySelectorAll('i'), function (el) {
+    apps.push({ v: el.getAttribute('data-value'), n: el.getAttribute('data-name'), missing: el.hasAttribute('data-missing') });
   });
-  opts.forEach(function (o) { o.addEventListener('mousedown', function (e) { e.preventDefault(); choose(o); }); });
-  document.addEventListener('click', function (e) { if (!combo.contains(e.target)) { input.value = labelFor(hidden.value); close(); } });
+  var kbd = -1;
+
+  function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function colorFor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffffff; return 'hsl(' + (h % 360) + ' 52% 45%)'; }
+  function initial(n) { n = (n || '').replace(/^[^A-Za-z0-9]+/, ''); return (n.slice(0, 1) || '?').toUpperCase(); }
+  function match(a, s) { if (!s) return true; if (a.none) return 'none release launcher clear'.indexOf(s) >= 0; return (a.n + ' ' + a.v).toLowerCase().indexOf(s) >= 0; }
+  function filtered() { var s = q.value.trim().toLowerCase(); return apps.filter(function (a) { return match(a, s); }); }
+
+  function tileHtml(a) {
+    if (a.none) return '<span class="kpk-tile none">–</span>';
+    return '<span class="kpk-tile" style="background:' + colorFor(a.v || a.n) + '">' + esc(initial(a.n)) + '</span>';
+  }
+  function optHtml(a, i) {
+    var sel = hidden.value === a.v;
+    return '<button type="button" class="kpk-opt' + (sel ? ' sel' : '') + (i === kbd ? ' kbd' : '') + '" data-value="' + esc(a.v) + '" role="option" aria-selected="' + sel + '">' +
+      tileHtml(a) + '<span class="kpk-txt"><span class="kpk-nm">' + esc(a.n) + '</span>' +
+      (a.v ? '<span class="kpk-pk mono">' + esc(a.v) + (a.missing ? ' · not installed' : '') + '</span>' : '') + '</span>' +
+      '<span class="kpk-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span></button>';
+  }
+  function render() {
+    var items = filtered();
+    var html = items.length ? items.map(optHtml).join('') : '<div class="kpk-empty">No apps match.</div>';
+    gridEl.innerHTML = html; listEl.innerHTML = html;
+  }
+  function choose(v) { hidden.value = v; render(); hidden.dispatchEvent(new Event('change', { bubbles: true })); }
+
+  gridEl.addEventListener('click', pick); listEl.addEventListener('click', pick);
+  function pick(e) { var b = e.target.closest('.kpk-opt'); if (b) choose(b.getAttribute('data-value')); }
+
+  q.addEventListener('input', function () { kbd = -1; render(); });
+  q.addEventListener('keydown', function (e) {
+    var items = filtered();
+    if (e.key === 'ArrowDown') { e.preventDefault(); kbd = Math.min(kbd + 1, items.length - 1); render(); scrollKbd(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); kbd = Math.max(kbd - 1, 0); render(); scrollKbd(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (kbd >= 0 && items[kbd]) choose(items[kbd].v); else if (items.length === 1) choose(items[0].v); }
+  });
+  function scrollKbd() { var box = picker.classList.contains('listview') ? listEl : gridEl; var el = box.querySelector('.kpk-opt.kbd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+
+  function setView(v) {
+    picker.classList.toggle('listview', v === 'list');
+    document.getElementById('kpk-vgrid').classList.toggle('active', v === 'grid');
+    document.getElementById('kpk-vlist').classList.toggle('active', v === 'list');
+  }
+  document.getElementById('kpk-vgrid').onclick = function () { setView('grid'); };
+  document.getElementById('kpk-vlist').onclick = function () { setView('list'); };
+
+  render();
 })();
 </script>
 
