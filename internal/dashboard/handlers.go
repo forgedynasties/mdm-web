@@ -8446,6 +8446,57 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// CommandScreenshot serves a screenshot delivery's PNG from a normal same-origin
+// URL. The gallery stores each shot as a base64 data: URI, which renders fine as an
+// inline <img> but cannot be opened or downloaded through a link: browsers block
+// top-level navigation to data: URIs, so the "open" and "download" links landed on a
+// blank tab until a manual refresh (FW-2026-000018). Decoding the stored base64 here
+// gives those links a real URL that loads on first paint.
+func (h *Handler) CommandScreenshot(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+	serial := r.PathValue("serial")
+	cmd, err := h.db.GetCommand(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
+	if cmd.Type != "screenshot" {
+		http.Error(w, "Not a screenshot command", http.StatusBadRequest)
+		return
+	}
+	deliveries, err := h.db.GetCommandDeliveries(r.Context(), id, h.cfg.CommandExpiry())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	var b64 string
+	for _, d := range deliveries {
+		if d.SerialNumber == serial {
+			b64 = d.Output
+			break
+		}
+	}
+	if b64 == "" {
+		http.Error(w, "Screenshot not available", http.StatusNotFound)
+		return
+	}
+	png, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		http.Error(w, "Corrupt screenshot", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "private, max-age=300")
+	if r.URL.Query().Get("download") != "" {
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", "screenshot-"+serial+".png"))
+	}
+	w.Write(png)
+}
+
 // cmdAuthz is the outcome of a command-authorization check. It distinguishes an
 // unknown command type (a client error -> 400) from a known type the caller's
 // role may not issue (an authorization error -> 403).
@@ -11794,6 +11845,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /commands/logcat-suggest", h.requireAuth(h.LogcatAISuggest))
 	post("POST /alerts/{id}/logcat/analyze", h.requireAuth(h.AlertLogcatAnalyze))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
+	mux.HandleFunc("GET /commands/{id}/screenshot/{serial}", h.requireAuth(h.CommandScreenshot))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
 	post("POST /commands/{id}/delete", h.requireAdmin(h.CommandDelete))
