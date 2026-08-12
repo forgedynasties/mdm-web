@@ -598,6 +598,17 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	return deviceID, pollIntervalMs, isNew, tx.Commit(ctx)
 }
 
+// TouchLastSeen stamps a device's last_seen_at without recording a check-in. It is
+// called when a WebSocket drops so "Last seen" reflects the moment the device was
+// last live over WS, not its last change-gated check-in — those can lag several
+// minutes on an idle-but-online device, which is what made a just-dropped device
+// read as "8m ago". While connected the device shows Online and the text is hidden,
+// so this value only surfaces once it goes offline.
+func (d *DB) TouchLastSeen(ctx context.Context, deviceID uuid.UUID, t time.Time) error {
+	_, err := d.pool.Exec(ctx, `UPDATE devices SET last_seen_at = $2 WHERE id = $1`, deviceID, t)
+	return err
+}
+
 // IngestDeviceEvents records crash/ANR/tombstone entries and reboots carried in a
 // check-in's extra. Crashes are deduped by (device, kind, occurred_at) so the client
 // can safely re-report the last hour every check-in; a reboot is recorded when the

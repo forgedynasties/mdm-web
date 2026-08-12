@@ -154,6 +154,14 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 
 	go client.WritePump()
 	client.ReadPump() // blocks until connection closes
+
+	// The socket just closed: stamp last_seen with the moment the device stopped
+	// being live over WS, so the fleet's "Last seen" tracks real WS liveness instead
+	// of the last change-gated check-in (which can lag 5-8 min on an idle-but-online
+	// device). r.Context() is already cancelled here, so use a fresh context.
+	if err := h.db.TouchLastSeen(context.Background(), device.ID, time.Now()); err != nil {
+		log.Printf("[ws] touch last_seen failed for %s: %v", serial, err)
+	}
 }
 
 // runTelemetryRequestLoop sends a telemetry_request to the device on the
