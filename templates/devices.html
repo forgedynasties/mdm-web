@@ -308,7 +308,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
             <td class="mono" style="white-space:nowrap;"><span class="ws-dot {{if index $.Online .ID}}online{{end}}"></span><a href="/devices/{{.SerialNumber}}" class="link-detail" data-full="1" hx-boost="false">{{.SerialNumber}}</a></td>
             <td class="mono small">{{.BuildID}}</td>
             <td>{{.BatteryPct}}%</td>
-            <td class="muted">{{timeSince .LastSeenAt}}</td>
+            <td class="muted">{{if index $.Online .ID}}<span class="ws-dot online"></span>Online{{else}}{{timeSince .LastSeenAt}}{{end}}</td>
           </tr>
           {{else}}
           <tr><td colspan="4" class="muted" style="padding:20px;text-align:center;">No devices in this {{if $isRest}}restaurant{{else}}group{{end}} yet.</td></tr>
