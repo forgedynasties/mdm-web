@@ -75,7 +75,6 @@
       <button type="button" class="ch-pill" data-ct="shell" onclick="cmdHistFilter('shell',this)">Shell</button>
       <button type="button" class="ch-pill" data-ct="screenshot" onclick="cmdHistFilter('screenshot',this)">Screenshot</button>
       <button type="button" class="ch-pill" data-ct="reboot" onclick="cmdHistFilter('reboot',this)">Reboot</button>
-      <button type="button" class="ch-pill" data-ct="logcat" onclick="cmdHistFilter('logcat',this)">Logcat</button>
     </div>
     <div class="ddc-activity{{if gt (len .Commands) 10}} ch-collapsed{{end}}" id="ch-list">
       {{range $i, $c := .Commands}}
@@ -154,8 +153,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <button type="button" class="ddc-btn" id="ddc-actions-btn" onclick="ddActionsToggle(event)" aria-haspopup="true" aria-expanded="false">Actions <svg class="ddc-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="ddc-menu" id="ddc-actions-menu" hidden>
           <div class="ddc-mcap">Diagnostics</div>
-          <a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/logcat/live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Live logs</a>
-          <a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/logcat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16M17 10l3 2-3 2"/></svg>Logcat (pull)</a>
+          <a class="ddc-mi" href="/devices/{{.Device.SerialNumber}}/logcat/live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6h16M4 12h10M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg>Realtime logs</a>
           <form method="POST" action="/devices/{{.Device.SerialNumber}}/commands" style="margin:0;"><input type="hidden" name="type" value="screenshot"><button type="submit" class="ddc-mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Screenshot</button></form>
           {{if canOperate .Role}}
           <div class="ddc-msep"></div>
@@ -2249,8 +2247,7 @@ async function saveNewApp() {
   <h1 class="ov-title">History</h1>
   <span class="ov-date">check-in and action history for this device</span>
   <span class="acts">
-    <a href="/devices/{{.Device.SerialNumber}}/logcat" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><path d="M17 10l3 2-3 2"/></svg></span>Logcat</a>
-    <a href="/devices/{{.Device.SerialNumber}}/logcat/live" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>Live logs</a>
+    <a href="/devices/{{.Device.SerialNumber}}/logcat/live" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/><circle cx="18" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>Realtime logs</a>
   </span>
 </div>
 
