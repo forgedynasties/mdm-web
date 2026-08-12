@@ -30,7 +30,29 @@ import (
 	"mdm/internal/ws"
 )
 
-var ()
+// geoStore adapts *db.DB to geolocate.LocationStore, backing the WiFi geolocation
+// resolver with the DB-persisted learned WiFi-AP index.
+type geoStore struct{ db *db.DB }
+
+func (s geoStore) LookupAPs(ctx context.Context, bssids []string, fresherThan time.Time) ([]geolocate.APLocation, error) {
+	rows, err := s.db.LookupWifiAPs(ctx, bssids, fresherThan)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]geolocate.APLocation, len(rows))
+	for i, r := range rows {
+		out[i] = geolocate.APLocation{BSSID: r.BSSID, Lat: r.Lat, Lon: r.Lon, Accuracy: r.Accuracy}
+	}
+	return out, nil
+}
+
+func (s geoStore) LearnAPs(ctx context.Context, bssids []string, lat, lon, accuracy float64) error {
+	return s.db.LearnWifiAPs(ctx, bssids, lat, lon, accuracy)
+}
+
+func (s geoStore) BumpAPHits(ctx context.Context, bssids []string) error {
+	return s.db.BumpWifiAPHits(ctx, bssids)
+}
 
 func main() {
 	ctx := context.Background()
@@ -188,7 +210,10 @@ func main() {
 	var geo *geolocate.Resolver
 	if key := os.Getenv("GOOGLE_GEOLOCATION_API_KEY"); key != "" {
 		geo = geolocate.New(key)
-		log.Println("Geolocation resolver enabled (Google Geolocation API)")
+		// Back the resolver with the DB-persisted learned WiFi-AP index so scans that
+		// overlap previously-seen APs resolve without calling Google.
+		geo.SetStore(geoStore{db: database})
+		log.Println("Geolocation resolver enabled (Google Geolocation API + learned WiFi index)")
 	}
 	var geocoder *geolocate.Geocoder
 	if key := os.Getenv("GOOGLE_GEOCODING_API_KEY"); key != "" {

@@ -39,10 +39,115 @@ type Resolver struct {
 	lastCall time.Time
 	callMu   sync.Mutex
 	meter    *Meter
+	store    LocationStore
 }
+
+// APLocation is a learned WiFi access point → geographic point mapping.
+type APLocation struct {
+	BSSID    string
+	Lat      float64
+	Lon      float64
+	Accuracy float64
+}
+
+// LocationStore is the persistence for the learned WiFi-AP index. It lets the
+// resolver locate a device from a scan that overlaps previously-seen APs without
+// calling Google. Implemented by the db layer (adapted in main); may be nil, in
+// which case the resolver falls back to the in-memory cache + Google only.
+type LocationStore interface {
+	// LookupAPs returns learned locations for the given BSSIDs seen at/after fresherThan.
+	LookupAPs(ctx context.Context, bssids []string, fresherThan time.Time) ([]APLocation, error)
+	// LearnAPs records the resolved point for a scan's BSSIDs (upsert, refresh seen_at).
+	LearnAPs(ctx context.Context, bssids []string, lat, lon, accuracy float64) error
+	// BumpAPHits increments the hit counter for APs that just served a local lookup.
+	BumpAPHits(ctx context.Context, bssids []string) error
+}
+
+// Tunables for the learned index.
+const (
+	// LearnedFreshWindow bounds how old a learned AP may be before it is ignored
+	// (APs get moved/replaced). Refreshed whenever Google reconfirms the AP.
+	LearnedFreshWindow = 14 * 24 * time.Hour
+	// minKnownAPs / minOverlapRatio gate a local estimate: enough of the scan's APs
+	// must be known, both in absolute count and as a fraction, to trust the result
+	// (guards against a moved device that shares a few APs with an old location).
+	minKnownAPs     = 3
+	minOverlapRatio = 0.5
+	// localEstAccuracyFloor inflates the reported accuracy of a locally-estimated
+	// point — a centroid is coarser than a Google fix.
+	localEstAccuracyFloor = 50.0
+)
+
+// SetStore attaches a learned-index store (called from main after construction).
+func (r *Resolver) SetStore(s LocationStore) { r.store = s }
 
 // Stats returns a snapshot of this resolver's Google Geolocation API usage.
 func (r *Resolver) Stats() MeterSnapshot { return r.meter.Snapshot() }
+
+// bssidList returns the BSSIDs of a scan (unfiltered).
+func bssidList(aps []WifiAP) []string {
+	out := make([]string, 0, len(aps))
+	for _, ap := range aps {
+		if ap.BSSID != "" {
+			out = append(out, ap.BSSID)
+		}
+	}
+	return out
+}
+
+// estimateFromAPs computes an RSSI-weighted centroid of the scan's APs that are
+// present in the learned set. Returns ok=false unless the overlap clears both the
+// absolute and fractional thresholds. Also returns the matched BSSIDs (for hit-bumping).
+func estimateFromAPs(aps []WifiAP, known []APLocation) (lat, lon, acc float64, matched []string, ok bool) {
+	byB := make(map[string]APLocation, len(known))
+	for _, k := range known {
+		byB[strings.ToUpper(k.BSSID)] = k
+	}
+	var sumW, sumLat, sumLon, maxAcc float64
+	for _, ap := range aps {
+		k, found := byB[strings.ToUpper(ap.BSSID)]
+		if !found {
+			continue
+		}
+		// RSSI (dBm, negative) → weight: stronger AP counts more. -40→60, -85→15.
+		w := float64(ap.RSSI) + 100
+		if w < 1 {
+			w = 1
+		}
+		sumW += w
+		sumLat += w * k.Lat
+		sumLon += w * k.Lon
+		if k.Accuracy > maxAcc {
+			maxAcc = k.Accuracy
+		}
+		matched = append(matched, ap.BSSID)
+	}
+	n := len(matched)
+	if n < minKnownAPs || sumW == 0 {
+		return 0, 0, 0, nil, false
+	}
+	if len(aps) == 0 || float64(n)/float64(len(aps)) < minOverlapRatio {
+		return 0, 0, 0, nil, false
+	}
+	acc = maxAcc
+	if acc < localEstAccuracyFloor {
+		acc = localEstAccuracyFloor
+	}
+	return sumLat / sumW, sumLon / sumW, acc, matched, true
+}
+
+// storeInCache writes a resolved/estimated point to the in-memory exact-scan cache.
+func (r *Resolver) storeInCache(key string, lat, lon, accuracy float64) {
+	r.mu.Lock()
+	r.cache[key] = cachedLocation{Lat: lat, Lon: lon, Accuracy: accuracy, ExpiresAt: time.Now().Add(cacheTTL)}
+	if len(r.cache) > 2000 {
+		for k := range r.cache {
+			delete(r.cache, k)
+			break
+		}
+	}
+	r.mu.Unlock()
+}
 
 // New creates a Resolver bound to a Google Geolocation API key, with a 15s
 // timeout and an in-memory cache (5 min TTL). apiKey must be non-empty.
@@ -60,6 +165,12 @@ func New(apiKey string) *Resolver {
 // ErrCooldown is returned when Resolve is called within the cooldown period.
 var ErrCooldown = fmt.Errorf("geolocation cooldown")
 
+// cacheTTL is how long an exact-scan result stays in the in-memory cache. Bumped
+// from 5m to 1h: kiosks are stationary, so re-resolving the identical scan every
+// few minutes just burned Google calls. The learned index handles partial/overlap
+// matches and cross-device sharing on top of this.
+const cacheTTL = time.Hour
+
 // Resolve resolves a set of WiFi APs to a latitude/longitude using the Google
 // Geolocation API. Returns zero values and an error on failure. Results are
 // cached for 5 minutes keyed by all BSSIDs (sorted alphabetically, stable
@@ -71,16 +182,10 @@ func (r *Resolver) Resolve(ctx context.Context, aps []WifiAP) (lat, lon, accurac
 
 	// Global cooldown — don't call the API more than once per 10s regardless of
 	// whether the AP set changed. RSSI drift can cause cache-key churn otherwise.
-	r.callMu.Lock()
-	if elapsed := time.Since(r.lastCall); elapsed < 10*time.Second {
-		r.callMu.Unlock()
-		r.meter.MarkCooldown()
-		return 0, 0, 0, ErrCooldown
-	}
-	r.callMu.Unlock()
-
 	key := cacheKey(aps)
 
+	// 1. In-memory exact-scan cache — fastest, no I/O. Checked before the cooldown
+	//    so a repeat scan is always served instantly even during the cooldown window.
 	r.mu.RLock()
 	if c, ok := r.cache[key]; ok && time.Now().Before(c.ExpiresAt) {
 		r.mu.RUnlock()
@@ -89,31 +194,51 @@ func (r *Resolver) Resolve(ctx context.Context, aps []WifiAP) (lat, lon, accurac
 	}
 	r.mu.RUnlock()
 
-	// Mark call time right before the HTTP call so concurrent goroutines wait.
+	// 2. Learned WiFi-AP index — locate from previously-seen APs without calling
+	//    Google. This is the main cost saver: after a location's APs are learned
+	//    once, every overlapping scan (same or nearby device) resolves locally.
+	if r.store != nil {
+		if known, e := r.store.LookupAPs(ctx, bssidList(aps), time.Now().Add(-LearnedFreshWindow)); e == nil && len(known) > 0 {
+			if elat, elon, eacc, matched, ok := estimateFromAPs(aps, known); ok {
+				r.meter.MarkLocalHit()
+				r.storeInCache(key, elat, elon, eacc)
+				if err := r.store.BumpAPHits(ctx, matched); err != nil {
+					log.Printf("[geolocate] bump hits: %v", err)
+				}
+				return elat, elon, eacc, nil
+			}
+		} else if e != nil {
+			log.Printf("[geolocate] learned-index lookup: %v", e)
+		}
+	}
+
+	// 3. Global cooldown — only gates real Google calls now (cache/index hits above
+	//    are already served). Don't call the API more than once per 10s server-wide.
 	r.callMu.Lock()
+	if elapsed := time.Since(r.lastCall); elapsed < 10*time.Second {
+		r.callMu.Unlock()
+		r.meter.MarkCooldown()
+		return 0, 0, 0, ErrCooldown
+	}
 	r.lastCall = time.Now()
 	r.callMu.Unlock()
 
+	// 4. Google Geolocation API.
 	lat, lon, accuracy, err = r.query(ctx, aps)
 	if err != nil {
 		r.meter.MarkError(err)
 		return 0, 0, 0, err
 	}
 	r.meter.MarkSuccess()
+	r.storeInCache(key, lat, lon, accuracy)
 
-	r.mu.Lock()
-	r.cache[key] = cachedLocation{
-		Lat: lat, Lon: lon, Accuracy: accuracy,
-		ExpiresAt: time.Now().Add(5 * time.Minute),
-	}
-	// Keep cache bounded
-	if len(r.cache) > 2000 {
-		for k := range r.cache {
-			delete(r.cache, k)
-			break
+	// 5. Learn: stamp every AP in this scan with the resolved point so future
+	//    overlapping scans resolve locally.
+	if r.store != nil {
+		if err := r.store.LearnAPs(ctx, bssidList(aps), lat, lon, accuracy); err != nil {
+			log.Printf("[geolocate] learn APs: %v", err)
 		}
 	}
-	r.mu.Unlock()
 
 	return lat, lon, accuracy, nil
 }
