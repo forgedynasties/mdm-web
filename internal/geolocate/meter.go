@@ -17,7 +17,8 @@ type Meter struct {
 	mu        sync.Mutex
 	successes uint64 // requests that reached Google and returned a usable answer
 	errors    uint64 // requests that failed (transport, non-200, or denied status)
-	hits      uint64 // answered from cache — no request sent
+	hits      uint64 // answered from the in-memory exact-scan cache — no request sent
+	localHits uint64 // answered from the learned WiFi-AP index (DB) — no request sent
 	cooldowns uint64 // skipped by the global cooldown — no request sent
 	lastErr   string
 	lastErrAt time.Time
@@ -79,10 +80,17 @@ func (m *Meter) MarkError(err error) {
 	m.mu.Unlock()
 }
 
-// MarkHit records a cache hit (no request sent).
+// MarkHit records an in-memory exact-scan cache hit (no request sent).
 func (m *Meter) MarkHit() {
 	m.mu.Lock()
 	m.hits++
+	m.mu.Unlock()
+}
+
+// MarkLocalHit records a lookup served from the learned WiFi-AP index (no request sent).
+func (m *Meter) MarkLocalHit() {
+	m.mu.Lock()
+	m.localHits++
 	m.mu.Unlock()
 }
 
@@ -99,6 +107,7 @@ type MeterSnapshot struct {
 	Errors    uint64    `json:"errors"`
 	Requests  uint64    `json:"requests"` // successes + errors (billable outbound)
 	Hits      uint64    `json:"hits"`
+	LocalHits uint64    `json:"local_hits"`
 	Cooldowns uint64    `json:"cooldowns"`
 	Last24h   uint64    `json:"last_24h"`  // outbound requests in the rolling 24h window
 	Hourly    []uint64  `json:"hourly"`    // 24 buckets, oldest→newest, ending this hour
@@ -127,6 +136,7 @@ func (m *Meter) Snapshot() MeterSnapshot {
 		Errors:    m.errors,
 		Requests:  m.successes + m.errors,
 		Hits:      m.hits,
+		LocalHits: m.localHits,
 		Cooldowns: m.cooldowns,
 		Last24h:   last24,
 		Hourly:    hourly,
