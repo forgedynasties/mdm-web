@@ -66,6 +66,38 @@ function toggleSection(header) {
     header.setAttribute('aria-expanded', 'true');
   }
 }
+
+// Bulk-remove from group. The device-cards checkboxes call updateBulkBar() (the
+// name the shared "Selectable" card markup hard-codes); here it drives the group
+// members bar. Markup lives inside #group-members so it survives the in-place
+// htmx refresh; these handlers are defined once on the full page and persist.
+function grpUpdateBulkBar() {
+  var boxes = document.querySelectorAll('#group-members .device-cb');
+  var n = 0;
+  boxes.forEach(function (b) { if (b.checked) n++; });
+  var bar = document.getElementById('grp-bulk-bar');
+  var cnt = document.getElementById('grp-bulk-count');
+  var all = document.getElementById('grp-select-all');
+  if (cnt) cnt.textContent = n + ' selected';
+  if (bar) bar.style.display = n ? 'flex' : 'none';
+  if (all) all.checked = boxes.length > 0 && n === boxes.length;
+}
+window.updateBulkBar = grpUpdateBulkBar;
+function grpToggleAll(cb) {
+  document.querySelectorAll('#group-members .device-cb').forEach(function (b) { b.checked = cb.checked; });
+  grpUpdateBulkBar();
+}
+function grpRemoveSelected(gid) {
+  var serials = [];
+  document.querySelectorAll('#group-members .device-cb').forEach(function (b) { if (b.checked) serials.push(b.value); });
+  if (!serials.length) return;
+  if (!confirm('Remove ' + serials.length + ' device(s) from this group?')) return;
+  var fd = new FormData();
+  serials.forEach(function (s) { fd.append('serials', s); });
+  fetch('/groups/' + gid + '/devices/remove', { method: 'POST', body: fd, headers: { 'HX-Request': 'true' } })
+    .then(function (r) { if (r.ok) document.body.dispatchEvent(new CustomEvent('group-updated')); })
+    .catch(function () {});
+}
 </script>
 
 {{template "footer" .}}
@@ -85,7 +117,16 @@ function toggleSection(header) {
     </div>
   </div>
   {{else}}
-  {{$rm := ""}}{{if canAdminOrTester .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{end}}
-  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm)}}
+  {{$rm := ""}}{{$sel := false}}{{if canAdminOrTester .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{$sel = true}}{{end}}
+  {{if $sel}}
+  <div class="grp-bulk-tb" style="display:flex;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid var(--border);">
+    <label class="checkbox-label" style="gap:8px;font-size:13px;color:var(--muted);"><input type="checkbox" id="grp-select-all" onchange="grpToggleAll(this)"> Select all</label>
+    <div id="grp-bulk-bar" style="display:none;align-items:center;gap:10px;">
+      <span class="muted small" id="grp-bulk-count">0 selected</span>
+      <button type="button" class="btn-danger-sm" onclick="grpRemoveSelected('{{.Group.ID}}')">Remove from group</button>
+    </div>
+  </div>
+  {{end}}
+  {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm "Selectable" $sel)}}
   {{end}}
 {{end}}

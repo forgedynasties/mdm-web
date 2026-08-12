@@ -1699,6 +1699,20 @@ func (d *DB) RemoveDeviceFromGroup(ctx context.Context, serial string, groupID u
 	return err
 }
 
+// RemoveDevicesFromGroup removes many devices from a group in one statement, so the
+// group members list can offer a bulk "Remove from group" instead of one-by-one.
+func (d *DB) RemoveDevicesFromGroup(ctx context.Context, serials []string, groupID uuid.UUID) error {
+	if len(serials) == 0 {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx, `
+		DELETE FROM device_groups
+		WHERE group_id = $2
+		AND device_id IN (SELECT id FROM devices WHERE serial_number = ANY($1))
+	`, serials, groupID)
+	return err
+}
+
 // ListDeviceGroups returns the groups a single device belongs to (for the device
 // detail page's placement block).
 func (d *DB) ListDeviceGroups(ctx context.Context, deviceID uuid.UUID) ([]Group, error) {
