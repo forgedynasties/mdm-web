@@ -190,7 +190,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <div class="ddc-kpop" id="kiosk-pop" hidden>
         {{if canAdminOrTester .Role}}
         <div class="ddc-kpop-h">Kiosk mode</div>
-        <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST">
+        <form id="kiosk-form" action="/devices/{{.Device.SerialNumber}}/kiosk" method="POST" hx-boost="false" onsubmit="return false;">
           <input type="hidden" name="kiosk_enabled" id="kiosk-enabled-val" value="{{if .KioskConfig.KioskEnabled}}1{{else}}0{{end}}">
           <div class="ddc-kpop-row">
             <span class="form-label" style="margin:0;">Enabled</span>
@@ -219,6 +219,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             {{end}}
             <span class="muted small">Pick the app, then turn kiosk on. Applied on the next check-in.</span>
           </div>
+          <div id="kiosk-note" class="kiosk-note" role="status" aria-live="polite"></div>
         </form>
         {{end}}
         {{/* Unlock-code card retired: kiosk exit is now the on-device long-press-Back +
@@ -342,6 +343,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .chart-loading-t{font-size:12.5px;color:var(--muted,#7e776d);font-weight:500;letter-spacing:.01em;}
 @keyframes chartspin{to{transform:rotate(360deg);}}
 @media(prefers-reduced-motion:reduce){.chart-spin{animation-duration:1.8s;}}
+.kiosk-note{min-height:15px;margin-top:10px;font-size:12px;color:var(--muted);}
+.kiosk-note.err{color:var(--danger,#e5484d);}
 .dev-map-card{margin-top:16px;overflow:hidden;}
 .dev-map-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:12px 16px 10px;}
 .dev-map{width:100%;height:300px;border:0;display:block;background:var(--surface-2,#f1ece5);}
@@ -1593,28 +1596,63 @@ function filterInstalledApps(q) {
     if (open) pop.removeAttribute('hidden'); else pop.setAttribute('hidden', '');
     if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
   };
-  // Kiosk enable/disable toggle: submit on change. Enabling needs a locked app.
-  window.kioskToggle = function (cb) {
+  // Show a transient status line inside the popover.
+  function kioskNote(msg, isErr) {
+    var n = document.getElementById('kiosk-note');
+    if (!n) return;
+    n.textContent = msg || '';
+    n.classList.toggle('err', !!isErr);
+  }
+  // Persist the kiosk config via fetch (no navigation, popover stays open) and update
+  // the pill/toggle optimistically. The pill flips instantly; the real device applies
+  // it on its next check-in (and SSE will confirm/settle the state either way).
+  var kioskBusy = false;
+  window.kioskSubmit = function (enabled) {
     var form = document.getElementById('kiosk-form');
     var val = document.getElementById('kiosk-enabled-val');
     var pkg = document.getElementById('kiosk-pkg-value');
     if (!form || !val) return;
+    val.value = enabled ? '1' : '0';
+    var body = new FormData();
+    body.append('kiosk_enabled', enabled ? '1' : '0');
+    body.append('kiosk_package', pkg ? pkg.value : '');
+    // Optimistic: reflect the new state in the header pill + toggle right away.
+    if (window.mdmSyncKiosk) window.mdmSyncKiosk(enabled);
+    kioskNote(enabled ? 'Kiosk on — applies on next check-in' : 'Kiosk off — applies on next check-in');
+    kioskBusy = true;
+    fetch(form.action, {
+      method: 'POST', body: body, credentials: 'same-origin',
+      // Ask for the 204 no-content response (like htmx) so the server doesn't render
+      // and return a whole device page we'd only throw away.
+      headers: { 'HX-Request': 'true' }
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+    }).catch(function () {
+      // Roll back the optimistic flip on failure.
+      if (window.mdmSyncKiosk) window.mdmSyncKiosk(!enabled);
+      kioskNote('Could not save — try again', true);
+    }).finally(function () { kioskBusy = false; });
+  };
+  // Enable/disable toggle. Enabling requires a locked app first.
+  window.kioskToggle = function (cb) {
+    var pkg = document.getElementById('kiosk-pkg-value');
     if (cb.checked && pkg && !pkg.value.trim()) {
       // No app chosen yet — don't enable; nudge the picker instead.
       cb.checked = false;
       var s = document.getElementById('kiosk-pkg-search');
       if (s) { s.focus(); s.classList.add('kiosk-need'); setTimeout(function () { s.classList.remove('kiosk-need'); }, 1200); }
+      kioskNote('Pick a locked app first', true);
       return;
     }
-    val.value = cb.checked ? '1' : '0';
-    if (form.requestSubmit) form.requestSubmit(); else form.submit();
+    window.kioskSubmit(cb.checked);
   };
-  // Changing the locked app while kiosk is on re-applies it immediately.
+  // Picking a different app: while kiosk is ON, re-apply it immediately (popover stays
+  // open). While OFF, just record the choice — enabling later will use it.
   document.addEventListener('change', function (e) {
     if (e.target && e.target.id === 'kiosk-pkg-value') {
       var t = document.getElementById('kiosk-toggle');
-      var form = document.getElementById('kiosk-form');
-      if (t && t.checked && form) { if (form.requestSubmit) form.requestSubmit(); else form.submit(); }
+      if (t && t.checked) window.kioskSubmit(true);
+      else kioskNote('App selected — turn kiosk on to apply');
     }
   });
   document.addEventListener('click', function (e) {
