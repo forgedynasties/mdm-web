@@ -185,7 +185,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     {{if canAdminOrTester .Role}}
     <span class="ddc-kpop-wrap">
       <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="Configure kiosk mode">
-        <span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span> <svg class="ddc-kcaret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        <span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
       </button>
       <div class="modal-backdrop" id="kiosk-modal" onclick="kioskModalBackdrop(event)">
         <div class="modal-box kiosk-modal-box" role="dialog" aria-modal="true" aria-label="Kiosk mode">
@@ -219,20 +219,18 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             {{end}}
             <span class="muted small">Pick the app, then turn kiosk on. Applied on the next check-in.</span>
           </div>
-          <div class="kiosk-enable">
-            <div class="kiosk-enable-txt">
-              <div class="kiosk-enable-t">Enable kiosk</div>
-              <div class="muted small">Locks the device to the selected app until you turn it off</div>
-            </div>
-            <label class="kiosk-sw" title="Enable / disable kiosk">
-              <input type="checkbox" id="kiosk-toggle" {{if .KioskConfig.KioskEnabled}}checked{{end}} onchange="kioskToggle(this)">
-              <span class="kiosk-sw-tr"><span class="kiosk-sw-kn"></span></span>
-            </label>
-          </div>
-          <div id="kiosk-note" class="kiosk-note" role="status" aria-live="polite"></div>
         </form>
         {{end}}
         </div>
+        {{if canAdminOrTester .Role}}
+        <div class="kiosk-modal-foot">
+          <div id="kiosk-note" class="kiosk-note" role="status" aria-live="polite"></div>
+          <div class="kiosk-foot-btns">
+            <button type="button" class="btn-outline" onclick="kioskModalClose()">Close</button>
+            <button type="button" id="kiosk-enable-btn" class="btn-primary" onclick="kioskEnableClick()">Enable kiosk</button>
+          </div>
+        </div>
+        {{end}}
         </div>
       </div>
     </span>
@@ -342,8 +340,9 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .kiosk-modal-body{padding:20px;overflow-y:auto;flex:1;min-height:0;}
 .kiosk-modal-body .form-row{margin:0;}
 .kiosk-modal-body .form-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;display:block;}
-.kiosk-enable{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);}
-.kiosk-enable-t{font-size:14px;font-weight:650;}
+.kiosk-modal-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--border);flex:none;}
+.kiosk-modal-foot .kiosk-note{margin-top:0;flex:1;min-width:120px;}
+.kiosk-foot-btns{display:flex;gap:10px;margin-left:auto;}
 #kiosk-modal .kpk-grid{grid-template-columns:repeat(3,1fr);max-height:344px;}
 #kiosk-modal .kpk-list{max-height:344px;}
 /* Kiosk locked-app picker (grid/list) */
@@ -1655,9 +1654,8 @@ function filterInstalledApps(q) {
     var body = new URLSearchParams();
     body.append('kiosk_enabled', enabled ? '1' : '0');
     body.append('kiosk_package', pkg ? pkg.value : '');
-    // Optimistic: reflect the new state in the header pill + toggle right away.
+    // Optimistic: reflect the new state in the header pill right away.
     if (window.mdmSyncKiosk) window.mdmSyncKiosk(enabled);
-    kioskNote(enabled ? 'Kiosk on — applies on next check-in' : 'Kiosk off — applies on next check-in');
     kioskBusy = true;
     fetch(form.action, {
       method: 'POST', body: body, credentials: 'same-origin',
@@ -1674,38 +1672,51 @@ function filterInstalledApps(q) {
   };
   // The enable toggle stays disabled until a locked app is chosen — so it can never
   // silently "snap back". Turning kiosk OFF is always allowed.
+  // Reflect the current kiosk state on the footer button: "Enable kiosk" (primary,
+  // disabled until an app is chosen) when off; "Turn off kiosk" (danger) when on.
+  // Named kioskRefreshToggle for continuity with its callers (mdmSyncKiosk, SSE).
   window.kioskRefreshToggle = function () {
-    var tog = document.getElementById('kiosk-toggle');
+    var btn = document.getElementById('kiosk-enable-btn');
+    if (!btn) return;
+    var hid = document.getElementById('kiosk-enabled-val');
     var pkg = document.getElementById('kiosk-pkg-value');
-    if (!tog) return;
+    var on = hid && hid.value === '1';
     var hasApp = pkg ? !!pkg.value.trim() : true; // plain-input fallback: don't gate
-    var lock = !tog.checked && !hasApp;            // block enabling, allow disabling
-    tog.disabled = lock;
-    var wrap = tog.closest('.kiosk-sw');
-    if (wrap) wrap.classList.toggle('disabled', lock);
-    var n = document.getElementById('kiosk-note');
-    if (n && !n.classList.contains('err') && lock) kioskNote('Select a locked app to enable');
+    if (on) {
+      btn.textContent = 'Turn off kiosk';
+      btn.classList.remove('btn-primary'); btn.classList.add('btn-danger-sm');
+      btn.disabled = false;
+    } else {
+      btn.textContent = 'Enable kiosk';
+      btn.classList.add('btn-primary'); btn.classList.remove('btn-danger-sm');
+      btn.disabled = !hasApp;
+      var n = document.getElementById('kiosk-note');
+      if (n && !n.classList.contains('err')) kioskNote(hasApp ? '' : 'Select a locked app to enable');
+    }
   };
-  // Enable/disable toggle.
-  window.kioskToggle = function (cb) {
+  // Footer button: lock to the chosen app (or turn kiosk off), then close the modal.
+  // The pill flips immediately via kioskSubmit -> mdmSyncKiosk.
+  window.kioskEnableClick = function () {
+    var hid = document.getElementById('kiosk-enabled-val');
     var pkg = document.getElementById('kiosk-pkg-value');
-    if (cb.checked && pkg && !pkg.value.trim()) {
-      // No app chosen yet — don't enable; nudge the picker instead.
-      cb.checked = false;
+    var on = hid && hid.value === '1';
+    if (on) { window.kioskSubmit(false); window.kioskModalClose(); return; }
+    if (pkg && !pkg.value.trim()) {
       var s = document.getElementById('kpk-q');
       if (s) { s.focus(); s.classList.add('kiosk-need'); setTimeout(function () { s.classList.remove('kiosk-need'); }, 1200); }
       kioskNote('Pick a locked app first', true);
       return;
     }
-    window.kioskSubmit(cb.checked);
+    window.kioskSubmit(true);
+    window.kioskModalClose();
   };
-  // Picking a different app: while kiosk is ON, re-apply it immediately (popover stays
-  // open). While OFF, just record the choice and un-gate the toggle.
+  // Picking a different app: while kiosk is ON, re-apply it immediately (modal stays
+  // open); while OFF, record the choice and un-gate the Enable button.
   document.addEventListener('change', function (e) {
     if (e.target && e.target.id === 'kiosk-pkg-value') {
-      var t = document.getElementById('kiosk-toggle');
-      if (t && t.checked) window.kioskSubmit(true);
-      else kioskNote('App selected — turn kiosk on to apply');
+      var hid = document.getElementById('kiosk-enabled-val');
+      if (hid && hid.value === '1') window.kioskSubmit(true);
+      else kioskNote('App selected — press Enable kiosk to lock');
       window.kioskRefreshToggle();
     }
   });
