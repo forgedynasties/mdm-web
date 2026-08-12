@@ -7762,7 +7762,6 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
-	logcatRecent, logcatFrequent, _ := h.db.FleetLogcatSuggestions(r.Context(), 8)
 	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), actionsWindowDays)
@@ -7933,8 +7932,6 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"TargetSerials":    targetSerials,
 		"ShellRecent":      shellRecent,
 		"ShellPopular":     shellPopular,
-		"LogcatRecent":     logcatRecent,
-		"LogcatFrequent":   logcatFrequent,
 		"AIEnabled":        h.cfg.AIEnabled(),
 		"Prefill":          prefill,
 	})
@@ -8888,13 +8885,6 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	targetType := r.FormValue("target_type")
 	if targetType != "all" && targetType != "devices" && targetType != "groups" && targetType != "scope" {
 		http.Redirect(w, r, "/commands", http.StatusFound)
-		return
-	}
-
-	// "logcat" is not a real device command — it fans a log capture out to the
-	// selected targets via the logcat_requests mechanism and returns to /logs.
-	if cmdType == "logcat" {
-		h.captureLogsForTargets(w, r, targetType)
 		return
 	}
 
@@ -10891,51 +10881,6 @@ func (h *Handler) AlertLogcatAnalyze(w http.ResponseWriter, r *http.Request) {
 	h.audit(r, "ai.logcat.analyze", id.String(), "")
 }
 
-// LogcatAISuggest (BETA) turns a plain-language problem description into logcat
-// capture settings (level / lines / tag) using the configured AI provider. It
-// returns JSON {level, lines, tag, rationale, model} for the composer to fill the
-// log-capture form.
-func (h *Handler) LogcatAISuggest(w http.ResponseWriter, r *http.Request) {
-	if !h.cfg.AIEnabled() {
-		writeJSONError(w, http.StatusServiceUnavailable, "AI suggestions are not configured — add an API key in Settings.")
-		return
-	}
-	problem := strings.TrimSpace(r.FormValue("problem"))
-	if problem == "" {
-		writeJSONError(w, http.StatusBadRequest, "Describe the problem first.")
-		return
-	}
-	if len(problem) > 2000 {
-		problem = problem[:2000]
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
-	defer cancel()
-	client := ai.New(h.cfg.AIProvider(), h.cfg.AnthropicAPIKey(), h.cfg.AnthropicModel(), h.cfg.AIBaseURL())
-	text, usage, err := client.SuggestLogcat(ctx, problem)
-	if err != nil {
-		log.Printf("[ai] logcat suggest failed: %v", err)
-		writeJSONError(w, http.StatusBadGateway, "Suggestion failed: "+err.Error())
-		return
-	}
-	if err := h.db.RecordAIUsage(ctx, usage.InputTokens, usage.OutputTokens); err != nil {
-		log.Printf("[ai] record usage: %v", err)
-	}
-	sug, ok := ai.ParseLogcatSuggestion(text)
-	if !ok {
-		writeJSONError(w, http.StatusBadGateway, "The model returned an unexpected response — try rephrasing the problem.")
-		return
-	}
-	h.audit(r, "ai.logcat_suggest", fmt.Sprintf("level=%s lines=%d tag=%s", sug.Level, sug.Lines, sug.Tag), problem)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
-		"level":     sug.Level,
-		"lines":     sug.Lines,
-		"tag":       sug.Tag,
-		"rationale": sug.Rationale,
-		"model":     client.Model(),
-	})
-}
-
 // DeviceAIAnalysesList returns a device's stored AI analyses (newest first) as JSON.
 func (h *Handler) DeviceAIAnalysesList(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
@@ -11025,182 +10970,6 @@ func (h *Handler) SettingsRemoveLegacyBuild(w http.ResponseWriter, r *http.Reque
 	r.ParseForm()
 	h.cfg.RemoveLegacyBuild(strings.TrimSpace(r.FormValue("build_id")))
 	http.Redirect(w, r, "/settings", http.StatusFound)
-}
-
-// LogcatEvents streams SSE notifications for the logcat page of a device.
-func (h *Handler) LogcatEvents(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "not found", http.StatusNotFound)
-		return
-	}
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("X-Accel-Buffering", "no")
-
-	fmt.Fprint(w, ": connected\n\n")
-	flusher.Flush()
-
-	sub := h.hub.SubscribeLogcatUpdates()
-	defer h.hub.UnsubscribeLogcatUpdates(sub)
-
-	heartbeat := time.NewTicker(25 * time.Second)
-	defer heartbeat.Stop()
-
-	ctx := r.Context()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-heartbeat.C:
-			fmt.Fprint(w, ": keep-alive\n\n")
-			flusher.Flush()
-		case ev, ok := <-sub:
-			if !ok {
-				return
-			}
-			if ev.DeviceID == device.ID {
-				fmt.Fprint(w, "event: logcat-update\ndata: refresh\n\n")
-				flusher.Flush()
-			}
-		}
-	}
-}
-
-func (h *Handler) LogcatPage(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-
-	entries, err := h.db.GetLogcatEntriesForDevice(r.Context(), device.ID, 20)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	hasPending := false
-	for _, e := range entries {
-		if e.Request.Status == "pending" || e.Request.Status == "delivered" {
-			hasPending = true
-			break
-		}
-	}
-
-	logcatRecent, logcatFrequent, _ := h.db.LogcatSuggestions(r.Context(), device.ID, 6)
-
-	h.render(w, r, "logcat.html", map[string]any{
-		"Title":          device.SerialNumber + " — Logcat",
-		"Device":         device,
-		"Entries":        entries,
-		"HasPending":     hasPending,
-		"LogcatRecent":   logcatRecent,
-		"LogcatFrequent": logcatFrequent,
-	})
-}
-
-func (h *Handler) LogcatRefresh(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-
-	entries, err := h.db.GetLogcatEntriesForDevice(r.Context(), device.ID, 20)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	hasPending := false
-	for _, e := range entries {
-		if e.Request.Status == "pending" || e.Request.Status == "delivered" {
-			hasPending = true
-			break
-		}
-	}
-
-	h.tmpl.ExecuteTemplate(w, "logcat-entries", map[string]any{
-		"Device":     device,
-		"Entries":    entries,
-		"HasPending": hasPending,
-	})
-}
-
-func (h *Handler) LogcatRequestCreate(w http.ResponseWriter, r *http.Request) {
-	// Authorize the logcat capability (role-keyed allowlist) before touching the
-	// device, matching DeviceCommandCreate and keeping log access role-gated.
-	if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), "logcat")) {
-		return
-	}
-	serial := r.PathValue("serial")
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-
-	r.ParseForm()
-	level, lines, tag := parseLogcatParams(r)
-
-	req, err := h.db.CreateLogcatRequest(r.Context(), device.ID, level, lines, tag)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.pushLogcatRequest(r.Context(), req)
-
-	http.Redirect(w, r, "/devices/"+serial+"/logcat", http.StatusFound)
-}
-
-// parseLogcatParams reads and clamps the level/lines/tag capture parameters from a
-// form, shared by the per-device request and the fleet "log capture" command.
-func parseLogcatParams(r *http.Request) (level string, lines int, tag string) {
-	level = r.FormValue("level")
-	if level != "V" && level != "D" && level != "I" && level != "W" && level != "E" {
-		level = "W"
-	}
-	lines = 500
-	if n, err := strconv.Atoi(r.FormValue("lines")); err == nil && n > 0 && n <= 5000 {
-		lines = n
-	}
-	tag = strings.TrimSpace(r.FormValue("tag"))
-	return
-}
-
-// captureLogsForTargets fans a single logcat capture out to many devices (the
-// "log capture" command type). It resolves the command builder's target selection
-// to concrete device IDs and creates one logcat request per device.
-func (h *Handler) captureLogsForTargets(w http.ResponseWriter, r *http.Request, targetType string) {
-	level, lines, tag := parseLogcatParams(r)
-	deviceIDs, err := h.resolveTargetDeviceIDs(r, targetType)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	if max := h.cfg.MaxTargets(); max > 0 && len(deviceIDs) > max {
-		http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(deviceIDs), max), http.StatusBadRequest)
-		return
-	}
-	reqs, _ := h.db.CreateLogcatRequests(r.Context(), deviceIDs, level, lines, tag) // one insert
-	for i := range reqs {
-		h.pushLogcatRequest(r.Context(), &reqs[i])
-	}
-	n := len(reqs)
-	h.audit(r, "logcat.capture", fmt.Sprintf("level=%s lines=%d tag=%s", level, lines, tag), fmt.Sprintf("target=%s, devices=%d", targetType, n))
-	http.Redirect(w, r, "/logs", http.StatusFound)
 }
 
 func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
@@ -11787,12 +11556,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/apps-list", h.requireAuth(h.DeviceAppsList))
 	mux.HandleFunc("GET /packages", h.requireStrictAdmin(h.FleetPackages))
 	post("POST /packages/flag", h.requireStrictAdmin(h.PackageFlag))
-	mux.HandleFunc("GET /devices/{serial}/logcat", h.requireAuth(h.LogcatPage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/live", h.requireAuth(h.LogcatLivePage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(h.LogcatStream))
-	mux.HandleFunc("GET /devices/{serial}/logcat/entries", h.requireAuth(h.LogcatRefresh))
-	mux.HandleFunc("GET /devices/{serial}/logcat/events", h.requireAuth(h.LogcatEvents))
-	post("POST /devices/{serial}/logcat", h.requireAuth(h.LogcatRequestCreate))
 
 	mux.HandleFunc("GET /groups/new", h.requireAdminOrTester(h.GroupNew))
 	mux.HandleFunc("GET /groups/new/devices", h.requireAdminOrTester(h.GroupNewDevices))
@@ -11873,7 +11638,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /schedules/{id}/toggle", h.requireOperatorOrAdmin(h.ScheduleToggle))
 	post("POST /schedules/{id}/run-now", h.requireOperatorOrAdmin(h.ScheduleRunNow))
 	post("POST /commands", h.requireAuth(h.CommandCreate))
-	post("POST /commands/logcat-suggest", h.requireAuth(h.LogcatAISuggest))
 	post("POST /alerts/{id}/logcat/analyze", h.requireAuth(h.AlertLogcatAnalyze))
 	mux.HandleFunc("GET /commands/{id}", h.requireAuth(h.CommandDetail))
 	mux.HandleFunc("GET /commands/{id}/screenshot/{serial}", h.requireAuth(h.CommandScreenshot))
@@ -12034,7 +11798,7 @@ func (h *Handler) LogcatLivePage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.render(w, r, "logcat_live.html", map[string]any{
-		"Title":  "Live logs · " + device.SerialNumber,
+		"Title":  "Realtime logs · " + device.SerialNumber,
 		"Device": device,
 		"Online": h.hub.IsConnected(device.ID),
 	})
@@ -12174,17 +11938,4 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 	// Surface the new delivery/ack state on the command detail page in real time
 	// instead of waiting for its 30s polling fallback.
 	h.hub.PublishCommandUpdate(cmd.ID)
-}
-
-func (h *Handler) pushLogcatRequest(ctx context.Context, req *db.LogcatRequest) {
-	msg, _ := json.Marshal(map[string]any{
-		"type":  "logcat_request",
-		"id":    req.ID,
-		"level": req.Level,
-		"lines": req.Lines,
-		"tag":   req.Tag,
-	})
-	if h.hub.Push(req.DeviceID, msg) {
-		_ = h.db.MarkLogcatRequestsDelivered(ctx, []uuid.UUID{req.ID})
-	}
 }

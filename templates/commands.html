@@ -167,10 +167,6 @@
 .lv{border:none;background:none;border-radius:8px;padding:8px 13px;font-size:13px;font-weight:600;color:var(--muted);font-family:var(--mono);cursor:pointer;}
 .lv.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm);}
 .lv small{font-family:var(--font);font-weight:500;opacity:.7;margin-left:5px;}
-.stepper{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface);}
-.stepper button{width:38px;height:40px;border:none;background:var(--surface);color:var(--text-2);font-size:18px;cursor:pointer;}
-.stepper button:hover{background:var(--surface2);}
-.stepper input{width:64px;height:40px;border:none;border-left:1px solid var(--border-soft);border-right:1px solid var(--border-soft);text-align:center;font-family:var(--mono);font-size:14px;color:var(--text);outline:none;}
 .pl-field{height:42px;padding:0 13px;border:1px solid var(--border);border-radius:11px;background:var(--surface);font-size:14px;color:var(--text);outline:none;width:100%;box-sizing:border-box;}
 .pl-field:focus{border-color:var(--accent-edge);box-shadow:var(--ring);}
 .pl-row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end;}
@@ -178,20 +174,6 @@
 .pl-chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text-2);cursor:pointer;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pl-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
 .pl-sub{font-size:12px;color:var(--muted);margin-top:8px;}
-/* AI logcat assist (beta) */
-.lc-ai{border:1px solid var(--accent-edge);border-radius:12px;background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 5%,var(--surface)),var(--surface));padding:12px 14px;margin-bottom:14px;}
-.lc-ai-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap;}
-.lc-ai-ttl{font-size:12.5px;font-weight:700;color:var(--text);}
-.lc-ai-beta{font-size:9.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;background:var(--accent);border-radius:99px;padding:2px 7px;}
-.lc-ai-sub{font-size:12px;color:var(--muted);}
-.lc-ai-row{display:flex;gap:9px;align-items:stretch;}
-.lc-ai-ta{flex:1;min-height:44px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-size:13.5px;color:var(--text);font-family:inherit;resize:vertical;outline:none;box-sizing:border-box;}
-.lc-ai-ta:focus{border-color:var(--accent-edge);}
-.lc-ai-go{white-space:nowrap;align-self:flex-start;min-width:96px;}
-.lc-ai-go[disabled]{opacity:.6;cursor:progress;}
-.lc-ai-out{margin-top:9px;font-size:12.5px;color:var(--text-2);line-height:1.5;background:var(--surface2);border-radius:9px;padding:9px 12px;}
-.lc-ai-out.err{color:#b42318;background:#fbe9e9;}
-.lc-ai-out b{color:var(--text);}
 /* shell console */
 .console{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#12161b;}
 .console .cbar{display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #232a33;}
@@ -272,7 +254,6 @@
       <button type="button" class="pill on" role="radio" aria-checked="true" data-type="install_apk" onclick="selectType('install_apk', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app<span class="g">Apps</span></button>
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="uninstall" onclick="selectType('uninstall', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall<span class="g">Apps</span></button>
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="screenshot" onclick="selectType('screenshot', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot<span class="g">Diag</span></button>
-      {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="logcat" onclick="selectType('logcat', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/></svg></span>Log capture<span class="g">Diag</span></button>{{end}}
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
       {{if canAdminOrTester .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
@@ -386,43 +367,6 @@
           <div class="warncard" id="kiosk-unlock-note" style="display:none;margin-top:14px"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><div><div class="wt">Devices will exit kiosk mode</div><div class="ws">Home, recents and the status bar return on the next check-in.</div></div></div>
         </div>
 
-        <!-- Log capture -->
-        <div id="logcat-fields" class="payload-section">
-          <input type="hidden" name="level" id="lc-cmd-level" value="W">
-          {{if .AIEnabled}}
-          <div class="lc-ai">
-            <div class="lc-ai-head">
-              <span class="lc-ai-ttl">Describe the problem</span>
-              <span class="lc-ai-beta">Beta</span>
-              <span class="lc-ai-sub">and let AI pick the level, depth, and tag</span>
-            </div>
-            <div class="lc-ai-row">
-              <textarea id="lc-ai-problem" class="lc-ai-ta" rows="2" placeholder="e.g. The app keeps dropping out of kiosk mode after the screen wakes"></textarea>
-              <button type="button" class="btn-outline lc-ai-go" id="lc-ai-go" onclick="lcAiSuggest()">Suggest</button>
-            </div>
-            <div class="lc-ai-out" id="lc-ai-out" role="status" aria-live="polite" hidden></div>
-          </div>
-          {{end}}
-          <div class="pl-row">
-            <div><div class="lvl-lbl">Level</div><div class="levels" id="lc-levels" role="radiogroup" aria-label="Log level">
-              <button type="button" class="lv" role="radio" aria-checked="false" data-lv="E" onclick="setLevel(this)">E<small>Error</small></button>
-              <button type="button" class="lv on" role="radio" aria-checked="true" data-lv="W" onclick="setLevel(this)">W<small>Warn+</small></button>
-              <button type="button" class="lv" role="radio" aria-checked="false" data-lv="I" onclick="setLevel(this)">I<small>Info+</small></button>
-              <button type="button" class="lv" role="radio" aria-checked="false" data-lv="D" onclick="setLevel(this)">D<small>Debug+</small></button>
-              <button type="button" class="lv" role="radio" aria-checked="false" data-lv="V" onclick="setLevel(this)">V<small>All</small></button>
-            </div></div>
-            <div><div class="lvl-lbl">Lines</div><div class="stepper"><button type="button" onclick="stepLines(-100)">−</button><input type="number" name="lines" id="lc-cmd-lines" value="500" min="50" max="5000" oninput="updatePreview()"><button type="button" onclick="stepLines(100)">+</button></div></div>
-            <div style="flex:1;min-width:180px"><div class="lvl-lbl">Tag <span style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0">optional</span></div><input type="text" name="tag" id="lc-cmd-tag" class="pl-field" placeholder="e.g. MdmService" oninput="updatePreview()"></div>
-          </div>
-          <div class="pl-sub">Requests a logcat from each targeted device on its next check-in. Results appear on each device's Logcat page.</div>
-          {{if or .LogcatRecent .LogcatFrequent}}
-          <div class="lvl-lbl" style="margin-top:16px">Reuse a recent capture</div>
-          <div class="pl-chips">
-            {{range .LogcatRecent}}<button type="button" class="pl-chip" data-level="{{.Level}}" data-lines="{{.Lines}}" data-tag="{{.Tag}}" onclick="lcCmdFill(this)">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}
-            {{range .LogcatFrequent}}<button type="button" class="pl-chip" data-level="{{.Level}}" data-lines="{{.Lines}}" data-tag="{{.Tag}}" onclick="lcCmdFill(this)">{{.Level}} · {{.Lines}}{{if .Tag}} · {{.Tag}}{{end}}</button>{{end}}
-          </div>
-          {{end}}
-        </div>
 
         <!-- Boot logo has moved to its own admin page (/boot-logo). -->
 
@@ -661,7 +605,6 @@ var ACT_META = {
   install_apk:  { name:'Install app',  sub:'Push an APK and install it silently',   icon:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>' },
   uninstall:    { name:'Uninstall',    sub:'Remove a package across the target',      icon:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>' },
   screenshot:   { name:'Screenshot',   sub:'Capture the live screen on next check-in',icon:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>' },
-  logcat:       { name:'Log capture',  sub:'Pull a logcat buffer for triage',         icon:'<path d="M4 5h16"/><path d="M4 10h10"/><path d="M4 14h16"/><path d="M4 18h10"/>' },
   shell:        { name:'Shell',        sub:'Run a shell command (legacy devices)',    icon:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>' },
   reboot:       { name:'Reboot',       sub:'Restart the device on next check-in',     icon:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>' },
   set_kiosk:    { name:'Kiosk mode',   sub:'Lock the target to one app, or unlock it',icon:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>' }
@@ -674,11 +617,11 @@ function selectType(val, btn) {
   var ic = document.getElementById('sheet-ic'); if (ic) ic.innerHTML = '<svg viewBox="0 0 24 24">' + m.icon + '</svg>';
   var st = document.getElementById('sheet-t'); if (st) st.textContent = m.name;
   var ss = document.getElementById('sheet-s'); if (ss) ss.textContent = m.sub;
-  ['apk-fields','uninstall-fields','shell-fields','screenshot-hint','reboot-hint','logcat-fields','kiosk-fields'].forEach(function(id) {
+  ['apk-fields','uninstall-fields','shell-fields','screenshot-hint','reboot-hint','kiosk-fields'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('is-active');
   });
-  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', logcat:'logcat-fields', set_kiosk:'kiosk-fields' })[val];
+  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', set_kiosk:'kiosk-fields' })[val];
   var section = document.getElementById(sectionId);
   if (section) section.classList.add('is-active');
   // reason applies only to reboot
@@ -733,18 +676,6 @@ function filterKioskApps(q) {
   });
   var nm = document.getElementById('kiosk-nomatch'); if (nm) nm.style.display = any ? 'none' : '';
 }
-// Log capture: level segmented control writes the hidden #lc-cmd-level.
-function setLevelValue(v) {
-  var h = document.getElementById('lc-cmd-level'); if (h) h.value = v;
-  document.querySelectorAll('#lc-levels .lv').forEach(function (b) { var sel = b.dataset.lv === v; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
-}
-function setLevel(el) { setLevelValue(el.dataset.lv); updatePreview(); }
-function stepLines(d) {
-  var i = document.getElementById('lc-cmd-lines');
-  i.value = Math.max(50, Math.min(5000, (parseInt(i.value, 10) || 0) + d));
-  updatePreview();
-}
-
 // ── Scope-rail target picker ──
 // The rail sets the candidate scope (collection + refine); the device list under it
 // lets you drill in. No devices checked → target = the whole scope; check some →
@@ -986,54 +917,6 @@ function cmdFillShell(s) {
   i.value = s; i.focus(); updatePreview();
 }
 
-function lcCmdFill(btn) {
-  setLevelValue(btn.dataset.level);
-  var n = document.getElementById('lc-cmd-lines'); if (n) n.value = btn.dataset.lines;
-  var t = document.getElementById('lc-cmd-tag');   if (t) t.value = btn.dataset.tag || '';
-  updatePreview();
-}
-
-// AI logcat assist (beta): send the plain-language problem, fill level/lines/tag
-// from the model's suggestion, and show its one-line rationale.
-function lcAiSuggest() {
-  var ta = document.getElementById('lc-ai-problem');
-  var btn = document.getElementById('lc-ai-go');
-  var out = document.getElementById('lc-ai-out');
-  if (!ta || !btn || !out) return;
-  var problem = (ta.value || '').trim();
-  if (!problem) { ta.focus(); return; }
-  var show = function (html, isErr) {
-    out.hidden = false;
-    out.className = 'lc-ai-out' + (isErr ? ' err' : '');
-    out.innerHTML = html;
-  };
-  btn.disabled = true; btn.textContent = 'Thinking…';
-  show('Analyzing the problem…', false);
-  var esc = function (s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
-  fetch('/commands/logcat-suggest', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'problem=' + encodeURIComponent(problem)
-  }).then(function (r) {
-    return r.json().then(function (d) { return { ok: r.ok, d: d }; });
-  }).then(function (res) {
-    if (!res.ok) { show(esc(res.d && res.d.error ? res.d.error : 'Suggestion failed — try again.'), true); return; }
-    var d = res.d;
-    setLevelValue(d.level);
-    var n = document.getElementById('lc-cmd-lines'); if (n) n.value = d.lines;
-    var t = document.getElementById('lc-cmd-tag');   if (t) t.value = d.tag || '';
-    updatePreview();
-    var tagTxt = d.tag ? esc(d.tag) : 'all tags';
-    show('Applied <b>' + esc(d.level) + '</b> · <b>' + esc(String(d.lines)) + '</b> lines · <b>' + tagTxt + '</b>'
-       + (d.rationale ? '<br><span style="color:var(--muted)">' + esc(d.rationale) + '</span>' : '')
-       + '<br><span style="color:var(--text-faint);font-size:11px">Suggestion only — review before sending.</span>', false);
-  }).catch(function () {
-    show('Network error — try again.', true);
-  }).finally(function () {
-    btn.disabled = false; btn.textContent = 'Suggest';
-  });
-}
-
 // Validates the builder, drives the inline warning + Send button's validity.
 function updatePreview() {
   var type = document.getElementById('cmd-type-input').value;
@@ -1079,7 +962,7 @@ function updatePreview() {
 
 // Head context label ("Install app → All devices").
 function updateCtx(type, target) {
-  var labels = { install_apk:'Install app', uninstall:'Uninstall', screenshot:'Screenshot', shell:'Shell', reboot:'Reboot', update_splash:'Boot logo', logcat:'Log capture' };
+  var labels = { install_apk:'Install app', uninstall:'Uninstall', screenshot:'Screenshot', shell:'Shell', reboot:'Reboot', update_splash:'Boot logo' };
   var tgt = { all:'All devices', groups:'Groups', devices:'Specific devices' }[target] || target;
   var el = document.getElementById('cmd-ctx');
   if (el) el.textContent = (labels[type] || type) + ' → ' + tgt;
@@ -1260,19 +1143,6 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
   updatePreview();
 })();
 
-// Prefill the Log-capture builder from query params (e.g. a "Frequent preset" on /logs
-// links here as /commands?ctype=logcat&level=W&lines=500&tag=foo).
-(function () {
-  var p = new URLSearchParams(location.search);
-  if (p.get('ctype') !== 'logcat') return;
-  var rail = document.querySelector('.pill[data-type="logcat"]');
-  if (!rail) return; // role can't capture logs from here
-  selectType('logcat', rail);
-  if (p.get('level')) { var l = document.getElementById('lc-cmd-level'); if (l) l.value = p.get('level'); }
-  if (p.get('lines')) { var n = document.getElementById('lc-cmd-lines'); if (n) n.value = p.get('lines'); }
-  if (p.has('tag'))   { var t = document.getElementById('lc-cmd-tag');   if (t) t.value = p.get('tag') || ''; }
-  updatePreview();
-})();
 </script>
 
 {{template "footer" .}}
