@@ -1903,6 +1903,10 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
+	} else if pk := product.Normalize(qv.Get("product")); pk != "" {
+		// A product selected from the rail scopes the roster too — name it by the
+		// product label and count the filtered result, so the heading isn't "All devices".
+		selectedCollection, selectedCount = product.Label(pk), total
 	}
 
 	// Products rail: one entry per catalog product that has at least one device
