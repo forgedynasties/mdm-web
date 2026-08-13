@@ -1522,49 +1522,86 @@ function filterInstalledApps(q) {
 
 <section class="dd-panel" data-dd-panel="alerts" id="dd-panel-alerts" role="tabpanel" aria-labelledby="dd-tab-alerts" tabindex="0" hidden>
   <style>
-  .da-sec{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);margin:18px 2px 10px}
-  .da-sec:first-child{margin-top:4px}
-  .da-card{border:1px solid var(--border);border-left:3px solid var(--rule-2);border-radius:var(--r-4);background:var(--surface);box-shadow:var(--shadow-sm);padding:13px 15px;margin-bottom:9px}
-  .da-card.critical,.da-card.crash{border-left-color:var(--danger)}
-  .da-card.warning{border-left-color:var(--warn)}
-  .da-card.info{border-left-color:var(--accent-2)}
+  .da-sec{display:flex;align-items:center;gap:9px;margin:22px 2px 12px}
+  .da-sec:first-of-type{margin-top:6px}
+  .da-sec .st{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint)}
+  .da-sec .sc{font-size:11px;font-weight:700;color:var(--muted);background:var(--surface2);border-radius:99px;padding:2px 9px;font-variant-numeric:tabular-nums}
+  .da-sec .line{flex:1;height:1px;background:var(--border-soft)}
+  .da-card{display:flex;gap:13px;align-items:flex-start;border:1px solid var(--border);border-radius:var(--r-4);background:var(--surface);box-shadow:var(--shadow-sm);padding:14px 16px;margin-bottom:9px;transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+  .da-card[hidden]{display:none}
+  .da-card:hover{border-color:var(--rule-2);box-shadow:var(--shadow)}
+  .da-ico{width:36px;height:36px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .da-ico svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2}
+  .da-card.critical .da-ico,.da-card.crash .da-ico{background:var(--danger-bg);color:var(--danger)}
+  .da-card.warning .da-ico{background:var(--warn-bg);color:var(--warn)}
+  .da-card.info .da-ico{background:var(--accent-2-soft);color:var(--accent-2)}
+  .da-body{flex:1;min-width:0}
   .da-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
-  .da-t{font-size:14px;font-weight:700;letter-spacing:-.01em;min-width:0}
-  .da-when{margin-left:auto;font-size:11.5px;color:var(--text-faint);flex:none}
-  .da-s{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+  .da-t{font-size:14px;font-weight:700;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .da-when{margin-left:auto;font-size:11.5px;color:var(--text-faint);flex:none;white-space:nowrap}
+  .da-s{font-size:12.5px;color:var(--text2,var(--muted));margin-top:4px;line-height:1.5}
   .da-s b{color:var(--text);font-weight:650}
-  .da-kind{font-size:10.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;border-radius:99px;padding:2px 9px;flex:none}
+  .da-meta{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;color:var(--text-faint)}
+  .da-meta .mono{font-family:var(--mono)}
+  .da-meta .dot{width:3px;height:3px;border-radius:50%;background:var(--rule-2)}
+  .da-kind{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;border-radius:99px;padding:2px 8px;flex:none}
   .da-kind.crash{background:var(--danger-bg);color:var(--danger)}
   .da-kind.anr{background:var(--warn-bg);color:var(--warn)}
   .da-kind.tomb{background:var(--accent-2-soft);color:var(--accent-2)}
   .da-trace{margin-top:9px}
-  .da-trace>summary{cursor:pointer;user-select:none;padding:2px 0;font-size:12px}
+  .da-trace>summary{cursor:pointer;user-select:none;padding:3px 0;font-size:12px;color:var(--muted)}
+  .da-trace[open]>summary{color:var(--text)}
   .da-trace>.logcat-terminal{margin-top:6px;max-height:320px;overflow:auto}
-  .da-empty{padding:22px;text-align:center;color:var(--muted);font-size:13px}
+  .da-more{width:100%;margin-top:2px;padding:10px;border:1px dashed var(--border);border-radius:var(--r-4);background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
+  .da-more:hover{border-color:var(--rule-2);color:var(--text);background:var(--surface2)}
+  .da-empty{display:flex;align-items:center;gap:13px;padding:20px;border:1px solid var(--border);border-radius:var(--r-4);background:var(--surface)}
+  .da-empty .i{width:38px;height:38px;flex:none;border-radius:10px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center}
+  .da-empty .i svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.4}
+  .da-empty .t{font-size:14px;font-weight:650}.da-empty .s{font-size:12.5px;color:var(--muted);margin-top:1px}
   </style>
   {{if .DeviceAlerts}}
-  <div class="da-sec">Active alerts</div>
-  {{range .DeviceAlerts}}
-  <div class="da-card {{.Severity}}">
-    <div class="da-top"><span class="da-t">{{.Headline}}</span><span class="da-when">{{timeSince .FiredAt}}</span></div>
-    <div class="da-s">{{.Sentence}}</div>
-    {{if .Trace}}<details class="da-trace"><summary class="muted small">View crash / ANR trace</summary><pre class="logcat-terminal">{{colorizeLogcat .Trace}}</pre></details>{{end}}
+  <div class="da-sec"><span class="st">Active alerts</span><span class="sc">{{len .DeviceAlerts}}</span><span class="line"></span></div>
+  <div class="da-group" data-da-shown="4">
+  {{range $i, $a := .DeviceAlerts}}
+  <div class="da-card {{$a.Severity}}{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
+    <span class="da-ico">{{template "alx-icon" $a.IconKey}}</span>
+    <div class="da-body">
+      <div class="da-top"><span class="da-t">{{$a.Headline}}</span><span class="da-when">{{timeSince $a.FiredAt}}</span></div>
+      <div class="da-s">{{$a.Sentence}}</div>
+      {{if $a.Trace}}<details class="da-trace"><summary>View crash / ANR trace</summary><pre class="logcat-terminal">{{colorizeLogcat $a.Trace}}</pre></details>{{end}}
+    </div>
   </div>
   {{end}}
+  {{if gt (len .DeviceAlerts) 4}}<button type="button" class="da-more" onclick="daShowMore(this)">Show {{sub (len .DeviceAlerts) 4}} more alert{{if ne (sub (len .DeviceAlerts) 4) 1}}s{{end}}</button>{{end}}
+  </div>
   {{end}}
   {{if .DeviceCrashes}}
-  <div class="da-sec">Crashes · last 7 days</div>
-  {{range .DeviceCrashes}}
-  <div class="da-card crash">
-    <div class="da-top"><span class="da-kind {{.KindClass}}">{{.KindLabel}}</span><span class="da-t">{{if .Summary}}{{.Summary}}{{else}}{{.KindLabel}} event{{end}}</span><span class="da-when">{{timeSince .OccurredAt}}</span></div>
-    {{if .BuildID}}<div class="da-s">build {{.BuildID}}</div>{{end}}
-    {{if .Trace}}<details class="da-trace"><summary class="muted small">View crash / ANR trace</summary><pre class="logcat-terminal">{{colorizeLogcat .Trace}}</pre></details>{{end}}
+  <div class="da-sec"><span class="st">Crashes · last 7 days</span><span class="sc">{{len .DeviceCrashes}}</span><span class="line"></span></div>
+  <div class="da-group" data-da-shown="4">
+  {{range $i, $c := .DeviceCrashes}}
+  <div class="da-card crash{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
+    <span class="da-ico"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span>
+    <div class="da-body">
+      <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span><span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
+      {{if or $c.Restaurant $c.BuildID}}<div class="da-meta">{{if $c.Restaurant}}<span>{{$c.Restaurant}}</span>{{end}}{{if and $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{if $c.BuildID}}<span class="mono">build {{$c.BuildID}}</span>{{end}}</div>{{end}}
+      {{if $c.Trace}}<details class="da-trace"><summary>View crash / ANR trace</summary><pre class="logcat-terminal">{{colorizeLogcat $c.Trace}}</pre></details>{{end}}
+    </div>
   </div>
   {{end}}
+  {{if gt (len .DeviceCrashes) 4}}<button type="button" class="da-more" onclick="daShowMore(this)">Show {{sub (len .DeviceCrashes) 4}} more crash{{if ne (sub (len .DeviceCrashes) 4) 1}}es{{end}}</button>{{end}}
+  </div>
   {{end}}
   {{if and (not .DeviceAlerts) (not .DeviceCrashes)}}
-  <div class="da-empty">No active alerts or crashes reported for this device.</div>
+  <div class="da-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">All clear</div><div class="s">No active alerts or crashes reported for this device.</div></div></div>
   {{end}}
+  <script>
+  // Reveal a section's hidden overflow cards and drop the "show more" button.
+  window.daShowMore = function (btn) {
+    var g = btn.closest('.da-group');
+    if (g) g.querySelectorAll('.da-extra').forEach(function (c) { c.hidden = false; });
+    btn.remove();
+  };
+  </script>
 </section><!-- /alerts -->
 <script>
 (function () {
