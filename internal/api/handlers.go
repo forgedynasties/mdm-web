@@ -225,7 +225,7 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	// Auth is a single-use token minted by the (session-authenticated) dashboard,
 	// not the admin API key — the key must never reach the browser / WS URL. It is
 	// bound to the minting client's IP, so a leaked token can't be replayed elsewhere.
-	tokenDeviceID, ok := h.remote.RedeemToken(r.URL.Query().Get("token"), ratelimit.ClientIP(r))
+	tokenDeviceID, ok := h.remote.RedeemToken(r.URL.Query().Get("token"))
 	if !ok {
 		log.Printf("[remote] auth failed for %s", r.RemoteAddr)
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
