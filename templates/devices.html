@@ -512,6 +512,7 @@ function scopeRoster(anchor, u) {
   if (u.searchParams.get('restaurant')) ov.restaurant = u.searchParams.get('restaurant');
   else if (u.searchParams.get('group')) ov.group = u.searchParams.get('group');
   else if (u.searchParams.get('build')) ov.build = u.searchParams.get('build');
+  else if (u.searchParams.get('product')) { ov.product = u.searchParams.get('product'); setSel('filter-product', ov.product); }
 
   // Instant heading + rail highlight from the clicked item (before data lands).
   var item = anchor.closest('.fleet-rail-item');
