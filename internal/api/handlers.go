@@ -608,7 +608,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 			for _, cmd := range cmds {
 				cmdList = append(cmdList, map[string]any{
 					"id":      cmd.ID,
-					"type":    cmd.Type,
+					"type":    deviceCommandType(cmd.Type),
 					"apk_url": cmd.ApkURL,
 					"payload": cmd.Payload,
 				})
@@ -1610,11 +1610,21 @@ func (h *Handler) DeleteProduction(w http.ResponseWriter, r *http.Request) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// deviceCommandType maps a dashboard command type to what the device agent expects.
+// A "query" is a dashboard-only label for an admin-vetted read-only diagnostic; on
+// the wire it is an ordinary shell command, so the client needs no new type.
+func deviceCommandType(t string) string {
+	if t == "query" {
+		return "shell"
+	}
+	return t
+}
+
 func marshalCommand(id uuid.UUID, cmdType, apkURL string, payload json.RawMessage) []byte {
 	msg, _ := json.Marshal(map[string]any{
 		"type":         "command",
 		"id":           id,
-		"command_type": cmdType,
+		"command_type": deviceCommandType(cmdType),
 		"apk_url":      apkURL,
 		"payload":      payload,
 	})

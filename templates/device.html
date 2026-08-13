@@ -405,6 +405,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <button class="dur-btn" data-ms="172800000">48h</button>
         <button class="dur-btn" id="custom-range-btn">Custom</button>
       </div>
+      <div class="dur-btns" role="group" aria-label="Shift window">
+        <button type="button" class="dur-btn" id="chart-shift-prev" title="Shift window earlier" aria-label="Shift window earlier">&lsaquo;</button>
+        <button type="button" class="dur-btn" id="chart-shift-next" title="Shift window later" aria-label="Shift window later">&rsaquo;</button>
+      </div>
       <div id="custom-range-inputs" class="cr-pop" hidden>
         <div class="cr-pop-head">
           <span class="cr-pop-title">Custom range</span>
@@ -1487,6 +1491,20 @@ function mdmBootCharts() {
 
   var _resetBtn = document.getElementById('chart-reset-btn');
   if (_resetBtn) _resetBtn.addEventListener('click', function () { resetCustomRange(); });
+
+  // Shift the visible window earlier/later by its own width — works on a preset
+  // window too (it converts the current view to a custom range, then slides it).
+  function shiftWindow(dir) {
+    var c = activeChartObj(); if (!c) return;
+    var b = windowBounds(c);
+    if (b[0] == null || b[1] == null) return;
+    var span = b[1] - b[0];
+    applyZoomWindow(b[0] + dir * span, b[1] + dir * span);
+  }
+  var _shiftPrev = document.getElementById('chart-shift-prev');
+  var _shiftNext = document.getElementById('chart-shift-next');
+  if (_shiftPrev) _shiftPrev.addEventListener('click', function () { shiftWindow(-1); });
+  if (_shiftNext) _shiftNext.addEventListener('click', function () { shiftWindow(1); });
 
   var _exportBtn = document.getElementById('chart-export-btn');
   if (_exportBtn) _exportBtn.addEventListener('click', function () {

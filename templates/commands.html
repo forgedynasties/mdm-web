@@ -173,6 +173,7 @@
 .pl-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px;}
 .pl-chip{font-family:var(--mono);font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;color:var(--text-2);cursor:pointer;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .pl-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
+.pl-chip.on{border-color:var(--accent);color:var(--accent-text);background:var(--accent-soft,var(--surface2));font-weight:650;}
 .pl-sub{font-size:12px;color:var(--muted);margin-top:8px;}
 /* shell console */
 .console{border:1px solid var(--console-border);border-radius:12px;overflow:hidden;background:var(--console-bg);}
@@ -254,7 +255,7 @@
       <button type="button" class="pill on" role="radio" aria-checked="true" data-type="install_apk" onclick="selectType('install_apk', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app<span class="g">Apps</span></button>
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="uninstall" onclick="selectType('uninstall', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall<span class="g">Apps</span></button>
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="screenshot" onclick="selectType('screenshot', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot<span class="g">Diag</span></button>
-      {{if and (canOperate .Role) .DeviceQueries}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="diagnostic" onclick="selectType('diagnostic', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span>Queries<span class="g">Diag</span></button>{{end}}
+      {{if and (canOperate .Role) .DeviceQueries}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="query" onclick="selectType('query', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span>Queries<span class="g">Diag</span></button>{{end}}
       {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>{{end}}
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
       {{if canAdminOrTester .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
@@ -327,7 +328,7 @@
         </div>
 
         <!-- Queries (admin-vetted device diagnostics) -->
-        <div id="diagnostic-fields" class="payload-section">
+        <div id="query-fields" class="payload-section">
           <input type="hidden" name="query_id" id="diag-query-id" value="">
           <div class="pl-sub">Pick a property to retrieve — runs a read-only, admin-approved command on the next check-in.</div>
           <div class="pl-chips" style="margin-top:12px;">
@@ -618,7 +619,7 @@ var ACT_META = {
   shell:        { name:'Shell',        sub:'Run a shell command (legacy devices)',    icon:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>' },
   reboot:       { name:'Reboot',       sub:'Restart the device on next check-in',     icon:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>' },
   set_kiosk:    { name:'Kiosk mode',   sub:'Lock the target to one app, or unlock it',icon:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>' },
-  diagnostic:   { name:'Run a query',  sub:'Retrieve a device property (read-only)',  icon:'<path d="M4 6h16M4 12h10M4 18h7"/>' }
+  query:        { name:'Run a query',  sub:'Retrieve a device property (read-only)',  icon:'<path d="M4 6h16M4 12h10M4 18h7"/>' }
 };
 function selectType(val, btn) {
   document.getElementById('cmd-type-input').value = val;
@@ -628,11 +629,11 @@ function selectType(val, btn) {
   var ic = document.getElementById('sheet-ic'); if (ic) ic.innerHTML = '<svg viewBox="0 0 24 24">' + m.icon + '</svg>';
   var st = document.getElementById('sheet-t'); if (st) st.textContent = m.name;
   var ss = document.getElementById('sheet-s'); if (ss) ss.textContent = m.sub;
-  ['apk-fields','uninstall-fields','shell-fields','diagnostic-fields','screenshot-hint','reboot-hint','kiosk-fields'].forEach(function(id) {
+  ['apk-fields','uninstall-fields','shell-fields','query-fields','screenshot-hint','reboot-hint','kiosk-fields'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('is-active');
   });
-  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', diagnostic:'diagnostic-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', set_kiosk:'kiosk-fields' })[val];
+  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', query:'query-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', set_kiosk:'kiosk-fields' })[val];
   var section = document.getElementById(sectionId);
   if (section) section.classList.add('is-active');
   // reason applies only to reboot
@@ -949,7 +950,7 @@ function updatePreview() {
   } else if (type === 'shell') {
     var s = (document.getElementById('shell-cmd-input').value || '').trim();
     if (!s) warn.push('Enter a shell command.');
-  } else if (type === 'diagnostic') {
+  } else if (type === 'query') {
     var qh = document.getElementById('diag-query-id');
     if (!qh || !qh.value) warn.push('Pick a query to run.');
   }
@@ -984,7 +985,7 @@ function updatePreview() {
 
 // Head context label ("Install app → All devices").
 function updateCtx(type, target) {
-  var labels = { install_apk:'Install app', uninstall:'Uninstall', screenshot:'Screenshot', shell:'Shell', diagnostic:'Run a query', reboot:'Reboot', update_splash:'Boot logo' };
+  var labels = { install_apk:'Install app', uninstall:'Uninstall', screenshot:'Screenshot', shell:'Shell', query:'Run a query', reboot:'Reboot', update_splash:'Boot logo' };
   var tgt = { all:'All devices', groups:'Groups', devices:'Specific devices' }[target] || target;
   var el = document.getElementById('cmd-ctx');
   if (el) el.textContent = (labels[type] || type) + ' → ' + tgt;
@@ -1084,6 +1085,7 @@ function applyPrefill(pf) {
   if (pf.type) { var rail = document.querySelector('.pill[data-type="' + pf.type + '"]'); if (rail) selectType(pf.type, rail); }
   if (pf.apk_url) { var ac = document.querySelector('#app-grid .appc[data-url="' + pf.apk_url + '"]'); if (ac) { if (!selApps.has(pf.apk_url)) pickApp(ac); } else { selApps.add(pf.apk_url); syncApkHidden(); } }
   if (typeof pf.shell_cmd === 'string') { var si = document.getElementById('shell-cmd-input'); if (si) si.value = pf.shell_cmd; }
+  if (pf.query_id) { var qc = document.querySelector('.diag-chip[data-qid="' + pf.query_id + '"]'); if (qc) pickDiag(qc); }
   if (pf.package) {
     // The scoped uninstall list may still be loading; add to the selection now and the
     // afterSwap handler marks the button once it appears.
