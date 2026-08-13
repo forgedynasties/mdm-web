@@ -2535,19 +2535,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Diagnostics: the enabled query catalog, shown as read-only "retrieve property"
-	// buttons for admin/dev/tester (viewers don't see the panel).
-	var deviceQueries []db.DeviceQuery
-	if role := h.role(r); role == "admin" || role == "dev" || role == "tester" {
-		deviceQueries, _ = h.db.ListEnabledDeviceQueries(r.Context())
-	}
-
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
 		"DeviceCrashes":       deviceCrashes,
 		"DeviceAlerts":        deviceAlerts,
-		"DeviceQueries":       deviceQueries,
 		"OfflinePeriod":       totp.DefaultPeriod,
 		"OfflineDigits":       totp.DefaultDigits,
 		"OfflineCode":         offlineCode,
@@ -8036,8 +8028,16 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	scopeRestaurants, _ := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7)
 	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
 
+	// Diagnostics catalog for the Actions builder (admin/dev/tester run them; the
+	// pill is hidden for viewers and when the catalog is empty).
+	var actionQueries []db.DeviceQuery
+	if role := h.role(r); role == "admin" || role == "dev" || role == "tester" {
+		actionQueries, _ = h.db.ListEnabledDeviceQueries(r.Context())
+	}
+
 	h.render(w, r, "commands.html", map[string]any{
 		"Title":            "Actions",
+		"DeviceQueries":    actionQueries,
 		"Commands":         cmds,
 		"Attention":        attnShown,
 		"InProgress":       progShown,
@@ -8671,7 +8671,7 @@ const (
 // their exclusive QA recording elsewhere, so they're listed alongside admin/dev on
 // those types — but never on the admin/dev-only types (shell, ota, update_splash).
 // Raw shell is limited to admin/dev; testers reach vetted commands via the device
-// diagnostics catalog instead (see DeviceQueryRun).
+// queries catalog instead (the "diagnostic" action on the Actions page).
 var commandRoles = map[string][]string{
 	"screenshot":    {"admin", "dev", "tester", "viewer"},
 	"install_apk":   {"admin", "dev", "tester"},
@@ -8984,10 +8984,34 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		cmdType = "install_apk"
 	}
 
+	// "diagnostic" is a tester-safe wrapper over shell: the command text comes from the
+	// admin-curated query catalog (never user input), so admin/dev/tester may run it
+	// even without raw-shell rights. Resolve it to a shell command up-front, then let
+	// the normal shell path handle targeting/creation — but skip the raw-shell authz
+	// and the ShellEnabled kill-switch (that switch governs the free-form console).
+	isDiagnostic := cmdType == "diagnostic"
+	if isDiagnostic {
+		if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		qid, _ := strconv.Atoi(r.FormValue("query_id"))
+		q, err := h.db.GetDeviceQuery(r.Context(), qid)
+		if err != nil || !q.Enabled {
+			http.Error(w, "Unknown diagnostic query", http.StatusBadRequest)
+			return
+		}
+		cmdType = "shell"
+		r.Form.Set("type", "shell")
+		r.Form.Set("shell_cmd", q.Command)
+	}
+
 	// set_kiosk isn't a queued command — it writes kiosk config to the target set (like
 	// the old bulk-kiosk action). Gate it directly (admin/dev/tester), not via the
-	// command-role/operator-allows machinery the real commands use.
-	if cmdType == "set_kiosk" {
+	// command-role machinery the real commands use.
+	if isDiagnostic {
+		// already gated + vetted above
+	} else if cmdType == "set_kiosk" {
 		if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
@@ -8995,7 +9019,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	} else if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
 		return
 	}
-	if cmdType == "shell" && !h.cfg.ShellEnabled() {
+	if cmdType == "shell" && !isDiagnostic && !h.cfg.ShellEnabled() {
 		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
 		return
 	}
@@ -10048,40 +10072,6 @@ func (h *Handler) SettingsQueryToggle(w http.ResponseWriter, r *http.Request) {
 	}
 	h.db.SetDeviceQueryEnabled(r.Context(), id, r.FormValue("enabled") == "1")
 	http.Redirect(w, r, "/settings", http.StatusSeeOther)
-}
-
-// DeviceQueryRun issues a catalog diagnostic against one device and returns the
-// command id so the caller can stream its output. Gated to admin/dev/tester at the
-// route; the command text is the admin-vetted catalog entry, not user input, which
-// is why it deliberately bypasses the raw-shell role gate and the ShellEnabled
-// kill-switch (that switch governs the free-form shell console, not vetted queries).
-func (h *Handler) DeviceQueryRun(w http.ResponseWriter, r *http.Request) {
-	serial := r.PathValue("serial")
-	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid ID", http.StatusBadRequest)
-		return
-	}
-	q, err := h.db.GetDeviceQuery(r.Context(), id)
-	if err != nil || !q.Enabled {
-		http.Error(w, "Query not found", http.StatusNotFound)
-		return
-	}
-	device, err := h.db.GetDevice(r.Context(), serial)
-	if err != nil {
-		http.Error(w, "Device not found", http.StatusNotFound)
-		return
-	}
-	payload, _ := json.Marshal(map[string]string{"cmd": q.Command})
-	cmd, err := h.db.CreateCommand(r.Context(), "shell", "", json.RawMessage(payload), "devices", []uuid.UUID{device.ID})
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
-	h.audit(r, "device.query", q.Label, "device="+serial)
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"id": cmd.ID.String(), "label": q.Label})
 }
 
 // RunRecentAlerts evaluates the recent-tier rules (point-in-time + rate/sustained T7
@@ -11756,7 +11746,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
-	post("POST /devices/{serial}/query/{id}", h.requireAdminOrTester(h.DeviceQueryRun))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))

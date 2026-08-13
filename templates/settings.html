@@ -331,9 +331,9 @@ function kioskAddPkg(pkg, el){
 .form-input.mono{font-family:var(--mono);}
 </style>
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Device diagnostics</h3><span class="muted small">read-only property queries shown on each device page</span></div>
+  <div class="card-header"><h3>Queries</h3><span class="muted small">admin-curated read-only device property checks</span></div>
   <div style="padding:16px;">
-    <div class="muted small" style="margin-bottom:12px;">Each query runs a fixed command and shows its output as a “retrieve property”. Testers, devs and admins can run them from a device's page — no raw shell access needed.</div>
+    <div class="muted small" style="margin-bottom:12px;">Each query runs a fixed, read-only command. Testers, devs and admins can run them from the Actions page — no raw shell access needed.</div>
     {{if .DeviceQueries}}
     <div class="dq-list">
       {{range .DeviceQueries}}
