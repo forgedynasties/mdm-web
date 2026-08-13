@@ -259,11 +259,25 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Capture params are driven by the operator's query string so the dashboard can pick
+	// the codec and tune the stream. Defaults keep the safe still-image (JPEG) path; the
+	// browser opts into hardware H.264 with ?codec=h264 (and must decode it via WebCodecs).
+	q := r.URL.Query()
+	codec := q.Get("codec")
+	if codec != "h264" {
+		codec = "jpeg"
+	}
+	quality := clampInt(atoiOr(q.Get("quality"), 60), 1, 100)
+	scale := clampFloat(atofOr(q.Get("scale"), 0.5), 0.1, 1.0)
+	maxFps := clampInt(atoiOr(q.Get("max_fps"), 15), 1, 30)
+	bitrate := clampInt(atoiOr(q.Get("bitrate"), 4_000_000), 250_000, 20_000_000)
 	startMsg, _ := json.Marshal(map[string]any{
 		"type":    "start_capture",
-		"quality": 60,
-		"scale":   0.5,
-		"max_fps": 10,
+		"codec":   codec,
+		"quality": quality,
+		"scale":   scale,
+		"max_fps": maxFps,
+		"bitrate": bitrate,
 	})
 	h.hub.Push(device.ID, startMsg)
 
@@ -301,6 +315,50 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 
 	dashConn.WriteMessage(websocket.CloseMessage, []byte{})
 	<-done
+}
+
+// atoiOr parses s as an int, returning def if s is empty or invalid.
+func atoiOr(s string, def int) int {
+	if s == "" {
+		return def
+	}
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return def
+	}
+	return n
+}
+
+// atofOr parses s as a float64, returning def if s is empty or invalid.
+func atofOr(s string, def float64) float64 {
+	if s == "" {
+		return def
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return def
+	}
+	return f
+}
+
+func clampInt(v, lo, hi int) int {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+func clampFloat(v, lo, hi float64) float64 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
 }
 
 // flushPendingCommands pushes pending commands to the device over WS and

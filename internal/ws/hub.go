@@ -24,8 +24,11 @@ const (
 )
 
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  4096,
-	WriteBufferSize: 4096,
+	// Sized for the remote-control frame path: a screen frame is tens of KB, so 4 KB
+	// buffers chunked every frame into many small reads/writes. Larger buffers cut the
+	// per-frame syscall overhead that caps streaming fps.
+	ReadBufferSize:  32768,
+	WriteBufferSize: 32768,
 	CheckOrigin:     func(r *http.Request) bool { return true },
 }
 
@@ -600,7 +603,10 @@ func (c *Client) ReadPump() {
 		c.hub.Unregister(c)
 		c.conn.Close()
 	}()
-	c.conn.SetReadLimit(512 * 1024) // 512 KB — large enough for shell/screenshot output
+	// 4 MB — headroom for remote-control frames: a higher-quality still or an H.264
+	// key frame can exceed the old 512 KB cap, and hitting the limit tears down the
+	// whole device connection. Still bounds a single message's blast radius.
+	c.conn.SetReadLimit(4 * 1024 * 1024)
 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
 	c.conn.SetPongHandler(func(string) error {
 		c.conn.SetReadDeadline(time.Now().Add(pongWait))

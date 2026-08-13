@@ -12,7 +12,10 @@ import (
 	"mdm/internal/ws"
 )
 
-const frameChanSize = 4
+// frameChanSize buffers a few frames per session so a brief browser-write lag doesn't
+// force a drop. Kept small so a slow operator can't build up latency — RelayFrame still
+// drops the oldest frame when this fills, so the browser always gets the freshest.
+const frameChanSize = 8
 
 type Session struct {
 	DeviceID  uuid.UUID
