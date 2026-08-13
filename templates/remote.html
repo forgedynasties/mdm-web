@@ -358,11 +358,20 @@
   var online = {{.Online}};
 
   var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial) + '?token=' + encodeURIComponent('{{.Token}}');
+  // Opt into hardware H.264 with ?codec=h264 on this page's URL. It needs WebCodecs
+  // (Chromium in a secure context) — we fall back to the JPEG still stream if the
+  // browser can't decode video, so the feature always shows something.
+  var codec = (new URLSearchParams(location.search).get('codec') === 'h264'
+               && typeof VideoDecoder !== 'undefined') ? 'h264' : 'jpeg';
+  var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial)
+              + '?token=' + encodeURIComponent('{{.Token}}')
+              + (codec === 'h264' ? '&codec=h264' : '');
 
   var ws = null;
   var view = null;   // <canvas> showing the device screen
   var ctx = null;
+  var vdec = null;   // WebCodecs VideoDecoder (h264 mode only)
+  var vdecReady = false;
   var captureKbd = false;
   var decodeErrors = 0;
   var frameCount = 0;
@@ -401,6 +410,91 @@
     document.getElementById('rc-disconnect').style.display = on ? '' : 'none';
   }
 
+  function ensureCanvas() {
+    if (ctx) return;
+    var ph = document.getElementById('rc-placeholder');
+    if (!ph) return;
+    view = document.createElement('canvas');
+    view.id = 'rc-canvas';
+    view.width = 1; view.height = 1;
+    ctx = view.getContext('2d');
+    ph.parentNode.replaceChild(view, ph);
+    setupInput(view);
+  }
+
+  function frameDecodeFailed(err, bytes) {
+    decodeErrors++;
+    document.getElementById('rc-err-chip').style.display = '';
+    document.getElementById('rc-err').textContent = decodeErrors;
+    if (decodeErrors <= 3) console.error('[remote] frame decode failed (' + bytes + ' bytes):', err);
+  }
+
+  function resizeTo(w, h) {
+    if (view.width !== w || view.height !== h) {
+      view.width = w; view.height = h;
+      document.getElementById('rc-res').textContent = w + '×' + h;
+    }
+  }
+
+  // JPEG/WebP still frame: createImageBitmap sniffs the format from the bytes, so this
+  // handles either. A canvas (not <img>) keeps intrinsic dimensions in the shrink-to-fit
+  // container and lets us surface decode failures.
+  function paintStill(data) {
+    createImageBitmap(new Blob([data], {type: 'image/jpeg'})).then(function(bmp) {
+      resizeTo(bmp.width, bmp.height);
+      ctx.drawImage(bmp, 0, 0);
+      bmp.close();
+    }).catch(function(err) { frameDecodeFailed(err, data.byteLength); });
+  }
+
+  // H.264 Annex-B frame. Wire format: [1-byte type][payload]; type 1 = key frame
+  // (payload carries SPS/PPS + IDR), 0 = delta. Decoded via WebCodecs to a VideoFrame
+  // painted on the canvas. We wait for the first key frame before feeding the decoder.
+  var vts = 0, sawKey = false;
+  function initDecoder() {
+    vdec = new VideoDecoder({
+      output: function(frame) {
+        resizeTo(frame.displayWidth, frame.displayHeight);
+        ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
+        frame.close();
+      },
+      error: function(err) { frameDecodeFailed(err, 0); vdecReady = false; }
+    });
+    try {
+      vdec.configure({ codec: 'avc1.42E01E', optimizeForLatency: true });
+      vdecReady = true;
+    } catch (err) { frameDecodeFailed(err, 0); }
+  }
+  function paintH264(data) {
+    if (!vdec) initDecoder();
+    if (!vdecReady) return;
+    var bytes = new Uint8Array(data);
+    if (bytes.length < 2) return;
+    var isKey = bytes[0] === 1;
+    if (!sawKey) { if (!isKey) return; sawKey = true; } // a decoder can't start on a delta
+    try {
+      vdec.decode(new EncodedVideoChunk({
+        type: isKey ? 'key' : 'delta',
+        timestamp: (vts += Math.round(1e6 / 15)),
+        data: bytes.subarray(1)
+      }));
+    } catch (err) { frameDecodeFailed(err, bytes.length); sawKey = false; }
+  }
+
+  function noteFrameStats(bytes) {
+    frameCount++;
+    bwBytes += bytes;
+    var now = performance.now();
+    if (now - fpsStart >= 1000) {
+      document.getElementById('rc-fps').textContent = frameCount;
+      frameCount = 0; fpsStart = now;
+    }
+    if (now - bwStart >= 1000) {
+      document.getElementById('rc-kbps').textContent = (bwBytes / 1024 / ((now - bwStart) / 1000)).toFixed(1);
+      bwBytes = 0; bwStart = now;
+    }
+  }
+
   function connect() {
     ws = window.mdmTrackStream(new WebSocket(wsUrl));
     ws.binaryType = 'arraybuffer';
@@ -413,51 +507,11 @@
 
     ws.onmessage = function(e) {
       if (typeof e.data === 'string') return; // JSON control messages (none currently)
-
-      // First binary frame: swap the placeholder for a canvas and wire up input.
-      if (!ctx) {
-        var ph = document.getElementById('rc-placeholder');
-        if (!ph) return;
-        view = document.createElement('canvas');
-        view.id = 'rc-canvas';
-        view.width = 1; view.height = 1;
-        ctx = view.getContext('2d');
-        ph.parentNode.replaceChild(view, ph);
-        setupInput(view);
-      }
-
-      // Binary frame — WebP. Decode via createImageBitmap and paint to the canvas.
-      // A canvas keeps intrinsic dimensions (unlike <img max-width:100%> in a
-      // shrink-to-fit container, which collapses to nothing) and the .catch
-      // surfaces decode failures instead of silently showing a broken image.
-      var blob = new Blob([e.data], {type: 'image/webp'});
-      createImageBitmap(blob).then(function(bmp) {
-        if (view.width !== bmp.width || view.height !== bmp.height) {
-          view.width = bmp.width;
-          view.height = bmp.height;
-          document.getElementById('rc-res').textContent = bmp.width + '×' + bmp.height;
-        }
-        ctx.drawImage(bmp, 0, 0);
-        bmp.close();
-      }).catch(function(err) {
-        decodeErrors++;
-        var chip = document.getElementById('rc-err-chip');
-        chip.style.display = '';
-        document.getElementById('rc-err').textContent = decodeErrors;
-        if (decodeErrors <= 3) console.error('[remote] frame decode failed (' + e.data.byteLength + ' bytes):', err);
-      });
-
-      frameCount++;
-      bwBytes += e.data.byteLength;
-      var now = performance.now();
-      if (now - fpsStart >= 1000) {
-        document.getElementById('rc-fps').textContent = frameCount;
-        frameCount = 0; fpsStart = now;
-      }
-      if (now - bwStart >= 1000) {
-        document.getElementById('rc-kbps').textContent = (bwBytes / 1024 / ((now - bwStart) / 1000)).toFixed(1);
-        bwBytes = 0; bwStart = now;
-      }
+      ensureCanvas();                          // first binary frame swaps in the canvas
+      if (!ctx) return;
+      if (codec === 'h264') paintH264(e.data);
+      else paintStill(e.data);
+      noteFrameStats(e.data.byteLength);
     };
 
     ws.onclose = function() {
@@ -466,6 +520,7 @@
       captureKbd = false;
       var kbd = document.getElementById('rc-kbd'); if (kbd) kbd.checked = false;
       if (view) { view = null; ctx = null; }
+      if (vdec) { try { vdec.close(); } catch (e2) {} vdec = null; vdecReady = false; sawKey = false; }
       var screen = document.getElementById('rc-screen');
       screen.innerHTML =
         '<div class="rc-placeholder">' +
