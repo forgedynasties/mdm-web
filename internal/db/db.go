@@ -2610,6 +2610,17 @@ func (d *DB) DismissCommands(ctx context.Context, ids []uuid.UUID, by string) er
 
 // ── Commands ──────────────────────────────────────────────────────────────────
 
+// DeviceCommandType maps a stored command type to what the device agent expects on
+// the wire. "query" is a dashboard-only label for an admin-vetted read-only
+// diagnostic; the device runs it as an ordinary shell command, so it needs no new
+// type. Every place that serializes a command to a device must route through this.
+func DeviceCommandType(t string) string {
+	if t == "query" {
+		return "shell"
+	}
+	return t
+}
+
 // CreateCommand creates a command. For target_type "devices", targetIDs are device UUIDs.
 // For "groups", they are group UUIDs. For "all", targetIDs is empty.
 func (d *DB) CreateCommand(ctx context.Context, cmdType, apkURL string, payload json.RawMessage, targetType string, targetIDs []uuid.UUID) (*Command, error) {
