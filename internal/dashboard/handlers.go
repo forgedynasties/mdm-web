@@ -12164,7 +12164,7 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 	msg, _ := json.Marshal(map[string]any{
 		"type":         "command",
 		"id":           cmd.ID,
-		"command_type": cmd.Type,
+		"command_type": db.DeviceCommandType(cmd.Type),
 		"apk_url":      cmd.ApkURL,
 		"payload":      cmd.Payload,
 	})
