@@ -498,13 +498,13 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// resend and delete controls are all separately gated by canOperate /
 		// canAdmin, so a viewer sees history but no way to act).
 		"canAct": func(role string) bool {
-			return role == "admin" || role == "dev" || role == "operator" || role == "tester" || role == "viewer"
+			return role == "admin" || role == "dev" || role == "tester" || role == "viewer"
 		},
-		// canOperate reports operator-level UI power: operators and testers both
-		// have it, plus admin/dev. Mirrors requireOperatorOrAdmin on the server so
-		// the dashboard shows the same actions those roles can actually perform.
+		// canOperate reports action-level UI power: the test team plus admin/dev.
+		// Mirrors requireOperatorOrAdmin on the server so the dashboard shows the
+		// same actions those roles can actually perform.
 		"canOperate": func(role string) bool {
-			return role == "admin" || role == "dev" || role == "operator" || role == "tester"
+			return role == "admin" || role == "dev" || role == "tester"
 		},
 		// plainAlert strips a humanized alert sentence to plain text (for search).
 		"plainAlert": plainSentence,
@@ -1441,7 +1441,7 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "admin" && s.Role != "dev" && s.Role != "operator" && s.Role != "tester" {
+		if s.Role != "admin" && s.Role != "dev" && s.Role != "tester" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -2527,7 +2527,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	deviceCrashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(r.Context(), device.ID, 50)))
 	var deviceAlerts []humanAlert
 	if active, err := h.db.ListDeviceActiveAlerts(r.Context(), device.ID, 50); err == nil {
-		canAct := h.role(r) == "admin" || h.role(r) == "dev" || h.role(r) == "operator" || h.role(r) == "tester"
+		canAct := h.role(r) == "admin" || h.role(r) == "dev" || h.role(r) == "tester"
 		for _, a := range active {
 			ha := humanizeAlert(a)
 			ha.CanAct = canAct
@@ -2535,11 +2535,19 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Diagnostics: the enabled query catalog, shown as read-only "retrieve property"
+	// buttons for admin/dev/tester (viewers don't see the panel).
+	var deviceQueries []db.DeviceQuery
+	if role := h.role(r); role == "admin" || role == "dev" || role == "tester" {
+		deviceQueries, _ = h.db.ListEnabledDeviceQueries(r.Context())
+	}
+
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
 		"DeviceCrashes":       deviceCrashes,
 		"DeviceAlerts":        deviceAlerts,
+		"DeviceQueries":       deviceQueries,
 		"OfflinePeriod":       totp.DefaultPeriod,
 		"OfflineDigits":       totp.DefaultDigits,
 		"OfflineCode":         offlineCode,
@@ -3386,7 +3394,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role := h.role(r)
-	canAct := role == "admin" || role == "dev" || role == "operator" || role == "tester"
+	canAct := role == "admin" || role == "dev" || role == "tester"
 
 	// Optional per-device filter (a device's Alerts-tab "Show more" links here so the
 	// full list opens scoped to that unit). Resolve the serial to an ID; an unknown
@@ -7052,8 +7060,8 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 		"Carried":        carried,
 		"ProblemSummary": ps,
 		"CanRecord":      role == "tester",
-		"CanReport":      role == "admin" || role == "dev" || role == "operator" || role == "tester",
-		"CanAct":         role == "admin" || role == "dev" || role == "operator", // act on existing problems (fixed/verified/wontfix) — testers file only
+		"CanReport":      role == "admin" || role == "dev" || role == "tester",
+		"CanAct":         role == "admin" || role == "dev", // act on existing problems (fixed/verified/wontfix) — testers file only
 	}
 }
 
@@ -7431,7 +7439,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// deployment (see template) — skip the expensive full-fleet load otherwise so
 	// viewers and canceled/finished deployments don't pay for a list they can't use.
 	role := h.role(r)
-	canOp := role == "admin" || role == "dev" || role == "operator" || role == "tester"
+	canOp := role == "admin" || role == "dev" || role == "tester"
 	if !canOp || upd.Status == "canceled" {
 		data["Devices"] = nil
 		data["Online"] = map[uuid.UUID]bool{}
@@ -7978,7 +7986,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	}
 	saved, _ := h.db.ListRecipes(r.Context())
 	role := h.role(r)
-	canOp := role == "admin" || role == "dev" || role == "operator" || role == "tester"
+	canOp := role == "admin" || role == "dev" || role == "tester"
 	for _, rec := range saved {
 		// For roles that can act, hide recipes they aren't allowed to issue (so a
 		// click never leads to a rejected send). Viewers see every recipe — the
@@ -8659,23 +8667,24 @@ const (
 // persisted, and dispatched from the lowest-privilege role (GB-01/GB-02). The
 // admin JSON API (internal/api) independently gates the same set behind the
 // admin key. Keep the two lists in sync when adding a command type.
-// Testers get the same operational command set as operators (plus their
-// exclusive QA recording elsewhere), so they're listed alongside "operator" on
-// every operator-allowed type — but never on the admin-only types (ota,
-// update_splash). They're also subject to the same OperatorAllows restriction.
+// Testers carry the everyday action set (screenshot/install/uninstall/reboot) plus
+// their exclusive QA recording elsewhere, so they're listed alongside admin/dev on
+// those types — but never on the admin/dev-only types (shell, ota, update_splash).
+// Raw shell is limited to admin/dev; testers reach vetted commands via the device
+// diagnostics catalog instead (see DeviceQueryRun).
 var commandRoles = map[string][]string{
-	"screenshot":    {"admin", "dev", "operator", "tester", "viewer"},
-	"install_apk":   {"admin", "dev", "operator", "tester"},
-	"uninstall":     {"admin", "dev", "operator", "tester"},
-	"reboot":        {"admin", "dev", "operator", "tester"},
-	"shell":         {"admin", "dev", "operator", "tester"},
+	"screenshot":    {"admin", "dev", "tester", "viewer"},
+	"install_apk":   {"admin", "dev", "tester"},
+	"uninstall":     {"admin", "dev", "tester"},
+	"reboot":        {"admin", "dev", "tester"},
+	"shell":         {"admin", "dev"},
 	"ota":           {"admin", "dev"},
 	"update_splash": {"admin", "dev"},
 	"logcat":        {"admin", "dev"},
 }
 
-// authorizeCommand reports whether role may issue a command of cmdType.
-// Operators can be further restricted per type via the OperatorAllows setting.
+// authorizeCommand reports whether role may issue a command of cmdType, per the
+// role allowlist in commandRoles.
 func (h *Handler) authorizeCommand(role, cmdType string) cmdAuthz {
 	roles, known := commandRoles[cmdType]
 	if !known {
@@ -8689,9 +8698,6 @@ func (h *Handler) authorizeCommand(role, cmdType string) cmdAuthz {
 		}
 	}
 	if !allowed {
-		return cmdAuthzForbidden
-	}
-	if (role == "operator" || role == "tester") && !h.cfg.OperatorAllows(cmdType) {
 		return cmdAuthzForbidden
 	}
 	return cmdAuthzOK
@@ -8811,7 +8817,7 @@ func cmdTypeLabel(cmdType string) string {
 // viewers must not see them, so the bucket name is not disclosed via command
 // reads (GB-05).
 func canSeeCommandURLs(role string) bool {
-	return role == "admin" || role == "dev" || role == "operator" || role == "tester"
+	return role == "admin" || role == "dev" || role == "tester"
 }
 
 // redactDeviceCommandURLs blanks the APK/OTA URL on a command-history slice for
@@ -9627,8 +9633,10 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	googleUsage := h.buildGoogleUsage(r.Context())
 	googleUsageJSON, _ := json.Marshal(googleUsage)
 	learnedAPs, _ := h.db.ListWifiAPsRecent(r.Context(), 25)
+	deviceQueries, _ := h.db.ListDeviceQueries(r.Context())
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":                "Settings",
+		"DeviceQueries":        deviceQueries,
 		"BaseCases":            baseCases,
 		"ExtraColumns":         h.cfg.Columns(),
 		"LegacyCheckin":        h.cfg.LegacyCheckin(),
@@ -9638,9 +9646,6 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"RemoteEnabled":        h.cfg.RemoteEnabled(),
 		"CommandExpiry":        h.cfg.CommandExpiry(),
 		"MaxTargets":           h.cfg.MaxTargets(),
-		"OpAllowShell":         h.cfg.OperatorAllows("shell"),
-		"OpAllowReboot":        h.cfg.OperatorAllows("reboot"),
-		"OpAllowInstall":       h.cfg.OperatorAllows("install_apk"),
 		"RequireReason":        h.cfg.RequireReason(),
 		"SessionTimeout":       h.cfg.SessionTimeout(),
 		"BrandName":            h.cfg.BrandName(),
@@ -9963,20 +9968,120 @@ func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) 
 	h.hxRedirect(w, r, "/settings") // may clamp to 0/default — re-render the stored value
 }
 
-func (h *Handler) SettingsSetOperatorPerms(w http.ResponseWriter, r *http.Request) {
+// ── Device diagnostics catalog ───────────────────────────────────────────────
+// Admins curate a set of read-only device queries (label + shell command). They're
+// surfaced on the device page as "retrieve property" buttons; because the command
+// text comes only from this catalog (never user input), testers may run them even
+// though they cannot send raw shell.
+
+// deviceQueryFromForm reads the shared create/edit form fields into a DeviceQuery.
+func deviceQueryFromForm(r *http.Request) db.DeviceQuery {
+	q := db.DeviceQuery{
+		Label:       strings.TrimSpace(r.FormValue("label")),
+		Description: strings.TrimSpace(r.FormValue("description")),
+		Command:     strings.TrimSpace(r.FormValue("command")),
+		Category:    strings.TrimSpace(r.FormValue("category")),
+		Enabled:     r.FormValue("enabled") == "on",
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(r.FormValue("sort"))); err == nil {
+		q.Sort = n
+	}
+	if q.Category == "" {
+		q.Category = "General"
+	}
+	return q
+}
+
+func (h *Handler) SettingsQueryCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	allowed := map[string]bool{}
-	for _, t := range r.Form["op_allow"] {
-		allowed[t] = true
+	q := deviceQueryFromForm(r)
+	q.CreatedBy = h.currentUsername(r)
+	if q.Label == "" || q.Command == "" {
+		http.Error(w, "A label and a command are required.", http.StatusBadRequest)
+		return
 	}
-	var denied []string
-	for _, t := range []string{"shell", "reboot", "install_apk"} {
-		if !allowed[t] {
-			denied = append(denied, t)
-		}
+	if _, err := h.db.CreateDeviceQuery(r.Context(), q); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
 	}
-	h.cfg.SetOperatorDenied(denied)
-	h.hxDoneToast(w, r, "/settings", "Settings saved", "success")
+	h.audit(r, "query.create", q.Label, q.Command)
+	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+}
+
+func (h *Handler) SettingsQueryEdit(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	q := deviceQueryFromForm(r)
+	q.ID = id
+	if q.Label == "" || q.Command == "" {
+		http.Error(w, "A label and a command are required.", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.UpdateDeviceQuery(r.Context(), q); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "query.edit", q.Label, q.Command)
+	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+}
+
+func (h *Handler) SettingsQueryDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	h.db.DeleteDeviceQuery(r.Context(), id)
+	h.audit(r, "query.delete", strconv.Itoa(id), "")
+	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+}
+
+func (h *Handler) SettingsQueryToggle(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	h.db.SetDeviceQueryEnabled(r.Context(), id, r.FormValue("enabled") == "1")
+	http.Redirect(w, r, "/settings", http.StatusSeeOther)
+}
+
+// DeviceQueryRun issues a catalog diagnostic against one device and returns the
+// command id so the caller can stream its output. Gated to admin/dev/tester at the
+// route; the command text is the admin-vetted catalog entry, not user input, which
+// is why it deliberately bypasses the raw-shell role gate and the ShellEnabled
+// kill-switch (that switch governs the free-form shell console, not vetted queries).
+func (h *Handler) DeviceQueryRun(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	q, err := h.db.GetDeviceQuery(r.Context(), id)
+	if err != nil || !q.Enabled {
+		http.Error(w, "Query not found", http.StatusNotFound)
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	payload, _ := json.Marshal(map[string]string{"cmd": q.Command})
+	cmd, err := h.db.CreateCommand(r.Context(), "shell", "", json.RawMessage(payload), "devices", []uuid.UUID{device.ID})
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
+	h.audit(r, "device.query", q.Label, "device="+serial)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"id": cmd.ID.String(), "label": q.Label})
 }
 
 // RunRecentAlerts evaluates the recent-tier rules (point-in-time + rate/sustained T7
@@ -11514,7 +11619,7 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 // "admin" is excluded — it is env-configured only, never a DB user.
 func validUserRole(role string) bool {
 	switch role {
-	case "viewer", "operator", "tester", "dev":
+	case "viewer", "tester", "dev":
 		return true
 	}
 	return false
@@ -11648,9 +11753,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/daily-stats", h.requireAuth(h.DeviceDailyStatsJSON))
 	post("POST /devices/{serial}/ai-analysis", h.requireAuth(h.DeviceAIAnalysis))
 	mux.HandleFunc("GET /devices/{serial}/ai-analyses", h.requireAuth(h.DeviceAIAnalysesList))
-	mux.HandleFunc("GET /devices/{serial}/shell", h.requireOperatorOrAdmin(h.DeviceShellPage))
+	mux.HandleFunc("GET /devices/{serial}/shell", h.requireAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
+	post("POST /devices/{serial}/query/{id}", h.requireAdminOrTester(h.DeviceQueryRun))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))
@@ -11776,7 +11882,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/remote/toggle", h.requireStrictAdmin(h.SettingsToggleRemote))
 	post("POST /settings/command-expiry", h.requireStrictAdmin(h.SettingsSetCommandExpiry))
 	post("POST /settings/max-targets", h.requireStrictAdmin(h.SettingsSetMaxTargets))
-	post("POST /settings/operator-perms", h.requireStrictAdmin(h.SettingsSetOperatorPerms))
+	post("POST /settings/queries", h.requireStrictAdmin(h.SettingsQueryCreate))
+	post("POST /settings/queries/{id}/edit", h.requireStrictAdmin(h.SettingsQueryEdit))
+	post("POST /settings/queries/{id}/delete", h.requireStrictAdmin(h.SettingsQueryDelete))
+	post("POST /settings/queries/{id}/toggle", h.requireStrictAdmin(h.SettingsQueryToggle))
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))

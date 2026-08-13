@@ -14,7 +14,7 @@
 
 <div class="ov-greet">
   <h1 class="ov-title">Users</h1>
-  <span class="ov-date">viewers are read-only; operators can also send shell and reboot; testers add QA recording; devs get full ops + release sign-off</span>
+  <span class="ov-date">viewers are read-only; testers can send actions, run device diagnostics and record QA; devs get full ops + release sign-off + shell; admins manage everything</span>
 </div>
 
 <div class="users-wrap">
@@ -37,7 +37,6 @@
           <form action="/users/{{.ID}}/role" method="POST" style="display:inline;">
             <select name="role" class="form-input user-role-sel" onchange="this.form.submit()" title="Change role">
               <option value="viewer"{{if eq .Role "viewer"}} selected{{end}}>Viewer</option>
-              <option value="operator"{{if eq .Role "operator"}} selected{{end}}>Operator</option>
               <option value="tester"{{if eq .Role "tester"}} selected{{end}}>Tester</option>
               <option value="dev"{{if eq .Role "dev"}} selected{{end}}>Dev</option>
             </select>
@@ -77,10 +76,9 @@
       <div class="form-row">
         <label class="form-label" for="f-role">Role</label>
         <select name="role" id="f-role" class="form-input">
-          <option value="viewer">Viewer — read-only + screenshot + logcat</option>
-          <option value="operator">Operator — viewer + shell + reboot</option>
-          <option value="tester">Tester — operator + record release QA</option>
-          <option value="dev">Dev — full ops + release sign-off (no settings/users)</option>
+          <option value="viewer">Viewer — read-only + screenshot</option>
+          <option value="tester">Tester — viewer + actions + diagnostics + record release QA</option>
+          <option value="dev">Dev — full ops + shell + release sign-off (no settings/users)</option>
         </select>
       </div>
       <button type="submit" class="btn-primary" style="justify-self:start;">
