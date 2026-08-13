@@ -222,12 +222,12 @@
       <div class="ov2-card">
         <div class="ov2-ch"><h3>Top crashing devices</h3><span class="m">24h · {{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}} · {{.Crashes24h}} events</span></div>
         {{range .CrashList}}
-        <a class="ov2-cdev" href="/devices/{{.Serial}}">
+        <a class="ov2-cdev" href="/devices/{{.Serial}}?tab=alerts">
           <div class="ov2-cdev-top"><span class="ov2-kind {{.KindClass}}">{{.KindLabel}}</span><span class="ov2-sn">{{.Serial}}</span><span class="ov2-x">×{{.Count}}</span></div>
           <div class="ov2-cmeta">{{if .Restaurant}}<span>{{.Restaurant}}</span>{{end}}{{if .BuildID}}<span class="bd">build {{.BuildID}}</span>{{end}}<span>{{.Ago}}</span></div>
         </a>
         {{end}}
-        <a class="ov2-foot" href="/fleet-health">View all crashes →</a>
+        <a class="ov2-foot" href="/alerts?view=crashes">View all crashes →</a>
       </div>
       {{end}}
 

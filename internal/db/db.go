@@ -10580,6 +10580,123 @@ func (d *DB) CrashesOnBuild(ctx context.Context, buildID string, limit int) ([]B
 	return out, rows.Err()
 }
 
+// CrashEvent is one crash/ANR/tombstone event (a device_events row, not a reboot),
+// with the device's serial/restaurant/build for listing on the alerts page and the
+// per-device Alerts tab. Detail is the full DropBox trace (may be empty).
+type CrashEvent struct {
+	ID         uuid.UUID
+	Serial     string
+	Restaurant string
+	Kind       string
+	Summary    string
+	Detail     string
+	BuildID    string
+	OccurredAt time.Time
+}
+
+// ListRecentCrashEvents returns crash/ANR/tombstone events (not reboots) across the
+// whole fleet within the last sinceDays, newest first — the fleet crash feed folded
+// into the alerts page. Events on hidden devices are excluded. limit/sinceDays <= 0
+// fall back to 60 / 7.
+func (d *DB) ListRecentCrashEvents(ctx context.Context, sinceDays, limit int) ([]CrashEvent, error) {
+	if limit <= 0 {
+		limit = 60
+	}
+	if sinceDays <= 0 {
+		sinceDays = 7
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT e.id, dv.serial_number, COALESCE(r.name, ''), e.kind, e.summary, e.detail,
+		       e.build_id, e.occurred_at
+		FROM device_events e
+		JOIN devices dv ON dv.id = e.device_id
+		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
+		WHERE e.kind <> 'reboot' AND NOT dv.hidden
+		  AND e.occurred_at > now() - make_interval(days => $1)
+		ORDER BY e.occurred_at DESC
+		LIMIT $2`, sinceDays, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CrashEvent
+	for rows.Next() {
+		var c CrashEvent
+		if err := rows.Scan(&c.ID, &c.Serial, &c.Restaurant, &c.Kind, &c.Summary,
+			&c.Detail, &c.BuildID, &c.OccurredAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// ListDeviceCrashes returns crash/ANR/tombstone events (not reboots) for a single
+// device, newest first — the crash feed for that device's Alerts tab. limit <= 0
+// means 50.
+func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit int) ([]CrashEvent, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT e.id, dv.serial_number, COALESCE(r.name, ''), e.kind, e.summary, e.detail,
+		       e.build_id, e.occurred_at
+		FROM device_events e
+		JOIN devices dv ON dv.id = e.device_id
+		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
+		WHERE e.device_id = $1 AND e.kind <> 'reboot'
+		ORDER BY e.occurred_at DESC
+		LIMIT $2`, deviceID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []CrashEvent
+	for rows.Next() {
+		var c CrashEvent
+		if err := rows.Scan(&c.ID, &c.Serial, &c.Restaurant, &c.Kind, &c.Summary,
+			&c.Detail, &c.BuildID, &c.OccurredAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+// ListDeviceActiveAlerts returns the non-resolved alerts for a single device, worst
+// severity first then newest — the alert feed for that device's Alerts tab.
+func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, limit int) ([]Alert, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT a.id, a.rule_id, a.type, a.device_id, COALESCE(d.serial_number, ''),
+		       COALESCE(r.name, ''), a.severity, a.status, a.summary, a.detail,
+		       a.occurrences, a.fired_at, a.last_seen_at, a.resolved_at, a.updated_at
+		FROM alerts a
+		LEFT JOIN devices d ON d.id = a.device_id
+		LEFT JOIN restaurants r ON r.id = d.restaurant_id
+		WHERE a.device_id = $1 AND a.status <> 'resolved'
+		ORDER BY CASE a.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+		         a.fired_at DESC
+		LIMIT $2`, deviceID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Alert
+	for rows.Next() {
+		var a Alert
+		if err := rows.Scan(&a.ID, &a.RuleID, &a.Type, &a.DeviceID, &a.Serial,
+			&a.RestaurantName, &a.Severity, &a.Status, &a.Summary, &a.Detail,
+			&a.Occurrences, &a.FiredAt, &a.LastSeenAt, &a.ResolvedAt, &a.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
 // CrashGroup collapses identical crash/ANR events on a build into one row: same kind +
 // normalized signature, counted across occurrences and distinct devices. The signature
 // strips the volatile ", for safety source: X" tail so every variant of one underlying
