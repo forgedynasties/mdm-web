@@ -10663,6 +10663,81 @@ func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit in
 	return out, rows.Err()
 }
 
+// ListRecentCrashEventsPage returns one page of fleet crash/ANR/tombstone events
+// (not reboots) within the last sinceDays, newest first, plus the total number of
+// matches (via COUNT(*) OVER()) for pagination. Events on hidden devices are excluded.
+func (d *DB) ListRecentCrashEventsPage(ctx context.Context, sinceDays, limit, offset int) ([]CrashEvent, int, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	if sinceDays <= 0 {
+		sinceDays = 7
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT e.id, dv.serial_number, COALESCE(r.name, ''), e.kind, e.summary, e.detail,
+		       e.build_id, e.occurred_at, COUNT(*) OVER() AS total
+		FROM device_events e
+		JOIN devices dv ON dv.id = e.device_id
+		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
+		WHERE e.kind <> 'reboot' AND NOT dv.hidden
+		  AND e.occurred_at > now() - make_interval(days => $1)
+		ORDER BY e.occurred_at DESC
+		LIMIT $2 OFFSET $3`, sinceDays, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []CrashEvent
+	total := 0
+	for rows.Next() {
+		var c CrashEvent
+		if err := rows.Scan(&c.ID, &c.Serial, &c.Restaurant, &c.Kind, &c.Summary,
+			&c.Detail, &c.BuildID, &c.OccurredAt, &total); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, c)
+	}
+	return out, total, rows.Err()
+}
+
+// ListDeviceCrashesPage returns one page of a single device's crash/ANR/tombstone
+// events (not reboots), newest first, plus the total match count for pagination.
+func (d *DB) ListDeviceCrashesPage(ctx context.Context, deviceID uuid.UUID, limit, offset int) ([]CrashEvent, int, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT e.id, dv.serial_number, COALESCE(r.name, ''), e.kind, e.summary, e.detail,
+		       e.build_id, e.occurred_at, COUNT(*) OVER() AS total
+		FROM device_events e
+		JOIN devices dv ON dv.id = e.device_id
+		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
+		WHERE e.device_id = $1 AND e.kind <> 'reboot'
+		ORDER BY e.occurred_at DESC
+		LIMIT $2 OFFSET $3`, deviceID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var out []CrashEvent
+	total := 0
+	for rows.Next() {
+		var c CrashEvent
+		if err := rows.Scan(&c.ID, &c.Serial, &c.Restaurant, &c.Kind, &c.Summary,
+			&c.Detail, &c.BuildID, &c.OccurredAt, &total); err != nil {
+			return nil, 0, err
+		}
+		out = append(out, c)
+	}
+	return out, total, rows.Err()
+}
+
 // ListDeviceActiveAlerts returns the non-resolved alerts for a single device, worst
 // severity first then newest — the alert feed for that device's Alerts tab.
 func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, limit int) ([]Alert, error) {
