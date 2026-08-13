@@ -2837,6 +2837,7 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 
 type deviceEventPayload struct {
 	TsMs       int64    `json:"ts_ms"`
+	BuildID    string   `json:"build_id,omitempty"`
 	BatteryPct int      `json:"battery_pct"`
 	Wlc        *int     `json:"wlc"`      // nil = no data
 	TempC      *float64 `json:"temp_c"`   // nil = no data
@@ -2853,6 +2854,7 @@ type deviceEventPayload struct {
 func buildDeviceEventPayload(c *db.Checkin) deviceEventPayload {
 	p := deviceEventPayload{
 		TsMs:       c.CreatedAt.UnixMilli(),
+		BuildID:    c.BuildID,
 		BatteryPct: c.BatteryPct,
 	}
 	if len(c.Extra) > 0 {
