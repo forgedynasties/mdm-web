@@ -228,12 +228,12 @@
     </div>
     {{if .CrashList}}
     {{range .CrashList}}
-    <a class="fh-cg" href="/devices/{{.Serial}}">
+    <a class="fh-cg" href="/devices/{{.Serial}}?tab=alerts">
       <div class="fh-cg-top"><span class="fh-kind {{.KindClass}}">{{.KindLabel}}</span><span class="fh-capp">{{.Serial}}</span><span class="fh-cx">×{{.Count}}</span></div>
       <div class="fh-cmeta">{{if .Restaurant}}<span>{{.Restaurant}}</span>{{end}}{{if .BuildID}}<span class="bd">build {{.BuildID}}</span>{{end}}<span>latest {{.Ago}}</span></div>
     </a>
     {{end}}
-    <a class="fh-crash-all" href="/alerts?status=open">View all crashes →</a>
+    <a class="fh-crash-all" href="/alerts?view=crashes">View all crashes →</a>
     {{else}}
     <div class="fh-crash-empty"><div><div class="t">All clear</div><div class="s">No app crashes, ANRs, or tombstones reported in the last 24 hours.</div></div></div>
     {{end}}

@@ -2518,9 +2518,24 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Alerts tab: this device's crash/ANR events plus its active alerts, so a crash
+	// deep-link from the fleet views lands on something that actually shows crashes.
+	deviceCrashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(r.Context(), device.ID, 50)))
+	var deviceAlerts []humanAlert
+	if active, err := h.db.ListDeviceActiveAlerts(r.Context(), device.ID, 50); err == nil {
+		canAct := h.role(r) == "admin" || h.role(r) == "dev" || h.role(r) == "operator" || h.role(r) == "tester"
+		for _, a := range active {
+			ha := humanizeAlert(a)
+			ha.CanAct = canAct
+			deviceAlerts = append(deviceAlerts, ha)
+		}
+	}
+
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
+		"DeviceCrashes":       deviceCrashes,
+		"DeviceAlerts":        deviceAlerts,
 		"OfflinePeriod":       totp.DefaultPeriod,
 		"OfflineDigits":       totp.DefaultDigits,
 		"OfflineCode":         offlineCode,
@@ -3355,7 +3370,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	// history is intentionally not a view here — the inbox is about what's active.
 	view := r.URL.Query().Get("view")
 	switch view {
-	case "", "needs", "watching":
+	case "", "needs", "watching", "crashes":
 	default:
 		view = ""
 	}
@@ -3389,6 +3404,11 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 			watch = append(watch, ha)
 		}
 	}
+	// Crash events (device_events) are separate from alert rows — crash alerts
+	// auto-resolve, so past crashes vanish from the active-alert list. Fold the raw
+	// crash feed in as its own view so "View all crashes" actually shows them.
+	crashEvents, _ := h.db.ListRecentCrashEvents(r.Context(), 7, 60)
+	crashes := toCrashCards(crashEvents)
 	h.render(w, r, "alerts.html", map[string]any{
 		"Title":       "Alerts",
 		"Summary":     summary,
@@ -3398,7 +3418,46 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		"NeedsCount":  len(crit),
 		"WatchCount":  len(watch),
 		"ActiveCount": len(crit) + len(watch),
+		"Crashes":     crashes,
+		"CrashCount":  len(crashes),
 	})
+}
+
+// crashCardView is one crash/ANR/tombstone event rendered as a card on the alerts
+// page and the device Alerts tab: a kind badge, device, build and relative time,
+// with the full trace tucked into an expander.
+type crashCardView struct {
+	Serial     string
+	Restaurant string
+	KindLabel  string
+	KindClass  string
+	BuildID    string
+	OccurredAt time.Time
+	Summary    string
+	Trace      string
+}
+
+// mustCrashes drops the error from a crash-event query — a failed crash lookup on a
+// device page should degrade to an empty tab, not a 500.
+func mustCrashes(events []db.CrashEvent, _ error) []db.CrashEvent { return events }
+
+// toCrashCards maps raw crash events to their view rows, deriving the kind badge.
+func toCrashCards(events []db.CrashEvent) []crashCardView {
+	cards := make([]crashCardView, 0, len(events))
+	for _, e := range events {
+		label, class := crashKindBadge(e.Kind)
+		cards = append(cards, crashCardView{
+			Serial:     e.Serial,
+			Restaurant: e.Restaurant,
+			KindLabel:  label,
+			KindClass:  class,
+			BuildID:    e.BuildID,
+			OccurredAt: e.OccurredAt,
+			Summary:    e.Summary,
+			Trace:      e.Detail,
+		})
+	}
+	return cards
 }
 
 // AlertNewest returns the single most urgent active alert in friendly form as JSON,
