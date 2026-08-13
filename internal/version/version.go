@@ -28,7 +28,7 @@ var Changelog = []Entry{
 			"Software updates have a dedicated push page with product-aware rollouts, delivered as a full image or a smaller incremental. App installs now ride out a network drop: the download keeps retrying and resumes where it left off when the connection returns, and if a device never recovers the install is failed cleanly instead of staying stuck on “installing”.",
 			"The Releases list is ordered by release date and titled by build name, with reported builds behind an admin toggle and the release date editable in place.",
 			"On the Fleet page, clicking a serial opens the full device page, and “Last seen” reflects a device's live connection instead of its last check-in.",
-			"Smaller changes: remove several devices from a group at once, the live logs console is now “Realtime logs”, the Actions shell follows your light/dark theme, and screenshots open from a proper link.",
+			"Smaller changes: remove several devices from a group at once, the live logs console is now “Realtime logs”, the Actions shell follows your light/dark theme, screenshots open from a proper link, and device graphs now show the date on the time axis when you're looking at two or more days.",
 		},
 	},
 	{
