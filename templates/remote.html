@@ -360,12 +360,19 @@
   var protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   // Opt into hardware H.264 with ?codec=h264 on this page's URL. It needs WebCodecs
   // (Chromium in a secure context) — we fall back to the JPEG still stream if the
-  // browser can't decode video, so the feature always shows something.
-  var codec = (new URLSearchParams(location.search).get('codec') === 'h264'
-               && typeof VideoDecoder !== 'undefined') ? 'h264' : 'jpeg';
+  // browser can't decode video, so the feature always shows something. You can also
+  // pin the stream with ?max_fps=, ?bitrate=, ?quality=, ?scale= — e.g. a lower fps
+  // for the lowest tap-to-screen latency. The server clamps every value.
+  var qp = new URLSearchParams(location.search);
+  var codec = (qp.get('codec') === 'h264' && typeof VideoDecoder !== 'undefined') ? 'h264' : 'jpeg';
+  function passNum(name) {
+    var v = qp.get(name);
+    return (v && /^[0-9]+(\.[0-9]+)?$/.test(v)) ? ('&' + name + '=' + encodeURIComponent(v)) : '';
+  }
   var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial)
               + '?token=' + encodeURIComponent('{{.Token}}')
-              + (codec === 'h264' ? '&codec=h264' : '');
+              + (codec === 'h264' ? '&codec=h264' : '')
+              + passNum('max_fps') + passNum('bitrate') + passNum('quality') + passNum('scale');
 
   var ws = null;
   var view = null;   // <canvas> showing the device screen
