@@ -311,16 +311,70 @@ function kioskAddPkg(pkg, el){
       <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
   </div>
+</div>
+
+<style>
+.dq-item{border:1px solid var(--border-soft);border-radius:9px;margin-bottom:8px;background:var(--surface);}
+.dq-item>summary{display:flex;align-items:center;gap:10px;padding:10px 13px;cursor:pointer;list-style:none;flex-wrap:wrap;}
+.dq-item>summary::-webkit-details-marker{display:none;}
+.dq-cat{font-size:10px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--text-faint);background:var(--surface2);border-radius:99px;padding:2px 8px;}
+.dq-label{font-weight:650;font-size:13.5px;}
+.dq-cmd{font-family:var(--mono);font-size:11.5px;color:var(--muted);background:var(--surface2);border-radius:5px;padding:1px 6px;overflow:hidden;text-overflow:ellipsis;}
+.dq-off{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--warn);text-transform:uppercase;}
+.dq-form{padding:0 13px 12px;}
+.dq-grid{display:grid;grid-template-columns:1fr 1fr 90px;gap:9px;}
+.dq-grid label{display:flex;flex-direction:column;gap:3px;font-size:11.5px;color:var(--muted);}
+.dq-grid .dq-wide{grid-column:1 / -1;}
+.dq-grid .dq-chk{flex-direction:row;align-items:center;gap:6px;}
+.dq-actions{margin-top:10px;display:flex;gap:8px;}
+.dq-add{border-top:1px solid var(--border-soft);padding-top:14px;margin-top:6px;}
+.form-input.mono{font-family:var(--mono);}
+</style>
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Device diagnostics</h3><span class="muted small">read-only property queries shown on each device page</span></div>
   <div style="padding:16px;">
-    <strong>Operator permissions</strong>
-    <div class="muted small" style="margin:4px 0 10px;">Which action types operators may send. Admins always have full access; viewers are read-only.</div>
-    <form action="/settings/operator-perms" method="POST">
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
-        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="install_apk" {{if .OpAllowInstall}}checked{{end}}> Install APK</label>
-        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="shell" {{if .OpAllowShell}}checked{{end}}> Shell</label>
-        <label class="checkbox-label"><input type="checkbox" name="op_allow" value="reboot" {{if .OpAllowReboot}}checked{{end}}> Reboot</label>
+    <div class="muted small" style="margin-bottom:12px;">Each query runs a fixed command and shows its output as a “retrieve property”. Testers, devs and admins can run them from a device's page — no raw shell access needed.</div>
+    {{if .DeviceQueries}}
+    <div class="dq-list">
+      {{range .DeviceQueries}}
+      <details class="dq-item">
+        <summary>
+          <span class="dq-cat">{{.Category}}</span>
+          <span class="dq-label">{{.Label}}</span>
+          <code class="dq-cmd">{{.Command}}</code>
+          {{if not .Enabled}}<span class="dq-off">disabled</span>{{end}}
+        </summary>
+        <form action="/settings/queries/{{.ID}}/edit" method="POST" class="dq-form">
+          <div class="dq-grid">
+            <label>Label<input type="text" name="label" value="{{.Label}}" class="form-input" required></label>
+            <label>Category<input type="text" name="category" value="{{.Category}}" class="form-input"></label>
+            <label>Sort<input type="number" name="sort" value="{{.Sort}}" class="form-input"></label>
+            <label class="dq-wide">Command<input type="text" name="command" value="{{.Command}}" class="form-input mono" required></label>
+            <label class="dq-wide">Description<input type="text" name="description" value="{{.Description}}" class="form-input"></label>
+            <label class="dq-chk"><input type="checkbox" name="enabled" value="on" {{if .Enabled}}checked{{end}}> Enabled</label>
+          </div>
+          <div class="dq-actions">
+            <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+            <button type="submit" formaction="/settings/queries/{{.ID}}/delete" class="btn-outline" style="font-size:12px;padding:4px 14px;color:var(--danger);" onclick="return confirm('Delete this query?')">Delete</button>
+          </div>
+        </form>
+      </details>
+      {{end}}
+    </div>
+    {{else}}
+    <div class="muted small" style="margin-bottom:12px;">No queries yet — add one below.</div>
+    {{end}}
+    <form action="/settings/queries" method="POST" class="dq-add">
+      <strong style="font-size:13px;">Add a query</strong>
+      <div class="dq-grid" style="margin-top:8px;">
+        <label>Label<input type="text" name="label" class="form-input" placeholder="Build ID" required></label>
+        <label>Category<input type="text" name="category" class="form-input" placeholder="System"></label>
+        <label>Sort<input type="number" name="sort" class="form-input" value="0"></label>
+        <label class="dq-wide">Command<input type="text" name="command" class="form-input mono" placeholder="getprop ro.build.id" required></label>
+        <label class="dq-wide">Description<input type="text" name="description" class="form-input" placeholder="Full build fingerprint id"></label>
+        <label class="dq-chk"><input type="checkbox" name="enabled" value="on" checked> Enabled</label>
       </div>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      <button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;margin-top:10px;">Add query</button>
     </form>
   </div>
 </div>
