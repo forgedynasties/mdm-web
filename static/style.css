@@ -5584,6 +5584,7 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 /* Tab count badge (QA / Problems tabs). Hidden when the inner pill is empty. */
 .dd-tab .tab-badge { display: inline-flex; margin-left: 3px; vertical-align: middle; }
 .dd-tab .tab-badge:empty { display: none; }
+.dd-tab-n { font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--danger); background: var(--danger-bg); border-radius: 99px; padding: 1px 7px; }
 
 /* device detail: Install app form (Applications tab) */
 .app-install { border-bottom: 1px solid var(--border-soft); }
