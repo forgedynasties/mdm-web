@@ -636,12 +636,19 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			if cmd.ApkURL != "" {
 				return cmd.ApkURL
 			}
-			if cmd.Type == "shell" && len(cmd.Payload) > 0 {
+			if (cmd.Type == "shell" || cmd.Type == "query") && len(cmd.Payload) > 0 {
 				var p struct {
-					Cmd string `json:"cmd"`
+					Cmd   string `json:"cmd"`
+					Query string `json:"query"`
 				}
-				if json.Unmarshal(cmd.Payload, &p) == nil && p.Cmd != "" {
-					return p.Cmd
+				if json.Unmarshal(cmd.Payload, &p) == nil {
+					// A query shows its friendly catalog label; a raw shell shows the command.
+					if cmd.Type == "query" && p.Query != "" {
+						return p.Query
+					}
+					if p.Cmd != "" {
+						return p.Cmd
+					}
 				}
 			}
 			return "—"
@@ -672,6 +679,19 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				}
 				if json.Unmarshal(cmd.Payload, &p) == nil && p.Cmd != "" {
 					return p.Cmd
+				}
+			case "query":
+				var p struct {
+					Query string `json:"query"`
+					Cmd   string `json:"cmd"`
+				}
+				if json.Unmarshal(cmd.Payload, &p) == nil {
+					if p.Query != "" {
+						return p.Query
+					}
+					if p.Cmd != "" {
+						return p.Cmd
+					}
 				}
 			case "logcat":
 				var p struct {
@@ -7917,6 +7937,14 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			}
 			_ = json.Unmarshal(payload, &p)
 			pf["package"] = p.Package
+		case "query":
+			var p struct {
+				QueryID int `json:"query_id"`
+			}
+			_ = json.Unmarshal(payload, &p)
+			if p.QueryID > 0 {
+				pf["query_id"] = p.QueryID
+			}
 		}
 		if len(serials) > 0 {
 			pf["serials"] = serials
@@ -8678,6 +8706,9 @@ var commandRoles = map[string][]string{
 	"uninstall":     {"admin", "dev", "tester"},
 	"reboot":        {"admin", "dev", "tester"},
 	"shell":         {"admin", "dev"},
+	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
+	// query_id from the catalog, never user-supplied), so testers may issue it.
+	"query":         {"admin", "dev", "tester"},
 	"ota":           {"admin", "dev"},
 	"update_splash": {"admin", "dev"},
 	"logcat":        {"admin", "dev"},
@@ -8797,6 +8828,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "Uninstall"
 	case "shell":
 		return "Shell"
+	case "query":
+		return "Query"
 	case "screenshot":
 		return "Screenshot"
 	case "reboot":
@@ -8984,34 +9017,10 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		cmdType = "install_apk"
 	}
 
-	// "diagnostic" is a tester-safe wrapper over shell: the command text comes from the
-	// admin-curated query catalog (never user input), so admin/dev/tester may run it
-	// even without raw-shell rights. Resolve it to a shell command up-front, then let
-	// the normal shell path handle targeting/creation — but skip the raw-shell authz
-	// and the ShellEnabled kill-switch (that switch governs the free-form console).
-	isDiagnostic := cmdType == "diagnostic"
-	if isDiagnostic {
-		if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
-			http.Error(w, "Forbidden", http.StatusForbidden)
-			return
-		}
-		qid, _ := strconv.Atoi(r.FormValue("query_id"))
-		q, err := h.db.GetDeviceQuery(r.Context(), qid)
-		if err != nil || !q.Enabled {
-			http.Error(w, "Unknown diagnostic query", http.StatusBadRequest)
-			return
-		}
-		cmdType = "shell"
-		r.Form.Set("type", "shell")
-		r.Form.Set("shell_cmd", q.Command)
-	}
-
 	// set_kiosk isn't a queued command — it writes kiosk config to the target set (like
 	// the old bulk-kiosk action). Gate it directly (admin/dev/tester), not via the
 	// command-role machinery the real commands use.
-	if isDiagnostic {
-		// already gated + vetted above
-	} else if cmdType == "set_kiosk" {
+	if cmdType == "set_kiosk" {
 		if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
@@ -9019,9 +9028,27 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	} else if writeCommandAuthzError(w, h.authorizeCommand(h.role(r), cmdType)) {
 		return
 	}
-	if cmdType == "shell" && !isDiagnostic && !h.cfg.ShellEnabled() {
+	if cmdType == "shell" && !h.cfg.ShellEnabled() {
 		http.Error(w, "Shell commands are disabled by an administrator.", http.StatusForbidden)
 		return
+	}
+
+	// A "query" is a read-only diagnostic whose command text comes only from the
+	// admin-curated catalog (chosen by query_id), never from the client. That's why
+	// admin/dev/tester may issue it without raw-shell rights: whatever shell_cmd the
+	// client might send is ignored — the payload is rebuilt from the catalog here.
+	// The command is stored as type "query" and only translated to "shell" at the
+	// device boundary (see deviceCommandType), so the dashboard shows it as a Query.
+	var queryPayload json.RawMessage
+	if cmdType == "query" {
+		qid, _ := strconv.Atoi(r.FormValue("query_id"))
+		q, err := h.db.GetDeviceQuery(r.Context(), qid)
+		if err != nil || !q.Enabled {
+			http.Error(w, "Unknown query", http.StatusBadRequest)
+			return
+		}
+		b, _ := json.Marshal(map[string]any{"cmd": q.Command, "query_id": q.ID, "query": q.Label})
+		queryPayload = json.RawMessage(b)
 	}
 	reason := strings.TrimSpace(r.FormValue("reason"))
 	if isDestructiveCmd(cmdType) && h.cfg.RequireReason() && reason == "" {
@@ -9144,6 +9171,8 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 			b, _ := json.Marshal(map[string]string{"package": p})
 			items = append(items, cmdItem{payload: json.RawMessage(b)})
 		}
+	case "query":
+		items = []cmdItem{{payload: queryPayload}}
 	default:
 		items = []cmdItem{{apkURL: strings.TrimSpace(r.FormValue("apk_url")), payload: buildPayload(cmdType, r)}}
 	}
