@@ -632,6 +632,21 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// productLabel maps a product key (e.g. "kiosk22") to its display label for the
 		// releases UI, mirroring Device.ProductLabel() on the device side.
 		"productLabel": product.Label,
+		// clFormat makes a changelog line scannable: the lead sentence (up to the
+		// first ". ") becomes a bold headline, the rest stays as body text. Input is
+		// HTML-escaped first, so entries are plain text authored in version.go.
+		"clFormat": func(s string) template.HTML {
+			esc := template.HTMLEscapeString(s)
+			lead, rest := esc, ""
+			if i := strings.Index(esc, ". "); i > 0 && i < len(esc)-2 {
+				lead, rest = esc[:i+1], esc[i+2:]
+			}
+			out := `<span class="cl-lead">` + lead + `</span>`
+			if rest != "" {
+				out += " " + rest
+			}
+			return template.HTML(out)
+		},
 		"cmdDetail": func(cmd db.Command) string {
 			if cmd.ApkURL != "" {
 				return cmd.ApkURL
