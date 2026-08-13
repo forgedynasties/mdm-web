@@ -65,6 +65,11 @@
 .alx-clear-state .i svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.4}
 .alx-clear-state .t{font-size:14px;font-weight:650}.alx-clear-state .s{font-size:12.5px;color:var(--muted)}
 #alx-nomatch{padding:22px;text-align:center;color:var(--muted);font-size:13px;display:none}
+.alx-pager{display:flex;align-items:center;justify-content:center;gap:14px;margin:18px 0 4px}
+.alx-pager .pg{font-size:12.5px;font-weight:600;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 15px;text-decoration:none}
+.alx-pager .pg:hover{border-color:var(--rule-2)}
+.alx-pager .pg.disabled{color:var(--text-faint);pointer-events:none;opacity:.55}
+.alx-pager .pg-info{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .alx-trace{margin:8px 0 2px}
 .alx-trace>summary{cursor:pointer;user-select:none;padding:2px 0;font-size:12px}
 .alx-trace>.logcat-terminal{margin-top:6px;max-height:320px;overflow:auto}
@@ -106,6 +111,13 @@
   {{if .Crashes}}
   <div class="alx-sec crit"><span class="st">Crashes{{if not .DeviceFilter}} · last 7 days{{end}}</span><span class="sc">{{.CrashCount}}</span><span class="line"></span></div>
   {{range .Crashes}}{{template "alx-crash" .}}{{end}}
+  {{if gt .CrashPages 1}}
+  <div class="alx-pager">
+    {{if gt .CrashPage 1}}<a class="pg" href="{{.CrashPageBase}}&page={{sub .CrashPage 1}}">← Prev</a>{{else}}<span class="pg disabled">← Prev</span>{{end}}
+    <span class="pg-info">Page {{.CrashPage}} of {{.CrashPages}}</span>
+    {{if lt .CrashPage .CrashPages}}<a class="pg" href="{{.CrashPageBase}}&page={{add .CrashPage 1}}">Next →</a>{{else}}<span class="pg disabled">Next →</span>{{end}}
+  </div>
+  {{end}}
   {{else}}
   <div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">No crashes</div><div class="s">No app crashes, ANRs, or tombstones reported {{if .DeviceFilter}}for {{.DeviceFilter}}{{else}}across the fleet in the last 7 days{{end}}.</div></div></div>
   {{end}}
@@ -143,7 +155,7 @@ function alxFilter(){
     var hay=(c.getAttribute('data-search')||"").toLowerCase();
     var ok=!q||hay.indexOf(q)!==-1; c.style.display=ok?"":"none"; if(ok)shown++;
   });
-  document.querySelectorAll('#alerts-live .alx-sec, #alerts-live .alx-fold').forEach(function(s){ s.style.display=q?"none":""; });
+  document.querySelectorAll('#alerts-live .alx-sec, #alerts-live .alx-fold, #alerts-live .alx-pager').forEach(function(s){ s.style.display=q?"none":""; });
   var nm=document.getElementById('alx-nomatch'); if(nm) nm.style.display=(q&&cards.length&&shown===0)?"block":"none";
 }
 // Live refresh: re-fetch the current (filter-preserving) URL and swap the region.
