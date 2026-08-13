@@ -1668,15 +1668,9 @@ func (h *Handler) DeleteProduction(w http.ResponseWriter, r *http.Request) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// deviceCommandType maps a dashboard command type to what the device agent expects.
-// A "query" is a dashboard-only label for an admin-vetted read-only diagnostic; on
-// the wire it is an ordinary shell command, so the client needs no new type.
-func deviceCommandType(t string) string {
-	if t == "query" {
-		return "shell"
-	}
-	return t
-}
+// deviceCommandType is a thin alias for db.DeviceCommandType (the single source of
+// truth) so the device always sees a type its agent understands.
+func deviceCommandType(t string) string { return db.DeviceCommandType(t) }
 
 func marshalCommand(id uuid.UUID, cmdType, apkURL string, payload json.RawMessage) []byte {
 	msg, _ := json.Marshal(map[string]any{
