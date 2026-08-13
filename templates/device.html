@@ -426,6 +426,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         </div>
         <div id="range-error" class="cr-error" role="alert" hidden></div>
       </div>
+      <button type="button" id="chart-export-btn" class="dur-btn" title="Download this chart as a PNG">⤓ PNG</button>
     </div>
   </div>
   <div class="chart-tabs">
@@ -441,7 +442,19 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <button class="chart-tab" data-chart-tab="all" onclick="setChartTab('all')">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>All
     </button>
+    <span class="chart-hint muted small" title="Drag across the graph to zoom, scroll to zoom in/out, double-click to reset">drag to zoom · scroll · dbl-click resets</span>
   </div>
+
+  <style>
+  .chart-hint{margin-left:auto;font-size:11px;color:var(--text-faint);white-space:nowrap;}
+  .chart-stats{display:flex;flex-wrap:wrap;gap:8px;padding:9px 16px 0;}
+  .chart-stats .cst{display:inline-flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border-soft);border-radius:8px;padding:4px 10px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;}
+  .chart-stats .cst b{color:var(--text);font-weight:700;font-size:10.5px;letter-spacing:.03em;text-transform:uppercase;}
+  .chart-stats .cst-now{color:var(--text);font-weight:650;}
+  .chart-stats .cst-avg,.chart-stats .cst-mm{color:var(--text-faint);}
+  #chart-export-btn{cursor:pointer;}
+  </style>
+  <div id="chart-stats" class="chart-stats" aria-live="polite"></div>
 
   <!-- Battery — omitted entirely for devices with no battery (kiosks) -->
   {{if .Device.HasBattery}}
@@ -681,6 +694,7 @@ function mdmBootCharts() {
       if (btn) btn.classList.toggle('active', t === tab);
     });
     if (tab === 'all' && unifiedChart) applyUnifiedData();
+    renderStats();
   };
 
   function applyData(chart, all) {
@@ -730,6 +744,7 @@ function mdmBootCharts() {
     if (ramChart) applyData(ramChart, allRam);
     applyUnifiedData();
     syncMarkerToggle();
+    renderStats();
   }
 
   function nearestInArray(arr, ms) {
@@ -967,6 +982,60 @@ function mdmBootCharts() {
     },
   };
 
+  // Reference bands shade the "bad" zone of each metric so a crossing reads at a
+  // glance (low battery, hot temp, high RAM). Drawn under the line.
+  const TH = { battLow: 20, tempWarn: 40, tempHot: 45, ramHigh: 85 };
+  const BAND_LOW = 'rgba(224,86,86,0.06)', BAND_WARN = 'rgba(232,161,58,0.07)', BAND_HOT = 'rgba(224,86,86,0.09)';
+  function bandsFor(chart) {
+    if (chart._isUnified) return [
+      { from: 0, to: TH.battLow, color: BAND_LOW, axis: 'yPct' },
+      { from: TH.tempHot, to: null, color: BAND_HOT, axis: 'yTemp' },
+    ];
+    if (chart._accent === 'battery') return [{ from: 0, to: TH.battLow, color: BAND_LOW, axis: 'y' }];
+    if (chart._accent === 'temp') return [
+      { from: TH.tempWarn, to: TH.tempHot, color: BAND_WARN, axis: 'y' },
+      { from: TH.tempHot, to: null, color: BAND_HOT, axis: 'y' },
+    ];
+    if (chart._accent === 'ram') return [{ from: TH.ramHigh, to: 100, color: BAND_HOT, axis: 'y' }];
+    return [];
+  }
+  const bandsPlugin = {
+    id: 'bands',
+    beforeDatasetsDraw(chart) {
+      const bands = bandsFor(chart);
+      if (!bands || !bands.length || !chart.chartArea) return;
+      const ca = chart.chartArea, ctx = chart.ctx, scales = chart.scales;
+      ctx.save();
+      bands.forEach(function (b) {
+        const ys = scales[b.axis || 'y']; if (!ys) return;
+        const yTo = b.to != null ? ys.getPixelForValue(b.to) : ca.top;
+        const yFrom = b.from != null ? ys.getPixelForValue(b.from) : ca.bottom;
+        const top = Math.max(ca.top, Math.min(yTo, yFrom));
+        const bot = Math.min(ca.bottom, Math.max(yTo, yFrom));
+        if (bot <= top) return;
+        ctx.fillStyle = b.color;
+        ctx.fillRect(ca.left, top, ca.right - ca.left, bot - top);
+      });
+      ctx.restore();
+    },
+  };
+  // Draws the blue drag-select rectangle while a zoom drag is in progress.
+  const selectionPlugin = {
+    id: 'selection',
+    afterDraw(chart) {
+      const r = chart._selRect; if (!r || !chart.chartArea) return;
+      const ca = chart.chartArea, ctx = chart.ctx;
+      const x0 = Math.min(r.x0, r.x1), w = Math.abs(r.x1 - r.x0);
+      ctx.save();
+      ctx.fillStyle = 'rgba(91,110,245,0.12)';
+      ctx.strokeStyle = 'rgba(91,110,245,0.55)';
+      ctx.lineWidth = 1;
+      ctx.fillRect(x0, ca.top, w, ca.bottom - ca.top);
+      ctx.strokeRect(x0, ca.top, w, ca.bottom - ca.top);
+      ctx.restore();
+    },
+  };
+
   // Battery chart — only built when the device has a battery; kiosks omit the
   // #batteryChart canvas entirely, so creating it here would throw on null.
   {{if .Device.HasBattery}}
@@ -1013,7 +1082,7 @@ function mdmBootCharts() {
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20 }, grid: { color: GRID } },
       },
     },
-    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
+    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
@@ -1068,7 +1137,7 @@ function mdmBootCharts() {
         y: { ticks: { color: TICK, callback: v => v + "°C" }, grid: { color: GRID } },
       },
     },
-    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
+    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
   });
   tempChart._labelFn = pt => 'Temp: ' + pt.y.toFixed(1) + '°C';
   tempChart._commandMarkers = commandMarkers;
@@ -1115,7 +1184,7 @@ function mdmBootCharts() {
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20 }, grid: { color: GRID } },
       },
     },
-    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
+    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
   });
   ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
   ramChart._commandMarkers = commandMarkers;
@@ -1184,7 +1253,7 @@ function mdmBootCharts() {
         },
       },
     },
-    plugins: [crosshairPlugin, staticLabelPlugin, commandMarkerPlugin],
+    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
   });
   unifiedChart._isUnified = true;
   unifiedChart._commandMarkers = commandMarkers;
@@ -1306,6 +1375,117 @@ function mdmBootCharts() {
   document.getElementById("active-range-clear").addEventListener("click", resetCustomRange);
   document.querySelectorAll(".cr-preset").forEach(function (btn) {
     btn.addEventListener("click", function () { presetRange(btn.dataset.preset); });
+  });
+
+  // ── Window stats + direct-manipulation zoom + PNG export ───────────────────
+  function seriesStats(pts) {
+    let min = Infinity, max = -Infinity, sum = 0, n = 0, last = null;
+    for (let i = 0; i < pts.length; i++) {
+      const y = pts[i].y; if (y == null) continue;
+      if (y < min) min = y; if (y > max) max = y; sum += y; n++; last = y;
+    }
+    return n ? { min, max, avg: sum / n, last, n } : null;
+  }
+  function statChips(label, pts, unit, dec) {
+    const s = seriesStats(pts); if (!s) return '';
+    return '<span class="cst"><b>' + label + '</b>'
+      + '<span class="cst-now">' + s.last.toFixed(dec) + unit + '</span>'
+      + '<span class="cst-mm">' + s.min.toFixed(dec) + '–' + s.max.toFixed(dec) + unit + '</span>'
+      + '<span class="cst-avg">avg ' + s.avg.toFixed(dec) + unit + '</span></span>';
+  }
+  // Min/max/avg/now for the currently-visible window, per the active metric.
+  function renderStats() {
+    const el = document.getElementById('chart-stats'); if (!el) return;
+    const b = filterWindow(allBattery).pts, t = filterWindow(allTemp).pts, r = filterWindow(allRam).pts;
+    let html = '';
+    if (activeTab === 'temp') html = statChips('Temp', t, '°C', 1);
+    else if (activeTab === 'ram') html = statChips('RAM', r, '%', 1);
+    else if (activeTab === 'all') html = (HAS_BATTERY ? statChips('Battery', b, '%', 0) : '') + statChips('Temp', t, '°C', 1) + statChips('RAM', r, '%', 1);
+    else html = statChips('Battery', b, '%', 0);
+    el.innerHTML = html || '<span class="muted small">No data in this window.</span>';
+  }
+
+  function activeChartObj() {
+    if (activeTab === 'temp') return tempChart;
+    if (activeTab === 'ram') return ramChart;
+    if (activeTab === 'all') return unifiedChart;
+    return batteryChart;
+  }
+
+  // Set a custom window from an interaction (drag / wheel), reusing the same
+  // customMin/customMax path as the manual range inputs so the chip + nudge work.
+  function applyZoomWindow(a, b) {
+    a = Math.round(a); b = Math.round(b);
+    if (b - a < 60000) return;          // floor at 1 min so a stray drag can't over-zoom
+    customMin = a; customMax = b;
+    document.querySelectorAll(".dur-btn").forEach(x => x.classList.remove("active"));
+    var cb = document.getElementById("custom-range-btn"); if (cb) cb.classList.add("active");
+    var si = document.getElementById("range-start"), ei = document.getElementById("range-end");
+    if (si) si.value = toLocalISO(new Date(a));
+    if (ei) ei.value = toLocalISO(new Date(b));
+    updateCharts();
+  }
+  function windowBounds(chart) {
+    if (customMin !== null && customMax !== null) return [customMin, customMax];
+    var xs = chart.scales.x; return [xs.min, xs.max];
+  }
+  // Drag across the plot to zoom to that span, scroll to zoom around the cursor,
+  // double-click to reset to the default window.
+  function installZoom(chart) {
+    if (!chart) return;
+    var canvas = chart.canvas, dragging = false;
+    canvas.style.cursor = 'crosshair';
+    canvas.addEventListener('mousedown', function (e) {
+      if (e.button !== 0) return;
+      var ca = chart.chartArea, rect = canvas.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      if (x < ca.left || x > ca.right) return;
+      dragging = true; chart._selRect = { x0: x, x1: x }; e.preventDefault();
+    });
+    canvas.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      var ca = chart.chartArea, rect = canvas.getBoundingClientRect();
+      chart._selRect.x1 = Math.max(ca.left, Math.min(ca.right, e.clientX - rect.left));
+      chart.draw();
+    });
+    window.addEventListener('mouseup', function () {
+      if (!dragging) return; dragging = false;
+      var r = chart._selRect; chart._selRect = null;
+      if (!r) return;
+      if (Math.abs(r.x1 - r.x0) < 8) { chart.draw(); return; }  // a click, not a drag
+      var xs = chart.scales.x;
+      applyZoomWindow(xs.getValueForPixel(Math.min(r.x0, r.x1)), xs.getValueForPixel(Math.max(r.x0, r.x1)));
+    });
+    canvas.addEventListener('dblclick', function () { resetCustomRange(); });
+    canvas.addEventListener('wheel', function (e) {
+      var ca = chart.chartArea, rect = canvas.getBoundingClientRect();
+      var x = e.clientX - rect.left;
+      if (x < ca.left || x > ca.right) return;
+      e.preventDefault();
+      var bounds = windowBounds(chart), a = bounds[0], b = bounds[1];
+      if (a == null || b == null) return;
+      var pivot = chart.scales.x.getValueForPixel(x);
+      var f = e.deltaY < 0 ? 0.8 : 1.25;   // scroll up = zoom in
+      applyZoomWindow(pivot - (pivot - a) * f, pivot + (b - pivot) * f);
+    }, { passive: false });
+  }
+  [batteryChart, tempChart, ramChart, unifiedChart].forEach(installZoom);
+
+  var _exportBtn = document.getElementById('chart-export-btn');
+  if (_exportBtn) _exportBtn.addEventListener('click', function () {
+    var c = activeChartObj(); if (!c) return;
+    // Composite onto a solid theme background — the canvas itself is transparent,
+    // which would export as a see-through PNG.
+    var src = c.canvas, tmp = document.createElement('canvas');
+    tmp.width = src.width; tmp.height = src.height;
+    var tctx = tmp.getContext('2d');
+    tctx.fillStyle = getComputedStyle(document.body).backgroundColor || '#ffffff';
+    tctx.fillRect(0, 0, tmp.width, tmp.height);
+    tctx.drawImage(src, 0, 0);
+    var a = document.createElement('a');
+    a.href = tmp.toDataURL('image/png');
+    a.download = '{{.Device.SerialNumber}}-' + activeTab + '-' + new Date().toISOString().slice(0, 10) + '.png';
+    document.body.appendChild(a); a.click(); a.remove();
   });
 
   function toLocalISO(d) {
