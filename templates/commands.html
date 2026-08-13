@@ -175,13 +175,13 @@
 .pl-chip:hover{border-color:var(--accent-edge);color:var(--accent);}
 .pl-sub{font-size:12px;color:var(--muted);margin-top:8px;}
 /* shell console */
-.console{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:#12161b;}
-.console .cbar{display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid #232a33;}
-.console .cbar i{width:10px;height:10px;border-radius:50%;background:#3a4452;}
+.console{border:1px solid var(--console-border);border-radius:12px;overflow:hidden;background:var(--console-bg);}
+.console .cbar{display:flex;align-items:center;gap:7px;padding:9px 12px;border-bottom:1px solid var(--console-border);}
+.console .cbar i{width:10px;height:10px;border-radius:50%;background:var(--rule-2);}
 .console .cin{display:flex;align-items:center;gap:9px;padding:14px;}
-.console .cin .pr{color:#59c97a;font-family:var(--mono);font-size:14px;}
-.console .cin input{flex:1;border:none;background:none;outline:none;color:#e7ebf0;font-family:var(--mono);font-size:14px;}
-.console .cin input::placeholder{color:#5a6472;}
+.console .cin .pr{color:var(--ok);font-family:var(--mono);font-size:14px;}
+.console .cin input{flex:1;border:none;background:none;outline:none;color:var(--console-text);font-family:var(--mono);font-size:14px;}
+.console .cin input::placeholder{color:var(--text-faint);}
 /* dropzone + preview (Boot logo) */
 .drop{border:1.5px dashed var(--rule-2);border-radius:14px;padding:26px;text-align:center;background:var(--surface2);cursor:pointer;transition:border-color .14s,background .14s;}
 .drop:hover{border-color:var(--accent-edge);background:var(--accent-soft);}
