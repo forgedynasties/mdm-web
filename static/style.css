@@ -1891,29 +1891,6 @@ input[type="checkbox"]:hover {
 }
 .cr-reset:hover { border-color: var(--rule-2); color: var(--text); }
 
-.active-range-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 11px;
-  color: var(--fg);
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px 4px 2px 10px;
-  font-variant-numeric: tabular-nums;
-}
-.active-range-chip button {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 14px;
-  line-height: 1;
-  padding: 0 4px;
-  border-radius: 50%;
-}
-.active-range-chip button:hover { color: var(--accent-text); }
 
 .chart-card > .card-header { position: relative; }
 
