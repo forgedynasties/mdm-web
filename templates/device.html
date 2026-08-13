@@ -405,10 +405,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <button class="dur-btn" data-ms="172800000">48h</button>
         <button class="dur-btn" id="custom-range-btn">Custom</button>
       </div>
-      <span id="active-range-chip" class="active-range-chip" hidden>
-        <span id="active-range-text"></span>
-        <button type="button" id="active-range-clear" title="Clear custom range" aria-label="Clear custom range">&times;</button>
-      </span>
       <div id="custom-range-inputs" class="cr-pop" hidden>
         <div class="cr-pop-head">
           <span class="cr-pop-title">Custom range</span>
@@ -730,18 +726,11 @@ function mdmBootCharts() {
   function updateCharts() {
     const { pts } = filterWindow(allBattery);
     const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
-    const chip = document.getElementById("active-range-chip");
     if (customMin !== null && customMax !== null) {
-      // Custom range: surface it as a clearable chip; keep the preset label blank.
-      document.getElementById("chart-info").textContent = "";
-      if (chip) {
-        chip.hidden = false;
-        document.getElementById("active-range-text").textContent =
-          fmtDate(customMin) + " \u2013 " + fmtDate(customMax);
-      }
+      // Custom range: show it as plain muted text (the popover holds the controls).
+      document.getElementById("chart-info").textContent = fmtDate(customMin) + " \u2013 " + fmtDate(customMax);
     } else {
       document.getElementById("chart-info").textContent = "Last " + (labels[currentDuration] || "");
-      if (chip) chip.hidden = true;
     }
 
     if (batteryChart) applyData(batteryChart, allBattery);
@@ -1396,7 +1385,6 @@ function mdmBootCharts() {
   document.getElementById("reset-range-btn").addEventListener("click", resetCustomRange);
   document.getElementById("range-prev").addEventListener("click", () => nudgeRange(-1));
   document.getElementById("range-next").addEventListener("click", () => nudgeRange(1));
-  document.getElementById("active-range-clear").addEventListener("click", resetCustomRange);
   document.querySelectorAll(".cr-preset").forEach(function (btn) {
     btn.addEventListener("click", function () { presetRange(btn.dataset.preset); });
   });
