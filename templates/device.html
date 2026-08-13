@@ -611,6 +611,25 @@ function mdmBootCharts() {
     return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
   }
 
+  function sameCalendarDay(a, b) {
+    const da = new Date(a), db = new Date(b);
+    return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+  }
+
+  // X-axis tick label. Normally just the time (AM/PM). When the visible window
+  // spans more than one calendar day (e.g. a 48h+ range), the first tick of each
+  // day also carries a "Mon D" date line below the time, so a multi-day window
+  // isn't an ambiguous wall of times. `this` is the Chart.js scale (min/max in ms).
+  function fmtTimeAxis(ms, index, ticks) {
+    const t = fmtTime(ms);
+    const scale = this;
+    const multiDay = scale && scale.min != null && scale.max != null && !sameCalendarDay(scale.min, scale.max);
+    if (!multiDay) return t;
+    let boundary = index === 0;
+    if (!boundary && ticks && ticks[index - 1]) boundary = !sameCalendarDay(ticks[index - 1].value, ms);
+    return boundary ? [t, new Date(ms).toLocaleDateString([], {month: "short", day: "numeric"})] : t;
+  }
+
   // A segment spans p0 -> p1. The WLC state that held across that span is p0's:
   // p1 was only measured at the far end, so colouring by p1 repaints the whole
   // preceding poll interval with a state that had not happened yet.
@@ -773,7 +792,7 @@ function mdmBootCharts() {
   function sharedXScale() {
     return {
       type: "linear",
-      ticks: { color: TICK, maxTicksLimit: 8, maxRotation: 0, minRotation: 0, callback: v => fmtTime(v) },
+      ticks: { color: TICK, maxTicksLimit: 8, maxRotation: 0, minRotation: 0, callback: fmtTimeAxis },
       grid: { display: false },
     };
   }
