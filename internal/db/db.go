@@ -8341,6 +8341,40 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS discharge_legacy_pct BIGINT NOT NUL
 -- gating (wlc/charging) and dashboard grouping/filtering. See internal/product.
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_devices_product ON devices(product);
+
+-- Operator role retired: fold any remaining operator accounts down to viewer
+-- (read-only). Their action powers move to the tester/dev/admin roles.
+UPDATE users SET role = 'viewer' WHERE role = 'operator';
+
+-- Device diagnostics catalog: admin-curated read-only device queries surfaced as
+-- friendly "retrieve property" buttons (e.g. getprop ro.build.id, dumpsys battery).
+-- Each runs as an ordinary shell command whose text comes only from this catalog,
+-- so testers can run vetted queries without raw shell access.
+CREATE TABLE IF NOT EXISTS device_queries (
+	id          SERIAL PRIMARY KEY,
+	label       TEXT NOT NULL,
+	description TEXT NOT NULL DEFAULT '',
+	command     TEXT NOT NULL,
+	category    TEXT NOT NULL DEFAULT 'General',
+	sort        INTEGER NOT NULL DEFAULT 0,
+	enabled     BOOLEAN NOT NULL DEFAULT TRUE,
+	created_by  TEXT NOT NULL DEFAULT '',
+	created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- Seed a starter set, but only while the catalog is empty, so an admin's later
+-- edits/deletes are never undone by a redeploy.
+INSERT INTO device_queries (label, description, command, category, sort)
+SELECT * FROM (VALUES
+	('Build ID',        'Full build fingerprint id',        'getprop ro.build.id',                'System',  10),
+	('Android version', 'Android release version',          'getprop ro.build.version.release',   'System',  20),
+	('Model',           'Hardware model name',              'getprop ro.product.model',           'System',  30),
+	('Serial number',   'Hardware serial',                  'getprop ro.serialno',                'System',  40),
+	('Battery',         'Battery service dump',             'dumpsys battery',                    'Power',   50),
+	('Storage (data)',  'Free space on /data',              'df /data',                           'Storage', 60),
+	('Uptime',          'How long the device has been up',  'uptime',                             'System',  70),
+	('Wi-Fi',           'Current Wi-Fi connection',         'dumpsys wifi | grep -i "mWifiInfo"', 'Network', 80)
+) AS v(label, description, command, category, sort)
+WHERE NOT EXISTS (SELECT 1 FROM device_queries);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -10808,6 +10842,97 @@ func (d *DB) ListDeviceActiveAlerts(ctx context.Context, deviceID uuid.UUID, lim
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// DeviceQuery is one admin-curated diagnostic: a friendly label + the shell command
+// it runs. Surfaced on the device page as a "retrieve property" button. The command
+// text originates only here (never user input), so lower roles may run it safely.
+type DeviceQuery struct {
+	ID          int
+	Label       string
+	Description string
+	Command     string
+	Category    string
+	Sort        int
+	Enabled     bool
+	CreatedBy   string
+	CreatedAt   time.Time
+}
+
+const deviceQueryCols = `id, label, description, command, category, sort, enabled, created_by, created_at`
+
+func scanDeviceQuery(row interface{ Scan(...any) error }, q *DeviceQuery) error {
+	return row.Scan(&q.ID, &q.Label, &q.Description, &q.Command, &q.Category, &q.Sort, &q.Enabled, &q.CreatedBy, &q.CreatedAt)
+}
+
+// ListDeviceQueries returns the whole catalog (admin view), ordered for display.
+func (d *DB) ListDeviceQueries(ctx context.Context) ([]DeviceQuery, error) {
+	rows, err := d.pool.Query(ctx, `SELECT `+deviceQueryCols+` FROM device_queries ORDER BY category, sort, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DeviceQuery
+	for rows.Next() {
+		var q DeviceQuery
+		if err := scanDeviceQuery(rows, &q); err != nil {
+			return nil, err
+		}
+		out = append(out, q)
+	}
+	return out, rows.Err()
+}
+
+// ListEnabledDeviceQueries returns only enabled queries — what a run panel offers.
+func (d *DB) ListEnabledDeviceQueries(ctx context.Context) ([]DeviceQuery, error) {
+	all, err := d.ListDeviceQueries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := all[:0]
+	for _, q := range all {
+		if q.Enabled {
+			out = append(out, q)
+		}
+	}
+	return out, nil
+}
+
+// GetDeviceQuery returns one query by id.
+func (d *DB) GetDeviceQuery(ctx context.Context, id int) (DeviceQuery, error) {
+	var q DeviceQuery
+	err := scanDeviceQuery(d.pool.QueryRow(ctx, `SELECT `+deviceQueryCols+` FROM device_queries WHERE id = $1`, id), &q)
+	return q, err
+}
+
+// CreateDeviceQuery inserts a new catalog entry and returns its id.
+func (d *DB) CreateDeviceQuery(ctx context.Context, q DeviceQuery) (int, error) {
+	var id int
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO device_queries (label, description, command, category, sort, enabled, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+		q.Label, q.Description, q.Command, q.Category, q.Sort, q.Enabled, q.CreatedBy).Scan(&id)
+	return id, err
+}
+
+// UpdateDeviceQuery edits an existing catalog entry.
+func (d *DB) UpdateDeviceQuery(ctx context.Context, q DeviceQuery) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE device_queries SET label=$1, description=$2, command=$3, category=$4, sort=$5, enabled=$6 WHERE id=$7`,
+		q.Label, q.Description, q.Command, q.Category, q.Sort, q.Enabled, q.ID)
+	return err
+}
+
+// SetDeviceQueryEnabled flips a query's enabled flag.
+func (d *DB) SetDeviceQueryEnabled(ctx context.Context, id int, enabled bool) error {
+	_, err := d.pool.Exec(ctx, `UPDATE device_queries SET enabled=$1 WHERE id=$2`, enabled, id)
+	return err
+}
+
+// DeleteDeviceQuery removes a catalog entry.
+func (d *DB) DeleteDeviceQuery(ctx context.Context, id int) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM device_queries WHERE id = $1`, id)
+	return err
 }
 
 // CrashGroup collapses identical crash/ANR events on a build into one row: same kind +
