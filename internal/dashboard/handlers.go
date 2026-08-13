@@ -29,8 +29,6 @@ import (
 	"github.com/gorilla/sessions"
 	"golang.org/x/crypto/bcrypt"
 	"mdm/internal/ai"
-	"mdm/internal/product"
-	"mdm/internal/totp"
 	"mdm/internal/alerts"
 	"mdm/internal/apkmeta"
 	"mdm/internal/config"
@@ -39,9 +37,11 @@ import (
 	"mdm/internal/logstream"
 	"mdm/internal/notify"
 	"mdm/internal/ota"
+	"mdm/internal/product"
 	"mdm/internal/ratelimit"
 	"mdm/internal/remote"
 	"mdm/internal/shell"
+	"mdm/internal/totp"
 	"mdm/internal/version"
 	"mdm/internal/ws"
 )
@@ -263,26 +263,26 @@ func deviceRowClasses(dev db.Device) string {
 
 // DeviceRowJSON holds the pre-computed, JSON-serialisable data for one fleet table row.
 type DeviceRowJSON struct {
-	Serial       string `json:"serial"`
-	BuildID      string `json:"build_id"`
-	Online       bool   `json:"online"`
-	BatteryPct   int    `json:"battery_pct"`
-	BatteryClass string `json:"battery_class"`
-	BatteryWidth string `json:"battery_width"`
-	RamPct       int    `json:"ram_pct"` // 0 = no data
-	HasRam       bool   `json:"has_ram"`
-	TempStr      string `json:"temp_str"` // "" = no data
-	TempClass    string `json:"temp_class"`
-	LastSeenISO  string `json:"last_seen_iso"` // RFC3339, empty if zero
-	TimeSince    string `json:"time_since"`
-	PollInterval int    `json:"poll_interval_ms"`
-	KioskEnabled bool   `json:"kiosk_enabled"`
-	KioskPackage string `json:"kiosk_package"`
-	Hidden       bool   `json:"hidden"` // true once hidden; tells the live row patch to drop the row
-	HasBattery   bool   `json:"has_battery"` // false = wall-powered (kiosk); live patch shows AC, not 0%
-	Charging     bool   `json:"charging"`
-	Flapping     bool   `json:"flapping"`  // charger toggling >10×/min — show the fault glyph
-	FlapRate     int    `json:"flap_rate"` // observed toggles/min, for the tooltip
+	Serial       string  `json:"serial"`
+	BuildID      string  `json:"build_id"`
+	Online       bool    `json:"online"`
+	BatteryPct   int     `json:"battery_pct"`
+	BatteryClass string  `json:"battery_class"`
+	BatteryWidth string  `json:"battery_width"`
+	RamPct       int     `json:"ram_pct"` // 0 = no data
+	HasRam       bool    `json:"has_ram"`
+	TempStr      string  `json:"temp_str"` // "" = no data
+	TempClass    string  `json:"temp_class"`
+	LastSeenISO  string  `json:"last_seen_iso"` // RFC3339, empty if zero
+	TimeSince    string  `json:"time_since"`
+	PollInterval int     `json:"poll_interval_ms"`
+	KioskEnabled bool    `json:"kiosk_enabled"`
+	KioskPackage string  `json:"kiosk_package"`
+	Hidden       bool    `json:"hidden"`      // true once hidden; tells the live row patch to drop the row
+	HasBattery   bool    `json:"has_battery"` // false = wall-powered (kiosk); live patch shows AC, not 0%
+	Charging     bool    `json:"charging"`
+	Flapping     bool    `json:"flapping"`  // charger toggling >10×/min — show the fault glyph
+	FlapRate     int     `json:"flap_rate"` // observed toggles/min, for the tooltip
 	RowClasses   string  `json:"row_classes"`
 	Latitude     float64 `json:"latitude,omitempty"`
 	Longitude    float64 `json:"longitude,omitempty"`
@@ -3427,26 +3427,51 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	}
 	// Crash events (device_events) are separate from alert rows — crash alerts
 	// auto-resolve, so past crashes vanish from the active-alert list. Fold the raw
-	// crash feed in as its own view so "View all crashes" actually shows them.
+	// crash feed in as its own paginated view so "View all crashes" actually shows them.
+	const crashPageSize = 25
+	page := 1
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 1 {
+		page = p
+	}
 	var crashEvents []db.CrashEvent
+	crashTotal := 0
 	if deviceID != nil {
-		crashEvents, _ = h.db.ListDeviceCrashes(r.Context(), *deviceID, 200)
+		crashEvents, crashTotal, _ = h.db.ListDeviceCrashesPage(r.Context(), *deviceID, crashPageSize, (page-1)*crashPageSize)
 	} else {
-		crashEvents, _ = h.db.ListRecentCrashEvents(r.Context(), 7, 60)
+		crashEvents, crashTotal, _ = h.db.ListRecentCrashEventsPage(r.Context(), 7, crashPageSize, (page-1)*crashPageSize)
+	}
+	// Clamp a past-the-end page back to the last real page so a stale ?page= link
+	// lands on content, not an empty list.
+	crashPages := (crashTotal + crashPageSize - 1) / crashPageSize
+	if crashPages > 0 && page > crashPages {
+		page = crashPages
+		if deviceID != nil {
+			crashEvents, crashTotal, _ = h.db.ListDeviceCrashesPage(r.Context(), *deviceID, crashPageSize, (page-1)*crashPageSize)
+		} else {
+			crashEvents, crashTotal, _ = h.db.ListRecentCrashEventsPage(r.Context(), 7, crashPageSize, (page-1)*crashPageSize)
+		}
 	}
 	crashes := toCrashCards(crashEvents)
+	// Preserve the device scope on the pager links.
+	crashPageBase := "/alerts?view=crashes"
+	if deviceSerial != "" {
+		crashPageBase += "&device=" + url.QueryEscape(deviceSerial)
+	}
 	h.render(w, r, "alerts.html", map[string]any{
-		"Title":        "Alerts",
-		"Summary":      summary,
-		"View":         view,
-		"Critical":     crit,
-		"Watching":     watch,
-		"NeedsCount":   len(crit),
-		"WatchCount":   len(watch),
-		"ActiveCount":  len(crit) + len(watch),
-		"Crashes":      crashes,
-		"CrashCount":   len(crashes),
-		"DeviceFilter": deviceSerial,
+		"Title":         "Alerts",
+		"Summary":       summary,
+		"View":          view,
+		"Critical":      crit,
+		"Watching":      watch,
+		"NeedsCount":    len(crit),
+		"WatchCount":    len(watch),
+		"ActiveCount":   len(crit) + len(watch),
+		"Crashes":       crashes,
+		"CrashCount":    crashTotal,
+		"DeviceFilter":  deviceSerial,
+		"CrashPage":     page,
+		"CrashPages":    crashPages,
+		"CrashPageBase": crashPageBase,
 	})
 }
 
@@ -5457,8 +5482,8 @@ type versionRow struct {
 	ReleaseID         *int
 	Product           string // hardware product a tracked release targets ("" for untracked builds)
 	Name              string
-	Changelog         string // release notes (tracked releases only) — shown as a snippet on the lean list
-	Status            string // "" when not tracked
+	Changelog         string     // release notes (tracked releases only) — shown as a snippet on the lean list
+	Status            string     // "" when not tracked
 	ReleasedAt        *time.Time // release date (tracked releases only) — the release's created_at, which also defines ordering
 	Tracked           bool
 	Hidden            bool
@@ -9661,14 +9686,14 @@ type googleAPIStat struct {
 	Purpose    string   `json:"purpose"`
 	Enabled    bool     `json:"enabled"`
 	Billable   bool     `json:"billable"`
-	Requests   uint64   `json:"requests"`  // outbound requests actually sent to Google
+	Requests   uint64   `json:"requests"` // outbound requests actually sent to Google
 	Successes  uint64   `json:"successes"`
 	Errors     uint64   `json:"errors"`
 	Hits       uint64   `json:"hits"`       // answered from in-memory cache — request avoided
 	LocalHits  uint64   `json:"local_hits"` // answered from learned WiFi index — request avoided
 	Cooldowns  uint64   `json:"cooldowns"`  // skipped by cooldown — request avoided
 	Avoided    uint64   `json:"avoided"`    // hits + local_hits + cooldowns
-	HitRatio   int      `json:"hit_ratio"` // % of lookups served without a request
+	HitRatio   int      `json:"hit_ratio"`  // % of lookups served without a request
 	Last24h    uint64   `json:"last24h"`
 	Hourly     []uint64 `json:"hourly"`
 	BarPct     []int    `json:"bar_pct"` // per-hour bar height 0-100 (relative to peak)
@@ -9683,14 +9708,14 @@ type googleAPIStat struct {
 
 // learnedIndexView summarizes the DB-persisted learned WiFi-AP index.
 type learnedIndexView struct {
-	Enabled        bool   `json:"enabled"`         // geolocation resolver is on
-	Total          int64  `json:"total"`           // learned APs (all)
-	Fresh          int64  `json:"fresh"`           // APs within the freshness window
-	DistinctPlaces int64  `json:"distinct_places"` // ~unique points
-	ServedLookups  int64  `json:"served_lookups"`  // all-time local lookups served (SUM hits)
-	LocalHits      uint64 `json:"local_hits"`      // this-session lookups served from the index
-	CostSaved      float64 `json:"cost_saved"`     // est. $ saved this session by local hits
-	LastLearnedAgo string `json:"last_learned_ago"`
+	Enabled        bool    `json:"enabled"`         // geolocation resolver is on
+	Total          int64   `json:"total"`           // learned APs (all)
+	Fresh          int64   `json:"fresh"`           // APs within the freshness window
+	DistinctPlaces int64   `json:"distinct_places"` // ~unique points
+	ServedLookups  int64   `json:"served_lookups"`  // all-time local lookups served (SUM hits)
+	LocalHits      uint64  `json:"local_hits"`      // this-session lookups served from the index
+	CostSaved      float64 `json:"cost_saved"`      // est. $ saved this session by local hits
+	LastLearnedAgo string  `json:"last_learned_ago"`
 }
 
 // googleUsageView aggregates all three Google surfaces for the template + JSON.
