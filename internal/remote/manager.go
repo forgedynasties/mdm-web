@@ -28,9 +28,14 @@ type Session struct {
 // session. The dashboard (which is session-authenticated) mints one and hands it to
 // the browser; the device API redeems it when the control WebSocket connects. This
 // replaces embedding the admin API key in the page / WebSocket URL.
+//
+// It is NOT bound to the client IP: reverse proxies commonly forward X-Forwarded-For
+// on the page load but not on the WebSocket upgrade, so the mint saw the real browser
+// IP while redeem saw the proxy IP — a mismatch that rejected every legitimate session.
+// Single-use + a 2-minute TTL + a 256-bit unguessable token + the device match below
+// are the security properties we keep.
 type remoteToken struct {
 	deviceID uuid.UUID
-	clientIP string // the IP the token was minted for; redeem must come from the same host
 	expires  time.Time
 }
 
@@ -54,9 +59,8 @@ func New(hub *ws.Hub) *Manager {
 }
 
 // IssueToken mints a single-use token authorizing a remote session for deviceID,
-// valid for ttl and redeemable only from clientIP. Returns "" only if the system RNG
-// fails.
-func (m *Manager) IssueToken(deviceID uuid.UUID, clientIP string, ttl time.Duration) string {
+// valid for ttl. Returns "" only if the system RNG fails.
+func (m *Manager) IssueToken(deviceID uuid.UUID, ttl time.Duration) string {
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
 		return ""
@@ -64,7 +68,7 @@ func (m *Manager) IssueToken(deviceID uuid.UUID, clientIP string, ttl time.Durat
 	tok := hex.EncodeToString(buf)
 	now := time.Now()
 	m.tokenMu.Lock()
-	m.tokens[tok] = remoteToken{deviceID: deviceID, clientIP: clientIP, expires: now.Add(ttl)}
+	m.tokens[tok] = remoteToken{deviceID: deviceID, expires: now.Add(ttl)}
 	for k, v := range m.tokens { // opportunistic sweep of expired entries
 		if now.After(v.expires) {
 			delete(m.tokens, k)
@@ -75,10 +79,10 @@ func (m *Manager) IssueToken(deviceID uuid.UUID, clientIP string, ttl time.Durat
 }
 
 // RedeemToken consumes a token (single use) and returns the device it authorizes.
-// Returns false if the token is unknown, expired, or redeemed from a different host
-// than it was minted for — so a token leaked via logs/Referer can't be replayed
-// elsewhere within its short lifetime.
-func (m *Manager) RedeemToken(tok, clientIP string) (uuid.UUID, bool) {
+// Returns false if the token is unknown or expired. It is deleted on the first lookup
+// (whether or not it had expired), so a leaked token can be used at most once within
+// its short lifetime.
+func (m *Manager) RedeemToken(tok string) (uuid.UUID, bool) {
 	if tok == "" {
 		return uuid.Nil, false
 	}
@@ -90,9 +94,6 @@ func (m *Manager) RedeemToken(tok, clientIP string) (uuid.UUID, bool) {
 	}
 	delete(m.tokens, tok)
 	if time.Now().After(e.expires) {
-		return uuid.Nil, false
-	}
-	if e.clientIP != clientIP {
 		return uuid.Nil, false
 	}
 	return e.deviceID, true
