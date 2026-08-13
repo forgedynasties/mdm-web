@@ -18,6 +18,12 @@
 .alx-search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 13px}
 .alx-search svg{width:15px;height:15px;fill:none;stroke:var(--text-faint);stroke-width:2}
 .alx-search input{border:none;outline:none;background:none;font:inherit;font-size:13.5px;width:100%;color:var(--text)}
+.alx-filter{display:inline-flex;align-items:center;gap:8px;margin:-6px 0 16px;padding:7px 12px;background:var(--surface);border:1px solid var(--border);border-radius:99px;font-size:12.5px}
+.alx-filter svg{width:14px;height:14px;fill:none;stroke:var(--text-faint);stroke-width:2}
+.alx-filter .lbl{font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:10.5px;color:var(--text-faint)}
+.alx-filter .mono{font-family:var(--mono);color:var(--text)}
+.alx-filter .x{margin-left:4px;font-weight:600;color:var(--muted);text-decoration:none;border-left:1px solid var(--border-soft);padding-left:9px}
+.alx-filter .x:hover{color:var(--danger)}
 
 .alx-sec{display:flex;align-items:center;gap:9px;margin:22px 2px 12px}
 .alx-sec .st{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint)}
@@ -76,23 +82,32 @@
     {{end}}
   </div>
 
+  {{$dev := ""}}{{if .DeviceFilter}}{{$dev = printf "&device=%s" .DeviceFilter}}{{end}}
   <div class="alx-controls">
     <div class="alx-seg">
-      <a href="/alerts" class="{{if eq .View ""}}on{{end}}">All{{if .ActiveCount}}<span class="n">{{.ActiveCount}}</span>{{end}}</a>
-      <a href="/alerts?view=needs" class="{{if eq .View "needs"}}on{{end}}">Needs action<span class="n">{{.NeedsCount}}</span></a>
-      <a href="/alerts?view=watching" class="{{if eq .View "watching"}}on{{end}}">Watching<span class="n">{{.WatchCount}}</span></a>
-      <a href="/alerts?view=crashes" class="{{if eq .View "crashes"}}on{{end}}">Crashes{{if .CrashCount}}<span class="n">{{.CrashCount}}</span>{{end}}</a>
+      <a href="/alerts{{if .DeviceFilter}}?device={{.DeviceFilter}}{{end}}" class="{{if eq .View ""}}on{{end}}">All{{if .ActiveCount}}<span class="n">{{.ActiveCount}}</span>{{end}}</a>
+      <a href="/alerts?view=needs{{$dev}}" class="{{if eq .View "needs"}}on{{end}}">Needs action<span class="n">{{.NeedsCount}}</span></a>
+      <a href="/alerts?view=watching{{$dev}}" class="{{if eq .View "watching"}}on{{end}}">Watching<span class="n">{{.WatchCount}}</span></a>
+      <a href="/alerts?view=crashes{{$dev}}" class="{{if eq .View "crashes"}}on{{end}}">Crashes{{if .CrashCount}}<span class="n">{{.CrashCount}}</span>{{end}}</a>
     </div>
     <div class="alx-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" type="search" aria-label="Search alerts" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
   </div>
 
+  {{if .DeviceFilter}}
+  <div class="alx-filter">
+    <svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
+    <span class="lbl">Device</span><span class="mono">{{.DeviceFilter}}</span>
+    <a class="x" href="/alerts{{if ne .View ""}}?view={{.View}}{{end}}" title="Clear device filter" aria-label="Clear device filter">Clear ×</a>
+  </div>
+  {{end}}
+
   {{if eq .View "crashes"}}
 
   {{if .Crashes}}
-  <div class="alx-sec crit"><span class="st">Crashes · last 7 days</span><span class="sc">{{.CrashCount}}</span><span class="line"></span></div>
+  <div class="alx-sec crit"><span class="st">Crashes{{if not .DeviceFilter}} · last 7 days{{end}}</span><span class="sc">{{.CrashCount}}</span><span class="line"></span></div>
   {{range .Crashes}}{{template "alx-crash" .}}{{end}}
   {{else}}
-  <div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">No crashes</div><div class="s">No app crashes, ANRs, or tombstones reported across the fleet in the last 7 days.</div></div></div>
+  <div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">No crashes</div><div class="s">No app crashes, ANRs, or tombstones reported {{if .DeviceFilter}}for {{.DeviceFilter}}{{else}}across the fleet in the last 7 days{{end}}.</div></div></div>
   {{end}}
 
   {{else}}

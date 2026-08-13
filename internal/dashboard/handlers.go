@@ -3381,7 +3381,28 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	}
 	role := h.role(r)
 	canAct := role == "admin" || role == "dev" || role == "operator" || role == "tester"
-	active, err := h.db.ListActiveAlerts(r.Context(), 150)
+
+	// Optional per-device filter (a device's Alerts-tab "Show more" links here so the
+	// full list opens scoped to that unit). Resolve the serial to an ID; an unknown
+	// serial simply yields an empty, clearly-labelled list rather than the whole fleet.
+	deviceSerial := strings.TrimSpace(r.URL.Query().Get("device"))
+	var deviceID *uuid.UUID
+	if deviceSerial != "" {
+		if dev, err := h.db.GetDevice(r.Context(), deviceSerial); err == nil {
+			id := dev.ID
+			deviceID = &id
+		} else {
+			id := uuid.Nil // no such device: force an empty result set
+			deviceID = &id
+		}
+	}
+
+	var active []db.Alert
+	if deviceID != nil {
+		active, err = h.db.ListDeviceActiveAlerts(r.Context(), *deviceID, 150)
+	} else {
+		active, err = h.db.ListActiveAlerts(r.Context(), 150)
+	}
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -3407,19 +3428,25 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 	// Crash events (device_events) are separate from alert rows — crash alerts
 	// auto-resolve, so past crashes vanish from the active-alert list. Fold the raw
 	// crash feed in as its own view so "View all crashes" actually shows them.
-	crashEvents, _ := h.db.ListRecentCrashEvents(r.Context(), 7, 60)
+	var crashEvents []db.CrashEvent
+	if deviceID != nil {
+		crashEvents, _ = h.db.ListDeviceCrashes(r.Context(), *deviceID, 200)
+	} else {
+		crashEvents, _ = h.db.ListRecentCrashEvents(r.Context(), 7, 60)
+	}
 	crashes := toCrashCards(crashEvents)
 	h.render(w, r, "alerts.html", map[string]any{
-		"Title":       "Alerts",
-		"Summary":     summary,
-		"View":        view,
-		"Critical":    crit,
-		"Watching":    watch,
-		"NeedsCount":  len(crit),
-		"WatchCount":  len(watch),
-		"ActiveCount": len(crit) + len(watch),
-		"Crashes":     crashes,
-		"CrashCount":  len(crashes),
+		"Title":        "Alerts",
+		"Summary":      summary,
+		"View":         view,
+		"Critical":     crit,
+		"Watching":     watch,
+		"NeedsCount":   len(crit),
+		"WatchCount":   len(watch),
+		"ActiveCount":  len(crit) + len(watch),
+		"Crashes":      crashes,
+		"CrashCount":   len(crashes),
+		"DeviceFilter": deviceSerial,
 	})
 }
 

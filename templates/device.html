@@ -1552,7 +1552,7 @@ function filterInstalledApps(q) {
   .da-trace>summary{cursor:pointer;user-select:none;padding:3px 0;font-size:12px;color:var(--muted)}
   .da-trace[open]>summary{color:var(--text)}
   .da-trace>.logcat-terminal{margin-top:6px;max-height:320px;overflow:auto}
-  .da-more{width:100%;margin-top:2px;padding:10px;border:1px dashed var(--border);border-radius:var(--r-4);background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--muted);cursor:pointer}
+  .da-more{display:block;text-align:center;margin-top:2px;padding:11px;border:1px dashed var(--border);border-radius:var(--r-4);background:none;font-size:12.5px;font-weight:600;color:var(--muted);text-decoration:none;cursor:pointer}
   .da-more:hover{border-color:var(--rule-2);color:var(--text);background:var(--surface2)}
   .da-empty{display:flex;align-items:center;gap:13px;padding:20px;border:1px solid var(--border);border-radius:var(--r-4);background:var(--surface)}
   .da-empty .i{width:38px;height:38px;flex:none;border-radius:10px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center}
@@ -1572,7 +1572,7 @@ function filterInstalledApps(q) {
     </div>
   </div>
   {{end}}
-  {{if gt (len .DeviceAlerts) 4}}<button type="button" class="da-more" onclick="daShowMore(this)">Show {{sub (len .DeviceAlerts) 4}} more alert{{if ne (sub (len .DeviceAlerts) 4) 1}}s{{end}}</button>{{end}}
+  {{if gt (len .DeviceAlerts) 4}}<a class="da-more" href="/alerts?device={{.Device.SerialNumber}}">View all {{len .DeviceAlerts}} alerts →</a>{{end}}
   </div>
   {{end}}
   {{if .DeviceCrashes}}
@@ -1588,20 +1588,12 @@ function filterInstalledApps(q) {
     </div>
   </div>
   {{end}}
-  {{if gt (len .DeviceCrashes) 4}}<button type="button" class="da-more" onclick="daShowMore(this)">Show {{sub (len .DeviceCrashes) 4}} more crash{{if ne (sub (len .DeviceCrashes) 4) 1}}es{{end}}</button>{{end}}
+  {{if gt (len .DeviceCrashes) 4}}<a class="da-more" href="/alerts?view=crashes&device={{.Device.SerialNumber}}">View all {{len .DeviceCrashes}} crashes →</a>{{end}}
   </div>
   {{end}}
   {{if and (not .DeviceAlerts) (not .DeviceCrashes)}}
   <div class="da-empty"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">All clear</div><div class="s">No active alerts or crashes reported for this device.</div></div></div>
   {{end}}
-  <script>
-  // Reveal a section's hidden overflow cards and drop the "show more" button.
-  window.daShowMore = function (btn) {
-    var g = btn.closest('.da-group');
-    if (g) g.querySelectorAll('.da-extra').forEach(function (c) { c.hidden = false; });
-    btn.remove();
-  };
-  </script>
 </section><!-- /alerts -->
 <script>
 (function () {
