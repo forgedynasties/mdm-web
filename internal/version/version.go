@@ -17,6 +17,21 @@ type Entry struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.40.0",
+		Date:    "2026-08-13",
+		Changes: []string{
+			"The dashboard now supports more than one device type: the T7 tablet and the Kiosk 18/22/27 wall panels. Battery, charging, and wireless-pad widgets are hidden on the mains-powered kiosks, and a new Products section in the Fleet sidebar lets you filter to one hardware type.",
+			"Devices now show their location. The device page shows a street address and a map, worked out from nearby Wi-Fi. Repeat lookups are cached to cut down on Google API calls, and admins get a Google API usage and cost panel in Settings.",
+			"Kiosk mode is easier to manage: a redesigned pop-up with a visual app picker, an optional allowlist of approved apps, and clear Enable and Change-app buttons. A device's kiosk on/off state now updates live on its page.",
+			"You leave kiosk mode with a gesture — long-press Back and Power together. A device taken out of kiosk on-site shows that on its page right away.",
+			"Crashes are now easy to find. Each device page has an Alerts tab listing its crashes and alerts, and the Alerts page has a Crashes view you can filter by device and page through. The top-crashing-device links on Home and Fleet Health go straight there.",
+			"Software updates have a dedicated push page with product-aware rollouts, delivered as a full image or a smaller incremental. An install that stalls now fails instead of staying stuck on “installing”.",
+			"The Releases list is ordered by release date and titled by build name, with reported builds behind an admin toggle and the release date editable in place.",
+			"On the Fleet page, clicking a serial opens the full device page, and “Last seen” reflects a device's live connection instead of its last check-in.",
+			"Smaller changes: remove several devices from a group at once, the live logs console is now “Realtime logs”, the Actions shell follows your light/dark theme, and screenshots open from a proper link.",
+		},
+	},
+	{
 		Version: "1.31.0",
 		Date:    "2026-07-27",
 		Changes: []string{
