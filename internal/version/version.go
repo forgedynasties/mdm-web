@@ -25,7 +25,7 @@ var Changelog = []Entry{
 			"Kiosk mode is easier to manage: a redesigned pop-up with a visual app picker, an optional allowlist of approved apps, and clear Enable and Change-app buttons. A device's kiosk on/off state now updates live on its page.",
 			"You leave kiosk mode with a gesture — long-press Back and Power together. A device taken out of kiosk on-site shows that on its page right away.",
 			"Crashes are now easy to find. Each device page has an Alerts tab listing its crashes and alerts, and the Alerts page has a Crashes view you can filter by device and page through. The top-crashing-device links on Home and Fleet Health go straight there.",
-			"Software updates have a dedicated push page with product-aware rollouts, delivered as a full image or a smaller incremental. An install that stalls now fails instead of staying stuck on “installing”.",
+			"Software updates have a dedicated push page with product-aware rollouts, delivered as a full image or a smaller incremental. App installs now ride out a network drop: the download keeps retrying and resumes where it left off when the connection returns, and if a device never recovers the install is failed cleanly instead of staying stuck on “installing”.",
 			"The Releases list is ordered by release date and titled by build name, with reported builds behind an admin toggle and the release date editable in place.",
 			"On the Fleet page, clicking a serial opens the full device page, and “Last seen” reflects a device's live connection instead of its last check-in.",
 			"Smaller changes: remove several devices from a group at once, the live logs console is now “Realtime logs”, the Actions shell follows your light/dark theme, and screenshots open from a proper link.",
