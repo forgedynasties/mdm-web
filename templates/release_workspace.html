@@ -57,9 +57,13 @@
 <!-- Changelog -->
 {{if $isAdmin}}
 <div class="card" style="margin-bottom:18px;">
-  <div class="card-header"><h3>Changelog</h3><span class="muted small">editable any time</span></div>
+  <div class="card-header"><h3>Release details</h3><span class="muted small">editable any time</span></div>
   <form action="/releases/{{$rel.ID}}/meta" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
-    <input type="hidden" name="name" value="{{$rel.Name}}">
+    <div class="form-row" style="max-width:360px;">
+      <label class="form-label" style="display:block;margin-bottom:5px;">Release name</label>
+      <input type="text" name="name" class="form-input" value="{{$rel.Name}}" placeholder="e.g. August hotfix" autocomplete="off">
+      <div class="form-hint">Shown as the release title in the list and on this page.</div>
+    </div>
     <div class="form-row" style="max-width:240px;">
       <label class="form-label" style="display:block;margin-bottom:5px;">Release date</label>
       <input type="date" name="released_at" class="form-input" value="{{isoDate $rel.CreatedAt}}">
