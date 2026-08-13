@@ -883,6 +883,26 @@ func (h *Handler) RedriveStuckReboots(ctx context.Context) {
 	}
 }
 
+// ExpireStalledInstalls fails install_apk deliveries whose download or install stopped
+// reporting progress past the stall window. A device that lost connectivity mid-install
+// (see FW-2026-000020) exhausts its client-side retries and stops reporting — or its
+// terminal ack is lost in the same outage — leaving the delivery stuck "in flight".
+// Install commands are exempt from the short command TTL, so this sweep is their only
+// terminal backstop. The window matches the install TTL leash (15 min).
+func (h *Handler) ExpireStalledInstalls(ctx context.Context) {
+	const stallMinutes = 15
+	stalled, err := h.db.ExpireStalledInstalls(ctx, stallMinutes)
+	if err != nil {
+		log.Printf("[install-sweep] ExpireStalledInstalls error: %v", err)
+		return
+	}
+	for _, s := range stalled {
+		h.hub.PublishCommandUpdate(s.CommandID)
+		h.hub.PublishDeviceUpdate(s.DeviceID)
+		log.Printf("[install-sweep] failed stalled install command=%s device=%s", s.CommandID, s.DeviceID)
+	}
+}
+
 func (h *Handler) HandleWsOtaStatus(deviceID uuid.UUID, raw []byte) {
 	ctx := context.Background()
 	var body struct {

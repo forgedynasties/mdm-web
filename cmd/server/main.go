@@ -348,6 +348,10 @@ func main() {
 				// Re-issue reboots that were sent but never applied, so an installed-but-
 				// unrebooted device can't keep its deployment 'active' forever.
 				runJob(bgCtx, "redrive-stuck-reboots", time.Minute, apiHandler.RedriveStuckReboots)
+				// Fail install_apk deliveries whose download/install stalled (device lost
+				// connectivity mid-install, terminal ack lost) so they don't sit "in
+				// flight" forever — install commands are exempt from the short TTL. FW-2026-000020
+				runJob(bgCtx, "expire-stalled-installs", time.Minute, apiHandler.ExpireStalledInstalls)
 				// Recent-tier alert rules (point-in-time + rate/sustained); see Tier 5 §10.
 				runJob(bgCtx, "recent-alerts", time.Minute, dash.RunRecentAlerts)
 				// Fire any scheduled recipes whose cron time has arrived.
