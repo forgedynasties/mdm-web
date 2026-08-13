@@ -8,8 +8,11 @@
   .cl-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
   .cl-version { font-weight: 700; font-size: 15px; }
   .cl-current { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
-  .cl-changes { margin: 0; padding-left: 18px; line-height: 1.7; font-size: 13px; }
-  .cl-changes li { margin: 2px 0; }
+  .cl-changes { margin: 0; padding: 0; list-style: none; }
+  .cl-changes li { position: relative; padding: 11px 0 11px 22px; line-height: 1.65; font-size: 13px; color: var(--text2, var(--muted)); border-top: 1px dashed var(--border-soft); }
+  .cl-changes li:first-child { border-top: none; }
+  .cl-changes li::before { content: ""; position: absolute; left: 4px; top: 18px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  .cl-lead { color: var(--text); font-weight: 650; }
 </style>
 
 <div class="ov-greet">
@@ -35,7 +38,7 @@
         <span class="muted small">{{.Date}}</span>
       </div>
       <ul class="cl-changes">
-        {{range .Changes}}<li>{{.}}</li>{{end}}
+        {{range .Changes}}<li>{{clFormat .}}</li>{{end}}
       </ul>
     </div>
     {{end}}
