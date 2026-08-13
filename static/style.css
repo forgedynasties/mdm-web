@@ -1287,6 +1287,7 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 /* ── Chart ───────────────────────────────────────── */
 .chart-card {
   margin-bottom: 20px;
+  position: relative;
 }
 
 .chart-wrap {

@@ -144,7 +144,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="ddc-id">
       {{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite"><i></i>Online</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite"><i></i>Offline</span>{{end}}{{if isLegacyBuild .Device.BuildID}}<span class="ddc-legacy-tag" tabindex="0" role="note" aria-label="Legacy device — appears offline by design" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. &#10;&#10;'Last seen' reflects their most recent check-in.">Legacy device<svg class="ddc-info-ic" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
       <span class="ddc-serial mono">{{.Device.SerialNumber}}</span>
-      <span class="ddc-meta">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}} · Onboarded {{shortDate .Device.CreatedAt}}{{if not .Online}} · <span class="ddc-lastseen">Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{end}}</span>
+      <span class="ddc-meta"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span> · Onboarded {{shortDate .Device.CreatedAt}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span></span>
     </div>
     <div class="ddc-actions">
       {{if and (canAdmin .Role) .RemoteEnabled}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
@@ -305,7 +305,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   </div>
   <div class="ddc-card">
     <div class="ddc-card-t">Software</div>
-    <div class="ddc-kv"><span class="k">Build</span><span class="v">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
+    <div class="ddc-kv"><span class="k">Build</span><span class="v ddc-build-kv">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
     {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
     <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
   </div>
@@ -392,6 +392,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 </style>
 <div class="card chart-card">
   <div class="chart-loading" id="chart-loading" aria-live="polite"><span class="chart-spin" aria-hidden="true"></span><span class="chart-loading-t">Loading graphs…</span></div>
+  <div class="chart-zoom-hint" id="chart-zoom-hint" aria-hidden="true">Zoom with Ctrl + scroll</div>
   <div class="card-header">
     <h3>Device Graphs</h3>
     <div style="display:flex;align-items:center;gap:10px;">
@@ -442,7 +443,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <button class="chart-tab" data-chart-tab="all" onclick="setChartTab('all')">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>All
     </button>
-    <span class="chart-hint muted small" title="Drag across the graph to zoom, scroll to zoom in/out, double-click to reset">drag to zoom · scroll · dbl-click resets</span>
+    <span class="chart-hint muted small" title="Drag across the graph to zoom, Ctrl+scroll to zoom in/out, double-click to reset">drag to zoom · ctrl+scroll · dbl-click resets</span>
   </div>
 
   <style>
@@ -453,6 +454,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   .chart-stats .cst-now{color:var(--text);font-weight:650;}
   .chart-stats .cst-avg,.chart-stats .cst-mm{color:var(--text-faint);}
   #chart-export-btn{cursor:pointer;}
+  .chart-zoom-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.96);z-index:6;pointer-events:none;background:rgba(8,11,16,.86);color:#fff;font-size:13px;font-weight:600;padding:9px 15px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .12s ease,transform .12s ease;}
+  .chart-zoom-hint.show{opacity:1;transform:translate(-50%,-50%) scale(1);}
   </style>
   <div id="chart-stats" class="chart-stats" aria-live="polite"></div>
 
@@ -494,8 +497,9 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="chart-wrap chart-wrap--tall"><canvas id="unifiedChart"></canvas></div>
   </div>
 
-  <div id="chart-footer" style="border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;font-variant-numeric:tabular-nums;">
+  <div id="chart-footer" style="border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:12px;">
     <span id="chart-footer-text">—</span>
+    <button type="button" id="chart-reset-btn" class="dur-btn" style="margin-left:auto;cursor:pointer;" title="Reset the graph to the default window">↺ Reset</button>
   </div>
 </div>
 
@@ -1429,7 +1433,16 @@ function mdmBootCharts() {
     if (customMin !== null && customMax !== null) return [customMin, customMax];
     var xs = chart.scales.x; return [xs.min, xs.max];
   }
-  // Drag across the plot to zoom to that span, scroll to zoom around the cursor,
+  // Flash the "Zoom with Ctrl + scroll" overlay when the user scrolls without Ctrl.
+  var _zoomHintTimer = null;
+  function showZoomHint() {
+    var el = document.getElementById('chart-zoom-hint'); if (!el) return;
+    el.classList.add('show');
+    clearTimeout(_zoomHintTimer);
+    _zoomHintTimer = setTimeout(function () { el.classList.remove('show'); }, 1100);
+  }
+
+  // Drag across the plot to zoom to that span, Ctrl+scroll to zoom around the cursor,
   // double-click to reset to the default window.
   function installZoom(chart) {
     if (!chart) return;
@@ -1461,6 +1474,9 @@ function mdmBootCharts() {
       var ca = chart.chartArea, rect = canvas.getBoundingClientRect();
       var x = e.clientX - rect.left;
       if (x < ca.left || x > ca.right) return;
+      // Plain scroll is left to the page; zoom is Ctrl+scroll so the graph doesn't
+      // trap the wheel. Surface that with a brief overlay when the user just scrolls.
+      if (!e.ctrlKey) { showZoomHint(); return; }
       e.preventDefault();
       var bounds = windowBounds(chart), a = bounds[0], b = bounds[1];
       if (a == null || b == null) return;
@@ -1470,6 +1486,9 @@ function mdmBootCharts() {
     }, { passive: false });
   }
   [batteryChart, tempChart, ramChart, unifiedChart].forEach(installZoom);
+
+  var _resetBtn = document.getElementById('chart-reset-btn');
+  if (_resetBtn) _resetBtn.addEventListener('click', function () { resetCustomRange(); });
 
   var _exportBtn = document.getElementById('chart-export-btn');
   if (_exportBtn) _exportBtn.addEventListener('click', function () {
@@ -2110,6 +2129,21 @@ function filterInstalledApps(q) {
       // charging bolt server-side, so it tracks d.charging without a reload.
       document.body.dispatchEvent(new CustomEvent('device-updated'));
 
+      // Keep the hero meta live without a reload: build id (in case the device just
+      // updated) and the "Last seen" clock, which the presence handler reveals when
+      // the device drops.
+      if (d.build_id) {
+        var _b = document.querySelector('.ddc-build');
+        if (_b && _b.textContent.trim() !== d.build_id) _b.textContent = d.build_id;
+        var _bk = document.querySelector('.ddc-build-kv');
+        if (_bk && _bk.textContent.trim() !== d.build_id) _bk.textContent = d.build_id;
+      }
+      if (d.ts_ms) {
+        window.__lastCheckinSec = Math.floor(d.ts_ms / 1000);
+        var _ls = document.querySelector('.ddc-lastseen .reltime');
+        if (_ls) { _ls.dataset.ts = window.__lastCheckinSec; if (window.mdmTickRel) window.mdmTickRel(); }
+      }
+
       // Kiosk state travels in the SSE payload — flip the chip/toggle live when the
       // device reports an on-device offline exit (kiosk turned off), no reload.
       if (typeof d.kiosk_enabled === 'boolean' && window.mdmSyncKiosk) {
@@ -2163,6 +2197,23 @@ function filterInstalledApps(q) {
       badge.className = 'ddc-status ' + (online ? 'on' : 'off');
       badge.innerHTML = '<i></i>' + (online ? 'Online' : 'Offline');
       badge.setAttribute('title', online ? 'WebSocket connected' : 'No WebSocket connection');
+      // "Last seen" belongs only to the offline state. It's rendered server-side but
+      // was never toggled here, so a device that came back online kept a stale "Last
+      // seen …" until a manual refresh. Hide it when online; reveal (freshened to the
+      // latest check-in) when offline.
+      var lastSeen = document.querySelector('.ddc-lastseen');
+      if (lastSeen) {
+        if (online) {
+          lastSeen.setAttribute('hidden', '');
+        } else {
+          if (window.__lastCheckinSec) {
+            var rt = lastSeen.querySelector('.reltime');
+            if (rt) rt.dataset.ts = window.__lastCheckinSec;
+          }
+          lastSeen.removeAttribute('hidden');
+          if (window.mdmTickRel) window.mdmTickRel();
+        }
+      }
     });
     window.addEventListener('beforeunload', function () { es.close(); });
   })();
