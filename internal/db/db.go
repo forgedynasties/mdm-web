@@ -3162,6 +3162,44 @@ func (d *DB) SetCommandProgress(ctx context.Context, commandID, deviceID uuid.UU
 	return err
 }
 
+// StalledInstall identifies an install delivery the stall sweep marked failed.
+type StalledInstall struct {
+	CommandID uuid.UUID
+	DeviceID  uuid.UUID
+}
+
+// ExpireStalledInstalls marks install_apk deliveries that stopped reporting progress
+// as 'failed'. An install stuck 'downloading'/'installing' whose last report is older
+// than stallMinutes has lost its device — it gave up after exhausting retries, rebooted,
+// or its terminal ack was lost during the same network outage that stalled the download.
+// Without this the row sits "in flight" forever, because install commands are exempt
+// from the short command TTL. Returns the affected rows so callers can publish updates.
+func (d *DB) ExpireStalledInstalls(ctx context.Context, stallMinutes int) ([]StalledInstall, error) {
+	rows, err := d.pool.Query(ctx, `
+		UPDATE command_status cs
+		SET status = 'failed', progress = NULL, updated_at = NOW()
+		FROM commands c
+		WHERE cs.command_id = c.id
+		  AND c.type = 'install_apk'
+		  AND cs.status IN ('downloading', 'installing')
+		  AND cs.updated_at <= NOW() - make_interval(mins => $1)
+		RETURNING cs.command_id, cs.device_id
+	`, stallMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StalledInstall
+	for rows.Next() {
+		var s StalledInstall
+		if err := rows.Scan(&s.CommandID, &s.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 // LearnApkPackage records that apkURL installs packageName, so future installs of
 // that APK can be reconciled against a device's reported package list.
 func (d *DB) LearnApkPackage(ctx context.Context, apkURL, packageName string) error {
