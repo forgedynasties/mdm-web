@@ -28,7 +28,8 @@ var Changelog = []Entry{
 			"Software updates have a dedicated push page with product-aware rollouts, delivered as a full image or a smaller incremental. App installs now ride out a network drop: the download keeps retrying and resumes where it left off when the connection returns, and if a device never recovers the install is failed cleanly instead of staying stuck on “installing”.",
 			"The Releases list is ordered by release date and titled by build name, with reported builds behind an admin toggle and the release date editable in place.",
 			"On the Fleet page, clicking a serial opens the full device page, and “Last seen” reflects a device's live connection instead of its last check-in.",
-			"Smaller changes: remove several devices from a group at once, the live logs console is now “Realtime logs”, the Actions shell follows your light/dark theme, screenshots open from a proper link, and device graphs now show the date on the time axis when you're looking at two or more days.",
+			"Device graphs are far easier to explore: drag across the plot to zoom to a span, Ctrl+scroll to zoom in and out, Ctrl+drag to pan, and double-click (or the Reset button) to return to the default view. The custom-range picker was redesigned with one-tap presets and a cleaner From/To, the time axis shows the date on multi-day views, the temperature and battery danger zones are shaded so a bad reading stands out, and a button saves the current chart as an image.",
+			"Smaller changes: rename a release from its Manage page; remove several devices from a group at once; the live logs console is now “Realtime logs”; the Actions shell follows your light/dark theme; screenshots open from a proper link; and a device coming back online now clears its “Last seen” and refreshes its build number live, without a manual refresh.",
 		},
 	},
 	{

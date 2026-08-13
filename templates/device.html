@@ -409,23 +409,31 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <span id="active-range-text"></span>
         <button type="button" id="active-range-clear" title="Clear custom range" aria-label="Clear custom range">&times;</button>
       </span>
-      <div id="custom-range-inputs" class="custom-range-inputs" style="display:none;">
-        <div class="cr-presets">
+      <div id="custom-range-inputs" class="cr-pop" hidden>
+        <div class="cr-pop-head">
+          <span class="cr-pop-title">Custom range</span>
+          <button type="button" class="cr-pop-x" id="cr-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="cr-quick">
           <button type="button" class="cr-preset" data-preset="1h">Last hour</button>
+          <button type="button" class="cr-preset" data-preset="6h">Last 6h</button>
+          <button type="button" class="cr-preset" data-preset="24h">Last 24h</button>
           <button type="button" class="cr-preset" data-preset="today">Today</button>
           <button type="button" class="cr-preset" data-preset="yesterday">Yesterday</button>
-          <button type="button" class="cr-preset" data-preset="7d">Last 7d</button>
+          <button type="button" class="cr-preset" data-preset="7d">Last 7 days</button>
+          <button type="button" class="cr-preset" data-preset="30d">Last 30 days</button>
         </div>
-        <div class="cr-fields">
-          <input type="datetime-local" id="range-start" class="range-input" aria-label="Range start">
-          <span class="muted small">to</span>
-          <input type="datetime-local" id="range-end" class="range-input" aria-label="Range end">
-          <button type="button" class="cr-nudge" id="range-prev" title="Shift window earlier" aria-label="Shift window earlier">&lsaquo;</button>
-          <button type="button" class="cr-nudge" id="range-next" title="Shift window later" aria-label="Shift window later">&rsaquo;</button>
-          <button class="btn-outline" id="apply-range-btn" style="font-size:11px;padding:2px 8px;">Apply</button>
-          <button type="button" class="btn-outline" id="reset-range-btn" style="font-size:11px;padding:2px 8px;">Reset</button>
+        <div class="cr-range">
+          <label class="cr-fld"><span>From</span><input type="datetime-local" id="range-start" class="range-input"></label>
+          <label class="cr-fld"><span>To</span><input type="datetime-local" id="range-end" class="range-input"></label>
         </div>
         <div id="range-error" class="cr-error" role="alert" hidden></div>
+        <div class="cr-pop-foot">
+          <span class="cr-shift-lbl">Shift window</span>
+          <button type="button" class="cr-nudge" id="range-prev" title="Shift earlier" aria-label="Shift earlier">&lsaquo;</button>
+          <button type="button" class="cr-nudge" id="range-next" title="Shift later" aria-label="Shift later">&rsaquo;</button>
+          <button type="button" class="cr-reset" id="reset-range-btn">Reset to 6h</button>
+        </div>
       </div>
       <button type="button" id="chart-export-btn" class="dur-btn" title="Download this chart as a PNG">⤓ PNG</button>
       <button type="button" id="chart-reset-btn" class="dur-btn" title="Reset the graph to the default window">↺ Reset</button>
@@ -1270,7 +1278,7 @@ function mdmBootCharts() {
     btn.addEventListener("click", () => {
       customMin = null;
       customMax = null;
-      document.getElementById("custom-range-inputs").style.display = "none";
+      closeCustomPop();
       showRangeError("");
       document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
@@ -1279,20 +1287,38 @@ function mdmBootCharts() {
     });
   });
 
-  document.getElementById("custom-range-btn").addEventListener("click", () => {
+  function closeCustomPop() {
     var inputs = document.getElementById("custom-range-inputs");
-    var visible = inputs.style.display !== "none";
-    inputs.style.display = visible ? "none" : "flex";
-    if (!visible) {
-      showRangeError("");
-      // Pre-fill with the currently shown window so the inputs start from context.
-      var hasCustom = customMin !== null && customMax !== null;
-      var endMs = hasCustom ? customMax : Date.now();
-      var startMs = hasCustom ? customMin : (endMs - currentDuration);
-      document.getElementById("range-start").value = toLocalISO(new Date(startMs));
-      document.getElementById("range-end").value = toLocalISO(new Date(endMs));
-    }
+    if (inputs) inputs.setAttribute("hidden", "");
+  }
+  function openCustomPop() {
+    var inputs = document.getElementById("custom-range-inputs");
+    if (!inputs) return;
+    showRangeError("");
+    // Pre-fill with the currently shown window so the inputs start from context.
+    var hasCustom = customMin !== null && customMax !== null;
+    var endMs = hasCustom ? customMax : Date.now();
+    var startMs = hasCustom ? customMin : (endMs - currentDuration);
+    document.getElementById("range-start").value = toLocalISO(new Date(startMs));
+    document.getElementById("range-end").value = toLocalISO(new Date(endMs));
+    inputs.removeAttribute("hidden");
+  }
+  document.getElementById("custom-range-btn").addEventListener("click", function (e) {
+    e.stopPropagation();
+    var inputs = document.getElementById("custom-range-inputs");
+    if (inputs.hasAttribute("hidden")) openCustomPop(); else closeCustomPop();
   });
+  document.getElementById("cr-close").addEventListener("click", closeCustomPop);
+  // Click outside the popover (and not on the Custom button) closes it.
+  document.addEventListener("click", function (e) {
+    var inputs = document.getElementById("custom-range-inputs");
+    if (!inputs || inputs.hasAttribute("hidden")) return;
+    if (inputs.contains(e.target) || e.target.closest("#custom-range-btn")) return;
+    closeCustomPop();
+  });
+  // Auto-apply as the From/To fields change — no separate Apply button.
+  document.getElementById("range-start").addEventListener("change", applyCustomRange);
+  document.getElementById("range-end").addEventListener("change", applyCustomRange);
 
   function showRangeError(msg) {
     var el = document.getElementById("range-error");
@@ -1324,14 +1350,17 @@ function mdmBootCharts() {
   function presetRange(preset) {
     var now = new Date(), start = new Date(now), end = now;
     if (preset === "1h") { start = new Date(now.getTime() - 3600000); }
+    else if (preset === "6h") { start = new Date(now.getTime() - 6 * 3600000); }
+    else if (preset === "24h") { start = new Date(now.getTime() - 24 * 3600000); }
     else if (preset === "today") { start.setHours(0, 0, 0, 0); }
     else if (preset === "yesterday") {
       start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
       end = new Date(start); end.setHours(23, 59, 59, 999);
     } else if (preset === "7d") { start = new Date(now.getTime() - 7 * 86400000); }
+    else if (preset === "30d") { start = new Date(now.getTime() - 30 * 86400000); }
     document.getElementById("range-start").value = toLocalISO(start);
     document.getElementById("range-end").value = toLocalISO(new Date(end));
-    applyCustomRange();
+    if (applyCustomRange()) closeCustomPop();
   }
 
   // Slide the active custom window left/right by its own width.
@@ -1347,7 +1376,7 @@ function mdmBootCharts() {
   function resetCustomRange() {
     customMin = null; customMax = null;
     showRangeError("");
-    document.getElementById("custom-range-inputs").style.display = "none";
+    closeCustomPop();
     document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
     var def = document.querySelector('.dur-btn[data-ms="21600000"]');
     if (def) def.classList.add("active");
@@ -1364,7 +1393,6 @@ function mdmBootCharts() {
     updateCharts();
   }
 
-  document.getElementById("apply-range-btn").addEventListener("click", applyCustomRange);
   document.getElementById("reset-range-btn").addEventListener("click", resetCustomRange);
   document.getElementById("range-prev").addEventListener("click", () => nudgeRange(-1));
   document.getElementById("range-next").addEventListener("click", () => nudgeRange(1));
@@ -1520,7 +1548,7 @@ function mdmBootCharts() {
     document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("custom-range-btn").classList.add("active");
     // Reveal the selector primed with the focused window so it's easy to widen/shift.
-    document.getElementById("custom-range-inputs").style.display = "flex";
+    document.getElementById("custom-range-inputs").removeAttribute("hidden");
     document.getElementById("range-start").value = toLocalISO(new Date(customMin));
     document.getElementById("range-end").value = toLocalISO(new Date(customMax));
     return f === "battery" ? "battery" : f === "ram" ? "ram" : "temp";
