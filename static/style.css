@@ -5934,3 +5934,74 @@ a.hl-row:hover { background: var(--hover); }
     scroll-behavior: auto !important;
   }
 }
+
+/* ── Changelog media gallery + "What's new" popup ─────────────────────────── */
+/* Screenshot/gif grid shown on the changelog page and in the What's new popup. */
+.cl-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 4px 0 14px;
+}
+.cl-shot { margin: 0; min-width: 0; }
+.cl-shot-wide { grid-column: 1 / -1; }
+.cl-shot-link {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: var(--r-3, 10px);
+  overflow: hidden;
+  background: var(--surface2, var(--surface));
+  transition: border-color var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+}
+.cl-shot-link:hover { border-color: var(--accent); box-shadow: var(--shadow-pop); }
+.cl-shot img { display: block; width: 100%; height: auto; }
+.cl-shot figcaption {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 5px;
+  line-height: 1.4;
+}
+@media (max-width: 560px) {
+  .cl-gallery { grid-template-columns: 1fr; }
+  .cl-shot-wide { grid-column: auto; }
+}
+
+/* What's new popup: a wider modal that can hold the media gallery, with a
+   pinned "Show all changelogs" footer under a scrolling body. */
+.whatsnew-box { max-width: 620px; }
+.whatsnew-body { gap: var(--s-2, 8px); }
+.whatsnew-head { display: flex; align-items: flex-start; justify-content: space-between; }
+.whatsnew-kicker {
+  font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 2px;
+}
+.whatsnew-ver { font-size: 16px; font-weight: 700; }
+.whatsnew-changes { margin: 0; padding: 0; list-style: none; }
+.whatsnew-changes li {
+  position: relative; padding: 9px 0 9px 20px; line-height: 1.6; font-size: 12.5px;
+  color: var(--text2, var(--muted)); border-top: 1px dashed var(--border-soft);
+}
+.whatsnew-changes li:first-child { border-top: none; }
+.whatsnew-changes li::before {
+  content: ""; position: absolute; left: 3px; top: 15px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--accent);
+}
+/* clFormat's bold lead sentence — styled globally so it also renders in the popup
+   (the changelog page has its own scoped copy). */
+.whatsnew-changes .cl-lead { color: var(--text); font-weight: 650; }
+.whatsnew-foot {
+  display: flex; justify-content: flex-end;
+  padding: var(--s-3) var(--s-5); border-top: 1px solid var(--border);
+}
+
+/* Release push pane: group/restaurant target chips. */
+.push-tgt-list { display: flex; flex-wrap: wrap; gap: 6px; max-height: 150px; overflow-y: auto; }
+.push-tgt-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; font-size: 12.5px; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.push-tgt-chip:hover { border-color: var(--accent); }
+.push-tgt-chip:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.push-tgt-chip input { margin: 0; }

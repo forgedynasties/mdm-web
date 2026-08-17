@@ -1,0 +1,16 @@
+{{/* cl-media renders a release's screenshot/gif gallery. Dot (.) is a []version.Media.
+     Used by both the full changelog page and the "What's new" popup. */}}
+{{define "cl-media"}}
+{{if .}}
+<div class="cl-gallery">
+  {{range .}}
+  <figure class="cl-shot{{if .Wide}} cl-shot-wide{{end}}">
+    <a href="{{.Src}}" target="_blank" rel="noopener" class="cl-shot-link">
+      <img src="{{.Src}}" alt="{{.Alt}}" loading="lazy">
+    </a>
+    {{if .Caption}}<figcaption>{{.Caption}}</figcaption>{{end}}
+  </figure>
+  {{end}}
+</div>
+{{end}}
+{{end}}

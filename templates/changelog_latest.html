@@ -1,0 +1,16 @@
+{{define "changelog_latest.html"}}
+{{with .Entry}}
+<div class="whatsnew-head">
+  <div>
+    <div class="whatsnew-kicker">What's new</div>
+    <div class="whatsnew-ver">v{{.Version}} <span class="muted small">· {{.Date}}</span></div>
+  </div>
+</div>
+{{template "cl-media" .Media}}
+<ul class="cl-changes whatsnew-changes">
+  {{range .Changes}}<li>{{clFormat .}}</li>{{end}}
+</ul>
+{{else}}
+<div class="nbar-al-empty">No changelog entries yet.</div>
+{{end}}
+{{end}}

@@ -1931,9 +1931,12 @@ function filterInstalledApps(q) {
     if (opening) { pop.removeAttribute('hidden'); }
   };
   window.ddAddGroup = function (gid, btn) {
-    var fd = new FormData(); fd.append('serials', DD_SERIAL);
+    // URLSearchParams -> application/x-www-form-urlencoded. Must NOT be FormData: that
+    // sends multipart, which the handler's r.ParseForm() does not read, so the server
+    // would see no serials and add nothing (the page reloads unchanged).
+    var body = new URLSearchParams(); body.append('serials', DD_SERIAL);
     btn.disabled = true;
-    fetch('/groups/' + gid + '/devices', { method: 'POST', body: fd })
+    fetch('/groups/' + gid + '/devices', { method: 'POST', body: body, credentials: 'same-origin' })
       .then(function () { location.reload(); })
       .catch(function () { btn.disabled = false; });
   };

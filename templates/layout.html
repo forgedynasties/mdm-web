@@ -186,6 +186,11 @@
         <span class="ui-icon theme-icon-dark"><svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
       </button>
 
+      {{/* What's new → modal popup showing the latest release (lazy-loaded on open). */}}
+      <button type="button" class="appbar-icon" id="whatsnew-btn" onclick="navWhatsNew(event)" aria-haspopup="dialog" aria-expanded="false" title="What's new · v{{.Version}}">
+        <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg></span>
+      </button>
+
       {{/* Alerts bell → dropdown (lazy-loads recent alerts via htmx on open). */}}
       <div class="nbar-wrap" id="alerts-wrap">
         <button type="button" id="alerts-indicator" class="appbar-icon js-dest" data-cmdk-label="Alerts" data-cmdk-href="/alerts" onclick="navAlerts(event)" aria-haspopup="true" aria-expanded="false" title="Alerts">
@@ -299,7 +304,25 @@
       var aw = document.getElementById('acct-wrap'); if (aw && !aw.contains(e.target)) pop('acct-pop', '.appbar-acct', false);
       var lw = document.getElementById('alerts-wrap'); if (lw && !lw.contains(e.target)) pop('alerts-pop', '#alerts-indicator', false);
     });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false); } });
+    // What's new modal: toggle open/close; lazy-load the latest release on open.
+    window.navWhatsNew = function (e) {
+      if (e) { e.preventDefault(); e.stopPropagation(); }
+      var m = document.getElementById('whatsnew'); if (!m) return;
+      var btn = document.getElementById('whatsnew-btn');
+      var willOpen = !m.classList.contains('modal-open');
+      m.classList.toggle('modal-open', willOpen);
+      if (btn) btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+      if (willOpen) {
+        pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false);
+        if (window.htmx) htmx.ajax('GET', '/changelog/latest', { target: '#whatsnew-body', swap: 'innerHTML' });
+      }
+    };
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        pop('acct-pop', '.appbar-acct', false); pop('alerts-pop', '#alerts-indicator', false);
+        var m = document.getElementById('whatsnew'); if (m && m.classList.contains('modal-open')) navWhatsNew();
+      }
+    });
   })();
   </script>
   <div id="toast" class="toast" aria-live="polite"></div>
@@ -333,6 +356,21 @@
           <button type="button" class="btn-outline" data-confirm-cancel>Cancel</button>
           <button type="button" class="btn-primary" id="mdm-confirm-ok">Confirm</button>
         </div>
+      </div>
+    </div>
+  </div>
+  {{/* What's new popup: latest release only, lazy-loaded into the body on open. */}}
+  <div id="whatsnew" class="modal-backdrop" onclick="if(event.target===this)navWhatsNew()">
+    <div class="modal-box whatsnew-box" role="dialog" aria-modal="true" aria-label="What's new">
+      <div class="modal-header">
+        <span class="modal-title">What's new</span>
+        <button class="modal-close" type="button" onclick="navWhatsNew()" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body whatsnew-body" id="whatsnew-body">
+        <div class="nbar-al-empty">Loading…</div>
+      </div>
+      <div class="whatsnew-foot">
+        <a href="/changelog" class="btn-outline" onclick="navWhatsNew()">Show all changelogs</a>
       </div>
     </div>
   </div>

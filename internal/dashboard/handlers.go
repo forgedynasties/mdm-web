@@ -1380,6 +1380,19 @@ func (h *Handler) Changelog(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ChangelogLatest renders just the newest release as an HTML fragment for the
+// top-bar "What's new" popup (lazy-loaded via htmx when the popup opens).
+func (h *Handler) ChangelogLatest(w http.ResponseWriter, r *http.Request) {
+	var latest *version.Entry
+	if len(version.Changelog) > 0 {
+		latest = &version.Changelog[0]
+	}
+	h.render(w, r, "changelog_latest.html", map[string]any{
+		"Entry":   latest,
+		"Version": version.Current(),
+	})
+}
+
 func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.isLoggedIn(r) {
@@ -6753,6 +6766,14 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	// them and labels them "newer installed" (OTAing an older release onto them is blocked).
 	blocked, _ := h.db.SerialsOnNewerRelease(ctx, rel.ID)
 	data["DevicesBlocked"] = blocked
+	// Groups and restaurants power the push pane's target selector (deploy to a whole
+	// group/venue, mirroring the Actions target picker).
+	if groups, err := h.db.ListGroups(ctx); err == nil {
+		data["Groups"] = groups
+	}
+	if rests, err := h.db.ListRestaurants(ctx); err == nil {
+		data["Restaurants"] = rests
+	}
 	return data
 }
 
@@ -7921,7 +7942,9 @@ func parseScheduledUTC(raw, rebootBehavior string) *time.Time {
 func (h *Handler) resolveEligibleDevices(r *http.Request, product string) ([]uuid.UUID, error) {
 	var deviceIDs []uuid.UUID
 
-	serials := r.Form["serials"]
+	// serials come from the per-device checkboxes and/or a pasted bulk list — the
+	// same parseSerialsField used by the Actions target picker splits commas/newlines.
+	serials := parseSerialsField(r.Form["serials"])
 	if len(serials) > 0 {
 		ids, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
 		if err != nil {
@@ -7933,6 +7956,16 @@ func (h *Handler) resolveEligibleDevices(r *http.Request, product string) ([]uui
 	for _, s := range r.Form["group_ids"] {
 		if gid, err := uuid.Parse(s); err == nil {
 			ids, err := h.db.GetDeviceIDsByGroupIDs(r.Context(), []uuid.UUID{gid})
+			if err != nil {
+				return nil, err
+			}
+			deviceIDs = append(deviceIDs, ids...)
+		}
+	}
+
+	for _, s := range r.Form["restaurant_ids"] {
+		if rid, err := uuid.Parse(s); err == nil {
+			ids, err := h.db.GetDeviceIDsByRestaurantIDs(r.Context(), []uuid.UUID{rid})
 			if err != nil {
 				return nil, err
 			}
@@ -12053,6 +12086,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /settings/queries/{id}/delete", h.requireStrictAdmin(h.SettingsQueryDelete))
 	post("POST /settings/queries/{id}/toggle", h.requireStrictAdmin(h.SettingsQueryToggle))
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
+	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))
 	post("POST /settings/kiosk-allowlist", h.requireStrictAdmin(h.SettingsSetKioskAllowlist))
