@@ -234,11 +234,14 @@ body::before {
 }
 
 body > nav,
-body > main,
-body > .modal-backdrop {
+body > main {
   position: relative;
   z-index: 1;
 }
+/* NB: .modal-backdrop must NOT get position:relative here — it is a direct child of
+   <body>, and relative positioning would drop the overlay into the document flow
+   (the "What's new" popup rendered inline instead of above content). It keeps its
+   own position:fixed; z-index:100 from the .modal-backdrop rule below. */
 
 /* View Transitions: htmx wraps every swap in document.startViewTransition()
    (globalViewTransitions, set in layout.html). Keep the crossfade short so the
