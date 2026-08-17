@@ -1,5 +1,5 @@
 {{define "restaurant_form.html"}}
-{{template "header" .}}
+{{if not .Embed}}{{template "header" .}}{{end}}
 
 <style>
 .rf-card{max-width:720px;}
@@ -40,14 +40,17 @@
 .rf-bottom{display:flex;gap:12px;align-items:center;border-top:1px solid var(--border-soft);margin-top:14px;}
 </style>
 
+{{if not .Embed}}
 <a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/devices?view=restaurants{{end}}" class="back-link">← Back</a>
 <div class="ov-greet">
   <h1 class="ov-title">{{.Title}}</h1>
   <span class="ov-date">{{if .Restaurant}}edit venue details{{else}}add a venue your devices live in{{end}}</span>
 </div>
+{{end}}
 
 {{$tz := ""}}{{with .Restaurant}}{{$tz = .Timezone}}{{end}}
 <form action="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/restaurants{{end}}" method="POST">
+  {{if .RedirectTo}}<input type="hidden" name="redirect" value="{{.RedirectTo}}">{{end}}
 
   {{if not .Restaurant}}
   <div class="rf-steps">
@@ -276,5 +279,5 @@ function rfPrev() {
 rfPrev();
 </script>
 
-{{template "footer" .}}
+{{if not .Embed}}{{template "footer" .}}{{end}}
 {{end}}

@@ -1606,6 +1606,13 @@ func (d *DB) CreateGroup(ctx context.Context, name string) (*Group, error) {
 	return &g, err
 }
 
+// RenameGroup changes a group's name in place — a group has no other editable
+// fields, so this is the whole "edit" for a group (used by the fleet toolbar).
+func (d *DB) RenameGroup(ctx context.Context, id uuid.UUID, name string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE groups SET name = $2 WHERE id = $1`, id, name)
+	return err
+}
+
 // FleetCounts holds the headline totals shown in the unified Fleet tab strip
 // (Devices / Restaurants / Groups), fetched in one round-trip.
 type FleetCounts struct {
@@ -9243,6 +9250,14 @@ func (d *DB) ListBranchReleases(ctx context.Context, parentID int) ([]Release, e
 // SetReleaseMeta updates the editable release fields (name, changelog).
 func (d *DB) SetReleaseMeta(ctx context.Context, id int, name, changelog string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE releases SET name = $2, changelog = $3 WHERE id = $1`, id, name, changelog)
+	return err
+}
+
+// SetReleaseName changes only a release's display name, leaving its changelog and
+// other metadata untouched — the fleet toolbar's inline rename uses this so a quick
+// rename can't blank the release notes.
+func (d *DB) SetReleaseName(ctx context.Context, id int, name string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE releases SET name = $2 WHERE id = $1`, id, name)
 	return err
 }
 
