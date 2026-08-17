@@ -2337,6 +2337,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	locs, locCount := h.deviceLocationsJSON(ctx)
 	data["DeviceLocations"] = locs
 	data["DeviceMapCount"] = locCount
+	data["MapsEmbedKey"] = h.mapsEmbedKey
 
 	h.render(w, r, "overview.html", data)
 }
