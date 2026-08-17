@@ -273,9 +273,12 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	// the codec and tune the stream. Defaults keep the safe still-image (JPEG) path; the
 	// browser opts into hardware H.264 with ?codec=h264 (and must decode it via WebCodecs).
 	q := r.URL.Query()
+	// H.264 is the default; the device falls back to JPEG stills on its own if its
+	// encoder can't do it, and the browser auto-detects the codec per frame. Only
+	// an explicit ?codec=jpeg forces the still path.
 	codec := q.Get("codec")
-	if codec != "h264" {
-		codec = "jpeg"
+	if codec != "jpeg" {
+		codec = "h264"
 	}
 	quality := clampInt(atoiOr(q.Get("quality"), 60), 1, 100)
 	scale := clampFloat(atofOr(q.Get("scale"), 0.5), 0.1, 1.0)

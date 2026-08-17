@@ -301,6 +301,9 @@
       <span class="rc-chip"><b id="rc-fps">—</b> fps</span>
       <span class="rc-chip"><b id="rc-kbps">—</b> KB/s</span>
       <span class="rc-chip"><b id="rc-res">—</b></span>
+      <label class="rc-chip" style="cursor:pointer;user-select:none" title="Smooth: paint every frame (higher fps). Low-latency: paint only the freshest frame (snappier tap response).">
+        <input type="checkbox" id="rc-smooth" onchange="rcSetPaintMode(this.checked)" style="vertical-align:middle;margin-right:5px">Smooth
+      </label>
       <span class="rc-chip err" id="rc-err-chip" style="display:none"><b id="rc-err">0</b> decode errors</span>
     </div>
   </div>
@@ -364,14 +367,22 @@
   // pin the stream with ?max_fps=, ?bitrate=, ?quality=, ?scale= — e.g. a lower fps
   // for the lowest tap-to-screen latency. The server clamps every value.
   var qp = new URLSearchParams(location.search);
-  var codec = (qp.get('codec') === 'h264' && typeof VideoDecoder !== 'undefined') ? 'h264' : 'jpeg';
+  // H.264 is the default now: request it whenever the browser can decode video
+  // (WebCodecs). Devices whose encoder can't do H.264 fall back to JPEG stills on
+  // their side, and we auto-detect the actual codec per frame below — so the
+  // request codec only decides what a capable device *attempts*. Force stills
+  // with ?codec=jpeg. A browser without WebCodecs always requests jpeg.
+  var hasWebCodecs = (typeof VideoDecoder !== 'undefined');
+  var codec = qp.get('codec');
+  if (codec !== 'jpeg' && codec !== 'h264') codec = hasWebCodecs ? 'h264' : 'jpeg';
+  if (codec === 'h264' && !hasWebCodecs) codec = 'jpeg';
   function passNum(name) {
     var v = qp.get(name);
     return (v && /^[0-9]+(\.[0-9]+)?$/.test(v)) ? ('&' + name + '=' + encodeURIComponent(v)) : '';
   }
   var wsUrl = protocol + '//' + location.host + '/api/v1/remote/' + encodeURIComponent(serial)
               + '?token=' + encodeURIComponent('{{.Token}}')
-              + (codec === 'h264' ? '&codec=h264' : '')
+              + '&codec=' + codec
               + passNum('max_fps') + passNum('bitrate') + passNum('quality') + passNum('scale');
 
   var ws = null;
@@ -464,6 +475,10 @@
   // frames (buffered during a link stall, then flushed) would be decoded and
   // repainted in order — you'd watch a stale replay catch up, seconds behind live.
   var pendingFrame = null, rafScheduled = false;
+  // 'feel' = paint only the freshest decoded frame (lowest latency, ~display rate).
+  // 'perf' = paint every decoded frame (smoother motion, a touch more latency under
+  // bursts). Toggled live from the Smooth checkbox.
+  var paintMode = 'feel';
   function drawLatest() {
     rafScheduled = false;
     var frame = pendingFrame; pendingFrame = null;
@@ -478,7 +493,18 @@
   function initDecoder() {
     vdec = new VideoDecoder({
       output: function(frame) {
-        if (pendingFrame) pendingFrame.close(); // drop the stale one, keep freshest
+        if (paintMode === 'perf') {
+          // Smooth: draw every decoded frame as it arrives.
+          if (ctx) {
+            resizeTo(frame.displayWidth, frame.displayHeight);
+            ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
+            paintedCount++;
+          }
+          frame.close();
+          return;
+        }
+        // Low-latency: drop the stale one, keep only the freshest for the next rAF.
+        if (pendingFrame) pendingFrame.close();
         pendingFrame = frame;
         if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(drawLatest); }
       },
@@ -543,7 +569,13 @@
       if (typeof e.data === 'string') return; // JSON control messages (none currently)
       ensureCanvas();                          // first binary frame swaps in the canvas
       if (!ctx) return;
-      if (codec === 'h264') paintH264(e.data);
+      // Auto-detect the codec from the frame bytes so a device that fell back to
+      // JPEG (H.264 unavailable) still renders even though we requested h264: our
+      // H.264 frames are tagged with a leading type byte 0x00/0x01, while every
+      // still format starts higher (JPEG 0xFF, WEBP 'R'=0x52, PNG 0x89).
+      if (e.data.byteLength < 1) return;
+      var b0 = new Uint8Array(e.data, 0, 1)[0];
+      if (b0 <= 1) paintH264(e.data);
       else paintStill(e.data);
       noteFrameStats(e.data.byteLength);
     };
@@ -657,7 +689,14 @@
     }
     input.value = '';
   };
-  window.rcDisconnect = function() { if (ws) ws.close(); };
+  window.rcSetPaintMode = function(smooth) { paintMode = smooth ? 'perf' : 'feel'; };
+  // Disconnect returns to the device detail page rather than leaving a dead
+  // "Connection ended" screen. The onclose handler still runs (closes the socket
+  // + decoder) before we navigate.
+  window.rcDisconnect = function() {
+    if (ws) { try { ws.close(); } catch (e) {} }
+    window.location.href = '/devices/' + encodeURIComponent(serial);
+  };
 
   if (online) connect();
 })();
