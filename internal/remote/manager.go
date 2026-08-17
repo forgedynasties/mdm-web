@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +23,12 @@ type Session struct {
 	frameCh   chan []byte
 	inputCh   chan []byte
 	closeOnce sync.Once
+
+	// Instrumentation (atomic): lets us localize where remote-control latency
+	// accumulates. recvCount = frames arriving from the device; dropCount =
+	// frames shed here because the browser-write side couldn't keep up.
+	recvCount int64
+	dropCount int64
 }
 
 // remoteToken is a single-use, short-lived authorization for one device's remote
@@ -151,10 +158,12 @@ func (m *Manager) RelayFrame(deviceID uuid.UUID, data []byte) {
 	if !ok {
 		return
 	}
+	atomic.AddInt64(&s.recvCount, 1)
 	select {
 	case s.frameCh <- data:
 	default:
 		// Buffer full — drop oldest, push newest
+		atomic.AddInt64(&s.dropCount, 1)
 		select {
 		case <-s.frameCh:
 		default:
@@ -164,6 +173,19 @@ func (m *Manager) RelayFrame(deviceID uuid.UUID, data []byte) {
 		default:
 		}
 	}
+}
+
+// Stats reports live counters for a device's session so the ConnectRemote write
+// pump can log where frames are going. recv/drop are cumulative; the caller
+// diffs them per interval. qlen/qcap show how full the relay buffer sits.
+func (m *Manager) Stats(deviceID uuid.UUID) (recv, drop int64, qlen, qcap int, ok bool) {
+	m.mu.Lock()
+	s, present := m.sessions[deviceID]
+	m.mu.Unlock()
+	if !present {
+		return 0, 0, 0, 0, false
+	}
+	return atomic.LoadInt64(&s.recvCount), atomic.LoadInt64(&s.dropCount), len(s.frameCh), cap(s.frameCh), true
 }
 
 // RelayInput is called by the dashboard WS handler when an input event arrives.
