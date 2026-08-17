@@ -92,9 +92,9 @@ function grpRemoveSelected(gid) {
   document.querySelectorAll('#group-members .device-cb').forEach(function (b) { if (b.checked) serials.push(b.value); });
   if (!serials.length) return;
   if (!confirm('Remove ' + serials.length + ' device(s) from this group?')) return;
-  var fd = new FormData();
-  serials.forEach(function (s) { fd.append('serials', s); });
-  fetch('/groups/' + gid + '/devices/remove', { method: 'POST', body: fd, headers: { 'HX-Request': 'true' } })
+  var body = new URLSearchParams();
+  serials.forEach(function (s) { body.append('serials', s); });
+  fetch('/groups/' + gid + '/devices/remove', { method: 'POST', body: body, headers: { 'HX-Request': 'true' } })
     .then(function (r) { if (r.ok) document.body.dispatchEvent(new CustomEvent('group-updated')); })
     .catch(function () {});
 }
