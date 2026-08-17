@@ -45,33 +45,22 @@
       {{if $rel}}<span class="muted small">{{len .PushDevices}} {{productLabel $rel.Product}} device{{if ne (len .PushDevices) 1}}s{{end}} · this release targets {{productLabel $rel.Product}}</span>
       {{else}}<span class="muted small">choose a release to load its devices</span>{{end}}
     </div>
-    {{/* Target by group / restaurant / pasted serial list — mirrors the Actions target
-         picker. These combine with any devices ticked in the list below; the server
-         resolves them all, scopes to this product, and drops ineligible units. */}}
-    <details class="push-tgt" style="border-bottom:1px solid var(--border);">
-      <summary style="padding:11px 16px;cursor:pointer;font-size:13px;font-weight:600;">Target by group, restaurant, or serial list</summary>
-      <div style="padding:2px 16px 14px;">
-        <div class="muted small" style="margin-bottom:10px;">Off-product devices are skipped automatically. These add to anything ticked in the list below.</div>
-        <div style="display:flex;gap:20px;flex-wrap:wrap;">
-          <div style="min-width:200px;flex:1;">
-            <div class="form-label" style="margin-bottom:6px;">Groups</div>
-            <div class="push-tgt-list">
-              {{range .Groups}}<label class="push-tgt-chip"><input type="checkbox" name="group_ids" value="{{.ID}}" onchange="pushCount()"> {{.Name}} <span class="muted">· {{.DeviceCount}}</span></label>{{else}}<span class="muted small">No groups yet.</span>{{end}}
-            </div>
-          </div>
-          <div style="min-width:200px;flex:1;">
-            <div class="form-label" style="margin-bottom:6px;">Restaurants</div>
-            <div class="push-tgt-list">
-              {{range .Restaurants}}<label class="push-tgt-chip"><input type="checkbox" name="restaurant_ids" value="{{.ID}}" onchange="pushCount()"> {{.Name}} <span class="muted">· {{.DeviceCount}}</span></label>{{else}}<span class="muted small">No restaurants yet.</span>{{end}}
-            </div>
-          </div>
-        </div>
-        <div style="margin-top:12px;">
-          <label class="form-label" for="push-paste" style="display:block;margin-bottom:6px;">Paste serials</label>
-          <textarea id="push-paste" name="serials" class="form-input" rows="2" placeholder="Paste serials — comma or newline separated…" style="width:100%;resize:vertical;" oninput="pushCount()"></textarea>
-        </div>
+    {{/* Target picker — single-select scope rail, mirroring the Actions page: pick
+         All devices, a restaurant, or a group. The list below narrows/adds specific
+         devices. resolveEligibleDevices resolves the scope server-side, scopes to this
+         product, and drops ineligible units. */}}
+    <input type="hidden" name="scope_all" id="scope-all-input" value="1">
+    <input type="hidden" name="group_ids" id="scope-group-input" value="">
+    <input type="hidden" name="restaurant_ids" id="scope-restaurant-input" value="">
+    <div class="push-scope" style="border-bottom:1px solid var(--border);padding:12px 16px 14px;">
+      <div class="form-label" style="margin-bottom:8px;">Target</div>
+      <div class="push-rail" role="radiogroup" aria-label="Target scope">
+        <button type="button" class="pr-item on" role="radio" aria-checked="true" data-mode="all" onclick="pushSelectScope('all','',this)"><span class="dot ok"></span><span class="nm">All devices</span></button>
+        {{if .Restaurants}}<div class="pr-src">Restaurants</div>{{range .Restaurants}}<button type="button" class="pr-item" role="radio" aria-checked="false" data-mode="restaurant" data-id="{{.ID}}" onclick="pushSelectScope('restaurant','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
+        {{if .Groups}}<div class="pr-src">Groups</div>{{range .Groups}}<button type="button" class="pr-item" role="radio" aria-checked="false" data-mode="group" data-id="{{.ID}}" onclick="pushSelectScope('group','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
       </div>
-    </details>
+      <div class="muted small" style="margin-top:9px;">Off-product and busy devices are skipped automatically. Leave the list below untouched to push the whole scope, or tick devices to also include them.</div>
+    </div>
     <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
       <input type="text" id="push-search" class="form-input" placeholder="Search devices…" style="max-width:240px;" oninput="pushFilter()"{{if not $rel}} disabled{{end}}>
       <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="push-all" onclick="pushToggleAll(this)"{{if not $rel}} disabled{{end}}> Select all eligible</label>
@@ -143,25 +132,38 @@
 <script>
 function pushFilter(){var q=(document.getElementById('push-search').value||'').toLowerCase().trim();document.querySelectorAll('#push-list .push-dev').forEach(function(r){r.style.display=(r.getAttribute('data-search')||'').toLowerCase().indexOf(q)>=0?'':'none';});}
 function pushToggleAll(cb){document.querySelectorAll('#push-list .push-ck:not([disabled])').forEach(function(c){var row=c.closest('.push-dev');if(row&&row.style.display!=='none')c.checked=cb.checked;});pushCount();}
+// Single-select scope rail (All / a restaurant / a group), mirroring the Actions
+// target picker. Sets the hidden scope inputs resolveEligibleDevices reads.
+function pushSelectScope(mode,id,el){
+  var a=document.getElementById('scope-all-input');
+  var g=document.getElementById('scope-group-input');
+  var r=document.getElementById('scope-restaurant-input');
+  if(a)a.value=mode==='all'?'1':'';
+  if(g)g.value=mode==='group'?id:'';
+  if(r)r.value=mode==='restaurant'?id:'';
+  var rail=el.closest('.push-rail');
+  if(rail)rail.querySelectorAll('.pr-item').forEach(function(b){var on=b===el;b.classList.toggle('on',on);b.setAttribute('aria-checked',on?'true':'false');});
+  pushCount();
+}
 function pushCount(){
   var n=document.querySelectorAll('#push-list .push-ck:checked').length;
-  var groups=document.querySelectorAll('#push-form input[name="group_ids"]:checked').length;
-  var rests=document.querySelectorAll('#push-form input[name="restaurant_ids"]:checked').length;
-  var paste=(document.getElementById('push-paste')&&document.getElementById('push-paste').value||'').trim();
-  var pasteN=paste?paste.split(/[\n,]/).map(function(x){return x.trim();}).filter(Boolean).length:0;
-  var broader=groups+rests>0;
+  var scopeAll=(document.getElementById('scope-all-input')||{}).value==='1';
+  var scopeGroup=((document.getElementById('scope-group-input')||{}).value||'')!=='';
+  var scopeRest=((document.getElementById('scope-restaurant-input')||{}).value||'')!=='';
+  var broader=scopeAll||scopeGroup||scopeRest;
+  var hasRel=(((document.querySelector('#push-form input[name="release_id"]'))||{}).value||'')!=='';
   var btn=document.getElementById('push-btn');
   var lbl=document.getElementById('push-lbl');
-  // Exact totals for groups/restaurants aren't known client-side, so show a precise
-  // count only when targeting purely ticked devices + pasted serials.
+  // Exact totals for a group/restaurant/all scope aren't known client-side, so show a
+  // precise count only when targeting purely ticked devices.
   if(broader){
-    if(lbl)lbl.textContent='Push update';
+    if(lbl)lbl.textContent=n>0?('Push update · +'+n+' picked'):'Push update';
   }else{
-    var total=n+pasteN;
-    if(lbl)lbl.textContent='Push to '+total+' device'+(total===1?'':'s');
+    if(lbl)lbl.textContent='Push to '+n+' device'+(n===1?'':'s');
   }
-  if(btn)btn.disabled=(n+pasteN===0)&&!broader;
+  if(btn)btn.disabled=!hasRel||((n===0)&&!broader);
 }
+document.addEventListener('DOMContentLoaded',pushCount);
 function pushReboot(v,btn){document.getElementById('push-reboot').value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
 function pushDelivery(v,btn){var el=document.getElementById('push-delivery');if(el)el.value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
 </script>
