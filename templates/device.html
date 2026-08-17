@@ -535,9 +535,41 @@ function mdmBootCharts() {
   // Devices without a battery (kiosks) get no battery series at all — the tab,
   // panel, and unified legend/line are all omitted, so this stays empty.
   const HAS_BATTERY = {{if .Device.HasBattery}}true{{else}}false{{end}};
-  const allBattery = [{{if .Device.HasBattery}}{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}{{end}}];
-  const allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
-  const allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
+  // Mutable so the range picker can grow the loaded window backward on demand
+  // (chartLoadOlder) — older builds' history is fetched from /chart-data instead of
+  // only filtering the ~48h baked in here.
+  let allBattery = [{{if .Device.HasBattery}}{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}{{end}}];
+  let allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
+  let allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
+  // Earliest check-in currently loaded (arrays are oldest-first). Widening the range
+  // before this triggers a fetch that prepends the older window.
+  let loadedMinX = (function () {
+    var xs = [];
+    if (allBattery.length) xs.push(allBattery[0].x);
+    if (allTemp.length) xs.push(allTemp[0].x);
+    if (allRam.length) xs.push(allRam[0].x);
+    return xs.length ? Math.min.apply(null, xs) : Date.now();
+  })();
+  let chartFetching = false;
+  // Fetch check-ins older than what's loaded, for [fromMs, loadedMinX), and prepend
+  // them so the recent high-resolution data is kept. Then run `done` (re-render).
+  function chartLoadOlder(fromMs, done) {
+    if (fromMs >= loadedMinX || chartFetching) { if (done) done(); return; }
+    chartFetching = true;
+    var until = Math.floor(loadedMinX) - 1;
+    fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + Math.floor(fromMs) + '&until=' + until, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (d) {
+          if (HAS_BATTERY && d.battery && d.battery.length) allBattery = d.battery.concat(allBattery);
+          if (d.temp && d.temp.length) allTemp = d.temp.concat(allTemp);
+          if (d.ram && d.ram.length) allRam = d.ram.concat(allRam);
+          loadedMinX = fromMs;
+        }
+      })
+      .catch(function () {})
+      .then(function () { chartFetching = false; if (done) done(); });
+  }
   const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
   const markerStorageKey = 'mdm-chart-markers:v2:{{.Device.SerialNumber}}';
 
@@ -1336,7 +1368,7 @@ function mdmBootCharts() {
     customMin = a; customMax = b;
     document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("custom-range-btn").classList.add("active");
-    updateCharts();
+    chartLoadOlder(customMin, updateCharts);
     return true;
   }
 
@@ -1363,7 +1395,7 @@ function mdmBootCharts() {
     customMin += dir * span; customMax += dir * span;
     document.getElementById("range-start").value = toLocalISO(new Date(customMin));
     document.getElementById("range-end").value = toLocalISO(new Date(customMax));
-    updateCharts();
+    chartLoadOlder(customMin, updateCharts);
   }
 
   function resetCustomRange() {
