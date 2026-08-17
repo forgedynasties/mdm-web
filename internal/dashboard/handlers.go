@@ -7950,6 +7950,19 @@ func parseScheduledUTC(raw, rebootBehavior string) *time.Time {
 func (h *Handler) resolveEligibleDevices(r *http.Request, product string) ([]uuid.UUID, error) {
 	var deviceIDs []uuid.UUID
 
+	// "All devices" scope (Actions-style target rail on the push page): every device of
+	// the release's product. The per-product filter below still applies; the union with
+	// any explicitly ticked serials is harmless (dedup handles overlap).
+	if r.FormValue("scope_all") == "1" {
+		devs, err := h.db.ListDevices(r.Context(), db.DeviceFilter{Product: product}, 0, 100000, "serial", "asc")
+		if err != nil {
+			return nil, err
+		}
+		for _, d := range devs {
+			deviceIDs = append(deviceIDs, d.ID)
+		}
+	}
+
 	// serials come from the per-device checkboxes and/or a pasted bulk list — the
 	// same parseSerialsField used by the Actions target picker splits commas/newlines.
 	serials := parseSerialsField(r.Form["serials"])
