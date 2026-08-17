@@ -279,14 +279,43 @@
       {{/* Fleet activity */}}
       <div class="ov2-card">
         <div class="ov2-ch"><h3>Fleet activity</h3><span class="m">7 days · peak {{.ActivityPeak}}</span></div>
-        <div class="ov2-bars">
-          {{range .ActivityBars}}
-          <div class="ov2-bar{{if .Cur}} cur{{end}}"><div class="ov2-track"><div class="ov2-fill" style="height:{{.Pct}}%"></div></div><span class="ov2-cap">{{.Val}}</span><span class="ov2-day">{{.Label}}</span></div>
-          {{else}}
-          <div class="ov2-bars-empty">No activity recorded yet.</div>
-          {{end}}
-        </div>
+        {{if .ActivityBars}}
+        <div style="height:180px;position:relative"><canvas id="ov-activity"></canvas></div>
+        {{else}}
+        <div class="ov2-bars-empty">No activity recorded yet.</div>
+        {{end}}
       </div>
+      {{if .ActivityBars}}
+      <script src="/static/vendor/chart.umd.min.js"></script>
+      <script>
+      (function(){
+        var el = document.getElementById('ov-activity');
+        if (!el || typeof Chart === 'undefined') return;
+        var rows = {{.ActivityJSON}};
+        var accent = '#d82747';
+        function hexA(a){ return 'rgba(216,39,71,'+a+')'; }
+        var ctx = el.getContext('2d');
+        var grad = ctx.createLinearGradient(0, 0, 0, 180);
+        grad.addColorStop(0, hexA(0.28)); grad.addColorStop(1, hexA(0));
+        new Chart(ctx, {
+          type: 'line',
+          data: { labels: rows.map(function(r){ return r.label; }),
+            datasets: [{ data: rows.map(function(r){ return r.val; }),
+              borderColor: accent, backgroundColor: grad, fill: true, tension: 0.35,
+              borderWidth: 2, pointRadius: 3, pointHoverRadius: 5,
+              pointBackgroundColor: accent, pointBorderColor: '#fff', pointBorderWidth: 1 }] },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { intersect: false, mode: 'index' } },
+            scales: {
+              x: { grid: { display: false }, ticks: { color: '#8a8a99' } },
+              y: { beginAtZero: true, grid: { color: 'rgba(140,140,160,0.15)' }, ticks: { color: '#8a8a99', precision: 0 } }
+            }
+          }
+        });
+      })();
+      </script>
+      {{end}}
 
       {{/* Live open alerts */}}
       <div class="ov2-card">
