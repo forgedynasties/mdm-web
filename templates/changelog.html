@@ -37,6 +37,7 @@
         {{if eq .Version $.Version}}<span class="cl-current">current</span>{{end}}
         <span class="muted small">{{.Date}}</span>
       </div>
+      {{template "cl-media" .Media}}
       <ul class="cl-changes">
         {{range .Changes}}<li>{{clFormat .}}</li>{{end}}
       </ul>
