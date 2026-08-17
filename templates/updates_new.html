@@ -34,7 +34,7 @@
   </div>
 </div>
 
-<form action="/updates" method="POST" id="push-form">
+<form action="/updates" method="POST" id="push-form" onsubmit="return pushConfirm(event)">
   <input type="hidden" name="release_id" value="{{with $rel}}{{.ID}}{{end}}">
   {{if not $showDelivery}}<input type="hidden" name="delivery" value="smart">{{end}}
 
@@ -45,21 +45,18 @@
       {{if $rel}}<span class="muted small">{{len .PushDevices}} {{productLabel $rel.Product}} device{{if ne (len .PushDevices) 1}}s{{end}} · this release targets {{productLabel $rel.Product}}</span>
       {{else}}<span class="muted small">choose a release to load its devices</span>{{end}}
     </div>
-    {{/* Target picker — single-select scope rail, mirroring the Actions page: pick
-         All devices, a restaurant, or a group. The list below narrows/adds specific
-         devices. resolveEligibleDevices resolves the scope server-side, scopes to this
-         product, and drops ineligible units. */}}
-    <input type="hidden" name="scope_all" id="scope-all-input" value="1">
-    <input type="hidden" name="group_ids" id="scope-group-input" value="">
-    <input type="hidden" name="restaurant_ids" id="scope-restaurant-input" value="">
+    {{/* Target rail — picking All / a restaurant / a group TICKS that collection's
+         member devices in the list below and floats them to the top. The push always
+         sends exactly the ticked serials, so what you see selected is what gets pushed. */}}
+    <script>window.PUSH_GROUP_MEMBERS={{if .PushGroupMembers}}{{.PushGroupMembers}}{{else}}{}{{end}};window.PUSH_REST_MEMBERS={{if .PushRestMembers}}{{.PushRestMembers}}{{else}}{}{{end}};</script>
     <div class="push-scope" style="border-bottom:1px solid var(--border);padding:12px 16px 14px;">
       <div class="form-label" style="margin-bottom:8px;">Target</div>
       <div class="push-rail" role="radiogroup" aria-label="Target scope">
-        <button type="button" class="pr-item on" role="radio" aria-checked="true" data-mode="all" onclick="pushSelectScope('all','',this)"><span class="dot ok"></span><span class="nm">All devices</span></button>
+        <button type="button" class="pr-item" role="radio" aria-checked="false" data-mode="all" onclick="pushSelectScope('all','',this)"><span class="dot ok"></span><span class="nm">All eligible</span></button>
         {{if .Restaurants}}<div class="pr-src">Restaurants</div>{{range .Restaurants}}<button type="button" class="pr-item" role="radio" aria-checked="false" data-mode="restaurant" data-id="{{.ID}}" onclick="pushSelectScope('restaurant','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
         {{if .Groups}}<div class="pr-src">Groups</div>{{range .Groups}}<button type="button" class="pr-item" role="radio" aria-checked="false" data-mode="group" data-id="{{.ID}}" onclick="pushSelectScope('group','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
       </div>
-      <div class="muted small" style="margin-top:9px;">Off-product and busy devices are skipped automatically. Leave the list below untouched to push the whole scope, or tick devices to also include them.</div>
+      <div class="muted small" style="margin-top:9px;">Picking a group or venue ticks its devices below and floats them to the top. Fine-tune by ticking devices directly, or paste a serial list. The push targets exactly the ticked devices.</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
       <input type="text" id="push-search" class="form-input" placeholder="Search devices…" style="max-width:240px;" oninput="pushFilter()"{{if not $rel}} disabled{{end}}>
@@ -81,7 +78,7 @@
         {{$noArtifact := and (not $.HasFull) (not (index $.SourceBuilds .BuildID))}}
         {{$blocked := or $onTarget (ne $updating "") (ne $newer "") $noArtifact}}
         <label class="push-dev" data-search="{{.SerialNumber}} {{.BuildID}} {{.RestaurantName}}" style="display:flex;align-items:center;gap:11px;padding:9px 16px;border-bottom:1px solid var(--border);cursor:{{if $blocked}}default{{else}}pointer{{end}};{{if $blocked}}opacity:.5;{{end}}">
-          <input type="checkbox" name="serials" value="{{.SerialNumber}}" class="push-ck"{{if $blocked}} disabled{{end}} onchange="pushCount()">
+          <input type="checkbox" name="serials" value="{{.SerialNumber}}" class="push-ck"{{if $blocked}} disabled{{end}} onchange="pushOnDeviceToggle()">
           <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{if notStale .LastSeenAt $.ActiveThresholdSecs}}#3ecf8e{{else}}#7a7f9a{{end}};" title="{{if notStale .LastSeenAt $.ActiveThresholdSecs}}online{{else}}offline{{end}}"></span>
           <span style="min-width:0;">
             <span class="mono" style="font-weight:600;">{{.SerialNumber}}</span>
@@ -137,42 +134,60 @@
 
 <script>
 function pushFilter(){var q=(document.getElementById('push-search').value||'').toLowerCase().trim();document.querySelectorAll('#push-list .push-dev').forEach(function(r){r.style.display=(r.getAttribute('data-search')||'').toLowerCase().indexOf(q)>=0?'':'none';});}
-function pushToggleAll(cb){document.querySelectorAll('#push-list .push-ck:not([disabled])').forEach(function(c){var row=c.closest('.push-dev');if(row&&row.style.display!=='none')c.checked=cb.checked;});pushCount();}
-// Single-select scope rail (All / a restaurant / a group), mirroring the Actions
-// target picker. Sets the hidden scope inputs resolveEligibleDevices reads.
+
+// The push always submits the ticked serials. The target rail is a convenience
+// selector: picking All / a group / a venue ticks that collection's eligible member
+// devices in the list below and floats them to the top — so "what you see selected is
+// what gets pushed", and a group/venue push can't silently widen to the whole fleet.
+function pushSetRailActive(el){
+  document.querySelectorAll('.push-rail .pr-item').forEach(function(b){var on=b===el;b.classList.toggle('on',on);b.setAttribute('aria-checked',on?'true':'false');});
+}
+function pushClearRail(){ document.querySelectorAll('.push-rail .pr-item').forEach(function(b){b.classList.remove('on');b.setAttribute('aria-checked','false');}); }
+// Float ticked (enabled) rows to the top of the list, preserving relative order.
+function pushFloatSelected(){
+  var list=document.getElementById('push-list'); if(!list)return;
+  var rows=Array.prototype.slice.call(list.querySelectorAll('.push-dev'));
+  rows.sort(function(a,b){
+    var ca=((a.querySelector('.push-ck')||{}).checked)?0:1;
+    var cb=((b.querySelector('.push-ck')||{}).checked)?0:1;
+    return ca-cb; // stable in modern engines → original order kept within each group
+  });
+  rows.forEach(function(r){list.appendChild(r);});
+}
+// Rail click → tick that collection's eligible members (All = every eligible), float up.
 function pushSelectScope(mode,id,el){
-  var a=document.getElementById('scope-all-input');
-  var g=document.getElementById('scope-group-input');
-  var r=document.getElementById('scope-restaurant-input');
-  if(a)a.value=mode==='all'?'1':'';
-  if(g)g.value=mode==='group'?id:'';
-  if(r)r.value=mode==='restaurant'?id:'';
-  var rail=el.closest('.push-rail');
-  if(rail)rail.querySelectorAll('.pr-item').forEach(function(b){var on=b===el;b.classList.toggle('on',on);b.setAttribute('aria-checked',on?'true':'false');});
+  var serials=null; // null = every eligible device (All)
+  if(mode==='group') serials=(window.PUSH_GROUP_MEMBERS||{})[id]||[];
+  else if(mode==='restaurant') serials=(window.PUSH_REST_MEMBERS||{})[id]||[];
+  var want=null;
+  if(serials){ want={}; serials.forEach(function(s){want[s]=true;}); }
+  document.querySelectorAll('#push-list .push-ck').forEach(function(c){
+    if(c.disabled){ c.checked=false; return; }
+    c.checked=(want===null)||!!want[c.value];
+  });
+  pushSetRailActive(el);
+  pushFloatSelected();
   pushCount();
 }
+function pushToggleAll(cb){
+  document.querySelectorAll('#push-list .push-ck:not([disabled])').forEach(function(c){var row=c.closest('.push-dev');if(row&&row.style.display!=='none')c.checked=cb.checked;});
+  pushClearRail();
+  pushFloatSelected();
+  pushCount();
+}
+// Manual per-device toggle: the selection no longer matches a named scope, so drop the
+// rail highlight. Don't reorder here — floating rows out from under the cursor is jarring.
+function pushOnDeviceToggle(){ pushClearRail(); pushCount(); }
 function pushCount(){
   var n=document.querySelectorAll('#push-list .push-ck:checked').length;
-  var scopeAll=(document.getElementById('scope-all-input')||{}).value==='1';
-  var scopeGroup=((document.getElementById('scope-group-input')||{}).value||'')!=='';
-  var scopeRest=((document.getElementById('scope-restaurant-input')||{}).value||'')!=='';
-  var broader=scopeAll||scopeGroup||scopeRest;
   var hasRel=(((document.querySelector('#push-form input[name="release_id"]'))||{}).value||'')!=='';
   var btn=document.getElementById('push-btn');
   var lbl=document.getElementById('push-lbl');
-  // Exact totals for a group/restaurant/all scope aren't known client-side, so show a
-  // precise count only when targeting purely ticked devices.
-  if(broader){
-    if(lbl)lbl.textContent=n>0?('Push update · +'+n+' picked'):'Push update';
-  }else{
-    if(lbl)lbl.textContent='Push to '+n+' device'+(n===1?'':'s');
-  }
-  if(btn)btn.disabled=!hasRel||((n===0)&&!broader);
+  if(lbl)lbl.textContent='Push to '+n+' device'+(n===1?'':'s');
+  if(btn)btn.disabled=!hasRel||n===0;
 }
 document.addEventListener('DOMContentLoaded',pushCount);
-// Paste a serial list → auto-tick the matching eligible rows in the device list.
-// Only selects devices already shown (product-scoped, eligible); reports how many
-// matched, how many were skipped (not eligible), and how many weren't found.
+// Paste a serial list → tick the matching eligible rows and float them up.
 function pushPasteSelect(){
   var ta=document.getElementById('push-paste'); if(!ta) return;
   var wanted=(ta.value||'').split(/[\s,]+/).map(function(x){return x.trim();}).filter(Boolean);
@@ -188,7 +203,15 @@ function pushPasteSelect(){
   });
   var missing=0; wanted.forEach(function(s){ if(!seen[s]) missing++; });
   if(note){ var p=[matched+' selected']; if(blocked)p.push(blocked+' not eligible'); if(missing)p.push(missing+' not found'); note.textContent=p.join(' · '); }
+  pushClearRail();
+  pushFloatSelected();
   pushCount();
+}
+// Confirm before pushing — always spells out the exact device count.
+function pushConfirm(e){
+  var n=document.querySelectorAll('#push-list .push-ck:checked').length;
+  if(n===0){ e.preventDefault(); return false; }
+  return mdmConfirmSubmit(e,{title:'Push update?',body:'This pushes the update to '+n+' selected device'+(n===1?'':'s')+'.',confirmLabel:'Push update'});
 }
 function pushReboot(v,btn){document.getElementById('push-reboot').value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
 function pushDelivery(v,btn){var el=document.getElementById('push-delivery');if(el)el.value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
