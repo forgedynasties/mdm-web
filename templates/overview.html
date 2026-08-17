@@ -231,42 +231,49 @@
       </div>
       {{end}}
 
-      {{/* Fleet map — every device with a resolved location */}}
-      {{if .DeviceMapCount}}
-      <link rel="stylesheet" href="/static/vendor/leaflet.css">
+      {{/* Fleet map — every device with a resolved location, on Google Maps */}}
+      {{if and .DeviceMapCount .MapsEmbedKey}}
       <div class="ov2-card">
         <div class="ov2-ch"><h3>Fleet map</h3><span class="m">{{.DeviceMapCount}} located</span></div>
         <div id="ov-map" style="height:320px;border-radius:10px;overflow:hidden"></div>
       </div>
       <script type="application/json" id="ov-map-data">{{.DeviceLocations}}</script>
-      <script src="/static/vendor/leaflet.js"></script>
       <script>
-      (function(){
+      function ovInitMap(){
         var el = document.getElementById('ov-map');
-        if (!el || typeof L === 'undefined') return;
+        if (!el || !window.google || !google.maps) return;
         function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
         var pts = [];
         try { pts = JSON.parse(document.getElementById('ov-map-data').textContent || '[]'); } catch(e){}
-        var map = L.map(el, {scrollWheelZoom:false});
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
-        var bounds = [];
-        pts.forEach(function(p){
-          var color = p.online ? '#22c55e' : '#94a3b8';
-          var mk = L.circleMarker([p.lat, p.lon], {radius:7, color:'#fff', weight:2, fillColor:color, fillOpacity:0.95}).addTo(map);
-          mk.bindPopup('<b>'+esc(p.name)+'</b><div style="opacity:.7">'+esc(p.serial)+'</div>'
-            + (p.address ? '<div>'+esc(p.address)+'</div>' : '')
-            + '<div style="margin:2px 0">'+(p.online?'🟢 online':'⚪ offline')+'</div>'
-            + '<a href="/devices/'+encodeURIComponent(p.serial)+'">Open device →</a>');
-          bounds.push([p.lat, p.lon]);
+        var map = new google.maps.Map(el, {
+          zoom: 2, center: {lat:20, lng:0},
+          mapTypeControl:false, streetViewControl:false, fullscreenControl:false
         });
-        if (bounds.length === 1) map.setView(bounds[0], 15);
-        else if (bounds.length > 1) map.fitBounds(bounds, {padding:[30,30]});
-        else map.setView([20,0], 2);
-        // Masonry/htmx can resize the card after init — recompute the map size.
-        setTimeout(function(){ map.invalidateSize(); }, 300);
-        window.addEventListener('load', function(){ map.invalidateSize(); });
-      })();
+        var bounds = new google.maps.LatLngBounds();
+        var iw = new google.maps.InfoWindow();
+        pts.forEach(function(p){
+          var pos = {lat:p.lat, lng:p.lon};
+          var mk = new google.maps.Marker({
+            position: pos, map: map, title: p.name,
+            icon: {path: google.maps.SymbolPath.CIRCLE, scale:7,
+              fillColor: p.online ? '#22c55e' : '#94a3b8', fillOpacity:1,
+              strokeColor:'#fff', strokeWeight:2}
+          });
+          mk.addListener('click', function(){
+            iw.setContent('<div style="min-width:150px"><b>'+esc(p.name)+'</b>'
+              + '<div style="opacity:.7">'+esc(p.serial)+'</div>'
+              + (p.address ? '<div>'+esc(p.address)+'</div>' : '')
+              + '<div style="margin:3px 0">'+(p.online?'🟢 online':'⚪ offline')+'</div>'
+              + '<a href="/devices/'+encodeURIComponent(p.serial)+'">Open device →</a></div>');
+            iw.open(map, mk);
+          });
+          bounds.extend(pos);
+        });
+        if (pts.length === 1) { map.setCenter({lat:pts[0].lat, lng:pts[0].lon}); map.setZoom(15); }
+        else if (pts.length > 1) { map.fitBounds(bounds); }
+      }
       </script>
+      <script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=ovInitMap"></script>
       {{end}}
 
       {{/* Fleet activity */}}

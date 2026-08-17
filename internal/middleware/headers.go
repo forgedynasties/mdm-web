@@ -11,11 +11,15 @@ import "net/http"
 // and form-action hijacking. All third-party assets are self-hosted (GB-07/F-10),
 // so no external origins are allowed.
 const contentSecurityPolicy = "default-src 'self'; " +
-	"script-src 'self' 'unsafe-inline'; " +
-	"style-src 'self' 'unsafe-inline'; " +
-	"img-src 'self' data:; " +
-	"font-src 'self'; " +
-	"connect-src 'self'; " +
+	// The overview fleet map uses the Google Maps JavaScript API, which loads its
+	// loader/worker scripts from maps.googleapis.com + maps.gstatic.com, tiles and
+	// sprites from *.googleapis.com/*.gstatic.com (images), fonts from
+	// fonts.gstatic.com, and telemetry via connect to maps.googleapis.com.
+	"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; " +
+	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+	"img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com; " +
+	"font-src 'self' https://fonts.gstatic.com; " +
+	"connect-src 'self' https://maps.googleapis.com; " +
 	// Device-page location map is a Google Maps Embed iframe (browser-facing,
 	// referrer-restricted key). Only the Google Maps host is allowed to be framed;
 	// everything else stays same-origin.
