@@ -2157,6 +2157,16 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// Same series as a line/area chart for the overview Fleet-activity card.
+	actPts := make([]map[string]any, 0, len(daily))
+	for _, ds := range daily {
+		actPts = append(actPts, map[string]any{"label": ds.Day.Format("Mon"), "val": ds.Active})
+	}
+	activityJSON := template.JS("[]")
+	if b, err := json.Marshal(actPts); err == nil {
+		activityJSON = template.JS(b)
+	}
+
 	hour := time.Now().Hour()
 	greeting := "Good evening"
 	if hour < 12 {
@@ -2298,6 +2308,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		"SparkLow":             sparkPoints(lowS),
 		"SparkHot":             sparkPoints(hotS),
 		"ActivityBars":         activityBars,
+		"ActivityJSON":         activityJSON,
 		"ActivityPeak":         peak,
 		"Audit":                audit,
 		"OpenAlerts":           openAlerts,
