@@ -458,12 +458,27 @@
   // (payload carries SPS/PPS + IDR), 0 = delta. Decoded via WebCodecs to a VideoFrame
   // painted on the canvas. We wait for the first key frame before feeding the decoder.
   var vts = 0, sawKey = false;
+  // Realtime paint: keep ONLY the freshest decoded frame and draw it on the next
+  // animation frame, closing any older undrawn frame. Without this, a burst of
+  // frames (buffered during a link stall, then flushed) would be decoded and
+  // repainted in order — you'd watch a stale replay catch up, seconds behind live.
+  var pendingFrame = null, rafScheduled = false;
+  function drawLatest() {
+    rafScheduled = false;
+    var frame = pendingFrame; pendingFrame = null;
+    if (!frame) return;
+    if (ctx) {
+      resizeTo(frame.displayWidth, frame.displayHeight);
+      ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
+    }
+    frame.close();
+  }
   function initDecoder() {
     vdec = new VideoDecoder({
       output: function(frame) {
-        resizeTo(frame.displayWidth, frame.displayHeight);
-        ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
-        frame.close();
+        if (pendingFrame) pendingFrame.close(); // drop the stale one, keep freshest
+        pendingFrame = frame;
+        if (!rafScheduled) { rafScheduled = true; requestAnimationFrame(drawLatest); }
       },
       error: function(err) { frameDecodeFailed(err, 0); vdecReady = false; }
     });
@@ -479,6 +494,11 @@
     if (bytes.length < 2) return;
     var isKey = bytes[0] === 1;
     if (!sawKey) { if (!isKey) return; sawKey = true; } // a decoder can't start on a delta
+    // If the decoder is falling behind (a backlog is building), stop feeding
+    // deltas and resync at the next key frame — bounds decode latency so we never
+    // drift seconds behind live. The device sends a key frame every second (and
+    // immediately after any drop), so recovery is quick.
+    if (!isKey && vdec.decodeQueueSize > 4) { sawKey = false; return; }
     try {
       vdec.decode(new EncodedVideoChunk({
         type: isKey ? 'key' : 'delta',
@@ -528,6 +548,7 @@
       var kbd = document.getElementById('rc-kbd'); if (kbd) kbd.checked = false;
       if (view) { view = null; ctx = null; }
       if (vdec) { try { vdec.close(); } catch (e2) {} vdec = null; vdecReady = false; sawKey = false; }
+      if (pendingFrame) { try { pendingFrame.close(); } catch (e3) {} pendingFrame = null; }
       var screen = document.getElementById('rc-screen');
       screen.innerHTML =
         '<div class="rc-placeholder">' +
