@@ -3101,6 +3101,27 @@ func (d *DB) MarkCommandsDelivered(ctx context.Context, deviceID uuid.UUID, comm
 	return nil
 }
 
+// CompleteDeliveredReboots marks a device's outstanding reboot commands completed
+// once the device reconnects / checks in again — the reconnection is the proof the
+// reboot actually happened. Reboot is acked 'delivered' when sent (not 'completed'),
+// because a successful WS push only means "queued to the socket", not "device
+// rebooted": a stale/half-open connection, or a device that received the command but
+// never rebooted, previously produced a false 'completed' (FW-2026-000033). Only rows
+// still in 'delivered' move, so a routine reconnect can't resurrect a command that has
+// already reached a terminal state.
+func (d *DB) CompleteDeliveredReboots(ctx context.Context, deviceID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE command_status cs
+		SET status = 'completed', updated_at = NOW()
+		FROM commands c
+		WHERE c.id = cs.command_id
+		  AND cs.device_id = $1
+		  AND c.type = 'reboot'
+		  AND cs.status = 'delivered'
+	`, deviceID)
+	return err
+}
+
 func (d *DB) commandTargetsDevice(ctx context.Context, commandID, deviceID uuid.UUID) (bool, error) {
 	var exists bool
 	err := d.pool.QueryRow(ctx, `

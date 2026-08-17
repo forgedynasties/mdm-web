@@ -143,6 +143,14 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The device just (re)connected — proof that any reboot command it had received
+	// actually rebooted it. Complete those before flushing, so a reboot delivered on the
+	// previous session flips 'delivered' → 'completed' now instead of being falsely
+	// completed at send time (FW-2026-000033).
+	if err := h.db.CompleteDeliveredReboots(r.Context(), device.ID); err != nil {
+		log.Printf("[ws] CompleteDeliveredReboots error for %s: %v", serial, err)
+	}
+
 	// Flush any commands that were queued while the device was offline.
 	h.flushPendingCommands(r.Context(), device.ID)
 	h.flushPendingLogcatRequests(r.Context(), device.ID)
@@ -440,11 +448,13 @@ func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) 
 		if !h.hub.Push(deviceID, msg) {
 			continue
 		}
-		if cmd.Type == "reboot" {
-			_ = h.db.AckCommand(ctx, cmd.ID, deviceID, "completed")
-			break // stop here; remaining cmds flush after reconnect
-		}
+		// Reboot is only 'delivered', not 'completed' — it completes when the device
+		// reconnects (CompleteDeliveredReboots), which is the actual proof it rebooted
+		// (FW-2026-000033).
 		_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
+		if cmd.Type == "reboot" {
+			break // stop here; remaining cmds flush after the device reboots + reconnects
+		}
 	}
 }
 
@@ -490,11 +500,12 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 		if !h.hub.Push(deviceID, msg) {
 			continue
 		}
-		if cmd.Type == "reboot" {
-			_ = h.db.AckCommand(ctx, cmd.ID, deviceID, "completed")
-		} else {
-			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
-		}
+		// Reboot is marked only 'delivered' here, never 'completed': a successful push
+		// means the command was queued to the socket, not that the device rebooted. A
+		// stale/half-open connection would otherwise false-complete an offline device
+		// (FW-2026-000033). It flips to 'completed' when the device reconnects
+		// (CompleteDeliveredReboots on the WS connect / next check-in).
+		_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
 	}
 	// Notify the dashboard's command detail page of the new delivery/ack state.
 	h.hub.PublishCommandUpdate(cmd.ID)
@@ -722,6 +733,14 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[checkin] %s → kiosk_enabled=%v kiosk_package=%q kiosk_features=%d",
 		req.SerialNumber, deviceCfg.KioskEnabled, deviceCfg.KioskPackage, deviceCfg.KioskFeatures)
 
+	// A check-in while the device has no live WS is proof it is back after a reboot, so
+	// complete any reboot that was only 'delivered' (FW-2026-000033). Guarded on the WS
+	// being down: a still-connected device hasn't rebooted, so it must not be completed
+	// off a routine HTTP keyframe.
+	if !h.hub.IsConnected(deviceID) {
+		_ = h.db.CompleteDeliveredReboots(r.Context(), deviceID)
+	}
+
 	// Include pending commands in checkin response for backwards compatibility
 	// with older clients that poll via checkin instead of WebSocket.
 	var cmdList []map[string]any
@@ -734,11 +753,10 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 					"apk_url": cmd.ApkURL,
 					"payload": cmd.Payload,
 				})
-				if cmd.Type == "reboot" {
-					_ = h.db.AckCommand(r.Context(), cmd.ID, deviceID, "completed")
-					break // stop here; remaining cmds delivered on next checkin post-reboot
-				}
 				_ = h.db.MarkCommandsDelivered(r.Context(), deviceID, []uuid.UUID{cmd.ID})
+				if cmd.Type == "reboot" {
+					break // reboot only 'delivered'; completes on the next check-in (FW-2026-000033)
+				}
 			}
 		}
 	}
