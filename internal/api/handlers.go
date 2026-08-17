@@ -280,7 +280,12 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	quality := clampInt(atoiOr(q.Get("quality"), 60), 1, 100)
 	scale := clampFloat(atofOr(q.Get("scale"), 0.5), 0.1, 1.0)
 	maxFps := clampInt(atoiOr(q.Get("max_fps"), 15), 1, 30)
-	bitrate := clampInt(atoiOr(q.Get("bitrate"), 4_000_000), 250_000, 20_000_000)
+	// Default 2 Mbps, not 4 — on a jittery device uplink (2.4 GHz Wi-Fi) 4 Mbps
+	// overruns the sender queue, silently dropping delta frames and stalling the
+	// browser decoder until the next key frame. 2 Mbps is plenty for a scaled
+	// phone screen and keeps the stream realtime; bump via ?bitrate= if the link
+	// is good.
+	bitrate := clampInt(atoiOr(q.Get("bitrate"), 2_000_000), 250_000, 20_000_000)
 	startMsg, _ := json.Marshal(map[string]any{
 		"type":    "start_capture",
 		"codec":   codec,
