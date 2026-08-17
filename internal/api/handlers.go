@@ -327,6 +327,14 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 		defer close(done)
 		ping := time.NewTicker(pingPeriod)
 		defer ping.Stop()
+		// Latency instrumentation: every 5s log frames received from the device
+		// vs dropped at the relay vs actually written to this browser, plus the
+		// relay-buffer occupancy. Diffing recv/drop against the prior tick shows
+		// per-hop rates so we can see which hop holds latency.
+		stats := time.NewTicker(5 * time.Second)
+		defer stats.Stop()
+		var wrote int64
+		var lastRecv, lastDrop, lastWrote int64
 		for {
 			select {
 			case data, ok := <-frameCh:
@@ -337,11 +345,20 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 				if err := dashConn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 					return
 				}
+				wrote++
 			case <-ping.C:
 				dashConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				if err := dashConn.WriteMessage(websocket.PingMessage, nil); err != nil {
 					return
 				}
+			case <-stats.C:
+				recv, drop, qlen, qcap, ok := h.remote.Stats(device.ID)
+				if !ok {
+					continue
+				}
+				log.Printf("[remote-stats] dev=%s recv=%d/5s drop=%d/5s wrote=%d/5s q=%d/%d",
+					device.ID, recv-lastRecv, drop-lastDrop, wrote-lastWrote, qlen, qcap)
+				lastRecv, lastDrop, lastWrote = recv, drop, wrote
 			}
 		}
 	}()
