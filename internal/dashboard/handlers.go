@@ -2333,6 +2333,11 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		data["ReportRestaurants"] = restaurantLinksJSON(groups)
 	}
 
+	// Fleet map: every device with a resolved location from the geolocation pipeline.
+	locs, locCount := h.deviceLocationsJSON(ctx)
+	data["DeviceLocations"] = locs
+	data["DeviceMapCount"] = locCount
+
 	h.render(w, r, "overview.html", data)
 }
 
@@ -4026,6 +4031,55 @@ func restaurantLinksJSON(groups []db.GroupHealth) template.JS {
 		return template.JS("[]")
 	}
 	return template.JS(b)
+}
+
+// deviceMapPoint is one device pin on the overview fleet map.
+type deviceMapPoint struct {
+	Serial  string  `json:"serial"`
+	Name    string  `json:"name"`
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
+	Address string  `json:"address,omitempty"`
+	Online  bool    `json:"online"`
+}
+
+// deviceLocationsJSON returns every device with a resolved lat/lon in its latest
+// telemetry, as JSON for the overview fleet map, plus the count. Coordinates come
+// from the geolocation pipeline (WiFi scan -> lat/lon merged into the device extra).
+func (h *Handler) deviceLocationsJSON(ctx context.Context) (template.JS, int) {
+	devs, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 5000, "", "")
+	if err != nil {
+		return template.JS("[]"), 0
+	}
+	online := h.hub.ConnectedIDs()
+	pts := make([]deviceMapPoint, 0, 16)
+	for _, dv := range devs {
+		var m map[string]json.RawMessage
+		if len(dv.LatestExtra) == 0 || json.Unmarshal(dv.LatestExtra, &m) != nil {
+			continue
+		}
+		var lat, lon float64
+		if json.Unmarshal(m["latitude"], &lat) != nil || json.Unmarshal(m["longitude"], &lon) != nil {
+			continue
+		}
+		name := dv.RestaurantName
+		if name == "" {
+			name = dv.SerialNumber
+		}
+		var addr string
+		if len(m["location_address"]) > 0 {
+			_ = json.Unmarshal(m["location_address"], &addr)
+		}
+		_, isOn := online[dv.ID]
+		pts = append(pts, deviceMapPoint{
+			Serial: dv.SerialNumber, Name: name, Lat: lat, Lon: lon, Address: addr, Online: isOn,
+		})
+	}
+	b, err := json.Marshal(pts)
+	if err != nil {
+		return template.JS("[]"), 0
+	}
+	return template.JS(b), len(pts)
 }
 
 // DeviceShellPage renders the interactive shell console for a device. The console

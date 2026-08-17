@@ -231,6 +231,44 @@
       </div>
       {{end}}
 
+      {{/* Fleet map — every device with a resolved location */}}
+      {{if .DeviceMapCount}}
+      <link rel="stylesheet" href="/static/vendor/leaflet.css">
+      <div class="ov2-card">
+        <div class="ov2-ch"><h3>Fleet map</h3><span class="m">{{.DeviceMapCount}} located</span></div>
+        <div id="ov-map" style="height:320px;border-radius:10px;overflow:hidden"></div>
+      </div>
+      <script type="application/json" id="ov-map-data">{{.DeviceLocations}}</script>
+      <script src="/static/vendor/leaflet.js"></script>
+      <script>
+      (function(){
+        var el = document.getElementById('ov-map');
+        if (!el || typeof L === 'undefined') return;
+        function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+        var pts = [];
+        try { pts = JSON.parse(document.getElementById('ov-map-data').textContent || '[]'); } catch(e){}
+        var map = L.map(el, {scrollWheelZoom:false});
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}).addTo(map);
+        var bounds = [];
+        pts.forEach(function(p){
+          var color = p.online ? '#22c55e' : '#94a3b8';
+          var mk = L.circleMarker([p.lat, p.lon], {radius:7, color:'#fff', weight:2, fillColor:color, fillOpacity:0.95}).addTo(map);
+          mk.bindPopup('<b>'+esc(p.name)+'</b><div style="opacity:.7">'+esc(p.serial)+'</div>'
+            + (p.address ? '<div>'+esc(p.address)+'</div>' : '')
+            + '<div style="margin:2px 0">'+(p.online?'🟢 online':'⚪ offline')+'</div>'
+            + '<a href="/devices/'+encodeURIComponent(p.serial)+'">Open device →</a>');
+          bounds.push([p.lat, p.lon]);
+        });
+        if (bounds.length === 1) map.setView(bounds[0], 15);
+        else if (bounds.length > 1) map.fitBounds(bounds, {padding:[30,30]});
+        else map.setView([20,0], 2);
+        // Masonry/htmx can resize the card after init — recompute the map size.
+        setTimeout(function(){ map.invalidateSize(); }, 300);
+        window.addEventListener('load', function(){ map.invalidateSize(); });
+      })();
+      </script>
+      {{end}}
+
       {{/* Fleet activity */}}
       <div class="ov2-card">
         <div class="ov2-ch"><h3>Fleet activity</h3><span class="m">7 days · peak {{.ActivityPeak}}</span></div>
@@ -251,17 +289,6 @@
         </div>
       </div>
 
-      {{/* Quick actions */}}
-      <div class="ov2-card">
-        <div class="ov2-ch"><h3>Quick actions</h3></div>
-        <div class="ov2-qa">
-          {{if canAct .Role}}<a href="/commands"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Send action</a>{{end}}
-          {{if canAdminOrTester .Role}}<a href="/releases"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span>New release</a>{{end}}
-          <a href="/devices"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>All devices</a>
-          {{if canAdminOrTester .Role}}<a href="/alert-config"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 20h9M3 20h4M3 4v16"/><circle cx="12" cy="8" r="3"/></svg></span>Alert rules</a>{{end}}
-        </div>
-      </div>
-
       {{/* Recent activity */}}
       {{if .Audit}}
       <div class="ov2-card">
@@ -272,8 +299,6 @@
       </div>
       {{end}}
   </div>
-
-  {{if .AISummary}}{{template "ai-report-card" .}}{{end}}
 
 </div>
 
