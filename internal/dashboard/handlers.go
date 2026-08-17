@@ -1910,6 +1910,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	selectedCollection := "All devices"
 	selectedCount := summary.Total
 	activeRestaurant, activeGroup := "", ""
+	activeReleaseID := 0 // release DB id when a build scopes the roster (toolbar rename target)
 	if restaurantID != uuid.Nil {
 		activeRestaurant = restaurantID.String()
 		for _, rr := range railRests {
@@ -1935,6 +1936,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 					name = rr.Version
 				}
 				selectedCollection, selectedCount = name, rr.DeviceCount
+				activeReleaseID = rr.ID
 				break
 			}
 		}
@@ -1991,6 +1993,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"SelectedCount":        selectedCount,
 		"ActiveRestaurant":     activeRestaurant,
 		"ActiveGroup":          activeGroup,
+		"ActiveReleaseID":      activeReleaseID,
 		"View":                 view,
 		"ViewID":               viewID,
 		"ViewColl":             viewColl,
@@ -4667,7 +4670,64 @@ func (h *Handler) GroupDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/groups", http.StatusFound)
+	// A deleted group can't scope the roster any more, so fall back to all devices.
+	localRedirect(w, r, "/devices")
+}
+
+// localRedirect sends the user to the form's "redirect" target when it is a safe
+// same-site path (a single leading "/"), else to fallback. Lets the fleet toolbar's
+// inline edits return to the exact roster view they were launched from, while still
+// serving the old callers (group page) that post no redirect.
+func localRedirect(w http.ResponseWriter, r *http.Request, fallback string) {
+	if dest := r.FormValue("redirect"); strings.HasPrefix(dest, "/") && !strings.HasPrefix(dest, "//") {
+		http.Redirect(w, r, dest, http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, fallback, http.StatusSeeOther)
+}
+
+// GroupUpdate renames a group. A group has only a name, so this is its full "edit";
+// the fleet toolbar's inline pencil posts here (and returns to the roster).
+func (h *Handler) GroupUpdate(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "Name required", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.RenameGroup(r.Context(), id, name); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "group.rename", id.String(), name)
+	localRedirect(w, r, "/devices?group="+id.String())
+}
+
+// ReleaseRename changes only a release's display name (not its changelog or other
+// meta), so the fleet toolbar's inline rename can't blank the release notes.
+func (h *Handler) ReleaseRename(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "Name required", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetReleaseName(r.Context(), id, name); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "release.rename", strconv.Itoa(id), name)
+	localRedirect(w, r, "/releases")
 }
 
 // ── Restaurants ─────────────────────────────────────────────────────────────────
@@ -4918,10 +4978,15 @@ func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Restaurant not found", http.StatusNotFound)
 		return
 	}
+	// Loaded into the fleet-page drawer via htmx: drop the page chrome (header/footer/
+	// back-link) and post the save back to the roster instead of the venue page.
+	embed := r.Header.Get("HX-Request") == "true"
 	h.render(w, r, "restaurant_form.html", map[string]any{
 		"Title":      "Edit " + rest.Name,
 		"Restaurant": rest,
 		"Timezones":  restaurantTimezones,
+		"Embed":      embed,
+		"RedirectTo": "/devices?restaurant=" + id.String(),
 	})
 }
 
@@ -4950,7 +5015,9 @@ func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "restaurant.update", id.String(), name)
-	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
+	// The fleet drawer posts a "redirect" back to the roster; the standalone edit
+	// page posts none and falls back to the venue page.
+	localRedirect(w, r, "/restaurants/"+id.String())
 }
 
 func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
@@ -4964,7 +5031,7 @@ func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "restaurant.delete", id.String(), "")
-	http.Redirect(w, r, "/restaurants", http.StatusFound)
+	localRedirect(w, r, "/restaurants")
 }
 
 // RestaurantAssignDevices assigns one or more devices (by serial) to this restaurant.
@@ -11865,7 +11932,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
 	// Remote screen capture + input injection is highly sensitive (full control of the
 	// device), so it is restricted to admins only.
-	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdmin(h.DeviceRemote))
+	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdminOrTester(h.DeviceRemote))
 	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
@@ -11906,6 +11973,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /alerts/clear-all", h.requireAdmin(h.AlertClearAll))
 	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	post("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
+	post("POST /groups/{id}", h.requireAdminOrTester(h.GroupUpdate))
 	post("POST /groups/{id}/delete", h.requireAdminOrTester(h.GroupDelete))
 	post("POST /groups/{id}/devices", h.requireAdminOrTester(h.GroupAddDevice))
 
@@ -12024,6 +12092,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/version/hide", h.requireAdmin(h.VersionHide))
 	post("POST /releases/version/unhide", h.requireAdmin(h.VersionUnhide))
 	post("POST /releases/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
+	post("POST /releases/{id}/rename", h.requireAdmin(h.ReleaseRename))
 	post("POST /releases/{id}/qa-base", h.requireAdmin(h.ReleaseSetSkipBase))
 	post("POST /releases/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
 	post("POST /releases/{id}/delete", h.requireAdmin(h.ReleaseDelete))
