@@ -2702,6 +2702,126 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DeviceChartData returns a device's battery / temperature / RAM series for an
+// on-demand window [from,until] (epoch-ms), so the chart's custom-range and 7d/30d
+// controls can pull OLDER history instead of only filtering the ~48h baked into the
+// page. Older builds' data was always in the checkins table (battery + temp are
+// recorded for every build) — it just was never fetched, so widening the range showed
+// nothing before the initial window. Down-sampled to keep the payload small.
+func (h *Handler) DeviceChartData(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	fromMs, _ := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("from")), 10, 64)
+	untilMs, _ := strconv.ParseInt(strings.TrimSpace(r.URL.Query().Get("until")), 10, 64)
+	if untilMs <= 0 {
+		untilMs = time.Now().UnixMilli()
+	}
+	if fromMs <= 0 || fromMs >= untilMs {
+		http.Error(w, "invalid range", http.StatusBadRequest)
+		return
+	}
+	checkins, err := h.db.GetCheckinsBetween(r.Context(), device.ID, time.UnixMilli(fromMs), time.UnixMilli(untilMs))
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	// GetCheckinsBetween returns newest-first; the chart wants oldest-first.
+	n := len(checkins)
+	asc := make([]db.Checkin, n)
+	for i := 0; i < n; i++ {
+		asc[i] = checkins[n-1-i]
+	}
+	// These devices can check in every few seconds, so a multi-day pull is huge — keep
+	// at most maxPoints evenly-strided points per series.
+	const maxPoints = 2500
+	stride := 1
+	if n > maxPoints {
+		stride = (n + maxPoints - 1) / maxPoints
+	}
+	type bpt struct {
+		X   int64 `json:"x"`
+		Y   int   `json:"y"`
+		Wlc *int  `json:"wlc"`
+	}
+	type pt struct {
+		X int64   `json:"x"`
+		Y float64 `json:"y"`
+	}
+	hasBattery := device.HasBattery()
+	battery := make([]bpt, 0, maxPoints)
+	temp := make([]pt, 0, maxPoints)
+	ram := make([]pt, 0, maxPoints)
+	for i := 0; i < n; i += stride {
+		c := asc[i]
+		x := c.CreatedAt.UnixMilli()
+		if hasBattery {
+			battery = append(battery, bpt{X: x, Y: c.BatteryPct, Wlc: wlcIntFromExtra(c.Extra)})
+		}
+		if t, ok := extractBatteryTempC(c.Extra); ok {
+			temp = append(temp, pt{X: x, Y: t})
+		}
+		if rp, ok := ramPctFromExtra(c.Extra); ok {
+			ram = append(ram, pt{X: x, Y: rp})
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]any{"battery": battery, "temp": temp, "ram": ram})
+}
+
+// wlcIntFromExtra returns the wireless-charging status (0..2) from a check-in's extra,
+// or nil when absent/out of range — matching the wlcStatus template helper.
+func wlcIntFromExtra(raw json.RawMessage) *int {
+	if len(raw) == 0 {
+		return nil
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(raw, &m) != nil {
+		return nil
+	}
+	v, ok := m["wlc_status"]
+	if !ok {
+		return nil
+	}
+	var n int
+	if json.Unmarshal(v, &n) != nil || n < 0 || n > 2 {
+		return nil
+	}
+	return &n
+}
+
+// ramPctFromExtra computes RAM used% from a check-in's extra, matching extraRamPct.
+func ramPctFromExtra(raw json.RawMessage) (float64, bool) {
+	if len(raw) == 0 {
+		return 0, false
+	}
+	var m map[string]json.RawMessage
+	if json.Unmarshal(raw, &m) != nil {
+		return 0, false
+	}
+	v, ok := m["ram_usage_mb"]
+	if !ok {
+		return 0, false
+	}
+	var ram map[string]int
+	if json.Unmarshal(v, &ram) != nil {
+		return 0, false
+	}
+	total := ram["total"]
+	if total == 0 {
+		return 0, false
+	}
+	pct := float64(ram["used"]) * 100 / float64(total)
+	if pct > 100 {
+		pct = 100
+	}
+	return pct, true
+}
+
 func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -12002,6 +12122,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /events/devices", h.requireAuth(h.FleetEvents))
 	mux.HandleFunc("GET /devices/{serial}", h.requireAuth(h.DeviceDetail))
 	mux.HandleFunc("GET /devices/{serial}/history", h.requireAuth(h.DeviceHistory))
+	mux.HandleFunc("GET /devices/{serial}/chart-data", h.requireAuth(h.DeviceChartData))
 	mux.HandleFunc("GET /devices/{serial}/events", h.requireAuth(h.DeviceEvents))
 	mux.HandleFunc("GET /devices/{serial}/ws-status", h.requireAuth(h.DeviceOnlineStatus))
 	mux.HandleFunc("GET /devices/{serial}/presence-stream", h.requireAuth(h.DevicePresenceStream))
