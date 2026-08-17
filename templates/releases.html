@@ -154,26 +154,27 @@ document.addEventListener('keydown', function (e) {
      GET /releases?partial=ota-progress. Renders nothing when no OTA is in flight. */}}
 {{define "ota-progress"}}
 {{if .ActiveOTA}}
+{{/* Summary only — this card re-polls every 4s, so a long per-device list makes the
+     releases page huge (and any expander would collapse on each refresh). Show the
+     rolled-up counts + aggregate download progress here; the per-device breakdown
+     lives on the Updates page (linked below). */}}
+{{$total := len .ActiveOTA}}
+{{$dl := 0}}{{$pctSum := 0}}
+{{range .ActiveOTA}}{{if eq .Status "downloading"}}{{$dl = add $dl 1}}{{$pctSum = add $pctSum .Percent}}{{end}}{{end}}
+{{$await := sub $total $dl}}
+{{$avg := 0}}{{if gt $dl 0}}{{$avg = div $pctSum $dl}}{{end}}
 <div class="card" style="margin-top:12px;border-color:var(--accent-line,#7a80f6);">
   <div class="card-header">
     <h3>Updates in progress <span class="live-dot" title="Live — updates every few seconds"></span></h3>
-    <span class="muted small">{{len .ActiveOTA}} device{{if ne (len .ActiveOTA) 1}}s{{end}} updating · <a href="/updates">all operations →</a></span>
+    <span class="muted small">{{$total}} device{{if ne $total 1}}s{{end}} updating · <a href="/updates">device-by-device →</a></span>
   </div>
-  <div>
-    {{range .ActiveOTA}}
-    <div style="display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid var(--border);">
-      <span class="mono" style="font-weight:600;">{{.Serial}}</span>
-      <span class="muted small">→ {{.TargetVersion}}</span>
-      <span class="rchip muted">{{productLabel .Product}}</span>
-      <span style="flex:1;"></span>
-      {{if eq .Status "downloading"}}
-        <div style="width:180px;height:7px;border-radius:4px;background:var(--border);overflow:hidden;"><i style="display:block;height:100%;width:{{.Percent}}%;background:#5aa9e6;transition:width .4s ease;"></i></div>
-        <span class="small" style="font-variant-numeric:tabular-nums;min-width:104px;text-align:right;color:var(--muted);">{{.Percent}}%{{if .Phase}} · {{.Phase}}{{end}}</span>
-      {{else}}
-        <span class="rchip muted">awaiting check-in</span>
-      {{end}}
-    </div>
+  <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--border);flex-wrap:wrap;">
+    {{if gt $dl 0}}
+    <span class="rchip" style="color:#5aa9e6;border-color:rgba(90,169,230,.4);">{{$dl}} downloading</span>
+    <div style="flex:1;min-width:160px;max-width:360px;height:8px;border-radius:4px;background:var(--border);overflow:hidden;"><i style="display:block;height:100%;width:{{$avg}}%;background:#5aa9e6;transition:width .4s ease;"></i></div>
+    <span class="small" style="font-variant-numeric:tabular-nums;color:var(--muted);">avg {{$avg}}%</span>
     {{end}}
+    {{if gt $await 0}}<span class="rchip muted">{{$await}} awaiting check-in</span>{{end}}
   </div>
 </div>
 {{end}}
