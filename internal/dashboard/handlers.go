@@ -7390,8 +7390,10 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 	}
 	// Groups and restaurants power the target selector (deploy to a whole group/venue,
 	// mirroring the Actions target picker). resolveEligibleDevices resolves them server-side.
+	var groupsList []db.Group
 	if groups, err := h.db.ListGroups(r.Context()); err == nil {
 		data["Groups"] = groups
+		groupsList = groups
 	}
 	if rests, err := h.db.ListRestaurants(r.Context()); err == nil {
 		data["Restaurants"] = rests
@@ -7429,6 +7431,43 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 				// on this build as up to date and ones mid-update as updating.
 				pushDevices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{Product: rel.Product}, 0, 500, "serial", "asc")
 				data["PushDevices"] = pushDevices
+
+				// Group/venue → member-serial maps (restricted to this push list) so the
+				// target rail can tick a collection's devices in the list below and float
+				// them to the top, client-side. Only serials present here are included, so
+				// off-product/ineligible members are naturally excluded.
+				idToSerial := make(map[uuid.UUID]string, len(pushDevices))
+				for _, dv := range pushDevices {
+					idToSerial[dv.ID] = dv.SerialNumber
+				}
+				groupMembers := map[string][]string{}
+				for _, g := range groupsList {
+					ids, gerr := h.db.GetDeviceIDsByGroupIDs(r.Context(), []uuid.UUID{g.ID})
+					if gerr != nil {
+						continue
+					}
+					var serials []string
+					for _, id := range ids {
+						if s, ok := idToSerial[id]; ok {
+							serials = append(serials, s)
+						}
+					}
+					if len(serials) > 0 {
+						groupMembers[g.ID.String()] = serials
+					}
+				}
+				restMembers := map[string][]string{}
+				for _, dv := range pushDevices {
+					if dv.RestaurantID != nil {
+						rid := dv.RestaurantID.String()
+						restMembers[rid] = append(restMembers[rid], dv.SerialNumber)
+					}
+				}
+				gmJSON, _ := json.Marshal(groupMembers)
+				rmJSON, _ := json.Marshal(restMembers)
+				data["PushGroupMembers"] = template.JS(gmJSON)
+				data["PushRestMembers"] = template.JS(rmJSON)
+
 				updating, _ := h.db.SerialsUpdating(r.Context())
 				data["DevicesUpdating"] = updating
 				blocked, _ := h.db.SerialsOnNewerRelease(r.Context(), relID)
