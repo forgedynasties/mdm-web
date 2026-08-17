@@ -7388,6 +7388,14 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 		"Releases":            deployable,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 	}
+	// Groups and restaurants power the target selector (deploy to a whole group/venue,
+	// mirroring the Actions target picker). resolveEligibleDevices resolves them server-side.
+	if groups, err := h.db.ListGroups(r.Context()); err == nil {
+		data["Groups"] = groups
+	}
+	if rests, err := h.db.ListRestaurants(r.Context()); err == nil {
+		data["Restaurants"] = rests
+	}
 
 	// Step 2 only renders once a release is chosen.
 	if relRaw := strings.TrimSpace(r.URL.Query().Get("release")); relRaw != "" {
