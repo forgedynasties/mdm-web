@@ -65,6 +65,12 @@
       <input type="text" id="push-search" class="form-input" placeholder="Search devices…" style="max-width:240px;" oninput="pushFilter()"{{if not $rel}} disabled{{end}}>
       <label style="display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;"><input type="checkbox" id="push-all" onclick="pushToggleAll(this)"{{if not $rel}} disabled{{end}}> Select all eligible</label>
     </div>
+    {{/* Paste a serial list to auto-tick the matching eligible devices below. This does
+         not add off-list/off-product serials — it only selects rows already shown. */}}
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+      <textarea id="push-paste" class="form-input" rows="1" placeholder="Paste serials to auto-select — comma or newline separated…" style="flex:1;min-width:240px;resize:vertical;" oninput="pushPasteSelect()"{{if not $rel}} disabled{{end}}></textarea>
+      <span class="muted small" id="push-paste-note" style="align-self:center;"></span>
+    </div>
     <div id="push-list" style="max-height:380px;overflow:auto;">
       {{if $rel}}
         {{range .PushDevices}}
@@ -164,6 +170,26 @@ function pushCount(){
   if(btn)btn.disabled=!hasRel||((n===0)&&!broader);
 }
 document.addEventListener('DOMContentLoaded',pushCount);
+// Paste a serial list → auto-tick the matching eligible rows in the device list.
+// Only selects devices already shown (product-scoped, eligible); reports how many
+// matched, how many were skipped (not eligible), and how many weren't found.
+function pushPasteSelect(){
+  var ta=document.getElementById('push-paste'); if(!ta) return;
+  var wanted=(ta.value||'').split(/[\s,]+/).map(function(x){return x.trim();}).filter(Boolean);
+  var note=document.getElementById('push-paste-note');
+  if(!wanted.length){ if(note)note.textContent=''; pushCount(); return; }
+  var set={}; wanted.forEach(function(s){set[s]=true;});
+  var seen={}, matched=0, blocked=0;
+  document.querySelectorAll('#push-list .push-ck').forEach(function(c){
+    if(!set[c.value]) return;
+    seen[c.value]=true;
+    if(c.disabled){ blocked++; return; }
+    c.checked=true; matched++;
+  });
+  var missing=0; wanted.forEach(function(s){ if(!seen[s]) missing++; });
+  if(note){ var p=[matched+' selected']; if(blocked)p.push(blocked+' not eligible'); if(missing)p.push(missing+' not found'); note.textContent=p.join(' · '); }
+  pushCount();
+}
 function pushReboot(v,btn){document.getElementById('push-reboot').value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
 function pushDelivery(v,btn){var el=document.getElementById('push-delivery');if(el)el.value=v;btn.parentElement.querySelectorAll('.seg-btn').forEach(function(s){s.classList.toggle('active',s===btn);});}
 </script>
