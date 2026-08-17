@@ -99,6 +99,9 @@
     {{if canAdminOrTester .Role}}
     <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
     <button type="button" class="btn-outline" onclick="openBulkRestaurantModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>Add to Restaurant</button>
+    {{if .ActiveGroup}}
+    <button type="button" class="btn-danger-sm" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')" style="padding:3px 10px;font-size:12px;">Remove from group</button>
+    {{end}}
     {{end}}
     {{if canAdminOrTester .Role}}
     <button type="button" class="btn-primary" onclick="bulkAction()" style="padding:3px 12px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
@@ -818,6 +821,20 @@ function bulkExport() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
   window.location.href = '/export?serials=' + encodeURIComponent(serials.join(','));
+}
+
+// Remove the selected devices from the group currently filtering the roster.
+// Only wired up when a group filter is active (?group=<id>); reloads to reflect
+// the shrunken roster.
+function bulkRemoveFromGroup(gid) {
+  var serials = getSelectedSerials();
+  if (serials.length === 0) return;
+  if (!confirm('Remove ' + serials.length + ' device(s) from this group?')) return;
+  var body = new URLSearchParams();
+  serials.forEach(function (s) { body.append('serials', s); });
+  fetch('/groups/' + gid + '/devices/remove', { method: 'POST', body: body, headers: { 'HX-Request': 'true' } })
+    .then(function (r) { if (r.ok) window.location.reload(); })
+    .catch(function () {});
 }
 
 function openBulkGroupModal() {
