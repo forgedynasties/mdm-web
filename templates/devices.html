@@ -97,8 +97,8 @@
     </form>
     {{end}}
     {{if canAdminOrTester .Role}}
-    <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Group</button>
-    <button type="button" class="btn-outline" onclick="openBulkRestaurantModal()" style="padding:3px 10px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:4px;"><svg viewBox="0 0 24 24"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>Add to Restaurant</button>
+    <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 12px;font-size:12px;">Add to group</button>
+    <button type="button" class="btn-outline" onclick="openBulkRestaurantModal()" style="padding:3px 12px;font-size:12px;">Add to restaurant</button>
     {{if .ActiveGroup}}
     <button type="button" class="btn-danger-sm" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')" style="padding:3px 10px;font-size:12px;">Remove from group</button>
     {{end}}
@@ -893,8 +893,42 @@ function openBulkGroupModal() {
   });
   document.getElementById('bulk-group-name').value = '';
   document.getElementById('bulk-group-count').textContent = serials.length;
+  onBulkGroupSelect();
   document.getElementById('bulk-group-modal').classList.add('modal-open');
-  document.getElementById('bulk-group-name').focus();
+  document.getElementById('bulk-group-select').focus();
+}
+
+// Reveal the "new group name" field and adjust the submit label depending on
+// whether an existing group or the "＋ New group…" option is chosen.
+function onBulkGroupSelect() {
+  var sel = document.getElementById('bulk-group-select');
+  var isNew = sel && sel.value === '__new__';
+  var newRow = document.getElementById('bulk-group-new-row');
+  var nameInp = document.getElementById('bulk-group-name');
+  var submit = document.getElementById('bulk-group-submit');
+  if (newRow) newRow.style.display = isNew ? '' : 'none';
+  if (nameInp) nameInp.required = !!isNew;
+  if (submit) submit.textContent = isNew ? 'Create group & add' : 'Add to group';
+  if (isNew && nameInp) nameInp.focus();
+}
+
+// Route the submit to the right endpoint: create a new group (/groups) or add the
+// selection to an existing one (/groups/{id}/devices). A native submit is used so it
+// works whether or not htmx boosting is active.
+function submitBulkGroup(event) {
+  if (event) event.preventDefault();
+  var form = document.getElementById('bulk-group-form');
+  var sel = document.getElementById('bulk-group-select');
+  var val = sel ? sel.value : '__new__';
+  if (val === '__new__') {
+    var name = (document.getElementById('bulk-group-name').value || '').trim();
+    if (!name) { document.getElementById('bulk-group-name').focus(); return false; }
+    form.action = '/groups';
+  } else {
+    form.action = '/groups/' + encodeURIComponent(val) + '/devices';
+  }
+  form.submit();
+  return false;
 }
 
 function closeBulkGroupModal(event) {
@@ -1409,17 +1443,24 @@ document.addEventListener('keydown', function(e) {
 <div id="bulk-group-modal" class="modal-backdrop" onclick="closeBulkGroupModal(event)">
   <div class="modal-box">
     <div class="modal-header">
-      <span class="modal-title">Create Group</span>
+      <span class="modal-title">Add to group</span>
       <button class="modal-close" aria-label="Close" type="button" onclick="closeBulkGroupModal()">&times;</button>
     </div>
     <div class="modal-body">
-      <div class="muted small"><span id="bulk-group-count">0</span> selected devices will be added to this group.</div>
-      <form action="/groups" method="POST" id="bulk-group-form" class="command-form" style="padding:0;margin-top:12px;">
+      <div class="muted small"><span id="bulk-group-count">0</span> selected device(s) will be added to the group.</div>
+      <form id="bulk-group-form" method="POST" class="command-form" style="padding:0;margin-top:12px;" onsubmit="return submitBulkGroup(event)">
         <div class="form-row">
-          <label class="form-label" for="bulk-group-name">Group Name</label>
-          <input type="text" name="name" id="bulk-group-name" class="form-input" placeholder="Field Team A" required aria-required="true">
+          <label class="form-label" for="bulk-group-select">Group</label>
+          <select id="bulk-group-select" class="form-input" onchange="onBulkGroupSelect()">
+            {{range .Groups}}<option value="{{.ID}}">{{.Name}} · {{.DeviceCount}} device(s)</option>{{else}}<option value="__new__" selected>No groups yet — create one below</option>{{end}}
+            {{if .Groups}}<option value="__new__">＋ New group…</option>{{end}}
+          </select>
         </div>
-        <button type="submit" class="btn-primary">Create Group</button>
+        <div class="form-row" id="bulk-group-new-row"{{if .Groups}} style="display:none;"{{end}}>
+          <label class="form-label" for="bulk-group-name">New group name</label>
+          <input type="text" name="name" id="bulk-group-name" class="form-input" placeholder="Field Team A">
+        </div>
+        <button type="submit" class="btn-primary" id="bulk-group-submit">Add to group</button>
       </form>
     </div>
   </div>

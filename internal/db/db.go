@@ -4529,6 +4529,27 @@ func (d *DB) GetDeviceIDsByGroupIDs(ctx context.Context, groupIDs []uuid.UUID) (
 	return ids, rows.Err()
 }
 
+// GetDeviceIDsByRestaurantIDs returns the distinct device IDs assigned to any of the
+// given restaurants/venues.
+func (d *DB) GetDeviceIDsByRestaurantIDs(ctx context.Context, restaurantIDs []uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id FROM devices WHERE restaurant_id = ANY($1) AND NOT hidden
+	`, restaurantIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 type AuditEntry struct {
 	ID        int64     `json:"id"`
 	CreatedAt time.Time `json:"created_at"`

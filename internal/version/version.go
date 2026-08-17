@@ -12,6 +12,21 @@ type Entry struct {
 	Version string
 	Date    string // YYYY-MM-DD
 	Changes []string
+	// Media is an optional gallery of screenshots/gifs illustrating the release,
+	// shown above the change list on the changelog page and in the "What's new"
+	// popup. Curated to the headline features — not one per change.
+	Media []Media
+}
+
+// Media is one screenshot or gif in a release's gallery. Src is a path under
+// /static (e.g. "/static/changelog/1.40/fleet-map.png"); a ".gif" Src animates
+// on its own. Caption names the feature it shows. Wide makes it span the full
+// gallery row (good for a hero shot or a wide map).
+type Media struct {
+	Src     string
+	Alt     string
+	Caption string
+	Wide    bool
 }
 
 // Changelog is newest-first. The top entry is the current server version.
@@ -37,6 +52,16 @@ var Changelog = []Entry{
 			"Access changes: the raw Shell console is now limited to admins and devs. The Operator role has been retired — existing operators become Viewers, and the everyday actions operators used to have (install, uninstall, reboot, screenshots) now belong to the Tester role.",
 			"Smaller changes: rename a release from its Manage page; remove several devices from a group at once; the live logs console is now “Realtime logs”; the Actions shell follows your light/dark theme; screenshots open from a proper link; and a device coming back online now clears its “Last seen” and refreshes its build number live, without a manual refresh.",
 		},
+		// Media (screenshots/gifs) for this release are captured separately and dropped
+		// into static/changelog/1.40/. Re-enable by populating this slice once the files
+		// exist — the gallery renders on the changelog page and in the What's new popup:
+		//	Media: []Media{
+		//		{Src: "/static/changelog/1.40/fleet-map.png", Alt: "Home page live map of devices", Caption: "Live fleet map on the Home page", Wide: true},
+		//		{Src: "/static/changelog/1.40/kiosk-picker.gif", Alt: "Kiosk mode visual app picker", Caption: "Kiosk mode: visual app picker"},
+		//		{Src: "/static/changelog/1.40/device-location.png", Alt: "Device page street address and map", Caption: "Device location from nearby Wi-Fi"},
+		//		{Src: "/static/changelog/1.40/graph-zoom.gif", Alt: "Drag across a device graph to zoom", Caption: "Drag-to-zoom device graphs"},
+		//		{Src: "/static/changelog/1.40/crashes.png", Alt: "Alerts page Crashes view", Caption: "Crashes view on the Alerts page"},
+		//	},
 	},
 	{
 		Version: "1.31.0",
