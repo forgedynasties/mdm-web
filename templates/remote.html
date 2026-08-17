@@ -382,6 +382,7 @@
   var captureKbd = false;
   var decodeErrors = 0;
   var frameCount = 0;
+  var paintedCount = 0;   // frames actually drawn (vs received) — latency instrumentation
   var fpsStart = 0;
   var bwStart = 0;
   var bwBytes = 0;
@@ -470,6 +471,7 @@
     if (ctx) {
       resizeTo(frame.displayWidth, frame.displayHeight);
       ctx.drawImage(frame, 0, 0, frame.displayWidth, frame.displayHeight);
+      paintedCount++;
     }
     frame.close();
   }
@@ -514,7 +516,12 @@
     var now = performance.now();
     if (now - fpsStart >= 1000) {
       document.getElementById('rc-fps').textContent = frameCount;
-      frameCount = 0; fpsStart = now;
+      // Latency instrumentation: received vs painted vs decoder backlog. Compare
+      // 'recv' here with the server's [remote-stats] wrote/5s to localize the hop
+      // that holds latency; a large decodeQ or recv>>painted points downstream.
+      var q = (vdec && typeof vdec.decodeQueueSize === 'number') ? vdec.decodeQueueSize : -1;
+      console.log('[rc] recv=' + frameCount + '/s painted=' + paintedCount + '/s decodeQ=' + q + ' errs=' + decodeErrors);
+      frameCount = 0; paintedCount = 0; fpsStart = now;
     }
     if (now - bwStart >= 1000) {
       document.getElementById('rc-kbps').textContent = (bwBytes / 1024 / ((now - bwStart) / 1000)).toFixed(1);
