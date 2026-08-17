@@ -254,6 +254,16 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err = h.remote.Start(device.ID)
+	if err == remote.ErrSessionActive {
+		// A prior operator's session leaked — the browser died without a WS close
+		// frame (laptop sleep, network drop, tab killed), so its read pump never
+		// unblocked to run the deferred Stop. Single-operator model: evict the
+		// stale session and take over rather than 409-locking the device until a
+		// server restart.
+		log.Printf("[remote] evicting stale session for device %s (takeover)", device.ID)
+		h.remote.Stop(device.ID)
+		_, err = h.remote.Start(device.ID)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
@@ -292,19 +302,48 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 
 	frameCh, _ := h.remote.SubscribeFrames(device.ID)
 
-	// Write pump: relay device frames → dashboard (binary)
+	// Keepalive: a silently-dead browser (sleep, network drop, killed tab) sends
+	// no WS close frame, so without this the read pump below blocks forever, the
+	// deferred Stop never runs, and the session leaks — 409-locking the device.
+	// Pings from the write pump + a pong-extended read deadline detect the dead
+	// peer and unblock the read so teardown happens.
+	const pongWait = 60 * time.Second
+	const pingPeriod = 25 * time.Second
+	dashConn.SetReadDeadline(time.Now().Add(pongWait))
+	dashConn.SetPongHandler(func(string) error {
+		dashConn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
+	// Write pump: relay device frames → dashboard (binary) + keepalive pings.
+	// Single writer goroutine — gorilla/websocket forbids concurrent writes.
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		for data := range frameCh {
-			dashConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-			if err := dashConn.WriteMessage(2, data); err != nil {
-				return
+		ping := time.NewTicker(pingPeriod)
+		defer ping.Stop()
+		for {
+			select {
+			case data, ok := <-frameCh:
+				if !ok {
+					return
+				}
+				dashConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				if err := dashConn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+					return
+				}
+			case <-ping.C:
+				dashConn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				if err := dashConn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
 			}
 		}
 	}()
 
-	// Read pump: dashboard input events → device (JSON)
+	// Read pump: dashboard input events → device (JSON). A dead browser stops
+	// sending pongs; the read deadline then fires here and breaks the loop so the
+	// deferred Stop tears the session down instead of leaking it.
 	for {
 		_, msg, err := dashConn.ReadMessage()
 		if err != nil {
@@ -313,7 +352,7 @@ func (h *Handler) ConnectRemote(w http.ResponseWriter, r *http.Request) {
 		h.remote.RelayInput(device.ID, msg)
 	}
 
-	dashConn.WriteMessage(websocket.CloseMessage, []byte{})
+	dashConn.Close() // unblock the write pump if it's parked on a write
 	<-done
 }
 
