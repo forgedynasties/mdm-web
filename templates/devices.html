@@ -325,6 +325,48 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     <div class="fleet-pane-head">
       <span class="t" id="roster-title">{{.SelectedCollection}}</span>
       <span class="c" id="roster-count">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
+
+      {{/* ── Collection toolbar: manage the group/restaurant/release scoping the
+           roster right here, without opening its separate detail page. ── */}}
+      {{if canAdminOrTester .Role}}
+      {{if .ActiveGroup}}
+      <span class="coll-tools" id="coll-tools">
+        <button type="button" class="ct-btn" title="Rename group" aria-label="Rename group" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        <form action="/groups/{{.ActiveGroup}}/delete" method="POST" style="display:inline;margin:0;" onsubmit="return mdmConfirmSubmit(event,{title:'Delete group',body:'Delete this group? The devices stay — only the group is removed.',tier:'danger',confirmLabel:'Delete'})">
+          <input type="hidden" name="redirect" value="/devices">
+          <button type="submit" class="ct-btn danger" title="Delete group" aria-label="Delete group"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+        </form>
+        <a class="ct-btn" href="/groups/{{.ActiveGroup}}" title="Manage group">Manage →</a>
+      </span>
+      <form action="/groups/{{.ActiveGroup}}" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
+        <input type="hidden" name="redirect" value="/devices?group={{.ActiveGroup}}">
+        <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Group name" required>
+        <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
+        <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
+      </form>
+      {{else if .ActiveRestaurant}}
+      <span class="coll-tools">
+        <button type="button" class="ct-btn" title="Edit venue" aria-label="Edit venue" onclick="openFleetDrawer('/restaurants/{{.ActiveRestaurant}}/edit','Edit venue')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        <form action="/restaurants/{{.ActiveRestaurant}}/delete" method="POST" style="display:inline;margin:0;" onsubmit="return mdmConfirmSubmit(event,{title:'Delete restaurant',body:'Delete this venue? The devices stay — only the venue is removed.',tier:'danger',confirmLabel:'Delete'})">
+          <input type="hidden" name="redirect" value="/devices">
+          <button type="submit" class="ct-btn danger" title="Delete restaurant" aria-label="Delete restaurant"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+        </form>
+        <a class="ct-btn" href="/restaurants/{{.ActiveRestaurant}}" title="Manage venue">Manage →</a>
+      </span>
+      {{else if and .FilterBuild .ActiveReleaseID}}
+      <span class="coll-tools" id="coll-tools">
+        <button type="button" class="ct-btn" title="Rename release" aria-label="Rename release" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+        <a class="ct-btn" href="/releases/{{.ActiveReleaseID}}" title="Manage release">Manage →</a>
+      </span>
+      <form action="/releases/{{.ActiveReleaseID}}/rename" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
+        <input type="hidden" name="redirect" value="/devices?build={{.FilterBuild}}">
+        <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Release name" required>
+        <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
+        <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
+      </form>
+      {{end}}
+      {{end}}
+
       <span class="ov-live" style="margin-left:auto;"><i></i>live</span>
       <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
       <button type="button" class="btn-outline" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list">
@@ -1438,6 +1480,70 @@ document.addEventListener('keydown', function(e) {
     </div>
   </div>
 </div>
+
+{{/* Fleet-page management drawer — a collection's fuller edit form (venue details)
+     is loaded here via htmx so it can be managed without leaving the roster. */}}
+<div class="fleet-drawer" id="fleet-drawer" aria-hidden="true">
+  <div class="fleet-drawer-scrim" onclick="closeFleetDrawer()"></div>
+  <div class="fleet-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="fleet-drawer-title">
+    <div class="fleet-drawer-head">
+      <h3 id="fleet-drawer-title">Edit</h3>
+      <button type="button" class="fleet-drawer-close" onclick="closeFleetDrawer()" aria-label="Close">×</button>
+    </div>
+    <div class="fleet-drawer-body" id="fleet-drawer-body"></div>
+  </div>
+</div>
+
+<script>
+// ── Collection toolbar: inline rename (group·release) ───────────────────────────
+function collRenameOpen() {
+  var tools = document.getElementById('coll-tools');
+  var form = document.getElementById('coll-rename');
+  if (!form) return;
+  if (tools) tools.style.display = 'none';
+  form.style.display = 'inline-flex';
+  var inp = form.querySelector('input[name="name"]');
+  if (inp) { inp.focus(); inp.select(); }
+}
+function collRenameClose() {
+  var tools = document.getElementById('coll-tools');
+  var form = document.getElementById('coll-rename');
+  if (form) form.style.display = 'none';
+  if (tools) tools.style.display = 'inline-flex';
+}
+
+// ── Fleet drawer: load a collection's edit form (restaurant) via htmx ────────────
+function openFleetDrawer(url, title) {
+  var d = document.getElementById('fleet-drawer');
+  var body = document.getElementById('fleet-drawer-body');
+  var head = document.getElementById('fleet-drawer-title');
+  if (!d || !body) return;
+  if (head && title) head.textContent = title;
+  body.innerHTML = '<div class="muted small" style="padding:20px;">Loading…</div>';
+  d.classList.add('open');
+  d.setAttribute('aria-hidden', 'false');
+  if (window.htmx) {
+    htmx.ajax('GET', url, { target: '#fleet-drawer-body', swap: 'innerHTML' });
+  } else {
+    // No htmx (shouldn't happen): fall back to the standalone edit page.
+    window.location.href = url;
+  }
+}
+function closeFleetDrawer() {
+  var d = document.getElementById('fleet-drawer');
+  if (!d) return;
+  d.classList.remove('open');
+  d.setAttribute('aria-hidden', 'true');
+  document.getElementById('fleet-drawer-body').innerHTML = '';
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    var d = document.getElementById('fleet-drawer');
+    if (d && d.classList.contains('open')) closeFleetDrawer();
+    else collRenameClose();
+  }
+});
+</script>
 
 {{template "footer" .}}
 {{end}}

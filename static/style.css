@@ -4401,6 +4401,48 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .fleet-pane-head .t { font-size: 17px; font-weight: 700; }
 .fleet-pane-head .c { font-size: 13px; color: var(--muted); }
 
+/* Rail section captions rendered as pills — they are section buttons/links. */
+.fleet-rail-cap > a:first-child, .fleet-rail-cap > span:first-child {
+  display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px;
+  background: var(--hover); border: 1px solid var(--border-soft); color: var(--muted);
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+  text-decoration: none; line-height: 1.5; transition: background .12s, color .12s, border-color .12s; }
+.fleet-rail-cap > a:first-child:hover, .fleet-rail-cap > a:first-child.on {
+  background: var(--accent-soft); border-color: var(--accent-soft); color: var(--accent-text); }
+
+/* Collection toolbar (rename / delete / manage the active group·venue·release). */
+.coll-tools { display: inline-flex; align-items: center; gap: 4px; }
+.ct-btn { display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  height: 26px; min-width: 26px; padding: 0 8px; border-radius: 7px; border: 1px solid var(--border-soft);
+  background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer;
+  text-decoration: none; transition: background .12s, color .12s, border-color .12s; }
+.ct-btn:hover { background: var(--hover); color: var(--accent-text); border-color: var(--border); }
+.ct-btn.danger:hover { background: var(--danger-soft, rgba(216,39,71,.12)); color: var(--danger); border-color: var(--danger); }
+.coll-rename { display: inline-flex; align-items: center; gap: 6px; }
+.coll-rename input[type=text] { height: 30px; font-size: 13px; width: 220px; padding: 0 10px;
+  border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+
+/* Fleet-page slide-in drawer — hosts a collection's fuller edit form (venue details)
+   loaded via htmx, so you manage it without leaving the roster. */
+.fleet-drawer { position: fixed; inset: 0; z-index: 120; display: none; }
+.fleet-drawer.open { display: block; }
+.fleet-drawer-scrim { position: absolute; inset: 0; background: rgba(0,0,0,.42); opacity: 0;
+  transition: opacity .2s; }
+.fleet-drawer.open .fleet-drawer-scrim { opacity: 1; }
+.fleet-drawer-panel { position: absolute; top: 0; right: 0; height: 100%; width: min(560px, 94vw);
+  background: var(--bg, var(--surface)); box-shadow: var(--shadow-lg); display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .22s ease; }
+.fleet-drawer.open .fleet-drawer-panel { transform: translateX(0); }
+.fleet-drawer-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px;
+  border-bottom: 1px solid var(--border); flex: none; }
+.fleet-drawer-head h3 { font-size: 15px; font-weight: 700; margin: 0; }
+.fleet-drawer-close { margin-left: auto; width: 30px; height: 30px; border-radius: 7px; border: none;
+  background: transparent; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.fleet-drawer-close:hover { background: var(--hover); color: var(--text); }
+.fleet-drawer-body { padding: 6px 18px 22px; overflow: auto; flex: 1; }
+.fleet-drawer-body .rf-layout { margin-bottom: 0; }
+.fleet-drawer-body .card { border: none; box-shadow: none; background: transparent; }
+
 @media (max-width: 1024px) {
   .fleet-md { grid-template-columns: 1fr; }
   .fleet-rail { position: static; max-height: none; }
