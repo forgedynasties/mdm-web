@@ -2506,6 +2506,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redactDeviceCommandURLs(h.role(r), commands)
+	commands = filterShellDeviceCommands(h.role(r), commands)
 
 	apps, err := h.db.ListApps(r.Context())
 	if err != nil {
@@ -2865,6 +2866,7 @@ func (h *Handler) DeviceHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redactDeviceCommandURLs(h.role(r), commands)
+	commands = filterShellDeviceCommands(h.role(r), commands)
 
 	h.render(w, r, "device_history.html", map[string]any{
 		"Title":        device.SerialNumber + " — History",
@@ -4621,6 +4623,7 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	redactDeviceCommandURLs(h.role(r), commands)
+	commands = filterShellDeviceCommands(h.role(r), commands)
 	h.renderCachedHTML(w, r, "device-commands", map[string]any{
 		"Device":   device,
 		"Commands": commands,
@@ -8204,6 +8207,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	cmds = filterShellCommands(h.role(r), cmds) // testers never see shell history
 	groups, err := h.db.ListGroups(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -8468,6 +8472,7 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	cmds = filterShellCommands(h.role(r), cmds) // testers never see shell history
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), 0) // full history
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
 	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
@@ -8973,6 +8978,12 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.markDeliveryPresence(deliveries)
+	// Testers must not see raw shell command detail (text/output) — hide its
+	// existence, mirroring the shell filtering applied to every history listing.
+	if cmd.Type == "shell" && hideShellForRole(h.role(r)) {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
 	if !canSeeCommandURLs(h.role(r)) {
 		cmd.ApkURL = ""
 	}
@@ -9222,6 +9233,44 @@ func redactDeviceCommandURLs(role string, cmds []db.DeviceCommand) {
 	for i := range cmds {
 		cmds[i].ApkURL = ""
 	}
+}
+
+// hideShellForRole reports whether a role must not see raw shell commands in the
+// history. Testers cannot run shell (commandRoles limits it to admin/dev) and must
+// not browse the shell history either — its command text and captured output can
+// expose sensitive operational detail. admin/dev/viewer see history unchanged.
+func hideShellForRole(role string) bool { return role == "tester" }
+
+// filterShellDeviceCommands drops raw shell entries from a per-device command
+// history when the viewer must not see them (hideShellForRole).
+func filterShellDeviceCommands(role string, cmds []db.DeviceCommand) []db.DeviceCommand {
+	if !hideShellForRole(role) {
+		return cmds
+	}
+	out := make([]db.DeviceCommand, 0, len(cmds))
+	for _, c := range cmds {
+		if c.Type == "shell" {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// filterShellCommands drops raw shell entries from an Actions/history command
+// slice when the viewer must not see them (hideShellForRole).
+func filterShellCommands(role string, cmds []db.Command) []db.Command {
+	if !hideShellForRole(role) {
+		return cmds
+	}
+	out := make([]db.Command, 0, len(cmds))
+	for _, c := range cmds {
+		if c.Type == "shell" {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
 }
 
 // resolveTargetDeviceIDs turns a command target spec (all/devices/groups/scope) into
