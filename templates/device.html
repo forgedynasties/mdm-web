@@ -480,6 +480,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </div>
       <button type="button" id="chart-export-btn" class="dur-btn" title="Download this chart as a PNG">⤓ PNG</button>
       <button type="button" id="chart-reset-btn" class="dur-btn" title="Reset the graph to the default window">↺ Reset</button>
+      <button type="button" id="chart-fs-btn" class="dur-btn" title="View graphs full screen" aria-label="View graphs full screen">⤢ Full screen</button>
     </div>
   </div>
   <div class="chart-tabs">
@@ -501,6 +502,12 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <style>
   .chart-hint{margin-left:auto;font-size:11px;color:var(--text-faint);white-space:nowrap;}
   #chart-export-btn{cursor:pointer;}
+  /* Full-screen graphs: the chart-card fills the viewport and the active chart wrap
+     grows to take the leftover height so the graph is large. */
+  .chart-card:fullscreen{background:var(--surface);padding:18px 22px;display:flex;flex-direction:column;overflow:auto;}
+  .chart-card:fullscreen [id^="chart-panel-"]{flex:1;display:flex;flex-direction:column;min-height:0;}
+  .chart-card:fullscreen .chart-wrap{flex:1;min-height:0;height:auto;}
+  .chart-card:fullscreen .chart-wrap--tall{height:auto;}
   .chart-zoom-hint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(.96);z-index:6;pointer-events:none;background:rgba(8,11,16,.86);color:#fff;font-size:13px;font-weight:600;padding:9px 15px;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .12s ease,transform .12s ease;}
   .chart-zoom-hint.show{opacity:1;transform:translate(-50%,-50%) scale(1);}
   </style>
@@ -1626,6 +1633,28 @@ function mdmBootCharts() {
   var _resetBtn = document.getElementById('chart-reset-btn');
   if (_resetBtn) _resetBtn.addEventListener('click', function () { resetCustomRange(); });
 
+  // Full-screen graphs: toggle the browser Fullscreen API on the chart card, and
+  // resize the charts to fill it (Chart.js watches the container, but nudge to be safe).
+  var _fsBtn = document.getElementById('chart-fs-btn');
+  var _chartCard = document.querySelector('.chart-card');
+  if (_fsBtn && _chartCard) {
+    _fsBtn.addEventListener('click', function () {
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) document.exitFullscreen();
+      } else if (_chartCard.requestFullscreen) {
+        _chartCard.requestFullscreen().catch(function () {});
+      }
+    });
+    document.addEventListener('fullscreenchange', function () {
+      var fs = document.fullscreenElement === _chartCard;
+      _fsBtn.textContent = fs ? '⤡ Exit full screen' : '⤢ Full screen';
+      setTimeout(function () {
+        [batteryChart, tempChart, ramChart, unifiedChart].forEach(function (c) { if (c) { try { c.resize(); } catch (e) {} } });
+        if (typeof updateCharts === 'function') updateCharts();
+      }, 80);
+    });
+  }
+
   // Shift the visible window earlier/later by its own width — works on a preset
   // window too (it converts the current view to a custom range, then slides it).
   function shiftWindow(dir) {
@@ -2251,6 +2280,7 @@ function filterInstalledApps(q) {
   window.mdmSyncKiosk = function (enabled) {
     if (enabled === undefined || enabled === null) return;
     document.querySelectorAll('.ddc-kstate').forEach(function (el) {
+      if (el.closest('#wlc-chip')) return; // the charging pill shares this class — leave it alone
       el.textContent = enabled ? 'on' : 'off';
     });
     var btn = document.querySelector('.ddc-kpop-wrap .ddc-chip-btn');
