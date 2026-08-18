@@ -112,6 +112,9 @@ type DeviceConfig struct {
 	KioskEnabled  bool      `json:"kiosk_enabled"`
 	KioskPackage  string    `json:"kiosk_package"`
 	KioskFeatures int       `json:"kiosk_features"`
+	// WlcChargingEnabled controls wireless-charging on the pad (client writes the
+	// customer_gpio line). Default true.
+	WlcChargingEnabled bool `json:"wlc_charging_enabled"`
 	// Offline kiosk-exit: a per-device TOTP seed (base32) lets a technician leave
 	// kiosk mode on-device with no server access. Seed is generated on enable.
 	OfflineExitEnabled bool   `json:"offline_exit_enabled"`
@@ -4382,12 +4385,12 @@ func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*
 	// first one, so the INSERT below (a wasted write attempt at 900 dev × every 60s)
 	// only ever fires once per device.
 	const sel = `SELECT device_id, kiosk_enabled, kiosk_package, kiosk_features,
-		offline_exit_enabled, offline_exit_seed, offline_exit_relock, updated_at
+		offline_exit_enabled, offline_exit_seed, offline_exit_relock, wlc_charging_enabled, updated_at
 		FROM device_config WHERE device_id = $1`
 	var cfg DeviceConfig
 	scan := func(row pgx.Row) error {
 		return row.Scan(&cfg.DeviceID, &cfg.KioskEnabled, &cfg.KioskPackage, &cfg.KioskFeatures,
-			&cfg.OfflineExitEnabled, &cfg.OfflineExitSeed, &cfg.OfflineExitRelock, &cfg.UpdatedAt)
+			&cfg.OfflineExitEnabled, &cfg.OfflineExitSeed, &cfg.OfflineExitRelock, &cfg.WlcChargingEnabled, &cfg.UpdatedAt)
 	}
 	err := scan(d.pool.QueryRow(ctx, sel, deviceID))
 	if err == nil {
@@ -4478,6 +4481,18 @@ func (d *DB) SetKioskConfig(ctx context.Context, deviceID uuid.UUID, enabled boo
 			    kiosk_features = EXCLUDED.kiosk_features,
 			    updated_at     = NOW()
 	`, deviceID, enabled, pkg, features)
+	return err
+}
+
+// SetWlcCharging sets the wireless-charging enable flag for a device.
+func (d *DB) SetWlcCharging(ctx context.Context, deviceID uuid.UUID, enabled bool) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO device_config (device_id, wlc_charging_enabled, updated_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (device_id) DO UPDATE
+			SET wlc_charging_enabled = EXCLUDED.wlc_charging_enabled,
+			    updated_at           = NOW()
+	`, deviceID, enabled)
 	return err
 }
 
@@ -7640,6 +7655,9 @@ CREATE TABLE IF NOT EXISTS device_config (
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_enabled BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_seed TEXT NOT NULL DEFAULT '';
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_relock TEXT NOT NULL DEFAULT 'reboot';
+-- Wireless-charging control: the client writes the customer_gpio line to enable/disable
+-- charging on the pad. Default true (charging on); pushed to the device like kiosk config.
+ALTER TABLE device_config ADD COLUMN IF NOT EXISTS wlc_charging_enabled BOOLEAN NOT NULL DEFAULT TRUE;
 
 CREATE TABLE IF NOT EXISTS ota_packages (
 	id              SERIAL      PRIMARY KEY,

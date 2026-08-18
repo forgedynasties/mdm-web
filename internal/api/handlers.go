@@ -765,6 +765,7 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		"kiosk_enabled":            deviceCfg.KioskEnabled,
 		"kiosk_package":            deviceCfg.KioskPackage,
 		"kiosk_features":           deviceCfg.KioskFeatures,
+		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
 	}
 	addOfflineExit(cfgMap, deviceCfg)
@@ -1197,6 +1198,7 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 		"kiosk_enabled":            deviceCfg.KioskEnabled,
 		"kiosk_package":            deviceCfg.KioskPackage,
 		"kiosk_features":           deviceCfg.KioskFeatures,
+		"wlc_charging_enabled":     deviceCfg.WlcChargingEnabled,
 		"checkin_interval_seconds": h.cfg.CheckinInterval(),
 	}
 	addOfflineExit(wsCfg, deviceCfg)

@@ -5716,6 +5716,7 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 			"kiosk_enabled":            cfg.KioskEnabled,
 			"kiosk_package":            cfg.KioskPackage,
 			"kiosk_features":           cfg.KioskFeatures,
+			"wlc_charging_enabled":     cfg.WlcChargingEnabled,
 			"checkin_interval_seconds": interval,
 		})
 		h.hub.Push(id, msg)
@@ -11801,6 +11802,26 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
+// DeviceWlcUpdate enables/disables wireless charging on a device's pad. The client
+// writes the customer_gpio line on the next config push (pushKioskConfigToDevices
+// carries wlc_charging_enabled) and re-applies it on boot.
+func (h *Handler) DeviceWlcUpdate(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	r.ParseForm()
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	enabled := r.FormValue("wlc_charging_enabled") == "1"
+	if err := h.db.SetWlcCharging(r.Context(), device.ID, enabled); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.pushKioskConfigToDevices(r.Context(), []uuid.UUID{device.ID})
+	h.hxDone(w, r, "/devices/"+serial, "device-updated")
+}
+
 // ── Packages ──────────────────────────────────────────────────────────────────
 
 // FleetPackages renders the admin app-classification page: every package across the
@@ -12211,6 +12232,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))
+	post("POST /devices/{serial}/wlc", h.requireAdminOrTester(h.DeviceWlcUpdate))
 	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.DeviceRotateOfflineCode))
 	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireOperatorOrAdmin(h.DeviceOfflineCode))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))

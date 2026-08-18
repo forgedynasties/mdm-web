@@ -240,6 +240,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         </div>
       </div>
     </span>
+    {{/* Wireless-charging toggle — only for devices that report a pad (wlc_status). Plain
+         POST so the page reloads and the chip reflects the new state; applied on next check-in. */}}
+    {{$wlc := extraField .Device.LatestExtra "wlc_status"}}
+    {{if and $wlc (ne $wlc "—")}}
+    <form method="POST" action="/devices/{{.Device.SerialNumber}}/wlc" style="margin:0;display:inline;">
+      <input type="hidden" name="wlc_charging_enabled" value="{{if .KioskConfig.WlcChargingEnabled}}0{{else}}1{{end}}">
+      <button type="submit" class="ddc-chip ddc-chip-btn{{if .KioskConfig.WlcChargingEnabled}} on{{end}}" title="Toggle wireless charging on this pad">
+        <span class="k">Charging</span><span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}on{{else}}off{{end}}</span>
+      </button>
+    </form>
+    {{end}}
     {{else}}
     <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
     {{end}}
@@ -840,10 +851,32 @@ function mdmBootCharts() {
     };
   }
 
+  // Evenly-spaced, human time ticks. Chart.js's linear auto-ticks land on "nice"
+  // round MILLISECOND values, which are not nice CLOCK values — so the gaps between
+  // ticks (and the days) end up unevenly spaced across the axis (FW-2026-000030
+  // follow-up). Replace them with ticks at a single fixed time step chosen from the
+  // visible span, so the interval between every tick is the same amount of time.
+  const TICK_STEPS_MS = [60e3, 5*60e3, 10*60e3, 15*60e3, 30*60e3, 3600e3, 2*3600e3,
+                         3*3600e3, 6*3600e3, 12*3600e3, 86400e3, 2*86400e3, 7*86400e3];
+  function evenTimeTicks(axis) {
+    const min = axis.min, max = axis.max;
+    if (min == null || max == null || max <= min) return;
+    const span = max - min, target = 7;
+    let step = TICK_STEPS_MS[TICK_STEPS_MS.length - 1];
+    for (let i = 0; i < TICK_STEPS_MS.length; i++) {
+      if (span / TICK_STEPS_MS[i] <= target) { step = TICK_STEPS_MS[i]; break; }
+    }
+    const first = Math.ceil(min / step) * step;
+    const ticks = [];
+    for (let t = first; t <= max && ticks.length < 64; t += step) ticks.push({ value: t });
+    if (ticks.length) axis.ticks = ticks;
+  }
+
   function sharedXScale() {
     return {
       type: "linear",
-      ticks: { color: TICK, maxTicksLimit: 8, maxRotation: 0, minRotation: 0, callback: fmtTimeAxis },
+      afterBuildTicks: evenTimeTicks,
+      ticks: { color: TICK, maxRotation: 0, minRotation: 0, callback: fmtTimeAxis, autoSkip: false },
       grid: { display: false },
     };
   }
@@ -1230,9 +1263,10 @@ function mdmBootCharts() {
   // Reuse the same linear ms-timestamp x-axis the individual charts use
   const unifiedXCfg = {
     type: 'linear',
+    afterBuildTicks: evenTimeTicks,
     grid: { color: GRID, drawBorder: false },
     ticks: {
-      color: '#7a7f9a', maxTicksLimit: 8, font: { size: 11 },
+      color: '#7a7f9a', font: { size: 11 }, autoSkip: false,
       callback: v => fmtDate(v),
     },
     border: { display: false },
