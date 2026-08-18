@@ -240,16 +240,37 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         </div>
       </div>
     </span>
-    {{/* Wireless-charging toggle — only for devices that report a pad (wlc_status). Plain
-         POST so the page reloads and the chip reflects the new state; applied on next check-in. */}}
+    {{/* Wireless-charging toggle — only for devices that report a pad (wlc_status). Updates
+         the pill in place via fetch (no page reload); the device applies it on next check-in. */}}
     {{$wlc := extraField .Device.LatestExtra "wlc_status"}}
     {{if and $wlc (ne $wlc "—")}}
-    <form method="POST" action="/devices/{{.Device.SerialNumber}}/wlc" style="margin:0;display:inline;">
-      <input type="hidden" name="wlc_charging_enabled" value="{{if .KioskConfig.WlcChargingEnabled}}0{{else}}1{{end}}">
-      <button type="submit" class="ddc-chip ddc-chip-btn{{if .KioskConfig.WlcChargingEnabled}} on{{end}}" title="Toggle wireless charging on this pad">
-        <span class="k">Charging</span><span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}on{{else}}off{{end}}</span>
-      </button>
-    </form>
+    <button type="button" id="wlc-chip" class="ddc-chip ddc-chip-btn{{if .KioskConfig.WlcChargingEnabled}} on{{end}}"
+            data-on="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}"
+            data-serial="{{.Device.SerialNumber}}"
+            title="Toggle wireless charging on this pad" onclick="wlcToggle(this)">
+      <span class="k">Charging</span><span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}on{{else}}off{{end}}</span>
+    </button>
+    <script>
+    window.wlcToggle = function (btn) {
+      var cur = btn.getAttribute('data-on') === '1';
+      var next = !cur;
+      var st = btn.querySelector('.ddc-kstate');
+      var apply = function (v) {
+        btn.setAttribute('data-on', v ? '1' : '0');
+        btn.classList.toggle('on', v);
+        if (st) st.textContent = v ? 'on' : 'off';
+      };
+      apply(next); // optimistic
+      btn.disabled = true;
+      var body = new URLSearchParams();
+      body.append('wlc_charging_enabled', next ? '1' : '0');
+      fetch('/devices/' + encodeURIComponent(btn.getAttribute('data-serial')) + '/wlc', {
+        method: 'POST', body: body, credentials: 'same-origin', headers: { 'HX-Request': 'true' }
+      }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); })
+        .catch(function () { apply(cur); }) // roll back on failure
+        .finally(function () { btn.disabled = false; });
+    };
+    </script>
     {{end}}
     {{else}}
     <span class="ddc-chip"><span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span></span>
