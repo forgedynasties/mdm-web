@@ -11770,6 +11770,29 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Only allow locking to an app the device actually reports as installed. Enabling
+	// kiosk for a package that isn't on the device stores an unenforceable policy: the
+	// client can't launch it, so lock-task never engages and the device sits unlocked
+	// while the dashboard shows kiosk "on". Reject it here so the state stays truthful.
+	if enabled {
+		pkgs, perr := h.db.GetDevicePackages(r.Context(), device.ID)
+		if perr != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		installed := false
+		for _, p := range pkgs {
+			if p.PackageName == pkg {
+				installed = true
+				break
+			}
+		}
+		if !installed {
+			http.Error(w, "That app is not installed on this device. Install it first, then enable kiosk.", http.StatusBadRequest)
+			return
+		}
+	}
+
 	if err := h.db.SetKioskConfig(r.Context(), device.ID, enabled, pkg, 0); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return

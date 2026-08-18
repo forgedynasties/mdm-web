@@ -213,7 +213,14 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
                 <div class="kpk-list" id="kpk-list" role="listbox" aria-label="Installed apps"></div>
               </div>
             {{else}}
-              <input type="text" name="kiosk_package" class="form-input" value="{{.KioskConfig.KioskPackage}}" placeholder="com.example.app">
+              {{/* No installed apps reported for this device. Never a free-text box:
+                   typing an arbitrary package let kiosk lock to an app that isn't on
+                   the device, which silently fails to engage lock-task. Kiosk can only
+                   target an app the device actually reports. */}}
+              <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="">
+              <div class="kiosk-empty muted small">
+                {{if ne .KioskConfig.KioskPackage ""}}The locked app <span class="mono">{{.KioskConfig.KioskPackage}}</span> is not installed on this device. {{end}}No apps have been reported for this device yet — kiosk can be turned on once it reports its installed apps on the next check-in.
+              </div>
             {{end}}
             <span class="muted small">Pick the app, then turn kiosk on. Applied on the next check-in.</span>
           </div>
