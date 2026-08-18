@@ -414,6 +414,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <div class="card-header">
     <h3>Device Graphs</h3>
     <div style="display:flex;align-items:center;gap:10px;">
+      {{$devtz := extraField .Device.LatestExtra "timezone"}}
+      {{if and $devtz (ne $devtz "—") (ne $devtz "")}}
+      <button type="button" id="tz-toggle" class="dur-btn" title="Show times in your timezone or the device's ({{$devtz}})">Your time</button>
+      {{end}}
       <span id="chart-info" class="muted small"></span>
       <div class="dur-btns">
         <button class="dur-btn" data-ms="3600000">1h</button>
@@ -553,6 +557,28 @@ function mdmBootCharts() {
   // Devices without a battery (kiosks) get no battery series at all — the tab,
   // panel, and unified legend/line are all omitted, so this stays empty.
   const HAS_BATTERY = {{if .Device.HasBattery}}true{{else}}false{{end}};
+
+  // Timezone display mode. All times on this page are formatted client-side; by default
+  // they render in the viewer's browser timezone. The "Your time / Device time" toggle
+  // flips DEVICE_TZ in, so graphs, tooltips and the check-in modal all read in the
+  // device's own timezone. tzArg() is global because the check-in modal lives in a
+  // separate script scope.
+  window.DEVICE_TZ = "{{extraField .Device.LatestExtra "timezone"}}";
+  // Validate once — a device could report an id Intl doesn't accept; if so, drop it so
+  // formatting never throws (the toggle is hidden below when DEVICE_TZ is unusable).
+  if (window.DEVICE_TZ && window.DEVICE_TZ !== '—') {
+    try { new Date().toLocaleString('en-US', {timeZone: window.DEVICE_TZ}); }
+    catch (e) { window.DEVICE_TZ = ''; }
+  } else {
+    window.DEVICE_TZ = '';
+  }
+  if (window.TZ_MODE === undefined) window.TZ_MODE = 'browser';
+  function tzArg(o) {
+    o = o || {};
+    if (window.TZ_MODE === 'device' && window.DEVICE_TZ && window.DEVICE_TZ !== '—') o.timeZone = window.DEVICE_TZ;
+    return o;
+  }
+  window.tzArg = tzArg;
   // Mutable so the range picker can grow the loaded window backward on demand
   // (chartLoadOlder) — older builds' history is fetched from /chart-data instead of
   // only filtering the ~48h baked in here.
@@ -677,7 +703,7 @@ function mdmBootCharts() {
   let activeTab = HAS_BATTERY ? 'battery' : 'temp';
 
   function fmtTime(ms) {
-    return new Date(ms).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    return new Date(ms).toLocaleTimeString([], tzArg({hour: "2-digit", minute: "2-digit"}));
   }
 
   function sameCalendarDay(a, b) {
@@ -696,7 +722,7 @@ function mdmBootCharts() {
     if (!multiDay) return t;
     let boundary = index === 0;
     if (!boundary && ticks && ticks[index - 1]) boundary = !sameCalendarDay(ticks[index - 1].value, ms);
-    return boundary ? [t, new Date(ms).toLocaleDateString([], {month: "short", day: "numeric"})] : t;
+    return boundary ? [t, new Date(ms).toLocaleDateString([], tzArg({month: "short", day: "numeric"}))] : t;
   }
 
   // A segment spans p0 -> p1. The WLC state that held across that span is p0's:
@@ -763,7 +789,7 @@ function mdmBootCharts() {
   }
 
   function fmtDate(ms) {
-    return new Date(ms).toLocaleDateString([], {month: "short", day: "numeric"}) + " " + fmtTime(ms);
+    return new Date(ms).toLocaleDateString([], tzArg({month: "short", day: "numeric"})) + " " + fmtTime(ms);
   }
 
   function applyUnifiedData() {
@@ -1465,6 +1491,20 @@ function mdmBootCharts() {
   document.querySelectorAll(".cr-preset").forEach(function (btn) {
     btn.addEventListener("click", function () { presetRange(btn.dataset.preset); });
   });
+
+  // Timezone toggle: flip between the viewer's browser timezone and the device's, then
+  // re-render so graph axes, tooltips and the range label all switch. The check-in modal
+  // re-reads tzArg() the next time it opens.
+  var tzBtn = document.getElementById("tz-toggle");
+  if (tzBtn && !window.DEVICE_TZ) tzBtn.style.display = "none"; // device tz unusable → no toggle
+  if (tzBtn && window.DEVICE_TZ) {
+    tzBtn.addEventListener("click", function () {
+      window.TZ_MODE = (window.TZ_MODE === 'device') ? 'browser' : 'device';
+      tzBtn.textContent = (window.TZ_MODE === 'device') ? 'Device time' : 'Your time';
+      tzBtn.classList.toggle('active', window.TZ_MODE === 'device');
+      updateCharts();
+    });
+  }
 
   // ── Direct-manipulation zoom + PNG export ──────────────────────────────────
   function activeChartObj() {
@@ -2732,7 +2772,7 @@ function toggleSection(header) {
 
 function showCheckin(row) {
   var checkinTime = new Date(row.dataset.time);
-  document.getElementById('modal-time').textContent    = isNaN(checkinTime.getTime()) ? row.dataset.time : checkinTime.toLocaleString();
+  document.getElementById('modal-time').textContent    = isNaN(checkinTime.getTime()) ? row.dataset.time : checkinTime.toLocaleString([], window.tzArg({}));
   document.getElementById('modal-battery').textContent = row.dataset.battery + '%';
   document.getElementById('modal-build').textContent   = row.dataset.build;
   try {
