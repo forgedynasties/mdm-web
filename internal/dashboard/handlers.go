@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"io"
 	"log"
 	"math"
 	"net/http"
@@ -31,6 +32,7 @@ import (
 	"mdm/internal/ai"
 	"mdm/internal/alerts"
 	"mdm/internal/apkmeta"
+	"mdm/internal/apkstore"
 	"mdm/internal/config"
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
@@ -184,6 +186,7 @@ type Handler struct {
 	geocoder  *geolocate.Geocoder
 	mapViews  atomic.Uint64
 	startedAt time.Time
+	apk       *apkstore.Store // S3-backed APK uploads; nil when S3 is not configured
 
 	// assetVer is a cache-busting token appended to the stylesheet URL, derived
 	// from style.css's mtime at startup. Static assets are served `immutable`
@@ -1135,9 +1138,16 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 
 	tmpl := template.Must(template.New("").Funcs(funcMap).ParseGlob("templates/*.html"))
 
+	// S3 APK store — nil (feature disabled) when S3_BUCKET is unset or AWS config fails.
+	apkStore, apkErr := apkstore.New(context.Background())
+	if apkErr != nil {
+		log.Printf("apkstore init: %v (APK upload disabled)", apkErr)
+	}
+
 	return &Handler{
 		db:            d,
 		hub:           hub,
+		apk:           apkStore,
 		shell:         shellMgr,
 		remote:        remoteMgr,
 		logs:          logMgr,
@@ -2475,6 +2485,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+
 	// The chart normally loads the recent window. When the page is opened to focus a
 	// past incident (e.g. a heat call-out deep-links ?focus=temp), center the fetch on
 	// the day of that metric's extreme so the spike is in range — but bounded to ~2
@@ -2513,7 +2524,6 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-
 	installedPkgs, err := h.db.GetDevicePackages(r.Context(), device.ID)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -8891,9 +8901,23 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid command ID", http.StatusBadRequest)
 		return
 	}
+	// Grab the targeted devices BEFORE the delete cascades command_targets/status
+	// away, so we can tell any device mid-download to stop.
+	deviceIDs, _ := h.db.GetCommandDeviceIDs(r.Context(), id)
 	if err := h.db.DeleteCommand(r.Context(), id); err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	// Push a cancel frame to each reached device. Harmless to a device that isn't
+	// running this command — the client only acts on a cmd id it's actively
+	// downloading. Aborts the in-flight APK download so a removed action doesn't
+	// keep pulling bytes (and installing) after the operator deleted it.
+	if len(deviceIDs) > 0 {
+		if msg, mErr := json.Marshal(map[string]any{"type": "cancel_command", "id": id.String()}); mErr == nil {
+			for _, did := range deviceIDs {
+				h.hub.Push(did, msg)
+			}
+		}
 	}
 	http.Redirect(w, r, "/commands", http.StatusFound)
 }
@@ -10044,6 +10068,159 @@ func (h *Handler) SetupCreateAppJSON(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(app)
 }
 
+// ---- S3 APK uploads: browser uploads directly to S3 via a presigned PUT ------
+
+// AppUploadURL returns a presigned S3 PUT URL so the browser sends the APK straight
+// to S3, never through this server. Admin only.
+func (h *Handler) AppUploadURL(w http.ResponseWriter, r *http.Request) {
+	if h.apk == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "APK upload is not configured")
+		return
+	}
+	key := h.apk.Key(uuid.NewString() + ".apk")
+	url, err := h.apk.PresignPut(r.Context(), key, "application/vnd.android.package-archive", 15*time.Minute)
+	if err != nil {
+		log.Printf("presign put: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, "could not create upload URL")
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"url": url, "key": key})
+}
+
+// AppRegister reads the freshly-uploaded object back from S3, parses its package,
+// version and launcher icon, creates the repository app, and feeds the shared icon
+// index (so the icon shows everywhere immediately). Admin only.
+func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
+	if h.apk == nil {
+		writeJSONError(w, http.StatusServiceUnavailable, "APK upload is not configured")
+		return
+	}
+	var req struct {
+		Key string `json:"key"`
+		// Client-parsed metadata (fast path — the browser already has the file, so it
+		// parses locally and the server never downloads the APK from S3). If Package is
+		// empty, the server falls back to parsing the object itself.
+		Package string `json:"package"`
+		Name    string `json:"name"`
+		Icon    string `json:"icon"` // base64 PNG
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+	if req.Key == "" {
+		writeJSONError(w, http.StatusBadRequest, "key required")
+		return
+	}
+	pkg, name, icon := req.Package, req.Name, req.Icon
+	if pkg == "" {
+		// Fallback: no client metadata — parse the object server-side (slower).
+		meta, err := h.apk.Parse(r.Context(), req.Key)
+		if err != nil {
+			log.Printf("apk parse %s: %v", req.Key, err)
+			writeJSONError(w, http.StatusBadRequest, "could not parse APK — is it a valid .apk?")
+			return
+		}
+		pkg, name, icon = meta.Package, meta.Label, meta.IconPNGB64
+	}
+	if len(icon) > 128*1024 { // safety cap; a 96px PNG is far smaller
+		icon = ""
+	}
+	if name == "" {
+		name = pkg
+	}
+	// apk_url must be an absolute, device-reachable URL (the device fetches it directly).
+	// Prefer PUBLIC_ORIGIN; fall back to the request host.
+	base := ""
+	if len(h.publicOrigins) > 0 {
+		base = h.publicOrigins[0]
+	}
+	if base == "" {
+		scheme := "http"
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		base = scheme + "://" + r.Host
+	}
+	app, err := h.db.CreateS3App(r.Context(), name, pkg, req.Key, base)
+	if err != nil {
+		log.Printf("create s3 app: %v", err)
+		writeJSONError(w, http.StatusInternalServerError, "could not save app")
+		return
+	}
+	if icon != "" {
+		if err := h.db.UpsertAppIcon(r.Context(), pkg, icon); err != nil {
+			log.Printf("upsert app icon: %v", err)
+		}
+	}
+	// Warm the local cache in the background so device installs serve from LAN disk
+	// (S3 here is too slow to stream a large APK within the device's download timeout).
+	go func(key string) {
+		if err := h.apk.EnsureCached(context.Background(), key); err != nil {
+			log.Printf("apk cache warm %s: %v", key, err)
+		}
+	}(req.Key)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(app)
+}
+
+// AppAPK 302-redirects to a fresh presigned S3 download URL for the app's object, so
+// the bucket stays private and the stored apk_url never expires. Open: the device's
+// package installer fetches it by plain URL with no dashboard session.
+func (h *Handler) AppAPK(w http.ResponseWriter, r *http.Request) {
+	if h.apk == nil {
+		http.Error(w, "not configured", http.StatusServiceUnavailable)
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	app, err := h.db.GetApp(r.Context(), id)
+	if err != nil || app.S3Key == "" {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/vnd.android.package-archive")
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+app.PackageName+".apk\"")
+	// Prefer the local cache: serving from disk is LAN-fast and http.ServeFile supports
+	// Range/resume, so a device that lost its connection can continue where it left off.
+	// (S3 here is ~0.2 MB/s, far too slow to stream a large APK within the device's
+	// download timeout — that caused the endless progress reset.)
+	if path, ok := h.apk.CachedPath(app.S3Key); ok {
+		http.ServeFile(w, r, path)
+		return
+	}
+	// Not cached yet: kick off a background fill so future installs are fast, and stream
+	// from S3 this time as a fallback — honoring the client's Range header so a dropped
+	// slow transfer RESUMES instead of restarting (the device sends Range on retry; if we
+	// ignored it and returned 200, the client would delete its partial and start over).
+	go func(key string) {
+		if err := h.apk.EnsureCached(context.Background(), key); err != nil {
+			log.Printf("apk cache %s: %v", key, err)
+		}
+	}(app.S3Key)
+	body, size, ct, contentRange, err := h.apk.Get(r.Context(), app.S3Key, r.Header.Get("Range"))
+	if err != nil {
+		log.Printf("apk get %s: %v", app.S3Key, err)
+		http.Error(w, "error", http.StatusInternalServerError)
+		return
+	}
+	defer body.Close()
+	w.Header().Set("Content-Type", ct)
+	w.Header().Set("Accept-Ranges", "bytes")
+	if size > 0 {
+		w.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	}
+	if contentRange != "" { // S3 returned a partial → mirror it as 206
+		w.Header().Set("Content-Range", contentRange)
+		w.WriteHeader(http.StatusPartialContent)
+	}
+	io.Copy(w, body)
+}
+
 // SetupUpdateApp edits an existing repository app (name, APK URL, package name).
 func (h *Handler) SetupUpdateApp(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
@@ -10097,8 +10274,12 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 	googleUsageJSON, _ := json.Marshal(googleUsage)
 	learnedAPs, _ := h.db.ListWifiAPsRecent(r.Context(), 25)
 	deviceQueries, _ := h.db.ListDeviceQueries(r.Context())
+	repoApps, _ := h.db.ListApps(r.Context())
+	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
 	h.render(w, r, "settings.html", map[string]any{
 		"Title":                "Settings",
+		"Apps":                 repoApps,
+		"Productions":          productions,
 		"DeviceQueries":        deviceQueries,
 		"BaseCases":            baseCases,
 		"ExtraColumns":         h.cfg.Columns(),
@@ -12380,6 +12561,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /setup", h.requireAdmin(h.SetupPage))
 	post("POST /setup/apps", h.requireAdmin(h.SetupCreateApp))
 	post("POST /setup/apps/create", h.requireAdmin(h.SetupCreateAppJSON))
+	// S3 APK uploads: presigned direct-to-S3 upload + register + device download proxy.
+	post("POST /apps/upload-url", h.requireAdmin(h.AppUploadURL))
+	post("POST /apps/register", h.requireAdmin(h.AppRegister))
+	mux.HandleFunc("GET /apps/{id}/apk", h.AppAPK) // open: device installer fetches by URL
 	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 

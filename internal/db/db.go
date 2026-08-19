@@ -590,9 +590,15 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 		return uuid.Nil, 0, false, err
 	}
 
+	// crash_events is a bulky per-crash trace list (hundreds of KB) the client resends
+	// on every check-in; it is already ingested into device_events by IngestDeviceEvents,
+	// so persisting a copy in every checkin row is pure redundant bloat. It ballooned the
+	// checkins table to >1GB for one device and made the device page's 48h chart pull
+	// hundreds of MB of TOASTed jsonb, timing the page out. Strip it from the historical
+	// row (it stays in devices.latest_extra and device_events).
 	_, err = tx.Exec(ctx, `
 		INSERT INTO checkins (device_id, battery_pct, build_id, extra)
-		VALUES ($1, $2, $3, $4)
+		VALUES ($1, $2, $3, ($4::jsonb) - 'crash_events')
 	`, deviceID, battery, buildID, merged)
 	if err != nil {
 		return uuid.Nil, 0, false, err
@@ -2946,6 +2952,35 @@ func (d *DB) GetCommandTargetIDs(ctx context.Context, commandID uuid.UUID) ([]uu
 }
 
 // GetPendingCommandsForDevice returns commands not yet delivered/acked for this device.
+// GetCommandDeviceIDs resolves the device IDs a command reached: direct device
+// targets, group expansion, and any device that already has a status row. Used to
+// push a cancel to exactly those devices when the command is deleted, so a device
+// mid-download aborts instead of finishing an install the operator just removed.
+func (d *DB) GetCommandDeviceIDs(ctx context.Context, commandID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT ct.target_id FROM command_targets ct JOIN commands c ON c.id = ct.command_id
+		  WHERE ct.command_id = $1 AND c.target_type = 'devices'
+		UNION
+		SELECT dg.device_id FROM command_targets ct JOIN commands c ON c.id = ct.command_id
+		  JOIN device_groups dg ON dg.group_id = ct.target_id
+		  WHERE ct.command_id = $1 AND c.target_type = 'groups'
+		UNION
+		SELECT cs.device_id FROM command_status cs WHERE cs.command_id = $1`, commandID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID) ([]Command, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at
@@ -3266,8 +3301,16 @@ func (d *DB) ReconcileInstalledCommands(ctx context.Context, deviceID uuid.UUID)
 		WITH affected AS (
 			SELECT c.id
 			FROM commands c
-			JOIN apk_packages ap ON ap.apk_url = c.apk_url
-			JOIN device_packages dp ON dp.device_id = $1 AND dp.package_name = ap.package_name
+			-- Resolve the command's package from EITHER the learned apk_url->package map
+			-- (apk_packages) OR the app-library row (apps.package_name, known at upload
+			-- time). The library path matters for S3/library apps whose apk_packages entry
+			-- may not be learned yet — without it a genuinely-installed library app (e.g.
+			-- an install whose terminal ack was lost on a half-open WS) never reconciles.
+			JOIN device_packages dp ON dp.device_id = $1 AND dp.package_name IN (
+				SELECT ap.package_name FROM apk_packages ap WHERE ap.apk_url = c.apk_url
+				UNION
+				SELECT a.package_name FROM apps a WHERE a.apk_url = c.apk_url AND COALESCE(a.package_name,'') <> ''
+			)
 			WHERE c.type = 'install_apk'
 			  AND (
 				c.target_type = 'all'
@@ -3277,9 +3320,13 @@ func (d *DB) ReconcileInstalledCommands(ctx context.Context, deviceID uuid.UUID)
 					SELECT 1 FROM command_targets ct JOIN device_groups dg ON dg.group_id = ct.target_id
 					WHERE ct.command_id = c.id AND dg.device_id = $1))
 			  )
+			  -- 'failed' is intentionally NOT excluded: the device reporting the target
+			  -- package present is ground truth, so it overrides a command the stalled-
+			  -- install sweep wrongly failed after a lost ack. Terminal-correct states
+			  -- ('installed','completed') are left alone.
 			  AND NOT EXISTS (
 				SELECT 1 FROM command_status cs WHERE cs.command_id = c.id AND cs.device_id = $1
-				  AND cs.status IN ('installed','failed','completed'))
+				  AND cs.status IN ('installed','completed'))
 		), up AS (
 			INSERT INTO command_status (command_id, device_id, status, progress, updated_at)
 			SELECT id, $1, 'installed', NULL, NOW() FROM affected
@@ -3481,11 +3528,19 @@ type App struct {
 	Name        string    `json:"name"`
 	ApkURL      string    `json:"apk_url"`
 	PackageName string    `json:"package_name"`
+	S3Key       string    `json:"s3_key,omitempty"` // set for S3-hosted uploads; empty for URL apps
+	Icon        string    `json:"icon,omitempty"`   // resolved from app_icons on the read path
 	CreatedAt   time.Time `json:"created_at"`
 }
 
 func (d *DB) ListApps(ctx context.Context) ([]App, error) {
-	rows, err := d.pool.Query(ctx, `SELECT id, name, apk_url, package_name, created_at FROM apps ORDER BY name ASC`)
+	// Resolve each app's icon from the shared app_icons index (populated when an APK is
+	// uploaded and parsed) so the library can render real icons.
+	rows, err := d.pool.Query(ctx, `
+		SELECT a.id, a.name, a.apk_url, a.package_name, a.created_at, COALESCE(ai.icon, '')
+		FROM apps a
+		LEFT JOIN app_icons ai ON ai.package_name = a.package_name
+		ORDER BY a.name ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -3493,7 +3548,7 @@ func (d *DB) ListApps(ctx context.Context) ([]App, error) {
 	var out []App
 	for rows.Next() {
 		var a App
-		if err := rows.Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.CreatedAt); err != nil {
+		if err := rows.Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.CreatedAt, &a.Icon); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -3504,12 +3559,44 @@ func (d *DB) ListApps(ctx context.Context) ([]App, error) {
 func (d *DB) GetApp(ctx context.Context, id uuid.UUID) (*App, error) {
 	var a App
 	err := d.pool.QueryRow(ctx,
-		`SELECT id, name, apk_url, package_name, created_at FROM apps WHERE id = $1`, id,
-	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.CreatedAt)
+		`SELECT id, name, apk_url, package_name, COALESCE(s3_key, ''), created_at FROM apps WHERE id = $1`, id,
+	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.S3Key, &a.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &a, nil
+}
+
+// CreateS3App inserts a repository app backed by an S3 object. The apk_url is the
+// server's own stable proxy (baseURL + /apps/{id}/apk) that 302-redirects to a fresh
+// presigned download URL, so the bucket stays private and the URL never expires. The
+// device fetches apk_url directly, so baseURL must be the device-reachable origin.
+func (d *DB) CreateS3App(ctx context.Context, name, packageName, s3Key, baseURL string) (*App, error) {
+	id := uuid.New()
+	apkURL := fmt.Sprintf("%s/apps/%s/apk", strings.TrimRight(baseURL, "/"), id)
+	var a App
+	err := d.pool.QueryRow(ctx,
+		`INSERT INTO apps (id, name, apk_url, package_name, s3_key) VALUES ($1, $2, $3, $4, $5)
+		 RETURNING id, name, apk_url, package_name, COALESCE(s3_key, ''), created_at`,
+		id, name, apkURL, packageName, s3Key,
+	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.S3Key, &a.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &a, nil
+}
+
+// UpsertAppIcon stores one package's launcher icon in the shared app_icons index, so
+// it shows across all devices immediately (same index the device-reported icons use).
+func (d *DB) UpsertAppIcon(ctx context.Context, packageName, iconB64 string) error {
+	if packageName == "" || iconB64 == "" {
+		return nil
+	}
+	_, err := d.pool.Exec(ctx,
+		`INSERT INTO app_icons (package_name, icon) VALUES ($1, $2)
+		 ON CONFLICT (package_name) DO UPDATE SET icon = EXCLUDED.icon, updated_at = NOW()`,
+		packageName, iconB64)
+	return err
 }
 
 func (d *DB) CreateApp(ctx context.Context, name, apkURL, packageName string) (*App, error) {
@@ -4047,6 +4134,11 @@ type DevicePackage struct {
 	// admin override, else false). Populated on the read path; gates uninstall.
 	EffectiveSystem bool      `json:"effective_system"`
 	UpdatedAt       time.Time `json:"updated_at"`
+	// Icon is a base64-encoded PNG launcher icon. On the write path it's the value the
+	// device reported (may be empty); on the read path it's resolved from the shared
+	// app_icons index keyed by package_name, so any device — even an old client that
+	// never reports icons — shows an icon once ANY device has reported one for it.
+	Icon string `json:"icon,omitempty"`
 }
 
 // AdminPackage is a fleet-wide package row for the admin classification page.
@@ -4131,6 +4223,25 @@ func (d *DB) UpsertDevicePackages(ctx context.Context, deviceID uuid.UUID, packa
 		`, deviceID, names, appNames, versions, systems); err != nil {
 			return err
 		}
+
+		// Populate the shared package→icon index from whatever icons this device sent.
+		// Non-empty only; keyed by package_name so all devices benefit. Last write wins.
+		var iconPkgs, iconVals []string
+		for _, p := range packages {
+			if p.Icon != "" {
+				iconPkgs = append(iconPkgs, p.PackageName)
+				iconVals = append(iconVals, p.Icon)
+			}
+		}
+		if len(iconPkgs) > 0 {
+			if _, err := tx.Exec(ctx, `
+				INSERT INTO app_icons (package_name, icon)
+				SELECT unnest($1::text[]), unnest($2::text[])
+				ON CONFLICT (package_name) DO UPDATE SET icon = EXCLUDED.icon, updated_at = NOW()
+			`, iconPkgs, iconVals); err != nil {
+				return err
+			}
+		}
 	}
 
 	if _, err := tx.Exec(ctx, `UPDATE devices SET packages_hash = $2 WHERE id = $1`, deviceID, newHash); err != nil {
@@ -4144,9 +4255,12 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 	rows, err := d.pool.Query(ctx, `
 		SELECT dp.package_name, dp.app_name, dp.version_name,
 		       (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL) AS effective_system,
-		       dp.updated_at
+		       dp.updated_at, COALESCE(ai.icon, '')
 		FROM device_packages dp
 		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+		-- Icons come from the shared index, so a device shows an icon for a package even
+		-- if this particular device never reported one.
+		LEFT JOIN app_icons ai ON ai.package_name = dp.package_name
 		WHERE dp.device_id = $1
 		-- User apps first, then system apps; alphabetical within each group.
 		ORDER BY effective_system, COALESCE(NULLIF(dp.app_name, ''), dp.package_name), dp.package_name
@@ -4159,7 +4273,7 @@ func (d *DB) GetDevicePackages(ctx context.Context, deviceID uuid.UUID) ([]Devic
 	var out []DevicePackage
 	for rows.Next() {
 		var p DevicePackage
-		if err := rows.Scan(&p.PackageName, &p.AppName, &p.VersionName, &p.EffectiveSystem, &p.UpdatedAt); err != nil {
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.VersionName, &p.EffectiveSystem, &p.UpdatedAt, &p.Icon); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -7603,6 +7717,15 @@ CREATE TABLE IF NOT EXISTS device_packages (
 CREATE INDEX IF NOT EXISTS idx_device_packages_device_id   ON device_packages(device_id);
 CREATE INDEX IF NOT EXISTS idx_device_packages_package_name ON device_packages(package_name);
 
+-- Shared package_name → launcher-icon index. Any device that reports an icon populates
+-- it; every device's app list then resolves icons from here by package_name, so old
+-- clients that never send icons still render them. PRIMARY KEY is the lookup index.
+CREATE TABLE IF NOT EXISTS app_icons (
+	package_name TEXT PRIMARY KEY,
+	icon         TEXT NOT NULL,
+	updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 ALTER TABLE device_packages ADD COLUMN IF NOT EXISTS app_name TEXT NOT NULL DEFAULT '';
 ALTER TABLE device_packages ADD COLUMN IF NOT EXISTS is_system BOOLEAN NOT NULL DEFAULT FALSE;
 -- is_system becomes nullable: NULL means the device's client is too old to report it,
@@ -8287,6 +8410,7 @@ CREATE TABLE IF NOT EXISTS apk_packages (
 -- app. When set, it seeds apk_packages immediately so an install can skip devices
 -- that already have the app — no need to wait for a first install to "learn" it.
 ALTER TABLE apps ADD COLUMN IF NOT EXISTS package_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE apps ADD COLUMN IF NOT EXISTS s3_key TEXT NOT NULL DEFAULT '';
 
 -- Freeform operator notes on a device (e.g. "cracked screen", "reserved for QA").
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';

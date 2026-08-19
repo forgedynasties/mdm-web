@@ -31,6 +31,10 @@ import (
 // persist, so an oversized list can't blow up the per-device package upsert.
 const maxPackagesPerDevice = 2000
 
+// maxIconBytes caps a single base64 launcher-icon string. A 96px PNG is well under
+// this; anything larger is dropped (the app row is still stored, just without an icon).
+const maxIconBytes = 96 * 1024
+
 // Device-input bounds. Every device shares one API key, so treat each request as
 // hostile: cap identifier lengths, the telemetry blob size, JSON nesting depth (a
 // deeply-nested body can overflow the goroutine stack — a fatal, unrecoverable crash
@@ -571,6 +575,7 @@ type checkinRequest struct {
 		Name        string `json:"name"`
 		VersionName string `json:"version_name"`
 		IsSystem    *bool  `json:"is_system"` // nil when the client is too old to report it
+		Icon        string `json:"icon"`      // base64 PNG launcher icon (optional)
 	} `json:"installed_apps,omitempty"`
 	// OTA progress piggybacked on the checkin so the dashboard keeps tracking
 	// download/install percent even when the WebSocket is down.
@@ -642,7 +647,11 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			seen[p.Package] = struct{}{}
-			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem})
+			icon := p.Icon
+			if len(icon) > maxIconBytes { // drop an oversized icon; keep the app row
+				icon = ""
+			}
+			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Icon: icon})
 			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
 				break
 			}
@@ -1124,13 +1133,28 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 				continue
 			}
 			seen[p.Package] = struct{}{}
-			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem})
+			icon := p.Icon
+			if len(icon) > maxIconBytes { // drop an oversized icon; keep the app row
+				icon = ""
+			}
+			pkgs = append(pkgs, db.DevicePackage{PackageName: p.Package, AppName: p.Name, VersionName: p.VersionName, IsSystem: p.IsSystem, Icon: icon})
 			if len(pkgs) >= maxPackagesPerDevice { // guard against an oversized list
 				break
 			}
 		}
 		if err := h.db.UpsertDevicePackages(ctx, id, pkgs); err != nil {
 			log.Printf("[ws-telemetry] UpsertDevicePackages error: %v", err)
+		}
+		// Mirror the HTTP check-in path: clear any install command the device now
+		// reports present (e.g. a terminal ack lost on a half-open WS). Without this,
+		// a device that reports its apps over WS (as the full-GMS client does) never
+		// reconciles, so a genuinely-installed app can stay stuck showing "failed".
+		if ids, err := h.db.ReconcileInstalledCommands(ctx, id); err != nil {
+			log.Printf("[ws-telemetry] ReconcileInstalledCommands error: %v", err)
+		} else {
+			for _, cid := range ids {
+				h.hub.PublishCommandUpdate(cid)
+			}
 		}
 	}
 
