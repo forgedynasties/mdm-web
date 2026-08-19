@@ -124,7 +124,8 @@
     <button type="button" data-tab="ai">AI</button>
     <button type="button" data-tab="google">Google APIs</button>
     <button type="button" data-tab="security">Security</button>
-    <button type="button" data-tab="admintools">Admin tools</button>
+    <button type="button" data-tab="applibrary">App library</button>
+    <button type="button" data-tab="productions">Productions</button>
   </nav>
 
   <div class="settings-panels">
@@ -825,28 +826,150 @@ function kioskAddPkg(pkg, el){
 </div>
   </section>
 
-  <!-- ── Admin tools ─────────────────────────────────── -->
-  <section class="settings-tab" data-tab="admintools">
+  <!-- ── App library ─────────────────────────────────── -->
+  <section class="settings-tab" data-tab="applibrary">
+<style>
+  .lib-drawer{display:grid;grid-template-columns:repeat(auto-fill,minmax(122px,1fr));gap:6px;padding:16px;}
+  .lib-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 8px 12px;border-radius:14px;border:1px solid transparent;text-align:center;}
+  .lib-tile:hover{background:var(--surface-3);border-color:var(--border);}
+  .lib-icon,.lib-mono{width:54px;height:54px;border-radius:15px;flex:none;}
+  .lib-icon{object-fit:contain;background:var(--surface-3);}
+  .lib-mono{display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;text-transform:uppercase;background:var(--surface-3);color:var(--text-faint);}
+  .lib-name{font-size:12.5px;font-weight:650;line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
+  .lib-pkg{font-size:10.5px;color:var(--text-faint);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lib-del-form{position:absolute;top:5px;right:5px;margin:0;opacity:0;transition:opacity .12s;}
+  .lib-tile:hover .lib-del-form{opacity:1;}
+  .lib-del{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--danger,#c0392b);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+  .lib-del:hover{background:var(--danger,#c0392b);color:#fff;border-color:transparent;}
+  .ul-wrap{padding:10px 16px 0;}
+  .ul-status{font-size:12.5px;font-weight:650;color:var(--accent-text);margin-bottom:6px;}
+  .ul-status.is-error{color:var(--danger,#c0392b);}
+  .ul-bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;}
+  .ul-fill{height:100%;width:0;background:var(--accent);border-radius:99px;transition:width .15s ease;}
+</style>
 <div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Admin tools</h3></div>
-  <div style="padding:16px;display:flex;flex-direction:column;gap:10px;max-width:520px;">
-    <div class="muted small">Pages kept out of the main sidebar but available to admins.</div>
-    <a href="/productions" class="admin-tool">
-      <span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>
-      <span class="admin-tool-text"><strong>Productions</strong><span class="muted small">IMEI / serial batches for device provisioning</span></span>
-      <svg class="admin-tool-go" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-    </a>
-    <a href="/setup" class="admin-tool">
-      <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M7 4v6"/><path d="M17 4v6"/><rect x="4" y="7" width="16" height="13" rx="2"/><path d="M8 12h8"/><path d="M8 16h5"/></svg></span>
-      <span class="admin-tool-text"><strong>App library</strong><span class="muted small">Register APK URLs for install-APK actions</span></span>
-      <svg class="admin-tool-go" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-    </a>
+  <div class="card-header">
+    <h3>App library</h3>
+    <div class="card-header-actions">
+      <span class="muted small" style="margin-right:6px;">{{len .Apps}} app{{if ne (len .Apps) 1}}s{{end}}</span>
+      <input type="file" id="lib-apk-file" accept=".apk,application/vnd.android.package-archive" hidden onchange="libUploadApk(this.files[0]); this.value='';">
+      <button type="button" class="btn-primary btn-sm" onclick="document.getElementById('lib-apk-file').click()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>Upload APK</button>
+      <button type="button" class="btn-outline btn-sm" onclick="libOpenUrlModal()">+ Add by URL</button>
+    </div>
   </div>
+  <div class="ul-wrap" id="lib-ul" hidden>
+    <div class="ul-status" id="lib-ul-status"></div>
+    <div class="ul-bar"><div class="ul-fill" id="lib-ul-fill"></div></div>
+  </div>
+  {{if .Apps}}
+  <div class="lib-drawer" id="lib-drawer">
+    {{range .Apps}}
+    <div class="lib-tile" data-app="{{.Name}} {{.PackageName}}">
+      {{if .Icon}}<img class="lib-icon" src="data:image/png;base64,{{.Icon}}" alt="">{{else}}<div class="lib-mono">{{if .Name}}{{slice .Name 0 1}}{{end}}</div>{{end}}
+      <div class="lib-name">{{.Name}}</div>
+      <div class="lib-pkg mono" title="{{.PackageName}}">{{.PackageName}}</div>
+      <form action="/setup/apps/{{.ID}}/delete" method="POST" class="lib-del-form" onsubmit="return libDelete(this, event);"><button type="submit" class="lib-del" title="Remove {{.Name}}" aria-label="Remove {{.Name}}">&times;</button></form>
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="empty-state" style="padding:28px 18px;">
+    <div class="empty-state-copy"><div class="empty-state-title">No apps yet</div><div class="empty-state-text">Upload an APK or add one by URL — then install it on devices from the device page.</div></div>
+  </div>
+  {{end}}
+</div>
+
+<!-- Add-by-URL modal -->
+<div id="lib-url-modal" class="modal-backdrop" onclick="if(event.target.id==='lib-url-modal')libCloseUrlModal()">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="Add app by URL">
+    <div class="modal-header"><span class="modal-title">Add app by URL</span><button type="button" class="modal-close" onclick="libCloseUrlModal()" aria-label="Close">&times;</button></div>
+    <form class="modal-body" onsubmit="return libAddUrl(this, event);">
+      <div id="lib-url-error" class="alert alert-error" style="display:none;"></div>
+      <div class="form-row"><label class="form-label">App name</label><input type="text" name="name" class="form-input" placeholder="My App" required></div>
+      <div class="form-row"><label class="form-label">Package name <span class="muted small">— e.g. com.example.app</span></label><input type="text" name="package_name" class="form-input mono" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="com.example.app"></div>
+      <div class="form-row"><label class="form-label">APK URL</label><input type="url" name="apk_url" class="form-input" placeholder="https://example.com/app.apk" required></div>
+      <div class="modal-footer"><button type="button" class="btn-outline" onclick="libCloseUrlModal()">Cancel</button><button type="submit" class="btn-primary">Add app</button></div>
+    </form>
+  </div>
+</div>
+  </section>
+
+  <!-- ── Productions ─────────────────────────────────── -->
+  <section class="settings-tab" data-tab="productions">
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header">
+    <h3>Productions <span class="muted small" style="font-weight:400;">· {{len .Productions}} run{{if ne (len .Productions) 1}}s{{end}}</span></h3>
+    {{if canOperate .Role}}<div class="card-header-actions"><a href="/productions/new" class="btn-primary btn-sm"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Production</a></div>{{end}}
+  </div>
+  {{if not .Productions}}
+  <div class="empty-state" style="padding:28px 18px;">
+    <div class="empty-state-copy">
+      <div class="empty-state-title">No productions yet</div>
+      <div class="empty-state-text">Create a production run to track serial number ranges and monitor which units have connected to AIO MDM.</div>
+    </div>
+    {{if canOperate .Role}}<div class="empty-state-actions"><a href="/productions/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Production</a></div>{{end}}
+  </div>
+  {{else}}
+  <div class="scroll-x"><table class="table">
+    <thead>
+      <tr><th>Name</th><th>Serial Range</th><th>Batch</th><th class="text-right">Total</th><th class="text-right">Connected</th><th class="text-right">Online</th><th class="text-right">Never</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+      {{range .Productions}}
+      <tr>
+        <td><a href="/productions/{{.ID}}" class="link-detail">{{.Name}}</a></td>
+        <td class="mono small">{{.FirstSerial}} → {{.LastSerial}}</td>
+        <td class="mono">{{.Batch}}</td>
+        <td class="text-right">{{.Total}}</td>
+        <td class="text-right">{{if gt .EverConnected 0}}<span class="badge badge-ok">{{.EverConnected}}</span>{{else}}<span class="muted">0</span>{{end}}</td>
+        <td class="text-right">{{if gt .Online 0}}<span class="badge badge-online">{{.Online}}</span>{{else}}<span class="muted">0</span>{{end}}</td>
+        <td class="text-right">{{$never := sub .Total .EverConnected}}{{if gt $never 0}}<span class="muted">{{$never}}</span>{{else}}<span class="badge badge-ok">0</span>{{end}}</td>
+        <td class="muted small">{{localTime .CreatedAt}}</td>
+        <td style="display:flex;gap:8px;justify-content:flex-end;">
+          <a href="/productions/{{.ID}}/export.csv" hx-boost="false" class="btn-outline-sm">Export CSV</a>
+          {{if canAdmin $.Role}}<form action="/productions/{{.ID}}/delete" method="POST" hx-confirm="Delete this production? This cannot be undone."><button type="submit" class="btn-danger-sm">Delete</button></form>{{end}}
+        </td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table></div>
+  {{end}}
 </div>
   </section>
 
   </div><!-- /.settings-panels -->
 </div><!-- /.settings-wrap -->
+
+<script>
+// ── App library: upload APK (client-parsed, direct-to-S3) with a progress bar ──
+function libEnsureParser(){return new Promise(function(res,rej){if(window.AppInfoParser)return res();var s=document.createElement('script');s.src='/static/vendor/app-info-parser.min.js';s.onload=function(){res();};s.onerror=function(){rej(new Error('could not load APK parser'));};document.head.appendChild(s);});}
+function libIconPng(ic){return new Promise(function(res){if(!ic)return res('');var src=ic.indexOf('data:')===0?ic:('data:image/png;base64,'+ic);var img=new Image();img.onload=function(){try{var c=document.createElement('canvas');c.width=96;c.height=96;c.getContext('2d').drawImage(img,0,0,96,96);res(c.toDataURL('image/png').split(',')[1]||'');}catch(e){res('');}};img.onerror=function(){res('');};img.src=src;});}
+function libFmt(n){if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(0)+' KB';if(n<1073741824)return (n/1048576).toFixed(1)+' MB';return (n/1073741824).toFixed(2)+' GB';}
+function libS3Put(url,file,onp){return new Promise(function(res,rej){var x=new XMLHttpRequest();x.open('PUT',url);x.setRequestHeader('Content-Type','application/vnd.android.package-archive');x.upload.onprogress=function(e){if(e.lengthComputable&&onp)onp(e.loaded,e.total);};x.onload=function(){(x.status>=200&&x.status<300)?res():rej(new Error('S3 upload failed ('+x.status+')'));};x.onerror=function(){rej(new Error('network error uploading to S3'));};x.send(file);});}
+function libUploadApk(file){
+  if(!file)return;
+  var wrap=document.getElementById('lib-ul'),stEl=document.getElementById('lib-ul-status'),fill=document.getElementById('lib-ul-fill');
+  wrap.hidden=false;
+  var set=function(t,err,pct){stEl.textContent=t;stEl.classList.toggle('is-error',!!err);if(pct!=null)fill.style.width=pct+'%';};
+  var meta={pkg:'',name:'',icon:''};
+  set('Reading '+file.name+' ('+libFmt(file.size)+')…',false,0);
+  libEnsureParser().then(function(){return new AppInfoParser(file).parse();}).then(function(info){
+    meta.pkg=info.package||'';var lbl=(info.application&&info.application.label)||info.label||meta.pkg;if(Array.isArray(lbl))lbl=lbl[0];meta.name=String(lbl||meta.pkg);
+    return libIconPng(info.icon).then(function(png){meta.icon=png;});
+  }).catch(function(){})
+  .then(function(){return fetch('/apps/upload-url',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({filename:file.name})});})
+  .then(function(r){if(!r.ok)throw new Error('could not get upload URL');return r.json();})
+  .then(function(d){set('Uploading '+file.name+' ('+libFmt(file.size)+')…',false,0);return libS3Put(d.url,file,function(l,t){set('Uploading — '+Math.round(l/t*100)+'% ('+libFmt(l)+' / '+libFmt(t)+')',false,Math.round(l/t*100));}).then(function(){return d.key;});})
+  .then(function(key){set('Saving…',false,100);return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:key,package:meta.pkg,name:meta.name,icon:meta.icon})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'register failed');return j;});});})
+  .then(function(app){set('Added "'+(app.name||'app')+'". Reloading…',false,100);setTimeout(function(){location.reload();},700);})
+  .catch(function(err){set('Error: '+err.message,true);});
+}
+function libDelete(form,ev){ev.preventDefault();if(!confirm('Remove this app from the library?'))return false;fetch(form.action,{method:'POST',credentials:'same-origin'}).then(function(){location.reload();}).catch(function(){location.reload();});return false;}
+function libOpenUrlModal(){document.getElementById('lib-url-modal').classList.add('modal-open');}
+function libCloseUrlModal(){document.getElementById('lib-url-modal').classList.remove('modal-open');}
+function libAddUrl(form,ev){ev.preventDefault();var fd=new URLSearchParams(new FormData(form));var errEl=document.getElementById('lib-url-error');errEl.style.display='none';
+  fetch('/setup/apps/create',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},credentials:'same-origin',body:fd.toString()}).then(function(r){if(!r.ok)throw new Error('could not add app');location.reload();}).catch(function(e){errEl.textContent=e.message;errEl.style.display='block';});return false;}
+</script>
 
 <script src="/static/vendor/chart.umd.min.js"></script>
 <script>

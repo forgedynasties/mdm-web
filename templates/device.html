@@ -48,7 +48,8 @@
     {{/* 2 = no pad attached. Only the client can determine that: it needs the GPIO's edge
          rate (2.8 Hz floating vs ~0.1 Hz for a working pad), and the client's 1 s poll
          aliases that away before any of it reaches the server. */}}
-    {{$wlc := extraField .Device.LatestExtra "wlc_status"}}{{if and (ne $wlc "") (ne $wlc "—")}}<span class="ddc-chip wlc-{{if eq $wlc "1"}}on{{else if eq $wlc "0"}}off{{else}}bad{{end}}" title="Wireless charging pad — guest-device detection (1 = device on pad, 0 = pad idle, 2 = no pad connected, -1 = pad unreadable)"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg>{{if eq $wlc "1"}}WLC On{{else if eq $wlc "0"}}WLC idle{{else if eq $wlc "2"}}No pad{{else}}WLC pad ✕{{end}}</span>{{end}}
+    {{/* Wireless-charging status moved to the "Charging pad" sidebar card, combined
+         with its enable/disable control. */}}
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
@@ -139,7 +140,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 <div class="device-detail">
 <a href="/devices" class="back-link" onclick="try{var r=document.referrer;if(r&&new URL(r).origin===location.origin&&new URL(r).pathname==='/devices'&&history.length>1){history.back();return false;}}catch(e){}">← Fleet</a>
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
-<div class="ddc-hero">
+<div class="ddc-hero ddc-hero--ribbon">
+  <div class="ddc-ribbon">
   <div class="ddc-top">
     <div class="ddc-id">
       {{if .Online}}<span id="ws-badge" class="ddc-status on" aria-live="polite"><i></i>Online</span>{{else}}<span id="ws-badge" class="ddc-status off" aria-live="polite"><i></i>Offline</span>{{end}}{{if isLegacyBuild .Device.BuildID}}<span class="ddc-legacy-tag" tabindex="0" role="note" aria-label="Legacy device — appears offline by design" title="Legacy devices run older firmware that checks in periodically over HTTP instead of holding a live WebSocket, so they always appear Offline even when healthy. &#10;&#10;'Last seen' reflects their most recent check-in.">Legacy device<svg class="ddc-info-ic" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>{{end}}
@@ -149,6 +151,15 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="ddc-actions">
       {{if and (canAdminOrTester .Role) .RemoteEnabled}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       <button type="button" class="ddc-btn ddc-btn-ai" title="Analyze with AI" onclick="aiOpen()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</button>
+      {{if canAdminOrTester .Role}}
+      {{/* Ribbon controls: Kiosk (opens config modal) + Charging (instant WLC toggle).
+           Placed next to Analyze per the chosen "Identity Ribbon" layout. */}}
+      <button type="button" class="ddc-ctl{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="Configure kiosk mode">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk<span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
+      </button>
+      {{/* The wireless-charging enable/disable control lives in the "Charging pad"
+           sidebar card now, next to its live status. */}}
+      {{end}}
       <div class="ddc-menu-wrap" id="ddc-actions-wrap">
         <button type="button" class="ddc-btn" id="ddc-actions-btn" onclick="ddActionsToggle(event)" aria-haspopup="true" aria-expanded="false">Actions <svg class="ddc-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="ddc-menu" id="ddc-actions-menu" hidden>
@@ -167,13 +178,64 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </div>
     </div>
   </div>
+  </div>{{/* /ddc-ribbon */}}
   {{if .ChargerFlapping}}
   <div class="ddc-flap-alert" title="Charging is toggling ~{{.ChargerFlapRate}}×/min">
     <span class="ic"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v5M15 2v5M7 7h10v3a5 5 0 0 1-10 0zM12 15v7"/><path d="M3 3l18 18"/></svg></span>
     <div><b>Faulty charger suspected.</b> Charging is toggling on/off <b>~{{.ChargerFlapRate}}× a minute</b> — the charger, dock, or cable keeps dropping the connection. Check it before this unit runs flat.</div>
   </div>
   {{end}}
-  <div class="ddc-vitals">
+  {{/* Identity-Ribbon hero: identity + actions sit in a soft gradient band (see the
+       .ddc-ribbon wrapper above); the Kiosk pill and Charging switch live inline in
+       the action row, and vitals ride a borderless ghost-chip strip below. */}}
+  <style>
+  .ddc-hero--ribbon{padding:0;overflow:hidden;}
+  .ddc-hero--ribbon .ddc-ribbon{padding:20px 22px;background:linear-gradient(100deg,rgba(122,128,246,.13),rgba(249,103,78,.12));border-bottom:1px solid var(--border-soft);}
+  html[data-theme="dark"] .ddc-hero--ribbon .ddc-ribbon{background:linear-gradient(100deg,rgba(122,128,246,.2),rgba(249,103,78,.15));}
+  .ddc-hero--ribbon .ddc-flap-alert{margin:16px 22px 0;}
+  .ddc-vitals--ribbon{margin:14px 22px 6px;padding:0;border-top:0;}
+
+  /* Kiosk pill — opens the config modal, so it reads as a stateful button, not a
+     bare switch (kiosk needs an app picked before it can engage). */
+  .ddc-ctl{display:inline-flex;align-items:center;gap:8px;padding:6px 11px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font:inherit;font-size:12.5px;font-weight:650;color:var(--text);cursor:pointer;line-height:1.4;}
+  .ddc-ctl svg{width:15px;height:15px;color:var(--text-faint);flex:none;}
+  .ddc-ctl .ddc-kstate{font-size:11px;font-weight:700;color:var(--text-faint);}
+  .ddc-ctl:hover{border-color:var(--accent-edge);}
+  .ddc-ctl.on{border-color:var(--accent-edge);background:var(--accent-soft);}
+  .ddc-ctl.on svg,.ddc-ctl.on .ddc-kstate{color:var(--accent-text);}
+
+  /* Charging — a real instant toggle (POST /wlc), so it gets a sliding switch. */
+  .ddc-swpill{display:inline-flex;align-items:center;gap:9px;padding:6px 11px;border-radius:11px;border:1px solid var(--border);background:var(--surface);font:inherit;font-size:12.5px;font-weight:650;color:var(--text);cursor:pointer;line-height:1.4;}
+  .ddc-swpill svg{width:15px;height:15px;color:var(--text-faint);flex:none;}
+  .ddc-swpill:hover{border-color:var(--accent-edge);}
+  .ddc-swpill.on{border-color:var(--accent-edge);background:var(--accent-soft);}
+  .ddc-swpill.on svg{color:var(--accent-text);}
+  .ddc-sw{position:relative;width:34px;height:20px;border-radius:99px;background:var(--surface-3);border:1px solid var(--border);flex:none;transition:background .18s,border-color .18s;}
+  .ddc-sw::after{content:"";position:absolute;top:1px;left:1px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.28);transition:transform .18s;}
+  .ddc-swpill.on .ddc-sw{background:var(--accent);border-color:transparent;}
+  .ddc-swpill.on .ddc-sw::after{transform:translateX(14px);}
+
+  /* Charging-pad sidebar card: live occupancy status + enable/disable control. */
+  /* Toggle sits inline with the card title; status is the only body row. */
+  .pad-card-t{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .pad-card-t .ddc-swpill,.pad-card-t .pad-en{text-transform:none;letter-spacing:normal;}
+  #charging-pad-card .ddc-kv{align-items:center;}
+  .pad-stat{display:inline-flex;align-items:center;gap:7px;font-weight:650;}
+  .pad-dot{width:9px;height:9px;border-radius:50%;background:var(--text-faint);flex:none;}
+  .pad-stat-on{color:#1c7d50;} .pad-stat-on .pad-dot{background:#2bb673;}
+  .pad-stat-vacant{color:var(--text-faint);} .pad-stat-vacant .pad-dot{background:#9aa0b0;}
+  .pad-stat-nopad{color:#9a6512;} .pad-stat-nopad .pad-dot{background:#e8a13a;}
+  .pad-stat-bad{color:var(--text-faint);} .pad-stat-bad .pad-dot{background:#b2bec3;}
+  html[data-theme="dark"] .pad-stat-on{color:#5fd49a;}
+  html[data-theme="dark"] .pad-stat-nopad{color:#f0b765;}
+  .pad-swpill{padding:5px 9px;}
+  .pad-swpill .ddc-kstate{font-size:11.5px;font-weight:700;color:var(--text-faint);}
+  .pad-swpill.on .ddc-kstate{color:var(--accent-text);}
+  .pad-en{color:var(--accent-text);font-weight:650;}
+  /* Charging disabled → the pad is off, so occupancy is moot: dim the status. */
+  #charging-pad-card:has(#wlc-chip:not(.on)) .pad-stat{opacity:.45;}
+  </style>
+  <div class="ddc-vitals ddc-vitals--ribbon">
     <span class="ddc-vitals-live" id="device-vitals-live" data-diff-guard style="display:contents"
           hx-get="/devices/{{.Device.SerialNumber}}/vitals" hx-select="unset"
           hx-trigger="device-updated from:body, every 60s"
@@ -181,10 +243,9 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       {{template "device-vitals" .}}
     </span>
     {{if canAdminOrTester .Role}}
+    {{/* Kiosk modal (opened by the Kiosk pill in the action ribbon) — position:fixed,
+         so its DOM location here at the tail of the vitals strip is cosmetic only. */}}
     <span class="ddc-kpop-wrap">
-      <button type="button" class="ddc-chip ddc-chip-btn{{if .KioskConfig.KioskEnabled}} on{{end}}" onclick="kioskModalOpen()" aria-haspopup="dialog" title="Configure kiosk mode">
-        <span class="k">Kiosk</span><span class="ddc-kstate">{{if .KioskConfig.KioskEnabled}}on{{else}}off{{end}}</span>
-      </button>
       <div class="modal-backdrop" id="kiosk-modal" onclick="kioskModalBackdrop(event)">
         <div class="modal-box kiosk-modal-box" role="dialog" aria-modal="true" aria-label="Kiosk mode">
         <div class="kiosk-modal-head"><span class="kiosk-modal-title">Kiosk mode</span><button type="button" class="modal-close" onclick="kioskModalClose()" aria-label="Close">&times;</button></div>
@@ -197,7 +258,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
             {{if .KioskApps}}
               {{$current := .KioskConfig.KioskPackage}}{{$found := false}}
               <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{$current}}">
-              <div id="kiosk-apps-src" hidden>{{range .KioskApps}}{{if eq .PackageName $current}}{{$found = true}}{{end}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}"></i>{{end}}{{if and (ne $current "") (not $found)}}<i data-value="{{$current}}" data-name="{{$current}}" data-missing="1"></i>{{end}}</div>
+              <div id="kiosk-apps-src" hidden>{{range .KioskApps}}{{if eq .PackageName $current}}{{$found = true}}{{end}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}{{if and (ne $current "") (not $found)}}<i data-value="{{$current}}" data-name="{{$current}}" data-missing="1"></i>{{end}}</div>
               <div class="kpk" id="kiosk-picker">
                 <div class="kpk-top">
                   <span class="kpk-search">
@@ -240,16 +301,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         </div>
       </div>
     </span>
-    {{/* Wireless-charging toggle — only for devices that report a pad (wlc_status). Updates
-         the pill in place via fetch (no page reload); the device applies it on next check-in. */}}
+    {{/* Wireless-charging toggle handler — the visible switch lives in the action
+         ribbon (#wlc-chip). Defined here once; guarded so it only ships for devices
+         that report a pad, matching the ribbon switch's own guard. */}}
     {{$wlc := extraField .Device.LatestExtra "wlc_status"}}
     {{if and $wlc (ne $wlc "—")}}
-    <button type="button" id="wlc-chip" class="ddc-chip ddc-chip-btn{{if .KioskConfig.WlcChargingEnabled}} on{{end}}"
-            data-on="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}"
-            data-serial="{{.Device.SerialNumber}}"
-            title="Toggle wireless charging on this pad" onclick="wlcToggle(this)">
-      <span class="k">Charging</span><span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}on{{else}}off{{end}}</span>
-    </button>
     <script>
     window.wlcToggle = function (btn) {
       var cur = btn.getAttribute('data-on') === '1';
@@ -258,7 +314,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       var apply = function (v) {
         btn.setAttribute('data-on', v ? '1' : '0');
         btn.classList.toggle('on', v);
-        if (st) st.textContent = v ? 'on' : 'off';
+        if (st) st.textContent = v ? 'enabled' : 'disabled';
       };
       apply(next); // optimistic
       btn.disabled = true;
@@ -332,22 +388,30 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </div>
     </span>{{else if not .DeviceGroups}}<span class="muted">None</span>{{end}}</span></div>
   </div>
-  <div class="ddc-card">
-    <div class="ddc-card-t">Hardware</div>
-    {{$ram := ramUsage .Device.LatestExtra}}
-    <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Total RAM</span><span class="v">{{if $ram}}{{mbToGB (index $ram "total")}}{{else}}—{{end}}</span></div>
-    {{if .Device.HasBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
-    <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
-    <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
+  {{/* Charging pad — one widget combining the live occupancy status and the
+       enable/disable control. Rendered only for devices that report a pad. */}}
+  {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}
+  {{if and $wlcS (ne $wlcS "—")}}
+  <div class="ddc-card" id="charging-pad-card">
+    <div class="ddc-card-t pad-card-t">
+      <span>Charging pad</span>
+      {{if canAdminOrTester .Role}}
+      <button type="button" id="wlc-chip" class="ddc-swpill pad-swpill{{if .KioskConfig.WlcChargingEnabled}} on{{end}}"
+              data-on="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}"
+              data-serial="{{.Device.SerialNumber}}"
+              title="Enable or disable wireless charging on this pad" onclick="wlcToggle(this)">
+        <span class="ddc-kstate">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span><span class="ddc-sw"></span>
+      </button>
+      {{else}}
+      <span class="{{if .KioskConfig.WlcChargingEnabled}}pad-en{{else}}muted{{end}}">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span>
+      {{end}}
+    </div>
+    <div class="ddc-kv"><span class="k">Status</span><span class="v">
+      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}nopad{{else}}bad{{end}}" id="pad-status">
+        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Device placed{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}No pad{{else}}Unreadable{{end}}</span>
+      </span></span></div>
   </div>
-  <div class="ddc-card">
-    <div class="ddc-card-t">Software</div>
-    <div class="ddc-kv"><span class="k">Build</span><span class="v ddc-build-kv">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
-    {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
-    <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
-  </div>
+  {{end}}
   {{template "device-notes" .}}
 </aside>
 <div class="ddc-main">
@@ -356,6 +420,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>
   <button class="dd-tab" id="dd-tab-history" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-history" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>
   <button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashes}} <span class="dd-tab-n">{{len .DeviceCrashes}}</span>{{end}}</button>
+  <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
 </div>
 
 <section class="dd-panel" data-dd-panel="summary" id="dd-panel-summary" role="tabpanel" aria-labelledby="dd-tab-summary" tabindex="0">
@@ -405,6 +470,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .kpk-opt.kbd{box-shadow:0 0 0 2px var(--accent);}
 .kpk-opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .kpk-tile{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none;}
+.kpk-tile.kpk-img{object-fit:contain;background:var(--surface-3);padding:2px;}
 .kpk-tile.none{background:var(--surface-2,var(--surface));color:var(--muted);border:1px dashed var(--border-strong,var(--border));}
 .kpk-txt{min-width:0;display:flex;flex-direction:column;}
 .kpk-nm{font-size:12px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -433,13 +499,20 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <div class="chart-loading" id="chart-loading" aria-live="polite"><span class="chart-spin" aria-hidden="true"></span><span class="chart-loading-t">Loading graphs…</span></div>
   <div class="chart-zoom-hint" id="chart-zoom-hint" aria-hidden="true">Zoom with Ctrl + scroll</div>
   <div class="card-header">
-    <h3>Device Graphs</h3>
-    <div style="display:flex;align-items:center;gap:10px;">
+    <div class="gcontrols">
+      <span id="chart-info" class="muted small gc-info"></span>
       {{$devtz := extraField .Device.LatestExtra "timezone"}}
       {{if and $devtz (ne $devtz "—") (ne $devtz "")}}
-      <button type="button" id="tz-toggle" class="dur-btn" title="Show times in your timezone or the device's ({{$devtz}})">Your time</button>
+      {{/* Timezone control as a two-option segment: the active half is the timezone
+           the graph is currently showing, so there's no "does this label mean now or
+           after I click" ambiguity the old single-button toggle had. */}}
+      <div class="gc-tzseg" id="tz-seg" role="group" aria-label="Graph timezone"
+           title="Show graph times in your timezone or the device's ({{$devtz}})">
+        <span class="gc-tzlbl"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <button type="button" class="gc-tzb active" data-tz="browser">You</button>
+        <button type="button" class="gc-tzb" data-tz="device">Device</button>
+      </div>
       {{end}}
-      <span id="chart-info" class="muted small"></span>
       <div class="dur-btns">
         <button class="dur-btn" data-ms="3600000">1h</button>
         <button class="dur-btn active" data-ms="21600000">6h</button>
@@ -478,30 +551,67 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           <button type="button" class="cr-reset" id="reset-range-btn">Reset to 6h</button>
         </div>
       </div>
-      <button type="button" id="chart-export-btn" class="dur-btn" title="Download this chart as a PNG">⤓ PNG</button>
-      <button type="button" id="chart-reset-btn" class="dur-btn" title="Reset the graph to the default window">↺ Reset</button>
-      <button type="button" id="chart-fs-btn" class="dur-btn" title="View graphs full screen" aria-label="View graphs full screen">⤢ Full screen</button>
+      <span class="gc-div" aria-hidden="true"></span>
+      <div class="gc-tools">
+        <button type="button" class="dur-btn gc-tool gc-zoom" title="Zoom out" aria-label="Zoom out" onclick="chartZoom(-1)">−</button>
+        <button type="button" class="dur-btn gc-tool gc-zoom" title="Zoom in" aria-label="Zoom in" onclick="chartZoom(1)">+</button>
+        <button type="button" id="chart-export-btn" class="dur-btn gc-tool" title="Download this chart as a PNG" aria-label="Download PNG">⤓</button>
+        <button type="button" id="chart-reset-btn" class="dur-btn gc-tool" title="Reset the graph to the default window" aria-label="Reset graph">↺</button>
+        <button type="button" id="chart-fs-btn" class="dur-btn gc-tool" title="View graphs full screen" aria-label="View graphs full screen">⤢</button>
+      </div>
     </div>
   </div>
   <div class="chart-tabs">
-    {{if .Device.HasBattery}}<button class="chart-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="8" width="16" height="8" rx="2"/><path d="M20 11v2"/><path d="M6 12h4"/></svg>Battery
-    </button>{{end}}
-    <button class="chart-tab{{if not .Device.HasBattery}} active{{end}}" data-chart-tab="temp" onclick="setChartTab('temp')">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 14.76V4a2 2 0 0 0-4 0v10.76a4 4 0 1 0 4 0z"/></svg>Temp
-    </button>
-    <button class="chart-tab" data-chart-tab="ram" onclick="setChartTab('ram')">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01M8 6V4M12 6V4M16 6V4M8 18v2M12 18v2M16 18v2"/></svg>RAM
-    </button>
-    <button class="chart-tab" data-chart-tab="all" onclick="setChartTab('all')">
-      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>All
-    </button>
+    {{if .Device.HasBattery}}<button class="chart-tab active" data-chart-tab="battery" onclick="setChartTab('battery')">Battery</button>{{end}}
+    <button class="chart-tab{{if not .Device.HasBattery}} active{{end}}" data-chart-tab="temp" onclick="setChartTab('temp')">Temp</button>
+    <button class="chart-tab" data-chart-tab="ram" onclick="setChartTab('ram')">RAM</button>
+    <button class="chart-tab" data-chart-tab="all" onclick="setChartTab('all')">All</button>
     <span class="chart-hint muted small" title="Drag to zoom to a span · Ctrl+drag to pan · Ctrl+scroll to zoom in/out · double-click to reset">drag: zoom · ctrl+drag: pan · dbl-click: reset</span>
   </div>
 
   <style>
   .chart-hint{margin-left:auto;font-size:11px;color:var(--text-faint);white-space:nowrap;}
   #chart-export-btn{cursor:pointer;}
+  /* Visible-window label — subtle, in the footer below the graph. */
+  .chart-wlabel{font-size:11px;font-weight:600;color:var(--text-faint);opacity:.72;font-variant-numeric:tabular-nums;white-space:nowrap;letter-spacing:.01em;}
+  /* The toolbar takes its own full-width row. It wraps (never scrolls) if the column
+     is too narrow — an overflow scrollbar in a toolbar reads as broken. */
+  .chart-card > .card-header{flex-wrap:wrap;}
+  .chart-card > .card-header > h3{flex:0 0 auto;}
+
+  /* ---- revamped graph controls ---- */
+  /* Spread the groups across the full width instead of hugging the right edge. */
+  .gcontrols{flex:1 1 100%;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:space-between;}
+  .gc-info{display:none;}
+
+  /* Subtle tab pills: no icons, no values, quiet until active. */
+  .chart-tabs .chart-tab{border-color:transparent;background:transparent;color:var(--text-faint);font-weight:600;padding:5px 13px;}
+  .chart-tabs .chart-tab:hover{background:var(--surface-3);color:var(--text);border-color:transparent;}
+  .chart-tabs .chart-tab.active{background:var(--surface-3);color:var(--text);border-color:transparent;box-shadow:none;}
+  /* Duration = one connected segmented control (was a loose row of pills). */
+  .gcontrols .dur-btns{gap:2px;background:var(--surface-3);border:1px solid var(--border);border-radius:10px;padding:2px;}
+  .gcontrols .dur-btns .dur-btn{border:1px solid transparent;background:transparent;border-radius:8px;padding:5px 11px;color:var(--text-faint);font-weight:650;}
+  .gcontrols .dur-btns .dur-btn:hover{color:var(--text);border-color:transparent;background:var(--surface);}
+  .gcontrols .dur-btns .dur-btn.active{background:var(--surface);color:var(--accent-text);border-color:transparent;box-shadow:0 1px 2px rgba(20,22,40,.10);}
+  #chart-shift-prev,#chart-shift-next{font-size:15px;line-height:1;padding:5px 9px;}
+  /* Utility cluster (tz · PNG · Reset · Fullscreen) sits behind a divider. */
+  .gc-div{width:1px;align-self:stretch;min-height:22px;background:var(--border);margin:0 2px;}
+  .gc-tools{display:flex;gap:3px;}
+  .gcontrols .gc-tool{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:16px;line-height:1;background:transparent;border-color:transparent;color:var(--text-faint);}
+  .gcontrols .gc-tz{background:transparent;border-color:transparent;color:var(--text-faint);font-weight:650;}
+  .gcontrols .gc-tool:hover,.gcontrols .gc-tz:hover{background:var(--surface-3);color:var(--text);border-color:transparent;}
+  .gcontrols .gc-tz.active{background:var(--accent-soft);color:var(--accent-text);}
+  /* Segmented timezone control (You | Device) */
+  .gc-tzseg{display:inline-flex;align-items:center;gap:2px;background:var(--surface-3);border:1px solid var(--border);border-radius:10px;padding:2px;}
+  .gc-tzlbl{display:inline-flex;align-items:center;color:var(--text-faint);padding:0 4px 0 5px;}
+  .gc-tzb{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:650;padding:5px 10px;border-radius:8px;cursor:pointer;line-height:1.4;}
+  .gc-tzb:hover{color:var(--text);}
+  .gc-tzb.active{background:var(--surface);color:var(--accent-text);box-shadow:0 1px 2px rgba(20,22,40,.10);}
+
+  /* ---- Design-1 tab value badges ---- */
+  .chart-tab .tabval{font-variant-numeric:tabular-nums;font-weight:800;margin-left:2px;color:var(--text);}
+  .chart-tab:not(.active) .tabval{color:var(--text-faint);}
+  .chart-tab .tabval:empty{display:none;}
   /* Full-screen graphs: the chart-card fills the viewport and the active chart wrap
      grows to take the leftover height so the graph is large. */
   .chart-card:fullscreen{background:var(--surface);padding:18px 22px;display:flex;flex-direction:column;overflow:auto;}
@@ -517,11 +627,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <div id="chart-panel-battery">
     <div class="wlc-bar">
       <div class="chart-legend" id="wlc-legend">
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> WLC On</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> WLC Off</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> Device placed</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Charging pad vacant</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#b2bec3;"></span> Pad Unreadable</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="height:0;border-top:2px dashed #7a7f9a;"></span> Draining</span>
       </div>
     </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
@@ -550,8 +659,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="chart-wrap chart-wrap--tall"><canvas id="unifiedChart"></canvas></div>
   </div>
 
-  <div id="chart-footer" style="border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;font-variant-numeric:tabular-nums;">
+  <div id="chart-footer" style="border-top:1px solid var(--border);padding:7px 16px;font-size:12px;color:var(--muted);min-height:32px;font-variant-numeric:tabular-nums;display:flex;align-items:center;justify-content:space-between;gap:12px;">
     <span id="chart-footer-text">—</span>
+    {{/* Visible-window label — subtle, below the graph. A wide custom/shifted range
+         lives here so it can never wrap the toolbar. */}}
+    <span class="chart-wlabel" id="chart-window-label"></span>
   </div>
 </div>
 
@@ -582,6 +694,14 @@ function mdmBootCharts() {
   const _cs = getComputedStyle(document.documentElement);
   const GRID = (_cs.getPropertyValue('--chart-grid') || '').trim() || 'rgba(46,51,71,0.8)';
   const TICK = (_cs.getPropertyValue('--chart-tick') || '').trim() || '#7a7f9a';
+  // Nicer axis labels everywhere: use the app's UI font, a smaller weight-600 tick,
+  // and a touch of padding so numbers don't kiss the plot. Applies to all charts.
+  if (window.Chart && Chart.defaults) {
+    Chart.defaults.font.family = (getComputedStyle(document.body).fontFamily || 'inherit');
+    Chart.defaults.font.size = 11;
+    Chart.defaults.font.weight = 600;
+    Chart.defaults.color = TICK;
+  }
   // Devices without a battery (kiosks) get no battery series at all — the tab,
   // panel, and unified legend/line are all omitted, so this stays empty.
   const HAS_BATTERY = {{if .Device.HasBattery}}true{{else}}false{{end}};
@@ -715,6 +835,101 @@ function mdmBootCharts() {
     return out;
   }
 
+  // Battery % arrives integer-quantised and very dense (tens of thousands of points
+  // over history). Drawn raw, a 1% change between two touching samples renders as a
+  // vertical stair no spline can round. This buckets the visible window into ~targetN
+  // even-time buckets and averages each, yielding FRACTIONAL, evenly-spaced points a
+  // cubic spline can flow through — smooth and accurate (centred, so no EMA-style lag
+  // or drift), and far fewer points to draw. Null gap-markers split runs so offline
+  // breaks survive; each bucket keeps its last raw wlc for segment colouring.
+  function resampleAvg(points, targetN) {
+    if (!points || points.length <= targetN) return points;
+    const runs = []; let cur = [];
+    for (let i = 0; i < points.length; i++) {
+      if (points[i].y == null) { if (cur.length) { runs.push(cur); cur = []; } }
+      else cur.push(points[i]);
+    }
+    if (cur.length) runs.push(cur);
+    const total = runs.reduce((s, r) => s + r.length, 0) || 1;
+    const out = [];
+    for (let ri = 0; ri < runs.length; ri++) {
+      const run = runs[ri];
+      if (ri > 0) { const pe = runs[ri - 1]; out.push({ x: (pe[pe.length - 1].x + run[0].x) / 2, y: null }); }
+      const share = Math.max(2, Math.round(targetN * run.length / total));
+      if (run.length <= share) { for (let k = 0; k < run.length; k++) out.push(run[k]); continue; }
+      const x0 = run[0].x, span = (run[run.length - 1].x - x0) || 1;
+      const buckets = new Array(share);
+      for (let k = 0; k < run.length; k++) {
+        let b = Math.floor((run[k].x - x0) / span * share); if (b >= share) b = share - 1; if (b < 0) b = 0;
+        (buckets[b] || (buckets[b] = [])).push(run[k]);
+      }
+      for (let b = 0; b < share; b++) {
+        const arr = buckets[b]; if (!arr || !arr.length) continue;
+        let sy = 0; for (let k = 0; k < arr.length; k++) sy += arr[k].y;
+        const last = arr[arr.length - 1];
+        out.push({ x: arr[Math.floor(arr.length / 2)].x, y: sy / arr.length, wlc: last.wlc });
+      }
+    }
+    return out;
+  }
+
+  // Centred moving average (symmetric window, so no lag/drift like an EMA). Turns the
+  // integer-% staircase into a smooth fractional ramp. Nulls reset the window so
+  // offline breaks stay hard. wlc is carried from the centre sample for colouring.
+  function centeredMA(points, win) {
+    if (!points || points.length < 3) return points;
+    const half = Math.max(1, Math.floor(win / 2));
+    const out = new Array(points.length);
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (p.y == null) { out[i] = p; continue; }
+      let sum = 0, cnt = 0;
+      for (let j = i - half; j <= i + half; j++) {
+        if (j < 0 || j >= points.length) continue;
+        const q = points[j];
+        if (!q || q.y == null) continue;
+        sum += q.y; cnt++;
+      }
+      out[i] = cnt ? { x: p.x, y: sum / cnt, wlc: p.wlc } : p;
+    }
+    return out;
+  }
+
+  // Battery % holds flat for long runs then steps by 1. Plotting every check-in draws
+  // that staircase. Instead keep only the points where the value CHANGES (the corners),
+  // placed at the midpoint of each flat run so the step is centred, then let the cubic
+  // spline flow through them — a smooth curve that still passes through the real values.
+  // Nulls (offline gaps) pass through untouched; endpoints are always kept.
+  function toChangePoints(points) {
+    if (!points || points.length < 3) return points;
+    const out = [];
+    let runStart = 0;
+    function flush(endIdxExclusive) {
+      const a = points[runStart], b = points[endIdxExclusive - 1];
+      const midX = (a.x + b.x) / 2;
+      out.push({ x: midX, y: a.y, wlc: b.wlc });
+    }
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (p.y == null) {
+        if (i > runStart) flush(i);
+        out.push(p);                 // gap marker
+        runStart = i + 1;
+        continue;
+      }
+      if (i > runStart && points[i].y !== points[runStart].y) {
+        flush(i);                    // value changed — close the previous flat run
+        runStart = i;
+      }
+    }
+    if (runStart < points.length && points[points.length - 1].y != null) flush(points.length);
+    // Always anchor the true first and last samples so the curve spans the full window.
+    const first = points[0], last = points[points.length - 1];
+    if (first.y != null && (!out.length || out[0].x !== first.x)) out.unshift({ x: first.x, y: first.y, wlc: first.wlc });
+    if (last.y != null && out[out.length - 1].x !== last.x) out.push({ x: last.x, y: last.y, wlc: last.wlc });
+    return out;
+  }
+
   let currentDuration = 6 * 3600 * 1000;
   let customMin = null, customMax = null;
   let batteryChart, tempChart, ramChart, unifiedChart;
@@ -743,14 +958,15 @@ function mdmBootCharts() {
   // spans more than one calendar day (e.g. a 48h+ range), the first tick of each
   // day also carries a "Mon D" date line below the time, so a multi-day window
   // isn't an ambiguous wall of times. `this` is the Chart.js scale (min/max in ms).
-  function fmtTimeAxis(ms, index, ticks) {
+  function fmtTimeAxis(ms) {
     const t = fmtTime(ms);
-    const scale = this;
-    const multiDay = scale && scale.min != null && scale.max != null && !sameCalendarDay(scale.min, scale.max);
-    if (!multiDay) return t;
-    let boundary = index === 0;
-    if (!boundary && ticks && ticks[index - 1]) boundary = !sameCalendarDay(ticks[index - 1].value, ms);
-    return boundary ? [t, new Date(ms).toLocaleDateString([], tzArg({month: "short", day: "numeric"}))] : t;
+    const d = new Date(ms);
+    // The date label appears only on the midnight (12 AM) tick of each day; every
+    // other tick shows just the time. Ticks are midnight-aligned in evenTimeTicks,
+    // so a spanned day always gets exactly one dated tick.
+    const isMidnight = d.getHours() === 0 && d.getMinutes() === 0;
+    if (!isMidnight) return t;
+    return [t, d.toLocaleDateString([], tzArg({month: "short", day: "numeric"}))];
   }
 
   // A segment spans p0 -> p1. The WLC state that held across that span is p0's:
@@ -808,8 +1024,10 @@ function mdmBootCharts() {
 
   function applyData(chart, all) {
     const { pts, minX, lastX } = filterWindow(all);
+    // Battery: resample the dense integer window to ~220 fractional bucket-averages
+    // so the spline flows smoothly; other metrics vary enough to draw raw.
     chart.data.datasets[0].data = (chart === batteryChart)
-      ? smoothBatterySeries(insertGaps(pts), 0.32)
+      ? toChangePoints(insertGaps(pts))
       : insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
@@ -823,7 +1041,7 @@ function mdmBootCharts() {
   function applyUnifiedData() {
     if (!unifiedChart) return;
     const { pts: bPts, minX, lastX } = filterWindow(allBattery);
-    unifiedChart.data.datasets[0].data = smoothBatterySeries(insertGaps(bPts));
+    unifiedChart.data.datasets[0].data = toChangePoints(insertGaps(bPts));
     unifiedChart.data.datasets[1].data = insertGaps(filterWindow(allTemp).pts);
     unifiedChart.data.datasets[2].data = insertGaps(filterWindow(allRam).pts);
     unifiedChart.options.scales.x.min = minX;
@@ -834,18 +1052,38 @@ function mdmBootCharts() {
   function updateCharts() {
     const { pts } = filterWindow(allBattery);
     const labels = {3600000: "1h", 21600000: "6h", 43200000: "12h", 86400000: "24h", 172800000: "48h"};
-    if (customMin !== null && customMax !== null) {
-      // Custom range: show it as plain muted text (the popover holds the controls).
-      document.getElementById("chart-info").textContent = fmtDate(customMin) + " \u2013 " + fmtDate(customMax);
-    } else {
-      document.getElementById("chart-info").textContent = "Last " + (labels[currentDuration] || "");
-    }
+    // The window label renders on the graph (#chart-window-label), not in the control
+    // row, so a wide custom/shifted range can't wrap the toolbar. The old #chart-info
+    // slot is kept empty to hold the row's layout stable.
+    var _wtext = (customMin !== null && customMax !== null)
+      ? fmtDate(customMin) + " \u2013 " + fmtDate(customMax)
+      : "Last " + (labels[currentDuration] || "");
+    var _wl = document.getElementById("chart-window-label");
+    if (_wl) _wl.textContent = _wtext;
+    var _ci = document.getElementById("chart-info");
+    if (_ci) _ci.textContent = "";
 
     if (batteryChart) applyData(batteryChart, allBattery);
     if (tempChart) applyData(tempChart, allTemp);
     if (ramChart) applyData(ramChart, allRam);
     applyUnifiedData();
     syncMarkerToggle();
+    refreshTabVals();
+  }
+
+  // Live per-tab value badges (Design-1 style): show each metric's latest reading on
+  // its tab so all numbers are visible without switching. Newest point is last.
+  function refreshTabVals() {
+    function set(id, arr, suffix) {
+      var el = document.getElementById(id);
+      if (!el || !arr || !arr.length) return;
+      var v = arr[arr.length - 1].y;
+      if (v == null || isNaN(v)) return;
+      el.textContent = (Math.round(v * 10) / 10) + suffix;
+    }
+    {{if .Device.HasBattery}}set('tabval-battery', allBattery, '%');{{end}}
+    set('tabval-temp', allTemp, '°C');
+    set('tabval-ram', allRam, '%');
   }
 
   function nearestInArray(arr, ms) {
@@ -870,8 +1108,8 @@ function mdmBootCharts() {
       // WLC text comes from the raw nearest reading (not the smoothed line), so the
       // label is the exact wireless-charging state recorded at that checkin.
       let s = 'Battery: ' + bPt.y + '%';
-      if (bPt.wlc === 1) s += ' · ⚡ WLC On';
-      else if (bPt.wlc === 0) s += ' · WLC Off';
+      if (bPt.wlc === 1) s += ' · ⚡ Device placed';
+      else if (bPt.wlc === 0) s += ' · Charging pad vacant';
       else if (bPt.wlc === 2) s += ' · ⚠ WLC Pad Disconnected';
       else if (bPt.wlc !== undefined && bPt.wlc !== null) s += ' · ⚠ Pad Unreadable';
       parts.push(s);
@@ -920,7 +1158,12 @@ function mdmBootCharts() {
     for (let i = 0; i < TICK_STEPS_MS.length; i++) {
       if (span / TICK_STEPS_MS[i] <= target) { step = TICK_STEPS_MS[i]; break; }
     }
-    const first = Math.ceil(min / step) * step;
+    // Anchor the tick grid to local midnight (not the UTC epoch) so a tick lands
+    // exactly on 12 AM — every step here divides a day — which is where fmtTimeAxis
+    // prints the date. Falls back cleanly for sub-hour steps within a single day.
+    const base0 = new Date(min); base0.setHours(0, 0, 0, 0);
+    const base = base0.getTime();
+    const first = base + Math.ceil((min - base) / step) * step;
     const ticks = [];
     for (let t = first; t <= max && ticks.length < 64; t += step) ticks.push({ value: t });
     if (ticks.length) axis.ticks = ticks;
@@ -930,8 +1173,9 @@ function mdmBootCharts() {
     return {
       type: "linear",
       afterBuildTicks: evenTimeTicks,
-      ticks: { color: TICK, maxRotation: 0, minRotation: 0, callback: fmtTimeAxis, autoSkip: false },
+      ticks: { color: TICK, maxRotation: 0, minRotation: 0, callback: fmtTimeAxis, autoSkip: false, padding: 8 },
       grid: { display: false },
+      border: { display: false },
     };
   }
 
@@ -1168,7 +1412,8 @@ function mdmBootCharts() {
       datasets: [{
         label: "Battery %",
         data: [],
-        tension: 0.4,
+        tension: 0.55,
+        cubicInterpolationMode: "default",
         fill: true,
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -1178,8 +1423,10 @@ function mdmBootCharts() {
         borderJoinStyle: "round",
         spanGaps: false,
         segment: {
+          // Solid line everywhere for a smooth curve. WLC state is still shown by
+          // per-segment colour below; discharge is no longer dashed (it read as
+          // "jagged/broken" against the smoothed line).
           borderColor: ctx => segColor(ctx),
-          borderDash: ctx => (ctx.p1.raw && ctx.p0.raw && ctx.p1.raw.y < ctx.p0.raw.y) ? [5, 3] : [],
         },
         backgroundColor: (ctx) => {
           const chart = ctx.chart;
@@ -1202,17 +1449,17 @@ function mdmBootCharts() {
       },
       scales: {
         x: sharedXScale(),
-        y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20 }, grid: { color: GRID } },
+        y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
     plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
-    if (pt.wlc === 1) return line + ' ⚡ WLC On';
-    if (pt.wlc === 0) return line + ' — WLC Off';
-    if (pt.wlc === 2) return line + ' ⚠ WLC Pad Disconnected';
-    if (pt.wlc !== undefined && pt.wlc !== null) return line + ' ⚠ WLC Pad Unreadable';
+    if (pt.wlc === 1) return line + ' ⚡ Device placed';
+    if (pt.wlc === 0) return line + ' — Charging pad vacant';
+    if (pt.wlc === 2) return line + ' ⚠ No pad';
+    if (pt.wlc !== undefined && pt.wlc !== null) return line + ' ⚠ Pad unreadable';
     return line;
   };
   batteryChart._commandMarkers = commandMarkers;
@@ -1257,7 +1504,7 @@ function mdmBootCharts() {
       },
       scales: {
         x: sharedXScale(),
-        y: { ticks: { color: TICK, callback: v => v + "°C" }, grid: { color: GRID } },
+        y: { ticks: { color: TICK, callback: v => v + "°C", padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
     plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
@@ -1304,7 +1551,7 @@ function mdmBootCharts() {
       },
       scales: {
         x: sharedXScale(),
-        y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20 }, grid: { color: GRID } },
+        y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
     plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
@@ -1334,7 +1581,7 @@ function mdmBootCharts() {
           label: 'Battery %', data: [], yAxisID: 'yPct',
           borderColor: '#f9674e', backgroundColor: 'rgba(249,103,78,0.10)',
           borderWidth: 2, pointRadius: 0, spanGaps: false,
-          tension: 0.4,
+          tension: 0.55,
           borderCapStyle: 'round', borderJoinStyle: 'round', fill: true,
         },
         {
@@ -1520,17 +1767,17 @@ function mdmBootCharts() {
     btn.addEventListener("click", function () { presetRange(btn.dataset.preset); });
   });
 
-  // Timezone toggle: flip between the viewer's browser timezone and the device's, then
-  // re-render so graph axes, tooltips and the range label all switch. The check-in modal
-  // re-reads tzArg() the next time it opens.
-  var tzBtn = document.getElementById("tz-toggle");
-  if (tzBtn && !window.DEVICE_TZ) tzBtn.style.display = "none"; // device tz unusable → no toggle
-  if (tzBtn && window.DEVICE_TZ) {
-    tzBtn.addEventListener("click", function () {
-      window.TZ_MODE = (window.TZ_MODE === 'device') ? 'browser' : 'device';
-      tzBtn.textContent = (window.TZ_MODE === 'device') ? 'Device time' : 'Your time';
-      tzBtn.classList.toggle('active', window.TZ_MODE === 'device');
-      updateCharts();
+  // Timezone segment: each half switches the graph timezone (viewer's vs device's) and
+  // re-renders axes, tooltips and the range label. The active half is the current mode.
+  var tzSeg = document.getElementById("tz-seg");
+  if (tzSeg && !window.DEVICE_TZ) tzSeg.style.display = "none"; // device tz unusable → hide
+  if (tzSeg && window.DEVICE_TZ) {
+    tzSeg.querySelectorAll(".gc-tzb").forEach(function (b) {
+      b.addEventListener("click", function () {
+        window.TZ_MODE = (b.getAttribute("data-tz") === "device") ? "device" : "browser";
+        tzSeg.querySelectorAll(".gc-tzb").forEach(function (x) { x.classList.toggle("active", x === b); });
+        updateCharts();
+      });
     });
   }
 
@@ -1559,10 +1806,20 @@ function mdmBootCharts() {
     if (customMin !== null && customMax !== null) return [customMin, customMax];
     var xs = chart.scales.x; return [xs.min, xs.max];
   }
+  // Toolbar +/- zoom: zoom the active chart's window around its centre. Explicit
+  // buttons work regardless of full-screen (unlike the trackpad-pinch gate).
+  window.chartZoom = function (dir) {
+    var chart = activeChartObj(); if (!chart) return;
+    var b = windowBounds(chart); if (!b) return;
+    var a = b[0], z = b[1]; if (a == null || z == null) return;
+    var pivot = (a + z) / 2, f = dir > 0 ? 0.8 : 1.25; // + zooms in, - zooms out
+    applyZoomWindow(pivot - (pivot - a) * f, pivot + (z - pivot) * f);
+  };
   // Flash the "Zoom with Ctrl + scroll" overlay when the user scrolls without Ctrl.
   var _zoomHintTimer = null;
-  function showZoomHint() {
+  function showZoomHint(msg) {
     var el = document.getElementById('chart-zoom-hint'); if (!el) return;
+    el.textContent = msg || 'Zoom with Ctrl + scroll';
     el.classList.add('show');
     clearTimeout(_zoomHintTimer);
     _zoomHintTimer = setTimeout(function () { el.classList.remove('show'); }, 1100);
@@ -1619,7 +1876,10 @@ function mdmBootCharts() {
       if (x < ca.left || x > ca.right) return;
       // Plain scroll is left to the page; zoom is Ctrl+scroll so the graph doesn't
       // trap the wheel. Surface that with a brief overlay when the user just scrolls.
-      if (!e.ctrlKey) { showZoomHint(); return; }
+      if (!e.ctrlKey) { showZoomHint(document.fullscreenElement ? undefined : 'Enter full screen to zoom'); return; }
+      // Trackpad pinch arrives as ctrl+wheel. Only allow the graph to zoom in full
+      // screen; inline, leave the wheel alone so a pinch doesn't hijack the chart.
+      if (!document.fullscreenElement) { showZoomHint('Enter full screen to zoom'); return; }
       e.preventDefault();
       var bounds = windowBounds(chart), a = bounds[0], b = bounds[1];
       if (a == null || b == null) return;
@@ -1818,38 +2078,70 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
 
 </section><!-- /summary -->
 
+<section class="dd-panel" data-dd-panel="about" id="dd-panel-about" role="tabpanel" aria-labelledby="dd-tab-about" tabindex="0" hidden>
+  <style>
+  .about-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;}
+  </style>
+  <div class="about-grid">
+    <div class="ddc-card">
+      <div class="ddc-card-t">Hardware</div>
+      {{$ram := ramUsage .Device.LatestExtra}}
+      <div class="ddc-kv"><span class="k">Storage free</span><span class="v">{{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}{{$sf}} GB{{else}}—{{end}}</span></div>
+      <div class="ddc-kv"><span class="k">Total RAM</span><span class="v">{{if $ram}}{{mbToGB (index $ram "total")}}{{else}}—{{end}}</span></div>
+      {{if .Device.HasBattery}}<div class="ddc-kv"><span class="k">Battery cycles</span><span class="v" title="{{if .Device.DischargeBackfilled}}{{.Device.DischargeTotalPct}}% discharged lifetime{{else}}Seeding from history…{{end}}">{{if .Device.DischargeBackfilled}}{{printf "%.1f" .Device.BatteryCycles}}{{else}}<span class="muted">—</span>{{end}}</span></div>{{end}}
+      <div class="ddc-kv"><span class="k">Timezone</span><span class="v">{{$tz := extraField .Device.LatestExtra "timezone"}}{{if and $tz (ne $tz "—")}}{{$tz}}{{else}}—{{end}}</span></div>
+      <div class="ddc-kv"><span class="k">IP</span><span class="v mono">{{$ip := extraField .Device.LatestExtra "ip_address"}}{{if and $ip (ne $ip "—")}}{{$ip}}{{else}}—{{end}}</span></div>
+      <div class="ddc-kv"><span class="k">Location</span><span class="v loc-addr">{{$lat := extraField .Device.LatestExtra "latitude"}}{{$lon := extraField .Device.LatestExtra "longitude"}}{{$addr := extraField .Device.LatestExtra "location_address"}}{{if and $lat $lon (ne $lat "—") (ne $lon "—")}}<a href="https://maps.google.com/?q={{$lat}},{{$lon}}" target="_blank" rel="noopener" class="link-detail">{{if and $addr (ne $addr "—")}}{{$addr}}{{else}}{{$lat}}, {{$lon}}{{end}}</a>{{else}}—{{end}}</span></div>
+    </div>
+    <div class="ddc-card">
+      <div class="ddc-card-t">Software</div>
+      <div class="ddc-kv"><span class="k">Build</span><span class="v ddc-build-kv">{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else if .Device.BuildID}}{{.Device.BuildID}}{{else}}—{{end}}</span></div>
+      {{$kp := .KioskConfig.KioskPackage}}{{$kn := ""}}{{range .InstalledPackages}}{{if eq .PackageName $kp}}{{$kn = .AppName}}{{end}}{{end}}
+      <div class="ddc-kv"><span class="k">Kiosk app</span><span class="v"{{if $kp}} title="{{$kp}}"{{end}}>{{if $kp}}{{if $kn}}{{$kn}}{{else}}<span class="mono">{{$kp}}</span>{{end}}{{else}}—{{end}}</span></div>
+    </div>
+  </div>
+</section><!-- /about -->
+
 <section class="dd-panel" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
   <div class="card">
     <div class="card-header">
       <h3>Installed applications</h3>
       <div style="display:flex;align-items:center;gap:10px;">
         <span class="muted small" id="apps-count">{{len .InstalledPackages}} packages</span>
-        {{if canOperate .Role}}<button type="button" class="btn-primary btn-sm" onclick="toggleInstallForm()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Install app</button>{{end}}
+        {{if canOperate .Role}}<button type="button" class="btn-primary btn-sm" onclick="installModalOpen()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Install app</button>{{end}}
       </div>
     </div>
     {{if canOperate .Role}}
-    <div class="app-install" id="install-form" hidden>
-      <form action="/devices/{{.Device.SerialNumber}}/commands" method="POST" class="device-action-form" style="padding:14px 18px;">
-        <input type="hidden" name="type" value="install_apk">
+    {{/* Install picker — an app-drawer-style popup: pick a repository app from the grid
+         (monogram tiles for now) and it queues an install. */}}
+    <div class="modal-backdrop" id="install-modal" onclick="installModalBackdrop(event)">
+      <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Install app">
+        <div class="install-modal-head">
+          <span class="modal-title">Install app</span>
+          <span class="install-head-actions">
+            {{if canAdmin .Role}}<a href="/settings#applibrary" class="btn-outline btn-sm"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Add app</a>{{end}}
+            <button type="button" class="modal-close" onclick="installModalClose()" aria-label="Close">&times;</button>
+          </span>
+        </div>
         {{if .Apps}}
-        <div class="form-row" style="margin:0;">
-          <label class="form-label">Repository app</label>
-          <div class="device-action-inline">
-            <select name="apk_url" class="form-input" required>
-              <option value="" disabled selected>Select an app…</option>
-              {{range .Apps}}<option value="{{.ApkURL}}">{{.Name}}</option>{{end}}
-            </select>
-            {{if canAdmin .Role}}<button type="button" class="btn-outline btn-plus" onclick="openAppModal()" title="New App"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></button>{{end}}
-            <button type="submit" class="btn-primary">Install</button>
-          </div>
-          <span class="muted small">Queued and delivered on the device's next check-in.</span>
+        <div class="app-search" style="padding:8px 18px 0;"><input type="text" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)"></div>
+        <div class="app-drawer install-drawer" id="install-drawer">
+          {{range .Apps}}
+          <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST" class="install-tile-form" data-app="{{.Name}}">
+            <input type="hidden" name="type" value="install_apk"><input type="hidden" name="apk_url" value="{{.ApkURL}}">
+            <button type="submit" class="app-row app-tile install-tile" title="Install {{.Name}}">
+              {{if .Icon}}<img class="app-icon" src="data:image/png;base64,{{.Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
+              <span class="app-tname">{{.Name}}</span>
+            </button>
+          </form>
+          {{end}}
         </div>
+        <div id="install-no-match" class="muted small" style="display:none;padding:14px 18px;">No apps match your search.</div>
+        <div class="muted small" style="padding:6px 18px 16px;">Queued and delivered on the device's next check-in.</div>
         {{else}}
-        <div class="device-action-note">No apps are in the repository yet.{{if canAdmin .Role}} <button type="button" class="btn-link" onclick="openAppModal()">Add one now</button>, then install it here.{{else}} Ask an admin to add one.{{end}}
-          <input type="hidden" name="apk_url" id="cmd-apk-url">
-        </div>
+        <div class="device-action-note" style="padding:18px;">No apps in the library yet.{{if canAdmin .Role}} <a href="/settings#applibrary" class="btn-link">Add one in Settings → App library</a>.{{else}} Ask an admin to add one.{{end}}</div>
         {{end}}
-      </form>
+      </div>
     </div>
     {{end}}
     <div id="apps-live" data-diff-guard
@@ -1861,6 +2153,32 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
     </div>
   </div>
 </section>
+
+{{/* App-info popup — click any app tile (user or system). Shows details; uninstall is
+     enabled for user apps and disabled for system apps. Reuses data already on the tile. */}}
+<div class="modal-backdrop" id="appinfo-modal" onclick="appInfoBackdrop(event)">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="App info">
+    <div class="appinfo-head">
+      <span class="appinfo-icon" id="ai-icon"></span>
+      <div class="appinfo-id"><div class="appinfo-name" id="ai-name"></div><div class="appinfo-pkg mono" id="ai-pkg"></div></div>
+      <button type="button" class="modal-close" onclick="appInfoClose()" aria-label="Close">&times;</button>
+    </div>
+    <div class="appinfo-body">
+      <div class="appinfo-row"><span class="k">Type</span><span class="v" id="ai-type"></span></div>
+      <div class="appinfo-row"><span class="k">Version</span><span class="v" id="ai-ver"></span></div>
+      <div class="appinfo-row"><span class="k">Package</span><span class="v mono" id="ai-pkg2"></span></div>
+    </div>
+    {{if canOperate .Role}}
+    <div class="appinfo-foot">
+      <span class="appinfo-sysnote muted small" id="ai-sysnote" hidden>System apps can't be uninstalled.</span>
+      <form id="ai-uninstall-form" action="/devices/{{.Device.SerialNumber}}/commands" method="POST" hx-confirm="Uninstall this app from the device?" style="margin:0;">
+        <input type="hidden" name="type" value="uninstall"><input type="hidden" name="package" id="ai-uninstall-pkg" value="">
+        <button type="submit" class="btn-danger-sm" id="ai-uninstall-btn">Uninstall</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+</div>
 
 <script>
 function toggleInstallForm() {
@@ -1878,6 +2196,7 @@ function appsShowAll() {
 // After the apps list live-refreshes (device check-in), re-apply the active search
 // filter (the input is hx-preserved) and refresh the package count.
 function appsAfterRefresh() {
+  colorizeApps();
   var f = document.getElementById('apps-filter');
   filterInstalledApps(f ? f.value : '');
   var c = document.getElementById('apps-count');
@@ -1886,21 +2205,35 @@ function appsAfterRefresh() {
     c.textContent = n + ' package' + (n === 1 ? '' : 's');
   }
 }
+// Deterministic monogram tint per package (no real icons are reported). Translucent
+// fill + mid-tone text read fine in both light and dark themes.
+function colorizeApps() {
+  document.querySelectorAll('.app-mono[data-seed]').forEach(function (el) {
+    var s = el.getAttribute('data-seed') || '', h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    var hue = h % 360;
+    el.style.background = 'hsla(' + hue + ',65%,55%,0.16)';
+    el.style.color = 'hsl(' + hue + ',48%,50%)';
+  });
+}
 function filterInstalledApps(q) {
   q = q.trim().toLowerCase();
   var rows = document.querySelectorAll('#apps-table .app-row');
   var list = document.getElementById('apps-table');
   var btn = document.getElementById('apps-more');
   var noMatch = document.getElementById('apps-no-match');
+  var sep = document.getElementById('apps-sys-sep');
   if (q === '') {
-    // Cleared: restore every row and the collapsed "show all" view.
+    // Cleared: restore every tile and the "System apps" divider.
     rows.forEach(function (row) { row.style.display = ''; });
+    if (sep) sep.style.display = '';
     if (btn) { if (list) list.classList.add('collapsed'); btn.style.display = ''; }
     if (noMatch) noMatch.style.display = 'none';
     return;
   }
-  // Searching: look across every app (no collapse) and hide "show all".
+  // Searching: look across every app, and hide the section divider.
   if (list) list.classList.remove('collapsed');
+  if (sep) sep.style.display = 'none';
   if (btn) btn.style.display = 'none';
   var visible = 0;
   rows.forEach(function (row) {
@@ -1910,8 +2243,198 @@ function filterInstalledApps(q) {
   });
   if (noMatch) noMatch.style.display = (rows.length > 0 && visible === 0) ? '' : 'none';
 }
+colorizeApps();
+// Install picker modal (app-drawer-style grid of repository apps).
+window.installModalOpen = function () {
+  var m = document.getElementById('install-modal'); if (!m) return;
+  m.classList.add('modal-open');
+  colorizeApps();
+  var f = document.getElementById('install-filter');
+  if (f) { f.value = ''; filterInstallApps(''); setTimeout(function () { f.focus(); }, 30); }
+};
+window.installModalClose = function () {
+  var m = document.getElementById('install-modal'); if (m) m.classList.remove('modal-open');
+};
+window.installModalBackdrop = function (e) { if (e.target.id === 'install-modal') window.installModalClose(); };
+// App-info popup — populated from the clicked tile's data attributes + its icon.
+window.appInfoOpen = function (el) {
+  var m = document.getElementById('appinfo-modal'); if (!m || !el) return;
+  var byId = function (id) { return document.getElementById(id); };
+  var name = el.getAttribute('data-name') || '', pkg = el.getAttribute('data-pkg') || '',
+      ver = el.getAttribute('data-ver') || '', sys = el.getAttribute('data-sys') === '1';
+  byId('ai-name').textContent = name;
+  byId('ai-pkg').textContent = pkg;
+  byId('ai-pkg2').textContent = pkg;
+  byId('ai-ver').textContent = ver ? ('v' + ver) : '—';
+  byId('ai-type').innerHTML = sys ? '<span class="ai-badge ai-sys">System app</span>' : '<span class="ai-badge ai-user">User app</span>';
+  var host = byId('ai-icon'); host.innerHTML = '';
+  var ic = el.querySelector('.app-icon, .app-mono');
+  if (ic) { var c = ic.cloneNode(true); c.classList.add('ai-iconimg'); host.appendChild(c); }
+  var form = byId('ai-uninstall-form');
+  if (form) {
+    var btn = byId('ai-uninstall-btn'), note = byId('ai-sysnote');
+    byId('ai-uninstall-pkg').value = pkg;
+    btn.disabled = sys;
+    if (note) note.hidden = !sys;
+  }
+  m.classList.add('modal-open');
+};
+window.appInfoClose = function () { var m = document.getElementById('appinfo-modal'); if (m) m.classList.remove('modal-open'); };
+window.appInfoBackdrop = function (e) { if (e.target.id === 'appinfo-modal') window.appInfoClose(); };
+// Direct-to-S3 APK upload: presigned PUT (browser → S3), then register (server parses
+// package/version/icon from S3), then reload so the new app appears in the grid.
+window.mdmFmtBytes = function (n) { if (n < 1024) return n + ' B'; if (n < 1048576) return (n / 1024).toFixed(0) + ' KB'; if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB'; return (n / 1073741824).toFixed(2) + ' GB'; };
+// PUT to S3 via XHR (fetch can't report upload progress). onProgress(loaded, total).
+window.mdmS3Put = function (url, file, onProgress) {
+  return new Promise(function (resolve, reject) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Content-Type', 'application/vnd.android.package-archive');
+    xhr.upload.onprogress = function (e) { if (e.lengthComputable && onProgress) onProgress(e.loaded, e.total); };
+    xhr.onload = function () { (xhr.status >= 200 && xhr.status < 300) ? resolve() : reject(new Error('S3 upload failed (' + xhr.status + ')')); };
+    xhr.onerror = function () { reject(new Error('network error uploading to S3')); };
+    xhr.send(file);
+  });
+};
+// Lazy-load the (large) in-browser APK parser only when an upload actually happens.
+window.mdmEnsureParser = function () {
+  return new Promise(function (resolve, reject) {
+    if (window.AppInfoParser) return resolve();
+    var s = document.createElement('script');
+    s.src = '/static/vendor/app-info-parser.min.js';
+    s.onload = function () { resolve(); };
+    s.onerror = function () { reject(new Error('could not load APK parser')); };
+    document.head.appendChild(s);
+  });
+};
+// Normalise any icon (png/webp/…) to a 96px base64 PNG via canvas.
+window.mdmIconPng = function (iconStr) {
+  return new Promise(function (resolve) {
+    if (!iconStr) return resolve('');
+    var src = iconStr.indexOf('data:') === 0 ? iconStr : ('data:image/png;base64,' + iconStr);
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var c = document.createElement('canvas'); c.width = 96; c.height = 96;
+        c.getContext('2d').drawImage(img, 0, 0, 96, 96);
+        resolve(c.toDataURL('image/png').split(',')[1] || '');
+      } catch (e) { resolve(''); }
+    };
+    img.onerror = function () { resolve(''); };
+    img.src = src;
+  });
+};
+// Parse the APK IN THE BROWSER (the file is local — no server download), then upload
+// to S3 and register with the parsed metadata. Server only re-parses as a fallback.
+window.uploadApk = function (file) {
+  if (!file) return;
+  var el = document.getElementById('install-upload-status');
+  var set = function (t, err) { if (!el) return; el.hidden = false; el.textContent = t; el.classList.toggle('is-error', !!err); };
+  var meta = { pkg: '', name: '', icon: '' };
+  set('Reading ' + file.name + ' (' + mdmFmtBytes(file.size) + ')…');
+  mdmEnsureParser()
+    .then(function () { return new AppInfoParser(file).parse(); })
+    .then(function (info) {
+      meta.pkg = info.package || '';
+      // Label may be a string OR an array (multi-locale) — always coerce to one string,
+      // or the server's JSON decode (name is a string) fails.
+      var lbl = (info.application && info.application.label) || info.label || meta.pkg;
+      if (Array.isArray(lbl)) lbl = lbl[0];
+      meta.name = String(lbl || meta.pkg);
+      return mdmIconPng(info.icon).then(function (png) { meta.icon = png; });
+    })
+    .catch(function () { /* parse failed → server will fall back to parsing from S3 */ })
+    .then(function () {
+      return fetch('/apps/upload-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ filename: file.name }) });
+    })
+    .then(function (r) { if (!r.ok) throw new Error('could not get upload URL'); return r.json(); })
+    .then(function (d) {
+      set('Uploading ' + file.name + ' (' + mdmFmtBytes(file.size) + ')…');
+      return mdmS3Put(d.url, file, function (loaded, total) {
+        set('Uploading ' + file.name + ' — ' + Math.round(loaded / total * 100) + '% (' + mdmFmtBytes(loaded) + ' / ' + mdmFmtBytes(total) + ')');
+      }).then(function () { return d.key; });
+    })
+    .then(function (key) {
+      set('Saving…');
+      return fetch('/apps/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', body: JSON.stringify({ key: key, package: meta.pkg, name: meta.name, icon: meta.icon }) })
+        .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || 'register failed'); return j; }); });
+    })
+    .then(function (app) {
+      set('Added "' + (app.name || 'app') + '". Reloading…');
+      setTimeout(function () { location.reload(); }, 800);
+    })
+    .catch(function (err) { set('Error: ' + err.message, true); });
+};
+window.filterInstallApps = function (q) {
+  q = (q || '').trim().toLowerCase();
+  var vis = 0;
+  document.querySelectorAll('#install-drawer .install-tile-form').forEach(function (f) {
+    var show = (f.getAttribute('data-app') || '').toLowerCase().indexOf(q) !== -1;
+    f.style.display = show ? '' : 'none'; if (show) vis++;
+  });
+  var nm = document.getElementById('install-no-match');
+  if (nm) nm.style.display = (q && vis === 0) ? '' : 'none';
+};
+// The apps list live-refreshes on check-in (hx-get → innerHTML swap), which drops the
+// monogram tints and can leave the package count stale. The inline hx-on::after-swap
+// is unreliable across htmx versions, so recolor + recount from a delegated listener
+// too — whichever fires, the tiles stay coloured and the count stays honest.
+document.body.addEventListener('htmx:afterSwap', function (e) {
+  var t = e.target;
+  if (t && (t.id === 'apps-live' || (t.querySelector && t.querySelector('#apps-table')))) {
+    if (window.appsAfterRefresh) appsAfterRefresh();
+  }
+});
 </script>
 
+<style>
+/* App-drawer grid for the Applications tab. */
+.app-drawer{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;padding:14px 16px 18px;}
+.app-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 8px 12px;border-radius:14px;border:1px solid transparent;text-align:center;transition:background .12s,border-color .12s;}
+.app-tile:hover{background:var(--surface-3);border-color:var(--border);}
+.app-mono{width:52px;height:52px;border-radius:15px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;text-transform:uppercase;background:var(--surface-3);color:var(--text-faint);flex:none;}
+.app-icon{width:52px;height:52px;border-radius:15px;object-fit:contain;background:var(--surface-3);flex:none;}
+.app-tile.sys .app-icon{opacity:.9;}
+.app-tname{font-size:12px;font-weight:600;color:var(--text);line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
+.app-tsub{font-size:10.5px;color:var(--text-faint);font-weight:600;}
+.app-tile.sys .app-tname{color:var(--text-faint);}
+.app-tile.sys .app-mono{opacity:.72;}
+/* Uninstall affordance — a small × on hover (user apps only). */
+.app-x-form{position:absolute;top:5px;right:5px;margin:0;opacity:0;transition:opacity .12s;}
+.app-tile:hover .app-x-form,.app-x-form:focus-within{opacity:1;}
+.app-x{width:24px;height:24px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--danger,#c0392b);line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.app-x svg{width:13px;height:13px;}
+.app-x:hover{background:var(--danger,#c0392b);color:#fff;border-color:transparent;}
+/* Section divider (full grid row) before system apps. */
+.app-drawer-sep{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:10px 2px 2px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
+.app-drawer-sep::after{content:"";flex:1;height:1px;background:var(--border-soft);}
+.app-mono-inst{background:var(--accent-soft);}
+/* Install picker modal */
+.install-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px 4px;}
+.install-head-actions{display:flex;align-items:center;gap:10px;}
+.install-drawer{max-height:58vh;overflow:auto;padding-top:10px;}
+.install-tile-form{display:contents;}
+.install-tile{border:1px solid transparent;background:transparent;font:inherit;color:inherit;width:100%;cursor:pointer;}
+.install-upload-status{padding:8px 18px;font-size:12.5px;font-weight:650;color:var(--accent-text);}
+.install-upload-status.is-error{color:var(--danger,#c0392b);}
+/* App-info popup */
+.app-tile{cursor:pointer;}
+.appinfo-head{display:flex;align-items:center;gap:14px;padding:18px 18px 10px;}
+.appinfo-icon .ai-iconimg{width:56px;height:56px;}
+.appinfo-id{flex:1;min-width:0;}
+.appinfo-name{font-size:16px;font-weight:750;letter-spacing:-.01em;}
+.appinfo-pkg{font-size:12px;color:var(--text-faint);word-break:break-all;}
+.appinfo-body{padding:4px 18px 14px;display:flex;flex-direction:column;}
+.appinfo-row{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--border-soft);font-size:13px;}
+.appinfo-row:last-child{border-bottom:0;}
+.appinfo-row .k{color:var(--text-faint);font-weight:600;}
+.appinfo-row .v{text-align:right;word-break:break-all;}
+.ai-badge{font-size:11px;font-weight:800;padding:2px 9px;border-radius:99px;}
+.ai-badge.ai-user{background:var(--accent-soft);color:var(--accent-text);}
+.ai-badge.ai-sys{background:var(--surface-3);color:var(--text-faint);}
+.appinfo-foot{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 18px 18px;border-top:1px solid var(--border-soft);}
+#ai-uninstall-btn:disabled{opacity:.45;cursor:not-allowed;}
+</style>
 
 <section class="dd-panel" data-dd-panel="history" id="dd-panel-history" role="tabpanel" aria-labelledby="dd-tab-history" tabindex="0" hidden>
   {{template "device-commands" .}}
@@ -2253,6 +2776,17 @@ function filterInstalledApps(q) {
 
   // Opening a device always lands on Overview (no last-tab restore).
 
+  // Live charging-pad occupancy: repaint the sidebar card's status dot + label from
+  // the SSE wlc_status (1 placed · 0 vacant · 2 no pad · else unreadable).
+  window.mdmSyncPadStatus = function (wlc) {
+    var el = document.getElementById('pad-status');
+    if (!el) return;
+    var map = { 1: ['on', 'Device placed'], 0: ['vacant', 'Vacant'], 2: ['nopad', 'No pad'] };
+    var m = map[wlc] || ['bad', 'Unreadable'];
+    el.className = 'pad-stat pad-stat-' + m[0];
+    var t = el.querySelector('.pad-txt'); if (t) t.textContent = m[1];
+  };
+
   window.chShowAll = function () {
     var l = document.getElementById('ch-list'); if (l) l.classList.remove('ch-collapsed');
     var b = document.getElementById('ch-more'); if (b) b.style.display = 'none';
@@ -2331,6 +2865,12 @@ function filterInstalledApps(q) {
       // device reports an on-device offline exit (kiosk turned off), no reload.
       if (typeof d.kiosk_enabled === 'boolean' && window.mdmSyncKiosk) {
         window.mdmSyncKiosk(d.kiosk_enabled);
+      }
+
+      // Charging-pad occupancy (wlc_status) also rides the payload — keep the sidebar
+      // card's live status dot in sync without a reload.
+      if (d.wlc !== undefined && d.wlc !== null && window.mdmSyncPadStatus) {
+        window.mdmSyncPadStatus(d.wlc);
       }
 
       // push new point into charts
@@ -2559,7 +3099,7 @@ async function saveNewApp() {
   // No "None" option — use the Turn off kiosk button to release to launcher.
   var apps = [];
   [].forEach.call(src.querySelectorAll('i'), function (el) {
-    apps.push({ v: el.getAttribute('data-value'), n: el.getAttribute('data-name'), missing: el.hasAttribute('data-missing') });
+    apps.push({ v: el.getAttribute('data-value'), n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon'), missing: el.hasAttribute('data-missing') });
   });
   var kbd = -1;
 
@@ -2571,6 +3111,7 @@ async function saveNewApp() {
 
   function tileHtml(a) {
     if (a.none) return '<span class="kpk-tile none">–</span>';
+    if (a.icon) return '<img class="kpk-tile kpk-img" src="data:image/png;base64,' + a.icon + '" alt="">';
     return '<span class="kpk-tile" style="background:' + colorFor(a.v || a.n) + '">' + esc(initial(a.n)) + '</span>';
   }
   function optHtml(a, i) {
@@ -2718,37 +3259,44 @@ async function saveNewApp() {
 {{define "device-apps-list"}}
 {{if or .InstalledPackages .PendingInstalls}}
 {{if .InstalledPackages}}<div class="app-search"><input type="text" id="apps-filter" hx-preserve="true" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>{{end}}
-<div class="app-list{{if gt (len .InstalledPackages) 6}} collapsed{{end}}" id="apps-table">
+{{/* App-drawer grid: monogram tiles (real icons aren't reported). User apps come
+     first, then a divider, then system apps. Each tile keeps .app-row + data-app so
+     the existing search/count JS still works. */}}
+<div class="app-drawer" id="apps-table">
   {{range .PendingInstalls}}
-  <div class="app-row app-installing" data-app="{{.Name}} {{.ApkURL}}">
-    <div class="app-id">
-      <div class="app-name">{{.Name}}{{if gt (atoi .Count) 1}} <span class="app-dup" title="{{.Count}} install actions queued for this app">×{{.Count}}</span>{{end}}</div>
-      <div class="app-pkg mono">{{if and (eq .Phase "downloading") .Progress}}downloading {{.Progress}}%{{else}}{{.Phase}}{{end}}</div>
-    </div>
-    <span class="app-installing-tag"><span class="app-spin"></span>{{if and (eq .Phase "downloading") .Progress}}downloading {{.Progress}}%{{else}}{{.Phase}}{{end}}</span>
+  <div class="app-row app-tile app-installing" data-app="{{.Name}} {{.ApkURL}}" title="Installing…">
+    <div class="app-mono app-mono-inst"><span class="app-spin"></span></div>
+    <div class="app-tname">{{.Name}}</div>
+    <div class="app-tsub">{{if and (eq .Phase "downloading") .Progress}}{{.Progress}}%{{else}}{{.Phase}}{{end}}</div>
   </div>
   {{end}}
-  {{range $i, $p := .InstalledPackages}}
-  <div class="app-row{{if ge $i 6}} app-extra{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}">
-    <div class="app-id">
-      <div class="app-name">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
-      <div class="app-pkg mono">{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}</div>
-    </div>
-    {{if $p.EffectiveSystem}}<span class="app-systag" title="System app — cannot be uninstalled">system</span>{{end}}
-    {{if and (canOperate $.Role) (not $p.EffectiveSystem)}}
-    <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST"
-          hx-confirm="Uninstall {{$p.PackageName}} from this device?">
-      <input type="hidden" name="type" value="uninstall">
-      <input type="hidden" name="package" value="{{$p.PackageName}}">
-      <button type="submit" class="app-uninstall">Uninstall</button>
+  {{range $p := .InstalledPackages}}{{if not $p.EffectiveSystem}}
+  <div class="app-row app-tile" data-app="{{$p.AppName}} {{$p.PackageName}}"
+       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="0"
+       role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
+       title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
+    {{if $p.Icon}}<img class="app-icon" loading="lazy" src="data:image/png;base64,{{$p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
+    <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
+    {{if canOperate $.Role}}
+    <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST" hx-confirm="Uninstall {{$p.PackageName}} from this device?" class="app-x-form" onclick="event.stopPropagation()">
+      <input type="hidden" name="type" value="uninstall"><input type="hidden" name="package" value="{{$p.PackageName}}">
+      <button type="submit" class="app-x" title="Uninstall {{$p.PackageName}}" aria-label="Uninstall {{$p.PackageName}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>
     </form>
     {{end}}
   </div>
-  {{end}}
+  {{end}}{{end}}
+  {{$hasSys := false}}{{range .InstalledPackages}}{{if .EffectiveSystem}}{{$hasSys = true}}{{end}}{{end}}
+  {{if $hasSys}}<div class="app-drawer-sep" id="apps-sys-sep">System apps</div>{{end}}
+  {{range $p := .InstalledPackages}}{{if $p.EffectiveSystem}}
+  <div class="app-row app-tile sys" data-app="{{$p.AppName}} {{$p.PackageName}}"
+       data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="1"
+       role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
+       title="System app — {{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
+    {{if $p.Icon}}<img class="app-icon" loading="lazy" src="data:image/png;base64,{{$p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
+    <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
+  </div>
+  {{end}}{{end}}
 </div>
-{{if gt (len .InstalledPackages) 6}}
-<button type="button" id="apps-more" class="app-more" onclick="appsShowAll()">Show all {{len .InstalledPackages}} apps</button>
-{{end}}
 <div id="apps-no-match" class="muted small" style="display:none;padding:16px 18px;">No apps match your search.</div>
 {{else}}
 <div class="empty-state" style="padding:28px 18px;">

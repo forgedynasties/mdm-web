@@ -1,6 +1,10 @@
 package middleware
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+	"os"
+)
 
 // contentSecurityPolicy constrains where the dashboard may load resources from.
 // The app relies heavily on inline <script>/<style> and inline event handlers
@@ -10,24 +14,40 @@ import "net/http"
 // 'none' blocks plugin vectors, and base-uri/form-action 'self' prevent base-tag
 // and form-action hijacking. All third-party assets are self-hosted (GB-07/F-10),
 // so no external origins are allowed.
-const contentSecurityPolicy = "default-src 'self'; " +
-	// The overview fleet map uses the Google Maps JavaScript API, which loads its
-	// loader/worker scripts from maps.googleapis.com + maps.gstatic.com, tiles and
-	// sprites from *.googleapis.com/*.gstatic.com (images), fonts from
-	// fonts.gstatic.com, and telemetry via connect to maps.googleapis.com.
-	"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; " +
-	"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
-	"img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com; " +
-	"font-src 'self' https://fonts.gstatic.com; " +
-	"connect-src 'self' https://maps.googleapis.com; " +
-	// Device-page location map is a Google Maps Embed iframe (browser-facing,
-	// referrer-restricted key). Only the Google Maps host is allowed to be framed;
-	// everything else stays same-origin.
-	"frame-src https://www.google.com; " +
-	"frame-ancestors 'none'; " +
-	"base-uri 'self'; " +
-	"form-action 'self'; " +
-	"object-src 'none'"
+// contentSecurityPolicy is built at init so the S3 bucket host (for direct browser
+// APK uploads via presigned PUT) can be added to connect-src only when S3 is
+// configured — otherwise the policy stays exactly as before.
+var contentSecurityPolicy = buildCSP()
+
+func buildCSP() string {
+	// APK uploads: the browser fetches (PUT) directly to the presigned S3 URL, so the
+	// bucket's virtual-hosted + regional endpoints must be allowed in connect-src.
+	connect := "connect-src 'self' https://maps.googleapis.com"
+	if bucket := os.Getenv("S3_BUCKET"); bucket != "" {
+		region := os.Getenv("AWS_REGION")
+		if region == "" {
+			region = "us-east-1"
+		}
+		connect += fmt.Sprintf(" https://%s.s3.%s.amazonaws.com https://s3.%s.amazonaws.com", bucket, region, region)
+	}
+	return "default-src 'self'; " +
+		// The overview fleet map uses the Google Maps JavaScript API (loader/worker
+		// scripts, image tiles/sprites, fonts, and connect telemetry).
+		"script-src 'self' 'unsafe-inline' https://maps.googleapis.com https://maps.gstatic.com; " +
+		"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+		"img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com; " +
+		"font-src 'self' https://fonts.gstatic.com; " +
+		connect + "; " +
+		// The in-browser APK parser (app-info-parser) spins up a blob-URL Web Worker to
+		// inflate ZIP entries, so allow workers from self/blob.
+		"worker-src 'self' blob:; child-src 'self' blob:; " +
+		// Device-page location map is a Google Maps Embed iframe.
+		"frame-src https://www.google.com; " +
+		"frame-ancestors 'none'; " +
+		"base-uri 'self'; " +
+		"form-action 'self'; " +
+		"object-src 'none'"
+}
 
 // SecurityHeaders wraps the whole mux and attaches the standard security header
 // set to every response (F-03 HSTS, F-04 CSP/X-Frame-Options/Referrer-Policy/

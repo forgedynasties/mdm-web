@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device hero — creative redesigns · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+/* ---- page chrome ---- */
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:1060px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:820px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:820px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+
+/* floating theme switch */
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;
+  padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+/* ---- shared hero-demo bits (style.css already styles .ddc-hero/.ddc-top/.ddc-actions/.ddc-btn/.ddc-chip/.ddc-status/.ddc-serial/.ddc-vitals/.ddc-menu) ---- */
+.ddc-hero{box-shadow:0 1px 2px rgba(20,22,40,.04);}
+.ddc-btn.prim{background:var(--accent);border-color:transparent;color:#fff;}
+.ddc-btn.prim:hover{background:var(--accent-h);}
+.ddc-btn-ai{color:var(--accent-text);border-color:var(--accent-edge);}
+.ddc-btn svg{flex:none;}
+.ddc-sep{width:1px;align-self:stretch;background:var(--border);margin:2px 5px;}
+.ddc-ico{width:38px;height:38px;padding:0;justify-content:center;}
+.ddc-ico svg{width:17px;height:17px;}
+.menu-wrap{position:relative;}
+.mini-cap{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);}
+
+/* ---- iOS-style switch ---- */
+.sw{--h:22px;position:relative;width:38px;height:var(--h);border-radius:99px;background:var(--surface-3);border:1px solid var(--border);
+  cursor:pointer;flex:none;transition:background .18s,border-color .18s;padding:0;}
+.sw::after{content:"";position:absolute;top:1px;left:1px;width:calc(var(--h) - 4px);height:calc(var(--h) - 4px);border-radius:50%;
+  background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.28);transition:transform .18s;}
+.sw.on{background:var(--accent);border-color:transparent;}
+.sw.on::after{transform:translateX(16px);}
+
+/* control pill (label + switch) used in top bar */
+.ctl{display:inline-flex;align-items:center;gap:9px;padding:6px 11px;border-radius:11px;border:1px solid var(--border);
+  background:var(--surface);font-size:12.5px;font-weight:650;color:var(--text);cursor:pointer;user-select:none;}
+.ctl .ico{width:15px;height:15px;color:var(--text-faint);flex:none;}
+.ctl.hot{border-color:var(--accent-edge);}
+.ctl .st{color:var(--text-faint);font-weight:700;font-size:11px;min-width:20px;}
+.ctl.on .st{color:var(--accent-text);}
+.ctl.on .ico{color:var(--accent-text);}
+
+/* grouped controls pod */
+.pod{display:inline-flex;align-items:center;gap:12px;padding:7px 8px 7px 13px;border-radius:13px;background:var(--surface-3);border:1px solid var(--border-soft);}
+.pod .plabel{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
+.pod .prow{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;}
+
+/* stat tile */
+.tiles{display:flex;gap:10px;flex-wrap:wrap;}
+.tile{display:flex;flex-direction:column;gap:2px;min-width:84px;padding:10px 13px;border-radius:13px;border:1px solid var(--border);background:var(--surface);}
+.tile .tl{font-size:10px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);display:flex;align-items:center;gap:5px;}
+.tile .tl svg{width:12px;height:12px;}
+.tile .tv{font-size:17px;font-weight:750;letter-spacing:-.01em;line-height:1.1;}
+.tile .tv small{font-size:11px;font-weight:600;color:var(--text-faint);}
+.tile.good .tv{color:#1c7d50;}html[data-theme="dark"] .tile.good .tv{color:#5fd49a;}
+
+/* KPI card w/ accent bar */
+.kpi{position:relative;overflow:hidden;display:flex;flex-direction:column;gap:3px;min-width:96px;padding:12px 14px;border-radius:14px;
+  border:1px solid var(--border);background:var(--surface);}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--accent));}
+.kpi .kl{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);}
+.kpi .kv{font-size:19px;font-weight:800;letter-spacing:-.02em;}
+.kpi .kv small{font-size:12px;font-weight:600;color:var(--text-faint);}
+
+/* control card (big toggle) */
+.ccards{display:flex;gap:12px;flex-wrap:wrap;}
+.ccard{display:flex;align-items:center;gap:13px;padding:13px 15px;border-radius:15px;border:1px solid var(--border);background:var(--surface);
+  cursor:pointer;min-width:210px;transition:border-color .18s,background .18s;}
+.ccard .cico{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--surface-3);color:var(--text-faint);flex:none;}
+.ccard .cico svg{width:19px;height:19px;}
+.ccard .cmeta{display:flex;flex-direction:column;gap:1px;flex:1;}
+.ccard .ct{font-size:13.5px;font-weight:750;}
+.ccard .cs{font-size:11.5px;color:var(--text-faint);font-weight:600;}
+.ccard.on{border-color:var(--accent-edge);background:var(--accent-soft);}
+.ccard.on .cico{background:var(--accent);color:#fff;}
+.ccard.on .cs{color:var(--accent-text);}
+
+/* dense toolbar */
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.bar .metric{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;color:var(--text);}
+.bar .metric svg{width:14px;height:14px;color:var(--text-faint);}
+.bar .spring{flex:1 1 auto;}
+
+/* gradient identity ribbon */
+.ribbon{border-radius:16px 16px 0 0;margin:-20px -22px 16px;padding:18px 22px;
+  background:linear-gradient(100deg,rgba(122,128,246,.14),rgba(249,103,78,.13));border-bottom:1px solid var(--border-soft);}
+html[data-theme="dark"] .ribbon{background:linear-gradient(100deg,rgba(122,128,246,.2),rgba(249,103,78,.16));}
+.ribbon .rserial{font-size:20px;font-weight:800;letter-spacing:-.01em;}
+.ribbon .rmeta{color:var(--text-faint);font-size:12px;margin-top:2px;}
+</style></head>
+<body><div class="wrap">
+
+<div class="themebar" role="group" aria-label="Theme">
+  <button id="th-l" class="on" onclick="setTheme('light')">☀ Light</button>
+  <button id="th-d" onclick="setTheme('dark')">☾ Dark</button>
+</div>
+
+<h1>Device page — hero redesigns</h1>
+<p class="lead">Six creative takes on the device header. Every <b>Kiosk</b> and <b>Charging</b> control is a live toggle — click it. Kiosk is lifted up next to <b>Analyze</b> in most of these, per your note. Flip light/dark (top-right) to judge both. Pick one (or mix), and I wire it into the real page.</p>
+
+<!-- ============ 1 · COMMAND DECK ============ -->
+<div class="eyebrow">Design 1</div>
+<div class="dname">Command Deck — controls pod beside Analyze <span class="rec">clean pick</span></div>
+<div class="ddesc">Primary actions on the left, a single grouped <b>Controls</b> pod (Kiosk + Charging as switches) sitting right next to Analyze, everything else folded into <b>Actions ▾</b>. Vitals ride a calm strip underneath. Nothing competes.</div>
+<div class="ddc-hero">
+  <div class="ddc-top">
+    <div class="ddc-id"><span class="ddc-status on"><i></i>Online</span><span class="ddc-serial mono">AT070AA2600039</span></div>
+    <div class="ddc-actions" style="align-items:center;">
+      <span class="ddc-btn prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</span>
+      <span class="ddc-btn ddc-btn-ai"><svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</span>
+      <span class="pod">
+        <span class="plabel">Controls</span>
+        <span class="prow ctl-t" role="button" tabindex="0"><span data-lbl>Kiosk</span> <span class="sw on" data-sw></span></span>
+        <span class="ddc-sep" style="height:20px;"></span>
+        <span class="prow ctl-t" role="button" tabindex="0"><span data-lbl>Charging</span> <span class="sw" data-sw></span></span>
+      </span>
+      <span class="ddc-btn">Actions <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M6 9l6 6 6-6"/></svg></span>
+    </div>
+  </div>
+  <div class="ddc-vitals">
+    <span class="ddc-chip battery-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="2" y="8" width="16" height="8" rx="2"/><path d="M20 11v2"/></svg>94% ⚡</span>
+    <span class="ddc-chip"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a13a" stroke-width="2" width="13" height="13"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>29.6°C</span>
+    <span class="ddc-chip"><span class="k">RAM</span>48%</span>
+    <span class="ddc-chip">↑ 6d 4h uptime</span>
+    <span class="ddc-chip"><svg viewBox="0 0 24 24" fill="none" stroke="#7a80f6" stroke-width="2" width="13" height="13"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>Store-WiFi · −52dBm</span>
+  </div>
+</div>
+
+<!-- ============ 2 · STAT RAIL + CONTROL CARDS ============ -->
+<div class="eyebrow">Design 2</div>
+<div class="dname">Stat Rail + Control Cards</div>
+<div class="ddesc">Vitals become crisp <b>stat tiles</b>. Kiosk &amp; Charging get their own large <b>toggle cards</b> that light up when on — impossible to misread state at a glance. Kiosk still mirrored up top for one-click reach.</div>
+<div class="ddc-hero">
+  <div class="ddc-top">
+    <div class="ddc-id"><span class="ddc-status on"><i></i>Online</span><span class="ddc-serial mono">AT070AA2600039</span></div>
+    <div class="ddc-actions" style="align-items:center;">
+      <span class="ctl on ctl-t" role="button" tabindex="0"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/><path d="M12 8v3M10 11h4"/></svg><span data-lbl>Kiosk</span><span class="st" data-st>on</span><span class="sw on" data-sw></span></span>
+      <span class="ddc-btn prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</span>
+      <span class="ddc-btn ddc-btn-ai"><svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</span>
+      <span class="ddc-btn ddc-ico" title="Actions"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span>
+    </div>
+  </div>
+  <div class="tiles" style="margin-top:18px;">
+    <div class="tile good"><span class="tl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="2" y="8" width="16" height="8" rx="2"/><path d="M20 11v2"/></svg>Battery</span><span class="tv">94% <small>⚡</small></span></div>
+    <div class="tile"><span class="tl"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a13a" stroke-width="2" width="13" height="13"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>Temp</span><span class="tv">29.6<small>°C</small></span></div>
+    <div class="tile"><span class="tl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 7V4M12 7V4M17 7V4M7 21v-2M12 21v-2M17 21v-2"/></svg>RAM</span><span class="tv">48<small>%</small></span></div>
+    <div class="tile"><span class="tl"><svg viewBox="0 0 24 24" fill="none" stroke="#7a80f6" stroke-width="2" width="13" height="13"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>Wi-Fi</span><span class="tv">−52<small>dBm</small></span></div>
+    <div class="tile"><span class="tl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Uptime</span><span class="tv">6d<small>4h</small></span></div>
+  </div>
+  <div class="ccards" style="margin-top:12px;">
+    <div class="ccard on ctl-t" role="button" tabindex="0">
+      <span class="cico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/><path d="M12 8v3M10 11h4"/></svg></span>
+      <span class="cmeta"><span class="ct">Kiosk mode</span><span class="cs" data-st>Locked · Store POS</span></span>
+      <span class="sw on" data-sw></span>
+    </div>
+    <div class="ccard ctl-t" role="button" tabindex="0">
+      <span class="cico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a11 11 0 0 1 16 0M7.5 14.5a6 6 0 0 1 9 0"/><path d="M12 22l1.8-3h-3.6L12 16"/></svg></span>
+      <span class="cmeta"><span class="ct">Wireless charging</span><span class="cs" data-st>Pad off</span></span>
+      <span class="sw" data-sw></span>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 3 · IDENTITY RIBBON ============ -->
+<div class="eyebrow">Design 3</div>
+<div class="dname">Identity Ribbon — controls inline up top</div>
+<div class="ddesc">A soft gradient ribbon carries identity; the action row underneath keeps Kiosk + Charging as labelled switch pills right after Analyze. Vitals as ghost chips. Feels premium, very scannable.</div>
+<div class="ddc-hero">
+  <div class="ribbon">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+      <div>
+        <span class="ddc-status on" style="margin-bottom:6px;"><i></i>Online</span>
+        <div class="rserial mono">AT070AA2600039</div>
+        <div class="rmeta">Build 20260810.2 · Onboarded Jul 12 · Store #418</div>
+      </div>
+      <div class="ddc-actions" style="align-items:center;">
+        <span class="ddc-btn prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</span>
+        <span class="ddc-btn ddc-btn-ai"><svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</span>
+        <span class="ctl on ctl-t" role="button" tabindex="0"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/><path d="M12 8v3M10 11h4"/></svg><span data-lbl>Kiosk</span><span class="sw on" data-sw></span></span>
+        <span class="ctl ctl-t" role="button" tabindex="0"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><path d="M12 20l1.5-2.5h-3L12 15"/></svg><span data-lbl>Charging</span><span class="sw" data-sw></span></span>
+        <span class="ddc-btn ddc-ico" title="Actions"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span>
+      </div>
+    </div>
+  </div>
+  <div class="ddc-vitals" style="border-top:0;padding-top:0;margin-top:0;">
+    <span class="ddc-chip battery-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="2" y="8" width="16" height="8" rx="2"/><path d="M20 11v2"/></svg>94% ⚡</span>
+    <span class="ddc-chip"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a13a" stroke-width="2" width="13" height="13"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>29.6°C</span>
+    <span class="ddc-chip"><span class="k">RAM</span>48%</span>
+    <span class="ddc-chip">↑ 6d 4h</span>
+    <span class="ddc-chip"><svg viewBox="0 0 24 24" fill="none" stroke="#7a80f6" stroke-width="2" width="13" height="13"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>Store-WiFi · −52dBm</span>
+  </div>
+</div>
+
+<!-- ============ 4 · SPLIT PANEL ============ -->
+<div class="eyebrow">Design 4</div>
+<div class="dname">Split Panel — Status | Controls</div>
+<div class="ddesc">One inset panel, cleanly divided: read-only <b>Status</b> on the left, interactive <b>Controls</b> on the right behind a divider. Zero ambiguity about what changes the device vs. what just reports it.</div>
+<div class="ddc-hero">
+  <div class="ddc-top">
+    <div class="ddc-id"><span class="ddc-status on"><i></i>Online</span><span class="ddc-serial mono">AT070AA2600039</span></div>
+    <div class="ddc-actions" style="align-items:center;">
+      <span class="ctl on ctl-t" role="button" tabindex="0"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/><path d="M12 8v3M10 11h4"/></svg><span data-lbl>Kiosk</span><span class="sw on" data-sw></span></span>
+      <span class="ddc-btn prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</span>
+      <span class="ddc-btn ddc-btn-ai"><svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</span>
+      <span class="ddc-btn ddc-ico" title="Actions"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span>
+    </div>
+  </div>
+  <div style="display:flex;gap:0;margin-top:18px;border:1px solid var(--border);border-radius:14px;overflow:hidden;flex-wrap:wrap;">
+    <div style="flex:1 1 340px;padding:14px 16px;">
+      <div class="mini-cap" style="margin-bottom:10px;">Status</div>
+      <div class="ddc-vitals" style="border-top:0;padding-top:0;margin-top:0;">
+        <span class="ddc-chip battery-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="2" y="8" width="16" height="8" rx="2"/><path d="M20 11v2"/></svg>94% ⚡</span>
+        <span class="ddc-chip"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a13a" stroke-width="2" width="13" height="13"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>29.6°C</span>
+        <span class="ddc-chip"><span class="k">RAM</span>48%</span>
+        <span class="ddc-chip">↑ 6d 4h</span>
+        <span class="ddc-chip"><svg viewBox="0 0 24 24" fill="none" stroke="#7a80f6" stroke-width="2" width="13" height="13"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>−52dBm</span>
+      </div>
+    </div>
+    <div style="flex:0 0 auto;padding:14px 16px;border-left:1px solid var(--border);background:var(--surface-3);min-width:230px;">
+      <div class="mini-cap" style="margin-bottom:10px;">Controls</div>
+      <div style="display:flex;flex-direction:column;gap:11px;">
+        <span class="ctl-t" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:13px;font-weight:650;cursor:pointer;">
+          <span style="display:inline-flex;align-items:center;gap:8px;"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/><path d="M12 8v3M10 11h4"/></svg>Kiosk mode <span class="st" data-st style="color:var(--accent-text);font-size:11px;font-weight:700;">on</span></span><span class="sw on" data-sw></span>
+        </span>
+        <span class="ctl-t" role="button" tabindex="0" style="display:flex;align-items:center;gap:10px;justify-content:space-between;font-size:13px;font-weight:650;cursor:pointer;">
+          <span style="display:inline-flex;align-items:center;gap:8px;"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><path d="M12 20l1.5-2.5h-3L12 15"/></svg>Wireless charging <span class="st" data-st style="color:var(--text-faint);font-size:11px;font-weight:700;">off</span></span><span class="sw" data-sw></span>
+        </span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 5 · TOOLBAR PRO ============ -->
+<div class="eyebrow">Design 5</div>
+<div class="dname">Toolbar Pro — everything on one line</div>
+<div class="ddesc">Ultra-compact. Identity, inline metrics, controls, and action icons all on a single airy toolbar. For power users who live on this page — maximum density without the clutter.</div>
+<div class="ddc-hero" style="padding:14px 18px;">
+  <div class="bar">
+    <span class="ddc-status on"><i></i></span>
+    <span class="ddc-serial mono" style="font-size:14px;">AT070AA2600039</span>
+    <span class="ddc-sep" style="height:22px;"></span>
+    <span class="metric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="2" y="8" width="16" height="8" rx="2"/><path d="M20 11v2"/></svg>94%</span>
+    <span class="metric"><svg viewBox="0 0 24 24" fill="none" stroke="#e8a13a" stroke-width="2" width="13" height="13"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>29.6°</span>
+    <span class="metric"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 7V4M12 7V4M17 7V4M7 21v-2M12 21v-2M17 21v-2"/></svg>48%</span>
+    <span class="metric"><svg viewBox="0 0 24 24" fill="none" stroke="#7a80f6" stroke-width="2" width="13" height="13"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>−52</span>
+    <span class="spring"></span>
+    <span class="ctl on ctl-t" role="button" tabindex="0" style="padding:5px 10px;"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/><path d="M12 8v3M10 11h4"/></svg><span data-lbl>Kiosk</span><span class="sw on" data-sw></span></span>
+    <span class="ctl ctl-t" role="button" tabindex="0" style="padding:5px 10px;"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><path d="M12 20l1.5-2.5h-3L12 15"/></svg><span data-lbl>Charge</span><span class="sw" data-sw></span></span>
+    <span class="ddc-sep" style="height:22px;"></span>
+    <span class="ddc-btn prim ddc-ico" title="Remote"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+    <span class="ddc-btn ddc-btn-ai ddc-ico" title="Analyze"><svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg></span>
+    <span class="ddc-btn ddc-ico" title="Actions"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span>
+  </div>
+</div>
+
+<!-- ============ 6 · FOCUS KPIs ============ -->
+<div class="eyebrow">Design 6</div>
+<div class="dname">Focus KPIs — colour-coded vitals</div>
+<div class="ddesc">Vitals as colour-barred KPI cards (green battery, amber temp, periwinkle RAM…) so anomalies pop. Controls sit as a tidy pod up top. Boldest, most dashboard-like.</div>
+<div class="ddc-hero">
+  <div class="ddc-top">
+    <div class="ddc-id"><span class="ddc-status on"><i></i>Online</span><span class="ddc-serial mono">AT070AA2600039</span></div>
+    <div class="ddc-actions" style="align-items:center;">
+      <span class="ddc-btn prim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="15" height="15"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote</span>
+      <span class="ddc-btn ddc-btn-ai"><svg viewBox="0 0 24 24" fill="currentColor" width="15" height="15"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</span>
+      <span class="pod">
+        <span class="prow ctl-t" role="button" tabindex="0"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/><path d="M12 8v3M10 11h4"/></svg><span data-lbl>Kiosk</span><span class="sw on" data-sw></span></span>
+        <span class="ddc-sep" style="height:20px;"></span>
+        <span class="prow ctl-t" role="button" tabindex="0"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><path d="M12 20l1.5-2.5h-3L12 15"/></svg><span data-lbl>Charge</span><span class="sw" data-sw></span></span>
+      </span>
+      <span class="ddc-btn ddc-ico" title="Actions"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg></span>
+    </div>
+  </div>
+  <div class="tiles" style="margin-top:18px;">
+    <div class="kpi" style="--c:#2bb673;"><span class="kl">Battery</span><span class="kv">94<small>% ⚡</small></span></div>
+    <div class="kpi" style="--c:#e8a13a;"><span class="kl">Temp</span><span class="kv">29.6<small>°C</small></span></div>
+    <div class="kpi" style="--c:#7a80f6;"><span class="kl">RAM</span><span class="kv">48<small>%</small></span></div>
+    <div class="kpi" style="--c:#3aa0e8;"><span class="kl">Wi-Fi</span><span class="kv">−52<small>dBm</small></span></div>
+    <div class="kpi" style="--c:#9aa0b0;"><span class="kl">Uptime</span><span class="kv">6d<small>4h</small></span></div>
+  </div>
+</div>
+
+</div>
+
+<!-- icon defs get inlined by replace below; JS wires toggles + theme -->
+<script>
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('th-l').classList.toggle('on',t==='light');
+  document.getElementById('th-d').classList.toggle('on',t==='dark');
+}
+// live toggles: click a control -> flip its switch, state text, and .on classes
+function wire(el){
+  el.addEventListener('click',function(){flip(el);});
+  el.addEventListener('keydown',function(e){if(e.key===' '||e.key==='Enter'){e.preventDefault();flip(el);}});
+}
+function flip(el){
+  var sw=el.querySelector('[data-sw]');
+  var on=!(sw&&sw.classList.contains('on'));
+  if(sw)sw.classList.toggle('on',on);
+  el.classList.toggle('on',on);
+  var st=el.querySelector('[data-st]');
+  if(st){
+    var lbl=(el.querySelector('[data-lbl]')||{}).textContent||'';
+    if(/kiosk/i.test(lbl)||/kiosk/i.test(st.textContent)) st.textContent=on?'Locked · Store POS':'Unlocked';
+    else st.textContent=on?'on':'off';
+    // simpler pods just say on/off
+    if(st.classList.contains('st')) st.textContent=on?'on':'off';
+  }
+}
+document.querySelectorAll('.ctl-t').forEach(wire);
+</script>
+</body></html>

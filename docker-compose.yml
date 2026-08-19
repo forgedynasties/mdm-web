@@ -35,8 +35,12 @@ services:
       # Persist the settings/config file on the data volume so all settings
       # survive container restarts and rebuilds (default config/ is not mounted).
       CONFIG_PATH: ${CONFIG_PATH:-/app/data/config.json}
+      # AWS creds for S3 APK uploads — read from the mounted ~/.aws (no keys in env).
+      AWS_SHARED_CREDENTIALS_FILE: /app/.aws/credentials
+      AWS_CONFIG_FILE: /app/.aws/config
     volumes:
       - splashdata:/app/data
+      - ${HOME}/.aws:/app/.aws:ro
     # Give the server time to finish in-flight requests and drain WebSockets on
     # `docker compose down`/redeploy — matches the 25s graceful server.Shutdown.
     stop_grace_period: 30s

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Device graphs — layout demos · AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<script src="/static/vendor/chart.umd.min.js"></script>
+<style>
+body{background:var(--bg,#faf8f5);margin:0;padding:26px 40px 120px;}
+.wrap{max-width:1080px;margin:0 auto;}
+h1{font-size:23px;margin:0 0 4px;letter-spacing:-.01em;}
+.lead{color:var(--text-faint);font-size:13.5px;margin:0 0 8px;max-width:820px;line-height:1.6;}
+.eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#fff;
+  background:linear-gradient(90deg,#7a80f6,#f9674e);padding:4px 11px;border-radius:7px;margin:40px 0 8px;}
+.dname{font-weight:750;font-size:16px;margin:6px 0 2px;letter-spacing:-.01em;}
+.ddesc{color:var(--text-faint);font-size:12.5px;margin:0 0 16px;max-width:820px;line-height:1.55;}
+.rec{display:inline-block;font-size:10.5px;font-weight:800;color:#1c7d50;background:#e6f6ee;border-radius:6px;padding:2px 8px;margin-left:8px;vertical-align:2px;}
+html[data-theme="dark"] .rec{background:rgba(43,182,115,.2);color:#5fd49a;}
+.themebar{position:fixed;top:18px;right:22px;z-index:50;display:flex;gap:6px;background:var(--surface);border:1px solid var(--border);
+  border-radius:99px;padding:5px;box-shadow:0 8px 30px rgba(20,22,40,.14);}
+.themebar button{border:0;background:transparent;color:var(--text-faint);font:inherit;font-size:12px;font-weight:700;padding:5px 13px;border-radius:99px;cursor:pointer;}
+.themebar button.on{background:var(--accent);color:#fff;}
+
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 1px 2px rgba(20,22,40,.04);overflow:hidden;}
+.chead{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 18px 4px;flex-wrap:wrap;}
+.chead h3{margin:0;font-size:15px;letter-spacing:-.01em;}
+.dur-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+
+/* value badge on tabs */
+.tabval{font-variant-numeric:tabular-nums;font-weight:800;margin-left:2px;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+/* small-multiples grid */
+.sm-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px 18px 18px;}
+@media(max-width:720px){.sm-grid{grid-template-columns:1fr;}}
+.sm{border:1px solid var(--border);border-radius:13px;padding:12px 12px 6px;background:var(--surface);}
+.sm .sm-t{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.sm .sm-lbl{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:750;color:var(--text-faint);text-transform:uppercase;letter-spacing:.04em;}
+.sm .sm-v{font-size:16px;font-weight:800;font-variant-numeric:tabular-nums;}
+.sm .mwrap{position:relative;height:120px;}
+
+/* legend chips (overlay demo) */
+.lchips{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px 0;}
+.lchip{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:99px;border:1px solid var(--border);background:var(--surface);
+  font-size:12px;font-weight:650;cursor:pointer;user-select:none;color:var(--text);}
+.lchip.off{opacity:.42;}
+.lchip .sw-line{width:14px;height:3px;border-radius:2px;}
+
+/* focus + rail */
+.fx{display:grid;grid-template-columns:1fr 210px;gap:14px;padding:16px 18px 18px;}
+@media(max-width:720px){.fx{grid-template-columns:1fr;}}
+.fx-main{position:relative;height:300px;}
+.rail{display:flex;flex-direction:column;gap:10px;}
+.spark{border:1px solid var(--border);border-radius:12px;padding:10px 11px 6px;cursor:pointer;background:var(--surface);transition:border-color .15s,background .15s;}
+.spark.on{border-color:var(--accent-edge);background:var(--accent-soft);}
+.spark .sp-t{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.spark .sp-lbl{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:750;color:var(--text-faint);text-transform:uppercase;letter-spacing:.03em;}
+.spark .sp-v{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;}
+.spark .spwrap{position:relative;height:44px;}
+</style></head>
+<body><div class="wrap">
+
+<div class="themebar" role="group" aria-label="Theme">
+  <button id="th-l" class="on" onclick="setTheme('light')">☀ Light</button>
+  <button id="th-d" onclick="setTheme('dark')">☾ Dark</button>
+</div>
+
+<h1>Device graphs — layout demos</h1>
+<p class="lead">Four ways to lay out the metric charts, all rendering live (mock data). The <b>duration buttons</b> re-slice every chart; the overlay's <b>legend chips</b> toggle series; the focus rail's <b>sparklines</b> promote to the big chart on click. Flip light/dark top-right. Pick one and I wire it into the real Device Graphs card.</p>
+
+<!-- ============ 1 · REFINED TABS ============ -->
+<div class="eyebrow">Design 1</div>
+<div class="dname">Refined Tabs — one big chart, value on each tab <span class="rec">closest to today</span></div>
+<div class="ddesc">The current tabbed idea, tightened: each tab shows its live value inline so you read all four numbers without switching, and the active chart gets full height. Familiar, calm.</div>
+<div class="card">
+  <div class="chead">
+    <h3>Device Graphs</h3>
+    <div class="dur-row"><div class="dur-btns" data-dur="1"></div></div>
+  </div>
+  <div class="chart-tabs" id="d1-tabs"></div>
+  <div class="chart-wrap chart-wrap--tall"><canvas id="d1-canvas"></canvas></div>
+</div>
+
+<!-- ============ 2 · SMALL MULTIPLES ============ -->
+<div class="eyebrow">Design 2</div>
+<div class="dname">Small Multiples — all four at a glance</div>
+<div class="ddesc">No tabs at all. A 2×2 grid shows every metric at once, each with its own compact chart and live value. Best for spotting when two metrics move together (temp up, battery down).</div>
+<div class="card">
+  <div class="chead">
+    <h3>Device Graphs</h3>
+    <div class="dur-row"><div class="dur-btns" data-dur="2"></div></div>
+  </div>
+  <div class="sm-grid" id="d2-grid"></div>
+</div>
+
+<!-- ============ 3 · UNIFIED OVERLAY ============ -->
+<div class="eyebrow">Design 3</div>
+<div class="dname">Unified Overlay — one chart, toggle the lines</div>
+<div class="ddesc">Every series on a single chart (normalised 0–100 so they share a scale), with legend chips you click to show/hide each line. Powerful for correlation; click Temp + Battery only, ignore the rest.</div>
+<div class="card">
+  <div class="chead">
+    <h3>Device Graphs</h3>
+    <div class="dur-row"><div class="dur-btns" data-dur="3"></div></div>
+  </div>
+  <div class="lchips" id="d3-chips"></div>
+  <div class="chart-wrap chart-wrap--tall"><canvas id="d3-canvas"></canvas></div>
+</div>
+
+<!-- ============ 4 · FOCUS + RAIL ============ -->
+<div class="eyebrow">Design 4</div>
+<div class="dname">Focus + Sparkline Rail</div>
+<div class="ddesc">One large focused chart, with a side rail of sparkline cards. Click a sparkline to promote it into the big view. Keeps a single clear hero chart while every other metric stays glanceable.</div>
+<div class="card">
+  <div class="chead">
+    <h3>Device Graphs</h3>
+    <div class="dur-row"><div class="dur-btns" data-dur="4"></div></div>
+  </div>
+  <div class="fx">
+    <div class="fx-main"><canvas id="d4-main"></canvas></div>
+    <div class="rail" id="d4-rail"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+/* ---------------- mock data ---------------- */
+var METRICS = {
+  battery: {label:'Battery', unit:'%',   color:'#f9674e', min:0,   max:100},
+  temp:    {label:'Temp',    unit:'°C',  color:'#e8a13a', min:15,  max:55},
+  ram:     {label:'RAM',     unit:'%',   color:'#7a80f6', min:0,   max:100},
+  wifi:    {label:'Wi-Fi',   unit:'dBm', color:'#3aa0e8', min:-90, max:-30}
+};
+var KEYS = Object.keys(METRICS);
+var N = 288; // ~24h @ 5min
+// deterministic pseudo-random so charts look organic but stable
+function rnd(seed){var x=Math.sin(seed*127.1)*43758.5453;return x-Math.floor(x);}
+var SERIES = {}, LABELS = [];
+(function build(){
+  for(var i=0;i<N;i++){
+    var t=new Date(Date.now()-(N-1-i)*5*60*1000);
+    LABELS.push(t);
+  }
+  // battery: sawtooth discharge/charge
+  SERIES.battery=[]; var b=88;
+  for(var i=0;i<N;i++){ b-= 0.35 + rnd(i)*0.25; if(b<28){b=100;} SERIES.battery.push(+b.toFixed(1)); }
+  SERIES.temp=[]; for(var i=0;i<N;i++){ SERIES.temp.push(+(30 + 6*Math.sin(i/22) + rnd(i*3)*3).toFixed(1)); }
+  SERIES.ram=[]; for(var i=0;i<N;i++){ SERIES.ram.push(Math.round(45 + 14*Math.sin(i/17+1) + rnd(i*7)*10)); }
+  SERIES.wifi=[]; for(var i=0;i<N;i++){ SERIES.wifi.push(Math.round(-52 + 10*Math.sin(i/30) + rnd(i*5)*8)); }
+})();
+
+var DURS=[{l:'1h',n:12},{l:'6h',n:72},{l:'12h',n:144},{l:'24h',n:288}];
+var win={1:72,2:72,3:72,4:72}; // points shown per demo (default 6h)
+function slice(key,n){ return SERIES[key].slice(-n); }
+function labels(n){ return LABELS.slice(-n).map(function(d){return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');}); }
+function last(key){ var a=SERIES[key]; return a[a.length-1]; }
+
+/* ---------------- chart theming ---------------- */
+function cssvar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function gridColor(){ return document.documentElement.getAttribute('data-theme')==='dark' ? 'rgba(255,255,255,.07)' : 'rgba(20,22,40,.07)'; }
+function tickColor(){ return cssvar('--text-faint')||'#787167'; }
+function baseOpts(extra){
+  var o={responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{display:false},tooltip:{enabled:true}},
+    scales:{x:{grid:{color:gridColor(),display:false},ticks:{color:tickColor(),maxTicksLimit:6,font:{size:10}}},
+            y:{grid:{color:gridColor()},ticks:{color:tickColor(),font:{size:10}}}},
+    elements:{point:{radius:0},line:{borderWidth:2,tension:.35}}};
+  return Object.assign(o,extra||{});
+}
+function ds(key,n,opt){ var m=METRICS[key]; return Object.assign({label:m.label,data:slice(key,n),borderColor:m.color,
+  backgroundColor:m.color+'22',fill:true,pointRadius:0},opt||{}); }
+
+var charts={};
+
+/* ---------------- Design 1: refined tabs ---------------- */
+var d1active='battery';
+function d1renderTabs(){
+  var host=document.getElementById('d1-tabs'); host.innerHTML='';
+  KEYS.forEach(function(k){
+    var m=METRICS[k];
+    var b=document.createElement('button');
+    b.className='chart-tab'+(k===d1active?' active':'');
+    b.innerHTML='<span class="dot" style="background:'+m.color+'"></span>'+m.label+' <span class="tabval">'+last(k)+m.unit+'</span>';
+    b.onclick=function(){ d1active=k; d1renderTabs(); d1draw(); };
+    host.appendChild(b);
+  });
+}
+function d1draw(){
+  var n=win[1];
+  if(charts.d1) charts.d1.destroy();
+  charts.d1=new Chart(document.getElementById('d1-canvas'),{type:'line',
+    data:{labels:labels(n),datasets:[ds(d1active,n,{fill:true})]},options:baseOpts()});
+}
+
+/* ---------------- Design 2: small multiples ---------------- */
+function d2render(){
+  var host=document.getElementById('d2-grid'); host.innerHTML='';
+  KEYS.forEach(function(k){
+    var m=METRICS[k];
+    var cell=document.createElement('div'); cell.className='sm';
+    cell.innerHTML='<div class="sm-t"><span class="sm-lbl"><span class="dot" style="background:'+m.color+'"></span>'+m.label+'</span>'+
+      '<span class="sm-v" style="color:'+m.color+'">'+last(k)+m.unit+'</span></div>'+
+      '<div class="mwrap"><canvas id="d2-'+k+'"></canvas></div>';
+    host.appendChild(cell);
+  });
+  d2draw();
+}
+function d2draw(){
+  var n=win[2];
+  KEYS.forEach(function(k){
+    if(charts['d2'+k]) charts['d2'+k].destroy();
+    charts['d2'+k]=new Chart(document.getElementById('d2-'+k),{type:'line',
+      data:{labels:labels(n),datasets:[ds(k,n,{fill:true})]},
+      options:baseOpts({scales:{x:{display:false,grid:{display:false}},y:{grid:{color:gridColor()},ticks:{color:tickColor(),font:{size:9},maxTicksLimit:4}}}})});
+  });
+}
+
+/* ---------------- Design 3: unified overlay ---------------- */
+var d3on={battery:true,temp:true,ram:true,wifi:false};
+function norm(key,n){ var m=METRICS[key]; return slice(key,n).map(function(v){return Math.round((v-m.min)/(m.max-m.min)*100);}); }
+function d3chips(){
+  var host=document.getElementById('d3-chips'); host.innerHTML='';
+  KEYS.forEach(function(k){
+    var m=METRICS[k];
+    var c=document.createElement('span');
+    c.className='lchip'+(d3on[k]?'':' off');
+    c.innerHTML='<span class="sw-line" style="background:'+m.color+'"></span>'+m.label+' <span style="color:var(--text-faint);font-weight:700">'+last(k)+m.unit+'</span>';
+    c.onclick=function(){ d3on[k]=!d3on[k]; d3chips(); d3draw(); };
+    host.appendChild(c);
+  });
+}
+function d3draw(){
+  var n=win[3];
+  if(charts.d3) charts.d3.destroy();
+  var sets=KEYS.filter(function(k){return d3on[k];}).map(function(k){var m=METRICS[k];
+    return {label:m.label,data:norm(k,n),borderColor:m.color,backgroundColor:'transparent',fill:false,pointRadius:0,borderWidth:2,tension:.35};});
+  charts.d3=new Chart(document.getElementById('d3-canvas'),{type:'line',
+    data:{labels:labels(n),datasets:sets},
+    options:baseOpts({scales:{x:{grid:{display:false},ticks:{color:tickColor(),maxTicksLimit:6,font:{size:10}}},
+      y:{min:0,max:100,grid:{color:gridColor()},ticks:{color:tickColor(),font:{size:10},callback:function(v){return v;}}}},
+      plugins:{legend:{display:false},tooltip:{enabled:true,callbacks:{label:function(c){return c.dataset.label+': '+c.parsed.y+' (norm)';}}}}})});
+}
+
+/* ---------------- Design 4: focus + rail ---------------- */
+var d4active='battery';
+function d4render(){
+  var host=document.getElementById('d4-rail'); host.innerHTML='';
+  KEYS.forEach(function(k){
+    var m=METRICS[k];
+    var s=document.createElement('div'); s.className='spark'+(k===d4active?' on':'');
+    s.innerHTML='<div class="sp-t"><span class="sp-lbl"><span class="dot" style="background:'+m.color+'"></span>'+m.label+'</span>'+
+      '<span class="sp-v" style="color:'+m.color+'">'+last(k)+m.unit+'</span></div><div class="spwrap"><canvas id="d4-sp-'+k+'"></canvas></div>';
+    s.onclick=function(){ d4active=k; d4render(); };
+    host.appendChild(s);
+  });
+  d4draw();
+}
+function d4draw(){
+  var n=win[4];
+  if(charts.d4) charts.d4.destroy();
+  charts.d4=new Chart(document.getElementById('d4-main'),{type:'line',
+    data:{labels:labels(n),datasets:[ds(d4active,n,{fill:true})]},options:baseOpts()});
+  KEYS.forEach(function(k){
+    if(charts['d4sp'+k]) charts['d4sp'+k].destroy();
+    charts['d4sp'+k]=new Chart(document.getElementById('d4-sp-'+k),{type:'line',
+      data:{labels:labels(n),datasets:[{data:slice(k,n),borderColor:METRICS[k].color,backgroundColor:METRICS[k].color+'22',fill:true,pointRadius:0,borderWidth:1.5,tension:.4}]},
+      options:baseOpts({plugins:{legend:{display:false},tooltip:{enabled:false}},scales:{x:{display:false},y:{display:false}}})});
+  });
+}
+
+/* ---------------- duration buttons ---------------- */
+function buildDurs(){
+  document.querySelectorAll('.dur-btns[data-dur]').forEach(function(host){
+    var d=host.getAttribute('data-dur'); host.innerHTML='';
+    DURS.forEach(function(du){
+      var b=document.createElement('button'); b.className='dur-btn'+(du.n===win[d]?' active':'');
+      b.textContent=du.l;
+      b.onclick=function(){ win[d]=du.n; buildDurs(); redraw(d); };
+      host.appendChild(b);
+    });
+  });
+}
+function redraw(d){ if(d==1)d1draw(); if(d==2)d2draw(); if(d==3)d3draw(); if(d==4)d4draw(); }
+
+/* ---------------- boot + theme ---------------- */
+function setTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('th-l').classList.toggle('on',t==='light');
+  document.getElementById('th-d').classList.toggle('on',t==='dark');
+  d1draw(); d2draw(); d3draw(); d4draw();
+}
+buildDurs();
+d1renderTabs(); d1draw();
+d2render();
+d3chips(); d3draw();
+d4render();
+</script>
+</body></html>

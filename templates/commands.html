@@ -123,7 +123,9 @@
 .appc{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);text-align:left;cursor:pointer;transition:border-color .14s,box-shadow .14s,transform .1s;}
 .appc:hover{border-color:var(--rule-2);box-shadow:var(--shadow-sm);transform:translateY(-1px);}
 .appc.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
-.appc .thumb{width:42px;height:42px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:17px;text-transform:uppercase;}
+.appc .thumb{width:42px;height:42px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:17px;text-transform:uppercase;overflow:hidden;}
+.appc .thumb img{width:100%;height:100%;object-fit:contain;}
+.appgrid .appc .thumb:has(img){background:var(--surface-3)!important;}
 .appc .m{min-width:0;flex:1;}
 .appc .nm{display:block;font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .appc .meta{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;font-family:var(--mono);}
@@ -285,7 +287,7 @@
             <div class="appgrid" id="app-grid">
               {{range .Apps}}
               <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}}{{if canAdmin $.Role}} {{.ApkURL}}{{end}}" onclick="pickApp(this)">
-                <span class="thumb">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>
+                <span class="thumb">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
                 <span class="m"><span class="nm">{{.Name}}</span>{{if canAdmin $.Role}}<span class="meta">{{.ApkURL}}</span>{{end}}</span>
                 <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
               </button>
