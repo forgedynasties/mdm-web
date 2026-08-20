@@ -499,7 +499,7 @@
       {{/* In progress — always shown (top), with an empty state. */}}
       <div class="hgrp-h prog" data-grp><span class="hbadge live" style="padding:0;background:none;"><span class="pd"></span></span>In progress <span class="cnt">{{.ProgCount}}</span></div>
       {{if .InProgress}}
-        {{range .InProgress}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" "prog")}}{{end}}
+        {{range .InProgress}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "prog")}}{{end}}
         {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress">Show all {{.ProgCount}} in progress →</a>{{end}}
       {{else}}<div class="hist-empty">No actions in progress</div>{{end}}
 
@@ -512,14 +512,14 @@
         {{end}}
       </div>
       {{if .Attention}}
-        {{range .Attention}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" "attn")}}{{end}}
+        {{range .Attention}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "attn")}}{{end}}
         {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention">Show all {{.AttnCount}} that need attention →</a>{{end}}
       {{else}}<div class="hist-empty">No actions needing attention</div>{{end}}
 
       {{/* Completed — only when present. */}}
       {{if .Completed}}
       <div class="hgrp-h done" data-grp><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Completed <span class="cnt">{{.DoneCount}}</span></div>
-      {{range .Completed}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" "done")}}{{end}}
+      {{range .Completed}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "done")}}{{end}}
       {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/commands/history?status=completed">Show all {{.DoneCount}} completed →</a>{{end}}
       {{end}}
     {{else}}
@@ -1259,7 +1259,9 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     </span>
     <div style="min-width:0;">
       <div class="nm"><a href="/commands/{{$c.ID}}">{{cmdLabel $c.Type}}</a></div>
-      {{$hint := cmdHint $c}}{{if $hint}}<div class="pl mono">{{$hint}}</div>{{end}}
+      {{/* For an install, show the app NAME (resolved from the library) rather than the
+           raw APK URL/filename; fall back to the generic hint. */}}
+      {{$hint := cmdHint $c}}{{if and (eq $c.Type "install_apk") .AppName}}{{$hint = .AppName}}{{end}}{{if $hint}}<div class="pl{{if ne $c.Type "install_apk"}} mono{{end}}">{{$hint}}</div>{{end}}
     </div>
   </div>
   <div class="ct">{{if eq $c.TargetType "devices"}}{{if eq (len $ser) 1}}<span class="mono">{{index $ser 0}}</span>{{else}}{{len $ser}} devices{{end}}{{else if eq $c.TargetType "groups"}}Group target{{else}}All devices{{end}}</div>

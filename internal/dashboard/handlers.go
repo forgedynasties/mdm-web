@@ -8539,6 +8539,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"Productions":      productions,
 		"Builds":           builds,
 		"Apps":             apps,
+		"AppNames":         apkURLToName(apps),
 		"FleetPackages":    fleetPackages,
 		"Recipes":          recipes,
 		"Summaries":        summaries,
@@ -9930,6 +9931,18 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		msg += fmt.Sprintf(" Skipped %d device(s) that already had one of the apps.", n)
 	}
 	h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape(msg)+"&flash_type=success")
+}
+
+// apkURLToName maps each library app's apk_url to its display name, so the command
+// history can label an install with the app name instead of the raw APK URL.
+func apkURLToName(apps []db.App) map[string]string {
+	m := make(map[string]string, len(apps))
+	for _, a := range apps {
+		if a.ApkURL != "" && a.Name != "" {
+			m[a.ApkURL] = a.Name
+		}
+	}
+	return m
 }
 
 // formValues returns the trimmed, non-empty values of a repeated form field.
