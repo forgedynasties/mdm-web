@@ -2179,7 +2179,11 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
     {{if canOperate .Role}}
     <div class="appinfo-foot">
       <span class="appinfo-sysnote muted small" id="ai-sysnote" hidden>System apps can't be uninstalled.</span>
-      <form id="ai-uninstall-form" action="/devices/{{.Device.SerialNumber}}/commands" method="POST" hx-confirm="Uninstall this app from the device?" style="margin:0;">
+      {{/* hx-boost="false": under boost htmx swapped the full redirect response into the
+           Applications tab and left the modal backdrop up until reload. A plain POST
+           navigates to the device page normally. hx-confirm only fires for boosted
+           requests, so use a native confirm here. */}}
+      <form id="ai-uninstall-form" action="/devices/{{.Device.SerialNumber}}/commands" method="POST" hx-boost="false" onsubmit="return confirm('Uninstall this app from the device?');" style="margin:0;">
         <input type="hidden" name="type" value="uninstall"><input type="hidden" name="package" id="ai-uninstall-pkg" value="">
         <button type="submit" class="btn-danger-sm" id="ai-uninstall-btn">Uninstall</button>
       </form>
