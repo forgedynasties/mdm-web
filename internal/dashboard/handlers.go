@@ -9082,6 +9082,48 @@ func (h *Handler) DeviceInstallProgress(w http.ResponseWriter, r *http.Request) 
 	h.render(w, r, "install_progress.html", data)
 }
 
+// DeviceInstallCancel cancels the in-flight install(s) of a given APK on a device from
+// the Applications drawer: it deletes the pending install command(s) and pushes a
+// cancel_command frame so a device mid-download aborts. HTMX gets 204 + device-updated so
+// the drawer refreshes and the tile disappears.
+func (h *Handler) DeviceInstallCancel(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	r.ParseForm()
+	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
+	if apkURL == "" {
+		http.Error(w, "apk_url required", http.StatusBadRequest)
+		return
+	}
+	inFlight := func(s string) bool {
+		return s == "pending" || s == "delivered" || s == "downloading" || s == "installing"
+	}
+	cmds, _ := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
+	n := 0
+	for _, c := range cmds {
+		if c.Type != "install_apk" || c.ApkURL != apkURL || !inFlight(c.Status) {
+			continue
+		}
+		if err := h.db.DeleteCommand(r.Context(), c.ID); err == nil {
+			if msg, e := json.Marshal(map[string]any{"type": "cancel_command", "id": c.ID.String()}); e == nil {
+				h.hub.Push(device.ID, msg)
+			}
+			n++
+		}
+	}
+	h.audit(r, "install.cancel", serial, apkURL)
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Trigger", "device-updated")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+}
+
 // nudgeCheckin asks online devices to perform a full check-in right now (a "checkin_now"
 // WS frame). Used after assigning an OTA so the update resolves and pushes immediately
 // instead of waiting out the device's periodic check-in (which can be minutes away,
@@ -12672,6 +12714,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	mux.HandleFunc("GET /devices/{serial}/installs", h.requireAuth(h.DeviceInstallProgress))
+	post("POST /devices/{serial}/installs/cancel", h.requireOperatorOrAdmin(h.DeviceInstallCancel))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
