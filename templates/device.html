@@ -3323,7 +3323,10 @@ async function saveNewApp() {
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="data:image/png;base64,{{$p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
     {{if canOperate $.Role}}
-    <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST" hx-confirm="Uninstall {{$p.PackageName}} from this device?" class="app-x-form" onclick="event.stopPropagation()">
+    {{/* hx-boost="false": under boost htmx swapped the full redirect into the Applications
+         tab and left the modal-style overlay up until reload. Plain POST navigates
+         normally; hx-confirm only fires for boosted requests, so confirm natively. */}}
+    <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST" hx-boost="false" onsubmit="return confirm('Uninstall {{$p.PackageName}} from this device?');" class="app-x-form" onclick="event.stopPropagation()">
       <input type="hidden" name="type" value="uninstall"><input type="hidden" name="package" value="{{$p.PackageName}}">
       <button type="submit" class="app-x" title="Uninstall {{$p.PackageName}}" aria-label="Uninstall {{$p.PackageName}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>
     </form>
