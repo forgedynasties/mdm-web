@@ -38,6 +38,14 @@
           <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
         </form>
       {{end}}
+      {{/* Manual (or not-yet-due scheduled) reboot: the update installed to the inactive
+           slot and is waiting. Offer the reboot that applies it, right here. */}}
+      {{if and (eq .Status "awaiting_reboot") (canOperate $.Role)}}
+        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/reboot" method="POST" hx-boost="true" class="dpl-act"
+              hx-confirm="Reboot {{.SerialNumber}} now to apply the installed update?">
+          <button type="submit" class="btn-primary btn-sm" title="Update is installed and waiting — reboot to apply it">Reboot to apply</button>
+        </form>
+      {{end}}
       {{if and (eq .Status "pending") (canOperate $.Role)}}
         <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" class="dpl-act"
               hx-confirm="Remove {{.SerialNumber}} from this deployment? It will not receive the update.">

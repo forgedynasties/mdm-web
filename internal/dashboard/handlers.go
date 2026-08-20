@@ -7715,6 +7715,10 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
+		// Nudge online targets to check in NOW so the OTA resolves immediately instead of
+		// waiting out the device's periodic check-in (otherwise it sits "pending" for
+		// minutes). Offline devices pick it up on their next check-in as before.
+		h.nudgeCheckin(eligible)
 	}
 
 	h.audit(r, "release.deploy", rel.Version, strconv.Itoa(len(eligible)))
@@ -7988,6 +7992,46 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
+// DeploymentRebootDevice issues the reboot that applies an OTA which has finished
+// installing to the inactive slot and is waiting (status 'awaiting_reboot' — the case
+// for a manual, or a not-yet-due scheduled, reboot behavior). It pushes a reboot command
+// and flips the row to 'reboot_sent', the same as the automatic/scheduled path — so a
+// manual deployment can be applied on demand from the deployment page instead of only
+// via a separate device reboot.
+func (h *Handler) DeploymentRebootDevice(w http.ResponseWriter, r *http.Request) {
+	relID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), did)
+	if err != nil || upd.ReleaseID != relID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	cmd, err := h.db.CreateCommand(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID})
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "reboot_sent")
+	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.hub.PublishDeploymentUpdate()
+	h.audit(r, "deployment.reboot", r.PathValue("serial"), strconv.Itoa(did))
+	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
+}
+
 // DeploymentRemoveDevice drops a still-pending device from a deployment so it will
 // never receive the update. Only 'pending' rows can be removed (nothing has been
 // sent yet); once a device has started downloading the request is a no-op.
@@ -8093,6 +8137,8 @@ func (h *Handler) DeploymentAddTargets(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
+		// Nudge online targets to check in now so the OTA resolves immediately.
+		h.nudgeCheckin(eligible)
 	}
 	h.audit(r, "deployment.add_targets", strconv.Itoa(did), strconv.Itoa(len(eligible)))
 	h.hub.PublishDeploymentUpdate()
@@ -8893,6 +8939,24 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 		"Stats":      computeDeliveryStats(deliveries),
 		"CanResend":  h.commandTypeAllowed(h.role(r), cmd.Type),
 	})
+}
+
+// nudgeCheckin asks online devices to perform a full check-in right now (a "checkin_now"
+// WS frame). Used after assigning an OTA so the update resolves and pushes immediately
+// instead of waiting out the device's periodic check-in (which can be minutes away,
+// leaving the update stuck "pending"). Offline devices ignore it and pick the update up
+// on their next check-in as before.
+func (h *Handler) nudgeCheckin(deviceIDs []uuid.UUID) {
+	if len(deviceIDs) == 0 {
+		return
+	}
+	msg, err := json.Marshal(map[string]any{"type": "checkin_now"})
+	if err != nil {
+		return
+	}
+	for _, did := range deviceIDs {
+		h.hub.Push(did, msg) // no-op when the device isn't connected
+	}
 }
 
 func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
@@ -12617,6 +12681,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
 	post("POST /releases/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
 	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireOperatorOrAdmin(h.DeploymentAddTargets))
+	post("POST /releases/{id}/deployments/{did}/devices/{serial}/reboot", h.requireOperatorOrAdmin(h.DeploymentRebootDevice))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/remove", h.requireOperatorOrAdmin(h.DeploymentRemoveDevice))
 	post("POST /releases/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
