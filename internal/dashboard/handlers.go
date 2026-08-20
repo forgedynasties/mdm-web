@@ -8032,6 +8032,45 @@ func (h *Handler) DeploymentRebootDevice(w http.ResponseWriter, r *http.Request)
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
+// DeploymentRebootAll reboots every device in a deployment that has installed and is
+// waiting (status 'awaiting_reboot') — the bulk form of DeploymentRebootDevice, for
+// applying a manual deployment to the whole fleet at once.
+func (h *Handler) DeploymentRebootAll(w http.ResponseWriter, r *http.Request) {
+	relID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), did)
+	if err != nil || upd.ReleaseID != relID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	ids, err := h.db.ListAwaitingRebootForUpdate(r.Context(), did)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	for _, deviceID := range ids {
+		cmd, err := h.db.CreateCommand(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{deviceID})
+		if err != nil {
+			log.Printf("[deployment-reboot-all] create reboot error device=%s: %v", deviceID, err)
+			continue
+		}
+		_ = h.db.SetUpdateDeviceStatus(r.Context(), did, deviceID, "reboot_sent")
+		h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
+		h.hub.PublishDeviceUpdate(deviceID)
+	}
+	h.hub.PublishDeploymentUpdate()
+	h.audit(r, "deployment.reboot_all", strconv.Itoa(did), strconv.Itoa(len(ids)))
+	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
+}
+
 // DeploymentRemoveDevice drops a still-pending device from a deployment so it will
 // never receive the update. Only 'pending' rows can be removed (nothing has been
 // sent yet); once a device has started downloading the request is a no-op.
@@ -12681,6 +12720,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
 	post("POST /releases/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
 	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireOperatorOrAdmin(h.DeploymentAddTargets))
+	post("POST /releases/{id}/deployments/{did}/reboot-all", h.requireOperatorOrAdmin(h.DeploymentRebootAll))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/reboot", h.requireOperatorOrAdmin(h.DeploymentRebootDevice))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/remove", h.requireOperatorOrAdmin(h.DeploymentRemoveDevice))

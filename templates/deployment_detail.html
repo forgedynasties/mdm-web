@@ -8,6 +8,15 @@
     {{range .Summary}}<span class="status-badge {{deployStatusClass .Status}}">{{.Count}} {{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
     {{if ge .AvgDuration 0}}<span class="muted">· avg {{dur .AvgDuration}} ({{.DoneCount}} device{{if ne .DoneCount 1}}s{{end}})</span>{{end}}
   </div>
+  {{/* Bulk apply: reboot every device that installed and is waiting (manual, or a
+       scheduled deployment not yet due). Only shown when some are awaiting reboot. */}}
+  {{$awaiting := 0}}{{range .Summary}}{{if eq .Status "awaiting_reboot"}}{{$awaiting = .Count}}{{end}}{{end}}
+  {{if and (gt $awaiting 0) (canOperate $.Role)}}
+  <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/reboot-all" method="POST" hx-boost="true" class="dpl-rollup-act"
+        hx-confirm="Reboot all {{$awaiting}} installed device{{if ne $awaiting 1}}s{{end}} now to apply the update?">
+    <button type="submit" class="btn-primary btn-sm" title="Reboot every device that installed and is waiting">Reboot all installed ({{$awaiting}})</button>
+  </form>
+  {{end}}
 </div>
 {{end}}
 {{if $dep.Targets}}

@@ -9817,6 +9817,29 @@ func (d *DB) ListDueScheduledReboots(ctx context.Context) ([]DueReboot, error) {
 	return out, rows.Err()
 }
 
+// ListAwaitingRebootForUpdate returns the device IDs of an update's targets that have
+// installed to the inactive slot and are waiting for a reboot (status 'awaiting_reboot').
+// Used by the deployment page's "reboot all installed" bulk action.
+func (d *DB) ListAwaitingRebootForUpdate(ctx context.Context, updateID int) ([]uuid.UUID, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT device_id FROM update_devices
+		WHERE update_id = $1 AND status = 'awaiting_reboot'
+	`, updateID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // ListStaleRebootSent returns devices stuck at 'reboot_sent' on an active
 // deployment for longer than staleMinutes — the reboot command was likely lost or
 // declined, so it must be re-issued. Without this a device that took the OTA but
