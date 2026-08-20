@@ -8980,6 +8980,83 @@ func (h *Handler) CommandStatusPartial(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DeviceInstallProgress renders one combined progress page for a batch of app installs
+// queued from the device page (ids = comma-separated command IDs), so the operator
+// watches every app on a single page instead of a separate history page per app. Serves
+// the full page on a normal request and just the rows on an htmx poll (HX-Request).
+func (h *Handler) DeviceInstallProgress(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	idsParam := r.URL.Query().Get("ids")
+	var order []uuid.UUID
+	seen := map[uuid.UUID]bool{}
+	for _, s := range strings.Split(idsParam, ",") {
+		if id, e := uuid.Parse(strings.TrimSpace(s)); e == nil && !seen[id] {
+			seen[id] = true
+			order = append(order, id)
+		}
+	}
+	cmds, _ := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
+	byID := make(map[uuid.UUID]db.DeviceCommand, len(cmds))
+	for _, c := range cmds {
+		byID[c.ID] = c
+	}
+	apps, _ := h.db.ListApps(r.Context())
+	appByURL := make(map[string]db.App, len(apps))
+	for _, a := range apps {
+		appByURL[a.ApkURL] = a
+	}
+	type ipRow struct {
+		ID       uuid.UUID
+		Name     string
+		Icon     string
+		Status   string
+		Progress *int
+	}
+	var rows []ipRow
+	allDone := true
+	for _, id := range order {
+		c, ok := byID[id]
+		if !ok {
+			continue
+		}
+		a := appByURL[c.ApkURL]
+		name := a.Name
+		if name == "" {
+			name = "App"
+		}
+		rows = append(rows, ipRow{ID: id, Name: name, Icon: a.Icon, Status: c.Status, Progress: c.Progress})
+		switch c.Status {
+		case "installed", "failed", "completed", "cancelled", "expired":
+		default:
+			allDone = false
+		}
+	}
+	if len(rows) == 0 {
+		allDone = true
+	}
+	data := map[string]any{
+		"Title":   "Installing apps",
+		"Device":  device,
+		"Rows":    rows,
+		"IDs":     idsParam,
+		"AllDone": allDone,
+		"Skipped": strings.TrimSpace(r.URL.Query().Get("skipped")),
+	}
+	if r.Header.Get("HX-Request") == "true" {
+		if err := h.tmpl.ExecuteTemplate(w, "install-progress-rows", h.withRole(r, data)); err != nil {
+			log.Printf("template render install-progress-rows: %v", err)
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+		}
+		return
+	}
+	h.render(w, r, "install_progress.html", data)
+}
+
 // nudgeCheckin asks online devices to perform a full check-in right now (a "checkin_now"
 // WS frame). Used after assigning an OTA so the update resolves and pushes immediately
 // instead of waiting out the device's periodic check-in (which can be minutes away,
@@ -9799,6 +9876,27 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		skipped = append(skipped, s)
 	}
 	sort.Strings(skipped)
+
+	// Device-page multi-install: show ALL the queued apps' progress on one combined page
+	// (progress_view=1 + a single target device), instead of a separate history page per
+	// app. Falls through to the normal redirects for the Actions page.
+	if cmdType == "install_apk" && r.FormValue("progress_view") == "1" && len(created) > 0 {
+		if serials := db.ParseSerials(r.FormValue("target_serials")); len(serials) == 1 {
+			var ids strings.Builder
+			for i, c := range created {
+				if i > 0 {
+					ids.WriteByte(',')
+				}
+				ids.WriteString(c.ID.String())
+			}
+			dest := "/devices/" + url.PathEscape(serials[0]) + "/installs?ids=" + ids.String()
+			if len(skipped) > 0 {
+				dest += "&skipped=" + url.QueryEscape(strings.Join(skipped, ","))
+			}
+			h.hxRedirect(w, r, dest)
+			return
+		}
+	}
 
 	// One command → its detail view (with any skip note). Multiple → back to Actions
 	// with a summary, since there's no single command to open.
@@ -12512,6 +12610,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/ai-analyses", h.requireAuth(h.DeviceAIAnalysesList))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
+	mux.HandleFunc("GET /devices/{serial}/installs", h.requireAuth(h.DeviceInstallProgress))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))

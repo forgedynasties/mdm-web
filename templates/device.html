@@ -2124,20 +2124,28 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
           </span>
         </div>
         {{if .Apps}}
-        <div class="app-search" style="padding:8px 18px 0;"><input type="text" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)"></div>
-        <div class="app-drawer install-drawer" id="install-drawer">
-          {{range .Apps}}
-          <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST" class="install-tile-form" data-app="{{.Name}}">
-            <input type="hidden" name="type" value="install_apk"><input type="hidden" name="apk_url" value="{{.ApkURL}}">
-            <button type="submit" class="app-row app-tile install-tile" title="Install {{.Name}}">
+        <form id="install-form" action="/commands" method="POST">
+          <input type="hidden" name="type" value="install_apk">
+          <input type="hidden" name="target_type" value="devices">
+          <input type="hidden" name="target_serials" value="{{$.Device.SerialNumber}}">
+          <input type="hidden" name="progress_view" value="1">
+          <span class="install-hidden"></span>
+          <div class="app-search" style="padding:8px 18px 0;"><input type="text" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)"></div>
+          <div class="app-drawer install-drawer" id="install-drawer">
+            {{range .Apps}}
+            <button type="button" class="app-row app-tile install-tile" data-app="{{.Name}}" data-url="{{.ApkURL}}" title="{{.Name}}" onclick="installToggle(this)">
               {{if .Icon}}<img class="app-icon" src="data:image/png;base64,{{.Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
               <span class="app-tname">{{.Name}}</span>
+              <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
             </button>
-          </form>
-          {{end}}
-        </div>
-        <div id="install-no-match" class="muted small" style="display:none;padding:14px 18px;">No apps match your search.</div>
-        <div class="muted small" style="padding:6px 18px 16px;">Queued and delivered on the device's next check-in.</div>
+            {{end}}
+          </div>
+          <div id="install-no-match" class="muted small" style="display:none;padding:14px 18px;">No apps match your search.</div>
+          <div class="install-modal-foot">
+            <span class="muted small" id="install-count">Select one or more apps</span>
+            <button type="submit" class="btn-primary btn-sm" id="install-submit" disabled>Install</button>
+          </div>
+        </form>
         {{else}}
         <div class="device-action-note" style="padding:18px;">No apps in the library yet.{{if canAdmin .Role}} <a href="/settings#applibrary" class="btn-link">Add one in Settings → App library</a>.{{else}} Ask an admin to add one.{{end}}</div>
         {{end}}
@@ -2249,6 +2257,14 @@ window.installModalOpen = function () {
   var m = document.getElementById('install-modal'); if (!m) return;
   m.classList.add('modal-open');
   colorizeApps();
+  var form = document.getElementById('install-form');
+  if (form) {
+    form.querySelectorAll('.install-tile.on').forEach(function (t) { t.classList.remove('on'); });
+    var holder = form.querySelector('.install-hidden'); if (holder) holder.innerHTML = '';
+    var c = document.getElementById('install-count'), s = document.getElementById('install-submit');
+    if (c) c.textContent = 'Select one or more apps';
+    if (s) { s.disabled = true; s.textContent = 'Install'; }
+  }
   var f = document.getElementById('install-filter');
   if (f) { f.value = ''; filterInstallApps(''); setTimeout(function () { f.focus(); }, 30); }
 };
@@ -2368,12 +2384,33 @@ window.uploadApk = function (file) {
 window.filterInstallApps = function (q) {
   q = (q || '').trim().toLowerCase();
   var vis = 0;
-  document.querySelectorAll('#install-drawer .install-tile-form').forEach(function (f) {
+  document.querySelectorAll('#install-drawer .install-tile').forEach(function (f) {
     var show = (f.getAttribute('data-app') || '').toLowerCase().indexOf(q) !== -1;
     f.style.display = show ? '' : 'none'; if (show) vis++;
   });
   var nm = document.getElementById('install-no-match');
   if (nm) nm.style.display = (q && vis === 0) ? '' : 'none';
+};
+// Multi-select install: toggling a tile adds/removes a hidden apk_url input on the
+// shared form, so one submit queues an install command per selected app and lands on
+// the combined progress page (progress_view=1).
+window.installToggle = function (btn) {
+  var url = btn.getAttribute('data-url'); if (!url) return;
+  var form = document.getElementById('install-form'); if (!form) return;
+  var holder = form.querySelector('.install-hidden');
+  var on = btn.classList.toggle('on');
+  var existing = holder.querySelector('input[data-url="' + (window.CSS && CSS.escape ? CSS.escape(url) : url) + '"]');
+  if (on && !existing) {
+    var i = document.createElement('input');
+    i.type = 'hidden'; i.name = 'apk_url'; i.value = url; i.setAttribute('data-url', url);
+    holder.appendChild(i);
+  } else if (!on && existing) {
+    existing.remove();
+  }
+  var n = holder.querySelectorAll('input[name="apk_url"]').length;
+  var c = document.getElementById('install-count'), s = document.getElementById('install-submit');
+  if (c) c.textContent = n ? (n + ' app' + (n === 1 ? '' : 's') + ' selected') : 'Select one or more apps';
+  if (s) { s.disabled = n === 0; s.textContent = n ? ('Install (' + n + ')') : 'Install'; }
 };
 // The apps list live-refreshes on check-in (hx-get → innerHTML swap), which drops the
 // monogram tints and can leave the package count stale. The inline hx-on::after-swap
@@ -2413,8 +2450,12 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 .install-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px 4px;}
 .install-head-actions{display:flex;align-items:center;gap:10px;}
 .install-drawer{max-height:58vh;overflow:auto;padding-top:10px;}
-.install-tile-form{display:contents;}
 .install-tile{border:1px solid transparent;background:transparent;font:inherit;color:inherit;width:100%;cursor:pointer;}
+.install-tile.on{border-color:var(--accent);background:var(--accent-soft);}
+.install-tick{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;display:none;align-items:center;justify-content:center;}
+.install-tick svg{width:12px;height:12px;}
+.install-tile.on .install-tick{display:flex;}
+.install-modal-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 18px 16px;border-top:1px solid var(--border);margin-top:6px;}
 .install-upload-status{padding:8px 18px;font-size:12.5px;font-weight:650;color:var(--accent-text);}
 .install-upload-status.is-error{color:var(--danger,#c0392b);}
 /* App-info popup */

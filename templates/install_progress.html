@@ -1,0 +1,52 @@
+{{define "install-progress-rows"}}
+<div id="ip-rows"{{if not .AllDone}} hx-get="/devices/{{.Device.SerialNumber}}/installs?ids={{.IDs}}" hx-trigger="every 2s" hx-swap="outerHTML"{{end}}>
+  {{range .Rows}}
+  <div class="ip-row">
+    <span class="ip-ic">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
+    <div class="ip-m">
+      <div class="ip-nm">{{.Name}}</div>
+      <div class="ip-bar"><i class="{{if eq .Status "failed"}}bad{{else if eq .Status "installed"}}ok{{end}}" style="width:{{if or (eq .Status "installed") (eq .Status "completed") (eq .Status "installing")}}100{{else if .Progress}}{{.Progress}}{{else}}0{{end}}%"></i></div>
+    </div>
+    <span class="status-badge {{deployStatusClass .Status}} ip-st">
+      {{if eq .Status "downloading"}}downloading{{if .Progress}} {{.Progress}}%{{end}}{{else if eq .Status "installing"}}installing{{else}}{{.Status}}{{end}}
+    </span>
+  </div>
+  {{end}}
+  {{if not .Rows}}<div class="muted" style="padding:20px;">Nothing to show — the installs may already have completed.</div>{{end}}
+  {{if .AllDone}}<div class="ip-done">All done.</div>{{end}}
+</div>
+{{end}}
+
+{{define "install_progress.html"}}
+{{template "header" .}}
+<style>
+  .ip-wrap{max-width:720px;margin:0 auto;}
+  .ip-head{display:flex;align-items:center;gap:10px;margin:4px 0 16px;}
+  .ip-head .ip-back{color:var(--muted);text-decoration:none;font-size:13px;}
+  .ip-skip{font-size:12.5px;color:var(--muted);background:var(--surface-3,var(--surface2));border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:12px;}
+  .ip-row{display:flex;align-items:center;gap:13px;padding:13px 6px;border-top:1px solid var(--border);}
+  .ip-row:first-child{border-top:none;}
+  .ip-ic{width:44px;height:44px;flex:none;border-radius:11px;background:var(--surface-3,var(--surface2));display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;text-transform:uppercase;color:var(--text-faint,var(--muted));overflow:hidden;}
+  .ip-ic img{width:100%;height:100%;object-fit:contain;}
+  .ip-m{flex:1;min-width:0;}
+  .ip-nm{font-size:14px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:7px;}
+  .ip-bar{height:7px;border-radius:99px;background:var(--surface-3,var(--surface2));overflow:hidden;}
+  .ip-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s ease;}
+  .ip-bar i.ok{background:var(--ok,#2bb673);}
+  .ip-bar i.bad{background:var(--danger,#c0392b);}
+  .ip-st{flex:none;white-space:nowrap;text-transform:capitalize;}
+  .ip-done{padding:16px 6px 4px;color:var(--ok,#2bb673);font-weight:650;font-size:13px;}
+</style>
+<div class="ip-wrap">
+  <div class="ip-head">
+    <a class="ip-back" href="/devices/{{.Device.SerialNumber}}">← {{.Device.SerialNumber}}</a>
+  </div>
+  <h2 style="margin:0 0 4px;">Installing {{len .Rows}} app{{if ne (len .Rows) 1}}s{{end}}</h2>
+  <div class="muted small" style="margin-bottom:14px;">Live progress for the apps you just queued on this device.</div>
+  {{if .Skipped}}<div class="ip-skip">Skipped (already installed or in flight): {{.Skipped}}</div>{{end}}
+  <div class="card" style="padding:6px 14px;">
+    {{template "install-progress-rows" .}}
+  </div>
+</div>
+{{template "footer" .}}
+{{end}}
