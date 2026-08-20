@@ -328,7 +328,7 @@
         <!-- Shell -->
         <div id="shell-fields" class="payload-section">
           <div class="console"><div class="cbar"><i></i><i></i><i></i></div><div class="cin"><span class="pr">$</span><input type="text" name="shell_cmd" id="shell-cmd-input" placeholder="ls /sdcard" oninput="updatePreview()"></div></div>
-          <div class="pl-sub">Legacy devices only · runs on the next check-in · expires after 5 minutes.</div>
+          <div class="pl-sub">Legacy devices only · expires after 5 minutes.</div>
           {{if .ShellRecent}}<div class="lvl-lbl" style="margin-top:16px">Recent</div>
           <div class="pl-chips">{{range .ShellRecent}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
           {{if .ShellPopular}}<div class="lvl-lbl" style="margin-top:14px">Frequent</div>
@@ -338,7 +338,7 @@
         <!-- Queries (admin-vetted device diagnostics) -->
         <div id="query-fields" class="payload-section">
           <input type="hidden" name="query_id" id="diag-query-id" value="">
-          <div class="pl-sub">Pick a property to retrieve — runs a read-only, admin-approved command on the next check-in.</div>
+          <div class="pl-sub">Pick a property to retrieve — runs a read-only, admin-approved command.</div>
           <div class="pl-chips" style="margin-top:12px;">
             {{range .DeviceQueries}}<button type="button" class="pl-chip diag-chip" data-qid="{{.ID}}" data-label="{{.Label}}" title="{{.Command}}" onclick="pickDiag(this)">{{.Label}} <span style="opacity:.6;font-size:10px;text-transform:uppercase;letter-spacing:.03em;">{{.Category}}</span></button>{{end}}
           </div>
@@ -346,12 +346,12 @@
 
         <!-- Screenshot -->
         <div id="screenshot-hint" class="payload-section">
-          <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span><span class="txt">No options to set — each targeted device <b>captures its current screen</b> on the next check-in (within a 5-minute window). The image lands on that device's page, ready to view or download.</span></div>
+          <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span><span class="txt">No options to set — each targeted device <b>captures its current screen</b> (within a 5-minute window). The image lands on that device's page, ready to view or download.</span></div>
         </div>
 
         <!-- Reboot -->
         <div id="reboot-hint" class="payload-section">
-          <div class="warncard"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div><div class="wt">Devices will restart on their next check-in</div><div class="ws">Anything unsaved on-device is lost, and a low-battery unit may not power back up.</div></div></div>
+          <div class="warncard"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div><div class="wt">Devices will restart</div><div class="ws">Anything unsaved on-device is lost, and a low-battery unit may not power back up.</div></div></div>
         </div>
 
         <!-- Kiosk mode -->
@@ -377,13 +377,13 @@
                 {{end}}
               </div>
               <div id="kiosk-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
-              <div class="pl-sub">Devices lock to this app on their next check-in — it must already be installed on the target.</div>
+              <div class="pl-sub">Devices lock to this app — it must already be installed on the target.</div>
             {{else}}
               <input type="text" name="kiosk_package" id="kiosk-pkg-text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" aria-label="Package name to lock to" oninput="updatePreview()">
               <div class="pl-sub">No package data reported yet — type the exact package to lock to.</div>
             {{end}}
           </div>
-          <div class="warncard" id="kiosk-unlock-note" style="display:none;margin-top:14px"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><div><div class="wt">Devices will exit kiosk mode</div><div class="ws">Home, recents and the status bar return on the next check-in.</div></div></div>
+          <div class="warncard" id="kiosk-unlock-note" style="display:none;margin-top:14px"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><div><div class="wt">Devices will exit kiosk mode</div><div class="ws">Home, recents and the status bar return.</div></div></div>
         </div>
 
 
@@ -623,9 +623,9 @@ function filterCommands() {
 var ACT_META = {
   install_apk:  { name:'Install app',  sub:'Push an APK and install it silently',   icon:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>' },
   uninstall:    { name:'Uninstall',    sub:'Remove a package across the target',      icon:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/>' },
-  screenshot:   { name:'Screenshot',   sub:'Capture the live screen on next check-in',icon:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>' },
+  screenshot:   { name:'Screenshot',   sub:'Capture the live screen',icon:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>' },
   shell:        { name:'Shell',        sub:'Run a shell command (legacy devices)',    icon:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>' },
-  reboot:       { name:'Reboot',       sub:'Restart the device on next check-in',     icon:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>' },
+  reboot:       { name:'Reboot',       sub:'Restart the device',     icon:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>' },
   set_kiosk:    { name:'Kiosk mode',   sub:'Lock the target to one app, or unlock it',icon:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>' },
   query:        { name:'Run a query',  sub:'Retrieve a device property (read-only)',  icon:'<path d="M4 6h16M4 12h10M4 18h7"/>' }
 };

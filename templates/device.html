@@ -280,10 +280,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
                    target an app the device actually reports. */}}
               <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="">
               <div class="kiosk-empty muted small">
-                {{if ne .KioskConfig.KioskPackage ""}}The locked app <span class="mono">{{.KioskConfig.KioskPackage}}</span> is not installed on this device. {{end}}No apps have been reported for this device yet — kiosk can be turned on once it reports its installed apps on the next check-in.
+                {{if ne .KioskConfig.KioskPackage ""}}The locked app <span class="mono">{{.KioskConfig.KioskPackage}}</span> is not installed on this device. {{end}}No apps have been reported for this device yet — kiosk can be turned on once it reports its installed apps.
               </div>
             {{end}}
-            <span class="muted small">Pick the app, then turn kiosk on. Applied on the next check-in.</span>
+            <span class="muted small">Pick the app, then turn kiosk on.</span>
           </div>
         </form>
         {{end}}
@@ -3003,7 +3003,7 @@ function toggleSection(header) {
 var deviceActionConfig = {
   install: {
     title: 'Install App',
-    copy: 'Choose an app from your repository and queue it for the next check-in.',
+    copy: 'Choose one or more apps from your library and install them on this device.',
     meta: ''
   },
   poll: {

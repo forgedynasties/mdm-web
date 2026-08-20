@@ -1393,7 +1393,7 @@ document.addEventListener('keydown', function(e) {
       window.mdmConfirm({
         title: 'Reboot device',
         body: 'Reboot ' + serial + '?',
-        scope: 'The device reboots on its next check-in.',
+        scope: 'The device reboots.',
         tier: 'danger', confirmLabel: 'Reboot'
       }).then(function (ok) {
         if (ok) window.mdmPostForm('/commands', { type: 'reboot', target_type: 'devices', target_serials: serial, apk_url: '' });
@@ -1404,7 +1404,7 @@ document.addEventListener('keydown', function(e) {
       window.mdmConfirm({
         title: 'Mark device inactive',
         body: 'Mark ' + serial + ' inactive?',
-        scope: 'It drops out of every list, search, and count — including health stats — while all its data is kept. It comes back automatically the next time it checks in.',
+        scope: 'It drops out of every list, search, and count — including health stats — while all its data is kept. It comes back automatically when it reconnects.',
         tier: 'danger', confirmLabel: 'Mark inactive'
       }).then(function (ok) {
         if (ok) window.mdmPostForm('/devices/' + encodeURIComponent(serial) + '/hide', {});
@@ -1513,7 +1513,7 @@ document.addEventListener('keydown', function(e) {
               <div class="pkg-opt" data-value="" data-search="none release clear launcher"><span class="pkg-opt-name">— None (release to launcher) —</span></div>
             </div>
           </div>
-          <span class="muted small">Pinned to the foreground in lock-task mode. Applied on the next check-in. Apps common to every selected device are listed first; greyed apps are on only some.</span>
+          <span class="muted small">Pinned to the foreground in lock-task mode. Applied when saved. Apps common to every selected device are listed first; greyed apps are on only some.</span>
           <div id="bulk-kiosk-warn" class="form-hint" style="display:none;margin-top:6px;color:var(--warn,#9a6512);font-weight:600;"></div>
         </div>
         <button type="submit" class="btn-primary" style="margin-top:14px;">Apply Kiosk</button>

@@ -81,7 +81,7 @@
     <h1>Alerts</h1>
     <span class="sum">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} your attention</b> · {{end}}{{.Summary.Open}} open</span>
     {{if and (canAdmin .Role) (or .Critical .Watching)}}
-    <form action="/alerts/clear-all" method="POST" class="clear" hx-confirm="Clear ALL alerts? Any whose condition still holds will re-fire on the next check.">
+    <form action="/alerts/clear-all" method="POST" class="clear" hx-confirm="Clear ALL alerts? Any whose condition still holds will re-fire.">
       <button type="submit" class="alx-head clear" style="background:none;border:none;cursor:pointer;font:inherit;">Clear all</button>
     </form>
     {{end}}
