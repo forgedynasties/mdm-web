@@ -9797,6 +9797,31 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	reinstall := r.FormValue("reinstall") != ""
 	skippedSet := map[string]bool{}
 	var created []*db.Command
+
+	// Pre-fetch APK size/ETag for every install URL CONCURRENTLY with a short bound, so a
+	// multi-app install doesn't serialize N slow HEAD requests (that hung the install
+	// popup for many seconds). Augment already degrades gracefully to no size/etag on a
+	// slow/failed HEAD, so a laggy file host can't block command creation.
+	augmentedPayload := map[string]json.RawMessage{}
+	if cmdType == "install_apk" && len(items) > 0 {
+		actx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		for _, it := range items {
+			u := it.apkURL
+			wg.Add(1)
+			go func(base json.RawMessage) {
+				defer wg.Done()
+				p := apkmeta.Augment(actx, u, base)
+				mu.Lock()
+				augmentedPayload[u] = p
+				mu.Unlock()
+			}(it.payload)
+		}
+		wg.Wait()
+		cancel()
+	}
+
 	for _, it := range items {
 		ids := targetIDs
 		if cmdType == "install_apk" && targetType == "devices" && len(ids) > 0 && !reinstall {
@@ -9840,8 +9865,10 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		payload := it.payload
 		if cmdType == "install_apk" {
-			// Capture APK size + ETag so the device can verify/resume the download.
-			payload = apkmeta.Augment(r.Context(), it.apkURL, payload)
+			// Use the size/ETag fetched concurrently above (falls back to the base payload).
+			if p, ok := augmentedPayload[it.apkURL]; ok {
+				payload = p
+			}
 		}
 		cmd, err := h.db.CreateCommand(r.Context(), cmdType, it.apkURL, payload, targetType, ids)
 		if err != nil {
@@ -9877,25 +9904,14 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	sort.Strings(skipped)
 
-	// Device-page multi-install: show ALL the queued apps' progress on one combined page
-	// (progress_view=1 + a single target device), instead of a separate history page per
-	// app. Falls through to the normal redirects for the Actions page.
-	if cmdType == "install_apk" && r.FormValue("progress_view") == "1" && len(created) > 0 {
-		if serials := db.ParseSerials(r.FormValue("target_serials")); len(serials) == 1 {
-			var ids strings.Builder
-			for i, c := range created {
-				if i > 0 {
-					ids.WriteByte(',')
-				}
-				ids.WriteString(c.ID.String())
-			}
-			dest := "/devices/" + url.PathEscape(serials[0]) + "/installs?ids=" + ids.String()
-			if len(skipped) > 0 {
-				dest += "&skipped=" + url.QueryEscape(strings.Join(skipped, ","))
-			}
-			h.hxRedirect(w, r, dest)
-			return
-		}
+	// Device-page install (progress_view=1): don't navigate anywhere. Fire device-updated
+	// so the device page's Applications drawer refreshes and shows the queued apps inline
+	// as "Installing…" — the popup already closed client-side. No separate progress/history
+	// page; the drawer IS the combined live view.
+	if cmdType == "install_apk" && r.FormValue("progress_view") == "1" {
+		w.Header().Set("HX-Trigger", "device-updated")
+		w.WriteHeader(http.StatusNoContent)
+		return
 	}
 
 	// One command → its detail view (with any skip note). Multiple → back to Actions

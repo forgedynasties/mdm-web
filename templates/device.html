@@ -2124,7 +2124,12 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
           </span>
         </div>
         {{if .Apps}}
-        <form id="install-form" action="/commands" method="POST">
+        {{/* Close the popup the instant Install is clicked so it never lingers with the
+             overlay while the request runs. hx-post + hx-swap="none": the request fires
+             without navigating; the server returns 204 + HX-Trigger:device-updated, which
+             refreshes the Applications drawer so the queued apps show inline as
+             "Installing…". */}}
+        <form id="install-form" hx-post="/commands" hx-swap="none" action="/commands" method="POST" onsubmit="installModalClose();">
           <input type="hidden" name="type" value="install_apk">
           <input type="hidden" name="target_type" value="devices">
           <input type="hidden" name="target_serials" value="{{$.Device.SerialNumber}}">
