@@ -2659,6 +2659,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"KioskApps":           kioskApps,
 		"PendingInstalls":     pendingInstalls,
 		"Uninstalling":        pendingUninstallPkgs(commands),
+		"InstalledSet":        pkgNameSet(installedPkgs),
 		"KioskConfig":         kioskCfg,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
@@ -9997,6 +9998,18 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		msg += fmt.Sprintf(" Skipped %d device(s) that already had one of the apps.", n)
 	}
 	h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape(msg)+"&flash_type=success")
+}
+
+// pkgNameSet is the set of package names a device currently reports installed, so the
+// install picker can hide apps that are already on the device.
+func pkgNameSet(pkgs []db.DevicePackage) map[string]bool {
+	m := make(map[string]bool, len(pkgs))
+	for _, p := range pkgs {
+		if p.PackageName != "" {
+			m[p.PackageName] = true
+		}
+	}
+	return m
 }
 
 // apkURLToName maps each library app's apk_url to its display name, so the command

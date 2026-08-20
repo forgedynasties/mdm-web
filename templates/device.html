@@ -647,8 +647,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <div class="chart-legend" id="wlc-legend">
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> Device placed</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Charging pad vacant</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#f39c12;"></span> Pad Disconnected</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#b2bec3;"></span> Pad Unreadable</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#b2bec3;"></span> Charging disabled</span>
       </div>
     </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
@@ -992,11 +991,9 @@ function mdmBootCharts() {
   // preceding poll interval with a state that had not happened yet.
   function segColor(ctx) {
     const raw = ctx.p0 && ctx.p0.raw;
-    if (!raw || raw.wlc === undefined || raw.wlc === null) return "#7a7f9a";
-    if (raw.wlc === 1) return "#e84393";  // guest device on pad — WLC On
-    if (raw.wlc === 0) return "#6c5ce7";  // pad idle — WLC Off
-    if (raw.wlc === 2) return "#f39c12";  // no pad connected — gpio27 floating (~2.8 Hz)
-    return "#b2bec3";                     // -1 — the sysfs read failed; state unknown
+    if (raw && raw.wlc === 1) return "#e84393";  // device placed (charging on)
+    if (raw && raw.wlc === 0) return "#6c5ce7";  // charging pad vacant (charging on)
+    return "#b2bec3";                            // charging disabled / unknown (matches legend)
   }
 
 
@@ -1925,7 +1922,8 @@ function mdmBootCharts() {
     });
     document.addEventListener('fullscreenchange', function () {
       var fs = document.fullscreenElement === _chartCard;
-      _fsBtn.textContent = fs ? '⤡ Exit full screen' : '⤢ Full screen';
+      _fsBtn.textContent = fs ? '⤡' : '⤢';
+    _fsBtn.title = fs ? 'Exit full screen' : 'View graphs full screen';
       setTimeout(function () {
         [batteryChart, tempChart, ramChart, unifiedChart].forEach(function (c) { if (c) { try { c.resize(); } catch (e) {} } });
         if (typeof updateCharts === 'function') updateCharts();
@@ -2155,13 +2153,13 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
           <span class="install-hidden"></span>
           <div class="app-search" style="padding:8px 18px 0;"><input type="text" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)"></div>
           <div class="app-drawer install-drawer" id="install-drawer">
-            {{range .Apps}}
+            {{range .Apps}}{{if not (index $.InstalledSet .PackageName)}}
             <button type="button" class="app-row app-tile install-tile" data-app="{{.Name}}" data-url="{{.ApkURL}}" title="{{.Name}}" onclick="installToggle(this)">
               {{if .Icon}}<img class="app-icon" src="data:image/png;base64,{{.Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
               <span class="app-tname">{{.Name}}</span>
               <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
             </button>
-            {{end}}
+            {{end}}{{end}}
           </div>
           <div id="install-no-match" class="muted small" style="display:none;padding:14px 18px;">No apps match your search.</div>
           <div class="install-modal-foot">
@@ -2462,8 +2460,9 @@ window.markUninstalling = function (tile) {
   if (!tile) return;
   tile.classList.add('app-uninstalling');
   var sub = tile.querySelector('.app-tsub');
-  if (!sub) { sub = document.createElement('div'); sub.className = 'app-tsub'; tile.appendChild(sub); }
-  sub.textContent = 'Uninstalling…';
+  if (!sub) { sub = document.createElement('div'); sub.className = 'app-tsub un'; tile.appendChild(sub); }
+  else { sub.classList.add('un'); }
+  sub.innerHTML = '<span class="app-spin"></span>Uninstalling…';
   var x = tile.querySelector('.app-x-form'); if (x) x.style.display = 'none';
 };
 // The apps list live-refreshes on check-in (hx-get → innerHTML swap), which drops the
@@ -2500,8 +2499,9 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 .app-drawer-sep{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:10px 2px 2px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
 .app-drawer-sep::after{content:"";flex:1;height:1px;background:var(--border-soft);}
 .app-mono-inst{background:var(--accent-soft);}
-.app-uninstalling{opacity:.5;}
-.app-uninstalling .app-tsub{color:var(--danger,#c0392b);}
+.app-uninstalling .app-icon,.app-uninstalling .app-mono{opacity:.4;}
+.app-tsub.un{color:var(--accent-text);font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px;}
+.app-tsub.un .app-spin{flex:none;}
 /* Install picker modal */
 .install-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px 4px;}
 .install-head-actions{display:flex;align-items:center;gap:10px;}
@@ -3396,7 +3396,7 @@ async function saveNewApp() {
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="data:image/png;base64,{{$p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
-    {{if $isUn}}<div class="app-tsub">Uninstalling…</div>{{end}}
+    {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
     {{if and (canOperate $.Role) (not $isUn)}}
     {{/* hx-post + hx-swap="none": fire the uninstall without navigating or swapping; the
          server returns 204 + HX-Trigger:device-updated, refreshing the drawer so the app
