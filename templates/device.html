@@ -316,9 +316,13 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         btn.setAttribute('data-on', v ? '1' : '0');
         btn.classList.toggle('on', v);
         if (st) st.textContent = v ? 'enabled' : 'disabled';
+        // Keep the card's charging flag in sync so the live SSE updater (mdmSyncPadStatus)
+        // knows to hold "Not available" while disabled.
+        var card = document.getElementById('charging-pad-card');
+        if (card) card.setAttribute('data-charging', v ? '1' : '0');
         // Reflect the status immediately: charging off => "Not available" (gpio27 is
-        // meaningless then). When re-enabled, the next telemetry refresh fills in the
-        // real placed/vacant.
+        // meaningless then). When re-enabled, the next telemetry refresh fills in the real
+        // placed/vacant.
         var ps = document.getElementById('pad-status');
         if (ps && !v) { ps.className = 'pad-stat pad-stat-na'; var t = ps.querySelector('.pad-txt'); if (t) t.textContent = 'Not available'; }
       };
@@ -398,7 +402,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
        enable/disable control. Rendered only for devices that report a pad. */}}
   {{$wlcS := extraField .Device.LatestExtra "wlc_status"}}
   {{if and $wlcS (ne $wlcS "—")}}
-  <div class="ddc-card" id="charging-pad-card">
+  <div class="ddc-card" id="charging-pad-card" data-charging="{{if .KioskConfig.WlcChargingEnabled}}1{{else}}0{{end}}">
     <div class="ddc-card-t pad-card-t">
       <span>Charging pad</span>
       {{if canAdminOrTester .Role}}
@@ -2874,6 +2878,14 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   window.mdmSyncPadStatus = function (wlc) {
     var el = document.getElementById('pad-status');
     if (!el) return;
+    // wlc_status is only meaningful while charging is ON. If the pad's charging toggle is
+    // off, keep "Not available" — don't let a device-reported vacant/placed override it.
+    var card = document.getElementById('charging-pad-card');
+    if (card && card.getAttribute('data-charging') === '0') {
+      el.className = 'pad-stat pad-stat-na';
+      var tn = el.querySelector('.pad-txt'); if (tn) tn.textContent = 'Not available';
+      return;
+    }
     var map = { 1: ['on', 'Device placed'], 0: ['vacant', 'Vacant'], 2: ['nopad', 'No pad'] };
     var m = map[wlc] || ['bad', 'Unreadable'];
     el.className = 'pad-stat pad-stat-' + m[0];
