@@ -2129,7 +2129,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
              without navigating; the server returns 204 + HX-Trigger:device-updated, which
              refreshes the Applications drawer so the queued apps show inline as
              "Installing…". */}}
-        <form id="install-form" hx-post="/commands" hx-swap="none" action="/commands" method="POST" onsubmit="installModalClose();">
+        <form id="install-form" hx-post="/commands" hx-swap="none" action="/commands" method="POST" onsubmit="installModalClose(); installOptimistic();">
           <input type="hidden" name="type" value="install_apk">
           <input type="hidden" name="target_type" value="devices">
           <input type="hidden" name="target_serials" value="{{$.Device.SerialNumber}}">
@@ -2184,11 +2184,9 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
     {{if canOperate .Role}}
     <div class="appinfo-foot">
       <span class="appinfo-sysnote muted small" id="ai-sysnote" hidden>System apps can't be uninstalled.</span>
-      {{/* hx-boost="false": under boost htmx swapped the full redirect response into the
-           Applications tab and left the modal backdrop up until reload. A plain POST
-           navigates to the device page normally. hx-confirm only fires for boosted
-           requests, so use a native confirm here. */}}
-      <form id="ai-uninstall-form" action="/devices/{{.Device.SerialNumber}}/commands" method="POST" hx-boost="false" onsubmit="return confirm('Uninstall this app from the device?');" style="margin:0;">
+      {{/* hx-post + hx-swap="none" + close the popup after: fire the uninstall without
+           navigating; the drawer refreshes (device-updated) to show "Uninstalling…". */}}
+      <form id="ai-uninstall-form" hx-post="/devices/{{.Device.SerialNumber}}/commands" hx-swap="none" hx-confirm="Uninstall this app from the device?" hx-on::before-request="if(window.__aiTile)markUninstalling(window.__aiTile); appInfoClose();" style="margin:0;">
         <input type="hidden" name="type" value="uninstall"><input type="hidden" name="package" id="ai-uninstall-pkg" value="">
         <button type="submit" class="btn-danger-sm" id="ai-uninstall-btn">Uninstall</button>
       </form>
@@ -2284,6 +2282,7 @@ window.installModalBackdrop = function (e) { if (e.target.id === 'install-modal'
 // App-info popup — populated from the clicked tile's data attributes + its icon.
 window.appInfoOpen = function (el) {
   var m = document.getElementById('appinfo-modal'); if (!m || !el) return;
+  window.__aiTile = el; // remember the drawer tile so uninstall can mark it optimistically
   var byId = function (id) { return document.getElementById(id); };
   var name = el.getAttribute('data-name') || '', pkg = el.getAttribute('data-pkg') || '',
       ver = el.getAttribute('data-ver') || '', sys = el.getAttribute('data-sys') === '1';
@@ -2421,6 +2420,34 @@ window.installToggle = function (btn) {
   if (c) c.textContent = n ? (n + ' app' + (n === 1 ? '' : 's') + ' selected') : 'Select one or more apps';
   if (s) { s.disabled = n === 0; s.textContent = n ? ('Install (' + n + ')') : 'Install'; }
 };
+// Optimistic install: the instant Install is clicked, drop an "installing" tile into the
+// drawer for each selected app (cloning its icon) so feedback is immediate — the server
+// round-trip then refreshes the drawer with the real pending/progress state.
+window.installOptimistic = function () {
+  var form = document.getElementById('install-form'); if (!form) return;
+  var table = document.getElementById('apps-table'); if (!table) return;
+  form.querySelectorAll('.install-tile.on').forEach(function (t) {
+    var name = (t.getAttribute('data-app') || '').trim();
+    var iconEl = t.querySelector('.app-icon, .app-mono');
+    var tile = document.createElement('div');
+    tile.className = 'app-row app-tile app-installing';
+    tile.setAttribute('data-optimistic', '1');
+    if (iconEl) { var ic = iconEl.cloneNode(true); ic.classList.remove('on'); tile.appendChild(ic); }
+    var nm = document.createElement('div'); nm.className = 'app-tname'; nm.textContent = name; tile.appendChild(nm);
+    var sub = document.createElement('div'); sub.className = 'app-tsub'; sub.textContent = 'installing'; tile.appendChild(sub);
+    table.insertBefore(tile, table.firstChild);
+  });
+};
+// Optimistic uninstall: dim the tile + show "Uninstalling…" the instant it's clicked,
+// before the server responds; the drawer refresh then reconciles to the real state.
+window.markUninstalling = function (tile) {
+  if (!tile) return;
+  tile.classList.add('app-uninstalling');
+  var sub = tile.querySelector('.app-tsub');
+  if (!sub) { sub = document.createElement('div'); sub.className = 'app-tsub'; tile.appendChild(sub); }
+  sub.textContent = 'Uninstalling…';
+  var x = tile.querySelector('.app-x-form'); if (x) x.style.display = 'none';
+};
 // The apps list live-refreshes on check-in (hx-get → innerHTML swap), which drops the
 // monogram tints and can leave the package count stale. The inline hx-on::after-swap
 // is unreliable across htmx versions, so recolor + recount from a delegated listener
@@ -2455,6 +2482,8 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 .app-drawer-sep{grid-column:1/-1;display:flex;align-items:center;gap:10px;margin:10px 2px 2px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
 .app-drawer-sep::after{content:"";flex:1;height:1px;background:var(--border-soft);}
 .app-mono-inst{background:var(--accent-soft);}
+.app-uninstalling{opacity:.5;}
+.app-uninstalling .app-tsub{color:var(--danger,#c0392b);}
 /* Install picker modal */
 .install-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px 4px;}
 .install-head-actions{display:flex;align-items:center;gap:10px;}
@@ -3321,17 +3350,19 @@ async function saveNewApp() {
   </div>
   {{end}}
   {{range $p := .InstalledPackages}}{{if not $p.EffectiveSystem}}
-  <div class="app-row app-tile" data-app="{{$p.AppName}} {{$p.PackageName}}"
+  {{$isUn := index $.Uninstalling $p.PackageName}}
+  <div class="app-row app-tile{{if $isUn}} app-uninstalling{{end}}" data-app="{{$p.AppName}} {{$p.PackageName}}"
        data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="0"
        role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
     {{if $p.Icon}}<img class="app-icon" loading="lazy" src="data:image/png;base64,{{$p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
-    {{if canOperate $.Role}}
-    {{/* hx-boost="false": under boost htmx swapped the full redirect into the Applications
-         tab and left the modal-style overlay up until reload. Plain POST navigates
-         normally; hx-confirm only fires for boosted requests, so confirm natively. */}}
-    <form action="/devices/{{$.Device.SerialNumber}}/commands" method="POST" hx-boost="false" onsubmit="return confirm('Uninstall {{$p.PackageName}} from this device?');" class="app-x-form" onclick="event.stopPropagation()">
+    {{if $isUn}}<div class="app-tsub">Uninstalling…</div>{{end}}
+    {{if and (canOperate $.Role) (not $isUn)}}
+    {{/* hx-post + hx-swap="none": fire the uninstall without navigating or swapping; the
+         server returns 204 + HX-Trigger:device-updated, refreshing the drawer so the app
+         shows "Uninstalling…" until the device confirms removal. */}}
+    <form hx-post="/devices/{{$.Device.SerialNumber}}/commands" hx-swap="none" hx-confirm="Uninstall {{$p.PackageName}} from this device?" hx-on::before-request="markUninstalling(this.closest('.app-tile'))" class="app-x-form" onclick="event.stopPropagation()">
       <input type="hidden" name="type" value="uninstall"><input type="hidden" name="package" value="{{$p.PackageName}}">
       <button type="submit" class="app-x" title="Uninstall {{$p.PackageName}}" aria-label="Uninstall {{$p.PackageName}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>
     </form>

@@ -2437,6 +2437,28 @@ func pendingInstallRows(commands []db.DeviceCommand, apps []db.App, installedPkg
 	return out
 }
 
+// pendingUninstallPkgs returns the set of package names with an in-flight uninstall
+// command, so the Applications drawer can show them as "Uninstalling…" until the device
+// confirms removal (mirrors pendingInstallRows for installs).
+func pendingUninstallPkgs(commands []db.DeviceCommand) map[string]bool {
+	inFlight := func(s string) bool {
+		return s == "pending" || s == "delivered" || s == "downloading" || s == "installing"
+	}
+	out := map[string]bool{}
+	for _, c := range commands {
+		if c.Type != "uninstall" || !inFlight(c.Status) {
+			continue
+		}
+		var p struct {
+			Package string `json:"package"`
+		}
+		if json.Unmarshal(c.Payload, &p) == nil && p.Package != "" {
+			out[p.Package] = true
+		}
+	}
+	return out
+}
+
 // atoi is a forgiving strconv.Atoi: it returns 0 for unparseable input.
 func atoi(s string) int {
 	n, _ := strconv.Atoi(s)
@@ -2474,6 +2496,7 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 		"Role":              h.role(r),
 		"InstalledPackages": installedPkgs,
 		"PendingInstalls":   pendingInstallRows(commands, apps, installedPkgs, apkPkg),
+		"Uninstalling":      pendingUninstallPkgs(commands),
 	})
 }
 
@@ -2635,6 +2658,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"InstalledPackages":   installedPkgs,
 		"KioskApps":           kioskApps,
 		"PendingInstalls":     pendingInstalls,
+		"Uninstalling":        pendingUninstallPkgs(commands),
 		"KioskConfig":         kioskCfg,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
@@ -12109,6 +12133,14 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if cmdType == "screenshot" || cmdType == "shell" {
 		http.Redirect(w, r, "/commands/"+cmd.ID.String()+"?from=/devices/"+serial, http.StatusFound)
+		return
+	}
+	// Uninstall from the Applications drawer: don't reload the page. Fire device-updated so
+	// the drawer refreshes and shows the app as "Uninstalling…" until the device confirms
+	// removal (mirrors the instant-install flow).
+	if cmdType == "uninstall" && r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Trigger", "device-updated")
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
