@@ -45,9 +45,9 @@
     </span>{{else}}<span class="ddc-chip" title="Mains powered — no battery">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg>AC
     </span>{{end}}
-    {{/* 2 = no pad attached. Only the client can determine that: it needs the GPIO's edge
-         rate (2.8 Hz floating vs ~0.1 Hz for a working pad), and the client's 1 s poll
-         aliases that away before any of it reaches the server. */}}
+    {{/* wlc_status is now just 1 = device placed, 0 = vacant. The old "2 = no pad" was
+         dropped: a disconnected pad reads identically to a placed guest, so it is not
+         detectable from the GPIO (see the client's classifyWlc + tools/wlc-gpio-matrix.sh). */}}
     {{/* Wireless-charging status moved to the "Charging pad" sidebar card, combined
          with its enable/disable control. */}}
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
@@ -407,8 +407,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       {{end}}
     </div>
     <div class="ddc-kv"><span class="k">Status</span><span class="v">
-      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}nopad{{else}}bad{{end}}" id="pad-status">
-        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Device placed{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}No pad{{else}}Unreadable{{end}}</span>
+      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else}}bad{{end}}" id="pad-status">
+        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Device placed{{else if eq $wlcS "0"}}Vacant{{else}}Unreadable{{end}}</span>
       </span></span></div>
   </div>
   {{end}}
