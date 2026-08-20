@@ -4158,6 +4158,7 @@ type FleetPackage struct {
 	AppName     string `json:"app_name"`
 	DeviceCount int    `json:"device_count"`
 	Versions    string `json:"versions"`
+	Icon        string `json:"icon"` // base64 PNG from the shared app_icons index, "" if none
 }
 
 // UpsertDevicePackages replaces all packages for a device atomically.
@@ -4365,9 +4366,11 @@ func (d *DB) PackagesForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]F
 			dp.package_name,
 			COALESCE(MAX(dp.app_name), '') AS app_name,
 			COUNT(DISTINCT dp.device_id) AS device_count,
-			string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
+			string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions,
+			COALESCE(MAX(ai.icon), '') AS icon
 		FROM device_packages dp
 		LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+		LEFT JOIN app_icons ai ON ai.package_name = dp.package_name
 		WHERE dp.device_id = ANY($1)
 		  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)`+notSystemHeuristicSQL+`
 		GROUP BY dp.package_name
@@ -4381,7 +4384,7 @@ func (d *DB) PackagesForDevices(ctx context.Context, deviceIDs []uuid.UUID) ([]F
 	var out []FleetPackage
 	for rows.Next() {
 		var p FleetPackage
-		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount, &p.Versions); err != nil {
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount, &p.Versions, &p.Icon); err != nil {
 			return nil, err
 		}
 		out = append(out, p)

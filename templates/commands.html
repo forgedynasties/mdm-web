@@ -147,9 +147,15 @@
 .pkg:first-child{border-top:none;}
 .pkg:hover{background:var(--surface2);}
 .pkg.on{background:var(--accent-soft);}
-.pkg .ic{width:34px;height:34px;flex:none;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);}
+.pkg .ic{width:42px;height:42px;flex:none;border-radius:11px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--text-faint,var(--muted));overflow:hidden;font-weight:800;font-size:17px;text-transform:uppercase;}
+.pkg .ic:has(img){background:var(--surface-3,var(--surface2));}
+.pkg .ic img{width:100%;height:100%;object-fit:contain;}
 .pkg.on .ic{background:var(--surface);color:var(--accent);}
 .pkg .ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;}
+.pkg .chk{width:20px;height:20px;flex:none;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;}
+.pkg .chk svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3;display:none;}
+.pkg.on .chk{border-color:var(--accent);background:var(--accent);}
+.pkg.on .chk svg{display:block;}
 .pkg .m{min-width:0;flex:1;}
 .pkg .nm{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pkg.on .nm{color:var(--accent-h);}
@@ -286,9 +292,9 @@
             <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" aria-label="Search your app library" autocomplete="off" oninput="filterApps(this.value)"></div>
             <div class="appgrid" id="app-grid">
               {{range .Apps}}
-              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}}{{if canAdmin $.Role}} {{.ApkURL}}{{end}}" onclick="pickApp(this)">
+              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.PackageName}}" onclick="pickApp(this)">
                 <span class="thumb">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
-                <span class="m"><span class="nm">{{.Name}}</span>{{if canAdmin $.Role}}<span class="meta">{{.ApkURL}}</span>{{end}}</span>
+                <span class="m"><span class="nm">{{.Name}}</span>{{if .PackageName}}<span class="meta">{{.PackageName}}</span>{{end}}</span>
                 <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
               </button>
               {{end}}
@@ -1290,9 +1296,10 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 {{if .FleetPackages}}
 {{range .FleetPackages}}
 <button type="button" class="pkg" data-pkg="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickUninstall(this)">
-  <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>
+  <span class="ic">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .AppName}}{{slice .AppName 0 1}}{{else}}{{slice .PackageName 0 1}}{{end}}{{end}}</span>
   <span class="m"><span class="nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pk">{{.PackageName}}</span></span>
   <span class="cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
+  <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
 </button>
 {{end}}
 {{else}}
