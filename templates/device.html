@@ -226,6 +226,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   .pad-stat-vacant{color:var(--text-faint);} .pad-stat-vacant .pad-dot{background:#9aa0b0;}
   .pad-stat-nopad{color:#9a6512;} .pad-stat-nopad .pad-dot{background:#e8a13a;}
   .pad-stat-bad{color:var(--text-faint);} .pad-stat-bad .pad-dot{background:#b2bec3;}
+  .pad-stat-na{color:var(--text-faint);} .pad-stat-na .pad-dot{background:#b2bec3;}
   html[data-theme="dark"] .pad-stat-on{color:#5fd49a;}
   html[data-theme="dark"] .pad-stat-nopad{color:#f0b765;}
   .pad-swpill{padding:5px 9px;}
@@ -315,6 +316,11 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         btn.setAttribute('data-on', v ? '1' : '0');
         btn.classList.toggle('on', v);
         if (st) st.textContent = v ? 'enabled' : 'disabled';
+        // Reflect the status immediately: charging off => "Not available" (gpio27 is
+        // meaningless then). When re-enabled, the next telemetry refresh fills in the
+        // real placed/vacant.
+        var ps = document.getElementById('pad-status');
+        if (ps && !v) { ps.className = 'pad-stat pad-stat-na'; var t = ps.querySelector('.pad-txt'); if (t) t.textContent = 'Not available'; }
       };
       apply(next); // optimistic
       btn.disabled = true;
@@ -406,10 +412,18 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <span class="{{if .KioskConfig.WlcChargingEnabled}}pad-en{{else}}muted{{end}}">{{if .KioskConfig.WlcChargingEnabled}}Enabled{{else}}Disabled{{end}}</span>
       {{end}}
     </div>
+    {{/* gpio27 only carries a real placed/vacant reading while charging is ON. With
+         charging disabled the line is meaningless, so show "Not available" rather than a
+         misleading placed/vacant. */}}
     <div class="ddc-kv"><span class="k">Status</span><span class="v">
+      {{if .KioskConfig.WlcChargingEnabled}}
       <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else}}bad{{end}}" id="pad-status">
         <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Device placed{{else if eq $wlcS "0"}}Vacant{{else}}Unreadable{{end}}</span>
-      </span></span></div>
+      </span>
+      {{else}}
+      <span class="pad-stat pad-stat-na" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">Not available</span></span>
+      {{end}}
+    </span></div>
   </div>
   {{end}}
   {{template "device-notes" .}}
