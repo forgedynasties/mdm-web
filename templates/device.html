@@ -81,7 +81,7 @@
       {{range $i, $c := .Commands}}
       <a class="ddc-tl ddc-tl-link{{if ge $i 10}} ch-extra{{end}}" data-cmd-id="{{$c.ID}}" data-ct="{{$c.Type}}" href="/commands/{{$c.ID}}">
         <span class="dot {{if eq $c.Status "success"}}ok{{else if or (eq $c.Status "failed") (eq $c.Status "expired")}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
-        <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{$c.Status}}{{if $c.TargetType}} <span class="muted">· {{$c.TargetType}}</span>{{end}}</span>
+        <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{cmdStatusLabel $c.Status $.Online}}{{if $c.TargetType}} <span class="muted">· {{$c.TargetType}}</span>{{end}}</span>
         <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}"></span>
       </a>
       {{end}}
@@ -2083,7 +2083,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
     {{range $i, $c := .Commands}}{{if lt $i 6}}
     <a class="ddc-tl ddc-tl-link" href="/commands/{{$c.ID}}">
       <span class="dot {{if eq $c.Status "success"}}ok{{else if eq $c.Status "failed"}}err{{else if eq $c.Status "expired"}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
-      <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{$c.Status}}</span>
+      <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{cmdStatusLabel $c.Status $.Online}}</span>
       <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}">{{timeSince $c.CreatedAt}}</span>
     </a>
     {{end}}{{end}}

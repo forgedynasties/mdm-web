@@ -632,6 +632,16 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 		},
 		"cmdLabel": cmdTypeLabel,
+		// cmdStatusLabel makes a not-yet-run status honest about an OFFLINE device: a
+		// command shows "delivered"/"pending" the moment it's queued, but on an offline
+		// device it hasn't reached anything — show "queued" (it runs when the device comes
+		// back online). Online/terminal statuses are shown as-is.
+		"cmdStatusLabel": func(status string, online bool) string {
+			if !online && (status == "delivered" || status == "pending") {
+				return "queued"
+			}
+			return status
+		},
 		// productLabel maps a product key (e.g. "kiosk22") to its display label for the
 		// releases UI, mirroring Device.ProductLabel() on the device side.
 		"productLabel": product.Label,
@@ -4682,6 +4692,7 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 	h.renderCachedHTML(w, r, "device-commands", map[string]any{
 		"Device":   device,
 		"Commands": commands,
+		"Online":   h.hub.IsConnected(device.ID),
 	})
 }
 

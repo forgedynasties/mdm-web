@@ -40,7 +40,7 @@
   <div class="ad-shell">
     {{range .Deliveries}}
     <div class="ad-term">
-      <div class="ad-term-h"><a href="/devices/{{.SerialNumber}}" class="ad-sn2">{{.SerialNumber}}</a><span class="status-badge {{statusClass .Status}}">{{.Status}}</span></div>
+      <div class="ad-term-h"><a href="/devices/{{.SerialNumber}}" class="ad-sn2">{{.SerialNumber}}</a><span class="status-badge {{statusClass .Status}}">{{cmdStatusLabel .Status .Online}}</span></div>
       {{if .Output}}<pre class="ad-out">{{colorizeLogcat .Output}}</pre>
       {{else if eq .Status "expired"}}<div class="ad-wait warn">Timed out — no output within 5 minutes</div>
       {{else if or (eq .Status "delivered") (eq .Status "pending")}}
@@ -77,7 +77,7 @@
         {{else if eq .Status "installing"}}
           <span class="status-badge active">installing</span><span class="ad-bar run"><i></i></span>
         {{else}}
-          <span class="status-badge {{statusClass .Status}}">{{.Status}}</span>
+          <span class="status-badge {{statusClass .Status}}"{{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered"))}} title="Queued — runs when the device comes back online"{{end}}>{{cmdStatusLabel .Status .Online}}</span>
           {{if and (not .Online) (or (eq .Status "pending") (eq .Status "delivered"))}}<span class="muted small"><span class="ws-dot"></span>offline · last seen <span class="reltime" data-ts="{{.LastSeenAt.Unix}}"></span></span>
           {{else if .Output}}<span class="muted small">{{.Output}}</span>
           {{else}}<span class="when reltime" data-ts="{{.UpdatedAt.Unix}}"></span>{{end}}
