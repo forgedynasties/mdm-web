@@ -3460,8 +3460,18 @@ async function saveNewApp() {
   // Exposed so the modal can re-highlight the selection after resetting it on open.
   window.kioskPickerRender = render;
   // Rebuild the app list from the (freshly refreshed) drawer — called after an install/
-  // uninstall so the kiosk picker reflects it without a page reload.
-  window.kioskPickerReload = function () { apps = loadApps(); render(); };
+  // uninstall so the kiosk picker reflects it without a page reload. Runs on EVERY drawer
+  // refresh (every check-in), so only actually re-render when the app set changed — else the
+  // picker's whole grid/list innerHTML was being replaced on every tick (a flash when the
+  // kiosk modal is open, wasted work when it isn't).
+  var _appsSig = '';
+  function _sig(a) { return a.map(function (x) { return x.v + '|' + x.n + '|' + (x.missing ? 1 : 0); }).join(','); }
+  _appsSig = _sig(apps);
+  window.kioskPickerReload = function () {
+    var next = loadApps(), sig = _sig(next);
+    if (sig === _appsSig) return; // nothing changed — don't touch the DOM
+    _appsSig = sig; apps = next; render();
+  };
   render();
 })();
 </script>
