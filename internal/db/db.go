@@ -3423,9 +3423,14 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 	rows, err := d.pool.Query(ctx, fmt.Sprintf(`
 		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at,
 		       CASE
+		         -- Expire an install by LAST ACTIVITY (updated_at), not creation time, so a
+		         -- large APK that legitimately takes a while to download isn't shown 'expired'
+		         -- while it's actively progressing. This matches ExpireStalledInstalls, which
+		         -- keys the actual write on updated_at (the device page previously disagreed
+		         -- with the sweep and could prompt an operator to cancel a healthy install).
 		         WHEN c.type = 'install_apk'
 		              AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
-		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'
+		              AND COALESCE(cs.updated_at, c.created_at) <= NOW() - INTERVAL '%d seconds' THEN 'expired'
 		         WHEN cs.status IS NOT NULL THEN cs.status
 		         WHEN c.type IN ('shell', 'screenshot', 'reboot')
 		              AND c.created_at <= NOW() - INTERVAL '%d seconds' THEN 'expired'

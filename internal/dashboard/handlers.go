@@ -9807,13 +9807,27 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		targetIDs = ids
 	case "groups":
+		var gids []uuid.UUID
 		for _, gid := range r.Form["target_groups"] {
-			id, err := uuid.Parse(gid)
-			if err != nil {
-				continue
+			if id, err := uuid.Parse(gid); err == nil {
+				gids = append(gids, id)
 			}
-			targetIDs = append(targetIDs, id)
 		}
+		// Snapshot group membership to concrete device IDs NOW, like all/scope — a one-shot
+		// command (install/reboot/…) targets the CURRENT members, so a device that joins the
+		// group later doesn't pick up a stale command on its first connect, and the install
+		// dedup (device-targeted) runs for group sends too.
+		ids, err := h.db.GetDeviceIDsByGroupIDs(r.Context(), gids)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
+			http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(ids), max), http.StatusBadRequest)
+			return
+		}
+		targetType = "devices"
+		targetIDs = ids
 	case "scope":
 		// Snapshot the scope-rail selection (collection + refine) to device IDs now.
 		ids, err := h.resolveScopeDeviceIDs(r)

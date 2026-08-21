@@ -1020,6 +1020,14 @@ func (h *Handler) RedriveStuckReboots(ctx context.Context) {
 		return
 	}
 	for _, dr := range stuck {
+		// Only re-drive a device that's actually online. An offline device can't receive
+		// the push anyway, and creating a reboot row + refreshing updated_at every cycle
+		// while it's gone just accumulates orphan command rows (one per 15-min window) for
+		// a long-offline device. It stays 'reboot_sent' and gets re-driven the moment it
+		// reconnects (Connect/Checkin also complete or re-drive it).
+		if !h.hub.IsConnected(dr.DeviceID) {
+			continue
+		}
 		cmd, err := h.db.CreateCommand(ctx, "reboot", "", nil, "devices", []uuid.UUID{dr.DeviceID})
 		if err != nil {
 			log.Printf("[ota-scheduler] re-drive reboot command error: %v", err)
