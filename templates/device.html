@@ -920,6 +920,13 @@ function mdmBootCharts() {
   // placed at the midpoint of each flat run so the step is centred, then let the cubic
   // spline flow through them — a smooth curve that still passes through the real values.
   // Nulls (offline gaps) pass through untouched; endpoints are always kept.
+  // Segment colour buckets wlc into three classes (see segmentColor): 1 = placed,
+  // 0 = vacant, anything else (−1/2/undefined) = disabled/unknown. A flat battery run
+  // must be split when this CLASS changes, not only when the % changes — otherwise a
+  // long flat span that straddles a charging-disabled→enabled transition collapses to
+  // the run's last sample and paints the whole (grey) disabled span red. See the
+  // "past grey turns red" report.
+  function wlcClass(w) { return w === 1 ? 1 : w === 0 ? 0 : 2; }
   function toChangePoints(points) {
     if (!points || points.length < 3) return points;
     const out = [];
@@ -937,8 +944,9 @@ function mdmBootCharts() {
         runStart = i + 1;
         continue;
       }
-      if (i > runStart && points[i].y !== points[runStart].y) {
-        flush(i);                    // value changed — close the previous flat run
+      if (i > runStart && (points[i].y !== points[runStart].y ||
+                           wlcClass(points[i].wlc) !== wlcClass(points[runStart].wlc))) {
+        flush(i);                    // value OR charging-state class changed — close the run
         runStart = i;
       }
     }
