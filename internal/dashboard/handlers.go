@@ -2572,6 +2572,11 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	redactDeviceCommandURLs(h.role(r), commands)
 	commands = filterShellDeviceCommands(h.role(r), commands)
 
+	// The per-device command queue (non-terminal commands, FIFO) for the Queue tab.
+	queue, _ := h.db.GetDeviceQueue(r.Context(), device.ID)
+	redactDeviceCommandURLs(h.role(r), queue)
+	queue = filterShellDeviceCommands(h.role(r), queue)
+
 	apps, err := h.db.ListApps(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -2683,6 +2688,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Online":              h.hub.IsConnected(device.ID),
 		"ChartCheckins":       chartCheckins,
 		"Commands":            commands,
+		"Queue":               queue,
 		"ExtraColumns":        h.cfg.Columns(),
 		"Apps":                apps,
 		"InstalledPackages":   installedPkgs,
@@ -4693,6 +4699,31 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 		"Device":   device,
 		"Commands": commands,
 		"Online":   h.hub.IsConnected(device.ID),
+	})
+}
+
+// DeviceQueuePartial renders the per-device command queue (non-terminal commands, FIFO)
+// for the Queue tab — refetched live on device-updated so it drains in place as the device
+// works through it.
+func (h *Handler) DeviceQueuePartial(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	queue, err := h.db.GetDeviceQueue(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	redactDeviceCommandURLs(h.role(r), queue)
+	queue = filterShellDeviceCommands(h.role(r), queue)
+	h.renderCachedHTML(w, r, "device-queue", map[string]any{
+		"Device": device,
+		"Queue":  queue,
+		"Online": h.hub.IsConnected(device.ID),
+		"Role":   h.role(r),
 	})
 }
 
@@ -9159,6 +9190,41 @@ func (h *Handler) DeviceInstallCancel(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
+// DeviceQueueRemove removes one command from a single device's queue. Marks that device's
+// per-command status 'cancelled' (per-device, so a group/all command is only dropped for
+// this device) and, if the device is online, sends a cancel_command frame so an in-flight
+// download aborts. 204 + device-updated so the Queue tab morphs in place.
+func (h *Handler) DeviceQueueRemove(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if err := h.db.CancelDeviceCommand(r.Context(), id, device.ID); err != nil {
+		if err == db.ErrCommandNotTargeted {
+			http.Error(w, "Command does not target device", http.StatusForbidden)
+			return
+		}
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if h.hub.IsConnected(device.ID) {
+		if msg, e := json.Marshal(map[string]any{"type": "cancel_command", "id": id.String()}); e == nil {
+			h.hub.Push(device.ID, msg)
+		}
+	}
+	h.audit(r, "queue.remove", serial, id.String())
+	h.hub.PublishCommandUpdate(id)
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.hxDone(w, r, "/devices/"+serial, "device-updated")
+}
+
 // nudgeCheckin asks online devices to perform a full check-in right now (a "checkin_now"
 // WS frame). Used after assigning an OTA so the update resolves and pushes immediately
 // instead of waiting out the device's periodic check-in (which can be minutes away,
@@ -12774,6 +12840,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/ai-analyses", h.requireAuth(h.DeviceAIAnalysesList))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
+	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.DeviceQueuePartial))
+	post("POST /devices/{serial}/queue/{id}/remove", h.requireOperatorOrAdmin(h.DeviceQueueRemove))
 	mux.HandleFunc("GET /devices/{serial}/installs", h.requireAuth(h.DeviceInstallProgress))
 	post("POST /devices/{serial}/installs/cancel", h.requireOperatorOrAdmin(h.DeviceInstallCancel))
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))

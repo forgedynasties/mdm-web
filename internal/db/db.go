@@ -3043,18 +3043,9 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 				  )
 			)
 		)
-		-- Delivery TTL, per type, kept in lock-step with ExpireOverdueCommands so a command
-		-- stops being delivered exactly when it expires. Ephemeral/interactive commands are
-		-- pointless once stale (5 min); reboot keeps its own path; stateful intent
-		-- (install/uninstall/kiosk/boot logo) persists a full day so a device that returns
-		-- within the day still gets it, then expires as a backstop.
-		AND (
-			CASE
-				WHEN c.type IN ('shell', 'screenshot', 'reboot', 'ping', 'checkin_now', 'query', 'get_app_inventory')
-					THEN c.created_at > NOW() - INTERVAL '5 minutes'
-				ELSE c.created_at > NOW() - INTERVAL '24 hours'
-			END
-		)
+		-- No delivery TTL: the per-device queue does not expire (for now) — a queued command
+		-- is delivered whenever the device next comes online, however long that takes. A
+		-- per-type expiry can be layered back on later.
 		ORDER BY c.created_at ASC
 	`, deviceID)
 	if err != nil {
@@ -3297,6 +3288,29 @@ func (d *DB) MarkCommandReceived(ctx context.Context, commandID, deviceID uuid.U
 		ON CONFLICT (command_id, device_id) DO UPDATE
 			SET received_at = COALESCE(command_status.received_at, NOW())
 			WHERE command_status.received_at IS NULL
+	`, commandID, deviceID)
+	return err
+}
+
+// CancelDeviceCommand removes one command from a single device's queue by marking its
+// per-device status 'cancelled' — never moving a row that already reached a terminal
+// state. Per-device (upsert on command_status), so cancelling a group/all command on one
+// device leaves the others untouched, and a not-yet-pushed 'pending' command with no
+// status row is cancelled too.
+func (d *DB) CancelDeviceCommand(ctx context.Context, commandID, deviceID uuid.UUID) error {
+	targeted, err := d.commandTargetsDevice(ctx, commandID, deviceID)
+	if err != nil {
+		return err
+	}
+	if !targeted {
+		return ErrCommandNotTargeted
+	}
+	_, err = d.pool.Exec(ctx, `
+		INSERT INTO command_status (command_id, device_id, status, updated_at)
+		VALUES ($1, $2, 'cancelled', NOW())
+		ON CONFLICT (command_id, device_id) DO UPDATE
+			SET status = 'cancelled', progress = NULL, updated_at = NOW()
+			WHERE command_status.status NOT IN ('installed', 'failed', 'completed', 'cancelled', 'expired')
 	`, commandID, deviceID)
 	return err
 }
@@ -3585,6 +3599,45 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 	}
 	defer rows.Close()
 
+	var out []DeviceCommand
+	for rows.Next() {
+		var dc DeviceCommand
+		if err := rows.Scan(&dc.ID, &dc.Type, &dc.ApkURL, &dc.Payload, &dc.TargetType, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt, &dc.Output, &dc.Progress); err != nil {
+			return nil, err
+		}
+		out = append(out, dc)
+	}
+	return out, rows.Err()
+}
+
+// GetDeviceQueue returns a device's QUEUE — its non-terminal commands, oldest-first
+// (FIFO). Raw status with no display-expiry (the queue does not expire): 'pending' (not
+// yet sent), 'delivered' (sent, awaiting the device), 'downloading', 'installing'.
+// update_splash (boot logo) is excluded, matching GetDeviceCommands.
+func (d *DB) GetDeviceQueue(ctx context.Context, deviceID uuid.UUID) ([]DeviceCommand, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at,
+		       COALESCE(cs.status, 'pending') AS status,
+		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
+		       '' AS output, cs.progress
+		FROM commands c
+		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
+		WHERE (
+			c.target_type = 'all'
+			OR (c.target_type = 'devices' AND EXISTS (
+				SELECT 1 FROM command_targets ct WHERE ct.command_id = c.id AND ct.target_id = $1))
+			OR (c.target_type = 'groups' AND EXISTS (
+				SELECT 1 FROM command_targets ct JOIN device_groups dg ON dg.group_id = ct.target_id
+				WHERE ct.command_id = c.id AND dg.device_id = $1))
+		)
+		AND c.type != 'update_splash'
+		AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
+		ORDER BY c.created_at ASC
+	`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 	var out []DeviceCommand
 	for rows.Next() {
 		var dc DeviceCommand

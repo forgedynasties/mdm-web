@@ -95,6 +95,39 @@
 </div>
 {{end}}
 
+{{/* Per-device command QUEUE — non-terminal commands (FIFO). Refetched live on
+     device-updated so it drains in place. Remove drops one entry from THIS device. */}}
+{{define "device-queue"}}
+<div id="device-queue" data-diff-guard data-morph
+     hx-get="/devices/{{.Device.SerialNumber}}/queue" hx-select="unset" hx-target="this"
+     hx-trigger="device-updated from:body, every 300s" hx-swap="outerHTML">
+  <div class="dq-head">
+    <span class="dq-count">{{len .Queue}} queued</span>
+    <span class="dq-note{{if .Online}} on{{end}}"><span class="ws-dot"></span>{{if .Online}}Device online — queue is running{{else}}Device offline — runs when it reconnects{{end}}</span>
+  </div>
+  {{if .Queue}}
+  <div class="dq-list">
+    {{range .Queue}}
+    <div class="dq-item" data-cmd-id="{{.ID}}">
+      <span class="dq-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
+      <span class="dq-main">
+        <span class="dq-name">{{if .ApkURL}}Install app{{else}}{{cmdLabel .Type}}{{end}}</span>
+        <span class="dq-sub muted">{{if eq .Status "downloading"}}downloading{{if .Progress}} {{.Progress}}%{{end}}{{else if eq .Status "installing"}}installing{{else}}{{cmdStatusLabel .Status $.Online}}{{end}} · <span class="reltime" data-ts="{{.CreatedAt.Unix}}"></span></span>
+      </span>
+      {{if canOperate $.Role}}
+      <button type="button" class="dq-rm" title="Remove from queue"
+        hx-post="/devices/{{$.Device.SerialNumber}}/queue/{{.ID}}/remove" hx-swap="none"
+        hx-confirm="Remove this queued {{cmdLabel .Type}} command?">Remove</button>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="dq-empty muted small">Queue is empty — no pending commands for this device.</div>
+  {{end}}
+</div>
+{{end}}
+
 {{/* Notes card — freeform operator notes; saves via htmx and swaps itself back
      in with a "Saved" flash. Rendered inline in the sidebar and returned by
      POST /devices/{serial}/notes. */}}
@@ -438,6 +471,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 <div class="dd-tabs" role="tablist" aria-label="Device details">
   <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
   <button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>
+  <button class="dd-tab" id="dd-tab-queue" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-queue" data-dd-tab="queue" onclick="setDeviceTab('queue', this)">Queue{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n">{{len .Queue}}</span>{{end}}</button>
   <button class="dd-tab" id="dd-tab-history" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-history" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>
   <button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashes}} <span class="dd-tab-n">{{len .DeviceCrashes}}</span>{{end}}</button>
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
@@ -2598,6 +2632,40 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 .appinfo-foot{display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 18px 18px;border-top:1px solid var(--border-soft);}
 #ai-uninstall-btn:disabled{opacity:.45;cursor:not-allowed;}
 </style>
+
+<section class="dd-panel" data-dd-panel="queue" id="dd-panel-queue" role="tabpanel" aria-labelledby="dd-tab-queue" tabindex="0" hidden>
+  <style>
+  .dq-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 2px 12px;}
+  .dq-count{font-weight:700;font-size:13px;}
+  .dq-note{display:inline-flex;align-items:center;gap:6px;}
+  .dq-note .ws-dot{width:7px;height:7px;border-radius:50%;background:#9aa0b0;flex:none;}
+  .dq-note.on .ws-dot{background:#2ec77a;}
+  .dq-list{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:11px;overflow:hidden;}
+  .dq-item{display:flex;align-items:center;gap:11px;padding:11px 13px;border-top:1px solid var(--border-soft);}
+  .dq-item:first-child{border-top:none;}
+  .dq-ic{width:15px;height:15px;color:var(--muted);flex:none;}
+  .dq-main{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px;}
+  .dq-name{font-size:13px;font-weight:600;}
+  .dq-sub{font-size:11.5px;}
+  .dq-rm{flex:none;font:inherit;font-size:12px;font-weight:600;color:var(--danger,#e5484d);background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;cursor:pointer;}
+  .dq-rm:hover{border-color:var(--danger,#e5484d);background:color-mix(in srgb,var(--danger,#e5484d) 10%,transparent);}
+  .dq-empty{padding:18px 2px;}
+  </style>
+  {{template "device-queue" .}}
+</section><!-- /queue -->
+<script>
+  // Keep the Queue tab's count badge in sync as the queue drains/morphs live.
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (!e.target || e.target.id !== 'device-queue') return;
+    var n = e.target.querySelectorAll('.dq-item').length;
+    var tab = document.getElementById('dd-tab-queue');
+    var badge = document.getElementById('dd-queue-n');
+    if (n > 0) {
+      if (!badge && tab) { badge = document.createElement('span'); badge.className = 'dd-tab-n'; badge.id = 'dd-queue-n'; tab.appendChild(document.createTextNode(' ')); tab.appendChild(badge); }
+      if (badge) badge.textContent = n;
+    } else if (badge) { badge.remove(); }
+  });
+</script>
 
 <section class="dd-panel" data-dd-panel="history" id="dd-panel-history" role="tabpanel" aria-labelledby="dd-tab-history" tabindex="0" hidden>
   {{template "device-commands" .}}
