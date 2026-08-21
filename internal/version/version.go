@@ -32,6 +32,19 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.41.0",
+		Date:    "2026-08-21",
+		Changes: []string{
+			"Apps are now a library instead of links. Upload your APKs once and install them from a searchable library with icons and details — no more pasting download URLs. You can upload several APKs at once, cancel one mid-upload, and review the details before anything is added.",
+			"Installing apps is instant. Pick one app or many, press Install once, and they show up right away as “Installing…” in the device's app drawer while a single progress page tracks them all — no waiting on a spinning overlay. You can watch each install's progress live and cancel one that's still running, and apps already on the device are hidden from the picker so you only see what you can actually add.",
+			"Uninstalling is instant too. The app shows an “Uninstalling…” spinner the moment you tap it and stays put until it's really gone, then updates once. An app you just removed reappears in the Install list straight away, ready to reinstall.",
+			"Control wireless charging from the device page. A new toggle turns the charging pad on or off in place, with no reload. When charging is off the pad status reads “Not available” instead of a misleading reading, and the battery graph's legend now spells out each state — device placed, pad vacant, and charging disabled.",
+			"Software updates go out instantly, with an “apply now” reboot button for manual deploys and a new “Reboot all installed” action to restart a whole group at once.",
+			"A redesigned device page: switch graphs and timestamps between your time and the device's own time, open any graph full screen, and see command history by app name instead of a long download link. Kiosk lock now only offers apps actually installed on the device.",
+			"Reliability fixes under the hood: reboots no longer look “done” before they've happened, app installs no longer stall or get re-sent to a device that's gone offline, and a transient hiccup while an app is uninstalling can no longer leave an error in the app drawer.",
+		},
+	},
+	{
 		Version: "1.40.0",
 		Date:    "2026-08-13",
 		Changes: []string{
