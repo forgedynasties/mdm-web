@@ -9183,7 +9183,7 @@ func (h *Handler) DeviceInstallCancel(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "install.cancel", serial, apkURL)
 	// A cancelled install frees the device's install slot — release the next queued one.
-	h.advanceInstalls(r.Context(), device.ID)
+	h.advanceQueue(r.Context(), device.ID)
 	if r.Header.Get("HX-Request") == "true" {
 		w.Header().Set("HX-Trigger", "device-updated")
 		w.WriteHeader(http.StatusNoContent)
@@ -9192,10 +9192,12 @@ func (h *Handler) DeviceInstallCancel(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
-// advanceInstalls delivers the next queued install for a device now that the current one
-// finished or was removed (installs run one at a time; the delivery gate holds the rest).
-// No-op if the device is offline (it flushes on reconnect) or nothing is eligible.
-func (h *Handler) advanceInstalls(ctx context.Context, deviceID uuid.UUID) {
+// advanceQueue delivers the next queued command (any type) for a device now that the
+// current one finished or was removed — the whole queue runs one at a time and the delivery
+// gate holds the rest. No-op if the device is offline (it flushes on reconnect) or nothing
+// is eligible. The gate makes GetPendingCommandsForDevice return only the single oldest
+// deliverable command, so pushing the first result advances the queue by exactly one.
+func (h *Handler) advanceQueue(ctx context.Context, deviceID uuid.UUID) {
 	if !h.hub.IsConnected(deviceID) {
 		return
 	}
@@ -9204,9 +9206,6 @@ func (h *Handler) advanceInstalls(ctx context.Context, deviceID uuid.UUID) {
 		return
 	}
 	for _, cmd := range cmds {
-		if cmd.Type != "install_apk" {
-			continue
-		}
 		msg, _ := json.Marshal(map[string]any{
 			"type":         "command",
 			"id":           cmd.ID,
@@ -9218,7 +9217,7 @@ func (h *Handler) advanceInstalls(ctx context.Context, deviceID uuid.UUID) {
 			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
 			h.hub.PublishCommandUpdate(cmd.ID)
 		}
-		break // the gate ensures at most one install is deliverable
+		break // gate ensures at most one command is deliverable
 	}
 }
 
@@ -9255,7 +9254,7 @@ func (h *Handler) DeviceQueueRemove(w http.ResponseWriter, r *http.Request) {
 	h.hub.PublishCommandUpdate(id)
 	h.hub.PublishDeviceUpdate(device.ID)
 	// Removing an install may have been the one holding the queue — release the next.
-	h.advanceInstalls(r.Context(), device.ID)
+	h.advanceQueue(r.Context(), device.ID)
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
@@ -12335,7 +12334,20 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if cmdType == "screenshot" || cmdType == "shell" {
-		http.Redirect(w, r, "/commands/"+cmd.ID.String()+"?from=/devices/"+serial, http.StatusFound)
+		// Only jump to the command page when a result is imminent (device online). If the
+		// device is offline the command is merely QUEUED — stay on the device page so the
+		// user watches it in the Queue tab instead of landing on an empty "waiting…" command
+		// page and losing the device view.
+		if h.hub.IsConnected(device.ID) {
+			http.Redirect(w, r, "/commands/"+cmd.ID.String()+"?from=/devices/"+serial, http.StatusFound)
+			return
+		}
+		if r.Header.Get("HX-Request") == "true" {
+			w.Header().Set("HX-Trigger", "device-updated")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 		return
 	}
 	// Uninstall from the Applications drawer: don't reload the page. Fire device-updated so
@@ -13283,13 +13295,11 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 
 	var pushed []uuid.UUID
 	for _, deviceID := range targetIDs {
-		// Installs run one at a time per device: if an earlier install for this device is
-		// still unfinished, hold this one (it stays queued and is flushed when the current
-		// install finishes). Non-install commands push immediately.
-		if cmd.Type == "install_apk" {
-			if blocked, err := h.db.InstallBlocked(ctx, cmd.ID, deviceID); err == nil && blocked {
-				continue
-			}
+		// The whole queue runs one command at a time per device: if an earlier command for
+		// this device is still unfinished, hold this one (it stays queued and is flushed when
+		// the current one finishes).
+		if blocked, err := h.db.CommandBlocked(ctx, cmd.ID, deviceID); err == nil && blocked {
+			continue
 		}
 		if h.hub.Push(deviceID, msg) {
 			pushed = append(pushed, deviceID)

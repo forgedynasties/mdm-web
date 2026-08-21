@@ -3018,27 +3018,26 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 					AND (cs.received_at IS NOT NULL OR c.type = 'reboot'))
 			)
 		)
-		-- Serialize installs per device: deliver an install_apk only if there is NO OTHER
-		-- non-terminal install_apk for this device created BEFORE it. So at any moment only
-		-- the single oldest unfinished install is eligible — installs run strictly one at a
-		-- time, FIFO, whether the device is online or offline. When the current one reaches a
-		-- terminal state the next becomes eligible (the ack path flushes it immediately).
-		-- Subsumes the old same-APK collapse; brand-new duplicates are 409'd at creation.
-		AND NOT (
-			c.type = 'install_apk' AND EXISTS (
-				SELECT 1 FROM commands c2
-				WHERE c2.id <> c.id AND c2.type = 'install_apk' AND c2.created_at < c.created_at
-				  AND (
-					c2.target_type = 'all'
-					OR (c2.target_type = 'devices' AND EXISTS (
-						SELECT 1 FROM command_targets ct2 WHERE ct2.command_id = c2.id AND ct2.target_id = $1))
-					OR (c2.target_type = 'groups' AND EXISTS (
-						SELECT 1 FROM command_targets ct2 JOIN device_groups dg2 ON dg2.group_id = ct2.target_id
-						WHERE ct2.command_id = c2.id AND dg2.device_id = $1))
-				  )
-				  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
-					AND s2.status IN ('installed','failed','completed','cancelled','expired'))
-			)
+		-- Serialize the WHOLE queue per device: deliver a command only if there is NO OTHER
+		-- non-terminal command for this device created BEFORE it. So at any moment only the
+		-- single oldest unfinished command is eligible — commands of every type run strictly
+		-- one at a time, FIFO, whether the device is online or offline. When the current one
+		-- reaches a terminal state the next becomes eligible (the ack path flushes it
+		-- immediately). Real-time control frames (remote-control capture, checkin_now, etc.)
+		-- are sent directly over WS, not as command rows, so they are unaffected.
+		AND NOT EXISTS (
+			SELECT 1 FROM commands c2
+			WHERE c2.id <> c.id AND c2.created_at < c.created_at
+			  AND (
+				c2.target_type = 'all'
+				OR (c2.target_type = 'devices' AND EXISTS (
+					SELECT 1 FROM command_targets ct2 WHERE ct2.command_id = c2.id AND ct2.target_id = $1))
+				OR (c2.target_type = 'groups' AND EXISTS (
+					SELECT 1 FROM command_targets ct2 JOIN device_groups dg2 ON dg2.group_id = ct2.target_id
+					WHERE ct2.command_id = c2.id AND dg2.device_id = $1))
+			  )
+			  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
+				AND s2.status IN ('installed','failed','completed','cancelled','expired'))
 		)
 		-- No delivery TTL: the per-device queue does not expire (for now) — a queued command
 		-- is delivered whenever the device next comes online, however long that takes. A
@@ -3289,18 +3288,18 @@ func (d *DB) MarkCommandReceived(ctx context.Context, commandID, deviceID uuid.U
 	return err
 }
 
-// InstallBlocked reports whether an install_apk command must WAIT before being delivered
-// to a device because an earlier (older) install for that device hasn't finished yet.
-// Mirrors the serialization gate in GetPendingCommandsForDevice; used to hold the immediate
-// push at create time so installs never run in parallel on a device.
-func (d *DB) InstallBlocked(ctx context.Context, commandID, deviceID uuid.UUID) (bool, error) {
+// CommandBlocked reports whether a command must WAIT before being delivered to a device
+// because an earlier (older) command for that device hasn't finished yet. Mirrors the
+// per-device serialization gate in GetPendingCommandsForDevice; used to hold the immediate
+// push at create time so no two commands run at once on a device (whole queue is FIFO).
+func (d *DB) CommandBlocked(ctx context.Context, commandID, deviceID uuid.UUID) (bool, error) {
 	var blocked bool
 	err := d.pool.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1 FROM commands c
-			WHERE c.id = $1 AND c.type = 'install_apk' AND EXISTS (
+			WHERE c.id = $1 AND EXISTS (
 				SELECT 1 FROM commands c2
-				WHERE c2.id <> c.id AND c2.type = 'install_apk' AND c2.created_at < c.created_at
+				WHERE c2.id <> c.id AND c2.created_at < c.created_at
 				  AND (
 					c2.target_type = 'all'
 					OR (c2.target_type = 'devices' AND EXISTS (
