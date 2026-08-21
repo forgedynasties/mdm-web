@@ -3009,8 +3009,13 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 				-- have reported progress or a terminal ack), re-deliver it on the next flush so
 				-- it self-heals. Reboot is exempt: it has no re-push semantics — it completes
 				-- via CompleteDeliveredReboots when the device actually reconnects.
+				-- received_at set = the device CONFIRMED receipt (client 'received' ack), so
+				-- it truly has the command — never re-deliver it (that is what stops dup
+				-- execution + re-push spam). Old clients don't send the ack (received_at NULL)
+				-- and fall back to the 90s staleness heuristic.
 				OR (cs.status = 'delivered'
-					AND (c.type = 'reboot' OR cs.updated_at > NOW() - INTERVAL '90 seconds'))
+					AND (cs.received_at IS NOT NULL OR c.type = 'reboot'
+						OR cs.updated_at > NOW() - INTERVAL '90 seconds'))
 			)
 		)
 		-- Collapse duplicate installs of the same APK on this device: never deliver an
@@ -3038,9 +3043,17 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 				  )
 			)
 		)
+		-- Delivery TTL, per type, kept in lock-step with ExpireOverdueCommands so a command
+		-- stops being delivered exactly when it expires. Ephemeral/interactive commands are
+		-- pointless once stale (5 min); reboot keeps its own path; stateful intent
+		-- (install/uninstall/kiosk/boot logo) persists a full day so a device that returns
+		-- within the day still gets it, then expires as a backstop.
 		AND (
-			c.type NOT IN ('shell', 'screenshot', 'reboot')
-			OR c.created_at > NOW() - INTERVAL '5 minutes'
+			CASE
+				WHEN c.type IN ('shell', 'screenshot', 'reboot', 'ping', 'checkin_now', 'query', 'get_app_inventory')
+					THEN c.created_at > NOW() - INTERVAL '5 minutes'
+				ELSE c.created_at > NOW() - INTERVAL '24 hours'
+			END
 		)
 		ORDER BY c.created_at ASC
 	`, deviceID)
@@ -3087,6 +3100,7 @@ func (d *DB) ListStuckDeliveredCommands(ctx context.Context, staleSeconds int) (
 		FROM command_status cs
 		JOIN commands c ON c.id = cs.command_id
 		WHERE cs.status = 'delivered'
+		  AND cs.received_at IS NULL          -- device never confirmed receipt; a confirmed one already has it
 		  AND cs.updated_at <= NOW() - make_interval(secs => $1)
 		  AND c.type <> 'reboot'
 		  AND (c.type NOT IN ('shell', 'screenshot') OR c.created_at > NOW() - INTERVAL '5 minutes')
@@ -3264,6 +3278,29 @@ func (d *DB) AckCommand(ctx context.Context, commandID, deviceID uuid.UUID, stat
 	return err
 }
 
+// MarkCommandReceived stamps received_at when a device confirms — via a 'received' ack —
+// that it actually GOT the command, as opposed to 'delivered' which only means the frame
+// was enqueued onto the socket. Only the first receipt is stamped and a terminal/progress
+// row's status is never disturbed. Redrive and reconnect re-delivery key off
+// received_at IS NULL, so this is exactly what stops a received command being re-pushed.
+func (d *DB) MarkCommandReceived(ctx context.Context, commandID, deviceID uuid.UUID) error {
+	targeted, err := d.commandTargetsDevice(ctx, commandID, deviceID)
+	if err != nil {
+		return err
+	}
+	if !targeted {
+		return ErrCommandNotTargeted
+	}
+	_, err = d.pool.Exec(ctx, `
+		INSERT INTO command_status (command_id, device_id, status, received_at, updated_at)
+		VALUES ($1, $2, 'delivered', NOW(), NOW())
+		ON CONFLICT (command_id, device_id) DO UPDATE
+			SET received_at = COALESCE(command_status.received_at, NOW())
+			WHERE command_status.received_at IS NULL
+	`, commandID, deviceID)
+	return err
+}
+
 // SetCommandProgress records an interim status ('downloading' or 'installing') for a
 // command on a device, with an optional percent (0-100, meaningful while
 // downloading). Terminal statuses go through AckCommand instead.
@@ -3319,6 +3356,46 @@ func (d *DB) ExpireStalledInstalls(ctx context.Context, stallMinutes int) ([]Sta
 		  AND cs.updated_at <= NOW() - make_interval(mins => $1)
 		RETURNING cs.command_id, cs.device_id
 	`, stallMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StalledInstall
+	for rows.Next() {
+		var s StalledInstall
+		if err := rows.Scan(&s.CommandID, &s.DeviceID); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
+// ExpireOverdueCommands marks 'expired' any command that has sat non-terminal past its
+// per-type delivery deadline WITHOUT ever starting — i.e. still 'pending'/'delivered'
+// (never progressed to downloading/installing and never got a terminal ack). This is the
+// backstop that stops a command wedging forever: a device that never returns, or that got
+// the command but never acted, no longer shows "in flight" indefinitely. Deadlines are
+// kept in lock-step with the delivery TTL in GetPendingCommandsForDevice, so a command
+// expires exactly when it stops being deliverable. Reboot is exempt (its lifecycle is
+// owned by CompleteDeliveredReboots / RedriveStuckReboots). Actively-progressing installs
+// ('downloading'/'installing') are left to ExpireStalledInstalls. 'expired' is not in the
+// terminal guard set, so a device that acts late can still un-expire it with a real ack.
+func (d *DB) ExpireOverdueCommands(ctx context.Context) ([]StalledInstall, error) {
+	rows, err := d.pool.Query(ctx, `
+		UPDATE command_status cs
+		SET status = 'expired', progress = NULL, updated_at = NOW()
+		FROM commands c
+		WHERE cs.command_id = c.id
+		  AND cs.status IN ('pending', 'delivered')
+		  AND c.type <> 'reboot'
+		  AND c.created_at <= NOW() - CASE
+				WHEN c.type IN ('shell', 'screenshot', 'ping', 'checkin_now', 'query', 'get_app_inventory')
+					THEN INTERVAL '5 minutes'
+				ELSE INTERVAL '24 hours'
+			END
+		RETURNING cs.command_id, cs.device_id
+	`)
 	if err != nil {
 		return nil, err
 	}
@@ -8466,6 +8543,13 @@ CREATE INDEX IF NOT EXISTS idx_device_daily_stats_device_day ON device_daily_sta
 -- 'installing' before the terminal 'installed'/'failed'. progress is 0-100 while
 -- downloading, NULL otherwise.
 ALTER TABLE command_status ADD COLUMN IF NOT EXISTS progress SMALLINT;
+
+-- received_at is stamped when the DEVICE confirms it received the command (a client
+-- 'received' ack), as opposed to 'delivered' which only means the frame was enqueued
+-- onto the socket. A non-NULL received_at means re-delivery/redrive must stop — the
+-- device has it. NULL on old clients (no receipt ack) → the redrive falls back to its
+-- best-effort staleness heuristic.
+ALTER TABLE command_status ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ;
 
 -- Learned APK-URL → package-name map. Populated when a device acks an install and
 -- reports which package the APK produced. Lets the server reconcile a pending

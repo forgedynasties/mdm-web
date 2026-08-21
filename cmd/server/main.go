@@ -355,6 +355,9 @@ func main() {
 				// Re-push commands (any type) wedged at 'delivered' on a half-open socket to
 				// devices that are connected now, so an action can't silently never run.
 				runJob(bgCtx, "redrive-stuck-deliveries", time.Minute, apiHandler.RedriveStuckDeliveries)
+				// Terminalize commands that sat pending/delivered past their per-type deadline
+				// (never delivered, or received but never finished) so nothing wedges forever.
+				runJob(bgCtx, "expire-overdue-commands", time.Minute, apiHandler.ExpireOverdueCommands)
 				// Recent-tier alert rules (point-in-time + rate/sustained); see Tier 5 §10.
 				runJob(bgCtx, "recent-alerts", time.Minute, dash.RunRecentAlerts)
 				// Fire any scheduled recipes whose cron time has arrived.

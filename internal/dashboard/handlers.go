@@ -2465,14 +2465,34 @@ func atoi(s string) int {
 	return n
 }
 
-// hasPendingInstall reports whether an install_apk for apkURL is already in flight
-// (pending/delivered) among the device's recent commands. Used to stop a repeat
-// "Install" click — or a group target re-firing — from stacking duplicate installs.
-func hasPendingInstall(commands []db.DeviceCommand, apkURL string) bool {
+// commandDedupKey identifies "the same command" for duplicate suppression. Install keys
+// on the APK URL only (its payload carries a volatile size/etag that must NOT defeat
+// dedup); every other type keys on its payload, so an empty-payload one-shot like reboot
+// or screenshot collapses to a single in-flight instance per type, while shell/uninstall/
+// kiosk distinguish by their arguments.
+func commandDedupKey(cmdType, apkURL string, payload json.RawMessage) string {
+	if cmdType == "install_apk" {
+		return "install_apk|" + apkURL
+	}
+	p := strings.TrimSpace(string(payload))
+	if p == "{}" || p == "null" {
+		p = ""
+	}
+	return cmdType + "|" + p
+}
+
+// hasPendingLikeCommand reports whether an identical command (same type + key params) is
+// already in flight (pending/delivered/downloading/installing, i.e. not terminal) among
+// the device's recent commands. Used to stop a repeat click — or a group target re-firing
+// — from stacking a duplicate the device must process again.
+func hasPendingLikeCommand(commands []db.DeviceCommand, cmdType, apkURL string, payload json.RawMessage) bool {
+	key := commandDedupKey(cmdType, apkURL, payload)
 	for _, c := range commands {
-		if c.Type == "install_apk" && c.ApkURL == apkURL &&
-			(c.Status == "pending" || c.Status == "delivered") {
-			return true
+		switch c.Status {
+		case "pending", "delivered", "downloading", "installing":
+			if commandDedupKey(c.Type, c.ApkURL, c.Payload) == key {
+				return true
+			}
 		}
 	}
 	return false
@@ -12162,26 +12182,26 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Don't stack a duplicate install: if this APK already has an install_apk
-	// command in flight for the device, bounce back to the (already-showing)
-	// pending row instead of queuing a second command the device must process.
-	if cmdType == "install_apk" {
-		if existing, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry()); err == nil && hasPendingInstall(existing, apkURL) {
-			if r.Header.Get("Accept") == "application/json" {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusConflict)
-				json.NewEncoder(w).Encode(map[string]string{"error": "install already pending for this app"})
-				return
-			}
-			http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
-			return
-		}
-	}
-
 	payload := buildPayload(cmdType, r)
 	if cmdType == "install_apk" {
 		// Capture APK size + ETag so the device can verify/resume the download.
 		payload = apkmeta.Augment(r.Context(), apkURL, payload)
+	}
+
+	// Don't stack a duplicate: if an identical command (same type + key params) is already
+	// in flight for this device, bounce back to the (already-showing) pending row instead
+	// of queuing a second the device must process. Install keys on APK URL; other types on
+	// payload; reboot/screenshot collapse to one in-flight per type.
+	if existing, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry()); err == nil &&
+		hasPendingLikeCommand(existing, cmdType, apkURL, payload) {
+		if r.Header.Get("Accept") == "application/json" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": "an identical command is already pending for this device"})
+			return
+		}
+		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+		return
 	}
 
 	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID})

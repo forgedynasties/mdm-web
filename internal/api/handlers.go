@@ -872,6 +872,17 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 		log.Printf("[ws-ack] parse error or missing command_id: %v", err)
 		return
 	}
+	// Receipt ack: the device confirms it GOT the command (before/independent of running
+	// it). Stamps received_at so redrive/redelivery stops re-pushing it — the key signal
+	// that prevents both duplicate execution and re-push spam. Does not change status.
+	if body.Status == "received" {
+		if err := h.db.MarkCommandReceived(ctx, body.CommandID, deviceID); err != nil {
+			log.Printf("[ws-ack] MarkCommandReceived error: %v", err)
+			return
+		}
+		h.hub.PublishCommandUpdate(body.CommandID)
+		return
+	}
 	// Interim install progress ('downloading'/'installing') updates status + percent
 	// without finalizing; a separate path from the terminal ack so the dashboard can
 	// show "Downloading 45%" / "Installing…" live.
@@ -1058,6 +1069,23 @@ func (h *Handler) ExpireStalledInstalls(ctx context.Context) {
 		h.hub.PublishCommandUpdate(s.CommandID)
 		h.hub.PublishDeviceUpdate(s.DeviceID)
 		log.Printf("[install-sweep] failed stalled install command=%s device=%s", s.CommandID, s.DeviceID)
+	}
+}
+
+// ExpireOverdueCommands marks non-terminal commands (any type except reboot) that sat
+// 'pending'/'delivered' past their per-type deadline as 'expired', so an undeliverable or
+// never-acted-on command can't sit "in flight" forever. Backstop to the receipt-ack +
+// redrive: those deliver to a device that returns; this terminalizes the ones that don't.
+func (h *Handler) ExpireOverdueCommands(ctx context.Context) {
+	expired, err := h.db.ExpireOverdueCommands(ctx)
+	if err != nil {
+		log.Printf("[command-sweep] ExpireOverdueCommands error: %v", err)
+		return
+	}
+	for _, s := range expired {
+		h.hub.PublishCommandUpdate(s.CommandID)
+		h.hub.PublishDeviceUpdate(s.DeviceID)
+		log.Printf("[command-sweep] expired overdue command=%s device=%s", s.CommandID, s.DeviceID)
 	}
 }
 
@@ -1603,14 +1631,28 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	interim := body.Status == "downloading" || body.Status == "installing"
-	if !interim && body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be downloading, installing, installed, failed, or completed"})
+	if !interim && body.Status != "received" && body.Status != "installed" && body.Status != "failed" && body.Status != "completed" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "status must be received, downloading, installing, installed, failed, or completed"})
 		return
 	}
 
 	device, err := h.db.GetDevice(r.Context(), body.SerialNumber)
 	if err != nil {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+	// Receipt ack over HTTP (fallback when WS is down): stamp received_at so redrive stops.
+	if body.Status == "received" {
+		if err := h.db.MarkCommandReceived(r.Context(), cmdID, device.ID); err != nil {
+			if errors.Is(err, db.ErrCommandNotTargeted) {
+				writeJSON(w, http.StatusForbidden, map[string]string{"error": "command does not target device"})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+			return
+		}
+		h.hub.PublishCommandUpdate(cmdID)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
 	// Interim progress updates the live status/percent without finalizing.
