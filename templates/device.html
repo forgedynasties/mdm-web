@@ -2156,13 +2156,13 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
           <span class="install-hidden"></span>
           <div class="app-search" style="padding:8px 18px 0;"><input type="text" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)"></div>
           <div class="app-drawer install-drawer" id="install-drawer">
-            {{range .Apps}}{{if not (index $.InstalledSet .PackageName)}}
-            <button type="button" class="app-row app-tile install-tile" data-app="{{.Name}}" data-url="{{.ApkURL}}" title="{{.Name}}" onclick="installToggle(this)">
+            {{range .Apps}}
+            <button type="button" class="app-row app-tile install-tile{{if index $.InstalledSet .PackageName}} install-installed{{end}}" data-app="{{.Name}}" data-url="{{.ApkURL}}" data-pkg="{{.PackageName}}" title="{{.Name}}" onclick="installToggle(this)">
               {{if .Icon}}<img class="app-icon" src="data:image/png;base64,{{.Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
               <span class="app-tname">{{.Name}}</span>
               <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
             </button>
-            {{end}}{{end}}
+            {{end}}
           </div>
           <div id="install-no-match" class="muted small" style="display:none;padding:14px 18px;">No apps match your search.</div>
           <div class="install-modal-foot">
@@ -2411,11 +2411,20 @@ window.filterInstallApps = function (q) {
   q = (q || '').trim().toLowerCase();
   var vis = 0;
   document.querySelectorAll('#install-drawer .install-tile').forEach(function (f) {
+    if (f.classList.contains('install-installed')) { f.style.display = 'none'; return; }  // already on device
     var show = (f.getAttribute('data-app') || '').toLowerCase().indexOf(q) !== -1;
     f.style.display = show ? '' : 'none'; if (show) vis++;
   });
   var nm = document.getElementById('install-no-match');
   if (nm) nm.style.display = (q && vis === 0) ? '' : 'none';
+};
+// After an uninstall settles, the app is no longer on the device — surface it again in
+// the Install picker without a full page reload (server-rendered InstalledSet is stale).
+window.mdmMarkUninstalled = function (pkg) {
+  if (!pkg) return;
+  document.querySelectorAll('#install-drawer .install-tile.install-installed').forEach(function (t) {
+    if (t.getAttribute('data-pkg') === pkg) { t.classList.remove('install-installed'); t.style.display = ''; }
+  });
 };
 // Multi-select install: toggling a tile adds/removes a hidden apk_url input on the
 // shared form, so one submit queues an install command per selected app and lands on
@@ -2489,12 +2498,21 @@ window.doUninstall = function (tile) {
   var settle = function () { window.__uninstallPending = Math.max(0, (window.__uninstallPending || 1) - 1); };
   var iv = setInterval(function () {
     tries++;
-    fetch(base + '/apps-list', { credentials: 'same-origin' }).then(function (r) { return r.text(); }).then(function (html) {
+    fetch(base + '/apps-list', { credentials: 'same-origin' }).then(function (r) {
+      // A transient 502/503 (e.g. server redeploy) still returns a body; never swap
+      // an error page into the drawer. Treat non-2xx as "not settled yet" and retry.
+      if (!r.ok) return null;
+      return r.text();
+    }).then(function (html) {
+      if (html === null) { if (tries >= 20) { clearInterval(iv); settle(); } return; }
+      // Only trust a real partial (has the apps table), not a stray page.
+      if (html.indexOf('id="apps-table"') === -1) { if (tries >= 20) { clearInterval(iv); settle(); } return; }
       var gone = html.indexOf('data-pkg="' + pkg + '"') === -1;
       if (gone || tries >= 20) {           // gone, or give up after ~30s
         clearInterval(iv); settle();
         var live = document.getElementById('apps-live');
         if (live) { live.innerHTML = html; if (window.htmx) htmx.process(live); try { appsAfterRefresh(); } catch (e) {} }
+        if (gone) { try { window.mdmMarkUninstalled && window.mdmMarkUninstalled(pkg); } catch (e) {} }
       }
     }).catch(function () { if (tries >= 20) { clearInterval(iv); settle(); } });
   }, 1500);
@@ -2541,6 +2559,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 .install-head-actions{display:flex;align-items:center;gap:10px;}
 .install-drawer{max-height:58vh;overflow:auto;padding-top:10px;}
 .install-tile{border:1px solid transparent;background:transparent;font:inherit;color:inherit;width:100%;cursor:pointer;}
+.install-tile.install-installed{display:none;}
 .install-tile.on{border-color:var(--accent);background:var(--accent-soft);}
 .install-tick{position:absolute;top:6px;right:6px;width:20px;height:20px;border-radius:50%;background:var(--accent);color:#fff;display:none;align-items:center;justify-content:center;}
 .install-tick svg{width:12px;height:12px;}
