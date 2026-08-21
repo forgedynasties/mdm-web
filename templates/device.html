@@ -1107,7 +1107,7 @@ function mdmBootCharts() {
       : insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
-    chart.update();
+    chart.update('none'); // no animation: live telemetry re-renders often; animating each = a visible flash
   }
 
   function fmtDate(ms) {
@@ -2244,9 +2244,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
     <div id="apps-live" data-diff-guard data-morph
          hx-get="/devices/{{.Device.SerialNumber}}/apps-list" hx-select="unset" hx-target="this"
          hx-trigger="device-updated from:body delay:600ms"
-         hx-swap="innerHTML"
-         hx-on::before-request="if(window.__uninstallPending){event.preventDefault();}"
-         hx-on::after-swap="appsAfterRefresh()">
+         hx-swap="innerHTML">
       {{template "device-apps-list" .}}
     </div>
   </div>
@@ -2603,6 +2601,13 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
   if (t && (t.id === 'apps-live' || (t.querySelector && t.querySelector('#apps-table')))) {
     if (window.appsAfterRefresh) appsAfterRefresh();
   }
+});
+// Suppress the drawer's live refresh while an uninstall is being confirmed optimistically
+// (replaces the CSP-blocked hx-on::before-request — inline hx-on needs new Function, which
+// the page's Content-Security-Policy forbids, so it silently never ran).
+document.body.addEventListener('htmx:beforeRequest', function (e) {
+  var t = e.target;
+  if (t && t.id === 'apps-live' && window.__uninstallPending) { e.preventDefault(); }
 });
 </script>
 
