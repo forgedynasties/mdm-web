@@ -1061,6 +1061,40 @@ func (h *Handler) ExpireStalledInstalls(ctx context.Context) {
 	}
 }
 
+// RedriveStuckDeliveries re-pushes commands wedged at 'delivered' — the frame was
+// enqueued onto the socket (so it was marked delivered) but a half-open socket swallowed
+// it and the device never acted on it. The WS-connect flush only fires on a *new*
+// connection, so a device that dropped and reconnected quickly (and then stayed
+// connected) never gets the command again. This sweep closes that gap for every action
+// type: for each stuck delivery whose device is connected right now, re-push over WS and
+// refresh updated_at so it isn't re-driven again next tick. A command that was really
+// received leaves 'delivered' (install → downloading, others → completed/failed) and so
+// drops out of this set. Reboot and expired short-TTL one-shots are excluded in SQL.
+// This is a server-side self-heal; the durable fix is a client receipt-ack so 'delivered'
+// means "the device has it" rather than "we enqueued it".
+func (h *Handler) RedriveStuckDeliveries(ctx context.Context) {
+	const staleSeconds = 90
+	stuck, err := h.db.ListStuckDeliveredCommands(ctx, staleSeconds)
+	if err != nil {
+		log.Printf("[delivery-sweep] ListStuckDeliveredCommands error: %v", err)
+		return
+	}
+	for _, s := range stuck {
+		// Only re-drive a device that's actually online now; an offline one can't receive
+		// the push and self-heals via flushPendingCommands on its next WS connect.
+		if !h.hub.IsConnected(s.DeviceID) {
+			continue
+		}
+		msg := marshalCommand(s.CommandID, s.Type, s.ApkURL, s.Payload)
+		if !h.hub.Push(s.DeviceID, msg) {
+			continue
+		}
+		_ = h.db.MarkCommandsDelivered(ctx, s.DeviceID, []uuid.UUID{s.CommandID})
+		h.hub.PublishCommandUpdate(s.CommandID)
+		log.Printf("[delivery-sweep] re-drove stuck delivery command=%s type=%s device=%s", s.CommandID, s.Type, s.DeviceID)
+	}
+}
+
 func (h *Handler) HandleWsOtaStatus(deviceID uuid.UUID, raw []byte) {
 	ctx := context.Background()
 	var body struct {

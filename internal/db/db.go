@@ -3002,16 +3002,15 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 			WHERE cs.command_id = c.id AND cs.device_id = $1
 			AND (
 				cs.status IN ('downloading', 'installing', 'installed', 'failed', 'completed')
-				-- A 'delivered' command is normally not re-pushed. But an install can be
-				-- marked 'delivered' when hub.Push merely enqueues onto a half-open socket
-				-- and the device never actually receives it, then it wedges forever (the
-				-- flush/pull excluded it and no sweep terminalizes it). Re-deliver an
-				-- install that has been 'delivered' but made no progress for a few minutes,
-				-- so it self-heals on the device's next flush/check-in. Reboot and other
-				-- one-shot commands are never re-pushed on 'delivered' (reboot completes via
-				-- CompleteDeliveredReboots on real reconnect).
+				-- A 'delivered' command means only that hub.Push enqueued the frame onto the
+				-- socket — NOT that the device received it. A half-open socket (Wi-Fi dropped
+				-- with no FIN) swallows the frame, so ANY command type can wedge at 'delivered'
+				-- and never run. After a short grace (long enough that a real receipt would
+				-- have reported progress or a terminal ack), re-deliver it on the next flush so
+				-- it self-heals. Reboot is exempt: it has no re-push semantics — it completes
+				-- via CompleteDeliveredReboots when the device actually reconnects.
 				OR (cs.status = 'delivered'
-					AND (c.type <> 'install_apk' OR cs.updated_at > NOW() - INTERVAL '3 minutes'))
+					AND (c.type = 'reboot' OR cs.updated_at > NOW() - INTERVAL '90 seconds'))
 			)
 		)
 		-- Collapse duplicate installs of the same APK on this device: never deliver an
@@ -3059,6 +3058,52 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		cmds = append(cmds, c)
 	}
 	return cmds, rows.Err()
+}
+
+// StuckDelivery is one command wedged at 'delivered' for a specific device — the frame
+// was enqueued onto the socket but the device never acknowledged progress or a result.
+type StuckDelivery struct {
+	CommandID uuid.UUID
+	DeviceID  uuid.UUID
+	Type      string
+	ApkURL    string
+	Payload   json.RawMessage
+}
+
+// ListStuckDeliveredCommands returns commands sitting at 'delivered' for a device with
+// no progress for longer than staleSeconds — the half-open-socket wedge. The caller
+// re-pushes them to devices that are currently connected (an offline device gets them
+// on its next WS-connect flush instead). Reboot is excluded (it completes via
+// CompleteDeliveredReboots, never a re-push), and short-TTL one-shots (shell/screenshot)
+// are only re-driven while still within their 5-minute leash so an ancient one isn't
+// resurrected. Applies to every other action type — install, uninstall, kiosk, boot
+// logo, query, etc. — because any of them can wedge the same way.
+func (d *DB) ListStuckDeliveredCommands(ctx context.Context, staleSeconds int) ([]StuckDelivery, error) {
+	if staleSeconds <= 0 {
+		staleSeconds = 90
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT c.id, cs.device_id, c.type, c.apk_url, c.payload
+		FROM command_status cs
+		JOIN commands c ON c.id = cs.command_id
+		WHERE cs.status = 'delivered'
+		  AND cs.updated_at <= NOW() - make_interval(secs => $1)
+		  AND c.type <> 'reboot'
+		  AND (c.type NOT IN ('shell', 'screenshot') OR c.created_at > NOW() - INTERVAL '5 minutes')
+	`, staleSeconds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []StuckDelivery
+	for rows.Next() {
+		var s StuckDelivery
+		if err := rows.Scan(&s.CommandID, &s.DeviceID, &s.Type, &s.ApkURL, &s.Payload); err != nil {
+			return nil, err
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
 }
 
 // DevicesWithPendingInstall returns which of the given devices already have an

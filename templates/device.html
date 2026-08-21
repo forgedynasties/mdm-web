@@ -2235,6 +2235,9 @@ function appsAfterRefresh() {
     var n = document.querySelectorAll('#apps-table .app-row:not(.app-installing)').length;
     c.textContent = n + ' package' + (n === 1 ? '' : 's');
   }
+  // Keep the kiosk locked-app picker in sync with the drawer, so a newly installed app
+  // is selectable without a page reload.
+  if (window.kioskPickerReload) { try { window.kioskPickerReload(); } catch (e) {} }
 }
 // Deterministic monogram tint per package (no real icons are reported). Translucent
 // fill + mid-tone text read fine in both light and dark themes.
@@ -3253,10 +3256,26 @@ async function saveNewApp() {
   var gridEl = document.getElementById('kpk-grid');
   var listEl = document.getElementById('kpk-list');
   // No "None" option — use the Turn off kiosk button to release to launcher.
-  var apps = [];
-  [].forEach.call(src.querySelectorAll('i'), function (el) {
-    apps.push({ v: el.getAttribute('data-value'), n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon'), missing: el.hasAttribute('data-missing') });
-  });
+  // Build from the server island (authoritative names/icons + the "locked-but-missing"
+  // current package) and merge in any apps currently in the live drawer the island lacks
+  // — so an app just installed shows in the picker without a page reload.
+  function loadApps() {
+    var out = [], seen = {};
+    if (src) [].forEach.call(src.querySelectorAll('i'), function (el) {
+      var v = el.getAttribute('data-value'); if (!v || seen[v]) return; seen[v] = 1;
+      out.push({ v: v, n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon'), missing: el.hasAttribute('data-missing') });
+    });
+    var live = document.getElementById('apps-live');
+    if (live) [].forEach.call(live.querySelectorAll('.app-tile:not(.sys)'), function (t) {
+      if (t.classList.contains('app-uninstalling') || t.classList.contains('app-installing')) return;
+      var v = t.getAttribute('data-pkg'); if (!v || seen[v]) return; seen[v] = 1;
+      var icon = '', img = t.querySelector('img.app-icon');
+      if (img) { var s = img.getAttribute('src') || '', k = s.indexOf('base64,'); if (k >= 0) icon = s.slice(k + 7); }
+      out.push({ v: v, n: t.getAttribute('data-name') || v, icon: icon, missing: false });
+    });
+    return out;
+  }
+  var apps = loadApps();
   var kbd = -1;
 
   function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -3306,6 +3325,9 @@ async function saveNewApp() {
 
   // Exposed so the modal can re-highlight the selection after resetting it on open.
   window.kioskPickerRender = render;
+  // Rebuild the app list from the (freshly refreshed) drawer — called after an install/
+  // uninstall so the kiosk picker reflects it without a page reload.
+  window.kioskPickerReload = function () { apps = loadApps(); render(); };
   render();
 })();
 </script>
