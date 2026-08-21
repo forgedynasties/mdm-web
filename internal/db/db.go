@@ -3018,14 +3018,16 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 					AND (cs.received_at IS NOT NULL OR c.type = 'reboot'))
 			)
 		)
-		-- Collapse duplicate installs of the same APK on this device: never deliver an
-		-- install_apk if another command for the same apk_url is already in flight to
-		-- this device (delivered/installed), or is an older copy still pending (deliver
-		-- the earliest first). A prior failed copy does NOT block — that's a retry.
+		-- Serialize installs per device: deliver an install_apk only if there is NO OTHER
+		-- non-terminal install_apk for this device created BEFORE it. So at any moment only
+		-- the single oldest unfinished install is eligible — installs run strictly one at a
+		-- time, FIFO, whether the device is online or offline. When the current one reaches a
+		-- terminal state the next becomes eligible (the ack path flushes it immediately).
+		-- Subsumes the old same-APK collapse; brand-new duplicates are 409'd at creation.
 		AND NOT (
 			c.type = 'install_apk' AND EXISTS (
 				SELECT 1 FROM commands c2
-				WHERE c2.id <> c.id AND c2.type = 'install_apk' AND c2.apk_url = c.apk_url
+				WHERE c2.id <> c.id AND c2.type = 'install_apk' AND c2.created_at < c.created_at
 				  AND (
 					c2.target_type = 'all'
 					OR (c2.target_type = 'devices' AND EXISTS (
@@ -3034,13 +3036,8 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 						SELECT 1 FROM command_targets ct2 JOIN device_groups dg2 ON dg2.group_id = ct2.target_id
 						WHERE ct2.command_id = c2.id AND dg2.device_id = $1))
 				  )
-				  AND (
-					EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
-						AND s2.status IN ('delivered','downloading','installing','installed','completed'))
-					OR (c2.created_at < c.created_at AND NOT EXISTS (
-						SELECT 1 FROM command_status s3 WHERE s3.command_id = c2.id AND s3.device_id = $1
-						AND s3.status IN ('delivered','installed','failed','completed')))
-				  )
+				  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
+					AND s2.status IN ('installed','failed','completed','cancelled','expired'))
 			)
 		)
 		-- No delivery TTL: the per-device queue does not expire (for now) — a queued command
@@ -3290,6 +3287,33 @@ func (d *DB) MarkCommandReceived(ctx context.Context, commandID, deviceID uuid.U
 			WHERE command_status.received_at IS NULL
 	`, commandID, deviceID)
 	return err
+}
+
+// InstallBlocked reports whether an install_apk command must WAIT before being delivered
+// to a device because an earlier (older) install for that device hasn't finished yet.
+// Mirrors the serialization gate in GetPendingCommandsForDevice; used to hold the immediate
+// push at create time so installs never run in parallel on a device.
+func (d *DB) InstallBlocked(ctx context.Context, commandID, deviceID uuid.UUID) (bool, error) {
+	var blocked bool
+	err := d.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM commands c
+			WHERE c.id = $1 AND c.type = 'install_apk' AND EXISTS (
+				SELECT 1 FROM commands c2
+				WHERE c2.id <> c.id AND c2.type = 'install_apk' AND c2.created_at < c.created_at
+				  AND (
+					c2.target_type = 'all'
+					OR (c2.target_type = 'devices' AND EXISTS (
+						SELECT 1 FROM command_targets ct2 WHERE ct2.command_id = c2.id AND ct2.target_id = $2))
+					OR (c2.target_type = 'groups' AND EXISTS (
+						SELECT 1 FROM command_targets ct2 JOIN device_groups dg2 ON dg2.group_id = ct2.target_id
+						WHERE ct2.command_id = c2.id AND dg2.device_id = $2))
+				  )
+				  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $2
+					AND s2.status IN ('installed','failed','completed','cancelled','expired'))
+			)
+		)`, commandID, deviceID).Scan(&blocked)
+	return blocked, err
 }
 
 // CancelDeviceCommand removes one command from a single device's queue by marking its

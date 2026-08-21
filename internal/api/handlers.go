@@ -913,6 +913,10 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 	}
 	h.hub.PublishDeviceUpdate(deviceID)
 	h.hub.PublishCommandUpdate(body.CommandID)
+	// An install just reached a terminal state — release the next queued install for this
+	// device (installs run one at a time; the delivery gate held the rest). Flushing here
+	// makes the next one start immediately instead of waiting for a reconnect/redrive.
+	h.flushPendingCommands(ctx, deviceID)
 }
 
 // HandleWsLogcat processes a "logcat_result" message from a device over WS.
@@ -1069,6 +1073,10 @@ func (h *Handler) ExpireStalledInstalls(ctx context.Context) {
 		h.hub.PublishCommandUpdate(s.CommandID)
 		h.hub.PublishDeviceUpdate(s.DeviceID)
 		log.Printf("[install-sweep] failed stalled install command=%s device=%s", s.CommandID, s.DeviceID)
+		// The failed install freed the device's install slot — release the next queued one.
+		if h.hub.IsConnected(s.DeviceID) {
+			h.flushPendingCommands(ctx, s.DeviceID)
+		}
 	}
 }
 
