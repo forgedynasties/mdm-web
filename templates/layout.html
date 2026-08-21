@@ -800,6 +800,7 @@
       for (i = 0; i < ta.length; i++) { if (from.getAttribute(ta[i].name) !== ta[i].value) from.setAttribute(ta[i].name, ta[i].value); }
       morphChildren(from, to);
     }
+    var freshNodes = []; // element nodes newly inserted this morph (for htmx to activate)
     function morphChildren(from, to) {
       var keyed = {}, c;
       for (c = from.firstChild; c; c = c.nextSibling) { var k = keyOf(c); if (k) keyed[k] = c; }
@@ -816,6 +817,7 @@
           else if (matched.nodeValue !== tn.nodeValue) matched.nodeValue = tn.nodeValue;
         } else {
           matched = tn.cloneNode(true);
+          if (matched.nodeType === 1) freshNodes.push(matched);
         }
         reused.push(matched);
         if (matched !== cursor) from.insertBefore(matched, cursor);
@@ -824,7 +826,10 @@
       var n = from.firstChild;
       while (n) { var nx = n.nextSibling; if (reused.indexOf(n) < 0) from.removeChild(n); n = nx; }
     }
+    // Returns the element nodes freshly inserted (so the caller can htmx.process ONLY those —
+    // never the preserved region root, whose hx-trigger bindings must not be duplicated).
     window.mdmMorph = function (from, html) {
+      freshNodes = [];
       var tpl = document.createElement('template');
       tpl.innerHTML = html;
       var root = tpl.content.firstElementChild;
@@ -832,6 +837,7 @@
       // an innerHTML partial is a child list → morph the children.
       if (root && !root.nextElementSibling && root.id && root.id === from.id) morphEl(from, root);
       else morphChildren(from, tpl.content);
+      return freshNodes;
     };
     document.body.addEventListener('htmx:beforeSwap', function (e) {
       var t = e.target;
@@ -840,13 +846,14 @@
       var html = e.detail && e.detail.serverResponse;
       if (typeof html !== 'string' || html === '') return;    // fail open
       try {
-        window.mdmMorph(t, html);
+        var fresh = window.mdmMorph(t, html);
         e.detail.shouldSwap = false;
-        // Re-wire any hx-* on freshly inserted nodes, then fire a synthetic afterSwap so
-        // every region's existing post-swap listener still runs (apps recolor + kiosk
-        // picker, fleet column/density/selection, overview layout, relative-time tick) —
-        // htmx skips its own afterSwap when we suppress the swap.
-        if (window.htmx) window.htmx.process(t);
+        // Activate hx-* ONLY on freshly inserted nodes — never re-process the region root,
+        // which would duplicate its hx-trigger bindings and cause a refetch storm (flash).
+        if (window.htmx) fresh.forEach(function (n) { try { window.htmx.process(n); } catch (e2) {} });
+        // Fire a synthetic afterSwap so each region's existing post-swap listener still runs
+        // (apps recolor + kiosk picker, fleet column/density/selection, overview layout,
+        // relative-time tick) — htmx skips its own afterSwap when we suppress the swap.
         t.dispatchEvent(new CustomEvent('htmx:afterSwap', { bubbles: true, detail: { target: t, elt: t } }));
       } catch (err) { /* leave shouldSwap true → htmx does its normal swap (no regression) */ }
     });

@@ -2512,7 +2512,13 @@ window.doUninstall = function (tile) {
       if (gone || tries >= 20) {           // gone, or give up after ~30s
         clearInterval(iv); settle();
         var live = document.getElementById('apps-live');
-        if (live) { live.innerHTML = html; if (window.htmx) htmx.process(live); try { appsAfterRefresh(); } catch (e) {} }
+        if (live) {
+          // Morph, don't innerHTML-replace: only the removed tile disappears, the rest of
+          // the drawer keeps its identity/scroll (no flash).
+          if (window.mdmMorph) { var fr = window.mdmMorph(live, html); if (window.htmx) fr.forEach(function (n) { try { htmx.process(n); } catch (e) {} }); }
+          else { live.innerHTML = html; if (window.htmx) htmx.process(live); }
+          try { appsAfterRefresh(); } catch (e) {}
+        }
         if (gone) { try { window.mdmMarkUninstalled && window.mdmMarkUninstalled(pkg); } catch (e) {} }
       }
     }).catch(function () { if (tries >= 20) { clearInterval(iv); settle(); } });
