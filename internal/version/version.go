@@ -35,7 +35,7 @@ var Changelog = []Entry{
 		Version: "1.41.0",
 		Date:    "2026-08-21",
 		Changes: []string{
-			"Apps are now a library instead of links. Upload your APKs once and install them from a searchable library with icons and details — no more pasting download URLs. You can upload several APKs at once, cancel one mid-upload, and review the details before anything is added.",
+			"Apps install from a library, not links. Pick apps from a searchable library with icons and details instead of pasting download URLs.",
 			"The app drawer on the device page has been redesigned. Install one or several apps at once and remove them right from the drawer, each with a live progress state and the option to cancel an install that's still running; apps already on the device are hidden from the install picker so you only see what you can add.",
 			"Control wireless charging from the device page. A new toggle turns the charging pad on or off in place, with no reload. When charging is off the pad status reads “Not available” instead of a misleading reading, and the battery graph's legend now spells out each state — device placed, pad vacant, and charging disabled.",
 			"Software updates go out instantly, with an “apply now” reboot button for manual deploys and a new “Reboot all installed” action to restart a whole group at once.",
