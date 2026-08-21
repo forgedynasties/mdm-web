@@ -3039,9 +3039,15 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 			  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
 				AND s2.status IN ('installed','failed','completed','cancelled','expired'))
 		)
-		-- No delivery TTL: the per-device queue does not expire (for now) — a queued command
-		-- is delivered whenever the device next comes online, however long that takes. A
-		-- per-type expiry can be layered back on later.
+		-- Only deliver commands that are still CURRENT: a command older than an hour is stale
+		-- and must NOT suddenly run when a device reconnects (a day-old queued reboot firing
+		-- on reconnect is exactly the surprise-reboot we must avoid). This matches the Queue
+		-- tab's display window, so what you see queued is what will run. An install already
+		-- actively downloading/installing stays deliverable regardless of age so it can finish.
+		AND (
+			c.created_at > NOW() - INTERVAL '1 hour'
+			OR COALESCE(cs.status, 'pending') IN ('downloading', 'installing')
+		)
 		ORDER BY c.created_at ASC
 	`, deviceID)
 	if err != nil {
@@ -3090,6 +3096,7 @@ func (d *DB) ListStuckDeliveredCommands(ctx context.Context, staleSeconds int) (
 		  AND cs.received_at IS NULL          -- device never confirmed receipt; a confirmed one already has it
 		  AND cs.updated_at <= NOW() - make_interval(secs => $1)
 		  AND c.type <> 'reboot'
+		  AND c.created_at > NOW() - INTERVAL '1 hour'   -- never re-push a stale command
 		  AND (c.type NOT IN ('shell', 'screenshot') OR c.created_at > NOW() - INTERVAL '5 minutes')
 	`, staleSeconds)
 	if err != nil {
