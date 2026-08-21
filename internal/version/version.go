@@ -41,6 +41,9 @@ var Changelog = []Entry{
 			"Software updates go out instantly, with an “apply now” reboot button for manual deploys and a new “Reboot all installed” action to restart a whole group at once.",
 			"A redesigned device page: switch graphs and timestamps between your time and the device's own time, open any graph full screen, and see command history by app name instead of a long download link. Kiosk lock now only offers apps actually installed on the device.",
 			"Reliability fixes under the hood: reboots no longer look “done” before they've happened, app installs no longer stall or get re-sent to a device that's gone offline, and a transient hiccup while an app is uninstalling can no longer leave an error in the app drawer.",
+			"Every device now has a Queue tab. Commands you send line up there and run one at a time, in order — a device works through its queue the moment it's online, and you can remove anything still waiting. A command sent to an offline device shows as “queued” (not “delivered”) until the device is back.",
+			"Command delivery is now reliable end to end. A command that didn't actually reach the device is re-sent automatically, runs exactly once (no duplicate installs), and can no longer sit stuck showing “delivered” while nothing happens — so what the dashboard shows matches what the device did. On reconnect a device runs its queued commands right away instead of after a delay.",
+			"App installs run one at a time per device instead of all at once, so a batch of installs applies cleanly and in order.",
 		},
 	},
 	{
