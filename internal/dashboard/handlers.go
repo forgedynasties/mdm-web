@@ -13138,11 +13138,14 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 		}
 	}
 	// One batched status write for all online targets (was a query per device).
-	if cmd.Type == "reboot" {
-		_ = h.db.SetCommandStatusForDevices(ctx, cmd.ID, pushed, "completed", true)
-	} else {
-		_ = h.db.SetCommandStatusForDevices(ctx, cmd.ID, pushed, "delivered", false)
-	}
+	// A pushed command is only 'delivered', never 'completed' here — including reboot.
+	// Marking a reboot 'completed' at delivery (as this path used to) is a false
+	// positive: hub.Push succeeding only means the frame was queued, not that the device
+	// rebooted; a device that never reboots (low battery / declined / half-open socket)
+	// then shows a false 'completed'. Reboot flips to 'completed' only when the device
+	// actually comes back — CompleteDeliveredReboots on WS connect / next check-in
+	// (FW-2026-000033). This matches the api-side pushCommand.
+	_ = h.db.SetCommandStatusForDevices(ctx, cmd.ID, pushed, "delivered", false)
 	// Surface the new delivery/ack state on the command detail page in real time
 	// instead of waiting for its 30s polling fallback.
 	h.hub.PublishCommandUpdate(cmd.ID)

@@ -3000,7 +3000,19 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		AND NOT EXISTS (
 			SELECT 1 FROM command_status cs
 			WHERE cs.command_id = c.id AND cs.device_id = $1
-			AND cs.status IN ('delivered', 'downloading', 'installing', 'installed', 'failed', 'completed')
+			AND (
+				cs.status IN ('downloading', 'installing', 'installed', 'failed', 'completed')
+				-- A 'delivered' command is normally not re-pushed. But an install can be
+				-- marked 'delivered' when hub.Push merely enqueues onto a half-open socket
+				-- and the device never actually receives it, then it wedges forever (the
+				-- flush/pull excluded it and no sweep terminalizes it). Re-deliver an
+				-- install that has been 'delivered' but made no progress for a few minutes,
+				-- so it self-heals on the device's next flush/check-in. Reboot and other
+				-- one-shot commands are never re-pushed on 'delivered' (reboot completes via
+				-- CompleteDeliveredReboots on real reconnect).
+				OR (cs.status = 'delivered'
+					AND (c.type <> 'install_apk' OR cs.updated_at > NOW() - INTERVAL '3 minutes'))
+			)
 		)
 		-- Collapse duplicate installs of the same APK on this device: never deliver an
 		-- install_apk if another command for the same apk_url is already in flight to
@@ -3320,13 +3332,19 @@ func (d *DB) ReconcileInstalledCommands(ctx context.Context, deviceID uuid.UUID)
 					SELECT 1 FROM command_targets ct JOIN device_groups dg ON dg.group_id = ct.target_id
 					WHERE ct.command_id = c.id AND dg.device_id = $1))
 			  )
-			  -- 'failed' is intentionally NOT excluded: the device reporting the target
-			  -- package present is ground truth, so it overrides a command the stalled-
-			  -- install sweep wrongly failed after a lost ack. Terminal-correct states
-			  -- ('installed','completed') are left alone.
+			  -- Terminal-correct states ('installed','completed') are left alone.
 			  AND NOT EXISTS (
 				SELECT 1 FROM command_status cs WHERE cs.command_id = c.id AND cs.device_id = $1
 				  AND cs.status IN ('installed','completed'))
+			  -- Only recover a LOST-ACK install (the stalled-install sweep failed it, but the
+			  -- device never reported anything). A command_results row means the DEVICE
+			  -- reported a real outcome — most importantly a genuine failure (downgrade,
+			  -- signature mismatch, corrupt APK). Never flip such a device-reported failure
+			  -- to 'installed' just because the device still has an OLDER version of the
+			  -- package present; that would be a false success. Sweep-failed installs have no
+			  -- result row, so they still reconcile.
+			  AND NOT EXISTS (
+				SELECT 1 FROM command_results cr WHERE cr.command_id = c.id AND cr.device_id = $1)
 		), up AS (
 			INSERT INTO command_status (command_id, device_id, status, progress, updated_at)
 			SELECT id, $1, 'installed', NULL, NOW() FROM affected
