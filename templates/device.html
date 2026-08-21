@@ -1,8 +1,8 @@
 {{define "device-stats"}}
 <div class="dd-details"
-  id="device-stats" data-diff-guard
+  id="device-stats" data-diff-guard data-morph
   hx-get="/devices/{{.Device.SerialNumber}}/stats" hx-select="unset" hx-target="this"
-  hx-trigger="device-updated from:body, every 180s"
+  hx-trigger="device-updated from:body, every 300s"
   hx-swap="outerHTML">
   <div class="dd-drow">
     <span class="dd-row-label">RAM usage</span>
@@ -60,10 +60,10 @@
 {{$hasPending := false}}
 {{range .Commands}}{{if or (eq .Status "pending") (eq .Status "delivered")}}{{$hasPending = true}}{{end}}{{end}}
 <div class="card" style="margin-bottom:16px;"
-  id="device-commands" data-diff-guard
+  id="device-commands" data-diff-guard data-morph
   {{if $hasPending}}
   hx-get="/devices/{{.Device.SerialNumber}}/commands-status" hx-select="unset" hx-target="this"
-  hx-trigger="device-updated from:body, every 60s"
+  hx-trigger="device-updated from:body, every 300s"
   hx-swap="outerHTML"
   {{end}}>
   <div class="card-header"><h3>Action history</h3><span class="muted small">{{len .Commands}} total{{if $hasPending}} · refreshing…{{end}}</span></div>
@@ -79,7 +79,7 @@
     </div>
     <div class="ddc-activity{{if gt (len .Commands) 10}} ch-collapsed{{end}}" id="ch-list">
       {{range $i, $c := .Commands}}
-      <a class="ddc-tl ddc-tl-link{{if ge $i 10}} ch-extra{{end}}" data-ct="{{$c.Type}}" href="/commands/{{$c.ID}}">
+      <a class="ddc-tl ddc-tl-link{{if ge $i 10}} ch-extra{{end}}" data-cmd-id="{{$c.ID}}" data-ct="{{$c.Type}}" href="/commands/{{$c.ID}}">
         <span class="dot {{if eq $c.Status "success"}}ok{{else if or (eq $c.Status "failed") (eq $c.Status "expired")}}err{{else if eq $c.Status "pending"}}warn{{end}}"></span>
         <span class="ddc-tl-main"><b>{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</b> · {{$c.Status}}{{if $c.TargetType}} <span class="muted">· {{$c.TargetType}}</span>{{end}}</span>
         <span class="when reltime" data-ts="{{$c.CreatedAt.Unix}}"></span>
@@ -239,9 +239,9 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   #charging-pad-card:has(#wlc-chip:not(.on)) .pad-stat{opacity:.45;}
   </style>
   <div class="ddc-vitals ddc-vitals--ribbon">
-    <span class="ddc-vitals-live" id="device-vitals-live" data-diff-guard style="display:contents"
+    <span class="ddc-vitals-live" id="device-vitals-live" data-diff-guard data-morph style="display:contents"
           hx-get="/devices/{{.Device.SerialNumber}}/vitals" hx-select="unset"
-          hx-trigger="device-updated from:body, every 60s"
+          hx-trigger="device-updated from:body, every 300s"
           hx-target="this" hx-swap="innerHTML">
       {{template "device-vitals" .}}
     </span>
@@ -2174,7 +2174,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
       </div>
     </div>
     {{end}}
-    <div id="apps-live" data-diff-guard
+    <div id="apps-live" data-diff-guard data-morph
          hx-get="/devices/{{.Device.SerialNumber}}/apps-list" hx-select="unset" hx-target="this"
          hx-trigger="device-updated from:body delay:600ms"
          hx-swap="innerHTML"

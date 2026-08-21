@@ -338,7 +338,7 @@
       {{/* Live open alerts */}}
       <div class="ov2-card">
         <div class="ov2-ch"><h3>Open alerts</h3><span class="live"><span class="dot"></span>Live</span><a class="r" href="/alerts?status=open">all →</a></div>
-        <div id="ov-alerts" data-diff-guard aria-live="polite" hx-get="/overview/alerts" hx-trigger="mdm:alerts-update from:document" hx-target="this" hx-swap="innerHTML">
+        <div id="ov-alerts" data-diff-guard data-morph aria-live="polite" hx-get="/overview/alerts" hx-trigger="mdm:alerts-update from:document" hx-target="this" hx-swap="innerHTML">
           {{template "overview-alerts" .}}
         </div>
       </div>
@@ -406,7 +406,7 @@
 {{define "overview-alerts"}}
 {{if .OpenAlerts}}
 {{range .OpenAlerts}}
-<div class="ov2-al"><span class="ov2-dot {{if eq .Severity "critical"}}bad{{else if eq .Severity "warning"}}warn{{else}}info{{end}}"></span><div class="ov2-alb"><div class="ov2-alt1">{{.Summary}}</div><div class="ov2-alt2">{{if .Serial}}<a href="/devices/{{.Serial}}" class="mono">{{.Serial}}</a> · {{end}}<span class="reltime" data-ts="{{.FiredAt.Unix}}"></span></div></div></div>
+<div class="ov2-al" data-alert-id="{{.Serial}}-{{.FiredAt.Unix}}"><span class="ov2-dot {{if eq .Severity "critical"}}bad{{else if eq .Severity "warning"}}warn{{else}}info{{end}}"></span><div class="ov2-alb"><div class="ov2-alt1">{{.Summary}}</div><div class="ov2-alt2">{{if .Serial}}<a href="/devices/{{.Serial}}" class="mono">{{.Serial}}</a> · {{end}}<span class="reltime" data-ts="{{.FiredAt.Unix}}"></span></div></div></div>
 {{end}}
 {{if gt .AlertsOpenCount (len .OpenAlerts)}}<a class="ov2-foot" href="/alerts?status=open">+ {{sub .AlertsOpenCount (len .OpenAlerts)}} more →</a>{{end}}
 {{else}}

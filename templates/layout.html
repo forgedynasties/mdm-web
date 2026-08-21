@@ -775,6 +775,83 @@
     window.mdmTickRel();
   })();
 </script>
+<script>
+  // ── In-place morph ────────────────────────────────────────────────────────────
+  // For any [data-morph] region htmx would refresh, update ONLY the nodes that changed
+  // instead of replacing the whole region. Unchanged children keep their identity, so no
+  // flash, and scroll / hover / focus / caret survive. Falls back to htmx's normal swap
+  // on any error, so it can never regress. Pairs with data-diff-guard: if the identical
+  // guard already suppressed the swap (byte-identical), we skip the morph too.
+  (function () {
+    function keyOf(n) {
+      if (n.nodeType !== 1) return null;
+      return n.id || n.getAttribute('data-pkg') || n.getAttribute('data-cmd-id') ||
+             n.getAttribute('data-serial') || n.getAttribute('data-alert-id') || null;
+    }
+    function morphEl(from, to) {
+      // Fully preserve nodes the app pins (htmx hx-preserve, or opt-in data-morph-keep).
+      if (from.getAttribute('hx-preserve') === 'true' || from.hasAttribute('data-morph-keep')) return;
+      // Never disturb the value/caret of a field the user is editing.
+      var tag = from.tagName;
+      if ((tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') && document.activeElement === from) return;
+      var fa = from.attributes, i;
+      for (i = fa.length - 1; i >= 0; i--) { if (!to.hasAttribute(fa[i].name)) from.removeAttribute(fa[i].name); }
+      var ta = to.attributes;
+      for (i = 0; i < ta.length; i++) { if (from.getAttribute(ta[i].name) !== ta[i].value) from.setAttribute(ta[i].name, ta[i].value); }
+      morphChildren(from, to);
+    }
+    function morphChildren(from, to) {
+      var keyed = {}, c;
+      for (c = from.firstChild; c; c = c.nextSibling) { var k = keyOf(c); if (k) keyed[k] = c; }
+      var toKids = Array.prototype.slice.call(to.childNodes);
+      var reused = [];
+      var cursor = from.firstChild;
+      for (var i = 0; i < toKids.length; i++) {
+        var tn = toKids[i], tk = keyOf(tn), matched = null;
+        if (tk && keyed[tk]) matched = keyed[tk];
+        else if (cursor && !keyOf(cursor) && cursor.nodeType === tn.nodeType &&
+                 (tn.nodeType !== 1 || cursor.nodeName === tn.nodeName) && reused.indexOf(cursor) < 0) matched = cursor;
+        if (matched) {
+          if (matched.nodeType === 1 && tn.nodeType === 1) morphEl(matched, tn);
+          else if (matched.nodeValue !== tn.nodeValue) matched.nodeValue = tn.nodeValue;
+        } else {
+          matched = tn.cloneNode(true);
+        }
+        reused.push(matched);
+        if (matched !== cursor) from.insertBefore(matched, cursor);
+        else cursor = cursor.nextSibling;
+      }
+      var n = from.firstChild;
+      while (n) { var nx = n.nextSibling; if (reused.indexOf(n) < 0) from.removeChild(n); n = nx; }
+    }
+    window.mdmMorph = function (from, html) {
+      var tpl = document.createElement('template');
+      tpl.innerHTML = html;
+      var root = tpl.content.firstElementChild;
+      // An outerHTML partial re-renders the element itself (same id) → morph it whole;
+      // an innerHTML partial is a child list → morph the children.
+      if (root && !root.nextElementSibling && root.id && root.id === from.id) morphEl(from, root);
+      else morphChildren(from, tpl.content);
+    };
+    document.body.addEventListener('htmx:beforeSwap', function (e) {
+      var t = e.target;
+      if (!t || !t.hasAttribute || !t.hasAttribute('data-morph')) return;
+      if (e.detail && e.detail.shouldSwap === false) return; // diff-guard already suppressed
+      var html = e.detail && e.detail.serverResponse;
+      if (typeof html !== 'string' || html === '') return;    // fail open
+      try {
+        window.mdmMorph(t, html);
+        e.detail.shouldSwap = false;
+        // Re-wire any hx-* on freshly inserted nodes, then fire a synthetic afterSwap so
+        // every region's existing post-swap listener still runs (apps recolor + kiosk
+        // picker, fleet column/density/selection, overview layout, relative-time tick) —
+        // htmx skips its own afterSwap when we suppress the swap.
+        if (window.htmx) window.htmx.process(t);
+        t.dispatchEvent(new CustomEvent('htmx:afterSwap', { bubbles: true, detail: { target: t, elt: t } }));
+      } catch (err) { /* leave shouldSwap true → htmx does its normal swap (no regression) */ }
+    });
+  })();
+</script>
   <script>
   (function () {
     var progress = document.getElementById('htmx-progress');

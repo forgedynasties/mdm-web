@@ -1,5 +1,5 @@
 {{define "install-progress-rows"}}
-<div id="ip-rows"{{if not .AllDone}} hx-get="/devices/{{.Device.SerialNumber}}/installs?ids={{.IDs}}" hx-trigger="every 2s" hx-swap="outerHTML"{{end}}>
+<div id="ip-rows" data-morph{{if not .AllDone}} hx-get="/devices/{{.Device.SerialNumber}}/installs?ids={{.IDs}}" hx-trigger="every 2s" hx-swap="outerHTML"{{end}}>
   {{range .Rows}}
   <div class="ip-row">
     <span class="ip-ic">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>

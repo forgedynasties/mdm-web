@@ -5656,7 +5656,9 @@ func (h *Handler) DeviceHide(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "device.hide", serial, "")
 	h.hub.PublishDeviceUpdate(device.ID)
-	http.Redirect(w, r, "/devices", http.StatusSeeOther)
+	// 204 + device-updated instead of a full /devices reload: the fleet SSE row patch
+	// (patchRow) drops the now-hidden card in place, so nothing flashes.
+	h.hxDone(w, r, "/devices", "device-updated")
 }
 
 func (h *Handler) DeviceUnhide(w http.ResponseWriter, r *http.Request) {
@@ -5672,7 +5674,8 @@ func (h *Handler) DeviceUnhide(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "device.unhide", serial, "")
 	h.hub.PublishDeviceUpdate(device.ID)
-	http.Redirect(w, r, "/devices?hidden=only", http.StatusSeeOther)
+	// 204 + device-updated: the row patch handles the change in place (no full reload).
+	h.hxDone(w, r, "/devices?hidden=only", "device-updated")
 }
 
 func (h *Handler) DeviceClearOTA(w http.ResponseWriter, r *http.Request) {
