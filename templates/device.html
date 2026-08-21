@@ -1823,8 +1823,8 @@ function mdmBootCharts() {
     if (customMin !== null && customMax !== null) return [customMin, customMax];
     var xs = chart.scales.x; return [xs.min, xs.max];
   }
-  // Toolbar +/- zoom: zoom the active chart's window around its centre. Explicit
-  // buttons work regardless of full-screen (unlike the trackpad-pinch gate).
+  // Toolbar +/- zoom: zoom the active chart's window around its centre, mirroring the
+  // Ctrl+scroll / trackpad-pinch zoom.
   window.chartZoom = function (dir) {
     var chart = activeChartObj(); if (!chart) return;
     var b = windowBounds(chart); if (!b) return;
@@ -1891,12 +1891,11 @@ function mdmBootCharts() {
       var ca = chart.chartArea, rect = canvas.getBoundingClientRect();
       var x = e.clientX - rect.left;
       if (x < ca.left || x > ca.right) return;
-      // Plain scroll is left to the page; zoom is Ctrl+scroll so the graph doesn't
-      // trap the wheel. Surface that with a brief overlay when the user just scrolls.
-      if (!e.ctrlKey) { showZoomHint(document.fullscreenElement ? undefined : 'Enter full screen to zoom'); return; }
-      // Trackpad pinch arrives as ctrl+wheel. Only allow the graph to zoom in full
-      // screen; inline, leave the wheel alone so a pinch doesn't hijack the chart.
-      if (!document.fullscreenElement) { showZoomHint('Enter full screen to zoom'); return; }
+      // Plain scroll is left to the page; zoom is Ctrl+scroll — and trackpad pinch,
+      // which the browser delivers as ctrl+wheel — so a normal two-finger scroll (no
+      // ctrl) still pages as usual and never gets trapped by the chart. Works inline
+      // and full screen alike.
+      if (!e.ctrlKey) { showZoomHint(); return; }
       e.preventDefault();
       var bounds = windowBounds(chart), a = bounds[0], b = bounds[1];
       if (a == null || b == null) return;
