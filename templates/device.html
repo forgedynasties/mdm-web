@@ -193,7 +193,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 </script>
 
 <div class="device-detail">
-<a href="/devices" class="back-link" onclick="try{var r=document.referrer;if(r&&new URL(r).origin===location.origin&&new URL(r).pathname==='/devices'&&history.length>1){history.back();return false;}}catch(e){}">← Fleet</a>
+<a href="/devices" class="back-link">← Fleet</a>
 {{$stale := not (notStale .Device.LastSeenAt .ActiveThresholdSecs)}}
 <div class="ddc-hero ddc-hero--ribbon">
   <div class="ddc-ribbon">
@@ -648,6 +648,9 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   <style>
   .chart-hint{margin-left:auto;font-size:11px;color:var(--text-faint);white-space:nowrap;}
   #chart-export-btn{cursor:pointer;}
+  /* Clip the chart to its wrap so a briefly-oversized canvas (e.g. right after leaving full
+     screen) can't widen the card and push the toolbar's right-side buttons off the edge. */
+  .chart-wrap{overflow:hidden;min-width:0;}
   /* Visible-window label — subtle, in the footer below the graph. */
   .chart-wlabel{font-size:11px;font-weight:600;color:var(--text-faint);opacity:.72;font-variant-numeric:tabular-nums;white-space:nowrap;letter-spacing:.01em;}
   /* The toolbar takes its own full-width row. It wraps (never scrolls) if the column
@@ -1981,10 +1984,18 @@ function mdmBootCharts() {
       var fs = document.fullscreenElement === _chartCard;
       _fsBtn.textContent = fs ? '⤡' : '⤢';
     _fsBtn.title = fs ? 'Exit full screen' : 'View graphs full screen';
-      setTimeout(function () {
+      // Resize a couple of times: the fullscreen enter/exit transition isn't finished at
+      // 80ms, so a single early resize can leave a chart canvas sized for full screen —
+      // which then overflows the card on exit and pushes the toolbar's right-side buttons
+      // (PNG / reset / full-screen) off the edge. A second pass after the transition settles
+      // restores the correct size; .chart-wrap also clips so a transient oversize can't
+      // widen the card in the meantime.
+      var reflow = function () {
         [batteryChart, tempChart, ramChart, unifiedChart].forEach(function (c) { if (c) { try { c.resize(); } catch (e) {} } });
         if (typeof updateCharts === 'function') updateCharts();
-      }, 80);
+      };
+      setTimeout(reflow, 80);
+      setTimeout(reflow, 350);
     });
   }
 
