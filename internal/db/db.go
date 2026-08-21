@@ -3656,6 +3656,14 @@ func (d *DB) GetDeviceQueue(ctx context.Context, deviceID uuid.UUID) ([]DeviceCo
 		)
 		AND c.type != 'update_splash'
 		AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
+		-- Only show commands that will actually run now — the freshly queued ones. Old stuck
+		-- commands (a long-ago delivered/pending that the device never acted on) are not shown
+		-- as "queued". An actively downloading/installing command always shows, whatever its
+		-- age, since it IS running right now.
+		AND (
+			c.created_at > NOW() - INTERVAL '1 hour'
+			OR COALESCE(cs.status, 'pending') IN ('downloading', 'installing')
+		)
 		ORDER BY c.created_at ASC
 	`, deviceID)
 	if err != nil {
