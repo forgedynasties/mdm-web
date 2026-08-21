@@ -9258,6 +9258,39 @@ func (h *Handler) DeviceQueueRemove(w http.ResponseWriter, r *http.Request) {
 	h.hxDone(w, r, "/devices/"+serial, "device-updated")
 }
 
+// DeviceQueueClear cancels every command currently in a device's queue (each cancelled for
+// this device only), aborting any in-flight download, and clears the tab in one shot.
+func (h *Handler) DeviceQueueClear(w http.ResponseWriter, r *http.Request) {
+	serial := r.PathValue("serial")
+	device, err := h.db.GetDevice(r.Context(), serial)
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	queue, err := h.db.GetDeviceQueue(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	online := h.hub.IsConnected(device.ID)
+	n := 0
+	for _, cmd := range queue {
+		if err := h.db.CancelDeviceCommand(r.Context(), cmd.ID, device.ID); err != nil {
+			continue
+		}
+		if online {
+			if msg, e := json.Marshal(map[string]any{"type": "cancel_command", "id": cmd.ID.String()}); e == nil {
+				h.hub.Push(device.ID, msg)
+			}
+		}
+		h.hub.PublishCommandUpdate(cmd.ID)
+		n++
+	}
+	h.audit(r, "queue.clear", serial, fmt.Sprintf("%d cleared", n))
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.hxDone(w, r, "/devices/"+serial, "device-updated")
+}
+
 // nudgeCheckin asks online devices to perform a full check-in right now (a "checkin_now"
 // WS frame). Used after assigning an OTA so the update resolves and pushes immediately
 // instead of waiting out the device's periodic check-in (which can be minutes away,
@@ -12887,6 +12920,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
 	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.DeviceQueuePartial))
+	post("POST /devices/{serial}/queue/clear", h.requireOperatorOrAdmin(h.DeviceQueueClear))
 	post("POST /devices/{serial}/queue/{id}/remove", h.requireOperatorOrAdmin(h.DeviceQueueRemove))
 	mux.HandleFunc("GET /devices/{serial}/installs", h.requireAuth(h.DeviceInstallProgress))
 	post("POST /devices/{serial}/installs/cancel", h.requireOperatorOrAdmin(h.DeviceInstallCancel))

@@ -101,29 +101,51 @@
 <div id="device-queue" data-diff-guard data-morph
      hx-get="/devices/{{.Device.SerialNumber}}/queue" hx-select="unset" hx-target="this"
      hx-trigger="device-updated from:body, every 300s" hx-swap="outerHTML">
-  <div class="dq-head">
-    <span class="dq-count">{{len .Queue}} queued</span>
-    <span class="dq-note{{if .Online}} on{{end}}"><span class="ws-dot"></span>{{if .Online}}Device online — queue is running{{else}}Device offline — runs when it reconnects{{end}}</span>
-  </div>
-  {{if .Queue}}
-  <div class="dq-list">
-    {{range .Queue}}
-    <div class="dq-item" data-cmd-id="{{.ID}}">
-      <span class="dq-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>
-      <span class="dq-main">
-        <span class="dq-name">{{if .ApkURL}}Install app{{else}}{{cmdLabel .Type}}{{end}}</span>
-        <span class="dq-sub muted">{{if eq .Status "downloading"}}downloading{{if .Progress}} {{.Progress}}%{{end}}{{else if eq .Status "installing"}}installing{{else}}{{cmdStatusLabel .Status $.Online}}{{end}} · <span class="reltime" data-ts="{{.CreatedAt.Unix}}"></span></span>
-      </span>
-      {{if canOperate $.Role}}
-      <button type="button" class="dq-rm" title="Remove from queue"
-        hx-post="/devices/{{$.Device.SerialNumber}}/queue/{{.ID}}/remove" hx-swap="none"
-        hx-confirm="Remove this queued {{cmdLabel .Type}} command?">Remove</button>
-      {{end}}
+  <div class="dq-bar">
+    <div class="dq-bar-l">
+      <span class="dq-title">Queue</span>
+      {{if .Queue}}<span class="dq-badge">{{len .Queue}}</span>{{end}}
+      <span class="dq-state{{if .Online}} on{{end}}"><span class="dq-dot"></span>{{if .Online}}running{{else}}waiting for device{{end}}</span>
     </div>
+    {{if and .Queue (canOperate .Role)}}
+    <button type="button" class="dq-clear" hx-post="/devices/{{.Device.SerialNumber}}/queue/clear" hx-swap="none"
+      hx-confirm="Clear all {{len .Queue}} queued command{{if ne (len .Queue) 1}}s{{end}} for this device?">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>Clear all
+    </button>
     {{end}}
   </div>
+  {{if .Queue}}
+  <ol class="dq-list">
+    {{range $i, $c := .Queue}}
+    <li class="dq-row{{if and (eq $i 0) $.Online}} dq-active{{end}}" data-cmd-id="{{$c.ID}}">
+      <span class="dq-pos">{{add $i 1}}</span>
+      <span class="dq-ic">{{if $c.ApkURL}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>{{else if eq $c.Type "uninstall"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg>{{else if eq $c.Type "reboot"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>{{else if eq $c.Type "screenshot"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>{{else if eq $c.Type "shell"}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6M12 19h8"/></svg>{{else}}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>{{end}}</span>
+      <span class="dq-body">
+        <span class="dq-nm">{{if $c.ApkURL}}Install app{{else}}{{cmdLabel $c.Type}}{{end}}</span>
+        <span class="dq-meta">
+          {{if eq $c.Status "downloading"}}<span class="dq-pill dl">Downloading{{if $c.Progress}} {{$c.Progress}}%{{end}}</span>
+          {{else if eq $c.Status "installing"}}<span class="dq-pill inst">Installing</span>
+          {{else if and (eq $i 0) $.Online}}<span class="dq-pill run">Running</span>
+          {{else}}<span class="dq-pill">Queued</span>{{end}}
+          <span class="reltime" data-ts="{{$c.CreatedAt.Unix}}"></span>
+        </span>
+      </span>
+      {{if canOperate $.Role}}
+      <button type="button" class="dq-x" title="Remove from queue" aria-label="Remove from queue"
+        hx-post="/devices/{{$.Device.SerialNumber}}/queue/{{$c.ID}}/remove" hx-swap="none"
+        hx-confirm="Remove this queued {{cmdLabel $c.Type}} command?">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+      {{end}}
+    </li>
+    {{end}}
+  </ol>
   {{else}}
-  <div class="dq-empty muted small">Queue is empty — no pending commands for this device.</div>
+  <div class="dq-empty">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+    <span class="dq-empty-t">Nothing queued</span>
+    <span class="muted small">Commands you send line up here and run one at a time.</span>
+  </div>
   {{end}}
 </div>
 {{end}}
@@ -2635,21 +2657,37 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 
 <section class="dd-panel" data-dd-panel="queue" id="dd-panel-queue" role="tabpanel" aria-labelledby="dd-tab-queue" tabindex="0" hidden>
   <style>
-  .dq-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 2px 12px;}
-  .dq-count{font-weight:700;font-size:13px;}
-  .dq-note{display:inline-flex;align-items:center;gap:6px;}
-  .dq-note .ws-dot{width:7px;height:7px;border-radius:50%;background:#9aa0b0;flex:none;}
-  .dq-note.on .ws-dot{background:#2ec77a;}
-  .dq-list{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:11px;overflow:hidden;}
-  .dq-item{display:flex;align-items:center;gap:11px;padding:11px 13px;border-top:1px solid var(--border-soft);}
-  .dq-item:first-child{border-top:none;}
-  .dq-ic{width:15px;height:15px;color:var(--muted);flex:none;}
-  .dq-main{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px;}
-  .dq-name{font-size:13px;font-weight:600;}
-  .dq-sub{font-size:11.5px;}
-  .dq-rm{flex:none;font:inherit;font-size:12px;font-weight:600;color:var(--danger,#e5484d);background:transparent;border:1px solid var(--border);border-radius:8px;padding:5px 11px;cursor:pointer;}
-  .dq-rm:hover{border-color:var(--danger,#e5484d);background:color-mix(in srgb,var(--danger,#e5484d) 10%,transparent);}
-  .dq-empty{padding:18px 2px;}
+  .dq-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 2px 14px;}
+  .dq-bar-l{display:flex;align-items:center;gap:9px;min-width:0;}
+  .dq-title{font-size:15px;font-weight:700;}
+  .dq-badge{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--accent-soft,rgba(79,99,214,.14));color:var(--accent-text,var(--accent));font-size:12px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;}
+  .dq-state{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+  .dq-state .dq-dot{width:7px;height:7px;border-radius:50%;background:#9aa0b0;flex:none;}
+  .dq-state.on .dq-dot{background:#2ec77a;box-shadow:0 0 0 3px color-mix(in srgb,#2ec77a 22%,transparent);}
+  .dq-clear{margin-left:auto;font:inherit;font-size:12px;font-weight:600;color:var(--danger,#e5484d);background:transparent;border:1px solid var(--border);border-radius:9px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+  .dq-clear:hover{border-color:var(--danger,#e5484d);background:color-mix(in srgb,var(--danger,#e5484d) 10%,transparent);}
+  .dq-clear svg{width:13px;height:13px;}
+  .dq-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--border);border-radius:13px;overflow:hidden;background:var(--surface);}
+  .dq-row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--border-soft);position:relative;}
+  .dq-row:first-child{border-top:none;}
+  .dq-row.dq-active{background:color-mix(in srgb,var(--accent,#4f63d6) 6%,transparent);}
+  .dq-row.dq-active::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent,#4f63d6);}
+  .dq-pos{flex:none;width:22px;height:22px;border-radius:50%;border:1px solid var(--border);color:var(--muted);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+  .dq-active .dq-pos{border-color:var(--accent,#4f63d6);color:var(--accent-text,var(--accent));background:var(--accent-soft,rgba(79,99,214,.14));}
+  .dq-ic{flex:none;width:30px;height:30px;border-radius:8px;background:var(--surface-2,var(--border-soft));color:var(--muted);display:flex;align-items:center;justify-content:center;}
+  .dq-ic svg{width:15px;height:15px;}
+  .dq-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px;}
+  .dq-nm{font-size:13.5px;font-weight:600;}
+  .dq-meta{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--muted);flex-wrap:wrap;}
+  .dq-pill{font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:var(--border-soft);color:var(--muted);}
+  .dq-pill.run{background:color-mix(in srgb,#2ec77a 18%,transparent);color:#128a4d;}
+  .dq-pill.dl,.dq-pill.inst{background:color-mix(in srgb,var(--accent,#4f63d6) 18%,transparent);color:var(--accent-text,var(--accent));}
+  .dq-x{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  .dq-x:hover{border-color:var(--danger,#e5484d);color:var(--danger,#e5484d);background:color-mix(in srgb,var(--danger,#e5484d) 8%,transparent);}
+  .dq-x svg{width:14px;height:14px;}
+  .dq-empty{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:38px 18px;border:1px dashed var(--border);border-radius:13px;color:var(--muted);}
+  .dq-empty svg{width:30px;height:30px;opacity:.5;}
+  .dq-empty-t{font-size:13.5px;font-weight:600;color:var(--text);}
   </style>
   {{template "device-queue" .}}
 </section><!-- /queue -->
