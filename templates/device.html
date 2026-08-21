@@ -2301,6 +2301,9 @@ window.installModalBackdrop = function (e) { if (e.target.id === 'install-modal'
 // App-info popup — populated from the clicked tile's data attributes + its icon.
 window.appInfoOpen = function (el) {
   var m = document.getElementById('appinfo-modal'); if (!m || !el) return;
+  // A tile that's mid-uninstall is inert — it just shows "Uninstalling…"; don't open the
+  // details/uninstall modal for an app that's already on its way out.
+  if (el.classList && el.classList.contains('app-uninstalling')) return;
   window.__aiTile = el; // remember the drawer tile so uninstall can mark it optimistically
   var byId = function (id) { return document.getElementById(id); };
   var name = el.getAttribute('data-name') || '', pkg = el.getAttribute('data-pkg') || '',
@@ -2559,6 +2562,9 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 .app-drawer-sep::after{content:"";flex:1;height:1px;background:var(--border-soft);}
 .app-mono-inst{background:var(--accent-soft);}
 .app-uninstalling .app-icon,.app-uninstalling .app-mono{opacity:.4;}
+/* Mid-uninstall tile is inert — reads as "Uninstalling…", not clickable. */
+.app-uninstalling{cursor:default;}
+.app-tile.app-uninstalling{pointer-events:none;}
 .app-tsub.un{color:var(--accent-text);font-weight:700;display:flex;align-items:center;justify-content:center;gap:5px;}
 .app-tsub.un .app-spin{flex:none;}
 /* Install picker modal */

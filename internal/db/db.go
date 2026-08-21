@@ -3005,17 +3005,17 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 				-- A 'delivered' command means only that hub.Push enqueued the frame onto the
 				-- socket — NOT that the device received it. A half-open socket (Wi-Fi dropped
 				-- with no FIN) swallows the frame, so ANY command type can wedge at 'delivered'
-				-- and never run. After a short grace (long enough that a real receipt would
-				-- have reported progress or a terminal ack), re-deliver it on the next flush so
-				-- it self-heals. Reboot is exempt: it has no re-push semantics — it completes
-				-- via CompleteDeliveredReboots when the device actually reconnects.
-				-- received_at set = the device CONFIRMED receipt (client 'received' ack), so
-				-- it truly has the command — never re-deliver it (that is what stops dup
-				-- execution + re-push spam). Old clients don't send the ack (received_at NULL)
-				-- and fall back to the 90s staleness heuristic.
+				-- and never run. This query runs on a (re)connect flush / check-in, and a fresh
+				-- connection is proof the PRIOR delivery is dead — so re-deliver immediately,
+				-- with no staleness grace (that ~90s wait is what made a reconnect take minutes
+				-- to actually run queued commands). received_at set = the device CONFIRMED
+				-- receipt, so it has the command — never re-deliver (stops dup + spam); the
+				-- client also dedups by id, so a re-push during an in-flight ack can't double-
+				-- run. Reboot is exempt: it completes via CompleteDeliveredReboots, not a re-push.
+				-- (The periodic RedriveStuckDeliveries keeps its own staleness window for a
+				-- device that stays continuously connected.)
 				OR (cs.status = 'delivered'
-					AND (cs.received_at IS NOT NULL OR c.type = 'reboot'
-						OR cs.updated_at > NOW() - INTERVAL '90 seconds'))
+					AND (cs.received_at IS NOT NULL OR c.type = 'reboot'))
 			)
 		)
 		-- Collapse duplicate installs of the same APK on this device: never deliver an
