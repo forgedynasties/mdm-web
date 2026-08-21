@@ -649,7 +649,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <div class="chart-legend" id="wlc-legend">
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> Device placed</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Charging pad vacant</span>
-        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#b2bec3;"></span> Charging disabled</span>
       </div>
     </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
@@ -920,10 +919,6 @@ function mdmBootCharts() {
   // placed at the midpoint of each flat run so the step is centred, then let the cubic
   // spline flow through them — a smooth curve that still passes through the real values.
   // Nulls (offline gaps) pass through untouched; endpoints are always kept.
-  // Segment colour buckets wlc into three classes (see segColor): 1 = placed,
-  // 0 = vacant, anything else (−1/2/undefined) = disabled/unknown. Used for colouring
-  // only — geometry is driven purely by battery %, so the spline stays smooth.
-  function wlcClass(w) { return w === 1 ? 1 : w === 0 ? 0 : 2; }
   function toChangePoints(points) {
     if (!points || points.length < 3) return points;
     const out = [];
@@ -951,55 +946,6 @@ function mdmBootCharts() {
     const first = points[0], last = points[points.length - 1];
     if (first.y != null && (!out.length || out[0].x !== first.x)) out.unshift({ x: first.x, y: first.y, wlc: first.wlc });
     if (last.y != null && out[out.length - 1].x !== last.x) out.push({ x: last.x, y: last.y, wlc: last.wlc });
-    return out;
-  }
-
-  // Colour the battery line by WLC state WITHOUT distorting its shape. The geometry
-  // (geom) comes from toChangePoints — battery-change corners only, so the spline is
-  // smooth. WLC state changes (enable/disable, placed/vacant) are NOT plotted as data
-  // points; instead we (a) tag every geom point with the class in effect at its time,
-  // and (b) at each state-change time drop a COLLINEAR boundary point — its y is the
-  // battery value the line already has there (interpolated along the segment it splits),
-  // so the curve is unchanged but the colour flips at the right instant. Since state
-  // changes almost always happen while battery is flat, the boundary sits exactly on
-  // the line. Needs the RAW windowed samples (raw) for the true state-change times.
-  function wlcTransitions(raw) {
-    const out = [];
-    let prev = null;
-    for (let i = 0; i < raw.length; i++) {
-      if (raw[i].y == null) continue;
-      const c = wlcClass(raw[i].wlc);
-      if (c !== prev) { out.push({ x: raw[i].x, cls: c }); prev = c; }
-    }
-    return out;
-  }
-  function classAt(trans, x) {
-    let c = trans.length ? trans[0].cls : 2;
-    for (let i = 0; i < trans.length; i++) { if (trans[i].x <= x) c = trans[i].cls; else break; }
-    return c;
-  }
-  function colorByWlc(geom, raw) {
-    if (!geom || !geom.length) return geom;
-    const trans = wlcTransitions(raw);
-    const out = [];
-    for (let i = 0; i < geom.length; i++) {
-      const g = geom[i];
-      if (g.y == null) { out.push(g); continue; }   // gap marker — leave as-is
-      out.push({ x: g.x, y: g.y, wlc: classAt(trans, g.x) });
-      // Insert collinear colour boundaries for any state change strictly inside the
-      // segment to the next real point (skip across offline gaps).
-      const next = geom[i + 1];
-      if (next && next.y != null) {
-        const dx = next.x - g.x;
-        for (let t = 0; t < trans.length; t++) {
-          const tx = trans[t].x;
-          if (tx > g.x && tx < next.x) {
-            const y = dx > 0 ? g.y + (next.y - g.y) * (tx - g.x) / dx : g.y;
-            out.push({ x: tx, y: y, wlc: trans[t].cls });
-          }
-        }
-      }
-    }
     return out;
   }
 
@@ -1098,7 +1044,7 @@ function mdmBootCharts() {
     // Battery: resample the dense integer window to ~220 fractional bucket-averages
     // so the spline flows smoothly; other metrics vary enough to draw raw.
     chart.data.datasets[0].data = (chart === batteryChart)
-      ? colorByWlc(toChangePoints(insertGaps(pts)), pts)
+      ? toChangePoints(insertGaps(pts))
       : insertGaps(pts);
     chart.options.scales.x.min = minX;
     chart.options.scales.x.max = lastX;
@@ -1112,7 +1058,7 @@ function mdmBootCharts() {
   function applyUnifiedData() {
     if (!unifiedChart) return;
     const { pts: bPts, minX, lastX } = filterWindow(allBattery);
-    unifiedChart.data.datasets[0].data = colorByWlc(toChangePoints(insertGaps(bPts)), bPts);
+    unifiedChart.data.datasets[0].data = toChangePoints(insertGaps(bPts));
     unifiedChart.data.datasets[1].data = insertGaps(filterWindow(allTemp).pts);
     unifiedChart.data.datasets[2].data = insertGaps(filterWindow(allRam).pts);
     unifiedChart.options.scales.x.min = minX;
