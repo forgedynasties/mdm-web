@@ -3583,9 +3583,9 @@ async function saveNewApp() {
      progress updates live (the /events SSE only fires device-updated on telemetry, not on
      command progress). The poller is re-rendered each refresh and vanishes — stopping the
      polling — once nothing is pending. */}}
-{{if .PendingInstalls}}<div hidden hx-get="/devices/{{.Device.SerialNumber}}/apps-list" hx-target="#apps-live" hx-swap="innerHTML" hx-trigger="every 2s"></div>{{end}}
+{{if .PendingInstalls}}<div id="apps-install-poller" hidden hx-get="/devices/{{.Device.SerialNumber}}/apps-list" hx-target="#apps-live" hx-swap="innerHTML" hx-trigger="every 2s"></div>{{end}}
 {{if or .InstalledPackages .PendingInstalls}}
-{{if .InstalledPackages}}<div class="app-search"><input type="text" id="apps-filter" hx-preserve="true" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>{{end}}
+{{if .InstalledPackages}}<div class="app-search" id="apps-search-wrap"><input type="text" id="apps-filter" hx-preserve="true" class="form-input" placeholder="Search apps…" oninput="filterInstalledApps(this.value)"></div>{{end}}
 {{/* App-drawer grid: monogram tiles (real icons aren't reported). User apps come
      first, then a divider, then system apps. Each tile keeps .app-row + data-app so
      the existing search/count JS still works. */}}

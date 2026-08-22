@@ -834,6 +834,9 @@
       var keyed = {}, c;
       for (c = from.firstChild; c; c = c.nextSibling) { var k = keyOf(c); if (k) keyed[k] = c; }
       var toKids = Array.prototype.slice.call(to.childNodes);
+      // Keys present in the NEW children — so we can tell which OLD nodes are going away.
+      var newKeys = {};
+      for (var j = 0; j < toKids.length; j++) { var nk = keyOf(toKids[j]); if (nk) newKeys[nk] = true; }
       var reused = [];
       var cursor = from.firstChild;
       for (var i = 0; i < toKids.length; i++) {
@@ -849,6 +852,20 @@
           if (matched.nodeType === 1) freshNodes.push(matched);
         }
         reused.push(matched);
+        // Advance the cursor to where `matched` belongs, skipping OLD nodes that won't be
+        // reused: keyed nodes absent from the new set (they get removed at the end) and the
+        // whitespace text between elements. Without this, a to-be-removed node — or just the
+        // newline between the install poller and the app grid — stuck at the cursor forces
+        // every following node to be insertBefore'd ahead of it, moving EVERY tile (and the
+        // whole apps-table), which reads as the drawer vanishing and snapping back when an
+        // install tile at the front becomes its installed tile elsewhere. Stop at a keyed
+        // node the new set still needs, or a meaningful (non-whitespace) unkeyed node.
+        while (cursor && cursor !== matched) {
+          var ck = keyOf(cursor);
+          if (ck) { if (newKeys[ck]) break; }
+          else if (!(cursor.nodeType === 3 && (cursor.nodeValue == null || !/\S/.test(cursor.nodeValue)))) break;
+          cursor = cursor.nextSibling;
+        }
         if (matched !== cursor) from.insertBefore(matched, cursor);
         else cursor = cursor.nextSibling;
       }
@@ -884,7 +901,7 @@
         // (apps recolor + kiosk picker, fleet column/density/selection, overview layout,
         // relative-time tick) — htmx skips its own afterSwap when we suppress the swap.
         t.dispatchEvent(new CustomEvent('htmx:afterSwap', { bubbles: true, detail: { target: t, elt: t } }));
-      } catch (err) { /* leave shouldSwap true → htmx does its normal swap (no regression) */ }
+      } catch (err) { try { console.warn('[mdmMorph] fell back to innerHTML:', (t && t.id) || t, err && (err.stack || err.message || err)); } catch (e3) {} /* leave shouldSwap true → htmx does its normal swap (no regression) */ }
     });
   })();
 </script>
