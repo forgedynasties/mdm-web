@@ -3065,21 +3065,16 @@ input[type="checkbox"]:hover {
   100% { background-position: -200% 0; }
 }
 
-/* Region-level loading: dim and forbid interaction during HTMX swap.
- * Apply to any .card / .panel / .tbl-wrap by adding hx-indicator
- * attribute pointing to itself. */
-.htmx-request { position: relative; }
-.htmx-request::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--bg);
-  opacity: 0.35;
-  pointer-events: none;
-  z-index: 1;
-}
-.htmx-request.htmx-indicator-row { /* table row: lighter dim */ }
-.htmx-request.htmx-indicator-row::after { opacity: 0.20; }
+/* Region-level loading indicator — DISABLED. htmx adds .htmx-request to the element
+ * making a request, so every live-refresh region (#apps-live, #device-vitals-live,
+ * #device-queue, …) and every submitting form got a 35%-opacity overlay for the
+ * duration of the request. With the morph engine updating content smoothly in place,
+ * that dim-then-restore was the "flash": the pane dimmed and redrew on every telemetry
+ * tick / install / uninstall instead of just the changed text updating. The morph gives
+ * the visual feedback now; the top progress bar covers real page navigations. Buttons
+ * keep their own .htmx-request opacity cue (see .btn-*.htmx-request). */
+.htmx-request::after,
+.htmx-request.htmx-indicator-row::after { content: none; }
 
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; background: var(--surface2); }
