@@ -813,8 +813,20 @@
       if ((tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') && document.activeElement === from) return;
       var fa = from.attributes, i;
       for (i = fa.length - 1; i >= 0; i--) { if (!to.hasAttribute(fa[i].name)) from.removeAttribute(fa[i].name); }
-      var ta = to.attributes;
-      for (i = 0; i < ta.length; i++) { if (from.getAttribute(ta[i].name) !== ta[i].value) from.setAttribute(ta[i].name, ta[i].value); }
+      var ta = to.attributes, hxGained = false;
+      for (i = 0; i < ta.length; i++) {
+        if (from.getAttribute(ta[i].name) !== ta[i].value) {
+          // A newly gained/changed hx-* attribute means htmx must (re)scan this element to
+          // wire its behaviour — e.g. a reused <div> that becomes the "every 2s" install
+          // poller. Morph copies the attribute but htmx never sees it, so the trigger
+          // (poll, load, etc.) never activates and the region silently stops refreshing.
+          if (ta[i].name.indexOf('hx-') === 0) hxGained = true;
+          from.setAttribute(ta[i].name, ta[i].value);
+        }
+      }
+      // Re-process only when hx-* actually changed (not every morph), so we never duplicate
+      // the static hx-trigger bindings on a region root (that caused a refetch storm).
+      if (hxGained) freshNodes.push(from);
       morphChildren(from, to);
     }
     var freshNodes = []; // element nodes newly inserted this morph (for htmx to activate)
