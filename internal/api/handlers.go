@@ -441,6 +441,13 @@ func clampFloat(v, lo, hi float64) float64 {
 // marks them delivered (or completed for reboot). Stops after a reboot
 // command so that later commands remain pending and are flushed after the
 // device reconnects post-reboot.
+// FlushPendingCommands is the exported entry point for flushing a device's queued
+// commands — wired to the hub's onConnect hook so delivery starts the instant the WS
+// is up (see SetOnConnect).
+func (h *Handler) FlushPendingCommands(ctx context.Context, deviceID uuid.UUID) {
+	h.flushPendingCommands(ctx, deviceID)
+}
+
 func (h *Handler) flushPendingCommands(ctx context.Context, deviceID uuid.UUID) {
 	cmds, err := h.db.GetPendingCommandsForDevice(ctx, deviceID)
 	if err != nil {
@@ -1697,6 +1704,12 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	}
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishCommandUpdate(cmdID)
+	// A command just reached a terminal state via the reliable HTTP ack path (installs and
+	// other types ack here, not over WS). Release the next queued command for this device
+	// immediately — the per-device serialization gate held the rest. Without this the queue
+	// only advanced on the next reconnect, so a batch of installs would stall after the
+	// first one completed while the device stayed online. Mirrors the WS ack handler.
+	h.flushPendingCommands(r.Context(), device.ID)
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 

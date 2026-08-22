@@ -3044,9 +3044,16 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 		-- on reconnect is exactly the surprise-reboot we must avoid). This matches the Queue
 		-- tab's display window, so what you see queued is what will run. An install already
 		-- actively downloading/installing stays deliverable regardless of age so it can finish.
+		-- NOTE: this outer query has NO command_status join, so the "still running" exception
+		-- must be a correlated subquery — referencing a bare cs.status here is a missing-FROM
+		-- error that makes the WHOLE query fail (silently killing reconnect-flush + advance).
 		AND (
 			c.created_at > NOW() - INTERVAL '1 hour'
-			OR COALESCE(cs.status, 'pending') IN ('downloading', 'installing')
+			OR EXISTS (
+				SELECT 1 FROM command_status cs3
+				WHERE cs3.command_id = c.id AND cs3.device_id = $1
+				AND cs3.status IN ('downloading', 'installing')
+			)
 		)
 		ORDER BY c.created_at ASC
 	`, deviceID)

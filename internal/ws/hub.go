@@ -76,6 +76,7 @@ type Hub struct {
 	clients         map[uuid.UUID]*Client
 	onMessage       func(deviceID uuid.UUID, msg []byte)
 	onBinaryMessage func(deviceID uuid.UUID, data []byte)
+	onConnect       func(deviceID uuid.UUID)
 	subMu           sync.RWMutex
 	subscribers     map[chan PresenceEvent]struct{}
 	updateMu        sync.RWMutex
@@ -107,6 +108,15 @@ func (h *Hub) SetOnMessage(fn func(deviceID uuid.UUID, msg []byte)) {
 // message received from any device.
 func (h *Hub) SetOnBinaryMessage(fn func(deviceID uuid.UUID, data []byte)) {
 	h.onBinaryMessage = fn
+}
+
+// SetOnConnect registers a function called once a device's WS is registered and
+// writable (present in the clients map, so Push succeeds). Used to flush queued
+// commands the instant the socket is actually up — the HTTP /connect flush can race
+// ahead of the socket opening, and a never-delivered command has nothing else to
+// re-trigger it (redrive only chases already-'delivered' rows).
+func (h *Hub) SetOnConnect(fn func(deviceID uuid.UUID)) {
+	h.onConnect = fn
 }
 
 // Client represents a single device WebSocket connection.
@@ -441,6 +451,11 @@ func (h *Hub) register(c *Client) {
 	h.mu.Unlock()
 	log.Printf("[ws] connected: %s", c.DeviceID)
 	h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: true})
+	// Socket is now in the clients map, so Push works — flush any queued commands. Async
+	// so registration never blocks on DB/delivery work.
+	if h.onConnect != nil {
+		go h.onConnect(c.DeviceID)
+	}
 }
 
 func (h *Hub) Unregister(c *Client) {

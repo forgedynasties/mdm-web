@@ -221,6 +221,13 @@ func main() {
 		log.Println("Reverse geocoder enabled (Google Geocoding API)")
 	}
 	apiHandler := api.NewHandler(database, hub, shellMgr, cfg, geo, geocoder, remoteMgr, adminAPIKey)
+	// Flush queued commands the moment a device's WS registers (socket writable). The HTTP
+	// /connect flush can fire before the socket opens, and a never-delivered command has
+	// nothing else to re-trigger it, so it would sit in the queue until the next reconnect.
+	hub.SetOnConnect(func(deviceID uuid.UUID) {
+		defer recoverLog("ws onConnect flush for " + deviceID.String())
+		apiHandler.FlushPendingCommands(context.Background(), deviceID)
+	})
 	hub.SetOnMessage(func(deviceID uuid.UUID, raw []byte) {
 		// This runs on the device's WS read-loop goroutine, which net/http does not
 		// protect — a panic here would crash the process and drop the whole fleet.

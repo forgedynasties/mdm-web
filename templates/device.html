@@ -3591,7 +3591,7 @@ async function saveNewApp() {
      the existing search/count JS still works. */}}
 <div class="app-drawer" id="apps-table">
   {{range .PendingInstalls}}
-  <div class="app-row app-tile app-installing" data-app="{{.Name}} {{.ApkURL}}" title="Installing…">
+  <div class="app-row app-tile app-installing" data-app="{{.Name}} {{.ApkURL}}" data-cmd-id="inst:{{.ApkURL}}" title="Installing…">
     <div class="app-mono app-mono-inst"><span class="app-spin"></span></div>
     <div class="app-tname">{{.Name}}</div>
     <div class="app-tsub">{{if and (eq .Phase "downloading") .Progress}}{{.Progress}}%{{else}}{{.Phase}}{{end}}</div>
