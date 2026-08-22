@@ -3038,6 +3038,15 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 			  )
 			  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $1
 				AND s2.status IN ('installed','failed','completed','cancelled','expired'))
+			  -- A blocker must still be LIVE: a command past its delivery window (older than an hour
+			  -- and not actively downloading/installing) never delivers, so it must not wedge the queue
+			  -- behind it — otherwise stale pending commands (e.g. offline-device screenshots that pile
+			  -- up) block every newer command forever.
+			  AND (
+					c2.created_at > NOW() - INTERVAL '1 hour'
+					OR EXISTS (SELECT 1 FROM command_status s3 WHERE s3.command_id = c2.id AND s3.device_id = $1
+						AND s3.status IN ('downloading','installing'))
+			  )
 		)
 		-- Only deliver commands that are still CURRENT: a command older than an hour is stale
 		-- and must NOT suddenly run when a device reconnects (a day-old queued reboot firing
@@ -3324,6 +3333,11 @@ func (d *DB) CommandBlocked(ctx context.Context, commandID, deviceID uuid.UUID) 
 				  )
 				  AND NOT EXISTS (SELECT 1 FROM command_status s2 WHERE s2.command_id = c2.id AND s2.device_id = $2
 					AND s2.status IN ('installed','failed','completed','cancelled','expired'))
+				  AND (
+						c2.created_at > NOW() - INTERVAL '1 hour'
+						OR EXISTS (SELECT 1 FROM command_status s3 WHERE s3.command_id = c2.id AND s3.device_id = $2
+							AND s3.status IN ('downloading','installing'))
+				  )
 			)
 		)`, commandID, deviceID).Scan(&blocked)
 	return blocked, err
