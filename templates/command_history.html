@@ -25,16 +25,34 @@ document.addEventListener('submit', function (evt) {
     setTimeout(function () { if (window.showToast) showToast('Action resent', 'success'); }, 100);
   }
 });
+// Live history: nudge #hist-live to re-fetch + morph on any command-update from the
+// global feed. mdmStream auto-closes on navigation.
+(function () {
+  if (!window.EventSource || !window.mdmStream) return;
+  var es = window.mdmStream('/commands/events');
+  es.addEventListener('command-update', function () {
+    document.body.dispatchEvent(new CustomEvent('commands-feed-update'));
+  });
+})();
+// After each live morph, re-apply the client-side search filter to the new rows.
+document.body.addEventListener('htmx:afterSwap', function (e) {
+  if (e.target && e.target.id === 'hist-live') filterHistory();
+});
 </script>
 
 {{template "footer" .}}
 {{end}}
 
-{{/* Tabs + table. Server-rendered on each navigation; refresh the page to update.
-     (No htmx self-refresh here — that repeatedly blanked the region in some
-     browsers, so this stays plain server-rendered for reliability.) */}}
+{{/* Tabs + table. Refreshes live via the morph engine on a command-update SSE event
+     (and a 30s poll), carrying the current status/type. data-morph updates only the
+     changed rows in place — the old innerHTML self-refresh blanked the whole region,
+     which is why it was removed; morph fixes that. The search box is hx-preserve so its
+     value/focus survives, and the client-side filter is re-applied on each swap. */}}
 {{define "action-history-live"}}
-<div id="hist-live">
+<div id="hist-live" data-morph
+     hx-get="/commands/history?partial=histlive&status={{.Status}}&type={{.FilterType}}"
+     hx-target="this" hx-swap="outerHTML" hx-select="unset"
+     hx-trigger="commands-feed-update from:body, every 30s">
 
 <!-- Status context tabs -->
 <div class="hist-tabs">
@@ -50,7 +68,7 @@ document.addEventListener('submit', function (evt) {
     <div style="display:flex;gap:8px;align-items:center;">
       <div style="position:relative;display:flex;align-items:center;">
         <svg style="position:absolute;left:8px;color:var(--muted);" viewBox="0 0 20 20" fill="currentColor" width="12" height="12"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg>
-        <input type="search" id="cmd-search" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
+        <input type="search" id="cmd-search" hx-preserve="true" class="form-input" style="width:200px;padding:4px 8px 4px 26px;font-size:12px;" placeholder="Filter this page…" oninput="filterHistory()">
       </div>
       <select id="filter-type" class="filter-select" style="font-size:12px;" onchange="location.href='/commands/history?status={{.Status}}&type='+encodeURIComponent(this.value)">
         <option value=""{{if eq .FilterType ""}} selected{{end}}>All Types</option>
