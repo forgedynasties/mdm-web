@@ -272,7 +272,7 @@
     <h3>Device Status</h3>
     <span class="muted small">{{len $dep.Targets}} device{{if ne (len $dep.Targets) 1}}s{{end}}{{if eq $dep.Status "active"}} · <span class="ok">live</span>{{end}}</span>
   </div>
-  <div id="deployment-targets"
+  <div id="deployment-targets" data-morph
        {{if eq $dep.Status "active"}}
        hx-get="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets" hx-select="unset" hx-target="this"
        hx-trigger="deployment-updated from:body, every 30s"

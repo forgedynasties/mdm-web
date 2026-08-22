@@ -492,46 +492,13 @@
       </select>
     </div>
   </div>
-  <div class="cmd-timeline" id="cmd-history-table">
-    {{if or (or .Attention .InProgress) (or .Completed (gt .DoneCount 0))}}
-      <div class="htbl-head htbl-cols"><span>Action</span><span>Target</span><span class="col-res">Result</span><span class="col-sent">Sent</span><span></span></div>
+  {{/* Live status: morph this fragment in place on a command-update SSE event (and a
+       slow 20s poll), so a status moving pending→delivered→completed and jumping between
+       buckets shows without a reload or a flash. */}}
+  <div class="cmd-timeline" id="cmd-history-table" data-morph
+       hx-get="/commands?partial=histlive" hx-target="this" hx-swap="innerHTML"
+       hx-trigger="commands-feed-update from:body, every 20s">{{template "cmd-timeline-inner" .}}</div>
 
-      {{/* In progress — always shown (top), with an empty state. */}}
-      <div class="hgrp-h prog" data-grp><span class="hbadge live" style="padding:0;background:none;"><span class="pd"></span></span>In progress <span class="cnt">{{.ProgCount}}</span></div>
-      {{if .InProgress}}
-        {{range .InProgress}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "prog")}}{{end}}
-        {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress">Show all {{.ProgCount}} in progress →</a>{{end}}
-      {{else}}<div class="hist-empty">No actions in progress</div>{{end}}
-
-      {{/* Needs attention — always shown, with a Clear button + empty state. */}}
-      <div class="hgrp-h attn" data-grp><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Needs attention <span class="cnt">{{.AttnCount}}</span>
-        {{if and .Attention (canOperate .Role)}}
-        <form action="/commands/clear-attention" method="POST" style="margin-left:auto;" hx-confirm="Clear all {{.AttnCount}} entries from Needs attention? This only dismisses them from this list — the actions are not deleted.">
-          <button type="submit" class="hclear" title="Dismiss these from the list (does not delete)">Clear all</button>
-        </form>
-        {{end}}
-      </div>
-      {{if .Attention}}
-        {{range .Attention}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "attn")}}{{end}}
-        {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention">Show all {{.AttnCount}} that need attention →</a>{{end}}
-      {{else}}<div class="hist-empty">No actions needing attention</div>{{end}}
-
-      {{/* Completed — only when present. */}}
-      {{if .Completed}}
-      <div class="hgrp-h done" data-grp><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Completed <span class="cnt">{{.DoneCount}}</span></div>
-      {{range .Completed}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "done")}}{{end}}
-      {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/commands/history?status=completed">Show all {{.DoneCount}} completed →</a>{{end}}
-      {{end}}
-    {{else}}
-      <div class="empty-state" style="padding:28px 18px;">
-        <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
-        <div class="empty-state-copy">
-          <div class="empty-state-title">No actions sent yet</div>
-          <div class="empty-state-text">Use the form above to send your first action.</div>
-        </div>
-      </div>
-    {{end}}
-  </div>
 </div>
 
 <!-- Add new app modal -->
@@ -583,6 +550,17 @@
 </div>
 
 <script>
+
+// Live action history: subscribe to the global command feed and, on any command-update,
+// nudge the history table to re-fetch + morph in place (no reload, no flash). The named
+// SSE event is "command-update" (see CommandsFeedEvents). mdmStream auto-closes on nav.
+(function () {
+  if (!window.EventSource || !window.mdmStream) return;
+  var es = window.mdmStream('/commands/events');
+  es.addEventListener('command-update', function () {
+    document.body.dispatchEvent(new CustomEvent('commands-feed-update'));
+  });
+})();
 
 // Read-only builder (viewers): natively disable every form control so it reads
 // as a standard greyed, not-allowed form — no overlay, no toast.
@@ -1241,12 +1219,53 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 
 {{/* One history row (dense-table style), shared by all three status buckets.
      Data via dict: .Cmd .S (summary) .Ser (serials) .Role .Bucket. */}}
+{{define "cmd-timeline-inner"}}
+    {{if or (or .Attention .InProgress) (or .Completed (gt .DoneCount 0))}}
+      <div class="htbl-head htbl-cols"><span>Action</span><span>Target</span><span class="col-res">Result</span><span class="col-sent">Sent</span><span></span></div>
+
+      {{/* In progress — always shown (top), with an empty state. */}}
+      <div class="hgrp-h prog" data-grp><span class="hbadge live" style="padding:0;background:none;"><span class="pd"></span></span>In progress <span class="cnt">{{.ProgCount}}</span></div>
+      {{if .InProgress}}
+        {{range .InProgress}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "prog")}}{{end}}
+        {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress">Show all {{.ProgCount}} in progress →</a>{{end}}
+      {{else}}<div class="hist-empty">No actions in progress</div>{{end}}
+
+      {{/* Needs attention — always shown, with a Clear button + empty state. */}}
+      <div class="hgrp-h attn" data-grp><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Needs attention <span class="cnt">{{.AttnCount}}</span>
+        {{if and .Attention (canOperate .Role)}}
+        <form action="/commands/clear-attention" method="POST" style="margin-left:auto;" hx-confirm="Clear all {{.AttnCount}} entries from Needs attention? This only dismisses them from this list — the actions are not deleted.">
+          <button type="submit" class="hclear" title="Dismiss these from the list (does not delete)">Clear all</button>
+        </form>
+        {{end}}
+      </div>
+      {{if .Attention}}
+        {{range .Attention}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "attn")}}{{end}}
+        {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention">Show all {{.AttnCount}} that need attention →</a>{{end}}
+      {{else}}<div class="hist-empty">No actions needing attention</div>{{end}}
+
+      {{/* Completed — only when present. */}}
+      {{if .Completed}}
+      <div class="hgrp-h done" data-grp><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Completed <span class="cnt">{{.DoneCount}}</span></div>
+      {{range .Completed}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "done")}}{{end}}
+      {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/commands/history?status=completed">Show all {{.DoneCount}} completed →</a>{{end}}
+      {{end}}
+    {{else}}
+      <div class="empty-state" style="padding:28px 18px;">
+        <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>
+        <div class="empty-state-copy">
+          <div class="empty-state-title">No actions sent yet</div>
+          <div class="empty-state-text">Use the form above to send your first action.</div>
+        </div>
+      </div>
+    {{end}}
+{{end}}
+
 {{define "cmd-trow"}}
 {{$c := .Cmd}}{{$s := .S}}{{$ser := .Ser}}
 {{$total := add (add $s.Completed $s.Failed) (add $s.Pending $s.Delivered)}}
 {{$rest := add $s.Pending $s.Delivered}}
 {{$state := "ok"}}{{if gt $s.Failed 0}}{{$state = "fail"}}{{else if gt $rest 0}}{{$state = "run"}}{{end}}
-<div class="htrow htbl-cols" data-cmd-type="{{$c.Type}}" data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdLabel $c.Type}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
+<div class="htrow htbl-cols" data-cmd-id="{{$c.ID}}" data-cmd-type="{{$c.Type}}" data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdLabel $c.Type}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
   <div class="ca">
     <span class="tl-ic {{$state}}">
       {{if eq $c.Type "install_apk"}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>

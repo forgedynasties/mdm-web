@@ -8613,7 +8613,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		actionQueries, _ = h.db.ListEnabledDeviceQueries(r.Context())
 	}
 
-	h.render(w, r, "commands.html", map[string]any{
+	data := map[string]any{
 		"Title":            "Actions",
 		"DeviceQueries":    actionQueries,
 		"Commands":         cmds,
@@ -8638,7 +8638,15 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		"ShellPopular":     shellPopular,
 		"AIEnabled":        h.cfg.AIEnabled(),
 		"Prefill":          prefill,
-	})
+	}
+	// Live status: the Actions page's history table re-fetches just this fragment on a
+	// command-update SSE event (and a slow poll), morphing it in place so statuses move
+	// buckets without a reload or a flash.
+	if r.URL.Query().Get("partial") == "histlive" {
+		h.renderCachedHTML(w, r, "cmd-timeline-inner", h.withRole(r, data))
+		return
+	}
+	h.render(w, r, "commands.html", data)
 }
 
 // capCmds returns the first n commands (or all if fewer).

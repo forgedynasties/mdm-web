@@ -25,7 +25,7 @@
 
 {{/* Live "Updates in progress" summary — polls itself every 4s; empty (renders nothing)
      when no OTA is in flight. */}}
-<div id="ota-progress-live" hx-get="/releases?partial=ota-progress" hx-trigger="load, every 4s"
+<div id="ota-progress-live" data-morph hx-get="/releases?partial=ota-progress" hx-trigger="load, every 4s"
      hx-target="this" hx-swap="innerHTML" hx-select="unset">
   {{template "ota-progress" .}}
 </div>
