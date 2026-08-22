@@ -879,15 +879,22 @@
   <script>
   (function () {
     var progress = document.getElementById('htmx-progress');
+    var progressActive = false;
 
     function beginProgress() {
       if (!progress) return;
+      progressActive = true;
       document.body.classList.add('htmx-requesting-progress');
       progress.style.width = '70%';
     }
 
     function endProgress() {
-      if (!progress) return;
+      // Only wind down a bar we actually started. Background live-refresh partials
+      // never call beginProgress (they don't target <main>), so endProgress must not
+      // flash the bar to 100% on their afterRequest — that was the orange flicker on
+      // every telemetry tick.
+      if (!progress || !progressActive) return;
+      progressActive = false;
       progress.style.width = '100%';
       setTimeout(function () {
         document.body.classList.remove('htmx-requesting-progress');
@@ -1097,7 +1104,19 @@
       if (!document.hidden) refreshVisiblePollers();
     });
 
-    document.body.addEventListener('htmx:beforeRequest', beginProgress);
+    // Show the top progress bar ONLY for real page navigations (a boosted GET that
+    // swaps <main>). Background live-refresh partials (apps-live, vitals, commands,
+    // queue, alerts, any polling/morph region) target their own element, not <main> —
+    // flashing the orange bar on every telemetry tick read as a page-wide flash even
+    // though the content itself morphs in place. Gate on verb+target so those stay silent.
+    function isMainNav(e) {
+      var d = e.detail || {};
+      var verb = (d.requestConfig && d.requestConfig.verb || '').toLowerCase();
+      return verb === 'get' && d.target === document.querySelector('main');
+    }
+    document.body.addEventListener('htmx:beforeRequest', function (e) {
+      if (isMainNav(e)) beginProgress();
+    });
     // End on any terminal outcome. htmx:abort/timeout are included so an aborted
     // request (Firefox fires these instead of afterRequest) never leaves the body
     // stuck in htmx-requesting-progress.
