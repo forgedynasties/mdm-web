@@ -5457,7 +5457,7 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 	}
 	serials = append(serials, parseSerialsField(r.Form["serials"])...)
 	if len(serials) == 0 {
-		http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+		h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
 		return
 	}
 	if err := h.db.AddDevicesToGroup(r.Context(), serials, id); err != nil {
@@ -5469,7 +5469,9 @@ func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
 			h.hub.PublishDeviceUpdate(did)
 		}
 	}
-	http.Redirect(w, r, "/groups/"+id.String(), http.StatusFound)
+	// HX request (the group page's add form): 204 + group-updated so the members
+	// list refreshes in place. Plain POST (no JS) still redirects back to the group.
+	h.hxDone(w, r, "/groups/"+id.String(), "group-updated")
 }
 
 func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {

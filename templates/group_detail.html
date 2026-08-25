@@ -10,7 +10,8 @@
 {{if canAdminOrTester .Role}}
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Add devices</h3></div>
-  <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:14px 20px 18px;">
+  <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:14px 20px 18px;"
+        onsubmit="return dpAddSubmit(event, '{{.Group.ID}}')">
     <div class="dp-tp">
       <div class="dp-pane">
         <div class="dp-pane-h"><span class="t">Available devices</span><span class="n">not in this group</span></div>
@@ -97,6 +98,29 @@ function grpRemoveSelected(gid) {
   fetch('/groups/' + gid + '/devices/remove', { method: 'POST', body: body, headers: { 'HX-Request': 'true' } })
     .then(function (r) { if (r.ok) document.body.dispatchEvent(new CustomEvent('group-updated')); })
     .catch(function () {});
+}
+
+// Add staged devices without reloading the page: POST via fetch, then fire
+// "group-updated" so the members card refreshes in place, clear the basket, and
+// reload the "available" pane so the just-added devices drop off it. Falls back to
+// a normal form POST if fetch is unavailable.
+function dpAddSubmit(e, gid) {
+  var field = document.getElementById('dp-serials');
+  if (!field || !field.value.trim() || !window.fetch) return true; // let the form submit normally
+  e.preventDefault();
+  var btn = document.querySelector('[data-dp-submit]');
+  if (btn) btn.disabled = true;
+  var body = new URLSearchParams();
+  body.set('serials', field.value);
+  fetch('/groups/' + gid + '/devices', { method: 'POST', body: body, headers: { 'HX-Request': 'true' } })
+    .then(function (r) {
+      if (!r.ok) { if (btn) btn.disabled = false; return; }
+      document.body.dispatchEvent(new CustomEvent('group-updated')); // refresh members card
+      if (window.dpClear) window.dpClear();                          // empty the basket + reset count/button
+      if (window.dpReload) window.dpReload();                        // added devices leave the "available" pane
+    })
+    .catch(function () { if (btn) btn.disabled = false; });
+  return false;
 }
 </script>
 
