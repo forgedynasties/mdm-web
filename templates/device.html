@@ -1993,6 +1993,25 @@ function mdmBootCharts() {
   }
   [batteryChart, tempChart, ramChart, unifiedChart].forEach(installZoom);
 
+  // Keep the canvases sharp when the browser page is zoomed. Chart.js sizes each
+  // canvas's backing store to devicePixelRatio, but only re-samples on its
+  // ResizeObserver — which measures CSS pixels. Page zoom changes the DPR without
+  // changing the CSS-pixel size, so the observer never fires: the old-resolution
+  // bitmap gets stretched by the browser and looks pixelated next to the crisp DOM.
+  // Watch the DPR with a resolution media query (the standard re-arming pattern) and
+  // force a resize() on each change so the backing store is re-rendered at the new
+  // ratio. resize() re-reads devicePixelRatio in Chart.js v4.
+  (function watchDevicePixelRatio() {
+    if (!window.matchMedia) return;
+    function onChange() {
+      [batteryChart, tempChart, ramChart, unifiedChart].forEach(function (c) { if (c) c.resize(); });
+      var mq = window.matchMedia('(resolution: ' + window.devicePixelRatio + 'dppx)');
+      if (mq.addEventListener) mq.addEventListener('change', onChange, { once: true });
+      else if (mq.addListener) mq.addListener(onChange); // Safari < 14 fallback
+    }
+    onChange();
+  })();
+
   var _resetBtn = document.getElementById('chart-reset-btn');
   if (_resetBtn) _resetBtn.addEventListener('click', function () { resetCustomRange(); });
 
