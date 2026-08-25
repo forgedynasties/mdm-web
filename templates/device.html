@@ -978,6 +978,13 @@ function mdmBootCharts() {
   // placed at the midpoint of each flat run so the step is centred, then let the cubic
   // spline flow through them — a smooth curve that still passes through the real values.
   // Nulls (offline gaps) pass through untouched; endpoints are always kept.
+  //
+  // The line is ALSO coloured per-segment by charging-pad state (wlc), so a flat run
+  // must additionally break at every wlc flip — otherwise the whole flat run collapses
+  // to one point that inherits the run's newest wlc, and placing/removing the device
+  // repaints the entire preceding line with the current state (FW-2026-000038). The
+  // wlc break is placed at the real transition time (midway between the two straddling
+  // samples), not the run midpoint, so the colour changes where the state changed.
   function toChangePoints(points) {
     if (!points || points.length < 3) return points;
     const out = [];
@@ -997,6 +1004,12 @@ function mdmBootCharts() {
       }
       if (i > runStart && points[i].y !== points[runStart].y) {
         flush(i);                    // value changed — close the previous flat run
+        runStart = i;
+      } else if (i > runStart && points[i].wlc !== points[i - 1].wlc) {
+        // Charging-pad state flipped while the battery value held flat. Emit a boundary
+        // point at the transition carrying the NEW state, so the segment that follows
+        // colours to it; everything before stays coloured by the earlier points.
+        out.push({ x: (points[i - 1].x + points[i].x) / 2, y: points[runStart].y, wlc: points[i].wlc });
         runStart = i;
       }
     }
