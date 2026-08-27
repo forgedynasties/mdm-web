@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -445,6 +446,19 @@ type ProductionDevice struct {
 
 type DB struct {
 	pool *pgxpool.Pool
+
+	// cmdSummaryMu/cmdSummaryCache short-TTL-cache GetCommandDeliverySummaries: it's
+	// a full join+CASE-classify over the commands/command_status window, polled
+	// every 20s by the Actions page from every open tab/browser. Collapsing repeat
+	// calls within a few seconds of each other avoids redoing that join for every
+	// concurrent viewer without serving meaningfully stale data.
+	cmdSummaryMu    sync.Mutex
+	cmdSummaryCache map[[2]int]cmdSummaryCacheEntry
+}
+
+type cmdSummaryCacheEntry struct {
+	at   time.Time
+	data map[uuid.UUID]CommandDeliverySummary
 }
 
 var ErrCommandNotTargeted = errors.New("command does not target device")
@@ -2814,6 +2828,8 @@ type CommandDeliverySummary struct {
 // scopes the (otherwise whole-table) scan to commands created within that window
 // — the Actions page passes a window since its triage buckets only need recent
 // commands; the full history view passes 0.
+const cmdSummaryCacheTTL = 5 * time.Second
+
 func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec, sinceDays int) (map[uuid.UUID]CommandDeliverySummary, error) {
 	if expirySec <= 0 {
 		expirySec = 300
@@ -2822,6 +2838,14 @@ func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec, sinceDa
 	if installExpiry < 900 {
 		installExpiry = 900
 	}
+
+	key := [2]int{expirySec, sinceDays}
+	d.cmdSummaryMu.Lock()
+	if e, ok := d.cmdSummaryCache[key]; ok && time.Since(e.at) < cmdSummaryCacheTTL {
+		d.cmdSummaryMu.Unlock()
+		return e.data, nil
+	}
+	d.cmdSummaryMu.Unlock()
 	sinceClause := ""
 	if sinceDays > 0 {
 		sinceClause = fmt.Sprintf("WHERE c.created_at >= NOW() - INTERVAL '%d days'", sinceDays)
@@ -2884,7 +2908,16 @@ func (d *DB) GetCommandDeliverySummaries(ctx context.Context, expirySec, sinceDa
 		}
 		out[cid] = s
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	d.cmdSummaryMu.Lock()
+	if d.cmdSummaryCache == nil {
+		d.cmdSummaryCache = make(map[[2]int]cmdSummaryCacheEntry)
+	}
+	d.cmdSummaryCache[key] = cmdSummaryCacheEntry{at: time.Now(), data: out}
+	d.cmdSummaryMu.Unlock()
+	return out, nil
 }
 
 // GetCommandTargetSerialsBatch resolves target serials for many commands in one
@@ -5337,17 +5370,16 @@ func (d *DB) GetFleetWrapped(ctx context.Context) (FleetWrapped, error) {
 	}
 	w.HasData = w.TotalCheckins > 0
 
-	_ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM devices WHERE NOT hidden`).Scan(&w.DeviceCount)
-	_ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM restaurants`).Scan(&w.RestaurantCount)
-
-	var totalDischarge int64
-	_ = d.pool.QueryRow(ctx, `SELECT COALESCE(SUM(discharge_total_pct),0) FROM devices WHERE NOT hidden`).Scan(&totalDischarge)
-	w.TotalCycles = float64(totalDischarge) / 100
-
-	_ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM commands`).Scan(&w.TotalCommands)
-	_ = d.pool.QueryRow(ctx, `SELECT type FROM commands GROUP BY type ORDER BY COUNT(*) DESC, type LIMIT 1`).Scan(&w.TopCommandType)
-	_ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM alerts`).Scan(&w.TotalAlerts)
-	_ = d.pool.QueryRow(ctx, `SELECT type FROM alerts GROUP BY type ORDER BY COUNT(*) DESC, type LIMIT 1`).Scan(&w.TopAlertType)
+	// The 15 queries below (2 counts, 1 sum, 2 group-bys, 10 superlative "scanStat"
+	// lookups) are each a single independent aggregate over a different slice of
+	// the fleet's history — none depends on another's result. Firing them
+	// sequentially meant this page's latency was the sum of 15 round trips. Run
+	// them concurrently and write into local vars; results are only copied into `w`
+	// after every goroutine has finished, so there's no concurrent access to it.
+	var totalDischarge, totalCommands, totalAlerts int64
+	var deviceCount, restaurantCount int
+	var topCommandType, topAlertType string
+	var hardestWorker, busiest, hottest, longestDay, padLover, mostWorn, veteran, busiestVenue WrappedStat
 
 	// scanStat runs a superlative query returning (serial, restaurant, value, extra)
 	// and tolerates no rows (leaves the stat zero).
@@ -5357,57 +5389,102 @@ func (d *DB) GetFleetWrapped(ctx context.Context) (FleetWrapped, error) {
 		return s
 	}
 
-	w.HardestWorker = scanStat(`
-		SELECT d.serial_number, COALESCE(r.name,''), SUM(s.online_minutes)::float8, ''
-		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
-		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE NOT d.hidden GROUP BY d.id, d.serial_number, r.name
-		ORDER BY 3 DESC LIMIT 1`)
+	var wg sync.WaitGroup
+	run := func(f func()) {
+		wg.Add(1)
+		go func() { defer wg.Done(); f() }()
+	}
 
-	w.Busiest = scanStat(`
-		SELECT d.serial_number, COALESCE(r.name,''), SUM(s.checkin_count)::float8, ''
-		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
-		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE NOT d.hidden GROUP BY d.id, d.serial_number, r.name
-		ORDER BY 3 DESC LIMIT 1`)
+	run(func() { _ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM devices WHERE NOT hidden`).Scan(&deviceCount) })
+	run(func() { _ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM restaurants`).Scan(&restaurantCount) })
+	run(func() {
+		_ = d.pool.QueryRow(ctx, `SELECT COALESCE(SUM(discharge_total_pct),0) FROM devices WHERE NOT hidden`).Scan(&totalDischarge)
+	})
+	run(func() { _ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM commands`).Scan(&totalCommands) })
+	run(func() {
+		_ = d.pool.QueryRow(ctx, `SELECT type FROM commands GROUP BY type ORDER BY COUNT(*) DESC, type LIMIT 1`).Scan(&topCommandType)
+	})
+	run(func() { _ = d.pool.QueryRow(ctx, `SELECT COUNT(*) FROM alerts`).Scan(&totalAlerts) })
+	run(func() {
+		_ = d.pool.QueryRow(ctx, `SELECT type FROM alerts GROUP BY type ORDER BY COUNT(*) DESC, type LIMIT 1`).Scan(&topAlertType)
+	})
+	run(func() {
+		hardestWorker = scanStat(`
+			SELECT d.serial_number, COALESCE(r.name,''), SUM(s.online_minutes)::float8, ''
+			FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+			LEFT JOIN restaurants r ON r.id = d.restaurant_id
+			WHERE NOT d.hidden GROUP BY d.id, d.serial_number, r.name
+			ORDER BY 3 DESC LIMIT 1`)
+	})
+	run(func() {
+		busiest = scanStat(`
+			SELECT d.serial_number, COALESCE(r.name,''), SUM(s.checkin_count)::float8, ''
+			FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+			LEFT JOIN restaurants r ON r.id = d.restaurant_id
+			WHERE NOT d.hidden GROUP BY d.id, d.serial_number, r.name
+			ORDER BY 3 DESC LIMIT 1`)
+	})
+	run(func() {
+		hottest = scanStat(`
+			SELECT d.serial_number, COALESCE(r.name,''), s.temp_max::float8, to_char(s.day,'Mon DD')
+			FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+			LEFT JOIN restaurants r ON r.id = d.restaurant_id
+			WHERE NOT d.hidden AND s.temp_max IS NOT NULL
+			ORDER BY s.temp_max DESC LIMIT 1`)
+	})
+	run(func() {
+		longestDay = scanStat(`
+			SELECT d.serial_number, COALESCE(r.name,''), s.online_minutes::float8, to_char(s.day,'Mon DD')
+			FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+			LEFT JOIN restaurants r ON r.id = d.restaurant_id
+			WHERE NOT d.hidden ORDER BY s.online_minutes DESC LIMIT 1`)
+	})
+	run(func() {
+		padLover = scanStat(`
+			SELECT d.serial_number, COALESCE(r.name,''), (AVG(s.charging_frac)*100)::float8, ''
+			FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
+			LEFT JOIN restaurants r ON r.id = d.restaurant_id
+			WHERE NOT d.hidden AND s.charging_frac IS NOT NULL
+			GROUP BY d.id, d.serial_number, r.name HAVING COUNT(*) >= 3
+			ORDER BY 3 DESC LIMIT 1`)
+	})
+	run(func() {
+		mostWorn = scanStat(`
+			SELECT d.serial_number, COALESCE(r.name,''), (d.discharge_total_pct::float8/100), ''
+			FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
+			WHERE NOT d.hidden ORDER BY d.discharge_total_pct DESC LIMIT 1`)
+	})
+	run(func() {
+		veteran = scanStat(`
+			SELECT d.serial_number, COALESCE(r.name,''), 0::float8, to_char(d.created_at,'Mon DD, YYYY')
+			FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
+			WHERE NOT d.hidden ORDER BY d.created_at ASC LIMIT 1`)
+	})
+	run(func() {
+		// Busiest venue: name lands in Serial (WrappedStat has no venue field), Value = check-ins.
+		busiestVenue = scanStat(`
+			SELECT r.name, '', SUM(s.checkin_count)::float8, COUNT(DISTINCT d.id)::text
+			FROM restaurants r JOIN devices d ON d.restaurant_id = r.id AND NOT d.hidden
+			JOIN device_daily_stats s ON s.device_id = d.id
+			GROUP BY r.id, r.name ORDER BY 3 DESC LIMIT 1`)
+	})
+	wg.Wait()
 
-	w.Hottest = scanStat(`
-		SELECT d.serial_number, COALESCE(r.name,''), s.temp_max::float8, to_char(s.day,'Mon DD')
-		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
-		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE NOT d.hidden AND s.temp_max IS NOT NULL
-		ORDER BY s.temp_max DESC LIMIT 1`)
-
-	w.LongestDay = scanStat(`
-		SELECT d.serial_number, COALESCE(r.name,''), s.online_minutes::float8, to_char(s.day,'Mon DD')
-		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
-		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE NOT d.hidden ORDER BY s.online_minutes DESC LIMIT 1`)
-
-	w.PadLover = scanStat(`
-		SELECT d.serial_number, COALESCE(r.name,''), (AVG(s.charging_frac)*100)::float8, ''
-		FROM device_daily_stats s JOIN devices d ON d.id = s.device_id
-		LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE NOT d.hidden AND s.charging_frac IS NOT NULL
-		GROUP BY d.id, d.serial_number, r.name HAVING COUNT(*) >= 3
-		ORDER BY 3 DESC LIMIT 1`)
-
-	w.MostWorn = scanStat(`
-		SELECT d.serial_number, COALESCE(r.name,''), (d.discharge_total_pct::float8/100), ''
-		FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE NOT d.hidden ORDER BY d.discharge_total_pct DESC LIMIT 1`)
-
-	w.Veteran = scanStat(`
-		SELECT d.serial_number, COALESCE(r.name,''), 0::float8, to_char(d.created_at,'Mon DD, YYYY')
-		FROM devices d LEFT JOIN restaurants r ON r.id = d.restaurant_id
-		WHERE NOT d.hidden ORDER BY d.created_at ASC LIMIT 1`)
-
-	// Busiest venue: name lands in Serial (WrappedStat has no venue field), Value = check-ins.
-	w.BusiestVenue = scanStat(`
-		SELECT r.name, '', SUM(s.checkin_count)::float8, COUNT(DISTINCT d.id)::text
-		FROM restaurants r JOIN devices d ON d.restaurant_id = r.id AND NOT d.hidden
-		JOIN device_daily_stats s ON s.device_id = d.id
-		GROUP BY r.id, r.name ORDER BY 3 DESC LIMIT 1`)
+	w.DeviceCount = deviceCount
+	w.RestaurantCount = restaurantCount
+	w.TotalCycles = float64(totalDischarge) / 100
+	w.TotalCommands = totalCommands
+	w.TopCommandType = topCommandType
+	w.TotalAlerts = totalAlerts
+	w.TopAlertType = topAlertType
+	w.HardestWorker = hardestWorker
+	w.Busiest = busiest
+	w.Hottest = hottest
+	w.LongestDay = longestDay
+	w.PadLover = padLover
+	w.MostWorn = mostWorn
+	w.Veteran = veteran
+	w.BusiestVenue = busiestVenue
 
 	return w, nil
 }
@@ -8684,6 +8761,10 @@ CREATE INDEX IF NOT EXISTS idx_ota_packages_release     ON ota_packages(release_
 CREATE INDEX IF NOT EXISTS idx_updates_release          ON updates(release_id);
 CREATE INDEX IF NOT EXISTS idx_update_devices_device_id ON update_devices(device_id);
 CREATE INDEX IF NOT EXISTS idx_commands_created_at      ON commands(created_at DESC);
+-- ListCommandsSince filters "type != 'update_splash' AND created_at >= ..." together;
+-- the single-column indexes above/below can only be used one at a time (or bitmap-AND'd,
+-- weaker than a composite). Covers that filter directly once the table is large.
+CREATE INDEX IF NOT EXISTS idx_commands_created_at_type  ON commands(created_at DESC, type);
 CREATE INDEX IF NOT EXISTS idx_alerts_fired_at          ON alerts(fired_at DESC);
 CREATE INDEX IF NOT EXISTS idx_device_daily_stats_device_day ON device_daily_stats(device_id, day DESC);
 
