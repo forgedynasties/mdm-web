@@ -1383,6 +1383,16 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	return data
 }
 
+// prefetchableTemplates are the primary dock-nav destinations (see .dock in
+// layout.html: Overview/Fleet/Health/Actions/Releases). The client warms these in
+// the background after a page settles (see mdmPrefetchNav in layout.html) so
+// clicking between them feels instant. Scoped to exactly these five, boosted-only —
+// see the Cache-Control comment below for why this can't just apply everywhere.
+var prefetchableTemplates = map[string]bool{
+	"overview.html": true, "devices.html": true, "health.html": true,
+	"commands.html": true, "releases.html": true,
+}
+
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data map[string]any) {
 	// Execute into a buffer first: a template runtime error partway through
 	// otherwise leaves a half-written page (header/dock already flushed, body
@@ -1393,6 +1403,18 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, da
 		log.Printf("template render %s (%s %s): %v", name, r.Method, r.URL.Path, err)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	// Dynamic/authenticated responses default to no-store (SecurityHeaders). Punch a
+	// short, narrow hole in that for the boosted (HX-Request) response of the five
+	// main dock-nav pages only, so the browser's own HTTP cache can serve the
+	// background prefetch's response back to htmx's real navigation fetch a few
+	// seconds later — both requests carry the same HX-Request/HX-Boosted headers, so
+	// Vary keys them to the same cache entry, and htmx never knows the difference.
+	// The FULL (non-boosted) document response for these same URLs is untouched —
+	// only this HX-Request-flagged fragment variant becomes briefly cacheable.
+	if r.Header.Get("HX-Request") == "true" && prefetchableTemplates[name] {
+		w.Header().Set("Cache-Control", "private, max-age=10")
+		w.Header().Set("Vary", "HX-Request, HX-Boosted")
 	}
 	buf.WriteTo(w)
 }

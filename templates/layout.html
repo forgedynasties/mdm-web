@@ -324,6 +324,43 @@
       }
     });
   })();
+
+  // Background-warm the other primary dock destinations so clicking between them
+  // feels instant. Fires the exact same request htmx's own boosted click would
+  // (HX-Request/HX-Boosted headers) at the same URL; the server (see prefetchableTemplates
+  // in handlers.go) briefly makes that specific response variant cacheable
+  // (Cache-Control: private, max-age=10, Vary'd on those headers so it can never be
+  // served for a non-boosted full-page load). htmx's real fetch on click then hits
+  // the browser's own HTTP cache and resolves near-instantly — htmx never knows,
+  // so its normal swap/title/script/history handling all still runs unchanged.
+  //
+  // Fired only after window 'load' (never requestIdleCallback, which can run BEFORE
+  // load) — an outstanding fetch kicked off while the page is still "loading" keeps
+  // the browser tab's own loading indicator spinning until it resolves; one that
+  // starts after load already finished doesn't.
+  (function () {
+    var WARM_DELAY_MS = 600;
+    function warmDockLinks() {
+      document.querySelectorAll('.dock .nav-link[href]').forEach(function (a) {
+        var href = a.getAttribute('href');
+        if (!href || href === location.pathname) return;
+        fetch(href, {
+          headers: { 'HX-Request': 'true', 'HX-Boosted': 'true' },
+          credentials: 'same-origin',
+        }).catch(function () {});
+      });
+    }
+    function scheduleWarm() { setTimeout(warmDockLinks, WARM_DELAY_MS); }
+    if (document.readyState === 'complete') scheduleWarm();
+    else window.addEventListener('load', scheduleWarm);
+    // Re-warm the other destinations each time a boosted nav settles into a new
+    // page — the 10s cache window is short by design (this is live fleet data), so
+    // keep it topped up as the user browses instead of only warming once at boot.
+    document.body.addEventListener('htmx:afterSettle', function (evt) {
+      var t = evt.detail && evt.detail.target;
+      if (t && t.tagName === 'MAIN') scheduleWarm();
+    });
+  })();
   </script>
   <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
   <div id="cmdk" class="cmdk-backdrop" hidden>
