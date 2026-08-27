@@ -10202,7 +10202,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 
 	if len(created) == 0 {
 		h.audit(r, "command.send.skip", cmdType, fmt.Sprintf("all %d target(s) already have or are installing the selected app(s)", len(targetIDs)))
-		h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape("All selected device(s) already have or are installing the selected app(s) — nothing queued. Tick “Reinstall anyway” to force.")+"&flash_type=info")
+		h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape("All selected device(s) already have or are installing the selected app(s) — nothing queued.")+"&flash_type=info")
 		return
 	}
 
