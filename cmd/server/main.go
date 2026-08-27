@@ -152,7 +152,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	staticFS := http.StripPrefix("/static/", http.FileServer(http.Dir("static")))
-	mux.Handle("GET /static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("GET /static/", middleware.CompressStatic(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Disable the default directory autoindex: any request resolving to a
 		// directory (path ends in "/") is rejected so the static tree can't be
 		// enumerated for dev-only artifacts.
@@ -162,7 +162,7 @@ func main() {
 		}
 		w.Header().Set("Cache-Control", "public, max-age=604800, immutable")
 		staticFS.ServeHTTP(w, r)
-	}))
+	})))
 
 	// Generated splash images (uploaded BMP/PNG/JPEG wrapped into splash.img by the
 	// dashboard) live on a persistent volume and are downloaded by devices. Filenames

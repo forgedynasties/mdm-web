@@ -477,8 +477,13 @@ func New(ctx context.Context, connStr string) (*DB, error) {
 	// string already specifies pool_max_conns.
 	if cfg.MaxConns < 20 && !strings.Contains(connStr, "pool_max_conns") {
 		// 25 was tight: the device-list page fans out ~12 concurrent queries, so a
-		// couple of dashboards loading it plus check-in upserts could saturate the pool.
-		cfg.MaxConns = 40
+		// couple of dashboards loading it plus check-in upserts could saturate the
+		// pool. Since then, Overview (~8), Actions (~8), Fleet Wrapped (~15) and
+		// DeviceDetail (~15) all gained the same concurrent-fan-out treatment, so a
+		// few admins hitting different heavy pages at once can now approach the old
+		// 40 headroom on top of steady check-in traffic. Raised further as a
+		// preemptive margin.
+		cfg.MaxConns = 60
 	}
 	cfg.MinConns = 2
 	// Recycle connections so a long-lived pool rebalances after failovers/restarts;
@@ -2703,12 +2708,16 @@ func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, e
 	q := `SELECT id, type, apk_url, payload, target_type, created_at FROM commands WHERE type != 'update_splash'`
 	if sinceDays > 0 {
 		q += fmt.Sprintf(" AND created_at >= NOW() - INTERVAL '%d days'", sinceDays)
+		// The day window alone doesn't bound the row count — a busy fleet issuing
+		// many commands/day can still return a large result set within 30 days. Cap
+		// it as a backstop; the Actions page's triage buckets never need more than
+		// this. sinceDays == 0 is CommandHistory's real unbounded, paginated view —
+		// capping that too would silently truncate it once a fleet passes 2000
+		// total commands, so the cap only applies to the windowed call.
+		q += " ORDER BY created_at DESC LIMIT 2000"
+	} else {
+		q += " ORDER BY created_at DESC"
 	}
-	// The day window alone doesn't bound the row count — a busy fleet issuing many
-	// commands/day can still return a large result set within 30 days. Cap it as a
-	// backstop; the Actions page's triage buckets never need more than this, and
-	// full unbounded history already lives at /commands/history (paginated).
-	q += " ORDER BY created_at DESC LIMIT 2000"
 	rows, err := d.pool.Query(ctx, q)
 	if err != nil {
 		return nil, err
@@ -5006,6 +5015,30 @@ func (d *DB) GetDeviceIDsByGroupIDs(ctx context.Context, groupIDs []uuid.UUID) (
 		ids = append(ids, id)
 	}
 	return ids, rows.Err()
+}
+
+// GetGroupDeviceIDsBatch returns device IDs per group for every group in groupIDs, in
+// one query — replaces calling GetDeviceIDsByGroupIDs once per group in a loop.
+func (d *DB) GetGroupDeviceIDsBatch(ctx context.Context, groupIDs []uuid.UUID) (map[uuid.UUID][]uuid.UUID, error) {
+	out := make(map[uuid.UUID][]uuid.UUID, len(groupIDs))
+	if len(groupIDs) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT group_id, device_id FROM device_groups WHERE group_id = ANY($1)
+	`, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var gid, did uuid.UUID
+		if err := rows.Scan(&gid, &did); err != nil {
+			return nil, err
+		}
+		out[gid] = append(out[gid], did)
+	}
+	return out, rows.Err()
 }
 
 // GetDeviceIDsByRestaurantIDs returns the distinct device IDs assigned to any of the

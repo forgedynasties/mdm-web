@@ -7902,19 +7902,21 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 					idToSerial[dv.ID] = dv.SerialNumber
 				}
 				groupMembers := map[string][]string{}
-				for _, g := range groupsList {
-					ids, gerr := h.db.GetDeviceIDsByGroupIDs(r.Context(), []uuid.UUID{g.ID})
-					if gerr != nil {
-						continue
-					}
-					var serials []string
-					for _, id := range ids {
-						if s, ok := idToSerial[id]; ok {
-							serials = append(serials, s)
+				groupIDs := make([]uuid.UUID, len(groupsList))
+				for i, g := range groupsList {
+					groupIDs[i] = g.ID
+				}
+				if byGroup, gerr := h.db.GetGroupDeviceIDsBatch(r.Context(), groupIDs); gerr == nil {
+					for _, g := range groupsList {
+						var serials []string
+						for _, id := range byGroup[g.ID] {
+							if s, ok := idToSerial[id]; ok {
+								serials = append(serials, s)
+							}
 						}
-					}
-					if len(serials) > 0 {
-						groupMembers[g.ID.String()] = serials
+						if len(serials) > 0 {
+							groupMembers[g.ID.String()] = serials
+						}
 					}
 				}
 				restMembers := map[string][]string{}
