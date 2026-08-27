@@ -3001,7 +3001,7 @@ func (d *DB) GetPendingCommandsForDevice(ctx context.Context, deviceID uuid.UUID
 			SELECT 1 FROM command_status cs
 			WHERE cs.command_id = c.id AND cs.device_id = $1
 			AND (
-				cs.status IN ('downloading', 'installing', 'installed', 'failed', 'completed')
+				cs.status IN ('downloading', 'installing', 'installed', 'failed', 'completed', 'cancelled', 'expired')
 				-- A 'delivered' command means only that hub.Push enqueued the frame onto the
 				-- socket — NOT that the device received it. A half-open socket (Wi-Fi dropped
 				-- with no FIN) swallows the frame, so ANY command type can wedge at 'delivered'

@@ -13403,6 +13403,11 @@ func (h *Handler) pushCommand(ctx context.Context, cmd *db.Command, targetType s
 
 	var pushed []uuid.UUID
 	for _, deviceID := range targetIDs {
+		// Surface the new queue entry on that device's own page immediately (its Queue
+		// tab listens for this), instead of only on its next 300s poll or a reload —
+		// whether the command ends up pushed, held behind an earlier one, or the device
+		// is offline and never gets a push at all.
+		h.hub.PublishDeviceUpdate(deviceID)
 		// The whole queue runs one command at a time per device: if an earlier command for
 		// this device is still unfinished, hold this one (it stays queued and is flushed when
 		// the current one finishes).
