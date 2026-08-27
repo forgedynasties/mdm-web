@@ -1,0 +1,238 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manage: kiosk policies — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+#mpm{max-width:1080px;margin:0 auto;padding:30px 22px 110px;font-family:var(--font,'IBM Plex Sans',sans-serif);}
+#mpm a.back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:14px;}
+#mpm a.back:hover{color:var(--accent);}
+#mpm h1{font-size:24px;font-weight:700;letter-spacing:-.015em;margin:0;}
+#mpm .lede{color:var(--muted);font-size:14px;margin:6px 0 24px;max-width:76ch;}
+#mpm .lede b{color:var(--text);}
+#mpm .why{background:var(--accent-2-soft,rgba(122,128,246,.1));border:1px solid rgba(122,128,246,.28);border-radius:12px;padding:13px 16px;font-size:13px;line-height:1.55;color:var(--text-2);margin-bottom:22px;max-width:76ch;}
+#mpm .why b{color:var(--text);}
+
+.mg-types{display:flex;gap:8px;margin-bottom:16px;}
+.mg-type{font:inherit;font-size:12.5px;font-weight:650;padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;display:flex;align-items:center;gap:7px;}
+.mg-type.on{border-color:transparent;background:var(--accent);color:#fff;}
+.mg-type.soon{color:var(--text-faint);cursor:default;}
+.mg-type.soon span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--surface2);color:var(--text-faint);padding:1px 6px;border-radius:99px;}
+
+.mg-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.mg-count{font-size:12px;color:var(--muted);}
+.mg-bulk{font:inherit;font-size:12.5px;font-weight:650;color:#fff;background:var(--accent);border:none;border-radius:9px;padding:8px 15px;cursor:pointer;margin-left:auto;white-space:nowrap;display:flex;align-items:center;gap:7px;}
+
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
+.pcard .ic{width:38px;height:38px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--text-2);}
+.pcard .ic svg{width:19px;height:19px;}
+.pcard .body{flex:1;min-width:0;}
+.pcard .nm{font-size:14.5px;font-weight:700;}
+.pcard .meta{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.pcard .meta b{color:var(--text-2);font-weight:650;}
+.pcard .sep{color:var(--text-faint);}
+.pcard .targets{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+.ttag{font-size:11.5px;font-weight:600;background:var(--surface2);color:var(--text-2);padding:3px 9px;border-radius:99px;}
+.pcard .acts{display:flex;gap:6px;flex:none;}
+.pcard .acts button{font:inherit;font-size:12px;font-weight:650;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap;}
+.pcard .acts button:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
+.pcard .acts button.danger:hover{border-color:var(--danger-edge,rgba(209,80,63,.34));color:var(--danger,#d1503f);}
+
+.pcard.default{background:var(--surface2);box-shadow:none;border-style:dashed;}
+.pcard.default .ic{background:var(--surface);}
+
+.pc-divider{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:22px 2px 10px;}
+
+/* Reused device.html kiosk-modal shell + kpk app picker (page-scoped there,
+   copied verbatim — same as the kiosk-dialog demo). */
+.kiosk-modal-box{max-width:640px;width:100%;}
+.kiosk-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);flex:none;}
+.kiosk-modal-title{font-size:16px;font-weight:700;}
+.kiosk-modal-body{padding:20px;overflow-y:auto;flex:1;min-height:0;}
+.kiosk-modal-body .form-row{margin:0 0 20px;}
+.kiosk-modal-body .form-row:last-child{margin-bottom:0;}
+.kiosk-modal-body .form-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;display:block;}
+.kiosk-modal-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--border);flex:none;}
+.kiosk-modal-foot .kiosk-note{margin-top:0;flex:1;min-width:120px;font-size:12.5px;color:var(--muted);}
+.kiosk-foot-btns{display:flex;gap:8px;}
+.mp-name{font:inherit;font-size:14px;font-weight:650;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
+.mp-name::placeholder{font-weight:500;color:var(--text-faint);}
+.mk-target-seg{display:flex;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:4px;}
+.mk-target-seg button{flex:1;font:inherit;font-size:12.5px;font-weight:650;padding:7px 10px;border-radius:7px;border:none;background:none;color:var(--text-2);cursor:pointer;}
+.mk-target-seg button.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm);}
+.mk-target-dep{margin-top:10px;}
+.mk-target-dep select{font:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
+.mk-target-count{font-size:12px;color:var(--muted);margin-top:7px;}
+.mk-target-count b{color:var(--text);}
+.kpk{display:flex;flex-direction:column;gap:8px;}
+.kpk-top{display:flex;gap:6px;align-items:center;}
+.kpk-search{position:relative;flex:1;display:flex;align-items:center;}
+.kpk-search svg{position:absolute;left:9px;color:var(--muted);pointer-events:none;}
+.kpk-search input{width:100%;font:inherit;font-size:13px;padding:7px 9px 7px 28px;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--text);}
+.kpk-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;}
+.kpk-seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;cursor:pointer;display:grid;place-items:center;}
+.kpk-seg button.active{background:var(--accent-soft);color:var(--accent);}
+.kpk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:230px;overflow-y:auto;padding:2px;}
+.kpk-opt{position:relative;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit;}
+.kpk-opt:hover{border-color:var(--rule-2);}
+.kpk-opt.sel{border-color:var(--accent);background:var(--accent-soft);}
+.kpk-tile{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none;}
+.kpk-txt{min-width:0;display:flex;flex-direction:column;}
+.kpk-nm{font-size:12px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kpk-pk{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);}
+.kpk-check{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center;}
+.kpk-opt.sel .kpk-check{display:grid;}
+</style></head><body>
+<div id="mpm">
+  <a class="back" href="/demo/index">&larr; Back to demos</a>
+  <h1>Manage: kiosk as named policies</h1>
+  <p class="lede">Not "pick devices, set a state, send" — <b>define a policy once, assign it, and it stays a real thing you can see, edit, duplicate or delete</b>. Matches how Intune/Jamf model this (configuration profiles), and scales cleanly once Charging pad and others join as policy types.</p>
+
+  <div class="why"><b>What changed from the dialog demo:</b> every assignment is now a named row on the page itself, not a one-time action that vanishes into device state. "Enable kiosk on N devices" becomes "Save policy" — you're authoring a durable object, not firing a command. A dashed "Default" card always sits at the bottom for anything nothing else claims.</div>
+
+  <div class="mg-types">
+    <button class="mg-type on">Kiosk lock</button>
+    <button class="mg-type soon">Charging pad <span>soon</span></button>
+  </div>
+
+  <div class="mg-toolbar">
+    <span class="mg-count">3 policies · 67 devices covered</span>
+    <button type="button" class="mg-bulk" onclick="mpOpen('new')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Create new policy</button>
+  </div>
+
+  <div class="pc-divider">Policies (2)</div>
+
+  <div class="pcard">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+    <div class="body">
+      <div class="nm">Drive-Thru Lockdown</div>
+      <div class="meta">Locked to <b>Order &amp; Pay</b> <span class="sep">·</span> 17 devices <span class="sep">·</span> edited 3d ago</div>
+      <div class="targets"><span class="ttag">Drive-Thru Kiosks (group)</span></div>
+    </div>
+    <div class="acts">
+      <button onclick="mpOpen('edit',0)">Edit</button>
+      <button>Duplicate</button>
+      <button class="danger">Delete</button>
+    </div>
+  </div>
+
+  <div class="pcard">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+    <div class="body">
+      <div class="nm">Front Counter Registers</div>
+      <div class="meta">Locked to <b>POS Terminal</b> <span class="sep">·</span> 9 devices <span class="sep">·</span> edited 1w ago</div>
+      <div class="targets"><span class="ttag">Front Counter (group)</span><span class="ttag">+1 device</span></div>
+    </div>
+    <div class="acts">
+      <button onclick="mpOpen('edit',1)">Edit</button>
+      <button>Duplicate</button>
+      <button class="danger">Delete</button>
+    </div>
+  </div>
+
+  <div class="pc-divider">Everything else</div>
+  <div class="pcard default">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>
+    <div class="body">
+      <div class="nm">Default</div>
+      <div class="meta">Unlocked <span class="sep">·</span> 41 devices <span class="sep">·</span> nothing else claims them</div>
+    </div>
+    <div class="acts"><button onclick="mpOpen('edit-default')">Change default</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="mp-modal" onclick="mpBackdrop(event)">
+  <div class="modal-box kiosk-modal-box" role="dialog" aria-modal="true" aria-label="Kiosk policy">
+    <div class="kiosk-modal-head"><span class="kiosk-modal-title" id="mp-title">New kiosk policy</span><button type="button" class="modal-close" onclick="mpClose()" aria-label="Close">&times;</button></div>
+    <div class="kiosk-modal-body">
+      <div class="form-row">
+        <label class="form-label">Policy name</label>
+        <input type="text" class="mp-name" id="mp-name" placeholder="e.g. Drive-Thru Lockdown">
+      </div>
+      <div class="form-row">
+        <label class="form-label">Assign to</label>
+        <div class="mk-target-seg" role="radiogroup">
+          <button type="button" data-k="restaurant" onclick="mpTargetKind(this,'restaurant')">Restaurant</button>
+          <button type="button" class="on" data-k="group" onclick="mpTargetKind(this,'group')">Group</button>
+          <button type="button" data-k="device" onclick="mpTargetKind(this,'device')">Device</button>
+        </div>
+        <div class="mk-target-dep" id="mp-dep">
+          <select id="mp-dep-select"><option>Drive-Thru Kiosks</option><option>Front Counter</option></select>
+        </div>
+        <div class="mk-target-count">Covers <b id="mp-count">17 devices</b></div>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Locked app</label>
+        <div class="kpk" id="mp-picker">
+          <div class="kpk-top">
+            <span class="kpk-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input type="text" placeholder="Search apps…"></span>
+          </div>
+          <div class="kpk-grid" id="mp-grid"></div>
+        </div>
+      </div>
+    </div>
+    <div class="kiosk-modal-foot">
+      <div class="kiosk-note" id="mp-note">Name the policy and pick an app to lock to.</div>
+      <div class="kiosk-foot-btns">
+        <button type="button" class="btn-outline" onclick="mpClose()">Cancel</button>
+        <button type="button" class="btn-primary" id="mp-save" disabled>Save policy</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var MP_APPS = [
+  { n: 'Order & Pay', v: 'com.aioapp.orderpay', c: '#e17055' },
+  { n: 'POS Terminal', v: 'com.aioapp.pos', c: '#0984e3' },
+  { n: 'Kitchen Display', v: 'com.aioapp.kds', c: '#00b894' },
+  { n: 'Self-Serve Kiosk', v: 'com.aioapp.selfserve', c: '#6c5ce7' },
+  { n: 'Loyalty Signup', v: 'com.aioapp.loyalty', c: '#fdcb6e' },
+  { n: 'Menu Board', v: 'com.aioapp.menuboard', c: '#e84393' },
+];
+document.getElementById('mp-grid').innerHTML = MP_APPS.map(function (a) {
+  return '<button type="button" class="kpk-opt" data-value="' + a.v + '"><span class="kpk-tile" style="background:' + a.c + '">' + a.n[0] + '</span><span class="kpk-txt"><span class="kpk-nm">' + a.n + '</span><span class="kpk-pk">' + a.v + '</span></span><span class="kpk-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span></button>';
+}).join('');
+
+var mpChosenApp = null;
+function mpCheckReady() {
+  var name = document.getElementById('mp-name').value.trim();
+  document.getElementById('mp-save').disabled = !(name && mpChosenApp);
+  var note = document.getElementById('mp-note');
+  if (name && mpChosenApp) note.textContent = '"' + name + '" will lock to ' + mpChosenApp + ' on ' + document.getElementById('mp-count').textContent.split(' ')[0] + ' devices.';
+  else if (!name) note.textContent = 'Name the policy and pick an app to lock to.';
+  else note.textContent = 'Pick an app to lock to.';
+}
+document.getElementById('mp-name').addEventListener('input', mpCheckReady);
+document.getElementById('mp-grid').addEventListener('click', function (e) {
+  var b = e.target.closest('.kpk-opt'); if (!b) return;
+  document.querySelectorAll('#mp-grid .kpk-opt').forEach(function (x) { x.classList.remove('sel'); });
+  b.classList.add('sel');
+  mpChosenApp = b.querySelector('.kpk-nm').textContent;
+  mpCheckReady();
+});
+
+var MP_COUNTS = { restaurant: 12, group: 17, device: 1 };
+function mpTargetKind(btn, kind) {
+  document.querySelectorAll('.mk-target-seg button').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  var n = MP_COUNTS[kind];
+  document.getElementById('mp-count').textContent = n + ' device' + (n === 1 ? '' : 's');
+  mpCheckReady();
+}
+function mpOpen(kind) {
+  document.getElementById('mp-title').textContent = kind === 'new' ? 'New kiosk policy' : 'Edit policy';
+  if (kind === 'edit') {
+    document.getElementById('mp-name').value = 'Drive-Thru Lockdown';
+    mpChosenApp = 'Order & Pay';
+    document.querySelector('#mp-grid .kpk-opt[data-value="com.aioapp.orderpay"]').classList.add('sel');
+  }
+  mpCheckReady();
+  document.getElementById('mp-modal').classList.add('modal-open');
+}
+function mpClose() { document.getElementById('mp-modal').classList.remove('modal-open'); }
+function mpBackdrop(e) { if (e.target === e.currentTarget) mpClose(); }
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && document.getElementById('mp-modal').classList.contains('modal-open')) mpClose();
+});
+</script>
+</body></html>
