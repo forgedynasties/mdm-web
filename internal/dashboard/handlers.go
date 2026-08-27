@@ -2601,6 +2601,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 
 	role := h.role(r)
 	ctx := r.Context()
+	focusParam := r.URL.Query().Get("focus")
 
 	run(func() {
 		// The chart normally loads the recent window. When the page is opened to
@@ -2789,6 +2790,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Release":             release,
 		"Online":              h.hub.IsConnected(device.ID),
 		"ChartCheckins":       chartCheckins,
+		"ChartFocus":          focusParam,
 		"Commands":            commands,
 		"Queue":               queue,
 		"ExtraColumns":        h.cfg.Columns(),

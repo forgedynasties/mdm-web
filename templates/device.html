@@ -822,8 +822,13 @@ function mdmBootCharts() {
   // (chartLoadOlder) — older builds' history is fetched from /chart-data instead of
   // only filtering the ~48h baked in here.
   let allBattery = [{{if .Device.HasBattery}}{{range reverseCheckins .ChartCheckins}}{x: {{.CreatedAt.UnixMilli}}, y: {{.BatteryPct}}, wlc: {{wlcStatus .Extra}}},{{end}}{{end}}];
-  let allTemp = [{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}];
-  let allRam = [{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}];
+  {{/* Temp/RAM stay out of the initial page HTML unless the visit is a deep link
+       to that metric (?focus=temp/ram, which needs the data immediately to find
+       and zoom to the peak) — most visits never open those tabs, so fetching and
+       baking data nobody looks at is wasted work. mdmLoadMetric below fetches them
+       lazily the first time a tab is actually opened. */}}
+  let allTemp = [{{if eq .ChartFocus "temp"}}{{range reverseCheckins .ChartCheckins}}{{$t := extraTempC .Extra}}{{if ne $t "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$t}}},{{end}}{{end}}{{end}}];
+  let allRam = [{{if eq .ChartFocus "ram"}}{{range reverseCheckins .ChartCheckins}}{{$r := extraRamPct .Extra}}{{if ne $r "null"}}{x: {{.CreatedAt.UnixMilli}}, y: {{$r}}},{{end}}{{end}}{{end}}];
   // Earliest check-in currently loaded (arrays are oldest-first). Widening the range
   // before this triggers a fetch that prepends the older window.
   let loadedMinX = (function () {
@@ -836,6 +841,61 @@ function mdmBootCharts() {
   let chartFetching = false;
   // Fetch check-ins older than what's loaded, for [fromMs, loadedMinX), and prepend
   // them so the recent high-resolution data is kept. Then run `done` (re-render).
+  // Re-show the same "Loading graphs…" overlay used on first paint while a
+  // chartLoadOlder fetch is in flight — otherwise switching to 12h/24h/48h before
+  // the background warm-up has caught up briefly draws an empty chart.
+  function showChartLoading() {
+    var cl = document.getElementById('chart-loading');
+    if (!cl) return;
+    cl.style.display = '';
+    cl.classList.remove('hide');
+  }
+  function hideChartLoading() {
+    var cl = document.getElementById('chart-loading');
+    if (!cl) return;
+    cl.classList.add('hide');
+    setTimeout(function () { cl.style.display = 'none'; }, 300);
+  }
+  // Temp/RAM ship empty (see allTemp/allRam above) unless deep-linked. Fetch them
+  // the first time their tab is actually opened, covering the same [loadedMinX,
+  // now] span the battery chart already has loaded — so it lines up with whatever
+  // chartLoadOlder widens later instead of leaving an unfetched gap behind it.
+  let tempLoaded = allTemp.length > 0, ramLoaded = allRam.length > 0;
+  function loadMetricLazy(metric) {
+    if (metric === 'temp' && tempLoaded) return;
+    if (metric === 'ram' && ramLoaded) return;
+    var until = Math.floor(Date.now());
+    var from = Math.floor(loadedMinX);
+    if (from >= until) { if (metric === 'temp') tempLoaded = true; else ramLoaded = true; return; }
+    showChartLoading();
+    fetch('/devices/{{.Device.SerialNumber}}/chart-data?from=' + from + '&until=' + until, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (d) {
+          // Reassigns (not mutates) allTemp/allRam — window.mdmChart holds the old
+          // (empty) reference for the live-SSE pusher, so repoint it here too or
+          // live updates would keep appending to an array nothing renders from.
+          if (metric === 'temp' && d.temp) {
+            allTemp = d.temp; tempLoaded = true;
+            if (window.mdmChart) window.mdmChart.allTemp = allTemp;
+          }
+          if (metric === 'ram' && d.ram) {
+            allRam = d.ram; ramLoaded = true;
+            if (window.mdmChart) window.mdmChart.allRam = allRam;
+          }
+        }
+      })
+      .catch(function () {})
+      .then(function () { hideChartLoading(); updateCharts(); if (activeTab === 'all' && unifiedChart) applyUnifiedData(); });
+  }
+  function loadOlderWithSpinner(fromMs, done) {
+    var needFetch = fromMs < loadedMinX && !chartFetching;
+    if (needFetch) showChartLoading();
+    chartLoadOlder(fromMs, function () {
+      if (needFetch) hideChartLoading();
+      if (done) done();
+    });
+  }
   function chartLoadOlder(fromMs, done) {
     if (fromMs >= loadedMinX || chartFetching) { if (done) done(); return; }
     chartFetching = true;
@@ -844,9 +904,21 @@ function mdmBootCharts() {
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (d) {
         if (d) {
-          if (HAS_BATTERY && d.battery && d.battery.length) allBattery = d.battery.concat(allBattery);
-          if (d.temp && d.temp.length) allTemp = d.temp.concat(allTemp);
-          if (d.ram && d.ram.length) allRam = d.ram.concat(allRam);
+          // Reassigns, not mutates — repoint window.mdmChart's copies too, or the
+          // live-SSE pusher keeps appending to the array from before this widened
+          // the window and nothing on screen reflects new live data anymore.
+          if (HAS_BATTERY && d.battery && d.battery.length) {
+            allBattery = d.battery.concat(allBattery);
+            if (window.mdmChart) window.mdmChart.allBattery = allBattery;
+          }
+          if (d.temp && d.temp.length) {
+            allTemp = d.temp.concat(allTemp);
+            if (window.mdmChart) window.mdmChart.allTemp = allTemp;
+          }
+          if (d.ram && d.ram.length) {
+            allRam = d.ram.concat(allRam);
+            if (window.mdmChart) window.mdmChart.allRam = allRam;
+          }
           loadedMinX = fromMs;
         }
       })
@@ -1163,6 +1235,9 @@ function mdmBootCharts() {
       var btn = document.querySelector('[data-chart-tab="' + t + '"]');
       if (btn) btn.classList.toggle('active', t === tab);
     });
+    if (tab === 'temp') loadMetricLazy('temp');
+    if (tab === 'ram') loadMetricLazy('ram');
+    if (tab === 'all') { loadMetricLazy('temp'); loadMetricLazy('ram'); }
     if (tab === 'all' && unifiedChart) applyUnifiedData();
   };
 
@@ -1791,23 +1866,13 @@ function mdmBootCharts() {
       document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentDuration = +btn.dataset.ms;
-      // The page only bakes in the default 6h window; 12h/24h/48h need to pull
-      // their extra history from /chart-data first (a no-op once chartWarmBackground
-      // has already caught up).
-      chartLoadOlder(Date.now() - currentDuration, updateCharts);
+      // The page only bakes in the default 6h window; 12h/24h/48h pull their extra
+      // history from /chart-data on click (loadOlderWithSpinner shows the same
+      // "Loading graphs…" overlay used on first paint while that's in flight, so a
+      // wider window never just renders empty).
+      loadOlderWithSpinner(Date.now() - currentDuration, updateCharts);
     });
   });
-
-  // The page ships only the default 6h window for a fast first paint. Quietly widen
-  // it to the full 48h the duration buttons can reach, in the background, so 12h/
-  // 24h/48h feel instant instead of triggering a visible fetch on click. Runs after
-  // the initial chart is already on screen and doesn't touch currentDuration/redraw
-  // anything itself — chartLoadOlder just prepends into the shared arrays.
-  (function chartWarmBackground() {
-    var run = function () { chartLoadOlder(Date.now() - 48 * 3600 * 1000, null); };
-    if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 4000 });
-    else setTimeout(run, 1500);
-  })();
 
   function closeCustomPop() {
     var inputs = document.getElementById("custom-range-inputs");
@@ -1865,7 +1930,7 @@ function mdmBootCharts() {
     customMin = a; customMax = b;
     document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
     document.getElementById("custom-range-btn").classList.add("active");
-    chartLoadOlder(customMin, updateCharts);
+    loadOlderWithSpinner(customMin, updateCharts);
     return true;
   }
 
@@ -1892,7 +1957,7 @@ function mdmBootCharts() {
     customMin += dir * span; customMax += dir * span;
     document.getElementById("range-start").value = toLocalISO(new Date(customMin));
     document.getElementById("range-end").value = toLocalISO(new Date(customMax));
-    chartLoadOlder(customMin, updateCharts);
+    loadOlderWithSpinner(customMin, updateCharts);
   }
 
   function resetCustomRange() {
