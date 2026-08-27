@@ -9821,8 +9821,18 @@ func (h *Handler) buildScopeFilter(r *http.Request) db.DeviceFilter {
 }
 
 // resolveScopeDeviceIDs snapshots the scope filter to the matching device IDs (like the
-// "all" path — future devices that later match are unaffected).
+// "all" path — future devices that later match are unaffected). scope_mode is empty
+// until the user actually picks something in the Target rail (the builder's default
+// targets no devices, not the whole fleet) — buildScopeFilter's switch has no case for
+// that, so an empty/unrecognized scope_mode would otherwise fall through to an
+// unfiltered DeviceFilter{} and silently match every device. Refuse to resolve until
+// scope_mode is a real, explicit choice.
 func (h *Handler) resolveScopeDeviceIDs(r *http.Request) ([]uuid.UUID, error) {
+	switch r.FormValue("scope_mode") {
+	case "restaurant", "group", "build", "all":
+	default:
+		return nil, nil
+	}
 	devs, err := h.db.ListDevices(r.Context(), h.buildScopeFilter(r), 0, 20000, "serial", "asc")
 	if err != nil {
 		return nil, err

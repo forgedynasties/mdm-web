@@ -1230,7 +1230,8 @@ function updatePreview() {
     if (!qh || !qh.value) warn.push('Pick a query to run.');
   }
 
-  if (!target) {
+  var scopeModeVal = document.getElementById('scope-mode').value;
+  if (!target || (target === 'scope' && !scopeModeVal)) {
     warn.push('Choose which devices this reaches.');
   } else if (target === 'groups') {
     if (!document.querySelectorAll('input[name="target_groups"]:checked').length) warn.push('Select at least one group.');
