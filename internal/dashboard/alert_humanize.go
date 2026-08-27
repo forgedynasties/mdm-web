@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html"
 	"html/template"
+	"regexp"
 	"strings"
 	"time"
 
@@ -38,6 +39,24 @@ type humanAlert struct {
 	Primary     *alertAction
 	Trace       string // crash/ANR/tombstone stack trace, shown inline (set by the handler)
 	CanAct      bool   // whether the viewer may acknowledge/resolve (set by the handler)
+	PackageName string // app package parsed from the crash summary, if any
+	AppIcon     string // base64 PNG from the App library, resolved by the handler
+}
+
+// pkgNameFromSummaryRe matches an Android package name leading a crash/ANR summary
+// line, e.g. "aio.app.nugget.uatv2:ipp — ..." or "com.thermobench — ...".
+var pkgNameFromSummaryRe = regexp.MustCompile(`^([A-Za-z][\w]*(?:\.[A-Za-z][\w]*)+)(?::\S*)?\s+—`)
+
+// extractPackageName pulls the leading package name off a crash/ANR summary string,
+// so the alert card can look up and show that app's real icon. Returns "" when the
+// summary doesn't start with a recognizable "package — ..." or "package:tag — ..."
+// prefix (the DropBox summary format used by the crash/ANR pipeline).
+func extractPackageName(summary string) string {
+	m := pkgNameFromSummaryRe.FindStringSubmatch(strings.TrimSpace(summary))
+	if m == nil {
+		return ""
+	}
+	return m[1]
 }
 
 // fnum1 renders a float without a trailing ".0" (so "55", not "55.0").
@@ -180,6 +199,7 @@ func humanizeAlert(a db.Alert) humanAlert {
 			word = sing
 		}
 		s = fmt.Sprintf("%s reported %s %s recently%s.", place, b(fmt.Sprintf("%d", n)), word, crashTail(str("summary")))
+		h.PackageName = extractPackageName(str("summary"))
 	default:
 		h.Headline = alertTypeLabel(a.Type)
 		s = html.EscapeString(a.Summary)

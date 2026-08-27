@@ -3723,6 +3723,42 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	crashes := toCrashCards(crashEvents)
+
+	// Resolve each crash/ANR card's app icon from the App library in one batch query,
+	// so the alert list shows the real app icon instead of the generic crash glyph.
+	pkgSet := map[string]struct{}{}
+	for _, ha := range crit {
+		if ha.PackageName != "" {
+			pkgSet[ha.PackageName] = struct{}{}
+		}
+	}
+	for _, ha := range watch {
+		if ha.PackageName != "" {
+			pkgSet[ha.PackageName] = struct{}{}
+		}
+	}
+	for _, c := range crashes {
+		if c.PackageName != "" {
+			pkgSet[c.PackageName] = struct{}{}
+		}
+	}
+	if len(pkgSet) > 0 {
+		pkgs := make([]string, 0, len(pkgSet))
+		for pkg := range pkgSet {
+			pkgs = append(pkgs, pkg)
+		}
+		if icons, err := h.db.GetAppIconsByPackages(r.Context(), pkgs); err == nil {
+			for i := range crit {
+				crit[i].AppIcon = icons[crit[i].PackageName]
+			}
+			for i := range watch {
+				watch[i].AppIcon = icons[watch[i].PackageName]
+			}
+			for i := range crashes {
+				crashes[i].AppIcon = icons[crashes[i].PackageName]
+			}
+		}
+	}
 	// Preserve the device scope on the pager links.
 	crashPageBase := "/alerts?view=crashes"
 	if deviceSerial != "" {
@@ -3758,6 +3794,8 @@ type crashCardView struct {
 	OccurredAt time.Time
 	Summary    string
 	Trace      string
+	PackageName string // app package parsed from Summary, if any
+	AppIcon    string // base64 PNG from the App library, resolved below
 }
 
 // mustCrashes drops the error from a crash-event query — a failed crash lookup on a
@@ -3778,6 +3816,7 @@ func toCrashCards(events []db.CrashEvent) []crashCardView {
 			OccurredAt: e.OccurredAt,
 			Summary:    e.Summary,
 			Trace:      e.Detail,
+			PackageName: extractPackageName(e.Summary),
 		})
 	}
 	return cards

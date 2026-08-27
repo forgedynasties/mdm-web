@@ -32,8 +32,9 @@
 .alx-sec .line{flex:1;height:1px;background:var(--border-soft)}
 
 .alx-al{display:flex;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:15px 17px;margin-bottom:10px;align-items:flex-start}
-.alx-ico{width:38px;height:38px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center}
+.alx-ico{width:38px;height:38px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 .alx-ico svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
+.alx-ico img{width:100%;height:100%;object-fit:cover;border-radius:11px}
 .alx-al.crit .alx-ico{background:var(--danger-bg);color:var(--danger)}
 .alx-al.warn .alx-ico{background:var(--warn-bg);color:var(--warn)}
 .alx-al.info .alx-ico{background:var(--accent-2-soft);color:var(--accent-2)}
@@ -181,7 +182,7 @@ function alxFilter(){
 {{define "alx-card"}}
 {{$sev := "info"}}{{if eq .Severity "critical"}}{{$sev = "crit"}}{{else if eq .Severity "warning"}}{{$sev = "warn"}}{{end}}{{if eq .Status "resolved"}}{{$sev = "done"}}{{end}}
 <div class="alx-al {{$sev}}" data-search="{{.Headline}} {{.Serial}} {{.Restaurant}} {{plainAlert .Sentence}}">
-  <span class="alx-ico">{{template "alx-icon" .IconKey}}</span>
+  <span class="alx-ico">{{if .AppIcon}}<img src="data:image/png;base64,{{.AppIcon}}" alt="">{{else}}{{template "alx-icon" .IconKey}}{{end}}</span>
   <div class="alx-m">
     <div class="alx-top">
       <span class="alx-t">{{.Headline}}</span>
@@ -213,7 +214,7 @@ function alxFilter(){
 {{/* One crash/ANR/tombstone event card. Dot is a crashCardView. */}}
 {{define "alx-crash"}}
 <div class="alx-al crit" data-search="{{.KindLabel}} crash {{.Serial}} {{.Restaurant}} {{.Summary}}">
-  <span class="alx-ico">{{template "alx-icon" "crash"}}</span>
+  <span class="alx-ico">{{if .AppIcon}}<img src="data:image/png;base64,{{.AppIcon}}" alt="">{{else}}{{template "alx-icon" "crash"}}{{end}}</span>
   <div class="alx-m">
     <div class="alx-top">
       <span class="alx-kind {{.KindClass}}">{{.KindLabel}}</span>

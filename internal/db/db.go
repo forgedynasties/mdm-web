@@ -3843,6 +3843,31 @@ func (d *DB) CreateS3App(ctx context.Context, name, packageName, s3Key, baseURL 
 	return &a, nil
 }
 
+// GetAppIconsByPackages resolves base64 PNG icons for a set of package names from the
+// shared app_icons index in one query, for pages (e.g. Alerts) that show several
+// crash/ANR cards at once and want each app's real icon instead of a generic glyph.
+// Packages with no known icon are simply absent from the returned map.
+func (d *DB) GetAppIconsByPackages(ctx context.Context, packages []string) (map[string]string, error) {
+	out := map[string]string{}
+	if len(packages) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx,
+		`SELECT package_name, icon FROM app_icons WHERE package_name = ANY($1)`, packages)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var pkg, icon string
+		if err := rows.Scan(&pkg, &icon); err != nil {
+			return nil, err
+		}
+		out[pkg] = icon
+	}
+	return out, rows.Err()
+}
+
 // UpsertAppIcon stores one package's launcher icon in the shared app_icons index, so
 // it shows across all devices immediately (same index the device-reported icons use).
 func (d *DB) UpsertAppIcon(ctx context.Context, packageName, iconB64 string) error {
