@@ -91,6 +91,11 @@
 #akc .kb-search svg{width:14px;height:14px;stroke:var(--text-faint);flex:none;}
 #akc .kb-search input{border:none;background:none;outline:none;font:inherit;font-size:13px;width:100%;color:var(--text);}
 #akc .kb-bulk{font:inherit;font-size:12.5px;font-weight:650;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;margin-left:auto;}
+#akc .ptypes{display:flex;gap:8px;margin-bottom:14px;}
+#akc .ptype{font:inherit;font-size:12.5px;font-weight:650;padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;display:flex;align-items:center;gap:7px;}
+#akc .ptype.on{border-color:transparent;background:var(--accent);color:#fff;}
+#akc .ptype.soon{color:var(--text-faint);cursor:default;}
+#akc .ptype.soon span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--surface2);color:var(--text-faint);padding:1px 6px;border-radius:99px;}
 #akc table.kb{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);overflow:hidden;font-size:13px;}
 #akc table.kb th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:11px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
 #akc table.kb td{padding:11px 16px;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
@@ -102,11 +107,11 @@
 <div id="akc">
   <a class="back" href="/demo/index">&larr; Back to demos</a>
   <h1>Kiosk: from command to configuration</h1>
-  <p class="lede">Right now Kiosk mode lives in the Actions page as a seventh command type — pick it, choose a target, hit Send, and it drops into the same queue as a one-shot Screenshot or Reboot. But kiosk isn't a one-shot action: it's a <b>standing state</b> a device sits in until someone changes it. Two ways to make the UI say that.</p>
+  <p class="lede">Right now Kiosk mode lives in the Actions page as a seventh command type — pick it, choose a target, hit Send, and it drops into the same queue as a one-shot Screenshot or Reboot. But kiosk isn't a one-shot action: it's a <b>standing state</b> a device sits in until someone changes it. Two ways to make the UI say that — Direction B goes further: a dedicated <b>Manage</b> page, not a Kiosk-only one, replacing the now-redundant Fleet Health dock slot.</p>
 
   <div class="dirs">
     <button class="dirbtn on" data-dir="a"><span class="n">A</span> Config card on Actions</button>
-    <button class="dirbtn" data-dir="b"><span class="n">B</span> Dedicated Kiosk page</button>
+    <button class="dirbtn" data-dir="b"><span class="n">B</span> Dedicated Manage page</button>
   </div>
 
   <!-- Direction A -->
@@ -178,15 +183,21 @@
 
   <!-- Direction B -->
   <div class="dir" id="dir-b">
-    <div class="why"><b>Bigger change, cleaner mental model.</b> Kiosk gets pulled off the Actions page entirely and becomes its own destination — a per-device/per-group table, sortable and searchable like the Fleet page, with bulk-apply. Nothing here ever says "command" or "send"; it reads like any other fleet setting.</div>
+    <div class="why"><b>Bigger change, cleaner mental model — and it doesn't have to stay Kiosk-only.</b> This becomes a general <b>Manage</b> page: standing, scope-targeted device state, as opposed to Actions' one-shot commands. Kiosk lock is the first policy; the charging-pad enable/disable and offline-unlock settings already work this exact way today (scope + standing state) and would move here next. Fleet Health folds in too — its score/verdict/crash signals already live on Overview's command-center section, so this dock slot is free for Manage instead of carrying a near-duplicate page.</div>
 
     <div class="navmock">
-      <a>Overview</a><a>Fleet</a><a>Health</a><a>Actions</a><a class="on new">Kiosk</a><a>Releases</a>
+      <a>Overview</a><a>Fleet</a><a>Actions</a><a class="on new">Manage</a><a>Releases</a>
     </div>
 
     <div class="kb-toolbar">
       <div class="kb-search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search devices or groups&hellip;" readonly></div>
       <button class="kb-bulk">Bulk apply&hellip;</button>
+    </div>
+
+    <div class="ptypes">
+      <button class="ptype on">Kiosk lock</button>
+      <button class="ptype soon">Charging pad <span>soon</span></button>
+      <button class="ptype soon">Offline unlock <span>soon</span></button>
     </div>
 
     <table class="kb">
