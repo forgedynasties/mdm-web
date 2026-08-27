@@ -719,6 +719,8 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       <div class="chart-legend" id="wlc-legend">
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e84393;"></span> Device placed</span>
         <span class="chart-legend-item"><span class="chart-legend-line" style="background:#6c5ce7;"></span> Charging pad vacant</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#e8a13a;"></span> Pad faulty</span>
+        <span class="chart-legend-item"><span class="chart-legend-line" style="background:#b2bec3;"></span> Charging disabled</span>
       </div>
     </div>
     <div class="chart-wrap chart-wrap--tall"><canvas id="batteryChart"></canvas></div>
@@ -1066,6 +1068,7 @@ function mdmBootCharts() {
   function wlcColor(w) {
     if (w === 1) return "#e84393";  // device placed (charging on)
     if (w === 0) return "#6c5ce7";  // charging pad vacant (charging on)
+    if (w === 2) return "#e8a13a";  // pad faulty / flapping (matches .pad-stat-flapping dot)
     return "#b2bec3";               // charging disabled / unknown (matches legend)
   }
 

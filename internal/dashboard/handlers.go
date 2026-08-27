@@ -2535,6 +2535,22 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// downsampleCheckins keeps at most maxPoints evenly-strided rows, preserving whatever
+// order it's given (GetCheckinsForDuration/GetCheckinsBetween return newest-first).
+// Mirrors the stride used by DeviceChartData for the on-demand range fetch.
+func downsampleCheckins(checkins []db.Checkin, maxPoints int) []db.Checkin {
+	n := len(checkins)
+	if n <= maxPoints {
+		return checkins
+	}
+	stride := (n + maxPoints - 1) / maxPoints
+	out := make([]db.Checkin, 0, maxPoints+1)
+	for i := 0; i < n; i += stride {
+		out = append(out, checkins[i])
+	}
+	return out
+}
+
 func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	serial := r.PathValue("serial")
 	device, err := h.db.GetDevice(r.Context(), serial)
@@ -2544,51 +2560,169 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	// The chart normally loads the recent window. When the page is opened to focus a
-	// past incident (e.g. a heat call-out deep-links ?focus=temp), center the fetch on
-	// the day of that metric's extreme so the spike is in range — but bounded to ~2
-	// days, since these devices can check in every few seconds and a multi-day pull
-	// would bloat the page. The client then zooms to a 1-hour window around the peak.
-	var chartCheckins []db.Checkin
-	focus := r.URL.Query().Get("focus")
-	var peakDay time.Time
-	var havePeak bool
-	if focus != "" {
-		if stats, err := h.db.GetDeviceDailyStats(r.Context(), device.ID, 8); err == nil {
-			peakDay, havePeak = peakDayForFocus(stats, focus)
+	// The ~15 reads below are all independent of each other (each keyed only off
+	// device.ID/role, none consumes another's result), so they were previously run
+	// one at a time — total latency was the SUM of every query's round trip. Firing
+	// them concurrently drops it to the SLOWEST single query. Only the four that were
+	// already hard 500s on error (commands/apps/installedPkgs/kioskCfg) can fail this
+	// group; the rest already tolerated errors silently (`_, err :=` discarded) and
+	// keep doing so.
+	var (
+		chartCheckins   []db.Checkin
+		commands        []db.DeviceCommand
+		queue           []db.DeviceCommand
+		apps            []db.App
+		installedPkgs   []db.DevicePackage
+		apkPkg          map[string]string
+		kioskCfg        *db.DeviceConfig
+		restaurants     []db.Restaurant
+		deviceGroups    []db.Group
+		addableGroups   []db.Group
+		release         *db.Release
+		notes           string
+		flapRate        int
+		deviceCrashRaw  []db.CrashEvent
+		deviceAlertsRaw []db.Alert
+	)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var firstErr error
+	fail := func(err error) {
+		mu.Lock()
+		if firstErr == nil {
+			firstErr = err
 		}
+		mu.Unlock()
 	}
-	if havePeak {
-		chartCheckins, err = h.db.GetCheckinsBetween(r.Context(), device.ID,
-			peakDay.Add(-12*time.Hour), peakDay.Add(36*time.Hour))
-	} else {
-		chartCheckins, err = h.db.GetCheckinsForDuration(r.Context(), device.ID, device.LastSeenAt.Add(-48*time.Hour))
-	}
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	run := func(f func()) {
+		wg.Add(1)
+		go func() { defer wg.Done(); f() }()
 	}
 
-	commands, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	redactDeviceCommandURLs(h.role(r), commands)
-	commands = filterShellDeviceCommands(h.role(r), commands)
+	role := h.role(r)
+	ctx := r.Context()
 
-	// The per-device command queue (non-terminal commands, FIFO) for the Queue tab.
-	queue, _ := h.db.GetDeviceQueue(r.Context(), device.ID)
-	redactDeviceCommandURLs(h.role(r), queue)
-	queue = filterShellDeviceCommands(h.role(r), queue)
+	run(func() {
+		// The chart normally loads the recent window. When the page is opened to
+		// focus a past incident (e.g. a heat call-out deep-links ?focus=temp),
+		// center the fetch on the day of that metric's extreme so the spike is in
+		// range — but bounded to ~2 days, since these devices can check in every
+		// few seconds and a multi-day pull would bloat the page. The client then
+		// zooms to a 1-hour window around the peak.
+		var cc []db.Checkin
+		var err error
+		var havePeak bool
+		focus := r.URL.Query().Get("focus")
+		if focus != "" {
+			if stats, statErr := h.db.GetDeviceDailyStats(ctx, device.ID, 8); statErr == nil {
+				var peakDay time.Time
+				if peakDay, havePeak = peakDayForFocus(stats, focus); havePeak {
+					cc, err = h.db.GetCheckinsBetween(ctx, device.ID, peakDay.Add(-12*time.Hour), peakDay.Add(36*time.Hour))
+				}
+			}
+		}
+		if !havePeak {
+			cc, err = h.db.GetCheckinsForDuration(ctx, device.ID, device.LastSeenAt.Add(-48*time.Hour))
+		}
+		if err != nil {
+			fail(err)
+			return
+		}
+		// These devices can check in every few seconds, so a 48h window can be tens
+		// of thousands of rows — baking all of them into the page HTML (3 template
+		// passes over the same slice, for battery/temp/ram) is the single biggest
+		// driver of a slow device-page load. Thin to the same maxPoints the
+		// on-demand /chart-data endpoint already uses; the chart re-smooths
+		// client-side regardless, so the thinned line is visually identical.
+		chartCheckins = downsampleCheckins(cc, 2500)
+	})
+	run(func() {
+		c, err := h.db.GetDeviceCommands(ctx, device.ID, h.cfg.CommandExpiry())
+		if err != nil {
+			fail(err)
+			return
+		}
+		redactDeviceCommandURLs(role, c)
+		commands = filterShellDeviceCommands(role, c)
+	})
+	run(func() {
+		// The per-device command queue (non-terminal commands, FIFO) for the Queue tab.
+		q, _ := h.db.GetDeviceQueue(ctx, device.ID)
+		redactDeviceCommandURLs(role, q)
+		queue = filterShellDeviceCommands(role, q)
+	})
+	run(func() {
+		a, err := h.db.ListApps(ctx)
+		if err != nil {
+			fail(err)
+			return
+		}
+		apps = a
+	})
+	run(func() {
+		p, err := h.db.GetDevicePackages(ctx, device.ID)
+		if err != nil {
+			fail(err)
+			return
+		}
+		installedPkgs = p
+	})
+	run(func() { apkPkg, _ = h.db.GetApkPackageMap(ctx, nil) })
+	run(func() {
+		cfg, err := h.db.GetOrCreateDeviceConfig(ctx, device.ID)
+		if err != nil {
+			fail(err)
+			return
+		}
+		kioskCfg = cfg
+	})
+	run(func() {
+		if role == "admin" {
+			restaurants, _ = h.db.ListRestaurants(ctx)
+		}
+	})
+	run(func() {
+		dg, _ := h.db.ListDeviceGroups(ctx, device.ID)
+		deviceGroups = dg
+		// Groups the device is NOT yet in — for the placement "+ group" picker.
+		// Populated for the same roles the picker button renders for and the add
+		// endpoint accepts (admin/dev/tester, i.e. canAdminOrTester); gating this on
+		// admin alone left a tester the button and popover but an empty group list,
+		// so "+ group" did nothing.
+		if role == "admin" || role == "dev" || role == "tester" {
+			inGroup := make(map[uuid.UUID]bool, len(dg))
+			for _, g := range dg {
+				inGroup[g.ID] = true
+			}
+			if allGroups, err := h.db.ListGroups(ctx); err == nil {
+				for _, g := range allGroups {
+					if !inGroup[g.ID] {
+						addableGroups = append(addableGroups, g)
+					}
+				}
+			}
+		}
+	})
+	run(func() {
+		// Couple the device's reported build to a known release (release.version ==
+		// device.build_id). nil = the device runs a build with no matching release.
+		if device.BuildID != "" {
+			release, _ = h.db.GetReleaseByVersion(ctx, device.BuildID, device.Product)
+		}
+	})
+	run(func() { notes, _ = h.db.GetDeviceNotes(ctx, device.ID) })
+	run(func() {
+		// Charger-fault detection: charging toggles per minute recently. A high rate
+		// means the charger/dock connection is dropping in and out (faulty
+		// hardware). >10/min is the flapping threshold (matches the
+		// charger_flapping alert default).
+		flapRate, _ = h.db.DeviceChargerFlapRate(ctx, device.ID, 5)
+	})
+	run(func() { deviceCrashRaw = mustCrashes(h.db.ListDeviceCrashes(ctx, device.ID, 50)) })
+	run(func() { deviceAlertsRaw, _ = h.db.ListDeviceActiveAlerts(ctx, device.ID, 50) })
 
-	apps, err := h.db.ListApps(r.Context())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	installedPkgs, err := h.db.GetDevicePackages(r.Context(), device.ID)
-	if err != nil {
+	wg.Wait()
+	if firstErr != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -2596,54 +2730,13 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// In-flight installs: install_apk commands not yet completed/failed, so the
 	// Applications list can show them as "installing" until the device reports them
 	// (skipping any whose app the device already has present).
-	apkPkg, _ := h.db.GetApkPackageMap(r.Context(), nil)
 	pendingInstalls := pendingInstallRows(commands, apps, installedPkgs, apkPkg)
 
-	kioskCfg, err := h.db.GetOrCreateDeviceConfig(r.Context(), device.ID)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-
-	var restaurants []db.Restaurant
-	if h.role(r) == "admin" {
-		restaurants, _ = h.db.ListRestaurants(r.Context())
-	}
-	deviceGroups, _ := h.db.ListDeviceGroups(r.Context(), device.ID)
-	// Groups the device is NOT yet in — for the placement "+ group" picker. Populated
-	// for the same roles the picker button renders for and the add endpoint accepts
-	// (admin/dev/tester, i.e. canAdminOrTester); gating this on admin alone left a
-	// tester the button and popover but an empty group list, so "+ group" did nothing.
-	var addableGroups []db.Group
-	if role := h.role(r); role == "admin" || role == "dev" || role == "tester" {
-		inGroup := make(map[uuid.UUID]bool, len(deviceGroups))
-		for _, g := range deviceGroups {
-			inGroup[g.ID] = true
-		}
-		if allGroups, err := h.db.ListGroups(r.Context()); err == nil {
-			for _, g := range allGroups {
-				if !inGroup[g.ID] {
-					addableGroups = append(addableGroups, g)
-				}
-			}
-		}
-	}
-	// Couple the device's reported build to a known release (release.version ==
-	// device.build_id). nil = the device runs a build with no matching release.
-	var release *db.Release
-	if device.BuildID != "" {
-		release, _ = h.db.GetReleaseByVersion(r.Context(), device.BuildID, device.Product)
-	}
-	notes, _ := h.db.GetDeviceNotes(r.Context(), device.ID)
-	// Charger-fault detection: charging toggles per minute recently. A high rate means
-	// the charger/dock connection is dropping in and out (faulty hardware). >10/min is
-	// the flapping threshold (matches the charger_flapping alert default).
-	flapRate, _ := h.db.DeviceChargerFlapRate(r.Context(), device.ID, 5)
 	// Kiosk unlock code (everyone except viewers) — shown inside the Kiosk section so an
 	// operator/tester/admin can read it to a technician who needs to leave kiosk on-device.
 	// The initial code renders server-side; the page then keeps it live via /offline-code.
 	offlineCode, offlineSecs := "", 0
-	if role := h.role(r); kioskCfg.OfflineExitSeed != "" && role != "viewer" {
+	if kioskCfg.OfflineExitSeed != "" && role != "viewer" {
 		now := time.Now()
 		offlineCode, _ = totp.Code(kioskCfg.OfflineExitSeed, now, totp.DefaultDigits, totp.DefaultPeriod)
 		offlineSecs = totp.SecondsRemaining(now, totp.DefaultPeriod)
@@ -2666,17 +2759,15 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Alerts tab: this device's crash/ANR events plus its active alerts, so a crash
 	// deep-link from the fleet views lands on something that actually shows crashes.
-	deviceCrashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(r.Context(), device.ID, 50)))
+	deviceCrashes := toCrashCards(deviceCrashRaw)
 	var deviceAlerts []humanAlert
-	if active, err := h.db.ListDeviceActiveAlerts(r.Context(), device.ID, 50); err == nil {
-		canAct := h.role(r) == "admin" || h.role(r) == "dev" || h.role(r) == "tester"
-		for _, a := range active {
-			ha := humanizeAlert(a)
-			ha.CanAct = canAct
-			deviceAlerts = append(deviceAlerts, ha)
-		}
+	canAct := role == "admin" || role == "dev" || role == "tester"
+	for _, a := range deviceAlertsRaw {
+		ha := humanizeAlert(a)
+		ha.CanAct = canAct
+		deviceAlerts = append(deviceAlerts, ha)
 	}
-	h.resolveAppIcons(r.Context(), [][]humanAlert{deviceAlerts}, deviceCrashes)
+	h.resolveAppIcons(ctx, [][]humanAlert{deviceAlerts}, deviceCrashes)
 
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
