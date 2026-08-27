@@ -1,0 +1,204 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Manage: better than a device list — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+#mgd{max-width:1080px;margin:0 auto;padding:30px 22px 110px;font-family:var(--font,'IBM Plex Sans',sans-serif);}
+#mgd a.back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:14px;}
+#mgd a.back:hover{color:var(--accent);}
+#mgd h1{font-size:24px;font-weight:700;letter-spacing:-.015em;margin:0;}
+#mgd .lede{color:var(--muted);font-size:14px;margin:6px 0 24px;max-width:76ch;}
+#mgd .lede b{color:var(--text);}
+
+#mgd .dirs{display:flex;gap:8px;margin-bottom:26px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+#mgd .dirbtn{font:inherit;font-size:13.5px;font-weight:650;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:9px 3px 11px;margin-right:18px;cursor:pointer;display:flex;align-items:center;gap:8px;}
+#mgd .dirbtn .n{width:18px;height:18px;border-radius:50%;background:var(--surface2);color:var(--text-faint);font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;}
+#mgd .dirbtn.on{color:var(--text);border-bottom-color:var(--accent);}
+#mgd .dirbtn.on .n{background:var(--accent);color:#fff;}
+#mgd .dir{display:none;}
+#mgd .dir.on{display:block;}
+#mgd .why{background:var(--accent-2-soft,rgba(122,128,246,.1));border:1px solid rgba(122,128,246,.28);border-radius:12px;padding:13px 16px;font-size:13px;line-height:1.55;color:var(--text-2);margin-bottom:22px;}
+#mgd .why b{color:var(--text);}
+
+.lockchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:5px 11px;border-radius:99px;}
+.lockchip.on{background:var(--ok-soft,rgba(63,157,90,.12));color:var(--ok,#2f8049);}
+.lockchip.off{background:var(--surface2);color:var(--text-faint);}
+.lockchip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none;}
+
+/* ── Direction A: grouped by state ──────────────────────────────── */
+.stcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);margin-bottom:12px;overflow:hidden;}
+.sthead{display:flex;align-items:center;gap:13px;padding:15px 18px;cursor:pointer;}
+.sthead .app-ic{width:34px;height:34px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--text-2);}
+.sthead .app-ic svg{width:17px;height:17px;}
+.sthead .stt{flex:1;min-width:0;}
+.sthead .stn{font-size:14px;font-weight:700;}
+.sthead .sts{font-size:12px;color:var(--muted);margin-top:1px;}
+.stcount{font-size:12.5px;font-weight:650;color:var(--text-2);background:var(--surface2);padding:4px 11px;border-radius:99px;white-space:nowrap;}
+.stcaret{color:var(--text-faint);transition:transform .15s;flex:none;}
+.stcard.open .stcaret{transform:rotate(90deg);}
+.stbody{display:none;padding:0 18px 15px;}
+.stcard.open .stbody{display:block;}
+.stchips{display:flex;flex-wrap:wrap;gap:6px;}
+.stchip{font-family:var(--mono);font-size:11.5px;padding:4px 9px;border-radius:7px;background:var(--surface2);color:var(--text-2);}
+.stmore{font-size:12px;color:var(--accent);font-weight:650;padding:4px 9px;}
+.stactions{margin-top:12px;display:flex;gap:8px;}
+.stactions button{font:inherit;font-size:12px;font-weight:650;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;}
+
+/* ── Direction B: by restaurant/group ───────────────────────────── */
+table.mgv{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);overflow:hidden;font-size:13px;}
+table.mgv th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:11px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+table.mgv td{padding:12px 16px;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
+table.mgv tr:last-child td{border-bottom:none;}
+table.mgv .venue{font-weight:650;}
+table.mgv .cnt{color:var(--muted);font-size:12.5px;}
+.mixedbadge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:650;color:var(--warn,#9a6512);background:var(--warn-bg,rgba(201,138,26,.12));padding:3px 9px;border-radius:99px;margin-left:8px;}
+.mgv-edit{font:inherit;font-size:12px;font-weight:650;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;}
+.mgv-edit:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
+.mgv-expand{font-size:11.5px;color:var(--accent);font-weight:650;cursor:pointer;background:none;border:none;padding:0;margin-top:4px;display:block;}
+.mgv-sub{display:none;background:var(--surface2);}
+.mgv-sub.open{display:table-row;}
+.mgv-sub td{padding:8px 16px 8px 40px;font-family:var(--mono);font-size:12px;color:var(--text-2);border-bottom:1px solid var(--border-soft);}
+
+/* ── Direction C: exception-only ────────────────────────────────── */
+.defaultbanner{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);padding:18px 20px;margin-bottom:22px;}
+.defaultbanner .dic{width:40px;height:40px;border-radius:11px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--text-2);flex:none;}
+.defaultbanner .dt{flex:1;}
+.defaultbanner .dtt{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
+.defaultbanner .dtv{font-size:15px;font-weight:700;margin-top:2px;}
+.defaultbanner .dts{font-size:12.5px;color:var(--muted);margin-top:2px;}
+.defaultbanner button{font:inherit;font-size:12.5px;font-weight:650;color:var(--text-2);background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;white-space:nowrap;}
+.exc-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 11px;}
+.exc-row{display:flex;align-items:center;gap:14px;padding:13px 18px;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:8px;}
+.exc-row .scope{flex:1;min-width:0;}
+.exc-row .scope-nm{font-size:13.5px;font-weight:650;}
+.exc-row .scope-tag{font-size:11px;color:var(--text-faint);margin-top:1px;}
+.exc-app{font-size:12.5px;color:var(--text-2);}
+.exc-edit{font:inherit;font-size:12px;font-weight:650;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;}
+</style></head><body>
+<div id="mgd">
+  <a class="back" href="/demo/index">&larr; Back to demos</a>
+  <h1>Manage: better than a flat device list</h1>
+  <p class="lede">The current table is one row per device — with kiosk config mostly uniform across a fleet (a handful of distinct states, applied at the restaurant/group level), that means paging through hundreds of near-identical rows to find the few that matter. Three ways to show <b>state</b> instead of <b>rows</b>.</p>
+
+  <div class="dirs">
+    <button class="dirbtn on" data-dir="a"><span class="n">A</span> Grouped by state</button>
+    <button class="dirbtn" data-dir="b"><span class="n">B</span> By restaurant/group</button>
+    <button class="dirbtn" data-dir="c"><span class="n">C</span> Exceptions only</button>
+  </div>
+
+  <!-- Direction A -->
+  <div class="dir on" id="dir-a">
+    <div class="why"><b>Collapse identical devices into one card.</b> Every device with the same kiosk state becomes one row, not many — "47 devices, Unlocked" instead of 47 identical lines. Expand a card to see (or search) its member devices; "Apply to more" pulls the same devices straight into the edit modal, pre-scoped.</div>
+
+    <div class="stcard open">
+      <div class="sthead" onclick="this.parentElement.classList.toggle('open')">
+        <span class="app-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+        <div class="stt"><div class="stn">Locked — Order &amp; Pay</div><div class="sts">Drive-thru and front-counter kiosks</div></div>
+        <span class="stcount">17 devices</span>
+        <svg class="stcaret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="stbody">
+        <div class="stchips">
+          <span class="stchip">AT070AA2600026</span><span class="stchip">AT070AABU00875</span><span class="stchip">AT070AABU00231</span><span class="stchip">AK270AA2601000</span><span class="stchip">AK270AA2601014</span>
+          <span class="stmore">+12 more</span>
+        </div>
+        <div class="stactions"><button>Apply to more</button><button>Unlock these</button></div>
+      </div>
+    </div>
+
+    <div class="stcard">
+      <div class="sthead" onclick="this.parentElement.classList.toggle('open')">
+        <span class="app-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+        <div class="stt"><div class="stn">Locked — POS Terminal</div><div class="sts">Front counter registers</div></div>
+        <span class="stcount">9 devices</span>
+        <svg class="stcaret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="stbody">
+        <div class="stchips"><span class="stchip">1099bf42</span><span class="stchip">113827c2</span><span class="stmore">+7 more</span></div>
+        <div class="stactions"><button>Apply to more</button><button>Unlock these</button></div>
+      </div>
+    </div>
+
+    <div class="stcard">
+      <div class="sthead" onclick="this.parentElement.classList.toggle('open')">
+        <span class="app-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>
+        <div class="stt"><div class="stn">Unlocked</div><div class="sts">No kiosk lock applied</div></div>
+        <span class="stcount">41 devices</span>
+        <svg class="stcaret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="stbody">
+        <div class="stchips"><span class="stchip">AK270AA2601000</span><span class="stmore">+40 more</span></div>
+        <div class="stactions"><button>Apply to more</button><button>Lock these</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Direction B -->
+  <div class="dir" id="dir-b">
+    <div class="why"><b>Match the level config is actually applied at.</b> Kiosk mode is almost always set per-restaurant or per-group, not per-device — so make restaurants/groups the primary rows. A "mixed" badge flags a location whose devices disagree (someone edited one device individually), with expand-to-devices only where that's actually true.</div>
+
+    <table class="mgv">
+      <thead><tr><th>Restaurant / Group</th><th>Devices</th><th>Kiosk state</th><th></th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="venue">Riverside Ave</td>
+          <td class="cnt">12 devices</td>
+          <td><span class="lockchip on"><span class="dot"></span>Locked</span> <span class="exc-app">Order &amp; Pay</span></td>
+          <td><button class="mgv-edit">Edit</button></td>
+        </tr>
+        <tr>
+          <td class="venue">Mill District</td>
+          <td class="cnt">8 devices</td>
+          <td><span class="lockchip off"><span class="dot"></span>Unlocked</span></td>
+          <td><button class="mgv-edit">Edit</button></td>
+        </tr>
+        <tr>
+          <td class="venue">Harbor Point<span class="mixedbadge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>Mixed</span>
+            <button class="mgv-expand" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">Show 6 devices &rsaquo;</button>
+          </td>
+          <td class="cnt">6 devices</td>
+          <td><span class="lockchip on"><span class="dot"></span>4 locked</span> <span class="exc-app">· 2 unlocked</span></td>
+          <td><button class="mgv-edit">Edit</button></td>
+        </tr>
+        <tr class="mgv-sub"><td colspan="4">
+          AT070AA2600044 — Locked, POS Terminal &nbsp;·&nbsp; AT070AABU00099 — Locked, POS Terminal &nbsp;·&nbsp; AT070AA2600091 — Locked, POS Terminal &nbsp;·&nbsp; AT070AA2600102 — Locked, POS Terminal &nbsp;·&nbsp; AK270AA2601033 — Unlocked &nbsp;·&nbsp; AK270AA2601047 — Unlocked
+        </td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Direction C -->
+  <div class="dir" id="dir-c">
+    <div class="why"><b>Only show what's not the default.</b> Most fleets are mostly one state — call that out as the headline fact, then list nothing but the exceptions below it. If 90 of 100 devices are unlocked, that's one line, not ninety.</div>
+
+    <div class="defaultbanner">
+      <span class="dic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>
+      <div class="dt"><div class="dtt">Fleet default</div><div class="dtv">Unlocked</div><div class="dts">41 of 67 devices — no override anywhere</div></div>
+      <button>Change default…</button>
+    </div>
+
+    <div class="exc-cap">Overrides (2)</div>
+    <div class="exc-row">
+      <div class="scope"><div class="scope-nm">Drive-Thru Kiosks</div><div class="scope-tag">Group · 17 devices</div></div>
+      <span class="lockchip on"><span class="dot"></span>Locked</span> <span class="exc-app">Order &amp; Pay</span>
+      <button class="exc-edit">Edit</button>
+    </div>
+    <div class="exc-row">
+      <div class="scope"><div class="scope-nm">Front Counter</div><div class="scope-tag">Group · 9 devices</div></div>
+      <span class="lockchip on"><span class="dot"></span>Locked</span> <span class="exc-app">POS Terminal</span>
+      <button class="exc-edit">Edit</button>
+    </div>
+  </div>
+</div>
+<script>
+document.querySelectorAll('#mgd .dirbtn').forEach(function(b){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('#mgd .dirbtn').forEach(function(x){x.classList.remove('on');});
+    document.querySelectorAll('#mgd .dir').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');
+    document.getElementById('dir-' + b.dataset.dir).classList.add('on');
+  });
+});
+</script>
+</body></html>
