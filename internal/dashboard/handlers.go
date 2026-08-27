@@ -4406,7 +4406,40 @@ func (h *Handler) ExportPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "export.html", map[string]any{
 		"Title":   "Export Data",
 		"Serials": serialList,
+		"From":    backPath(r),
 	})
+}
+
+// backPath resolves where a "← Back" link should return to: an explicit ?from=
+// param if the caller set one, else the referring page (path+query only — the
+// scheme/host are discarded, so a spoofed Referer can't produce an open redirect
+// to another origin), else "" so the caller can fall back to a fixed default.
+func backPath(r *http.Request) string {
+	if from := safeRelPath(r.URL.Query().Get("from")); from != "" {
+		return from
+	}
+	if ref := r.Header.Get("Referer"); ref != "" {
+		if u, err := url.Parse(ref); err == nil {
+			p := u.Path
+			if u.RawQuery != "" {
+				p += "?" + u.RawQuery
+			}
+			if rp := safeRelPath(p); rp != "" {
+				return rp
+			}
+		}
+	}
+	return ""
+}
+
+// safeRelPath accepts only a same-origin relative path ("/x", not "//x" —
+// protocol-relative — and not an absolute URL), rejecting anything that could
+// redirect off-site.
+func safeRelPath(p string) string {
+	if p == "" || p[0] != '/' || (len(p) > 1 && p[1] == '/') {
+		return ""
+	}
+	return p
 }
 
 func extraString(raw json.RawMessage, key string) string {
@@ -12496,20 +12529,19 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/commands/"+cmd.ID.String()+"?from=/devices/"+serial, http.StatusFound)
 			return
 		}
-		if r.Header.Get("HX-Request") == "true" {
-			w.Header().Set("HX-Trigger", "device-updated")
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+		// The app-wide hx-boost means this plain form's htmx swap target is never inside
+		// a <form> (it's the boosted body/main region), so layout.html's generic
+		// "any successful mutation gets a Done toast" listener silently no-ops here
+		// (its own form.closest('form') check finds nothing) — a bare 204 left this click
+		// looking like it did nothing at all. Send an explicit toast so it doesn't.
+		h.hxDoneToastEvents(w, r, "/devices/"+serial, cmdTypeLabel(cmdType)+" queued — check the Queue tab.", "info", "device-updated")
 		return
 	}
 	// Uninstall from the Applications drawer: don't reload the page. Fire device-updated so
 	// the drawer refreshes and shows the app as "Uninstalling…" until the device confirms
-	// removal (mirrors the instant-install flow).
+	// removal (mirrors the instant-install flow). Same silent-204 issue as above.
 	if cmdType == "uninstall" && r.Header.Get("HX-Request") == "true" {
-		w.Header().Set("HX-Trigger", "device-updated")
-		w.WriteHeader(http.StatusNoContent)
+		h.hxDoneToastEvents(w, r, "/devices/"+serial, "Uninstalling…", "info", "device-updated")
 		return
 	}
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)

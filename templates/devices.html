@@ -862,7 +862,8 @@ function bulkAction() {
 function bulkExport() {
   var serials = getSelectedSerials();
   if (serials.length === 0) return;
-  window.location.href = '/export?serials=' + encodeURIComponent(serials.join(','));
+  window.location.href = '/export?serials=' + encodeURIComponent(serials.join(','))
+    + '&from=' + encodeURIComponent(location.pathname + location.search);
 }
 
 // Remove the selected devices from the group currently filtering the roster.

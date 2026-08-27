@@ -1,7 +1,7 @@
 {{define "export.html"}}
 {{template "header" .}}
 
-<a href="/" class="back-link">&#8592; Back to Devices</a>
+{{if .From}}<a href="{{.From}}" class="back-link">&#8592; Back</a>{{else}}<a href="/devices" class="back-link">&#8592; Back to Devices</a>{{end}}
 
 <div class="ov-greet">
   <h1 class="ov-title">Export Data</h1>
