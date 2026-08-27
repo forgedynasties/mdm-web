@@ -9788,8 +9788,12 @@ func (h *Handler) resolveTargetDeviceIDs(r *http.Request, targetType string) ([]
 		return h.db.GetDeviceIDsBySerials(r.Context(), db.ParseSerials(r.FormValue("target_serials")))
 	case "scope":
 		return h.resolveScopeDeviceIDs(r)
-	default: // "all"
+	case "all":
 		return h.db.GetAllDeviceIDs(r.Context())
+	default:
+		// No target chosen yet (the builder's default, empty state) — the impact
+		// preview should show 0, not silently preview the whole fleet.
+		return nil, nil
 	}
 }
 

@@ -403,8 +403,8 @@
     </div>
     <div class="cr-config">
         <div class="cr-sec">
-          <input type="hidden" name="target_type" id="target-type-input" value="all">
-          <input type="hidden" name="scope_mode" id="scope-mode" value="all">
+          <input type="hidden" name="target_type" id="target-type-input" value="">
+          <input type="hidden" name="scope_mode" id="scope-mode" value="">
           <input type="hidden" name="scope_id" id="scope-id" value="">
           <input type="hidden" name="scope_status" id="scope-status" value="">
           <input type="hidden" name="scope_battery" id="scope-battery" value="">
@@ -413,7 +413,7 @@
 
           <div class="scope-wrap">
             <aside class="scope-rail" id="scope-rail" role="radiogroup" aria-label="Target scope">
-              <button type="button" class="sri on" role="radio" aria-checked="true" data-mode="all" onclick="selectScope('all','',this)"><span class="dot ok"></span><span class="nm">All devices</span></button>
+              <button type="button" class="sri" role="radio" aria-checked="false" data-mode="all" onclick="selectScope('all','',this)"><span class="dot ok"></span><span class="nm">All devices</span></button>
               {{if .ScopeRestaurants}}<div class="src">Restaurants</div>{{range .ScopeRestaurants}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="restaurant" data-id="{{.GroupID}}" onclick="selectScope('restaurant','{{.GroupID}}',this)"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
               {{if .Groups}}<div class="src">Groups</div>{{range .Groups}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="group" data-id="{{.ID}}" onclick="selectScope('group','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
               {{if .ScopeReleases}}<div class="src">Releases</div>{{range .ScopeReleases}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="build" data-id="{{.Version}}" onclick="selectScope('build','{{.Version}}',this)"><span class="dot muted"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
@@ -703,20 +703,21 @@ function filterCommands() {
   });
 }
 
-// Untouched "All devices" is the Target section's default (target-type-input stays
-// literally 'all' until the user interacts with it in any way — picking a scope,
-// toggling a refine pill, or checking devices all flip it to 'devices'/'scope'). A
-// send from that untouched state would otherwise queue against the whole fleet with
-// no warning, so gate it behind a confirmation showing the live count the sheet
-// footer already computed (#cmd-impact's data-effective, from the same resolver
-// CommandCreate uses — see CommandImpact in handlers.go).
+// No target is chosen by default — Send stays disabled (updatePreview) until the
+// user picks a scope/group/devices. Explicitly picking "All devices" is still
+// fleet-wide, so that one case (target_type=scope, scope_mode=all, no narrowing
+// refine) gets a confirmation showing the live count the sheet footer already
+// computed (#cmd-impact's data-effective, from the same resolver CommandCreate uses
+// — see CommandImpact in handlers.go) before it actually sends.
 (function () {
   var DESTRUCTIVE = { reboot: 1, ota: 1, update_splash: 1 };
   var form = document.getElementById('cmd-form');
   if (!form) return;
   form.addEventListener('submit', function (e) {
     var tt = document.getElementById('target-type-input');
-    if (!tt || tt.value !== 'all') return; // explicitly scoped/picked — no extra gate
+    if (!tt || !tt.value) { e.preventDefault(); return; } // nothing chosen — Send should already be disabled
+    var sm = document.getElementById('scope-mode');
+    if (tt.value !== 'scope' || !sm || sm.value !== 'all') return; // narrower than the whole fleet — no extra gate
     e.preventDefault();
     var impact = document.querySelector('#cmd-impact .imp-body');
     var n = impact ? (impact.getAttribute('data-effective') || '0') : '0';
@@ -1210,7 +1211,9 @@ function updatePreview() {
     if (!qh || !qh.value) warn.push('Pick a query to run.');
   }
 
-  if (target === 'groups') {
+  if (!target) {
+    warn.push('Choose which devices this reaches.');
+  } else if (target === 'groups') {
     if (!document.querySelectorAll('input[name="target_groups"]:checked').length) warn.push('Select at least one group.');
   } else if (target === 'devices') {
     if (!cmdSerials().length) warn.push('Add at least one device.');
