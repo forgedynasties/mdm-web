@@ -138,6 +138,22 @@
 .appnew{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--rule-2);border-radius:13px;background:transparent;color:var(--muted);font-size:11px;font-weight:600;min-height:78px;cursor:pointer;}
 .appnew:hover{border-color:var(--accent-edge);color:var(--accent);background:var(--accent-soft);}
 .appnew svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;}
+
+/* ── Action config dialog: a picker/summary widget in the sheet, the real
+   picker UI lives in a modal opened from it ── */
+.cfg-picker{width:100%;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;border:1px dashed var(--rule-2);border-radius:12px;background:none;text-align:left;cursor:pointer;transition:border-color .14s,background .14s;font:inherit;}
+.cfg-picker:hover{border-color:var(--accent-edge);background:var(--accent-soft);}
+.cfg-picker.filled{border-style:solid;border-color:var(--border);background:var(--surface);}
+.cfg-picker.filled:hover{border-color:var(--rule-2);background:var(--surface2);}
+.cfg-picker-main{min-width:0;flex:1;font-size:13px;}
+.cfg-empty{color:var(--muted);}
+.cfg-filled{color:var(--text);font-weight:600;}
+.cfg-filled code{font-family:var(--mono);font-size:12px;font-weight:500;background:var(--surface2);padding:2px 6px;border-radius:5px;}
+.cfg-cta{flex:none;font-size:12px;font-weight:650;color:var(--accent);}
+#action-config-modal .modal-box{display:flex;flex-direction:column;}
+#action-config-modal .acm-sub{padding:0 20px 12px;margin-top:-4px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--border-soft);padding-bottom:14px;}
+#action-config-modal .modal-body{max-height:56vh;}
+#action-config-modal .modal-footer{display:flex;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--border);}
 /* package rows (Uninstall) */
 .pkgs{border:1px solid var(--border);border-radius:12px;overflow:hidden;max-height:300px;overflow-y:auto;}
 .pkg{width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border:none;background:var(--surface);border-top:1px solid var(--border-soft);text-align:left;cursor:pointer;}
@@ -281,104 +297,57 @@
 
       <div class="cr-sec">
         <div class="cr-sec-title">Payload</div>
-        <!-- Install app -->
+        <!-- Install app — opens the picker dialog; this is just the resulting summary. -->
         <div id="apk-fields" class="payload-section is-active">
-          <!-- One hidden apk_url input per selected app; the server creates one command each. -->
           <span id="apk-hidden"></span>
-          {{if .Apps}}
-            <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" aria-label="Search your app library" autocomplete="off" oninput="filterApps(this.value)"></div>
-            <div class="appgrid" id="app-grid">
-              {{range .Apps}}
-              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.PackageName}}" onclick="pickApp(this)" title="{{.Name}}{{if .PackageName}} · {{.PackageName}}{{end}}">
-                <span class="thumb">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
-                <span class="m"><span class="nm">{{.Name}}</span></span>
-                <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
-              </button>
-              {{end}}
-              {{if canAdmin .Role}}<a href="/settings#applibrary" class="appnew" title="Add an app in the App library"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add app</a>{{end}}
-            </div>
-            <div class="pl-sub">Pick one or more apps — each becomes its own install command.</div>
-          {{else}}
-            <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span class="txt">No apps in your library yet.{{if canAdmin .Role}} <a href="/settings#applibrary" class="btn-link">Add one now</a> — upload an APK in Settings, then pick it here.{{else}} Ask an admin to add one.{{end}}</span></div>
-          {{end}}
+          <button type="button" class="cfg-picker" id="apk-picker" onclick="openActionModal('install_apk')">
+            <span class="cfg-picker-main"><span id="apk-summary" class="cfg-empty">No apps chosen</span></span>
+            <span class="cfg-cta">Choose apps</span>
+          </button>
         </div>
 
-        <!-- Uninstall -->
+        <!-- Uninstall — opens the picker dialog; this is just the resulting summary. -->
         <div id="uninstall-fields" class="payload-section">
-          <!-- One hidden package input per selected app; the server creates one command each. -->
           <span id="pkg-hidden"></span>
-          <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="uninstall-filter" placeholder="Search installed apps…" aria-label="Search installed apps" autocomplete="off" oninput="filterUninstallApps(this.value)"></div>
-          <!-- Populated from the selected target's installed packages; reloads on target change. -->
-          <div class="pkgs" id="uninstall-list"
-               hx-get="/commands/target-packages" hx-include="#cmd-form" hx-target="#uninstall-list"
-               hx-swap="innerHTML" hx-trigger="load, targetchange from:body delay:250ms">
-            <div class="pl-sub">Loading installed apps…</div>
-          </div>
-          <div id="uninstall-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
-          <div class="pl-sub">Pick one or more apps installed on the selected target — each becomes its own uninstall command. The count is how many targeted devices report it; devices without it are skipped automatically.</div>
+          <button type="button" class="cfg-picker" id="uninstall-picker" onclick="openActionModal('uninstall')">
+            <span class="cfg-picker-main"><span id="uninstall-summary" class="cfg-empty">No apps chosen</span></span>
+            <span class="cfg-cta">Choose apps</span>
+          </button>
         </div>
 
-        <!-- Shell -->
+        <!-- Shell — opens the command dialog; this is just the resulting summary. -->
         <div id="shell-fields" class="payload-section">
-          <div class="console"><div class="cbar"><i></i><i></i><i></i></div><div class="cin"><span class="pr">$</span><input type="text" name="shell_cmd" id="shell-cmd-input" placeholder="ls /sdcard" oninput="updatePreview()"></div></div>
-          <div class="pl-sub">Legacy devices only · expires after 5 minutes.</div>
-          {{if .ShellRecent}}<div class="lvl-lbl" style="margin-top:16px">Recent</div>
-          <div class="pl-chips">{{range .ShellRecent}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
-          {{if .ShellPopular}}<div class="lvl-lbl" style="margin-top:14px">Frequent</div>
-          <div class="pl-chips">{{range .ShellPopular}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
+          <button type="button" class="cfg-picker" id="shell-picker" onclick="openActionModal('shell')">
+            <span class="cfg-picker-main"><span id="shell-summary" class="cfg-empty">No command set</span></span>
+            <span class="cfg-cta">Set command</span>
+          </button>
         </div>
 
-        <!-- Queries (admin-vetted device diagnostics) -->
+        <!-- Queries — opens the picker dialog; this is just the resulting summary. -->
         <div id="query-fields" class="payload-section">
-          <input type="hidden" name="query_id" id="diag-query-id" value="">
-          <div class="pl-sub">Pick a property to retrieve — runs a read-only, admin-approved command.</div>
-          <div class="pl-chips" style="margin-top:12px;">
-            {{range .DeviceQueries}}<button type="button" class="pl-chip diag-chip" data-qid="{{.ID}}" data-label="{{.Label}}" title="{{.Command}}" onclick="pickDiag(this)">{{.Label}} <span style="opacity:.6;font-size:10px;text-transform:uppercase;letter-spacing:.03em;">{{.Category}}</span></button>{{end}}
-          </div>
+          <button type="button" class="cfg-picker" id="query-picker" onclick="openActionModal('query')">
+            <span class="cfg-picker-main"><span id="query-summary" class="cfg-empty">No query picked</span></span>
+            <span class="cfg-cta">Choose query</span>
+          </button>
         </div>
 
-        <!-- Screenshot -->
+        <!-- Screenshot — no options, no dialog needed. -->
         <div id="screenshot-hint" class="payload-section">
           <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span><span class="txt">No options to set — each targeted device <b>captures its current screen</b> (within a 5-minute window). The image lands on that device's page, ready to view or download.</span></div>
         </div>
 
-        <!-- Reboot -->
+        <!-- Reboot — no options, no dialog needed. -->
         <div id="reboot-hint" class="payload-section">
           <div class="warncard"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div><div class="wt">Devices will restart</div><div class="ws">Anything unsaved on-device is lost, and a low-battery unit may not power back up.</div></div></div>
         </div>
 
-        <!-- Kiosk mode -->
+        <!-- Kiosk mode — opens the config dialog; this is just the resulting summary. -->
         <div id="kiosk-fields" class="payload-section">
-          <input type="hidden" name="kiosk_enabled" id="kiosk-enabled" value="1">
-          <div class="lvl-lbl">Mode</div>
-          <div class="levels" id="kiosk-mode" role="radiogroup" aria-label="Kiosk mode">
-            <button type="button" class="lv on" role="radio" aria-checked="true" data-k="1" onclick="setKioskMode('1', this)">Lock<small>to one app</small></button>
-            <button type="button" class="lv" role="radio" aria-checked="false" data-k="0" onclick="setKioskMode('0', this)">Unlock<small>exit kiosk</small></button>
-          </div>
-          <div id="kiosk-app-wrap" style="margin-top:16px">
-            <div class="lvl-lbl">Locked app</div>
-            {{if .FleetPackages}}
-              <input type="hidden" name="kiosk_package" id="kiosk-pkg" value="">
-              <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="kiosk-filter" placeholder="Search apps seen across the fleet…" aria-label="Search apps seen across the fleet" autocomplete="off" oninput="filterKioskApps(this.value)"></div>
-              <div class="pkgs" id="kiosk-list">
-                {{range .FleetPackages}}
-                <button type="button" class="pkg" data-pkg="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickKiosk(this)">
-                  <span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-                  <span class="m"><span class="nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pk">{{.PackageName}}</span></span>
-                  <span class="cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
-                </button>
-                {{end}}
-              </div>
-              <div id="kiosk-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
-              <div class="pl-sub">Devices lock to this app — it must already be installed on the target.</div>
-            {{else}}
-              <input type="text" name="kiosk_package" id="kiosk-pkg-text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" aria-label="Package name to lock to" oninput="updatePreview()">
-              <div class="pl-sub">No package data reported yet — type the exact package to lock to.</div>
-            {{end}}
-          </div>
-          <div class="warncard" id="kiosk-unlock-note" style="display:none;margin-top:14px"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><div><div class="wt">Devices will exit kiosk mode</div><div class="ws">Home, recents and the status bar return.</div></div></div>
+          <button type="button" class="cfg-picker" id="kiosk-picker" onclick="openActionModal('set_kiosk')">
+            <span class="cfg-picker-main"><span id="kiosk-summary" class="cfg-empty">No mode set</span></span>
+            <span class="cfg-cta">Configure</span>
+          </button>
         </div>
-
 
         <!-- Boot logo has moved to its own admin page (/boot-logo). -->
 
@@ -467,6 +436,105 @@
       {{end}}
     </div>
 
+  </div>
+
+  <!-- ACTION CONFIG DIALOG — the real picker UI for the types that need one
+       (install/uninstall/shell/query/kiosk); screenshot and reboot need no options,
+       so they never open this. Lives inside the form so its inputs (apk_url/package/
+       shell_cmd/query_id/kiosk_*) still post with everything else. -->
+  <div class="modal-backdrop" id="action-config-modal" onclick="closeActionModal(event)">
+    <div class="modal-box modal-wide">
+      <div class="modal-header">
+        <span class="modal-title" id="acm-title">Configure</span>
+        <button type="button" class="modal-close" aria-label="Close" onclick="closeActionModal()">&times;</button>
+      </div>
+      <div class="acm-sub" id="acm-sub"></div>
+      <div class="modal-body">
+
+        <div class="modal-pane" data-type="install_apk">
+          {{if .Apps}}
+            <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" aria-label="Search your app library" autocomplete="off" oninput="filterApps(this.value)"></div>
+            <div class="appgrid" id="app-grid">
+              {{range .Apps}}
+              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.PackageName}}" onclick="pickApp(this)" title="{{.Name}}{{if .PackageName}} · {{.PackageName}}{{end}}">
+                <span class="thumb">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
+                <span class="m"><span class="nm">{{.Name}}</span></span>
+                <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
+              </button>
+              {{end}}
+              {{if canAdmin .Role}}<a href="/settings#applibrary" class="appnew" title="Add an app in the App library"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add app</a>{{end}}
+            </div>
+            <div class="pl-sub">Pick one or more apps — each becomes its own install command.</div>
+          {{else}}
+            <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span class="txt">No apps in your library yet.{{if canAdmin .Role}} <a href="/settings#applibrary" class="btn-link">Add one now</a> — upload an APK in Settings, then pick it here.{{else}} Ask an admin to add one.{{end}}</span></div>
+          {{end}}
+        </div>
+
+        <div class="modal-pane" data-type="uninstall" style="display:none;">
+          <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="uninstall-filter" placeholder="Search installed apps…" aria-label="Search installed apps" autocomplete="off" oninput="filterUninstallApps(this.value)"></div>
+          <!-- Populated from the selected target's installed packages; reloads on target change. -->
+          <div class="pkgs" id="uninstall-list"
+               hx-get="/commands/target-packages" hx-include="#cmd-form" hx-target="#uninstall-list"
+               hx-swap="innerHTML" hx-trigger="load, targetchange from:body delay:250ms">
+            <div class="pl-sub">Loading installed apps…</div>
+          </div>
+          <div id="uninstall-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
+          <div class="pl-sub">Pick one or more apps installed on the selected target — each becomes its own uninstall command. The count is how many targeted devices report it; devices without it are skipped automatically.</div>
+        </div>
+
+        <div class="modal-pane" data-type="shell" style="display:none;">
+          <div class="console"><div class="cbar"><i></i><i></i><i></i></div><div class="cin"><span class="pr">$</span><input type="text" name="shell_cmd" id="shell-cmd-input" placeholder="ls /sdcard" oninput="updatePreview()"></div></div>
+          <div class="pl-sub">Legacy devices only · expires after 5 minutes.</div>
+          {{if .ShellRecent}}<div class="lvl-lbl" style="margin-top:16px">Recent</div>
+          <div class="pl-chips">{{range .ShellRecent}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
+          {{if .ShellPopular}}<div class="lvl-lbl" style="margin-top:14px">Frequent</div>
+          <div class="pl-chips">{{range .ShellPopular}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
+        </div>
+
+        <div class="modal-pane" data-type="query" style="display:none;">
+          <input type="hidden" name="query_id" id="diag-query-id" value="">
+          <div class="pl-sub">Pick a property to retrieve — runs a read-only, admin-approved command.</div>
+          <div class="pl-chips" style="margin-top:12px;">
+            {{range .DeviceQueries}}<button type="button" class="pl-chip diag-chip" data-qid="{{.ID}}" data-label="{{.Label}}" title="{{.Command}}" onclick="pickDiag(this)">{{.Label}} <span style="opacity:.6;font-size:10px;text-transform:uppercase;letter-spacing:.03em;">{{.Category}}</span></button>{{end}}
+          </div>
+        </div>
+
+        <div class="modal-pane" data-type="set_kiosk" style="display:none;">
+          <input type="hidden" name="kiosk_enabled" id="kiosk-enabled" value="1">
+          <div class="lvl-lbl">Mode</div>
+          <div class="levels" id="kiosk-mode" role="radiogroup" aria-label="Kiosk mode">
+            <button type="button" class="lv on" role="radio" aria-checked="true" data-k="1" onclick="setKioskMode('1', this)">Lock<small>to one app</small></button>
+            <button type="button" class="lv" role="radio" aria-checked="false" data-k="0" onclick="setKioskMode('0', this)">Unlock<small>exit kiosk</small></button>
+          </div>
+          <div id="kiosk-app-wrap" style="margin-top:16px">
+            <div class="lvl-lbl">Locked app</div>
+            {{if .FleetPackages}}
+              <input type="hidden" name="kiosk_package" id="kiosk-pkg" value="">
+              <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="kiosk-filter" placeholder="Search apps seen across the fleet…" aria-label="Search apps seen across the fleet" autocomplete="off" oninput="filterKioskApps(this.value)"></div>
+              <div class="pkgs" id="kiosk-list">
+                {{range .FleetPackages}}
+                <button type="button" class="pkg" data-pkg="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickKiosk(this)">
+                  <span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+                  <span class="m"><span class="nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pk">{{.PackageName}}</span></span>
+                  <span class="cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
+                </button>
+                {{end}}
+              </div>
+              <div id="kiosk-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
+              <div class="pl-sub">Devices lock to this app — it must already be installed on the target.</div>
+            {{else}}
+              <input type="text" name="kiosk_package" id="kiosk-pkg-text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" aria-label="Package name to lock to" oninput="updatePreview()">
+              <div class="pl-sub">No package data reported yet — type the exact package to lock to.</div>
+            {{end}}
+          </div>
+          <div class="warncard" id="kiosk-unlock-note" style="display:none;margin-top:14px"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><div><div class="wt">Devices will exit kiosk mode</div><div class="ws">Home, recents and the status bar return.</div></div></div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-primary" onclick="closeActionModal()">Done</button>
+      </div>
+    </div>
   </div>
 </form>
 
@@ -657,7 +725,89 @@ function selectType(val, btn) {
   // reason applies only to reboot
   var rw = document.getElementById('reason-wrap');
   if (rw) rw.style.display = (val === 'reboot') ? '' : 'none';
+  // Configurable types open their picker dialog right away — screenshot/reboot
+  // have no options, so they never do.
+  if (ACM_TITLES[val]) openActionModal(val);
   updatePreview();
+}
+
+// ── Action config dialog: install/uninstall/shell/query/kiosk pick their payload
+// in a modal (device.html-style); screenshot/reboot have nothing to configure and
+// never open it. Closing the dialog renders a compact summary back in the sheet. ──
+var ACM_TITLES = {
+  install_apk: { t: 'Choose apps to install', s: 'Pick one or more — each becomes its own install command.' },
+  uninstall:   { t: 'Choose apps to uninstall', s: 'Pick one or more installed on the target — each becomes its own uninstall command.' },
+  shell:       { t: 'Shell command', s: 'Legacy devices only · expires after 5 minutes.' },
+  query:       { t: 'Choose a query', s: 'Runs a read-only, admin-approved command.' },
+  set_kiosk:   { t: 'Configure kiosk mode', s: 'Lock devices to one app, or unlock them.' }
+};
+function openActionModal(type) {
+  var m = ACM_TITLES[type]; if (!m) return;
+  document.getElementById('acm-title').textContent = m.t;
+  document.getElementById('acm-sub').textContent = m.s;
+  document.querySelectorAll('#action-config-modal .modal-pane').forEach(function (p) {
+    p.style.display = (p.dataset.type === type) ? '' : 'none';
+  });
+  document.getElementById('action-config-modal').classList.add('modal-open');
+}
+function closeActionModal(e) {
+  var bg = document.getElementById('action-config-modal');
+  if (e && e.target !== bg) return; // click landed inside the box, not the backdrop
+  bg.classList.remove('modal-open');
+  refreshActionSummary(document.getElementById('cmd-type-input').value);
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && document.getElementById('action-config-modal').classList.contains('modal-open')) closeActionModal();
+});
+
+// Renders the "N apps selected — A, B, +2 more" summary line for a multi-pick type,
+// from whichever .on tiles are currently checked (selApps/selPkgs stay the source
+// of truth for what's submitted; this just describes them).
+function renderPickSummary(baseId, els, nameFn) {
+  var el = document.getElementById(baseId + '-summary');
+  var picker = document.getElementById(baseId + '-picker');
+  if (!el) return;
+  if (!els.length) { el.className = 'cfg-empty'; el.textContent = 'No apps chosen'; if (picker) picker.classList.remove('filled'); return; }
+  var names = Array.prototype.map.call(els, nameFn);
+  var shown = names.slice(0, 3).join(', ') + (names.length > 3 ? ', +' + (names.length - 3) + ' more' : '');
+  el.className = 'cfg-filled';
+  el.textContent = names.length + (names.length === 1 ? ' app selected — ' : ' apps selected — ') + shown;
+  if (picker) picker.classList.add('filled');
+}
+function refreshActionSummary(type) {
+  if (type === 'install_apk') {
+    renderPickSummary('apk', document.querySelectorAll('#app-grid .appc.on'), function (el) { return el.dataset.name; });
+  } else if (type === 'uninstall') {
+    renderPickSummary('uninstall', document.querySelectorAll('#uninstall-list .pkg.on'), function (el) {
+      var nm = el.querySelector('.nm'); return nm ? nm.textContent : el.dataset.pkg;
+    });
+  } else if (type === 'shell') {
+    var v = (document.getElementById('shell-cmd-input').value || '').trim();
+    var el = document.getElementById('shell-summary');
+    el.className = v ? 'cfg-filled' : 'cfg-empty';
+    el.innerHTML = v ? ('<code></code>') : 'No command set';
+    if (v) el.querySelector('code').textContent = v;
+    document.getElementById('shell-picker').classList.toggle('filled', !!v);
+  } else if (type === 'query') {
+    var chip = document.querySelector('.diag-chip.on');
+    var qel = document.getElementById('query-summary');
+    qel.className = chip ? 'cfg-filled' : 'cfg-empty';
+    qel.textContent = chip ? chip.dataset.label : 'No query picked';
+    document.getElementById('query-picker').classList.toggle('filled', !!chip);
+  } else if (type === 'set_kiosk') {
+    var locked = document.getElementById('kiosk-enabled').value === '1';
+    var kel = document.getElementById('kiosk-summary');
+    if (!locked) {
+      kel.className = 'cfg-filled'; kel.textContent = 'Unlock — exit kiosk mode';
+    } else {
+      var pkgEl = document.getElementById('kiosk-pkg') || document.getElementById('kiosk-pkg-text');
+      var pkg = pkgEl ? pkgEl.value : '';
+      var nmEl = (pkg && window.CSS && CSS.escape) ? document.querySelector('#kiosk-list .pkg[data-pkg="' + CSS.escape(pkg) + '"] .nm') : null;
+      kel.className = pkg ? 'cfg-filled' : 'cfg-empty';
+      kel.textContent = pkg ? ('Lock to ' + (nmEl ? nmEl.textContent : pkg)) : 'Pick an app to lock to';
+    }
+    document.getElementById('kiosk-picker').classList.add('filled');
+  }
 }
 
 // ── Studio pane controls ──
