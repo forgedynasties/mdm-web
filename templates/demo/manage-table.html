@@ -85,6 +85,7 @@ table.mgv .cnt{color:var(--muted);font-size:12.5px;}
     <button class="dirbtn on" data-dir="a"><span class="n">A</span> Grouped by state</button>
     <button class="dirbtn" data-dir="b"><span class="n">B</span> By restaurant/group</button>
     <button class="dirbtn" data-dir="c"><span class="n">C</span> Exceptions only</button>
+    <button class="dirbtn" data-dir="d"><span class="n">D</span> A + B mixed</button>
   </div>
 
   <!-- Direction A -->
@@ -188,6 +189,65 @@ table.mgv .cnt{color:var(--muted);font-size:12.5px;}
       <div class="scope"><div class="scope-nm">Front Counter</div><div class="scope-tag">Group · 9 devices</div></div>
       <span class="lockchip on"><span class="dot"></span>Locked</span> <span class="exc-app">POS Terminal</span>
       <button class="exc-edit">Edit</button>
+    </div>
+  </div>
+
+  <!-- Direction D: A + B mixed -->
+  <div class="dir" id="dir-d">
+    <div class="why"><b>A's rollup, B's meaningful breakdown.</b> Top level still collapses by state — "17 devices, Locked — Order & Pay" — but expanding shows <i>where</i> in venue/group terms, not a wall of serials. A location with 100% agreement is one line; only a genuinely mixed one drills further to individual devices.</div>
+
+    <div class="stcard open">
+      <div class="sthead" onclick="this.parentElement.classList.toggle('open')">
+        <span class="app-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+        <div class="stt"><div class="stn">Locked — Order &amp; Pay</div><div class="sts">Drive-thru and front-counter kiosks</div></div>
+        <span class="stcount">17 devices</span>
+        <svg class="stcaret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="stbody">
+        <table class="mgv" style="box-shadow:none;">
+          <tbody>
+            <tr><td class="venue" style="padding-left:0;">Drive-Thru Kiosks <span class="cnt">Group</span></td><td class="cnt">17 devices</td><td>all agree</td></tr>
+          </tbody>
+        </table>
+        <div class="stactions"><button>Apply to more</button><button>Unlock these</button></div>
+      </div>
+    </div>
+
+    <div class="stcard">
+      <div class="sthead" onclick="this.parentElement.classList.toggle('open')">
+        <span class="app-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+        <div class="stt"><div class="stn">Locked — POS Terminal</div><div class="sts">Front counter registers</div></div>
+        <span class="stcount">9 devices</span>
+        <svg class="stcaret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="stbody">
+        <table class="mgv" style="box-shadow:none;">
+          <tbody>
+            <tr><td class="venue" style="padding-left:0;">Front Counter <span class="cnt">Group</span></td><td class="cnt">9 devices</td><td>all agree</td></tr>
+          </tbody>
+        </table>
+        <div class="stactions"><button>Apply to more</button><button>Unlock these</button></div>
+      </div>
+    </div>
+
+    <div class="stcard">
+      <div class="sthead" onclick="this.parentElement.classList.toggle('open')">
+        <span class="app-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>
+        <div class="stt"><div class="stn">Unlocked</div><div class="sts">No kiosk lock applied</div></div>
+        <span class="stcount">41 devices</span>
+        <svg class="stcaret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="stbody">
+        <table class="mgv" style="box-shadow:none;">
+          <tbody>
+            <tr><td class="venue" style="padding-left:0;">Mill District <span class="cnt">Restaurant</span></td><td class="cnt">8 devices</td><td>all agree</td></tr>
+            <tr><td class="venue" style="padding-left:0;">Harbor Point <span class="cnt">Restaurant</span></td><td class="cnt">2 of 6 devices<span class="mixedbadge" style="margin-left:6px;">Mixed</span></td><td><button class="mgv-expand" onclick="this.closest('tr').nextElementSibling.classList.toggle('open')">Show devices &rsaquo;</button></td></tr>
+            <tr class="mgv-sub"><td colspan="3">AK270AA2601033 &nbsp;·&nbsp; AK270AA2601047</td></tr>
+            <tr><td class="venue" style="padding-left:0;">Lab (unassigned)</td><td class="cnt">31 devices</td><td>all agree</td></tr>
+          </tbody>
+        </table>
+        <div class="stactions"><button>Apply to more</button><button>Lock these</button></div>
+      </div>
     </div>
   </div>
 </div>
