@@ -1643,6 +1643,8 @@
       ensure().appendChild(el);
       setTimeout(function () { el.classList.add('leaving'); setTimeout(function () { el.remove(); }, 400); }, 9000);
     }
+    // Exposed so Settings → Debug tools can preview this without a real alert firing.
+    window.mdmShowAlertToast = show;
     document.addEventListener('mdm:alerts-update', function (e) {
       var n = e.detail && e.detail.count;
       var rose = last !== null && n > last; last = n;

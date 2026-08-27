@@ -414,6 +414,13 @@ function kioskAddPkg(pkg, el){
       <button type="button" class="btn-outline-sm" onclick="showToast('First toast.', 'info');showToast('Second toast.', 'warn');showToast('Third toast.', 'success')">Stack 3</button>
     </div>
   </div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;border-top:1px solid var(--border-soft);">
+    <div>
+      <strong>Test alert toast</strong>
+      <div class="muted small">Preview the pop-up shown when a new critical alert fires (top-bar bell), without waiting for a real one.</div>
+    </div>
+    <button type="button" class="btn-outline-sm" onclick="window.mdmShowAlertToast && mdmShowAlertToast({id:'test-'+Date.now(),severity:'critical',headline:'A device is overheating',sentence:'A device at Test Restaurant hit 72°C — above the 65°C limit.',href:'/devices/TEST01'})">Critical alert</button>
+  </div>
 </div>
 {{end}}
   </section>
