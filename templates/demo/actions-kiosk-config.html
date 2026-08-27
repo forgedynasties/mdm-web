@@ -1,0 +1,232 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kiosk as configuration — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+/* Scoped to #akc; leans on the app's real tokens (same approach as the other
+   /demo pages) — this is a proposal for real templates/commands.html, so it should
+   look exactly like it would in production, in whichever theme you're viewing this in. */
+#akc{max-width:1080px;margin:0 auto;padding:30px 22px 110px;font-family:var(--font,'IBM Plex Sans',sans-serif);}
+#akc a.back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:14px;}
+#akc a.back:hover{color:var(--accent);}
+#akc h1{font-size:24px;font-weight:700;letter-spacing:-.015em;margin:0;}
+#akc .lede{color:var(--muted);font-size:14px;margin:6px 0 24px;max-width:74ch;}
+#akc .lede b{color:var(--text);}
+
+/* Direction switcher */
+#akc .dirs{display:flex;gap:8px;margin-bottom:28px;border-bottom:1px solid var(--border);padding-bottom:0;}
+#akc .dirbtn{font:inherit;font-size:13.5px;font-weight:650;color:var(--muted);background:none;border:none;border-bottom:2px solid transparent;padding:9px 3px 11px;margin-right:18px;cursor:pointer;display:flex;align-items:center;gap:8px;}
+#akc .dirbtn .n{width:18px;height:18px;border-radius:50%;background:var(--surface2);color:var(--text-faint);font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;}
+#akc .dirbtn.on{color:var(--text);border-bottom-color:var(--accent);}
+#akc .dirbtn.on .n{background:var(--accent);color:#fff;}
+#akc .dir{display:none;}
+#akc .dir.on{display:block;}
+#akc .why{background:var(--accent-2-soft,rgba(122,128,246,.1));border:1px solid rgba(122,128,246,.28);border-radius:12px;padding:13px 16px;font-size:13px;line-height:1.55;color:var(--text-2);margin-bottom:26px;}
+#akc .why b{color:var(--text);}
+
+/* ── Reused: trimmed action pill row (kiosk removed) ───────────────── */
+#akc .pick-cap{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 11px;}
+#akc .pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px;}
+#akc .pill{display:inline-flex;align-items:center;gap:9px;padding:9px 15px 9px 11px;border:1px solid var(--border);border-radius:11px;background:var(--surface);box-shadow:var(--shadow-sm);font:inherit;font-size:13.5px;font-weight:600;color:var(--text-2);}
+#akc .pill .ic{width:22px;height:22px;flex:none;border-radius:7px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);}
+#akc .pill .ic svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;}
+#akc .removed-note{font-size:12px;color:var(--text-faint);margin:2px 2px 30px;display:flex;align-items:center;gap:6px;}
+#akc .removed-note svg{width:13px;height:13px;stroke:var(--text-faint);flex:none;}
+
+/* ── Kiosk config card — distinct visual language from the command pills:
+   settings-gear icon, neutral (not accent-orange) surface, "Save/Applied"
+   verbs instead of "Send", a state table instead of a compose sheet. ───── */
+#akc .kcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);overflow:hidden;}
+#akc .kcard-h{display:flex;align-items:center;gap:13px;padding:18px 20px;border-bottom:1px solid var(--border-soft);}
+#akc .kcard-ic{width:38px;height:38px;flex:none;border-radius:11px;background:var(--surface2);display:flex;align-items:center;justify-content:center;}
+#akc .kcard-ic svg{width:19px;height:19px;fill:none;stroke:var(--text-2);stroke-width:1.8;}
+#akc .kcard-hh{min-width:0;flex:1;}
+#akc .kcard-t{font-size:15px;font-weight:700;}
+#akc .kcard-s{font-size:12.5px;color:var(--muted);margin-top:1px;}
+#akc .kcard-add{font:inherit;font-size:12.5px;font-weight:650;color:var(--accent);background:var(--accent-soft);border:1px solid transparent;border-radius:9px;padding:7px 13px;cursor:pointer;white-space:nowrap;}
+
+#akc .krow{display:flex;align-items:center;gap:14px;padding:13px 20px;border-bottom:1px solid var(--border-soft);}
+#akc .krow:last-child{border-bottom:none;}
+#akc .krow .scope{display:flex;align-items:center;gap:9px;min-width:190px;}
+#akc .krow .scope svg{width:15px;height:15px;stroke:var(--text-faint);flex:none;fill:none;stroke-width:1.8;}
+#akc .krow .scope-nm{font-size:13.5px;font-weight:650;}
+#akc .krow .scope-tag{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-faint);}
+#akc .krow .state{flex:1;min-width:0;display:flex;align-items:center;gap:9px;}
+#akc .lockchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:5px 11px;border-radius:99px;}
+#akc .lockchip.on{background:var(--ok-soft,rgba(63,157,90,.12));color:var(--ok,#2f8049);}
+#akc .lockchip.off{background:var(--surface2);color:var(--text-faint);}
+#akc .lockchip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none;}
+#akc .apptag{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text-2);}
+#akc .apptag .aic{width:16px;height:16px;border-radius:4px;background:var(--surface2);flex:none;}
+#akc .meta{font-size:11.5px;color:var(--text-faint);margin-left:auto;white-space:nowrap;}
+#akc .krow-edit{font:inherit;font-size:12px;font-weight:650;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap;}
+#akc .krow-edit:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
+#akc .krow.override{background:linear-gradient(90deg,rgba(122,128,246,.045),transparent 40%);}
+
+/* Edit panel (opens inline under a row when "Edit" is clicked — settings-style,
+   no target picker, no "type of command" choice — you're already looking at the
+   scope you're editing). */
+#akc .kedit{padding:16px 20px 18px;background:var(--surface2);border-bottom:1px solid var(--border-soft);}
+#akc .kedit-mode{display:flex;gap:8px;margin-bottom:14px;}
+#akc .kedit-opt{font:inherit;font-size:12.5px;font-weight:650;padding:7px 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-2);}
+#akc .kedit-opt.on{border-color:transparent;background:var(--accent);color:#fff;}
+#akc .kedit-appwrap{margin-top:10px;}
+#akc .kedit-applabel{font-size:11.5px;font-weight:650;color:var(--text-faint);margin-bottom:7px;}
+#akc .kedit-apppick{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px dashed var(--border);border-radius:10px;padding:9px 12px;font-size:13px;color:var(--text-2);cursor:pointer;}
+#akc .kedit-apppick .aic{width:24px;height:24px;border-radius:6px;background:var(--surface2);flex:none;}
+#akc .kedit-actions{display:flex;align-items:center;gap:10px;margin-top:16px;}
+#akc .kedit-save{font:inherit;font-size:13px;font-weight:650;color:#fff;background:var(--accent);border:none;border-radius:9px;padding:9px 16px;cursor:pointer;}
+#akc .kedit-cancel{font:inherit;font-size:13px;font-weight:600;color:var(--muted);background:none;border:none;cursor:pointer;padding:9px 6px;}
+#akc .kedit-hint{font-size:11.5px;color:var(--text-faint);margin-left:auto;}
+
+/* ── Direction B: dedicated top-level page ─────────────────────────── */
+#akc .navmock{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:6px;margin-bottom:22px;width:fit-content;}
+#akc .navmock a{font-size:12.5px;font-weight:650;color:var(--muted);padding:7px 13px;border-radius:8px;}
+#akc .navmock a.on{background:var(--accent-soft);color:var(--accent-h,var(--accent));}
+#akc .navmock a.new{position:relative;}
+#akc .navmock a.new::after{content:"new";position:absolute;top:-6px;right:-4px;font-size:8.5px;font-weight:700;background:var(--accent-2);color:#fff;padding:1px 5px;border-radius:99px;letter-spacing:.02em;}
+#akc .kb-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:16px;}
+#akc .kb-search{flex:1;display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 11px;max-width:280px;}
+#akc .kb-search svg{width:14px;height:14px;stroke:var(--text-faint);flex:none;}
+#akc .kb-search input{border:none;background:none;outline:none;font:inherit;font-size:13px;width:100%;color:var(--text);}
+#akc .kb-bulk{font:inherit;font-size:12.5px;font-weight:650;color:var(--text-2);background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 14px;cursor:pointer;margin-left:auto;}
+#akc table.kb{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);overflow:hidden;font-size:13px;}
+#akc table.kb th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:11px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+#akc table.kb td{padding:11px 16px;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
+#akc table.kb tr:last-child td{border-bottom:none;}
+#akc table.kb .cb{width:16px;height:16px;}
+#akc table.kb .dev{font-weight:650;font-family:var(--mono);font-size:12.5px;}
+#akc table.kb .rest{color:var(--muted);font-size:12.5px;}
+</style></head><body>
+<div id="akc">
+  <a class="back" href="/demo/index">&larr; Back to demos</a>
+  <h1>Kiosk: from command to configuration</h1>
+  <p class="lede">Right now Kiosk mode lives in the Actions page as a seventh command type — pick it, choose a target, hit Send, and it drops into the same queue as a one-shot Screenshot or Reboot. But kiosk isn't a one-shot action: it's a <b>standing state</b> a device sits in until someone changes it. Two ways to make the UI say that.</p>
+
+  <div class="dirs">
+    <button class="dirbtn on" data-dir="a"><span class="n">A</span> Config card on Actions</button>
+    <button class="dirbtn" data-dir="b"><span class="n">B</span> Dedicated Kiosk page</button>
+  </div>
+
+  <!-- Direction A -->
+  <div class="dir on" id="dir-a">
+    <div class="why"><b>Smallest change.</b> Kiosk stays on the Actions page — same place people already look — but it's pulled out of the command-type row entirely and given its own card below, styled like a settings panel instead of a compose sheet. No "Send" button, no target picker step; you edit the scope you're already looking at and hit Save.</div>
+
+    <div class="pick-cap">One-off actions</div>
+    <div class="pills">
+      <span class="pill"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></span>Screenshot</span>
+      <span class="pill"><span class="ic"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></span>Reboot</span>
+      <span class="pill"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>Install app</span>
+      <span class="pill"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6"/></svg></span>Uninstall</span>
+      <span class="pill"><span class="ic"><svg viewBox="0 0 24 24"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></svg></span>Shell</span>
+    </div>
+    <div class="removed-note"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="m6 6 12 12M6 18 18 6"/></svg>Kiosk removed from this row — it's not a fire-once action anymore.</div>
+
+    <div class="kcard">
+      <div class="kcard-h">
+        <div class="kcard-ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+        <div class="kcard-hh">
+          <div class="kcard-t">Kiosk configuration</div>
+          <div class="kcard-s">Standing lock state per scope — devices pick up changes on their next check-in</div>
+        </div>
+        <button class="kcard-add">+ Add override</button>
+      </div>
+
+      <div class="krow">
+        <div class="scope"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg><div><div class="scope-nm">All devices</div><div class="scope-tag">Fleet default</div></div></div>
+        <div class="state"><span class="lockchip off"><span class="dot"></span>Unlocked</span></div>
+        <div class="meta">Default — nothing to show</div>
+        <button class="krow-edit" data-row="fleet">Edit</button>
+      </div>
+      <div class="kedit" id="edit-fleet" style="display:none;">
+        <div class="kedit-mode"><button class="kedit-opt on">Unlock</button><button class="kedit-opt">Lock to app</button></div>
+        <div class="kedit-actions"><button class="kedit-save">Save</button><button class="kedit-cancel">Cancel</button><span class="kedit-hint">Applies to every device with no group override below</span></div>
+      </div>
+
+      <div class="krow override">
+        <div class="scope"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg><div><div class="scope-nm">Drive-Thru Kiosks</div><div class="scope-tag">Group override</div></div></div>
+        <div class="state"><span class="lockchip on"><span class="dot"></span>Locked</span><span class="apptag"><span class="aic"></span>Order &amp; Pay</span></div>
+        <div class="meta">Changed by Priya · 3d ago</div>
+        <button class="krow-edit" data-row="drivethru">Edit</button>
+      </div>
+      <div class="kedit" id="edit-drivethru" style="display:none;">
+        <div class="kedit-mode"><button class="kedit-opt">Unlock</button><button class="kedit-opt on">Lock to app</button></div>
+        <div class="kedit-appwrap">
+          <div class="kedit-applabel">Locked app</div>
+          <div class="kedit-apppick"><span class="aic"></span>Order &amp; Pay <span style="margin-left:auto;color:var(--text-faint);font-size:11.5px;">Change &rsaquo;</span></div>
+        </div>
+        <div class="kedit-actions"><button class="kedit-save">Save</button><button class="kedit-cancel">Cancel</button><span class="kedit-hint">17 devices in this group</span></div>
+      </div>
+
+      <div class="krow override">
+        <div class="scope"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg><div><div class="scope-nm">Front Counter</div><div class="scope-tag">Group override</div></div></div>
+        <div class="state"><span class="lockchip on"><span class="dot"></span>Locked</span><span class="apptag"><span class="aic"></span>POS Terminal</span></div>
+        <div class="meta">Changed by Ali · 1w ago</div>
+        <button class="krow-edit" data-row="counter">Edit</button>
+      </div>
+      <div class="kedit" id="edit-counter" style="display:none;">
+        <div class="kedit-mode"><button class="kedit-opt">Unlock</button><button class="kedit-opt on">Lock to app</button></div>
+        <div class="kedit-appwrap">
+          <div class="kedit-applabel">Locked app</div>
+          <div class="kedit-apppick"><span class="aic"></span>POS Terminal <span style="margin-left:auto;color:var(--text-faint);font-size:11.5px;">Change &rsaquo;</span></div>
+        </div>
+        <div class="kedit-actions"><button class="kedit-save">Save</button><button class="kedit-cancel">Cancel</button><span class="kedit-hint">9 devices in this group</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Direction B -->
+  <div class="dir" id="dir-b">
+    <div class="why"><b>Bigger change, cleaner mental model.</b> Kiosk gets pulled off the Actions page entirely and becomes its own destination — a per-device/per-group table, sortable and searchable like the Fleet page, with bulk-apply. Nothing here ever says "command" or "send"; it reads like any other fleet setting.</div>
+
+    <div class="navmock">
+      <a>Overview</a><a>Fleet</a><a>Health</a><a>Actions</a><a class="on new">Kiosk</a><a>Releases</a>
+    </div>
+
+    <div class="kb-toolbar">
+      <div class="kb-search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input placeholder="Search devices or groups&hellip;" readonly></div>
+      <button class="kb-bulk">Bulk apply&hellip;</button>
+    </div>
+
+    <table class="kb">
+      <thead><tr><th style="width:34px;"><input type="checkbox" class="cb" disabled></th><th>Device / Group</th><th>Restaurant</th><th>Kiosk state</th><th>Last changed</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><input type="checkbox" class="cb" disabled></td><td class="dev">Front Counter <span style="font-weight:600;color:var(--text-faint);font-family:var(--font);">(group · 9 devices)</span></td><td class="rest">&mdash;</td><td><span class="lockchip on"><span class="dot"></span>Locked</span> <span class="apptag"><span class="aic"></span>POS Terminal</span></td><td class="rest">Ali · 1w ago</td><td><button class="krow-edit">Edit</button></td></tr>
+        <tr><td><input type="checkbox" class="cb" disabled></td><td class="dev">Drive-Thru Kiosks <span style="font-weight:600;color:var(--text-faint);font-family:var(--font);">(group · 17 devices)</span></td><td class="rest">&mdash;</td><td><span class="lockchip on"><span class="dot"></span>Locked</span> <span class="apptag"><span class="aic"></span>Order &amp; Pay</span></td><td class="rest">Priya · 3d ago</td><td><button class="krow-edit">Edit</button></td></tr>
+        <tr><td><input type="checkbox" class="cb" disabled></td><td class="dev">AT070AA2600026</td><td class="rest">Riverside Ave</td><td><span class="lockchip on"><span class="dot"></span>Locked</span> <span class="apptag"><span class="aic"></span>Order &amp; Pay</span></td><td class="rest">Inherited from group</td><td><button class="krow-edit">Edit</button></td></tr>
+        <tr><td><input type="checkbox" class="cb" disabled></td><td class="dev">AT070AABU00875</td><td class="rest">Riverside Ave</td><td><span class="lockchip off"><span class="dot"></span>Unlocked</span></td><td class="rest">Inherited from fleet</td><td><button class="krow-edit">Edit</button></td></tr>
+        <tr><td><input type="checkbox" class="cb" disabled></td><td class="dev">AK270AA2601000</td><td class="rest">Mill District</td><td><span class="lockchip off"><span class="dot"></span>Unlocked</span></td><td class="rest">Inherited from fleet</td><td><button class="krow-edit">Edit</button></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+<script>
+(function(){
+  document.querySelectorAll('#akc .dirbtn').forEach(function(b){
+    b.addEventListener('click', function(){
+      document.querySelectorAll('#akc .dirbtn').forEach(function(x){x.classList.remove('on');});
+      document.querySelectorAll('#akc .dir').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on');
+      document.getElementById('dir-' + b.dataset.dir).classList.add('on');
+    });
+  });
+  document.querySelectorAll('#akc .krow-edit[data-row]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var el = document.getElementById('edit-' + b.dataset.row);
+      if (!el) return;
+      var open = el.style.display !== 'none';
+      el.style.display = open ? 'none' : 'block';
+      b.textContent = open ? 'Edit' : 'Close';
+    });
+  });
+  document.querySelectorAll('#akc .kedit-opt').forEach(function(b){
+    b.addEventListener('click', function(){
+      var group = b.parentElement;
+      group.querySelectorAll('.kedit-opt').forEach(function(x){x.classList.remove('on');});
+      b.classList.add('on');
+    });
+  });
+})();
+</script>
+</body></html>
