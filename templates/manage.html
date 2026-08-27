@@ -14,19 +14,9 @@
 .mg-type.soon span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--surface2);color:var(--text-faint);padding:1px 6px;border-radius:99px;}
 
 .mg-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
-.mg-search{flex:1;max-width:300px;display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 11px;}
-.mg-search svg{width:14px;height:14px;stroke:var(--text-faint);flex:none;}
-.mg-search input{border:none;background:none;outline:none;font:inherit;font-size:13px;width:100%;color:var(--text);}
 .mg-count{font-size:12px;color:var(--muted);}
 .mg-bulk{font:inherit;font-size:12.5px;font-weight:650;color:#fff;background:var(--accent);border:none;border-radius:9px;padding:8px 15px;cursor:pointer;margin-left:auto;white-space:nowrap;}
 
-table.mg{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);overflow:hidden;font-size:13px;}
-table.mg th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:11px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
-table.mg td{padding:10px 16px;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
-table.mg tr:last-child td{border-bottom:none;}
-table.mg .dev{font-weight:650;font-family:var(--mono);font-size:12.5px;color:var(--text);text-decoration:none;}
-table.mg .dev:hover{color:var(--accent);}
-table.mg .rest{color:var(--muted);}
 .lockchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:5px 11px;border-radius:99px;}
 .lockchip.on{background:var(--ok-soft,rgba(63,157,90,.12));color:var(--ok,#2f8049);}
 .lockchip.off{background:var(--surface2);color:var(--text-faint);}
@@ -35,6 +25,28 @@ table.mg .rest{color:var(--muted);}
 .mg-edit{font:inherit;font-size:12px;font-weight:650;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap;}
 .mg-edit:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
 .mg-empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:13.5px;}
+
+/* State cards — every device sharing a kiosk state collapses into one card
+   (grouped by state), sub-grouped by restaurant inside (see Manage handler). */
+.stcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);margin-bottom:12px;overflow:hidden;}
+.sthead{display:flex;align-items:center;gap:13px;padding:15px 18px;cursor:pointer;}
+.sthead .app-ic{width:34px;height:34px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--text-2);}
+.sthead .app-ic svg{width:17px;height:17px;}
+.sthead .stt{flex:1;min-width:0;}
+.sthead .stn{font-size:14px;font-weight:700;}
+.stcount{font-size:12.5px;font-weight:650;color:var(--text-2);background:var(--surface2);padding:4px 11px;border-radius:99px;white-space:nowrap;}
+.stcaret{color:var(--text-faint);transition:transform .15s;flex:none;}
+.stcard.open .stcaret{transform:rotate(90deg);}
+.stbody{display:none;padding:0 18px 15px;}
+.stcard.open .stbody{display:block;}
+.stvenues{border:1px solid var(--border-soft);border-radius:10px;overflow:hidden;}
+.stvenue{display:flex;align-items:center;gap:10px;padding:9px 13px;font-size:13px;border-bottom:1px solid var(--border-soft);}
+.stvenue:last-child{border-bottom:none;}
+.stvenue .vn{font-weight:600;flex:1;min-width:0;}
+.stvenue .vc{color:var(--muted);font-size:12px;}
+.stactions{margin-top:12px;display:flex;gap:8px;}
+.stactions button{font:inherit;font-size:12px;font-weight:650;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;}
+.stactions button:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
 
 /* Reused from commands.html's kiosk config pane. */
 .kpk{display:flex;flex-direction:column;gap:8px;}
@@ -84,29 +96,33 @@ table.mg .rest{color:var(--muted);}
 </div>
 
 <div class="mg-toolbar">
-  <div class="mg-search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="mg-q" placeholder="Search devices or restaurants…" oninput="mgFilter(this.value)"></div>
-  <span class="mg-count" id="mg-count">{{len .Devices}} device{{if ne (len .Devices) 1}}s{{end}}</span>
+  <span class="mg-count">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}} · {{len .States}} kiosk state{{if ne (len .States) 1}}s{{end}}</span>
   {{if .CanEdit}}<button type="button" class="mg-bulk" onclick="mgOpen('bulk')">Bulk apply…</button>{{end}}
 </div>
 
-{{if .Devices}}
-<table class="mg">
-  <thead><tr><th>Device</th><th>Restaurant</th><th>Kiosk state</th><th>Last changed</th>{{if .CanEdit}}<th></th>{{end}}</tr></thead>
-  <tbody id="mg-tbody">
-    {{range .Devices}}
-    <tr data-search="{{.SerialNumber}} {{.RestaurantName}}">
-      <td><a class="dev" href="/devices/{{.SerialNumber}}">{{.SerialNumber}}</a></td>
-      <td class="rest">{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">Lab</span>{{end}}</td>
-      <td>
-        {{if .KioskEnabled}}<span class="lockchip on"><span class="dot"></span>Locked</span><span class="mg-app">{{if index $.PkgNames .KioskPackage}}{{index $.PkgNames .KioskPackage}}{{else}}{{.KioskPackage}}{{end}}</span>
-        {{else}}<span class="lockchip off"><span class="dot"></span>Unlocked</span>{{end}}
-      </td>
-      <td class="rest">{{if .HasConfigTime}}<span class="js-local-time" data-utc="{{.ConfigUpdatedAt.Format "2006-01-02T15:04:05Z07:00"}}" data-format="short"></span>{{else}}—{{end}}</td>
-      {{if $.CanEdit}}<td><button type="button" class="mg-edit" onclick="mgOpen('device','{{.SerialNumber}}',{{.KioskEnabled}},{{printf "%q" .KioskPackage}})">Edit</button></td>{{end}}
-    </tr>
+{{if .States}}
+{{range $i, $s := .States}}
+<div class="stcard{{if eq $i 0}} open{{end}}">
+  <div class="sthead" onclick="this.parentElement.classList.toggle('open')">
+    <span class="app-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">{{if .Enabled}}<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>{{else}}<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>{{end}}</svg></span>
+    <div class="stt"><div class="stn">{{.Label}}</div></div>
+    <span class="stcount">{{.Count}} device{{if ne .Count 1}}s{{end}}</span>
+    <svg class="stcaret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+  </div>
+  <div class="stbody">
+    <div class="stvenues">
+      {{range .Venues}}<div class="stvenue"><span class="vn">{{.Name}}</span><span class="vc">{{.Count}} device{{if ne .Count 1}}s{{end}}</span></div>{{end}}
+    </div>
+    {{if $.CanEdit}}
+    <div class="stactions">
+      <button type="button" onclick="mgOpenGroup({{printf "%q" .Serials}},{{.Enabled}},{{printf "%q" .Package}})">Apply to more</button>
+      {{if .Enabled}}<button type="button" onclick="mgOpenGroup({{printf "%q" .Serials}}, false, '')">Unlock these</button>
+      {{else}}<button type="button" onclick="mgOpenGroup({{printf "%q" .Serials}}, true, '')">Lock these</button>{{end}}
+    </div>
     {{end}}
-  </tbody>
-</table>
+  </div>
+</div>
+{{end}}
 {{else}}
 <div class="mg-empty">No devices yet.</div>
 {{end}}
@@ -183,18 +199,6 @@ table.mg .rest{color:var(--muted);}
 {{end}}
 
 <script>
-function mgFilter(q) {
-  q = (q || '').toLowerCase();
-  document.getElementById('mg-count').textContent = '';
-  var visible = 0;
-  document.querySelectorAll('#mg-tbody tr').forEach(function (tr) {
-    var show = (tr.dataset.search || '').toLowerCase().indexOf(q) !== -1;
-    tr.style.display = show ? '' : 'none';
-    if (show) visible++;
-  });
-  document.getElementById('mg-count').textContent = visible + ' device' + (visible === 1 ? '' : 's');
-}
-
 {{if .CanEdit}}
 function mgModalBackdrop(e) { if (e.target === e.currentTarget) mgClose(); }
 function mgClose() { document.getElementById('mg-modal').classList.remove('modal-open'); }
@@ -222,29 +226,32 @@ function mgSetMode(v, btn) {
   document.querySelectorAll('#mg-mode .lv').forEach(function (b) { var sel = b === btn; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   document.getElementById('mg-app-wrap').style.display = v === '1' ? '' : 'none';
 }
-// mgOpen('bulk') opens blank; mgOpen('device', serial, enabled, pkg) prefills for one row's Edit.
-function mgOpen(kind, serial, enabled, pkg) {
-  var title = document.getElementById('mg-modal-title');
-  if (kind === 'device') {
-    title.textContent = 'Configure kiosk — ' + serial;
-    document.getElementById('mg-scope-kind').value = 'devices';
-    mgScopeKind('devices');
-    document.getElementById('mg-scope-serial').value = serial;
-    var pkgHidden = document.getElementById('kiosk-pkg-value');
-    if (pkgHidden) pkgHidden.value = pkg || '';
-    var onBtn = document.querySelector('#mg-mode .lv[data-k="' + (enabled ? '1' : '0') + '"]');
-    if (onBtn) mgSetMode(enabled ? '1' : '0', onBtn);
-    if (window.mgRenderApps) window.mgRenderApps();
-  } else {
-    title.textContent = 'Configure kiosk mode';
-    document.getElementById('mg-scope-kind').value = 'all';
-    mgScopeKind('all');
-    var pkgHidden2 = document.getElementById('kiosk-pkg-value');
-    if (pkgHidden2) pkgHidden2.value = '';
-    var lockBtn = document.querySelector('#mg-mode .lv[data-k="1"]');
-    if (lockBtn) mgSetMode('1', lockBtn);
-    if (window.mgRenderApps) window.mgRenderApps();
-  }
+// mgOpen('bulk') opens blank, targeting "All devices" by default.
+function mgOpen(kind) {
+  document.getElementById('mg-modal-title').textContent = 'Configure kiosk mode';
+  document.getElementById('mg-scope-kind').value = 'all';
+  mgScopeKind('all');
+  var pkgHidden = document.getElementById('kiosk-pkg-value');
+  if (pkgHidden) pkgHidden.value = '';
+  var lockBtn = document.querySelector('#mg-mode .lv[data-k="1"]');
+  if (lockBtn) mgSetMode('1', lockBtn);
+  if (window.mgRenderApps) window.mgRenderApps();
+  document.getElementById('mg-modal').classList.add('modal-open');
+}
+// mgOpenGroup prefills the modal from a state card's "Apply to more"/"Lock these"/
+// "Unlock these" — target_serials starts as that card's exact device list (a plain
+// text field, so it can be widened by hand before Apply), mode/app preset from the
+// card's own state (or the flipped state for the quick lock/unlock actions).
+function mgOpenGroup(serials, enabled, pkg) {
+  document.getElementById('mg-modal-title').textContent = enabled ? 'Lock devices to an app' : 'Unlock devices';
+  document.getElementById('mg-scope-kind').value = 'devices';
+  mgScopeKind('devices');
+  document.getElementById('mg-scope-serial').value = serials;
+  var pkgHidden = document.getElementById('kiosk-pkg-value');
+  if (pkgHidden) pkgHidden.value = pkg || '';
+  var btn = document.querySelector('#mg-mode .lv[data-k="' + (enabled ? '1' : '0') + '"]');
+  if (btn) mgSetMode(enabled ? '1' : '0', btn);
+  if (window.mgRenderApps) window.mgRenderApps();
   document.getElementById('mg-modal').classList.add('modal-open');
 }
 

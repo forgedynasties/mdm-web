@@ -10172,7 +10172,6 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	configUpdatedAt, _ := h.db.GetDeviceConfigUpdatedAtMap(r.Context())
 	restaurants, _ := h.db.ListRestaurants(r.Context())
 	groups, _ := h.db.ListGroups(r.Context())
 	fleetPackages, _ := h.db.SearchFleetPackages(r.Context(), "")
@@ -10183,29 +10182,98 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type manageRow struct {
-		db.Device
-		ConfigUpdatedAt time.Time
-		HasConfigTime   bool
+	type manageVenue struct {
+		Name    string
+		Count   int
+		Serials string // comma-joined, feeds target_serials directly
 	}
-	rows := make([]manageRow, len(devices))
-	for i, d := range devices {
-		mr := manageRow{Device: d}
-		if t, ok := configUpdatedAt[d.ID]; ok {
-			mr.ConfigUpdatedAt = t
-			mr.HasConfigTime = true
+	type manageState struct {
+		Label   string
+		Enabled bool
+		Package string
+		Count   int
+		Venues  []manageVenue
+		Serials string // every device in this state, comma-joined
+	}
+
+	// Group by (kiosk_enabled, kiosk_package) first — devices sharing a state
+	// collapse into one card instead of one row each, since kiosk config is
+	// almost always uniform across most of a fleet. Within a state, sub-group by
+	// restaurant so the card still shows WHERE, not just a device-serial dump; a
+	// restaurant with devices split across two states legitimately appears under
+	// both cards with its partial count in each — no separate "mixed" flag needed,
+	// the split is just visible as-is.
+	type stateKey struct {
+		enabled bool
+		pkg     string
+	}
+	byState := make(map[stateKey][]db.Device)
+	var order []stateKey
+	for _, d := range devices {
+		// Package is meaningless while unlocked, but a device can carry a stale
+		// kiosk_package value from before it was last unlocked (its own reported
+		// state can drift from what the dashboard set) — ignore it for grouping so
+		// "Unlocked" doesn't fracture into multiple cards over a value nobody reads.
+		pkg := d.KioskPackage
+		if !d.KioskEnabled {
+			pkg = ""
 		}
-		rows[i] = mr
+		k := stateKey{d.KioskEnabled, pkg}
+		if _, ok := byState[k]; !ok {
+			order = append(order, k)
+		}
+		byState[k] = append(byState[k], d)
+	}
+	sort.Slice(order, func(i, j int) bool {
+		if order[i].enabled != order[j].enabled {
+			return order[i].enabled // locked states first
+		}
+		return len(byState[order[i]]) > len(byState[order[j]])
+	})
+	states := make([]manageState, 0, len(order))
+	for _, k := range order {
+		devs := byState[k]
+		label := "Unlocked"
+		if k.enabled {
+			name := k.pkg
+			if n, ok := pkgNames[k.pkg]; ok {
+				name = n
+			}
+			label = "Locked — " + name
+		}
+		byVenue := make(map[string][]string)
+		var venueOrder []string
+		var allSerials []string
+		for _, d := range devs {
+			venue := d.RestaurantName
+			if venue == "" {
+				venue = "Lab (unassigned)"
+			}
+			if _, ok := byVenue[venue]; !ok {
+				venueOrder = append(venueOrder, venue)
+			}
+			byVenue[venue] = append(byVenue[venue], d.SerialNumber)
+			allSerials = append(allSerials, d.SerialNumber)
+		}
+		sort.Strings(venueOrder)
+		venues := make([]manageVenue, 0, len(venueOrder))
+		for _, v := range venueOrder {
+			venues = append(venues, manageVenue{Name: v, Count: len(byVenue[v]), Serials: strings.Join(byVenue[v], ",")})
+		}
+		states = append(states, manageState{
+			Label: label, Enabled: k.enabled, Package: k.pkg,
+			Count: len(devs), Venues: venues, Serials: strings.Join(allSerials, ","),
+		})
 	}
 
 	role := h.role(r)
 	h.render(w, r, "manage.html", map[string]any{
 		"Title":         "Manage",
-		"Devices":       rows,
+		"States":        states,
+		"DeviceCount":   len(devices),
 		"Restaurants":   restaurants,
 		"Groups":        groups,
 		"FleetPackages": fleetPackages,
-		"PkgNames":      pkgNames,
 		"CanEdit":       role == "admin" || role == "dev" || role == "tester",
 	})
 }
