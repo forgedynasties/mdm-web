@@ -1202,6 +1202,17 @@
     ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError', 'htmx:abort', 'htmx:timeout'].forEach(function (ev) {
       document.body.addEventListener(ev, endProgress);
     });
+    // A request that doesn't swap anything (hx-swap="none", or a 204 like the
+    // dedup/toast responses) never fires htmx:afterSwap, so a form left marked
+    // "submitting" by that request would otherwise sit there — busy overlay
+    // included — until the 15s watchdog cleared it. afterRequest fires for every
+    // request regardless of whether it swapped, so reset there too.
+    ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError', 'htmx:abort', 'htmx:timeout'].forEach(function (ev) {
+      document.body.addEventListener(ev, function (evt) {
+        var elt = evt.detail && evt.detail.elt;
+        if (elt && elt.tagName === 'FORM' && elt.dataset.submitting === 'true') resetSubmittingForm(elt);
+      });
+    });
     document.body.addEventListener('htmx:afterSwap', function (evt) {
       var t = evt.detail && evt.detail.target;
       if (!t) return;
