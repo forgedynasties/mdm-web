@@ -2500,17 +2500,17 @@ func commandDedupKey(cmdType, apkURL string, payload json.RawMessage) string {
 // already in flight (pending/delivered/downloading/installing, i.e. not terminal) among
 // the device's recent commands. Used to stop a repeat click — or a group target re-firing
 // — from stacking a duplicate the device must process again.
-func hasPendingLikeCommand(commands []db.DeviceCommand, cmdType, apkURL string, payload json.RawMessage) bool {
+func findPendingLikeCommand(commands []db.DeviceCommand, cmdType, apkURL string, payload json.RawMessage) (db.DeviceCommand, bool) {
 	key := commandDedupKey(cmdType, apkURL, payload)
 	for _, c := range commands {
 		switch c.Status {
 		case "pending", "delivered", "downloading", "installing":
 			if commandDedupKey(c.Type, c.ApkURL, c.Payload) == key {
-				return true
+				return c, true
 			}
 		}
 	}
-	return false
+	return db.DeviceCommand{}, false
 }
 
 // DeviceAppsList renders just the installed-apps list region for the device page,
@@ -12492,16 +12492,25 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	// in flight for this device, bounce back to the (already-showing) pending row instead
 	// of queuing a second the device must process. Install keys on APK URL; other types on
 	// payload; reboot/screenshot collapse to one in-flight per type.
-	if existing, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry()); err == nil &&
-		hasPendingLikeCommand(existing, cmdType, apkURL, payload) {
-		if r.Header.Get("Accept") == "application/json" {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(map[string]string{"error": "an identical command is already pending for this device"})
+	if existing, err := h.db.GetDeviceCommands(r.Context(), device.ID, h.cfg.CommandExpiry()); err == nil {
+		if dup, ok := findPendingLikeCommand(existing, cmdType, apkURL, payload); ok {
+			if r.Header.Get("Accept") == "application/json" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]string{"error": "an identical command is already pending for this device"})
+				return
+			}
+			if cmdType == "screenshot" || cmdType == "shell" {
+				// These types land the user on the command's own page once created — a
+				// duplicate should do the same instead of dead-ending on a flash, since
+				// there's already somewhere useful (and live) to send them: the pending
+				// command they're about to duplicate.
+				http.Redirect(w, r, "/commands/"+dup.ID.String()+"?from=/devices/"+serial, http.StatusFound)
+				return
+			}
+			h.hxRedirect(w, r, "/devices/"+serial+"?flash="+url.QueryEscape(cmdTypeLabel(cmdType)+" is already pending for this device — check the Queue tab.")+"&flash_type=info")
 			return
 		}
-		h.hxRedirect(w, r, "/devices/"+serial+"?flash="+url.QueryEscape(cmdTypeLabel(cmdType)+" is already pending for this device — check the Queue tab.")+"&flash_type=info")
-		return
 	}
 
 	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID})
