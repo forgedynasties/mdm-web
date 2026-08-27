@@ -3146,26 +3146,47 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
 }
 
 /* ── Toast ──────────────────────────────────────── */
-.toast {
+.toast-stack {
   position: fixed;
   bottom: 24px;
   right: 24px;
   z-index: 200;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
   max-width: 380px;
-  padding: 12px 20px;
-  border-radius: var(--radius);
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 14px 13px 16px;
+  border-radius: var(--r-4);
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.45;
+  box-shadow: var(--shadow-pop);
   pointer-events: none;
   opacity: 0;
-  transform: translateY(12px);
-  transition: opacity 0.25s, transform 0.25s;
+  transform: translateY(10px) scale(.98);
+  transition: opacity 0.22s ease, transform 0.22s ease;
 }
 .toast.show {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
   pointer-events: auto;
 }
+.toast-ic { flex: none; width: 18px; height: 18px; margin-top: 1px; }
+.toast-ic svg { width: 18px; height: 18px; display: block; }
+.toast-msg { flex: 1; min-width: 0; word-break: break-word; }
+.toast-x {
+  flex: none; width: 20px; height: 20px; margin: -3px -4px 0 0;
+  border: none; border-radius: 5px; background: none; color: inherit;
+  opacity: .55; cursor: pointer; line-height: 1; font-size: 15px;
+  transition: opacity .12s, background .12s;
+}
+.toast-x:hover { opacity: 1; background: rgba(0, 0, 0, .08); }
 .toast.success { background: var(--ok-bg);     border: 1px solid var(--ok-edge);     color: var(--ok); }
 .toast.error   { background: var(--danger-bg); border: 1px solid var(--danger-edge); color: var(--danger); }
 .toast.warn    { background: var(--warn-bg);   border: 1px solid var(--warn-edge);   color: var(--warn); }

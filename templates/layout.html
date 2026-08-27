@@ -325,7 +325,7 @@
     });
   })();
   </script>
-  <div id="toast" class="toast" aria-live="polite"></div>
+  <div id="toast-stack" class="toast-stack" aria-live="polite"></div>
   <div id="cmdk" class="cmdk-backdrop" hidden>
     <div class="cmdk-panel" role="dialog" aria-modal="true" aria-label="Search and commands">
       <div class="cmdk-input-row">
@@ -1184,16 +1184,34 @@
       if (evt.detail && evt.detail.target) jitterPollingElements(evt.detail.target);
     });
 
-    // Toast notifications
-    var toastTimer;
+    // Toast notifications — stacked, dismissible, one call per toast (a second call
+    // no longer cuts off whatever was already showing).
+    var TOAST_ICONS = {
+      success: '<path d="M20 6 9 17l-5-5"/>',
+      error: '<path d="M18 6 6 18M6 6l12 12"/>',
+      warn: '<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+      info: '<circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/>'
+    };
     function showToast(msg, type) {
-      var el = document.getElementById('toast');
-      if (!el) return;
-      clearTimeout(toastTimer);
-      el.className = 'toast ' + (type || 'info');
-      el.textContent = msg;
+      var stack = document.getElementById('toast-stack');
+      if (!stack) return;
+      type = (type && TOAST_ICONS[type]) ? type : 'info';
+      var el = document.createElement('div');
+      el.className = 'toast ' + type;
+      el.setAttribute('role', type === 'error' ? 'alert' : 'status');
+      el.innerHTML = '<span class="toast-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + TOAST_ICONS[type] + '</svg></span>' +
+        '<span class="toast-msg"></span>' +
+        '<button type="button" class="toast-x" aria-label="Dismiss">&times;</button>';
+      el.querySelector('.toast-msg').textContent = msg;
+      stack.appendChild(el);
       requestAnimationFrame(function () { el.classList.add('show'); });
-      toastTimer = setTimeout(function () { el.classList.remove('show'); }, 4000);
+      var timer = setTimeout(dismiss, 4000);
+      function dismiss() {
+        clearTimeout(timer);
+        el.classList.remove('show');
+        setTimeout(function () { el.remove(); }, 220);
+      }
+      el.querySelector('.toast-x').onclick = dismiss;
     }
     window.showToast = showToast;
 

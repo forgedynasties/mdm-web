@@ -397,6 +397,25 @@ function kioskAddPkg(pkg, el){
     {{template "settings-toggle" (dict "Action" "/settings/remote/toggle" "On" .RemoteEnabled)}}
   </div>
 </div>
+
+{{if canAdmin .Role}}
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Debug tools</h3><span class="muted small">admin only</span></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+      <strong>Test toasts</strong>
+      <div class="muted small">Fire a sample toast of each type to check how they look, without triggering a real action.</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="button" class="btn-outline-sm" onclick="showToast('This is a test info toast.', 'info')">Info</button>
+      <button type="button" class="btn-outline-sm" onclick="showToast('This is a test success toast.', 'success')">Success</button>
+      <button type="button" class="btn-outline-sm" onclick="showToast('This is a test warning toast.', 'warn')">Warn</button>
+      <button type="button" class="btn-outline-sm" onclick="showToast('This is a test error toast.', 'error')">Error</button>
+      <button type="button" class="btn-outline-sm" onclick="showToast('First toast.', 'info');showToast('Second toast.', 'warn');showToast('Third toast.', 'success')">Stack 3</button>
+    </div>
+  </div>
+</div>
+{{end}}
   </section>
 
   <!-- ── Alerts ──────────────────────────────────────── -->
@@ -547,7 +566,7 @@ function kioskAddPkg(pkg, el){
         <td class="small">{{if .Area}}{{.Area}}{{else}}<span class="muted">—</span>{{end}}</td>
         <td>{{if .Active}}<span class="status-badge ok">active</span>{{else}}<span class="status-badge muted">archived</span>{{end}}</td>
         <td style="white-space:nowrap;">
-          <button type="button" class="btn-outline btn-sm" onclick="var e=document.getElementById('bc-edit-{{.ID}}');e.style.display=e.style.display==='table-row'?'none':'table-row';">Edit</button>
+          <button type="button" class="btn-outline-sm" onclick="var e=document.getElementById('bc-edit-{{.ID}}');e.style.display=e.style.display==='table-row'?'none':'table-row';">Edit</button>
           <form action="/test-cases/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete this base test case and its results?">
             <input type="hidden" name="redirect" value="/settings#testing">
             <button type="submit" class="btn-danger-sm">Delete</button>
@@ -913,7 +932,7 @@ function kioskAddPkg(pkg, el){
       <div class="li-row"><span class="li-k">Added</span><span id="li-added" class="li-v"></span></div>
     </div>
     <div class="modal-footer">
-      <form id="li-del-form" method="POST" style="margin:0;margin-right:auto;" onsubmit="return libDelete(this, event);"><button type="submit" class="btn-outline btn-sm" style="color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);">Delete from library</button></form>
+      <form id="li-del-form" method="POST" style="margin:0;margin-right:auto;" onsubmit="return libDelete(this, event);"><button type="submit" class="btn-outline-sm" style="color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);">Delete from library</button></form>
       <button type="button" class="btn-primary" onclick="libInfoClose()">Close</button>
     </div>
   </div>
