@@ -4469,6 +4469,30 @@ func extraInt(raw json.RawMessage, key string) string {
 	return strconv.Itoa(n)
 }
 
+// extraBoolAsInt reads a boolean check-in field ("charging") as "1"/"0" rather than
+// "true"/"false", matching wlc_status/battery_pct's plain-numeric CSV convention.
+func extraBoolAsInt(raw json.RawMessage, key string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return ""
+	}
+	v, ok := m[key]
+	if !ok {
+		return ""
+	}
+	var b bool
+	if err := json.Unmarshal(v, &b); err != nil {
+		return ""
+	}
+	if b {
+		return "1"
+	}
+	return "0"
+}
+
 func extraRamField(raw json.RawMessage, field string) string {
 	if len(raw) == 0 {
 		return ""
@@ -4584,7 +4608,7 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 	for _, c := range columns {
 		colSet[c] = true
 	}
-	colOrder := []string{"battery_pct", "battery_temp_c", "build_id", "wifi", "ip_address",
+	colOrder := []string{"battery_pct", "battery_temp_c", "charging", "build_id", "wifi", "ip_address",
 		"ram_used_mb", "ram_total_mb", "storage_free_gb", "uptime_seconds", "wlc_status", "timezone",
 		"latitude", "longitude", "last_seen"}
 
@@ -4623,6 +4647,8 @@ func (h *Handler) ExportCSV(w http.ResponseWriter, r *http.Request) {
 				rec = append(rec, strconv.Itoa(row.BatteryPct))
 			case "battery_temp_c":
 				rec = append(rec, extraFloat(row.Extra, "battery_temp_c"))
+			case "charging":
+				rec = append(rec, extraBoolAsInt(row.Extra, "charging"))
 			case "build_id":
 				rec = append(rec, row.BuildID)
 			case "wifi":
@@ -9377,6 +9403,24 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid command ID", http.StatusBadRequest)
 		return
 	}
+	// Admin/dev can delete anything. Tester can only delete a command still In progress
+	// or in Needs attention — the same two buckets they can already act on elsewhere
+	// (Resend, Dismiss) — not settled history under Completed. Reuses the exact
+	// classification the page itself displays, so "can I delete this row" always
+	// matches what bucket it's actually shown in.
+	if role := h.role(r); role != "admin" && role != "dev" {
+		cmd, err := h.db.GetCommand(r.Context(), id)
+		if err != nil {
+			http.Error(w, "Command not found", http.StatusNotFound)
+			return
+		}
+		summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), actionsWindowDays)
+		dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
+		if commandBucket(*cmd, summaries[id], dismissed[id]) == "done" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
 	// Grab the targeted devices BEFORE the delete cascades command_targets/status
 	// away, so we can tell any device mid-download to stop.
 	deviceIDs, _ := h.db.GetCommandDeviceIDs(r.Context(), id)
@@ -9663,27 +9707,6 @@ func classifyCommands(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliv
 		}
 	}
 	return
-}
-
-// CommandDismiss dismisses a single command out of Needs-attention — the row-level
-// equivalent of AttentionClear's "Clear all". Same non-destructive semantics: this
-// only records a dismissal (dismissed_commands), the command and its delivery
-// history are untouched and remain visible under Completed / history. Available to
-// the same roles as the rest of the Actions page's operate-level controls
-// (admin/dev/tester — see requireOperatorOrAdmin), unlike CommandDelete which
-// actually removes the row and is admin-only.
-func (h *Handler) CommandDismiss(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid command ID", http.StatusBadRequest)
-		return
-	}
-	if err := h.db.DismissCommands(r.Context(), []uuid.UUID{id}, h.role(r)); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "command.dismiss", id.String(), "")
-	http.Redirect(w, r, "/commands", http.StatusFound)
 }
 
 // AttentionClear dismisses every command currently in Needs-attention from that
@@ -12444,7 +12467,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(map[string]string{"error": "an identical command is already pending for this device"})
 			return
 		}
-		http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
+		h.hxRedirect(w, r, "/devices/"+serial+"?flash="+url.QueryEscape(cmdTypeLabel(cmdType)+" is already pending for this device — check the Queue tab.")+"&flash_type=info")
 		return
 	}
 
@@ -13117,7 +13140,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// history page subscribes to (not a per-command stream).
 	mux.HandleFunc("GET /commands/events", h.requireAuth(h.CommandsFeedEvents))
 	post("POST /commands/clear-attention", h.requireOperatorOrAdmin(h.AttentionClear))
-	post("POST /commands/{id}/dismiss", h.requireOperatorOrAdmin(h.CommandDismiss))
 	mux.HandleFunc("GET /commands/impact", h.requireAuth(h.CommandImpact))
 	mux.HandleFunc("GET /commands/target-packages", h.requireAuth(h.CommandTargetPackages))
 	// Recipes live under /recipes (not /commands/recipes) so the {id} delete route
@@ -13135,7 +13157,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /commands/{id}/screenshot/{serial}", h.requireAuth(h.CommandScreenshot))
 	mux.HandleFunc("GET /commands/{id}/status", h.requireAuth(h.CommandStatusPartial))
 	mux.HandleFunc("GET /commands/{id}/events", h.requireAuth(h.CommandEvents))
-	post("POST /commands/{id}/delete", h.requireAdmin(h.CommandDelete))
+	post("POST /commands/{id}/delete", h.requireOperatorOrAdmin(h.CommandDelete))
 	post("POST /commands/{id}/resend", h.requireAuth(h.CommandResendAll))
 	post("POST /commands/{id}/resend/{serial}", h.requireAuth(h.CommandResendDevice))
 
