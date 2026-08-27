@@ -411,7 +411,6 @@
               <button type="button" class="sri" role="radio" aria-checked="false" data-mode="all" onclick="selectScope('all','',this)"><span class="dot ok"></span><span class="nm">All devices</span></button>
               {{if .ScopeRestaurants}}<div class="src">Restaurants</div>{{range .ScopeRestaurants}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="restaurant" data-id="{{.GroupID}}" onclick="selectScope('restaurant','{{.GroupID}}',this)"><span class="dot {{.ScoreClass}}"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
               {{if .Groups}}<div class="src">Groups</div>{{range .Groups}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="group" data-id="{{.ID}}" onclick="selectScope('group','{{.ID}}',this)"><span class="dot muted"></span><span class="nm">{{.Name}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
-              {{if .ScopeReleases}}<div class="src">Releases</div>{{range .ScopeReleases}}<button type="button" class="sri" role="radio" aria-checked="false" data-mode="build" data-id="{{.Version}}" onclick="selectScope('build','{{.Version}}',this)"><span class="dot muted"></span><span class="nm">{{if .Name}}{{.Name}}{{else}}{{.Version}}{{end}}</span><span class="ct">{{.DeviceCount}}</span></button>{{end}}{{end}}
             </aside>
             <div class="scope-side">
               <div class="scope-refine" id="scope-refine">
