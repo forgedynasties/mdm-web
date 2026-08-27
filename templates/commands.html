@@ -150,6 +150,12 @@
 .cfg-filled{color:var(--text);font-weight:600;}
 .cfg-filled code{font-family:var(--mono);font-size:12px;font-weight:500;background:var(--surface2);padding:2px 6px;border-radius:5px;}
 .cfg-cta{flex:none;font-size:12px;font-weight:650;color:var(--accent);}
+.cfg-static{cursor:default;}
+.cfg-static:hover{background:var(--surface);border-color:var(--border);}
+.cfg-field{cursor:default;}
+.cfg-field:hover{background:var(--surface);border-color:var(--border);}
+.cfg-field-input{flex:1;border:none;outline:none;background:none;font:inherit;font-size:13px;color:var(--text);padding:0;}
+.cfg-field-input::placeholder{color:var(--muted);}
 #action-config-modal .modal-box{display:flex;flex-direction:column;}
 #action-config-modal .acm-sub{padding:0 20px 12px;margin-top:-4px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--border-soft);padding-bottom:14px;}
 #action-config-modal .modal-body{max-height:56vh;}
@@ -363,10 +369,16 @@
         </div>
 
         <!-- Screenshot — no options, no dialog needed. -->
-        <div id="screenshot-hint" class="payload-section"></div>
+        <div id="screenshot-hint" class="payload-section">
+          <div class="cfg-picker cfg-static filled"><span class="cfg-picker-main"><span class="cfg-filled">Take screenshot</span></span></div>
+        </div>
 
-        <!-- Reboot — no options, no dialog needed. -->
-        <div id="reboot-hint" class="payload-section"></div>
+        <!-- Reboot — no options besides an optional reason. -->
+        <div id="reboot-hint" class="payload-section">
+          <div class="cfg-picker cfg-field filled">
+            <input type="text" name="reason" id="reboot-reason-input" class="cfg-field-input" placeholder="Reason for this reboot (optional)" oninput="updatePreview()">
+          </div>
+        </div>
 
         <!-- Kiosk mode — opens the config dialog; this is just the resulting summary. -->
         <div id="kiosk-fields" class="payload-section">
@@ -377,12 +389,6 @@
         </div>
 
         <!-- Boot logo has moved to its own admin page (/boot-logo). -->
-
-        <!-- Reason (reboot) -->
-        <div id="reason-wrap" style="margin-top:16px;display:none;">
-          <div class="lvl-lbl">Reason</div>
-          <input type="text" name="reason" class="pl-field" oninput="updatePreview()" placeholder="e.g. nightly memory clear">
-        </div>
       </div><!-- /.cr-sec (payload) -->
     </div><!-- /.cr-config -->
   </div><!-- /.cmd-rail3 (payload sheet) -->
@@ -750,9 +756,6 @@ function selectType(val, btn) {
   var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', query:'query-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', set_kiosk:'kiosk-fields' })[val];
   var section = document.getElementById(sectionId);
   if (section) section.classList.add('is-active');
-  // reason applies only to reboot
-  var rw = document.getElementById('reason-wrap');
-  if (rw) rw.style.display = (val === 'reboot') ? '' : 'none';
   // Picking a pill just switches which summary/hint shows — it does not open the
   // config dialog. That only opens from its own "Choose apps" / "Choose query" /
   // etc. button (see the .cfg-picker buttons' onclick="openActionModal(...)").
