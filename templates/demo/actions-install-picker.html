@@ -1,0 +1,218 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Install picker + Send-all confirm — AIO MDM</title>
+<link rel="stylesheet" href="/static/fonts/fonts.css">
+<link rel="stylesheet" href="/static/style.css">
+<style>
+/* Scoped to #dip; leans on the app's real tokens, same approach as /demo/target-live —
+   this is a proposal for real templates/commands.html, so it should look exactly like
+   it would in production, in whichever theme you're viewing this in. */
+#dip{max-width:1040px;margin:0 auto;padding:30px 22px 100px;font-family:var(--font,'IBM Plex Sans',sans-serif);}
+#dip a.back{display:inline-flex;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:14px;}
+#dip a.back:hover{color:var(--accent);}
+#dip h1{font-size:24px;font-weight:700;letter-spacing:-.015em;margin:0;}
+#dip .lede{color:var(--muted);font-size:14px;margin:6px 0 30px;max-width:70ch;}
+#dip .lede b{color:var(--text);}
+
+#dip .sec{margin-bottom:36px;}
+#dip .sec-h{display:flex;align-items:baseline;gap:10px;margin:0 2px 12px;flex-wrap:wrap;}
+#dip .sec-h h2{font-size:15px;font-weight:700;margin:0;}
+#dip .sec-h span{font-size:12.5px;color:var(--muted);}
+#dip .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
+@media (max-width:900px){#dip .cols{grid-template-columns:1fr;}}
+#dip .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+#dip .tag{display:flex;align-items:center;justify-content:space-between;padding:11px 16px;border-bottom:1px solid var(--border);}
+#dip .tag b{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+#dip .tag.old b{color:var(--muted);}
+#dip .tag.new b{color:var(--accent);}
+#dip .tag .note{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--surface2);color:var(--muted);}
+#dip .tag.new .note{background:var(--accent-soft);color:var(--accent);}
+#dip .body{padding:16px;}
+#dip .foot-note{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.6;padding:0 2px;}
+
+/* search */
+#dip .srch{display:flex;align-items:center;gap:9px;height:40px;padding:0 12px;border:1px solid var(--border);border-radius:11px;margin-bottom:12px;color:var(--muted);font-size:13px;}
+#dip .srch.live{background:var(--surface);}
+#dip .srch.live:focus-within{border-color:var(--accent);}
+#dip .srch svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;flex:none;}
+#dip .srch input{flex:1;border:none;outline:none;background:none;font-size:13px;color:var(--text);font-family:inherit;}
+#dip .srch.old{background:var(--surface2);}
+
+/* before: today's row cards */
+#dip .old-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px;}
+#dip .old-c{display:flex;align-items:center;gap:11px;padding:11px;border:1px solid var(--border);border-radius:12px;}
+#dip .old-c.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+#dip .old-th{width:40px;height:40px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px;background:var(--surface2);}
+#dip .old-m{min-width:0;flex:1;}
+#dip .old-nm{display:block;font-size:12.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#dip .old-meta{display:block;font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;font-family:var(--mono);}
+#dip .old-chk{width:18px;height:18px;flex:none;border-radius:50%;border:2px solid var(--border);}
+#dip .old-c.on .old-chk{border-color:var(--accent);background:var(--accent);}
+#dip .old-reinstall{display:block;margin-top:13px;font-size:12.5px;color:var(--muted);}
+
+/* after: compact tile grid (device.html's install-drawer language) */
+#dip .new-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:7px;}
+#dip .new-t{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:11px 4px 9px;border-radius:13px;border:1px solid transparent;text-align:center;cursor:pointer;transition:background .12s,border-color .12s;}
+#dip .new-t:hover{background:var(--surface2);}
+#dip .new-t.on{border-color:var(--accent);background:var(--accent-soft);}
+#dip .new-ic{width:44px;height:44px;border-radius:13px;flex:none;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#fff;}
+#dip .new-nm{font-size:11px;font-weight:650;color:var(--text);line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+#dip .new-tick{position:absolute;top:4px;right:12px;width:17px;height:17px;border-radius:50%;background:var(--accent);color:#fff;display:none;align-items:center;justify-content:center;}
+#dip .new-t.on .new-tick{display:flex;}
+#dip .new-tick svg{width:10px;height:10px;}
+#dip .new-reinstall{display:flex;align-items:center;gap:9px;margin-top:13px;padding:10px 12px;border:1px solid var(--border);border-radius:11px;background:var(--surface2);font-size:12px;color:var(--text2,var(--text));}
+#dip .new-reinstall input{margin:0;flex:none;}
+
+/* target confirm demo */
+#dip .meter{display:flex;align-items:center;gap:16px;border:1px solid var(--border);border-radius:12px;padding:14px 16px;position:relative;overflow:hidden;}
+#dip .meter::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--accent),var(--accent-2,var(--accent)));}
+#dip .meter .n{font-size:34px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;}
+#dip .meter .r{flex:1;}
+#dip .meter .lab{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+#dip .meter .lab.warn{color:var(--warn);}
+#dip .meter .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+#dip .old-rail{display:flex;flex-direction:column;gap:4px;margin:14px 0;}
+#dip .ri{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;font-size:13px;color:var(--text2,var(--text));}
+#dip .ri.on{background:var(--surface2);font-weight:650;color:var(--text);}
+#dip .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none;}
+#dip .send-row{display:flex;align-items:center;gap:10px;margin-top:14px;}
+#dip .send-row .btn-link{font-size:12.5px;}
+
+/* confirm modal (demo-only, mirrors the app's real modal chrome) */
+#dip .mbg{display:none;position:fixed;inset:0;background:var(--overlay);z-index:200;align-items:center;justify-content:center;padding:16px;}
+#dip .mbg.open{display:flex;}
+#dip .mbox{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);padding:20px;}
+#dip .mbox h3{margin:0 0 8px;font-size:15px;}
+#dip .mbox p{margin:0;font-size:13px;color:var(--text2,var(--text));line-height:1.5;}
+#dip .mbox .scope{margin-top:11px;padding:9px 11px;border-radius:9px;background:var(--warn-bg);color:var(--warn);font-size:12.5px;font-weight:650;}
+#dip .mact{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+#dip .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--text);color:var(--surface);padding:10px 18px;border-radius:999px;font-size:13px;font-weight:600;z-index:220;opacity:0;pointer-events:none;transition:opacity .2s;}
+#dip .toast.show{opacity:1;}
+</style></head>
+<body>
+<div id="dip">
+  <a class="back" href="/demo">← Demos</a>
+  <h1>Install picker + Send-all confirm</h1>
+  <p class="lede">Two fixes for the Actions page's Install-app flow: the app grid gets device.html's compact tile layout instead of wide row cards, and sending to the untouched "All devices" default now shows the real fleet count and asks first. <b>Nothing here sends a real command.</b> See <a href="/demo/target-live">/demo/target-live</a> for the deeper target-picker exploration this pairs with.</p>
+
+  <div class="sec">
+    <div class="sec-h"><h2>1 · Install-app picker</h2><span>Same apps, tile grid instead of row cards — same shape as the device page's install drawer.</span></div>
+    <div class="cols">
+      <div class="card">
+        <div class="tag old"><b>Before</b><span class="note">live today</span></div>
+        <div class="body">
+          <div class="srch old"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search your app library…</div>
+          <div class="old-grid" id="oldGrid"></div>
+          <label class="old-reinstall"><input type="checkbox" disabled> Reinstall anyway — install even on devices that already have this app (for updates or repairs)</label>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tag new"><b>After</b><span class="note">proposed</span></div>
+        <div class="body">
+          <div class="srch live"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" oninput="dipFilter(this.value)"></div>
+          <div class="new-grid" id="newGrid"></div>
+          <label class="new-reinstall"><input type="checkbox"> Reinstall anyway — install even on devices that already have this app (for updates or repairs)</label>
+        </div>
+      </div>
+    </div>
+    <p class="foot-note">Package name moves from a visible line to a hover title, so tiles stay compact (~98px) instead of ~190px wide — same density device.html already gets away with. Selected state is the same accent-border + corner-tick language used everywhere else in the app.</p>
+  </div>
+
+  <div class="sec">
+    <div class="sec-h"><h2>2 · "All devices" stops being silent</h2><span>Live count from your real fleet, via the same /demo/target-count endpoint <a href="/demo/target-live">target-live</a> uses.</span></div>
+    <div class="cols">
+      <div class="card">
+        <div class="tag old"><b>Before</b><span class="note">live today</span></div>
+        <div class="body">
+          <div class="old-rail">
+            <div class="ri on"><span class="dot"></span>All devices</div>
+            <div class="ri">Downtown #14</div>
+            <div class="ri">Kiosk 22 fleet</div>
+          </div>
+          <p class="foot-note" style="margin:0 0 12px;">No count. No warning. Hitting Send here queues the action against every device in the fleet — online or not.</p>
+          <div class="send-row"><button class="btn-primary" onclick="dipToastOld()">Send</button><a class="btn-link">Select all</a><span class="foot-note" style="margin:0;">0 picked</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="tag new"><b>After</b><span class="note">proposed · live count</span></div>
+        <div class="body">
+          <div class="meter">
+            <div class="n" id="liveN">…</div>
+            <div class="r"><div class="lab warn">All devices — untouched default</div><div class="sub" id="liveSub">Fetching your real fleet count…</div></div>
+          </div>
+          <div class="old-rail" style="margin-top:14px;">
+            <div class="ri on"><span class="dot"></span>All devices</div>
+            <div class="ri">Downtown #14</div>
+            <div class="ri">Kiosk 22 fleet</div>
+          </div>
+          <div class="send-row"><button class="btn-primary" onclick="dipConfirmOpen()">Send</button><a class="btn-link">Select all visible</a><span class="foot-note" style="margin:0;">0 picked</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="foot-note">Scoping to a restaurant/group or picking specific devices sends immediately, same as today — only the untouched full-fleet default gets this extra step.</p>
+  </div>
+</div>
+
+<div class="mbg" id="mbg" onclick="if(event.target===this)dipConfirmClose()">
+  <div class="mbox">
+    <h3>Send to the whole fleet?</h3>
+    <p>You haven't scoped this to a restaurant, group, or specific devices.</p>
+    <div class="scope" id="mScope">This will target your fleet — online and offline.</div>
+    <div class="mact">
+      <button class="btn-outline" onclick="dipConfirmClose()">Cancel</button>
+      <button class="btn-primary" onclick="dipConfirmClose();dipToast('Demo only — nothing was sent.')">Send anyway</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  var apps=[
+    {n:"Nugget Order Kiosk",p:"aio.app.nugget.uatv2",c:"#f9674e"},
+    {n:"ThermoBench",p:"com.thermobench",c:"#7a80f6"},
+    {n:"Splash Screen",p:"aio.app.splash",c:"#2bb673"},
+    {n:"Remote Support",p:"aio.app.remote",c:"#e8a13a"},
+    {n:"Payments Terminal",p:"aio.app.payments",c:"#6aa9ff"},
+    {n:"Menu Sync",p:"aio.app.menusync",c:"#c76bd6"},
+    {n:"Diagnostics",p:"aio.app.diag",c:"#3fb8a8"},
+    {n:"WLC Monitor",p:"aio.app.wlcmon",c:"#e0637a"}
+  ];
+  var oldGrid=document.getElementById("oldGrid"), newGrid=document.getElementById("newGrid");
+  apps.forEach(function(a,i){
+    var oc=document.createElement("div"); oc.className="old-c"+(i===0?" on":"");
+    oc.innerHTML='<span class="old-th" style="background:'+a.c+'">'+a.n[0]+'</span><span class="old-m"><span class="old-nm">'+a.n+'</span><span class="old-meta">'+a.p+'</span></span><span class="old-chk"></span>';
+    oldGrid.appendChild(oc);
+    var nt=document.createElement("div"); nt.className="new-t"+(i===0?" on":""); nt.setAttribute("data-search",(a.n+" "+a.p).toLowerCase()); nt.title=a.n+" · "+a.p;
+    nt.onclick=function(){nt.classList.toggle("on");};
+    nt.innerHTML='<span class="new-ic" style="background:'+a.c+'">'+a.n[0]+'</span><span class="new-nm">'+a.n+'</span><span class="new-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>';
+    newGrid.appendChild(nt);
+  });
+  window.dipFilter=function(q){
+    q=(q||"").trim().toLowerCase();
+    newGrid.querySelectorAll(".new-t").forEach(function(t){ t.style.display=(t.getAttribute("data-search")||"").indexOf(q)!==-1?"":"none"; });
+  };
+
+  var fleetTotal=null;
+  fetch("/demo/target-count?mode=all").then(function(r){return r.json();}).then(function(d){
+    fleetTotal=d.effective;
+    document.getElementById("liveN").textContent=d.effective;
+    document.getElementById("liveSub").textContent=d.online+" online now · "+d.offline+" would only receive it on reconnect";
+  }).catch(function(){
+    document.getElementById("liveN").textContent="—";
+    document.getElementById("liveSub").textContent="Couldn't reach /demo/target-count — showing the layout only.";
+  });
+
+  window.dipConfirmOpen=function(){
+    document.getElementById("mScope").textContent="This will target "+(fleetTotal!==null?fleetTotal:"your")+" devices — online and offline.";
+    document.getElementById("mbg").classList.add("open");
+  };
+  window.dipConfirmClose=function(){ document.getElementById("mbg").classList.remove("open"); };
+  window.dipToast=function(msg){
+    var t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show");
+    clearTimeout(window.__dipT); window.__dipT=setTimeout(function(){t.classList.remove("show");},2600);
+  };
+  window.dipToastOld=function(){ dipToast("Sent — no count shown, no confirmation asked. This is the problem."); };
+})();
+</script>
+</body></html>
