@@ -4832,6 +4832,29 @@ func (d *DB) SetPackageSystemOverride(ctx context.Context, pkg string, flagged b
 
 // ── Device Config / Kiosk ─────────────────────────────────────────────────────
 
+// GetDeviceConfigUpdatedAtMap returns device_id -> updated_at for every device with a
+// config row, so the Manage page can show "last changed" per device without an N+1.
+// Not kiosk-specific — device_config's updated_at bumps on any field in that row
+// (kiosk, WLC charging, offline-unlock rotation) — so it's a config-touched proxy,
+// not a guarantee the kiosk fields themselves were what last changed.
+func (d *DB) GetDeviceConfigUpdatedAtMap(ctx context.Context) (map[uuid.UUID]time.Time, error) {
+	rows, err := d.pool.Query(ctx, `SELECT device_id, updated_at FROM device_config`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[uuid.UUID]time.Time)
+	for rows.Next() {
+		var id uuid.UUID
+		var t time.Time
+		if err := rows.Scan(&id, &t); err != nil {
+			return nil, err
+		}
+		out[id] = t
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) GetOrCreateDeviceConfig(ctx context.Context, deviceID uuid.UUID) (*DeviceConfig, error) {
 	// Read first — this runs on every check-in and the row exists after the device's
 	// first one, so the INSERT below (a wasted write attempt at 900 dev × every 60s)

@@ -10142,7 +10142,7 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		return
 	}
 	if len(ids) == 0 {
-		h.hxRedirect(w, r, "/commands?flash="+url.QueryEscape("No devices matched the target.")+"&flash_type=info")
+		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("No devices matched the target.")+"&flash_type=info")
 		return
 	}
 	if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
@@ -10159,7 +10159,55 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 		verb = "Disabled"
 	}
 	h.audit(r, "device.kiosk_bulk", verb, fmt.Sprintf("devices=%d, package=%s", len(ids), pkg))
-	h.hxRedirect(w, r, "/devices?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
+	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
+}
+
+// Manage renders the standing device-configuration page (kiosk lock today; more
+// policy types — e.g. charging-pad — land here later). Unlike Actions, nothing on
+// this page is a queued command: kiosk config writes directly to device_config and
+// is pushed on the target's next check-in (see applyKioskForTargets).
+func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 2000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	configUpdatedAt, _ := h.db.GetDeviceConfigUpdatedAtMap(r.Context())
+	restaurants, _ := h.db.ListRestaurants(r.Context())
+	groups, _ := h.db.ListGroups(r.Context())
+	fleetPackages, _ := h.db.SearchFleetPackages(r.Context(), "")
+	pkgNames := make(map[string]string, len(fleetPackages))
+	for _, p := range fleetPackages {
+		if p.AppName != "" {
+			pkgNames[p.PackageName] = p.AppName
+		}
+	}
+
+	type manageRow struct {
+		db.Device
+		ConfigUpdatedAt time.Time
+		HasConfigTime   bool
+	}
+	rows := make([]manageRow, len(devices))
+	for i, d := range devices {
+		mr := manageRow{Device: d}
+		if t, ok := configUpdatedAt[d.ID]; ok {
+			mr.ConfigUpdatedAt = t
+			mr.HasConfigTime = true
+		}
+		rows[i] = mr
+	}
+
+	role := h.role(r)
+	h.render(w, r, "manage.html", map[string]any{
+		"Title":         "Manage",
+		"Devices":       rows,
+		"Restaurants":   restaurants,
+		"Groups":        groups,
+		"FleetPackages": fleetPackages,
+		"PkgNames":      pkgNames,
+		"CanEdit":       role == "admin" || role == "dev" || role == "tester",
+	})
 }
 
 // BootLogo renders the Boot logo config page: a dedicated splash-upload + target
@@ -13374,6 +13422,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
+	mux.HandleFunc("GET /manage", h.requireAuth(h.Manage))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
 	// Static route wins over /commands/{id}, so this is the global live feed the

@@ -1,0 +1,323 @@
+{{define "manage.html"}}
+{{template "header" .}}
+
+<div class="ov-greet">
+  <h1 class="ov-title">Manage</h1>
+  <span class="ov-date">standing device configuration — not a one-off command</span>
+</div>
+
+<style>
+.mg-types{display:flex;gap:8px;margin-bottom:16px;}
+.mg-type{font:inherit;font-size:12.5px;font-weight:650;padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;display:flex;align-items:center;gap:7px;}
+.mg-type.on{border-color:transparent;background:var(--accent);color:#fff;}
+.mg-type.soon{color:var(--text-faint);cursor:default;}
+.mg-type.soon span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--surface2);color:var(--text-faint);padding:1px 6px;border-radius:99px;}
+
+.mg-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.mg-search{flex:1;max-width:300px;display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 11px;}
+.mg-search svg{width:14px;height:14px;stroke:var(--text-faint);flex:none;}
+.mg-search input{border:none;background:none;outline:none;font:inherit;font-size:13px;width:100%;color:var(--text);}
+.mg-count{font-size:12px;color:var(--muted);}
+.mg-bulk{font:inherit;font-size:12.5px;font-weight:650;color:#fff;background:var(--accent);border:none;border-radius:9px;padding:8px 15px;cursor:pointer;margin-left:auto;white-space:nowrap;}
+
+table.mg{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);overflow:hidden;font-size:13px;}
+table.mg th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:11px 16px;background:var(--surface2);border-bottom:1px solid var(--border);}
+table.mg td{padding:10px 16px;border-bottom:1px solid var(--border-soft);vertical-align:middle;}
+table.mg tr:last-child td{border-bottom:none;}
+table.mg .dev{font-weight:650;font-family:var(--mono);font-size:12.5px;color:var(--text);text-decoration:none;}
+table.mg .dev:hover{color:var(--accent);}
+table.mg .rest{color:var(--muted);}
+.lockchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:5px 11px;border-radius:99px;}
+.lockchip.on{background:var(--ok-soft,rgba(63,157,90,.12));color:var(--ok,#2f8049);}
+.lockchip.off{background:var(--surface2);color:var(--text-faint);}
+.lockchip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none;}
+.mg-app{font-size:12.5px;color:var(--text-2);margin-left:8px;}
+.mg-edit{font:inherit;font-size:12px;font-weight:650;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap;}
+.mg-edit:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
+.mg-empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:13.5px;}
+
+/* Reused from commands.html's kiosk config pane. */
+.kpk{display:flex;flex-direction:column;gap:8px;}
+.kpk-top{display:flex;gap:6px;align-items:center;}
+.kpk-search{position:relative;flex:1;display:flex;align-items:center;}
+.kpk-search svg{position:absolute;left:9px;color:var(--muted);pointer-events:none;}
+.kpk-search input{width:100%;font:inherit;font-size:13px;padding:7px 9px 7px 28px;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--text);}
+.kpk-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+.kpk-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;}
+.kpk-seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;cursor:pointer;display:grid;place-items:center;}
+.kpk-seg button.active{background:var(--accent-soft);color:var(--accent);}
+.kpk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:280px;overflow-y:auto;padding:2px;}
+.kpk-list{display:none;flex-direction:column;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;}
+.kpk.listview .kpk-grid{display:none;}
+.kpk.listview .kpk-list{display:flex;}
+.kpk-opt{position:relative;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit;}
+.kpk-opt:hover{border-color:var(--rule-2);}
+.kpk-opt.sel{border-color:var(--accent);background:var(--accent-soft);}
+.kpk-opt.kbd{box-shadow:0 0 0 2px var(--accent);}
+.kpk-tile{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none;}
+.kpk-tile.kpk-img{object-fit:contain;background:var(--surface-3);padding:2px;}
+.kpk-txt{min-width:0;display:flex;flex-direction:column;}
+.kpk-nm{font-size:12px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kpk-pk{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);}
+.kpk-check{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center;}
+.kpk-opt.sel .kpk-check{display:grid;}
+.kpk-list .kpk-opt{flex-direction:row;align-items:center;border:0;border-bottom:1px solid var(--border-soft);border-radius:0;}
+.kpk-list .kpk-opt:last-child{border-bottom:0;}
+.kpk-list .kpk-check{position:static;margin-left:auto;background:transparent;color:var(--accent);}
+.kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1;}
+
+.lvl-lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:14px 0 8px;}
+.lvl-lbl:first-child{margin-top:0;}
+.levels{display:flex;gap:8px;}
+.lv{flex:1;text-align:left;padding:10px 13px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;font:inherit;color:var(--text-2);font-weight:650;font-size:13px;}
+.lv small{display:block;font-weight:500;color:var(--muted);font-size:11px;margin-top:2px;}
+.lv.on{border-color:transparent;background:var(--accent);color:#fff;}
+.lv.on small{color:rgba(255,255,255,.8);}
+.mg-target{display:flex;flex-direction:column;gap:8px;}
+.mg-target select,.mg-target input[type=text]{font:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
+.mg-modal-actions{display:flex;align-items:center;gap:10px;margin-top:18px;}
+</style>
+
+<div class="mg-types">
+  <button class="mg-type on">Kiosk lock</button>
+  <button class="mg-type soon">Charging pad <span>soon</span></button>
+</div>
+
+<div class="mg-toolbar">
+  <div class="mg-search"><svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="mg-q" placeholder="Search devices or restaurants…" oninput="mgFilter(this.value)"></div>
+  <span class="mg-count" id="mg-count">{{len .Devices}} device{{if ne (len .Devices) 1}}s{{end}}</span>
+  {{if .CanEdit}}<button type="button" class="mg-bulk" onclick="mgOpen('bulk')">Bulk apply…</button>{{end}}
+</div>
+
+{{if .Devices}}
+<table class="mg">
+  <thead><tr><th>Device</th><th>Restaurant</th><th>Kiosk state</th><th>Last changed</th>{{if .CanEdit}}<th></th>{{end}}</tr></thead>
+  <tbody id="mg-tbody">
+    {{range .Devices}}
+    <tr data-search="{{.SerialNumber}} {{.RestaurantName}}">
+      <td><a class="dev" href="/devices/{{.SerialNumber}}">{{.SerialNumber}}</a></td>
+      <td class="rest">{{if .RestaurantName}}{{.RestaurantName}}{{else}}<span class="muted">Lab</span>{{end}}</td>
+      <td>
+        {{if .KioskEnabled}}<span class="lockchip on"><span class="dot"></span>Locked</span><span class="mg-app">{{if index $.PkgNames .KioskPackage}}{{index $.PkgNames .KioskPackage}}{{else}}{{.KioskPackage}}{{end}}</span>
+        {{else}}<span class="lockchip off"><span class="dot"></span>Unlocked</span>{{end}}
+      </td>
+      <td class="rest">{{if .HasConfigTime}}<span class="js-local-time" data-utc="{{.ConfigUpdatedAt.Format "2006-01-02T15:04:05Z07:00"}}" data-format="short"></span>{{else}}—{{end}}</td>
+      {{if $.CanEdit}}<td><button type="button" class="mg-edit" onclick="mgOpen('device','{{.SerialNumber}}',{{.KioskEnabled}},{{printf "%q" .KioskPackage}})">Edit</button></td>{{end}}
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{else}}
+<div class="mg-empty">No devices yet.</div>
+{{end}}
+
+{{if .CanEdit}}
+<div class="modal-backdrop" id="mg-modal" onclick="mgModalBackdrop(event)">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-label="Configure kiosk mode">
+    <div class="modal-head"><span class="modal-title" id="mg-modal-title">Configure kiosk mode</span><button type="button" class="modal-close" onclick="mgClose()" aria-label="Close">&times;</button></div>
+    <div class="modal-body">
+      <form id="mg-form" method="POST" action="/commands">
+        <input type="hidden" name="type" value="set_kiosk">
+        <input type="hidden" name="kiosk_enabled" id="mg-kiosk-enabled" value="1">
+        <input type="hidden" name="target_type" id="mg-target-type" value="devices">
+        <input type="hidden" name="scope_mode" id="mg-scope-mode" value="">
+        <input type="hidden" name="scope_id" id="mg-scope-id" value="">
+
+        <div class="lvl-lbl">Mode</div>
+        <div class="levels" id="mg-mode" role="radiogroup" aria-label="Kiosk mode">
+          <button type="button" class="lv on" role="radio" aria-checked="true" data-k="1" onclick="mgSetMode('1', this)">Lock<small>to one app</small></button>
+          <button type="button" class="lv" role="radio" aria-checked="false" data-k="0" onclick="mgSetMode('0', this)">Unlock<small>exit kiosk</small></button>
+        </div>
+
+        <div id="mg-app-wrap">
+          <div class="lvl-lbl">Locked app</div>
+          {{if .FleetPackages}}
+          <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="">
+          <div id="kiosk-apps-src" hidden>{{range .FleetPackages}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}</div>
+          <div class="kpk" id="kiosk-app-picker">
+            <div class="kpk-top">
+              <span class="kpk-search">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                <input type="text" id="kpk-q" autocomplete="off" spellcheck="false" role="combobox" aria-controls="kpk-list" aria-expanded="true" placeholder="Search apps…">
+              </span>
+              <span class="kpk-seg" role="tablist" aria-label="View">
+                <button type="button" id="kpk-vgrid" class="active" title="Grid" aria-label="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+                <button type="button" id="kpk-vlist" title="List" aria-label="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+              </span>
+            </div>
+            <div class="kpk-grid" id="kpk-grid" role="listbox" aria-label="Apps seen across the fleet"></div>
+            <div class="kpk-list" id="kpk-list" role="listbox" aria-label="Apps seen across the fleet"></div>
+          </div>
+          {{else}}
+          <input type="text" name="kiosk_package" id="kiosk-pkg-value" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" aria-label="Package name to lock to">
+          {{end}}
+        </div>
+
+        <div class="lvl-lbl">Applies to</div>
+        <div class="mg-target" id="mg-target-fields">
+          <select id="mg-scope-kind" onchange="mgScopeKind(this.value)">
+            <option value="all">All devices</option>
+            <option value="restaurant">By restaurant</option>
+            <option value="group">By group</option>
+            <option value="devices">Specific device</option>
+          </select>
+          <select id="mg-scope-restaurant" style="display:none" onchange="mgScopeId(this.value)">
+            <option value="">Choose a restaurant…</option>
+            {{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select>
+          <select id="mg-scope-group" style="display:none" onchange="mgScopeId(this.value)">
+            <option value="">Choose a group…</option>
+            {{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select>
+          <input type="text" id="mg-scope-serial" name="target_serials" style="display:none" placeholder="Device serial">
+        </div>
+
+        <div class="mg-modal-actions">
+          <button type="submit" class="btn-primary">Apply</button>
+          <button type="button" class="btn-outline" onclick="mgClose()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{end}}
+
+<script>
+function mgFilter(q) {
+  q = (q || '').toLowerCase();
+  document.getElementById('mg-count').textContent = '';
+  var visible = 0;
+  document.querySelectorAll('#mg-tbody tr').forEach(function (tr) {
+    var show = (tr.dataset.search || '').toLowerCase().indexOf(q) !== -1;
+    tr.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('mg-count').textContent = visible + ' device' + (visible === 1 ? '' : 's');
+}
+
+{{if .CanEdit}}
+function mgModalBackdrop(e) { if (e.target === e.currentTarget) mgClose(); }
+function mgClose() { document.getElementById('mg-modal').classList.remove('modal-open'); }
+function mgScopeKind(v) {
+  document.getElementById('mg-scope-restaurant').style.display = v === 'restaurant' ? '' : 'none';
+  document.getElementById('mg-scope-group').style.display = v === 'group' ? '' : 'none';
+  document.getElementById('mg-scope-serial').style.display = v === 'devices' ? '' : 'none';
+  if (v === 'all') {
+    document.getElementById('mg-target-type').value = 'all';
+    document.getElementById('mg-scope-mode').value = '';
+    document.getElementById('mg-scope-id').value = '';
+  } else if (v === 'devices') {
+    document.getElementById('mg-target-type').value = 'devices';
+    document.getElementById('mg-scope-mode').value = '';
+    document.getElementById('mg-scope-id').value = '';
+  } else {
+    document.getElementById('mg-target-type').value = 'scope';
+    document.getElementById('mg-scope-mode').value = v;
+    document.getElementById('mg-scope-id').value = document.getElementById('mg-scope-' + v).value;
+  }
+}
+function mgScopeId(v) { document.getElementById('mg-scope-id').value = v; }
+function mgSetMode(v, btn) {
+  document.getElementById('mg-kiosk-enabled').value = v;
+  document.querySelectorAll('#mg-mode .lv').forEach(function (b) { var sel = b === btn; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
+  document.getElementById('mg-app-wrap').style.display = v === '1' ? '' : 'none';
+}
+// mgOpen('bulk') opens blank; mgOpen('device', serial, enabled, pkg) prefills for one row's Edit.
+function mgOpen(kind, serial, enabled, pkg) {
+  var title = document.getElementById('mg-modal-title');
+  if (kind === 'device') {
+    title.textContent = 'Configure kiosk — ' + serial;
+    document.getElementById('mg-scope-kind').value = 'devices';
+    mgScopeKind('devices');
+    document.getElementById('mg-scope-serial').value = serial;
+    var pkgHidden = document.getElementById('kiosk-pkg-value');
+    if (pkgHidden) pkgHidden.value = pkg || '';
+    var onBtn = document.querySelector('#mg-mode .lv[data-k="' + (enabled ? '1' : '0') + '"]');
+    if (onBtn) mgSetMode(enabled ? '1' : '0', onBtn);
+    if (window.mgRenderApps) window.mgRenderApps();
+  } else {
+    title.textContent = 'Configure kiosk mode';
+    document.getElementById('mg-scope-kind').value = 'all';
+    mgScopeKind('all');
+    var pkgHidden2 = document.getElementById('kiosk-pkg-value');
+    if (pkgHidden2) pkgHidden2.value = '';
+    var lockBtn = document.querySelector('#mg-mode .lv[data-k="1"]');
+    if (lockBtn) mgSetMode('1', lockBtn);
+    if (window.mgRenderApps) window.mgRenderApps();
+  }
+  document.getElementById('mg-modal').classList.add('modal-open');
+}
+
+// Locked-app picker — same searchable grid/list component as device.html's kiosk
+// modal and (previously) commands.html's, reused verbatim.
+(function () {
+  var picker = document.getElementById('kiosk-app-picker');
+  if (!picker) return;
+  var src = document.getElementById('kiosk-apps-src');
+  var hidden = document.getElementById('kiosk-pkg-value');
+  var q = document.getElementById('kpk-q');
+  var gridEl = document.getElementById('kpk-grid');
+  var listEl = document.getElementById('kpk-list');
+  var apps = [];
+  (function () {
+    var seen = {};
+    [].forEach.call(src.querySelectorAll('i'), function (el) {
+      var v = el.getAttribute('data-value'); if (!v || seen[v]) return; seen[v] = 1;
+      apps.push({ v: v, n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon') });
+    });
+  })();
+  var kbd = -1;
+
+  function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function colorFor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffffff; return 'hsl(' + (h % 360) + ' 52% 45%)'; }
+  function initial(n) { n = (n || '').replace(/^[^A-Za-z0-9]+/, ''); return (n.slice(0, 1) || '?').toUpperCase(); }
+  function match(a, s) { if (!s) return true; return (a.n + ' ' + a.v).toLowerCase().indexOf(s) >= 0; }
+  function filtered() { var s = q.value.trim().toLowerCase(); return apps.filter(function (a) { return match(a, s); }); }
+
+  function tileHtml(a) {
+    if (a.icon) return '<img class="kpk-tile kpk-img" src="data:image/png;base64,' + a.icon + '" alt="">';
+    return '<span class="kpk-tile" style="background:' + colorFor(a.v || a.n) + '">' + esc(initial(a.n)) + '</span>';
+  }
+  function optHtml(a, i) {
+    var sel = hidden.value === a.v;
+    return '<button type="button" class="kpk-opt' + (sel ? ' sel' : '') + (i === kbd ? ' kbd' : '') + '" data-value="' + esc(a.v) + '" role="option" aria-selected="' + sel + '">' +
+      tileHtml(a) + '<span class="kpk-txt"><span class="kpk-nm">' + esc(a.n) + '</span>' +
+      '<span class="kpk-pk">' + esc(a.v) + '</span></span>' +
+      '<span class="kpk-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span></button>';
+  }
+  function render() {
+    var items = filtered();
+    var html = items.length ? items.map(optHtml).join('') : '<div class="kpk-empty">No apps match.</div>';
+    gridEl.innerHTML = html; listEl.innerHTML = html;
+  }
+  window.mgRenderApps = render;
+  function choose(v) { hidden.value = v; render(); }
+
+  gridEl.addEventListener('click', pick); listEl.addEventListener('click', pick);
+  function pick(e) { var b = e.target.closest('.kpk-opt'); if (b) choose(b.getAttribute('data-value')); }
+
+  q.addEventListener('input', function () { kbd = -1; render(); });
+  q.addEventListener('keydown', function (e) {
+    var items = filtered();
+    if (e.key === 'ArrowDown') { e.preventDefault(); kbd = Math.min(kbd + 1, items.length - 1); render(); scrollKbd(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); kbd = Math.max(kbd - 1, 0); render(); scrollKbd(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (kbd >= 0 && items[kbd]) choose(items[kbd].v); else if (items.length === 1) choose(items[0].v); }
+  });
+  function scrollKbd() { var box = picker.classList.contains('listview') ? listEl : gridEl; var el = box.querySelector('.kpk-opt.kbd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+
+  function setView(v) {
+    picker.classList.toggle('listview', v === 'list');
+    document.getElementById('kpk-vgrid').classList.toggle('active', v === 'grid');
+    document.getElementById('kpk-vlist').classList.toggle('active', v === 'list');
+  }
+  document.getElementById('kpk-vgrid').onclick = function () { setView('grid'); };
+  document.getElementById('kpk-vlist').onclick = function () { setView('list'); };
+
+  render();
+})();
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && document.getElementById('mg-modal').classList.contains('modal-open')) mgClose();
+});
+{{end}}
+</script>
+{{end}}
