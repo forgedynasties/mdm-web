@@ -304,10 +304,6 @@
           {{else}}
             <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span class="txt">No apps in your library yet.{{if canAdmin .Role}} <a href="/settings#applibrary" class="btn-link">Add one now</a> — upload an APK in Settings, then pick it here.{{else}} Ask an admin to add one.{{end}}</span></div>
           {{end}}
-          <label class="reinstall-opt" style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:13px;color:var(--muted);cursor:pointer;">
-            <input type="checkbox" name="reinstall" value="1">
-            Reinstall anyway — install even on devices that already have this app (for updates or repairs)
-          </label>
         </div>
 
         <!-- Uninstall -->
@@ -395,9 +391,20 @@
           <input type="text" name="reason" class="pl-field" oninput="updatePreview()" placeholder="e.g. nightly memory clear">
         </div>
       </div><!-- /.cr-sec (payload) -->
+    </div><!-- /.cr-config -->
+  </div><!-- /.cmd-rail3 (payload sheet) -->
 
+  <!-- TARGET — its own static section: which devices this reaches, unaffected by
+       which action type is selected above. Previously nested inside the same sheet
+       whose header retitles per action, which made it look like it belonged to
+       whichever tab was active. -->
+  <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
+    <div class="sheet-h">
+      <span class="sheet-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/></svg></span>
+      <div class="sheet-hh"><div class="sheet-t">Target</div><div class="sheet-s">Which devices this reaches — the same set no matter which action you pick above</div></div>
+    </div>
+    <div class="cr-config">
         <div class="cr-sec">
-          <div class="cr-sec-title">Target</div>
           <input type="hidden" name="target_type" id="target-type-input" value="all">
           <input type="hidden" name="scope_mode" id="scope-mode" value="all">
           <input type="hidden" name="scope_id" id="scope-id" value="">
