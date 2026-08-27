@@ -96,7 +96,11 @@ function grpRemoveSelected(gid) {
   var body = new URLSearchParams();
   serials.forEach(function (s) { body.append('serials', s); });
   fetch('/groups/' + gid + '/devices/remove', { method: 'POST', body: body, headers: { 'HX-Request': 'true' } })
-    .then(function (r) { if (r.ok) document.body.dispatchEvent(new CustomEvent('group-updated')); })
+    .then(function (r) {
+      if (!r.ok) return;
+      document.body.dispatchEvent(new CustomEvent('group-updated')); // refresh members card
+      if (window.dpReload) window.dpReload();                        // removed devices reappear in "Available devices"
+    })
     .catch(function () {});
 }
 
