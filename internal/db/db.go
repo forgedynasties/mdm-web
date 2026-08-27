@@ -11208,7 +11208,7 @@ func (d *DB) ListRecentCrashEvents(ctx context.Context, sinceDays, limit int) ([
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.kind <> 'reboot' AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, sinceDays, limit)
@@ -11241,7 +11241,7 @@ func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit in
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.device_id = $1 AND e.kind <> 'reboot'
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
 		ORDER BY e.occurred_at DESC
 		LIMIT $2`, deviceID, limit)
 	if err != nil {
@@ -11279,7 +11279,7 @@ func (d *DB) ListRecentCrashEventsPage(ctx context.Context, sinceDays, limit, of
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.kind <> 'reboot' AND NOT dv.hidden
+		WHERE e.kind NOT IN ('reboot', 'kiosk_exit_offline') AND NOT dv.hidden
 		  AND e.occurred_at > now() - make_interval(days => $1)
 		ORDER BY e.occurred_at DESC
 		LIMIT $2 OFFSET $3`, sinceDays, limit, offset)
@@ -11315,7 +11315,7 @@ func (d *DB) ListDeviceCrashesPage(ctx context.Context, deviceID uuid.UUID, limi
 		FROM device_events e
 		JOIN devices dv ON dv.id = e.device_id
 		LEFT JOIN restaurants r ON r.id = dv.restaurant_id
-		WHERE e.device_id = $1 AND e.kind <> 'reboot'
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')
 		ORDER BY e.occurred_at DESC
 		LIMIT $2 OFFSET $3`, deviceID, limit, offset)
 	if err != nil {
