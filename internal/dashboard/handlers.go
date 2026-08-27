@@ -3532,8 +3532,8 @@ func wlcStatusFromExtra(raw json.RawMessage) string {
 		return "not_charging"
 	case 1:
 		return "charging"
-	case 2: // no pad attached — the client saw gpio27 oscillating, not a guest arriving
-		return "pad_disconnected"
+	case 2: // gpio27 kept disagreeing instead of settling — a faulty/loose pad, not a fresh guest
+		return "pad_flapping"
 	case -1: // the sysfs read itself failed; the pad's actual state is unknown
 		return "pad_unreadable"
 	default:

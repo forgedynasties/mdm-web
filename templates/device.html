@@ -45,9 +45,9 @@
     </span>{{else}}<span class="ddc-chip" title="Mains powered — no battery">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6h8M6 10h12v4a6 6 0 0 1-12 0zM12 20v2"/></svg>AC
     </span>{{end}}
-    {{/* wlc_status is now just 1 = device placed, 0 = vacant. The old "2 = no pad" was
-         dropped: a disconnected pad reads identically to a placed guest, so it is not
-         detectable from the GPIO (see the client's classifyWlc + tools/wlc-gpio-matrix.sh). */}}
+    {{/* wlc_status: 1 = device placed, 0 = vacant, 2 = flapping (gpio27 kept disagreeing
+         instead of settling — a real hardware symptom, e.g. a loose connector or failing
+         pad; see the client's classifyWlc + tools/wlc-gpio-matrix.sh). */}}
     {{/* Wireless-charging status moved to the "Charging pad" sidebar card, combined
          with its enable/disable control. */}}
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
@@ -281,11 +281,12 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   .pad-dot{width:9px;height:9px;border-radius:50%;background:var(--text-faint);flex:none;}
   .pad-stat-on{color:#1c7d50;} .pad-stat-on .pad-dot{background:#2bb673;}
   .pad-stat-vacant{color:var(--text-faint);} .pad-stat-vacant .pad-dot{background:#9aa0b0;}
-  .pad-stat-nopad{color:#9a6512;} .pad-stat-nopad .pad-dot{background:#e8a13a;}
+  .pad-stat-flapping{color:#9a6512;} .pad-stat-flapping .pad-dot{background:#e8a13a;}
   .pad-stat-bad{color:var(--text-faint);} .pad-stat-bad .pad-dot{background:#b2bec3;}
   .pad-stat-na{color:var(--text-faint);} .pad-stat-na .pad-dot{background:#b2bec3;}
   html[data-theme="dark"] .pad-stat-on{color:#5fd49a;}
-  html[data-theme="dark"] .pad-stat-nopad{color:#f0b765;}
+  html[data-theme="dark"] .pad-stat-flapping{color:#f0b765;}
+  .pad-warn{margin-top:8px;padding:8px 10px;border-radius:9px;background:var(--warn-bg);color:var(--warn);font-size:12px;line-height:1.45;}
   .pad-swpill{padding:5px 9px;}
   .pad-swpill .ddc-kstate{font-size:11.5px;font-weight:700;color:var(--text-faint);}
   .pad-swpill.on .ddc-kstate{color:var(--accent-text);}
@@ -478,13 +479,17 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
          misleading placed/vacant. */}}
     <div class="ddc-kv"><span class="k">Status</span><span class="v">
       {{if .KioskConfig.WlcChargingEnabled}}
-      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else}}bad{{end}}" id="pad-status">
-        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Device placed{{else if eq $wlcS "0"}}Vacant{{else}}Unreadable{{end}}</span>
+      <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}flapping{{else}}bad{{end}}" id="pad-status">
+        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Device placed{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}Flapping{{else}}Unreadable{{end}}</span>
       </span>
       {{else}}
       <span class="pad-stat pad-stat-na" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">Not available</span></span>
       {{end}}
     </span></div>
+    {{/* Flapping = gpio27 kept disagreeing instead of settling — a real hardware symptom
+         (loose connector, failing pad), not a transient misread. Only meaningful while
+         charging is on, matching the status pill above. */}}
+    <div class="pad-warn" id="pad-warn"{{if not (and .KioskConfig.WlcChargingEnabled (eq $wlcS "2"))}} hidden{{end}}>The charging pad appears to be in a faulty state — please reconnect the pad to the device.</div>
   </div>
   {{end}}
   {{template "device-notes" .}}
@@ -1218,7 +1223,7 @@ function mdmBootCharts() {
       let s = 'Battery: ' + bPt.y + '%';
       if (bPt.wlc === 1) s += ' · ⚡ Device placed';
       else if (bPt.wlc === 0) s += ' · Charging pad vacant';
-      else if (bPt.wlc === 2) s += ' · ⚠ WLC Pad Disconnected';
+      else if (bPt.wlc === 2) s += ' · ⚠ Pad flapping — reconnect the pad';
       else if (bPt.wlc !== undefined && bPt.wlc !== null) s += ' · ⚠ Pad Unreadable';
       parts.push(s);
     }
@@ -1562,7 +1567,7 @@ function mdmBootCharts() {
     const line = 'Battery: ' + pt.y + '%';
     if (pt.wlc === 1) return line + ' ⚡ Device placed';
     if (pt.wlc === 0) return line + ' — Charging pad vacant';
-    if (pt.wlc === 2) return line + ' ⚠ No pad';
+    if (pt.wlc === 2) return line + ' ⚠ Pad flapping — reconnect the pad';
     if (pt.wlc !== undefined && pt.wlc !== null) return line + ' ⚠ Pad unreadable';
     return line;
   };
@@ -3111,22 +3116,26 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // Opening a device always lands on Overview (no last-tab restore).
 
   // Live charging-pad occupancy: repaint the sidebar card's status dot + label from
-  // the SSE wlc_status (1 placed · 0 vacant · 2 no pad · else unreadable).
+  // the SSE wlc_status (1 placed · 0 vacant · 2 flapping — gpio27 kept disagreeing
+  // instead of settling, a real hardware symptom · else unreadable).
   window.mdmSyncPadStatus = function (wlc) {
     var el = document.getElementById('pad-status');
     if (!el) return;
+    var warn = document.getElementById('pad-warn');
     // wlc_status is only meaningful while charging is ON. If the pad's charging toggle is
     // off, keep "Not available" — don't let a device-reported vacant/placed override it.
     var card = document.getElementById('charging-pad-card');
     if (card && card.getAttribute('data-charging') === '0') {
       el.className = 'pad-stat pad-stat-na';
       var tn = el.querySelector('.pad-txt'); if (tn) tn.textContent = 'Not available';
+      if (warn) warn.hidden = true;
       return;
     }
-    var map = { 1: ['on', 'Device placed'], 0: ['vacant', 'Vacant'], 2: ['nopad', 'No pad'] };
+    var map = { 1: ['on', 'Device placed'], 0: ['vacant', 'Vacant'], 2: ['flapping', 'Flapping'] };
     var m = map[wlc] || ['bad', 'Unreadable'];
     el.className = 'pad-stat pad-stat-' + m[0];
     var t = el.querySelector('.pad-txt'); if (t) t.textContent = m[1];
+    if (warn) warn.hidden = (wlc !== 2);
   };
 
   window.chShowAll = function () {
