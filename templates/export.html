@@ -131,6 +131,7 @@
         <div class="export-columns" data-group="battery">
           <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_pct" checked onchange="updateColCount()"> Battery %</label>
           <label class="checkbox-label"><input type="checkbox" name="columns" value="battery_temp_c" checked onchange="updateColCount()"> Device Temp (°C)</label>
+          <label class="checkbox-label"><input type="checkbox" name="columns" value="charging" checked onchange="updateColCount()"> Charging (0/1)</label>
           <label class="checkbox-label"><input type="checkbox" name="columns" value="wlc_status" checked onchange="updateColCount()"> WLC / Charging</label>
         </div>
       </div>
@@ -203,7 +204,7 @@
 <script>
 var COLUMN_PRESETS = {
   common:   ['battery_pct', 'build_id', 'wifi', 'ip_address', 'last_seen'],
-  battery:  ['battery_pct', 'battery_temp_c', 'wlc_status', 'last_seen'],
+  battery:  ['battery_pct', 'battery_temp_c', 'charging', 'wlc_status', 'last_seen'],
   network:  ['wifi', 'ip_address', 'last_seen'],
   system:   ['build_id', 'ram_used_mb', 'ram_total_mb', 'storage_free_gb', 'uptime_seconds', 'timezone', 'last_seen'],
   location: ['latitude', 'longitude', 'last_seen'],
