@@ -3,7 +3,7 @@
 
 <div class="ov-greet">
   <h1 class="ov-title">Manage</h1>
-  <span class="ov-date">standing device configuration — not a one-off command</span>
+  <span class="ov-date">named kiosk policies — standing device configuration, not a one-off command</span>
 </div>
 
 <style>
@@ -15,40 +15,48 @@
 
 .mg-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
 .mg-count{font-size:12px;color:var(--muted);}
-.mg-bulk{font:inherit;font-size:12.5px;font-weight:650;color:#fff;background:var(--accent);border:none;border-radius:9px;padding:8px 15px;cursor:pointer;margin-left:auto;white-space:nowrap;}
+.mg-bulk{font:inherit;font-size:12.5px;font-weight:650;color:#fff;background:var(--accent);border:none;border-radius:9px;padding:8px 15px;cursor:pointer;margin-left:auto;white-space:nowrap;display:flex;align-items:center;gap:7px;}
 
-.lockchip{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:5px 11px;border-radius:99px;}
-.lockchip.on{background:var(--ok-soft,rgba(63,157,90,.12));color:var(--ok,#2f8049);}
-.lockchip.off{background:var(--surface2);color:var(--text-faint);}
-.lockchip .dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex:none;}
-.mg-app{font-size:12.5px;color:var(--text-2);margin-left:8px;}
-.mg-edit{font:inherit;font-size:12px;font-weight:650;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap;}
-.mg-edit:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
+.pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
+.pcard .ic{width:38px;height:38px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--text-2);}
+.pcard .ic svg{width:19px;height:19px;}
+.pcard .body{flex:1;min-width:0;}
+.pcard .nm{font-size:14.5px;font-weight:700;}
+.pcard .meta{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.pcard .meta b{color:var(--text-2);font-weight:650;}
+.pcard .sep{color:var(--text-faint);}
+.pcard .targets{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
+.ttag{font-size:11.5px;font-weight:600;background:var(--surface2);color:var(--text-2);padding:3px 9px;border-radius:99px;}
+.pcard .acts{display:flex;gap:6px;flex:none;}
+.pcard .acts button{font:inherit;font-size:12px;font-weight:650;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap;}
+.pcard .acts button:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
+.pcard .acts button.danger:hover{border-color:var(--danger-edge,rgba(209,80,63,.34));color:var(--danger,#d1503f);}
+.pcard.default{background:var(--surface2);box-shadow:none;border-style:dashed;}
+.pcard.default .ic{background:var(--surface);}
+.pc-divider{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:22px 2px 10px;}
 .mg-empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:13.5px;}
 
-/* State cards — every device sharing a kiosk state collapses into one card
-   (grouped by state), sub-grouped by restaurant inside (see Manage handler). */
-.stcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);margin-bottom:12px;overflow:hidden;}
-.sthead{display:flex;align-items:center;gap:13px;padding:15px 18px;cursor:pointer;}
-.sthead .app-ic{width:34px;height:34px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--text-2);}
-.sthead .app-ic svg{width:17px;height:17px;}
-.sthead .stt{flex:1;min-width:0;}
-.sthead .stn{font-size:14px;font-weight:700;}
-.stcount{font-size:12.5px;font-weight:650;color:var(--text-2);background:var(--surface2);padding:4px 11px;border-radius:99px;white-space:nowrap;}
-.stcaret{color:var(--text-faint);transition:transform .15s;flex:none;}
-.stcard.open .stcaret{transform:rotate(90deg);}
-.stbody{display:none;padding:0 18px 15px;}
-.stcard.open .stbody{display:block;}
-.stvenues{border:1px solid var(--border-soft);border-radius:10px;overflow:hidden;}
-.stvenue{display:flex;align-items:center;gap:10px;padding:9px 13px;font-size:13px;border-bottom:1px solid var(--border-soft);}
-.stvenue:last-child{border-bottom:none;}
-.stvenue .vn{font-weight:600;flex:1;min-width:0;}
-.stvenue .vc{color:var(--muted);font-size:12px;}
-.stactions{margin-top:12px;display:flex;gap:8px;}
-.stactions button{font:inherit;font-size:12px;font-weight:650;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;}
-.stactions button:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
-
-/* Reused from commands.html's kiosk config pane. */
+/* Reused device.html kiosk-modal shell + kpk app picker (page-scoped there,
+   not in style.css — copied verbatim, same as the demo). */
+.kiosk-modal-box{max-width:640px;width:100%;}
+.kiosk-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--border);flex:none;}
+.kiosk-modal-title{font-size:16px;font-weight:700;}
+.kiosk-modal-body{padding:20px;overflow-y:auto;flex:1;min-height:0;}
+.kiosk-modal-body .form-row{margin:0 0 20px;}
+.kiosk-modal-body .form-row:last-child{margin-bottom:0;}
+.kiosk-modal-body .form-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;display:block;}
+.kiosk-modal-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--border);flex:none;}
+.kiosk-modal-foot .kiosk-note{margin-top:0;flex:1;min-width:120px;font-size:12.5px;color:var(--muted);}
+.kiosk-foot-btns{display:flex;gap:8px;}
+.mp-name{font:inherit;font-size:14px;font-weight:650;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
+.mp-name::placeholder{font-weight:500;color:var(--text-faint);}
+.mk-target-seg{display:flex;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:4px;}
+.mk-target-seg button{flex:1;font:inherit;font-size:12.5px;font-weight:650;padding:7px 10px;border-radius:7px;border:none;background:none;color:var(--text-2);cursor:pointer;}
+.mk-target-seg button.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm);}
+.mk-target-dep{margin-top:10px;}
+.mk-target-dep select,.mk-target-dep input{font:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
+.mk-target-count{font-size:12px;color:var(--muted);margin-top:7px;}
+.mk-target-count b{color:var(--text);}
 .kpk{display:flex;flex-direction:column;gap:8px;}
 .kpk-top{display:flex;gap:6px;align-items:center;}
 .kpk-search{position:relative;flex:1;display:flex;align-items:center;}
@@ -58,14 +66,13 @@
 .kpk-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;}
 .kpk-seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;cursor:pointer;display:grid;place-items:center;}
 .kpk-seg button.active{background:var(--accent-soft);color:var(--accent);}
-.kpk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:280px;overflow-y:auto;padding:2px;}
-.kpk-list{display:none;flex-direction:column;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;}
+.kpk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:230px;overflow-y:auto;padding:2px;}
+.kpk-list{display:none;flex-direction:column;max-height:230px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;}
 .kpk.listview .kpk-grid{display:none;}
 .kpk.listview .kpk-list{display:flex;}
 .kpk-opt{position:relative;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit;}
 .kpk-opt:hover{border-color:var(--rule-2);}
 .kpk-opt.sel{border-color:var(--accent);background:var(--accent-soft);}
-.kpk-opt.kbd{box-shadow:0 0 0 2px var(--accent);}
 .kpk-tile{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none;}
 .kpk-tile.kpk-img{object-fit:contain;background:var(--surface-3);padding:2px;}
 .kpk-txt{min-width:0;display:flex;flex-direction:column;}
@@ -77,17 +84,6 @@
 .kpk-list .kpk-opt:last-child{border-bottom:0;}
 .kpk-list .kpk-check{position:static;margin-left:auto;background:transparent;color:var(--accent);}
 .kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1;}
-
-.lvl-lbl{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin:14px 0 8px;}
-.lvl-lbl:first-child{margin-top:0;}
-.levels{display:flex;gap:8px;}
-.lv{flex:1;text-align:left;padding:10px 13px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;font:inherit;color:var(--text-2);font-weight:650;font-size:13px;}
-.lv small{display:block;font-weight:500;color:var(--muted);font-size:11px;margin-top:2px;}
-.lv.on{border-color:transparent;background:var(--accent);color:#fff;}
-.lv.on small{color:rgba(255,255,255,.8);}
-.mg-target{display:flex;flex-direction:column;gap:8px;}
-.mg-target select,.mg-target input[type=text]{font:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box;}
-.mg-modal-actions{display:flex;align-items:center;gap:10px;margin-top:18px;}
 </style>
 
 <div class="mg-types">
@@ -96,167 +92,191 @@
 </div>
 
 <div class="mg-toolbar">
-  <span class="mg-count">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}} · {{len .States}} kiosk state{{if ne (len .States) 1}}s{{end}}</span>
-  {{if .CanEdit}}<button type="button" class="mg-bulk" onclick="mgOpen('bulk')">Bulk apply…</button>{{end}}
+  <span class="mg-count">{{.PolicyCount}} polic{{if eq .PolicyCount 1}}y{{else}}ies{{end}} · {{.CoveredCount}} device{{if ne .CoveredCount 1}}s{{end}} covered</span>
+  {{if .CanEdit}}<button type="button" class="mg-bulk" onclick="mpOpenNew()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Create new policy</button>{{end}}
 </div>
 
-{{if .States}}
-{{range $i, $s := .States}}
-<div class="stcard{{if eq $i 0}} open{{end}}">
-  <div class="sthead" onclick="this.parentElement.classList.toggle('open')">
-    <span class="app-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">{{if .Enabled}}<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>{{else}}<path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>{{end}}</svg></span>
-    <div class="stt"><div class="stn">{{.Label}}</div></div>
-    <span class="stcount">{{.Count}} device{{if ne .Count 1}}s{{end}}</span>
-    <svg class="stcaret" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+<div class="pc-divider">Polic{{if eq .PolicyCount 1}}y{{else}}ies{{end}} ({{.PolicyCount}})</div>
+{{if .Policies}}
+{{range .Policies}}
+<div class="pcard">
+  <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+  <div class="body">
+    <div class="nm">{{.Name}}</div>
+    <div class="meta">Locked to <b>{{.AppName}}</b> <span class="sep">·</span> {{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</div>
+    <div class="targets"><span class="ttag">{{.TargetLabel}}</span></div>
   </div>
-  <div class="stbody">
-    <div class="stvenues">
-      {{range .Venues}}<div class="stvenue"><span class="vn">{{.Name}}</span><span class="vc">{{.Count}} device{{if ne .Count 1}}s{{end}}</span></div>{{end}}
-    </div>
-    {{if $.CanEdit}}
-    <div class="stactions">
-      <button type="button" onclick="mgOpenGroup({{printf "%q" .Serials}},{{.Enabled}},{{printf "%q" .Package}})">Apply to more</button>
-      {{if .Enabled}}<button type="button" onclick="mgOpenGroup({{printf "%q" .Serials}}, false, '')">Unlock these</button>
-      {{else}}<button type="button" onclick="mgOpenGroup({{printf "%q" .Serials}}, true, '')">Lock these</button>{{end}}
-    </div>
-    {{end}}
+  {{if $.CanEdit}}
+  <div class="acts">
+    <button type="button" onclick="mpOpenEdit({{.ID.String}},{{.Name}},{{.KioskPackage}},{{.TargetType}},{{if .TargetID}}{{.TargetID.String}}{{else}}null{{end}},{{.TargetSerial}})">Edit</button>
+    <form method="POST" action="/manage/policies/{{.ID}}/duplicate" style="margin:0;display:inline;"><button type="submit">Duplicate</button></form>
+    <form method="POST" action="/manage/policies/{{.ID}}/delete" style="margin:0;display:inline;" hx-confirm="Delete {{printf "%q" .Name}}? Its {{.DeviceCount}} device(s) will be unlocked."><button type="submit" class="danger">Delete</button></form>
   </div>
+  {{end}}
 </div>
 {{end}}
 {{else}}
-<div class="mg-empty">No devices yet.</div>
+<div class="mg-empty">No kiosk policies yet — {{if .CanEdit}}create one to lock devices to an app{{else}}nothing is locked fleet-wide{{end}}.</div>
 {{end}}
 
+<div class="pc-divider">Everything else</div>
+<div class="pcard default">
+  <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>
+  <div class="body">
+    <div class="nm">Default</div>
+    <div class="meta">Unlocked <span class="sep">·</span> {{.UnlockedCount}} device{{if ne .UnlockedCount 1}}s{{end}} <span class="sep">·</span> no policy claims them</div>
+  </div>
+</div>
+
 {{if .CanEdit}}
-<div class="modal-backdrop" id="mg-modal" onclick="mgModalBackdrop(event)">
-  <div class="modal-box" role="dialog" aria-modal="true" aria-label="Configure kiosk mode">
-    <div class="modal-head"><span class="modal-title" id="mg-modal-title">Configure kiosk mode</span><button type="button" class="modal-close" onclick="mgClose()" aria-label="Close">&times;</button></div>
-    <div class="modal-body">
-      <form id="mg-form" method="POST" action="/commands">
-        <input type="hidden" name="type" value="set_kiosk">
-        <input type="hidden" name="kiosk_enabled" id="mg-kiosk-enabled" value="1">
-        <input type="hidden" name="target_type" id="mg-target-type" value="devices">
-        <input type="hidden" name="scope_mode" id="mg-scope-mode" value="">
-        <input type="hidden" name="scope_id" id="mg-scope-id" value="">
-
-        <div class="lvl-lbl">Mode</div>
-        <div class="levels" id="mg-mode" role="radiogroup" aria-label="Kiosk mode">
-          <button type="button" class="lv on" role="radio" aria-checked="true" data-k="1" onclick="mgSetMode('1', this)">Lock<small>to one app</small></button>
-          <button type="button" class="lv" role="radio" aria-checked="false" data-k="0" onclick="mgSetMode('0', this)">Unlock<small>exit kiosk</small></button>
+<div class="modal-backdrop" id="mp-modal" onclick="mpBackdrop(event)">
+  <div class="modal-box kiosk-modal-box" role="dialog" aria-modal="true" aria-label="Kiosk policy">
+    <div class="kiosk-modal-head"><span class="kiosk-modal-title" id="mp-title">New kiosk policy</span><button type="button" class="modal-close" onclick="mpClose()" aria-label="Close">&times;</button></div>
+    <div class="kiosk-modal-body">
+      <form id="mp-form" method="POST" action="/manage/policies">
+        <input type="hidden" name="id" id="mp-id" value="">
+        <input type="hidden" name="target_type" id="mp-target-type" value="group">
+        <input type="hidden" name="target_id" id="mp-target-id" value="">
+        <input type="hidden" name="target_serial" id="mp-target-serial" value="">
+        <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="">
+        <div class="form-row">
+          <label class="form-label">Policy name</label>
+          <input type="text" class="mp-name" name="name" id="mp-name" placeholder="e.g. Drive-Thru Lockdown" oninput="mpCheckReady()">
         </div>
-
-        <div id="mg-app-wrap">
-          <div class="lvl-lbl">Locked app</div>
+        <div class="form-row">
+          <label class="form-label">Assign to</label>
+          <div class="mk-target-seg" role="radiogroup">
+            <button type="button" data-k="all" onclick="mpTargetKind(this,'all')">All devices</button>
+            <button type="button" data-k="restaurant" onclick="mpTargetKind(this,'restaurant')">Restaurant</button>
+            <button type="button" class="on" data-k="group" onclick="mpTargetKind(this,'group')">Group</button>
+            <button type="button" data-k="device" onclick="mpTargetKind(this,'device')">Device</button>
+          </div>
+          <div class="mk-target-dep" id="mp-dep-restaurant" style="display:none;">
+            <select onchange="mpDepChange(this,'restaurant')"><option value="">Choose a restaurant…</option>{{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+          </div>
+          <div class="mk-target-dep" id="mp-dep-group">
+            <select onchange="mpDepChange(this,'group')"><option value="">Choose a group…</option>{{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}</select>
+          </div>
+          <div class="mk-target-dep" id="mp-dep-device" style="display:none;">
+            <input type="text" placeholder="Device serial" oninput="mpDepChange(this,'device')">
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Locked app</label>
           {{if .FleetPackages}}
-          <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="">
           <div id="kiosk-apps-src" hidden>{{range .FleetPackages}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}</div>
           <div class="kpk" id="kiosk-app-picker">
             <div class="kpk-top">
-              <span class="kpk-search">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-                <input type="text" id="kpk-q" autocomplete="off" spellcheck="false" role="combobox" aria-controls="kpk-list" aria-expanded="true" placeholder="Search apps…">
-              </span>
-              <span class="kpk-seg" role="tablist" aria-label="View">
-                <button type="button" id="kpk-vgrid" class="active" title="Grid" aria-label="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
-                <button type="button" id="kpk-vlist" title="List" aria-label="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+              <span class="kpk-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input type="text" id="kpk-q" autocomplete="off" spellcheck="false" placeholder="Search apps…"></span>
+              <span class="kpk-seg">
+                <button type="button" id="kpk-vgrid" class="active" title="Grid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+                <button type="button" id="kpk-vlist" title="List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
               </span>
             </div>
-            <div class="kpk-grid" id="kpk-grid" role="listbox" aria-label="Apps seen across the fleet"></div>
-            <div class="kpk-list" id="kpk-list" role="listbox" aria-label="Apps seen across the fleet"></div>
+            <div class="kpk-grid" id="kpk-grid"></div>
+            <div class="kpk-list" id="kpk-list"></div>
           </div>
           {{else}}
-          <input type="text" name="kiosk_package" id="kiosk-pkg-value" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" aria-label="Package name to lock to">
+          <input type="text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" oninput="document.getElementById('kiosk-pkg-value').value=this.value;mpCheckReady()">
           {{end}}
-        </div>
-
-        <div class="lvl-lbl">Applies to</div>
-        <div class="mg-target" id="mg-target-fields">
-          <select id="mg-scope-kind" onchange="mgScopeKind(this.value)">
-            <option value="all">All devices</option>
-            <option value="restaurant">By restaurant</option>
-            <option value="group">By group</option>
-            <option value="devices">Specific device</option>
-          </select>
-          <select id="mg-scope-restaurant" style="display:none" onchange="mgScopeId(this.value)">
-            <option value="">Choose a restaurant…</option>
-            {{range .Restaurants}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-          </select>
-          <select id="mg-scope-group" style="display:none" onchange="mgScopeId(this.value)">
-            <option value="">Choose a group…</option>
-            {{range .Groups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-          </select>
-          <input type="text" id="mg-scope-serial" name="target_serials" style="display:none" placeholder="Device serial">
-        </div>
-
-        <div class="mg-modal-actions">
-          <button type="submit" class="btn-primary">Apply</button>
-          <button type="button" class="btn-outline" onclick="mgClose()">Cancel</button>
         </div>
       </form>
     </div>
+    <div class="kiosk-modal-foot">
+      <div class="kiosk-note" id="mp-note">Name the policy, pick a target, and pick an app to lock to.</div>
+      <div class="kiosk-foot-btns">
+        <button type="button" class="btn-outline" onclick="mpClose()">Cancel</button>
+        <button type="submit" form="mp-form" class="btn-primary" id="mp-save" disabled>Save policy</button>
+      </div>
+    </div>
   </div>
 </div>
-{{end}}
 
 <script>
-{{if .CanEdit}}
-function mgModalBackdrop(e) { if (e.target === e.currentTarget) mgClose(); }
-function mgClose() { document.getElementById('mg-modal').classList.remove('modal-open'); }
-function mgScopeKind(v) {
-  document.getElementById('mg-scope-restaurant').style.display = v === 'restaurant' ? '' : 'none';
-  document.getElementById('mg-scope-group').style.display = v === 'group' ? '' : 'none';
-  document.getElementById('mg-scope-serial').style.display = v === 'devices' ? '' : 'none';
-  if (v === 'all') {
-    document.getElementById('mg-target-type').value = 'all';
-    document.getElementById('mg-scope-mode').value = '';
-    document.getElementById('mg-scope-id').value = '';
-  } else if (v === 'devices') {
-    document.getElementById('mg-target-type').value = 'devices';
-    document.getElementById('mg-scope-mode').value = '';
-    document.getElementById('mg-scope-id').value = '';
+function mpClose() { document.getElementById('mp-modal').classList.remove('modal-open'); }
+function mpBackdrop(e) { if (e.target === e.currentTarget) mpClose(); }
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape' && document.getElementById('mp-modal').classList.contains('modal-open')) mpClose();
+});
+
+var mpTargetVal = '';
+function mpTargetKind(btn, kind) {
+  document.querySelectorAll('.mk-target-seg button').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  ['restaurant', 'group', 'device'].forEach(function (k) {
+    document.getElementById('mp-dep-' + k).style.display = k === kind ? '' : 'none';
+  });
+  document.getElementById('mp-target-type').value = kind;
+  document.getElementById('mp-target-id').value = '';
+  document.getElementById('mp-target-serial').value = '';
+  mpTargetVal = kind === 'all' ? 'ok' : '';
+  mpCheckReady();
+}
+function mpDepChange(el, kind) {
+  if (kind === 'device') {
+    document.getElementById('mp-target-serial').value = el.value.trim();
+    mpTargetVal = el.value.trim();
   } else {
-    document.getElementById('mg-target-type').value = 'scope';
-    document.getElementById('mg-scope-mode').value = v;
-    document.getElementById('mg-scope-id').value = document.getElementById('mg-scope-' + v).value;
+    document.getElementById('mp-target-id').value = el.value;
+    mpTargetVal = el.value;
   }
+  mpCheckReady();
 }
-function mgScopeId(v) { document.getElementById('mg-scope-id').value = v; }
-function mgSetMode(v, btn) {
-  document.getElementById('mg-kiosk-enabled').value = v;
-  document.querySelectorAll('#mg-mode .lv').forEach(function (b) { var sel = b === btn; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
-  document.getElementById('mg-app-wrap').style.display = v === '1' ? '' : 'none';
+
+function mpCheckReady() {
+  var name = document.getElementById('mp-name').value.trim();
+  var pkg = document.getElementById('kiosk-pkg-value').value;
+  var ready = !!(name && pkg && mpTargetVal);
+  document.getElementById('mp-save').disabled = !ready;
+  var note = document.getElementById('mp-note');
+  if (!name) note.textContent = 'Name the policy, pick a target, and pick an app to lock to.';
+  else if (!mpTargetVal) note.textContent = 'Pick what "' + name + '" applies to.';
+  else if (!pkg) note.textContent = 'Pick an app to lock to.';
+  else note.textContent = '"' + name + '" will lock the target to the chosen app.';
 }
-// mgOpen('bulk') opens blank, targeting "All devices" by default.
-function mgOpen(kind) {
-  document.getElementById('mg-modal-title').textContent = 'Configure kiosk mode';
-  document.getElementById('mg-scope-kind').value = 'all';
-  mgScopeKind('all');
-  var pkgHidden = document.getElementById('kiosk-pkg-value');
-  if (pkgHidden) pkgHidden.value = '';
-  var lockBtn = document.querySelector('#mg-mode .lv[data-k="1"]');
-  if (lockBtn) mgSetMode('1', lockBtn);
+
+function mpResetForm() {
+  document.getElementById('mp-id').value = '';
+  document.getElementById('mp-name').value = '';
+  document.getElementById('kiosk-pkg-value').value = '';
+  document.querySelectorAll('.kpk-opt.sel').forEach(function (b) { b.classList.remove('sel'); });
+  document.getElementById('mp-dep-restaurant').querySelector('select').value = '';
+  document.getElementById('mp-dep-group').querySelector('select').value = '';
+  var devInput = document.getElementById('mp-dep-device').querySelector('input');
+  if (devInput) devInput.value = '';
+  mpTargetKind(document.querySelector('.mk-target-seg button[data-k="group"]'), 'group');
+}
+function mpOpenNew() {
+  document.getElementById('mp-title').textContent = 'New kiosk policy';
+  mpResetForm();
+  mpCheckReady();
+  document.getElementById('mp-modal').classList.add('modal-open');
+}
+function mpOpenEdit(id, name, pkg, targetType, targetID, targetSerial) {
+  document.getElementById('mp-title').textContent = 'Edit policy';
+  mpResetForm();
+  document.getElementById('mp-id').value = id;
+  document.getElementById('mp-name').value = name;
+  var btn = document.querySelector('.mk-target-seg button[data-k="' + targetType + '"]');
+  if (btn) mpTargetKind(btn, targetType);
+  if (targetType === 'restaurant' || targetType === 'group') {
+    var sel = document.getElementById('mp-dep-' + targetType).querySelector('select');
+    sel.value = targetID || '';
+    mpDepChange(sel, targetType);
+  } else if (targetType === 'device') {
+    var inp = document.getElementById('mp-dep-device').querySelector('input');
+    inp.value = targetSerial || '';
+    mpDepChange(inp, 'device');
+  } else {
+    mpTargetVal = 'ok';
+  }
+  document.getElementById('kiosk-pkg-value').value = pkg;
   if (window.mgRenderApps) window.mgRenderApps();
-  document.getElementById('mg-modal').classList.add('modal-open');
-}
-// mgOpenGroup prefills the modal from a state card's "Apply to more"/"Lock these"/
-// "Unlock these" — target_serials starts as that card's exact device list (a plain
-// text field, so it can be widened by hand before Apply), mode/app preset from the
-// card's own state (or the flipped state for the quick lock/unlock actions).
-function mgOpenGroup(serials, enabled, pkg) {
-  document.getElementById('mg-modal-title').textContent = enabled ? 'Lock devices to an app' : 'Unlock devices';
-  document.getElementById('mg-scope-kind').value = 'devices';
-  mgScopeKind('devices');
-  document.getElementById('mg-scope-serial').value = serials;
-  var pkgHidden = document.getElementById('kiosk-pkg-value');
-  if (pkgHidden) pkgHidden.value = pkg || '';
-  var btn = document.querySelector('#mg-mode .lv[data-k="' + (enabled ? '1' : '0') + '"]');
-  if (btn) mgSetMode(enabled ? '1' : '0', btn);
-  if (window.mgRenderApps) window.mgRenderApps();
-  document.getElementById('mg-modal').classList.add('modal-open');
+  mpCheckReady();
+  document.getElementById('mp-modal').classList.add('modal-open');
 }
 
 // Locked-app picker — same searchable grid/list component as device.html's kiosk
-// modal and (previously) commands.html's, reused verbatim.
+// modal, reused verbatim.
 (function () {
   var picker = document.getElementById('kiosk-app-picker');
   if (!picker) return;
@@ -298,7 +318,7 @@ function mgOpenGroup(serials, enabled, pkg) {
     gridEl.innerHTML = html; listEl.innerHTML = html;
   }
   window.mgRenderApps = render;
-  function choose(v) { hidden.value = v; render(); }
+  function choose(v) { hidden.value = v; render(); mpCheckReady(); }
 
   gridEl.addEventListener('click', pick); listEl.addEventListener('click', pick);
   function pick(e) { var b = e.target.closest('.kpk-opt'); if (b) choose(b.getAttribute('data-value')); }
@@ -322,9 +342,6 @@ function mgOpenGroup(serials, enabled, pkg) {
 
   render();
 })();
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape' && document.getElementById('mg-modal').classList.contains('modal-open')) mgClose();
-});
-{{end}}
 </script>
+{{end}}
 {{end}}

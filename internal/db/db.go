@@ -4971,6 +4971,19 @@ func (d *DB) SetWlcCharging(ctx context.Context, deviceID uuid.UUID, enabled boo
 	return err
 }
 
+// CountUnlockedDevices returns the number of non-hidden devices with no kiosk lock
+// applied (either no device_config row at all, or one with kiosk_enabled=false) —
+// the Manage page's "Default" bucket.
+func (d *DB) CountUnlockedDevices(ctx context.Context) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM devices d
+		LEFT JOIN device_config dc ON dc.device_id = d.id
+		WHERE NOT d.hidden AND COALESCE(dc.kiosk_enabled, false) = false
+	`).Scan(&n)
+	return n, err
+}
+
 func (d *DB) SetKioskConfigForDevices(ctx context.Context, deviceIDs []uuid.UUID, enabled bool, pkg string, features int) error {
 	if len(deviceIDs) == 0 {
 		return nil
@@ -4986,6 +4999,70 @@ func (d *DB) SetKioskConfigForDevices(ctx context.Context, deviceIDs []uuid.UUID
 			    kiosk_features = EXCLUDED.kiosk_features,
 			    updated_at     = NOW()
 	`, deviceIDs, enabled, pkg, features)
+	return err
+}
+
+// KioskPolicy is a named, standing kiosk-lock policy (see the kiosk_policies table
+// comment). TargetID is nil for target_type "all" or "device".
+type KioskPolicy struct {
+	ID           uuid.UUID  `json:"id"`
+	Name         string     `json:"name"`
+	KioskPackage string     `json:"kiosk_package"`
+	TargetType   string     `json:"target_type"`
+	TargetID     *uuid.UUID `json:"target_id,omitempty"`
+	TargetSerial string     `json:"target_serial,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+func (d *DB) ListKioskPolicies(ctx context.Context) ([]KioskPolicy, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial, created_at, updated_at
+		FROM kiosk_policies ORDER BY name ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []KioskPolicy
+	for rows.Next() {
+		var p KioskPolicy
+		if err := rows.Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.CreatedAt, &p.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) GetKioskPolicy(ctx context.Context, id uuid.UUID) (KioskPolicy, error) {
+	var p KioskPolicy
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, name, kiosk_package, target_type, target_id, target_serial, created_at, updated_at
+		FROM kiosk_policies WHERE id = $1
+	`, id).Scan(&p.ID, &p.Name, &p.KioskPackage, &p.TargetType, &p.TargetID, &p.TargetSerial, &p.CreatedAt, &p.UpdatedAt)
+	return p, err
+}
+
+func (d *DB) CreateKioskPolicy(ctx context.Context, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string) (uuid.UUID, error) {
+	var id uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		INSERT INTO kiosk_policies (name, kiosk_package, target_type, target_id, target_serial)
+		VALUES ($1, $2, $3, $4, $5) RETURNING id
+	`, name, pkg, targetType, targetID, targetSerial).Scan(&id)
+	return id, err
+}
+
+func (d *DB) UpdateKioskPolicy(ctx context.Context, id uuid.UUID, name, pkg, targetType string, targetID *uuid.UUID, targetSerial string) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE kiosk_policies SET name = $2, kiosk_package = $3, target_type = $4, target_id = $5, target_serial = $6, updated_at = NOW()
+		WHERE id = $1
+	`, id, name, pkg, targetType, targetID, targetSerial)
+	return err
+}
+
+func (d *DB) DeleteKioskPolicy(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM kiosk_policies WHERE id = $1`, id)
 	return err
 }
 
@@ -8210,6 +8287,25 @@ ALTER TABLE device_config ADD COLUMN IF NOT EXISTS offline_exit_relock TEXT NOT 
 -- Wireless-charging control: the client writes the customer_gpio line to enable/disable
 -- charging on the pad. Default true (charging on); pushed to the device like kiosk config.
 ALTER TABLE device_config ADD COLUMN IF NOT EXISTS wlc_charging_enabled BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- A named, standing kiosk-lock policy assigned to a restaurant/group/device/the whole
+-- fleet — the Manage page's unit, not a one-shot command. Applying/editing/deleting a
+-- policy resolves its target to the matching device IDs AT THAT MOMENT and writes
+-- device_config directly (same mechanism as before policies existed); it is not a live
+-- binding that tracks membership drift after the fact — a device added to a target group
+-- later doesn't retroactively pick up the policy without a re-save. target_id holds a
+-- restaurant_id or group_id depending on target_type; target_serial holds a device
+-- serial for target_type='device'. Exactly one of them is set (or neither, for 'all').
+CREATE TABLE IF NOT EXISTS kiosk_policies (
+	id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+	name          TEXT NOT NULL,
+	kiosk_package TEXT NOT NULL,
+	target_type   TEXT NOT NULL, -- 'all' | 'restaurant' | 'group' | 'device'
+	target_id     UUID,
+	target_serial TEXT NOT NULL DEFAULT '',
+	created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE IF NOT EXISTS ota_packages (
 	id              SERIAL      PRIMARY KEY,

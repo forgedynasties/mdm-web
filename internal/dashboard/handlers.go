@@ -10162,19 +10162,78 @@ func (h *Handler) applyKioskForTargets(w http.ResponseWriter, r *http.Request, t
 	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("%s kiosk on %d device(s).", verb, len(ids)))+"&flash_type=success")
 }
 
-// Manage renders the standing device-configuration page (kiosk lock today; more
-// policy types — e.g. charging-pad — land here later). Unlike Actions, nothing on
-// this page is a queued command: kiosk config writes directly to device_config and
-// is pushed on the target's next check-in (see applyKioskForTargets).
+// resolvePolicyTargetIDs resolves a stored kiosk policy's target to the matching
+// device IDs AT THIS MOMENT — a snapshot, not a live binding (same convention as
+// resolveTargetDeviceIDs uses for the "all" target elsewhere: a device added to a
+// target group later doesn't retroactively pick up the policy without a re-save).
+func (h *Handler) resolvePolicyTargetIDs(ctx context.Context, targetType string, targetID *uuid.UUID, targetSerial string) ([]uuid.UUID, error) {
+	switch targetType {
+	case "all":
+		return h.db.GetAllDeviceIDs(ctx)
+	case "restaurant":
+		if targetID == nil {
+			return nil, nil
+		}
+		return h.db.GetDeviceIDsByRestaurantIDs(ctx, []uuid.UUID{*targetID})
+	case "group":
+		if targetID == nil {
+			return nil, nil
+		}
+		return h.db.GetDeviceIDsInGroups(ctx, []uuid.UUID{*targetID})
+	case "device":
+		if targetSerial == "" {
+			return nil, nil
+		}
+		return h.db.GetDeviceIDsBySerials(ctx, []string{targetSerial})
+	default:
+		return nil, nil
+	}
+}
+
+// manageTargetLabel renders a policy's target as the short tag shown on its card
+// ("Drive-Thru Kiosks (group)", "Riverside Ave (restaurant)", a bare serial, or
+// "All devices").
+func manageTargetLabel(p db.KioskPolicy, restaurants []db.Restaurant, groups []db.Group) string {
+	switch p.TargetType {
+	case "all":
+		return "All devices"
+	case "restaurant":
+		for _, r := range restaurants {
+			if p.TargetID != nil && r.ID == *p.TargetID {
+				return r.Name + " (restaurant)"
+			}
+		}
+		return "Restaurant"
+	case "group":
+		for _, g := range groups {
+			if p.TargetID != nil && g.ID == *p.TargetID {
+				return g.Name + " (group)"
+			}
+		}
+		return "Group"
+	case "device":
+		return p.TargetSerial
+	default:
+		return "—"
+	}
+}
+
+// Manage renders the standing device-configuration page: named kiosk policies (more
+// policy types — e.g. charging-pad — land here later), not a device list or a
+// one-shot bulk-apply form. A policy is a durable object (create/edit/duplicate/
+// delete); applying one writes device_config directly, same mechanism the page
+// always used, just now remembered as a named thing instead of a fire-and-forget
+// action. See resolvePolicyTargetIDs for what "device count" means here.
 func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
-	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{}, 0, 2000, "serial", "asc")
+	ctx := r.Context()
+	policies, err := h.db.ListKioskPolicies(ctx)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	restaurants, _ := h.db.ListRestaurants(r.Context())
-	groups, _ := h.db.ListGroups(r.Context())
-	fleetPackages, _ := h.db.SearchFleetPackages(r.Context(), "")
+	restaurants, _ := h.db.ListRestaurants(ctx)
+	groups, _ := h.db.ListGroups(ctx)
+	fleetPackages, _ := h.db.SearchFleetPackages(ctx, "")
 	pkgNames := make(map[string]string, len(fleetPackages))
 	for _, p := range fleetPackages {
 		if p.AppName != "" {
@@ -10182,100 +10241,172 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	type manageVenue struct {
-		Name    string
-		Count   int
-		Serials string // comma-joined, feeds target_serials directly
+	type policyView struct {
+		db.KioskPolicy
+		AppName     string
+		TargetLabel string
+		DeviceCount int
 	}
-	type manageState struct {
-		Label   string
-		Enabled bool
-		Package string
-		Count   int
-		Venues  []manageVenue
-		Serials string // every device in this state, comma-joined
+	views := make([]policyView, 0, len(policies))
+	covered := 0
+	for _, p := range policies {
+		ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
+		appName := p.KioskPackage
+		if n, ok := pkgNames[p.KioskPackage]; ok {
+			appName = n
+		}
+		views = append(views, policyView{
+			KioskPolicy: p, AppName: appName,
+			TargetLabel: manageTargetLabel(p, restaurants, groups),
+			DeviceCount: len(ids),
+		})
+		covered += len(ids)
 	}
 
-	// Group by (kiosk_enabled, kiosk_package) first — devices sharing a state
-	// collapse into one card instead of one row each, since kiosk config is
-	// almost always uniform across most of a fleet. Within a state, sub-group by
-	// restaurant so the card still shows WHERE, not just a device-serial dump; a
-	// restaurant with devices split across two states legitimately appears under
-	// both cards with its partial count in each — no separate "mixed" flag needed,
-	// the split is just visible as-is.
-	type stateKey struct {
-		enabled bool
-		pkg     string
-	}
-	byState := make(map[stateKey][]db.Device)
-	var order []stateKey
-	for _, d := range devices {
-		// Package is meaningless while unlocked, but a device can carry a stale
-		// kiosk_package value from before it was last unlocked (its own reported
-		// state can drift from what the dashboard set) — ignore it for grouping so
-		// "Unlocked" doesn't fracture into multiple cards over a value nobody reads.
-		pkg := d.KioskPackage
-		if !d.KioskEnabled {
-			pkg = ""
-		}
-		k := stateKey{d.KioskEnabled, pkg}
-		if _, ok := byState[k]; !ok {
-			order = append(order, k)
-		}
-		byState[k] = append(byState[k], d)
-	}
-	sort.Slice(order, func(i, j int) bool {
-		if order[i].enabled != order[j].enabled {
-			return order[i].enabled // locked states first
-		}
-		return len(byState[order[i]]) > len(byState[order[j]])
-	})
-	states := make([]manageState, 0, len(order))
-	for _, k := range order {
-		devs := byState[k]
-		label := "Unlocked"
-		if k.enabled {
-			name := k.pkg
-			if n, ok := pkgNames[k.pkg]; ok {
-				name = n
-			}
-			label = "Locked — " + name
-		}
-		byVenue := make(map[string][]string)
-		var venueOrder []string
-		var allSerials []string
-		for _, d := range devs {
-			venue := d.RestaurantName
-			if venue == "" {
-				venue = "Lab (unassigned)"
-			}
-			if _, ok := byVenue[venue]; !ok {
-				venueOrder = append(venueOrder, venue)
-			}
-			byVenue[venue] = append(byVenue[venue], d.SerialNumber)
-			allSerials = append(allSerials, d.SerialNumber)
-		}
-		sort.Strings(venueOrder)
-		venues := make([]manageVenue, 0, len(venueOrder))
-		for _, v := range venueOrder {
-			venues = append(venues, manageVenue{Name: v, Count: len(byVenue[v]), Serials: strings.Join(byVenue[v], ",")})
-		}
-		states = append(states, manageState{
-			Label: label, Enabled: k.enabled, Package: k.pkg,
-			Count: len(devs), Venues: venues, Serials: strings.Join(allSerials, ","),
-		})
-	}
+	// "Default" — devices with no lock applied. Read live off device_config rather
+	// than derived set-subtraction from policy targets: a device can be unlocked
+	// directly (device page) without ever being "released" by a policy, and the
+	// stored device_config row is the actual truth of what's on the device.
+	unlockedCount, _ := h.db.CountUnlockedDevices(ctx)
 
 	role := h.role(r)
 	h.render(w, r, "manage.html", map[string]any{
 		"Title":         "Manage",
-		"States":        states,
-		"DeviceCount":   len(devices),
+		"Policies":      views,
+		"PolicyCount":   len(views),
+		"CoveredCount":  covered,
+		"UnlockedCount": unlockedCount,
 		"Restaurants":   restaurants,
 		"Groups":        groups,
 		"FleetPackages": fleetPackages,
 		"CanEdit":       role == "admin" || role == "dev" || role == "tester",
 	})
+}
+
+// ManagePolicySave creates a new kiosk policy or updates an existing one (an "id"
+// form field selects update), then immediately applies it to its target's current
+// devices — same write path applyKioskForTargets always used.
+func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	pkg := strings.TrimSpace(r.FormValue("kiosk_package"))
+	targetType := r.FormValue("target_type")
+	if name == "" || pkg == "" {
+		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("A policy needs a name and a locked app.")+"&flash_type=info")
+		return
+	}
+	var targetID *uuid.UUID
+	if idStr := r.FormValue("target_id"); idStr != "" {
+		if id, err := uuid.Parse(idStr); err == nil {
+			targetID = &id
+		}
+	}
+	targetSerial := strings.TrimSpace(r.FormValue("target_serial"))
+	if targetType != "all" && targetType != "restaurant" && targetType != "group" && targetType != "device" {
+		h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape("Pick what this policy applies to.")+"&flash_type=info")
+		return
+	}
+
+	ctx := r.Context()
+	var policyID uuid.UUID
+	if idStr := r.FormValue("id"); idStr != "" {
+		if id, err := uuid.Parse(idStr); err == nil {
+			policyID = id
+			if err := h.db.UpdateKioskPolicy(ctx, id, name, pkg, targetType, targetID, targetSerial); err != nil {
+				http.Error(w, "Internal error", http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+	if policyID == uuid.Nil {
+		id, err := h.db.CreateKioskPolicy(ctx, name, pkg, targetType, targetID, targetSerial)
+		if err != nil {
+			http.Error(w, "Internal error", http.StatusInternalServerError)
+			return
+		}
+		policyID = id
+	}
+
+	ids, err := h.resolvePolicyTargetIDs(ctx, targetType, targetID, targetSerial)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
+		http.Error(w, fmt.Sprintf("Too many target devices (%d); the configured limit is %d.", len(ids), max), http.StatusBadRequest)
+		return
+	}
+	if err := h.db.SetKioskConfigForDevices(ctx, ids, true, pkg, 0); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.pushKioskConfigToDevices(ctx, ids)
+	h.audit(r, "device.kiosk_policy_save", name, fmt.Sprintf("policy=%s, devices=%d, package=%s", policyID, len(ids), pkg))
+	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Saved %q — locked %d device(s).", name, len(ids)))+"&flash_type=success")
+}
+
+// ManagePolicyDuplicate clones a policy (name suffixed) without re-applying it —
+// the clone starts as its own independent policy the user can retarget before saving.
+func (h *Handler) ManagePolicyDuplicate(w http.ResponseWriter, r *http.Request) {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid policy ID", http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context()
+	p, err := h.db.GetKioskPolicy(ctx, id)
+	if err != nil {
+		http.Error(w, "Policy not found", http.StatusNotFound)
+		return
+	}
+	if _, err := h.db.CreateKioskPolicy(ctx, p.Name+" (copy)", p.KioskPackage, p.TargetType, p.TargetID, p.TargetSerial); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.kiosk_policy_duplicate", p.Name, "")
+	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Duplicated %q.", p.Name))+"&flash_type=success")
+}
+
+// ManagePolicyDelete removes a policy and unlocks whatever devices it currently
+// covers — deleting the thing that locked them releases them, matching what a user
+// expects "delete the policy" to mean rather than leaving devices silently locked
+// with nothing left to manage them.
+func (h *Handler) ManagePolicyDelete(w http.ResponseWriter, r *http.Request) {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid policy ID", http.StatusBadRequest)
+		return
+	}
+	ctx := r.Context()
+	p, err := h.db.GetKioskPolicy(ctx, id)
+	if err != nil {
+		http.Error(w, "Policy not found", http.StatusNotFound)
+		return
+	}
+	ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
+	if len(ids) > 0 {
+		if err := h.db.SetKioskConfigForDevices(ctx, ids, false, "", 0); err == nil {
+			h.pushKioskConfigToDevices(ctx, ids)
+		}
+	}
+	if err := h.db.DeleteKioskPolicy(ctx, id); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.kiosk_policy_delete", p.Name, fmt.Sprintf("devices_unlocked=%d", len(ids)))
+	h.hxRedirect(w, r, "/manage?flash="+url.QueryEscape(fmt.Sprintf("Deleted %q — unlocked %d device(s).", p.Name, len(ids)))+"&flash_type=success")
 }
 
 // BootLogo renders the Boot logo config page: a dedicated splash-upload + target
@@ -13491,6 +13622,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("GET /manage", h.requireAuth(h.Manage))
+	mux.HandleFunc("POST /manage/policies", h.requireAuth(h.ManagePolicySave))
+	mux.HandleFunc("POST /manage/policies/{id}/duplicate", h.requireAuth(h.ManagePolicyDuplicate))
+	mux.HandleFunc("POST /manage/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))
 	mux.HandleFunc("GET /commands/browse-devices", h.requireAuth(h.CommandBrowseDevices))
 	mux.HandleFunc("GET /commands/history", h.requireAuth(h.CommandHistory))
 	// Static route wins over /commands/{id}, so this is the global live feed the
