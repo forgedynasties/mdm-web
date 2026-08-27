@@ -632,13 +632,18 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 		},
 		"cmdLabel": cmdTypeLabel,
-		// cmdStatusLabel makes a not-yet-run status honest about an OFFLINE device: a
-		// command shows "delivered"/"pending" the moment it's queued, but on an offline
-		// device it hasn't reached anything — show "queued" (it runs when the device comes
-		// back online). Online/terminal statuses are shown as-is.
+		// cmdStatusLabel makes command status honest about what actually happened.
+		// "delivered" only means the hub pushed the frame onto the socket, not that the
+		// device got it — showing that to users reads as done when it isn't, so it's
+		// displayed as "pending" until the device sends a "received" ack. On an offline
+		// device, pending/delivered show as "queued" (it runs when the device reconnects).
+		// Terminal/in-progress statuses are shown as-is.
 		"cmdStatusLabel": func(status string, online bool) string {
 			if !online && (status == "delivered" || status == "pending") {
 				return "queued"
+			}
+			if status == "delivered" {
+				return "pending"
 			}
 			return status
 		},

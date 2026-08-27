@@ -906,12 +906,15 @@ func (h *Handler) HandleWsCommandAck(deviceID uuid.UUID, raw []byte) {
 		log.Printf("[ws-ack] invalid status: %q", body.Status)
 		return
 	}
+	// Save the output BEFORE flipping status to terminal: a page load landing between the
+	// two would see a terminal status (no longer polling) with no output attached yet,
+	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
+	if body.Output != "" {
+		_ = h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output)
+	}
 	if err := h.db.AckCommand(ctx, body.CommandID, deviceID, body.Status); err != nil {
 		log.Printf("[ws-ack] AckCommand error: %v", err)
 		return
-	}
-	if body.Output != "" {
-		_ = h.db.SaveCommandResult(ctx, body.CommandID, deviceID, body.Output)
 	}
 	if body.Status == "installed" && body.Package != "" {
 		if cmd, err := h.db.GetCommand(ctx, body.CommandID); err == nil && cmd.ApkURL != "" {
@@ -1685,6 +1688,12 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 		return
 	}
+	// Save the output BEFORE flipping status to terminal: a page load landing between the
+	// two would see a terminal status (no longer polling) with no output attached yet,
+	// leaving e.g. a screenshot thumbnail stuck on its placeholder until manual reload.
+	if body.Output != "" {
+		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
+	}
 	if err := h.db.AckCommand(r.Context(), cmdID, device.ID, body.Status); err != nil {
 		if errors.Is(err, db.ErrCommandNotTargeted) {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "command does not target device"})
@@ -1692,9 +1701,6 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
-	}
-	if body.Output != "" {
-		_ = h.db.SaveCommandResult(r.Context(), cmdID, device.ID, body.Output)
 	}
 	// Learn which package this APK installs, so future stuck installs auto-reconcile.
 	if body.Status == "installed" && body.Package != "" {
