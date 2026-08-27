@@ -5871,6 +5871,15 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 			"checkin_interval_seconds": interval,
 		})
 		h.hub.Push(id, msg)
+		// Enabling kiosk locks the device to one app — wake the screen too, so a device
+		// that was asleep doesn't sit locked to a black screen until something else wakes
+		// it. The client already handles this frame for remote-control capture; reused
+		// as-is here, no new client support needed.
+		if cfg.KioskEnabled {
+			if wakeMsg, err := json.Marshal(map[string]any{"type": "wake_screen"}); err == nil {
+				h.hub.Push(id, wakeMsg)
+			}
+		}
 		h.hub.PublishDeviceUpdate(id)
 	}
 }

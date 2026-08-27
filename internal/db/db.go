@@ -3682,14 +3682,21 @@ func (d *DB) GetDeviceQueue(ctx context.Context, deviceID uuid.UUID) ([]DeviceCo
 				WHERE ct.command_id = c.id AND dg.device_id = $1))
 		)
 		AND c.type != 'update_splash'
-		AND COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
+		AND (
+			COALESCE(cs.status, 'pending') IN ('pending', 'delivered', 'downloading', 'installing')
+			-- A command that just reached a terminal state lingers here for a short grace
+			-- window instead of vanishing the instant it finishes — so the operator actually
+			-- sees "Done"/"Failed" rather than the row disappearing out from under them.
+			OR (COALESCE(cs.status, 'pending') IN ('installed', 'completed', 'failed', 'cancelled')
+				AND cs.updated_at > NOW() - INTERVAL '30 seconds')
+		)
 		-- Only show commands that will actually run now — the freshly queued ones. Old stuck
 		-- commands (a long-ago delivered/pending that the device never acted on) are not shown
 		-- as "queued". An actively downloading/installing command always shows, whatever its
 		-- age, since it IS running right now.
 		AND (
 			c.created_at > NOW() - INTERVAL '1 hour'
-			OR COALESCE(cs.status, 'pending') IN ('downloading', 'installing')
+			OR COALESCE(cs.status, 'pending') IN ('downloading', 'installing', 'installed', 'completed', 'failed', 'cancelled')
 		)
 		ORDER BY c.created_at ASC
 	`, deviceID)
