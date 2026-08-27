@@ -11506,7 +11506,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"actions-pick-pills", "actions-pick-spotlight", "actions-pick-toolbar",
 		"actions-panes-studio", "actions-panes-console", "actions-panes-guided",
 		"actions-target", "actions-target-rail", "actions-target-audience", "actions-target-split",
-		"actions-install-picker", "actions-kiosk-config", "manage-table",
+		"actions-install-picker", "actions-kiosk-config", "manage-table", "manage-kiosk-dialog",
 		"action-types", "action-rollout", "action-cockpit",
 		"export", "export-builder", "export-compact", "timesel",
 		"health-pulse", "health-triage", "health-grid",
