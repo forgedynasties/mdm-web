@@ -154,6 +154,38 @@
 #action-config-modal .acm-sub{padding:0 20px 12px;margin-top:-4px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--border-soft);padding-bottom:14px;}
 #action-config-modal .modal-body{max-height:56vh;}
 #action-config-modal .modal-footer{display:flex;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--border);}
+
+/* Locked-app picker — same component as the device page's kiosk modal (searchable
+   grid/list of real app icons), reused verbatim so the two feel identical. */
+.kpk{display:flex;flex-direction:column;gap:8px;}
+.kpk-top{display:flex;gap:6px;align-items:center;}
+.kpk-search{position:relative;flex:1;display:flex;align-items:center;}
+.kpk-search svg{position:absolute;left:9px;color:var(--muted);pointer-events:none;}
+.kpk-search input{width:100%;font:inherit;font-size:13px;padding:7px 9px 7px 28px;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--text);}
+.kpk-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+.kpk-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;}
+.kpk-seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;cursor:pointer;display:grid;place-items:center;}
+.kpk-seg button.active{background:var(--accent-soft);color:var(--accent);}
+.kpk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:344px;overflow-y:auto;padding:2px;}
+.kpk-list{display:none;flex-direction:column;max-height:344px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;}
+.kpk.listview .kpk-grid{display:none;}
+.kpk.listview .kpk-list{display:flex;}
+.kpk-opt{position:relative;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit;}
+.kpk-opt:hover{border-color:var(--rule-2);}
+.kpk-opt.sel{border-color:var(--accent);background:var(--accent-soft);}
+.kpk-opt.kbd{box-shadow:0 0 0 2px var(--accent);}
+.kpk-opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.kpk-tile{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none;}
+.kpk-tile.kpk-img{object-fit:contain;background:var(--surface-3);padding:2px;}
+.kpk-txt{min-width:0;display:flex;flex-direction:column;}
+.kpk-nm{font-size:12px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kpk-pk{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);}
+.kpk-check{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center;}
+.kpk-opt.sel .kpk-check{display:grid;}
+.kpk-list .kpk-opt{flex-direction:row;align-items:center;border:0;border-bottom:1px solid var(--border-soft);border-radius:0;}
+.kpk-list .kpk-opt:last-child{border-bottom:0;}
+.kpk-list .kpk-check{position:static;margin-left:auto;background:transparent;color:var(--accent);}
+.kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1;}
 /* package rows (Uninstall) */
 .pkgs{border:1px solid var(--border);border-radius:12px;overflow:hidden;max-height:300px;overflow-y:auto;}
 .pkg{width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border:none;background:var(--surface);border-top:1px solid var(--border-soft);text-align:left;cursor:pointer;}
@@ -482,7 +514,6 @@
 
         <div class="modal-pane" data-type="shell" style="display:none;">
           <div class="console"><div class="cbar"><i></i><i></i><i></i></div><div class="cin"><span class="pr">$</span><input type="text" name="shell_cmd" id="shell-cmd-input" placeholder="ls /sdcard" oninput="updatePreview()"></div></div>
-          <div class="pl-sub">Legacy devices only · expires after 5 minutes.</div>
           {{if .ShellRecent}}<div class="lvl-lbl" style="margin-top:16px">Recent</div>
           <div class="pl-chips">{{range .ShellRecent}}<button type="button" class="pl-chip" data-cmd="{{.}}" onclick="cmdFillShell(this.dataset.cmd)" title="{{.}}">{{.}}</button>{{end}}</div>{{end}}
           {{if .ShellPopular}}<div class="lvl-lbl" style="margin-top:14px">Frequent</div>
@@ -507,18 +538,22 @@
           <div id="kiosk-app-wrap" style="margin-top:16px">
             <div class="lvl-lbl">Locked app</div>
             {{if .FleetPackages}}
-              <input type="hidden" name="kiosk_package" id="kiosk-pkg" value="">
-              <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" id="kiosk-filter" placeholder="Search apps seen across the fleet…" aria-label="Search apps seen across the fleet" autocomplete="off" oninput="filterKioskApps(this.value)"></div>
-              <div class="pkgs" id="kiosk-list">
-                {{range .FleetPackages}}
-                <button type="button" class="pkg" data-pkg="{{.PackageName}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickKiosk(this)">
-                  <span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-                  <span class="m"><span class="nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pk">{{.PackageName}}</span></span>
-                  <span class="cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
-                </button>
-                {{end}}
+              <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="">
+              <div id="kiosk-apps-src" hidden>{{range .FleetPackages}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}</div>
+              <div class="kpk" id="kiosk-app-picker">
+                <div class="kpk-top">
+                  <span class="kpk-search">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="kpk-q" autocomplete="off" spellcheck="false" role="combobox" aria-controls="kpk-list" aria-expanded="true" placeholder="Search apps…">
+                  </span>
+                  <span class="kpk-seg" role="tablist" aria-label="View">
+                    <button type="button" id="kpk-vgrid" class="active" title="Grid" aria-label="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+                    <button type="button" id="kpk-vlist" title="List" aria-label="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+                  </span>
+                </div>
+                <div class="kpk-grid" id="kpk-grid" role="listbox" aria-label="Apps seen across the fleet"></div>
+                <div class="kpk-list" id="kpk-list" role="listbox" aria-label="Apps seen across the fleet"></div>
               </div>
-              <div id="kiosk-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
               <div class="pl-sub">Devices lock to this app — it must already be installed on the target.</div>
             {{else}}
               <input type="text" name="kiosk_package" id="kiosk-pkg-text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" aria-label="Package name to lock to" oninput="updatePreview()">
@@ -735,7 +770,7 @@ function selectType(val, btn) {
 var ACM_TITLES = {
   install_apk: { t: 'Choose apps to install', s: '' },
   uninstall:   { t: 'Choose apps to uninstall', s: '' },
-  shell:       { t: 'Shell command', s: 'Legacy devices only · expires after 5 minutes.' },
+  shell:       { t: 'Shell command', s: '' },
   query:       { t: 'Choose a query', s: 'Runs a read-only, admin-approved command.' },
   set_kiosk:   { t: 'Configure kiosk mode', s: 'Lock devices to one app, or unlock them.' }
 };
@@ -798,11 +833,11 @@ function refreshActionSummary(type) {
     if (!locked) {
       kel.className = 'cfg-filled'; kel.textContent = 'Unlock — exit kiosk mode';
     } else {
-      var pkgEl = document.getElementById('kiosk-pkg') || document.getElementById('kiosk-pkg-text');
+      var pkgEl = document.getElementById('kiosk-pkg-value') || document.getElementById('kiosk-pkg-text');
       var pkg = pkgEl ? pkgEl.value : '';
-      var nmEl = (pkg && window.CSS && CSS.escape) ? document.querySelector('#kiosk-list .pkg[data-pkg="' + CSS.escape(pkg) + '"] .nm') : null;
+      var nmEl = (pkg && window.CSS && CSS.escape) ? document.querySelector('#kiosk-apps-src i[data-value="' + CSS.escape(pkg) + '"]') : null;
       kel.className = pkg ? 'cfg-filled' : 'cfg-empty';
-      kel.textContent = pkg ? ('Lock to ' + (nmEl ? nmEl.textContent : pkg)) : 'Pick an app to lock to';
+      kel.textContent = pkg ? ('Lock to ' + (nmEl ? nmEl.getAttribute('data-name') : pkg)) : 'Pick an app to lock to';
     }
     document.getElementById('kiosk-picker').classList.add('filled');
   }
@@ -841,19 +876,73 @@ function setKioskMode(v, btn) {
   var note = document.getElementById('kiosk-unlock-note'); if (note) note.style.display = lock ? 'none' : '';
   updatePreview();
 }
-function pickKiosk(el) {
-  document.querySelectorAll('#kiosk-list .pkg').forEach(function (p) { p.classList.toggle('on', p === el); });
-  var h = document.getElementById('kiosk-pkg'); if (h) h.value = el.dataset.pkg;
-  updatePreview();
-}
-function filterKioskApps(q) {
-  q = (q || '').toLowerCase(); var any = false;
-  document.querySelectorAll('#kiosk-list .pkg').forEach(function (p) {
-    var show = (p.dataset.search || '').toLowerCase().indexOf(q) !== -1;
-    p.style.display = show ? '' : 'none'; if (show) any = true;
+// Locked-app picker — the same searchable grid/list-of-real-icons component as the
+// device page's kiosk modal (templates/device.html), reused verbatim (minus the
+// device page's live-drawer merge, which doesn't apply to a fleet-wide package list).
+(function () {
+  var picker = document.getElementById('kiosk-app-picker');
+  if (!picker) return;
+  var src = document.getElementById('kiosk-apps-src');
+  var hidden = document.getElementById('kiosk-pkg-value');
+  var q = document.getElementById('kpk-q');
+  var gridEl = document.getElementById('kpk-grid');
+  var listEl = document.getElementById('kpk-list');
+  var apps = [];
+  (function () {
+    var seen = {};
+    [].forEach.call(src.querySelectorAll('i'), function (el) {
+      var v = el.getAttribute('data-value'); if (!v || seen[v]) return; seen[v] = 1;
+      apps.push({ v: v, n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon') });
+    });
+  })();
+  var kbd = -1;
+
+  function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function colorFor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffffff; return 'hsl(' + (h % 360) + ' 52% 45%)'; }
+  function initial(n) { n = (n || '').replace(/^[^A-Za-z0-9]+/, ''); return (n.slice(0, 1) || '?').toUpperCase(); }
+  function match(a, s) { if (!s) return true; return (a.n + ' ' + a.v).toLowerCase().indexOf(s) >= 0; }
+  function filtered() { var s = q.value.trim().toLowerCase(); return apps.filter(function (a) { return match(a, s); }); }
+
+  function tileHtml(a) {
+    if (a.icon) return '<img class="kpk-tile kpk-img" src="data:image/png;base64,' + a.icon + '" alt="">';
+    return '<span class="kpk-tile" style="background:' + colorFor(a.v || a.n) + '">' + esc(initial(a.n)) + '</span>';
+  }
+  function optHtml(a, i) {
+    var sel = hidden.value === a.v;
+    return '<button type="button" class="kpk-opt' + (sel ? ' sel' : '') + (i === kbd ? ' kbd' : '') + '" data-value="' + esc(a.v) + '" role="option" aria-selected="' + sel + '">' +
+      tileHtml(a) + '<span class="kpk-txt"><span class="kpk-nm">' + esc(a.n) + '</span>' +
+      '<span class="kpk-pk">' + esc(a.v) + '</span></span>' +
+      '<span class="kpk-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span></button>';
+  }
+  function render() {
+    var items = filtered();
+    var html = items.length ? items.map(optHtml).join('') : '<div class="kpk-empty">No apps match.</div>';
+    gridEl.innerHTML = html; listEl.innerHTML = html;
+  }
+  function choose(v) { hidden.value = v; render(); updatePreview(); }
+
+  gridEl.addEventListener('click', pick); listEl.addEventListener('click', pick);
+  function pick(e) { var b = e.target.closest('.kpk-opt'); if (b) choose(b.getAttribute('data-value')); }
+
+  q.addEventListener('input', function () { kbd = -1; render(); });
+  q.addEventListener('keydown', function (e) {
+    var items = filtered();
+    if (e.key === 'ArrowDown') { e.preventDefault(); kbd = Math.min(kbd + 1, items.length - 1); render(); scrollKbd(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); kbd = Math.max(kbd - 1, 0); render(); scrollKbd(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (kbd >= 0 && items[kbd]) choose(items[kbd].v); else if (items.length === 1) choose(items[0].v); }
   });
-  var nm = document.getElementById('kiosk-nomatch'); if (nm) nm.style.display = any ? 'none' : '';
-}
+  function scrollKbd() { var box = picker.classList.contains('listview') ? listEl : gridEl; var el = box.querySelector('.kpk-opt.kbd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+
+  function setView(v) {
+    picker.classList.toggle('listview', v === 'list');
+    document.getElementById('kpk-vgrid').classList.toggle('active', v === 'grid');
+    document.getElementById('kpk-vlist').classList.toggle('active', v === 'list');
+  }
+  document.getElementById('kpk-vgrid').onclick = function () { setView('grid'); };
+  document.getElementById('kpk-vlist').onclick = function () { setView('list'); };
+
+  render();
+})();
 // ── Scope-rail target picker ──
 // The rail sets the candidate scope (collection + refine); the device list under it
 // lets you drill in. No devices checked → target = the whole scope; check some →
