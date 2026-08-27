@@ -273,13 +273,13 @@
   <div class="pick-wrap dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
     <div class="pick-cap">Choose an action</div>
     <div class="pills" role="radiogroup" aria-label="Choose an action">
-      <button type="button" class="pill on" role="radio" aria-checked="true" data-type="install_apk" onclick="selectType('install_apk', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app<span class="g">Apps</span></button>
-      <button type="button" class="pill" role="radio" aria-checked="false" data-type="uninstall" onclick="selectType('uninstall', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall<span class="g">Apps</span></button>
-      <button type="button" class="pill" role="radio" aria-checked="false" data-type="screenshot" onclick="selectType('screenshot', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot<span class="g">Diag</span></button>
-      {{if and (canOperate .Role) .DeviceQueries}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="query" onclick="selectType('query', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span>Queries<span class="g">Diag</span></button>{{end}}
-      {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>{{end}}
-      <button type="button" class="pill" role="radio" aria-checked="false" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
-      {{if canAdminOrTester .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
+      <button type="button" class="pill on" role="radio" aria-checked="true" data-type="install_apk" onclick="selectType('install_apk', this, true)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span>Install app<span class="g">Apps</span></button>
+      <button type="button" class="pill" role="radio" aria-checked="false" data-type="uninstall" onclick="selectType('uninstall', this, true)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>Uninstall<span class="g">Apps</span></button>
+      <button type="button" class="pill" role="radio" aria-checked="false" data-type="screenshot" onclick="selectType('screenshot', this, true)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>Screenshot<span class="g">Diag</span></button>
+      {{if and (canOperate .Role) .DeviceQueries}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="query" onclick="selectType('query', this, true)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span>Queries<span class="g">Diag</span></button>{{end}}
+      {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" onclick="selectType('shell', this, true)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>{{end}}
+      <button type="button" class="pill" role="radio" aria-checked="false" data-type="reboot" onclick="selectType('reboot', this, true)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
+      {{if canAdminOrTester .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this, true)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
     </div>
     <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
   </div>
@@ -707,7 +707,7 @@ var ACT_META = {
   set_kiosk:    { name:'Kiosk mode',   sub:'Lock the target to one app, or unlock it',icon:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>' },
   query:        { name:'Run a query',  sub:'Retrieve a device property (read-only)',  icon:'<path d="M4 6h16M4 12h10M4 18h7"/>' }
 };
-function selectType(val, btn) {
+function selectType(val, btn, userPicked) {
   document.getElementById('cmd-type-input').value = val;
   document.querySelectorAll('.pill').forEach(function(c) { var sel = c.dataset.type === val; c.classList.toggle('on', sel); c.setAttribute('aria-checked', sel ? 'true' : 'false'); });
   // reflect the chosen action in the sheet header
@@ -725,9 +725,11 @@ function selectType(val, btn) {
   // reason applies only to reboot
   var rw = document.getElementById('reason-wrap');
   if (rw) rw.style.display = (val === 'reboot') ? '' : 'none';
-  // Configurable types open their picker dialog right away — screenshot/reboot
-  // have no options, so they never do.
-  if (ACM_TITLES[val]) openActionModal(val);
+  // Configurable types open their picker dialog right away when a user actually
+  // clicks the pill — screenshot/reboot have no options and never do, and this
+  // never fires for the page's own init/prefill/clone calls (userPicked unset),
+  // so loading /commands doesn't pop a dialog on its own.
+  if (userPicked && ACM_TITLES[val]) openActionModal(val);
   updatePreview();
 }
 
