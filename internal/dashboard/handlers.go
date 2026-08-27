@@ -2622,18 +2622,23 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !havePeak {
-			cc, err = h.db.GetCheckinsForDuration(ctx, device.ID, device.LastSeenAt.Add(-48*time.Hour))
+			// Bake in only the default 6h view (matches the chart's default
+			// currentDuration) instead of the full 48h range the duration buttons
+			// can reach — these devices can check in every few seconds, so 48h can
+			// be tens of thousands of rows, and rendering all of them into the page
+			// HTML (3 template passes over the same slice, for battery/temp/ram)
+			// was the single biggest driver of a slow first paint. The 12h/24h/48h
+			// buttons pull their extra history from /chart-data on demand
+			// (chartLoadOlder), and the client also warms that cache in the
+			// background right after load — see chartWarmBackground in device.html.
+			cc, err = h.db.GetCheckinsForDuration(ctx, device.ID, device.LastSeenAt.Add(-6*time.Hour))
 		}
 		if err != nil {
 			fail(err)
 			return
 		}
-		// These devices can check in every few seconds, so a 48h window can be tens
-		// of thousands of rows — baking all of them into the page HTML (3 template
-		// passes over the same slice, for battery/temp/ram) is the single biggest
-		// driver of a slow device-page load. Thin to the same maxPoints the
-		// on-demand /chart-data endpoint already uses; the chart re-smooths
-		// client-side regardless, so the thinned line is visually identical.
+		// Safety net in case a device's poll interval is far below normal — thin to
+		// the same maxPoints the on-demand /chart-data endpoint already uses.
 		chartCheckins = downsampleCheckins(cc, 2500)
 	})
 	run(func() {

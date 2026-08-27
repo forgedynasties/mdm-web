@@ -1791,9 +1791,23 @@ function mdmBootCharts() {
       document.querySelectorAll(".dur-btn").forEach(b => b.classList.remove("active"));
       btn.classList.add("active");
       currentDuration = +btn.dataset.ms;
-      updateCharts();
+      // The page only bakes in the default 6h window; 12h/24h/48h need to pull
+      // their extra history from /chart-data first (a no-op once chartWarmBackground
+      // has already caught up).
+      chartLoadOlder(Date.now() - currentDuration, updateCharts);
     });
   });
+
+  // The page ships only the default 6h window for a fast first paint. Quietly widen
+  // it to the full 48h the duration buttons can reach, in the background, so 12h/
+  // 24h/48h feel instant instead of triggering a visible fetch on click. Runs after
+  // the initial chart is already on screen and doesn't touch currentDuration/redraw
+  // anything itself — chartLoadOlder just prepends into the shared arrays.
+  (function chartWarmBackground() {
+    var run = function () { chartLoadOlder(Date.now() - 48 * 3600 * 1000, null); };
+    if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 4000 });
+    else setTimeout(run, 1500);
+  })();
 
   function closeCustomPop() {
     var inputs = document.getElementById("custom-range-inputs");
