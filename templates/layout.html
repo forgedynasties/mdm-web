@@ -1110,13 +1110,20 @@
       }
     }
 
+    // Capture phase, not bubble: htmx's own submit handler (for every hx-boosted
+    // form — i.e. nearly all of them, see <body hx-boost="true">) runs on the
+    // bubble phase and calls preventDefault() before it issues the AJAX request.
+    // A bubble-phase listener here would see evt.defaultPrevented already true and
+    // bail out, so markSubmitting (and the busy overlay it drives) would silently
+    // never fire for any boosted form — only for the handful with hx-boost="false".
+    // Capture always runs before bubble, so this sees the event first.
     document.addEventListener('submit', function (evt) {
       var form = evt.target;
       if (!form || form.tagName !== 'FORM' || evt.defaultPrevented) return;
       if ((form.method || 'GET').toUpperCase() !== 'POST') return;
       if (form.dataset.noSpinner === 'true') return;
       markSubmitting(form, evt.submitter);
-    });
+    }, true);
 
     // Poll gating: drop polling requests when tab hidden or when the card's
     // collapsible body is collapsed. Manual / form requests are unaffected.
