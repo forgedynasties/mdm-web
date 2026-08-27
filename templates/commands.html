@@ -118,29 +118,26 @@
 .pl-search:focus-within{border-color:var(--accent-edge);box-shadow:var(--ring);}
 .pl-search svg{width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:2;flex:none;}
 .pl-search input{flex:1;border:none;outline:none;background:none;font-size:14px;color:var(--text);}
-/* app grid (Install) */
-.appgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;}
-.appc{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);text-align:left;cursor:pointer;transition:border-color .14s,box-shadow .14s,transform .1s;}
-.appc:hover{border-color:var(--rule-2);box-shadow:var(--shadow-sm);transform:translateY(-1px);}
-.appc.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
-.appc .thumb{width:42px;height:42px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:17px;text-transform:uppercase;overflow:hidden;}
+/* app grid (Install) — compact tile grid, same shape as device.html's install drawer */
+.appgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;}
+.appc{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 6px 10px;border:1px solid transparent;border-radius:13px;background:none;text-align:center;cursor:pointer;transition:background .12s,border-color .12s;}
+.appc:hover{background:var(--surface2);}
+.appc.on{border-color:var(--accent);background:var(--accent-soft);}
+.appc .thumb{width:48px;height:48px;flex:none;border-radius:14px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:19px;text-transform:uppercase;overflow:hidden;background:var(--surface-3);}
 .appc .thumb img{width:100%;height:100%;object-fit:contain;}
-.appgrid .appc .thumb:has(img){background:var(--surface-3)!important;}
-.appc .m{min-width:0;flex:1;}
-.appc .nm{display:block;font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.appc .meta{display:block;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;font-family:var(--mono);}
-.appc .chk{width:20px;height:20px;flex:none;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;}
-.appc .chk svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3;display:none;}
-.appc.on .chk{border-color:var(--accent);background:var(--accent);}
-.appc.on .chk svg{display:block;}
-.appgrid .appc:nth-child(5n+1) .thumb{background:linear-gradient(135deg,#f9674e,#ff9f7a);}
-.appgrid .appc:nth-child(5n+2) .thumb{background:linear-gradient(135deg,#7a80f6,#9aa0ff);}
-.appgrid .appc:nth-child(5n+3) .thumb{background:linear-gradient(135deg,#2bb673,#59c97a);}
-.appgrid .appc:nth-child(5n+4) .thumb{background:linear-gradient(135deg,#e8a13a,#f0b765);}
-.appgrid .appc:nth-child(5n) .thumb{background:linear-gradient(135deg,#6aa9ff,#9ecbff);}
-.appnew{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;border:1.5px dashed var(--rule-2);border-radius:12px;background:transparent;color:var(--muted);font-size:12.5px;font-weight:600;min-height:66px;cursor:pointer;}
+.appc .m{min-width:0;width:100%;}
+.appc .nm{font-size:11.5px;font-weight:650;color:var(--text);line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.appc .chk{position:absolute;top:5px;right:12px;width:18px;height:18px;flex:none;border-radius:50%;background:var(--accent);display:none;align-items:center;justify-content:center;}
+.appc .chk svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3;}
+.appc.on .chk{display:flex;}
+.appgrid .appc:nth-child(5n+1) .thumb:not(:has(img)){background:linear-gradient(135deg,#f9674e,#ff9f7a);}
+.appgrid .appc:nth-child(5n+2) .thumb:not(:has(img)){background:linear-gradient(135deg,#7a80f6,#9aa0ff);}
+.appgrid .appc:nth-child(5n+3) .thumb:not(:has(img)){background:linear-gradient(135deg,#2bb673,#59c97a);}
+.appgrid .appc:nth-child(5n+4) .thumb:not(:has(img)){background:linear-gradient(135deg,#e8a13a,#f0b765);}
+.appgrid .appc:nth-child(5n) .thumb:not(:has(img)){background:linear-gradient(135deg,#6aa9ff,#9ecbff);}
+.appnew{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--rule-2);border-radius:13px;background:transparent;color:var(--muted);font-size:11px;font-weight:600;min-height:78px;cursor:pointer;}
 .appnew:hover{border-color:var(--accent-edge);color:var(--accent);background:var(--accent-soft);}
-.appnew svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2;}
+.appnew svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;}
 /* package rows (Uninstall) */
 .pkgs{border:1px solid var(--border);border-radius:12px;overflow:hidden;max-height:300px;overflow-y:auto;}
 .pkg{width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border:none;background:var(--surface);border-top:1px solid var(--border-soft);text-align:left;cursor:pointer;}
@@ -292,9 +289,9 @@
             <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" aria-label="Search your app library" autocomplete="off" oninput="filterApps(this.value)"></div>
             <div class="appgrid" id="app-grid">
               {{range .Apps}}
-              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.PackageName}}" onclick="pickApp(this)">
+              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.PackageName}}" onclick="pickApp(this)" title="{{.Name}}{{if .PackageName}} · {{.PackageName}}{{end}}">
                 <span class="thumb">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
-                <span class="m"><span class="nm">{{.Name}}</span>{{if .PackageName}}<span class="meta">{{.PackageName}}</span>{{end}}</span>
+                <span class="m"><span class="nm">{{.Name}}</span></span>
                 <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
               </button>
               {{end}}
@@ -604,6 +601,34 @@ function filterCommands() {
     h.style.display = vis ? '' : 'none';
   });
 }
+
+// Untouched "All devices" is the Target section's default (target-type-input stays
+// literally 'all' until the user interacts with it in any way — picking a scope,
+// toggling a refine pill, or checking devices all flip it to 'devices'/'scope'). A
+// send from that untouched state would otherwise queue against the whole fleet with
+// no warning, so gate it behind a confirmation showing the live count the sheet
+// footer already computed (#cmd-impact's data-effective, from the same resolver
+// CommandCreate uses — see CommandImpact in handlers.go).
+(function () {
+  var DESTRUCTIVE = { reboot: 1, ota: 1, update_splash: 1 };
+  var form = document.getElementById('cmd-form');
+  if (!form) return;
+  form.addEventListener('submit', function (e) {
+    var tt = document.getElementById('target-type-input');
+    if (!tt || tt.value !== 'all') return; // explicitly scoped/picked — no extra gate
+    e.preventDefault();
+    var impact = document.querySelector('#cmd-impact .imp-body');
+    var n = impact ? (impact.getAttribute('data-effective') || '0') : '0';
+    var cmdType = document.getElementById('cmd-type-input').value;
+    window.mdmConfirm({
+      title: 'Send to the whole fleet?',
+      body: "You haven't scoped this to a restaurant, group, or specific devices.",
+      scope: 'This will target ' + n + ' device' + (n === '1' ? '' : 's') + ' — online and offline.',
+      tier: DESTRUCTIVE[cmdType] ? 'danger' : 'normal',
+      confirmLabel: 'Send anyway'
+    }).then(function (ok) { if (ok) form.submit(); });
+  });
+})();
 
 var ACT_META = {
   install_apk:  { name:'Install app',  sub:'Push an APK and install it silently',   icon:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>' },
