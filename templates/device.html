@@ -485,7 +485,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div class="ddc-kv"><span class="k">Status</span><span class="v">
       {{if .KioskConfig.WlcChargingEnabled}}
       <span class="pad-stat pad-stat-{{if eq $wlcS "1"}}on{{else if eq $wlcS "0"}}vacant{{else if eq $wlcS "2"}}flapping{{else}}bad{{end}}" id="pad-status">
-        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Device placed{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}Flapping{{else}}Unreadable{{end}}</span>
+        <span class="pad-dot"></span><span class="pad-txt">{{if eq $wlcS "1"}}Device placed{{else if eq $wlcS "0"}}Vacant{{else if eq $wlcS "2"}}Faulty{{else}}Unreadable{{end}}</span>
       </span>
       {{else}}
       <span class="pad-stat pad-stat-na" id="pad-status"><span class="pad-dot"></span><span class="pad-txt">Not available</span></span>
@@ -1228,7 +1228,7 @@ function mdmBootCharts() {
       let s = 'Battery: ' + bPt.y + '%';
       if (bPt.wlc === 1) s += ' · ⚡ Device placed';
       else if (bPt.wlc === 0) s += ' · Charging pad vacant';
-      else if (bPt.wlc === 2) s += ' · ⚠ Pad flapping — reconnect the pad';
+      else if (bPt.wlc === 2) s += ' · ⚠ Pad faulty — reconnect the pad';
       else if (bPt.wlc !== undefined && bPt.wlc !== null) s += ' · ⚠ Pad Unreadable';
       parts.push(s);
     }
@@ -1572,7 +1572,7 @@ function mdmBootCharts() {
     const line = 'Battery: ' + pt.y + '%';
     if (pt.wlc === 1) return line + ' ⚡ Device placed';
     if (pt.wlc === 0) return line + ' — Charging pad vacant';
-    if (pt.wlc === 2) return line + ' ⚠ Pad flapping — reconnect the pad';
+    if (pt.wlc === 2) return line + ' ⚠ Pad faulty — reconnect the pad';
     if (pt.wlc !== undefined && pt.wlc !== null) return line + ' ⚠ Pad unreadable';
     return line;
   };
@@ -3139,7 +3139,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       if (warn) warn.hidden = true;
       return;
     }
-    var map = { 1: ['on', 'Device placed'], 0: ['vacant', 'Vacant'], 2: ['flapping', 'Flapping'] };
+    var map = { 1: ['on', 'Device placed'], 0: ['vacant', 'Vacant'], 2: ['flapping', 'Faulty'] };
     var m = map[wlc] || ['bad', 'Unreadable'];
     el.className = 'pad-stat pad-stat-' + m[0];
     var t = el.querySelector('.pad-txt'); if (t) t.textContent = m[1];
