@@ -328,7 +328,6 @@
     <div class="cr-config">
 
       <div class="cr-sec">
-        <div class="cr-sec-title">Payload</div>
         <!-- Install app — opens the picker dialog; this is just the resulting summary. -->
         <div id="apk-fields" class="payload-section is-active">
           <span id="apk-hidden"></span>
@@ -367,9 +366,7 @@
         <div id="screenshot-hint" class="payload-section"></div>
 
         <!-- Reboot — no options, no dialog needed. -->
-        <div id="reboot-hint" class="payload-section">
-          <div class="warncard"><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div><div class="wt">Devices will restart</div><div class="ws">Anything unsaved on-device is lost, and a low-battery unit may not power back up.</div></div></div>
-        </div>
+        <div id="reboot-hint" class="payload-section"></div>
 
         <!-- Kiosk mode — opens the config dialog; this is just the resulting summary. -->
         <div id="kiosk-fields" class="payload-section">
@@ -383,7 +380,7 @@
 
         <!-- Reason (reboot) -->
         <div id="reason-wrap" style="margin-top:16px;display:none;">
-          <div class="lvl-lbl">Reason <span style="color:var(--text-faint);font-weight:400;text-transform:none;letter-spacing:0">required when reason-logging is on</span></div>
+          <div class="lvl-lbl">Reason</div>
           <input type="text" name="reason" class="pl-field" oninput="updatePreview()" placeholder="e.g. nightly memory clear">
         </div>
       </div><!-- /.cr-sec (payload) -->
