@@ -2782,8 +2782,9 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   .da-card{display:flex;gap:13px;align-items:flex-start;border:1px solid var(--border);border-radius:var(--r-4);background:var(--surface);box-shadow:var(--shadow-sm);padding:14px 16px;margin-bottom:9px;transition:border-color var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
   .da-card[hidden]{display:none}
   .da-card:hover{border-color:var(--rule-2);box-shadow:var(--shadow)}
-  .da-ico{width:36px;height:36px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center}
+  .da-ico{width:36px;height:36px;flex:none;border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden}
   .da-ico svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2}
+  .da-ico img{width:100%;height:100%;object-fit:cover;border-radius:10px}
   .da-card.critical .da-ico,.da-card.crash .da-ico{background:var(--danger-bg);color:var(--danger)}
   .da-card.warning .da-ico{background:var(--warn-bg);color:var(--warn)}
   .da-card.info .da-ico{background:var(--accent-2-soft);color:var(--accent-2)}
@@ -2816,7 +2817,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   <div class="da-group" data-da-shown="4">
   {{range $i, $a := .DeviceAlerts}}
   <div class="da-card {{$a.Severity}}{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
-    <span class="da-ico">{{template "alx-icon" $a.IconKey}}</span>
+    <span class="da-ico">{{if $a.AppIcon}}<img src="data:image/png;base64,{{$a.AppIcon}}" alt="">{{else}}{{template "alx-icon" $a.IconKey}}{{end}}</span>
     <div class="da-body">
       <div class="da-top"><span class="da-t">{{$a.Headline}}</span><span class="da-when">{{timeSince $a.FiredAt}}</span></div>
       <div class="da-s">{{$a.Sentence}}</div>
@@ -2832,7 +2833,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   <div class="da-group" data-da-shown="4">
   {{range $i, $c := .DeviceCrashes}}
   <div class="da-card crash{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
-    <span class="da-ico"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span>
+    <span class="da-ico">{{if $c.AppIcon}}<img src="data:image/png;base64,{{$c.AppIcon}}" alt="">{{else}}<svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{end}}</span>
     <div class="da-body">
       <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span><span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
       {{if or $c.Restaurant $c.BuildID}}<div class="da-meta">{{if $c.Restaurant}}<span>{{$c.Restaurant}}</span>{{end}}{{if and $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{if $c.BuildID}}<span class="mono">build {{$c.BuildID}}</span>{{end}}</div>{{end}}

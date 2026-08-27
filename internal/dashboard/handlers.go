@@ -2676,6 +2676,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 			deviceAlerts = append(deviceAlerts, ha)
 		}
 	}
+	h.resolveAppIcons(r.Context(), [][]humanAlert{deviceAlerts}, deviceCrashes)
 
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
@@ -3723,42 +3724,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	crashes := toCrashCards(crashEvents)
-
-	// Resolve each crash/ANR card's app icon from the App library in one batch query,
-	// so the alert list shows the real app icon instead of the generic crash glyph.
-	pkgSet := map[string]struct{}{}
-	for _, ha := range crit {
-		if ha.PackageName != "" {
-			pkgSet[ha.PackageName] = struct{}{}
-		}
-	}
-	for _, ha := range watch {
-		if ha.PackageName != "" {
-			pkgSet[ha.PackageName] = struct{}{}
-		}
-	}
-	for _, c := range crashes {
-		if c.PackageName != "" {
-			pkgSet[c.PackageName] = struct{}{}
-		}
-	}
-	if len(pkgSet) > 0 {
-		pkgs := make([]string, 0, len(pkgSet))
-		for pkg := range pkgSet {
-			pkgs = append(pkgs, pkg)
-		}
-		if icons, err := h.db.GetAppIconsByPackages(r.Context(), pkgs); err == nil {
-			for i := range crit {
-				crit[i].AppIcon = icons[crit[i].PackageName]
-			}
-			for i := range watch {
-				watch[i].AppIcon = icons[watch[i].PackageName]
-			}
-			for i := range crashes {
-				crashes[i].AppIcon = icons[crashes[i].PackageName]
-			}
-		}
-	}
+	h.resolveAppIcons(r.Context(), [][]humanAlert{crit, watch}, crashes)
 	// Preserve the device scope on the pager links.
 	crashPageBase := "/alerts?view=crashes"
 	if deviceSerial != "" {
@@ -3820,6 +3786,45 @@ func toCrashCards(events []db.CrashEvent) []crashCardView {
 		})
 	}
 	return cards
+}
+
+// resolveAppIcons resolves each device_crash alert's / crash card's app icon from the
+// App library's shared app_icons index in one batch query, so crash/ANR cards show the
+// real app icon instead of the generic crash glyph wherever a package name was parsed
+// out of the summary. Mutates alertGroups and crashes in place.
+func (h *Handler) resolveAppIcons(ctx context.Context, alertGroups [][]humanAlert, crashes []crashCardView) {
+	pkgSet := map[string]struct{}{}
+	for _, group := range alertGroups {
+		for _, ha := range group {
+			if ha.PackageName != "" {
+				pkgSet[ha.PackageName] = struct{}{}
+			}
+		}
+	}
+	for _, c := range crashes {
+		if c.PackageName != "" {
+			pkgSet[c.PackageName] = struct{}{}
+		}
+	}
+	if len(pkgSet) == 0 {
+		return
+	}
+	pkgs := make([]string, 0, len(pkgSet))
+	for pkg := range pkgSet {
+		pkgs = append(pkgs, pkg)
+	}
+	icons, err := h.db.GetAppIconsByPackages(ctx, pkgs)
+	if err != nil {
+		return
+	}
+	for _, group := range alertGroups {
+		for i := range group {
+			group[i].AppIcon = icons[group[i].PackageName]
+		}
+	}
+	for i := range crashes {
+		crashes[i].AppIcon = icons[crashes[i].PackageName]
+	}
 }
 
 // AlertNewest returns the single most urgent active alert in friendly form as JSON,
