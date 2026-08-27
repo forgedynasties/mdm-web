@@ -1075,12 +1075,35 @@ function mdmBootCharts() {
   // real transition time — the midpoint between the two straddling samples. Because it is
   // built from the raw per-sample wlc (not the sparse plotted points), the colour boundary
   // lands where the state actually changed, not retroactively across a whole flat run.
+  // Merge WLC state runs shorter than this into the run before them — the pad's
+  // immediate-push-on-change telemetry can land two flips a second or two apart
+  // (a single momentary edge-count blip in readSettledWlc), which would otherwise
+  // paint a near-invisible sliver on the gradient. Display-only: doesn't touch the
+  // stored samples or the tooltip's raw nearest-reading lookup.
+  const WLC_NOISE_FLOOR_MS = 60000;
+  function denoiseWlcRuns(rp) {
+    if (rp.length < 3) return rp;
+    const out = rp.map(p => Object.assign({}, p));
+    let i = 0;
+    while (i < out.length) {
+      let j = i;
+      while (j + 1 < out.length && out[j + 1].wlc === out[i].wlc) j++;
+      if (i > 0 && (out[j].x - out[i].x) < WLC_NOISE_FLOOR_MS) {
+        const prevW = out[i - 1].wlc;
+        for (let k = i; k <= j; k++) out[k].wlc = prevW;
+      }
+      i = j + 1;
+    }
+    return out;
+  }
+
   function buildBatteryGradient(chart) {
     const area = chart.chartArea, xs = chart.scales && chart.scales.x;
     const pts = chart.$wlcPts;
     if (!area || !xs || !pts || !pts.length) return wlcColor(0);
-    const rp = pts.filter(p => p && p.y != null);   // drop gap markers
+    let rp = pts.filter(p => p && p.y != null);   // drop gap markers
     if (!rp.length) return wlcColor(0);
+    rp = denoiseWlcRuns(rp);
     const left = area.left, span = (area.right - area.left) || 1;
     const off = x => Math.max(0, Math.min(1, (xs.getPixelForValue(x) - left) / span));
     const g = chart.ctx.createLinearGradient(area.left, 0, area.right, 0);
