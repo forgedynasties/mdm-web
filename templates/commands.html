@@ -153,16 +153,8 @@
 /* Informational panes (Screenshot / Reboot) — an icon badge + label row, and for
    Reboot a real labeled field below it, instead of disguising static text as a
    clickable picker. */
-.cfg-card{border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow:hidden;}
-.cfg-card-info{display:flex;align-items:center;gap:13px;padding:14px 16px;}
-.cfg-card-field{padding:12px 16px 14px;border-top:1px solid var(--border-soft);}
-.cfg-card-flbl{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
-.cfg-card-flbl .opt{font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-faint);}
-.cfg-card-input{width:100%;box-sizing:border-box;font:inherit;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);}
-.cfg-card-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);background:var(--surface);}
-.cfg-info-ic{width:34px;height:34px;flex:none;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;}
-.cfg-info-ic svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;}
-.cfg-info-t{font-size:13px;font-weight:600;color:var(--text);}
+.cfg-static{cursor:default;}
+.cfg-static:hover{background:none;border-color:var(--rule-2);}
 #action-config-modal .modal-box{display:flex;flex-direction:column;}
 #action-config-modal .acm-sub{padding:0 20px 12px;margin-top:-4px;font-size:12.5px;color:var(--muted);border-bottom:1px solid var(--border-soft);padding-bottom:14px;}
 #action-config-modal .modal-body{max-height:56vh;}
@@ -380,26 +372,12 @@
 
         <!-- Screenshot — no options, no dialog needed. -->
         <div id="screenshot-hint" class="payload-section">
-          <div class="cfg-card">
-            <div class="cfg-card-info">
-              <span class="cfg-info-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg></span>
-              <span class="cfg-info-t">Captures the current screen</span>
-            </div>
-          </div>
+          <div class="cfg-picker cfg-static"><span class="cfg-picker-main"><span class="cfg-empty">Nothing to configure</span></span></div>
         </div>
 
-        <!-- Reboot — no options besides an optional reason. -->
+        <!-- Reboot — no options, no dialog needed. -->
         <div id="reboot-hint" class="payload-section">
-          <div class="cfg-card">
-            <div class="cfg-card-info">
-              <span class="cfg-info-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>
-              <span class="cfg-info-t">Restarts the device</span>
-            </div>
-            <div class="cfg-card-field">
-              <label class="cfg-card-flbl" for="reboot-reason-input">Reason <span class="opt">optional</span></label>
-              <input type="text" name="reason" id="reboot-reason-input" class="cfg-card-input" placeholder="e.g. nightly memory clear" oninput="updatePreview()">
-            </div>
-          </div>
+          <div class="cfg-picker cfg-static"><span class="cfg-picker-main"><span class="cfg-empty">Nothing to configure</span></span></div>
         </div>
 
         <!-- Kiosk mode — opens the config dialog; this is just the resulting summary. -->
@@ -1239,11 +1217,7 @@ function updatePreview() {
     if (!cmdSerials().length) warn.push('Add at least one device.');
   }
 
-  var reason = (document.querySelector('input[name="reason"]').value || '').trim();
-  var softWarn = [];
-  if (type === 'reboot' && !reason) softWarn.push('A reason may be required for this action.');
-
-  var all = warn.concat(softWarn);
+  var all = warn;
   var warnEl = document.getElementById('rv-warn');
   if (all.length) {
     warnEl.style.display = '';
