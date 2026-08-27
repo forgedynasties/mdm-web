@@ -464,7 +464,6 @@
               {{end}}
               {{if canAdmin .Role}}<a href="/settings#applibrary" class="appnew" title="Add an app in the App library"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add app</a>{{end}}
             </div>
-            <div class="pl-sub">Pick one or more apps — each becomes its own install command.</div>
           {{else}}
             <div class="pl-info"><span class="art"><svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg></span><span class="txt">No apps in your library yet.{{if canAdmin .Role}} <a href="/settings#applibrary" class="btn-link">Add one now</a> — upload an APK in Settings, then pick it here.{{else}} Ask an admin to add one.{{end}}</span></div>
           {{end}}
@@ -479,7 +478,6 @@
             <div class="pl-sub">Loading installed apps…</div>
           </div>
           <div id="uninstall-nomatch" class="pl-sub" style="display:none;">No apps match.</div>
-          <div class="pl-sub">Pick one or more apps installed on the selected target — each becomes its own uninstall command. The count is how many targeted devices report it; devices without it are skipped automatically.</div>
         </div>
 
         <div class="modal-pane" data-type="shell" style="display:none;">
@@ -735,8 +733,8 @@ function selectType(val, btn) {
 // in a modal (device.html-style); screenshot/reboot have nothing to configure and
 // never open it. Closing the dialog renders a compact summary back in the sheet. ──
 var ACM_TITLES = {
-  install_apk: { t: 'Choose apps to install', s: 'Pick one or more — each becomes its own install command.' },
-  uninstall:   { t: 'Choose apps to uninstall', s: 'Pick one or more installed on the target — each becomes its own uninstall command.' },
+  install_apk: { t: 'Choose apps to install', s: '' },
+  uninstall:   { t: 'Choose apps to uninstall', s: '' },
   shell:       { t: 'Shell command', s: 'Legacy devices only · expires after 5 minutes.' },
   query:       { t: 'Choose a query', s: 'Runs a read-only, admin-approved command.' },
   set_kiosk:   { t: 'Configure kiosk mode', s: 'Lock devices to one app, or unlock them.' }
@@ -744,7 +742,7 @@ var ACM_TITLES = {
 function openActionModal(type) {
   var m = ACM_TITLES[type]; if (!m) return;
   document.getElementById('acm-title').textContent = m.t;
-  document.getElementById('acm-sub').textContent = m.s;
+  var sub = document.getElementById('acm-sub'); sub.textContent = m.s; sub.style.display = m.s ? '' : 'none';
   document.querySelectorAll('#action-config-modal .modal-pane').forEach(function (p) {
     p.style.display = (p.dataset.type === type) ? '' : 'none';
   });
