@@ -2690,7 +2690,11 @@ func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, e
 	if sinceDays > 0 {
 		q += fmt.Sprintf(" AND created_at >= NOW() - INTERVAL '%d days'", sinceDays)
 	}
-	q += " ORDER BY created_at DESC"
+	// The day window alone doesn't bound the row count — a busy fleet issuing many
+	// commands/day can still return a large result set within 30 days. Cap it as a
+	// backstop; the Actions page's triage buckets never need more than this, and
+	// full unbounded history already lives at /commands/history (paginated).
+	q += " ORDER BY created_at DESC LIMIT 2000"
 	rows, err := d.pool.Query(ctx, q)
 	if err != nil {
 		return nil, err

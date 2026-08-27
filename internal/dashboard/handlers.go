@@ -2123,14 +2123,42 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	groups, _ := h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7)
-	hot, _ := h.db.CountHotDevices(ctx)
-	daily, _ := h.db.GetFleetDailyStats(ctx, 7)
-	openAlerts, _ := h.db.ListAlerts(ctx, "open", 5)
-	// The audit page itself is admin-only; keep the activity feed consistent.
-	var audit []db.AuditEntry
-	if h.role(r) == "admin" {
-		audit, _ = h.db.ListAudit(ctx, 6)
+	// The ~8 reads below are all independent (none consumes another's result), so
+	// run them concurrently instead of one round trip after another — this is the
+	// page every user lands on after login. d14 covers both the 7-day sparklines/
+	// activity chart AND the 14-day week-over-week trend, so it's fetched once and
+	// sliced, instead of the old code fetching 7 and then 14 days separately.
+	var (
+		groups     []db.GroupHealth
+		hot        int
+		d14        []db.FleetDailyStat
+		openAlerts []db.Alert
+		audit      []db.AuditEntry
+		openCount  int
+		crashStats db.FleetCrashStats
+	)
+	var wg sync.WaitGroup
+	run := func(f func()) {
+		wg.Add(1)
+		go func() { defer wg.Done(); f() }()
+	}
+	run(func() { groups, _ = h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7) })
+	run(func() { hot, _ = h.db.CountHotDevices(ctx) })
+	run(func() { d14, _ = h.db.GetFleetDailyStats(ctx, 14) })
+	run(func() { openAlerts, _ = h.db.ListAlerts(ctx, "open", 5) })
+	run(func() {
+		// The audit page itself is admin-only; keep the activity feed consistent.
+		if h.role(r) == "admin" {
+			audit, _ = h.db.ListAudit(ctx, 6)
+		}
+	})
+	run(func() { openCount, _ = h.db.CountOpenAlerts(ctx) })
+	run(func() { crashStats, _ = h.db.GetFleetCrashStats(ctx, 4) })
+	wg.Wait()
+
+	daily := d14
+	if n := len(d14); n > 7 {
+		daily = d14[n-7:]
 	}
 
 	// Fleet score: device-weighted mean of the per-group health scores. Without
@@ -2223,10 +2251,8 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		}
 		return "s"
 	}
-	openCount, _ := h.db.CountOpenAlerts(ctx)
-
 	// Crash surfaces (24h rollup): signal tile, per-restaurant chips, top devices.
-	crashStats, _ := h.db.GetFleetCrashStats(ctx, 4)
+	// (openCount, crashStats already fetched concurrently above.)
 	crashRows := make([]crashRow, 0, len(crashStats.ByDevice))
 	for _, c := range crashStats.ByDevice {
 		label, class := crashKindBadge(c.Kind)
@@ -2289,7 +2315,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	// Week-over-week fleet-health trend: a connectivity proxy (100 − 40·offline-ratio,
 	// the same fallback the ring uses) averaged this week vs the prior week.
 	scoreDelta := 0
-	if d14, err := h.db.GetFleetDailyStats(ctx, 14); err == nil && summary.Total > 0 {
+	if summary.Total > 0 {
 		proxy := func(active int) float64 {
 			off := float64(summary.Total - active)
 			if off < 0 {
@@ -8599,25 +8625,75 @@ func (h *Handler) resolveEligibleDevices(r *http.Request, product string) ([]uui
 const actionsWindowDays = 30
 
 func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
-	cmds, err := h.db.ListCommandsSince(r.Context(), actionsWindowDays)
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	ctx := r.Context()
+	// These 8 reads are all independent, so fire them concurrently instead of one
+	// round trip after another — same pattern as Overview/DeviceDetail. The first
+	// four were hard 500s on error and stay that way; the rest already tolerated
+	// errors silently and keep doing so.
+	var (
+		cmds          []db.Command
+		groups        []db.Group
+		apps          []db.App
+		fleetPackages []db.FleetPackage
+		shellRecent   []string
+		shellPopular  []string
+		productions   []db.Production
+		builds        []string
+		summaries     map[uuid.UUID]db.CommandDeliverySummary
+	)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var firstErr error
+	fail := func(err error) {
+		mu.Lock()
+		if firstErr == nil {
+			firstErr = err
+		}
+		mu.Unlock()
 	}
-	cmds = filterShellCommands(h.role(r), cmds) // testers never see shell history
-	groups, err := h.db.ListGroups(r.Context())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+	run := func(f func()) {
+		wg.Add(1)
+		go func() { defer wg.Done(); f() }()
 	}
-	apps, err := h.db.ListApps(r.Context())
-	if err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	// Distinct packages seen across all devices — populates the Uninstall dropdown.
-	fleetPackages, err := h.db.SearchFleetPackages(r.Context(), "")
-	if err != nil {
+	run(func() {
+		c, err := h.db.ListCommandsSince(ctx, actionsWindowDays)
+		if err != nil {
+			fail(err)
+			return
+		}
+		cmds = filterShellCommands(h.role(r), c) // testers never see shell history
+	})
+	run(func() {
+		g, err := h.db.ListGroups(ctx)
+		if err != nil {
+			fail(err)
+			return
+		}
+		groups = g
+	})
+	run(func() {
+		a, err := h.db.ListApps(ctx)
+		if err != nil {
+			fail(err)
+			return
+		}
+		apps = a
+	})
+	run(func() {
+		// Distinct packages seen across all devices — populates the Uninstall dropdown.
+		fp, err := h.db.SearchFleetPackages(ctx, "")
+		if err != nil {
+			fail(err)
+			return
+		}
+		fleetPackages = fp
+	})
+	run(func() { shellRecent, shellPopular, _ = h.db.ShellCommandSuggestions(ctx, 6) })
+	run(func() { productions, _ = h.db.ListProductions(ctx, h.connectedSlice()) })
+	run(func() { builds, _ = h.db.GetDistinctBuildIDs(ctx) })
+	run(func() { summaries, _ = h.db.GetCommandDeliverySummaries(ctx, h.cfg.CommandExpiry(), actionsWindowDays) })
+	wg.Wait()
+	if firstErr != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
@@ -8659,10 +8735,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	shellRecent, shellPopular, _ := h.db.ShellCommandSuggestions(r.Context(), 6)
-	productions, _ := h.db.ListProductions(r.Context(), h.connectedSlice())
-	builds, _ := h.db.GetDistinctBuildIDs(r.Context())
-	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), actionsWindowDays)
+	// (shellRecent/shellPopular/productions/builds/summaries already fetched concurrently above.)
 
 	// ── Recipes strip: saved presets + a "Re-run last" derived from history ──
 	groupNames := make(map[uuid.UUID]string, len(groups))

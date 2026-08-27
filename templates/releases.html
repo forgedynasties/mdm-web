@@ -23,12 +23,27 @@
   {{end}}
 </div>
 
-{{/* Live "Updates in progress" summary — polls itself every 4s; empty (renders nothing)
-     when no OTA is in flight. */}}
-<div id="ota-progress-live" data-morph hx-get="/releases?partial=ota-progress" hx-trigger="load, every 4s"
+{{/* Live "Updates in progress" summary. Polls at 4s only while an OTA is actually in
+     flight; backs off to 30s (just enough to notice one start) the rest of the time —
+     this card renders empty on most visits, so a fixed 4s poll was mostly wasted
+     requests. window.otaActive is re-derived from the swapped-in markup itself (the
+     "ota-progress" template renders a .card wrapper only when .ActiveOTA is set). */}}
+<div id="ota-progress-live" data-morph
+     hx-get="/releases?partial=ota-progress" hx-trigger="load, every 4s[window.otaActive], every 30s[!window.otaActive]"
      hx-target="this" hx-swap="innerHTML" hx-select="unset">
   {{template "ota-progress" .}}
 </div>
+<script>
+(function () {
+  var el = document.getElementById('ota-progress-live');
+  if (!el) return;
+  var sync = function () { window.otaActive = !!el.querySelector('.card'); };
+  sync();
+  document.body.addEventListener('htmx:afterSwap', function (evt) {
+    if (evt.detail && evt.detail.target === el) sync();
+  });
+})();
+</script>
 
 {{if .Versions}}
 {{if and (canAdmin $.Role) (gt .NotTrackedCount 0)}}
