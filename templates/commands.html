@@ -1572,6 +1572,13 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     <form action="/commands/{{$c.ID}}/delete" method="POST" hx-confirm="Delete this command? Devices that have not yet received it will no longer get it.">
       <button type="submit" class="cmd-del" title="Delete action" aria-label="Delete">&times;</button>
     </form>
+    {{else if and (eq .Bucket "attn") (canOperate .Role)}}
+    {{/* Testers can't hard-delete (admin/dev only, CommandDelete) — this dismisses it out
+         of Needs attention instead, same as "Clear all". Non-destructive: the command and
+         its history stay intact under Completed. */}}
+    <form action="/commands/{{$c.ID}}/dismiss" method="POST" hx-confirm="Dismiss this from Needs attention? It stays visible under Completed — nothing is deleted.">
+      <button type="submit" class="cmd-del" title="Dismiss from Needs attention" aria-label="Dismiss">&times;</button>
+    </form>
     {{end}}
   </div>
 </div>

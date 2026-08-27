@@ -9671,6 +9671,27 @@ func classifyCommands(cmds []db.Command, summaries map[uuid.UUID]db.CommandDeliv
 	return
 }
 
+// CommandDismiss dismisses a single command out of Needs-attention — the row-level
+// equivalent of AttentionClear's "Clear all". Same non-destructive semantics: this
+// only records a dismissal (dismissed_commands), the command and its delivery
+// history are untouched and remain visible under Completed / history. Available to
+// the same roles as the rest of the Actions page's operate-level controls
+// (admin/dev/tester — see requireOperatorOrAdmin), unlike CommandDelete which
+// actually removes the row and is admin-only.
+func (h *Handler) CommandDismiss(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DismissCommands(r.Context(), []uuid.UUID{id}, h.role(r)); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "command.dismiss", id.String(), "")
+	http.Redirect(w, r, "/commands", http.StatusFound)
+}
+
 // AttentionClear dismisses every command currently in Needs-attention from that
 // list. It records dismissals only — the commands and their delivery history are
 // left intact (they remain visible under Completed / history).
@@ -13102,6 +13123,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// history page subscribes to (not a per-command stream).
 	mux.HandleFunc("GET /commands/events", h.requireAuth(h.CommandsFeedEvents))
 	post("POST /commands/clear-attention", h.requireOperatorOrAdmin(h.AttentionClear))
+	post("POST /commands/{id}/dismiss", h.requireOperatorOrAdmin(h.CommandDismiss))
 	mux.HandleFunc("GET /commands/impact", h.requireAuth(h.CommandImpact))
 	mux.HandleFunc("GET /commands/target-packages", h.requireAuth(h.CommandTargetPackages))
 	// Recipes live under /recipes (not /commands/recipes) so the {id} delete route
