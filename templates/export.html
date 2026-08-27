@@ -29,7 +29,6 @@
     <input type="hidden" name="serials" value="{{.}}">
   {{end}}
   <input type="hidden" name="tz_offset" id="export-tz-offset" value="">
-  <input type="hidden" name="dl_token" id="dl-token-field" value="">
   <script>document.getElementById('export-tz-offset').value = -new Date().getTimezoneOffset();</script>
 
   <div class="card" style="margin-top:16px;">
@@ -328,30 +327,14 @@ function toggleSerials(btn) {
   btn.textContent = collapsed ? 'Show fewer' : 'Show all';
 }
 
-document.getElementById('export-form').addEventListener('submit', function() {
-  var btn = document.getElementById('export-submit');
-  var label = document.getElementById('export-submit-label');
-  btn.disabled = true;
-  label.textContent = 'Preparing CSV…';
-
-  // A file download fires no JS completion event. Send a one-time token (in a hidden
-  // field that's part of the form, so it's always submitted) which the server echoes
-  // back as a cookie on the CSV response; poll for it, then restore. A short safety
-  // net guarantees the button never stays stuck even if the cookie never arrives.
-  var token = 'dl' + Date.now() + Math.floor(Math.random() * 1e6);
-  document.getElementById('dl-token-field').value = token;
-
-  function restore() { btn.disabled = false; label.textContent = 'Download CSV'; }
-  var start = Date.now();
-  var poll = setInterval(function() {
-    if (document.cookie.indexOf('dl_token=' + token) !== -1) {
-      document.cookie = 'dl_token=; Path=/; Max-Age=0';   // consume it
-      clearInterval(poll); restore();
-    } else if (Date.now() - start > 6000) {
-      clearInterval(poll); restore();                     // safety net — never stuck
-    }
-  }, 250);
-});
+// The Download CSV button intentionally does NOT disable itself or show a "preparing…"
+// state on submit. A file download fires no JS completion event, so any such state has
+// to be guessed back off (a cookie round-trip, a timeout, etc.) — every version of that
+// has ended up with the button stuck disabled on some real-world timing it didn't
+// account for. Left static/always-clickable instead: the browser's own download
+// indicator (and, for a huge export, "why is nothing happening" is on the browser, not
+// this page) is the only completion signal, and clicking it twice just requests the
+// file twice — harmless.
 
 // Default: last 48 hours, "Common" preset, Cycles on a 30-second grid.
 // Cycles is the default because check-in times are the device's own transmit
