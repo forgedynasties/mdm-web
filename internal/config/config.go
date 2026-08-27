@@ -498,6 +498,12 @@ func (c *Config) PageSize() int {
 	if c.PageSizeVal <= 0 {
 		return 25
 	}
+	// Defensive ceiling matching the setters' clamp (handlers.go DeviceList /
+	// SettingsSetDashboard): a config persisted before that clamp existed could
+	// still hold up to 500, which renders thousands of DOM nodes client-side.
+	if c.PageSizeVal > 200 {
+		return 200
+	}
 	return c.PageSizeVal
 }
 

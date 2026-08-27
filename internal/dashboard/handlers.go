@@ -1739,9 +1739,13 @@ func (h *Handler) connectedSlice() []uuid.UUID {
 
 func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	// A ?page_size=N from the main-page selector persists to config (survives
-	// restarts) so the choice sticks across sessions and machines.
+	// restarts) so the choice sticks across sessions and machines. Capped at 200 to
+	// match the selector's own largest option (devices.html) — the clamp used to
+	// allow up to 500 via a direct URL param even though the UI never offers past
+	// 200, and 500 rows means thousands of DOM nodes (several inline SVGs per row)
+	// that measurably slow down the page's client-side render.
 	if v := r.URL.Query().Get("page_size"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 500 && n != h.cfg.PageSize() {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 && n != h.cfg.PageSize() {
 			h.cfg.SetPageSize(n)
 		}
 	}
@@ -11798,7 +11802,7 @@ func (h *Handler) SettingsToggleRequireReason(w http.ResponseWriter, r *http.Req
 
 func (h *Handler) SettingsSetDashboard(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	if n, err := strconv.Atoi(r.FormValue("page_size")); err == nil && n > 0 && n <= 500 {
+	if n, err := strconv.Atoi(r.FormValue("page_size")); err == nil && n > 0 && n <= 200 {
 		h.cfg.SetPageSize(n)
 	}
 	if s := r.FormValue("default_sort"); s != "" {
