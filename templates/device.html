@@ -2791,6 +2791,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   .da-body{flex:1;min-width:0}
   .da-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
   .da-t{font-size:14px;font-weight:700;letter-spacing:-.01em;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  .da-t-crash{font-size:12.5px;font-weight:400;letter-spacing:0;color:var(--muted)}
   .da-when{margin-left:auto;font-size:11.5px;color:var(--text-faint);flex:none;white-space:nowrap}
   .da-s{font-size:12.5px;color:var(--text2,var(--muted));margin-top:4px;line-height:1.5}
   .da-s b{color:var(--text);font-weight:650}
@@ -2835,7 +2836,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   <div class="da-card crash{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
     <span class="da-ico">{{if $c.AppIcon}}<img src="data:image/png;base64,{{$c.AppIcon}}" alt="">{{else}}<svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{end}}</span>
     <div class="da-body">
-      <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span><span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
+      <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t da-t-crash">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span><span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
       {{if or $c.Restaurant $c.BuildID}}<div class="da-meta">{{if $c.Restaurant}}<span>{{$c.Restaurant}}</span>{{end}}{{if and $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{if $c.BuildID}}<span class="mono">build {{$c.BuildID}}</span>{{end}}</div>{{end}}
       {{if $c.Trace}}<details class="da-trace"><summary>View crash / ANR trace</summary><pre class="logcat-terminal">{{colorizeLogcat $c.Trace}}</pre></details>{{end}}
     </div>
