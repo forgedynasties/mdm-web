@@ -24,7 +24,7 @@
   </div>
 </div>
 
-<form action="/export/csv" method="POST" hx-boost="false" class="export-form" id="export-form">
+<form action="/export/csv" method="POST" hx-boost="false" data-no-spinner="true" class="export-form" id="export-form">
   {{range .Serials}}
     <input type="hidden" name="serials" value="{{.}}">
   {{end}}
