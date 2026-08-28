@@ -238,6 +238,15 @@ body > main {
   position: relative;
   z-index: 1;
 }
+/* An overlay nested inside <main> (fixed position, its own z-index) still can't
+   out-stack the sticky header (.appbar, z-index 40) or floating dock (.dock,
+   z-index 45) — both are body-level siblings of <main>, and <main>'s own
+   stacking context (z-index 1 above) traps everything inside it below them
+   regardless of how high a descendant's z-index goes. Bump <main> itself above
+   both while it hosts an open drawer. */
+body:has(.fleet-drawer.open) > main {
+  z-index: 200;
+}
 /* NB: .modal-backdrop must NOT get position:relative here — it is a direct child of
    <body>, and relative positioning would drop the overlay into the document flow
    (the "What's new" popup rendered inline instead of above content). It keeps its
@@ -4446,15 +4455,19 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
   border-radius: 7px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
 
 /* Fleet-page slide-in drawer — hosts a collection's fuller edit form (venue details)
-   loaded via htmx, so you manage it without leaving the roster. */
-.fleet-drawer { position: fixed; inset: 0; z-index: 120; display: none; }
-.fleet-drawer.open { display: block; }
+   loaded via htmx, so you manage it without leaving the roster.
+   No display:none/block toggle: that was cutting the slide/fade transitions short
+   in both directions (a display change can't be animated, so the browser just
+   snapped straight to the end state). pointer-events instead keeps it inert and
+   invisible (scrim opacity 0 + panel off-screen via translateX) while closed. */
+.fleet-drawer { position: fixed; inset: 0; z-index: 120; pointer-events: none; }
+.fleet-drawer.open { pointer-events: auto; }
 .fleet-drawer-scrim { position: absolute; inset: 0; background: rgba(0,0,0,.42); opacity: 0;
-  transition: opacity .2s; }
+  transition: opacity .22s ease; }
 .fleet-drawer.open .fleet-drawer-scrim { opacity: 1; }
 .fleet-drawer-panel { position: absolute; top: 0; right: 0; height: 100%; width: min(560px, 94vw);
   background: var(--bg, var(--surface)); box-shadow: var(--shadow-lg); display: flex; flex-direction: column;
-  transform: translateX(100%); transition: transform .22s ease; }
+  transform: translateX(100%); transition: transform .26s cubic-bezier(.2,.7,.3,1); }
 .fleet-drawer.open .fleet-drawer-panel { transform: translateX(0); }
 .fleet-drawer-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px;
   border-bottom: 1px solid var(--border); flex: none; }
