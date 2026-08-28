@@ -9498,6 +9498,8 @@ type OTAInProgress struct {
 	Status        string // "pending" (awaiting check-in) | "downloading" (command sent)
 	Percent       int    // from telemetry; the handler overlays the live shell value
 	Phase         string // from telemetry; the handler overlays the live shell value
+	UpdateID      int    // deployment (updates.id) this device's OTA belongs to
+	ReleaseID     int    // release (releases.id) that deployment is for
 }
 
 // ActiveOTADevices lists every device in an in-flight OTA (pending/downloading on an
@@ -9506,7 +9508,8 @@ func (d *DB) ActiveOTADevices(ctx context.Context) ([]OTAInProgress, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.id, d.serial_number, COALESCE(rel.version, ''), COALESCE(rel.product, 't7'), ud.status,
 		       COALESCE((d.latest_extra->'ota_progress'->>'percent')::int, 0),
-		       COALESCE(d.latest_extra->'ota_progress'->>'phase', '')
+		       COALESCE(d.latest_extra->'ota_progress'->>'phase', ''),
+		       u.id, COALESCE(rel.id, 0)
 		FROM update_devices ud
 		JOIN updates u ON u.id = ud.update_id AND u.status = 'active'
 		LEFT JOIN releases rel ON rel.id = u.release_id
@@ -9520,7 +9523,7 @@ func (d *DB) ActiveOTADevices(ctx context.Context) ([]OTAInProgress, error) {
 	var out []OTAInProgress
 	for rows.Next() {
 		var o OTAInProgress
-		if err := rows.Scan(&o.DeviceID, &o.Serial, &o.TargetVersion, &o.Product, &o.Status, &o.Percent, &o.Phase); err != nil {
+		if err := rows.Scan(&o.DeviceID, &o.Serial, &o.TargetVersion, &o.Product, &o.Status, &o.Percent, &o.Phase, &o.UpdateID, &o.ReleaseID); err != nil {
 			return nil, err
 		}
 		out = append(out, o)
