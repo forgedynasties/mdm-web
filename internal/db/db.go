@@ -10609,12 +10609,6 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 	return out, rows.Err()
 }
 
-// HasPendingOTACommand returns true if the device already has an OTA command
-// that hasn't been completed or failed yet.
-// HasPendingOTACommand returns true if the device already has an OTA command
-// that is in-progress (pending/delivered/downloaded) OR that failed within the
-// last hour. This prevents the server from re-sending OTA commands on every
-// check-in after a failure.
 // HasPendingOTACommand reports whether an OTA is already in flight for a device, so
 // the check-in resolver doesn't create a second one on top of it. Two independent
 // self-heal properties, both hardening against FW-2026-000XXX (a device stuck
@@ -10624,9 +10618,10 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 //     ExpireOverdueCommands (a 24h backstop for exactly this situation) actually
 //     marks a stalled command as — previously this check didn't accept either, so
 //     even after that sweep ran, a device stayed permanently blocked anyway.
-//  2. A staleness cutoff on its own (6h — generous for a slow/flaky download, but
-//     not "forever"), so a device self-heals well before the 24h sweep would even
-//     fire, instead of depending on a second subsystem's timing.
+//  2. A staleness cutoff on its own (30m — long enough that a normal check-in cadence
+//     won't mistake genuine in-progress work for stuck, short enough that a truly
+//     stuck device self-heals on close to its next check-in instead of staying
+//     visibly "stuck" on the dashboard for hours).
 func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool, error) {
 	var exists bool
 	err := d.pool.QueryRow(ctx, `
@@ -10638,7 +10633,7 @@ func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool
 			AND (
 				(
 					(cs.status IS NULL OR cs.status NOT IN ('installed', 'failed', 'completed', 'expired', 'cancelled'))
-					AND COALESCE(cs.updated_at, c.created_at) > NOW() - INTERVAL '6 hours'
+					AND COALESCE(cs.updated_at, c.created_at) > NOW() - INTERVAL '30 minutes'
 				)
 				OR (cs.status = 'failed' AND cs.updated_at > NOW() - INTERVAL '1 hour')
 			)
