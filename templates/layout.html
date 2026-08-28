@@ -995,46 +995,11 @@
       }, 2000);
     })();
 
-    // Page-wide busy overlay: dims the page and blocks clicks everywhere (not just
-    // the submitting form) so a fast action still reads as "something happened"
-    // and a slow one can't be double-fired by clicking something else meanwhile.
-    // Ref-counted so overlapping actions (e.g. a fetch-based toggle firing while a
-    // form submit is in flight) don't let one's finish hide the other's spinner.
-    var busyCount = 0, busyEl = null, busyShowAt = 0;
-    function ensureBusyEl() {
-      if (busyEl) return busyEl;
-      busyEl = document.createElement('div');
-      busyEl.id = 'mdm-busy-overlay';
-      busyEl.innerHTML = '<div class="mdm-busy-spin"></div>';
-      document.body.appendChild(busyEl);
-      return busyEl;
-    }
-    window.mdmBeginBusy = function () {
-      busyCount++;
-      if (busyCount === 1) {
-        busyShowAt = Date.now();
-        ensureBusyEl().classList.add('show');
-      }
-    };
-    // Watchdog: never let the overlay outlive a request that silently dropped its
-    // reset (e.g. a network error with no matching afterSwap/finally).
-    setInterval(function () {
-      if (busyCount > 0 && Date.now() - busyShowAt > 15000) {
-        busyCount = 0;
-        if (busyEl) busyEl.classList.remove('show');
-      }
-    }, 3000);
-    window.mdmEndBusy = function () {
-      if (busyCount === 0) return;
-      busyCount--;
-      if (busyCount === 0 && busyEl) {
-        // Hold the overlay a minimum stretch so an instant response doesn't just
-        // flash — long enough to register, short enough not to feel laggy.
-        var elapsed = Date.now() - busyShowAt;
-        var wait = Math.max(0, 150 - elapsed);
-        setTimeout(function () { if (busyCount === 0 && busyEl) busyEl.classList.remove('show'); }, wait);
-      }
-    };
+    // Page-wide busy overlay removed (spinner + dim were more distracting than
+    // useful). Kept as no-ops so existing callers (device.html, markSubmitting)
+    // don't need to change.
+    window.mdmBeginBusy = function () {};
+    window.mdmEndBusy = function () {};
 
     function markSubmitting(form, submitter) {
       if (!form || form.dataset.submitting === 'true') return;
