@@ -19,7 +19,7 @@
   <span class="acts">
     {{if $isAdmin}}
       {{if eq $rel.Status "published"}}
-        {{if .CanPush}}<a href="/updates?release={{$rel.ID}}" class="btn-primary btn-sm">Push update →</a>{{end}}
+        {{if .CanPush}}<a href="/updates/new?release={{$rel.ID}}" class="btn-primary btn-sm">Push update →</a>{{end}}
       {{else}}
         <form action="/releases/{{$rel.ID}}/publish" method="POST" style="display:inline;">
           <button type="submit" class="btn-primary btn-sm"{{if not .HasFull}} onclick="return confirm('No full update package added yet — publish anyway?')"{{end}}>Publish</button>
