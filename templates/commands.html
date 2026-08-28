@@ -19,10 +19,6 @@
 .pill .g{font-size:10px;color:var(--text-faint);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-left:2px;}
 .pill.on .g{color:var(--accent);}
 .pick-wrap.is-readonly .pill{pointer-events:none;opacity:.6;}
-.pick-moved-note{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin:-6px 2px 18px;}
-.pick-moved-note svg{width:14px;height:14px;stroke:var(--text-faint);flex:none;}
-.pick-moved-note a{color:var(--accent);font-weight:650;text-decoration:none;}
-.pick-moved-note a:hover{text-decoration:underline;}
 
 /* focused compose sheet */
 .cmd-rail3{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:22px;}
@@ -165,6 +161,37 @@
 #action-config-modal .modal-footer{display:flex;justify-content:flex-end;padding:12px 20px;border-top:1px solid var(--border);}
 
 /* package rows (Uninstall) */
+/* Locked-app picker — same component as the device page's kiosk modal (searchable
+   grid/list of real app icons), reused verbatim so the two feel identical. */
+.kpk{display:flex;flex-direction:column;gap:8px;}
+.kpk-top{display:flex;gap:6px;align-items:center;}
+.kpk-search{position:relative;flex:1;display:flex;align-items:center;}
+.kpk-search svg{position:absolute;left:9px;color:var(--muted);pointer-events:none;}
+.kpk-search input{width:100%;font:inherit;font-size:13px;padding:7px 9px 7px 28px;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--text);}
+.kpk-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+.kpk-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none;}
+.kpk-seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;cursor:pointer;display:grid;place-items:center;}
+.kpk-seg button.active{background:var(--accent-soft);color:var(--accent);}
+.kpk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;max-height:344px;overflow-y:auto;padding:2px;}
+.kpk-list{display:none;flex-direction:column;max-height:344px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;}
+.kpk.listview .kpk-grid{display:none;}
+.kpk.listview .kpk-list{display:flex;}
+.kpk-opt{position:relative;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit;}
+.kpk-opt:hover{border-color:var(--rule-2);}
+.kpk-opt.sel{border-color:var(--accent);background:var(--accent-soft);}
+.kpk-opt.kbd{box-shadow:0 0 0 2px var(--accent);}
+.kpk-opt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.kpk-tile{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:13px;flex:none;}
+.kpk-tile.kpk-img{object-fit:contain;background:var(--surface-3);padding:2px;}
+.kpk-txt{min-width:0;display:flex;flex-direction:column;}
+.kpk-nm{font-size:12px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kpk-pk{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono);}
+.kpk-check{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center;}
+.kpk-opt.sel .kpk-check{display:grid;}
+.kpk-list .kpk-opt{flex-direction:row;align-items:center;border:0;border-bottom:1px solid var(--border-soft);border-radius:0;}
+.kpk-list .kpk-opt:last-child{border-bottom:0;}
+.kpk-list .kpk-check{position:static;margin-left:auto;background:transparent;color:var(--accent);}
+.kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1;}
 .pkgs{border:1px solid var(--border);border-radius:12px;overflow:hidden;max-height:300px;overflow-y:auto;}
 .pkg{width:100%;display:flex;align-items:center;gap:12px;padding:11px 14px;border:none;background:var(--surface);border-top:1px solid var(--border-soft);text-align:left;cursor:pointer;}
 .pkg:first-child{border-top:none;}
@@ -292,10 +319,10 @@
       {{if and (canOperate .Role) .DeviceQueries}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="query" onclick="selectType('query', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span>Queries<span class="g">Diag</span></button>{{end}}
       {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>{{end}}
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
+      {{if canAdminOrTester .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
     </div>
     <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
   </div>
-  {{if canAdminOrTester .Role}}<div class="pick-moved-note"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Looking for Kiosk mode? It's a standing device setting now, not a one-off action — <a href="/manage">manage it here →</a></div>{{end}}
 
   <div class="cmd-rail3 dv-rise-1{{if not (canOperate .Role)}} is-readonly{{end}}">
 
@@ -353,8 +380,16 @@
           <div class="cfg-picker cfg-static"><span class="cfg-picker-main"><span class="cfg-empty">Nothing to configure</span></span></div>
         </div>
 
-        <!-- Boot logo has moved to its own admin page (/boot-logo); Kiosk mode has
-             moved to /manage — it's a standing config, not a one-off action. -->
+        <!-- Kiosk mode — opens the config dialog; this is just the resulting summary.
+             Kept here temporarily alongside the newer /manage policy page. -->
+        <div id="kiosk-fields" class="payload-section">
+          <button type="button" class="cfg-picker" id="kiosk-picker" onclick="openActionModal('set_kiosk')">
+            <span class="cfg-picker-main"><span id="kiosk-summary" class="cfg-empty">No mode set</span></span>
+            <span class="cfg-cta">Configure</span>
+          </button>
+        </div>
+
+        <!-- Boot logo has moved to its own admin page (/boot-logo). -->
       </div><!-- /.cr-sec (payload) -->
     </div><!-- /.cr-config -->
   </div><!-- /.cmd-rail3 (payload sheet) -->
@@ -492,6 +527,41 @@
           <div class="pl-chips" style="margin-top:12px;">
             {{range .DeviceQueries}}<button type="button" class="pl-chip diag-chip" data-qid="{{.ID}}" data-label="{{.Label}}" title="{{.Command}}" onclick="pickDiag(this)">{{.Label}} <span style="opacity:.6;font-size:10px;text-transform:uppercase;letter-spacing:.03em;">{{.Category}}</span></button>{{end}}
           </div>
+        </div>
+
+        <div class="modal-pane" data-type="set_kiosk" style="display:none;">
+          <input type="hidden" name="kiosk_enabled" id="kiosk-enabled" value="1">
+          <div class="lvl-lbl">Mode</div>
+          <div class="levels" id="kiosk-mode" role="radiogroup" aria-label="Kiosk mode">
+            <button type="button" class="lv on" role="radio" aria-checked="true" data-k="1" onclick="setKioskMode('1', this)">Lock<small>to one app</small></button>
+            <button type="button" class="lv" role="radio" aria-checked="false" data-k="0" onclick="setKioskMode('0', this)">Unlock<small>exit kiosk</small></button>
+          </div>
+          <div id="kiosk-app-wrap" style="margin-top:16px">
+            <div class="lvl-lbl">Locked app</div>
+            {{if .FleetPackages}}
+              <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="">
+              <div id="kiosk-apps-src" hidden>{{range .FleetPackages}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}</div>
+              <div class="kpk" id="kiosk-app-picker">
+                <div class="kpk-top">
+                  <span class="kpk-search">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                    <input type="text" id="kpk-q" autocomplete="off" spellcheck="false" role="combobox" aria-controls="kpk-list" aria-expanded="true" placeholder="Search apps…">
+                  </span>
+                  <span class="kpk-seg" role="tablist" aria-label="View">
+                    <button type="button" id="kpk-vgrid" class="active" title="Grid" aria-label="Grid view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+                    <button type="button" id="kpk-vlist" title="List" aria-label="List view"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+                  </span>
+                </div>
+                <div class="kpk-grid" id="kpk-grid" role="listbox" aria-label="Apps seen across the fleet"></div>
+                <div class="kpk-list" id="kpk-list" role="listbox" aria-label="Apps seen across the fleet"></div>
+              </div>
+              <div class="pl-sub">Devices lock to this app — it must already be installed on the target.</div>
+            {{else}}
+              <input type="text" name="kiosk_package" id="kiosk-pkg-text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" aria-label="Package name to lock to" oninput="updatePreview()">
+              <div class="pl-sub">No package data reported yet — type the exact package to lock to.</div>
+            {{end}}
+          </div>
+          <div class="warncard" id="kiosk-unlock-note" style="display:none;margin-top:14px"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><div><div class="wt">Devices will exit kiosk mode</div><div class="ws">Home, recents and the status bar return.</div></div></div>
         </div>
 
       </div>
@@ -669,6 +739,7 @@ var ACT_META = {
   screenshot:   { name:'Screenshot',   sub:'Capture the live screen',icon:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>' },
   shell:        { name:'Shell',        sub:'Run a shell command (legacy devices)',    icon:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>' },
   reboot:       { name:'Reboot',       sub:'Restart the device',     icon:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>' },
+  set_kiosk:    { name:'Kiosk mode',   sub:'Lock the target to one app, or unlock it',icon:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>' },
   query:        { name:'Run a query',  sub:'Retrieve a device property (read-only)',  icon:'<path d="M4 6h16M4 12h10M4 18h7"/>' }
 };
 function selectType(val, btn) {
@@ -679,11 +750,11 @@ function selectType(val, btn) {
   var ic = document.getElementById('sheet-ic'); if (ic) ic.innerHTML = '<svg viewBox="0 0 24 24">' + m.icon + '</svg>';
   var st = document.getElementById('sheet-t'); if (st) st.textContent = m.name;
   var ss = document.getElementById('sheet-s'); if (ss) ss.textContent = m.sub;
-  ['apk-fields','uninstall-fields','shell-fields','query-fields','screenshot-hint','reboot-hint'].forEach(function(id) {
+  ['apk-fields','uninstall-fields','shell-fields','query-fields','screenshot-hint','reboot-hint','kiosk-fields'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('is-active');
   });
-  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', query:'query-fields', screenshot:'screenshot-hint', reboot:'reboot-hint' })[val];
+  var sectionId = ({ install_apk:'apk-fields', uninstall:'uninstall-fields', shell:'shell-fields', query:'query-fields', screenshot:'screenshot-hint', reboot:'reboot-hint', set_kiosk:'kiosk-fields' })[val];
   var section = document.getElementById(sectionId);
   if (section) section.classList.add('is-active');
   // Picking a pill just switches which summary/hint shows — it does not open the
@@ -699,7 +770,8 @@ var ACM_TITLES = {
   install_apk: { t: 'Choose apps to install', s: '' },
   uninstall:   { t: 'Choose apps to uninstall', s: '' },
   shell:       { t: 'Shell command', s: '' },
-  query:       { t: 'Choose a query', s: 'Runs a read-only, admin-approved command.' }
+  query:       { t: 'Choose a query', s: 'Runs a read-only, admin-approved command.' },
+  set_kiosk:   { t: 'Configure kiosk mode', s: 'Lock devices to one app, or unlock them.' }
 };
 function openActionModal(type) {
   var m = ACM_TITLES[type]; if (!m) return;
@@ -754,6 +826,19 @@ function refreshActionSummary(type) {
     qel.className = chip ? 'cfg-filled' : 'cfg-empty';
     qel.textContent = chip ? chip.dataset.label : 'No query picked';
     document.getElementById('query-picker').classList.toggle('filled', !!chip);
+  } else if (type === 'set_kiosk') {
+    var locked = document.getElementById('kiosk-enabled').value === '1';
+    var kel = document.getElementById('kiosk-summary');
+    if (!locked) {
+      kel.className = 'cfg-filled'; kel.textContent = 'Unlock — exit kiosk mode';
+    } else {
+      var pkgEl = document.getElementById('kiosk-pkg-value') || document.getElementById('kiosk-pkg-text');
+      var pkg = pkgEl ? pkgEl.value : '';
+      var nmEl = (pkg && window.CSS && CSS.escape) ? document.querySelector('#kiosk-apps-src i[data-value="' + CSS.escape(pkg) + '"]') : null;
+      kel.className = pkg ? 'cfg-filled' : 'cfg-empty';
+      kel.textContent = pkg ? ('Lock to ' + (nmEl ? nmEl.getAttribute('data-name') : pkg)) : 'Pick an app to lock to';
+    }
+    document.getElementById('kiosk-picker').classList.add('filled');
   }
 }
 
@@ -781,6 +866,82 @@ function filterApps(q) {
     a.style.display = (a.dataset.search || '').toLowerCase().indexOf(q) !== -1 ? '' : 'none';
   });
 }
+// Kiosk: lock/unlock toggle, app pick, and app-list filter.
+function setKioskMode(v, btn) {
+  var h = document.getElementById('kiosk-enabled'); if (h) h.value = v;
+  document.querySelectorAll('#kiosk-mode .lv').forEach(function (b) { var sel = b === btn; b.classList.toggle('on', sel); b.setAttribute('aria-checked', sel ? 'true' : 'false'); });
+  var lock = v === '1';
+  var wrap = document.getElementById('kiosk-app-wrap'); if (wrap) wrap.style.display = lock ? '' : 'none';
+  var note = document.getElementById('kiosk-unlock-note'); if (note) note.style.display = lock ? 'none' : '';
+  updatePreview();
+}
+// Locked-app picker — the same searchable grid/list-of-real-icons component as the
+// device page's kiosk modal (templates/device.html), reused verbatim (minus the
+// device page's live-drawer merge, which doesn't apply to a fleet-wide package list).
+(function () {
+  var picker = document.getElementById('kiosk-app-picker');
+  if (!picker) return;
+  var src = document.getElementById('kiosk-apps-src');
+  var hidden = document.getElementById('kiosk-pkg-value');
+  var q = document.getElementById('kpk-q');
+  var gridEl = document.getElementById('kpk-grid');
+  var listEl = document.getElementById('kpk-list');
+  var apps = [];
+  (function () {
+    var seen = {};
+    [].forEach.call(src.querySelectorAll('i'), function (el) {
+      var v = el.getAttribute('data-value'); if (!v || seen[v]) return; seen[v] = 1;
+      apps.push({ v: v, n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon') });
+    });
+  })();
+  var kbd = -1;
+
+  function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function colorFor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffffff; return 'hsl(' + (h % 360) + ' 52% 45%)'; }
+  function initial(n) { n = (n || '').replace(/^[^A-Za-z0-9]+/, ''); return (n.slice(0, 1) || '?').toUpperCase(); }
+  function match(a, s) { if (!s) return true; return (a.n + ' ' + a.v).toLowerCase().indexOf(s) >= 0; }
+  function filtered() { var s = q.value.trim().toLowerCase(); return apps.filter(function (a) { return match(a, s); }); }
+
+  function tileHtml(a) {
+    if (a.icon) return '<img class="kpk-tile kpk-img" src="data:image/png;base64,' + a.icon + '" alt="">';
+    return '<span class="kpk-tile" style="background:' + colorFor(a.v || a.n) + '">' + esc(initial(a.n)) + '</span>';
+  }
+  function optHtml(a, i) {
+    var sel = hidden.value === a.v;
+    return '<button type="button" class="kpk-opt' + (sel ? ' sel' : '') + (i === kbd ? ' kbd' : '') + '" data-value="' + esc(a.v) + '" role="option" aria-selected="' + sel + '">' +
+      tileHtml(a) + '<span class="kpk-txt"><span class="kpk-nm">' + esc(a.n) + '</span>' +
+      '<span class="kpk-pk">' + esc(a.v) + '</span></span>' +
+      '<span class="kpk-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span></button>';
+  }
+  function render() {
+    var items = filtered();
+    var html = items.length ? items.map(optHtml).join('') : '<div class="kpk-empty">No apps match.</div>';
+    gridEl.innerHTML = html; listEl.innerHTML = html;
+  }
+  function choose(v) { hidden.value = v; render(); updatePreview(); }
+
+  gridEl.addEventListener('click', pick); listEl.addEventListener('click', pick);
+  function pick(e) { var b = e.target.closest('.kpk-opt'); if (b) choose(b.getAttribute('data-value')); }
+
+  q.addEventListener('input', function () { kbd = -1; render(); });
+  q.addEventListener('keydown', function (e) {
+    var items = filtered();
+    if (e.key === 'ArrowDown') { e.preventDefault(); kbd = Math.min(kbd + 1, items.length - 1); render(); scrollKbd(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); kbd = Math.max(kbd - 1, 0); render(); scrollKbd(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (kbd >= 0 && items[kbd]) choose(items[kbd].v); else if (items.length === 1) choose(items[0].v); }
+  });
+  function scrollKbd() { var box = picker.classList.contains('listview') ? listEl : gridEl; var el = box.querySelector('.kpk-opt.kbd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+
+  function setView(v) {
+    picker.classList.toggle('listview', v === 'list');
+    document.getElementById('kpk-vgrid').classList.toggle('active', v === 'grid');
+    document.getElementById('kpk-vlist').classList.toggle('active', v === 'list');
+  }
+  document.getElementById('kpk-vgrid').onclick = function () { setView('grid'); };
+  document.getElementById('kpk-vlist').onclick = function () { setView('list'); };
+
+  render();
+})();
 // ── Scope-rail target picker ──
 // The rail sets the candidate scope (collection + refine); the device list under it
 // lets you drill in. No devices checked → target = the whole scope; check some →
