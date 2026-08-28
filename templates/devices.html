@@ -56,12 +56,60 @@
       {{if canAdmin $.Role}}<button type="button" class="fleet-view" role="radio" aria-checked="false" data-view="hidden" onclick="setView('hidden')">Inactive</button>{{end}}
 {{end}}
 
+{{/* Collection toolbar next to the roster heading: manage/rename/delete the
+     group/restaurant/release currently scoping the roster. Its own template so
+     the rail-click partial swap (scopeRoster → roster-meta-oob) can re-render it
+     via OOB too — otherwise it kept showing whichever (or no) collection was
+     active before the click. */}}
+{{define "coll-tools-block"}}
+{{if canAdminOrTester .Role}}
+{{if .ActiveGroup}}
+<span class="coll-tools" id="coll-tools">
+  <button type="button" class="ct-btn" title="Rename group" aria-label="Rename group" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+  <form action="/groups/{{.ActiveGroup}}/delete" method="POST" style="display:inline;margin:0;" onsubmit="return mdmConfirmSubmit(event,{title:'Delete group',body:'Delete this group? The devices stay — only the group is removed.',tier:'danger',confirmLabel:'Delete'})">
+    <input type="hidden" name="redirect" value="/devices">
+    <button type="submit" class="ct-btn danger" title="Delete group" aria-label="Delete group"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+  </form>
+  <a class="ct-btn" href="/groups/{{.ActiveGroup}}" title="Manage group">Manage →</a>
+</span>
+<form action="/groups/{{.ActiveGroup}}" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
+  <input type="hidden" name="redirect" value="/devices?group={{.ActiveGroup}}">
+  <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Group name" required>
+  <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
+  <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
+</form>
+{{else if .ActiveRestaurant}}
+<span class="coll-tools">
+  <button type="button" class="ct-btn" title="Edit venue" aria-label="Edit venue" onclick="openFleetDrawer('/restaurants/{{.ActiveRestaurant}}/edit','Edit venue')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+  <form action="/restaurants/{{.ActiveRestaurant}}/delete" method="POST" style="display:inline;margin:0;" onsubmit="return mdmConfirmSubmit(event,{title:'Delete restaurant',body:'Delete this venue? The devices stay — only the venue is removed.',tier:'danger',confirmLabel:'Delete'})">
+    <input type="hidden" name="redirect" value="/devices">
+    <button type="submit" class="ct-btn danger" title="Delete restaurant" aria-label="Delete restaurant"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
+  </form>
+  <a class="ct-btn" href="/restaurants/{{.ActiveRestaurant}}" title="Manage venue">Manage →</a>
+</span>
+{{else if and .FilterBuild .ActiveReleaseID}}
+<span class="coll-tools" id="coll-tools">
+  <button type="button" class="ct-btn" title="Rename release" aria-label="Rename release" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+  <a class="ct-btn" href="/releases/{{.ActiveReleaseID}}" title="Manage release">Manage →</a>
+</span>
+<form action="/releases/{{.ActiveReleaseID}}/rename" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
+  <input type="hidden" name="redirect" value="/devices?build={{.FilterBuild}}">
+  <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Release name" required>
+  <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
+  <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
+</form>
+{{end}}
+{{end}}
+{{end}}
+
 {{/* Out-of-band bits refreshed when the roster is re-scoped in place (rail click):
-     the heading name + count and the quick-view pill counts. The device list
-     itself is the main swap target (#device-table-container). */}}
+     the heading name + count, the collection toolbar and the quick-view pill
+     counts. The device list itself is the main swap target
+     (#device-table-container). */}}
 {{define "roster-meta-oob"}}
 <span class="t" id="roster-title" hx-swap-oob="true">{{.SelectedCollection}}</span>
 <span class="c" id="roster-count" hx-swap-oob="true">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
+<span id="coll-tools-wrap" hx-swap-oob="true">{{template "coll-tools-block" .}}</span>
 <div class="fleet-views" id="fleet-views" role="radiogroup" aria-label="Fleet view" hx-swap-oob="true">{{template "fleet-view-pills" .}}</div>
 {{end}}
 
@@ -331,45 +379,12 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       <span class="c" id="roster-count">{{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}</span>
 
       {{/* ── Collection toolbar: manage the group/restaurant/release scoping the
-           roster right here, without opening its separate detail page. ── */}}
-      {{if canAdminOrTester .Role}}
-      {{if .ActiveGroup}}
-      <span class="coll-tools" id="coll-tools">
-        <button type="button" class="ct-btn" title="Rename group" aria-label="Rename group" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-        <form action="/groups/{{.ActiveGroup}}/delete" method="POST" style="display:inline;margin:0;" onsubmit="return mdmConfirmSubmit(event,{title:'Delete group',body:'Delete this group? The devices stay — only the group is removed.',tier:'danger',confirmLabel:'Delete'})">
-          <input type="hidden" name="redirect" value="/devices">
-          <button type="submit" class="ct-btn danger" title="Delete group" aria-label="Delete group"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-        </form>
-        <a class="ct-btn" href="/groups/{{.ActiveGroup}}" title="Manage group">Manage →</a>
-      </span>
-      <form action="/groups/{{.ActiveGroup}}" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
-        <input type="hidden" name="redirect" value="/devices?group={{.ActiveGroup}}">
-        <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Group name" required>
-        <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
-        <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
-      </form>
-      {{else if .ActiveRestaurant}}
-      <span class="coll-tools">
-        <button type="button" class="ct-btn" title="Edit venue" aria-label="Edit venue" onclick="openFleetDrawer('/restaurants/{{.ActiveRestaurant}}/edit','Edit venue')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-        <form action="/restaurants/{{.ActiveRestaurant}}/delete" method="POST" style="display:inline;margin:0;" onsubmit="return mdmConfirmSubmit(event,{title:'Delete restaurant',body:'Delete this venue? The devices stay — only the venue is removed.',tier:'danger',confirmLabel:'Delete'})">
-          <input type="hidden" name="redirect" value="/devices">
-          <button type="submit" class="ct-btn danger" title="Delete restaurant" aria-label="Delete restaurant"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-        </form>
-        <a class="ct-btn" href="/restaurants/{{.ActiveRestaurant}}" title="Manage venue">Manage →</a>
-      </span>
-      {{else if and .FilterBuild .ActiveReleaseID}}
-      <span class="coll-tools" id="coll-tools">
-        <button type="button" class="ct-btn" title="Rename release" aria-label="Rename release" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-        <a class="ct-btn" href="/releases/{{.ActiveReleaseID}}" title="Manage release">Manage →</a>
-      </span>
-      <form action="/releases/{{.ActiveReleaseID}}/rename" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
-        <input type="hidden" name="redirect" value="/devices?build={{.FilterBuild}}">
-        <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Release name" required>
-        <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
-        <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
-      </form>
-      {{end}}
-      {{end}}
+           roster right here, without opening its separate detail page. Wrapped in
+           its own OOB-swappable span (see "coll-tools-block"/"roster-meta-oob")
+           because a rail click re-scopes the roster via scopeRoster()'s partial
+           swap — without this it never re-rendered, leaving the toolbar showing
+           the previous (or no) collection's controls. ── */}}
+      <span id="coll-tools-wrap">{{template "coll-tools-block" .}}</span>
 
       <span class="ov-live" style="margin-left:auto;"><i></i>live</span>
       <span class="refresh-badge" id="refresh-indicator" style="display:none;">Refreshing…</span>
