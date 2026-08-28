@@ -1494,7 +1494,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
       <div class="hgrp-h prog" data-grp><span class="hbadge live" style="padding:0;background:none;"><span class="pd"></span></span>In progress <span class="cnt">{{.ProgCount}}</span></div>
       {{if .InProgress}}
         {{range .InProgress}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "prog")}}{{end}}
-        {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress">Show all {{.ProgCount}} in progress →</a>{{end}}
+        {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress" hx-target="main" hx-swap="outerHTML">Show all {{.ProgCount}} in progress →</a>{{end}}
       {{else}}<div class="hist-empty">No actions in progress</div>{{end}}
 
       {{/* Needs attention — always shown, with a Clear button + empty state. */}}
@@ -1507,14 +1507,14 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
       </div>
       {{if .Attention}}
         {{range .Attention}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "attn")}}{{end}}
-        {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention">Show all {{.AttnCount}} that need attention →</a>{{end}}
+        {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention" hx-target="main" hx-swap="outerHTML">Show all {{.AttnCount}} that need attention →</a>{{end}}
       {{else}}<div class="hist-empty">No actions needing attention</div>{{end}}
 
       {{/* Completed — only when present. */}}
       {{if .Completed}}
       <div class="hgrp-h done" data-grp><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Completed <span class="cnt">{{.DoneCount}}</span></div>
       {{range .Completed}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "done")}}{{end}}
-      {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/commands/history?status=completed">Show all →</a>{{end}}
+      {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/commands/history?status=completed" hx-target="main" hx-swap="outerHTML">Show all →</a>{{end}}
       {{end}}
     {{else}}
       <div class="empty-state" style="padding:28px 18px;">
@@ -1573,7 +1573,11 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     {{/* Admin/dev can delete any command. Tester can delete In progress / Needs attention
          (this same condition — everything but "done") but not settled Completed history;
          CommandDelete enforces the same rule server-side. */}}
-    <form action="/commands/{{$c.ID}}/delete" method="POST" hx-post="/commands/{{$c.ID}}/delete" hx-target="closest .htrow" hx-swap="outerHTML swap:0.15s" hx-confirm="Delete this command? Devices that have not yet received it will no longer get it.">
+    {{/* hx-swap="none": the row itself isn't touched here — deletion publishes a
+         command-update SSE event, which the timeline's own hx-get+morph (see
+         #cmd-history-table / #hist-live) picks up to re-fetch the capped bucket,
+         so the next hidden row slides in rather than the bucket just shrinking. */}}
+    <form action="/commands/{{$c.ID}}/delete" method="POST" hx-post="/commands/{{$c.ID}}/delete" hx-swap="none" hx-confirm="Delete this command? Devices that have not yet received it will no longer get it.">
       <button type="submit" class="cmd-del" title="Delete action" aria-label="Delete">&times;</button>
     </form>
     {{end}}

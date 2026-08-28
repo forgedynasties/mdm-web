@@ -9671,8 +9671,11 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	// htmx row-delete: respond with nothing so hx-swap="outerHTML" on the row just
-	// removes it in place, instead of navigating/re-rendering the whole list.
+	// Fires the same command-update SSE event a status change would, so every open
+	// Actions/history view (including this tab) re-fetches its capped bucket and
+	// morphs in place — the next hidden row slides into view instead of the bucket
+	// just shrinking by one, and other tabs/users stay in sync.
+	h.hub.PublishCommandUpdate(id)
 	if hxReq(r) {
 		w.WriteHeader(http.StatusOK)
 		return
