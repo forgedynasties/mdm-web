@@ -1861,6 +1861,13 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	activeThreshold := h.cfg.CheckinInterval() * 3
 	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
 	filter := h.deviceFilterFromRequest(r)
+	// Right-pane mode ("" = roster, "restaurants"/"groups" = collections grid,
+	// "restaurant"/"group" = one collection's detail) — filter.RestaurantID/GroupID
+	// already carry the view=restaurant|group scoping resolved in deviceFilterFromRequest.
+	view := r.URL.Query().Get("view")
+	viewID := r.URL.Query().Get("id")
+	restaurantID := filter.RestaurantID
+	groupID := filter.GroupID
 
 	var (
 		devices     []db.Device
@@ -2112,7 +2119,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"FilterKiosk":          r.URL.Query().Get("kiosk"),
 		"FilterCharging":       r.URL.Query().Get("charging"),
 		"FilterTimezone":       r.URL.Query().Get("timezone"),
-		"FilterHidden":         hiddenParam,
+		"FilterHidden":         filter.Hidden,
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
 		"Density":              h.cfg.Density(),
