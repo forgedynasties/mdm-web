@@ -1514,7 +1514,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
       {{if .Completed}}
       <div class="hgrp-h done" data-grp><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Completed <span class="cnt">{{.DoneCount}}</span></div>
       {{range .Completed}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "done")}}{{end}}
-      {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/commands/history?status=completed">Show all {{.DoneCount}} completed →</a>{{end}}
+      {{if gt .DoneCount (len .Completed)}}<a class="hmore" href="/commands/history?status=completed">Show all →</a>{{end}}
       {{end}}
     {{else}}
       <div class="empty-state" style="padding:28px 18px;">
@@ -1573,7 +1573,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     {{/* Admin/dev can delete any command. Tester can delete In progress / Needs attention
          (this same condition — everything but "done") but not settled Completed history;
          CommandDelete enforces the same rule server-side. */}}
-    <form action="/commands/{{$c.ID}}/delete" method="POST" hx-confirm="Delete this command? Devices that have not yet received it will no longer get it.">
+    <form action="/commands/{{$c.ID}}/delete" method="POST" hx-post="/commands/{{$c.ID}}/delete" hx-target="closest .htrow" hx-swap="outerHTML swap:0.15s" hx-confirm="Delete this command? Devices that have not yet received it will no longer get it.">
       <button type="submit" class="cmd-del" title="Delete action" aria-label="Delete">&times;</button>
     </form>
     {{end}}

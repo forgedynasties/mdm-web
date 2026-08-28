@@ -9671,6 +9671,12 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// htmx row-delete: respond with nothing so hx-swap="outerHTML" on the row just
+	// removes it in place, instead of navigating/re-rendering the whole list.
+	if hxReq(r) {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 	http.Redirect(w, r, "/commands", http.StatusFound)
 }
 
