@@ -1737,39 +1737,12 @@ func (h *Handler) connectedSlice() []uuid.UUID {
 	return out
 }
 
-func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
-	// A ?page_size=N from the main-page selector persists to config (survives
-	// restarts) so the choice sticks across sessions and machines. Capped at 200 to
-	// match the selector's own largest option (devices.html) — the clamp used to
-	// allow up to 500 via a direct URL param even though the UI never offers past
-	// 200, and 500 rows means thousands of DOM nodes (several inline SVGs per row)
-	// that measurably slow down the page's client-side render.
-	if v := r.URL.Query().Get("page_size"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 && n != h.cfg.PageSize() {
-			h.cfg.SetPageSize(n)
-		}
-	}
-	pageSize := h.cfg.PageSize()
-	q := r.URL.Query().Get("q")
-	sort := r.URL.Query().Get("sort")
-	dir := r.URL.Query().Get("dir")
-	if sort == "" {
-		sort = h.cfg.DefaultSort()
-		if dir == "" {
-			if sort == "last_seen" || sort == "created_at" {
-				dir = "desc"
-			} else {
-				dir = "asc"
-			}
-		}
-	}
-	page := 1
-	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
-		page = p
-	}
-	offset := (page - 1) * pageSize
-
-	// Build filter
+// deviceFilterFromRequest builds the roster DeviceFilter from the same query
+// params DeviceList reads (search/group/restaurant/build/battery/etc, plus the
+// view=restaurant|group scoping and the admin-only hidden=only override). Shared
+// with DeviceSelectAllSerials so "Select all N matching" resolves the exact same
+// set the roster is currently showing.
+func (h *Handler) deviceFilterFromRequest(r *http.Request) db.DeviceFilter {
 	var groupID uuid.UUID
 	if gid := r.URL.Query().Get("group"); gid != "" {
 		if parsed, err := uuid.Parse(gid); err == nil {
@@ -1807,7 +1780,6 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	activeThreshold := h.cfg.CheckinInterval() * 3
-	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
 	// The "Retired" view (hidden=only) is admin-only; everyone else only ever sees
 	// active devices. Any other value collapses to active-only (there is no mixed view).
 	role := h.role(r)
@@ -1815,8 +1787,8 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("hidden") == "only" && (role == "admin" || role == "dev") {
 		hiddenParam = "only"
 	}
-	filter := db.DeviceFilter{
-		Search:              q,
+	return db.DeviceFilter{
+		Search:              r.URL.Query().Get("q"),
 		GroupID:             groupID,
 		RestaurantID:        restaurantID,
 		ProductionID:        productionID,
@@ -1833,6 +1805,62 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		// counts (GetSummaryFiltered) resolve it against this connected set.
 		Connected: h.connectedSlice(),
 	}
+}
+
+// DeviceSelectAllSerials returns every serial matching the roster's current
+// filter (not just the current page), backing the "Select all N matching" link
+// that appears once a full page of checkboxes is selected but more devices exist
+// beyond it.
+func (h *Handler) DeviceSelectAllSerials(w http.ResponseWriter, r *http.Request) {
+	filter := h.deviceFilterFromRequest(r)
+	devices, err := h.db.ListDevices(r.Context(), filter, 0, 10000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	serials := make([]string, len(devices))
+	for i, d := range devices {
+		serials[i] = d.SerialNumber
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"serials": serials})
+}
+
+func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
+	// A ?page_size=N from the main-page selector persists to config (survives
+	// restarts) so the choice sticks across sessions and machines. Capped at 200 to
+	// match the selector's own largest option (devices.html) — the clamp used to
+	// allow up to 500 via a direct URL param even though the UI never offers past
+	// 200, and 500 rows means thousands of DOM nodes (several inline SVGs per row)
+	// that measurably slow down the page's client-side render.
+	if v := r.URL.Query().Get("page_size"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 200 && n != h.cfg.PageSize() {
+			h.cfg.SetPageSize(n)
+		}
+	}
+	pageSize := h.cfg.PageSize()
+	q := r.URL.Query().Get("q")
+	sort := r.URL.Query().Get("sort")
+	dir := r.URL.Query().Get("dir")
+	if sort == "" {
+		sort = h.cfg.DefaultSort()
+		if dir == "" {
+			if sort == "last_seen" || sort == "created_at" {
+				dir = "desc"
+			} else {
+				dir = "asc"
+			}
+		}
+	}
+	page := 1
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
+		page = p
+	}
+	offset := (page - 1) * pageSize
+
+	activeThreshold := h.cfg.CheckinInterval() * 3
+	activeThresholdLabel := fmt.Sprintf("%d min", activeThreshold/60)
+	filter := h.deviceFilterFromRequest(r)
 
 	var (
 		devices     []db.Device
@@ -13503,6 +13531,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.Overview))
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))
+	mux.HandleFunc("GET /devices/select-serials", h.requireAuth(h.DeviceSelectAllSerials))
 	mux.HandleFunc("GET /devices/search", h.requireAuth(h.DeviceSearch))
 	mux.HandleFunc("GET /cmdk-index", h.requireAuth(h.CmdkIndex))
 	mux.HandleFunc("GET /demo", h.requireAuth(func(w http.ResponseWriter, r *http.Request) {

@@ -83,8 +83,12 @@
 {{end}}
 <div class="table-toolbar">
   <label class="checkbox-label" style="gap:8px;font-size:13px;color:var(--muted);">
-    <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"> Select All
+    <input type="checkbox" id="select-all" onchange="toggleSelectAll(this)" data-page-total="{{len .Devices}}" data-filter-total="{{.Total}}"> Select All
   </label>
+  {{/* Shown only once every checkbox on the current page is checked and more devices
+       match the active filter than fit on this page — lets a bulk action reach the
+       full filtered set instead of silently stopping at the current page. */}}
+  <button type="button" id="select-all-matching" class="link-btn" style="display:none;font-size:12.5px;" onclick="selectAllMatching()"></button>
   <div class="bulk-actions" id="bulk-bar" style="display:none;">
     <span class="bulk-count" id="bulk-count">0 selected</span>
     {{if canAdmin .Role}}
@@ -524,8 +528,19 @@ function getFilterVals(overrides) {
   return vals;
 }
 
+// Signature of the active filters, excluding page/page_size — used to tell a
+// plain page turn (keep the "select all matching" set) apart from an actual
+// filter/search change (the old set no longer matches, so drop it).
+function filterSig(vals) {
+  vals = vals || getFilterVals();
+  var o = Object.assign({}, vals);
+  delete o.page; delete o.page_size;
+  return JSON.stringify(o);
+}
+
 function navigateDevices(overrides) {
   var vals = getFilterVals(overrides);
+  if (selectAllMatchingSet && filterSig(vals) !== selectAllMatchingSig) clearSelectAllMatching();
   var url = '/devices?' + new URLSearchParams(vals).toString();
   // Explicit innerHTML swap: a bare target string would inherit the <body>'s
   // hx-swap="outerHTML" (hx-boost), which replaces the container itself and
@@ -551,6 +566,7 @@ function mdmDevSkeleton() {
 // → real rows) and the heading/quick-view counts (OOB) change; the rail, search bar
 // and inspector stay put. Switching collection resets the search + popover filters.
 function scopeRoster(anchor, u) {
+  clearSelectAllMatching();
   ['filter-production', 'filter-product', 'filter-status', 'filter-build', 'filter-battery', 'filter-kiosk', 'filter-charging', 'filter-timezone'].forEach(function (id) { setSel(id, ''); });
   setSel('search-input', '');
   var ov = { page: '1', group: '', restaurant: '', build: '', production: '', product: '', status: '', battery: '', kiosk: '', charging: '', timezone: '', q: '', hidden: '' };
@@ -793,7 +809,17 @@ function applyCols() {
 document.addEventListener('DOMContentLoaded', applyCols);
 window.addEventListener('resize', syncColsUI);
 document.body.addEventListener('htmx:afterSwap', function (evt) {
-  if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container') applyCols();
+  if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container') {
+    applyCols();
+    // A "select all matching" set survives plain page turns — reflect it on this
+    // page's freshly-rendered checkboxes and refresh the bulk bar/count.
+    if (selectAllMatchingSet) {
+      document.querySelectorAll('.device-cb').forEach(function (box) {
+        box.checked = selectAllMatchingSet.has(box.value);
+      });
+    }
+    if (typeof updateBulkBar === 'function') updateBulkBar();
+  }
 });
 
 // Search with debounce
@@ -805,8 +831,40 @@ document.getElementById('search-input').addEventListener('input', function() {
   }, 350);
 });
 
+// When set, a "Select all N matching" click resolved every serial matching the
+// current roster filter (not just this page) — getSelectedSerials returns this
+// instead of just the checked-on-this-page boxes. Cleared by unchecking Select
+// All, navigating to a fresh filter/page, or unchecking any individual box.
+var selectAllMatchingSet = null;
+var selectAllMatchingSig = null; // filter signature (no page/page_size) the set was built for
+
 function getSelectedSerials() {
+  if (selectAllMatchingSet) return Array.from(selectAllMatchingSet);
   return Array.from(document.querySelectorAll('.device-cb:checked')).map(function(cb) { return cb.value; });
+}
+
+function clearSelectAllMatching() {
+  selectAllMatchingSet = null;
+  var btn = document.getElementById('select-all-matching');
+  if (btn) { btn.style.display = 'none'; btn.disabled = false; btn.textContent = ''; }
+}
+
+function selectAllMatching() {
+  var btn = document.getElementById('select-all-matching');
+  var allCb = document.getElementById('select-all');
+  var total = allCb ? parseInt(allCb.dataset.filterTotal || '0', 10) : 0;
+  if (btn) { btn.disabled = true; btn.textContent = 'Selecting…'; }
+  fetch('/devices/select-serials' + location.search, { headers: { 'HX-Request': 'true' } })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      selectAllMatchingSet = new Set(data.serials || []);
+      selectAllMatchingSig = filterSig();
+      if (btn) { btn.disabled = false; btn.style.display = 'none'; }
+      updateBulkBar();
+    })
+    .catch(function () {
+      if (btn) { btn.disabled = false; btn.textContent = 'Select all ' + total + ' matching →'; }
+    });
 }
 
 function updateBulkBar() {
@@ -815,9 +873,20 @@ function updateBulkBar() {
   var count = document.getElementById('bulk-count');
   var allCb = document.getElementById('select-all');
   var allBoxes = document.querySelectorAll('.device-cb');
+  var matchBtn = document.getElementById('select-all-matching');
+
+  // If a matching-set selection is active, per-row checkboxes stay a mirror of it
+  // (so a page you land on still shows the right boxes checked) — unchecking one
+  // removes just that serial from the set rather than resetting to page-only.
+  if (selectAllMatchingSet) {
+    allBoxes.forEach(function (box) {
+      if (!box.checked) selectAllMatchingSet.delete(box.value);
+    });
+    serials = getSelectedSerials();
+  }
 
   bar.style.display = serials.length > 0 ? 'flex' : 'none';
-  count.textContent = serials.length + ' selected';
+  count.textContent = serials.length + ' selected' + (selectAllMatchingSet ? ' (all matching)' : '');
 
   // Inject the current selection into the bulk hide/unhide forms.
   [['bulk-hide-form', null], ['bulk-unhide-form', null]].forEach(function(pair) {
@@ -837,16 +906,29 @@ function updateBulkBar() {
     uform.style.display = (serials.length > 0 && anyHidden) ? 'inline' : 'none';
   }
 
-  if (allBoxes.length > 0 && serials.length === allBoxes.length) {
+  if (allBoxes.length > 0 && serials.length === allBoxes.length && !selectAllMatchingSet) {
+    allCb.checked = true; allCb.indeterminate = false;
+  } else if (selectAllMatchingSet) {
     allCb.checked = true; allCb.indeterminate = false;
   } else if (serials.length > 0) {
     allCb.checked = false; allCb.indeterminate = true;
   } else {
     allCb.checked = false; allCb.indeterminate = false;
   }
+
+  // Offer "Select all N matching" only once this page is fully checked (by hand
+  // or via the header box) and the filter has more devices than fit on this page.
+  if (matchBtn && !selectAllMatchingSet) {
+    var pageTotal = parseInt(allCb.dataset.pageTotal || '0', 10);
+    var filterTotal = parseInt(allCb.dataset.filterTotal || '0', 10);
+    var showIt = allBoxes.length > 0 && serials.length === allBoxes.length && filterTotal > pageTotal;
+    matchBtn.style.display = showIt ? '' : 'none';
+    if (showIt) matchBtn.textContent = 'Select all ' + filterTotal + ' matching →';
+  }
 }
 
 function toggleSelectAll(cb) {
+  if (!cb.checked) clearSelectAllMatching();
   document.querySelectorAll('.device-cb').forEach(function(box) { box.checked = cb.checked; });
   updateBulkBar();
 }
