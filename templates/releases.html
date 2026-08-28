@@ -24,12 +24,18 @@
 </div>
 
 {{/* Live "Updates in progress" summary. Polls at 4s only while an OTA is actually in
-     flight; backs off to 30s (just enough to notice one start) the rest of the time —
+     flight; backs off to ~30s (just enough to notice one start) the rest of the time —
      this card renders empty on most visits, so a fixed 4s poll was mostly wasted
      requests. window.otaActive is re-derived from the swapped-in markup itself (the
-     "ota-progress" template renders a .card wrapper only when .ActiveOTA is set). */}}
+     "ota-progress" template renders a .card wrapper only when .ActiveOTA is set).
+     The backoff is done by skipping ticks in JS (htmx:beforeRequest), NOT via htmx's
+     "every 4s[expr]" bracket-conditional trigger syntax — that evaluates the bracketed
+     expression with new Function()/eval, which this app's CSP (no 'unsafe-eval')
+     blocks outright. That threw on every poll tick and broke htmx's click handling
+     for the rest of the page along with it (FW-2026-000XXX: clicking any boosted
+     link on /releases silently did nothing once this fired). */}}
 <div id="ota-progress-live" data-morph
-     hx-get="/releases?partial=ota-progress" hx-trigger="load, every 4s[window.otaActive], every 30s[!window.otaActive]"
+     hx-get="/releases?partial=ota-progress" hx-trigger="load, every 4s"
      hx-target="this" hx-swap="innerHTML" hx-select="unset">
   {{template "ota-progress" .}}
 </div>
@@ -37,8 +43,17 @@
 (function () {
   var el = document.getElementById('ota-progress-live');
   if (!el) return;
+  var idleTicks = 0;
   var sync = function () { window.otaActive = !!el.querySelector('.card'); };
   sync();
+  document.body.addEventListener('htmx:beforeRequest', function (evt) {
+    if (!evt.detail || evt.detail.elt !== el) return;
+    if (window.otaActive) { idleTicks = 0; return; }
+    // Idle: let roughly 1 in 8 ticks through (~30s at the 4s base interval) instead
+    // of every one.
+    idleTicks++;
+    if (idleTicks % 8 !== 0) evt.preventDefault();
+  });
   document.body.addEventListener('htmx:afterSwap', function (evt) {
     if (evt.detail && evt.detail.target === el) sync();
   });
@@ -190,7 +205,11 @@ document.addEventListener('keydown', function (e) {
 <div class="card" style="margin-top:12px;border-color:var(--accent-line,#7a80f6);">
   <div class="card-header">
     <h3>Updates in progress <span class="live-dot" title="Live — updates every few seconds"></span></h3>
-    <span class="muted small">{{$total}} device{{if ne $total 1}}s{{end}} updating · {{if and (not $mixed) (gt $singleReleaseID 0)}}<a href="/releases/{{$singleReleaseID}}/deployments/{{$singleUpdateID}}">device-by-device →</a>{{else}}<a href="/updates">device-by-device →</a>{{end}}</span>
+    {{/* hx-target/hx-swap explicitly override the ancestor #ota-progress-live's
+         hx-target="this" hx-swap="innerHTML" (there for ITS OWN polling) — without
+         this the link inherits those and tries to swap the whole destination page
+         into this small card instead of navigating main. */}}
+    <span class="muted small">{{$total}} device{{if ne $total 1}}s{{end}} updating · {{if and (not $mixed) (gt $singleReleaseID 0)}}<a href="/releases/{{$singleReleaseID}}/deployments/{{$singleUpdateID}}" hx-target="main" hx-swap="outerHTML">device-by-device →</a>{{else}}<a href="/updates" hx-target="main" hx-swap="outerHTML">device-by-device →</a>{{end}}</span>
   </div>
   <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--border);flex-wrap:wrap;">
     {{if gt $dl 0}}
