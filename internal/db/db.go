@@ -10612,6 +10612,18 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 // that is in-progress (pending/delivered/downloaded) OR that failed within the
 // last hour. This prevents the server from re-sending OTA commands on every
 // check-in after a failure.
+// HasPendingOTACommand reports whether an OTA is already in flight for a device, so
+// the check-in resolver doesn't create a second one on top of it. Two independent
+// self-heal properties, both hardening against FW-2026-000XXX (a device stuck
+// "downloading 0%" forever because an abandoned/superseded OTA command sat at
+// 'delivered' and nothing ever recognized it as done):
+//  1. 'expired'/'cancelled' count as terminal here, matching what
+//     ExpireOverdueCommands (a 24h backstop for exactly this situation) actually
+//     marks a stalled command as — previously this check didn't accept either, so
+//     even after that sweep ran, a device stayed permanently blocked anyway.
+//  2. A staleness cutoff on its own (6h — generous for a slow/flaky download, but
+//     not "forever"), so a device self-heals well before the 24h sweep would even
+//     fire, instead of depending on a second subsystem's timing.
 func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool, error) {
 	var exists bool
 	err := d.pool.QueryRow(ctx, `
@@ -10621,8 +10633,10 @@ func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool
 			LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
 			WHERE c.type = 'ota'
 			AND (
-				cs.status IS NULL
-				OR cs.status NOT IN ('installed', 'failed', 'completed')
+				(
+					(cs.status IS NULL OR cs.status NOT IN ('installed', 'failed', 'completed', 'expired', 'cancelled'))
+					AND COALESCE(cs.updated_at, c.created_at) > NOW() - INTERVAL '6 hours'
+				)
 				OR (cs.status = 'failed' AND cs.updated_at > NOW() - INTERVAL '1 hour')
 			)
 		)
