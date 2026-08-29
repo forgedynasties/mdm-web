@@ -916,6 +916,21 @@
       freshNodes = [];
       var tpl = document.createElement('template');
       tpl.innerHTML = html;
+      // Elements marked hx-swap-oob (e.g. roster-meta-oob's heading/toolbar/pills) are meant
+      // for a DIFFERENT target elsewhere on the page, not `from`'s own children. We can't rely
+      // on htmx's own out-of-band handling here: this whole response is already being swapped
+      // via our own morph (shouldSwap is about to be set false below), and in practice htmx's
+      // internal OOB pass does not reliably run for every marked element once that happens.
+      // So do it ourselves, with the same morphEl() this function already uses — find each
+      // oob element's real target by id and morph it in place — then drop it from the
+      // fragment so it isn't ALSO inserted as one of `from`'s own children.
+      Array.prototype.slice.call(tpl.content.querySelectorAll('[hx-swap-oob]')).forEach(function (n) {
+        if (n.id) {
+          var real = document.getElementById(n.id);
+          if (real) morphEl(real, n);
+        }
+        n.remove();
+      });
       var root = tpl.content.firstElementChild;
       // An outerHTML partial re-renders the element itself (same id) → morph it whole;
       // an innerHTML partial is a child list → morph the children.
