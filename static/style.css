@@ -4432,6 +4432,7 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .fleet-pane-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .fleet-pane-head .t { font-size: 17px; font-weight: 700; }
 .fleet-pane-head .c { font-size: 13px; color: var(--muted); }
+.fleet-pane-head .coll-rename input[name="name"] { font-size: 17px; font-weight: 700; }
 
 /* Rail section captions rendered as pills — they are section buttons/links. */
 .fleet-rail-cap > a:first-child, .fleet-rail-cap > span:first-child {

@@ -66,10 +66,6 @@
 {{if .ActiveGroup}}
 <span class="coll-tools" id="coll-tools">
   <button type="button" class="ct-btn" title="Rename group" aria-label="Rename group" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-  <form action="/groups/{{.ActiveGroup}}/delete" method="POST" style="display:inline;margin:0;" onsubmit="return mdmConfirmSubmit(event,{title:'Delete group',body:'Delete this group? The devices stay — only the group is removed.',tier:'danger',confirmLabel:'Delete'})">
-    <input type="hidden" name="redirect" value="/devices">
-    <button type="submit" class="ct-btn danger" title="Delete group" aria-label="Delete group"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-  </form>
   <a class="ct-btn" href="/groups/{{.ActiveGroup}}" title="Manage group">Manage →</a>
 </span>
 <form action="/groups/{{.ActiveGroup}}" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
@@ -81,10 +77,6 @@
 {{else if .ActiveRestaurant}}
 <span class="coll-tools">
   <button type="button" class="ct-btn" title="Edit venue" aria-label="Edit venue" onclick="openFleetDrawer('/restaurants/{{.ActiveRestaurant}}/edit','Edit venue')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-  <form action="/restaurants/{{.ActiveRestaurant}}/delete" method="POST" style="display:inline;margin:0;" onsubmit="return mdmConfirmSubmit(event,{title:'Delete restaurant',body:'Delete this venue? The devices stay — only the venue is removed.',tier:'danger',confirmLabel:'Delete'})">
-    <input type="hidden" name="redirect" value="/devices">
-    <button type="submit" class="ct-btn danger" title="Delete restaurant" aria-label="Delete restaurant"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>
-  </form>
   <a class="ct-btn" href="/restaurants/{{.ActiveRestaurant}}" title="Manage venue">Manage →</a>
 </span>
 {{else if and .FilterBuild .ActiveReleaseID}}
@@ -1636,18 +1628,23 @@ document.addEventListener('keydown', function(e) {
 <script>
 // ── Collection toolbar: inline rename (group·release) ───────────────────────────
 function collRenameOpen() {
+  var title = document.getElementById('roster-title');
   var tools = document.getElementById('coll-tools');
   var form = document.getElementById('coll-rename');
-  if (!form) return;
+  if (!form || !title) return;
   if (tools) tools.style.display = 'none';
+  title.style.display = 'none';
+  title.insertAdjacentElement('afterend', form);
   form.style.display = 'inline-flex';
   var inp = form.querySelector('input[name="name"]');
   if (inp) { inp.focus(); inp.select(); }
 }
 function collRenameClose() {
-  var tools = document.getElementById('coll-tools');
+  var title = document.getElementById('roster-title');
   var form = document.getElementById('coll-rename');
+  var tools = document.getElementById('coll-tools');
   if (form) form.style.display = 'none';
+  if (title) title.style.display = '';
   if (tools) tools.style.display = 'inline-flex';
 }
 
