@@ -10762,6 +10762,45 @@ func (d *DB) CreateOTACommandIfNone(ctx context.Context, deviceID uuid.UUID, pay
 	return cmd, err
 }
 
+// TryCreateOTACommand builds and inserts the OTA command for an already-resolved
+// update/device pair, if applicable — an incremental package only applies when
+// currentBuildID matches its source build (a full package always applies). Returns
+// (nil, nil), not an error, when not applicable or one is already in flight
+// (CreateOTACommandIfNone's own advisory-locked check). On success also flips the
+// device's update_devices row to "downloading". Shared by the checkin resolver
+// (internal/api) and the dashboard's deploy-time immediate push so the exact
+// conditions for creating an OTA command can't drift between the two call sites.
+func (d *DB) TryCreateOTACommand(ctx context.Context, upd *Update, deviceID uuid.UUID, currentBuildID string) (*Command, error) {
+	pkg := upd.OtaPackage
+	if pkg == nil {
+		return nil, nil
+	}
+	if pkg.Type == "incremental" && pkg.SourceBuildID != currentBuildID {
+		return nil, nil
+	}
+	p := map[string]any{
+		"package_id":      pkg.ID,
+		"build_id":        pkg.TargetBuildID,
+		"update_url":      pkg.UpdateURL,
+		"reboot_behavior": upd.RebootBehavior,
+	}
+	if upd.ScheduledTime != nil {
+		p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
+	}
+	payload, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	cmd, err := d.CreateOTACommandIfNone(ctx, deviceID, payload)
+	if err != nil || cmd == nil {
+		return cmd, err
+	}
+	if err := d.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "downloading"); err != nil {
+		return nil, err
+	}
+	return cmd, nil
+}
+
 // withAdvisoryLock runs fn while holding a Postgres session advisory lock for key,
 // serializing callers so a check-then-insert cannot race into duplicate rows. The
 // lock lives on one pooled connection and is released even if ctx is cancelled.

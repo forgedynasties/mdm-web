@@ -8521,9 +8521,14 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
 		}
-		// Nudge online targets to check in NOW so the OTA resolves immediately instead of
-		// waiting out the device's periodic check-in (otherwise it sits "pending" for
-		// minutes). Offline devices pick it up on their next check-in as before.
+		// Deliver to connected targets right now, the same way every other command
+		// type (reboot, screenshot, ...) already does — don't wait for the device's
+		// next periodic check-in to notice the pending update_devices row.
+		h.pushOTAToConnected(r.Context(), eligible)
+		// Belt-and-suspenders fallback: nudge online targets to check in NOW too, in
+		// case a device's connection state raced between here and pushOTAToConnected
+		// (CreateOTACommandIfNone is idempotent, so this can never double-send).
+		// Offline devices pick the update up on their next check-in either way.
 		h.nudgeCheckin(eligible)
 	}
 
@@ -10067,6 +10072,42 @@ func (h *Handler) DeviceQueueClear(w http.ResponseWriter, r *http.Request) {
 // instead of waiting out the device's periodic check-in (which can be minutes away,
 // leaving the update stuck "pending"). Offline devices ignore it and pick the update up
 // on their next check-in as before.
+// pushOTAToConnected resolves and delivers the OTA command immediately to
+// whichever of deviceIDs are currently connected, instead of leaving it to be
+// picked up on their next periodic check-in (db.TryCreateOTACommand — the same
+// resolver the check-in handler uses, so the conditions for creating the command
+// can't diverge between the two paths). Offline devices are unaffected.
+func (h *Handler) pushOTAToConnected(ctx context.Context, deviceIDs []uuid.UUID) {
+	var connected []uuid.UUID
+	for _, id := range deviceIDs {
+		if h.hub.IsConnected(id) {
+			connected = append(connected, id)
+		}
+	}
+	if len(connected) == 0 {
+		return
+	}
+	devices, err := h.db.GetDevicesByIDs(ctx, connected)
+	if err != nil {
+		log.Printf("[deploy] GetDevicesByIDs error: %v", err)
+		return
+	}
+	for _, dev := range devices {
+		upd, err := h.db.ResolveUpdateForDevice(ctx, dev.ID)
+		if err != nil || upd == nil || upd.OtaPackage == nil {
+			continue
+		}
+		if _, err := h.db.TryCreateOTACommand(ctx, upd, dev.ID, dev.BuildID); err != nil {
+			log.Printf("[deploy] create OTA command for %s: %v", dev.SerialNumber, err)
+			continue
+		}
+		// Delivers whatever's now the single oldest deliverable command in the
+		// device's queue — normally the OTA command just created, unless something
+		// else was already ahead of it (the one-at-a-time queue gate is unchanged).
+		h.advanceQueue(ctx, dev.ID)
+	}
+}
+
 func (h *Handler) nudgeCheckin(deviceIDs []uuid.UUID) {
 	if len(deviceIDs) == 0 {
 		return

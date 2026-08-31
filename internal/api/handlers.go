@@ -705,38 +705,10 @@ func (h *Handler) Checkin(w http.ResponseWriter, r *http.Request) {
 		} else if upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent" {
 			// Installed to the inactive slot, reboot pending (manual/scheduled)
 			// — don't re-issue the OTA command.
-		} else {
-			// Check if an OTA command is already in flight
-			if hasPending, err := h.db.HasPendingOTACommand(r.Context(), deviceID); err != nil {
-				log.Printf("[checkin] HasPendingOTACommand error: %v", err)
-			} else if !hasPending {
-				applicable := true
-				if pkg.Type == "incremental" {
-					applicable = pkg.SourceBuildID == req.BuildID
-				}
-				if applicable {
-					p := map[string]any{
-						"package_id":      pkg.ID,
-						"build_id":        pkg.TargetBuildID,
-						"update_url":      pkg.UpdateURL,
-						"reboot_behavior": upd.RebootBehavior,
-					}
-					if upd.ScheduledTime != nil {
-						p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
-					}
-					payload, _ := json.Marshal(p)
-					// Atomic check-and-create under a device advisory lock: stops a
-					// concurrent HTTP check-in + WS telemetry from both passing the
-					// no-pending check and creating duplicate OTA commands. Returns nil
-					// if one is already in flight.
-					if cmd, err := h.db.CreateOTACommandIfNone(r.Context(), deviceID, payload); err != nil {
-						log.Printf("[checkin] create OTA command error: %v", err)
-					} else if cmd != nil {
-						_ = h.db.SetUpdateDeviceStatus(r.Context(), upd.ID, deviceID, "downloading")
-						h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
-					}
-				}
-			}
+		} else if cmd, err := h.db.TryCreateOTACommand(r.Context(), upd, deviceID, req.BuildID); err != nil {
+			log.Printf("[checkin] create OTA command error: %v", err)
+		} else if cmd != nil {
+			h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
 		}
 	}
 
@@ -1267,35 +1239,10 @@ func (h *Handler) HandleWsTelemetry(deviceID uuid.UUID, raw []byte) {
 			_ = h.db.CheckAndCompleteUpdate(ctx, upd.ID)
 		} else if upd.DeviceStatus == "awaiting_reboot" || upd.DeviceStatus == "reboot_sent" {
 			// Installed to the inactive slot, reboot pending — don't re-issue.
-		} else {
-			if hasPending, err := h.db.HasPendingOTACommand(ctx, id); err != nil {
-				log.Printf("[ws-telemetry] HasPendingOTACommand error: %v", err)
-			} else if !hasPending {
-				applicable := true
-				if pkg.Type == "incremental" {
-					applicable = pkg.SourceBuildID == req.BuildID
-				}
-				if applicable {
-					p := map[string]any{
-						"package_id":      pkg.ID,
-						"build_id":        pkg.TargetBuildID,
-						"update_url":      pkg.UpdateURL,
-						"reboot_behavior": upd.RebootBehavior,
-					}
-					if upd.ScheduledTime != nil {
-						p["scheduled_time"] = upd.ScheduledTime.UTC().Format(time.RFC3339)
-					}
-					payload, _ := json.Marshal(p)
-					// Atomic check-and-create (device advisory lock) — see the checkin
-					// path; prevents duplicate OTA commands from dual-transport devices.
-					if cmd, err := h.db.CreateOTACommandIfNone(ctx, id, payload); err != nil {
-						log.Printf("[ws-telemetry] create OTA command error: %v", err)
-					} else if cmd != nil {
-						_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, id, "downloading")
-						h.pushCommand(ctx, cmd, "devices", []uuid.UUID{id})
-					}
-				}
-			}
+		} else if cmd, err := h.db.TryCreateOTACommand(ctx, upd, id, req.BuildID); err != nil {
+			log.Printf("[ws-telemetry] create OTA command error: %v", err)
+		} else if cmd != nil {
+			h.pushCommand(ctx, cmd, "devices", []uuid.UUID{id})
 		}
 	}
 
