@@ -4742,6 +4742,12 @@ html[data-theme="dark"] .dp-moves { color: #f0b765; }
   max-height: min(66vh, 620px);
   overflow-y: auto !important;
 }
+/* .modal-body is flex-direction:column, and its card children have overflow:hidden
+   — which makes their flex-shrink auto-minimum 0, so flexbox was compressing them
+   to fit the bounded height above instead of letting them overflow into the
+   scrollbar. Refusing to shrink is what actually makes the max-height above
+   produce a real scrollbar instead of silently clipped content. */
+#fleet-devices-modal .modal-body > * { flex-shrink: 0; }
 #fleet-devices-modal .dp-tp { grid-template-columns: 1fr 1fr; }
 #fleet-devices-modal .dp-rows { max-height: 220px; }
 #fleet-devices-modal .dp-basket { min-height: 120px; }
