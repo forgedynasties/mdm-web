@@ -211,9 +211,9 @@ type Handler struct {
 	signupAttempts *ratelimit.Counter
 	resetAttempts  *ratelimit.Counter
 
-	// mail sends the sign-up verification and password-reset emails via Resend.
-	// A nil apiKey (RESEND_API_KEY unset) makes Send a logged no-op instead of an
-	// error, so those flows still exercise their DB/token logic in dev.
+	// mail sends the sign-up verification and password-reset emails via Amazon SES
+	// (SMTP interface). Missing SES_SMTP_* config makes Send a logged no-op instead
+	// of an error, so those flows still exercise their DB/token logic in dev.
 	mail *mailer.Client
 
 	// lastDigestDay is the YYYY-MM-DD of the most recent AI fleet digest sent, so
@@ -1192,16 +1192,30 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		loginFails:     ratelimit.New(15 * time.Minute),
 		signupAttempts: ratelimit.New(time.Hour),
 		resetAttempts:  ratelimit.New(time.Hour),
-		mail:           mailer.New(os.Getenv("RESEND_API_KEY"), resendFrom()),
+		mail:           mailer.New(sesSMTPHost(), os.Getenv("SES_SMTP_PORT"), os.Getenv("SES_SMTP_USERNAME"), os.Getenv("SES_SMTP_PASSWORD"), mailFrom()),
 		assetVer:       assetVersion("static/style.css"),
 	}
 }
 
-// resendFrom returns the Resend "from" address, defaulting to a sensible sender
-// when RESEND_FROM_EMAIL is unset (mailer.Client still no-ops if RESEND_API_KEY
-// itself is unset, so this default is harmless in environments without email).
-func resendFrom() string {
-	if from := os.Getenv("RESEND_FROM_EMAIL"); from != "" {
+// sesSMTPHost returns the SES SMTP endpoint. SES_SMTP_HOST overrides; otherwise
+// it's derived from AWS_REGION (the same var internal/apkstore reads for S3), e.g.
+// "email-smtp.us-east-1.amazonaws.com". Empty AWS_REGION with no override leaves
+// this "", which mailer.Client treats as "not configured" (Send logs, no-ops).
+func sesSMTPHost() string {
+	if host := os.Getenv("SES_SMTP_HOST"); host != "" {
+		return host
+	}
+	if region := os.Getenv("AWS_REGION"); region != "" {
+		return "email-smtp." + region + ".amazonaws.com"
+	}
+	return ""
+}
+
+// mailFrom returns the SES "from" address, defaulting to a sensible sender when
+// MAIL_FROM_EMAIL is unset. Must be a verified SES identity (or in a verified
+// domain) or SES will reject the send.
+func mailFrom() string {
+	if from := os.Getenv("MAIL_FROM_EMAIL"); from != "" {
 		return from
 	}
 	return "AIO MDM <noreply@aioapp.com>"

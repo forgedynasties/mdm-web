@@ -1,70 +1,64 @@
 // Package mailer sends transactional auth email (sign-up verification, password
-// reset) via the Resend API.
+// reset) via Amazon SES's SMTP interface.
 package mailer
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"html"
 	"log"
-	"net/http"
-	"time"
-
-	"mdm/internal/safehttp"
+	"net/smtp"
+	"strings"
 )
 
-const apiURL = "https://api.resend.com/emails"
-
-var client = safehttp.Client(10 * time.Second)
-
-// Client sends email through Resend. From should include a display name, e.g.
+// Client sends email through SES SMTP. From should include a display name, e.g.
 // "AIO MDM <noreply@aioapp.com>".
 type Client struct {
-	apiKey string
-	from   string
+	host, port, username, password, from string
 }
 
-// New returns a Client. An empty apiKey is allowed — Send then logs the message
-// instead of delivering it, so local/dev environments without a Resend key don't
-// error out of the sign-up/reset flows.
-func New(apiKey, from string) *Client {
-	return &Client{apiKey: apiKey, from: from}
+// New returns a Client. host/username/password empty is allowed — Send then logs
+// the message instead of delivering it, so local/dev environments without SES SMTP
+// credentials configured don't error out of the sign-up/reset flows. port defaults
+// to "587" (STARTTLS) when empty.
+func New(host, port, username, password, from string) *Client {
+	if port == "" {
+		port = "587"
+	}
+	return &Client{host: host, port: port, username: username, password: password, from: from}
 }
 
-// Send delivers one HTML email. Best-effort: a non-2xx response is returned as an
-// error so the caller can log it; delivery is never retried.
+// Send delivers one HTML email over SES SMTP (STARTTLS on 587, negotiated
+// automatically by net/smtp.SendMail). Best-effort: a send failure is returned as
+// an error so the caller can log it; delivery is never retried. ctx is accepted for
+// interface parity with other outbound integrations (notify.SendWebhook etc.) —
+// net/smtp has no context-aware send, so it isn't otherwise used here.
 func (c *Client) Send(ctx context.Context, to, subject, htmlBody string) error {
-	if c.apiKey == "" {
-		log.Printf("mailer: RESEND_API_KEY not set, skipping send to %s: %s", to, subject)
+	if c.host == "" || c.username == "" || c.password == "" {
+		log.Printf("mailer: SES SMTP not configured, skipping send to %s: %s", to, subject)
 		return nil
 	}
-	body := map[string]any{
-		"from":    c.from,
-		"to":      []string{to},
-		"subject": subject,
-		"html":    htmlBody,
-	}
-	b, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, apiURL, bytes.NewReader(b))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+c.apiKey)
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("resend returned status %d", resp.StatusCode)
+	auth := smtp.PlainAuth("", c.username, c.password, c.host)
+	addr := c.host + ":" + c.port
+	msg := buildMessage(c.from, to, subject, htmlBody)
+	if err := smtp.SendMail(addr, auth, c.from, []string{to}, msg); err != nil {
+		return fmt.Errorf("ses smtp: %w", err)
 	}
 	return nil
+}
+
+// buildMessage renders a minimal single-part HTML email (headers + body), the
+// smallest valid RFC 5322 message net/smtp.SendMail will accept.
+func buildMessage(from, to, subject, htmlBody string) []byte {
+	var b strings.Builder
+	fmt.Fprintf(&b, "From: %s\r\n", from)
+	fmt.Fprintf(&b, "To: %s\r\n", to)
+	fmt.Fprintf(&b, "Subject: %s\r\n", subject)
+	b.WriteString("MIME-Version: 1.0\r\n")
+	b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
+	b.WriteString("\r\n")
+	b.WriteString(htmlBody)
+	return []byte(b.String())
 }
 
 // VerifyEmailHTML builds the sign-up verification email body.
