@@ -34,7 +34,13 @@
   </div>
 </div>
 
-<form action="/updates" method="POST" id="push-form" onsubmit="return pushConfirm(event)">
+{{/* hx-boost="false": the whole app is boosted (layout.html), and its own submit
+     interception can race pushConfirm's confirm-dialog gate below — if htmx's
+     boost wins that race, the push fires (and the page navigates) before the
+     dialog logic ever gets a chance to block it, leaving the still-open dialog
+     stranded on top of the new page. Opting this form out entirely means only
+     pushConfirm ever controls when it submits. */}}
+<form action="/updates" method="POST" id="push-form" hx-boost="false" onsubmit="return pushConfirm(event)">
   <input type="hidden" name="release_id" value="{{with $rel}}{{.ID}}{{end}}">
   {{if not $showDelivery}}<input type="hidden" name="delivery" value="smart">{{end}}
 
