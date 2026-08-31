@@ -19,6 +19,16 @@
     <div class="alert alert-error" role="alert">{{.Error}}</div>
     {{end}}
 
+    {{if msLoginEnabled}}
+    <a href="/auth/microsoft" class="btn-outline" style="display:flex;align-items:center;justify-content:center;gap:9px;padding:10px;margin-bottom:16px;text-decoration:none;">
+      <svg width="16" height="16" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+      Sign in with Microsoft
+    </a>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;color:var(--muted);font-size:12px;">
+      <span style="flex:1;height:1px;background:var(--border);"></span>or<span style="flex:1;height:1px;background:var(--border);"></span>
+    </div>
+    {{end}}
+
     <form action="/login" method="POST" class="login-form">
       <div class="form-group">
         <label for="username">Email</label>

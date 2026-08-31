@@ -217,6 +217,11 @@ type Handler struct {
 	// so those flows still exercise their DB/token logic in dev.
 	mail *mailer.Client
 
+	// Microsoft sign-in (Entra ID, single-tenant): MS_CLIENT_ID/MS_CLIENT_SECRET/
+	// MS_TENANT_ID. Empty msClientID means not configured — the login page hides
+	// the button (msLoginEnabled funcMap) and the auth handlers 404.
+	msClientID, msClientSecret, msTenantID string
+
 	// lastDigestDay is the YYYY-MM-DD of the most recent AI fleet digest sent, so
 	// housekeeping posts it at most once per day. Touched only from the single
 	// housekeeping goroutine.
@@ -469,7 +474,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 	// actually enforced server-side, not just by the browser.
 	store.MaxAge(cfg.SessionTimeout())
 
+	msLoginEnabled := os.Getenv("MS_CLIENT_ID") != "" && os.Getenv("MS_CLIENT_SECRET") != "" && os.Getenv("MS_TENANT_ID") != ""
 	funcMap := template.FuncMap{
+		// msLoginEnabled reports whether Microsoft sign-in is configured, so
+		// login.html only shows the button when it'll actually work.
+		"msLoginEnabled": func() bool { return msLoginEnabled },
 		// atoi parses a string to int (0 on failure) for arithmetic in templates.
 		"atoi": atoi,
 		// isLegacyBuild reports whether a build ID is on the configured legacy (WS-incapable)
@@ -1194,6 +1203,9 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		signupAttempts: ratelimit.New(time.Hour),
 		resetAttempts:  ratelimit.New(time.Hour),
 		mail:           mustMailer(),
+		msClientID:     os.Getenv("MS_CLIENT_ID"),
+		msClientSecret: os.Getenv("MS_CLIENT_SECRET"),
+		msTenantID:     os.Getenv("MS_TENANT_ID"),
 		assetVer:       assetVersion("static/style.css"),
 	}
 }
@@ -14032,6 +14044,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /logout", h.Logout)
 	mux.HandleFunc("GET /signup", h.SignupPage)
 	post("POST /signup", h.SignupSubmit)
+	mux.HandleFunc("GET /auth/microsoft", h.MicrosoftLoginStart)
+	mux.HandleFunc("GET /auth/microsoft/callback", h.MicrosoftLoginCallback)
 	mux.HandleFunc("GET /verify-email", h.VerifyEmailPage)
 	post("POST /verify-email", h.VerifyEmailSubmit)
 	mux.HandleFunc("GET /forgot-password", h.ForgotPasswordPage)
