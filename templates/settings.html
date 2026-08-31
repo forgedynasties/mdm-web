@@ -126,6 +126,7 @@
     <button type="button" data-tab="security">Security</button>
     <button type="button" data-tab="applibrary">App library</button>
     <button type="button" data-tab="productions">Productions</button>
+    <button type="button" data-tab="tools">Tools</button>
   </nav>
 
   <div class="settings-panels">
@@ -995,6 +996,20 @@ function kioskAddPkg(pkg, el){
     </tbody>
   </table></div>
   {{end}}
+</div>
+  </section>
+
+  <!-- ── Tools ───────────────────────────────────────── -->
+  <section class="settings-tab" data-tab="tools">
+<div class="card" style="margin-bottom:16px;">
+  <div class="card-header"><h3>Boot logo</h3></div>
+  <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+    <div>
+      <strong>Custom boot logo</strong>
+      <div class="muted small">Upload the image devices show while booting.</div>
+    </div>
+    <a href="/boot-logo" class="btn-outline">Manage →</a>
+  </div>
 </div>
   </section>
 

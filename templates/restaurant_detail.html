@@ -60,46 +60,6 @@
 </div>
 {{end}}
 
-<!-- Peak hours -->
-{{if canAdminOrTester .Role}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Peak hours</h3>
-    <span class="muted small">{{if .PeakWindows.Inherited}}inheriting fleet default{{else}}custom{{end}}</span>
-  </div>
-  <form action="/restaurants/{{.Restaurant.ID}}/peak-windows" method="POST" style="padding:16px 20px;">
-    <div style="display:flex;flex-direction:column;gap:10px;max-width:340px;">
-      {{range .PeakWindows.Ranges}}
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input type="time" name="peak_start" class="form-input" value="{{.Start}}" style="max-width:130px;">
-        <span class="muted">→</span>
-        <input type="time" name="peak_end" class="form-input" value="{{.End}}" style="max-width:130px;">
-      </div>
-      {{end}}
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input type="time" name="peak_start" class="form-input" style="max-width:130px;">
-        <span class="muted">→</span>
-        <input type="time" name="peak_end" class="form-input" style="max-width:130px;">
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input type="time" name="peak_start" class="form-input" style="max-width:130px;">
-        <span class="muted">→</span>
-        <input type="time" name="peak_end" class="form-input" style="max-width:130px;">
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:12px;">
-      <button type="submit" class="btn-primary">Save peak hours</button>
-      {{if not .PeakWindows.Inherited}}
-      <button type="submit" name="action" value="reset" class="btn-outline" title="Revert to the fleet default peak hours">Reset</button>
-      {{end}}
-    </div>
-  </form>
-  <p class="muted small" style="margin:0;padding:0 20px 14px;">
-    Peak-gated alerts (battery low during peak, offline during peak) fire only for deployed
-    units inside these busy periods. Add lunch/dinner ranges; leave a row blank to skip it.
-  </p>
-</div>
-{{end}}
 
 <!-- Deploy devices -->
 {{if canAdminOrTester .Role}}

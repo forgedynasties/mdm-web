@@ -5206,8 +5206,28 @@ func localRedirect(w http.ResponseWriter, r *http.Request, fallback string) {
 	http.Redirect(w, r, fallback, http.StatusSeeOther)
 }
 
-// GroupUpdate renames a group. A group has only a name, so this is its full "edit";
-// the fleet toolbar's inline pencil posts here (and returns to the roster).
+// GroupEdit serves the group's edit form. Loaded into the fleet-page drawer via htmx
+// (mirrors RestaurantEdit), or as a standalone page when visited directly.
+func (h *Handler) GroupEdit(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	group, err := h.db.GetGroup(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+	embed := r.Header.Get("HX-Request") == "true"
+	h.render(w, r, "group_form.html", map[string]any{
+		"Title": "Edit " + group.Name,
+		"Group": group,
+		"Embed": embed,
+	})
+}
+
+// GroupUpdate renames a group. A group has only a name, so this doubles as its full "edit".
 func (h *Handler) GroupUpdate(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -5416,7 +5436,6 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ServiceWindow":       windowView(id.String(), rest.Name, win, hasOwn),
-		"PeakWindows":         h.peakView(r.Context(), &id),
 	})
 }
 
@@ -5442,49 +5461,6 @@ func (h *Handler) peakView(ctx context.Context, restaurantID *uuid.UUID) peakWin
 		v.Ranges = append(v.Ranges, peakRangeView{Start: hhmm(r.StartMin), End: hhmm(r.EndMin)})
 	}
 	return v
-}
-
-// RestaurantSetPeakWindows replaces (or resets to fleet default) this restaurant's peak
-// ranges from repeated peak_start[]/peak_end[] form fields.
-func (h *Handler) RestaurantSetPeakWindows(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
-		return
-	}
-	r.ParseForm()
-	if r.FormValue("action") == "reset" {
-		_ = h.db.SetPeakWindows(r.Context(), &id, nil) // clears own rows → inherits fleet
-		h.audit(r, "restaurant.peak_windows", id.String(), "reset")
-		http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
-		return
-	}
-	starts, ends := r.Form["peak_start"], r.Form["peak_end"]
-	var ranges []db.PeakWindow
-	for i := range starts {
-		s := strings.TrimSpace(starts[i])
-		var e string
-		if i < len(ends) {
-			e = strings.TrimSpace(ends[i])
-		}
-		if s == "" || e == "" {
-			continue // skip blank rows
-		}
-		ranges = append(ranges, db.PeakWindow{StartMin: parseHHMM(s, -1), EndMin: parseHHMM(e, -1)})
-	}
-	// Drop any row that failed to parse (parseHHMM returned the -1 sentinel).
-	valid := ranges[:0]
-	for _, rg := range ranges {
-		if rg.StartMin >= 0 && rg.EndMin >= 0 {
-			valid = append(valid, rg)
-		}
-	}
-	if err := h.db.SetPeakWindows(r.Context(), &id, valid); err != nil {
-		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
-	}
-	h.audit(r, "restaurant.peak_windows", id.String(), "")
-	http.Redirect(w, r, "/restaurants/"+id.String(), http.StatusFound)
 }
 
 func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
@@ -13609,6 +13585,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
 	post("POST /groups", h.requireAdminOrTester(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
+	mux.HandleFunc("GET /groups/{id}/edit", h.requireAdminOrTester(h.GroupEdit))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/members", h.requireAuth(h.GroupMembers))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
@@ -13649,7 +13626,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants/{id}/devices", h.requireAdminOrTester(h.RestaurantAssignDevices))
 	post("POST /restaurants/{id}/devices/{serial}/remove", h.requireAdminOrTester(h.RestaurantRemoveDevice))
 	post("POST /restaurants/{id}/service-window", h.requireAdminOrTester(h.RestaurantSetServiceWindow))
-	post("POST /restaurants/{id}/peak-windows", h.requireAdminOrTester(h.RestaurantSetPeakWindows))
 	post("POST /devices/{serial}/restaurant", h.requireAdmin(h.DeviceSetRestaurant))
 	post("POST /groups/{id}/devices/remove", h.requireAdminOrTester(h.GroupBulkRemoveDevice))
 	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdminOrTester(h.GroupRemoveDevice))

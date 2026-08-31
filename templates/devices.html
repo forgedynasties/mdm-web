@@ -64,16 +64,10 @@
 {{define "coll-tools-block"}}
 {{if canAdminOrTester .Role}}
 {{if .ActiveGroup}}
-<span class="coll-tools" id="coll-tools">
-  <button type="button" class="ct-btn" title="Rename group" aria-label="Rename group" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+<span class="coll-tools">
+  <button type="button" class="ct-btn" title="Edit group" aria-label="Edit group" onclick="openFleetDrawer('/groups/{{.ActiveGroup}}/edit','Edit group')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
   <a class="ct-btn" href="/groups/{{.ActiveGroup}}" title="Manage group" aria-label="Manage group"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></a>
 </span>
-<form action="/groups/{{.ActiveGroup}}" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
-  <input type="hidden" name="redirect" value="/devices?group={{.ActiveGroup}}">
-  <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Group name" required>
-  <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
-  <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
-</form>
 {{else if .ActiveRestaurant}}
 <span class="coll-tools">
   <button type="button" class="ct-btn" title="Edit venue" aria-label="Edit venue" onclick="openFleetDrawer('/restaurants/{{.ActiveRestaurant}}/edit','Edit venue')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
@@ -1619,29 +1613,7 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <script>
-// ── Collection toolbar: inline rename (group·release) ───────────────────────────
-function collRenameOpen() {
-  var title = document.getElementById('roster-title');
-  var tools = document.getElementById('coll-tools');
-  var form = document.getElementById('coll-rename');
-  if (!form || !title) return;
-  if (tools) tools.style.display = 'none';
-  title.style.display = 'none';
-  title.insertAdjacentElement('afterend', form);
-  form.style.display = 'inline-flex';
-  var inp = form.querySelector('input[name="name"]');
-  if (inp) { inp.focus(); inp.select(); }
-}
-function collRenameClose() {
-  var title = document.getElementById('roster-title');
-  var form = document.getElementById('coll-rename');
-  var tools = document.getElementById('coll-tools');
-  if (form) form.style.display = 'none';
-  if (title) title.style.display = '';
-  if (tools) tools.style.display = 'inline-flex';
-}
-
-// ── Fleet drawer: load a collection's edit form (restaurant) via htmx ────────────
+// ── Fleet drawer: load a collection's edit form (group·restaurant) via htmx ─────
 function openFleetDrawer(url, title) {
   var d = document.getElementById('fleet-drawer');
   var body = document.getElementById('fleet-drawer-body');
@@ -1669,7 +1641,6 @@ document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') {
     var d = document.getElementById('fleet-drawer');
     if (d && d.classList.contains('open')) closeFleetDrawer();
-    else collRenameClose();
   }
 });
 </script>
