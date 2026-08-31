@@ -1,31 +1,4 @@
 {{define "group_form.html"}}
-{{if .Group}}
-{{/* Edit mode: a group has only a name, so this is a minimal form. Loaded into the
-     fleet-page drawer via htmx (mirrors restaurant_form.html's Embed mode), or as a
-     standalone page when visited directly. */}}
-{{if not .Embed}}{{template "header" .}}{{end}}
-
-{{if not .Embed}}
-<a href="/groups/{{.Group.ID}}" class="back-link">← Back</a>
-<div class="ov-greet">
-  <h1 class="ov-title">{{.Title}}</h1>
-  <span class="ov-date">edit group details</span>
-</div>
-{{end}}
-
-<form action="/groups/{{.Group.ID}}" method="POST" style="{{if .Embed}}padding:18px 20px;{{end}}">
-  <div class="rf-field" style="display:flex;flex-direction:column;gap:5px;margin-bottom:16px;">
-    <label for="grp-name">Name <span class="rf-req">*</span></label>
-    <input type="text" id="grp-name" name="name" class="form-input" value="{{.Group.Name}}" required autofocus>
-  </div>
-  <div class="rf-actions" style="display:flex;gap:10px;align-items:center;{{if not .Embed}}padding-top:20px;border-top:1px solid var(--border-soft);{{end}}">
-    <button type="submit" class="btn-primary">Save</button>
-    {{if .Embed}}<button type="button" class="btn-outline" onclick="closeFleetDrawer()">Cancel</button>{{end}}
-  </div>
-</form>
-{{if not .Embed}}{{template "footer" .}}{{end}}
-
-{{else}}
 {{template "header" .}}
 
 <a href="/devices?view=groups" class="back-link">← Groups</a>
@@ -107,5 +80,4 @@ gfSync();
 </script>
 
 {{template "footer" .}}
-{{end}}
 {{end}}

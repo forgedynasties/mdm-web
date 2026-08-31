@@ -1895,6 +1895,14 @@ func (d *DB) UpdateRestaurant(ctx context.Context, r Restaurant) error {
 	return err
 }
 
+// RenameRestaurant changes only a restaurant's display name — used by the fleet
+// toolbar's inline rename, which must not clobber address/timezone/notes the way
+// posting the full edit form with a blank rest would.
+func (d *DB) RenameRestaurant(ctx context.Context, id uuid.UUID, name string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE restaurants SET name = $2 WHERE id = $1`, id, name)
+	return err
+}
+
 func (d *DB) DeleteRestaurant(ctx context.Context, id uuid.UUID) error {
 	// devices.restaurant_id ON DELETE SET NULL unassigns members automatically.
 	_, err := d.pool.Exec(ctx, `DELETE FROM restaurants WHERE id = $1`, id)

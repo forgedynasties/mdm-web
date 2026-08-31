@@ -68,19 +68,31 @@
   <button type="button" class="ct-btn" title="Group options" aria-label="Group options" aria-haspopup="true" aria-expanded="false" onclick="collMenuToggle(event)"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   <div class="nbar-pop coll-menu" hidden>
     <a class="nbar-mi" href="/groups/{{.ActiveGroup}}"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></span><span class="nbar-mi-label">Open group</span></a>
-    <button type="button" class="nbar-mi" onclick="collMenuClose();openFleetDrawer('/groups/{{.ActiveGroup}}/edit','Edit group')"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="nbar-mi-label">Rename group</span></button>
-    <a class="nbar-mi" href="/groups/{{.ActiveGroup}}#devices"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><span class="nbar-mi-label">Add/remove devices</span></a>
+    <button type="button" class="nbar-mi" onclick="collMenuClose();collRenameOpen()"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="nbar-mi-label">Rename</span></button>
+    <button type="button" class="nbar-mi" onclick="collMenuClose();openFleetDevicesModal('/groups/{{.ActiveGroup}}/devices-modal','Devices — {{.SelectedCollection}}')"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><span class="nbar-mi-label">Add/remove devices</span></button>
   </div>
 </span>
+<form action="/groups/{{.ActiveGroup}}" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
+  <input type="hidden" name="redirect" value="/devices?group={{.ActiveGroup}}">
+  <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Group name" required>
+  <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
+  <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
+</form>
 {{else if .ActiveRestaurant}}
 <span class="coll-tools coll-menu-wrap">
   <button type="button" class="ct-btn" title="Venue options" aria-label="Venue options" aria-haspopup="true" aria-expanded="false" onclick="collMenuToggle(event)"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
   <div class="nbar-pop coll-menu" hidden>
     <a class="nbar-mi" href="/restaurants/{{.ActiveRestaurant}}"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></span><span class="nbar-mi-label">Open venue</span></a>
-    <button type="button" class="nbar-mi" onclick="collMenuClose();openFleetDrawer('/restaurants/{{.ActiveRestaurant}}/edit','Edit venue')"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="nbar-mi-label">Edit venue</span></button>
-    <a class="nbar-mi" href="/restaurants/{{.ActiveRestaurant}}#devices"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><span class="nbar-mi-label">Add/remove devices</span></a>
+    <button type="button" class="nbar-mi" onclick="collMenuClose();collRenameOpen()"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="nbar-mi-label">Rename</span></button>
+    <button type="button" class="nbar-mi" onclick="collMenuClose();openFleetDevicesModal('/restaurants/{{.ActiveRestaurant}}/devices-modal','Devices — {{.SelectedCollection}}')"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><span class="nbar-mi-label">Add/remove devices</span></button>
   </div>
 </span>
+<form action="/restaurants/{{.ActiveRestaurant}}/rename" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
+  <input type="hidden" name="redirect" value="/devices?restaurant={{.ActiveRestaurant}}">
+  <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Venue name" required>
+  <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
+  <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
+</form>
 {{else if and .FilterBuild .ActiveReleaseID}}
 <span class="coll-tools">
   <a class="ct-btn" href="/releases/{{.ActiveReleaseID}}" title="Manage release" aria-label="Manage release"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></a>
@@ -1607,18 +1619,65 @@ document.addEventListener('keydown', function(e) {
   </div>
 </div>
 
-{{/* Fleet-page management drawer — a collection's fuller edit form (venue details)
-     is loaded here via htmx so it can be managed without leaving the roster. */}}
-<div class="fleet-drawer" id="fleet-drawer" aria-hidden="true">
-  <div class="fleet-drawer-scrim" onclick="closeFleetDrawer()"></div>
-  <div class="fleet-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="fleet-drawer-title">
-    <div class="fleet-drawer-head">
-      <h3 id="fleet-drawer-title">Edit</h3>
-      <button type="button" class="fleet-drawer-close" onclick="closeFleetDrawer()" aria-label="Close">×</button>
+{{/* Fleet-page "Add/remove devices" popup — the same add-devices/members section
+     shown on the group·venue's own page, loaded here via htmx so it can be managed
+     without leaving the roster. */}}
+<div id="fleet-devices-modal" class="modal-backdrop" onclick="closeFleetDevicesModal(event)">
+  <div class="modal-box modal-wide">
+    <div class="modal-header">
+      <span class="modal-title" id="fleet-devices-modal-title">Devices</span>
+      <button class="modal-close" aria-label="Close" type="button" onclick="closeFleetDevicesModal()">&times;</button>
     </div>
-    <div class="fleet-drawer-body" id="fleet-drawer-body"></div>
+    <div class="modal-body" id="fleet-devices-modal-body" style="max-height:72vh;overflow:auto;"></div>
   </div>
 </div>
+
+<script>
+// ── Roster toolbar: inline rename (group·venue) in place of the title ───────────
+function collRenameOpen() {
+  var title = document.getElementById('roster-title');
+  var tools = document.querySelector('.coll-tools');
+  var form = document.getElementById('coll-rename');
+  if (!form || !title) return;
+  if (tools) tools.style.display = 'none';
+  title.style.display = 'none';
+  title.insertAdjacentElement('afterend', form);
+  form.style.display = 'inline-flex';
+  var inp = form.querySelector('input[name="name"]');
+  if (inp) { inp.focus(); inp.select(); }
+}
+function collRenameClose() {
+  var title = document.getElementById('roster-title');
+  var form = document.getElementById('coll-rename');
+  var tools = document.querySelector('.coll-tools');
+  if (form) form.style.display = 'none';
+  if (title) title.style.display = '';
+  if (tools) tools.style.display = 'inline-flex';
+}
+
+// ── Fleet-page devices popup: load a group/venue's add-devices+members section ──
+function openFleetDevicesModal(url, title) {
+  var m = document.getElementById('fleet-devices-modal');
+  var body = document.getElementById('fleet-devices-modal-body');
+  var head = document.getElementById('fleet-devices-modal-title');
+  if (!m || !body) return;
+  if (head && title) head.textContent = title;
+  body.innerHTML = '<div class="muted small" style="padding:20px;">Loading…</div>';
+  m.classList.add('modal-open');
+  if (window.htmx) {
+    htmx.ajax('GET', url, { target: '#fleet-devices-modal-body', swap: 'innerHTML' });
+  } else {
+    window.location.href = url;
+  }
+}
+function closeFleetDevicesModal(event) {
+  if (event && event.target !== document.getElementById('fleet-devices-modal')) return;
+  var m = document.getElementById('fleet-devices-modal');
+  if (!m) return;
+  m.classList.remove('modal-open');
+  document.getElementById('fleet-devices-modal-body').innerHTML = '';
+}
+</script>
 
 <script>
 // ── Roster toolbar kebab: open group/venue, rename, or manage devices ───────────
@@ -1646,34 +1705,11 @@ document.addEventListener('click', function (e) {
   if (!e.target.closest('.coll-menu-wrap')) collMenuClose();
 });
 
-// ── Fleet drawer: load a collection's edit form (group·restaurant) via htmx ─────
-function openFleetDrawer(url, title) {
-  var d = document.getElementById('fleet-drawer');
-  var body = document.getElementById('fleet-drawer-body');
-  var head = document.getElementById('fleet-drawer-title');
-  if (!d || !body) return;
-  if (head && title) head.textContent = title;
-  body.innerHTML = '<div class="muted small" style="padding:20px;">Loading…</div>';
-  d.classList.add('open');
-  d.setAttribute('aria-hidden', 'false');
-  if (window.htmx) {
-    htmx.ajax('GET', url, { target: '#fleet-drawer-body', swap: 'innerHTML' });
-  } else {
-    // No htmx (shouldn't happen): fall back to the standalone edit page.
-    window.location.href = url;
-  }
-}
-function closeFleetDrawer() {
-  var d = document.getElementById('fleet-drawer');
-  if (!d) return;
-  d.classList.remove('open');
-  d.setAttribute('aria-hidden', 'true');
-  document.getElementById('fleet-drawer-body').innerHTML = '';
-}
 document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') {
-    var d = document.getElementById('fleet-drawer');
-    if (d && d.classList.contains('open')) closeFleetDrawer();
+    var m = document.getElementById('fleet-devices-modal');
+    if (m && m.classList.contains('modal-open')) closeFleetDevicesModal();
+    collRenameClose();
     collMenuClose();
   }
 });

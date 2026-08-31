@@ -7,6 +7,18 @@
   <span class="ov-date">{{.Group.DeviceCount}} device{{if ne .Group.DeviceCount 1}}s{{end}} · tag</span>
 </div>
 
+{{template "group-devices-modal" .}}
+
+{{template "footer" .}}
+{{end}}
+
+{{/* Add-devices card + members list + their JS — shared by the standalone group
+     page (embedded id="devices" for a same-page anchor) and the fleet-page
+     "Add/remove devices" popup (GET /groups/{id}/devices-modal), so both render
+     identical markup instead of drifting. The script block is included here (not
+     just on the full page) so it's also present when this fragment loads into the
+     fleet-page modal via htmx. */}}
+{{define "group-devices-modal"}}
 {{if canAdminOrTester .Role}}
 <div class="card" id="devices" style="margin-bottom:16px;scroll-margin-top:16px;">
   <div class="card-header"><h3>Add devices</h3></div>
@@ -54,24 +66,11 @@
 </div>
 
 <script>
-function toggleSection(header) {
-  var body = header.nextElementSibling;
-  var open = body.style.display !== 'none';
-  if (open) {
-    body.style.display = 'none';
-    header.classList.remove('open');
-    header.setAttribute('aria-expanded', 'false');
-  } else {
-    body.style.display = '';
-    header.classList.add('open');
-    header.setAttribute('aria-expanded', 'true');
-  }
-}
-
 // Bulk-remove from group. The device-cards checkboxes call updateBulkBar() (the
 // name the shared "Selectable" card markup hard-codes); here it drives the group
 // members bar. Markup lives inside #group-members so it survives the in-place
-// htmx refresh; these handlers are defined once on the full page and persist.
+// htmx refresh; these handlers are re-defined each time this fragment loads
+// (standalone page, or the fleet-page devices popup) and persist from there.
 function grpUpdateBulkBar() {
   var boxes = document.querySelectorAll('#group-members .device-cb');
   var n = 0;
@@ -127,8 +126,6 @@ function dpAddSubmit(e, gid) {
   return false;
 }
 </script>
-
-{{template "footer" .}}
 {{end}}
 
 {{/* Members list — refreshed in place (see #group-members) after add/remove. */}}

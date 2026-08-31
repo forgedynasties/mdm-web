@@ -5404,6 +5404,33 @@ func (h *Handler) GroupDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GroupDevicesModal serves just the "add/remove devices" card + members list —
+// the fleet-page kebab menu's "Add/remove devices" popup loads this via htmx
+// instead of navigating to the full group page.
+func (h *Handler) GroupDevicesModal(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid group ID", http.StatusBadRequest)
+		return
+	}
+	g, err := h.db.GetGroup(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{GroupID: id}, 0, 1000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "group-devices-modal", map[string]any{
+		"Group":               g,
+		"Devices":             devices,
+		"Online":              h.onlineMap(),
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+	})
+}
+
 // parseSerialsField splits the "serials" form field(s) into individual,
 // trimmed, non-empty serial numbers. The group forms submit selected devices
 // as a single newline-separated <textarea name="serials">, so the raw form
@@ -5471,27 +5498,6 @@ func localRedirect(w http.ResponseWriter, r *http.Request, fallback string) {
 		return
 	}
 	http.Redirect(w, r, fallback, http.StatusSeeOther)
-}
-
-// GroupEdit serves the group's edit form. Loaded into the fleet-page drawer via htmx
-// (mirrors RestaurantEdit), or as a standalone page when visited directly.
-func (h *Handler) GroupEdit(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(r.PathValue("id"))
-	if err != nil {
-		http.Error(w, "Invalid group ID", http.StatusBadRequest)
-		return
-	}
-	group, err := h.db.GetGroup(r.Context(), id)
-	if err != nil {
-		http.Error(w, "Group not found", http.StatusNotFound)
-		return
-	}
-	embed := r.Header.Get("HX-Request") == "true"
-	h.render(w, r, "group_form.html", map[string]any{
-		"Title": "Edit " + group.Name,
-		"Group": group,
-		"Embed": embed,
-	})
 }
 
 // GroupUpdate renames a group. A group has only a name, so this doubles as its full "edit".
@@ -5706,6 +5712,33 @@ func (h *Handler) RestaurantDetail(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// RestaurantDevicesModal serves just the "deploy devices" card + members list —
+// the fleet-page kebab menu's "Add/remove devices" popup loads this via htmx
+// instead of navigating to the full venue page.
+func (h *Handler) RestaurantDevicesModal(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	rest, err := h.db.GetRestaurant(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Restaurant not found", http.StatusNotFound)
+		return
+	}
+	devices, err := h.db.ListDevices(r.Context(), db.DeviceFilter{RestaurantID: id}, 0, 1000, "serial", "asc")
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "restaurant-devices-modal", map[string]any{
+		"Restaurant":          rest,
+		"Devices":             devices,
+		"Online":              h.onlineMap(),
+		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+	})
+}
+
 // peakRangeView / peakWindowView present a scope's peak-hour ranges for editing. When
 // the restaurant has no rows of its own the fleet-default set is shown with Inherited=true.
 type peakRangeView struct{ Start, End string }
@@ -5741,8 +5774,9 @@ func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Restaurant not found", http.StatusNotFound)
 		return
 	}
-	// Loaded into the fleet-page drawer via htmx: drop the page chrome (header/footer/
-	// back-link) and post the save back to the roster instead of the venue page.
+	// The whole app is hx-boosted (see layout.html), so a normal in-app nav to this
+	// page still arrives as an HX-Request — Embed drops the page chrome (header/
+	// footer/back-link) since layout.html's boosted shell already supplies it.
 	embed := r.Header.Get("HX-Request") == "true"
 	h.render(w, r, "restaurant_form.html", map[string]any{
 		"Title":      "Edit " + rest.Name,
@@ -5778,9 +5812,30 @@ func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.audit(r, "restaurant.update", id.String(), name)
-	// The fleet drawer posts a "redirect" back to the roster; the standalone edit
-	// page posts none and falls back to the venue page.
 	localRedirect(w, r, "/restaurants/"+id.String())
+}
+
+// RestaurantRename changes only a restaurant's display name — the fleet toolbar's
+// inline rename posts here instead of RestaurantUpdate, which overwrites every
+// field and would blank address/timezone/notes if only "name" were submitted.
+func (h *Handler) RestaurantRename(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "Name required", http.StatusBadRequest)
+		return
+	}
+	if err := h.db.RenameRestaurant(r.Context(), id, name); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "restaurant.rename", id.String(), name)
+	localRedirect(w, r, "/devices?restaurant="+id.String())
 }
 
 func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
@@ -13855,7 +13910,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
 	post("POST /groups", h.requireAdminOrTester(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
-	mux.HandleFunc("GET /groups/{id}/edit", h.requireAdminOrTester(h.GroupEdit))
+	mux.HandleFunc("GET /groups/{id}/devices-modal", h.requireAdminOrTester(h.GroupDevicesModal))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/members", h.requireAuth(h.GroupMembers))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
@@ -13888,9 +13943,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /restaurants", h.requireAdminOrTester(h.RestaurantCreate))
 	mux.HandleFunc("GET /restaurants/{id}", h.requireAuth(h.RestaurantDetail))
 	mux.HandleFunc("GET /restaurants/{id}/edit", h.requireAdminOrTester(h.RestaurantEdit))
+	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.requireAdminOrTester(h.RestaurantDevicesModal))
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
 	mux.HandleFunc("GET /restaurants/{id}/members", h.requireAuth(h.RestaurantMembers))
 	post("POST /restaurants/{id}", h.requireAdminOrTester(h.RestaurantUpdate))
+	post("POST /restaurants/{id}/rename", h.requireAdminOrTester(h.RestaurantRename))
 	post("POST /restaurants/{id}/delete", h.requireAdminOrTester(h.RestaurantDelete))
 	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.requireAdminOrTester(h.RestaurantDevicePicker))
 	post("POST /restaurants/{id}/devices", h.requireAdminOrTester(h.RestaurantAssignDevices))
