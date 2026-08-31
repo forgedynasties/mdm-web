@@ -9968,11 +9968,14 @@ func (h *Handler) DeviceInstallCancel(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/devices/"+serial, http.StatusFound)
 }
 
-// advanceQueue delivers the next queued command (any type) for a device now that the
-// current one finished or was removed — the whole queue runs one at a time and the delivery
-// gate holds the rest. No-op if the device is offline (it flushes on reconnect) or nothing
-// is eligible. The gate makes GetPendingCommandsForDevice return only the single oldest
-// deliverable command, so pushing the first result advances the queue by exactly one.
+// advanceQueue delivers the next queued command(s) for a device now that one
+// finished or was removed — the queue runs one at a time (delivery gate holds the
+// rest) EXCEPT ota, which is exempt from the gate (see GetPendingCommandsForDevice)
+// so it never blocks, or waits behind, anything else. That means more than one row
+// can legitimately come back eligible at once (the regular queue's single oldest,
+// plus an independent ota row), so every returned command is pushed — mirroring
+// flushPendingCommands' loop — not just the first. No-op if the device is offline
+// (it flushes on reconnect).
 func (h *Handler) advanceQueue(ctx context.Context, deviceID uuid.UUID) {
 	if !h.hub.IsConnected(deviceID) {
 		return
@@ -9993,7 +9996,9 @@ func (h *Handler) advanceQueue(ctx context.Context, deviceID uuid.UUID) {
 			_ = h.db.MarkCommandsDelivered(ctx, deviceID, []uuid.UUID{cmd.ID})
 			h.hub.PublishCommandUpdate(cmd.ID)
 		}
-		break // gate ensures at most one command is deliverable
+		if cmd.Type == "reboot" {
+			break // remaining commands wait for the device to reconnect post-reboot
+		}
 	}
 }
 
@@ -10101,9 +10106,9 @@ func (h *Handler) pushOTAToConnected(ctx context.Context, deviceIDs []uuid.UUID)
 			log.Printf("[deploy] create OTA command for %s: %v", dev.SerialNumber, err)
 			continue
 		}
-		// Delivers whatever's now the single oldest deliverable command in the
-		// device's queue — normally the OTA command just created, unless something
-		// else was already ahead of it (the one-at-a-time queue gate is unchanged).
+		// OTA is exempt from the delivery gate (GetPendingCommandsForDevice), so this
+		// delivers the OTA command just created regardless of anything else already
+		// queued for the device.
 		h.advanceQueue(ctx, dev.ID)
 	}
 }
