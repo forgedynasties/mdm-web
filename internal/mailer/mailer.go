@@ -1,64 +1,105 @@
 // Package mailer sends transactional auth email (sign-up verification, password
-// reset) via Amazon SES's SMTP interface.
+// reset) via the Amazon SES v2 API, SigV4-signed with the caller's AWS
+// credentials — the same default credential chain internal/apkstore uses for S3
+// (env vars, shared config/credentials file, or an attached IAM role). No
+// SES-specific SMTP username/password needed, just AWS creds + a verified
+// sending identity.
 package mailer
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html"
 	"log"
-	"net/smtp"
-	"strings"
+	"net/http"
+	"time"
+
+	"github.com/aws/aws-sdk-go-v2/aws"
+	v4signer "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+
+	"mdm/internal/safehttp"
 )
 
-// Client sends email through SES SMTP. From should include a display name, e.g.
-// "AIO MDM <noreply@aioapp.com>".
+var httpClient = safehttp.Client(10 * time.Second)
+
+// Client sends email through the SES v2 SendEmail API. From should include a
+// display name, e.g. "AIO MDM <mdm@dev.aioapp.com>", and must be a verified SES
+// identity (or in a verified domain) or SES will reject the send.
 type Client struct {
-	host, port, username, password, from string
+	cfg    aws.Config
+	region string
+	from   string
 }
 
-// New returns a Client. host/username/password empty is allowed — Send then logs
-// the message instead of delivering it, so local/dev environments without SES SMTP
-// credentials configured don't error out of the sign-up/reset flows. port defaults
-// to "587" (STARTTLS) when empty.
-func New(host, port, username, password, from string) *Client {
-	if port == "" {
-		port = "587"
+// New resolves AWS credentials via the default chain (env vars, shared config/
+// credentials file, or an attached IAM role) for the given region. region == ""
+// disables sending — Send then logs the message instead of delivering it, so
+// local/dev environments without AWS_REGION set don't error out of the sign-up/
+// reset flows.
+func New(ctx context.Context, region, from string) (*Client, error) {
+	if region == "" {
+		return &Client{from: from}, nil
 	}
-	return &Client{host: host, port: port, username: username, password: password, from: from}
+	cfg, err := awsconfig.LoadDefaultConfig(ctx, awsconfig.WithRegion(region))
+	if err != nil {
+		return nil, fmt.Errorf("aws config: %w", err)
+	}
+	return &Client{cfg: cfg, region: region, from: from}, nil
 }
 
-// Send delivers one HTML email over SES SMTP (STARTTLS on 587, negotiated
-// automatically by net/smtp.SendMail). Best-effort: a send failure is returned as
-// an error so the caller can log it; delivery is never retried. ctx is accepted for
-// interface parity with other outbound integrations (notify.SendWebhook etc.) —
-// net/smtp has no context-aware send, so it isn't otherwise used here.
+// Send delivers one HTML email via SES's SendEmail v2 API, SigV4-signed with the
+// resolved AWS credentials. Best-effort: a send failure is returned as an error so
+// the caller can log it; delivery is never retried.
 func (c *Client) Send(ctx context.Context, to, subject, htmlBody string) error {
-	if c.host == "" || c.username == "" || c.password == "" {
-		log.Printf("mailer: SES SMTP not configured, skipping send to %s: %s", to, subject)
+	if c.region == "" {
+		log.Printf("mailer: AWS_REGION not set, skipping send to %s: %s", to, subject)
 		return nil
 	}
-	auth := smtp.PlainAuth("", c.username, c.password, c.host)
-	addr := c.host + ":" + c.port
-	msg := buildMessage(c.from, to, subject, htmlBody)
-	if err := smtp.SendMail(addr, auth, c.from, []string{to}, msg); err != nil {
-		return fmt.Errorf("ses smtp: %w", err)
+	body, err := json.Marshal(map[string]any{
+		"FromEmailAddress": c.from,
+		"Destination":      map[string]any{"ToAddresses": []string{to}},
+		"Content": map[string]any{
+			"Simple": map[string]any{
+				"Subject": map[string]any{"Data": subject, "Charset": "UTF-8"},
+				"Body":    map[string]any{"Html": map[string]any{"Data": htmlBody, "Charset": "UTF-8"}},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	endpoint := fmt.Sprintf("https://email.%s.amazonaws.com/v2/email/outbound-emails", c.region)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	creds, err := c.cfg.Credentials.Retrieve(ctx)
+	if err != nil {
+		return fmt.Errorf("resolve aws credentials: %w", err)
+	}
+	hash := sha256.Sum256(body)
+	signer := v4signer.NewSigner()
+	if err := signer.SignHTTP(ctx, creds, req, hex.EncodeToString(hash[:]), "ses", c.region, time.Now()); err != nil {
+		return fmt.Errorf("sign request: %w", err)
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("ses returned status %d", resp.StatusCode)
 	}
 	return nil
-}
-
-// buildMessage renders a minimal single-part HTML email (headers + body), the
-// smallest valid RFC 5322 message net/smtp.SendMail will accept.
-func buildMessage(from, to, subject, htmlBody string) []byte {
-	var b strings.Builder
-	fmt.Fprintf(&b, "From: %s\r\n", from)
-	fmt.Fprintf(&b, "To: %s\r\n", to)
-	fmt.Fprintf(&b, "Subject: %s\r\n", subject)
-	b.WriteString("MIME-Version: 1.0\r\n")
-	b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
-	b.WriteString("\r\n")
-	b.WriteString(htmlBody)
-	return []byte(b.String())
 }
 
 // VerifyEmailHTML builds the sign-up verification email body.

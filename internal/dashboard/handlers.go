@@ -211,9 +211,10 @@ type Handler struct {
 	signupAttempts *ratelimit.Counter
 	resetAttempts  *ratelimit.Counter
 
-	// mail sends the sign-up verification and password-reset emails via Amazon SES
-	// (SMTP interface). Missing SES_SMTP_* config makes Send a logged no-op instead
-	// of an error, so those flows still exercise their DB/token logic in dev.
+	// mail sends the sign-up verification and password-reset emails via the Amazon
+	// SES v2 API (SigV4-signed with AWS creds — no SES-specific credentials).
+	// Missing AWS_REGION/credentials makes Send a logged no-op instead of an error,
+	// so those flows still exercise their DB/token logic in dev.
 	mail *mailer.Client
 
 	// lastDigestDay is the YYYY-MM-DD of the most recent AI fleet digest sent, so
@@ -1192,33 +1193,34 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		loginFails:     ratelimit.New(15 * time.Minute),
 		signupAttempts: ratelimit.New(time.Hour),
 		resetAttempts:  ratelimit.New(time.Hour),
-		mail:           mailer.New(sesSMTPHost(), os.Getenv("SES_SMTP_PORT"), os.Getenv("SES_SMTP_USERNAME"), os.Getenv("SES_SMTP_PASSWORD"), mailFrom()),
+		mail:           mustMailer(),
 		assetVer:       assetVersion("static/style.css"),
 	}
 }
 
-// sesSMTPHost returns the SES SMTP endpoint. SES_SMTP_HOST overrides; otherwise
-// it's derived from AWS_REGION (the same var internal/apkstore reads for S3), e.g.
-// "email-smtp.us-east-1.amazonaws.com". Empty AWS_REGION with no override leaves
-// this "", which mailer.Client treats as "not configured" (Send logs, no-ops).
-func sesSMTPHost() string {
-	if host := os.Getenv("SES_SMTP_HOST"); host != "" {
-		return host
+// mustMailer builds the SES mailer client, using AWS_REGION (the same var
+// internal/apkstore reads for S3) and the default AWS credential chain — no
+// SES-specific credentials needed. Falls back to a disabled client (Send logs,
+// no-ops) on error so a misconfigured/missing AWS setup never blocks startup.
+func mustMailer() *mailer.Client {
+	m, err := mailer.New(context.Background(), os.Getenv("AWS_REGION"), mailFrom())
+	if err != nil {
+		log.Printf("mailer init: %v (email sending disabled)", err)
+		m, _ = mailer.New(context.Background(), "", mailFrom())
 	}
-	if region := os.Getenv("AWS_REGION"); region != "" {
-		return "email-smtp." + region + ".amazonaws.com"
-	}
-	return ""
+	return m
 }
 
 // mailFrom returns the SES "from" address, defaulting to a sensible sender when
 // MAIL_FROM_EMAIL is unset. Must be a verified SES identity (or in a verified
-// domain) or SES will reject the send.
+// domain) or SES will reject the send. Defaults to the dev.aioapp.com subdomain
+// (kept separate from the bare aioapp.com domain another app already sends from)
+// — set MAIL_FROM_EMAIL to override.
 func mailFrom() string {
 	if from := os.Getenv("MAIL_FROM_EMAIL"); from != "" {
 		return from
 	}
-	return "AIO MDM <noreply@aioapp.com>"
+	return "AIO MDM <mdm@dev.aioapp.com>"
 }
 
 // assetVersion returns a short cache-busting token for a static asset, derived
