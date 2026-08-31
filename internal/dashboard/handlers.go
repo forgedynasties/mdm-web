@@ -1486,6 +1486,23 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, da
 	buf.WriteTo(w)
 }
 
+// NotFoundMiddleware serves the branded 404 page for any request that doesn't
+// match a registered route, instead of net/http's bare "404 page not found" text.
+// Must wrap the fully-populated mux (after RegisterRoutes and any other route
+// registration), since ServeMux.Handler reports a match only against what's
+// registered on it at call time — this reads it per-request, so registration
+// order relative to wrapping doesn't matter, only that mux is the same instance.
+func (h *Handler) NotFoundMiddleware(mux *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, pattern := mux.Handler(r); pattern == "" {
+			w.WriteHeader(http.StatusNotFound)
+			h.render(w, r, "404.html", map[string]any{"Title": "Not found"})
+			return
+		}
+		mux.ServeHTTP(w, r)
+	})
+}
+
 // Changelog renders the "What's new" page from the in-binary version.Changelog.
 func (h *Handler) Changelog(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "changelog.html", map[string]any{

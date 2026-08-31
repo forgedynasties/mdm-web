@@ -407,7 +407,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    ":" + port,
-		Handler: middleware.AccessLog(middleware.SecurityHeaders(middleware.DecompressRequest(mux))),
+		Handler: middleware.AccessLog(middleware.SecurityHeaders(middleware.DecompressRequest(dash.NotFoundMiddleware(mux)))),
 		// ReadHeaderTimeout bounds a slow header send (slowloris) without breaking the
 		// long-lived WS/SSE endpoints: after the WS upgrade the conn is hijacked, so the
 		// server's read/write timeouts no longer apply. No global WriteTimeout for the
