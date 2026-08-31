@@ -4727,14 +4727,24 @@ html[data-theme="dark"] .dp-moves { color: #f0b765; }
 @media (max-width: 1024px) { .dp-tp { grid-template-columns: 1fr; } }
 
 /* Fleet-page "Add/remove devices" popup — wider than a normal modal (it hosts the
-   two-pane device picker + members list, both of which need real room), and every
-   list inside it drops to serial + one action button so it doesn't get crowded.
-   min-height:0 on .modal-body is required for its overflow-y:auto (set on the base
-   .modal-body rule) to actually engage inside modal-box's flex column instead of
-   being clipped by modal-box's overflow:hidden. */
+   two-pane device picker + members list, both of which need real room), stacked
+   above everything else on the page (kebab menus, toasts, etc — z-index:1300), and
+   every list inside it drops to serial + one action button so it doesn't get
+   crowded. The submit bar and members list sit below the picker in document flow;
+   modal-box caps at 85vh with overflow:hidden, so modal-body needs its own bounded
+   height + overflow-y:auto to make that reachable rather than silently clipped. A
+   plain max-height (not flex-basis) is used here deliberately — it's not at the
+   mercy of flex-shrink/min-height:auto edge cases that were still clipping content
+   under some layouts. */
+#fleet-devices-modal { z-index: 1300; }
 #fleet-devices-modal .modal-box { max-width: 760px; }
-#fleet-devices-modal .modal-body { flex: 1; min-height: 0; }
+#fleet-devices-modal .modal-body {
+  max-height: min(66vh, 620px);
+  overflow-y: auto !important;
+}
 #fleet-devices-modal .dp-tp { grid-template-columns: 1fr 1fr; }
+#fleet-devices-modal .dp-rows { max-height: 220px; }
+#fleet-devices-modal .dp-basket { min-height: 120px; }
 #fleet-devices-modal .dp-row { grid-template-columns: 1fr auto; }
 #fleet-devices-modal .dp-row .dp-bchip,
 #fleet-devices-modal .dp-row .dp-where,
