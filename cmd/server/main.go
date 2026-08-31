@@ -153,6 +153,26 @@ func main() {
 			log.Printf("OnOTAProgress: MarkCommandReceived error: %v", err)
 		}
 	}
+	// A shell command's live output stream closing ("command_done", carrying the
+	// exit code) is its actual completion signal — nothing previously turned that
+	// into a DB ack, so the terminal output finished while the delivery status/
+	// summary pill on the Actions page stayed "in progress" until a reload
+	// re-derived it fresh. Mirrors the same ack the WS "command_ack" path applies
+	// for every other command type.
+	shellMgr.OnCommandDone = func(deviceID, commandID uuid.UUID, exitCode int) {
+		status := "completed"
+		if exitCode != 0 {
+			status = "failed"
+		}
+		ctx := context.Background()
+		if err := database.AckCommand(ctx, commandID, deviceID, status); err != nil {
+			if !errors.Is(err, db.ErrCommandNotTargeted) {
+				log.Printf("OnCommandDone: AckCommand error: %v", err)
+			}
+			return
+		}
+		hub.PublishCommandUpdate(commandID)
+	}
 	remoteMgr := remote.New(hub)
 	logMgr := logstream.NewManager()
 	hub.SetOnBinaryMessage(func(deviceID uuid.UUID, data []byte) {

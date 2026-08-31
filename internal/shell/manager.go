@@ -67,6 +67,16 @@ type Manager struct {
 	// for its whole duration and RedriveStuckDeliveries repeatedly re-pushes it
 	// as "stuck" every ~90s even though the device is actively working on it.
 	OnOTAProgress func(deviceID, commandID uuid.UUID)
+
+	// OnCommandDone, if set, fires when a shell command's live output stream
+	// closes (the device's "command_done" frame, carrying its exit code). Shell is
+	// the one command type whose completion signal is this stream closing rather
+	// than a "command_ack" frame — nothing previously turned that into a DB ack, so
+	// the terminal output finished (this closes it) while the command's delivery
+	// status/summary pill on the page stayed at "in progress" until a reload
+	// re-derived it fresh. Wired in cmd/server/main.go for the same DB-agnostic
+	// reason as OnOTAProgress.
+	OnCommandDone func(deviceID, commandID uuid.UUID, exitCode int)
 }
 
 func NewManager() *Manager {
@@ -82,6 +92,7 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 		Type      string    `json:"type"`
 		CommandID uuid.UUID `json:"command_id"`
 		Chunk     string    `json:"chunk"`
+		ExitCode  int       `json:"exit_code"`
 		Phase     string    `json:"phase"`
 		Percent   int       `json:"percent"`
 	}
@@ -92,8 +103,11 @@ func (m *Manager) HandleDeviceMessage(deviceID uuid.UUID, raw []byte) {
 	case "command_output":
 		m.appendCommandOutput(outputKey{frame.CommandID, deviceID}, frame.Chunk)
 	case "command_done":
-		log.Printf("[shell] done device=%s command=%s", deviceID, frame.CommandID)
+		log.Printf("[shell] done device=%s command=%s exit=%d", deviceID, frame.CommandID, frame.ExitCode)
 		m.closeCommandOutput(outputKey{frame.CommandID, deviceID})
+		if m.OnCommandDone != nil {
+			m.OnCommandDone(deviceID, frame.CommandID, frame.ExitCode)
+		}
 	case "ota_progress":
 		m.updateOTAProgress(deviceID, frame.CommandID, frame.Phase, frame.Percent)
 	}
