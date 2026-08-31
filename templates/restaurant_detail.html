@@ -114,7 +114,7 @@
 
 <!-- Members — refreshes in place on device add/remove via a "restaurant-updated" event -->
 <div class="card" id="restaurant-members" data-morph
-     hx-get="/restaurants/{{.Restaurant.ID}}/members" hx-trigger="restaurant-updated from:body"
+     hx-get="/restaurants/{{.Restaurant.ID}}/members{{if $.Lean}}?lean=1{{end}}" hx-trigger="restaurant-updated from:body"
      hx-target="this" hx-swap="innerHTML" hx-select="unset">
   {{template "restaurant-members" .}}
 </div>

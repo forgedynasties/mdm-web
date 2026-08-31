@@ -60,7 +60,7 @@
 {{/* Members list refreshes in place when a device is added/removed — the add/remove
      handlers fire a "group-updated" body event instead of reloading the page. */}}
 <div class="card" id="group-members" data-morph
-     hx-get="/groups/{{.Group.ID}}/members" hx-trigger="group-updated from:body"
+     hx-get="/groups/{{.Group.ID}}/members{{if $.Lean}}?lean=1{{end}}" hx-trigger="group-updated from:body"
      hx-target="this" hx-swap="innerHTML" hx-select="unset">
   {{template "group-members" .}}
 </div>

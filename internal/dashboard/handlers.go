@@ -6055,6 +6055,9 @@ func (h *Handler) RestaurantMembers(w http.ResponseWriter, r *http.Request) {
 		"Devices":             devices,
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+		// Set by the fleet-page devices popup's own hx-get URL (?lean=1) — see the
+		// matching comment in GroupMembers.
+		"Lean": r.URL.Query().Get("lean") == "1",
 	}))
 }
 
@@ -6329,6 +6332,11 @@ func (h *Handler) GroupMembers(w http.ResponseWriter, r *http.Request) {
 		"Devices":             devices,
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+		// Set by the fleet-page devices popup's own hx-get URL (?lean=1) so this
+		// live in-place refresh (fired on "group-updated") keeps the same lean
+		// rendering the popup opened with, instead of reverting to the full
+		// fleet-card list the standalone group page uses.
+		"Lean": r.URL.Query().Get("lean") == "1",
 	}))
 }
 
