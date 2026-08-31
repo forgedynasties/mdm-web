@@ -96,7 +96,25 @@ type Hub struct {
 	problemUpdates  map[chan ProblemUpdateEvent]struct{}
 	pingMu          sync.Mutex
 	pingWaiters     map[string]chan struct{}
+
+	// presenceMu/lastDisconnectAt back IsConnectedForDisplay/ConnectedIDsForDisplay
+	// — the "Online" badge shown to users holds a brief grace period after a real
+	// disconnect before flipping to Offline, so a short blip (a few seconds of bad
+	// wifi, a quick app restart) doesn't flash the whole UI. IsConnected/
+	// ConnectedIDs themselves stay instant/strict — every functional decision
+	// (can we push a command right now, should we redrive a stuck delivery) must
+	// keep reflecting the real socket state, not a display-smoothed one.
+	presenceMu       sync.Mutex
+	lastDisconnectAt map[uuid.UUID]time.Time
 }
+
+// PresenceGrace is how long a device still shows "Online" after its socket
+// actually drops, purely for display.
+const PresenceGrace = 30 * time.Second
+
+// presenceGrace kept as an unexported alias so existing call sites in this file
+// don't all need renaming.
+const presenceGrace = PresenceGrace
 
 // SetOnMessage registers a function that is called for every text message
 // received from any device. Safe to call before any connections are established.
@@ -140,6 +158,7 @@ func NewHub() *Hub {
 		deployUpdates:  make(map[chan DeploymentUpdateEvent]struct{}),
 		problemUpdates: make(map[chan ProblemUpdateEvent]struct{}),
 		pingWaiters:    make(map[string]chan struct{}),
+		lastDisconnectAt: make(map[uuid.UUID]time.Time),
 	}
 }
 
@@ -449,6 +468,9 @@ func (h *Hub) register(c *Client) {
 	}
 	h.clients[c.DeviceID] = c
 	h.mu.Unlock()
+	h.presenceMu.Lock()
+	delete(h.lastDisconnectAt, c.DeviceID)
+	h.presenceMu.Unlock()
 	log.Printf("[ws] connected: %s", c.DeviceID)
 	h.publishPresence(PresenceEvent{DeviceID: c.DeviceID, Online: true})
 	// Socket is now in the clients map, so Push works — flush any queued commands. Async
@@ -473,6 +495,9 @@ func (h *Hub) Unregister(c *Client) {
 		delete(h.lastUpdateAt, c.DeviceID)
 		delete(h.pendingUpdate, c.DeviceID)
 		h.updThrottleMu.Unlock()
+		h.presenceMu.Lock()
+		h.lastDisconnectAt[c.DeviceID] = time.Now()
+		h.presenceMu.Unlock()
 	}
 	log.Printf("[ws] disconnected: %s", c.DeviceID)
 	if removed {
@@ -510,6 +535,21 @@ func (h *Hub) IsConnected(deviceID uuid.UUID) bool {
 	return ok
 }
 
+// IsConnectedForDisplay is IsConnected plus presenceGrace: a device that just
+// disconnected still reports true for a short window, so the "Online" badge
+// doesn't flash Offline on a brief blip. Display only — never use this for a
+// decision that actually needs the real socket state (pushing a command,
+// deciding whether to redrive a delivery); use IsConnected for those.
+func (h *Hub) IsConnectedForDisplay(deviceID uuid.UUID) bool {
+	if h.IsConnected(deviceID) {
+		return true
+	}
+	h.presenceMu.Lock()
+	t, ok := h.lastDisconnectAt[deviceID]
+	h.presenceMu.Unlock()
+	return ok && time.Since(t) < presenceGrace
+}
+
 // ConnectedIDs returns the set of device IDs with active connections.
 func (h *Hub) ConnectedIDs() map[uuid.UUID]struct{} {
 	h.mu.RLock()
@@ -517,6 +557,22 @@ func (h *Hub) ConnectedIDs() map[uuid.UUID]struct{} {
 	ids := make(map[uuid.UUID]struct{}, len(h.clients))
 	for id := range h.clients {
 		ids[id] = struct{}{}
+	}
+	return ids
+}
+
+// ConnectedIDsForDisplay is ConnectedIDs plus presenceGrace-held devices — see
+// IsConnectedForDisplay. Backs the fleet-wide "Online" badges (onlineMap), not
+// any functional push/delivery decision.
+func (h *Hub) ConnectedIDsForDisplay() map[uuid.UUID]struct{} {
+	ids := h.ConnectedIDs()
+	h.presenceMu.Lock()
+	defer h.presenceMu.Unlock()
+	now := time.Now()
+	for id, t := range h.lastDisconnectAt {
+		if now.Sub(t) < presenceGrace {
+			ids[id] = struct{}{}
+		}
 	}
 	return ids
 }

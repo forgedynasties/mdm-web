@@ -2295,7 +2295,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		totalPages = 1
 	}
 
-	connected := h.hub.ConnectedIDs()
+	connected := h.hub.ConnectedIDsForDisplay()
 	online := make(map[uuid.UUID]bool, len(connected))
 	for id := range connected {
 		online[id] = true
@@ -3283,7 +3283,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"OtaLabel":            otaLabel,
 		"OtaClass":            otaClass,
 		"OtaPercent":          otaPercent,
-		"Online":              h.hub.IsConnected(device.ID),
+		"Online":              h.hub.IsConnectedForDisplay(device.ID),
 		"ChartCheckins":       chartCheckins,
 		"ChartFocus":          focusParam,
 		"Commands":            commands,
@@ -3559,7 +3559,7 @@ func (h *Handler) DeviceOnlineStatus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	online := h.hub.IsConnected(device.ID)
+	online := h.hub.IsConnectedForDisplay(device.ID)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if online {
 		fmt.Fprint(w, `<span id="ws-badge" class="ws-badge online" title="WebSocket connected"><span class="ws-dot"></span>online</span>`)
@@ -3598,13 +3598,25 @@ func (h *Handler) DevicePresenceStream(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	writeEvent(h.hub.IsConnected(device.ID))
+	writeEvent(h.hub.IsConnectedForDisplay(device.ID))
 
 	sub := h.hub.SubscribePresence()
 	defer h.hub.UnsubscribePresence(sub)
 
 	heartbeat := time.NewTicker(25 * time.Second)
 	defer heartbeat.Stop()
+
+	// A real disconnect doesn't push "offline" straight away — it arms a
+	// presenceGrace timer instead, so a brief blip never flashes the badge.
+	// Reconnecting within the window cancels the timer. Going offline pushes
+	// only if the device is still disconnected once the timer fires.
+	var offlineTimer *time.Timer
+	fireOffline := make(chan struct{}, 1)
+	defer func() {
+		if offlineTimer != nil {
+			offlineTimer.Stop()
+		}
+	}()
 
 	ctx := r.Context()
 	for {
@@ -3618,7 +3630,25 @@ func (h *Handler) DevicePresenceStream(w http.ResponseWriter, r *http.Request) {
 			if ev.DeviceID != device.ID {
 				continue
 			}
-			writeEvent(ev.Online)
+			if ev.Online {
+				if offlineTimer != nil {
+					offlineTimer.Stop()
+					offlineTimer = nil
+				}
+				writeEvent(true)
+			} else if offlineTimer == nil {
+				offlineTimer = time.AfterFunc(ws.PresenceGrace, func() {
+					select {
+					case fireOffline <- struct{}{}:
+					default:
+					}
+				})
+			}
+		case <-fireOffline:
+			offlineTimer = nil
+			if !h.hub.IsConnected(device.ID) {
+				writeEvent(false)
+			}
 		case <-heartbeat.C:
 			fmt.Fprint(w, ": ping\n\n")
 			flusher.Flush()
@@ -3650,7 +3680,7 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
-		row := deviceToRowJSON(*dev, h.hub.IsConnected(deviceID), activeThreshold)
+		row := deviceToRowJSON(*dev, h.hub.IsConnectedForDisplay(deviceID), activeThreshold)
 		// The live row-patch repaints the battery chip, so it must carry the flap state
 		// too — otherwise it overwrites the server-rendered fault glyph with a plain bolt.
 		if rate, _ := h.db.DeviceChargerFlapRate(r.Context(), deviceID, 5); rate > 10 {
@@ -3672,6 +3702,18 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 	heartbeat := time.NewTicker(25 * time.Second)
 	defer heartbeat.Stop()
 
+	// A row's own SSE patch reflects IsConnectedForDisplay already, so a disconnect
+	// event itself is harmless (the grace window holds it "online"). But nothing
+	// else re-patches that row once the grace window lapses, so schedule one
+	// grace-delayed re-send per device that goes offline, to actually flip it.
+	offlineTimers := map[uuid.UUID]*time.Timer{}
+	fireOffline := make(chan uuid.UUID, 64)
+	defer func() {
+		for _, t := range offlineTimers {
+			t.Stop()
+		}
+	}()
+
 	ctx := r.Context()
 	for {
 		select {
@@ -3685,6 +3727,23 @@ func (h *Handler) FleetEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			sendRow(ev.DeviceID)
+			if ev.Online {
+				if t, ok := offlineTimers[ev.DeviceID]; ok {
+					t.Stop()
+					delete(offlineTimers, ev.DeviceID)
+				}
+			} else if _, ok := offlineTimers[ev.DeviceID]; !ok {
+				id := ev.DeviceID
+				offlineTimers[id] = time.AfterFunc(ws.PresenceGrace, func() {
+					select {
+					case fireOffline <- id:
+					default:
+					}
+				})
+			}
+		case id := <-fireOffline:
+			delete(offlineTimers, id)
+			sendRow(id)
 		case ev, ok := <-updateSub:
 			if !ok {
 				return
@@ -4067,7 +4126,7 @@ func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 		flusher.Flush()
 	}
 
-	writePresence(h.hub.IsConnected(device.ID))
+	writePresence(h.hub.IsConnectedForDisplay(device.ID))
 	writeDeviceUpdate()
 
 	presenceSub := h.hub.SubscribePresence()
@@ -4077,6 +4136,16 @@ func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 
 	heartbeat := time.NewTicker(25 * time.Second)
 	defer heartbeat.Stop()
+
+	// Same grace-debounce as DevicePresenceStream: a real disconnect arms a
+	// presenceGrace timer instead of pushing "offline" straight away.
+	var offlineTimer *time.Timer
+	fireOffline := make(chan struct{}, 1)
+	defer func() {
+		if offlineTimer != nil {
+			offlineTimer.Stop()
+		}
+	}()
 
 	ctx := r.Context()
 	for {
@@ -4091,7 +4160,25 @@ func (h *Handler) DeviceEvents(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if ev.DeviceID == device.ID {
-				writePresence(ev.Online)
+				if ev.Online {
+					if offlineTimer != nil {
+						offlineTimer.Stop()
+						offlineTimer = nil
+					}
+					writePresence(true)
+				} else if offlineTimer == nil {
+					offlineTimer = time.AfterFunc(ws.PresenceGrace, func() {
+						select {
+						case fireOffline <- struct{}{}:
+						default:
+						}
+					})
+				}
+			}
+		case <-fireOffline:
+			offlineTimer = nil
+			if !h.hub.IsConnected(device.ID) {
+				writePresence(false)
 			}
 		case ev, ok := <-updateSub:
 			if !ok {
@@ -5368,7 +5455,7 @@ func (h *Handler) DeviceInspectorPanel(w http.ResponseWriter, r *http.Request) {
 	}
 	h.renderCachedHTML(w, r, "device-panel", map[string]any{
 		"Device":              device,
-		"Online":              h.hub.IsConnected(device.ID),
+		"Online":              h.hub.IsConnectedForDisplay(device.ID),
 		"Release":             release,
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
 		"ShellEnabled":        h.cfg.ShellEnabled(),
@@ -5393,7 +5480,7 @@ func (h *Handler) DeviceCommandsPartial(w http.ResponseWriter, r *http.Request) 
 	h.renderCachedHTML(w, r, "device-commands", map[string]any{
 		"Device":   device,
 		"Commands": commands,
-		"Online":   h.hub.IsConnected(device.ID),
+		"Online":   h.hub.IsConnectedForDisplay(device.ID),
 	})
 }
 
@@ -5417,7 +5504,7 @@ func (h *Handler) DeviceQueuePartial(w http.ResponseWriter, r *http.Request) {
 	h.renderCachedHTML(w, r, "device-queue", map[string]any{
 		"Device": device,
 		"Queue":  queue,
-		"Online": h.hub.IsConnected(device.ID),
+		"Online": h.hub.IsConnectedForDisplay(device.ID),
 		"Role":   h.role(r),
 	})
 }
@@ -5512,7 +5599,7 @@ func (h *Handler) GroupList(w http.ResponseWriter, r *http.Request) {
 // onlineMap returns a device-id → true map of currently WS-connected devices,
 // for the shared device-cards roster partial.
 func (h *Handler) onlineMap() map[uuid.UUID]bool {
-	connected := h.hub.ConnectedIDs()
+	connected := h.hub.ConnectedIDsForDisplay()
 	m := make(map[uuid.UUID]bool, len(connected))
 	for id := range connected {
 		m[id] = true
