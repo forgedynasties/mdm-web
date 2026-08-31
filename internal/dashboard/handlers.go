@@ -1859,13 +1859,32 @@ func (h *Handler) SignupSubmit(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// VerifyEmail consumes a sign-up verification token and marks the account usable.
-func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+// VerifyEmailPage renders a confirm button rather than consuming the token
+// immediately on GET — see db.PeekUserToken for why (mail-client link
+// prefetching would otherwise silently burn the token before the user's real
+// click). Read-only: PeekUserToken doesn't mark anything used.
+func (h *Handler) VerifyEmailPage(w http.ResponseWriter, r *http.Request) {
 	token := r.URL.Query().Get("token")
+	if _, err := h.db.PeekUserToken(r.Context(), token, "verify"); err != nil {
+		h.tmpl.ExecuteTemplate(w, "verify_email.html", map[string]any{
+			"Invalid": true, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer,
+		})
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "verify_email.html", map[string]any{
+		"Token": token, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer,
+	})
+}
+
+// VerifyEmailSubmit does the actual token consumption — only reachable via the
+// confirm page's POST, which an automated prefetch/scanner never submits.
+func (h *Handler) VerifyEmailSubmit(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	token := r.FormValue("token")
 	userID, err := h.db.ConsumeUserToken(r.Context(), token, "verify")
 	if err != nil {
-		h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{
-			"Error": "That verification link is invalid or has expired.", "Brand": h.cfg.CustomBrand(),
+		h.tmpl.ExecuteTemplate(w, "verify_email.html", map[string]any{
+			"Invalid": true, "Brand": h.cfg.CustomBrand(),
 		})
 		return
 	}
@@ -14017,7 +14036,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /logout", h.Logout)
 	mux.HandleFunc("GET /signup", h.SignupPage)
 	post("POST /signup", h.SignupSubmit)
-	mux.HandleFunc("GET /verify-email", h.VerifyEmail)
+	mux.HandleFunc("GET /verify-email", h.VerifyEmailPage)
+	post("POST /verify-email", h.VerifyEmailSubmit)
 	mux.HandleFunc("GET /forgot-password", h.ForgotPasswordPage)
 	post("POST /forgot-password", h.ForgotPasswordSubmit)
 	mux.HandleFunc("GET /reset-password", h.ResetPasswordPage)

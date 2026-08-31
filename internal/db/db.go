@@ -483,6 +483,26 @@ func (d *DB) CreateUserToken(ctx context.Context, token string, userID uuid.UUID
 	return err
 }
 
+// PeekUserToken validates a token without consuming it — read-only, safe to call
+// from a plain GET. Used to render the verify-email confirm page: many mail
+// clients/security gateways prefetch/scan links in an email automatically before
+// the user ever clicks, which would silently consume a token on GET and leave the
+// user's real click seeing "invalid or expired" even though verification already
+// succeeded. Requiring an explicit POST (which prefetchers never submit) before
+// ConsumeUserToken actually fires avoids that. Same validity rule as
+// ConsumeUserToken (unused, unexpired), same errors.
+func (d *DB) PeekUserToken(ctx context.Context, token, purpose string) (uuid.UUID, error) {
+	var userID uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		SELECT user_id FROM user_tokens
+		WHERE token = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > NOW()
+	`, token, purpose).Scan(&userID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return userID, nil
+}
+
 // ConsumeUserToken atomically validates and marks a token used in one statement,
 // so a token can never be redeemed twice even under concurrent requests. Returns
 // the owning user_id, or an error (including pgx.ErrNoRows) if the token is
