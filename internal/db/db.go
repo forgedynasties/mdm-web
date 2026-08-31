@@ -10376,6 +10376,33 @@ func (d *DB) SendUpdateToDevices(ctx context.Context, updateID int, deviceIDs []
 		`, updateID, did, forceFull); err != nil {
 			return err
 		}
+		// A device only reaches here because it has no other active/incomplete
+		// update (callers only pass already-eligible devices) — so the sole thing
+		// that could still block this fresh command is a *stale* failed OTA from
+		// an earlier, now-complete deployment: HasPendingOTACommand treats a
+		// failure as "still pending" for an hour specifically to stop automatic
+		// checkin-driven re-sends from hammering a device. Creating a brand-new
+		// deployment is a deliberate, explicit retry, so clear that guard here —
+		// otherwise the new row sits at "pending" with nothing ever actually sent
+		// until the hour lapses, on both the immediate push and the later
+		// checkin-driven resolve path.
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO command_status (command_id, device_id, status, updated_at)
+			SELECT c.id, ct.target_id, 'failed', NOW() - INTERVAL '2 hours'
+			FROM commands c
+			JOIN command_targets ct ON ct.command_id = c.id AND ct.target_id = $1
+			LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
+			WHERE c.type = 'ota'
+			AND (
+				cs.status IS NULL
+				OR cs.status NOT IN ('installed', 'failed', 'completed')
+				OR (cs.status = 'failed' AND cs.updated_at > NOW() - INTERVAL '2 hours')
+			)
+			ON CONFLICT (command_id, device_id) DO UPDATE
+				SET status = EXCLUDED.status, updated_at = EXCLUDED.updated_at
+		`, did); err != nil {
+			return err
+		}
 	}
 	// Activate the deployment. Reactivate a 'complete' one too: adding targets to
 	// a finished deployment must re-arm it, or the new pending rows are stranded
