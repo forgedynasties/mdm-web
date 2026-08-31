@@ -1,4 +1,4 @@
-{{define "deployment-targets"}}
+{{define "deployment-rollup"}}
 {{$dep := .Deployment}}
 {{if $dep.Targets}}
 <div class="dpl-rollup">
@@ -24,6 +24,11 @@
   {{end}}
 </div>
 {{end}}
+{{end}}
+
+{{/* Design A — dense table. The default; matches every other data table in the app. */}}
+{{define "deployment-list-a"}}
+{{$dep := .Deployment}}
 <div class="dpl-tbl-wrap">
 <table class="table dpl-tbl">
   <thead>
@@ -71,8 +76,6 @@
           <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
         </form>
       {{end}}
-      {{/* Manual (or not-yet-due scheduled) reboot: the update installed to the inactive
-           slot and is waiting. Offer the reboot that applies it, right here. */}}
       {{if and (eq .Status "awaiting_reboot") (canOperate $.Role)}}
         <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/reboot" method="POST" hx-boost="true" class="dpl-act"
               hx-confirm="Reboot {{.SerialNumber}} now to apply the installed update?">
@@ -94,6 +97,138 @@
   </tbody>
 </table>
 </div>
+{{end}}
+
+{{/* Design B — board. Devices grouped into columns by status, for scanning "how
+     many are stuck where" at a glance rather than reading a status column row by row. */}}
+{{define "deployment-list-b"}}
+{{$dep := .Deployment}}
+{{$root := .}}
+{{if not $dep.Targets}}
+<div class="muted" style="text-align:center;padding:26px;">No devices targeted yet.</div>
+{{else}}
+<div class="dpl-board">
+  {{range $s := .Summary}}
+  {{$st := $s.Status}}
+  <div class="dpl-col">
+    <div class="dpl-col-head">
+      <span class="status-badge {{deployStatusClass $st}}">{{if eq $st "awaiting_reboot"}}awaiting reboot{{else if eq $st "reboot_sent"}}reboot sent{{else}}{{$st}}{{end}}</span>
+      <span class="muted small">{{$s.Count}}</span>
+    </div>
+    <div class="dpl-col-body">
+      {{range $dep.Targets}}
+      {{if eq .Status $st}}
+      {{$progress := index $root.OTAProgress .DeviceID.String}}
+      <div class="dpl-card">
+        <div class="dpl-card-top">
+          <a href="/devices/{{.SerialNumber}}" class="dpl-sn link-detail">{{.SerialNumber}}</a>
+          <span class="muted small reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></span>
+        </div>
+        <div class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}}</div>
+        {{if $progress}}
+        <div class="dpl-prog" style="max-width:none;margin-top:8px;">
+          <div class="dpl-pbar"><i style="width:{{$progress.Percent}}%"></i></div>
+          <span class="muted small">{{if $progress.Phase}}{{$progress.Phase}} · {{end}}{{$progress.Percent}}%</span>
+        </div>
+        {{end}}
+        {{if and (eq .Status "failed") .ErrorCode}}
+        <div class="muted small dpl-err">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
+        {{end}}
+        {{if canOperate $root.Role}}
+        <div class="dpl-card-act">
+          {{if eq .Status "failed"}}
+          <form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+            <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry</button>
+          </form>
+          {{else if eq .Status "awaiting_reboot"}}
+          <form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/reboot" method="POST" hx-boost="true" class="dpl-act"
+                hx-confirm="Reboot {{.SerialNumber}} now to apply the installed update?">
+            <button type="submit" class="btn-primary btn-sm">Reboot to apply</button>
+          </form>
+          {{else if eq .Status "pending"}}
+          <form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" class="dpl-act"
+                hx-confirm="Remove {{.SerialNumber}} from this deployment? It will not receive the update.">
+            <button type="submit" class="btn-outline btn-sm">Remove</button>
+          </form>
+          {{end}}
+        </div>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+  {{end}}
+</div>
+{{end}}
+{{end}}
+
+{{/* Design C — compact ring list. A donut per row instead of a status column, so
+     progress is the primary read and everything else is secondary/dense. */}}
+{{define "deployment-list-c"}}
+{{$dep := .Deployment}}
+{{if not $dep.Targets}}
+<div class="muted" style="text-align:center;padding:26px;">No devices targeted yet.</div>
+{{else}}
+<div class="dpl-clist">
+  {{range $dep.Targets}}
+  {{$progress := index $.OTAProgress .DeviceID.String}}
+  {{$pct := 0}}{{$color := "var(--muted)"}}
+  {{if eq .Status "installed"}}{{$pct = 100}}{{$color = "var(--ok)"}}
+  {{else if eq .Status "awaiting_reboot"}}{{$pct = 100}}{{$color = "var(--accent-2)"}}
+  {{else if eq .Status "reboot_sent"}}{{$pct = 100}}{{$color = "var(--accent-2)"}}
+  {{else if eq .Status "downloading"}}{{if $progress}}{{$pct = $progress.Percent}}{{end}}{{$color = "var(--accent-2)"}}
+  {{else if eq .Status "failed"}}{{$pct = 100}}{{$color = "var(--danger)"}}
+  {{end}}
+  <div class="dpl-crow">
+    <div class="dpl-ring" style="--pct:{{$pct}};--ring-color:{{$color}};">
+      <div class="dpl-ring-hole">{{if eq .Status "failed"}}!{{else}}{{$pct}}{{end}}</div>
+    </div>
+    <div class="dpl-crow-mid">
+      <div class="dpl-crow-top">
+        <a href="/devices/{{.SerialNumber}}" class="dpl-sn link-detail">{{.SerialNumber}}</a>
+        <span class="muted small mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}}</span>
+      </div>
+      <div class="dpl-crow-sub muted small">
+        {{if and $progress (eq .Status "downloading") $progress.Phase}}{{$progress.Phase}}
+        {{else if eq .Status "awaiting_reboot"}}awaiting reboot
+        {{else if eq .Status "reboot_sent"}}reboot sent
+        {{else if and (eq .Status "failed") .ErrorCode}}{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span>
+        {{else}}{{.Status}}{{end}}
+        <span class="reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></span>
+      </div>
+    </div>
+    {{if canOperate $.Role}}
+    <div class="dpl-crow-act">
+      {{if eq .Status "failed"}}
+      <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+        <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry</button>
+      </form>
+      {{else if eq .Status "awaiting_reboot"}}
+      <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/reboot" method="POST" hx-boost="true" class="dpl-act"
+            hx-confirm="Reboot {{.SerialNumber}} now to apply the installed update?">
+        <button type="submit" class="btn-primary btn-sm">Reboot</button>
+      </form>
+      {{else if eq .Status "pending"}}
+      <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/remove" method="POST" hx-boost="true" class="dpl-act"
+            hx-confirm="Remove {{.SerialNumber}} from this deployment? It will not receive the update.">
+        <button type="submit" class="btn-outline btn-sm">Remove</button>
+      </form>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+{{end}}
+
+{{define "deployment-targets"}}
+{{template "deployment-rollup" .}}
+{{if eq .Design "b"}}{{template "deployment-list-b" .}}
+{{else if eq .Design "c"}}{{template "deployment-list-c" .}}
+{{else}}{{template "deployment-list-a" .}}
+{{end}}
 {{end}}
 
 {{define "deployment_detail.html"}}
@@ -151,6 +286,35 @@
   .dpl-err{margin-top:4px;max-width:220px}
   .dpl-act{display:inline}
   .dpl-act-cell{white-space:nowrap;text-align:right}
+
+  /* design switcher (demo preview only) */
+  .dpl-design-tabs{display:flex;gap:6px;padding:10px 18px;border-bottom:1px solid var(--border-soft);flex-wrap:wrap}
+  .dpl-design-tab{font-size:12px;font-weight:650;padding:5px 11px;border-radius:99px;border:1px solid var(--border);color:var(--muted);text-decoration:none}
+  .dpl-design-tab.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-text,var(--accent))}
+  .dpl-design-tab:hover{color:var(--text)}
+
+  /* Design B — board */
+  .dpl-board{display:flex;gap:12px;padding:14px;overflow-x:auto;align-items:flex-start}
+  .dpl-col{flex:0 0 240px;background:var(--surface2);border:1px solid var(--border-soft);border-radius:var(--r-3,8px)}
+  .dpl-col-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border-soft)}
+  .dpl-col-body{display:flex;flex-direction:column;gap:8px;padding:10px;max-height:520px;overflow-y:auto}
+  .dpl-card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 11px}
+  .dpl-card-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .dpl-card-act{margin-top:9px}
+  .dpl-card-act form{display:block}
+  .dpl-card-act .btn-sm{width:100%}
+
+  /* Design C — compact ring list */
+  .dpl-clist{display:flex;flex-direction:column}
+  .dpl-crow{display:flex;align-items:center;gap:12px;padding:10px 18px;border-top:1px solid var(--border-soft)}
+  .dpl-crow:first-child{border-top:none}
+  .dpl-ring{--pct:0;--ring-color:var(--accent-2);width:38px;height:38px;border-radius:50%;flex-shrink:0;
+    background:conic-gradient(var(--ring-color) calc(var(--pct)*3.6deg), var(--surface3,var(--border)) 0)}
+  .dpl-ring-hole{width:29px;height:29px;margin:4.5px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--text)}
+  .dpl-crow-mid{flex:1;min-width:0}
+  .dpl-crow-top{display:flex;align-items:baseline;gap:8px}
+  .dpl-crow-sub{margin-top:2px;display:flex;align-items:baseline;gap:6px;text-transform:capitalize}
+  .dpl-crow-act{flex-shrink:0}
 </style>
 
 {{$dep := .Deployment}}
@@ -160,7 +324,7 @@
 
 {{if .DemoScenario}}
 <div class="alert alert-info" style="margin-bottom:14px;">
-  <b>Demo preview</b> — synthetic data, not a real deployment. Forms on this page point at a fake ID and will 404 if submitted. <a href="/demo/updates">← other scenarios</a>
+  <b>Demo preview</b> — synthetic data, not a real deployment. Forms on this page point at a fake ID and will 404 if submitted. Use the design tabs below the device list to compare layouts. <a href="/demo/updates">← other scenarios</a>
 </div>
 {{else}}
 <a href="/releases/{{$rel.ID}}" class="back-link">← {{$rel.Version}}</a>
@@ -293,6 +457,13 @@
     <h3>Device Status</h3>
     <span class="muted small">{{len $dep.Targets}} device{{if ne (len $dep.Targets) 1}}s{{end}}{{if eq $dep.Status "active"}} · <span class="ok">live</span>{{end}}</span>
   </div>
+  {{if .DemoScenario}}
+  <div class="dpl-design-tabs">
+    <a class="dpl-design-tab{{if ne .Design "b"}}{{if ne .Design "c"}} on{{end}}{{end}}" href="?design=a">A · Table</a>
+    <a class="dpl-design-tab{{if eq .Design "b"}} on{{end}}" href="?design=b">B · Board</a>
+    <a class="dpl-design-tab{{if eq .Design "c"}} on{{end}}" href="?design=c">C · Compact list</a>
+  </div>
+  {{end}}
   <div id="deployment-targets" data-morph
        {{if and (eq $dep.Status "active") (not .DemoScenario)}}
        hx-get="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets" hx-select="unset" hx-target="this"

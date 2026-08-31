@@ -216,6 +216,11 @@ func (h *Handler) DemoUpdatesScenario(w http.ResponseWriter, r *http.Request) {
 	}
 	upd.Release = &db.Release{ID: 90000, Version: "2026.06.01-release", Product: "t7", Status: "published"}
 
+	design := r.URL.Query().Get("design")
+	if design != "b" && design != "c" {
+		design = "a"
+	}
+
 	data := map[string]any{
 		"Title":        fmt.Sprintf("Demo — %s", sc.Title),
 		"Deployment":   upd,
@@ -231,6 +236,7 @@ func (h *Handler) DemoUpdatesScenario(w http.ResponseWriter, r *http.Request) {
 		"Online":       map[uuid.UUID]bool{},
 		"Groups":       nil,
 		"DemoScenario": sc,
+		"Design":       design,
 	}
 
 	h.render(w, r, "deployment_detail.html", data)
