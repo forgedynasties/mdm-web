@@ -980,8 +980,22 @@ func (h *Handler) pushRebootFor(ctx context.Context, upd *db.Update, deviceID uu
 	}
 	if upd != nil {
 		_ = h.db.SetUpdateDeviceStatus(ctx, upd.ID, deviceID, "reboot_sent")
+		h.optimisticallyCompleteReboot(ctx, upd.ID, deviceID)
 	}
 	h.pushCommand(ctx, cmd, "devices", []uuid.UUID{deviceID})
+}
+
+// optimisticallyCompleteReboot wraps db.OptimisticallyCompleteReboot + the same
+// CheckAndCompleteUpdate the confirming checkin path uses to flip the parent
+// deployment to 'complete' — see db.OptimisticallyCompleteReboot for why every
+// reboot-push site calls this instead of waiting for the device's next check-in.
+func (h *Handler) optimisticallyCompleteReboot(ctx context.Context, updateID int, deviceID uuid.UUID) {
+	if err := h.db.OptimisticallyCompleteReboot(ctx, updateID, deviceID); err != nil {
+		log.Printf("[ota] OptimisticallyCompleteReboot error: %v", err)
+		return
+	}
+	_ = h.db.CheckAndCompleteUpdate(ctx, updateID)
+	h.hub.PublishDeploymentUpdate()
 }
 
 // ProcessDueScheduledReboots pushes reboot commands for devices whose
@@ -999,6 +1013,7 @@ func (h *Handler) ProcessDueScheduledReboots(ctx context.Context) {
 			continue
 		}
 		_ = h.db.SetUpdateDeviceStatus(ctx, dr.UpdateID, dr.DeviceID, "reboot_sent")
+		h.optimisticallyCompleteReboot(ctx, dr.UpdateID, dr.DeviceID)
 		h.pushCommand(ctx, cmd, "devices", []uuid.UUID{dr.DeviceID})
 		h.hub.PublishDeviceUpdate(dr.DeviceID)
 		log.Printf("[ota-scheduler] scheduled reboot pushed device=%s update=%d", dr.DeviceID, dr.UpdateID)
@@ -1007,8 +1022,12 @@ func (h *Handler) ProcessDueScheduledReboots(ctx context.Context) {
 
 // RedriveStuckReboots re-issues the reboot for devices stuck at 'reboot_sent' (the
 // reboot command was lost or declined) so a device that installed but never rebooted
-// doesn't keep its deployment 'active' forever. Only auto-reboot ('immediate'/
-// 'scheduled') deployments reach 'reboot_sent', so re-driving matches the intent.
+// doesn't keep its deployment 'active' forever. Manual reboots ("Reboot to apply" /
+// "Reboot all installed") reach the identical 'reboot_sent' status as auto
+// immediate/scheduled reboots, so this applies to all of them alike. In practice
+// this rarely finds anything now — optimisticallyCompleteReboot already flips the
+// row to 'installed' the moment the original reboot is pushed — it mainly exists as
+// a retry safety net if that first call failed.
 func (h *Handler) RedriveStuckReboots(ctx context.Context) {
 	const staleMinutes = 15
 	stuck, err := h.db.ListStaleRebootSent(ctx, staleMinutes)
@@ -1032,6 +1051,10 @@ func (h *Handler) RedriveStuckReboots(ctx context.Context) {
 		}
 		// Refresh updated_at so this device isn't re-driven again for another window.
 		_ = h.db.SetUpdateDeviceStatus(ctx, dr.UpdateID, dr.DeviceID, "reboot_sent")
+		// Normally already a no-op by the time this runs (the original push already
+		// optimistically completed it) — this is the retry safety net for the rare
+		// case that first call failed.
+		h.optimisticallyCompleteReboot(ctx, dr.UpdateID, dr.DeviceID)
 		h.pushCommand(ctx, cmd, "devices", []uuid.UUID{dr.DeviceID})
 		h.hub.PublishDeviceUpdate(dr.DeviceID)
 		log.Printf("[ota-scheduler] re-drove stuck reboot device=%s update=%d", dr.DeviceID, dr.UpdateID)

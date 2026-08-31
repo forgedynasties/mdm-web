@@ -10544,6 +10544,65 @@ func (d *DB) RemoveDeviceFromUpdate(ctx context.Context, updateID int, deviceID 
 	return tag.RowsAffected() > 0, nil
 }
 
+// OptimisticallyCompleteReboot marks one update_devices row installed and updates
+// the device's tracked build_id to the update's resolved target build, the moment
+// a reboot command is pushed for it — without waiting for a confirming checkin.
+// The durable confirmation path (CompleteUpdatesAtTargetBuild, below) relies on the
+// device checking back in against THIS server; in a multi-instance deployment where
+// a device may check in against a different MDM instance after rebooting, that
+// confirmation can structurally never arrive here, permanently stranding the row at
+// awaiting_reboot/reboot_sent. Deliberate accepted tradeoff: if the reboot silently
+// fails or an A/B slot rolls back, this row won't self-correct, since it's already
+// terminal by the time any contradicting checkin could arrive.
+//
+// No-op (not an error) if the row isn't currently awaiting_reboot/reboot_sent, so a
+// redrive of an already-completed row is safe to call again.
+func (d *DB) OptimisticallyCompleteReboot(ctx context.Context, updateID int, deviceID uuid.UUID) error {
+	// Same per-device package-selection rule as ResolveUpdateForDevice's LATERAL
+	// join: prefer the incremental whose source build matches the device's current
+	// build, else the full image.
+	var targetBuildID string
+	err := d.pool.QueryRow(ctx, `
+		SELECT p.target_build_id
+		FROM update_devices ud
+		JOIN updates u ON u.id = ud.update_id
+		JOIN devices dv ON dv.id = ud.device_id
+		JOIN LATERAL (
+			SELECT pk.target_build_id FROM ota_packages pk
+			WHERE pk.release_id = u.release_id AND pk.status = 'active'
+			  AND (pk.type = 'full'
+			       OR (pk.type = 'incremental' AND NOT ud.force_full AND pk.source_build_id = dv.build_id))
+			ORDER BY (pk.type = 'incremental' AND NOT ud.force_full AND pk.source_build_id = dv.build_id) DESC, pk.created_at DESC
+			LIMIT 1
+		) p ON true
+		WHERE ud.update_id = $1 AND ud.device_id = $2
+	`, updateID, deviceID).Scan(&targetBuildID)
+	if err != nil {
+		return err
+	}
+
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	tag, err := tx.Exec(ctx, `
+		UPDATE update_devices SET status = 'installed', updated_at = NOW()
+		WHERE update_id = $1 AND device_id = $2 AND status IN ('awaiting_reboot', 'reboot_sent')
+	`, updateID, deviceID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return nil // already installed/failed/etc — nothing to do (safe re-drive no-op)
+	}
+	if _, err := tx.Exec(ctx, `UPDATE devices SET build_id = $2 WHERE id = $1`, deviceID, targetBuildID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 // CompleteUpdatesAtTargetBuild marks installed every active, not-yet-terminal
 // deployment row for this device whose release ships a package targeting the
 // device's current build. This is the authoritative "the device is now running

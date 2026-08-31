@@ -2940,7 +2940,7 @@ func otaStatusView(status string, p *shell.OTAProgress) (label, class string, pe
 		}
 		return "Installing", "inst", percent
 	case "awaiting_reboot":
-		return "Awaiting reboot", "done", 90
+		return "Awaiting reboot", "done", 100
 	case "reboot_sent":
 		return "Rebooting", "done", 95
 	case "failed":
@@ -8491,12 +8491,11 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		return
 	}
 
-	deployment, err := h.db.CreateReleaseUpdate(r.Context(), relID, rebootBehavior, scheduledTime)
-	if err != nil {
-		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
+	// Resolve eligibility BEFORE creating the deployment row: a push that resolves to
+	// zero eligible devices (a double-submitted push where a second request finds
+	// everything already targeted/updated by the first, or simply selecting devices
+	// that turn out ineligible) must fail with a clear reason instead of silently
+	// creating and redirecting to an empty deployment record.
 	eligible, err := h.resolveEligibleDevices(r, rel.Product)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
@@ -8516,21 +8515,29 @@ func (h *Handler) deployRelease(w http.ResponseWriter, r *http.Request, relID in
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	if len(eligible) > 0 {
-		if err := h.db.SendUpdateToDevices(r.Context(), deployment.ID, eligible, forceFull); err != nil {
-			http.Error(w, "Internal error", http.StatusInternalServerError)
-			return
-		}
-		// Deliver to connected targets right now, the same way every other command
-		// type (reboot, screenshot, ...) already does — don't wait for the device's
-		// next periodic check-in to notice the pending update_devices row.
-		h.pushOTAToConnected(r.Context(), eligible)
-		// Belt-and-suspenders fallback: nudge online targets to check in NOW too, in
-		// case a device's connection state raced between here and pushOTAToConnected
-		// (CreateOTACommandIfNone is idempotent, so this can never double-send).
-		// Offline devices pick the update up on their next check-in either way.
-		h.nudgeCheckin(eligible)
+	if len(eligible) == 0 {
+		http.Error(w, "No eligible devices — everything selected is already on this build or newer, or has no applicable package.", http.StatusBadRequest)
+		return
 	}
+
+	deployment, err := h.db.CreateReleaseUpdate(r.Context(), relID, rebootBehavior, scheduledTime)
+	if err != nil {
+		http.Error(w, "Internal error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := h.db.SendUpdateToDevices(r.Context(), deployment.ID, eligible, forceFull); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	// Deliver to connected targets right now, the same way every other command
+	// type (reboot, screenshot, ...) already does — don't wait for the device's
+	// next periodic check-in to notice the pending update_devices row.
+	h.pushOTAToConnected(r.Context(), eligible)
+	// Belt-and-suspenders fallback: nudge online targets to check in NOW too, in
+	// case a device's connection state raced between here and pushOTAToConnected
+	// (CreateOTACommandIfNone is idempotent, so this can never double-send).
+	// Offline devices pick the update up on their next check-in either way.
+	h.nudgeCheckin(eligible)
 
 	h.audit(r, "release.deploy", rel.Version, strconv.Itoa(len(eligible)))
 	http.Redirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, deployment.ID), http.StatusSeeOther)
@@ -8836,6 +8843,14 @@ func (h *Handler) DeploymentRebootDevice(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "reboot_sent")
+	// Optimistically complete rather than waiting for a confirming check-in, which
+	// in a multi-instance deployment may never land on this instance at all — see
+	// db.OptimisticallyCompleteReboot.
+	if err := h.db.OptimisticallyCompleteReboot(r.Context(), did, device.ID); err != nil {
+		log.Printf("[deployment-reboot] OptimisticallyCompleteReboot error: %v", err)
+	} else {
+		_ = h.db.CheckAndCompleteUpdate(r.Context(), did)
+	}
 	h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{device.ID})
 	h.hub.PublishDeviceUpdate(device.ID)
 	h.hub.PublishDeploymentUpdate()
@@ -8874,6 +8889,11 @@ func (h *Handler) DeploymentRebootAll(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		_ = h.db.SetUpdateDeviceStatus(r.Context(), did, deviceID, "reboot_sent")
+		if err := h.db.OptimisticallyCompleteReboot(r.Context(), did, deviceID); err != nil {
+			log.Printf("[deployment-reboot-all] OptimisticallyCompleteReboot error device=%s: %v", deviceID, err)
+		} else {
+			_ = h.db.CheckAndCompleteUpdate(r.Context(), did)
+		}
 		h.pushCommand(r.Context(), cmd, "devices", []uuid.UUID{deviceID})
 		h.hub.PublishDeviceUpdate(deviceID)
 	}
