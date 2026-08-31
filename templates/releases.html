@@ -192,7 +192,7 @@ document.addEventListener('keydown', function (e) {
 {{$dl := 0}}{{$pctSum := 0}}
 {{range .ActiveOTA}}{{if eq .Status "downloading"}}{{$dl = add $dl 1}}{{$pctSum = add $pctSum .Percent}}{{end}}{{end}}
 {{$await := sub $total $dl}}
-{{$avg := 0}}{{if gt $dl 0}}{{$avg = div $pctSum $dl}}{{end}}
+{{$avg := 0}}{{if gt $total 0}}{{$avg = div $pctSum $total}}{{end}}
 {{/* Link straight to the one deployment in flight when every device here belongs to
      the same one — the common case — instead of always sending you to the generic
      /updates hub to hunt for it. Falls back to the hub only when two+ deployments

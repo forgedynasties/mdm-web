@@ -2,11 +2,16 @@
 {{$dep := .Deployment}}
 {{if $dep.Targets}}
 <div class="dpl-rollup">
-  <div class="dpl-bar"><i style="width:{{.SummaryPct}}%"></i></div>
-  <div class="dpl-sum">
-    <span class="dpl-done">{{.SummaryDone}}/{{.SummaryTotal}} installed</span>
-    {{range .Summary}}<span class="status-badge {{deployStatusClass .Status}}">{{.Count}} {{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
-    {{if ge .AvgDuration 0}}<span class="muted">· avg {{dur .AvgDuration}} ({{.DoneCount}} device{{if ne .DoneCount 1}}s{{end}})</span>{{end}}
+  <div class="dpl-rollup-top">
+    <span class="dpl-pct">{{.SummaryPct}}%</span>
+    <div class="dpl-rollup-mid">
+      <div class="dpl-bar"><i style="width:{{.SummaryPct}}%"></i></div>
+      <div class="dpl-sum">
+        <span class="dpl-done">{{.SummaryDone}}/{{.SummaryTotal}} installed</span>
+        {{range .Summary}}<span class="status-badge {{deployStatusClass .Status}}">{{.Count}} {{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
+        {{if ge .AvgDuration 0}}<span class="muted">avg {{dur .AvgDuration}} ({{.DoneCount}} device{{if ne .DoneCount 1}}s{{end}})</span>{{end}}
+      </div>
+    </div>
   </div>
   {{/* Bulk apply: reboot every device that installed and is waiting (manual, or a
        scheduled deployment not yet due). Only shown when some are awaiting reboot. */}}
@@ -19,29 +24,48 @@
   {{end}}
 </div>
 {{end}}
-{{if $dep.Targets}}
+<div class="dpl-tbl-wrap">
+<table class="table dpl-tbl">
+  <thead>
+    <tr>
+      <th>Device</th>
+      <th>Status</th>
+      <th>Progress</th>
+      <th>Duration</th>
+      <th>Updated</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {{if $dep.Targets}}
   {{range $dep.Targets}}
   {{$progress := index $.OTAProgress .DeviceID.String}}
-  <div class="dpl-drow">
-    <div class="dpl-dev">
+  <tr>
+    <td class="dpl-dev">
       <a href="/devices/{{.SerialNumber}}" class="dpl-sn link-detail">{{.SerialNumber}}</a>
       <div class="dpl-build mono">{{if .BuildID}}{{.BuildID}}{{else}}—{{end}}</div>
-    </div>
-    <div class="dpl-state">
+    </td>
+    <td>
       {{if and $progress (eq .Status "downloading") $progress.Phase}}
         <span class="status-badge {{deployStatusClass .Status}} phase-badge">{{$progress.Phase}}</span>
       {{else}}
         <span class="status-badge {{deployStatusClass .Status}}">{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>
       {{end}}
+      {{if and (eq .Status "failed") .ErrorCode}}
+        <div class="muted small dpl-err">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
+      {{end}}
+    </td>
+    <td class="dpl-prog-cell">
       {{if $progress}}
         <div class="dpl-prog">
           <div class="dpl-pbar"><i style="width:{{$progress.Percent}}%"></i></div>
           <span class="muted small">{{$progress.Phase}} {{$progress.Percent}}%</span>
         </div>
-      {{end}}
-      {{if and (eq .Status "failed") .ErrorCode}}
-        <div class="muted small dpl-err">{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span></div>
-      {{end}}
+      {{else}}<span class="muted">—</span>{{end}}
+    </td>
+    <td class="mono muted small" title="time from download start to installed">{{dur .DurationSeconds}}</td>
+    <td class="muted small reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></td>
+    <td class="dpl-act-cell">
       {{if and (eq .Status "failed") (canOperate $.Role)}}
         <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
           <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
@@ -61,16 +85,15 @@
           <button type="submit" class="btn-outline btn-sm">Remove</button>
         </form>
       {{end}}
-    </div>
-    <div class="dpl-times">
-      <span title="time from download start to installed">{{dur .DurationSeconds}}</span>
-      <span class="reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></span>
-    </div>
-  </div>
+    </td>
+  </tr>
   {{end}}
-{{else}}
-  <div class="dpl-drow dpl-none"><span class="muted">No devices targeted yet.</span></div>
-{{end}}
+  {{else}}
+  <tr><td colspan="6" class="muted" style="text-align:center;padding:26px;">No devices targeted yet.</td></tr>
+  {{end}}
+  </tbody>
+</table>
+</div>
 {{end}}
 
 {{define "deployment_detail.html"}}
@@ -84,39 +107,50 @@
   .phase-badge { animation: ota-phase-pulse 1.6s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) { .phase-badge { animation: none; } }
 
-  /* ── Deployment detail · matches the overview / updates design language ── */
+  /* ── Deployment detail · leaner pass: one compact fact strip instead of five
+     boxed tiles, admin forms tucked behind <details>, device list is a real
+     table instead of a hand-rolled responsive grid. ── */
   .dpl-wrap{max-width:1180px;margin:0 auto}
-  /* metadata tiles — same card shape as the updates signal strip */
-  .dpl-meta{display:grid;grid-template-columns:repeat(5,1fr);gap:11px;margin:6px 0 20px}
-  @media(max-width:940px){.dpl-meta{grid-template-columns:repeat(3,1fr)}}
-  @media(max-width:560px){.dpl-meta{grid-template-columns:repeat(2,1fr)}}
-  .dpl-tile{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:14px 15px}
-  .dpl-tile .k{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
-  .dpl-tile .v{font-size:17px;font-weight:700;margin-top:9px;line-height:1.2;word-break:break-word}
-  .dpl-tile .v.mono{font-family:var(--mono);font-size:14px}
-  .dpl-tile .s{font-size:11.5px;color:var(--muted);margin-top:6px}
+
+  /* fact strip */
+  .dpl-facts{display:flex;flex-wrap:wrap;align-items:center;gap:7px 10px;margin:2px 0 18px;font-size:12.5px;color:var(--muted)}
+  .dpl-facts b{color:var(--text);font-weight:650}
+  .dpl-facts .sep{color:var(--border)}
+  .dpl-facts .mono{font-family:var(--mono)}
+
   /* rollup */
-  .dpl-rollup{padding:15px 18px;border-bottom:1px solid var(--border-soft)}
+  .dpl-rollup{padding:16px 18px;border-bottom:1px solid var(--border-soft)}
+  .dpl-rollup-top{display:flex;align-items:center;gap:16px}
+  .dpl-pct{font-size:26px;font-weight:750;letter-spacing:-.01em;font-variant-numeric:tabular-nums;line-height:1;flex-shrink:0}
+  .dpl-rollup-mid{flex:1;min-width:0}
   .dpl-bar{display:flex;height:8px;border-radius:5px;overflow:hidden;background:var(--surface3,var(--border))}
   .dpl-bar i{display:block;height:100%;background:var(--ok)}
-  .dpl-sum{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:11px;font-size:12px}
+  .dpl-sum{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:9px;font-size:12px}
   .dpl-done{font-weight:650;font-variant-numeric:tabular-nums}
-  /* device rows */
-  .dpl-drow{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,2fr) auto;gap:16px;align-items:start;padding:13px 18px;border-top:1px solid var(--border-soft)}
-  .dpl-drow:first-of-type{border-top:none}
-  .dpl-drow.dpl-none{display:block;text-align:center;padding:26px}
-  @media(max-width:720px){.dpl-drow{grid-template-columns:1fr;gap:8px}}
+  .dpl-rollup-act{margin-top:12px}
+
+  /* collapsible admin panels */
+  .dpl-panel{margin-bottom:14px}
+  .dpl-panel > summary{padding:13px 17px;cursor:pointer;font-size:14px;font-weight:700;list-style:none;display:flex;align-items:center;gap:8px}
+  .dpl-panel > summary::-webkit-details-marker{display:none}
+  .dpl-panel > summary::before{content:"›";display:inline-block;font-size:16px;color:var(--muted);transition:transform .15s;transform:rotate(0)}
+  .dpl-panel[open] > summary::before{transform:rotate(90deg)}
+  .dpl-panel > summary .muted{font-weight:400}
+  .dpl-panel-body{padding:0 17px 16px}
+
+  /* device table */
+  .dpl-tbl-wrap{overflow-x:auto}
+  .dpl-tbl th, .dpl-tbl td{vertical-align:top}
   .dpl-dev{min-width:0}
-  .dpl-sn{font-family:var(--mono);font-size:13px;font-weight:650;word-break:break-all}
-  .dpl-build{font-size:11.5px;color:var(--muted);margin-top:4px;word-break:break-all}
-  .dpl-state{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0}
-  .dpl-prog{width:100%;max-width:300px}
+  .dpl-sn{font-family:var(--mono);font-size:13px;font-weight:650;white-space:nowrap}
+  .dpl-build{font-size:11.5px;color:var(--muted);margin-top:3px;white-space:nowrap}
+  .dpl-prog-cell{min-width:170px}
+  .dpl-prog{width:100%;max-width:220px}
   .dpl-pbar{display:flex;height:6px;border-radius:4px;overflow:hidden;background:var(--surface3,var(--border));margin-bottom:5px}
   .dpl-pbar i{display:block;height:100%;background:var(--accent-2)}
-  .dpl-err{margin-top:2px}
+  .dpl-err{margin-top:4px;max-width:220px}
   .dpl-act{display:inline}
-  .dpl-times{display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:11.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
-  @media(max-width:720px){.dpl-times{align-items:flex-start}}
+  .dpl-act-cell{white-space:nowrap;text-align:right}
 </style>
 
 {{$dep := .Deployment}}
@@ -126,7 +160,7 @@
 
 <a href="/releases/{{$rel.ID}}" class="back-link">← {{$rel.Version}}</a>
 <div class="ov-greet">
-  <h1 class="ov-title">Deployment #{{$dep.ID}}</h1>
+  <h1 class="ov-title">Deployment #{{$dep.ID}} <span class="status-badge {{deployStatusClass $dep.Status}}" style="vertical-align:middle;">{{$dep.Status}}</span></h1>
   <span class="acts">
     {{if and (eq $dep.Status "active") (canOperate .Role)}}
     <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/cancel" method="POST" hx-boost="true" style="display:inline;"
@@ -141,39 +175,20 @@
   </span>
 </div>
 
-<div class="dpl-meta">
-  <div class="dpl-tile">
-    <div class="k">Release</div>
-    <div class="v mono">{{$rel.Version}}</div>
-    <div class="s"><span class="status-badge {{releaseStatusClass $rel.Status}}">{{$rel.Status}}</span></div>
-  </div>
-  <div class="dpl-tile">
-    <div class="k">Product</div>
-    <div class="v">{{productLabel $rel.Product}}</div>
-    <div class="s">only {{productLabel $rel.Product}} devices are eligible</div>
-  </div>
-  <div class="dpl-tile">
-    <div class="k">Status</div>
-    <div class="v"><span class="status-badge {{deployStatusClass $dep.Status}}">{{$dep.Status}}</span></div>
-  </div>
-  <div class="dpl-tile">
-    <div class="k">Reboot</div>
-    <div class="v" style="text-transform:capitalize;">{{$dep.RebootBehavior}}</div>
-    {{if $dep.ScheduledTime}}<div class="s">{{formatTime (deref $dep.ScheduledTime)}} · {{localTime (deref $dep.ScheduledTime)}}</div>{{end}}
-  </div>
-  <div class="dpl-tile">
-    <div class="k">Created</div>
-    <div class="v">{{timeSince $dep.CreatedAt}}</div>
-    <div class="s">{{localTime $dep.CreatedAt}}</div>
-  </div>
+<div class="dpl-facts">
+  <span><b class="mono">{{$rel.Version}}</b> <span class="status-badge {{releaseStatusClass $rel.Status}}">{{$rel.Status}}</span></span>
+  <span class="sep">·</span>
+  <span>{{productLabel $rel.Product}}</span>
+  <span class="sep">·</span>
+  <span><b style="text-transform:capitalize;">{{$dep.RebootBehavior}}</b> reboot{{if $dep.ScheduledTime}} at {{formatTime (deref $dep.ScheduledTime)}} ({{localTime (deref $dep.ScheduledTime)}}){{end}}</span>
+  <span class="sep">·</span>
+  <span title="{{localTime $dep.CreatedAt}}">created {{timeSince $dep.CreatedAt}}</span>
 </div>
 
 {{if canOperate .Role}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Edit Reboot Settings</h3>
-    <span class="muted small">Changes apply to this deployment without updating the Android client.</span>
-  </div>
+<details class="card dpl-panel">
+  <summary>Edit reboot settings <span class="muted small">— changes apply to this deployment only, no Android push</span></summary>
+  <div class="dpl-panel-body">
   <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/settings" method="POST" hx-boost="true" class="command-form">
     <div class="form-row">
       <label class="form-label">Reboot After Install</label>
@@ -191,15 +206,14 @@
     </div>
     <button type="submit" class="btn-primary">Save Reboot Settings</button>
   </form>
-</div>
+  </div>
+</details>
 {{end}}
 
 {{if and (ne $dep.Status "canceled") (canOperate .Role)}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Push to more devices</h3>
-    <span class="muted small">Only {{productLabel $rel.Product}} devices — this deployment is restricted to its release's product. They inherit its reboot setting.</span>
-  </div>
+<details class="card dpl-panel">
+  <summary>Push to more devices <span class="muted small">— only {{productLabel $rel.Product}} devices, inherits this deployment's reboot setting</span></summary>
+  <div class="dpl-panel-body">
   <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/add-targets" method="POST" hx-boost="true" class="command-form">
     <div class="form-row">
       <label class="form-label">Targets</label>
@@ -264,7 +278,8 @@
     </div>
     <button type="submit" class="btn-primary">Add to deployment</button>
   </form>
-</div>
+  </div>
+</details>
 {{end}}
 
 <div class="card">
