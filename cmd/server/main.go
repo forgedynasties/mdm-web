@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"expvar"
 	"fmt"
 	"log"
@@ -142,6 +143,16 @@ func main() {
 
 	hub := ws.NewHub()
 	shellMgr := shell.NewManager()
+	// Mark the command received the moment any OTA progress comes in (WS or
+	// checkin-piggybacked) — otherwise it sits at command_status.status='delivered'
+	// for the whole download/install and RedriveStuckDeliveries repeatedly re-pushes
+	// it as "stuck" every ~90s even while the device is actively working on it. See
+	// shell.Manager.OnOTAProgress.
+	shellMgr.OnOTAProgress = func(deviceID, commandID uuid.UUID) {
+		if err := database.MarkCommandReceived(context.Background(), commandID, deviceID); err != nil && !errors.Is(err, db.ErrCommandNotTargeted) {
+			log.Printf("OnOTAProgress: MarkCommandReceived error: %v", err)
+		}
+	}
 	remoteMgr := remote.New(hub)
 	logMgr := logstream.NewManager()
 	hub.SetOnBinaryMessage(func(deviceID uuid.UUID, data []byte) {

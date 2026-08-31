@@ -57,6 +57,16 @@ type Manager struct {
 	// OTA progress per device
 	otaMu    sync.Mutex
 	otaState map[uuid.UUID]*OTAProgress
+
+	// OnOTAProgress, if set, fires on every OTA progress report (WS ota_progress
+	// frame or checkin-piggybacked, either path — both funnel through
+	// updateOTAProgress). Wired in cmd/server/main.go to mark the command
+	// received in the DB: this package is deliberately DB-agnostic (in-memory
+	// only), so it can't do that itself, but without SOME received signal a
+	// long-running download/install sits at command_status.status='delivered'
+	// for its whole duration and RedriveStuckDeliveries repeatedly re-pushes it
+	// as "stuck" every ~90s even though the device is actively working on it.
+	OnOTAProgress func(deviceID, commandID uuid.UUID)
 }
 
 func NewManager() *Manager {
@@ -212,6 +222,9 @@ func (m *Manager) updateOTAProgress(deviceID, commandID uuid.UUID, phase string,
 		UpdatedAt: updatedAt,
 	}
 	m.otaMu.Unlock()
+	if m.OnOTAProgress != nil {
+		m.OnOTAProgress(deviceID, commandID)
+	}
 }
 
 // SetOTAProgress records OTA progress reported outside the WebSocket path —
