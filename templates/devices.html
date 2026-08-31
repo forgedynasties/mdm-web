@@ -66,7 +66,7 @@
 {{if .ActiveGroup}}
 <span class="coll-tools" id="coll-tools">
   <button type="button" class="ct-btn" title="Rename group" aria-label="Rename group" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-  <a class="ct-btn" href="/groups/{{.ActiveGroup}}" title="Manage group">Manage →</a>
+  <a class="ct-btn" href="/groups/{{.ActiveGroup}}" title="Manage group" aria-label="Manage group"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></a>
 </span>
 <form action="/groups/{{.ActiveGroup}}" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
   <input type="hidden" name="redirect" value="/devices?group={{.ActiveGroup}}">
@@ -77,19 +77,12 @@
 {{else if .ActiveRestaurant}}
 <span class="coll-tools">
   <button type="button" class="ct-btn" title="Edit venue" aria-label="Edit venue" onclick="openFleetDrawer('/restaurants/{{.ActiveRestaurant}}/edit','Edit venue')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-  <a class="ct-btn" href="/restaurants/{{.ActiveRestaurant}}" title="Manage venue">Manage →</a>
+  <a class="ct-btn" href="/restaurants/{{.ActiveRestaurant}}" title="Manage venue" aria-label="Manage venue"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></a>
 </span>
 {{else if and .FilterBuild .ActiveReleaseID}}
-<span class="coll-tools" id="coll-tools">
-  <button type="button" class="ct-btn" title="Rename release" aria-label="Rename release" onclick="collRenameOpen()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-  <a class="ct-btn" href="/releases/{{.ActiveReleaseID}}" title="Manage release">Manage →</a>
+<span class="coll-tools">
+  <a class="ct-btn" href="/releases/{{.ActiveReleaseID}}" title="Manage release" aria-label="Manage release"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></a>
 </span>
-<form action="/releases/{{.ActiveReleaseID}}/rename" method="POST" class="coll-rename" id="coll-rename" style="display:none;">
-  <input type="hidden" name="redirect" value="/devices?build={{.FilterBuild}}">
-  <input type="text" name="name" value="{{.SelectedCollection}}" aria-label="Release name" required>
-  <button type="submit" class="btn-primary" style="padding:3px 12px;font-size:12px;">Save</button>
-  <button type="button" class="btn-outline" style="padding:3px 10px;font-size:12px;" onclick="collRenameClose()">Cancel</button>
-</form>
 {{end}}
 {{end}}
 {{end}}
