@@ -245,6 +245,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
     <div><b>Faulty charger suspected.</b> Charging is toggling on/off <b>~{{.ChargerFlapRate}}× a minute</b> — the charger, dock, or cable keeps dropping the connection. Check it before this unit runs flat.</div>
   </div>
   {{end}}
+  <div id="ota-card">{{template "device-ota-progress" .}}</div>
   {{/* Identity-Ribbon hero: identity + actions sit in a soft gradient band (see the
        .ddc-ribbon wrapper above); the Kiosk pill and Charging switch live inline in
        the action row, and vitals ride a borderless ghost-chip strip below. */}}
@@ -255,6 +256,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   .ddc-hero--ribbon .ddc-ribbon{padding:20px 22px;background:linear-gradient(100deg,rgba(122,128,246,.13),rgba(249,103,78,.12));border-bottom:1px solid var(--border-soft);border-radius:16px 16px 0 0;}
   html[data-theme="dark"] .ddc-hero--ribbon .ddc-ribbon{background:linear-gradient(100deg,rgba(122,128,246,.2),rgba(249,103,78,.15));}
   .ddc-hero--ribbon .ddc-flap-alert{margin:16px 22px 0;}
+  .ddc-hero--ribbon .ddc-ota{margin:16px 22px 0;}
   .ddc-vitals--ribbon{margin:14px 22px 6px;padding:0;border-top:0;}
 
   /* Kiosk pill — opens the config modal, so it reads as a stateful button, not a
@@ -2866,6 +2868,18 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   .dq-row.dq-done{opacity:.72;}
   .dq-x{flex:none;width:30px;height:30px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;}
   .dq-x:hover{border-color:var(--danger,#e5484d);color:var(--danger,#e5484d);background:color-mix(in srgb,var(--danger,#e5484d) 8%,transparent);}
+
+  /* OTA progress card (device-ota-progress) — reuses .dq-pill's status colors. */
+  .ddc-ota{padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);}
+  .ddc-ota-top{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+  .ddc-ota-target{font-size:12.5px;color:var(--muted);}
+  .ddc-ota-target b{color:var(--text);font-weight:600;}
+  .ddc-ota-pct{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--text);font-variant-numeric:tabular-nums;}
+  .ddc-ota-bar{height:7px;border-radius:4px;background:var(--surface3,var(--border));overflow:hidden;}
+  .ddc-ota-bar i{display:block;height:100%;transition:width .4s ease;background:var(--accent,#4f63d6);}
+  .ddc-ota-bar i.run,.ddc-ota-bar i.done{background:#2ec77a;}
+  .ddc-ota-bar i.dl,.ddc-ota-bar i.inst{background:var(--accent,#4f63d6);}
+  .ddc-ota-bar i.fail{background:var(--danger,#e5484d);}
   .dq-x svg{width:14px;height:14px;}
   .dq-empty{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:38px 18px;border:1px dashed var(--border);border-radius:13px;color:var(--muted);}
   .dq-empty svg{width:30px;height:30px;opacity:.5;}
@@ -3754,6 +3768,31 @@ async function saveNewApp() {
 {{/* Installed-apps list region — refreshed live on device check-in (HTMX) and
      reusable as a standalone partial. Expects Device, Role, InstalledPackages,
      PendingInstalls. */}}
+{{/* OTA progress card — shown while an update is pushed/in-flight for this device,
+     gone once it installs (ResolveUpdateForDevice stops returning it) or nothing's
+     targeting the device at all. Expects Device, and (only when active) OtaUpdate,
+     OtaLabel, OtaClass, OtaPercent — see otaStatusView in handlers.go. Self-polls
+     every 2s while active, same reasoning as device-apps-list below: /events SSE
+     doesn't carry OTA/command progress. */}}
+{{define "device-ota-progress"}}
+{{if .OtaUpdate}}
+{{/* Keep polling even while queued ("pending") so the transition into
+     downloading/installing is caught live — the card itself only appears once
+     there's something worth showing, per "don't show OTA while just queued". */}}
+<div id="ota-progress-poller" hidden hx-get="/devices/{{.Device.SerialNumber}}/ota-progress" hx-target="#ota-card" hx-swap="innerHTML" hx-trigger="every 2s"></div>
+{{if ne .OtaUpdate.DeviceStatus "pending"}}
+<div class="ddc-ota">
+  <div class="ddc-ota-top">
+    <span class="dq-pill {{.OtaClass}}">{{.OtaLabel}}</span>
+    <span class="ddc-ota-target">Updating to <b>{{if .OtaUpdate.OtaPackage}}{{.OtaUpdate.OtaPackage.TargetBuildID}}{{else}}new build{{end}}</b></span>
+    <span class="ddc-ota-pct">{{.OtaPercent}}%</span>
+  </div>
+  <div class="ddc-ota-bar"><i class="{{.OtaClass}}" style="width:{{.OtaPercent}}%"></i></div>
+</div>
+{{end}}
+{{end}}
+{{end}}
+
 {{define "device-apps-list"}}
 {{/* While installs are in flight, self-poll the drawer every 2s so download/install
      progress updates live (the /events SSE only fires device-updated on telemetry, not on

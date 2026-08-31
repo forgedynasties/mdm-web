@@ -2903,6 +2903,66 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// otaStatusView maps an update_devices status (+ optional live download/install
+// progress reported by the device) to a human label, a .dq-pill status class to
+// reuse (already styled on the device page for the command queue), and a 0-100
+// progress-bar percent. Shared by DeviceDetail's initial render and
+// DeviceOtaProgress's poll fragment so they can never disagree.
+func otaStatusView(status string, p *shell.OTAProgress) (label, class string, percent int) {
+	if p != nil {
+		percent = p.Percent
+	}
+	switch status {
+	case "pending":
+		return "Queued", "run", percent
+	case "downloading":
+		if percent == 0 {
+			percent = 5
+		}
+		return "Downloading", "dl", percent
+	case "installing":
+		if percent == 0 {
+			percent = 60
+		}
+		return "Installing", "inst", percent
+	case "awaiting_reboot":
+		return "Awaiting reboot", "done", 90
+	case "reboot_sent":
+		return "Rebooting", "done", 95
+	case "failed":
+		return "Failed", "fail", 100
+	default:
+		return status, "run", percent
+	}
+}
+
+// DeviceOtaProgress renders just the OTA progress card as a standalone fragment —
+// the device page self-polls this every 2s while an update is in flight (see
+// "device-ota-progress" in device.html), the same pattern device-apps-list uses
+// for install progress, since /events SSE doesn't carry OTA progress.
+func (h *Handler) DeviceOtaProgress(w http.ResponseWriter, r *http.Request) {
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "device not found", http.StatusNotFound)
+		return
+	}
+	// ResolveUpdateForDevice returns (nil, nil) — not an error — when nothing is
+	// targeting this device, so both must be checked before touching u's fields.
+	// The poller (see device-ota-progress) keeps running while OtaUpdate is set even
+	// during "pending" — the card itself just stays hidden until the device actually
+	// starts downloading, so the transition out of "pending" is still caught live.
+	u, err := h.db.ResolveUpdateForDevice(r.Context(), device.ID)
+	data := map[string]any{"Device": device}
+	if err == nil && u != nil {
+		label, class, percent := otaStatusView(u.DeviceStatus, h.shell.GetOTAProgress(device.ID))
+		data["OtaUpdate"] = u
+		data["OtaLabel"] = label
+		data["OtaClass"] = class
+		data["OtaPercent"] = percent
+	}
+	h.tmpl.ExecuteTemplate(w, "device-ota-progress", data)
+}
+
 // downsampleCheckins keeps at most maxPoints evenly-strided rows, preserving whatever
 // order it's given (GetCheckinsForDuration/GetCheckinsBetween return newest-first).
 // Mirrors the stride used by DeviceChartData for the on-demand range fetch.
@@ -2951,6 +3011,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		flapRate        int
 		deviceCrashRaw  []db.CrashEvent
 		deviceAlertsRaw []db.Alert
+		otaUpdate       *db.Update
+		otaLabel        string
+		otaClass        string
+		otaPercent      int
 	)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -3086,6 +3150,18 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	})
 	run(func() { notes, _ = h.db.GetDeviceNotes(ctx, device.ID) })
 	run(func() {
+		// ResolveUpdateForDevice returns (nil, nil) — not an error — once nothing is
+		// pushed/in-flight for this device (excludes status=='installed', and returns
+		// no rows at all when there's no active deployment targeting it), so u must be
+		// nil-checked too, not just err. That's what makes the device-page OTA card
+		// disappear on its own once the update finishes.
+		u, err := h.db.ResolveUpdateForDevice(ctx, device.ID)
+		if err == nil && u != nil {
+			otaUpdate = u
+			otaLabel, otaClass, otaPercent = otaStatusView(u.DeviceStatus, h.shell.GetOTAProgress(device.ID))
+		}
+	})
+	run(func() {
 		// Charger-fault detection: charging toggles per minute recently. A high rate
 		// means the charger/dock connection is dropping in and out (faulty
 		// hardware). >10/min is the flapping threshold (matches the
@@ -3156,6 +3232,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ChargerFlapping":     flapRate > 10,
 		"Notes":               notes,
 		"Release":             release,
+		"OtaUpdate":           otaUpdate,
+		"OtaLabel":            otaLabel,
+		"OtaClass":            otaClass,
+		"OtaPercent":          otaPercent,
 		"Online":              h.hub.IsConnected(device.ID),
 		"ChartCheckins":       chartCheckins,
 		"ChartFocus":          focusParam,
@@ -13916,6 +13996,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
 	mux.HandleFunc("GET /devices/{serial}/apps-list", h.requireAuth(h.DeviceAppsList))
+	mux.HandleFunc("GET /devices/{serial}/ota-progress", h.requireAuth(h.DeviceOtaProgress))
 	mux.HandleFunc("GET /packages", h.requireStrictAdmin(h.FleetPackages))
 	post("POST /packages/flag", h.requireStrictAdmin(h.PackageFlag))
 	mux.HandleFunc("GET /devices/{serial}/logcat/live", h.requireAuth(h.LogcatLivePage))
