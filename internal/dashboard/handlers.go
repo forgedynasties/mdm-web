@@ -2911,6 +2911,20 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 func otaStatusView(status string, p *shell.OTAProgress) (label, class string, percent int) {
 	if p != nil {
 		percent = p.Percent
+		// The live phase the device just reported is finer-grained and fresher than
+		// update_devices.status, which only advances at coarse checkpoints (e.g. it
+		// may still read "downloading" for a beat after the device has already moved
+		// into verifying/installing/finalizing) — prefer it when we have it.
+		switch p.Phase {
+		case "downloading":
+			return "Downloading", "dl", percent
+		case "verifying":
+			return "Verifying", "inst", percent
+		case "installing":
+			return "Installing", "inst", percent
+		case "finalizing":
+			return "Finalizing", "inst", percent
+		}
 	}
 	switch status {
 	case "pending":
