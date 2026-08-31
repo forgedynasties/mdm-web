@@ -8,7 +8,7 @@
 </div>
 
 {{if canAdminOrTester .Role}}
-<div class="card" style="margin-bottom:16px;">
+<div class="card" id="devices" style="margin-bottom:16px;scroll-margin-top:16px;">
   <div class="card-header"><h3>Add devices</h3></div>
   <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:14px 20px 18px;"
         onsubmit="return dpAddSubmit(event, '{{.Group.ID}}')">

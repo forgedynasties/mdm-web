@@ -366,20 +366,27 @@ func (p *Production) LastSerial() string {
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 type User struct {
-	ID           uuid.UUID `json:"id"`
-	Username     string    `json:"username"`
-	Role         string    `json:"role"` // "viewer" | "operator"
-	PasswordHash string    `json:"-"`
-	CreatedAt    time.Time `json:"created_at"`
+	ID              uuid.UUID  `json:"id"`
+	Username        string     `json:"username"`
+	Role            string     `json:"role"` // "viewer" | "tester"
+	PasswordHash    string     `json:"-"`
+	Email           *string    `json:"email,omitempty"`
+	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
+	CreatedAt       time.Time  `json:"created_at"`
 }
 
-func (d *DB) CreateUser(ctx context.Context, username, passwordHash, role string) (*User, error) {
+// CreateUser inserts a new DB user. email may be nil (legacy/admin-created accounts
+// with no email on file); emailVerified marks it pre-verified (admin vouches for it,
+// or the account has no email so verification doesn't apply) vs. NULL (self-signup,
+// pending the emailed verify link).
+func (d *DB) CreateUser(ctx context.Context, username, passwordHash, role string, email *string, emailVerified bool) (*User, error) {
 	var u User
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO users (username, password_hash, role)
-		VALUES ($1, $2, $3)
-		RETURNING id, username, role, password_hash, created_at
-	`, username, passwordHash, role).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.CreatedAt)
+		INSERT INTO users (username, password_hash, role, email, email_verified_at)
+		VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN NOW() ELSE NULL END)
+		RETURNING id, username, role, password_hash, email, email_verified_at, created_at
+	`, username, passwordHash, role, email, emailVerified).Scan(
+		&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -389,17 +396,39 @@ func (d *DB) CreateUser(ctx context.Context, username, passwordHash, role string
 func (d *DB) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	var u User
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, username, role, password_hash, created_at FROM users WHERE username = $1
-	`, username).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.CreatedAt)
+		SELECT id, username, role, password_hash, email, email_verified_at, created_at
+		FROM users WHERE username = $1
+	`, username).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &u, nil
 }
 
+// GetUserByEmail looks up a user by their (case-insensitive) email — used by the
+// forgot-password flow. Accounts with no email on file never match.
+func (d *DB) GetUserByEmail(ctx context.Context, email string) (*User, error) {
+	var u User
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, username, role, password_hash, email, email_verified_at, created_at
+		FROM users WHERE lower(email) = lower($1)
+	`, email).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// SetUserEmailVerified marks a user's email as verified now (consumed by the
+// verify-email link).
+func (d *DB) SetUserEmailVerified(ctx context.Context, id uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `UPDATE users SET email_verified_at = NOW() WHERE id = $1`, id)
+	return err
+}
+
 func (d *DB) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, username, role, created_at FROM users ORDER BY created_at ASC
+		SELECT id, username, role, email, email_verified_at, created_at FROM users ORDER BY created_at ASC
 	`)
 	if err != nil {
 		return nil, err
@@ -408,7 +437,7 @@ func (d *DB) ListUsers(ctx context.Context) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Email, &u.EmailVerifiedAt, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -431,6 +460,44 @@ func (d *DB) UpdateUserRole(ctx context.Context, id uuid.UUID, role string) erro
 func (d *DB) SetUserPassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE users SET password_hash = $2 WHERE id = $1`, id, passwordHash)
 	return err
+}
+
+// UserToken backs the sign-up email-verification and forgot-password links: a
+// single-use, time-limited token tied to one user and one purpose.
+type UserToken struct {
+	Token     string
+	UserID    uuid.UUID
+	Purpose   string // "verify" | "reset"
+	ExpiresAt time.Time
+	UsedAt    *time.Time
+	CreatedAt time.Time
+}
+
+// CreateUserToken stores a caller-generated token (random, unguessable — see
+// internal/dashboard's newToken helper) for one user/purpose.
+func (d *DB) CreateUserToken(ctx context.Context, token string, userID uuid.UUID, purpose string, expiresAt time.Time) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO user_tokens (token, user_id, purpose, expires_at)
+		VALUES ($1, $2, $3, $4)
+	`, token, userID, purpose, expiresAt)
+	return err
+}
+
+// ConsumeUserToken atomically validates and marks a token used in one statement,
+// so a token can never be redeemed twice even under concurrent requests. Returns
+// the owning user_id, or an error (including pgx.ErrNoRows) if the token is
+// missing, wrong purpose, already used, or expired.
+func (d *DB) ConsumeUserToken(ctx context.Context, token, purpose string) (uuid.UUID, error) {
+	var userID uuid.UUID
+	err := d.pool.QueryRow(ctx, `
+		UPDATE user_tokens SET used_at = NOW()
+		WHERE token = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > NOW()
+		RETURNING user_id
+	`, token, purpose).Scan(&userID)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return userID, nil
 }
 
 // ProductionDevice is a device row augmented with connection status for production detail view.
@@ -9113,6 +9180,30 @@ SELECT * FROM (VALUES
 	('Wi-Fi',           'Current Wi-Fi connection',         'dumpsys wifi | grep -i "mWifiInfo"', 'Network', 80)
 ) AS v(label, description, command, category, sort)
 WHERE NOT EXISTS (SELECT 1 FROM device_queries);
+
+-- Self-service sign-up + password reset: email identity/verification on users,
+-- plus a generic single-use token table shared by both flows.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (lower(email)) WHERE email IS NOT NULL;
+
+-- Dev role retired: explicitly dropping existing dev accounts rather than folding
+-- them into tester (matches how operator was retired above, but this time the
+-- accounts themselves go, not just the role label).
+DELETE FROM users WHERE role = 'dev';
+
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','tester'));
+
+CREATE TABLE IF NOT EXISTS user_tokens (
+    token      TEXT PRIMARY KEY,
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    purpose    TEXT NOT NULL CHECK (purpose IN ('verify','reset')),
+    expires_at TIMESTAMPTZ NOT NULL,
+    used_at    TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS user_tokens_user_id_idx ON user_tokens (user_id);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -10760,6 +10851,13 @@ func (d *DB) DeleteSession(ctx context.Context, id string) error {
 // DeleteAllSessions removes every session (admin "log out all").
 func (d *DB) DeleteAllSessions(ctx context.Context) error {
 	_, err := d.pool.Exec(ctx, `DELETE FROM sessions`)
+	return err
+}
+
+// DeleteSessionsForUser removes every session belonging to one user — used after a
+// password reset so a stolen/old session can't outlive the credential change.
+func (d *DB) DeleteSessionsForUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM sessions WHERE user_id = $1`, userID)
 	return err
 }
 

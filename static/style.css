@@ -4451,6 +4451,12 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .ct-btn:hover { background: var(--hover); color: var(--accent-text); border-color: var(--border); }
 .ct-btn.danger:hover { background: var(--danger-soft, rgba(216,39,71,.12)); color: var(--danger); border-color: var(--danger); }
 
+/* Group/venue kebab menu — reuses the top-bar .nbar-pop/.nbar-mi look, positioned
+   under the toolbar kebab instead of the app bar. */
+.coll-menu-wrap { position: relative; }
+.coll-menu { left: 0; right: auto; top: calc(100% + 6px); width: 208px; }
+.coll-menu .nbar-mi { font-size: 12.5px; padding: 8px 10px; }
+
 /* Fleet-page slide-in drawer — hosts a collection's fuller edit form (venue details)
    loaded via htmx, so you manage it without leaving the roster.
    No display:none/block toggle: that was cutting the slide/fade transitions short

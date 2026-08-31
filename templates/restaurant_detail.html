@@ -63,7 +63,7 @@
 
 <!-- Deploy devices -->
 {{if canAdminOrTester .Role}}
-<div class="card" style="margin-bottom:16px;">
+<div class="card" id="devices" style="margin-bottom:16px;scroll-margin-top:16px;">
   <div class="card-header"><h3>Deploy devices</h3><span class="muted small">a device lives at one venue, so adding moves it here</span></div>
   <form action="/restaurants/{{.Restaurant.ID}}/devices" method="POST" style="padding:14px 20px 18px;">
     <div class="dp-tp">

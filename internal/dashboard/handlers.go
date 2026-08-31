@@ -37,6 +37,7 @@ import (
 	"mdm/internal/db"
 	"mdm/internal/geolocate"
 	"mdm/internal/logstream"
+	"mdm/internal/mailer"
 	"mdm/internal/notify"
 	"mdm/internal/ota"
 	"mdm/internal/product"
@@ -204,6 +205,16 @@ type Handler struct {
 	// loginFails throttles failed login attempts per source IP and per account
 	// to blunt brute-force / credential-spray (F-01).
 	loginFails *ratelimit.Counter
+
+	// signupAttempts/resetAttempts throttle the public sign-up and forgot-password
+	// endpoints per source IP and per email, same shape as loginFails.
+	signupAttempts *ratelimit.Counter
+	resetAttempts  *ratelimit.Counter
+
+	// mail sends the sign-up verification and password-reset emails via Resend.
+	// A nil apiKey (RESEND_API_KEY unset) makes Send a logged no-op instead of an
+	// error, so those flows still exercise their DB/token logic in dev.
+	mail *mailer.Client
 
 	// lastDigestDay is the YYYY-MM-DD of the most recent AI fleet digest sent, so
 	// housekeeping posts it at most once per day. Touched only from the single
@@ -1177,10 +1188,23 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		geocoder:      geocoder,
 		startedAt:     time.Now(),
 		alerts:        alerts.NewDispatcher(d, cfg),
-		publicOrigins: parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
-		loginFails:    ratelimit.New(15 * time.Minute),
-		assetVer:      assetVersion("static/style.css"),
+		publicOrigins:  parseOrigins(os.Getenv("PUBLIC_ORIGIN")),
+		loginFails:     ratelimit.New(15 * time.Minute),
+		signupAttempts: ratelimit.New(time.Hour),
+		resetAttempts:  ratelimit.New(time.Hour),
+		mail:           mailer.New(os.Getenv("RESEND_API_KEY"), resendFrom()),
+		assetVer:       assetVersion("static/style.css"),
 	}
+}
+
+// resendFrom returns the Resend "from" address, defaulting to a sensible sender
+// when RESEND_FROM_EMAIL is unset (mailer.Client still no-ops if RESEND_API_KEY
+// itself is unset, so this default is harmless in environments without email).
+func resendFrom() string {
+	if from := os.Getenv("RESEND_FROM_EMAIL"); from != "" {
+		return from
+	}
+	return "AIO MDM <noreply@aioapp.com>"
 }
 
 // assetVersion returns a short cache-busting token for a static asset, derived
@@ -1203,6 +1227,21 @@ func parseOrigins(raw string) []string {
 		}
 	}
 	return out
+}
+
+// baseURL returns an absolute origin ("https://mdm.example.com") for building
+// links that must work outside the current request's context (device-fetched APK
+// URLs, emailed verify/reset links). Prefers the configured PUBLIC_ORIGIN;
+// falls back to the request's own scheme+host.
+func (h *Handler) baseURL(r *http.Request) string {
+	if len(h.publicOrigins) > 0 {
+		return h.publicOrigins[0]
+	}
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return scheme + "://" + r.Host
 }
 
 // loginMaxFailures is the number of failed login attempts (per IP or per
@@ -1669,6 +1708,16 @@ func (h *Handler) LoginSubmit(w http.ResponseWriter, r *http.Request) {
 	dbUser, err := h.db.GetUserByUsername(r.Context(), user)
 	if err == nil {
 		if bcrypt.CompareHashAndPassword([]byte(dbUser.PasswordHash), []byte(pass)) == nil {
+			// Self-signup accounts start with email_verified_at NULL until the emailed
+			// link is clicked; admin-created accounts are pre-verified at creation time
+			// (or have no email at all), so this never blocks them.
+			if dbUser.Email != nil && dbUser.EmailVerifiedAt == nil {
+				h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{
+					"Error": "Please verify your email before signing in — check your inbox for the link.",
+					"Brand": h.cfg.CustomBrand(),
+				})
+				return
+			}
 			loginOK()
 			uid := dbUser.ID
 			if err := h.startSession(w, r, &uid, dbUser.Username, dbUser.Role); err != nil {
@@ -1696,6 +1745,224 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	session.Options.MaxAge = -1
 	session.Save(r, w)
 	http.Redirect(w, r, "/login", http.StatusFound)
+}
+
+// newToken returns a random, unguessable, URL-safe token for the email-verify and
+// password-reset links (32 bytes of entropy, hex-encoded).
+func newToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
+}
+
+// signupEmailDomain restricts self-service sign-up to the internal team.
+const signupEmailDomain = "@aioapp.com"
+
+func (h *Handler) SignupPage(w http.ResponseWriter, r *http.Request) {
+	if h.isLoggedIn(r) {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "signup.html", map[string]any{"Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
+}
+
+// SignupSubmit creates a new viewer-role account gated on an @aioapp.com email and
+// emails a verify link via Resend. The account can't log in until that link is
+// clicked (see LoginSubmit's EmailVerifiedAt check).
+func (h *Handler) SignupSubmit(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
+	password := r.FormValue("password")
+	confirm := r.FormValue("confirm")
+
+	fail := func(msg string) {
+		h.tmpl.ExecuteTemplate(w, "signup.html", map[string]any{
+			"Error": msg, "Email": email, "Brand": h.cfg.CustomBrand(),
+		})
+	}
+
+	ip := ratelimit.ClientIP(r)
+	for _, key := range []string{ip, "e:" + email} {
+		if n, retry := h.signupAttempts.Count(key); n >= 5 {
+			mins := int(retry.Minutes()) + 1
+			w.WriteHeader(http.StatusTooManyRequests)
+			fail(fmt.Sprintf("Too many sign-up attempts. Try again in %d minute(s).", mins))
+			return
+		}
+	}
+	h.signupAttempts.Hit(ip)
+	h.signupAttempts.Hit("e:" + email)
+
+	if !strings.HasSuffix(email, signupEmailDomain) {
+		fail("Sign-up is limited to " + signupEmailDomain + " email addresses.")
+		return
+	}
+	if len(password) < 6 {
+		fail("Password must be at least 6 characters.")
+		return
+	}
+	if password != confirm {
+		fail("Passwords don't match.")
+		return
+	}
+	if _, err := h.db.GetUserByEmail(r.Context(), email); err == nil {
+		fail("An account with that email already exists.")
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		fail("Internal error, please try again.")
+		return
+	}
+	u, err := h.db.CreateUser(r.Context(), email, string(hash), "viewer", &email, false)
+	if err != nil {
+		fail("An account with that email already exists.")
+		return
+	}
+
+	token, err := newToken()
+	if err == nil {
+		if err := h.db.CreateUserToken(r.Context(), token, u.ID, "verify", time.Now().Add(24*time.Hour)); err == nil {
+			verifyURL := h.baseURL(r) + "/verify-email?token=" + token
+			if err := h.mail.Send(r.Context(), email, "Confirm your email", mailer.VerifyEmailHTML(verifyURL)); err != nil {
+				log.Printf("signup: send verify email to %s: %v", email, err)
+			}
+		} else {
+			log.Printf("signup: create verify token for %s: %v", email, err)
+		}
+	} else {
+		log.Printf("signup: generate verify token for %s: %v", email, err)
+	}
+
+	h.audit(r, "user.signup", u.ID.String(), email)
+	h.tmpl.ExecuteTemplate(w, "signup.html", map[string]any{
+		"Sent": true, "Email": email, "Brand": h.cfg.CustomBrand(),
+	})
+}
+
+// VerifyEmail consumes a sign-up verification token and marks the account usable.
+func (h *Handler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	userID, err := h.db.ConsumeUserToken(r.Context(), token, "verify")
+	if err != nil {
+		h.tmpl.ExecuteTemplate(w, "login.html", map[string]any{
+			"Error": "That verification link is invalid or has expired.", "Brand": h.cfg.CustomBrand(),
+		})
+		return
+	}
+	if err := h.db.SetUserEmailVerified(r.Context(), userID); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "user.email_verified", userID.String(), "")
+	http.Redirect(w, r, "/login?verified=1", http.StatusFound)
+}
+
+func (h *Handler) ForgotPasswordPage(w http.ResponseWriter, r *http.Request) {
+	h.tmpl.ExecuteTemplate(w, "forgot_password.html", map[string]any{"Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
+}
+
+// ForgotPasswordSubmit emails a reset link when the address matches a user, but
+// always shows the same generic response either way (no account enumeration).
+func (h *Handler) ForgotPasswordSubmit(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
+
+	sent := func() {
+		h.tmpl.ExecuteTemplate(w, "forgot_password.html", map[string]any{"Sent": true, "Brand": h.cfg.CustomBrand()})
+	}
+
+	ip := ratelimit.ClientIP(r)
+	for _, key := range []string{ip, "e:" + email} {
+		if n, _ := h.resetAttempts.Count(key); n >= 5 {
+			sent() // still generic — don't reveal rate limiting to a prober either
+			return
+		}
+	}
+	h.resetAttempts.Hit(ip)
+	h.resetAttempts.Hit("e:" + email)
+
+	if email == "" {
+		sent()
+		return
+	}
+	u, err := h.db.GetUserByEmail(r.Context(), email)
+	if err != nil {
+		sent()
+		return
+	}
+	token, err := newToken()
+	if err != nil {
+		sent()
+		return
+	}
+	if err := h.db.CreateUserToken(r.Context(), token, u.ID, "reset", time.Now().Add(time.Hour)); err != nil {
+		log.Printf("forgot-password: create reset token for %s: %v", email, err)
+		sent()
+		return
+	}
+	resetURL := h.baseURL(r) + "/reset-password?token=" + token
+	if err := h.mail.Send(r.Context(), email, "Reset your password", mailer.ResetPasswordHTML(resetURL)); err != nil {
+		log.Printf("forgot-password: send reset email to %s: %v", email, err)
+	}
+	h.audit(r, "user.password_reset_requested", u.ID.String(), "")
+	sent()
+}
+
+func (h *Handler) ResetPasswordPage(w http.ResponseWriter, r *http.Request) {
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Invalid": true, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
+		return
+	}
+	h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Token": token, "Brand": h.cfg.CustomBrand(), "AssetVer": h.assetVer})
+}
+
+// ResetPasswordSubmit validates the token, sets the new password, and — since a
+// leaked old session could otherwise outlive the credential change — logs the
+// account out everywhere by clearing its sessions.
+func (h *Handler) ResetPasswordSubmit(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	token := r.FormValue("token")
+	password := r.FormValue("password")
+	confirm := r.FormValue("confirm")
+
+	invalid := func() {
+		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Invalid": true, "Brand": h.cfg.CustomBrand()})
+	}
+	retry := func(msg string) {
+		h.tmpl.ExecuteTemplate(w, "reset_password.html", map[string]any{"Token": token, "Error": msg, "Brand": h.cfg.CustomBrand()})
+	}
+
+	if len(password) < 6 {
+		retry("Password must be at least 6 characters.")
+		return
+	}
+	if password != confirm {
+		retry("Passwords don't match.")
+		return
+	}
+
+	userID, err := h.db.ConsumeUserToken(r.Context(), token, "reset")
+	if err != nil {
+		invalid()
+		return
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if err := h.db.SetUserPassword(r.Context(), userID, string(hash)); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	_ = h.db.DeleteSessionsForUser(r.Context(), userID)
+	h.audit(r, "user.password_reset", userID.String(), "")
+	http.Redirect(w, r, "/login?reset=1", http.StatusFound)
 }
 
 const pageSize = 25
@@ -11239,18 +11506,7 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 		name = pkg
 	}
 	// apk_url must be an absolute, device-reachable URL (the device fetches it directly).
-	// Prefer PUBLIC_ORIGIN; fall back to the request host.
-	base := ""
-	if len(h.publicOrigins) > 0 {
-		base = h.publicOrigins[0]
-	}
-	if base == "" {
-		scheme := "http"
-		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		base = scheme + "://" + r.Host
-	}
+	base := h.baseURL(r)
 	app, err := h.db.CreateS3App(r.Context(), name, pkg, req.Key, base)
 	if err != nil {
 		log.Printf("create s3 app: %v", err)
@@ -13410,7 +13666,7 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 // "admin" is excluded — it is env-configured only, never a DB user.
 func validUserRole(role string) bool {
 	switch role {
-	case "viewer", "tester", "dev":
+	case "viewer", "tester":
 		return true
 	}
 	return false
@@ -13421,6 +13677,9 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	username := strings.TrimSpace(r.FormValue("username"))
 	password := r.FormValue("password")
 	role := r.FormValue("role")
+	// Optional: lets an admin-created account use the forgot-password flow too.
+	// Pre-verified since the admin is vouching for it — no email confirmation needed.
+	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
 
 	if username == "" || password == "" || !validUserRole(role) {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
@@ -13433,8 +13692,12 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.db.CreateUser(r.Context(), username, string(hash), role); err != nil {
-		http.Error(w, "Username already exists or internal error", http.StatusBadRequest)
+	var emailPtr *string
+	if email != "" {
+		emailPtr = &email
+	}
+	if _, err := h.db.CreateUser(r.Context(), username, string(hash), role, emailPtr, email != ""); err != nil {
+		http.Error(w, "Username or email already exists, or internal error", http.StatusBadRequest)
 		return
 	}
 
@@ -13511,6 +13774,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /login", h.LoginPage)
 	post("POST /login", h.LoginSubmit)
 	post("POST /logout", h.Logout)
+	mux.HandleFunc("GET /signup", h.SignupPage)
+	post("POST /signup", h.SignupSubmit)
+	mux.HandleFunc("GET /verify-email", h.VerifyEmail)
+	mux.HandleFunc("GET /forgot-password", h.ForgotPasswordPage)
+	post("POST /forgot-password", h.ForgotPasswordSubmit)
+	mux.HandleFunc("GET /reset-password", h.ResetPasswordPage)
+	post("POST /reset-password", h.ResetPasswordSubmit)
 
 	mux.HandleFunc("GET /{$}", h.requireAuth(h.Overview))
 	mux.HandleFunc("GET /devices", h.requireAuth(h.DeviceList))

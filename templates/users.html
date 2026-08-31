@@ -14,7 +14,7 @@
 
 <div class="ov-greet">
   <h1 class="ov-title">Users</h1>
-  <span class="ov-date">viewers are read-only; testers can send actions, run queries and record QA; devs get full ops + release sign-off + shell; admins manage everything</span>
+  <span class="ov-date">viewers are read-only; testers can send actions, run queries and record QA; admins manage everything</span>
 </div>
 
 <div class="users-wrap">
@@ -27,7 +27,10 @@
         <span class="user-av role-av-{{.Role}}">{{if .Username}}{{slice .Username 0 1}}{{end}}</span>
         <div class="user-id">
           <div class="user-name mono">{{.Username}}</div>
-          <div class="user-meta muted small">Joined {{shortDate .CreatedAt}}</div>
+          <div class="user-meta muted small">
+            Joined {{shortDate .CreatedAt}}
+            {{if .Email}} · {{.Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
+          </div>
         </div>
         <span class="role-chip role-{{.Role}}">{{.Role}}</span>
         <div class="user-act">
@@ -38,7 +41,6 @@
             <select name="role" class="form-input user-role-sel" onchange="this.form.submit()" title="Change role">
               <option value="viewer"{{if eq .Role "viewer"}} selected{{end}}>Viewer</option>
               <option value="tester"{{if eq .Role "tester"}} selected{{end}}>Tester</option>
-              <option value="dev"{{if eq .Role "dev"}} selected{{end}}>Dev</option>
             </select>
             <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
           </form>
@@ -74,11 +76,14 @@
         <input type="password" name="password" id="f-password" class="form-input" required aria-required="true" autocomplete="new-password">
       </div>
       <div class="form-row">
+        <label class="form-label" for="f-email">Email <span class="muted small">(optional — enables forgot-password)</span></label>
+        <input type="email" name="email" id="f-email" class="form-input" autocomplete="off">
+      </div>
+      <div class="form-row">
         <label class="form-label" for="f-role">Role</label>
         <select name="role" id="f-role" class="form-input">
           <option value="viewer">Viewer — read-only + screenshot</option>
           <option value="tester">Tester — viewer + actions + queries + record release QA</option>
-          <option value="dev">Dev — full ops + shell + release sign-off (no settings/users)</option>
         </select>
       </div>
       <button type="submit" class="btn-primary" style="justify-self:start;">

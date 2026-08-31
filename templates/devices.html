@@ -64,14 +64,22 @@
 {{define "coll-tools-block"}}
 {{if canAdminOrTester .Role}}
 {{if .ActiveGroup}}
-<span class="coll-tools">
-  <button type="button" class="ct-btn" title="Edit group" aria-label="Edit group" onclick="openFleetDrawer('/groups/{{.ActiveGroup}}/edit','Edit group')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-  <a class="ct-btn" href="/groups/{{.ActiveGroup}}" title="Manage group" aria-label="Manage group"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></a>
+<span class="coll-tools coll-menu-wrap">
+  <button type="button" class="ct-btn" title="Group options" aria-label="Group options" aria-haspopup="true" aria-expanded="false" onclick="collMenuToggle(event)"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+  <div class="nbar-pop coll-menu" hidden>
+    <a class="nbar-mi" href="/groups/{{.ActiveGroup}}"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></span><span class="nbar-mi-label">Open group</span></a>
+    <button type="button" class="nbar-mi" onclick="collMenuClose();openFleetDrawer('/groups/{{.ActiveGroup}}/edit','Edit group')"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="nbar-mi-label">Rename group</span></button>
+    <a class="nbar-mi" href="/groups/{{.ActiveGroup}}#devices"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><span class="nbar-mi-label">Add/remove devices</span></a>
+  </div>
 </span>
 {{else if .ActiveRestaurant}}
-<span class="coll-tools">
-  <button type="button" class="ct-btn" title="Edit venue" aria-label="Edit venue" onclick="openFleetDrawer('/restaurants/{{.ActiveRestaurant}}/edit','Edit venue')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-  <a class="ct-btn" href="/restaurants/{{.ActiveRestaurant}}" title="Manage venue" aria-label="Manage venue"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></a>
+<span class="coll-tools coll-menu-wrap">
+  <button type="button" class="ct-btn" title="Venue options" aria-label="Venue options" aria-haspopup="true" aria-expanded="false" onclick="collMenuToggle(event)"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
+  <div class="nbar-pop coll-menu" hidden>
+    <a class="nbar-mi" href="/restaurants/{{.ActiveRestaurant}}"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg></span><span class="nbar-mi-label">Open venue</span></a>
+    <button type="button" class="nbar-mi" onclick="collMenuClose();openFleetDrawer('/restaurants/{{.ActiveRestaurant}}/edit','Edit venue')"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span><span class="nbar-mi-label">Edit venue</span></button>
+    <a class="nbar-mi" href="/restaurants/{{.ActiveRestaurant}}#devices"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><span class="nbar-mi-label">Add/remove devices</span></a>
+  </div>
 </span>
 {{else if and .FilterBuild .ActiveReleaseID}}
 <span class="coll-tools">
@@ -1613,6 +1621,31 @@ document.addEventListener('keydown', function(e) {
 </div>
 
 <script>
+// ── Roster toolbar kebab: open group/venue, rename, or manage devices ───────────
+function collMenuClose() {
+  var m = document.querySelector('.coll-menu:not([hidden])');
+  if (!m) return;
+  m.setAttribute('hidden', '');
+  var btn = m.previousElementSibling;
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+function collMenuToggle(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  var btn = e.currentTarget;
+  var menu = btn.nextElementSibling;
+  if (!menu) return;
+  var willOpen = menu.hasAttribute('hidden');
+  collMenuClose();
+  if (willOpen) {
+    menu.removeAttribute('hidden');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+}
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('.coll-menu-wrap')) collMenuClose();
+});
+
 // ── Fleet drawer: load a collection's edit form (group·restaurant) via htmx ─────
 function openFleetDrawer(url, title) {
   var d = document.getElementById('fleet-drawer');
@@ -1641,6 +1674,7 @@ document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') {
     var d = document.getElementById('fleet-drawer');
     if (d && d.classList.contains('open')) closeFleetDrawer();
+    collMenuClose();
   }
 });
 </script>
