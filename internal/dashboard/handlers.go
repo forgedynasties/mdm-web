@@ -13934,14 +13934,14 @@ func validUserRole(role string) bool {
 
 func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	username := strings.TrimSpace(r.FormValue("username"))
+	// The account's identity is its email — used as both username (login) and
+	// email (forgot-password), same as self-signup. Pre-verified since the admin
+	// is vouching for it directly; no confirmation email needed.
+	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
 	password := r.FormValue("password")
 	role := r.FormValue("role")
-	// Optional: lets an admin-created account use the forgot-password flow too.
-	// Pre-verified since the admin is vouching for it — no email confirmation needed.
-	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
 
-	if username == "" || password == "" || !validUserRole(role) {
+	if email == "" || password == "" || !validUserRole(role) {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
@@ -13952,12 +13952,8 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var emailPtr *string
-	if email != "" {
-		emailPtr = &email
-	}
-	if _, err := h.db.CreateUser(r.Context(), username, string(hash), role, emailPtr, email != ""); err != nil {
-		http.Error(w, "Username or email already exists, or internal error", http.StatusBadRequest)
+	if _, err := h.db.CreateUser(r.Context(), email, string(hash), role, &email, true); err != nil {
+		http.Error(w, "An account with that email already exists, or internal error", http.StatusBadRequest)
 		return
 	}
 

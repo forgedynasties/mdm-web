@@ -68,16 +68,12 @@
     <div class="card-header"><h3>Add user</h3></div>
     <form action="/users" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
       <div class="form-row">
-        <label class="form-label" for="f-username">Username</label>
-        <input type="text" name="username" id="f-username" class="form-input" required aria-required="true" autocomplete="off">
+        <label class="form-label" for="f-email">Email</label>
+        <input type="email" name="email" id="f-email" class="form-input" required aria-required="true" autocomplete="off">
       </div>
       <div class="form-row">
         <label class="form-label" for="f-password">Password</label>
         <input type="password" name="password" id="f-password" class="form-input" required aria-required="true" autocomplete="new-password">
-      </div>
-      <div class="form-row">
-        <label class="form-label" for="f-email">Email <span class="muted small">(optional — enables forgot-password)</span></label>
-        <input type="email" name="email" id="f-email" class="form-input" autocomplete="off">
       </div>
       <div class="form-row">
         <label class="form-label" for="f-role">Role</label>
