@@ -14391,6 +14391,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /test-cases", h.requireAdmin(h.TestCaseCreate))
 	post("POST /test-cases/{id}/edit", h.requireAdmin(h.TestCaseUpdate))
 	post("POST /test-cases/{id}/delete", h.requireAdmin(h.TestCaseDelete))
+	mux.HandleFunc("GET /demo/updates", h.requireAdminOrTester(h.DemoUpdatesIndex))
+	mux.HandleFunc("GET /demo/updates/{scenario}", h.requireAdminOrTester(h.DemoUpdatesScenario))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAdminOrTester(h.DeploymentDetail))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrTester(h.DeploymentEvents))
 	post("POST /releases/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))

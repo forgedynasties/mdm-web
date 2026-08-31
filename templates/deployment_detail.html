@@ -158,7 +158,13 @@
 
 <div class="dpl-wrap">
 
+{{if .DemoScenario}}
+<div class="alert alert-info" style="margin-bottom:14px;">
+  <b>Demo preview</b> — synthetic data, not a real deployment. Forms on this page point at a fake ID and will 404 if submitted. <a href="/demo/updates">← other scenarios</a>
+</div>
+{{else}}
 <a href="/releases/{{$rel.ID}}" class="back-link">← {{$rel.Version}}</a>
+{{end}}
 <div class="ov-greet">
   <h1 class="ov-title">Deployment #{{$dep.ID}} <span class="status-badge {{deployStatusClass $dep.Status}}" style="vertical-align:middle;">{{$dep.Status}}</span></h1>
   <span class="acts">
@@ -288,7 +294,7 @@
     <span class="muted small">{{len $dep.Targets}} device{{if ne (len $dep.Targets) 1}}s{{end}}{{if eq $dep.Status "active"}} · <span class="ok">live</span>{{end}}</span>
   </div>
   <div id="deployment-targets" data-morph
-       {{if eq $dep.Status "active"}}
+       {{if and (eq $dep.Status "active") (not .DemoScenario)}}
        hx-get="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}?partial=targets" hx-select="unset" hx-target="this"
        hx-trigger="deployment-updated from:body, every 30s"
        hx-swap="innerHTML"
@@ -310,7 +316,7 @@
   // fires "deployment-update" when OTA progress ticks or anyone acts on the
   // deployment; we dispatch a body event that the targets div refetches on
   // (there's a slow 30s poll as a fallback if the stream drops).
-  {{if eq $dep.Status "active"}}
+  {{if and (eq $dep.Status "active") (not .DemoScenario)}}
   if (window.EventSource) {
     var des = window.mdmStream('/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/events');
     des.addEventListener('deployment-update', function () {
