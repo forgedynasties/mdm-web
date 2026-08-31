@@ -133,6 +133,10 @@
   </div>
   {{else}}
   {{$rm := ""}}{{if canAdminOrTester .Role}}{{$rm = printf "/restaurants/%s/devices/" .Restaurant.ID}}{{end}}
+  {{if $.Lean}}
+  {{template "device-cards-lean" (dict "Devices" .Devices "RemovePath" $rm)}}
+  {{else}}
   {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm)}}
+  {{end}}
   {{end}}
 {{end}}

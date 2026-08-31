@@ -5442,6 +5442,7 @@ func (h *Handler) GroupDevicesModal(w http.ResponseWriter, r *http.Request) {
 		"Devices":             devices,
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+		"Lean":                true,
 	})
 }
 
@@ -5750,6 +5751,7 @@ func (h *Handler) RestaurantDevicesModal(w http.ResponseWriter, r *http.Request)
 		"Devices":             devices,
 		"Online":              h.onlineMap(),
 		"ActiveThresholdSecs": h.cfg.CheckinInterval() * 3,
+		"Lean":                true,
 	})
 }
 

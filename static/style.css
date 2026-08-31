@@ -4726,6 +4726,37 @@ html[data-theme="dark"] .dp-moves { color: #f0b765; }
 .dp-bar .summary b { color: var(--text); }
 @media (max-width: 1024px) { .dp-tp { grid-template-columns: 1fr; } }
 
+/* Fleet-page "Add/remove devices" popup — wider than a normal modal (it hosts the
+   two-pane device picker + members list, both of which need real room), and every
+   list inside it drops to serial + one action button so it doesn't get crowded.
+   min-height:0 on .modal-body is required for its overflow-y:auto (set on the base
+   .modal-body rule) to actually engage inside modal-box's flex column instead of
+   being clipped by modal-box's overflow:hidden. */
+#fleet-devices-modal .modal-box { max-width: 760px; }
+#fleet-devices-modal .modal-body { flex: 1; min-height: 0; }
+#fleet-devices-modal .dp-tp { grid-template-columns: 1fr 1fr; }
+#fleet-devices-modal .dp-row { grid-template-columns: 1fr auto; }
+#fleet-devices-modal .dp-row .dp-bchip,
+#fleet-devices-modal .dp-row .dp-where,
+#fleet-devices-modal .dp-sub { display: none; }
+#fleet-devices-modal .dp-rid { grid-column: 1; }
+#fleet-devices-modal .dp-add { grid-column: 2; }
+#fleet-devices-modal .dp-bk-row { grid-template-columns: 1fr auto; }
+#fleet-devices-modal .dp-bk-row .dp-bchip { display: none; }
+#fleet-devices-modal .dp-bk-id { grid-column: 1; }
+#fleet-devices-modal .dp-x { grid-column: 2; }
+@media (max-width: 640px) { #fleet-devices-modal .dp-tp { grid-template-columns: 1fr; } }
+
+/* Lean device list (see "device-cards-lean") — serial + one action button. */
+.dl-lean-list { display: flex; flex-direction: column; max-height: 260px; overflow: auto;
+  border: 1px solid var(--border); border-radius: 12px; }
+.dl-lean-row { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px; border-bottom: 1px solid var(--border-soft); }
+.dl-lean-row:last-child { border-bottom: 0; }
+.dl-lean-row:hover { background: var(--hover); }
+.dl-lean-serial { font-size: 13px; font-weight: 600; color: var(--text); text-decoration: none; }
+.dl-lean-serial:hover { color: var(--accent-text); }
+
 /* ===== device detail — Cockpit hero ===== */
 .ddc-hero { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; margin-bottom: 16px; }
 .ddc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }

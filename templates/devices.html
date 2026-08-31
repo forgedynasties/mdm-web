@@ -45,6 +45,24 @@
 </div>
 {{end}}
 
+{{/* Lean device list — serial + one action button, nothing else. Used in place of
+     "device-cards" where the rich fleet-card is too wide (the fleet-page
+     add/remove-devices popup). Context: Devices, optional RemovePath. */}}
+{{define "device-cards-lean"}}
+<div class="dl-lean-list">
+  {{if not .Devices}}
+  <div class="dp-empty">No devices.</div>
+  {{else}}
+  {{range .Devices}}
+  <div class="dl-lean-row">
+    <a href="/devices/{{.SerialNumber}}" class="dl-lean-serial mono link-detail" data-full="1" hx-boost="false">{{.SerialNumber}}</a>
+    {{if $.RemovePath}}<form action="{{$.RemovePath}}{{.SerialNumber}}/remove" method="POST" style="display:inline;margin:0;" hx-confirm="Remove {{.SerialNumber}}?"><button type="submit" class="dp-x" aria-label="Remove {{.SerialNumber}}">&times;</button></form>{{end}}
+  </div>
+  {{end}}
+  {{end}}
+</div>
+{{end}}
+
 {{/* Quick-view filter pills — shared by the inline roster and the OOB refresh
      that a rail collection switch performs (counts come from the scoped summary). */}}
 {{define "fleet-view-pills"}}
@@ -1628,7 +1646,7 @@ document.addEventListener('keydown', function(e) {
       <span class="modal-title" id="fleet-devices-modal-title">Devices</span>
       <button class="modal-close" aria-label="Close" type="button" onclick="closeFleetDevicesModal()">&times;</button>
     </div>
-    <div class="modal-body" id="fleet-devices-modal-body" style="max-height:72vh;overflow:auto;"></div>
+    <div class="modal-body" id="fleet-devices-modal-body"></div>
   </div>
 </div>
 

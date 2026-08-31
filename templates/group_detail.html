@@ -143,6 +143,9 @@ function dpAddSubmit(e, gid) {
   </div>
   {{else}}
   {{$rm := ""}}{{$sel := false}}{{if canAdminOrTester .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{$sel = true}}{{end}}
+  {{if $.Lean}}
+  {{template "device-cards-lean" (dict "Devices" .Devices "RemovePath" $rm)}}
+  {{else}}
   {{if $sel}}
   <div class="grp-bulk-tb" style="display:flex;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid var(--border);">
     <label class="checkbox-label" style="gap:8px;font-size:13px;color:var(--muted);"><input type="checkbox" id="grp-select-all" onchange="grpToggleAll(this)"> Select all</label>
@@ -153,5 +156,6 @@ function dpAddSubmit(e, gid) {
   </div>
   {{end}}
   {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs "RemovePath" $rm "Selectable" $sel)}}
+  {{end}}
   {{end}}
 {{end}}
