@@ -5157,7 +5157,7 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .users-wrap { display: grid; grid-template-columns: 1fr 360px; gap: 16px; align-items: start; }
 @media (max-width: 1024px) { .users-wrap { grid-template-columns: 1fr; } }
 .user-list { display: flex; flex-direction: column; }
-.user-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto; gap: 14px; align-items: center;
+.user-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto auto auto; gap: 14px; align-items: center;
   padding: 12px 18px; border-top: 1px solid var(--border-soft); }
 .user-row:first-child { border-top: 0; }
 .user-row:hover { background: var(--hover); }
