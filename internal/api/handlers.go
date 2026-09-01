@@ -1689,6 +1689,36 @@ func (h *Handler) AckCommand(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// OtaProgress is the HTTP fallback for live OTA download/install percent, used
+// when the client's WS send fails or the socket is down (sendOtaProgressFrame
+// on the client only ever tried WS, with no fallback — a flappy connection
+// silently dropped every progress frame, leaving the dashboard's percent stuck
+// even though the device was actually downloading the whole time).
+func (h *Handler) OtaProgress(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		SerialNumber string    `json:"serial_number"`
+		CommandID    uuid.UUID `json:"command_id"`
+		Phase        string    `json:"phase"`
+		Percent      int       `json:"percent"`
+	}
+	if err := decodeDeviceJSON(r.Body, &body); err != nil || body.SerialNumber == "" || body.CommandID == uuid.Nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "serial_number and command_id are required"})
+		return
+	}
+	if h.deviceRateLimited(w, body.SerialNumber) {
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), body.SerialNumber)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "device not found"})
+		return
+	}
+	h.shell.SetOTAProgress(device.ID, body.CommandID, body.Phase, body.Percent)
+	h.hub.PublishDeviceUpdate(device.ID)
+	h.hub.PublishDeploymentUpdate()
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
 func (h *Handler) OtaStatus(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		SerialNumber string    `json:"serial_number"`

@@ -339,6 +339,7 @@ func main() {
 	mux.Handle("POST /api/v1/commands/{id}/ack", devicePost(apiHandler.AckCommand))
 	mux.Handle("POST /api/v1/logcat", devicePost(apiHandler.SubmitLogcat))
 	mux.Handle("POST /api/v1/ota/status", devicePost(apiHandler.OtaStatus))
+	mux.Handle("POST /api/v1/ota/progress", devicePost(apiHandler.OtaProgress))
 
 	// Admin-authenticated API endpoints
 	mux.Handle("GET /api/v1/devices", adminAuth(http.HandlerFunc(apiHandler.ListDevices)))
