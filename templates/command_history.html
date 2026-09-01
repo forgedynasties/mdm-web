@@ -84,7 +84,7 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 
   <div id="cmd-history-table">
     {{if .Rows}}
-      <div class="htbl-head htbl-cols"><span>Action</span><span>Target</span><span class="col-res">Result</span><span class="col-sent">Sent</span><span></span></div>
+      <div class="htbl-head htbl-cols"><span>Action</span><span>Target</span><span class="col-res">Result</span><span class="col-by">By</span><span class="col-sent">Sent</span><span></span></div>
       {{range .Rows}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" (index $.BucketByID .ID))}}{{end}}
     {{else}}
       <div class="empty-state" style="padding:28px 18px;">

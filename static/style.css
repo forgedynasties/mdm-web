@@ -5850,7 +5850,7 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 
 /* ── Actions history: dense table (Action · Target · Result · Sent), grouped by
    status. Shared by /commands and the standalone /commands/history page. ── */
-.htbl-cols{display:grid;grid-template-columns:minmax(0,1fr) 120px 290px 70px auto;gap:14px;align-items:center;}
+.htbl-cols{display:grid;grid-template-columns:minmax(0,1fr) 120px 290px 100px 70px auto;gap:14px;align-items:center;}
 .htbl-head{padding:10px 18px;border-bottom:1px solid var(--border-soft);background:var(--surface2);}
 .htbl-head span{font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);}
 .hgrp-h{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:14px 18px 6px;color:var(--text-faint);}
@@ -5881,6 +5881,8 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .rcount .pd{width:6px;height:6px;border-radius:99px;background:var(--accent-2);animation:tlpulse 1.2s ease-in-out infinite;}
 @keyframes tlpulse{0%,100%{opacity:1}50%{opacity:.25}}
 .hwhen{font-size:11.5px;color:var(--muted);white-space:nowrap;}
+.hby{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hby.empty{color:var(--text-faint);}
 .hact{display:flex;align-items:center;gap:8px;justify-content:flex-end;}
 .hact form{display:inline;margin:0;}
 .hmore{display:block;padding:9px 18px 11px;font-size:12px;font-weight:600;color: var(--accent-text);text-decoration:none;border-top:1px solid var(--border-soft);background:var(--surface);}
@@ -5890,7 +5892,7 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .hretry svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;}
 .htrow .cmd-del{border:none;background:none;color:var(--text-faint);font-size:16px;line-height:1;cursor:pointer;padding:2px 5px;border-radius:6px;}
 .htrow .cmd-del:hover{color:var(--danger);background:var(--danger-bg);}
-@media (max-width:900px){.htbl-cols{grid-template-columns:minmax(0,1fr) 150px auto;}.htbl-head .col-res,.htbl-head .col-sent,.hrow-res,.hrow-sent{display:none;}}
+@media (max-width:900px){.htbl-cols{grid-template-columns:minmax(0,1fr) 150px auto;}.htbl-head .col-res,.htbl-head .col-sent,.htbl-head .col-by,.hrow-res,.hrow-sent,.hby{display:none;}}
 
 /* History-page status context tabs */
 .hist-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}

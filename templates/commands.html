@@ -1489,7 +1489,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
      Data via dict: .Cmd .S (summary) .Ser (serials) .Role .Bucket. */}}
 {{define "cmd-timeline-inner"}}
     {{if or (or .Attention .InProgress) (or .Completed (gt .DoneCount 0))}}
-      <div class="htbl-head htbl-cols"><span>Action</span><span>Target</span><span class="col-res">Result</span><span class="col-sent">Sent</span><span></span></div>
+      <div class="htbl-head htbl-cols"><span>Action</span><span>Target</span><span class="col-res">Result</span><span class="col-by">By</span><span class="col-sent">Sent</span><span></span></div>
 
       {{/* In progress — always shown (top), with an empty state. */}}
       <div class="hgrp-h prog" data-grp><span class="hbadge live" style="padding:0;background:none;"><span class="pd"></span></span>In progress <span class="cnt">{{.ProgCount}}</span></div>
@@ -1563,7 +1563,8 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     {{else if eq $state "run"}}{{if eq $total 0}}<span class="rcount">awaiting check-in</span>{{else if or (gt $s.Downloading 0) (gt $s.Installing 0)}}<span class="rcount" title="{{$s.Completed}} of {{$total}} done"><span class="pd"></span>{{if gt $s.Downloading 0}}{{$s.Downloading}} downloading{{end}}{{if and (gt $s.Downloading 0) (gt $s.Installing 0)}} · {{end}}{{if gt $s.Installing 0}}{{$s.Installing}} installing{{end}}</span>{{else}}<span class="rcount"><span class="pd"></span>{{$s.Completed}} / {{$total}}</span>{{end}}
     {{else}}<span class="rcount">{{if gt $s.Completed 1}}{{$s.Completed}} {{$verb}}{{else}}{{$verb}}{{end}}</span>{{end}}
   </div>
-  <span class="hwhen hrow-sent">{{timeSince $c.CreatedAt}}{{if $c.CreatedBy}} · <span class="mono">{{$c.CreatedBy}}</span>{{end}}</span>
+  <span class="hby{{if not $c.CreatedBy}} empty{{end}}" title="{{if $c.CreatedBy}}{{$c.CreatedBy}}{{end}}">{{if $c.CreatedBy}}{{$c.CreatedBy}}{{else}}—{{end}}</span>
+  <span class="hwhen hrow-sent">{{timeSince $c.CreatedAt}}</span>
   <div class="hact">
     {{if and (eq .Bucket "attn") (canOperate .Role)}}
     <form action="/commands/{{$c.ID}}/resend" method="POST" hx-confirm="Resend this action to all its original targets?">
