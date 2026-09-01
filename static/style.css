@@ -5256,14 +5256,18 @@ html[data-theme="dark"] .mtoast { background: rgba(20, 18, 17, .45); border-colo
 .mtoast .mt-x { flex: none; align-self: flex-start; background: none; border: none; color: var(--text-faint); font-size: 17px; line-height: 1; cursor: pointer; }
 .nbar-al-empty { padding: 16px 11px; text-align: center; color: var(--muted); font-size: 12.5px; }
 
-/* ── floating bottom-center dock (solid + coral ring for visibility) ── */
+/* ── floating bottom-center dock — liquid glass over whatever's scrolled
+   beneath it, coral ring kept for brand/visibility ── */
 .dock {
   position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 45;
   display: flex; gap: 4px; padding: 7px;
-  background: var(--surface);
-  border: 1.5px solid transparent; border-radius: 16px;
-  box-shadow: 0 16px 40px rgba(20, 22, 40, .20), 0 0 0 1.5px var(--accent-edge);
+  background: rgba(255, 255, 255, .45);
+  -webkit-backdrop-filter: blur(4px) saturate(180%);
+  backdrop-filter: blur(4px) saturate(180%);
+  border: 1.5px solid rgba(255, 255, 255, .29); border-radius: 20px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, .21), inset 0 1px 0 rgba(255, 255, 255, .5), 0 0 0 1.5px var(--accent-edge);
 }
+html[data-theme="dark"] .dock { background: rgba(20, 18, 17, .45); border-color: rgba(255, 255, 255, .12); }
 .dock .nav-link {
   display: inline-flex; align-items: center; gap: 9px; padding: 10px 16px;
   border-radius: 11px; font-size: 13.5px; font-weight: var(--fw-semibold); color: var(--muted);
