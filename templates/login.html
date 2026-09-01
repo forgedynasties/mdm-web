@@ -10,38 +10,66 @@
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
 </head>
-<body class="login-body">
-  <div class="login-card">
-    <h1 class="login-title">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</h1>
-    <p class="login-subtitle">Device management dashboard</p>
-
-    {{if .Error}}
-    <div class="alert alert-error" role="alert">{{.Error}}</div>
-    {{end}}
-
-    {{if msLoginEnabled}}
-    <a href="/auth/microsoft" class="btn-outline" style="display:flex;align-items:center;justify-content:center;gap:9px;padding:10px;margin-bottom:16px;text-decoration:none;">
-      <svg width="16" height="16" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
-      Sign in with Microsoft
-    </a>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;color:var(--muted);font-size:12px;">
-      <span style="flex:1;height:1px;background:var(--border);"></span>or<span style="flex:1;height:1px;background:var(--border);"></span>
+<body class="auth2-body">
+  <div class="auth2-wrap">
+    <div class="auth2-hero">
+      <div class="auth2-hero-top">{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</div>
+      <div>
+        <div class="auth2-hero-head">Every device, under control.</div>
+        <div class="auth2-hero-sub">Fleet monitoring, OTA updates, kiosk lock, and remote control — all in one place.</div>
+      </div>
+      <div class="auth2-hero-foot">© 2026 AIO · AI for Restaurants</div>
     </div>
-    {{end}}
 
-    <form action="/login" method="POST" class="login-form">
-      <div class="form-group">
-        <label for="username">Email</label>
-        <input type="text" id="username" name="username" autocomplete="username" required>
+    <div class="auth2-side">
+      <div class="auth2-logo">aio</div>
+      <div class="auth2-form-wrap">
+        <div class="auth2-title">Welcome back</div>
+        <div class="auth2-subtitle">Sign in to the MDM dashboard</div>
+
+        {{if .Error}}
+        <div class="auth2-alert error" role="alert">{{.Error}}</div>
+        {{end}}
+
+        <form action="/login" method="POST" class="auth2-form">
+          <div class="auth2-field">
+            <label for="username">Email</label>
+            <input type="text" id="username" name="username" autocomplete="username" placeholder="you@aioapp.com" required>
+          </div>
+          <div class="auth2-field">
+            <label for="password">Password</label>
+            <div class="auth2-pwrap">
+              <input type="password" id="password" name="password" autocomplete="current-password" required>
+              <button type="button" class="auth2-eye" id="pw-toggle" aria-label="Show password" onclick="authTogglePw()">
+                <svg id="pw-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg id="pw-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 5c7 0 11 7 11 7a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="auth2-row"><a href="/forgot-password">Forgot password?</a></div>
+          <button type="submit" class="auth2-btn">Sign in</button>
+
+          {{if msLoginEnabled}}
+          <div class="auth2-divider">or</div>
+          <a href="/auth/microsoft" class="auth2-oauth">
+            <svg width="15" height="15" viewBox="0 0 21 21" aria-hidden="true"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg>
+            Sign in with Microsoft
+          </a>
+          {{end}}
+        </form>
+
+        <div class="auth2-alt">Don't have an account? <a href="/signup">Sign up</a></div>
       </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" autocomplete="current-password" required>
-      </div>
-      <button type="submit" class="btn-primary" style="align-self:stretch;padding:11px;">Sign In</button>
-    </form>
-    <p class="muted small" style="text-align:center;margin-top:14px;"><a href="/forgot-password">Forgot password?</a> · <a href="/signup">Sign up</a></p>
+    </div>
   </div>
+<script>
+function authTogglePw(){
+  var i=document.getElementById('password'),on=document.getElementById('pw-eye-on'),off=document.getElementById('pw-eye-off'),b=document.getElementById('pw-toggle');
+  var show=i.type==='password'; i.type=show?'text':'password';
+  on.style.display=show?'none':''; off.style.display=show?'':'none';
+  b.setAttribute('aria-label',show?'Hide password':'Show password');
+}
+</script>
 </body>
 </html>
 {{end}}

@@ -10,37 +10,73 @@
   <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
   <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
 </head>
-<body class="login-body">
-  <div class="login-card">
-    <h1 class="login-title">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</h1>
-    <p class="login-subtitle">Create an account</p>
+<body class="auth2-body">
+  <div class="auth2-wrap">
+    <div class="auth2-hero">
+      <div class="auth2-hero-top">{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}</div>
+      <div>
+        <div class="auth2-hero-head">Every device, under control.</div>
+        <div class="auth2-hero-sub">Fleet monitoring, OTA updates, kiosk lock, and remote control — all in one place.</div>
+      </div>
+      <div class="auth2-hero-foot">© 2026 AIO · AI for Restaurants</div>
+    </div>
 
-    {{if .Sent}}
-    <div class="alert alert-success" role="alert">Check your inbox — we sent a verification link to {{.Email}}.</div>
-    <p class="muted small" style="text-align:center;"><a href="/login">Back to sign in</a></p>
-    {{else}}
-    {{if .Error}}
-    <div class="alert alert-error" role="alert">{{.Error}}</div>
-    {{end}}
+    <div class="auth2-side">
+      <div class="auth2-logo">aio</div>
+      <div class="auth2-form-wrap">
+        {{if .Sent}}
+        <div class="auth2-title">Check your inbox</div>
+        <div class="auth2-subtitle">We sent a verification link to {{.Email}}.</div>
+        <div class="auth2-alt" style="margin-top:26px;"><a href="/login">Back to sign in</a></div>
+        {{else}}
+        <div class="auth2-title">Create your account</div>
+        <div class="auth2-subtitle">Sign up for the MDM dashboard</div>
 
-    <form action="/signup" method="POST" class="login-form">
-      <div class="form-group">
-        <label for="email">Work email</label>
-        <input type="email" id="email" name="email" autocomplete="email" placeholder="you@aioapp.com" value="{{.Email}}" required>
+        {{if .Error}}
+        <div class="auth2-alert error" role="alert">{{.Error}}</div>
+        {{end}}
+
+        <form action="/signup" method="POST" class="auth2-form">
+          <div class="auth2-field">
+            <label for="email">Work email</label>
+            <input type="email" id="email" name="email" autocomplete="email" placeholder="you@aioapp.com" value="{{.Email}}" required>
+          </div>
+          <div class="auth2-field">
+            <label for="password">Password</label>
+            <div class="auth2-pwrap">
+              <input type="password" id="password" name="password" autocomplete="new-password" minlength="6" required>
+              <button type="button" class="auth2-eye" id="pw-toggle" aria-label="Show password" onclick="authTogglePw('password','pw-eye-on','pw-eye-off','pw-toggle')">
+                <svg id="pw-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg id="pw-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 5c7 0 11 7 11 7a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="auth2-field">
+            <label for="confirm">Confirm password</label>
+            <div class="auth2-pwrap">
+              <input type="password" id="confirm" name="confirm" autocomplete="new-password" minlength="6" required>
+              <button type="button" class="auth2-eye" id="cf-toggle" aria-label="Show password" onclick="authTogglePw('confirm','cf-eye-on','cf-eye-off','cf-toggle')">
+                <svg id="cf-eye-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                <svg id="cf-eye-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:none"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 5c7 0 11 7 11 7a20.4 20.4 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>
+              </button>
+            </div>
+          </div>
+          <button type="submit" class="auth2-btn">Sign up</button>
+        </form>
+
+        <div class="auth2-alt">Already have an account? <a href="/login">Sign in</a></div>
+        {{end}}
       </div>
-      <div class="form-group">
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" autocomplete="new-password" minlength="6" required>
-      </div>
-      <div class="form-group">
-        <label for="confirm">Confirm password</label>
-        <input type="password" id="confirm" name="confirm" autocomplete="new-password" minlength="6" required>
-      </div>
-      <button type="submit" class="btn-primary" style="align-self:stretch;padding:11px;">Sign up</button>
-    </form>
-    <p class="muted small" style="text-align:center;margin-top:14px;">Already have an account? <a href="/login">Sign in</a></p>
-    {{end}}
+    </div>
   </div>
+<script>
+function authTogglePw(fieldId,onId,offId,btnId){
+  var i=document.getElementById(fieldId),on=document.getElementById(onId),off=document.getElementById(offId),b=document.getElementById(btnId);
+  var show=i.type==='password'; i.type=show?'text':'password';
+  on.style.display=show?'none':''; off.style.display=show?'':'none';
+  b.setAttribute('aria-label',show?'Hide password':'Show password');
+}
+</script>
 </body>
 </html>
 {{end}}

@@ -1135,6 +1135,63 @@ html[data-theme="dark"] .theme-toggle .theme-icon-dark { display: none; }
 
 .login-form { display: flex; flex-direction: column; gap: 16px; }
 
+/* ── Auth v2 — split-screen dark login/signup ───────────────────────────── */
+.auth2-body { margin: 0; min-height: 100vh; background: #0a0a0c; color: #fff; font-family: var(--font); }
+.auth2-wrap { display: flex; min-height: 100vh; padding: 20px; gap: 20px; box-sizing: border-box; }
+@media (max-width: 860px) { .auth2-wrap { flex-direction: column; padding: 0; gap: 0; } }
+
+.auth2-hero {
+  flex: 1.05; min-width: 0; border-radius: 24px; position: relative; overflow: hidden;
+  background: radial-gradient(120% 140% at 8% 0%, #ff8a5c 0%, #f9674e 22%, #d6608f 48%, #8f6fdb 72%, #6f7ff0 100%);
+  display: flex; flex-direction: column; justify-content: space-between; padding: 44px 40px;
+}
+@media (max-width: 860px) { .auth2-hero { border-radius: 0; padding: 28px 24px 34px; flex: none; } }
+.auth2-hero-top { font-size: 13px; font-weight: 650; color: rgba(255,255,255,.85); letter-spacing: .02em; }
+.auth2-hero-head { font-size: clamp(28px, 3.6vw, 42px); font-weight: 800; letter-spacing: -.02em; line-height: 1.12; color: #fff; max-width: 13ch; }
+.auth2-hero-sub { font-size: 15px; color: rgba(255,255,255,.88); line-height: 1.5; max-width: 42ch; margin-top: 14px; }
+.auth2-hero-foot { font-size: 12px; color: rgba(255,255,255,.7); }
+@media (max-width: 860px) { .auth2-hero-sub, .auth2-hero-foot { display: none; } }
+
+.auth2-side { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 12px 40px; }
+@media (max-width: 860px) { .auth2-side { padding: 32px 24px 40px; } }
+.auth2-logo { display: flex; align-items: center; gap: 7px; font-size: 22px; font-weight: 800; letter-spacing: -.01em; color: var(--accent); }
+.auth2-form-wrap { flex: 1; display: flex; flex-direction: column; justify-content: center; max-width: 400px; width: 100%; margin: 0 auto; }
+.auth2-title { font-size: 26px; font-weight: 750; letter-spacing: -.01em; color: #fff; }
+.auth2-subtitle { font-size: 13.5px; color: #8b8b93; margin-top: 6px; }
+.auth2-form { display: flex; flex-direction: column; gap: 14px; margin-top: 26px; }
+.auth2-field { display: flex; flex-direction: column; gap: 6px; }
+.auth2-field label { font-size: 11.5px; font-weight: 650; color: #9a9aa3; }
+.auth2-field input {
+  font: inherit; font-size: 14px; background: #1a1a1e; border: 1px solid #2a2a30; border-radius: 11px;
+  padding: 13px 14px; color: #fff; outline: none; transition: border-color .12s;
+}
+.auth2-field input::placeholder { color: #63636b; }
+.auth2-field input:focus { border-color: var(--accent); }
+.auth2-pwrap { position: relative; }
+.auth2-pwrap input { width: 100%; box-sizing: border-box; padding-right: 42px; }
+.auth2-eye { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); background: none; border: none; color: #7a7a82; cursor: pointer; padding: 4px; display: flex; }
+.auth2-eye:hover { color: #b5b5bc; }
+.auth2-eye svg { width: 18px; height: 18px; }
+.auth2-row { display: flex; justify-content: flex-end; margin-top: -4px; }
+.auth2-row a, .auth2-alt a { color: #b5b5bc; text-decoration: none; font-size: 12.5px; }
+.auth2-row a:hover, .auth2-alt a:hover { color: #fff; }
+.auth2-btn {
+  font: inherit; font-size: 14.5px; font-weight: 700; padding: 13px; border: none; border-radius: 11px;
+  background: var(--accent); color: #fff; cursor: pointer; margin-top: 4px; transition: filter .12s;
+}
+.auth2-btn:hover { filter: brightness(1.08); }
+.auth2-divider { display: flex; align-items: center; gap: 10px; color: #63636b; font-size: 11.5px; margin: 4px 0; }
+.auth2-divider::before, .auth2-divider::after { content: ""; flex: 1; height: 1px; background: #262629; }
+.auth2-oauth {
+  display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 13.5px; font-weight: 650;
+  padding: 12px; border-radius: 11px; border: 1px solid #2a2a30; background: #16161a; color: #fff; text-decoration: none;
+}
+.auth2-oauth:hover { border-color: #3a3a42; }
+.auth2-alt { font-size: 13px; color: #8b8b93; margin-top: 22px; text-align: center; }
+.auth2-alert { font-size: 13px; padding: 11px 13px; border-radius: 10px; margin-top: 22px; }
+.auth2-alert.error { background: rgba(209,80,63,.15); color: #ff9b8c; border: 1px solid rgba(209,80,63,.3); }
+.auth2-alert.success { background: rgba(31,157,99,.15); color: #6fe3ac; border: 1px solid rgba(31,157,99,.3); }
+
 /* ── Form primitives ─────────────────────────────────
  * One shared input rule. Focus visual is handled by the
  * global :focus-visible ring; we also lift border-color
