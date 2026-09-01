@@ -9366,8 +9366,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (lower(email)) WHE
 -- accounts themselves go, not just the role label).
 DELETE FROM users WHERE role = 'dev';
 
+-- NOTE: 'operator' is included here (unlike the original historical wording) even
+-- though this statement's own job (dropping dev accounts) has nothing to do with
+-- it — this ALTER re-validates every existing row on every boot, so, per the same
+-- rule noted above, its list must contain every role that legitimately exists in
+-- the table by this point, including 'operator' rows that persist from the
+-- tester->operator rename further down. Omitting it here breaks every redeploy.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','tester'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester'));
 
 CREATE TABLE IF NOT EXISTS user_tokens (
     token      TEXT PRIMARY KEY,
