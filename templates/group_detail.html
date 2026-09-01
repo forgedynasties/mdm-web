@@ -19,7 +19,7 @@
      just on the full page) so it's also present when this fragment loads into the
      fleet-page modal via htmx. */}}
 {{define "group-devices-modal"}}
-{{if canAdminOrTester .Role}}
+{{if canAdminOrOperator .Role}}
 <div class="card" id="devices" style="margin-bottom:16px;scroll-margin-top:16px;">
   <div class="card-header"><h3>Add devices</h3></div>
   <form action="/groups/{{.Group.ID}}/devices" method="POST" style="padding:14px 20px 18px;"
@@ -142,7 +142,7 @@ function dpAddSubmit(e, gid) {
     </div>
   </div>
   {{else}}
-  {{$rm := ""}}{{$sel := false}}{{if canAdminOrTester .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{$sel = true}}{{end}}
+  {{$rm := ""}}{{$sel := false}}{{if canAdminOrOperator .Role}}{{$rm = printf "/groups/%s/devices/" .Group.ID}}{{$sel = true}}{{end}}
   {{if $.Lean}}
   {{template "device-cards-lean" (dict "Devices" .Devices "RemovePath" $rm)}}
   {{else}}

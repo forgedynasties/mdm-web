@@ -512,23 +512,23 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// both "admin" and "dev" do. Used to gate operational buttons/links;
 		// settings and user-management UI stay on a literal `eq .Role "admin"`.
 		"canAdmin": func(role string) bool { return role == "admin" || role == "dev" },
-		// canAdminOrTester mirrors requireAdminOrTester: admin/dev plus the test team,
+		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and kiosk mode. Used to show those controls.
-		"canAdminOrTester": func(role string) bool {
-			return role == "admin" || role == "dev" || role == "tester"
+		"canAdminOrOperator": func(role string) bool {
+			return role == "admin" || role == "dev" || role == "operator"
 		},
 		// canAct gates only the Actions dock link. Every authenticated role may
 		// open the Actions page — viewers see it read-only (the builder, recipes,
 		// resend and delete controls are all separately gated by canOperate /
 		// canAdmin, so a viewer sees history but no way to act).
 		"canAct": func(role string) bool {
-			return role == "admin" || role == "dev" || role == "tester" || role == "viewer"
+			return role == "admin" || role == "dev" || role == "operator" || role == "viewer"
 		},
 		// canOperate reports action-level UI power: the test team plus admin/dev.
 		// Mirrors requireOperatorOrAdmin on the server so the dashboard shows the
 		// same actions those roles can actually perform.
 		"canOperate": func(role string) bool {
-			return role == "admin" || role == "dev" || role == "tester"
+			return role == "admin" || role == "dev" || role == "operator"
 		},
 		// plainAlert strips a humanized alert sentence to plain text (for search).
 		"plainAlert": plainSentence,
@@ -1380,9 +1380,26 @@ func (h *Handler) currentUsername(r *http.Request) string {
 	return ""
 }
 
+// currentDisplayName is currentUsername, but prefers the user's first/last name
+// (set at sign-up or by an admin) over their bare username/email when one is on
+// file — shown top-right in the dashboard chrome and snapshotted onto commands
+// and audit entries so "who did this" reads as a name where possible.
+func (h *Handler) currentDisplayName(r *http.Request) string {
+	s, ok := h.currentSession(r)
+	if !ok {
+		return ""
+	}
+	if s.UserID != nil {
+		if u, err := h.db.GetUser(r.Context(), *s.UserID); err == nil && u != nil {
+			return u.DisplayName()
+		}
+	}
+	return s.Username
+}
+
 // audit records an admin action (best-effort; never blocks the request).
 func (h *Handler) audit(r *http.Request, action, target, detail string) {
-	actor := h.currentUsername(r)
+	actor := h.currentDisplayName(r)
 	if actor == "" {
 		actor = "unknown"
 	}
@@ -1400,7 +1417,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	// Boosted: an hx-boost navigation. When true the layout emits only <main> so
 	// htmx swaps just the content region (dock + footer scripts stay put).
 	data["Boosted"] = r.Header.Get("HX-Boosted") == "true"
-	data["CurrentUser"] = h.currentUsername(r)
+	data["CurrentUser"] = h.currentDisplayName(r)
 	data["Brand"] = h.cfg.CustomBrand()
 	data["Use24Hour"] = h.cfg.Use24Hour()
 	data["Version"] = version.Current()
@@ -1560,17 +1577,17 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// requireAdminOrTester extends requireAdmin (admin/dev) to also allow testers, for
+// requireAdminOrOperator extends requireAdmin (admin/dev) to also allow operators, for
 // the fleet-organisation tasks the test team owns: creating groups and restaurants
 // and setting kiosk mode. Viewers and operators still can't reach these.
-func (h *Handler) requireAdminOrTester(next http.HandlerFunc) http.HandlerFunc {
+func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "admin" && s.Role != "dev" && s.Role != "tester" {
+		if s.Role != "admin" && s.Role != "dev" && s.Role != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -1622,7 +1639,7 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "admin" && s.Role != "dev" && s.Role != "tester" {
+		if s.Role != "admin" && s.Role != "dev" && s.Role != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -1631,17 +1648,17 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 	}
 }
 
-// requireTester gates QA result-marking to the tester role only. Managing test
-// cases stays admin-only; recording pass/fail is the tester's job and nobody
+// requireOperatorRole gates QA result-marking to the operator role only. Managing test
+// cases stays admin-only; recording pass/fail is the operator's job and nobody
 // else's (viewer/operator/admin all see results read-only).
-func (h *Handler) requireTester(next http.HandlerFunc) http.HandlerFunc {
+func (h *Handler) requireOperatorRole(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
 		if !ok {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "tester" {
+		if s.Role != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -1823,11 +1840,18 @@ func (h *Handler) SignupSubmit(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
 	password := r.FormValue("password")
 	confirm := r.FormValue("confirm")
+	firstName := strings.TrimSpace(r.FormValue("first_name"))
+	lastName := strings.TrimSpace(r.FormValue("last_name"))
 
 	fail := func(msg string) {
 		h.tmpl.ExecuteTemplate(w, "signup.html", map[string]any{
-			"Error": msg, "Email": email, "Brand": h.cfg.CustomBrand(),
+			"Error": msg, "Email": email, "FirstName": firstName, "LastName": lastName, "Brand": h.cfg.CustomBrand(),
 		})
+	}
+
+	if firstName == "" || lastName == "" {
+		fail("First and last name are required.")
+		return
 	}
 
 	ip := ratelimit.ClientIP(r)
@@ -1864,7 +1888,7 @@ func (h *Handler) SignupSubmit(w http.ResponseWriter, r *http.Request) {
 		fail("Internal error, please try again.")
 		return
 	}
-	u, err := h.db.CreateUser(r.Context(), email, string(hash), "viewer", &email, false)
+	u, err := h.db.CreateUserNamed(r.Context(), email, string(hash), "viewer", &email, false, firstName, lastName)
 	if err != nil {
 		fail("An account with that email already exists.")
 		return
@@ -3175,10 +3199,10 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		deviceGroups = dg
 		// Groups the device is NOT yet in — for the placement "+ group" picker.
 		// Populated for the same roles the picker button renders for and the add
-		// endpoint accepts (admin/dev/tester, i.e. canAdminOrTester); gating this on
-		// admin alone left a tester the button and popover but an empty group list,
+		// endpoint accepts (admin/dev/operator, i.e. canAdminOrOperator); gating this on
+		// admin alone left a operator the button and popover but an empty group list,
 		// so "+ group" did nothing.
-		if role == "admin" || role == "dev" || role == "tester" {
+		if role == "admin" || role == "dev" || role == "operator" {
 			inGroup := make(map[uuid.UUID]bool, len(dg))
 			for _, g := range dg {
 				inGroup[g.ID] = true
@@ -3234,7 +3258,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	pendingInstalls := pendingInstallRows(commands, apps, installedPkgs, apkPkg)
 
 	// Kiosk unlock code (everyone except viewers) — shown inside the Kiosk section so an
-	// operator/tester/admin can read it to a technician who needs to leave kiosk on-device.
+	// operator/operator/admin can read it to a technician who needs to leave kiosk on-device.
 	// The initial code renders server-side; the page then keeps it live via /offline-code.
 	offlineCode, offlineSecs := "", 0
 	if kioskCfg.OfflineExitSeed != "" && role != "viewer" {
@@ -3262,7 +3286,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// deep-link from the fleet views lands on something that actually shows crashes.
 	deviceCrashes := toCrashCards(deviceCrashRaw)
 	var deviceAlerts []humanAlert
-	canAct := role == "admin" || role == "dev" || role == "tester"
+	canAct := role == "admin" || role == "dev" || role == "operator"
 	for _, a := range deviceAlertsRaw {
 		ha := humanizeAlert(a)
 		ha.CanAct = canAct
@@ -4326,7 +4350,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role := h.role(r)
-	canAct := role == "admin" || role == "dev" || role == "tester"
+	canAct := role == "admin" || role == "dev" || role == "operator"
 
 	// Optional per-device filter (a device's Alerts-tab "Show more" links here so the
 	// full list opens scoped to that unit). Resolve the serial to an ID; an unknown
@@ -6490,7 +6514,7 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 		payload = apkmeta.Augment(r.Context(), apkURL, payload)
 	}
 
-	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "groups", []uuid.UUID{id})
+	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, "groups", []uuid.UUID{id}, h.currentDisplayName(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -6955,7 +6979,7 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 	}
 	role := h.role(r)
 	// Hidden releases are admin-only housekeeping — don't surface them (or the
-	// "N hidden" count) to operators/testers.
+	// "N hidden" count) to operators/operators.
 	if role != "admin" {
 		hidden = nil
 	}
@@ -7793,7 +7817,7 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 }
 
 // ReleaseProblemCreate files a new problem report against a release. Any operator
-// or tester (canOperate) can report; the build is snapshotted from the release.
+// or operator (canOperate) can report; the build is snapshotted from the release.
 func (h *Handler) ReleaseProblemCreate(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -7969,8 +7993,8 @@ func (h *Handler) ReleaseClearSignOff(w http.ResponseWriter, r *http.Request) {
 }
 
 // ReleaseTestingDone marks a release's testing complete — the finish line that moves it
-// from active to inactive (it drops out of the hub's active slot). Admin/dev/tester (see
-// requireAdminOrTester) — the test team closes out their own testing. Advisory, not gated
+// from active to inactive (it drops out of the hub's active slot). Admin/dev/operator (see
+// requireAdminOrOperator) — the test team closes out their own testing. Advisory, not gated
 // on QA/sign-off state.
 func (h *Handler) ReleaseTestingDone(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
@@ -8173,7 +8197,7 @@ func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
-// ReleaseSetTestResult records a tester's outcome for one case on a release.
+// ReleaseSetTestResult records a operator's outcome for one case on a release.
 func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -8240,7 +8264,7 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 	role := h.role(r)
 	// Bugs that ride the release train onto this build (reported on an earlier build and
 	// not yet verified fixed, plus any claimed fixed in this build awaiting verification).
-	// Carry-forward is a dev/admin concern — testers/operators don't see it.
+	// Carry-forward is a dev/admin concern — operators/operators don't see it.
 	var carried []db.ReleaseProblem
 	if role == "admin" || role == "dev" {
 		carried, _ = h.db.CarriedForwardProblems(ctx, rel.ID)
@@ -8254,9 +8278,9 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 		"Problems":       problems,
 		"Carried":        carried,
 		"ProblemSummary": ps,
-		"CanRecord":      role == "tester",
-		"CanReport":      role == "admin" || role == "dev" || role == "tester",
-		"CanAct":         role == "admin" || role == "dev", // act on existing problems (fixed/verified/wontfix) — testers file only
+		"CanRecord":      role == "operator",
+		"CanReport":      role == "admin" || role == "dev" || role == "operator",
+		"CanAct":         role == "admin" || role == "dev", // act on existing problems (fixed/verified/wontfix) — operators file only
 	}
 }
 
@@ -8346,7 +8370,7 @@ func (h *Handler) PackageDelete(w http.ResponseWriter, r *http.Request) {
 
 // UpdatesHub renders the global Updates page: every deployment across releases with
 // its progress, plus a "new deployment" composer (admin/dev) that picks a published
-// release and its targets. Testers/operators can view the list but not deploy.
+// release and its targets. Operators/operators can view the list but not deploy.
 func (h *Handler) UpdatesHub(w http.ResponseWriter, r *http.Request) {
 	role := h.role(r)
 	deployments, _ := h.db.ListDeployments(r.Context())
@@ -8705,7 +8729,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// deployment (see template) — skip the expensive full-fleet load otherwise so
 	// viewers and canceled/finished deployments don't pay for a list they can't use.
 	role := h.role(r)
-	canOp := role == "admin" || role == "dev" || role == "tester"
+	canOp := role == "admin" || role == "dev" || role == "operator"
 	if !canOp || upd.Status == "canceled" {
 		data["Devices"] = nil
 		data["Online"] = map[uuid.UUID]bool{}
@@ -8963,7 +8987,7 @@ func (h *Handler) DeploymentRebootDevice(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	cmd, err := h.db.CreateCommand(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID})
+	cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}, h.currentDisplayName(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -9009,7 +9033,7 @@ func (h *Handler) DeploymentRebootAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, deviceID := range ids {
-		cmd, err := h.db.CreateCommand(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{deviceID})
+		cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{deviceID}, h.currentDisplayName(r))
 		if err != nil {
 			log.Printf("[deployment-reboot-all] create reboot error device=%s: %v", deviceID, err)
 			continue
@@ -9291,7 +9315,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			fail(err)
 			return
 		}
-		cmds = filterShellCommands(h.role(r), c) // testers never see shell history
+		cmds = filterShellCommands(h.role(r), c) // operators never see shell history
 	})
 	run(func() {
 		g, err := h.db.ListGroups(ctx)
@@ -9470,7 +9494,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	}
 	saved, _ := h.db.ListRecipes(r.Context())
 	role := h.role(r)
-	canOp := role == "admin" || role == "dev" || role == "tester"
+	canOp := role == "admin" || role == "dev" || role == "operator"
 	for _, rec := range saved {
 		// For roles that can act, hide recipes they aren't allowed to issue (so a
 		// click never leads to a rejected send). Viewers see every recipe — the
@@ -9520,10 +9544,10 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	scopeRestaurants, _ := h.db.GetRestaurantHealth(r.Context(), h.connectedSlice(), 7)
 	scopeReleases, _ := h.db.ListPublishedReleasesForRail(r.Context())
 
-	// Diagnostics catalog for the Actions builder (admin/dev/tester run them; the
+	// Diagnostics catalog for the Actions builder (admin/dev/operator run them; the
 	// pill is hidden for viewers and when the catalog is empty).
 	var actionQueries []db.DeviceQuery
-	if role := h.role(r); role == "admin" || role == "dev" || role == "tester" {
+	if role := h.role(r); role == "admin" || role == "dev" || role == "operator" {
 		actionQueries, _ = h.db.ListEnabledDeviceQueries(r.Context())
 	}
 
@@ -9581,7 +9605,7 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	cmds = filterShellCommands(h.role(r), cmds) // testers never see shell history
+	cmds = filterShellCommands(h.role(r), cmds) // operators never see shell history
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), 0) // full history
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
 	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
@@ -10278,7 +10302,7 @@ func (h *Handler) CommandDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid command ID", http.StatusBadRequest)
 		return
 	}
-	// Admin/dev can delete anything. Tester can only delete a command still In progress
+	// Admin/dev can delete anything. Operator can only delete a command still In progress
 	// or in Needs attention — the same two buckets they can already act on elsewhere
 	// (Resend, Dismiss) — not settled history under Completed. Reuses the exact
 	// classification the page itself displays, so "can I delete this row" always
@@ -10351,7 +10375,7 @@ func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	newCmd, err := h.db.CreateCommand(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, "devices", deviceIDs)
+	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, "devices", deviceIDs, h.currentDisplayName(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -10380,7 +10404,7 @@ func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	newCmd, err := h.db.CreateCommand(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, cmd.TargetType, targetIDs)
+	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, cmd.TargetType, targetIDs, h.currentDisplayName(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -10407,7 +10431,7 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.markDeliveryPresence(deliveries)
-	// Testers must not see raw shell command detail (text/output) — hide its
+	// Operators must not see raw shell command detail (text/output) — hide its
 	// existence, mirroring the shell filtering applied to every history listing.
 	if cmd.Type == "shell" && hideShellForRole(h.role(r)) {
 		http.Error(w, "Command not found", http.StatusNotFound)
@@ -10495,20 +10519,20 @@ const (
 // persisted, and dispatched from the lowest-privilege role (GB-01/GB-02). The
 // admin JSON API (internal/api) independently gates the same set behind the
 // admin key. Keep the two lists in sync when adding a command type.
-// Testers carry the everyday action set (screenshot/install/uninstall/reboot) plus
+// Operators carry the everyday action set (screenshot/install/uninstall/reboot) plus
 // their exclusive QA recording elsewhere, so they're listed alongside admin/dev on
 // those types — but never on the admin/dev-only types (shell, ota, update_splash).
-// Raw shell is limited to admin/dev; testers reach vetted commands via the device
+// Raw shell is limited to admin/dev; operators reach vetted commands via the device
 // queries catalog instead (the "diagnostic" action on the Actions page).
 var commandRoles = map[string][]string{
-	"screenshot":    {"admin", "dev", "tester", "viewer"},
-	"install_apk":   {"admin", "dev", "tester"},
-	"uninstall":     {"admin", "dev", "tester"},
-	"reboot":        {"admin", "dev", "tester"},
+	"screenshot":    {"admin", "dev", "operator", "viewer"},
+	"install_apk":   {"admin", "dev", "operator"},
+	"uninstall":     {"admin", "dev", "operator"},
+	"reboot":        {"admin", "dev", "operator"},
 	"shell":         {"admin", "dev"},
 	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
-	// query_id from the catalog, never user-supplied), so testers may issue it.
-	"query":         {"admin", "dev", "tester"},
+	// query_id from the catalog, never user-supplied), so operators may issue it.
+	"query":         {"admin", "dev", "operator"},
 	"ota":           {"admin", "dev"},
 	"update_splash": {"admin", "dev"},
 	"logcat":        {"admin", "dev"},
@@ -10650,7 +10674,7 @@ func cmdTypeLabel(cmdType string) string {
 // viewers must not see them, so the bucket name is not disclosed via command
 // reads (GB-05).
 func canSeeCommandURLs(role string) bool {
-	return role == "admin" || role == "dev" || role == "tester"
+	return role == "admin" || role == "dev" || role == "operator"
 }
 
 // redactDeviceCommandURLs blanks the APK/OTA URL on a command-history slice for
@@ -10665,10 +10689,10 @@ func redactDeviceCommandURLs(role string, cmds []db.DeviceCommand) {
 }
 
 // hideShellForRole reports whether a role must not see raw shell commands in the
-// history. Testers cannot run shell (commandRoles limits it to admin/dev) and must
+// history. Operators cannot run shell (commandRoles limits it to admin/dev) and must
 // not browse the shell history either — its command text and captured output can
 // expose sensitive operational detail. admin/dev/viewer see history unchanged.
-func hideShellForRole(role string) bool { return role == "tester" }
+func hideShellForRole(role string) bool { return role != "admin" }
 
 // filterShellDeviceCommands drops raw shell entries from a per-device command
 // history when the viewer must not see them (hideShellForRole).
@@ -10930,7 +10954,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		"UnlockedCount": unlockedCount,
 		"Restaurants":   restaurants,
 		"Groups":        groups,
-		"CanEdit":       role == "admin" || role == "dev" || role == "tester",
+		"CanEdit":       role == "admin" || role == "dev" || role == "operator",
 	})
 }
 
@@ -10955,7 +10979,7 @@ func (h *Handler) managePolicyFormData(r *http.Request) map[string]any {
 		"Devices":       devices,
 		"Online":        online,
 		"FleetPackages": fleetPackages,
-		"CanEdit":       role == "admin" || role == "dev" || role == "tester",
+		"CanEdit":       role == "admin" || role == "dev" || role == "operator",
 	}
 }
 
@@ -10963,7 +10987,7 @@ func (h *Handler) managePolicyFormData(r *http.Request) map[string]any {
 // than a modal, so the target/app pickers have room to be more than cramped popup
 // widgets.
 func (h *Handler) ManagePolicyNew(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -10974,7 +10998,7 @@ func (h *Handler) ManagePolicyNew(w http.ResponseWriter, r *http.Request) {
 
 // ManagePolicyEditPage renders the same form pre-filled for an existing policy.
 func (h *Handler) ManagePolicyEditPage(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -10998,7 +11022,7 @@ func (h *Handler) ManagePolicyEditPage(w http.ResponseWriter, r *http.Request) {
 // form field selects update), then immediately applies it to its target's current
 // devices — same write path applyKioskForTargets always used.
 func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -11063,7 +11087,7 @@ func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
 // ManagePolicyDuplicate clones a policy (name suffixed) without re-applying it —
 // the clone starts as its own independent policy the user can retarget before saving.
 func (h *Handler) ManagePolicyDuplicate(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -11091,7 +11115,7 @@ func (h *Handler) ManagePolicyDuplicate(w http.ResponseWriter, r *http.Request) 
 // expects "delete the policy" to mean rather than leaving devices silently locked
 // with nothing left to manage them.
 func (h *Handler) ManagePolicyDelete(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -11176,10 +11200,10 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// set_kiosk isn't a queued command — it writes kiosk config to the target set (like
-	// the old bulk-kiosk action). Gate it directly (admin/dev/tester), not via the
+	// the old bulk-kiosk action). Gate it directly (admin/dev/operator), not via the
 	// command-role machinery the real commands use.
 	if cmdType == "set_kiosk" {
-		if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+		if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -11193,7 +11217,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 
 	// A "query" is a read-only diagnostic whose command text comes only from the
 	// admin-curated catalog (chosen by query_id), never from the client. That's why
-	// admin/dev/tester may issue it without raw-shell rights: whatever shell_cmd the
+	// admin/dev/operator may issue it without raw-shell rights: whatever shell_cmd the
 	// client might send is ignored — the payload is rebuilt from the catalog here.
 	// The command is stored as type "query" and only translated to "shell" at the
 	// device boundary (see deviceCommandType), so the dashboard shows it as a Query.
@@ -11428,7 +11452,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 				payload = p
 			}
 		}
-		cmd, err := h.db.CreateCommand(r.Context(), cmdType, it.apkURL, payload, targetType, ids)
+		cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, it.apkURL, payload, targetType, ids, h.currentDisplayName(r))
 		if err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
@@ -11665,7 +11689,7 @@ func (h *Handler) fireSchedule(ctx context.Context, s db.ScheduledRecipe) error 
 	if max := h.cfg.MaxTargets(); max > 0 && len(ids) > max {
 		return fmt.Errorf("resolved %d devices exceeds the max-targets limit %d", len(ids), max)
 	}
-	cmd, err := h.db.CreateCommand(ctx, rec.Type, rec.ApkURL, rec.Payload, "devices", ids)
+	cmd, err := h.db.CreateCommandBy(ctx, rec.Type, rec.ApkURL, rec.Payload, "devices", ids, "Scheduled recipe: "+rec.Name)
 	if err != nil {
 		return err
 	}
@@ -12362,7 +12386,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 // InternalPage serves admin/dev-only presenter material — the system audit and the
 // demo runbook — from templates/demo/<n>.html. Kept separate from DemoPage so these
 // candid, internal-facing documents sit behind requireAdmin rather than requireAuth,
-// and so they're never exposed to a viewer/operator/tester or an external guest login.
+// and so they're never exposed to a viewer/operator/operator or an external guest login.
 func (h *Handler) InternalPage(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimPrefix(r.URL.Path, "/demo/")
 	switch name {
@@ -12405,7 +12429,7 @@ func (h *Handler) SettingsSetMaxTargets(w http.ResponseWriter, r *http.Request) 
 // ── Device diagnostics catalog ───────────────────────────────────────────────
 // Admins curate a set of read-only device queries (label + shell command). They're
 // surfaced on the device page as "retrieve property" buttons; because the command
-// text comes only from this catalog (never user input), testers may run them even
+// text comes only from this catalog (never user input), operators may run them even
 // though they cannot send raw shell.
 
 // deviceQueryFromForm reads the shared create/edit form fields into a DeviceQuery.
@@ -13298,7 +13322,7 @@ func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
 }
 
 // AlertConfigView renders the alert-rule configuration read-only. Editing stays
-// in Settings (admin-only); this page lets testers and devs see exactly what the
+// in Settings (admin-only); this page lets operators and devs see exactly what the
 // fleet watches for and the thresholds that trigger each alert.
 func (h *Handler) AlertConfigView(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "alert_config.html", map[string]any{
@@ -13660,7 +13684,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cmd, err := h.db.CreateCommand(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID})
+	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID}, h.currentDisplayName(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -14087,11 +14111,33 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ActivityPage renders the admin-only activity log — every audit entry, optionally
+// filtered to one user, so an admin can see everything at once or drill into one
+// person's actions.
+func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
+	actor := r.URL.Query().Get("actor")
+	entries, err := h.db.ListAuditFiltered(r.Context(), actor, 500)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	actors, err := h.db.ListAuditActors(r.Context())
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	h.render(w, r, "activity.html", map[string]any{
+		"Entries": entries,
+		"Actors":  actors,
+		"Actor":   actor,
+	})
+}
+
 // validUserRole reports whether role is a role an admin may assign to a DB user.
 // "admin" is excluded — it is env-configured only, never a DB user.
 func validUserRole(role string) bool {
 	switch role {
-	case "viewer", "tester":
+	case "viewer", "operator":
 		return true
 	}
 	return false
@@ -14105,6 +14151,8 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(strings.ToLower(r.FormValue("email")))
 	password := r.FormValue("password")
 	role := r.FormValue("role")
+	firstName := strings.TrimSpace(r.FormValue("first_name"))
+	lastName := strings.TrimSpace(r.FormValue("last_name"))
 
 	if email == "" || password == "" || !validUserRole(role) {
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
@@ -14117,11 +14165,29 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.db.CreateUser(r.Context(), email, string(hash), role, &email, true); err != nil {
+	if _, err := h.db.CreateUserNamed(r.Context(), email, string(hash), role, &email, true, firstName, lastName); err != nil {
 		http.Error(w, "An account with that email already exists, or internal error", http.StatusBadRequest)
 		return
 	}
 
+	http.Redirect(w, r, "/users", http.StatusFound)
+}
+
+// UserSetName lets an admin set/correct a user's first/last name — e.g. for
+// accounts created before names existed, or to fix a typo the user can't self-serve.
+func (h *Handler) UserSetName(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+	r.ParseForm()
+	firstName := strings.TrimSpace(r.FormValue("first_name"))
+	lastName := strings.TrimSpace(r.FormValue("last_name"))
+	if err := h.db.UpdateUserName(r.Context(), id, firstName, lastName); err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
 	http.Redirect(w, r, "/users", http.StatusFound)
 }
 
@@ -14250,8 +14316,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
-	post("POST /devices/{serial}/kiosk", h.requireAdminOrTester(h.DeviceKioskUpdate))
-	post("POST /devices/{serial}/wlc", h.requireAdminOrTester(h.DeviceWlcUpdate))
+	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.DeviceKioskUpdate))
+	post("POST /devices/{serial}/wlc", h.requireAdminOrOperator(h.DeviceWlcUpdate))
 	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.DeviceRotateOfflineCode))
 	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireOperatorOrAdmin(h.DeviceOfflineCode))
 	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
@@ -14259,12 +14325,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
 	// Remote screen capture + input injection is highly sensitive (full control of the
 	// device), so it is restricted to admins only.
-	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdminOrTester(h.DeviceRemote))
+	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdminOrOperator(h.DeviceRemote))
 	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
 	post("POST /devices/bulk-unhide", h.requireAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
-	post("POST /devices/bulk-kiosk", h.requireAdminOrTester(h.BulkKioskUpdate))
-	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrTester(h.BulkKioskApps))
+	post("POST /devices/bulk-kiosk", h.requireAdminOrOperator(h.BulkKioskUpdate))
+	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrOperator(h.BulkKioskApps))
 	mux.HandleFunc("GET /export", h.requireAuth(h.ExportPage))
 	post("POST /export/csv", h.requireAuth(h.ExportCSV))
 	mux.HandleFunc("GET /devices/{serial}/packages", h.requireAuth(h.DevicePackages))
@@ -14275,12 +14341,12 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/logcat/live", h.requireAuth(h.LogcatLivePage))
 	mux.HandleFunc("GET /devices/{serial}/logcat/stream", h.requireAuth(h.LogcatStream))
 
-	mux.HandleFunc("GET /groups/new", h.requireAdminOrTester(h.GroupNew))
-	mux.HandleFunc("GET /groups/new/devices", h.requireAdminOrTester(h.GroupNewDevices))
+	mux.HandleFunc("GET /groups/new", h.requireAdminOrOperator(h.GroupNew))
+	mux.HandleFunc("GET /groups/new/devices", h.requireAdminOrOperator(h.GroupNewDevices))
 	mux.HandleFunc("GET /groups", h.requireAuth(h.GroupList))
-	post("POST /groups", h.requireAdminOrTester(h.GroupCreate))
+	post("POST /groups", h.requireAdminOrOperator(h.GroupCreate))
 	mux.HandleFunc("GET /groups/{id}", h.requireAuth(h.GroupDetail))
-	mux.HandleFunc("GET /groups/{id}/devices-modal", h.requireAdminOrTester(h.GroupDevicesModal))
+	mux.HandleFunc("GET /groups/{id}/devices-modal", h.requireAdminOrOperator(h.GroupDevicesModal))
 	mux.HandleFunc("GET /groups/{id}/device-search", h.requireAuth(h.GroupDeviceSearch))
 	mux.HandleFunc("GET /groups/{id}/members", h.requireAuth(h.GroupMembers))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
@@ -14289,7 +14355,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /alerts/newest", h.requireAuth(h.AlertNewest))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
-	mux.HandleFunc("GET /alert-config", h.requireAdminOrTester(h.AlertConfigView))
+	mux.HandleFunc("GET /alert-config", h.requireAdminOrOperator(h.AlertConfigView))
 	// Requires auth: the page exposes real device serials and restaurant/venue names,
 	// so it must not be anonymous even though it's a standalone "wrapped" page.
 	mux.HandleFunc("GET /wrapped", h.requireAuth(h.WrappedPage))
@@ -14301,40 +14367,40 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /alerts/clear-all", h.requireAdmin(h.AlertClearAll))
 	post("POST /alerts/{id}/ack", h.requireOperatorOrAdmin(h.AlertAck))
 	post("POST /alerts/{id}/resolve", h.requireOperatorOrAdmin(h.AlertResolve))
-	post("POST /groups/{id}", h.requireAdminOrTester(h.GroupUpdate))
-	post("POST /groups/{id}/delete", h.requireAdminOrTester(h.GroupDelete))
-	post("POST /groups/{id}/devices", h.requireAdminOrTester(h.GroupAddDevice))
+	post("POST /groups/{id}", h.requireAdminOrOperator(h.GroupUpdate))
+	post("POST /groups/{id}/delete", h.requireAdminOrOperator(h.GroupDelete))
+	post("POST /groups/{id}/devices", h.requireAdminOrOperator(h.GroupAddDevice))
 
 	// Restaurants (venue object). Static sub-paths registered before /{id}.
-	mux.HandleFunc("GET /restaurants/new", h.requireAdminOrTester(h.RestaurantNew))
-	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdminOrTester(h.RestaurantNewDevices))
+	mux.HandleFunc("GET /restaurants/new", h.requireAdminOrOperator(h.RestaurantNew))
+	mux.HandleFunc("GET /restaurants/new/device-picker", h.requireAdminOrOperator(h.RestaurantNewDevices))
 	mux.HandleFunc("GET /restaurants", h.requireAuth(h.RestaurantList))
-	post("POST /restaurants", h.requireAdminOrTester(h.RestaurantCreate))
+	post("POST /restaurants", h.requireAdminOrOperator(h.RestaurantCreate))
 	mux.HandleFunc("GET /restaurants/{id}", h.requireAuth(h.RestaurantDetail))
-	mux.HandleFunc("GET /restaurants/{id}/edit", h.requireAdminOrTester(h.RestaurantEdit))
-	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.requireAdminOrTester(h.RestaurantDevicesModal))
+	mux.HandleFunc("GET /restaurants/{id}/edit", h.requireAdminOrOperator(h.RestaurantEdit))
+	mux.HandleFunc("GET /restaurants/{id}/devices-modal", h.requireAdminOrOperator(h.RestaurantDevicesModal))
 	mux.HandleFunc("GET /restaurants/{id}/daily-stats", h.requireAuth(h.RestaurantDailyStatsJSON))
 	mux.HandleFunc("GET /restaurants/{id}/members", h.requireAuth(h.RestaurantMembers))
-	post("POST /restaurants/{id}", h.requireAdminOrTester(h.RestaurantUpdate))
-	post("POST /restaurants/{id}/rename", h.requireAdminOrTester(h.RestaurantRename))
-	post("POST /restaurants/{id}/delete", h.requireAdminOrTester(h.RestaurantDelete))
-	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.requireAdminOrTester(h.RestaurantDevicePicker))
-	post("POST /restaurants/{id}/devices", h.requireAdminOrTester(h.RestaurantAssignDevices))
-	post("POST /restaurants/{id}/devices/{serial}/remove", h.requireAdminOrTester(h.RestaurantRemoveDevice))
-	post("POST /restaurants/{id}/service-window", h.requireAdminOrTester(h.RestaurantSetServiceWindow))
+	post("POST /restaurants/{id}", h.requireAdminOrOperator(h.RestaurantUpdate))
+	post("POST /restaurants/{id}/rename", h.requireAdminOrOperator(h.RestaurantRename))
+	post("POST /restaurants/{id}/delete", h.requireAdminOrOperator(h.RestaurantDelete))
+	mux.HandleFunc("GET /restaurants/{id}/device-picker", h.requireAdminOrOperator(h.RestaurantDevicePicker))
+	post("POST /restaurants/{id}/devices", h.requireAdminOrOperator(h.RestaurantAssignDevices))
+	post("POST /restaurants/{id}/devices/{serial}/remove", h.requireAdminOrOperator(h.RestaurantRemoveDevice))
+	post("POST /restaurants/{id}/service-window", h.requireAdminOrOperator(h.RestaurantSetServiceWindow))
 	post("POST /devices/{serial}/restaurant", h.requireAdmin(h.DeviceSetRestaurant))
-	post("POST /groups/{id}/devices/remove", h.requireAdminOrTester(h.GroupBulkRemoveDevice))
-	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdminOrTester(h.GroupRemoveDevice))
-	post("POST /groups/{id}/commands", h.requireAdminOrTester(h.GroupCommandCreate))
+	post("POST /groups/{id}/devices/remove", h.requireAdminOrOperator(h.GroupBulkRemoveDevice))
+	post("POST /groups/{id}/devices/{serial}/remove", h.requireAdminOrOperator(h.GroupRemoveDevice))
+	post("POST /groups/{id}/commands", h.requireAdminOrOperator(h.GroupCommandCreate))
 
-	// Productions is owned by the test team: admin/dev/tester can list, view,
-	// create and export (requireAdminOrTester). Deletion stays admin/dev-only.
-	mux.HandleFunc("GET /productions", h.requireAdminOrTester(h.ProductionList))
-	mux.HandleFunc("GET /productions/new", h.requireAdminOrTester(h.ProductionNew))
-	post("POST /productions", h.requireAdminOrTester(h.ProductionCreate))
-	mux.HandleFunc("GET /productions/preview-serial", h.requireAdminOrTester(h.ProductionPreviewSerial))
-	mux.HandleFunc("GET /productions/{id}", h.requireAdminOrTester(h.ProductionDetail))
-	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdminOrTester(h.ProductionExportCSV))
+	// Productions is owned by the test team: admin/dev/operator can list, view,
+	// create and export (requireAdminOrOperator). Deletion stays admin/dev-only.
+	mux.HandleFunc("GET /productions", h.requireAdminOrOperator(h.ProductionList))
+	mux.HandleFunc("GET /productions/new", h.requireAdminOrOperator(h.ProductionNew))
+	post("POST /productions", h.requireAdminOrOperator(h.ProductionCreate))
+	mux.HandleFunc("GET /productions/preview-serial", h.requireAdminOrOperator(h.ProductionPreviewSerial))
+	mux.HandleFunc("GET /productions/{id}", h.requireAdminOrOperator(h.ProductionDetail))
+	mux.HandleFunc("GET /productions/{id}/export.csv", h.requireAdminOrOperator(h.ProductionExportCSV))
 	post("POST /productions/{id}/delete", h.requireAdmin(h.ProductionDelete))
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
@@ -14414,14 +14480,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /setup/apps/{id}/edit", h.requireAdmin(h.SetupUpdateApp))
 	post("POST /setup/apps/{id}/delete", h.requireAdmin(h.SetupDeleteApp))
 
-	mux.HandleFunc("GET /releases", h.requireAdminOrTester(h.ReleaseList))
-	mux.HandleFunc("GET /releases/events", h.requireAdminOrTester(h.ReleaseProblemEvents))
+	mux.HandleFunc("GET /releases", h.requireAdminOrOperator(h.ReleaseList))
+	mux.HandleFunc("GET /releases/events", h.requireAdminOrOperator(h.ReleaseProblemEvents))
 	post("POST /releases", h.requireAdmin(h.ReleaseCreate))
-	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrTester(h.ReleaseDetail))
-	mux.HandleFunc("GET /releases/{id}/qa", h.requireAdminOrTester(h.ReleaseQAPage))
+	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrOperator(h.ReleaseDetail))
+	mux.HandleFunc("GET /releases/{id}/qa", h.requireAdminOrOperator(h.ReleaseQAPage))
 	post("POST /releases/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
 	post("POST /releases/{id}/packages/inspect", h.requireAdmin(h.PackageInspect))
-	mux.HandleFunc("GET /releases/{id}/crashes", h.requireAdminOrTester(h.ReleaseCrashes))
+	mux.HandleFunc("GET /releases/{id}/crashes", h.requireAdminOrOperator(h.ReleaseCrashes))
 	post("POST /releases/{id}/crashes/group/delete", h.requireAdmin(h.ReleaseCrashGroupDelete))
 	post("POST /releases/{id}/crashes/{eid}/delete", h.requireAdmin(h.ReleaseCrashDelete))
 	post("POST /releases/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
@@ -14437,31 +14503,31 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
 	post("POST /releases/{id}/delete", h.requireAdmin(h.ReleaseDelete))
 	post("POST /releases/{id}/publish", h.requireAdmin(h.ReleasePublish))
-	mux.HandleFunc("GET /updates", h.requireAdminOrTester(h.UpdatesHub))
+	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
 	mux.HandleFunc("GET /updates/new", h.requireAdmin(h.NewUpdatePage))
 	post("POST /updates", h.requireAdmin(h.DeployCreate))
 	post("POST /releases/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
-	post("POST /releases/{id}/testing-done", h.requireAdminOrTester(h.ReleaseTestingDone))
-	post("POST /releases/{id}/testing-done/clear", h.requireAdminOrTester(h.ReleaseReopenTesting))
+	post("POST /releases/{id}/testing-done", h.requireAdminOrOperator(h.ReleaseTestingDone))
+	post("POST /releases/{id}/testing-done/clear", h.requireAdminOrOperator(h.ReleaseReopenTesting))
 	post("POST /releases/{id}/branch", h.requireAdmin(h.ReleaseCreateBranch))
 	post("POST /releases/{id}/merge", h.requireAdmin(h.ReleaseMerge))
-	post("POST /releases/{id}/test-results", h.requireTester(h.ReleaseSetTestResult))
-	// Problem reports: any operator/tester can file and triage; admins can delete.
+	post("POST /releases/{id}/test-results", h.requireOperatorRole(h.ReleaseSetTestResult))
+	// Problem reports: any operator/operator can file and triage; admins can delete.
 	post("POST /releases/{id}/problems", h.requireOperatorOrAdmin(h.ReleaseProblemCreate))
 	post("POST /releases/{id}/problems/{pid}", h.requireOperatorOrAdmin(h.ReleaseProblemUpdate))
 	post("POST /releases/{id}/problems/{pid}/delete", h.requireAdmin(h.ReleaseProblemDelete))
 
 	// Test team / QA — base cases are managed inline on the Releases page (admin),
-	// testers mark results per-release. No standalone Testing/Test-cases pages.
+	// operators mark results per-release. No standalone Testing/Test-cases pages.
 	post("POST /test-cases", h.requireAdmin(h.TestCaseCreate))
 	post("POST /test-cases/{id}/edit", h.requireAdmin(h.TestCaseUpdate))
 	post("POST /test-cases/{id}/delete", h.requireAdmin(h.TestCaseDelete))
-	mux.HandleFunc("GET /demo/updates", h.requireAdminOrTester(h.DemoUpdatesIndex))
-	mux.HandleFunc("GET /demo/updates/{scenario}", h.requireAdminOrTester(h.DemoUpdatesScenario))
-	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAdminOrTester(h.DeploymentDetail))
-	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrTester(h.DeploymentEvents))
+	mux.HandleFunc("GET /demo/updates", h.requireAdminOrOperator(h.DemoUpdatesIndex))
+	mux.HandleFunc("GET /demo/updates/{scenario}", h.requireAdminOrOperator(h.DemoUpdatesScenario))
+	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAdminOrOperator(h.DeploymentDetail))
+	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrOperator(h.DeploymentEvents))
 	post("POST /releases/{id}/deployments/{did}/settings", h.requireOperatorOrAdmin(h.DeploymentUpdateSettings))
 	post("POST /releases/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
 	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireOperatorOrAdmin(h.DeploymentAddTargets))
@@ -14472,9 +14538,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/remove", h.requireOperatorOrAdmin(h.DeploymentRemoveDevice))
 	post("POST /releases/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 
+	mux.HandleFunc("GET /activity", h.requireStrictAdmin(h.ActivityPage))
 	mux.HandleFunc("GET /users", h.requireStrictAdmin(h.UserList))
 	post("POST /users", h.requireStrictAdmin(h.UserCreate))
 	post("POST /users/{id}/role", h.requireStrictAdmin(h.UserSetRole))
+	post("POST /users/{id}/name", h.requireStrictAdmin(h.UserSetName))
 	post("POST /users/{id}/password", h.requireStrictAdmin(h.UserSetPassword))
 	post("POST /users/{id}/delete", h.requireStrictAdmin(h.UserDelete))
 

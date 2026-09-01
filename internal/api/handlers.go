@@ -1555,7 +1555,7 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 		body.Payload = apkmeta.Augment(r.Context(), body.ApkURL, body.Payload)
 	}
 
-	cmd, err := h.db.CreateCommand(r.Context(), body.Type, body.ApkURL, body.Payload, body.TargetType, targetIDs)
+	cmd, err := h.db.CreateCommandBy(r.Context(), body.Type, body.ApkURL, body.Payload, body.TargetType, targetIDs, "API key")
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return

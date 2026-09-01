@@ -258,12 +258,13 @@ func (t UpdateTarget) DurationSeconds() int {
 }
 
 type Command struct {
-	ID         uuid.UUID       `json:"id"`
-	Type       string          `json:"type"`
-	ApkURL     string          `json:"apk_url"`
-	Payload    json.RawMessage `json:"payload"`
-	TargetType string          `json:"target_type"`
-	CreatedAt  time.Time       `json:"created_at"`
+	ID          uuid.UUID       `json:"id"`
+	Type        string          `json:"type"`
+	ApkURL      string          `json:"apk_url"`
+	Payload     json.RawMessage `json:"payload"`
+	TargetType  string          `json:"target_type"`
+	CreatedBy   string          `json:"created_by"` // display name/email snapshotted at creation; "" for system-initiated
+	CreatedAt   time.Time       `json:"created_at"`
 }
 
 type ExportRow struct {
@@ -368,11 +369,23 @@ func (p *Production) LastSerial() string {
 type User struct {
 	ID              uuid.UUID  `json:"id"`
 	Username        string     `json:"username"`
-	Role            string     `json:"role"` // "viewer" | "tester"
+	Role            string     `json:"role"` // "viewer" | "operator"
 	PasswordHash    string     `json:"-"`
 	Email           *string    `json:"email,omitempty"`
 	EmailVerifiedAt *time.Time `json:"email_verified_at,omitempty"`
+	FirstName       string     `json:"first_name"`
+	LastName        string     `json:"last_name"`
 	CreatedAt       time.Time  `json:"created_at"`
+}
+
+// DisplayName returns "First Last" when a name is on file, else the username
+// (usually an email) so the UI always has something readable to show.
+func (u User) DisplayName() string {
+	n := strings.TrimSpace(u.FirstName + " " + u.LastName)
+	if n == "" {
+		return u.Username
+	}
+	return n
 }
 
 // CreateUser inserts a new DB user. email may be nil (legacy/admin-created accounts
@@ -380,13 +393,18 @@ type User struct {
 // or the account has no email so verification doesn't apply) vs. NULL (self-signup,
 // pending the emailed verify link).
 func (d *DB) CreateUser(ctx context.Context, username, passwordHash, role string, email *string, emailVerified bool) (*User, error) {
+	return d.CreateUserNamed(ctx, username, passwordHash, role, email, emailVerified, "", "")
+}
+
+// CreateUserNamed is CreateUser plus a first/last name captured at sign-up.
+func (d *DB) CreateUserNamed(ctx context.Context, username, passwordHash, role string, email *string, emailVerified bool, firstName, lastName string) (*User, error) {
 	var u User
 	err := d.pool.QueryRow(ctx, `
-		INSERT INTO users (username, password_hash, role, email, email_verified_at)
-		VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN NOW() ELSE NULL END)
-		RETURNING id, username, role, password_hash, email, email_verified_at, created_at
-	`, username, passwordHash, role, email, emailVerified).Scan(
-		&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.CreatedAt)
+		INSERT INTO users (username, password_hash, role, email, email_verified_at, first_name, last_name)
+		VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN NOW() ELSE NULL END, $6, $7)
+		RETURNING id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at
+	`, username, passwordHash, role, email, emailVerified, firstName, lastName).Scan(
+		&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -396,9 +414,9 @@ func (d *DB) CreateUser(ctx context.Context, username, passwordHash, role string
 func (d *DB) GetUserByUsername(ctx context.Context, username string) (*User, error) {
 	var u User
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, username, role, password_hash, email, email_verified_at, created_at
+		SELECT id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at
 		FROM users WHERE username = $1
-	`, username).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.CreatedAt)
+	`, username).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -410,9 +428,23 @@ func (d *DB) GetUserByUsername(ctx context.Context, username string) (*User, err
 func (d *DB) GetUserByEmail(ctx context.Context, email string) (*User, error) {
 	var u User
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, username, role, password_hash, email, email_verified_at, created_at
+		SELECT id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at
 		FROM users WHERE lower(email) = lower($1)
-	`, email).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.CreatedAt)
+	`, email).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// GetUser looks up a user by id (e.g. to resolve "who ran this command" for the
+// activity log / actions history).
+func (d *DB) GetUser(ctx context.Context, id uuid.UUID) (*User, error) {
+	var u User
+	err := d.pool.QueryRow(ctx, `
+		SELECT id, username, role, password_hash, email, email_verified_at, first_name, last_name, created_at
+		FROM users WHERE id = $1
+	`, id).Scan(&u.ID, &u.Username, &u.Role, &u.PasswordHash, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -428,7 +460,7 @@ func (d *DB) SetUserEmailVerified(ctx context.Context, id uuid.UUID) error {
 
 func (d *DB) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT id, username, role, email, email_verified_at, created_at FROM users ORDER BY created_at ASC
+		SELECT id, username, role, email, email_verified_at, first_name, last_name, created_at FROM users ORDER BY created_at ASC
 	`)
 	if err != nil {
 		return nil, err
@@ -437,7 +469,7 @@ func (d *DB) ListUsers(ctx context.Context) ([]User, error) {
 	var users []User
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Email, &u.EmailVerifiedAt, &u.CreatedAt); err != nil {
+		if err := rows.Scan(&u.ID, &u.Username, &u.Role, &u.Email, &u.EmailVerifiedAt, &u.FirstName, &u.LastName, &u.CreatedAt); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -453,6 +485,14 @@ func (d *DB) DeleteUser(ctx context.Context, id uuid.UUID) error {
 // UpdateUserRole changes a user's role. The caller validates the role value.
 func (d *DB) UpdateUserRole(ctx context.Context, id uuid.UUID, role string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE users SET role = $2 WHERE id = $1`, id, role)
+	return err
+}
+
+// UpdateUserName sets a user's first/last name — set at sign-up, editable
+// afterward by the user or an admin (e.g. for accounts created before names
+// existed, or to correct a typo).
+func (d *DB) UpdateUserName(ctx context.Context, id uuid.UUID, firstName, lastName string) error {
+	_, err := d.pool.Exec(ctx, `UPDATE users SET first_name = $2, last_name = $3 WHERE id = $1`, id, firstName, lastName)
 	return err
 }
 
@@ -2753,7 +2793,17 @@ func DeviceCommandType(t string) string {
 
 // CreateCommand creates a command. For target_type "devices", targetIDs are device UUIDs.
 // For "groups", they are group UUIDs. For "all", targetIDs is empty.
+// CreateCommand issues a command with no attributed user (system/scheduler-initiated,
+// e.g. auto-reboot or a redrive tick). Prefer CreateCommandBy for anything triggered
+// from the dashboard or API by a logged-in operator.
 func (d *DB) CreateCommand(ctx context.Context, cmdType, apkURL string, payload json.RawMessage, targetType string, targetIDs []uuid.UUID) (*Command, error) {
+	return d.CreateCommandBy(ctx, cmdType, apkURL, payload, targetType, targetIDs, "")
+}
+
+// CreateCommandBy is CreateCommand plus createdBy, a display name/email snapshotted
+// at creation time so "who ran this" survives even if the user account is later
+// renamed or deleted. Pass "" for system-initiated commands.
+func (d *DB) CreateCommandBy(ctx context.Context, cmdType, apkURL string, payload json.RawMessage, targetType string, targetIDs []uuid.UUID, createdBy string) (*Command, error) {
 	tx, err := d.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -2765,10 +2815,10 @@ func (d *DB) CreateCommand(ctx context.Context, cmdType, apkURL string, payload 
 		payload = json.RawMessage("{}")
 	}
 	err = tx.QueryRow(ctx, `
-		INSERT INTO commands (type, apk_url, payload, target_type)
-		VALUES ($1, $2, $3, $4)
-		RETURNING id, type, apk_url, payload, target_type, created_at
-	`, cmdType, apkURL, payload, targetType).Scan(&cmd.ID, &cmd.Type, &cmd.ApkURL, &cmd.Payload, &cmd.TargetType, &cmd.CreatedAt)
+		INSERT INTO commands (type, apk_url, payload, target_type, created_by)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, type, apk_url, payload, target_type, created_by, created_at
+	`, cmdType, apkURL, payload, targetType, createdBy).Scan(&cmd.ID, &cmd.Type, &cmd.ApkURL, &cmd.Payload, &cmd.TargetType, &cmd.CreatedBy, &cmd.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -2800,7 +2850,7 @@ func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, e
 	// update_splash (boot logo) is managed on its own config page (/boot-logo) and
 	// deliberately excluded from the Actions and history lists — it's a fleet config
 	// action, not a tracked one-off command.
-	q := `SELECT id, type, apk_url, payload, target_type, created_at FROM commands WHERE type != 'update_splash'`
+	q := `SELECT id, type, apk_url, payload, target_type, created_by, created_at FROM commands WHERE type != 'update_splash'`
 	if sinceDays > 0 {
 		q += fmt.Sprintf(" AND created_at >= NOW() - INTERVAL '%d days'", sinceDays)
 		// The day window alone doesn't bound the row count — a busy fleet issuing
@@ -2822,7 +2872,7 @@ func (d *DB) ListCommandsSince(ctx context.Context, sinceDays int) ([]Command, e
 	var cmds []Command
 	for rows.Next() {
 		var c Command
-		if err := rows.Scan(&c.ID, &c.Type, &c.ApkURL, &c.Payload, &c.TargetType, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.ID, &c.Type, &c.ApkURL, &c.Payload, &c.TargetType, &c.CreatedBy, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		cmds = append(cmds, c)
@@ -3776,6 +3826,7 @@ type DeviceCommand struct {
 	ApkURL     string          `json:"apk_url"`
 	Payload    json.RawMessage `json:"payload"`
 	TargetType string          `json:"target_type"`
+	CreatedBy  string          `json:"created_by"`
 	CreatedAt  time.Time       `json:"created_at"`
 	Status     string          `json:"status"`
 	UpdatedAt  time.Time       `json:"updated_at"`
@@ -3797,7 +3848,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 		installExpiry = 900
 	}
 	rows, err := d.pool.Query(ctx, fmt.Sprintf(`
-		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at,
+		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_by, c.created_at,
 		       CASE
 		         -- Expire an install by LAST ACTIVITY (updated_at), not creation time, so a
 		         -- large APK that legitimately takes a while to download isn't shown 'expired'
@@ -3842,7 +3893,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 	var out []DeviceCommand
 	for rows.Next() {
 		var dc DeviceCommand
-		if err := rows.Scan(&dc.ID, &dc.Type, &dc.ApkURL, &dc.Payload, &dc.TargetType, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt, &dc.Output, &dc.Progress); err != nil {
+		if err := rows.Scan(&dc.ID, &dc.Type, &dc.ApkURL, &dc.Payload, &dc.TargetType, &dc.CreatedBy, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt, &dc.Output, &dc.Progress); err != nil {
 			return nil, err
 		}
 		out = append(out, dc)
@@ -3856,7 +3907,7 @@ func (d *DB) GetDeviceCommands(ctx context.Context, deviceID uuid.UUID, expirySe
 // update_splash (boot logo) is excluded, matching GetDeviceCommands.
 func (d *DB) GetDeviceQueue(ctx context.Context, deviceID uuid.UUID) ([]DeviceCommand, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_at,
+		SELECT c.id, c.type, c.apk_url, c.payload, c.target_type, c.created_by, c.created_at,
 		       COALESCE(cs.status, 'pending') AS status,
 		       COALESCE(cs.updated_at, c.created_at) AS updated_at,
 		       '' AS output, cs.progress
@@ -3896,7 +3947,7 @@ func (d *DB) GetDeviceQueue(ctx context.Context, deviceID uuid.UUID) ([]DeviceCo
 	var out []DeviceCommand
 	for rows.Next() {
 		var dc DeviceCommand
-		if err := rows.Scan(&dc.ID, &dc.Type, &dc.ApkURL, &dc.Payload, &dc.TargetType, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt, &dc.Output, &dc.Progress); err != nil {
+		if err := rows.Scan(&dc.ID, &dc.Type, &dc.ApkURL, &dc.Payload, &dc.TargetType, &dc.CreatedBy, &dc.CreatedAt, &dc.Status, &dc.UpdatedAt, &dc.Output, &dc.Progress); err != nil {
 			return nil, err
 		}
 		out = append(out, dc)
@@ -5327,11 +5378,24 @@ func (d *DB) InsertAudit(ctx context.Context, actor, action, target, detail stri
 }
 
 func (d *DB) ListAudit(ctx context.Context, limit int) ([]AuditEntry, error) {
+	return d.ListAuditFiltered(ctx, "", limit)
+}
+
+// ListAuditFiltered is ListAudit with an optional actor filter (exact match) — backs
+// the Activity page's per-user view. actor == "" returns everyone.
+func (d *DB) ListAuditFiltered(ctx context.Context, actor string, limit int) ([]AuditEntry, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 200
 	}
-	rows, err := d.pool.Query(ctx,
-		`SELECT id, created_at, actor, action, target, detail FROM audit_log ORDER BY created_at DESC LIMIT $1`, limit)
+	var rows pgx.Rows
+	var err error
+	if actor == "" {
+		rows, err = d.pool.Query(ctx,
+			`SELECT id, created_at, actor, action, target, detail FROM audit_log ORDER BY created_at DESC LIMIT $1`, limit)
+	} else {
+		rows, err = d.pool.Query(ctx,
+			`SELECT id, created_at, actor, action, target, detail FROM audit_log WHERE actor = $2 ORDER BY created_at DESC LIMIT $1`, limit, actor)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -5340,6 +5404,26 @@ func (d *DB) ListAudit(ctx context.Context, limit int) ([]AuditEntry, error) {
 	for rows.Next() {
 		var a AuditEntry
 		if err := rows.Scan(&a.ID, &a.CreatedAt, &a.Actor, &a.Action, &a.Target, &a.Detail); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// ListAuditActors returns the distinct actor names that have logged activity,
+// newest-active first — backs the Activity page's per-user filter dropdown.
+func (d *DB) ListAuditActors(ctx context.Context) ([]string, error) {
+	rows, err := d.pool.Query(ctx,
+		`SELECT actor FROM audit_log GROUP BY actor ORDER BY MAX(created_at) DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var a string
+		if err := rows.Scan(&a); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -8882,14 +8966,14 @@ CREATE TABLE IF NOT EXISTS version_order (
     position INTEGER NOT NULL
 );
 
--- Test team (QA): widen the user role check to allow a 'tester' account. Drop-then-add
+-- Test team (QA): widen the user role check to allow a 'operator' account. Drop-then-add
 -- keeps it idempotent across restarts (the inline constraint is auto-named users_role_check).
 -- NOTE: this re-ADD re-validates every existing row on every boot, so its role list
 -- must contain EVERY role that can exist in the table — including ones added by later
 -- statements (e.g. 'dev' below). A narrower list here fails validation against a row a
 -- later statement legitimately allows, crashing the migration. Keep this the full set.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','dev'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','operator','dev'));
 
 -- Test cases: a reusable library plus per-release cases. base=true cases are checked on
 -- every release; base=false cases belong to one release (release_id set). active=false
@@ -8909,7 +8993,7 @@ CREATE TABLE IF NOT EXISTS test_cases (
 CREATE INDEX IF NOT EXISTS idx_test_cases_release ON test_cases(release_id);
 
 -- Per-release test outcomes. The applicable checklist is computed (active base cases plus
--- this release's own cases); a row is written only once a tester records a status, so a
+-- this release's own cases); a row is written only once a operator records a status, so a
 -- fresh release starts all-untested by absence.
 CREATE TABLE IF NOT EXISTS release_test_results (
     release_id   INTEGER NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
@@ -8928,7 +9012,7 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS skip_base_tests BOOLEAN NOT NULL D
 -- 'dev' role: full operational access (releases, OTA, devices, …) but NOT settings
 -- or user management; it is also the only role allowed to sign off a release.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','dev'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','operator','dev'));
 
 -- Dev sign-off on a release ("smoke-tested by dev, OK for QA to pick up").
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_by TEXT        NOT NULL DEFAULT '';
@@ -9108,7 +9192,7 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';
 -- device_crash alert grabs the device's error logs). NULL for manual captures.
 ALTER TABLE logcat_requests ADD COLUMN IF NOT EXISTS alert_id UUID;
 
--- Structured problem reports filed by testers against a release. A problem is
+-- Structured problem reports filed by operators against a release. A problem is
 -- release-scoped (auto-links the build), optionally references a specific test
 -- case and the device it was seen on, carries a severity + lifecycle status, and
 -- holds freeform detail (repro steps, pasted logs). This is the tracked record
@@ -9128,7 +9212,7 @@ CREATE TABLE IF NOT EXISTS release_problems (
 	updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_release_problems_release ON release_problems(release_id);
--- How a release problem was filed: 'manual' (tester filed it) or 'qa' (auto-created
+-- How a release problem was filed: 'manual' (operator filed it) or 'qa' (auto-created
 -- when a QA test case was marked failed). One 'qa' problem per (release, test_case).
 -- (Must run AFTER the CREATE TABLE above — the migration executes as one ordered
 -- script, so a fresh database has no release_problems table until this point.)
@@ -9150,8 +9234,8 @@ WHERE e.build_id = '' AND e.kind <> 'reboot'
   AND EXISTS (SELECT 1 FROM checkins c WHERE c.device_id = e.device_id AND c.created_at <= e.occurred_at AND c.build_id <> '');
 
 -- Release-problem continuity ("rides the release train"): a manual bug is a thread that
--- follows the releases forward until a tester verifies it fixed. fixed_in_release_id is
--- the build a dev claims the fix landed in; verified_in_release_id is the build a tester
+-- follows the releases forward until a operator verifies it fixed. fixed_in_release_id is
+-- the build a dev claims the fix landed in; verified_in_release_id is the build a operator
 -- confirmed it on. Origin stays in release_id ("reported in"). Prior/next ordering uses
 -- releases.created_at chronology — the manual version_order table is display-only.
 ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS fixed_in_release_id    INTEGER REFERENCES releases(id) ON DELETE SET NULL;
@@ -9234,13 +9318,13 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_devices_product ON devices(product);
 
 -- Operator role retired: fold any remaining operator accounts down to viewer
--- (read-only). Their action powers move to the tester/dev/admin roles.
+-- (read-only). Their action powers move to the operator/dev/admin roles.
 UPDATE users SET role = 'viewer' WHERE role = 'operator';
 
 -- Device diagnostics catalog: admin-curated read-only device queries surfaced as
 -- friendly "retrieve property" buttons (e.g. getprop ro.build.id, dumpsys battery).
 -- Each runs as an ordinary shell command whose text comes only from this catalog,
--- so testers can run vetted queries without raw shell access.
+-- so operators can run vetted queries without raw shell access.
 CREATE TABLE IF NOT EXISTS device_queries (
 	id          SERIAL PRIMARY KEY,
 	label       TEXT NOT NULL,
@@ -9274,12 +9358,12 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (lower(email)) WHERE email IS NOT NULL;
 
 -- Dev role retired: explicitly dropping existing dev accounts rather than folding
--- them into tester (matches how operator was retired above, but this time the
+-- them into operator (matches how operator was retired above, but this time the
 -- accounts themselves go, not just the role label).
 DELETE FROM users WHERE role = 'dev';
 
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','tester'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator'));
 
 CREATE TABLE IF NOT EXISTS user_tokens (
     token      TEXT PRIMARY KEY,
@@ -9290,6 +9374,26 @@ CREATE TABLE IF NOT EXISTS user_tokens (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS user_tokens_user_id_idx ON user_tokens (user_id);
+
+-- "Tester" role renamed to "operator": there's no separate testing workflow left
+-- in MDM, and "operator" is already the term used everywhere else (canOperate,
+-- requireOperatorOrAdmin) for this exact permission tier, so the role label was
+-- just out of sync with the concept. Existing tester accounts keep their
+-- permissions, just relabeled.
+UPDATE users SET role = 'operator' WHERE role = 'tester';
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator'));
+
+-- First/last name, settable at sign-up and editable by an admin afterward so the
+-- dashboard and audit trail can show a real name instead of a bare email address.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name  TEXT NOT NULL DEFAULT '';
+
+-- Attribution: which user pushed a given command, shown on the Actions page and
+-- a device's queue/history. A snapshot of the display name/email at creation time
+-- (not a user_id FK) so it survives the user account later being renamed or deleted.
+-- Empty for system/scheduler-initiated commands (auto-reboot, redrive).
+ALTER TABLE commands ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT '';
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────
@@ -10028,7 +10132,7 @@ func (d *DB) MergeBranch(ctx context.Context, branchID int, branchVersion, newVe
 		return 0, err
 	}
 
-	// Seed the new release's QA from the branch's results on shared BASE cases, so testers
+	// Seed the new release's QA from the branch's results on shared BASE cases, so operators
 	// pick up where the branch left off instead of a blank checklist.
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO release_test_results (release_id, test_case_id, status, notes, tested_by, tested_at)
@@ -11290,7 +11394,7 @@ func (d *DB) GetReleaseChecklist(ctx context.Context, releaseID int) ([]Checklis
 	return out, rows.Err()
 }
 
-// SetTestResult records (upserts) a tester's outcome for one case on one release.
+// SetTestResult records (upserts) a operator's outcome for one case on one release.
 func (d *DB) SetTestResult(ctx context.Context, releaseID int, testCaseID uuid.UUID, status, notes, testedBy string) error {
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO release_test_results (release_id, test_case_id, status, notes, tested_by, tested_at)
@@ -11324,7 +11428,7 @@ func (d *DB) ReleaseQASummary(ctx context.Context, releaseID int) (QASummary, er
 
 // ── Release problem reports ───────────────────────────────────────────────────
 
-// ReleaseProblem is a tracked problem a tester filed against a release. TestCase
+// ReleaseProblem is a tracked problem a operator filed against a release. TestCase
 // and Device are optional; the joined title/serial are populated for display.
 type ReleaseProblem struct {
 	ID            uuid.UUID
@@ -11348,7 +11452,7 @@ type ReleaseProblem struct {
 	OriginVersion       string // version the problem was first reported on (= ReleaseID)
 	FixedInReleaseID    *int   // build a dev claims the fix landed in; nil until claimed
 	FixedInVersion      string // joined version of FixedInReleaseID, "" when unset
-	VerifiedInReleaseID *int   // build a tester confirmed the fix on; nil until verified
+	VerifiedInReleaseID *int   // build a operator confirmed the fix on; nil until verified
 	VerifiedInVersion   string // joined version of VerifiedInReleaseID, "" when unset
 	Inherited           bool   // true when surfaced on a release later than its origin (carried forward)
 }
@@ -11449,7 +11553,7 @@ func (d *DB) ListReleaseProblems(ctx context.Context, releaseID int) ([]ReleaseP
 // onto releaseID but were NOT reported against it: (a) problems that were reported fixed
 // in an EARLIER build but whose QA verification then FAILED (reopened to 'open' while
 // keeping fixed_in_release_id) — these ride forward until a fix holds — and (b) problems
-// whose fix is claimed to land in THIS build (awaiting a tester's verification here). A
+// whose fix is claimed to land in THIS build (awaiting a operator's verification here). A
 // plain still-open bug that was never claimed fixed does NOT carry; it stays on its origin
 // build. All rows are flagged Inherited. Chronology is releases.created_at.
 func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]ReleaseProblem, error) {
@@ -11513,7 +11617,7 @@ func (d *DB) UpsertQAProblem(ctx context.Context, releaseID int, testCaseID uuid
 	if strings.TrimSpace(notes) == "" {
 		notes = "Marked failed in QA."
 	}
-	// Advisory lock so two testers failing the same case at once can't both pass
+	// Advisory lock so two operators failing the same case at once can't both pass
 	// NOT EXISTS and insert duplicate QA problems (no unique constraint exists).
 	if err := d.withAdvisoryLock(ctx, advisoryKeyIntUUID(releaseID, testCaseID), func(ctx context.Context) error {
 		_, err := d.pool.Exec(ctx, `
@@ -11576,7 +11680,7 @@ func (d *DB) DeleteReleaseProblem(ctx context.Context, id uuid.UUID) error {
 }
 
 // MarkProblemFixedIn records that a dev landed the fix for a problem in fixedInReleaseID
-// and moves it to 'fixed' (awaiting a tester's verification on that build). Passing 0
+// and moves it to 'fixed' (awaiting a operator's verification on that build). Passing 0
 // clears the fixed-in link and reopens the problem.
 func (d *DB) MarkProblemFixedIn(ctx context.Context, id uuid.UUID, fixedInReleaseID int) error {
 	if fixedInReleaseID <= 0 {
@@ -11595,7 +11699,7 @@ func (d *DB) MarkProblemFixedIn(ctx context.Context, id uuid.UUID, fixedInReleas
 	return err
 }
 
-// VerifyProblem marks a problem verified-fixed on verifiedInReleaseID (a tester confirmed
+// VerifyProblem marks a problem verified-fixed on verifiedInReleaseID (a operator confirmed
 // the fix on that build). If no fixed-in build was recorded, the verifying build is taken
 // as the fix build too.
 func (d *DB) VerifyProblem(ctx context.Context, id uuid.UUID, verifiedInReleaseID int) error {
@@ -11659,7 +11763,7 @@ func (d *DB) ReleaseProblemSummary(ctx context.Context, releaseID int) (ProblemS
 }
 
 // BuildCrash is a crash/ANR event observed on a device currently running a given
-// build — surfaced on the release page so testers see regressions to investigate.
+// build — surfaced on the release page so operators see regressions to investigate.
 type BuildCrash struct {
 	ID         uuid.UUID // device_events.id — lets an admin remove a specific crash
 	Serial     string

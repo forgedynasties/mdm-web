@@ -320,7 +320,7 @@
       {{if and (canOperate .Role) .DeviceQueries}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="query" onclick="selectType('query', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/></svg></span>Queries<span class="g">Diag</span></button>{{end}}
       {{if canAdmin .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="shell" onclick="selectType('shell', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg></span>Shell<span class="g">Diag</span></button>{{end}}
       <button type="button" class="pill" role="radio" aria-checked="false" data-type="reboot" onclick="selectType('reboot', this)"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg></span>Reboot<span class="g">Power</span></button>
-      {{if canAdminOrTester .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
+      {{if canAdminOrOperator .Role}}<button type="button" class="pill" role="radio" aria-checked="false" data-type="set_kiosk" onclick="selectType('set_kiosk', this)"><span class="ic"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>Kiosk<span class="g">Lock</span></button>{{end}}
     </div>
     <input type="hidden" name="type" id="cmd-type-input" value="install_apk">
   </div>
@@ -462,7 +462,7 @@
         <span id="send-label">Send action</span>
       </button>
       {{else}}
-      <div class="ro-note">You have view-only access — ask a tester or admin to send actions.</div>
+      <div class="ro-note">You have view-only access — ask a operator or admin to send actions.</div>
       <button type="button" class="btn-primary cr-send" disabled>
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
         Send action
@@ -1563,7 +1563,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     {{else if eq $state "run"}}{{if eq $total 0}}<span class="rcount">awaiting check-in</span>{{else if or (gt $s.Downloading 0) (gt $s.Installing 0)}}<span class="rcount" title="{{$s.Completed}} of {{$total}} done"><span class="pd"></span>{{if gt $s.Downloading 0}}{{$s.Downloading}} downloading{{end}}{{if and (gt $s.Downloading 0) (gt $s.Installing 0)}} · {{end}}{{if gt $s.Installing 0}}{{$s.Installing}} installing{{end}}</span>{{else}}<span class="rcount"><span class="pd"></span>{{$s.Completed}} / {{$total}}</span>{{end}}
     {{else}}<span class="rcount">{{if gt $s.Completed 1}}{{$s.Completed}} {{$verb}}{{else}}{{$verb}}{{end}}</span>{{end}}
   </div>
-  <span class="hwhen hrow-sent">{{timeSince $c.CreatedAt}}</span>
+  <span class="hwhen hrow-sent">{{timeSince $c.CreatedAt}}{{if $c.CreatedBy}} · <span class="mono">{{$c.CreatedBy}}</span>{{end}}</span>
   <div class="hact">
     {{if and (eq .Bucket "attn") (canOperate .Role)}}
     <form action="/commands/{{$c.ID}}/resend" method="POST" hx-confirm="Resend this action to all its original targets?">
@@ -1571,7 +1571,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
     </form>
     {{end}}
     {{if or (canAdmin .Role) (and (canOperate .Role) (ne .Bucket "done"))}}
-    {{/* Admin/dev can delete any command. Tester can delete In progress / Needs attention
+    {{/* Admin/dev can delete any command. Operator can delete In progress / Needs attention
          (this same condition — everything but "done") but not settled Completed history;
          CommandDelete enforces the same rule server-side. */}}
     {{/* hx-swap="none": the row itself isn't touched here — deletion publishes a

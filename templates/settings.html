@@ -335,7 +335,7 @@ function kioskAddPkg(pkg, el){
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header"><h3>Queries</h3><span class="muted small">admin-curated read-only device property checks</span></div>
   <div style="padding:16px;">
-    <div class="muted small" style="margin-bottom:12px;">Each query runs a fixed, read-only command. Testers, devs and admins can run them from the Actions page — no raw shell access needed.</div>
+    <div class="muted small" style="margin-bottom:12px;">Each query runs a fixed, read-only command. Operators, devs and admins can run them from the Actions page — no raw shell access needed.</div>
     {{if .DeviceQueries}}
     <div class="dq-list">
       {{range .DeviceQueries}}
@@ -552,7 +552,7 @@ function kioskAddPkg(pkg, el){
 <div class="card" style="margin-bottom:16px;">
   <div class="card-header">
     <h3>Base test cases <span class="muted small">{{len .BaseCases}}</span></h3>
-    <span class="muted small">Standard cases applied to every release · testers mark them per-release</span>
+    <span class="muted small">Standard cases applied to every release · operators mark them per-release</span>
   </div>
   <form action="/test-cases" method="POST" class="basecase-add" style="display:grid;gap:10px;padding:16px 20px;max-width:680px;border-bottom:1px solid var(--border-soft);">
     <input type="hidden" name="redirect" value="/settings#testing">

@@ -4,7 +4,7 @@
 {{template "fleet-tabs" .}}
 <div class="ov-greet">
   <span class="ov-date">{{len .Restaurants}} restaurant{{if ne (len .Restaurants) 1}}s{{end}} · venues</span>
-  {{if and .Restaurants (canAdminOrTester .Role)}}
+  {{if and .Restaurants (canAdminOrOperator .Role)}}
   <a href="/restaurants/new" class="btn-outline btn-plus" style="margin-left:auto;" title="New restaurant"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></a>
   {{end}}
 </div>
@@ -17,7 +17,7 @@
       <div class="empty-state-title">No restaurants yet</div>
       <div class="empty-state-text">Create a restaurant to track which venue a device lives in, its service hours, and whether it's live.</div>
     </div>
-    {{if canAdminOrTester .Role}}
+    {{if canAdminOrOperator .Role}}
     <div class="empty-state-actions">
       <a href="/restaurants/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Restaurant</a>
     </div>
@@ -47,7 +47,7 @@
       <span>{{if .Address}}{{.Address}}{{else}}<span class="muted">no address</span>{{end}}</span>
       <span class="gp-chip">{{.DeviceCount}} deployed</span>
     </div>
-    {{if canAdminOrTester $.Role}}
+    {{if canAdminOrOperator $.Role}}
     <form action="/restaurants/{{.ID}}/delete" method="POST" class="gp-del"
           hx-confirm="Delete restaurant {{.Name}}? Its devices become unassigned (lab).">
       <button type="submit" class="btn-danger-sm" title="Delete restaurant">x</button>

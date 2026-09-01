@@ -3,7 +3,7 @@
 {{/* Lean releases page: a release is just version + product + changelog + update packages.
      Pushing OTA lives on its own page (/updates). QA/sign-off/testing/problems/branches
      were removed. */}}
-{{$canQfil := or (eq .Role "admin") (eq .Role "dev") (eq .Role "tester")}}
+{{$canQfil := or (eq .Role "admin") (eq .Role "dev") (eq .Role "operator")}}
 
 <div class="ov-greet">
   <h1 class="ov-title">Releases</h1>

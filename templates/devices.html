@@ -80,7 +80,7 @@
      via OOB too — otherwise it kept showing whichever (or no) collection was
      active before the click. */}}
 {{define "coll-tools-block"}}
-{{if canAdminOrTester .Role}}
+{{if canAdminOrOperator .Role}}
 {{if .ActiveGroup}}
 <span class="coll-tools coll-menu-wrap">
   <button type="button" class="ct-btn" title="Group options" aria-label="Group options" aria-haspopup="true" aria-expanded="false" onclick="collMenuToggle(event)"><svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></button>
@@ -165,14 +165,14 @@
       <button type="submit" class="btn-outline" style="padding:3px 10px;font-size:12px;">Reactivate Selected</button>
     </form>
     {{end}}
-    {{if canAdminOrTester .Role}}
+    {{if canAdminOrOperator .Role}}
     <button type="button" class="btn-outline" onclick="openBulkGroupModal()" style="padding:3px 12px;font-size:12px;">Add to group</button>
     <button type="button" class="btn-outline" onclick="openBulkRestaurantModal()" style="padding:3px 12px;font-size:12px;">Add to restaurant</button>
     {{if .ActiveGroup}}
     <button type="button" class="btn-danger-sm" onclick="bulkRemoveFromGroup('{{.ActiveGroup}}')" style="padding:3px 10px;font-size:12px;">Remove from group</button>
     {{end}}
     {{end}}
-    {{if canAdminOrTester .Role}}
+    {{if canAdminOrOperator .Role}}
     <button type="button" class="btn-primary" onclick="bulkAction()" style="padding:3px 12px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
     {{end}}
     <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
@@ -280,7 +280,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     <div class="fleet-rail-empty">None reporting</div>
     {{end}}
 
-    <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a>{{if canAdminOrTester .Role}}<a href="/restaurants/new" class="add" title="New restaurant">+</a>{{end}}</div>
+    <div class="fleet-rail-cap"><a href="/devices?view=restaurants"{{if eq .View "restaurants"}} class="on"{{end}}>Restaurants</a>{{if canAdminOrOperator .Role}}<a href="/restaurants/new" class="add" title="New restaurant">+</a>{{end}}</div>
     {{range .RailRestaurants}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveRestaurant}} on{{end}}">
       <a class="ri-main" href="/devices?restaurant={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
@@ -289,10 +289,10 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     </div>
     {{end}}
     {{if not .RailRestaurants}}
-    <div class="fleet-rail-empty">{{if canAdminOrTester .Role}}<a href="/restaurants/new">+ Add restaurant</a>{{else}}None yet{{end}}</div>
+    <div class="fleet-rail-empty">{{if canAdminOrOperator .Role}}<a href="/restaurants/new">+ Add restaurant</a>{{else}}None yet{{end}}</div>
     {{end}}
 
-    <div class="fleet-rail-cap"><a href="/devices?view=groups"{{if eq .View "groups"}} class="on"{{end}}>Groups</a>{{if canAdminOrTester .Role}}<a href="/groups/new" class="add" title="New group">+</a>{{end}}</div>
+    <div class="fleet-rail-cap"><a href="/devices?view=groups"{{if eq .View "groups"}} class="on"{{end}}>Groups</a>{{if canAdminOrOperator .Role}}<a href="/groups/new" class="add" title="New group">+</a>{{end}}</div>
     {{range .RailGroups}}
     <div class="fleet-rail-item{{if eq (printf "%s" .GroupID) $.ActiveGroup}} on{{end}}">
       <a class="ri-main" href="/devices?group={{.GroupID}}"><span class="dot {{if eq .DeviceCount 0}}muted{{else if ge .Score 80}}ok{{else if ge .Score 50}}warn{{else}}bad{{end}}"></span><span class="nm">{{.Name}}</span></a>
@@ -301,7 +301,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     </div>
     {{end}}
     {{if not .RailGroups}}
-    <div class="fleet-rail-empty">{{if canAdminOrTester .Role}}<a href="/groups/new">+ Add group</a>{{else}}None yet{{end}}</div>
+    <div class="fleet-rail-empty">{{if canAdminOrOperator .Role}}<a href="/groups/new">+ Add group</a>{{else}}None yet{{end}}</div>
     {{end}}
 
     <div class="fleet-rail-cap"><a href="/releases">Releases</a></div>
@@ -327,7 +327,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
     <div class="fleet-pane-head">
       <span class="t">{{if $isRest}}Restaurants{{else}}Groups{{end}}</span>
       <span class="c">· {{if $isRest}}{{len .RailRestaurants}} venue{{if ne (len .RailRestaurants) 1}}s{{end}}{{else}}{{len .RailGroups}} group{{if ne (len .RailGroups) 1}}s{{end}}{{end}}</span>
-      {{if canAdminOrTester .Role}}<a class="btn-primary" style="margin-left:auto;" href="{{if $isRest}}/restaurants/new{{else}}/groups/new{{end}}">+ New {{if $isRest}}restaurant{{else}}group{{end}}</a>{{end}}
+      {{if canAdminOrOperator .Role}}<a class="btn-primary" style="margin-left:auto;" href="{{if $isRest}}/restaurants/new{{else}}/groups/new{{end}}">+ New {{if $isRest}}restaurant{{else}}group{{end}}</a>{{end}}
     </div>
     {{$items := .RailRestaurants}}{{if not $isRest}}{{$items = .RailGroups}}{{end}}
     {{if $items}}
@@ -341,7 +341,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
         <div class="cl-meta">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}{{if gt .OfflineCount 0}} · <span class="danger">{{.OfflineCount}} offline</span>{{end}}{{if gt .OpenCritical 0}} · <span class="danger">{{.OpenCritical}} critical</span>{{end}}</div>
         <div class="cl-foot">
           <a href="/{{if $isRest}}restaurants{{else}}groups{{end}}/{{.GroupID}}">Open</a>
-          {{if canAdminOrTester $.Role}}
+          {{if canAdminOrOperator $.Role}}
           {{if $isRest}}<a href="/restaurants/{{.GroupID}}/edit">Edit</a>{{end}}
           <form action="/{{if $isRest}}restaurants{{else}}groups{{end}}/{{.GroupID}}/delete" method="POST" class="cl-delform" onsubmit="return mdmConfirmSubmit(event, {title:'Delete {{if $isRest}}restaurant{{else}}group{{end}}', body:'Delete {{.Name}}?', tier:'danger', confirmLabel:'Delete'})"><button type="submit" class="cl-del">Delete</button></form>
           {{end}}
@@ -350,7 +350,7 @@ document.querySelectorAll('.page-nav').forEach(function(btn) {
       {{end}}
     </div>
     {{else}}
-    <div class="ovx-card" style="padding:30px;text-align:center;color:var(--muted);">No {{if $isRest}}restaurants{{else}}groups{{end}} yet.{{if canAdminOrTester .Role}} <a href="/{{if $isRest}}restaurants{{else}}groups{{end}}/new">Create one →</a>{{end}}</div>
+    <div class="ovx-card" style="padding:30px;text-align:center;color:var(--muted);">No {{if $isRest}}restaurants{{else}}groups{{end}} yet.{{if canAdminOrOperator .Role}} <a href="/{{if $isRest}}restaurants{{else}}groups{{end}}/new">Create one →</a>{{end}}</div>
     {{end}}
 
   {{else if .ViewColl}}

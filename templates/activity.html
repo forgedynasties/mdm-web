@@ -1,0 +1,59 @@
+{{define "activity.html"}}
+{{template "header" .}}
+
+<style>
+.act-filter{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.act-filter select{min-width:220px}
+.act-table{width:100%;border-collapse:collapse;font-size:13px}
+.act-table th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);padding:8px 18px;border-bottom:1px solid var(--border)}
+.act-table td{padding:10px 18px;border-bottom:1px solid var(--border-soft,var(--border));vertical-align:top}
+.act-table tr:last-child td{border-bottom:none}
+.act-actor{font-weight:650}
+.act-when{white-space:nowrap;color:var(--text-faint);font-size:12px}
+.act-target{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.act-detail{color:var(--muted);font-size:12.5px}
+</style>
+
+<div class="ov-greet">
+  <h1 class="ov-title">Activity</h1>
+  <span class="ov-date">Every tracked admin/account action across the dashboard — filter by user to see just their activity.</span>
+</div>
+
+<div class="card dv-rise-1">
+  <div class="card-header"><h3>Log</h3><span class="muted small">{{len .Entries}} entr{{if ne (len .Entries) 1}}ies{{else}}y{{end}}{{if .Actor}} for {{.Actor}}{{end}}</span></div>
+  <form method="GET" action="/activity" class="act-filter">
+    <label class="muted small" for="act-actor">User</label>
+    <select name="actor" id="act-actor" class="form-input" onchange="this.form.submit()">
+      <option value="">All users</option>
+      {{$cur := .Actor}}
+      {{range .Actors}}
+      <option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{.}}</option>
+      {{end}}
+    </select>
+    <noscript><button type="submit" class="btn-outline btn-sm">Filter</button></noscript>
+    {{if .Actor}}<a href="/activity" class="muted small">Clear filter</a>{{end}}
+  </form>
+  {{if .Entries}}
+  <div style="overflow-x:auto;">
+    <table class="act-table">
+      <thead><tr><th>When</th><th>User</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+      <tbody>
+        {{range .Entries}}
+        <tr>
+          <td class="act-when">{{timeSince .CreatedAt}}</td>
+          <td class="act-actor">{{.Actor}}</td>
+          <td>{{.Action}}</td>
+          <td class="act-target">{{.Target}}</td>
+          <td class="act-detail">{{.Detail}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
+  {{else}}
+  <div class="empty-state" style="padding:28px 18px;"><div class="empty-state-copy"><div class="empty-state-title">No activity yet</div><div class="empty-state-text">Actions taken in the dashboard will show up here.</div></div></div>
+  {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}

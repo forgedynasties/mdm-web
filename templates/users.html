@@ -14,7 +14,7 @@
 
 <div class="ov-greet">
   <h1 class="ov-title">Users</h1>
-  <span class="ov-date">viewers are read-only; testers can send actions, run queries and record QA; admins manage everything</span>
+  <span class="ov-date">viewers are read-only; operators can send actions, run queries and record QA; admins manage everything</span>
 </div>
 
 <div class="users-wrap">
@@ -26,12 +26,20 @@
       <div class="user-row">
         <span class="user-av role-av-{{.Role}}">{{if .Username}}{{slice .Username 0 1}}{{end}}</span>
         <div class="user-id">
-          <div class="user-name mono">{{.Username}}</div>
-          <div class="user-meta muted small">
-            Joined {{shortDate .CreatedAt}}
-            {{if .Email}} · {{.Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
+          <div class="user-name">{{.DisplayName}}</div>
+          <div class="user-meta muted small mono">
+            {{.Username}} · Joined {{shortDate .CreatedAt}}
+            {{if .Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
           </div>
         </div>
+        <details class="user-pw" style="margin-right:2px;">
+          <summary class="user-pw-btn" title="Edit name"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Name</summary>
+          <form action="/users/{{.ID}}/name" method="POST" class="user-pw-pop">
+            <input type="text" name="first_name" class="form-input" placeholder="First name" value="{{.FirstName}}" style="width:110px;">
+            <input type="text" name="last_name" class="form-input" placeholder="Last name" value="{{.LastName}}" style="width:110px;">
+            <button type="submit" class="btn-primary btn-sm">Save</button>
+          </form>
+        </details>
         <span class="role-chip role-{{.Role}}">{{.Role}}</span>
         <div class="user-act">
           {{if eq .Role "admin"}}
@@ -40,7 +48,7 @@
           <form action="/users/{{.ID}}/role" method="POST" style="display:inline;">
             <select name="role" class="form-input user-role-sel" onchange="this.form.submit()" title="Change role">
               <option value="viewer"{{if eq .Role "viewer"}} selected{{end}}>Viewer</option>
-              <option value="tester"{{if eq .Role "tester"}} selected{{end}}>Tester</option>
+              <option value="operator"{{if eq .Role "operator"}} selected{{end}}>Operator</option>
             </select>
             <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
           </form>
@@ -67,6 +75,16 @@
   <div class="card user-create">
     <div class="card-header"><h3>Add user</h3></div>
     <form action="/users" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:14px;">
+      <div style="display:flex;gap:12px;">
+        <div class="form-row" style="flex:1;">
+          <label class="form-label" for="f-first">First name</label>
+          <input type="text" name="first_name" id="f-first" class="form-input" autocomplete="off">
+        </div>
+        <div class="form-row" style="flex:1;">
+          <label class="form-label" for="f-last">Last name</label>
+          <input type="text" name="last_name" id="f-last" class="form-input" autocomplete="off">
+        </div>
+      </div>
       <div class="form-row">
         <label class="form-label" for="f-email">Email</label>
         <input type="email" name="email" id="f-email" class="form-input" required aria-required="true" autocomplete="off">
@@ -79,7 +97,7 @@
         <label class="form-label" for="f-role">Role</label>
         <select name="role" id="f-role" class="form-input">
           <option value="viewer">Viewer — read-only + screenshot</option>
-          <option value="tester">Tester — viewer + actions + queries + record release QA</option>
+          <option value="operator">Operator — viewer + actions + queries + record release QA</option>
         </select>
       </div>
       <button type="submit" class="btn-primary" style="justify-self:start;">

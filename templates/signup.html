@@ -48,6 +48,16 @@
         {{end}}
 
         <form action="/signup" method="POST" class="auth2-form">
+          <div style="display:flex;gap:12px;">
+            <div class="auth2-field" style="flex:1;">
+              <label for="first_name">First name</label>
+              <input type="text" id="first_name" name="first_name" autocomplete="given-name" value="{{.FirstName}}" required>
+            </div>
+            <div class="auth2-field" style="flex:1;">
+              <label for="last_name">Last name</label>
+              <input type="text" id="last_name" name="last_name" autocomplete="family-name" value="{{.LastName}}" required>
+            </div>
+          </div>
           <div class="auth2-field">
             <label for="email">Work email</label>
             <input type="email" id="email" name="email" autocomplete="email" placeholder="you@aioapp.com" value="{{.Email}}" required>

@@ -5,7 +5,7 @@
 {{$rel := .Release}}
 {{$role := .Role}}
 {{$isAdmin := canAdmin $role}}
-{{$canQfil := or (eq $role "admin") (eq $role "dev") (eq $role "tester")}}
+{{$canQfil := or (eq $role "admin") (eq $role "dev") (eq $role "operator")}}
 
 <a href="/releases" class="back-link">← Releases</a>
 
@@ -247,7 +247,7 @@ function pkgVerify() {
       {{if not $ready}}{{.QA.Untested}} untested · {{.QA.Fail}} failed · {{$blockers}} open blocker{{if ne $blockers 1}}s{{end}} · {{end}}{{if .Release.SignedOffBy}}dev sign-off ✓ {{.Release.SignedOffBy}}{{else}}dev sign-off pending{{end}}
     </span>
   </div>
-  {{if and (gt .QA.Total 0) (not .CanRecord)}}<div class="qa-flash">Read-only — only the tester role can mark cases. {{if gt .QA.Untested 0}}{{.QA.Untested}} still untested.{{end}}</div>{{end}}
+  {{if and (gt .QA.Total 0) (not .CanRecord)}}<div class="qa-flash">Read-only — only the operator role can mark cases. {{if gt .QA.Untested 0}}{{.QA.Untested}} still untested.{{end}}</div>{{end}}
   {{if and (not (eq .Role "admin")) .Release.SkipBaseTests}}<div class="qa-flash">Base cases skipped — only this release's own cases apply.</div>{{end}}
 {{end}}
 
