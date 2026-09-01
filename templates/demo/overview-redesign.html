@@ -1,0 +1,286 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Overview Redesign — AIO MDM</title>
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--surface2:#f6f3ee;--border:#e8e2da;--text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --accent:#f9674e;--p:#7a80f6;--ok:#1f9d63;--warn:#b8860b;--danger:#d1503f;--r4:14px;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:36px 24px 100px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:16px}
+  .back:hover{color:var(--accent)}
+  h1{font-size:26px;font-weight:700;letter-spacing:-.015em;margin:0}
+  .lede{color:var(--muted);font-size:14px;margin:8px 0 24px;max-width:74ch}
+  .lede b{color:var(--text)}
+
+  .dtabs{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;position:sticky;top:12px;z-index:5;background:var(--bg);padding:8px 0}
+  .dtab{font:inherit;font-size:12.5px;font-weight:650;padding:9px 15px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;box-shadow:var(--shadow)}
+  .dtab.on{border-color:transparent;background:linear-gradient(96deg,var(--accent),var(--p));color:#fff}
+
+  .direction{display:none}
+  .direction.on{display:block}
+  .dnote{font-size:12.5px;color:var(--muted);margin:0 0 18px;padding:11px 14px;background:var(--surface2);border-radius:10px;max-width:80ch}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow)}
+  .mapph{position:relative;height:100%;min-height:220px;border-radius:inherit;overflow:hidden;background:
+      linear-gradient(var(--surface2) 1px,transparent 1px) 0 0/26px 26px,
+      linear-gradient(90deg,var(--surface2) 1px,transparent 1px) 0 0/26px 26px,
+      #eef0e4}
+  .mapph .pin{position:absolute;width:10px;height:10px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .mapph .pin.ok{background:var(--ok)}.mapph .pin.warn{background:var(--warn)}.mapph .pin.bad{background:var(--danger)}
+  .mapph .cap{position:absolute;left:12px;bottom:10px;font-size:10.5px;font-weight:650;color:var(--muted);background:rgba(255,255,255,.85);padding:3px 8px;border-radius:99px}
+</style></head>
+<body>
+  <div class="wrap">
+    <a class="back" href="/demo/index">← Back to demos</a>
+    <h1>Overview page — four directions</h1>
+    <p class="lede">Fleet map stays in every direction — that's the one thing you said to keep. Top crashing devices, the open-alerts list, and recent activity are gone from all four; "Where to look" (worst restaurants) survives since it's the actual triage tool. Sample data throughout — nothing here is live.</p>
+
+    <div class="dtabs" role="tablist">
+      <button type="button" class="dtab on" data-d="a" onclick="setDir('a')">A · Command bar</button>
+      <button type="button" class="dtab" data-d="b" onclick="setDir('b')">B · Morning briefing</button>
+      <button type="button" class="dtab" data-d="c" onclick="setDir('c')">C · Map-first cockpit</button>
+      <button type="button" class="dtab" data-d="d" onclick="setDir('d')">D · Tile grid</button>
+    </div>
+
+    <!-- ══════════════ A — Command bar ══════════════ -->
+    <div class="direction on" data-dir="a">
+      <p class="dnote"><b>A · Command bar.</b> The big hero card is gone — greeting collapses to a single slim strip. Map gets the visual weight instead, paired with a compact stat rail and the triage list beside it.</p>
+      <style>
+        .a-bar{display:flex;align-items:center;gap:14px;padding:13px 18px;margin-bottom:16px}
+        .a-bar .greet{flex:1;min-width:0}
+        .a-bar .eyebrow{font-size:11px;color:var(--muted);font-weight:650}
+        .a-bar .head{font-size:16px;font-weight:700;margin-top:1px}
+        .a-bar .head b{color:var(--danger)}
+        .a-score{display:flex;align-items:center;gap:9px;flex:none}
+        .a-ring{width:38px;height:38px;border-radius:50%;background:conic-gradient(var(--warn) 0 74%, var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+        .a-ring i{width:30px;height:30px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:750;font-style:normal}
+        .a-score .lbl{font-size:10.5px;color:var(--muted);font-weight:650}
+        .a-cta{font-size:12.5px;font-weight:650;padding:8px 14px;border-radius:9px;background:var(--text);color:#fff;text-decoration:none;flex:none}
+
+        .a-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:16px;align-items:start}
+        @media(max-width:860px){.a-grid{grid-template-columns:1fr}}
+        .a-mapcard{height:460px}
+        .a-rail{display:flex;flex-direction:column;gap:14px}
+        .a-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+        .a-stat{padding:12px 13px}
+        .a-stat .k{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}
+        .a-stat .v{font-size:21px;font-weight:750;margin-top:5px}
+        .a-stat .v.ok{color:var(--ok)}.a-stat .v.warn{color:var(--warn)}.a-stat .v.bad{color:var(--danger)}
+        .a-loc{display:flex;align-items:center;gap:11px;padding:11px 14px;border-top:1px solid var(--border);text-decoration:none;color:inherit}
+        .a-loc:first-of-type{border-top:none}
+        .a-sc{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:750;flex:none}
+        .a-sc.warn{background:#fbf1dc;color:var(--warn)}.a-sc.bad{background:#fbe9e5;color:var(--danger)}
+        .a-locm{min-width:0;flex:1}
+        .a-locn{font-size:13px;font-weight:650}
+        .a-locw{font-size:11px;color:var(--muted);margin-top:2px}
+        .a-ch{padding:12px 14px;font-size:13px;font-weight:700;border-bottom:1px solid var(--border)}
+      </style>
+
+      <div class="card a-bar">
+        <div class="greet"><div class="eyebrow">Good morning · Tuesday, September 1</div><div class="head"><b>3 restaurants</b> need a look today</div></div>
+        <div class="a-score"><div class="a-ring"><i>74</i></div><div><div class="lbl">FLEET<br>HEALTH</div></div></div>
+        <a class="a-cta" href="#">View fleet health →</a>
+      </div>
+
+      <div class="a-grid">
+        <div class="card a-mapcard">
+          <div class="mapph" style="border-radius:14px">
+            <span class="pin ok" style="left:22%;top:38%"></span><span class="pin ok" style="left:41%;top:55%"></span>
+            <span class="pin warn" style="left:58%;top:30%"></span><span class="pin bad" style="left:70%;top:62%"></span>
+            <span class="pin ok" style="left:33%;top:70%"></span><span class="pin ok" style="left:80%;top:40%"></span>
+            <span class="cap">42 devices located</span>
+          </div>
+        </div>
+        <div class="a-rail">
+          <div class="a-stats">
+            <div class="card a-stat"><div class="k">Online</div><div class="v ok">38</div></div>
+            <div class="card a-stat"><div class="k">Offline</div><div class="v warn">4</div></div>
+            <div class="card a-stat"><div class="k">Low battery</div><div class="v warn">2</div></div>
+            <div class="card a-stat"><div class="k">Crashes · 24h</div><div class="v bad">6</div></div>
+          </div>
+          <div class="card">
+            <div class="a-ch">Where to look</div>
+            <a class="a-loc" href="#"><span class="a-sc bad">41</span><div class="a-locm"><div class="a-locn">Riverside Ave</div><div class="a-locw">2 offline · max 71°C · 6 crashes</div></div></a>
+            <a class="a-loc" href="#"><span class="a-sc warn">63</span><div class="a-locm"><div class="a-locn">Quetta Ali Khan</div><div class="a-locw">1 offline · 2 builds</div></div></a>
+            <a class="a-loc" href="#"><span class="a-sc warn">68</span><div class="a-locm"><div class="a-locn">Downtown Plaza</div><div class="a-locw">1 offline</div></div></a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ B — Morning briefing ══════════════ -->
+    <div class="direction" data-dir="b">
+      <p class="dnote"><b>B · Morning briefing.</b> Reads like a note from a colleague, not a stat dashboard — greeting becomes a short written brief. Map is full-width below it, the ranked list sits underneath as "today's stops."</p>
+      <style>
+        .b-hero{padding:26px 28px;margin-bottom:18px;background:linear-gradient(120deg,#fff7ea,var(--surface) 55%)}
+        .b-eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--warn)}
+        .b-head{font-size:23px;font-weight:750;letter-spacing:-.015em;margin-top:6px}
+        .b-brief{font-size:14.5px;color:var(--text-2,#3a352f);margin-top:10px;max-width:72ch;line-height:1.65}
+        .b-brief b{font-weight:700}
+        .b-foot{display:flex;align-items:center;gap:18px;margin-top:16px;flex-wrap:wrap}
+        .b-mini{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+        .b-mini b{color:var(--text);font-size:15px}
+        .b-cta{margin-left:auto;font-size:12.5px;font-weight:650;padding:9px 16px;border-radius:9px;background:var(--text);color:#fff;text-decoration:none}
+        .b-mapcard{height:340px;margin-bottom:18px}
+        .b-ch{display:flex;align-items:center;padding:13px 17px;border-bottom:1px solid var(--border)}
+        .b-ch h3{font-size:14px;margin:0}.b-ch .m{margin-left:auto;font-size:12px;color:var(--muted)}
+        .b-stop{display:flex;align-items:center;gap:13px;padding:13px 17px;border-top:1px solid var(--border);text-decoration:none;color:inherit}
+        .b-stop:first-of-type{border-top:none}
+        .b-num{width:26px;height:26px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);flex:none}
+        .b-sm{min-width:0;flex:1}
+        .b-sn{font-size:13.5px;font-weight:650}
+        .b-sw{font-size:11.5px;color:var(--muted);margin-top:2px}
+      </style>
+
+      <div class="card b-hero">
+        <div class="b-eyebrow">Tuesday, September 1 · Good morning</div>
+        <div class="b-head">Fleet's mostly steady — three spots need a visit.</div>
+        <div class="b-brief">Riverside Ave is the one to prioritize: <b>2 devices offline</b> since last night and running <b>hot (71°C)</b>. Quetta Ali Khan and Downtown Plaza are minor — a dropped connection each, nothing urgent. Everywhere else is checking in normally.</div>
+        <div class="b-foot">
+          <div class="b-mini"><b>74</b>/100 health</div>
+          <div class="b-mini"><b>38</b>/42 online</div>
+          <div class="b-mini"><b>6</b> crashes today</div>
+          <a class="b-cta" href="#">View fleet health →</a>
+        </div>
+      </div>
+
+      <div class="card b-mapcard">
+        <div class="mapph" style="border-radius:14px">
+          <span class="pin ok" style="left:20%;top:35%"></span><span class="pin ok" style="left:44%;top:58%"></span>
+          <span class="pin warn" style="left:60%;top:28%"></span><span class="pin bad" style="left:72%;top:60%"></span>
+          <span class="pin ok" style="left:35%;top:72%"></span><span class="pin ok" style="left:82%;top:38%"></span>
+          <span class="cap">42 devices located</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="b-ch"><h3>Today's stops</h3><span class="m">worst first</span></div>
+        <a class="b-stop" href="#"><span class="b-num">1</span><div class="b-sm"><div class="b-sn">Riverside Ave</div><div class="b-sw">2 offline · max 71°C · 6 crashes</div></div></a>
+        <a class="b-stop" href="#"><span class="b-num">2</span><div class="b-sm"><div class="b-sn">Quetta Ali Khan</div><div class="b-sw">1 offline · 2 builds</div></div></a>
+        <a class="b-stop" href="#"><span class="b-num">3</span><div class="b-sm"><div class="b-sn">Downtown Plaza</div><div class="b-sw">1 offline</div></div></a>
+      </div>
+    </div>
+
+    <!-- ══════════════ C — Map-first cockpit ══════════════ -->
+    <div class="direction" data-dir="c">
+      <p class="dnote"><b>C · Map-first cockpit.</b> The map <i>is</i> the page — greeting shrinks to a thin top line, live stat chips float on the map corners, and the triage list becomes a side rail instead of a card below the fold.</p>
+      <style>
+        .c-topline{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+        .c-topline b{color:var(--text);font-weight:700}
+        .c-topline .sep{color:var(--border)}
+        .c-cta{margin-left:auto;font-size:12.5px;font-weight:650;padding:7px 13px;border-radius:8px;background:var(--text);color:#fff;text-decoration:none}
+        .c-layout{display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}
+        @media(max-width:900px){.c-layout{grid-template-columns:1fr}}
+        .c-mapwrap{position:relative;height:560px}
+        .c-chip{position:absolute;z-index:2;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);padding:8px 12px;border-radius:99px;box-shadow:var(--shadow);font-size:12px;font-weight:650}
+        .c-chip .v{font-size:14px;font-weight:750}
+        .c-chip.ok .v{color:var(--ok)}.c-chip.warn .v{color:var(--warn)}.c-chip.bad .v{color:var(--danger)}
+        .c-rail{display:flex;flex-direction:column;gap:12px}
+        .c-ring{display:flex;align-items:center;gap:12px;padding:16px}
+        .c-ringc{width:56px;height:56px;border-radius:50%;background:conic-gradient(var(--warn) 0 74%, var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+        .c-ringc i{width:46px;height:46px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:750;font-style:normal}
+        .c-ch{padding:12px 15px;font-size:13px;font-weight:700;border-bottom:1px solid var(--border)}
+        .c-loc{display:block;padding:12px 15px;border-top:1px solid var(--border);text-decoration:none;color:inherit}
+        .c-loc:first-of-type{border-top:none}
+        .c-locn{font-size:13px;font-weight:650;display:flex;align-items:center;gap:7px}
+        .c-locn .sc{font-size:11px;font-weight:750;padding:1px 7px;border-radius:99px}
+        .c-locn .sc.bad{background:#fbe9e5;color:var(--danger)}.c-locn .sc.warn{background:#fbf1dc;color:var(--warn)}
+        .c-locw{font-size:11.5px;color:var(--muted);margin-top:3px}
+      </style>
+
+      <div class="c-topline">
+        <span>Good morning · Tuesday, September 1</span><span class="sep">·</span>
+        <span><b>3</b> restaurants need a look</span><span class="sep">·</span>
+        <span><b>74</b>/100 fleet health</span>
+        <a class="c-cta" href="#">Fleet health →</a>
+      </div>
+
+      <div class="c-layout">
+        <div class="card c-mapwrap">
+          <div class="mapph" style="border-radius:14px">
+            <span class="pin ok" style="left:22%;top:38%"></span><span class="pin ok" style="left:41%;top:55%"></span>
+            <span class="pin warn" style="left:58%;top:30%"></span><span class="pin bad" style="left:70%;top:62%"></span>
+            <span class="pin ok" style="left:33%;top:70%"></span><span class="pin ok" style="left:80%;top:40%"></span>
+          </div>
+          <div class="c-chip ok" style="top:14px;left:14px">Online <span class="v">38</span></div>
+          <div class="c-chip warn" style="top:14px;right:14px">Offline <span class="v">4</span></div>
+          <div class="c-chip bad" style="bottom:14px;left:14px">Crashes 24h <span class="v">6</span></div>
+          <div class="c-chip warn" style="bottom:14px;right:14px">Low battery <span class="v">2</span></div>
+        </div>
+        <div class="c-rail">
+          <div class="card c-ring"><div class="c-ringc"><i>74</i></div><div><div style="font-size:11px;color:var(--muted);font-weight:650;">FLEET HEALTH</div><div style="font-size:11.5px;color:var(--muted);margin-top:2px;">↗ +3 vs last week</div></div></div>
+          <div class="card">
+            <div class="c-ch">Where to look</div>
+            <a class="c-loc" href="#"><div class="c-locn"><span class="sc bad">41</span>Riverside Ave</div><div class="c-locw">2 offline · max 71°C · 6 crashes</div></a>
+            <a class="c-loc" href="#"><div class="c-locn"><span class="sc warn">63</span>Quetta Ali Khan</div><div class="c-locw">1 offline · 2 builds</div></a>
+            <a class="c-loc" href="#"><div class="c-locn"><span class="sc warn">68</span>Downtown Plaza</div><div class="c-locw">1 offline</div></a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ D — Tile grid ══════════════ -->
+    <div class="direction" data-dir="d">
+      <p class="dnote"><b>D · Tile grid.</b> Widget-board style — every signal is an equal-weight tile in one responsive grid, map included (just a bigger tile). No single dominant hero; glanceable, reorderable-feeling.</p>
+      <style>
+        .d-grid{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:120px;gap:12px}
+        @media(max-width:860px){.d-grid{grid-template-columns:repeat(2,1fr)}}
+        .d-tile{padding:15px}
+        .d-greet{grid-column:span 2;grid-row:span 1;display:flex;flex-direction:column;justify-content:center;background:linear-gradient(120deg,#fff7ea,var(--surface) 60%)}
+        .d-greet .e{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--warn)}
+        .d-greet .h{font-size:16px;font-weight:750;margin-top:4px}
+        .d-map{grid-column:span 2;grid-row:span 2;padding:0}
+        .d-ring{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+        .d-ringc{width:52px;height:52px;border-radius:50%;background:conic-gradient(var(--warn) 0 74%, var(--border) 0);display:flex;align-items:center;justify-content:center}
+        .d-ringc i{width:42px;height:42px;border-radius:50%;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:750;font-style:normal}
+        .d-ring .lbl{font-size:10.5px;color:var(--muted);font-weight:650}
+        .d-stat{display:flex;flex-direction:column;justify-content:center}
+        .d-stat .k{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px}
+        .d-stat .v{font-size:25px;font-weight:750;margin-top:6px}
+        .d-stat .v.ok{color:var(--ok)}.d-stat .v.warn{color:var(--warn)}.d-stat .v.bad{color:var(--danger)}
+        .d-where{grid-column:span 2;grid-row:span 2;padding:0;display:flex;flex-direction:column}
+        .d-ch{padding:12px 15px;font-size:12.5px;font-weight:700;border-bottom:1px solid var(--border)}
+        .d-loc{display:flex;align-items:center;gap:10px;padding:10px 15px;border-top:1px solid var(--border);text-decoration:none;color:inherit;flex:1}
+        .d-loc:first-of-type{border-top:none}
+        .d-sc{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:750;flex:none}
+        .d-sc.bad{background:#fbe9e5;color:var(--danger)}.d-sc.warn{background:#fbf1dc;color:var(--warn)}
+        .d-locn{font-size:12.5px;font-weight:650}
+        .d-locw{font-size:10.5px;color:var(--muted);margin-top:1px}
+        .d-cta{grid-column:span 2;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:650;background:var(--text);color:#fff;text-decoration:none}
+      </style>
+
+      <div class="d-grid">
+        <div class="card d-tile d-greet"><div class="e">Tue, Sep 1 · Good morning</div><div class="h">3 restaurants need a look</div></div>
+        <div class="card d-tile d-ring"><div class="d-ringc"><i>74</i></div><div class="lbl">FLEET HEALTH</div></div>
+        <div class="card d-tile d-stat"><div class="k">Online</div><div class="v ok">38</div></div>
+        <div class="card d-tile d-map">
+          <div class="mapph" style="border-radius:14px">
+            <span class="pin ok" style="left:22%;top:38%"></span><span class="pin ok" style="left:41%;top:55%"></span>
+            <span class="pin warn" style="left:58%;top:30%"></span><span class="pin bad" style="left:70%;top:62%"></span>
+            <span class="pin ok" style="left:33%;top:70%"></span><span class="pin ok" style="left:80%;top:40%"></span>
+            <span class="cap">42 located</span>
+          </div>
+        </div>
+        <div class="card d-tile d-stat"><div class="k">Offline</div><div class="v warn">4</div></div>
+        <div class="card d-tile d-stat"><div class="k">Low battery</div><div class="v warn">2</div></div>
+        <div class="card d-tile d-stat"><div class="k">Crashes · 24h</div><div class="v bad">6</div></div>
+        <div class="card d-tile d-where">
+          <div class="d-ch">Where to look</div>
+          <a class="d-loc" href="#"><span class="d-sc bad">41</span><div><div class="d-locn">Riverside Ave</div><div class="d-locw">2 offline · 71°C · 6 crashes</div></div></a>
+          <a class="d-loc" href="#"><span class="d-sc warn">63</span><div><div class="d-locn">Quetta Ali Khan</div><div class="d-locw">1 offline · 2 builds</div></div></a>
+          <a class="d-loc" href="#"><span class="d-sc warn">68</span><div><div class="d-locn">Downtown Plaza</div><div class="d-locw">1 offline</div></div></a>
+        </div>
+        <a class="card d-tile d-cta" href="#">View fleet health →</a>
+      </div>
+    </div>
+
+  </div>
+<script>
+function setDir(d){
+  document.querySelectorAll('.dtab').forEach(function(b){b.classList.toggle('on',b.dataset.d===d);});
+  document.querySelectorAll('.direction').forEach(function(el){el.classList.toggle('on',el.dataset.dir===d);});
+}
+</script>
+</body></html>
