@@ -3549,6 +3549,44 @@ func (d *DB) SetCommandProgress(ctx context.Context, commandID, deviceID uuid.UU
 	return err
 }
 
+// ActiveOTAProgressRow is one device's persisted OTA progress, used to rehydrate
+// shell.Manager's in-memory cache on process start — see ActiveOTAProgress.
+type ActiveOTAProgressRow struct {
+	DeviceID  uuid.UUID
+	CommandID uuid.UUID
+	Status    string // "downloading" or "installing" — see SetCommandProgress
+	Progress  int
+}
+
+// ActiveOTAProgress returns the last-persisted progress for every OTA command
+// still mid-flight (command_status.status IN downloading/installing). The live
+// progress a device page/deployment page renders normally comes from
+// shell.Manager's in-memory cache, which is empty right after a server
+// restart — the caller rehydrates that cache from this on startup so an
+// in-progress OTA doesn't show a blank "—" until the device happens to report
+// fresh progress again.
+func (d *DB) ActiveOTAProgress(ctx context.Context) ([]ActiveOTAProgressRow, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT cs.device_id, cs.command_id, cs.status, COALESCE(cs.progress, 0)
+		FROM command_status cs
+		JOIN commands c ON c.id = cs.command_id
+		WHERE c.type = 'ota' AND cs.status IN ('downloading', 'installing')
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ActiveOTAProgressRow
+	for rows.Next() {
+		var r ActiveOTAProgressRow
+		if err := rows.Scan(&r.DeviceID, &r.CommandID, &r.Status, &r.Progress); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}
+
 // StalledInstall identifies an install delivery the stall sweep marked failed.
 type StalledInstall struct {
 	CommandID uuid.UUID

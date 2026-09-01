@@ -152,6 +152,36 @@ func main() {
 		if err := database.MarkCommandReceived(context.Background(), commandID, deviceID); err != nil && !errors.Is(err, db.ErrCommandNotTargeted) {
 			log.Printf("OnOTAProgress: MarkCommandReceived error: %v", err)
 		}
+		// Write the progress through to command_status too — the live value normally
+		// lives only in shellMgr's in-memory cache, which a server restart wipes,
+		// leaving every in-progress OTA showing a blank "—" until the device happens
+		// to report again. Persisting here lets rehydrateOTAProgress (below) restore
+		// it on the next start. verifying/finalizing collapse into "installing" —
+		// SetCommandProgress's status must stay one of the values the delivery/redrive
+		// queries already recognize (see GetPendingCommandsForDevice).
+		if p := shellMgr.GetOTAProgress(deviceID); p != nil {
+			status := "installing"
+			if p.Phase == "downloading" {
+				status = "downloading"
+			}
+			pct := p.Percent
+			if err := database.SetCommandProgress(context.Background(), commandID, deviceID, status, &pct); err != nil {
+				log.Printf("OnOTAProgress: SetCommandProgress error: %v", err)
+			}
+		}
+	}
+	// Rehydrate shellMgr's in-memory OTA progress cache from what was last persisted,
+	// so a redeploy doesn't blank every in-progress OTA's percent until the device
+	// reports fresh progress again.
+	if rows, err := database.ActiveOTAProgress(context.Background()); err != nil {
+		log.Printf("ActiveOTAProgress: %v", err)
+	} else {
+		for _, r := range rows {
+			shellMgr.SetOTAProgress(r.DeviceID, r.CommandID, r.Status, r.Progress)
+		}
+		if len(rows) > 0 {
+			log.Printf("rehydrated OTA progress for %d device(s)", len(rows))
+		}
 	}
 	// A shell command's live output stream closing ("command_done", carrying the
 	// exit code) is its actual completion signal — nothing previously turned that
