@@ -1,0 +1,268 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Liquid Glass Playground — AIO MDM</title>
+<style>
+  :root{--text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{font-family:var(--font);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+  /* A busy, colorful, moving backdrop — glass only reads as "glass" when there's
+     something varied behind it to blur/distort. A flat page background (the bug
+     you saw) makes any blur amount look like plain frosted white. */
+  .bg{position:fixed;inset:0;z-index:-1;background:#15151c;overflow:hidden}
+  .blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:.85;mix-blend-mode:screen}
+  .b1{width:52vw;height:52vw;left:-10vw;top:-14vw;background:radial-gradient(circle,#ff6a4d,transparent 70%);animation:float1 22s ease-in-out infinite}
+  .b2{width:46vw;height:46vw;right:-12vw;top:6vw;background:radial-gradient(circle,#7a80f6,transparent 70%);animation:float2 26s ease-in-out infinite}
+  .b3{width:40vw;height:40vw;left:20vw;bottom:-16vw;background:radial-gradient(circle,#2fd48a,transparent 70%);animation:float3 19s ease-in-out infinite}
+  .b4{width:34vw;height:34vw;right:10vw;bottom:-10vw;background:radial-gradient(circle,#ffd23f,transparent 70%);animation:float1 30s ease-in-out infinite reverse}
+  @keyframes float1{0%,100%{transform:translate(0,0)}50%{transform:translate(6vw,8vw)}}
+  @keyframes float2{0%,100%{transform:translate(0,0)}50%{transform:translate(-7vw,6vw)}}
+  @keyframes float3{0%,100%{transform:translate(0,0)}50%{transform:translate(5vw,-6vw)}}
+  .bgtext{position:absolute;inset:0;display:flex;flex-wrap:wrap;align-content:center;justify-content:center;gap:22px;padding:40px;opacity:.5}
+  .bgtext span{font-size:13px;font-weight:700;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em}
+
+  .wrap{max-width:1180px;margin:0 auto;padding:36px 24px 100px;color:#fff}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:rgba(255,255,255,.7);text-decoration:none;margin-bottom:16px}
+  .back:hover{color:#fff}
+  h1{font-size:26px;font-weight:700;letter-spacing:-.015em;margin:0}
+  .lede{color:rgba(255,255,255,.75);font-size:14px;margin:8px 0 26px;max-width:70ch}
+  .lede b{color:#fff}
+
+  .layout{display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start}
+  @media(max-width:860px){.layout{grid-template-columns:1fr}}
+
+  /* controls panel is ALSO glass, so you feel the effect while tuning it */
+  .panel{border-radius:18px;padding:18px;position:sticky;top:20px}
+  .row{margin-bottom:16px}
+  .row:last-child{margin-bottom:0}
+  .row label{display:flex;justify-content:space-between;font-size:11.5px;font-weight:650;text-transform:uppercase;letter-spacing:.04em;color:rgba(255,255,255,.85);margin-bottom:6px}
+  .row label b{font-weight:700;color:#fff;font-variant-numeric:tabular-nums;font-size:11.5px;letter-spacing:0;text-transform:none}
+  input[type=range]{width:100%;accent-color:#fff}
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1;font:inherit;font-size:12px;font-weight:650;padding:7px 8px;border-radius:8px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;cursor:pointer}
+  .seg button.on{background:rgba(255,255,255,.9);color:#15151c;border-color:transparent}
+  .presetrow{display:flex;flex-wrap:wrap;gap:6px}
+  .preset{font:inherit;font-size:11.5px;font-weight:650;padding:6px 10px;border-radius:99px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;cursor:pointer}
+  .preset:hover{background:rgba(255,255,255,.18)}
+
+  .stage{display:flex;flex-direction:column;gap:20px}
+  .preview-area{border-radius:18px;padding:44px;min-height:340px;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:22px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+
+  /* the actual glass sample — every visual property is driven by CSS vars set
+     from the sliders, so this one rule is the thing you copy out. */
+  #sample{
+    width:280px;padding:22px;
+    background:rgba(255,255,255,var(--g-alpha));
+    -webkit-backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    border:1px solid rgba(255,255,255,var(--g-border));
+    border-radius:var(--g-radius);
+    box-shadow:0 var(--g-shadow-y) var(--g-shadow-blur) rgba(0,0,0,var(--g-shadow-a)), inset 0 1px 0 rgba(255,255,255,var(--g-highlight));
+    color:#fff;
+  }
+  #sample.dark{background:rgba(20,18,17,var(--g-alpha));color:#fff}
+  #sample h3{margin:0 0 4px;font-size:15px;font-weight:700}
+  #sample p{margin:0;font-size:12.5px;color:rgba(255,255,255,.8)}
+  #sample .chip{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:650;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.18);margin-bottom:10px}
+
+  #sample2{width:70px;height:70px;display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,var(--g-alpha));
+    -webkit-backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    border:1px solid rgba(255,255,255,var(--g-border));
+    border-radius:calc(var(--g-radius) * .6);
+    box-shadow:0 var(--g-shadow-y) var(--g-shadow-blur) rgba(0,0,0,var(--g-shadow-a)), inset 0 1px 0 rgba(255,255,255,var(--g-highlight));
+    color:#fff;font-size:22px;
+  }
+  #sample3{display:flex;align-items:center;gap:10px;padding:10px 16px 10px 10px;
+    background:rgba(255,255,255,var(--g-alpha));
+    -webkit-backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    border:1px solid rgba(255,255,255,var(--g-border));
+    border-radius:999px;
+    box-shadow:0 var(--g-shadow-y) var(--g-shadow-blur) rgba(0,0,0,var(--g-shadow-a)), inset 0 1px 0 rgba(255,255,255,var(--g-highlight));
+    color:#fff;font-size:13px;font-weight:650;
+  }
+  #sample3 .dot{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#ff6a4d,#7a80f6);flex:none}
+
+  .codebox{border-radius:14px;padding:16px 18px;font-family:var(--mono);font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word;position:relative}
+  .codebox .copy{position:absolute;top:10px;right:10px;font:inherit;font-family:var(--font);font-size:11.5px;font-weight:650;padding:5px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;cursor:pointer}
+  .codebox .copy:hover{background:rgba(255,255,255,.2)}
+  .prop{color:#8fd6ff}.val{color:#ffd479}
+</style></head>
+<body>
+  <div class="bg">
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div>
+    <div class="bgtext">
+      <span>FLEET</span><span>OTA</span><span>KIOSK</span><span>DEVICES</span><span>ALERTS</span><span>RESTAURANTS</span>
+      <span>UPDATES</span><span>GROUPS</span><span>ACTIONS</span><span>HEALTH</span><span>RELEASES</span><span>POLICIES</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <a class="back" href="/demo/index">← Back to demos</a>
+    <h1>Liquid Glass Playground</h1>
+    <p class="lede">Why the toast demo's glass looked flat: the page behind it was a plain cream color — blur a flat color and you just get flat color. Glass needs <b>varied content behind it</b> to distort; the moving color blobs here make that obvious. Tune every knob below, then copy the generated CSS into whatever you want to glass-ify.</p>
+
+    <div class="layout">
+      <div class="panel" id="ctrl-panel">
+        <div class="presetrow" style="margin-bottom:16px;">
+          <button type="button" class="preset" onclick="applyPreset('subtle')">Subtle</button>
+          <button type="button" class="preset" onclick="applyPreset('apple')">Apple-ish</button>
+          <button type="button" class="preset" onclick="applyPreset('frosted')">Heavy frost</button>
+          <button type="button" class="preset" onclick="applyPreset('tinted')">Dark tinted</button>
+        </div>
+
+        <div class="row">
+          <label>Tone <b id="v-tone">Light</b></label>
+          <div class="seg">
+            <button type="button" class="on" data-tone="light" onclick="setTone('light')">Light</button>
+            <button type="button" data-tone="dark" onclick="setTone('dark')">Dark</button>
+          </div>
+        </div>
+        <div class="row">
+          <label>Blur <b id="v-blur">18px</b></label>
+          <input type="range" id="r-blur" min="0" max="40" value="18" oninput="update()">
+        </div>
+        <div class="row">
+          <label>Saturation <b id="v-sat">180%</b></label>
+          <input type="range" id="r-sat" min="100" max="240" value="180" oninput="update()">
+        </div>
+        <div class="row">
+          <label>Background opacity <b id="v-alpha">50%</b></label>
+          <input type="range" id="r-alpha" min="5" max="90" value="50" oninput="update()">
+        </div>
+        <div class="row">
+          <label>Border opacity <b id="v-border">65%</b></label>
+          <input type="range" id="r-border" min="0" max="100" value="65" oninput="update()">
+        </div>
+        <div class="row">
+          <label>Corner radius <b id="v-radius">18px</b></label>
+          <input type="range" id="r-radius" min="0" max="40" value="18" oninput="update()">
+        </div>
+        <div class="row">
+          <label>Top highlight <b id="v-hl">85%</b></label>
+          <input type="range" id="r-hl" min="0" max="100" value="85" oninput="update()">
+        </div>
+        <div class="row">
+          <label>Shadow lift <b id="v-shadow">50%</b></label>
+          <input type="range" id="r-shadow" min="0" max="100" value="50" oninput="update()">
+        </div>
+      </div>
+
+      <div class="stage">
+        <div class="preview-area">
+          <div id="sample">
+            <span class="chip">✦ Live preview</span>
+            <h3>Panel sample</h3>
+            <p>Cards, modals, toasts — this shape at 280px wide.</p>
+          </div>
+          <div id="sample2">⚡</div>
+          <div id="sample3"><span class="dot"></span>Pill / chip sample</div>
+        </div>
+
+        <div class="codebox" id="codebox">
+          <button type="button" class="copy" onclick="copyCode()">Copy CSS</button>
+          <span id="code-out"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+var els = {
+  blur: document.getElementById('r-blur'),
+  sat: document.getElementById('r-sat'),
+  alpha: document.getElementById('r-alpha'),
+  border: document.getElementById('r-border'),
+  radius: document.getElementById('r-radius'),
+  hl: document.getElementById('r-hl'),
+  shadow: document.getElementById('r-shadow')
+};
+var tone = 'light';
+
+function setTone(t) {
+  tone = t;
+  document.querySelectorAll('#ctrl-panel .seg button').forEach(function (b) { b.classList.toggle('on', b.dataset.tone === t); });
+  document.getElementById('v-tone').textContent = t === 'dark' ? 'Dark' : 'Light';
+  document.getElementById('sample').classList.toggle('dark', t === 'dark');
+  update();
+}
+
+function update() {
+  var blur = +els.blur.value, sat = +els.sat.value, alpha = +els.alpha.value / 100,
+      border = +els.border.value / 100, radius = +els.radius.value, hl = +els.hl.value / 100,
+      shadowPct = +els.shadow.value / 100;
+
+  document.getElementById('v-blur').textContent = blur + 'px';
+  document.getElementById('v-sat').textContent = sat + '%';
+  document.getElementById('v-alpha').textContent = Math.round(alpha * 100) + '%';
+  document.getElementById('v-border').textContent = Math.round(border * 100) + '%';
+  document.getElementById('v-radius').textContent = radius + 'px';
+  document.getElementById('v-hl').textContent = Math.round(hl * 100) + '%';
+  document.getElementById('v-shadow').textContent = Math.round(shadowPct * 100) + '%';
+
+  var root = document.documentElement.style;
+  root.setProperty('--g-blur', blur + 'px');
+  root.setProperty('--g-sat', sat + '%');
+  root.setProperty('--g-alpha', alpha);
+  root.setProperty('--g-border', border);
+  root.setProperty('--g-radius', radius + 'px');
+  root.setProperty('--g-highlight', hl);
+  root.setProperty('--g-shadow-y', Math.round(6 + shadowPct * 14) + 'px');
+  root.setProperty('--g-shadow-blur', Math.round(16 + shadowPct * 34) + 'px');
+  root.setProperty('--g-shadow-a', (.08 + shadowPct * .22).toFixed(2));
+
+  renderCode(blur, sat, alpha, border, radius, hl, shadowPct);
+}
+
+function renderCode(blur, sat, alpha, border, radius, hl, shadowPct) {
+  var bg = tone === 'dark' ? '20,18,17' : '255,255,255';
+  var shadowY = Math.round(6 + shadowPct * 14), shadowBlur = Math.round(16 + shadowPct * 34), shadowA = (.08 + shadowPct * .22).toFixed(2);
+  var css =
+'.glass {\n' +
+'  background: rgba(' + bg + ', ' + alpha.toFixed(2) + ');\n' +
+'  backdrop-filter: blur(' + blur + 'px) saturate(' + sat + '%);\n' +
+'  -webkit-backdrop-filter: blur(' + blur + 'px) saturate(' + sat + '%);\n' +
+'  border: 1px solid rgba(255, 255, 255, ' + border.toFixed(2) + ');\n' +
+'  border-radius: ' + radius + 'px;\n' +
+'  box-shadow: 0 ' + shadowY + 'px ' + shadowBlur + 'px rgba(0, 0, 0, ' + shadowA + '),\n' +
+'              inset 0 1px 0 rgba(255, 255, 255, ' + hl.toFixed(2) + ');\n' +
+'}';
+  document.getElementById('code-out').textContent = css;
+}
+
+function copyCode() {
+  var text = document.getElementById('code-out').textContent;
+  var btn = document.querySelector('.codebox .copy');
+  function done(ok) { var p = btn.textContent; btn.textContent = ok ? 'Copied' : 'Failed'; setTimeout(function () { btn.textContent = p; }, 1200); }
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(false); });
+  else done(false);
+}
+
+function applyPreset(name) {
+  var p = {
+    subtle:  { blur: 10, sat: 120, alpha: 65, border: 40, radius: 14, hl: 60, shadow: 25, tone: 'light' },
+    apple:   { blur: 22, sat: 180, alpha: 45, border: 65, radius: 20, hl: 85, shadow: 45, tone: 'light' },
+    frosted: { blur: 34, sat: 200, alpha: 30, border: 55, radius: 18, hl: 70, shadow: 60, tone: 'light' },
+    tinted:  { blur: 20, sat: 160, alpha: 55, border: 30, radius: 18, hl: 35, shadow: 70, tone: 'dark' }
+  }[name];
+  if (!p) return;
+  els.blur.value = p.blur; els.sat.value = p.sat; els.alpha.value = p.alpha; els.border.value = p.border;
+  els.radius.value = p.radius; els.hl.value = p.hl; els.shadow.value = p.shadow;
+  setTone(p.tone);
+}
+
+// The controls panel is glass too, driven by the same vars — set once at load.
+document.getElementById('ctrl-panel').style.background = 'rgba(255,255,255,var(--g-alpha))';
+document.getElementById('ctrl-panel').style.webkitBackdropFilter = 'blur(var(--g-blur)) saturate(var(--g-sat))';
+document.getElementById('ctrl-panel').style.backdropFilter = 'blur(var(--g-blur)) saturate(var(--g-sat))';
+document.getElementById('ctrl-panel').style.border = '1px solid rgba(255,255,255,var(--g-border))';
+document.getElementById('ctrl-panel').style.boxShadow = '0 var(--g-shadow-y) var(--g-shadow-blur) rgba(0,0,0,var(--g-shadow-a)), inset 0 1px 0 rgba(255,255,255,var(--g-highlight))';
+document.getElementById('codebox').style.background = 'rgba(0,0,0,.35)';
+document.getElementById('codebox').style.border = '1px solid rgba(255,255,255,.12)';
+
+update();
+</script>
+</body></html>
