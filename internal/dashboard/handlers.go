@@ -3200,7 +3200,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// Groups the device is NOT yet in — for the placement "+ group" picker.
 		// Populated for the same roles the picker button renders for and the add
 		// endpoint accepts (admin/dev/operator, i.e. canAdminOrOperator); gating this on
-		// admin alone left a operator the button and popover but an empty group list,
+		// admin alone left an operator the button and popover but an empty group list,
 		// so "+ group" did nothing.
 		if role == "admin" || role == "dev" || role == "operator" {
 			inGroup := make(map[uuid.UUID]bool, len(dg))
@@ -8197,7 +8197,7 @@ func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
-// ReleaseSetTestResult records a operator's outcome for one case on a release.
+// ReleaseSetTestResult records an operator's outcome for one case on a release.
 func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {

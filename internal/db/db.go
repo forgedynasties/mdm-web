@@ -8973,7 +8973,7 @@ CREATE TABLE IF NOT EXISTS version_order (
 -- statements (e.g. 'dev' below). A narrower list here fails validation against a row a
 -- later statement legitimately allows, crashing the migration. Keep this the full set.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','operator','dev'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','dev'));
 
 -- Test cases: a reusable library plus per-release cases. base=true cases are checked on
 -- every release; base=false cases belong to one release (release_id set). active=false
@@ -8993,7 +8993,7 @@ CREATE TABLE IF NOT EXISTS test_cases (
 CREATE INDEX IF NOT EXISTS idx_test_cases_release ON test_cases(release_id);
 
 -- Per-release test outcomes. The applicable checklist is computed (active base cases plus
--- this release's own cases); a row is written only once a operator records a status, so a
+-- this release's own cases); a row is written only once an operator records a status, so a
 -- fresh release starts all-untested by absence.
 CREATE TABLE IF NOT EXISTS release_test_results (
     release_id   INTEGER NOT NULL REFERENCES releases(id) ON DELETE CASCADE,
@@ -9012,7 +9012,7 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS skip_base_tests BOOLEAN NOT NULL D
 -- 'dev' role: full operational access (releases, OTA, devices, …) but NOT settings
 -- or user management; it is also the only role allowed to sign off a release.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','operator','dev'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','dev'));
 
 -- Dev sign-off on a release ("smoke-tested by dev, OK for QA to pick up").
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_by TEXT        NOT NULL DEFAULT '';
@@ -9234,8 +9234,8 @@ WHERE e.build_id = '' AND e.kind <> 'reboot'
   AND EXISTS (SELECT 1 FROM checkins c WHERE c.device_id = e.device_id AND c.created_at <= e.occurred_at AND c.build_id <> '');
 
 -- Release-problem continuity ("rides the release train"): a manual bug is a thread that
--- follows the releases forward until a operator verifies it fixed. fixed_in_release_id is
--- the build a dev claims the fix landed in; verified_in_release_id is the build a operator
+-- follows the releases forward until an operator verifies it fixed. fixed_in_release_id is
+-- the build a dev claims the fix landed in; verified_in_release_id is the build an operator
 -- confirmed it on. Origin stays in release_id ("reported in"). Prior/next ordering uses
 -- releases.created_at chronology — the manual version_order table is display-only.
 ALTER TABLE release_problems ADD COLUMN IF NOT EXISTS fixed_in_release_id    INTEGER REFERENCES releases(id) ON DELETE SET NULL;
@@ -9363,7 +9363,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (lower(email)) WHE
 DELETE FROM users WHERE role = 'dev';
 
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','tester'));
 
 CREATE TABLE IF NOT EXISTS user_tokens (
     token      TEXT PRIMARY KEY,
@@ -11394,7 +11394,7 @@ func (d *DB) GetReleaseChecklist(ctx context.Context, releaseID int) ([]Checklis
 	return out, rows.Err()
 }
 
-// SetTestResult records (upserts) a operator's outcome for one case on one release.
+// SetTestResult records (upserts) an operator's outcome for one case on one release.
 func (d *DB) SetTestResult(ctx context.Context, releaseID int, testCaseID uuid.UUID, status, notes, testedBy string) error {
 	_, err := d.pool.Exec(ctx, `
 		INSERT INTO release_test_results (release_id, test_case_id, status, notes, tested_by, tested_at)
@@ -11428,7 +11428,7 @@ func (d *DB) ReleaseQASummary(ctx context.Context, releaseID int) (QASummary, er
 
 // ── Release problem reports ───────────────────────────────────────────────────
 
-// ReleaseProblem is a tracked problem a operator filed against a release. TestCase
+// ReleaseProblem is a tracked problem an operator filed against a release. TestCase
 // and Device are optional; the joined title/serial are populated for display.
 type ReleaseProblem struct {
 	ID            uuid.UUID
@@ -11452,7 +11452,7 @@ type ReleaseProblem struct {
 	OriginVersion       string // version the problem was first reported on (= ReleaseID)
 	FixedInReleaseID    *int   // build a dev claims the fix landed in; nil until claimed
 	FixedInVersion      string // joined version of FixedInReleaseID, "" when unset
-	VerifiedInReleaseID *int   // build a operator confirmed the fix on; nil until verified
+	VerifiedInReleaseID *int   // build an operator confirmed the fix on; nil until verified
 	VerifiedInVersion   string // joined version of VerifiedInReleaseID, "" when unset
 	Inherited           bool   // true when surfaced on a release later than its origin (carried forward)
 }
@@ -11553,7 +11553,7 @@ func (d *DB) ListReleaseProblems(ctx context.Context, releaseID int) ([]ReleaseP
 // onto releaseID but were NOT reported against it: (a) problems that were reported fixed
 // in an EARLIER build but whose QA verification then FAILED (reopened to 'open' while
 // keeping fixed_in_release_id) — these ride forward until a fix holds — and (b) problems
-// whose fix is claimed to land in THIS build (awaiting a operator's verification here). A
+// whose fix is claimed to land in THIS build (awaiting an operator's verification here). A
 // plain still-open bug that was never claimed fixed does NOT carry; it stays on its origin
 // build. All rows are flagged Inherited. Chronology is releases.created_at.
 func (d *DB) CarriedForwardProblems(ctx context.Context, releaseID int) ([]ReleaseProblem, error) {
@@ -11680,7 +11680,7 @@ func (d *DB) DeleteReleaseProblem(ctx context.Context, id uuid.UUID) error {
 }
 
 // MarkProblemFixedIn records that a dev landed the fix for a problem in fixedInReleaseID
-// and moves it to 'fixed' (awaiting a operator's verification on that build). Passing 0
+// and moves it to 'fixed' (awaiting an operator's verification on that build). Passing 0
 // clears the fixed-in link and reopens the problem.
 func (d *DB) MarkProblemFixedIn(ctx context.Context, id uuid.UUID, fixedInReleaseID int) error {
 	if fixedInReleaseID <= 0 {
@@ -11699,7 +11699,7 @@ func (d *DB) MarkProblemFixedIn(ctx context.Context, id uuid.UUID, fixedInReleas
 	return err
 }
 
-// VerifyProblem marks a problem verified-fixed on verifiedInReleaseID (a operator confirmed
+// VerifyProblem marks a problem verified-fixed on verifiedInReleaseID (an operator confirmed
 // the fix on that build). If no fixed-in build was recorded, the verifying build is taken
 // as the fix build too.
 func (d *DB) VerifyProblem(ctx context.Context, id uuid.UUID, verifiedInReleaseID int) error {
