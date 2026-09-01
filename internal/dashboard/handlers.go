@@ -612,6 +612,25 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		"shortTime": func(t time.Time) string {
 			return t.UTC().Format("15:04")
 		},
+		// dayLabel: the calendar-day group a timestamp falls in — "Today"/"Yesterday",
+		// a weekday name within the last week, else a short date. Used to group the
+		// Actions/history timeline by day instead of a per-row "Sent" column.
+		"dayLabel": func(t time.Time) string {
+			loc := t.Location()
+			now := time.Now().In(loc)
+			today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+			day := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
+			switch diff := int(today.Sub(day).Hours() / 24); {
+			case diff == 0:
+				return "Today"
+			case diff == 1:
+				return "Yesterday"
+			case diff > 1 && diff < 7:
+				return t.Format("Monday")
+			default:
+				return t.Format("Jan 2")
+			}
+		},
 		// shortDate: compact date for the device onboarding column, e.g. "Jun 20, 2026".
 		"shortDate": func(t time.Time) string {
 			if t.IsZero() {

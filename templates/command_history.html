@@ -17,6 +17,15 @@ function filterHistory() {
   document.querySelectorAll('#cmd-history-table .htrow[data-cmd-type]').forEach(function (r) {
     r.style.display = (!q || (r.dataset.cmdSearch || '').toLowerCase().indexOf(q) !== -1) ? '' : 'none';
   });
+  document.querySelectorAll('#cmd-history-table .hist-day').forEach(function (h) {
+    var vis = false, n = h.nextElementSibling;
+    while (n && (n.classList.contains('htrow') || n.classList.contains('hist-day'))) {
+      if (n.classList.contains('htrow') && n.style.display !== 'none') { vis = true; break; }
+      if (n.classList.contains('hist-day')) break;
+      n = n.nextElementSibling;
+    }
+    h.style.display = vis ? '' : 'none';
+  });
 }
 // Toast on resend (mirrors the Actions page).
 document.addEventListener('submit', function (evt) {
@@ -84,8 +93,8 @@ document.body.addEventListener('htmx:afterSwap', function (e) {
 
   <div id="cmd-history-table">
     {{if .Rows}}
-      <div class="htbl-head htbl-cols"><span>Action</span><span>Target</span><span class="col-res">Result</span><span class="col-by">By</span><span class="col-sent">Sent</span><span></span></div>
-      {{range .Rows}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" (index $.BucketByID .ID))}}{{end}}
+      {{$day := ""}}
+      {{range .Rows}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "Bucket" (index $.BucketByID .ID))}}{{end}}
     {{else}}
       <div class="empty-state" style="padding:28px 18px;">
         <span class="empty-state-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M5 7l5 5-5 5"/><path d="M13 17h6"/></svg></span>

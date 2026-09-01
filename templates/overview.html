@@ -264,9 +264,24 @@
         {{end}}
       </div>
       {{if .ActivityBars}}
-      <script src="/static/vendor/chart.umd.min.js"></script>
       <script>
-      (function(){
+      {{/* Under hx-boost, htmx injects this fragment's <script> tags and an external
+           `<script src>` resolves asynchronously — unlike a full page load, which
+           blocks on it — so the bootstrap below could run with Chart still undefined
+           and silently no-op, leaving the chart blank until a manual reload (a real
+           full load blocks and works fine, which is why this only showed up on
+           in-app navigation). window.mdmChartReady (same pattern as device.html)
+           makes the dependency explicit and awaits it instead of racing it. */}}
+      window.mdmChartReady = window.mdmChartReady || (window.Chart
+        ? Promise.resolve()
+        : new Promise(function (resolve, reject) {
+            var s = document.createElement('script');
+            s.src = '/static/vendor/chart.umd.min.js';
+            s.onload = resolve;
+            s.onerror = function () { reject(new Error('Chart.js failed to load')); };
+            document.head.appendChild(s);
+          }));
+      window.mdmChartReady.then(function(){
         var el = document.getElementById('ov-activity');
         if (!el || typeof Chart === 'undefined') return;
         var rows = {{.ActivityJSON}};
@@ -291,7 +306,7 @@
             }
           }
         });
-      })();
+      }).catch(function (err) { console.error('[mdm] fleet activity chart failed:', err); });
       </script>
       {{end}}
 
