@@ -2526,8 +2526,6 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		groups     []db.GroupHealth
 		hot        int
 		d14        []db.FleetDailyStat
-		openAlerts []db.Alert
-		audit      []db.AuditEntry
 		openCount  int
 		crashStats db.FleetCrashStats
 	)
@@ -2539,13 +2537,6 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	run(func() { groups, _ = h.db.GetRestaurantHealth(ctx, h.connectedSlice(), 7) })
 	run(func() { hot, _ = h.db.CountHotDevices(ctx) })
 	run(func() { d14, _ = h.db.GetFleetDailyStats(ctx, 14) })
-	run(func() { openAlerts, _ = h.db.ListAlerts(ctx, "open", 5) })
-	run(func() {
-		// The audit page itself is admin-only; keep the activity feed consistent.
-		if h.role(r) == "admin" {
-			audit, _ = h.db.ListAudit(ctx, 6)
-		}
-	})
 	run(func() { openCount, _ = h.db.CountOpenAlerts(ctx) })
 	run(func() { crashStats, _ = h.db.GetFleetCrashStats(ctx, 4) })
 	wg.Wait()
@@ -2645,16 +2636,8 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		}
 		return "s"
 	}
-	// Crash surfaces (24h rollup): signal tile, per-restaurant chips, top devices.
+	// Crash surfaces (24h rollup): signal tile + hero sentence.
 	// (openCount, crashStats already fetched concurrently above.)
-	crashRows := make([]crashRow, 0, len(crashStats.ByDevice))
-	for _, c := range crashStats.ByDevice {
-		label, class := crashKindBadge(c.Kind)
-		crashRows = append(crashRows, crashRow{
-			Serial: c.Serial, Restaurant: c.Restaurant, KindLabel: label, KindClass: class,
-			BuildID: c.BuildID, Ago: agoShort(c.LatestAt), Count: c.Count,
-		})
-	}
 	var crS []float64
 	for _, v := range crashStats.Daily {
 		crS = append(crS, float64(v))
@@ -2763,7 +2746,6 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		"Verdict":              verdict,
 		"Greeting":             greeting,
 		"DateLine":             time.Now().Format("Monday, January 2"),
-		"GroupsCount":          len(groups),
 		"SparkActive":          sparkPoints(actS),
 		"SparkOff":             sparkPoints(offS),
 		"SparkLow":             sparkPoints(lowS),
@@ -2771,25 +2753,20 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		"ActivityBars":         activityBars,
 		"ActivityJSON":         activityJSON,
 		"ActivityPeak":         peak,
-		"Audit":                audit,
-		"OpenAlerts":           openAlerts,
 		"ActiveThresholdLabel": fmt.Sprintf("%d min", activeSecs/60),
 		// Command-center fields.
-		"RestVerdict":       restVerdict,
-		"StatusWord":        statusWord,
-		"ScoreDelta":        scoreDelta,
-		"HeroSentence":      heroSentence,
-		"AttentionRest":     attentionRest,
-		"WorstGroups":       worst,
-		"RestaurantCrashes": crashStats.ByRestaurant,
-		"Crashes24h":        crashStats.Total24h,
-		"CrashDevices24h":   crashStats.Devices24h,
-		"CrashList":         crashRows,
-		"CrashSpark":        sparkPoints(crS),
-		"OnlineDelta":       tileDelta(onToday, onYest, false),
-		"OfflineDelta":      tileDelta(offToday, offYest, true),
-		"LowDelta":          tileDelta(lowToday, lowYest, true),
-		"CrashDelta":        tileDelta(crToday, crYest, true),
+		"RestVerdict":     restVerdict,
+		"StatusWord":      statusWord,
+		"ScoreDelta":      scoreDelta,
+		"HeroSentence":    heroSentence,
+		"AttentionRest":   attentionRest,
+		"Crashes24h":      crashStats.Total24h,
+		"CrashDevices24h": crashStats.Devices24h,
+		"CrashSpark":      sparkPoints(crS),
+		"OnlineDelta":     tileDelta(onToday, onYest, false),
+		"OfflineDelta":    tileDelta(offToday, offYest, true),
+		"LowDelta":        tileDelta(lowToday, lowYest, true),
+		"CrashDelta":      tileDelta(crToday, crYest, true),
 	}
 
 	// Same cached hourly AI fleet report the devices page used to host.
@@ -3992,16 +3969,6 @@ func (h *Handler) AlertEvents(w http.ResponseWriter, r *http.Request) {
 			emitCount()
 		}
 	}
-}
-
-// OverviewAlerts renders the overview's live "Open alerts" list as an htmx
-// fragment, refetched on every mdm:alerts-update so the card tracks alerts live.
-func (h *Handler) OverviewAlerts(w http.ResponseWriter, r *http.Request) {
-	alerts, _ := h.db.ListAlerts(r.Context(), "open", 5)
-	total, _ := h.db.CountOpenAlerts(r.Context())
-	h.tmpl.ExecuteTemplate(w, "overview-alerts", map[string]any{
-		"OpenAlerts": alerts, "AlertsOpenCount": total,
-	})
 }
 
 // ReportAlertsByRestaurant renders the Daily Report's per-restaurant open-alert
@@ -14319,7 +14286,6 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
-	mux.HandleFunc("GET /overview/alerts", h.requireAuth(h.OverviewAlerts))
 	mux.HandleFunc("GET /alerts/newest", h.requireAuth(h.AlertNewest))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))

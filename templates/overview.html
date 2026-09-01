@@ -191,46 +191,6 @@
   {{/* ── Main grid ── */}}
   <div class="ov2-masonry" id="ov2-masonry">
 
-      {{/* Where to look */}}
-      <div class="ov2-card">
-        <div class="ov2-ch"><h3>Where to look</h3><span class="m">{{if gt .AttentionRest 0}}worst first · {{.AttentionRest}} of {{.GroupsCount}}{{else}}all healthy{{end}}</span></div>
-        {{if .WorstGroups}}
-        {{range .WorstGroups}}
-        {{$crashes := index $.RestaurantCrashes .GroupID}}
-        <a class="ov2-loc" href="/restaurants/{{.GroupID}}">
-          <span class="ov2-sc {{.ScoreClass}}">{{.Score}}</span>
-          <div class="ov2-locm">
-            <div class="ov2-locn">{{.Name}}</div>
-            <div class="ov2-why">
-              {{if gt .OfflineCount 0}}<span class="ov2-chip bad">{{.OfflineCount}} offline</span>{{end}}
-              {{if .TempMax}}<span class="ov2-chip warn">max {{fnum .TempMax}}°C</span>{{end}}
-              {{if $crashes}}<span class="ov2-chip bad">{{$crashes}} crash{{if ne $crashes 1}}es{{end}}</span>{{end}}
-              {{if gt .DistinctBuilds 1}}<span class="ov2-chip warn">{{.DistinctBuilds}} builds</span>{{end}}
-              <span class="ov2-chip mut">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
-            </div>
-          </div>
-          <span class="ov2-go">Open <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </a>
-        {{end}}
-        {{else}}
-        <div class="ov2-clear"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">Every restaurant is healthy</div><div class="s">All locations scoring 80+ — nothing to send a tech to.</div></div></div>
-        {{end}}
-      </div>
-
-      {{/* Top crashing devices */}}
-      {{if .CrashList}}
-      <div class="ov2-card">
-        <div class="ov2-ch"><h3>Top crashing devices</h3><span class="m">24h · {{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}} · {{.Crashes24h}} events</span></div>
-        {{range .CrashList}}
-        <a class="ov2-cdev" href="/devices/{{.Serial}}?tab=alerts">
-          <div class="ov2-cdev-top"><span class="ov2-kind {{.KindClass}}">{{.KindLabel}}</span><span class="ov2-sn">{{.Serial}}</span><span class="ov2-x">×{{.Count}}</span></div>
-          <div class="ov2-cmeta">{{if .Restaurant}}<span>{{.Restaurant}}</span>{{end}}{{if .BuildID}}<span class="bd">build {{.BuildID}}</span>{{end}}<span>{{.Ago}}</span></div>
-        </a>
-        {{end}}
-        <a class="ov2-foot" href="/alerts?view=crashes">View all crashes →</a>
-      </div>
-      {{end}}
-
       {{/* Fleet map — every device with a resolved location, on Google Maps */}}
       {{if and .DeviceMapCount .MapsEmbedKey}}
       <div class="ov2-card">
@@ -335,23 +295,6 @@
       </script>
       {{end}}
 
-      {{/* Live open alerts */}}
-      <div class="ov2-card">
-        <div class="ov2-ch"><h3>Open alerts</h3><span class="live"><span class="dot"></span>Live</span><a class="r" href="/alerts?status=open">all →</a></div>
-        <div id="ov-alerts" data-diff-guard data-morph aria-live="polite" hx-get="/overview/alerts" hx-trigger="mdm:alerts-update from:document" hx-target="this" hx-swap="innerHTML">
-          {{template "overview-alerts" .}}
-        </div>
-      </div>
-
-      {{/* Recent activity */}}
-      {{if .Audit}}
-      <div class="ov2-card">
-        <div class="ov2-ch"><h3>Recent activity</h3></div>
-        {{range .Audit}}
-        <div class="ov2-r"><span class="ov2-av">{{if .Actor}}{{slice .Actor 0 1}}{{else}}·{{end}}</span><div class="ov2-rb"><div class="ov2-rt1"><b>{{.Actor}}</b> {{.Action}}</div><div class="ov2-rt2">{{if .Target}}<span class="mono">{{.Target}}</span> · {{end}}{{timeSince .CreatedAt}}</div></div></div>
-        {{end}}
-      </div>
-      {{end}}
   </div>
 
 </div>
@@ -393,23 +336,8 @@
   }
   layout();
   var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(layout, 120); });
-  // The live alerts card grows/shrinks on refresh — re-balance after its swap.
-  document.body.addEventListener('htmx:afterSwap', function (e) {
-    if (e.target && e.target.id === 'ov-alerts') setTimeout(layout, 0);
-  });
 })();
 </script>
 
 {{template "footer" .}}
-{{end}}
-
-{{define "overview-alerts"}}
-{{if .OpenAlerts}}
-{{range .OpenAlerts}}
-<div class="ov2-al" data-alert-id="{{.Serial}}-{{.FiredAt.Unix}}"><span class="ov2-dot {{if eq .Severity "critical"}}bad{{else if eq .Severity "warning"}}warn{{else}}info{{end}}"></span><div class="ov2-alb"><div class="ov2-alt1">{{.Summary}}</div><div class="ov2-alt2">{{if .Serial}}<a href="/devices/{{.Serial}}" class="mono">{{.Serial}}</a> · {{end}}<span class="reltime" data-ts="{{.FiredAt.Unix}}"></span></div></div></div>
-{{end}}
-{{if gt .AlertsOpenCount (len .OpenAlerts)}}<a class="ov2-foot" href="/alerts?status=open">+ {{sub .AlertsOpenCount (len .OpenAlerts)}} more →</a>{{end}}
-{{else}}
-<div class="ov2-empty"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>All clear — nothing firing right now.</div>
-{{end}}
 {{end}}
