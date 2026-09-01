@@ -30,8 +30,12 @@
       <option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{.}}</option>
       {{end}}
     </select>
+    <label class="muted small" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+      <input type="checkbox" name="admin" value="1"{{if .ShowAdmin}} checked{{end}} onchange="this.form.submit()">
+      Show admin
+    </label>
     <noscript><button type="submit" class="btn-outline btn-sm">Filter</button></noscript>
-    {{if .Actor}}<a href="/activity" class="muted small">Clear filter</a>{{end}}
+    {{if .Actor}}<a href="/activity{{if .ShowAdmin}}?admin=1{{end}}" class="muted small">Clear filter</a>{{end}}
   </form>
   {{if .Entries}}
   <div style="overflow-x:auto;">

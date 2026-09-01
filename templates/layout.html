@@ -276,6 +276,15 @@
     // not the real page behind it, so its glass blur renders as if it weren't
     // there at all. Portal the popup out to <body> (position:fixed, reachable via
     // its own id regardless of DOM parent) so its blur samples the actual page.
+    // Portal both popups to <body> up front (not lazily on first open) — moving a
+    // backdrop-filter element to a new parent makes the browser drop and re-promote
+    // its compositing layer, which shows up as a one-frame flicker (blur cuts out
+    // then back in) if done while the popup is becoming visible. Doing it once,
+    // hidden, before any open avoids that entirely.
+    ['alerts-pop', 'acct-pop'].forEach(function (id) {
+      var p = document.getElementById(id);
+      if (p && p.parentElement !== document.body) document.body.appendChild(p);
+    });
     function pop(id, btnSel, open) {
       var p = document.getElementById(id);
       if (!p) return;

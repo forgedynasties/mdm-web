@@ -82,7 +82,8 @@
 </div>
 {{end}}
 
-<!-- update packages -->
+<!-- update packages (admin-only — operators only see the changelog) -->
+{{if eq $role "admin"}}
 <div class="card" style="margin-bottom:18px;">
   <div class="card-header"><h3>Update packages</h3><span class="muted small">the server picks the right artifact per device</span></div>
   <div style="padding:16px 18px;">
@@ -146,6 +147,7 @@
     {{end}}
   </div>
 </div>
+{{end}}
 
 {{/* Push-to-devices panel removed from the release page — pushing happens from
      the dedicated /updates flow instead. */}}

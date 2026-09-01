@@ -1399,6 +1399,18 @@ func (h *Handler) currentUsername(r *http.Request) string {
 	return ""
 }
 
+// auditAs is h.audit with an explicit actor, for the sign-up/verify-email flows
+// where the action happens before any session exists — h.audit's session-derived
+// actor would otherwise fall back to "unknown".
+func (h *Handler) auditAs(r *http.Request, actor, action, target, detail string) {
+	if actor == "" {
+		actor = "unknown"
+	}
+	if err := h.db.InsertAudit(r.Context(), actor, action, target, detail); err != nil {
+		log.Printf("[audit] insert failed: %v", err)
+	}
+}
+
 // currentDisplayName is currentUsername, but prefers the user's first/last name
 // (set at sign-up or by an admin) over their bare username/email when one is on
 // file — shown top-right in the dashboard chrome and snapshotted onto commands
@@ -1929,7 +1941,11 @@ func (h *Handler) SignupSubmit(w http.ResponseWriter, r *http.Request) {
 		log.Printf("signup: generate verify token for %s: %v", email, err)
 	}
 
-	h.audit(r, "user.signup", u.ID.String(), email)
+	signupActor := strings.TrimSpace(firstName + " " + lastName)
+	if signupActor == "" {
+		signupActor = email
+	}
+	h.auditAs(r, signupActor, "user.signup", u.ID.String(), email)
 	h.tmpl.ExecuteTemplate(w, "signup.html", map[string]any{
 		"Sent": true, "Email": email, "Brand": h.cfg.CustomBrand(),
 	})
@@ -1968,7 +1984,11 @@ func (h *Handler) VerifyEmailSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	h.audit(r, "user.email_verified", userID.String(), "")
+	verifyActor := userID.String()
+	if u, err := h.db.GetUser(r.Context(), userID); err == nil && u != nil {
+		verifyActor = u.DisplayName()
+	}
+	h.auditAs(r, verifyActor, "user.email_verified", userID.String(), "")
 	http.Redirect(w, r, "/login?verified=1", http.StatusFound)
 }
 
@@ -14144,20 +14164,35 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 // person's actions.
 func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	actor := r.URL.Query().Get("actor")
-	entries, err := h.db.ListAuditFiltered(r.Context(), actor, 500)
+	showAdmin := r.URL.Query().Get("admin") == "1"
+	excludeActor := ""
+	if !showAdmin {
+		excludeActor = "admin"
+	}
+	entries, err := h.db.ListAuditFilteredEx(r.Context(), actor, excludeActor, 500)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	actors, err := h.db.ListAuditActors(r.Context())
+	// The actor filter only lists real team accounts (users with an @aioapp.com
+	// email), not raw audit_log.actor noise like "System"/"API key"/scheduled-recipe
+	// labels or stale entries from accounts that no longer exist.
+	users, err := h.db.ListUsers(r.Context())
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
+	}
+	var actors []string
+	for _, u := range users {
+		if u.Email != nil && strings.HasSuffix(strings.ToLower(*u.Email), "@aioapp.com") {
+			actors = append(actors, u.DisplayName())
+		}
 	}
 	h.render(w, r, "activity.html", map[string]any{
-		"Entries": entries,
-		"Actors":  actors,
-		"Actor":   actor,
+		"Entries":   entries,
+		"Actors":    actors,
+		"Actor":     actor,
+		"ShowAdmin": showAdmin,
 	})
 }
 

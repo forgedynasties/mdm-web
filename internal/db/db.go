@@ -5384,17 +5384,28 @@ func (d *DB) ListAudit(ctx context.Context, limit int) ([]AuditEntry, error) {
 // ListAuditFiltered is ListAudit with an optional actor filter (exact match) — backs
 // the Activity page's per-user view. actor == "" returns everyone.
 func (d *DB) ListAuditFiltered(ctx context.Context, actor string, limit int) ([]AuditEntry, error) {
+	return d.ListAuditFilteredEx(ctx, actor, "", limit)
+}
+
+// ListAuditFilteredEx is ListAuditFiltered plus excludeActor (exact match, e.g.
+// "admin") — ignored when actor is set, since an explicit actor filter overrides
+// it. Backs the Activity page's default-hide-admin toggle.
+func (d *DB) ListAuditFilteredEx(ctx context.Context, actor, excludeActor string, limit int) ([]AuditEntry, error) {
 	if limit <= 0 || limit > 1000 {
 		limit = 200
 	}
 	var rows pgx.Rows
 	var err error
-	if actor == "" {
-		rows, err = d.pool.Query(ctx,
-			`SELECT id, created_at, actor, action, target, detail FROM audit_log ORDER BY created_at DESC LIMIT $1`, limit)
-	} else {
+	switch {
+	case actor != "":
 		rows, err = d.pool.Query(ctx,
 			`SELECT id, created_at, actor, action, target, detail FROM audit_log WHERE actor = $2 ORDER BY created_at DESC LIMIT $1`, limit, actor)
+	case excludeActor != "":
+		rows, err = d.pool.Query(ctx,
+			`SELECT id, created_at, actor, action, target, detail FROM audit_log WHERE actor != $2 ORDER BY created_at DESC LIMIT $1`, limit, excludeActor)
+	default:
+		rows, err = d.pool.Query(ctx,
+			`SELECT id, created_at, actor, action, target, detail FROM audit_log ORDER BY created_at DESC LIMIT $1`, limit)
 	}
 	if err != nil {
 		return nil, err
