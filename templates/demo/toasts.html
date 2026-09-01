@@ -78,26 +78,29 @@
   .aB .tb.p{border-color:transparent;background:linear-gradient(96deg,var(--accent),var(--p));color:#fff}
   .aB .x{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:16px;align-self:flex-start}
 
-  /* ═══ Direction C — Top banner strip (slides down from the header, one at a time) ═══ */
-  .bC{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:640px;width:calc(100% - 40px);margin-top:10px;background:var(--text);color:#fff;border-radius:11px;box-shadow:var(--sh-lg);padding:10px 14px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
+  /* ═══ Direction C — Top banner strip (slides down from the header, one at a time).
+     Subtle: light surface, thin left accent, tinted icon — reads as a calm system
+     strip rather than a loud colored block. ═══ */
+  .bC{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:640px;width:calc(100% - 40px);margin-top:10px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:10px;box-shadow:var(--shadow);padding:10px 14px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
   .bC.show{opacity:1;transform:translateY(0)}
-  .bC.success{background:#155c3c}.bC.error{background:#7d2e23}.bC.warn{background:#7a5a0a}.bC.info{background:#33357a}
-  .bC .ic{width:16px;height:16px;flex:none}
-  .bC .m{flex:1;font-size:12.5px;font-weight:600;min-width:0}
-  .bC .lnk{flex:none;font-size:12px;font-weight:700;text-decoration:underline;color:#fff}
-  .bC .x{flex:none;border:none;background:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:15px}
+  .bC.success{border-left-color:var(--ok)}.bC.error{border-left-color:var(--danger)}.bC.warn{border-left-color:var(--warn)}.bC.info{border-left-color:var(--p)}
+  .bC .ic{width:16px;height:16px;flex:none;color:var(--muted)}
+  .bC.success .ic{color:var(--ok)}.bC.error .ic{color:var(--danger)}.bC.warn .ic{color:var(--warn)}.bC.info .ic{color:var(--p)}
+  .bC .m{flex:1;font-size:12.5px;font-weight:550;min-width:0}
+  .bC .lnk{flex:none;font-size:12px;font-weight:650;text-decoration:underline;color:var(--accent)}
+  .bC .x{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:15px}
 
-  .aC{pointer-events:auto;display:flex;align-items:center;gap:12px;max-width:680px;width:calc(100% - 40px);margin-top:10px;background:var(--text);color:#fff;border-radius:12px;box-shadow:var(--sh-lg);padding:12px 16px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
+  .aC{pointer-events:auto;display:flex;align-items:center;gap:12px;max-width:680px;width:calc(100% - 40px);margin-top:10px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-left:3px solid var(--danger);border-radius:11px;box-shadow:var(--shadow);padding:12px 16px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
   .aC.show{opacity:1;transform:translateY(0)}
-  .aC .ic{width:32px;height:32px;flex:none;border-radius:9px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center}
+  .aC .ic{width:32px;height:32px;flex:none;border-radius:9px;background:#fbe9e5;color:var(--danger);display:flex;align-items:center;justify-content:center}
   .aC .ic svg{width:17px;height:17px}
   .aC .m{flex:1;min-width:0}
   .aC .t{font-size:13.5px;font-weight:700}
-  .aC .s{font-size:12px;opacity:.78;margin-top:1px}
+  .aC .s{font-size:12px;color:var(--muted);margin-top:1px}
   .aC .acts{display:flex;gap:8px;flex:none}
-  .aC .tb{font-size:12px;font-weight:650;padding:6px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.3);color:#fff}
-  .aC .tb.p{border-color:transparent;background:#fff;color:var(--text)}
-  .aC .x{flex:none;border:none;background:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:15px}
+  .aC .tb{font-size:12px;font-weight:650;padding:6px 12px;border-radius:7px;border:1px solid var(--border);color:var(--text)}
+  .aC .tb.p{border-color:transparent;background:var(--text);color:#fff}
+  .aC .x{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:15px}
 </style></head>
 <body>
   <div id="stack"></div>
