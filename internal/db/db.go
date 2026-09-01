@@ -4748,9 +4748,11 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				dp.package_name,
 				COALESCE(MAX(dp.app_name), '') AS app_name,
 				COUNT(DISTINCT dp.device_id) AS device_count,
-				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
+				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions,
+				COALESCE(MAX(ai.icon), '') AS icon
 			FROM device_packages dp
 			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+			LEFT JOIN app_icons ai ON ai.package_name = dp.package_name
 			WHERE (dp.package_name ILIKE $1 OR dp.app_name ILIKE $1)
 			  AND NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)`+notSystemHeuristicSQL+`
 			GROUP BY dp.package_name
@@ -4763,9 +4765,11 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 				dp.package_name,
 				COALESCE(MAX(dp.app_name), '') AS app_name,
 				COUNT(DISTINCT dp.device_id) AS device_count,
-				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions
+				string_agg(DISTINCT dp.version_name, ', ' ORDER BY dp.version_name) AS versions,
+				COALESCE(MAX(ai.icon), '') AS icon
 			FROM device_packages dp
 			LEFT JOIN app_system_overrides ov ON ov.package_name = dp.package_name
+			LEFT JOIN app_icons ai ON ai.package_name = dp.package_name
 			WHERE NOT (COALESCE(dp.is_system, true) OR ov.package_name IS NOT NULL)`+notSystemHeuristicSQL+`
 			GROUP BY dp.package_name
 			ORDER BY device_count DESC, dp.package_name
@@ -4780,7 +4784,7 @@ func (d *DB) SearchFleetPackages(ctx context.Context, query string) ([]FleetPack
 	var out []FleetPackage
 	for rows.Next() {
 		var p FleetPackage
-		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount, &p.Versions); err != nil {
+		if err := rows.Scan(&p.PackageName, &p.AppName, &p.DeviceCount, &p.Versions, &p.Icon); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -9501,48 +9505,6 @@ func (d *DB) DeleteRelease(ctx context.Context, id int) error {
 // GetFleetVersions returns every release version actually reported by non-hidden devices,
 // with the devices on each and a link to the managed release (if one exists). This is the
 // "what's really running in the field" view for release tracking.
-// FleetBuild is one current-build population for a product: how many devices run
-// build_id, and whether that build is a managed release of the product (so a delta can
-// be generated FROM it). Powers the package composer's "which builds to make an
-// incremental from" hint.
-type FleetBuild struct {
-	BuildID  string `json:"build_id"`
-	Count    int    `json:"count"`
-	IsSource bool   `json:"is_source"` // a published, managed release of this product exists with this version
-}
-
-// FleetBuildDistribution returns the build populations for a product's fleet, biggest
-// first, excluding devices already on excludeVersion (the release being authored). Use it
-// to decide which source builds are worth an incremental: make deltas from the builds a
-// meaningful chunk of the fleet runs, ship one full image for the long tail.
-func (d *DB) FleetBuildDistribution(ctx context.Context, product, excludeVersion string) ([]FleetBuild, error) {
-	p, _ := prod.Resolve(product)
-	rows, err := d.pool.Query(ctx, `
-		SELECT d.build_id, COUNT(*)::int,
-		       EXISTS (SELECT 1 FROM releases r
-		               WHERE r.version = d.build_id AND r.product = $1
-		                 AND r.status = 'published') AS is_source
-		FROM devices d
-		WHERE NOT d.hidden AND d.build_id <> '' AND d.build_id <> $2
-		  AND (CASE WHEN d.product = '' THEN 't7' ELSE d.product END) = $1
-		GROUP BY d.build_id
-		ORDER BY COUNT(*) DESC, d.build_id
-	`, p.Key, excludeVersion)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []FleetBuild
-	for rows.Next() {
-		var b FleetBuild
-		if err := rows.Scan(&b.BuildID, &b.Count, &b.IsSource); err != nil {
-			return nil, err
-		}
-		out = append(out, b)
-	}
-	return out, rows.Err()
-}
-
 func (d *DB) GetFleetVersions(ctx context.Context) ([]FleetVersion, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT d.build_id, COUNT(*)::int,

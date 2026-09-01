@@ -7818,10 +7818,6 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	data["SourceBuilds"] = sourceBuilds
 	data["DevicesCount"] = devicesCount
 	data["SourceReleases"] = sourceReleases
-	// Fleet build distribution for this product — guides which source builds are worth an
-	// incremental (make deltas from the builds a meaningful chunk of the fleet runs).
-	fleetBuilds, _ := h.db.FleetBuildDistribution(ctx, rel.Product, rel.Version)
-	data["FleetBuilds"] = fleetBuilds
 	data["CrashGroups"] = crashGroups
 	data["CrashGroupTotal"] = crashTotal
 	data["DevicesOnVersion"] = devs
@@ -10941,9 +10937,68 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		"UnlockedCount": unlockedCount,
 		"Restaurants":   restaurants,
 		"Groups":        groups,
-		"FleetPackages": fleetPackages,
 		"CanEdit":       role == "admin" || role == "dev" || role == "tester",
 	})
+}
+
+// managePolicyFormData builds the data every new/edit policy form page needs:
+// target pickers (restaurant/group dropdowns + a searchable device list) and the
+// app picker. Shared so the two page handlers below stay in sync.
+func (h *Handler) managePolicyFormData(r *http.Request) map[string]any {
+	ctx := r.Context()
+	restaurants, _ := h.db.ListRestaurants(ctx)
+	groups, _ := h.db.ListGroups(ctx)
+	fleetPackages, _ := h.db.SearchFleetPackages(ctx, "")
+	devices, _ := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 10000, "", "")
+	connected := h.hub.ConnectedIDsForDisplay()
+	online := make(map[uuid.UUID]bool, len(connected))
+	for id := range connected {
+		online[id] = true
+	}
+	role := h.role(r)
+	return map[string]any{
+		"Restaurants":   restaurants,
+		"Groups":        groups,
+		"Devices":       devices,
+		"Online":        online,
+		"FleetPackages": fleetPackages,
+		"CanEdit":       role == "admin" || role == "dev" || role == "tester",
+	}
+}
+
+// ManagePolicyNew renders the "new kiosk policy" page — a standalone page rather
+// than a modal, so the target/app pickers have room to be more than cramped popup
+// widgets.
+func (h *Handler) ManagePolicyNew(w http.ResponseWriter, r *http.Request) {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	data := h.managePolicyFormData(r)
+	data["Title"] = "New kiosk policy"
+	h.render(w, r, "manage_policy_form.html", data)
+}
+
+// ManagePolicyEditPage renders the same form pre-filled for an existing policy.
+func (h *Handler) ManagePolicyEditPage(w http.ResponseWriter, r *http.Request) {
+	if role := h.role(r); role != "admin" && role != "dev" && role != "tester" {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	policy, err := h.db.GetKioskPolicy(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Policy not found", http.StatusNotFound)
+		return
+	}
+	data := h.managePolicyFormData(r)
+	data["Title"] = "Edit kiosk policy"
+	data["Policy"] = policy
+	h.render(w, r, "manage_policy_form.html", data)
 }
 
 // ManagePolicySave creates a new kiosk policy or updates an existing one (an "id"
@@ -14291,6 +14346,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /commands", h.requireAuth(h.CommandList))
 	mux.HandleFunc("GET /manage", h.requireAuth(h.Manage))
+	mux.HandleFunc("GET /manage/policies/new", h.requireAuth(h.ManagePolicyNew))
+	mux.HandleFunc("GET /manage/policies/{id}/edit", h.requireAuth(h.ManagePolicyEditPage))
 	mux.HandleFunc("POST /manage/policies", h.requireAuth(h.ManagePolicySave))
 	mux.HandleFunc("POST /manage/policies/{id}/duplicate", h.requireAuth(h.ManagePolicyDuplicate))
 	mux.HandleFunc("POST /manage/policies/{id}/delete", h.requireAuth(h.ManagePolicyDelete))

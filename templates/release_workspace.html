@@ -142,22 +142,6 @@
         </div>
         <button type="submit" class="btn-primary">Add package</button>
       </form>
-
-      {{if .FleetBuilds}}
-      {{$max := (index .FleetBuilds 0).Count}}
-      <div class="fleet-dist" style="margin-top:16px;border-top:1px solid var(--border);padding-top:12px;">
-        <div class="composer-h" style="margin-bottom:8px;">Fleet build distribution <span class="muted small">{{productLabel $rel.Product}} · make an incremental from a build a chunk of the fleet runs; the rest take the full image</span></div>
-        {{range .FleetBuilds}}
-        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;">
-          <span class="mono small" style="min-width:0;flex:0 0 220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{.BuildID}}">{{.BuildID}}</span>
-          <span style="flex:1;height:6px;border-radius:4px;background:var(--surface3,var(--border));overflow:hidden;"><i style="display:block;height:100%;width:{{if gt $max 0}}{{pctOf .Count $max}}{{else}}0{{end}}%;background:var(--accent-2);"></i></span>
-          <span class="muted small" style="flex:0 0 78px;text-align:right;font-variant-numeric:tabular-nums;">{{.Count}} dev{{if ne .Count 1}}s{{end}}</span>
-          {{if .IsSource}}<button type="button" class="btn-outline btn-sm" style="flex:0 0 auto;" onclick="pickSource('{{.BuildID}}')">Make incremental</button>
-          {{else}}<span class="muted small" style="flex:0 0 auto;" title="Not a published release of this product — no source image to diff from, so these devices take the full image">served full</span>{{end}}
-        </div>
-        {{end}}
-      </div>
-      {{end}}
     </div>
     {{end}}
   </div>
@@ -294,21 +278,6 @@ function setPkgType(mode) {
   if (srcRow) srcRow.style.display = mode === 'incremental' ? 'block' : 'none';
   if (srcInput) srcInput.required = mode === 'incremental';
   box.querySelectorAll('.tcard').forEach(function (b) { b.classList.toggle('on', b.dataset.mode === mode); });
-}
-// From the fleet-distribution hint: switch the composer to incremental and pin its source
-// build to the clicked one (adding the option if the select doesn't already list it), then
-// focus the URL field so the operator just pastes the delta.
-function pickSource(build) {
-  setPkgType('incremental');
-  var sel = document.getElementById('pkg-source-build');
-  if (sel) {
-    var found = false;
-    for (var i = 0; i < sel.options.length; i++) { if (sel.options[i].value === build) { found = true; break; } }
-    if (!found) { var o = document.createElement('option'); o.value = build; o.textContent = build; sel.appendChild(o); }
-    sel.value = build;
-  }
-  var url = document.getElementById('pkg-update-url'); if (url) url.focus();
-  var box = document.querySelector('.composer'); if (box) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 function pkgReset() { var o = document.getElementById('pkg-detected'); if (o) o.innerHTML = ''; }
 // Verify: read the update package's metadata by URL (server range-reads it, no download).

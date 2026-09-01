@@ -1,0 +1,278 @@
+{{define "manage_policy_form.html"}}
+{{template "header" .}}
+
+{{$policy := .Policy}}
+
+<a href="/manage" class="back-link">← Policies</a>
+<div class="ov-greet">
+  <h1 class="ov-title">{{if $policy}}Edit policy{{else}}New kiosk policy{{end}}</h1>
+  <span class="ov-date">name it, pick what it applies to, and pick the app to lock to</span>
+</div>
+
+<style>
+.mpf-wrap{max-width:720px}
+.mpf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);padding:22px 24px}
+.mp-name{font:inherit;font-size:14px;font-weight:650;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box}
+.mp-name::placeholder{font-weight:500;color:var(--text-faint)}
+
+.mk-target-seg{display:flex;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:4px}
+.mk-target-seg button{flex:1;font:inherit;font-size:12.5px;font-weight:650;padding:7px 10px;border-radius:7px;border:none;background:none;color:var(--text-2);cursor:pointer}
+.mk-target-seg button.on{background:var(--surface);color:var(--accent);box-shadow:var(--shadow-sm)}
+.mk-target-dep{margin-top:10px}
+.mk-target-dep select{font:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box}
+
+/* device target — searchable single-select list, same shape as the target pickers
+   used elsewhere (deployment push panel / Actions device browser), not a bare
+   text field the operator has to type an exact serial into. */
+.mp-dev-list{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;margin-top:8px}
+.mp-dev-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 11px;border:0;border-bottom:1px solid var(--border-soft);background:none;font:inherit;cursor:pointer;color:inherit}
+.mp-dev-item:last-child{border-bottom:0}
+.mp-dev-item:hover{background:var(--surface2)}
+.mp-dev-item.sel{background:var(--accent-soft)}
+.mp-dev-dot{width:7px;height:7px;border-radius:50%;flex:none}
+.mp-dev-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mp-dev-check{margin-left:auto;color:var(--accent);opacity:0;flex:none}
+.mp-dev-item.sel .mp-dev-check{opacity:1}
+.mp-dev-empty{padding:16px;text-align:center;color:var(--muted);font-size:12.5px}
+
+/* app picker — leaner list-first layout (was a cramped 3-wide grid in the old
+   modal); grid view still available via the toggle for anyone who prefers it. */
+.kpk{display:flex;flex-direction:column;gap:8px}
+.kpk-top{display:flex;gap:6px;align-items:center}
+.kpk-search{position:relative;flex:1;display:flex;align-items:center}
+.kpk-search svg{position:absolute;left:9px;color:var(--muted);pointer-events:none}
+.kpk-search input{width:100%;font:inherit;font-size:13px;padding:7px 9px 7px 28px;border:1px solid var(--border);border-radius:8px;background:var(--surface2,var(--surface));color:var(--text)}
+.kpk-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.kpk-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none}
+.kpk-seg button{border:0;background:transparent;color:var(--muted);padding:6px 8px;cursor:pointer;display:grid;place-items:center}
+.kpk-seg button.active{background:var(--accent-soft);color:var(--accent)}
+.kpk-grid{display:none;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:6px;max-height:280px;overflow-y:auto;padding:2px}
+.kpk-list{display:flex;flex-direction:column;max-height:280px;overflow-y:auto;border:1px solid var(--border);border-radius:9px}
+.kpk.gridview .kpk-grid{display:grid}
+.kpk.gridview .kpk-list{display:none}
+.kpk-opt{position:relative;text-align:left;border:1px solid var(--border);background:var(--surface);border-radius:9px;padding:8px;cursor:pointer;display:flex;flex-direction:column;gap:6px;font:inherit;color:inherit}
+.kpk-opt:hover{border-color:var(--rule-2)}
+.kpk-opt.sel{border-color:var(--accent);background:var(--accent-soft)}
+.kpk-tile{width:26px;height:26px;border-radius:7px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:11.5px;flex:none}
+.kpk-tile.kpk-img{object-fit:contain;background:var(--surface3,var(--surface2));padding:2px}
+.kpk-txt{min-width:0;display:flex;flex-direction:column}
+.kpk-nm{font-size:12px;font-weight:600;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.kpk-pk{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:var(--mono)}
+.kpk-check{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;background:var(--accent);color:#fff;display:none;place-items:center}
+.kpk-opt.sel .kpk-check{display:grid}
+.kpk-list .kpk-opt{flex-direction:row;align-items:center;border:0;border-bottom:1px solid var(--border-soft);border-radius:0;padding:7px 10px}
+.kpk-list .kpk-opt:last-child{border-bottom:0}
+.kpk-list .kpk-check{position:static;margin-left:auto;background:transparent;color:var(--accent)}
+.kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1}
+
+.mpf-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid var(--border-soft)}
+.mpf-note{font-size:12.5px;color:var(--muted);flex:1;min-width:160px}
+.mpf-btns{display:flex;gap:8px}
+</style>
+
+<div class="mpf-wrap">
+<div class="mpf-card">
+  <form id="mp-form" method="POST" action="/manage/policies">
+    <input type="hidden" name="id" id="mp-id" value="{{if $policy}}{{$policy.ID}}{{end}}">
+    <input type="hidden" name="target_type" id="mp-target-type" value="{{if $policy}}{{$policy.TargetType}}{{else}}group{{end}}">
+    <input type="hidden" name="target_id" id="mp-target-id" value="{{if $policy}}{{if $policy.TargetID}}{{$policy.TargetID}}{{end}}{{end}}">
+    <input type="hidden" name="target_serial" id="mp-target-serial" value="{{if $policy}}{{$policy.TargetSerial}}{{end}}">
+    <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{if $policy}}{{$policy.KioskPackage}}{{end}}">
+
+    <div class="form-row">
+      <label class="form-label">Policy name</label>
+      <input type="text" class="mp-name" name="name" id="mp-name" placeholder="e.g. Drive-Thru Lockdown" value="{{if $policy}}{{$policy.Name}}{{end}}" oninput="mpCheckReady()">
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Assign to</label>
+      <div class="mk-target-seg" role="radiogroup">
+        <button type="button" data-k="all" onclick="mpTargetKind(this,'all')">All devices</button>
+        <button type="button" data-k="restaurant" onclick="mpTargetKind(this,'restaurant')">Restaurant</button>
+        <button type="button" data-k="group" onclick="mpTargetKind(this,'group')">Group</button>
+        <button type="button" data-k="device" onclick="mpTargetKind(this,'device')">Device</button>
+      </div>
+      <div class="mk-target-dep" id="mp-dep-restaurant" style="display:none;">
+        <select onchange="mpDepChange(this,'restaurant')"><option value="">Choose a restaurant…</option>{{range .Restaurants}}<option value="{{.ID}}"{{if and $policy (eq $policy.TargetType "restaurant") $policy.TargetID (eq $policy.TargetID.String .ID.String)}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+      </div>
+      <div class="mk-target-dep" id="mp-dep-group" style="display:none;">
+        <select onchange="mpDepChange(this,'group')"><option value="">Choose a group…</option>{{range .Groups}}<option value="{{.ID}}"{{if and $policy (eq $policy.TargetType "group") $policy.TargetID (eq $policy.TargetID.String .ID.String)}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+      </div>
+      <div class="mk-target-dep" id="mp-dep-device" style="display:none;">
+        <div class="filter-search"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" class="filter-search-input" id="mp-dev-q" autocomplete="off" placeholder="Search serial, build, restaurant…" oninput="mpFilterDevices()"></div>
+        <div class="mp-dev-list" id="mp-dev-list">
+          {{range .Devices}}
+          <button type="button" class="mp-dev-item{{if and $policy (eq $policy.TargetType "device") (eq $policy.TargetSerial .SerialNumber)}} sel{{end}}" data-search="{{.SerialNumber}} {{.BuildID}} {{.RestaurantName}}" data-serial="{{.SerialNumber}}" onclick="mpPickDevice(this)">
+            <span class="mp-dev-dot" style="background:{{if index $.Online .ID}}var(--ok){{else}}var(--text-faint){{end}}"></span>
+            <span class="mp-dev-txt"><span class="mono small">{{.SerialNumber}}</span><span class="muted small">{{if .RestaurantName}}{{.RestaurantName}} · {{end}}{{if .BuildID}}{{.BuildID}}{{else}}no build reported{{end}}</span></span>
+            <span class="mp-dev-check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
+          </button>
+          {{else}}
+          <div class="mp-dev-empty">No devices.</div>
+          {{end}}
+        </div>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <label class="form-label">Locked app</label>
+      {{if .FleetPackages}}
+      <div id="kiosk-apps-src" hidden>{{range .FleetPackages}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}</div>
+      <div class="kpk" id="kiosk-app-picker">
+        <div class="kpk-top">
+          <span class="kpk-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input type="text" id="kpk-q" autocomplete="off" spellcheck="false" placeholder="Search apps…"></span>
+          <span class="kpk-seg">
+            <button type="button" id="kpk-vlist" class="active" title="List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+            <button type="button" id="kpk-vgrid" title="Grid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+          </span>
+        </div>
+        <div class="kpk-grid" id="kpk-grid"></div>
+        <div class="kpk-list" id="kpk-list"></div>
+      </div>
+      {{else}}
+      <input type="text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" value="{{if $policy}}{{$policy.KioskPackage}}{{end}}" oninput="document.getElementById('kiosk-pkg-value').value=this.value;mpCheckReady()">
+      {{end}}
+    </div>
+
+    <div class="mpf-foot">
+      <div class="mpf-note" id="mp-note">Name the policy, pick a target, and pick an app to lock to.</div>
+      <div class="mpf-btns">
+        <a href="/manage" class="btn-outline">Cancel</a>
+        <button type="submit" class="btn-primary" id="mp-save" disabled>Save policy</button>
+      </div>
+    </div>
+  </form>
+</div>
+</div>
+
+<script>
+var mpTargetVal = '';
+function mpTargetKind(btn, kind) {
+  document.querySelectorAll('.mk-target-seg button').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  ['restaurant', 'group', 'device'].forEach(function (k) {
+    document.getElementById('mp-dep-' + k).style.display = k === kind ? '' : 'none';
+  });
+  document.getElementById('mp-target-type').value = kind;
+  if (kind === 'all') {
+    document.getElementById('mp-target-id').value = '';
+    document.getElementById('mp-target-serial').value = '';
+    mpTargetVal = 'ok';
+  } else {
+    mpTargetVal = '';
+  }
+  mpCheckReady();
+}
+function mpDepChange(el, kind) {
+  document.getElementById('mp-target-id').value = el.value;
+  mpTargetVal = el.value;
+  mpCheckReady();
+}
+function mpFilterDevices() {
+  var s = document.getElementById('mp-dev-q').value.trim().toLowerCase();
+  document.querySelectorAll('#mp-dev-list .mp-dev-item').forEach(function (b) {
+    b.style.display = !s || b.dataset.search.toLowerCase().indexOf(s) >= 0 ? '' : 'none';
+  });
+}
+function mpPickDevice(btn) {
+  document.querySelectorAll('#mp-dev-list .mp-dev-item.sel').forEach(function (b) { b.classList.remove('sel'); });
+  btn.classList.add('sel');
+  var serial = btn.dataset.serial;
+  document.getElementById('mp-target-serial').value = serial;
+  mpTargetVal = serial;
+  mpCheckReady();
+}
+
+function mpCheckReady() {
+  var name = document.getElementById('mp-name').value.trim();
+  var pkg = document.getElementById('kiosk-pkg-value').value;
+  var ready = !!(name && pkg && mpTargetVal);
+  document.getElementById('mp-save').disabled = !ready;
+  var note = document.getElementById('mp-note');
+  if (!name) note.textContent = 'Name the policy, pick a target, and pick an app to lock to.';
+  else if (!mpTargetVal) note.textContent = 'Pick what "' + name + '" applies to.';
+  else if (!pkg) note.textContent = 'Pick an app to lock to.';
+  else note.textContent = '"' + name + '" will lock the target to the chosen app.';
+}
+
+// Initial target-kind state — mirrors an existing policy's target, or defaults to
+// Group for a new one (matches the create form's old default).
+(function () {
+  var kind = document.getElementById('mp-target-type').value || 'group';
+  var btn = document.querySelector('.mk-target-seg button[data-k="' + kind + '"]');
+  document.querySelectorAll('.mk-target-seg button').forEach(function (b) { b.classList.toggle('on', b === btn); });
+  ['restaurant', 'group', 'device'].forEach(function (k) {
+    document.getElementById('mp-dep-' + k).style.display = k === kind ? '' : 'none';
+  });
+  if (kind === 'all') mpTargetVal = 'ok';
+  else if (kind === 'device') mpTargetVal = document.getElementById('mp-target-serial').value;
+  else mpTargetVal = document.getElementById('mp-target-id').value;
+})();
+
+// Locked-app picker — searchable list (default) / grid toggle.
+(function () {
+  var picker = document.getElementById('kiosk-app-picker');
+  if (!picker) return;
+  var src = document.getElementById('kiosk-apps-src');
+  var hidden = document.getElementById('kiosk-pkg-value');
+  var q = document.getElementById('kpk-q');
+  var gridEl = document.getElementById('kpk-grid');
+  var listEl = document.getElementById('kpk-list');
+  var apps = [];
+  (function () {
+    var seen = {};
+    [].forEach.call(src.querySelectorAll('i'), function (el) {
+      var v = el.getAttribute('data-value'); if (!v || seen[v]) return; seen[v] = 1;
+      apps.push({ v: v, n: el.getAttribute('data-name'), icon: el.getAttribute('data-icon') });
+    });
+  })();
+  var kbd = -1;
+
+  function esc(s) { return (s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function colorFor(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffffff; return 'hsl(' + (h % 360) + ' 52% 45%)'; }
+  function initial(n) { n = (n || '').replace(/^[^A-Za-z0-9]+/, ''); return (n.slice(0, 1) || '?').toUpperCase(); }
+  function match(a, s) { if (!s) return true; return (a.n + ' ' + a.v).toLowerCase().indexOf(s) >= 0; }
+  function filtered() { var s = q.value.trim().toLowerCase(); return apps.filter(function (a) { return match(a, s); }); }
+
+  function tileHtml(a) {
+    if (a.icon) return '<img class="kpk-tile kpk-img" src="data:image/png;base64,' + a.icon + '" alt="">';
+    return '<span class="kpk-tile" style="background:' + colorFor(a.v || a.n) + '">' + esc(initial(a.n)) + '</span>';
+  }
+  function optHtml(a, i) {
+    var sel = hidden.value === a.v;
+    return '<button type="button" class="kpk-opt' + (sel ? ' sel' : '') + (i === kbd ? ' kbd' : '') + '" data-value="' + esc(a.v) + '" role="option" aria-selected="' + sel + '">' +
+      tileHtml(a) + '<span class="kpk-txt"><span class="kpk-nm">' + esc(a.n) + '</span>' +
+      '<span class="kpk-pk">' + esc(a.v) + '</span></span>' +
+      '<span class="kpk-check"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span></button>';
+  }
+  function render() {
+    var items = filtered();
+    var html = items.length ? items.map(optHtml).join('') : '<div class="kpk-empty">No apps match.</div>';
+    gridEl.innerHTML = html; listEl.innerHTML = html;
+  }
+  function choose(v) { hidden.value = v; render(); mpCheckReady(); }
+
+  gridEl.addEventListener('click', pick); listEl.addEventListener('click', pick);
+  function pick(e) { var b = e.target.closest('.kpk-opt'); if (b) choose(b.getAttribute('data-value')); }
+
+  q.addEventListener('input', function () { kbd = -1; render(); });
+  q.addEventListener('keydown', function (e) {
+    var items = filtered();
+    if (e.key === 'ArrowDown') { e.preventDefault(); kbd = Math.min(kbd + 1, items.length - 1); render(); scrollKbd(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); kbd = Math.max(kbd - 1, 0); render(); scrollKbd(); }
+    else if (e.key === 'Enter') { e.preventDefault(); if (kbd >= 0 && items[kbd]) choose(items[kbd].v); else if (items.length === 1) choose(items[0].v); }
+  });
+  function scrollKbd() { var box = picker.classList.contains('gridview') ? gridEl : listEl; var el = box.querySelector('.kpk-opt.kbd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+
+  function setView(v) {
+    picker.classList.toggle('gridview', v === 'grid');
+    document.getElementById('kpk-vgrid').classList.toggle('active', v === 'grid');
+    document.getElementById('kpk-vlist').classList.toggle('active', v === 'list');
+  }
+  document.getElementById('kpk-vgrid').onclick = function () { setView('grid'); };
+  document.getElementById('kpk-vlist').onclick = function () { setView('list'); };
+
+  render();
+  mpCheckReady();
+})();
+</script>
+{{end}}
