@@ -9317,9 +9317,13 @@ ALTER TABLE devices ADD COLUMN IF NOT EXISTS discharge_legacy_pct BIGINT NOT NUL
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS product TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_devices_product ON devices(product);
 
--- Operator role retired: fold any remaining operator accounts down to viewer
--- (read-only). Their action powers move to the operator/dev/admin roles.
-UPDATE users SET role = 'viewer' WHERE role = 'operator';
+-- (Historical) Operator role retired: folded any remaining operator accounts down
+-- to viewer, back when 'operator' meant the OLD role being retired here. That
+-- one-time job finished long ago. The statement is now REMOVED — 'operator' was
+-- later reused as the renamed 'tester' role (see the tester->operator migration
+-- below), and this unconditional UPDATE was unconditionally re-running on every
+-- boot, silently demoting every real operator account back to viewer on each
+-- redeploy. Do not re-add a bare "role='operator' -> role='viewer'" statement.
 
 -- Device diagnostics catalog: admin-curated read-only device queries surfaced as
 -- friendly "retrieve property" buttons (e.g. getprop ro.build.id, dumpsys battery).
