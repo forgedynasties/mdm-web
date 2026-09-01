@@ -2980,9 +2980,9 @@ func otaStatusView(status string, p *shell.OTAProgress) (label, class string, pe
 	case "pending":
 		return "Queued", "run", percent
 	case "downloading":
-		if percent == 0 {
-			percent = 5
-		}
+		// No live telemetry yet (p == nil) — show the real 0%, matching the
+		// deployment page's device row, which shows no percent at all in this same
+		// case rather than a made-up placeholder value.
 		return "Downloading", "dl", percent
 	case "installing":
 		if percent == 0 {
