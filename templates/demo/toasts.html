@@ -79,20 +79,32 @@
   .aB .x{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:16px;align-self:flex-start}
 
   /* ═══ Direction C — Top banner strip (slides down from the header, one at a time).
-     Subtle: light surface, thin left accent, tinted icon — reads as a calm system
-     strip rather than a loud colored block. ═══ */
-  .bC{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:640px;width:calc(100% - 40px);margin-top:10px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:10px;box-shadow:var(--shadow);padding:10px 14px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
+     Liquid glass: translucent frosted panel over whatever's beneath it, with a
+     bright inner-top hairline for the specular sheen and a soft ambient shadow
+     for lift, instead of a flat opaque card. ═══ */
+  .bC{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:640px;width:calc(100% - 40px);margin-top:10px;
+    background:rgba(255,255,255,.5);backdrop-filter:blur(18px) saturate(180%);-webkit-backdrop-filter:blur(18px) saturate(180%);
+    color:var(--text);border:1px solid rgba(255,255,255,.65);border-radius:15px;
+    box-shadow:0 10px 30px rgba(28,26,24,.13),inset 0 1px 0 rgba(255,255,255,.85);
+    padding:9px 14px 9px 10px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
   .bC.show{opacity:1;transform:translateY(0)}
-  .bC.success{border-left-color:var(--ok)}.bC.error{border-left-color:var(--danger)}.bC.warn{border-left-color:var(--warn)}.bC.info{border-left-color:var(--p)}
-  .bC .ic{width:16px;height:16px;flex:none;color:var(--muted)}
-  .bC.success .ic{color:var(--ok)}.bC.error .ic{color:var(--danger)}.bC.warn .ic{color:var(--warn)}.bC.info .ic{color:var(--p)}
+  .bC .ic{width:26px;height:26px;flex:none;border-radius:8px;background:rgba(126,119,109,.12);color:var(--muted);display:flex;align-items:center;justify-content:center}
+  .bC .ic svg{width:14px;height:14px}
+  .bC.success .ic{background:rgba(31,157,99,.14);color:var(--ok)}
+  .bC.error .ic{background:rgba(209,80,63,.14);color:var(--danger)}
+  .bC.warn .ic{background:rgba(184,134,11,.14);color:var(--warn)}
+  .bC.info .ic{background:rgba(122,128,246,.14);color:var(--p)}
   .bC .m{flex:1;font-size:12.5px;font-weight:550;min-width:0}
   .bC .lnk{flex:none;font-size:12px;font-weight:650;text-decoration:underline;color:var(--accent)}
   .bC .x{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:15px}
 
-  .aC{pointer-events:auto;display:flex;align-items:center;gap:12px;max-width:680px;width:calc(100% - 40px);margin-top:10px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-left:3px solid var(--danger);border-radius:11px;box-shadow:var(--shadow);padding:12px 16px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
+  .aC{pointer-events:auto;display:flex;align-items:center;gap:12px;max-width:680px;width:calc(100% - 40px);margin-top:10px;
+    background:rgba(255,255,255,.5);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);
+    color:var(--text);border:1px solid rgba(255,255,255,.65);border-radius:16px;
+    box-shadow:0 12px 34px rgba(28,26,24,.16),inset 0 1px 0 rgba(255,255,255,.85);
+    padding:12px 16px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
   .aC.show{opacity:1;transform:translateY(0)}
-  .aC .ic{width:32px;height:32px;flex:none;border-radius:9px;background:#fbe9e5;color:var(--danger);display:flex;align-items:center;justify-content:center}
+  .aC .ic{width:32px;height:32px;flex:none;border-radius:9px;background:rgba(209,80,63,.16);color:var(--danger);display:flex;align-items:center;justify-content:center}
   .aC .ic svg{width:17px;height:17px}
   .aC .m{flex:1;min-width:0}
   .aC .t{font-size:13.5px;font-weight:700}
