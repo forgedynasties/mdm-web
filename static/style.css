@@ -122,77 +122,85 @@
    DARK THEME — overrides only the theme-specific tokens.
    ════════════════════════════════════════════════════════ */
 html[data-theme="dark"] {
-  /* Surfaces */
-  --bg:        #0b0d10;
-  --bg-grid:   #0e1115;
-  --surface:   #12161b;
-  --surface2:  #181d24;
-  --surface-3: #20262f;
-  --overlay:   rgba(0, 0, 0, 0.65);
+  /* Surfaces — a near-black bg (#0b0d10, ~4% luminance) paired with near-white
+     text (#e7ebf0, ~88%) put contrast well above what's comfortable for a UI
+     meant to be read for long stretches (~15:1 — closer to a AAA-max spec-sheet
+     number than a usable one; Material/GitHub/Linear-style dark themes deliberately
+     stay off true black and off near-white for this reason). Lifted the floor and
+     lowered the ceiling: a dark charcoal bg, a dimmer off-white for text, and more
+     separation between bg/surface so cards read as distinct panels instead of
+     nearly merging into the page. */
+  --bg:        #16181c;
+  --bg-grid:   #191c21;
+  --surface:   #1e2127;
+  --surface2:  #262a31;
+  --surface-3: #2f343c;
+  --overlay:   rgba(0, 0, 0, 0.58);
 
   /* Borders */
-  --border:      #232a33;
-  --border-soft: #1b2129;
-  --rule:        #2c343f;
-  --rule-2:      #3a4452;
+  --border:      #333941;
+  --border-soft: #262b32;
+  --rule:        #3d4450;
+  --rule-2:      #4c5462;
 
   /* Text */
-  --text:        #e7ebf0;
-  --text-2:      #b9c1cc;
-  --muted:       #8a92a0;
-  --text-faint:  #7a828f;        /* WCAG AA: 4.7:1 on surface (was 2.5:1) */
+  --text:        #d7dce2;
+  --text-2:      #aab1bc;
+  --muted:       #8992a0;
+  --text-faint:  #767e8c;        /* WCAG AA: ~4.6:1 on surface */
 
-  /* Brand accent — AIO coral, lifted for legibility on dark */
-  --accent:        #ff7d64;
-  --accent-h:      #ff957f;
-  --accent-soft:   rgba(255, 125, 100, 0.14);
-  --accent-edge:   rgba(255, 125, 100, 0.36);
+  /* Brand accent — AIO coral, dimmed slightly off the neon end so it reads as a
+     brand color rather than glowing against the darker bg. */
+  --accent:        #f9805f;
+  --accent-h:      #ffa088;
+  --accent-soft:   rgba(249, 128, 95, 0.14);
+  --accent-edge:   rgba(249, 128, 95, 0.36);
   --accent-ink:    #2a0c05;
-  --accent-text:   #ff7d64;      /* dark coral already clears AA as text (7.2:1) */
-  --ring:          0 0 0 2px rgba(255, 125, 100, 0.45);
-  --accent-2:      #9aa0ff;
-  --accent-2-soft: rgba(154, 160, 255, 0.16);
-  --brand-grad:    linear-gradient(92deg, #ff7d64 0%, #9aa0ff 100%);
+  --accent-text:   #f9805f;      /* clears AA as text on the new, lighter surfaces */
+  --ring:          0 0 0 2px rgba(249, 128, 95, 0.45);
+  --accent-2:      #99a1f2;
+  --accent-2-soft: rgba(153, 161, 242, 0.16);
+  --brand-grad:    linear-gradient(92deg, #f9805f 0%, #99a1f2 100%);
 
-  /* Semantic */
-  --ok:        #59c97a;
-  --warn:      #e6a836;
-  --danger:    #e96b6b;           /* AA on the 10% wash used by status pills */
-  --info:      #6aa9ff;
-  --ok-bg:     rgba(89, 201, 122, 0.10);
-  --warn-bg:   rgba(230, 168, 54, 0.10);
-  --danger-bg: rgba(224, 86, 86, 0.10);
-  --info-bg:   rgba(106, 169, 255, 0.10);
-  --ok-edge:     rgba(89, 201, 122, 0.30);
-  --warn-edge:   rgba(230, 168, 54, 0.30);
-  --danger-edge: rgba(224, 86, 86, 0.30);
-  --info-edge:   rgba(106, 169, 255, 0.30);
+  /* Semantic — same dimming pass so status colors read as information, not neon */
+  --ok:        #55bd75;
+  --warn:      #dba33a;
+  --danger:    #e07575;
+  --info:      #6ba3f0;
+  --ok-bg:     rgba(85, 189, 117, 0.12);
+  --warn-bg:   rgba(219, 163, 58, 0.12);
+  --danger-bg: rgba(224, 117, 117, 0.12);
+  --info-bg:   rgba(107, 163, 240, 0.12);
+  --ok-edge:     rgba(85, 189, 117, 0.32);
+  --warn-edge:   rgba(219, 163, 58, 0.32);
+  --danger-edge: rgba(224, 117, 117, 0.32);
+  --info-edge:   rgba(107, 163, 240, 0.32);
 
   /* Charts */
-  --chart-battery: #6aa9ff;
-  --chart-temp:    #ff8a4c;
-  --chart-ram:     #59c97a;
-  --chart-grid:    rgba(46, 51, 71, 0.8);
-  --chart-tick:    #7a7f9a;
+  --chart-battery: #6ba3f0;
+  --chart-temp:    #f28654;
+  --chart-ram:     #55bd75;
+  --chart-grid:    rgba(61, 68, 80, 0.7);
+  --chart-tick:    #838a9c;
 
-  /* Elevation / interaction */
-  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.30);
-  --shadow-md:  0 2px 8px rgba(0, 0, 0, 0.35);
-  --shadow-lg:  0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.55);
-  --hover:      rgba(255, 255, 255, 0.04);
+  /* Elevation / interaction — shadows eased off slightly since the lighter bg
+     needs less raw darkness to read as depth. */
+  --shadow-sm:  0 1px 2px rgba(0, 0, 0, 0.26);
+  --shadow-md:  0 2px 8px rgba(0, 0, 0, 0.30);
+  --shadow-lg:  0 8px 24px rgba(0, 0, 0, 0.38);
+  --shadow-pop: 0 10px 30px rgba(0, 0, 0, 0.48);
+  --hover:      rgba(255, 255, 255, 0.05);
   --selected:   var(--accent-soft);
   --page-glow:
     radial-gradient(ellipse 80% 60% at 50% 0%, rgba(244, 63, 99, 0.05) 0%, transparent 70%),
     radial-gradient(ellipse 40% 50% at 20% 80%, rgba(244, 63, 99, 0.035) 0%, transparent 70%);
 
-  /* Console surfaces — dark terminal in dark mode */
-  --console-bg:      #0e1115;
-  --console-surface: #14181e;
+  /* Console surfaces — kept closer to true black on purpose (a terminal reads as
+     a terminal), just enough lifted to avoid a pure #000 void. */
+  --console-bg:      #121519;
+  --console-surface: #181c22;
   --console-text:    #d6dbe2;
-  --console-border:  #232a33;
-
-  /* Console surfaces already match dark; keep as-is */
+  --console-border:  #2c333d;
 }
 
 html, body { height: 100%; }
