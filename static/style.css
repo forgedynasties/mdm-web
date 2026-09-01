@@ -147,7 +147,7 @@ html[data-theme="dark"] {
   --text:        #d7dce2;
   --text-2:      #aab1bc;
   --muted:       #8992a0;
-  --text-faint:  #767e8c;        /* WCAG AA: ~4.6:1 on surface */
+  --text-faint:  #838a99;        /* WCAG AA: ~4.7:1 on surface */
 
   /* Brand accent — AIO coral, dimmed slightly off the neon end so it reads as a
      brand color rather than glowing against the darker bg. */
