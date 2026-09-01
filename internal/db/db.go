@@ -9379,7 +9379,11 @@ CREATE INDEX IF NOT EXISTS user_tokens_user_id_idx ON user_tokens (user_id);
 -- in MDM, and "operator" is already the term used everywhere else (canOperate,
 -- requireOperatorOrAdmin) for this exact permission tier, so the role label was
 -- just out of sync with the concept. Existing tester accounts keep their
--- permissions, just relabeled.
+-- permissions, just relabeled. The constraint must allow BOTH values while the
+-- UPDATE is converting rows — the currently-active constraint at this point in
+-- the script is (viewer,tester), which would reject the UPDATE outright.
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester'));
 UPDATE users SET role = 'operator' WHERE role = 'tester';
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator'));
