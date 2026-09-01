@@ -148,8 +148,11 @@
 </div>
 
 {{/* Push to devices — Approach A: ship straight from the release. Auto-scoped to the
-     release's product; devices already on this build are shown "up to date" (disabled). */}}
-{{if $isAdmin}}
+     release's product; devices already on this build are shown "up to date" (disabled).
+     Gated on canOperate (admin/dev/tester), matching every other push surface
+     (deployment_detail's "Push to more devices", Actions) — this used to be
+     admin/dev-only ($isAdmin), which hid the whole card for a tester. */}}
+{{if canOperate $role}}
 <div class="card" id="push" style="margin-bottom:18px;scroll-margin-top:70px;">
   <div class="card-header">
     <h3>Push update to devices</h3>
