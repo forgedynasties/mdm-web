@@ -8945,11 +8945,16 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	// Retry with the full image: a failed device has almost always tripped on an
-	// incremental that can't apply to its source build, and the full package is
-	// guaranteed-applicable. Pinning here also recovers devices that failed before
-	// the auto-fallback existed.
-	_ = h.db.SetUpdateDeviceForceFull(r.Context(), did, device.ID)
+	// Two retry modes: "full" pins the device to the full image (a failed device has
+	// almost always tripped on an incremental that can't apply to its source build,
+	// and the full package is guaranteed-applicable — also recovers devices that
+	// failed before the auto-fallback existed). Plain retry leaves force_full alone
+	// and just re-pends, so ResolveUpdateForDevice picks the same delivery it would
+	// have chosen originally (e.g. a transient DOWNLOAD_ERROR unrelated to the
+	// package itself, where the incremental is still the right, smaller download).
+	if r.FormValue("delivery") == "full" {
+		_ = h.db.SetUpdateDeviceForceFull(r.Context(), did, device.ID)
+	}
 	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "pending")
 	// If the deployment was already marked complete, re-pending one device would
 	// otherwise strand it (ResolveUpdateForDevice only serves status='active').

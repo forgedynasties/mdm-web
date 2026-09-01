@@ -73,6 +73,10 @@
     <td class="dpl-act-cell">
       {{if and (eq .Status "failed") (canOperate $.Role)}}
         <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+          <button type="submit" class="btn-outline btn-sm" title="Re-send the same way it was sent before (incremental if it qualifies, otherwise full)">Retry</button>
+        </form>
+        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+          <input type="hidden" name="delivery" value="full">
           <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry with full image</button>
         </form>
       {{end}}
@@ -144,7 +148,11 @@
         <div class="dpl-card-act">
           {{if eq .Status "failed"}}
           <form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
-            <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry</button>
+            <button type="submit" class="btn-outline btn-sm" title="Re-send the same way it was sent before (incremental if it qualifies, otherwise full)">Retry</button>
+          </form>
+          <form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+            <input type="hidden" name="delivery" value="full">
+            <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Full image</button>
           </form>
           {{else if eq .Status "awaiting_reboot"}}
           <form action="/releases/{{$root.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/reboot" method="POST" hx-boost="true" class="dpl-act"
@@ -208,7 +216,11 @@
     <div class="dpl-crow-act">
       {{if eq .Status "failed"}}
       <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
-        <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Retry</button>
+        <button type="submit" class="btn-outline btn-sm" title="Re-send the same way it was sent before (incremental if it qualifies, otherwise full)">Retry</button>
+      </form>
+      <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
+        <input type="hidden" name="delivery" value="full">
+        <button type="submit" class="btn-outline btn-sm" title="Re-send using the full image (skips any incremental)">Full image</button>
       </form>
       {{else if eq .Status "awaiting_reboot"}}
       <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/reboot" method="POST" hx-boost="true" class="dpl-act"
