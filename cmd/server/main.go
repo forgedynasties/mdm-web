@@ -393,6 +393,19 @@ func main() {
 				// Re-push commands (any type) wedged at 'delivered' on a half-open socket to
 				// devices that are connected now, so an action can't silently never run.
 				runJob(bgCtx, "redrive-stuck-deliveries", time.Minute, apiHandler.RedriveStuckDeliveries)
+				// Safety net for the WS-connect flush itself failing (e.g. a transient DB
+				// error mid-recovery/restart): re-attempt delivery for every currently
+				// connected device. A command with nothing pending is a cheap no-op query,
+				// so this is safe to run every tick rather than only on the connect event
+				// that may have failed. Closes the gap RedriveStuckDeliveries can't: that
+				// job only re-drives commands that reached 'delivered' at least once — a
+				// flush that errored before ever pushing leaves no command_status row at
+				// all, so it never entered that job's set.
+				runJob(bgCtx, "redrive-unflushed", time.Minute, func(ctx context.Context) {
+					for id := range hub.ConnectedIDs() {
+						apiHandler.FlushPendingCommands(ctx, id)
+					}
+				})
 				// NOTE: expire-overdue-commands is intentionally NOT scheduled — the per-device
 				// queue does not expire for now (a queued command runs whenever the device next
 				// comes online). The ExpireOverdueCommands handler is kept for when per-type
