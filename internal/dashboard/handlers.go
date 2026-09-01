@@ -1090,6 +1090,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return "Download failed — the device couldn't fetch the OTA package (check the URL is reachable from the device)."
 			case "UPDATE_ENGINE_BIND_ERROR":
 				return "Couldn't reach the device's system update service (update_engine)."
+			case "CANCELLED":
+				return "Cancelled by an operator while still downloading."
 			}
 			if n, ok := strings.CutPrefix(code, "UPDATE_ERROR_"); ok {
 				if txt := updateEngineErrors[n]; txt != "" {
@@ -2959,6 +2961,12 @@ func (h *Handler) DeviceAppsList(w http.ResponseWriter, r *http.Request) {
 // progress-bar percent. Shared by DeviceDetail's initial render and
 // DeviceOtaProgress's poll fragment so they can never disagree.
 func otaStatusView(status string, p *shell.OTAProgress) (label, class string, percent int) {
+	// A terminal DB status is authoritative over shell.Manager's in-memory cache, which
+	// has no TTL and is never cleared by an out-of-band status correction — otherwise a
+	// stale live percent can keep showing next to "Installed"/"Failed" indefinitely.
+	if status == "installed" || status == "failed" {
+		p = nil
+	}
 	if p != nil {
 		percent = p.Percent
 		// The live phase the device just reported is finer-grained and fresher than
@@ -2995,6 +3003,8 @@ func otaStatusView(status string, p *shell.OTAProgress) (label, class string, pe
 		return "Rebooting", "done", 95
 	case "failed":
 		return "Failed", "fail", 100
+	case "installed":
+		return "Installed", "done", 100
 	default:
 		return status, "run", percent
 	}
@@ -8667,8 +8677,14 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	done := 0
 	durSum, durCount := 0, 0
 	for _, t := range targets {
-		if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
-			otaProgress[t.DeviceID.String()] = p
+		// Once a target has a terminal DB status, never show its live progress bar —
+		// shell.Manager's in-memory cache has no TTL and nothing clears it when a
+		// status is corrected out-of-band (e.g. a manual DB fix after a lost ack), so
+		// a stale in-memory percent could otherwise sit next to "Installed" forever.
+		if t.Status != "installed" && t.Status != "failed" {
+			if p := h.shell.GetOTAProgress(t.DeviceID); p != nil {
+				otaProgress[t.DeviceID.String()] = p
+			}
 		}
 		counts[t.Status]++
 		switch t.Status {
@@ -8864,6 +8880,49 @@ func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
 	}
 	h.audit(r, "deployment.cancel", strconv.Itoa(did), "")
 	h.hub.PublishDeploymentUpdate()
+	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
+}
+
+// DeploymentCancelDeviceOTA aborts one device's in-flight OTA — only while it's
+// still downloading, never mid-install (aborting update_engine partway through
+// writing the inactive slot risks a corrupt/unbootable slot; a download can be
+// safely thrown away and resumed from scratch). Pushes cancel_command over WS;
+// the client checks its current phase and only actually cancels if it's still
+// "downloading" (see MdmService's cancel_command handling), then reports a
+// terminal "error"/CANCELLED through the same durable ack path every other OTA
+// terminal status uses, so the usual afterOtaTerminal bookkeeping applies.
+func (h *Handler) DeploymentCancelDeviceOTA(w http.ResponseWriter, r *http.Request) {
+	relID, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	did, err := strconv.Atoi(r.PathValue("did"))
+	if err != nil {
+		http.Error(w, "Invalid deployment ID", http.StatusBadRequest)
+		return
+	}
+	upd, err := h.db.GetUpdate(r.Context(), did)
+	if err != nil || upd.ReleaseID != relID {
+		http.Error(w, "Deployment not found", http.StatusNotFound)
+		return
+	}
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	cmdID, ok, err := h.db.GetActiveOTACommandID(r.Context(), device.ID)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	if ok {
+		if msg, e := json.Marshal(map[string]any{"type": "cancel_command", "id": cmdID.String()}); e == nil {
+			h.hub.Push(device.ID, msg)
+		}
+	}
+	h.audit(r, "deployment.cancel_ota", r.PathValue("serial"), strconv.Itoa(did))
 	h.hxRedirect(w, r, fmt.Sprintf("/releases/%d/deployments/%d", relID, did))
 }
 
@@ -14443,6 +14502,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /releases/{id}/deployments/{did}/reboot-all", h.requireOperatorOrAdmin(h.DeploymentRebootAll))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/reboot", h.requireOperatorOrAdmin(h.DeploymentRebootDevice))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
+	post("POST /releases/{id}/deployments/{did}/devices/{serial}/cancel-ota", h.requireOperatorOrAdmin(h.DeploymentCancelDeviceOTA))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/remove", h.requireOperatorOrAdmin(h.DeploymentRemoveDevice))
 	post("POST /releases/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
 

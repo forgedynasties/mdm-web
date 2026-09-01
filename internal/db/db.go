@@ -10843,6 +10843,27 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 //     won't mistake genuine in-progress work for stuck, short enough that a truly
 //     stuck device self-heals on close to its next check-in instead of staying
 //     visibly "stuck" on the dashboard for hours).
+// GetActiveOTACommandID returns the most recent non-terminal OTA command targeting
+// this device, or ok=false if there is none — used to address a cancel_command frame
+// at the right command id (the device dedups cancels by id, so this must match
+// exactly what it's currently working on).
+func (d *DB) GetActiveOTACommandID(ctx context.Context, deviceID uuid.UUID) (id uuid.UUID, ok bool, err error) {
+	err = d.pool.QueryRow(ctx, `
+		SELECT c.id FROM commands c
+		JOIN command_targets ct ON ct.command_id = c.id AND ct.target_id = $1
+		LEFT JOIN command_status cs ON cs.command_id = c.id AND cs.device_id = $1
+		WHERE c.type = 'ota' AND (cs.status IS NULL OR cs.status NOT IN ('installed', 'failed', 'completed', 'expired', 'cancelled'))
+		ORDER BY c.created_at DESC LIMIT 1
+	`, deviceID).Scan(&id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, false, nil
+		}
+		return uuid.Nil, false, err
+	}
+	return id, true, nil
+}
+
 func (d *DB) HasPendingOTACommand(ctx context.Context, deviceID uuid.UUID) (bool, error) {
 	var exists bool
 	err := d.pool.QueryRow(ctx, `

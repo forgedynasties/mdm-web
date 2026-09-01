@@ -88,6 +88,12 @@
           <button type="submit" class="btn-outline btn-sm">Remove</button>
         </form>
       {{end}}
+      {{if and (eq .Status "downloading") (canOperate $.Role)}}
+        <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/cancel-ota" method="POST" hx-boost="true" class="dpl-act"
+              hx-confirm="Cancel the download on {{.SerialNumber}}? Safe while still downloading — never aborts an install already in progress.">
+          <button type="submit" class="btn-outline btn-sm" title="Aborts the download only — a device already writing to the inactive slot finishes instead">Cancel</button>
+        </form>
+      {{end}}
     </td>
   </tr>
   {{end}}
