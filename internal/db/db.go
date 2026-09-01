@@ -3981,8 +3981,9 @@ type App struct {
 	Name        string    `json:"name"`
 	ApkURL      string    `json:"apk_url"`
 	PackageName string    `json:"package_name"`
-	S3Key       string    `json:"s3_key,omitempty"` // set for S3-hosted uploads; empty for URL apps
-	Icon        string    `json:"icon,omitempty"`   // resolved from app_icons on the read path
+	VersionName string    `json:"version_name,omitempty"` // parsed from the APK manifest at upload, "" if unknown
+	S3Key       string    `json:"s3_key,omitempty"`       // set for S3-hosted uploads; empty for URL apps
+	Icon        string    `json:"icon,omitempty"`         // resolved from app_icons on the read path
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -3990,7 +3991,7 @@ func (d *DB) ListApps(ctx context.Context) ([]App, error) {
 	// Resolve each app's icon from the shared app_icons index (populated when an APK is
 	// uploaded and parsed) so the library can render real icons.
 	rows, err := d.pool.Query(ctx, `
-		SELECT a.id, a.name, a.apk_url, a.package_name, a.created_at, COALESCE(ai.icon, '')
+		SELECT a.id, a.name, a.apk_url, a.package_name, a.version_name, a.created_at, COALESCE(ai.icon, '')
 		FROM apps a
 		LEFT JOIN app_icons ai ON ai.package_name = a.package_name
 		ORDER BY a.name ASC`)
@@ -4001,7 +4002,7 @@ func (d *DB) ListApps(ctx context.Context) ([]App, error) {
 	var out []App
 	for rows.Next() {
 		var a App
-		if err := rows.Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.CreatedAt, &a.Icon); err != nil {
+		if err := rows.Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.VersionName, &a.CreatedAt, &a.Icon); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -4012,8 +4013,8 @@ func (d *DB) ListApps(ctx context.Context) ([]App, error) {
 func (d *DB) GetApp(ctx context.Context, id uuid.UUID) (*App, error) {
 	var a App
 	err := d.pool.QueryRow(ctx,
-		`SELECT id, name, apk_url, package_name, COALESCE(s3_key, ''), created_at FROM apps WHERE id = $1`, id,
-	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.S3Key, &a.CreatedAt)
+		`SELECT id, name, apk_url, package_name, version_name, COALESCE(s3_key, ''), created_at FROM apps WHERE id = $1`, id,
+	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.VersionName, &a.S3Key, &a.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -4024,15 +4025,15 @@ func (d *DB) GetApp(ctx context.Context, id uuid.UUID) (*App, error) {
 // server's own stable proxy (baseURL + /apps/{id}/apk) that 302-redirects to a fresh
 // presigned download URL, so the bucket stays private and the URL never expires. The
 // device fetches apk_url directly, so baseURL must be the device-reachable origin.
-func (d *DB) CreateS3App(ctx context.Context, name, packageName, s3Key, baseURL string) (*App, error) {
+func (d *DB) CreateS3App(ctx context.Context, name, packageName, versionName, s3Key, baseURL string) (*App, error) {
 	id := uuid.New()
 	apkURL := fmt.Sprintf("%s/apps/%s/apk", strings.TrimRight(baseURL, "/"), id)
 	var a App
 	err := d.pool.QueryRow(ctx,
-		`INSERT INTO apps (id, name, apk_url, package_name, s3_key) VALUES ($1, $2, $3, $4, $5)
-		 RETURNING id, name, apk_url, package_name, COALESCE(s3_key, ''), created_at`,
-		id, name, apkURL, packageName, s3Key,
-	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.S3Key, &a.CreatedAt)
+		`INSERT INTO apps (id, name, apk_url, package_name, version_name, s3_key) VALUES ($1, $2, $3, $4, $5, $6)
+		 RETURNING id, name, apk_url, package_name, version_name, COALESCE(s3_key, ''), created_at`,
+		id, name, apkURL, packageName, versionName, s3Key,
+	).Scan(&a.ID, &a.Name, &a.ApkURL, &a.PackageName, &a.VersionName, &a.S3Key, &a.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -9094,6 +9095,11 @@ CREATE TABLE IF NOT EXISTS apk_packages (
 -- that already have the app — no need to wait for a first install to "learn" it.
 ALTER TABLE apps ADD COLUMN IF NOT EXISTS package_name TEXT NOT NULL DEFAULT '';
 ALTER TABLE apps ADD COLUMN IF NOT EXISTS s3_key TEXT NOT NULL DEFAULT '';
+-- versionName parsed from the APK manifest at upload — shown in the App Library and
+-- everywhere the app picker appears (Actions, device page) so an operator can tell
+-- which build they're about to install. Re-uploading the same package still creates a
+-- new row (no version-aware replace flow yet), so this alone doesn't dedup.
+ALTER TABLE apps ADD COLUMN IF NOT EXISTS version_name TEXT NOT NULL DEFAULT '';
 
 -- Freeform operator notes on a device (e.g. "cracked screen", "reserved for QA").
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';

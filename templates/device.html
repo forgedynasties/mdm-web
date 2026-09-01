@@ -2387,9 +2387,9 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
           <div class="app-search" style="padding:8px 18px 0;"><input type="text" id="install-filter" class="form-input" placeholder="Search apps…" oninput="filterInstallApps(this.value)"></div>
           <div class="app-drawer install-drawer" id="install-drawer">
             {{range .Apps}}
-            <button type="button" class="app-row app-tile install-tile{{if index $.InstalledSet .PackageName}} install-installed{{end}}" data-app="{{.Name}}" data-url="{{.ApkURL}}" data-pkg="{{.PackageName}}" title="{{.Name}}" onclick="installToggle(this)">
+            <button type="button" class="app-row app-tile install-tile{{if index $.InstalledSet .PackageName}} install-installed{{end}}" data-app="{{.Name}}" data-url="{{.ApkURL}}" data-pkg="{{.PackageName}}" title="{{.Name}}{{if .VersionName}} v{{.VersionName}}{{end}}" onclick="installToggle(this)">
               {{if .Icon}}<img class="app-icon" src="data:image/png;base64,{{.Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
-              <span class="app-tname">{{.Name}}</span>
+              <span class="app-tname">{{.Name}}</span>{{if .VersionName}}<span class="app-tver">v{{.VersionName}}</span>{{end}}
               <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
             </button>
             {{end}}
@@ -2787,6 +2787,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 .app-tname{font-size:12px;font-weight:600;color:var(--text);line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
 .app-tsub{font-size:10.5px;color:var(--text-faint);font-weight:600;}
 .app-tile.sys .app-tname{color:var(--text-faint);}
+.app-tver{display:block;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:1px;}
 .app-tile.sys .app-mono{opacity:.72;}
 /* Uninstall affordance — a small × on hover (user apps only). */
 .app-x-form{position:absolute;top:5px;right:5px;margin:0;opacity:0;transition:opacity .12s;}

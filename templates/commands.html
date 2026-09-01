@@ -127,6 +127,7 @@
 .appc .thumb img{width:100%;height:100%;object-fit:contain;}
 .appc .m{min-width:0;width:100%;}
 .appc .nm{font-size:11.5px;font-weight:650;color:var(--text);line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.appc .ver{display:block;font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;margin-top:1px;}
 .appc .chk{position:absolute;top:5px;right:12px;width:18px;height:18px;flex:none;border-radius:50%;background:var(--accent);display:none;align-items:center;justify-content:center;}
 .appc .chk svg{width:11px;height:11px;fill:none;stroke:#fff;stroke-width:3;}
 .appc.on .chk{display:flex;}
@@ -489,9 +490,9 @@
             <div class="pl-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg><input type="text" placeholder="Search your app library…" aria-label="Search your app library" autocomplete="off" oninput="filterApps(this.value)"></div>
             <div class="appgrid" id="app-grid">
               {{range .Apps}}
-              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.PackageName}}" onclick="pickApp(this)" title="{{.Name}}{{if .PackageName}} · {{.PackageName}}{{end}}">
+              <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.PackageName}}" onclick="pickApp(this)" title="{{.Name}}{{if .VersionName}} v{{.VersionName}}{{end}}{{if .PackageName}} · {{.PackageName}}{{end}}">
                 <span class="thumb">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
-                <span class="m"><span class="nm">{{.Name}}</span></span>
+                <span class="m"><span class="nm">{{.Name}}</span>{{if .VersionName}}<span class="ver">v{{.VersionName}}</span>{{end}}</span>
                 <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
               </button>
               {{end}}

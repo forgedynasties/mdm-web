@@ -864,6 +864,7 @@ function kioskAddPkg(pkg, el){
   .lib-mono{display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;text-transform:uppercase;background:var(--surface-3);color:var(--text-faint);}
   .lib-name{font-size:12.5px;font-weight:650;line-height:1.25;max-width:100%;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word;}
   .lib-pkg{font-size:10.5px;color:var(--text-faint);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lib-ver{font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
   .lib-del-form{position:absolute;top:5px;right:5px;margin:0;opacity:0;transition:opacity .12s;}
   .lib-tile:hover .lib-del-form{opacity:1;}
   .lib-del{width:22px;height:22px;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--danger,#c0392b);font-size:14px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
@@ -906,9 +907,10 @@ function kioskAddPkg(pkg, el){
     {{range .Apps}}
     <div class="lib-tile" data-app="{{.Name}} {{.PackageName}}" role="button" tabindex="0" style="cursor:pointer;"
          onclick="libInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();libInfoOpen(this);}"
-         data-id="{{.ID}}" data-name="{{.Name}}" data-pkg="{{.PackageName}}" data-url="{{.ApkURL}}" data-added="{{localTime .CreatedAt}}">
+         data-id="{{.ID}}" data-name="{{.Name}}" data-pkg="{{.PackageName}}" data-version="{{.VersionName}}" data-url="{{.ApkURL}}" data-added="{{localTime .CreatedAt}}">
       {{if .Icon}}<img class="lib-icon" src="data:image/png;base64,{{.Icon}}" alt="">{{else}}<div class="lib-mono">{{if .Name}}{{slice .Name 0 1}}{{end}}</div>{{end}}
       <div class="lib-name">{{.Name}}</div>
+      {{if .VersionName}}<div class="lib-ver">v{{.VersionName}}</div>{{end}}
       <div class="lib-pkg mono" title="{{.PackageName}}">{{.PackageName}}</div>
       <form action="/setup/apps/{{.ID}}/delete" method="POST" class="lib-del-form" onclick="event.stopPropagation();" onsubmit="return libDelete(this, event);"><button type="submit" class="lib-del" title="Remove {{.Name}}" aria-label="Remove {{.Name}}">&times;</button></form>
     </div>
@@ -936,6 +938,7 @@ function kioskAddPkg(pkg, el){
     <div class="modal-body">
       <div class="li-head"><span id="li-icon"></span><div><div id="li-name" class="li-title"></div><div id="li-pkg" class="mono muted" style="font-size:12px;"></div></div></div>
       <div class="li-row"><span class="li-k">Package</span><span id="li-pkg2" class="li-v mono"></span></div>
+      <div class="li-row" id="li-ver-row" style="display:none;"><span class="li-k">Version</span><span id="li-ver" class="li-v mono"></span></div>
       <div class="li-row"><span class="li-k">APK URL</span><a id="li-url" class="li-v mono" target="_blank" rel="noopener"></a></div>
       <div class="li-row"><span class="li-k">Added</span><span id="li-added" class="li-v"></span></div>
     </div>
@@ -1094,7 +1097,7 @@ function libConfirmAdd(){
   var items=window.__libConfirmItems||[]; if(!items.length){libConfirmClose();return;}
   var btn=document.getElementById('lib-confirm-add'); btn.disabled=true; btn.textContent='Adding…';
   var err=document.getElementById('lib-confirm-err'); err.style.display='none'; var added=0; var chain=Promise.resolve();
-  items.forEach(function(it){ chain=chain.then(function(){return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:it.key,package:it.pkg,name:it.name,icon:it.icon})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'register failed'); added++;});});}); });
+  items.forEach(function(it){ chain=chain.then(function(){return fetch('/apps/register',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',body:JSON.stringify({key:it.key,package:it.pkg,version:it.ver,name:it.name,icon:it.icon})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw new Error(j.error||'register failed'); added++;});});}); });
   chain.then(function(){location.reload();}).catch(function(e){btn.disabled=false;btn.innerHTML='Add <span id="lib-confirm-n">('+items.length+')</span>';err.textContent='Added '+added+' of '+items.length+'. '+e.message;err.style.display='block';});
 }
 function libDelete(form,ev){ev.preventDefault();if(!confirm('Remove this app from the library?'))return false;fetch(form.action,{method:'POST',credentials:'same-origin'}).then(function(){location.reload();}).catch(function(){location.reload();});return false;}
@@ -1105,6 +1108,9 @@ function libInfoOpen(tile){
   document.getElementById('li-name').textContent=tile.dataset.name||'';
   document.getElementById('li-pkg').textContent=tile.dataset.pkg||'';
   document.getElementById('li-pkg2').textContent=tile.dataset.pkg||'—';
+  var ver=tile.dataset.version||'';
+  document.getElementById('li-ver-row').style.display=ver?'':'none';
+  document.getElementById('li-ver').textContent=ver;
   var url=tile.dataset.url||'',a=document.getElementById('li-url');a.textContent=url||'—';if(url)a.setAttribute('href',url);else a.removeAttribute('href');
   document.getElementById('li-added').textContent=tile.dataset.added||'—';
   document.getElementById('li-del-form').setAttribute('action','/setup/apps/'+tile.dataset.id+'/delete');

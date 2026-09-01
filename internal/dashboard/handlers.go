@@ -11875,6 +11875,7 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 		// parses locally and the server never downloads the APK from S3). If Package is
 		// empty, the server falls back to parsing the object itself.
 		Package string `json:"package"`
+		Version string `json:"version"`
 		Name    string `json:"name"`
 		Icon    string `json:"icon"` // base64 PNG
 	}
@@ -11886,7 +11887,7 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 		writeJSONError(w, http.StatusBadRequest, "key required")
 		return
 	}
-	pkg, name, icon := req.Package, req.Name, req.Icon
+	pkg, version, name, icon := req.Package, req.Version, req.Name, req.Icon
 	if pkg == "" {
 		// Fallback: no client metadata — parse the object server-side (slower).
 		meta, err := h.apk.Parse(r.Context(), req.Key)
@@ -11895,7 +11896,7 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 			writeJSONError(w, http.StatusBadRequest, "could not parse APK — is it a valid .apk?")
 			return
 		}
-		pkg, name, icon = meta.Package, meta.Label, meta.IconPNGB64
+		pkg, version, name, icon = meta.Package, meta.VersionName, meta.Label, meta.IconPNGB64
 	}
 	if len(icon) > 128*1024 { // safety cap; a 96px PNG is far smaller
 		icon = ""
@@ -11905,7 +11906,7 @@ func (h *Handler) AppRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	// apk_url must be an absolute, device-reachable URL (the device fetches it directly).
 	base := h.baseURL(r)
-	app, err := h.db.CreateS3App(r.Context(), name, pkg, req.Key, base)
+	app, err := h.db.CreateS3App(r.Context(), name, pkg, version, req.Key, base)
 	if err != nil {
 		log.Printf("create s3 app: %v", err)
 		writeJSONError(w, http.StatusInternalServerError, "could not save app")
