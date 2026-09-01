@@ -1553,21 +1553,15 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 {{$rest := add $s.Pending $s.Delivered}}
 {{$state := "ok"}}{{if gt $s.Failed 0}}{{$state = "fail"}}{{else if gt $rest 0}}{{$state = "run"}}{{end}}
 <div class="htrow" data-cmd-id="{{$c.ID}}" data-cmd-type="{{$c.Type}}" data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdLabel $c.Type}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
-  <span class="tl-ic {{$state}}">
-    {{if eq $c.Type "install_apk"}}<svg viewBox="0 0 24 24"><path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/></svg>
-    {{else if eq $c.Type "uninstall"}}<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>
-    {{else if eq $c.Type "shell"}}<svg viewBox="0 0 24 24"><path d="M4 7l5 5-5 5"/><path d="M11 17h9"/></svg>
-    {{else if eq $c.Type "screenshot"}}<svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/></svg>
-    {{else if eq $c.Type "reboot"}}<svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>
-    {{else if eq $c.Type "update_splash"}}<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/></svg>
-    {{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/></svg>{{end}}
-  </span>
+  <span class="ht-dotwrap"><span class="dot {{$state}}"></span></span>
   <div class="ht-body">
     <a class="ht-title" href="/commands/{{$c.ID}}">{{cmdLabel $c.Type}}</a>
     <span class="ht-meta">
       {{/* For an install, show the app NAME (resolved from the library) rather than the
-           raw APK URL/filename; fall back to the generic hint. */}}
-      {{$hint := cmdHint $c}}{{if and (eq $c.Type "install_apk") .AppName}}{{$hint = .AppName}}{{end}}{{if $hint}}{{$hint}}<span class="sep"></span>{{end}}
+           raw APK URL/filename; fall back to the generic hint. Shell never shows its raw
+           command text here — that belongs on the command's own detail page, not leaked
+           into every list row (device serial + result already say what happened). */}}
+      {{$hint := cmdHint $c}}{{if and (eq $c.Type "install_apk") .AppName}}{{$hint = .AppName}}{{end}}{{if eq $c.Type "shell"}}{{$hint = ""}}{{end}}{{if $hint}}{{$hint}}<span class="sep"></span>{{end}}
       {{if eq $c.TargetType "devices"}}{{if eq (len $ser) 1}}<span class="mono">{{index $ser 0}}</span>{{else}}{{len $ser}} devices{{end}}{{else if eq $c.TargetType "groups"}}Group target{{else}}All devices{{end}}
       <span class="sep"></span>
       {{$verb := "delivered"}}{{if eq $c.Type "install_apk"}}{{$verb = "installed"}}{{else if eq $c.Type "uninstall"}}{{$verb = "uninstalled"}}{{end}}

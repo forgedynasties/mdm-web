@@ -5861,11 +5861,17 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 .hist-day{padding:10px 18px 4px;font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);}
 .htrow{display:flex;align-items:center;gap:11px;padding:9px 18px;border-top:1px solid var(--border-soft);}
 .htrow:hover{background:var(--surface2);}
-.htrow .tl-ic{width:30px;height:30px;flex:none;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;}
-.htrow .tl-ic svg{width:15px;height:15px;fill:none;stroke:var(--text-2);stroke-width:1.7;}
-.htrow .tl-ic.ok{background:var(--ok-bg);}.htrow .tl-ic.ok svg{stroke:var(--ok);}
-.htrow .tl-ic.fail{background:var(--danger-bg);}.htrow .tl-ic.fail svg{stroke:var(--danger);}
-.htrow .tl-ic.run{background:var(--accent-2-soft);}.htrow .tl-ic.run svg{stroke:var(--accent-2);}
+/* Timeline rail dot (replaces the old icon-box per row, matching the chosen
+   history-hierarchy demo exactly): a small state dot with a hairline connecting
+   it to the next row, drawn via the wrapper's own padding so it reads as one
+   continuous rail down the list without needing a separate wrapping container
+   per day group. */
+.ht-dotwrap{width:18px;flex:none;display:flex;justify-content:center;align-items:flex-start;padding-top:5px;position:relative;align-self:stretch;}
+.ht-dotwrap::before{content:"";position:absolute;top:-9px;bottom:-9px;left:50%;width:1px;background:var(--border-soft);transform:translateX(-50%);}
+.ht-dotwrap .dot{position:relative;z-index:1;width:7px;height:7px;border-radius:99px;background:var(--text-faint);flex:none;}
+.ht-dotwrap .dot.ok{background:var(--ok);}
+.ht-dotwrap .dot.fail{background:var(--danger);}
+.ht-dotwrap .dot.run{background:var(--accent-2);}
 .ht-body{flex:1;min-width:0;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;}
 .ht-title{font-size:13.5px;font-weight:650;color:inherit;text-decoration:none;flex:none;}
 .ht-title:hover{color:var(--accent-text);}
