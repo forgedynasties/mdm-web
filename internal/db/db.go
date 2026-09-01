@@ -10835,6 +10835,19 @@ func (d *DB) SetUpdateDeviceForceFull(ctx context.Context, updateID int, deviceI
 	return err
 }
 
+// ClearUpdateDeviceForceFull un-pins a device from the full image, so
+// ResolveUpdateForDevice is free to offer a matching incremental again. Used by a
+// plain (non-"full image") retry — without this, a device that was ever force-fulled
+// (an earlier full-image retry, or the pre-delivery-choice retry button) would stay
+// pinned to full forever, since force_full is otherwise only ever set, never cleared.
+func (d *DB) ClearUpdateDeviceForceFull(ctx context.Context, updateID int, deviceID uuid.UUID) error {
+	_, err := d.pool.Exec(ctx, `
+		UPDATE update_devices SET force_full = false, updated_at = NOW()
+		WHERE update_id = $1 AND device_id = $2
+	`, updateID, deviceID)
+	return err
+}
+
 // CheckAndCompleteUpdate marks an update as "complete" if all its targets are "installed".
 func (d *DB) CheckAndCompleteUpdate(ctx context.Context, updateID int) error {
 	// A deployment is complete once every device has reached a TERMINAL state.

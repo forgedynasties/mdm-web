@@ -8954,6 +8954,8 @@ func (h *Handler) DeploymentRetryDevice(w http.ResponseWriter, r *http.Request) 
 	// package itself, where the incremental is still the right, smaller download).
 	if r.FormValue("delivery") == "full" {
 		_ = h.db.SetUpdateDeviceForceFull(r.Context(), did, device.ID)
+	} else {
+		_ = h.db.ClearUpdateDeviceForceFull(r.Context(), did, device.ID)
 	}
 	_ = h.db.SetUpdateDeviceStatus(r.Context(), did, device.ID, "pending")
 	// If the deployment was already marked complete, re-pending one device would
