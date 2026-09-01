@@ -1511,20 +1511,6 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
         {{if gt .ProgCount (len .InProgress)}}<a class="hmore" href="/commands/history?status=inprogress" hx-target="main" hx-swap="outerHTML">Show all {{.ProgCount}} in progress →</a>{{end}}
       {{else}}<div class="hist-empty">No actions in progress</div>{{end}}
 
-      {{/* Needs attention — always shown, with a Clear button + empty state. */}}
-      <div class="hgrp-h attn" data-grp><svg viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Needs attention <span class="cnt">{{.AttnCount}}</span>
-        {{if and .Attention (canOperate .Role)}}
-        <form action="/commands/clear-attention" method="POST" style="margin-left:auto;" hx-confirm="Clear all {{.AttnCount}} entries from Needs attention? This only dismisses them from this list — the actions are not deleted.">
-          <button type="submit" class="hclear" title="Dismiss these from the list (does not delete)">Clear all</button>
-        </form>
-        {{end}}
-      </div>
-      {{if .Attention}}
-        {{$day := ""}}
-        {{range .Attention}}{{$d := dayLabel .CreatedAt}}{{if ne $d $day}}{{template "hist-day" $d}}{{$day = $d}}{{end}}{{template "cmd-trow" (dict "Cmd" . "S" (index $.Summaries .ID) "Ser" (index $.TargetSerials .ID) "Role" $.Role "AppName" (index $.AppNames .ApkURL) "Bucket" "attn")}}{{end}}
-        {{if gt .AttnCount (len .Attention)}}<a class="hmore" href="/commands/history?status=attention" hx-target="main" hx-swap="outerHTML">Show all {{.AttnCount}} that need attention →</a>{{end}}
-      {{else}}<div class="hist-empty">No actions needing attention</div>{{end}}
-
       {{/* Completed — only when present. */}}
       {{if .Completed}}
       <div class="hgrp-h done" data-grp><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Completed <span class="cnt">{{.DoneCount}}</span></div>
