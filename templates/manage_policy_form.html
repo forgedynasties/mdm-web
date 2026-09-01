@@ -10,8 +10,11 @@
 </div>
 
 <style>
-.mpf-wrap{max-width:720px}
+.mpf-wrap{max-width:1180px}
 .mpf-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);padding:22px 24px}
+.mpf-grid{display:grid;grid-template-columns:1fr 380px;gap:22px;align-items:start}
+@media(max-width:900px){.mpf-grid{grid-template-columns:1fr}}
+.mpf-col-app{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);padding:22px 24px}
 .mp-name{font:inherit;font-size:14px;font-weight:650;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box}
 .mp-name::placeholder{font-weight:500;color:var(--text-faint)}
 
@@ -21,18 +24,29 @@
 .mk-target-dep{margin-top:10px}
 .mk-target-dep select{font:inherit;font-size:13px;padding:8px 11px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--text);width:100%;box-sizing:border-box}
 
-/* device target — searchable single-select list, same shape as the target pickers
-   used elsewhere (deployment push panel / Actions device browser), not a bare
-   text field the operator has to type an exact serial into. */
-.mp-dev-list{max-height:260px;overflow-y:auto;border:1px solid var(--border);border-radius:9px;margin-top:8px}
-.mp-dev-item{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 11px;border:0;border-bottom:1px solid var(--border-soft);background:none;font:inherit;cursor:pointer;color:inherit}
-.mp-dev-item:last-child{border-bottom:0}
-.mp-dev-item:hover{background:var(--surface2)}
-.mp-dev-item.sel{background:var(--accent-soft)}
-.mp-dev-dot{width:7px;height:7px;border-radius:50%;flex:none}
-.mp-dev-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
-.mp-dev-check{margin-left:auto;color:var(--accent);opacity:0;flex:none}
-.mp-dev-item.sel .mp-dev-check{opacity:1}
+/* device target — same searchable single-select list shape as the Actions page's
+   device browser (.sd-head/.sd-search/.scope-dev-list/.sri), single-select instead
+   of checkboxes since a policy targets exactly one device here. */
+.sd-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.sd-search{flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px 10px;transition:border-color .12s}
+.sd-search:focus-within{border-color:var(--accent-edge,rgba(249,103,78,.34))}
+.sd-search svg{color:var(--text-faint,#a49c90);flex:none}
+.sd-search input{border:none;background:none;outline:none;font:inherit;font-size:13px;width:100%;color:var(--text)}
+.sd-search input::placeholder{color:var(--text-faint,#a49c90)}
+.sd-count{font-size:12px;color:var(--muted);margin-left:auto;white-space:nowrap}
+.sd-count b{color:var(--text)}
+.scope-dev-list{max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:9px}
+.sri{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:8px 11px;border:0;border-bottom:1px solid var(--border-soft);border-radius:0;background:none;cursor:pointer;font:inherit;color:var(--text)}
+.sri:last-child{border-bottom:0}
+.sri:hover{background:var(--surface-sunk,rgba(0,0,0,.03))}
+.sri.on{background:var(--accent-soft,rgba(249,103,78,.1))}
+.sri .dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--muted-dot,#b8b0a4)}
+.sri .dot.ok{background:var(--ok,#3f9d5a)}
+.sri .txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.sri .txt .nm{font-size:13px;font-weight:500}
+.sri.on .txt .nm{font-weight:650}
+.sri .check{margin-left:auto;color:var(--accent);opacity:0;flex:none}
+.sri.on .check{opacity:1}
 .mp-dev-empty{padding:16px;text-align:center;color:var(--muted);font-size:12.5px}
 
 /* app picker — leaner list-first layout (was a cramped 3-wide grid in the old
@@ -65,13 +79,12 @@
 .kpk-list .kpk-check{position:static;margin-left:auto;background:transparent;color:var(--accent)}
 .kpk-empty{padding:18px;text-align:center;color:var(--muted);font-size:12px;grid-column:1/-1}
 
-.mpf-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:20px;padding-top:18px;border-top:1px solid var(--border-soft)}
+.mpf-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:16px}
 .mpf-note{font-size:12.5px;color:var(--muted);flex:1;min-width:160px}
 .mpf-btns{display:flex;gap:8px}
 </style>
 
 <div class="mpf-wrap">
-<div class="mpf-card">
   <form id="mp-form" method="POST" action="/manage/policies">
     <input type="hidden" name="id" id="mp-id" value="{{if $policy}}{{$policy.ID}}{{end}}">
     <input type="hidden" name="target_type" id="mp-target-type" value="{{if $policy}}{{$policy.TargetType}}{{else}}group{{end}}">
@@ -79,62 +92,74 @@
     <input type="hidden" name="target_serial" id="mp-target-serial" value="{{if $policy}}{{$policy.TargetSerial}}{{end}}">
     <input type="hidden" name="kiosk_package" id="kiosk-pkg-value" value="{{if $policy}}{{$policy.KioskPackage}}{{end}}">
 
-    <div class="form-row">
-      <label class="form-label">Policy name</label>
-      <input type="text" class="mp-name" name="name" id="mp-name" placeholder="e.g. Drive-Thru Lockdown" value="{{if $policy}}{{$policy.Name}}{{end}}" oninput="mpCheckReady()">
-    </div>
+    <div class="mpf-grid">
+      <div class="mpf-card">
+        <div class="form-row">
+          <label class="form-label">Policy name</label>
+          <input type="text" class="mp-name" name="name" id="mp-name" placeholder="e.g. Drive-Thru Lockdown" value="{{if $policy}}{{$policy.Name}}{{end}}" oninput="mpCheckReady()">
+        </div>
 
-    <div class="form-row">
-      <label class="form-label">Assign to</label>
-      <div class="mk-target-seg" role="radiogroup">
-        <button type="button" data-k="all" onclick="mpTargetKind(this,'all')">All devices</button>
-        <button type="button" data-k="restaurant" onclick="mpTargetKind(this,'restaurant')">Restaurant</button>
-        <button type="button" data-k="group" onclick="mpTargetKind(this,'group')">Group</button>
-        <button type="button" data-k="device" onclick="mpTargetKind(this,'device')">Device</button>
+        <div class="form-row">
+          <label class="form-label">Assign to</label>
+          <div class="mk-target-seg" role="radiogroup">
+            <button type="button" data-k="all" onclick="mpTargetKind(this,'all')">All devices</button>
+            <button type="button" data-k="restaurant" onclick="mpTargetKind(this,'restaurant')">Restaurant</button>
+            <button type="button" data-k="group" onclick="mpTargetKind(this,'group')">Group</button>
+            <button type="button" data-k="device" onclick="mpTargetKind(this,'device')">Device</button>
+          </div>
+          <div class="mk-target-dep" id="mp-dep-restaurant" style="display:none;">
+            <select onchange="mpDepChange(this,'restaurant')"><option value="">Choose a restaurant…</option>{{range .Restaurants}}<option value="{{.ID}}"{{if and $policy (eq $policy.TargetType "restaurant") $policy.TargetID (eq $policy.TargetID.String .ID.String)}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+          </div>
+          <div class="mk-target-dep" id="mp-dep-group" style="display:none;">
+            <select onchange="mpDepChange(this,'group')"><option value="">Choose a group…</option>{{range .Groups}}<option value="{{.ID}}"{{if and $policy (eq $policy.TargetType "group") $policy.TargetID (eq $policy.TargetID.String .ID.String)}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+          </div>
+          {{/* Device target — same searchable single-select list shape as the
+               Actions page's device browser: search bar + scrollable row list,
+               a live match count, one row highlighted instead of checkboxes. */}}
+          <div class="mk-target-dep" id="mp-dep-device" style="display:none;">
+            <div class="sd-head">
+              <div class="sd-search"><svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" id="mp-dev-q" autocomplete="off" placeholder="Search serial, build, restaurant…" oninput="mpFilterDevices()"></div>
+              <span class="sd-count"><b id="mp-dev-shown">{{len .Devices}}</b> of {{len .Devices}}</span>
+            </div>
+            <div class="scope-dev-list" id="mp-dev-list">
+              {{range .Devices}}
+              <button type="button" class="sri{{if and $policy (eq $policy.TargetType "device") (eq $policy.TargetSerial .SerialNumber)}} on{{end}}" data-search="{{.SerialNumber}} {{.BuildID}} {{.RestaurantName}}" data-serial="{{.SerialNumber}}" onclick="mpPickDevice(this)">
+                <span class="dot{{if index $.Online .ID}} ok{{end}}"></span>
+                <span class="txt"><span class="nm mono">{{.SerialNumber}}</span><span class="muted small">{{if .RestaurantName}}{{.RestaurantName}} · {{end}}{{if .BuildID}}{{.BuildID}}{{else}}no build reported{{end}}</span></span>
+                <span class="check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
+              </button>
+              {{else}}
+              <div class="mp-dev-empty">No devices.</div>
+              {{end}}
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="mk-target-dep" id="mp-dep-restaurant" style="display:none;">
-        <select onchange="mpDepChange(this,'restaurant')"><option value="">Choose a restaurant…</option>{{range .Restaurants}}<option value="{{.ID}}"{{if and $policy (eq $policy.TargetType "restaurant") $policy.TargetID (eq $policy.TargetID.String .ID.String)}} selected{{end}}>{{.Name}}</option>{{end}}</select>
-      </div>
-      <div class="mk-target-dep" id="mp-dep-group" style="display:none;">
-        <select onchange="mpDepChange(this,'group')"><option value="">Choose a group…</option>{{range .Groups}}<option value="{{.ID}}"{{if and $policy (eq $policy.TargetType "group") $policy.TargetID (eq $policy.TargetID.String .ID.String)}} selected{{end}}>{{.Name}}</option>{{end}}</select>
-      </div>
-      <div class="mk-target-dep" id="mp-dep-device" style="display:none;">
-        <div class="filter-search"><svg class="filter-search-icon" viewBox="0 0 20 20" fill="currentColor" width="14" height="14"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/></svg><input type="search" class="filter-search-input" id="mp-dev-q" autocomplete="off" placeholder="Search serial, build, restaurant…" oninput="mpFilterDevices()"></div>
-        <div class="mp-dev-list" id="mp-dev-list">
-          {{range .Devices}}
-          <button type="button" class="mp-dev-item{{if and $policy (eq $policy.TargetType "device") (eq $policy.TargetSerial .SerialNumber)}} sel{{end}}" data-search="{{.SerialNumber}} {{.BuildID}} {{.RestaurantName}}" data-serial="{{.SerialNumber}}" onclick="mpPickDevice(this)">
-            <span class="mp-dev-dot" style="background:{{if index $.Online .ID}}var(--ok){{else}}var(--text-faint){{end}}"></span>
-            <span class="mp-dev-txt"><span class="mono small">{{.SerialNumber}}</span><span class="muted small">{{if .RestaurantName}}{{.RestaurantName}} · {{end}}{{if .BuildID}}{{.BuildID}}{{else}}no build reported{{end}}</span></span>
-            <span class="mp-dev-check"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6 9 17l-5-5"/></svg></span>
-          </button>
+
+      <div class="mpf-col-app">
+        <div class="form-row" style="margin:0;">
+          <label class="form-label">Locked app</label>
+          {{if .FleetPackages}}
+          <div id="kiosk-apps-src" hidden>{{range .FleetPackages}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}</div>
+          <div class="kpk" id="kiosk-app-picker">
+            <div class="kpk-top">
+              <span class="kpk-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input type="text" id="kpk-q" autocomplete="off" spellcheck="false" placeholder="Search apps…"></span>
+              <span class="kpk-seg">
+                <button type="button" id="kpk-vlist" class="active" title="List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
+                <button type="button" id="kpk-vgrid" title="Grid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
+              </span>
+            </div>
+            <div class="kpk-grid" id="kpk-grid"></div>
+            <div class="kpk-list" id="kpk-list"></div>
+          </div>
           {{else}}
-          <div class="mp-dev-empty">No devices.</div>
+          <input type="text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" value="{{if $policy}}{{$policy.KioskPackage}}{{end}}" oninput="document.getElementById('kiosk-pkg-value').value=this.value;mpCheckReady()">
           {{end}}
         </div>
       </div>
     </div>
 
-    <div class="form-row">
-      <label class="form-label">Locked app</label>
-      {{if .FleetPackages}}
-      <div id="kiosk-apps-src" hidden>{{range .FleetPackages}}<i data-value="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-icon="{{.Icon}}"></i>{{end}}</div>
-      <div class="kpk" id="kiosk-app-picker">
-        <div class="kpk-top">
-          <span class="kpk-search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input type="text" id="kpk-q" autocomplete="off" spellcheck="false" placeholder="Search apps…"></span>
-          <span class="kpk-seg">
-            <button type="button" id="kpk-vlist" class="active" title="List"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg></button>
-            <button type="button" id="kpk-vgrid" title="Grid"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></button>
-          </span>
-        </div>
-        <div class="kpk-grid" id="kpk-grid"></div>
-        <div class="kpk-list" id="kpk-list"></div>
-      </div>
-      {{else}}
-      <input type="text" class="pl-field" style="font-family:var(--mono)" placeholder="com.example.app" value="{{if $policy}}{{$policy.KioskPackage}}{{end}}" oninput="document.getElementById('kiosk-pkg-value').value=this.value;mpCheckReady()">
-      {{end}}
-    </div>
-
-    <div class="mpf-foot">
+    <div class="mpf-card mpf-foot">
       <div class="mpf-note" id="mp-note">Name the policy, pick a target, and pick an app to lock to.</div>
       <div class="mpf-btns">
         <a href="/manage" class="btn-outline">Cancel</a>
@@ -142,7 +167,6 @@
       </div>
     </div>
   </form>
-</div>
 </div>
 
 <script>
@@ -169,13 +193,18 @@ function mpDepChange(el, kind) {
 }
 function mpFilterDevices() {
   var s = document.getElementById('mp-dev-q').value.trim().toLowerCase();
-  document.querySelectorAll('#mp-dev-list .mp-dev-item').forEach(function (b) {
-    b.style.display = !s || b.dataset.search.toLowerCase().indexOf(s) >= 0 ? '' : 'none';
+  var shown = 0;
+  document.querySelectorAll('#mp-dev-list .sri').forEach(function (b) {
+    var match = !s || b.dataset.search.toLowerCase().indexOf(s) >= 0;
+    b.style.display = match ? '' : 'none';
+    if (match) shown++;
   });
+  var count = document.getElementById('mp-dev-shown');
+  if (count) count.textContent = shown;
 }
 function mpPickDevice(btn) {
-  document.querySelectorAll('#mp-dev-list .mp-dev-item.sel').forEach(function (b) { b.classList.remove('sel'); });
-  btn.classList.add('sel');
+  document.querySelectorAll('#mp-dev-list .sri.on').forEach(function (b) { b.classList.remove('on'); });
+  btn.classList.add('on');
   var serial = btn.dataset.serial;
   document.getElementById('mp-target-serial').value = serial;
   mpTargetVal = serial;
