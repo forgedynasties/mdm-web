@@ -4871,7 +4871,7 @@ html[data-theme="dark"] .dp-moves { color: #f0b765; }
 .ddc-caret { width: 13px; height: 13px; opacity: .8; }
 .ddc-btn.open { border-color: var(--rule-2); }
 .ddc-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; width: 232px;
-  background: rgba(255,255,255,.45); backdrop-filter: blur(4px) saturate(180%); -webkit-backdrop-filter: blur(4px) saturate(180%);
+  background: rgba(255,255,255,.45); backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%);
   border: 1px solid rgba(255,255,255,.29); border-radius: 16px;
   box-shadow: 0 14px 36px rgba(0,0,0,.21), inset 0 1px 0 rgba(255,255,255,.50); padding: 7px; animation: ov-rise 0.14s var(--ease) both; }
 html[data-theme="dark"] .ddc-menu { background: rgba(20,18,17,.45); border-color: rgba(255,255,255,.12); }
@@ -5250,7 +5250,7 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .nbar-wrap { position: relative; }
 .nbar-pop {
   position: absolute; top: calc(100% + 9px); right: 0; z-index: 50; width: 250px;
-  background: rgba(255,255,255,.45); backdrop-filter: blur(4px) saturate(180%); -webkit-backdrop-filter: blur(4px) saturate(180%);
+  background: rgba(255,255,255,.45); backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%);
   border: 1px solid rgba(255,255,255,.29); border-radius: 16px;
   box-shadow: 0 14px 36px rgba(0,0,0,.21), inset 0 1px 0 rgba(255,255,255,.50); padding: 7px;
   animation: ov-rise 0.14s var(--ease) both;
