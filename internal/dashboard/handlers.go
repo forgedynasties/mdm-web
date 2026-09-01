@@ -7762,10 +7762,6 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	// incremental-only release is still pushable — the per-device resolver matches each
 	// incremental to devices on its source build.
 	hasFull, canPush := false, false
-	// sourceBuilds: current builds an active incremental can update FROM. Used to mark
-	// devices in the push picker that have no applicable artifact (incremental-only
-	// release + a device on some other build → nothing to send it).
-	sourceBuilds := map[string]bool{}
 	for _, p := range packages {
 		if p.Status != "active" {
 			continue
@@ -7773,8 +7769,6 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 		canPush = true
 		if p.Type == "full" {
 			hasFull = true
-		} else if p.SourceBuildID != "" {
-			sourceBuilds[p.SourceBuildID] = true
 		}
 	}
 
@@ -7813,38 +7807,11 @@ func (h *Handler) releaseWorkspaceData(r *http.Request, rel *db.Release, tab str
 	data["Deployments"] = deployments
 	data["HasFull"] = hasFull
 	data["CanPush"] = canPush
-	// SourceBuilds + HasFull let the push picker mark devices with no applicable artifact
-	// (incremental-only release, device not on a source build) as ineligible.
-	data["SourceBuilds"] = sourceBuilds
 	data["DevicesCount"] = devicesCount
 	data["SourceReleases"] = sourceReleases
 	data["CrashGroups"] = crashGroups
 	data["CrashGroupTotal"] = crashTotal
 	data["DevicesOnVersion"] = devs
-	// Approach A — inline "push to devices" panel: every device of this release's product
-	// (productWhere folds legacy/empty -> t7), so the picker is auto-scoped and a
-	// wrong-product device can never be selected. The template marks devices already on
-	// this build as "up to date". ActiveThresholdSecs drives the online dot.
-	pushDevices, _ := h.db.ListDevices(ctx, db.DeviceFilter{Product: rel.Product}, 0, 500, "serial", "asc")
-	data["PushDevices"] = pushDevices
-	data["ActiveThresholdSecs"] = h.cfg.CheckinInterval() * 3
-	// Devices already mid-OTA (pending/downloading on an active deployment) — the picker
-	// marks them "updating" and disables them, since their build_id still shows the old
-	// version until they reboot.
-	updating, _ := h.db.SerialsUpdating(ctx)
-	data["DevicesUpdating"] = updating
-	// Devices already on a strictly newer release of this product — the picker disables
-	// them and labels them "newer installed" (OTAing an older release onto them is blocked).
-	blocked, _ := h.db.SerialsOnNewerRelease(ctx, rel.ID)
-	data["DevicesBlocked"] = blocked
-	// Groups and restaurants power the push pane's target selector (deploy to a whole
-	// group/venue, mirroring the Actions target picker).
-	if groups, err := h.db.ListGroups(ctx); err == nil {
-		data["Groups"] = groups
-	}
-	if rests, err := h.db.ListRestaurants(ctx); err == nil {
-		data["Restaurants"] = rests
-	}
 	return data
 }
 
