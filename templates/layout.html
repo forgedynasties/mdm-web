@@ -223,10 +223,6 @@
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/></svg></span>
             <span class="nbar-mi-label">Users</span>
           </a>
-          <a class="nbar-mi js-dest" data-cmdk-label="Activity" href="/activity">
-            <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span>
-            <span class="nbar-mi-label">Activity</span>
-          </a>
           <div class="nbar-sep"></div>
           {{end}}
           {{if or (eq .Role "operator") (eq .Role "dev")}}
@@ -267,16 +263,36 @@
     {{if eq .Role "admin"}}<a href="/manage" class="nav-link js-dest{{if eq .ActivePage "manage"}} active{{end}}" data-cmdk-label="Policies"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Policies</span></a>{{end}}
     <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span></a>
     {{if canAdminOrOperator .Role}}<a href="/releases" class="nav-link js-dest{{if eq .ActivePage "releases"}} active{{end}}" data-cmdk-label="Releases"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Releases</span></a>{{end}}
+    {{if eq .Role "admin"}}<a href="/activity" class="nav-link js-dest{{if eq .ActivePage "activity"}} active{{end}}" data-cmdk-label="Activity"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><span class="dock-lbl">Activity</span></a>{{end}}
   </nav>
 
   <script>
   // Top-bar dropdowns (alerts bell + account menu). One open at a time; close on
   // outside-click / Escape. The alerts list lazy-loads from /alerts/recent each open.
   (function () {
+    // .appbar carries its own backdrop-filter (the sticky header's frosted look),
+    // which makes it a "backdrop root" for descendants — a dropdown's OWN
+    // backdrop-filter can then only sample the header's already-composited layer,
+    // not the real page behind it, so its glass blur renders as if it weren't
+    // there at all. Portal the popup out to <body> (position:fixed, reachable via
+    // its own id regardless of DOM parent) so its blur samples the actual page.
     function pop(id, btnSel, open) {
       var p = document.getElementById(id);
       if (!p) return;
-      if (open) p.removeAttribute('hidden'); else p.setAttribute('hidden', '');
+      if (open) {
+        if (p.parentElement !== document.body) document.body.appendChild(p);
+        var b = document.querySelector(btnSel);
+        if (b) {
+          var r = b.getBoundingClientRect();
+          p.style.position = 'fixed';
+          p.style.top = (r.bottom + 9) + 'px';
+          p.style.left = 'auto';
+          p.style.right = (window.innerWidth - r.right) + 'px';
+        }
+        p.removeAttribute('hidden');
+      } else {
+        p.setAttribute('hidden', '');
+      }
       var b = document.querySelector(btnSel);
       if (b) b.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
@@ -294,8 +310,13 @@
       if (willOpen && window.htmx) htmx.ajax('GET', '/alerts/recent', { target: '#alerts-pop-body', swap: 'innerHTML' });
     };
     document.addEventListener('click', function (e) {
-      var aw = document.getElementById('acct-wrap'); if (aw && !aw.contains(e.target)) pop('acct-pop', '.appbar-acct', false);
-      var lw = document.getElementById('alerts-wrap'); if (lw && !lw.contains(e.target)) pop('alerts-pop', '#alerts-indicator', false);
+      // The popup itself now lives outside its trigger's wrap (portaled to <body>
+      // on open — see pop() above), so "outside" means outside BOTH the trigger
+      // wrap and the popup, not just the wrap.
+      var aw = document.getElementById('acct-wrap'), ap = document.getElementById('acct-pop');
+      if (!(aw && aw.contains(e.target)) && !(ap && ap.contains(e.target))) pop('acct-pop', '.appbar-acct', false);
+      var lw = document.getElementById('alerts-wrap'), lp = document.getElementById('alerts-pop');
+      if (!(lw && lw.contains(e.target)) && !(lp && lp.contains(e.target))) pop('alerts-pop', '#alerts-indicator', false);
     });
     // What's new modal: toggle open/close; lazy-load the latest release on open.
     window.navWhatsNew = function (e) {
