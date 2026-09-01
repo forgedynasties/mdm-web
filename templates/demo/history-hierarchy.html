@@ -1,0 +1,211 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Action history — hierarchy · AIO MDM</title>
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--surface2:#f3efe9;--border:#e8e2da;--text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --accent:#f9674e;--p:#7a80f6;--ok:#1f9d63;--ok-bg:#e7f6ee;--warn:#b8860b;--warn-bg:#faf1de;--danger:#d1503f;--danger-bg:#fbebe8;--r4:14px;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:44px 24px 100px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:18px}
+  .back:hover{color:var(--accent)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;margin-bottom:22px}
+  .brand .a{background:linear-gradient(96deg,var(--accent),var(--p));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  h1{font-size:27px;font-weight:700;letter-spacing:-.015em;margin:0}
+  .lede{color:var(--muted);font-size:14.5px;margin:8px 0 24px;max-width:70ch}
+  .lede b{color:var(--text)}
+
+  .dtabs{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap}
+  .dtab{font:inherit;font-size:12.5px;font-weight:650;padding:8px 14px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
+  .dtab.on{border-color:transparent;background:linear-gradient(96deg,var(--accent),var(--p));color:#fff}
+  .direction{display:none}
+  .direction.on{display:block}
+  .dnote{font-size:12.5px;color:var(--muted);background:var(--surface2);border-radius:10px;padding:10px 14px;margin-bottom:16px;max-width:70ch}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);overflow:hidden}
+  .card-h{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:14.5px}
+  .card-h span{font-weight:600;font-size:12px;color:var(--faint)}
+  .ic{width:32px;height:32px;flex:none;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center}
+  .ic svg{width:16px;height:16px;fill:none;stroke:var(--muted);stroke-width:1.8}
+  .ic.ok{background:var(--ok-bg)}.ic.ok svg{stroke:var(--ok)}
+  .ic.fail{background:var(--danger-bg)}.ic.fail svg{stroke:var(--danger)}
+  .ic.run{background:#eceeff}.ic.run svg{stroke:var(--p)}
+  .dot{width:7px;height:7px;border-radius:99px;background:var(--faint);flex:none}
+  .dot.ok{background:var(--ok)}.dot.fail{background:var(--danger)}.dot.run{background:var(--p)}
+
+  /* ═══ A — Stacked row (2-line: title+status on top, breadcrumb meta below) ═══ */
+  .A-row{display:flex;gap:12px;align-items:flex-start;padding:13px 18px;border-top:1px solid var(--border)}
+  .A-row:first-child{border-top:none}
+  .A-row:hover{background:var(--surface2)}
+  .A-body{flex:1;min-width:0}
+  .A-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .A-title{font-weight:650;font-size:13.5px}
+  .A-badge{font-size:10px;font-weight:750;letter-spacing:.03em;text-transform:uppercase;padding:2px 8px;border-radius:99px}
+  .A-badge.ok{color:var(--ok);background:var(--ok-bg)}
+  .A-badge.fail{color:var(--danger);background:var(--danger-bg)}
+  .A-badge.run{color:var(--p);background:#eceeff}
+  .A-meta{margin-top:3px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .A-meta b{color:var(--text);font-weight:600}
+  .A-meta .sep{margin:0 6px;color:var(--faint)}
+  .A-act{flex:none;display:flex;align-items:center;gap:8px}
+  .A-btn{font:inherit;font-size:11.5px;font-weight:650;border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:5px 11px;cursor:pointer;color:var(--text)}
+  .A-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .A-when{font-size:11px;color:var(--faint);white-space:nowrap}
+
+  /* ═══ B — Timeline, grouped by day ═══ */
+  .B-day{font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.07em;color:var(--faint);padding:16px 18px 8px}
+  .B-day:first-child{padding-top:14px}
+  .B-list{position:relative;padding:0 18px 6px}
+  .B-list::before{content:"";position:absolute;left:29px;top:0;bottom:0;width:1px;background:var(--border)}
+  .B-row{position:relative;display:flex;gap:12px;padding:9px 0 9px 0}
+  .B-dotwrap{width:22px;flex:none;display:flex;justify-content:center;padding-top:6px;z-index:1}
+  .B-body{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .B-title{font-weight:650;font-size:13.5px}
+  .B-meta{font-size:12px;color:var(--muted)}
+  .B-when{margin-left:auto;font-size:11px;color:var(--faint);white-space:nowrap;padding-top:2px}
+  .B-row:hover{background:var(--surface2);border-radius:8px}
+
+  /* ═══ C — Priority-first (buckets carry the hierarchy; rows shed columns that
+       don't apply — only failed/running rows show a reason or progress) ═══ */
+  .C-bucket-h{display:flex;align-items:center;gap:8px;padding:14px 18px 8px;font-size:11.5px;font-weight:750;text-transform:uppercase;letter-spacing:.05em}
+  .C-bucket-h.attn{color:var(--danger)}
+  .C-bucket-h.done{color:var(--faint)}
+  .C-bucket-h .cnt{background:var(--surface2);color:var(--muted);border-radius:99px;padding:1px 8px;font-size:10.5px}
+  .C-row{display:flex;align-items:center;gap:11px;padding:11px 18px;border-top:1px solid var(--border)}
+  .C-row:hover{background:var(--surface2)}
+  .C-main{flex:1;min-width:0}
+  .C-title-line{display:flex;align-items:center;gap:7px}
+  .C-title{font-weight:650;font-size:13.5px}
+  .C-sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .C-reason{font-size:11.5px;color:var(--danger);margin-top:3px}
+  .C-tail{flex:none;text-align:right;display:flex;align-items:center;gap:10px}
+  .C-when{font-size:11px;color:var(--faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/demo/index">&larr; Demo index</a>
+  <div class="brand"><span class="a">aio</span><span class="m">mdm</span></div>
+  <h1>Action history — three ways to cut the columns</h1>
+  <p class="lede">The current table is 6 columns wide (Action · Target · Result · By · Sent · Actions) and every row pays for all of them even when most don't apply to a settled row. These three directions keep the same data but let <b>one primary line carry the eye</b> and push everything else into a quieter secondary line — fewer things fighting for attention per row.</p>
+
+  <div class="dtabs" role="tablist">
+    <button type="button" class="dtab on" data-d="a" onclick="setDir('a')">A · Stacked row</button>
+    <button type="button" class="dtab" data-d="b" onclick="setDir('b')">B · Day timeline</button>
+    <button type="button" class="dtab" data-d="c" onclick="setDir('c')">C · Priority-first</button>
+  </div>
+
+  <div class="direction on" id="dir-a">
+    <div class="dnote">Two lines per row instead of a 6-column grid: <b>title + status badge</b> on top, then <b>target · result · by</b> collapsed into one muted breadcrumb underneath. Sent-time and the action button move to the right edge, out of the reading line entirely.</div>
+    <div class="card"><div class="card-h">Action history <span id="a-count"></span></div><div id="a-list"></div></div>
+  </div>
+
+  <div class="direction" id="dir-b">
+    <div class="dnote">Groups rows under <b>day headers</b> (Today / Yesterday / Aug 30…) so "sent" stops needing its own column — it's implied by the group. A thin timeline rail gives the list a scan-down rhythm; each row is a single line, meta trailing inline after the title.</div>
+    <div class="card"><div class="card-h">Action history <span id="b-count"></span></div><div id="b-body"></div></div>
+  </div>
+
+  <div class="direction" id="dir-c">
+    <div class="dnote">Leans on the existing Needs attention / Completed buckets to carry hierarchy, then strips each row down further: a completed row shows only what happened (title + target + by, one line) — no result bar, no error line. A failed row adds its reason; nothing else changes shape.</div>
+    <div class="card"><div id="c-body"></div></div>
+  </div>
+</div>
+
+<script>
+function setDir(d){
+  document.querySelectorAll('.dtab').forEach(function(b){b.classList.toggle('on',b.dataset.d===d)});
+  document.querySelectorAll('.direction').forEach(function(el){el.classList.toggle('on',el.id==='dir-'+d)});
+}
+
+var ICONS = {
+  install:'<path d="M12 3l8 4.5-8 4.5-8-4.5z"/><path d="M4 7.5V16.5L12 21"/><path d="M20 7.5V16.5L12 21"/>',
+  reboot:'<path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/>',
+  shell:'<path d="M4 7l5 5-5 5"/><path d="M11 17h9"/>',
+  screenshot:'<rect x="3" y="7" width="18" height="12" rx="2"/><circle cx="12" cy="13" r="3"/>'
+};
+
+// Synthetic sample set — same data rendered across all three directions.
+var ROWS = [
+  {type:'install',title:'Install app',target:'Order Kiosk v2.3.1',result:'112 installed',state:'ok',by:'Ali Hassan',when:'2m ago',day:'Today'},
+  {type:'reboot',title:'Reboot',target:'Front-of-house group',result:'downloading',state:'run',by:'Sana Iqbal',when:'11m ago',day:'Today'},
+  {type:'shell',title:'Shell command',target:'AT070AABU00122',result:'1 failed',state:'fail',reason:'Timed out waiting for device ack',by:'Ali Hassan',when:'34m ago',day:'Today'},
+  {type:'screenshot',title:'Screenshot',target:'AT070AABU00387',result:'done',state:'ok',by:'—',when:'1h ago',day:'Today'},
+  {type:'install',title:'Install app',target:'All devices',result:'340 / 340 installed',state:'ok',by:'Bilal Ahmed',when:'6h ago',day:'Today'},
+  {type:'reboot',title:'Reboot',target:'Drive-thru group',result:'12 rebooted',state:'ok',by:'System',when:'yesterday, 9:14pm',day:'Yesterday'},
+  {type:'shell',title:'Shell command',target:'AT070AABU00226',result:'1 failed',state:'fail',reason:'Device offline',by:'Sana Iqbal',when:'yesterday, 4:02pm',day:'Yesterday'},
+  {type:'install',title:'Uninstall app',target:'Old POS v1.9',result:'8 uninstalled',state:'ok',by:'Ali Hassan',when:'yesterday, 11:20am',day:'Yesterday'},
+  {type:'reboot',title:'Reboot',target:'All devices',result:'482 rebooted',state:'ok',by:'System',when:'Aug 30',day:'Aug 30'},
+  {type:'screenshot',title:'Screenshot',target:'AT070AABU00119',result:'done',state:'ok',by:'Bilal Ahmed',when:'Aug 30',day:'Aug 30'}
+];
+
+function icon(type,state){
+  return '<span class="ic '+state+'"><svg viewBox="0 0 24 24">'+ICONS[type]+'</svg></span>';
+}
+function badgeText(r){
+  if(r.state==='fail') return 'Failed';
+  if(r.state==='run') return 'Running';
+  return 'Done';
+}
+
+// ── Direction A ──
+(function(){
+  var html='';
+  ROWS.forEach(function(r){
+    html += '<div class="A-row">'+icon(r.type,r.state)+
+      '<div class="A-body">'+
+        '<div class="A-top"><span class="A-title">'+r.title+'</span><span class="A-badge '+r.state+'">'+badgeText(r)+'</span></div>'+
+        '<div class="A-meta"><b>'+r.target+'</b><span class="sep">&middot;</span>'+r.result+'<span class="sep">&middot;</span>'+r.by+'</div>'+
+      '</div>'+
+      '<div class="A-act">'+(r.state==='fail'?'<button class="A-btn">Retry</button>':'')+'<span class="A-when">'+r.when+'</span></div>'+
+    '</div>';
+  });
+  document.getElementById('a-list').innerHTML = html;
+  document.getElementById('a-count').textContent = ROWS.length+' total';
+})();
+
+// ── Direction B ──
+(function(){
+  var days = [], seen = {};
+  ROWS.forEach(function(r){ if(!seen[r.day]){seen[r.day]=true; days.push(r.day);} });
+  var html='';
+  days.forEach(function(day){
+    html += '<div class="B-day">'+day+'</div><div class="B-list">';
+    ROWS.filter(function(r){return r.day===day}).forEach(function(r){
+      html += '<div class="B-row"><div class="B-dotwrap"><span class="dot '+r.state+'"></span></div>'+
+        '<div class="B-body"><span class="B-title">'+r.title+'</span>'+
+        '<span class="B-meta">'+r.target+' &middot; '+r.result+' &middot; '+r.by+(r.reason?' &middot; <span style="color:var(--danger)">'+r.reason+'</span>':'')+'</span>'+
+        '<span class="B-when">'+r.when+'</span></div></div>';
+    });
+    html += '</div>';
+  });
+  document.getElementById('b-body').innerHTML = html;
+  document.getElementById('b-count').textContent = ROWS.length+' total';
+})();
+
+// ── Direction C ──
+(function(){
+  var attn = ROWS.filter(function(r){return r.state==='fail'});
+  var run = ROWS.filter(function(r){return r.state==='run'});
+  var done = ROWS.filter(function(r){return r.state==='ok'});
+  function rowsHtml(list, withReason){
+    return list.map(function(r){
+      return '<div class="C-row">'+icon(r.type,r.state)+
+        '<div class="C-main">'+
+          '<div class="C-title-line"><span class="C-title">'+r.title+'</span></div>'+
+          '<div class="C-sub">'+r.target+' &middot; '+r.by+'</div>'+
+          (withReason && r.reason?'<div class="C-reason">'+r.reason+'</div>':'')+
+        '</div>'+
+        '<div class="C-tail">'+(r.state==='fail'?'<button class="A-btn">Retry</button>':'')+'<span class="C-when">'+r.when+'</span></div>'+
+      '</div>';
+    }).join('');
+  }
+  var html = '';
+  html += '<div class="C-bucket-h attn">Needs attention <span class="cnt">'+attn.length+'</span></div>'+rowsHtml(attn, true);
+  if(run.length) html += '<div class="C-bucket-h" style="color:var(--p)">In progress <span class="cnt">'+run.length+'</span></div>'+rowsHtml(run, false);
+  html += '<div class="C-bucket-h done">Completed <span class="cnt">'+done.length+'</span></div>'+rowsHtml(done, false);
+  document.getElementById('c-body').innerHTML = html;
+})();
+</script>
+</body></html>
