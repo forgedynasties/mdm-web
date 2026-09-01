@@ -12350,7 +12350,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"health-pulse", "health-triage", "health-grid",
 		"health-command", "health-reliability", "health-stream", "health-icons",
 		"overview-command",
-		"alerts-inbox", "alerts-grouped", "notifications",
+		"alerts-inbox", "alerts-grouped", "notifications", "toasts",
 		"release-pipeline", "release-cockpit", "ota-flow":
 	default:
 		http.NotFound(w, r)

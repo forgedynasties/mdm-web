@@ -1,0 +1,231 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Toasts — AIO MDM</title>
+<style>
+  :root{--bg:#faf8f5;--surface:#fff;--border:#e8e2da;--text:#1c1a18;--muted:#7e776d;--faint:#a49c90;
+    --accent:#f9674e;--p:#7a80f6;--ok:#1f9d63;--warn:#b8860b;--danger:#d1503f;--r4:14px;
+    --font:"IBM Plex Sans",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+    --shadow:0 1px 2px rgba(28,26,24,.04),0 6px 22px rgba(28,26,24,.06);--sh-lg:0 8px 30px rgba(28,26,24,.14);}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:900px;margin:0 auto;padding:44px 24px 100px}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);text-decoration:none;margin-bottom:18px}
+  .back:hover{color:var(--accent)}
+  .brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:18px;letter-spacing:-.02em;margin-bottom:22px}
+  .brand .a{background:linear-gradient(96deg,var(--accent),var(--p));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .brand .m{color:var(--muted);font-weight:600}
+  h1{font-size:27px;font-weight:700;letter-spacing:-.015em;margin:0}
+  .lede{color:var(--muted);font-size:14.5px;margin:8px 0 24px;max-width:66ch}
+
+  .dtabs{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap}
+  .dtab{font:inherit;font-size:12.5px;font-weight:650;padding:8px 14px;border-radius:99px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer}
+  .dtab.on{border-color:transparent;background:linear-gradient(96deg,var(--accent),var(--p));color:#fff}
+
+  .direction{display:none}
+  .direction.on{display:block}
+  .dcap{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--faint);font-weight:700;margin:22px 0 10px}
+  .dcap:first-child{margin-top:0}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--shadow);padding:18px 20px}
+  .fire-row{display:flex;gap:8px;flex-wrap:wrap}
+  .fire{font:inherit;font-size:12.5px;font-weight:650;padding:8px 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text)}
+  .fire.success{color:var(--ok)}.fire.error{color:var(--danger)}.fire.warn{color:var(--warn)}.fire.info{color:var(--p)}
+  .fire:hover{border-color:currentColor}
+  .note{font-size:12.5px;color:var(--muted);margin-top:10px}
+
+  /* ── stack: bottom-right corner toasts, all directions share the mount point ── */
+  #stack{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:999;width:340px;max-width:calc(100vw - 40px)}
+  #banner-mount{position:fixed;top:0;left:0;right:0;z-index:998;display:flex;flex-direction:column;align-items:center;pointer-events:none}
+
+  /* ═══ Direction A — Minimal (refined current system) ═══ */
+  .tA{display:flex;gap:10px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--muted);border-radius:10px;box-shadow:var(--sh-lg);padding:11px 13px;opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s}
+  .tA.show{opacity:1;transform:translateY(0)}
+  .tA.success{border-left-color:var(--ok)}.tA.error{border-left-color:var(--danger)}.tA.warn{border-left-color:var(--warn)}.tA.info{border-left-color:var(--p)}
+  .tA .ic{width:16px;height:16px;flex:none;margin-top:1px}
+  .tA.success .ic{color:var(--ok)}.tA.error .ic{color:var(--danger)}.tA.warn .ic{color:var(--warn)}.tA.info .ic{color:var(--p)}
+  .tA .m{flex:1;font-size:12.5px;font-weight:550;min-width:0}
+  .tA .x{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:14px;line-height:1;padding:0}
+
+  .aA{display:flex;gap:11px;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--danger);border-radius:10px;box-shadow:var(--sh-lg);padding:13px 14px;opacity:0;transform:translateY(6px);transition:opacity .18s,transform .18s}
+  .aA.show{opacity:1;transform:translateY(0)}
+  .aA .ic{width:30px;height:30px;flex:none;border-radius:8px;background:#fbe9e5;color:var(--danger);display:flex;align-items:center;justify-content:center}
+  .aA .ic svg{width:16px;height:16px}
+  .aA .m{flex:1;min-width:0}
+  .aA .t{font-size:13px;font-weight:700}
+  .aA .s{font-size:12px;color:var(--muted);margin-top:2px}
+  .aA .acts{display:flex;gap:7px;margin-top:9px}
+  .aA .tb{font-size:11.5px;font-weight:650;padding:5px 10px;border-radius:7px;border:1px solid var(--border);color:var(--text)}
+  .aA .tb.p{border-color:transparent;background:var(--text);color:#fff}
+  .aA .x{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:15px;align-self:flex-start}
+
+  /* ═══ Direction B — Elevated card (bigger badge, bolder — best for a critical alert) ═══ */
+  .tB{display:flex;gap:11px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r4);box-shadow:var(--sh-lg);padding:12px 14px;opacity:0;transform:scale(.97);transition:opacity .2s,transform .2s}
+  .tB.show{opacity:1;transform:scale(1)}
+  .tB .ic{width:30px;height:30px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center}
+  .tB .ic svg{width:16px;height:16px}
+  .tB.success .ic{background:#e4f6ec;color:var(--ok)}.tB.error .ic{background:#fbe9e5;color:var(--danger)}
+  .tB.warn .ic{background:#fbf1dc;color:var(--warn)}.tB.info .ic{background:#eceeff;color:var(--p)}
+  .tB .m{flex:1;font-size:13px;font-weight:650;min-width:0}
+  .tB .x{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:15px}
+
+  .aB{display:flex;gap:12px;background:linear-gradient(180deg,var(--surface),var(--surface));border:1px solid var(--border);border-radius:16px;box-shadow:var(--sh-lg);padding:16px;opacity:0;transform:scale(.97);transition:opacity .2s,transform .2s}
+  .aB.show{opacity:1;transform:scale(1)}
+  .aB .ic{width:38px;height:38px;flex:none;border-radius:11px;background:linear-gradient(135deg,var(--danger),#f08a6d);color:#fff;display:flex;align-items:center;justify-content:center}
+  .aB .ic svg{width:19px;height:19px}
+  .aB .m{flex:1;min-width:0}
+  .aB .t{font-size:14px;font-weight:750}
+  .aB .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+  .aB .acts{display:flex;gap:8px;margin-top:11px}
+  .aB .tb{font-size:12px;font-weight:650;padding:6px 12px;border-radius:8px;border:1px solid var(--border)}
+  .aB .tb.p{border-color:transparent;background:linear-gradient(96deg,var(--accent),var(--p));color:#fff}
+  .aB .x{flex:none;border:none;background:none;color:var(--faint);cursor:pointer;font-size:16px;align-self:flex-start}
+
+  /* ═══ Direction C — Top banner strip (slides down from the header, one at a time) ═══ */
+  .bC{pointer-events:auto;display:flex;align-items:center;gap:10px;max-width:640px;width:calc(100% - 40px);margin-top:10px;background:var(--text);color:#fff;border-radius:11px;box-shadow:var(--sh-lg);padding:10px 14px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
+  .bC.show{opacity:1;transform:translateY(0)}
+  .bC.success{background:#155c3c}.bC.error{background:#7d2e23}.bC.warn{background:#7a5a0a}.bC.info{background:#33357a}
+  .bC .ic{width:16px;height:16px;flex:none}
+  .bC .m{flex:1;font-size:12.5px;font-weight:600;min-width:0}
+  .bC .lnk{flex:none;font-size:12px;font-weight:700;text-decoration:underline;color:#fff}
+  .bC .x{flex:none;border:none;background:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:15px}
+
+  .aC{pointer-events:auto;display:flex;align-items:center;gap:12px;max-width:680px;width:calc(100% - 40px);margin-top:10px;background:var(--text);color:#fff;border-radius:12px;box-shadow:var(--sh-lg);padding:12px 16px;opacity:0;transform:translateY(-14px);transition:opacity .2s,transform .2s}
+  .aC.show{opacity:1;transform:translateY(0)}
+  .aC .ic{width:32px;height:32px;flex:none;border-radius:9px;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center}
+  .aC .ic svg{width:17px;height:17px}
+  .aC .m{flex:1;min-width:0}
+  .aC .t{font-size:13.5px;font-weight:700}
+  .aC .s{font-size:12px;opacity:.78;margin-top:1px}
+  .aC .acts{display:flex;gap:8px;flex:none}
+  .aC .tb{font-size:12px;font-weight:650;padding:6px 12px;border-radius:7px;border:1px solid rgba(255,255,255,.3);color:#fff}
+  .aC .tb.p{border-color:transparent;background:#fff;color:var(--text)}
+  .aC .x{flex:none;border:none;background:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:15px}
+</style></head>
+<body>
+  <div id="stack"></div>
+  <div id="banner-mount"></div>
+
+  <div class="wrap">
+    <a class="back" href="/demo/index">← Back to demos</a>
+    <div class="brand"><span class="a">AIO</span><span class="m">MDM</span></div>
+    <h1>Toasts &amp; alert toasts — three directions</h1>
+    <p class="lede">Two kinds live today: a plain action-feedback toast ("Saved", "Copy failed") and a bigger pop-up when a new critical alert fires. Each direction below restyles both. Click a button to actually fire one — nothing here is a static screenshot.</p>
+
+    <div class="dtabs" role="tablist">
+      <button type="button" class="dtab on" data-d="a" onclick="setDir('a')">A · Minimal (refined current)</button>
+      <button type="button" class="dtab" data-d="b" onclick="setDir('b')">B · Elevated card</button>
+      <button type="button" class="dtab" data-d="c" onclick="setDir('c')">C · Top banner</button>
+    </div>
+
+    <div class="direction on" data-dir="a">
+      <div class="card">
+        <p style="margin:0 0 12px;font-size:13px;color:var(--muted);">Slim, corner-stacked, quiet — closest to what ships today, just tightened up (smaller radius, thinner accent bar, no drop-shadow overkill).</p>
+        <div class="dcap">Action feedback</div>
+        <div class="fire-row">
+          <button class="fire success" onclick="fireA('success','Saved &quot;Drive-Thru Lockdown&quot;')">Success</button>
+          <button class="fire error" onclick="fireA('error','Delete failed — device offline')">Error</button>
+          <button class="fire warn" onclick="fireA('warn','3 devices skipped — already up to date')">Warning</button>
+          <button class="fire info" onclick="fireA('info','Copied to clipboard')">Info</button>
+        </div>
+        <div class="dcap">Critical alert</div>
+        <button class="fire error" onclick="fireAlertA()">Fire a critical alert</button>
+        <div class="note">Corner stack, bottom-right. Alert toast reuses the same shell with a title + sentence + actions.</div>
+      </div>
+    </div>
+
+    <div class="direction" data-dir="b">
+      <div class="card">
+        <p style="margin:0 0 12px;font-size:13px;color:var(--muted);">Bigger colored icon badge, bolder type, still corner-stacked. The critical-alert version gets a gradient badge and two actions — this is the direction already live on the Notifications demo.</p>
+        <div class="dcap">Action feedback</div>
+        <div class="fire-row">
+          <button class="fire success" onclick="fireB('success','Saved &quot;Drive-Thru Lockdown&quot;')">Success</button>
+          <button class="fire error" onclick="fireB('error','Delete failed — device offline')">Error</button>
+          <button class="fire warn" onclick="fireB('warn','3 devices skipped — already up to date')">Warning</button>
+          <button class="fire info" onclick="fireB('info','Copied to clipboard')">Info</button>
+        </div>
+        <div class="dcap">Critical alert</div>
+        <button class="fire error" onclick="fireAlertB()">Fire a critical alert</button>
+        <div class="note">Corner stack, bottom-right. Best when alerts need to feel like they matter more than a save confirmation.</div>
+      </div>
+    </div>
+
+    <div class="direction" data-dir="c">
+      <div class="card">
+        <p style="margin:0 0 12px;font-size:13px;color:var(--muted);">Drops the corner stack entirely — a dark strip slides down from the very top of the page, above the header. Reads more like a system-level banner than a per-card toast; naturally rate-limits itself since a second one just queues below the first instead of piling into a corner.</p>
+        <div class="dcap">Action feedback</div>
+        <div class="fire-row">
+          <button class="fire success" onclick="fireC('success','Saved &quot;Drive-Thru Lockdown&quot;')">Success</button>
+          <button class="fire error" onclick="fireC('error','Delete failed — device offline')">Error</button>
+          <button class="fire warn" onclick="fireC('warn','3 devices skipped — already up to date')">Warning</button>
+          <button class="fire info" onclick="fireC('info','Copied to clipboard')">Info</button>
+        </div>
+        <div class="dcap">Critical alert</div>
+        <button class="fire error" onclick="fireAlertC()">Fire a critical alert</button>
+        <div class="note">Top banner, above everything. Alert version is wider, with a title/sentence/actions row.</div>
+      </div>
+    </div>
+  </div>
+
+<script>
+function setDir(d){
+  document.querySelectorAll('.dtab').forEach(function(b){b.classList.toggle('on',b.dataset.d===d);});
+  document.querySelectorAll('.direction').forEach(function(el){el.classList.toggle('on',el.dataset.dir===d);});
+}
+var ICONS={
+  success:'<path d="M20 6 9 17l-5-5"/>',
+  error:'<path d="M18 6 6 18M6 6l12 12"/>',
+  warn:'<path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 8h.01"/><path d="M11 12h1v4h1"/>'
+};
+function svg(type){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+ICONS[type]+'</svg>';}
+
+function mount(el, host, ms){
+  host.appendChild(el);
+  requestAnimationFrame(function(){el.classList.add('show');});
+  var t=setTimeout(dismiss, ms||4000);
+  function dismiss(){clearTimeout(t);el.classList.remove('show');setTimeout(function(){el.remove();},220);}
+  var x=el.querySelector('.x'); if(x) x.onclick=dismiss;
+  return dismiss;
+}
+
+function fireA(type,msg){
+  var el=document.createElement('div');
+  el.className='tA '+type;
+  el.innerHTML='<span class="ic">'+svg(type)+'</span><span class="m"></span><button class="x" aria-label="Dismiss">&times;</button>';
+  el.querySelector('.m').textContent=msg;
+  mount(el, document.getElementById('stack'));
+}
+function fireAlertA(){
+  var el=document.createElement('div');
+  el.className='aA';
+  el.innerHTML='<span class="ic">'+svg('error')+'</span><div class="m"><div class="t">3 devices offline at Riverside Ave</div><div class="s">Dropped off within the last 10 minutes — check the WiFi AP.</div><div class="acts"><a class="tb p" href="#" onclick="return false;">View</a><a class="tb" href="#" onclick="return false;">All alerts</a></div></div><button class="x" aria-label="Dismiss">&times;</button>';
+  mount(el, document.getElementById('stack'), 9000);
+}
+
+function fireB(type,msg){
+  var el=document.createElement('div');
+  el.className='tB '+type;
+  el.innerHTML='<span class="ic">'+svg(type)+'</span><span class="m"></span><button class="x" aria-label="Dismiss">&times;</button>';
+  el.querySelector('.m').textContent=msg;
+  mount(el, document.getElementById('stack'));
+}
+function fireAlertB(){
+  var el=document.createElement('div');
+  el.className='aB';
+  el.innerHTML='<span class="ic">'+svg('error')+'</span><div class="m"><div class="t">3 devices offline at Riverside Ave</div><div class="s">Dropped off within the last 10 minutes — check the WiFi AP.</div><div class="acts"><a class="tb p" href="#" onclick="return false;">View</a><a class="tb" href="#" onclick="return false;">All alerts</a></div></div><button class="x" aria-label="Dismiss">&times;</button>';
+  mount(el, document.getElementById('stack'), 9000);
+}
+
+function fireC(type,msg){
+  var el=document.createElement('div');
+  el.className='bC '+type;
+  el.innerHTML='<span class="ic">'+svg(type)+'</span><span class="m"></span><button class="x" aria-label="Dismiss">&times;</button>';
+  el.querySelector('.m').textContent=msg;
+  mount(el, document.getElementById('banner-mount'));
+}
+function fireAlertC(){
+  var el=document.createElement('div');
+  el.className='aC';
+  el.innerHTML='<span class="ic">'+svg('error')+'</span><div class="m"><div class="t">3 devices offline at Riverside Ave</div><div class="s">Dropped off within the last 10 minutes — check the WiFi AP.</div></div><div class="acts"><a class="tb p" href="#" onclick="return false;">View</a><a class="tb" href="#" onclick="return false;">All alerts</a></div><button class="x" aria-label="Dismiss">&times;</button>';
+  mount(el, document.getElementById('banner-mount'), 9000);
+}
+</script>
+</body></html>
