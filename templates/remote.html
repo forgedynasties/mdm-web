@@ -128,28 +128,13 @@
 }
 @keyframes rc-spin { to { transform: rotate(360deg); } }
 
-/* Stats strip — floats over the bottom of the live screen as one liquid-glass
-   bar (same tuned recipe as the toasts/dock: blur 4px, translucent white,
-   inset top highlight) instead of a row of solid chips sitting below it. */
+/* Stats strip under the screen */
 .rc-stats {
-  position: absolute;
-  left: 50%;
-  bottom: 10px;
-  transform: translateX(-50%);
-  z-index: 2;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
   justify-content: center;
-  max-width: calc(100% - 20px);
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, .18);
-  -webkit-backdrop-filter: blur(4px) saturate(180%);
-  backdrop-filter: blur(4px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, .25);
-  border-radius: 999px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .3), inset 0 1px 0 rgba(255, 255, 255, .35);
 }
 .rc-chip {
   display: inline-flex;
@@ -157,10 +142,14 @@
   gap: 5px;
   font-family: var(--mono);
   font-size: var(--t-12);
-  color: rgba(255, 255, 255, .85);
+  color: var(--muted);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
 }
-.rc-chip b { color: #fff; font-weight: 600; }
-.rc-chip.err { color: #ff9b8c; }
+.rc-chip b { color: var(--text); font-weight: 600; }
+.rc-chip.err { color: var(--danger); border-color: var(--danger-edge); background: var(--danger-bg); }
 
 /* ── Control deck ─────────────────────────────────────────────────────────── */
 .rc-deck {
@@ -306,20 +295,16 @@
           {{end}}
         </div>
       </div>
+    </div>
 
-      {{/* Floating over the live screen (liquid glass) rather than sitting below it
-           in-flow — this is the one spot on the device pages with genuinely varied,
-           colorful content behind it, so the blur actually reads as glass instead
-           of looking like flat frosted white. */}}
-      <div class="rc-stats">
-        <span class="rc-chip"><b id="rc-fps">—</b> fps</span>
-        <span class="rc-chip"><b id="rc-kbps">—</b> KB/s</span>
-        <span class="rc-chip"><b id="rc-res">—</b></span>
-        <label class="rc-chip" style="cursor:pointer;user-select:none" title="Smooth: paint every frame (higher fps). Low-latency: paint only the freshest frame (snappier tap response).">
-          <input type="checkbox" id="rc-smooth" onchange="rcSetPaintMode(this.checked)" style="vertical-align:middle;margin-right:5px">Smooth
-        </label>
-        <span class="rc-chip err" id="rc-err-chip" style="display:none"><b id="rc-err">0</b> decode errors</span>
-      </div>
+    <div class="rc-stats">
+      <span class="rc-chip"><b id="rc-fps">—</b> fps</span>
+      <span class="rc-chip"><b id="rc-kbps">—</b> KB/s</span>
+      <span class="rc-chip"><b id="rc-res">—</b></span>
+      <label class="rc-chip" style="cursor:pointer;user-select:none" title="Smooth: paint every frame (higher fps). Low-latency: paint only the freshest frame (snappier tap response).">
+        <input type="checkbox" id="rc-smooth" onchange="rcSetPaintMode(this.checked)" style="vertical-align:middle;margin-right:5px">Smooth
+      </label>
+      <span class="rc-chip err" id="rc-err-chip" style="display:none"><b id="rc-err">0</b> decode errors</span>
     </div>
   </div>
 
