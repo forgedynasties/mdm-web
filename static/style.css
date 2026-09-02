@@ -5267,6 +5267,11 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
   border: 1px solid rgba(255,255,255,.29); border-radius: 16px;
   box-shadow: 0 14px 36px rgba(0,0,0,.21), inset 0 1px 0 rgba(255,255,255,.50); padding: 7px;
   animation: ov-rise 0.14s var(--ease) both;
+  /* Keeps the blur on its own compositor layer so swapping the alerts list's
+     innerHTML (Loading… -> real rows, a height change) doesn't force the
+     browser to drop and recreate the backdrop-filter layer — that drop was
+     showing as a one-frame flash of zero blur right after the popover opens. */
+  will-change: backdrop-filter;
 }
 html[data-theme="dark"] .nbar-pop { background: rgba(20,18,17,.45); border-color: rgba(255,255,255,.12); }
 .nbar-pop[hidden] { display: none; }
