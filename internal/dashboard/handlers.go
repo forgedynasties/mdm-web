@@ -14262,16 +14262,24 @@ type activityActor struct {
 // filtered to one user, so an admin can see everything at once or drill into one
 // person's actions.
 func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
-	// actor is a username (audit_log.actor now stores the stable username, not
-	// a snapshotted display name — see h.audit), so this filter still matches
-	// rows logged before a since-renamed user's current name changed.
+	// actor is the username selected in the "User" filter dropdown (see below).
 	actor := r.URL.Query().Get("actor")
 	showAdmin := r.URL.Query().Get("admin") == "1"
 	excludeActor := ""
 	if !showAdmin {
 		excludeActor = "admin"
 	}
-	entries, err := h.db.ListAuditFilteredEx(r.Context(), actor, excludeActor, 500)
+	// Fetch broadly (everything but a straight exclude-admin) and apply the actor
+	// filter AFTER resolving names below, rather than as a SQL exact-match on the
+	// raw column. audit_log.actor is a mix of formats: current rows store a
+	// username, but rows logged before a user had a name on file fell back to
+	// storing the username too (same value, coincidentally matches), while rows
+	// logged after they'd set a name stored that display-name text directly (a
+	// pre-this-fix snapshot) — a raw exact-match against "the selected user's
+	// username" only ever caught the first case, silently dropping the rest of
+	// that person's own history. Matching on the resolved display name instead
+	// catches all three shapes.
+	entries, err := h.db.ListAuditFilteredEx(r.Context(), "", excludeActor, 1000)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -14300,6 +14308,15 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		if dn, ok := nameByUsername[entries[i].Actor]; ok {
 			entries[i].Actor = dn
 		}
+	}
+	if actor != "" {
+		kept := make([]db.AuditEntry, 0, len(entries))
+		for _, e := range entries {
+			if e.Actor == actorName {
+				kept = append(kept, e)
+			}
+		}
+		entries = kept
 	}
 	h.render(w, r, "activity.html", map[string]any{
 		"Entries":   entries,
