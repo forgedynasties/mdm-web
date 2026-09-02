@@ -1554,8 +1554,8 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
       {{if eq $state "fail"}}<span class="ht-fail">{{$s.Completed}} {{$verb}} · {{$s.Failed}} failed</span>
       {{else if eq $state "run"}}{{if eq $total 0}}awaiting check-in{{else if or (gt $s.Downloading 0) (gt $s.Installing 0)}}<span class="pd"></span>{{if gt $s.Downloading 0}}{{$s.Downloading}} downloading{{end}}{{if and (gt $s.Downloading 0) (gt $s.Installing 0)}} · {{end}}{{if gt $s.Installing 0}}{{$s.Installing}} installing{{end}}{{else}}<span class="pd"></span>{{$s.Completed}} / {{$total}}{{end}}
       {{else}}{{if gt $s.Completed 1}}{{$s.Completed}} {{$verb}}{{else}}{{$verb}}{{end}}{{end}}
-      {{if $c.CreatedBy}}<span class="sep"></span>{{$c.CreatedBy}}{{end}}
     </span>
+    {{if $c.CreatedBy}}<span class="ht-by" title="Sent by {{$c.CreatedBy}}">{{$c.CreatedBy}}</span>{{end}}
   </div>
   <span class="ht-when">{{timeSince $c.CreatedAt}}</span>
   <div class="hact">

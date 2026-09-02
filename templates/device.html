@@ -534,6 +534,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 .kiosk-modal-body .form-row{margin:0;}
 .kiosk-modal-body .form-label{font-size:12px;font-weight:600;color:var(--muted);margin-bottom:8px;display:block;}
 .kiosk-modal-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 20px;border-top:1px solid var(--border);flex:none;}
+.kiosk-modal-foot [hidden]{display:none!important;}
 .kiosk-modal-foot .kiosk-note{margin-top:0;flex:1;min-width:120px;}
 .kiosk-foot-btns{display:flex;gap:10px;margin-left:auto;}
 #kiosk-modal .kpk-grid{grid-template-columns:repeat(3,1fr);max-height:344px;}
@@ -3182,7 +3183,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   // Reflect state on the footer buttons:
   //  - kiosk OFF        → [Enable kiosk] (disabled until an app is chosen)
   //  - kiosk ON, same   → [Turn off kiosk]
-  //  - kiosk ON, changed→ [Turn off kiosk] [Change kiosk app]
+  //  - kiosk ON, changed→ [Turn off kiosk] [Switch kiosk app]
   // Named kioskRefreshToggle for continuity with its callers (mdmSyncKiosk, SSE).
   window.kioskRefreshToggle = function () {
     var applyBtn = document.getElementById('kiosk-apply-btn');
@@ -3203,7 +3204,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       if (offBtn) offBtn.hidden = false;
       if (changed && hasApp) {
         applyBtn.hidden = false;
-        applyBtn.textContent = 'Change kiosk app';
+        applyBtn.textContent = 'Switch kiosk app';
         applyBtn.disabled = false;
       } else {
         applyBtn.hidden = true;
@@ -3292,7 +3293,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 <script>
   // Single source of truth for reflecting kiosk on/off in the header, updated in
   // place (no fragment swap) so the popover/combo aren't disturbed. Covers every
-  // chip variant: the operator+ popover button (.ddc-chip-btn) and the viewer's
+  // chip variant: the operator+ ribbon pill (.ddc-ctl) and the viewer's
   // static chip both carry a .ddc-kstate label; the popover also has the toggle +
   // hidden input. Driven by the SSE device payload (kiosk_enabled) so an on-device
   // offline exit flips it live for whoever is watching, whatever their role.
@@ -3302,7 +3303,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
       if (el.closest('#wlc-chip')) return; // the charging pill shares this class — leave it alone
       el.textContent = enabled ? 'on' : 'off';
     });
-    var btn = document.querySelector('.ddc-kpop-wrap .ddc-chip-btn');
+    var btn = document.querySelector('.ddc-ctl');
     if (btn) btn.classList.toggle('on', !!enabled);
     var tog = document.getElementById('kiosk-toggle');
     if (tog) tog.checked = !!enabled;
