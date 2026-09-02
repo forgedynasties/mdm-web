@@ -1,0 +1,144 @@
+{{define "export_visualize.html"}}
+{{template "header" .}}
+
+<a href="/" class="back-link">&#8592; Back to Overview</a>
+
+<div class="ov-greet">
+  <h1 class="ov-title">Import &amp; Visualize Export</h1>
+  <span class="ov-date">Upload a CSV from Devices &rarr; Export (or matching its columns) to parse it into a table and charts &mdash; nothing is saved.</span>
+</div>
+
+<style>
+.evz-root {
+  --evz-s1: #2a78d6; --evz-s2: #eb6834; --evz-s3: #1baf7a; --evz-s4: #eda100;
+  --evz-s5: #e87ba4; --evz-s6: #008300; --evz-s7: #4a3aa7; --evz-s8: #e34948;
+}
+html[data-theme="dark"] .evz-root {
+  --evz-s1: #3987e5; --evz-s2: #d95926; --evz-s3: #199e70; --evz-s4: #c98500;
+  --evz-s5: #d55181; --evz-s6: #008300; --evz-s7: #9085e9; --evz-s8: #e66767;
+}
+.evz-upload { display: flex; align-items: center; gap: 12px; padding: 18px 20px; flex-wrap: wrap; }
+.evz-upload input[type="file"] { flex: 1; min-width: 220px; font: inherit; font-size: 13px; }
+.evz-error { margin: 0 20px 16px; padding: 10px 14px; border-radius: 10px; background: var(--danger-bg); color: var(--danger); font-size: 13px; }
+.evz-stats { display: flex; gap: 22px; flex-wrap: wrap; padding: 0 20px 18px; }
+.evz-stat { display: flex; flex-direction: column; gap: 2px; }
+.evz-stat b { font-size: 18px; font-weight: 700; }
+.evz-stat span { font-size: 11.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.evz-note { padding: 0 20px 16px; font-size: 12.5px; color: var(--warn); }
+.evz-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; margin-top: 14px; }
+.evz-chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-4, 14px); box-shadow: var(--shadow-sm); padding: 14px 16px; }
+.evz-chart-h { font-size: 13px; font-weight: 650; margin-bottom: 8px; }
+.evz-chart-h .u { color: var(--muted); font-weight: 500; font-size: 12px; }
+.evz-chart-wrap { position: relative; height: 200px; }
+.evz-table-wrap { overflow: auto; max-height: 480px; border-top: 1px solid var(--border); }
+.evz-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.evz-table th { position: sticky; top: 0; background: var(--surface); text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint); padding: 8px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.evz-table td { padding: 7px 14px; border-bottom: 1px solid var(--border-soft, var(--border)); white-space: nowrap; font-family: var(--mono); }
+.evz-table tr:last-child td { border-bottom: none; }
+</style>
+
+<div class="evz-root">
+  <div class="card dv-rise-1">
+    <div class="card-header"><h3>Upload</h3></div>
+    <form method="POST" action="/export/visualize" enctype="multipart/form-data" class="evz-upload" hx-boost="false">
+      <input type="file" name="file" accept=".csv,text/csv" required>
+      <button type="submit" class="btn-primary btn-sm">Parse &amp; visualize</button>
+      {{if .Filename}}<span class="muted small">Last file: {{.Filename}}</span>{{end}}
+    </form>
+    {{if .Error}}<div class="evz-error">{{.Error}}</div>{{end}}
+  </div>
+
+  {{if .Headers}}
+  <div class="card dv-rise-1" style="margin-top:16px;">
+    <div class="card-header"><h3>Summary</h3></div>
+    <div class="evz-stats">
+      <div class="evz-stat"><b>{{.RowCount}}</b><span>Rows</span></div>
+      <div class="evz-stat"><b>{{.DeviceCount}}</b><span>Devices</span></div>
+      {{if .FirstSeen}}<div class="evz-stat"><b>{{.FirstSeen}}</b><span>Earliest</span></div>{{end}}
+      {{if .LastSeen}}<div class="evz-stat"><b>{{.LastSeen}}</b><span>Latest</span></div>{{end}}
+    </div>
+    {{if .Truncated}}<div class="evz-note">Showing the first {{len .Rows}} of {{.RowCount}} rows — the file is large, so the table and charts are capped.</div>{{end}}
+    {{if .SeriesCapped}}<div class="evz-note">Only the first 8 devices are charted (for legible colors) — every device still appears in the table below.</div>{{end}}
+  </div>
+
+  {{if .HasCharts}}
+  <div class="evz-charts" id="evz-charts"></div>
+  <script>
+  window.mdmChartReady = window.mdmChartReady || (window.Chart
+    ? Promise.resolve()
+    : new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = '/static/vendor/chart.umd.min.js';
+        s.onload = resolve;
+        s.onerror = function () { reject(new Error('Chart.js failed to load')); };
+        document.head.appendChild(s);
+      }));
+  window.mdmChartReady.then(function () {
+    var charts = {{.ChartsJSON}};
+    var box = document.getElementById('evz-charts');
+    var root = document.querySelector('.evz-root');
+    var palette = [];
+    for (var i = 1; i <= 8; i++) palette.push(getComputedStyle(root).getPropertyValue('--evz-s' + i).trim());
+    var gridColor = getComputedStyle(document.body).getPropertyValue('--chart-grid').trim() || 'rgba(140,140,160,0.15)';
+    var tickColor = getComputedStyle(document.body).getPropertyValue('--chart-tick').trim() || '#8a8a99';
+    charts.forEach(function (chart) {
+      var card = document.createElement('div');
+      card.className = 'evz-chart-card';
+      card.innerHTML = '<div class="evz-chart-h">' + chart.label + ' <span class="u">' + chart.unit + '</span></div><div class="evz-chart-wrap"><canvas></canvas></div>';
+      box.appendChild(card);
+      var ctx = card.querySelector('canvas').getContext('2d');
+      var datasets = chart.series.map(function (s, i) {
+        var color = palette[i % palette.length];
+        return {
+          label: s.serial,
+          data: s.points.map(function (p) { return { x: p.t, y: p.v }; }),
+          borderColor: color, backgroundColor: color,
+          borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0.25,
+        };
+      });
+      // Plain linear x-axis over epoch-ms (not Chart.js's 'time' scale — this app
+      // doesn't vendor a date adapter, see device.html's sharedXScale for the same
+      // pattern), with a short local-time tick/tooltip formatter.
+      var fmtMs = function (ms) {
+        var d = new Date(ms);
+        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+      };
+      new Chart(ctx, {
+        type: 'line',
+        data: { datasets: datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: false,
+          interaction: { mode: 'nearest', axis: 'x', intersect: false },
+          plugins: {
+            legend: { display: datasets.length > 1, position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
+            tooltip: { mode: 'nearest', intersect: false, callbacks: { title: function (items) { return items.length ? fmtMs(items[0].parsed.x) : ''; } } }
+          },
+          scales: {
+            x: { type: 'linear', grid: { color: gridColor }, ticks: { color: tickColor, maxRotation: 0, callback: fmtMs } },
+            y: { grid: { color: gridColor }, ticks: { color: tickColor } }
+          }
+        }
+      });
+    });
+  }).catch(function (err) { console.error('[mdm] export-visualize charts failed:', err); });
+  </script>
+  {{end}}
+
+  <div class="card dv-rise-1" style="margin-top:16px;">
+    <div class="card-header"><h3>Table</h3></div>
+    <div class="evz-table-wrap">
+      <table class="evz-table">
+        <thead><tr>{{range .Headers}}<th>{{.}}</th>{{end}}</tr></thead>
+        <tbody>
+          {{range .Rows}}
+          <tr>{{range .}}<td>{{.}}</td>{{end}}</tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{end}}
+</div>
+
+{{template "footer" .}}
+{{end}}
