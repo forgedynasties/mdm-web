@@ -1440,13 +1440,54 @@ func (h *Handler) currentDisplayName(r *http.Request) string {
 }
 
 // audit records an admin action (best-effort; never blocks the request).
+//
+// The actor is the user's stable username (their login identity), not their
+// display name — a display name is editable from the Users page, and a
+// snapshotted name would freeze at whatever it was on the day of the action.
+// Storing the username lets every render path resolve it to the user's
+// CURRENT display name (see actorDisplayNames), so a rename shows up on
+// every past action too, not just new ones.
 func (h *Handler) audit(r *http.Request, action, target, detail string) {
-	actor := h.currentDisplayName(r)
+	actor := h.currentUsername(r)
 	if actor == "" {
 		actor = "unknown"
 	}
 	if err := h.db.InsertAudit(r.Context(), actor, action, target, detail); err != nil {
 		log.Printf("[audit] insert failed: %v", err)
+	}
+}
+
+// actorDisplayNames maps every user's stable username to their current display
+// name, for resolving the username snapshotted onto commands/audit_log rows
+// (see audit and the CreateCommandBy call sites) back to a human name at
+// render time — live, so a Users-page rename is reflected on every past
+// action instead of being frozen at whatever the name was when it was logged.
+func (h *Handler) actorDisplayNames(ctx context.Context) map[string]string {
+	users, err := h.db.ListUsers(ctx)
+	if err != nil {
+		return nil
+	}
+	m := make(map[string]string, len(users))
+	for _, u := range users {
+		m[u.Username] = u.DisplayName()
+	}
+	return m
+}
+
+// resolveCommandActors rewrites each command's CreatedBy (a snapshotted
+// username, or "" for system-initiated) to the user's current display name,
+// in place. Falls back to leaving CreatedBy as-is when it doesn't match a
+// known username (a pre-rename-fix row already carrying a snapshotted display
+// name, or a non-account actor like "Scheduled recipe: ...").
+func (h *Handler) resolveCommandActors(ctx context.Context, cmds []db.Command) {
+	m := h.actorDisplayNames(ctx)
+	if m == nil {
+		return
+	}
+	for i := range cmds {
+		if dn, ok := m[cmds[i].CreatedBy]; ok {
+			cmds[i].CreatedBy = dn
+		}
 	}
 }
 
@@ -1952,11 +1993,9 @@ func (h *Handler) SignupSubmit(w http.ResponseWriter, r *http.Request) {
 		log.Printf("signup: generate verify token for %s: %v", email, err)
 	}
 
-	signupActor := strings.TrimSpace(firstName + " " + lastName)
-	if signupActor == "" {
-		signupActor = email
-	}
-	h.auditAs(r, signupActor, "user.signup", u.ID.String(), email)
+	// Username (== email here), not the display name — see h.audit for why the
+	// actor field stores the stable identifier rather than a name snapshot.
+	h.auditAs(r, u.Username, "user.signup", u.ID.String(), email)
 	h.tmpl.ExecuteTemplate(w, "signup.html", map[string]any{
 		"Sent": true, "Email": email, "Brand": h.cfg.CustomBrand(),
 	})
@@ -1997,7 +2036,7 @@ func (h *Handler) VerifyEmailSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	verifyActor := userID.String()
 	if u, err := h.db.GetUser(r.Context(), userID); err == nil && u != nil {
-		verifyActor = u.DisplayName()
+		verifyActor = u.Username
 	}
 	h.auditAs(r, verifyActor, "user.email_verified", userID.String(), "")
 	http.Redirect(w, r, "/login?verified=1", http.StatusFound)
@@ -6566,7 +6605,7 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 		payload = apkmeta.Augment(r.Context(), apkURL, payload)
 	}
 
-	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, "groups", []uuid.UUID{id}, h.currentDisplayName(r))
+	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, "groups", []uuid.UUID{id}, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -9047,7 +9086,7 @@ func (h *Handler) DeploymentRebootDevice(w http.ResponseWriter, r *http.Request)
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}, h.currentDisplayName(r))
+	cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{device.ID}, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -9093,7 +9132,7 @@ func (h *Handler) DeploymentRebootAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for _, deviceID := range ids {
-		cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{deviceID}, h.currentDisplayName(r))
+		cmd, err := h.db.CreateCommandBy(r.Context(), "reboot", "", nil, "devices", []uuid.UUID{deviceID}, h.currentUsername(r))
 		if err != nil {
 			log.Printf("[deployment-reboot-all] create reboot error device=%s: %v", deviceID, err)
 			continue
@@ -9375,7 +9414,8 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 			fail(err)
 			return
 		}
-		cmds = filterShellCommands(h.role(r), c) // operators never see shell history
+		c = filterShellCommands(h.role(r), c) // operators never see shell history
+		cmds = h.filterAdminCommands(h.role(r), c)
 	})
 	run(func() {
 		g, err := h.db.ListGroups(ctx)
@@ -9411,6 +9451,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.resolveCommandActors(ctx, cmds)
 
 	// Clone: ?clone=<id> prefills the builder from an existing command, so the detail
 	// page's "Duplicate & edit" opens the builder ready to tweak and re-send.
@@ -9666,6 +9707,8 @@ func (h *Handler) CommandHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cmds = filterShellCommands(h.role(r), cmds) // operators never see shell history
+	cmds = h.filterAdminCommands(h.role(r), cmds)
+	h.resolveCommandActors(r.Context(), cmds)
 	summaries, _ := h.db.GetCommandDeliverySummaries(r.Context(), h.cfg.CommandExpiry(), 0) // full history
 	dismissed, _ := h.db.ListDismissedCommandIDs(r.Context())
 	attn, prog, doneAll := classifyCommands(cmds, summaries, dismissed)
@@ -10435,7 +10478,7 @@ func (h *Handler) CommandResendDevice(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
-	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, "devices", deviceIDs, h.currentDisplayName(r))
+	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, "devices", deviceIDs, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -10464,7 +10507,7 @@ func (h *Handler) CommandResendAll(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, cmd.TargetType, targetIDs, h.currentDisplayName(r))
+	newCmd, err := h.db.CreateCommandBy(r.Context(), cmd.Type, cmd.ApkURL, cmd.Payload, cmd.TargetType, targetIDs, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -10497,9 +10540,18 @@ func (h *Handler) CommandDetail(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Command not found", http.StatusNotFound)
 		return
 	}
+	// Mirrors filterAdminCommands: operators must not reach an admin-created
+	// command's detail page directly either.
+	if hideAdminCommandsForRole(h.role(r)) && cmd.CreatedBy == h.user {
+		http.Error(w, "Command not found", http.StatusNotFound)
+		return
+	}
 	if !canSeeCommandURLs(h.role(r)) {
 		cmd.ApkURL = ""
 	}
+	single := []db.Command{*cmd}
+	h.resolveCommandActors(r.Context(), single)
+	*cmd = single[0]
 	h.render(w, r, "command_detail.html", map[string]any{
 		"Title":      "Action " + id.String()[:8],
 		"Command":    cmd,
@@ -10779,6 +10831,29 @@ func filterShellCommands(role string, cmds []db.Command) []db.Command {
 	out := make([]db.Command, 0, len(cmds))
 	for _, c := range cmds {
 		if c.Type == "shell" {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out
+}
+
+// hideAdminCommandsForRole reports whether a role must not see commands the
+// (env-configured, single) admin account created — operators shouldn't see
+// admin-issued actions (e.g. an internal test install) in their Actions view.
+func hideAdminCommandsForRole(role string) bool { return role == "operator" }
+
+// filterAdminCommands drops commands created by the admin account from an
+// Actions/history slice when the viewer must not see them
+// (hideAdminCommandsForRole). "admin" is env-configured only (never a DB
+// user, see validUserRole), so its username is always h.user.
+func (h *Handler) filterAdminCommands(role string, cmds []db.Command) []db.Command {
+	if !hideAdminCommandsForRole(role) {
+		return cmds
+	}
+	out := make([]db.Command, 0, len(cmds))
+	for _, c := range cmds {
+		if c.CreatedBy == h.user {
 			continue
 		}
 		out = append(out, c)
@@ -11512,7 +11587,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 				payload = p
 			}
 		}
-		cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, it.apkURL, payload, targetType, ids, h.currentDisplayName(r))
+		cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, it.apkURL, payload, targetType, ids, h.currentUsername(r))
 		if err != nil {
 			http.Error(w, "Internal error", http.StatusInternalServerError)
 			return
@@ -13747,7 +13822,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID}, h.currentDisplayName(r))
+	cmd, err := h.db.CreateCommandBy(r.Context(), cmdType, apkURL, payload, "devices", []uuid.UUID{device.ID}, h.currentUsername(r))
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -14175,10 +14250,21 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// activityActor is one option in the Activity page's "User" filter — value is
+// the stable username the row is actually filtered/stored by, label is the
+// user's current display name.
+type activityActor struct {
+	Username string
+	Name     string
+}
+
 // ActivityPage renders the admin-only activity log — every audit entry, optionally
 // filtered to one user, so an admin can see everything at once or drill into one
 // person's actions.
 func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
+	// actor is a username (audit_log.actor now stores the stable username, not
+	// a snapshotted display name — see h.audit), so this filter still matches
+	// rows logged before a since-renamed user's current name changed.
 	actor := r.URL.Query().Get("actor")
 	showAdmin := r.URL.Query().Get("admin") == "1"
 	excludeActor := ""
@@ -14198,16 +14284,28 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
-	var actors []string
+	var actors []activityActor
+	nameByUsername := make(map[string]string, len(users))
 	for _, u := range users {
+		nameByUsername[u.Username] = u.DisplayName()
 		if u.Email != nil && strings.HasSuffix(strings.ToLower(*u.Email), "@aioapp.com") {
-			actors = append(actors, u.DisplayName())
+			actors = append(actors, activityActor{Username: u.Username, Name: u.DisplayName()})
+		}
+	}
+	actorName := actor
+	if dn, ok := nameByUsername[actor]; ok {
+		actorName = dn
+	}
+	for i := range entries {
+		if dn, ok := nameByUsername[entries[i].Actor]; ok {
+			entries[i].Actor = dn
 		}
 	}
 	h.render(w, r, "activity.html", map[string]any{
 		"Entries":   entries,
 		"Actors":    actors,
 		"Actor":     actor,
+		"ActorName": actorName,
 		"ShowAdmin": showAdmin,
 	})
 }

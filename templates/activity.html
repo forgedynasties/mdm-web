@@ -22,14 +22,14 @@
 </div>
 
 <div class="card dv-rise-1">
-  <div class="card-header"><h3>Log</h3><span class="muted small">{{len .Entries}} entr{{if ne (len .Entries) 1}}ies{{else}}y{{end}}{{if .Actor}} for {{.Actor}}{{end}}</span></div>
+  <div class="card-header"><h3>Log</h3><span class="muted small">{{len .Entries}} entr{{if ne (len .Entries) 1}}ies{{else}}y{{end}}{{if .Actor}} for {{.ActorName}}{{end}}</span></div>
   <form method="GET" action="/activity" class="act-filter">
     <label class="muted small" for="act-actor">User</label>
     <select name="actor" id="act-actor" class="form-input" onchange="this.form.submit()">
       <option value="">All users</option>
       {{$cur := .Actor}}
       {{range .Actors}}
-      <option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{.}}</option>
+      <option value="{{.Username}}"{{if eq .Username $cur}} selected{{end}}>{{.Name}}</option>
       {{end}}
     </select>
     <label class="muted small" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
