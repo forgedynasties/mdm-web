@@ -373,7 +373,7 @@
   <span title="{{localTime $dep.CreatedAt}}">created {{timeSince $dep.CreatedAt}}</span>
 </div>
 
-{{if canOperate .Role}}
+{{if canAdmin .Role}}
 <details class="card dpl-panel">
   <summary>Edit reboot settings <span class="muted small">— changes apply to this deployment only, no Android push</span></summary>
   <div class="dpl-panel-body">
@@ -398,7 +398,7 @@
 </details>
 {{end}}
 
-{{if and (ne $dep.Status "canceled") (canOperate .Role)}}
+{{if and (ne $dep.Status "canceled") (canAdmin .Role)}}
 <details class="card dpl-panel">
   <summary>Push to more devices <span class="muted small">— only {{productLabel $rel.Product}} devices, inherits this deployment's reboot setting</span></summary>
   <div class="dpl-panel-body">
