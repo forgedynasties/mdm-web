@@ -5015,6 +5015,10 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
   font-weight: 500; color: var(--text); text-align: left; background: none; border: 0; cursor: pointer; width: 100%; }
 .pl-pop-opt:hover { background: var(--hover); }
 .pl-pop-save { width: 100%; margin-top: 8px; font-size: 13px; padding: 8px; }
+/* "+ group" popover: liquid-glass treatment, matching the hero Actions dropdown. */
+#pl-group-pop { background: rgba(255,255,255,.45); backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%);
+  border-color: rgba(255,255,255,.29); box-shadow: 0 14px 36px rgba(0,0,0,.21), inset 0 1px 0 rgba(255,255,255,.50); }
+html[data-theme="dark"] #pl-group-pop { background: rgba(20,18,17,.45); border-color: rgba(255,255,255,.12); }
 
 /* AI sparkle button + analysis modal (device detail) */
 .ddc-btn-ai { border-color: transparent; background: var(--accent-soft); color: var(--accent-text); }
