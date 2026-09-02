@@ -247,8 +247,16 @@
           });
           bounds.extend(pos);
         });
-        if (pts.length === 1) { map.setCenter({lat:pts[0].lat, lng:pts[0].lon}); map.setZoom(15); }
-        else if (pts.length > 1) { map.fitBounds(bounds); }
+        if (pts.length === 1) { map.setCenter({lat:pts[0].lat, lng:pts[0].lon}); map.setZoom(12); }
+        else if (pts.length > 1) {
+          // fitBounds on a near-zero-area box (devices clustered at ~the same spot)
+          // zooms to Google's max (~21, building-level) — clamp it back to a
+          // neighborhood-level view so the surrounding area is still visible.
+          google.maps.event.addListenerOnce(map, 'bounds_changed', function(){
+            if (map.getZoom() > 14) map.setZoom(14);
+          });
+          map.fitBounds(bounds);
+        }
       }
       </script>
       <script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=ovInitMap"></script>

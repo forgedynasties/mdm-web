@@ -1541,7 +1541,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 <div class="htrow" data-cmd-id="{{$c.ID}}" data-cmd-type="{{$c.Type}}" data-cmd-target="{{$c.TargetType}}" data-cmd-search="{{cmdLabel $c.Type}} {{cmdDetail $c}} {{range $ser}}{{.}} {{end}}">
   <span class="ht-dotwrap"><span class="dot {{$state}}"></span></span>
   <div class="ht-body">
-    <a class="ht-title" href="/commands/{{$c.ID}}">{{cmdLabel $c.Type}}</a>
+    <a class="ht-title" href="/commands/{{$c.ID}}" hx-target="main" hx-swap="outerHTML">{{cmdLabel $c.Type}}</a>
     <span class="ht-meta">
       {{/* For an install, show the app NAME (resolved from the library) rather than the
            raw APK URL/filename; fall back to the generic hint. Shell never shows its raw
