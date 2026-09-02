@@ -2550,7 +2550,7 @@ window.appInfoOpen = function (el) {
   if (form) {
     var btn = byId('ai-uninstall-btn'), note = byId('ai-sysnote');
     byId('ai-uninstall-pkg').value = pkg;
-    btn.disabled = sys;
+    btn.hidden = sys;
     if (note) note.hidden = !sys;
   }
   m.classList.add('modal-open');
