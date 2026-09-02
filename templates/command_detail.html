@@ -169,7 +169,7 @@
   <div class="ad-hid">
     <div class="ad-kick">{{cmdLabel $cmd.Type}}</div>
     <h1>{{cmdLabel $cmd.Type}}{{$h := cmdHint $cmd}}{{if $h}} <span class="sub">{{$h}}</span>{{end}}</h1>
-    <div class="ad-meta">Sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b> · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group target{{else}}{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{end}}</div>
+    <div class="ad-meta">Sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b>{{if $cmd.CreatedBy}} by <b>{{$cmd.CreatedBy}}</b>{{end}} · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group target{{else}}{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{end}}</div>
   </div>
   <div class="ad-acts">
     {{if .CanResend}}<form action="/commands/{{$cmd.ID}}/resend" method="POST"><button type="submit" class="ad-btn">Resend to all</button></form>{{end}}

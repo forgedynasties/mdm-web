@@ -361,6 +361,7 @@ a:hover { color: var(--accent-h); }
   color: transparent;
 }
 .brand-hub { font-weight: 600; color: var(--muted); }
+html[data-theme="dark"] .brand-hub { color: #fff; }
 
 .nav-toggle {
   display: none;

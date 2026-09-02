@@ -2948,9 +2948,9 @@ func (d *DB) ShellCommandSuggestions(ctx context.Context, limit int) (recent, po
 func (d *DB) GetCommand(ctx context.Context, id uuid.UUID) (*Command, error) {
 	var c Command
 	err := d.pool.QueryRow(ctx, `
-		SELECT id, type, apk_url, payload, target_type, created_at
+		SELECT id, type, apk_url, payload, target_type, created_by, created_at
 		FROM commands WHERE id = $1
-	`, id).Scan(&c.ID, &c.Type, &c.ApkURL, &c.Payload, &c.TargetType, &c.CreatedAt)
+	`, id).Scan(&c.ID, &c.Type, &c.ApkURL, &c.Payload, &c.TargetType, &c.CreatedBy, &c.CreatedAt)
 	if err != nil {
 		return nil, err
 	}

@@ -12,6 +12,8 @@
 .act-when{white-space:nowrap;color:var(--text-faint);font-size:12px}
 .act-target{font-family:var(--mono);font-size:12px;color:var(--muted)}
 .act-detail{color:var(--muted);font-size:12.5px}
+.act-detail a{color:var(--accent);text-decoration:none;font-family:var(--mono);}
+.act-detail a:hover{text-decoration:underline;}
 </style>
 
 <div class="ov-greet">
@@ -48,7 +50,7 @@
           <td class="act-actor">{{.Actor}}</td>
           <td>{{.Action}}</td>
           <td class="act-target">{{.Target}}</td>
-          <td class="act-detail">{{.Detail}}</td>
+          <td class="act-detail">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{.Detail}}{{end}}</td>
         </tr>
         {{end}}
       </tbody>

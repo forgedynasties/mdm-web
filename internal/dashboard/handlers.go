@@ -229,6 +229,7 @@ type Handler struct {
 }
 
 var logcatSeverityRe = regexp.MustCompile(`\b([EWIDV])\/|\s([EWIDV])\s`)
+var auditCmdIDRe = regexp.MustCompile(`cmd=([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})`)
 
 func extractCharging(raw json.RawMessage) bool {
 	if len(raw) == 0 {
@@ -672,6 +673,16 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 		},
 		"cmdLabel": cmdTypeLabel,
+		// auditDetailHTML linkifies the "cmd=<uuid>" token that command.send audit
+		// entries carry (see the CommandCreate/GroupCommandCreate/DeviceCommandCreate
+		// handlers) so the Activity page can jump straight to the command that was
+		// created, without the Target column losing its readable command-type label.
+		// Escapes first — the rest of a detail string (e.g. an operator's free-text
+		// reason) is untrusted.
+		"auditDetailHTML": func(detail string) template.HTML {
+			esc := template.HTMLEscapeString(detail)
+			return template.HTML(auditCmdIDRe.ReplaceAllString(esc, `cmd=<a href="/commands/$1">$1</a>`))
+		},
 		// cmdStatusLabel makes command status honest about what actually happened.
 		// "delivered" only means the hub pushed the frame onto the socket, not that the
 		// device got it — showing that to users reads as done when it isn't, so it's
@@ -6565,6 +6576,7 @@ func (h *Handler) GroupCommandCreate(w http.ResponseWriter, r *http.Request) {
 	if reason != "" {
 		detail += ", reason=" + reason
 	}
+	detail += ", cmd=" + cmd.ID.String()
 	h.audit(r, "command.send", cmdType, detail)
 	http.Redirect(w, r, "/commands/"+cmd.ID.String(), http.StatusFound)
 }
@@ -11519,6 +11531,9 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	if reason != "" {
 		detail += ", reason=" + reason
 	}
+	if len(created) == 1 {
+		detail += ", cmd=" + created[0].ID.String()
+	}
 	h.audit(r, "command.send", cmdType, detail)
 
 	// Boot logo is applied from its own config page — return there (with status),
@@ -13742,6 +13757,7 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 	if reason != "" {
 		detail += ", reason=" + reason
 	}
+	detail += ", cmd=" + cmd.ID.String()
 	h.audit(r, "command.send", cmdType, detail)
 	if r.Header.Get("Accept") == "application/json" {
 		w.Header().Set("Content-Type", "application/json")
