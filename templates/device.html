@@ -53,7 +53,7 @@
     {{$t := batteryTemp .Device.LatestExtra}}{{if ne $t ""}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#e8a13a" stroke-width="2"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>{{$t}}</span>{{end}}
     {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}<span class="ddc-chip"><span class="k">RAM</span>{{ramPct $ram}}%</span>{{end}}
     {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}<span class="ddc-chip">↑ {{$up}} uptime</span>{{end}}
-    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<span class="ddc-chip"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</span>{{end}}
+    {{$rssi := extraField .Device.LatestExtra "wifi_rssi"}}{{$wifi := extraField .Device.LatestExtra "wifi"}}{{if or (and $wifi (ne $wifi "—")) (and $rssi (ne $rssi "—"))}}<button type="button" class="ddc-chip" onclick="wifiModalOpen()" aria-haspopup="dialog" title="Nearby Wi-Fi networks"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>{{if and $wifi (ne $wifi "—")}}{{$wifi}}{{end}}{{if and $rssi (ne $rssi "—")}} · {{$rssi}}dBm{{end}}</button>{{end}}
 {{end}}
 
 {{define "device-commands"}}
@@ -364,6 +364,40 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
           </div>
         </div>
         {{end}}
+        </div>
+      </div>
+    </span>
+    {{/* Nearby Wi-Fi networks, opened from the vitals Wi-Fi pill. Rendered from the
+         device's last checkin (wifi_scan in latest_extra) — the same AP list already
+         used for geolocation, just surfaced directly instead of only feeding the
+         resolver. Not live-refreshed while open; reopen to see a newer checkin's scan. */}}
+    <span class="ddc-kpop-wrap">
+      <div class="modal-backdrop" id="wifi-modal" onclick="wifiModalBackdrop(event)">
+        <div class="modal-box kiosk-modal-box" role="dialog" aria-modal="true" aria-label="Nearby Wi-Fi networks">
+          <div class="kiosk-modal-head"><span class="kiosk-modal-title">Nearby Wi-Fi networks</span><button type="button" class="modal-close" onclick="wifiModalClose()" aria-label="Close">&times;</button></div>
+          <div class="kiosk-modal-body">
+            {{$aps := nearbyWifi .Device.LatestExtra}}
+            {{if $aps}}
+            <div class="wifi-scan-list">
+              {{range $aps}}
+              <div class="wifi-scan-row">
+                <svg class="ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#7a80f6" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14 0M8.5 16.1a6 6 0 0 1 7 0M2 8.8a16 16 0 0 1 20 0"/><circle cx="12" cy="20" r="1"/></svg>
+                <span class="wifi-scan-ssid">{{if .SSID}}{{.SSID}}{{else}}<span class="muted">(hidden network)</span>{{end}}</span>
+                <span class="wifi-scan-bssid muted small">{{.BSSID}}</span>
+                <span class="wifi-scan-rssi">{{.RSSI}} dBm</span>
+              </div>
+              {{end}}
+            </div>
+            {{else}}
+            <div class="empty-state" style="padding:20px;"><div class="empty-state-copy"><div class="empty-state-title">No scan data</div><div class="empty-state-text">This device hasn't reported nearby networks yet.</div></div></div>
+            {{end}}
+          </div>
+          <div class="kiosk-modal-foot">
+            <div class="kiosk-note muted small">From the device's last check-in{{$scanned := extraField .Device.LatestExtra "wifi_scan_at"}}{{if and $scanned (ne $scanned "—")}} · {{$scanned}}{{end}}</div>
+            <div class="kiosk-foot-btns">
+              <button type="button" class="btn-outline" onclick="wifiModalClose()">Close</button>
+            </div>
+          </div>
         </div>
       </div>
     </span>
@@ -3125,6 +3159,17 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
     if (m) m.classList.remove('modal-open');
   };
   window.kioskModalBackdrop = function (e) { if (e.target.id === 'kiosk-modal') window.kioskModalClose(); };
+
+  // Nearby Wi-Fi popover, opened from the vitals Wi-Fi pill.
+  window.wifiModalOpen = function () {
+    var m = document.getElementById('wifi-modal');
+    if (m) m.classList.add('modal-open');
+  };
+  window.wifiModalClose = function () {
+    var m = document.getElementById('wifi-modal');
+    if (m) m.classList.remove('modal-open');
+  };
+  window.wifiModalBackdrop = function (e) { if (e.target.id === 'wifi-modal') window.wifiModalClose(); };
   // Show a transient status line inside the popover.
   function kioskNote(msg, isErr) {
     var n = document.getElementById('kiosk-note');

@@ -1072,6 +1072,11 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 				return fmt.Sprintf("%dm", mn)
 			}
 		},
+		"nearbyWifi": func(raw []byte) []geolocate.WifiAP {
+			aps := geolocate.ExtractWifiScan(raw)
+			sort.Slice(aps, func(i, j int) bool { return aps[i].RSSI > aps[j].RSSI })
+			return aps
+		},
 		"extraField": func(raw []byte, key string) string {
 			var m map[string]json.RawMessage
 			if err := json.Unmarshal(raw, &m); err != nil {
