@@ -14318,12 +14318,39 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		}
 		entries = kept
 	}
+
+	const pageSize = 40
+	total := len(entries)
+	totalPages := (total + pageSize - 1) / pageSize
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	page := 1
+	if p, e := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("page"))); e == nil && p > 0 {
+		page = p
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+	start := (page - 1) * pageSize
+	end := start + pageSize
+	if end > total {
+		end = total
+	}
+	var pageEntries []db.AuditEntry
+	if total > 0 {
+		pageEntries = entries[start:end]
+	}
+
 	h.render(w, r, "activity.html", map[string]any{
-		"Entries":   entries,
-		"Actors":    actors,
-		"Actor":     actor,
-		"ActorName": actorName,
-		"ShowAdmin": showAdmin,
+		"Entries":    pageEntries,
+		"Total":      total,
+		"Page":       page,
+		"TotalPages": totalPages,
+		"Actors":     actors,
+		"Actor":      actor,
+		"ActorName":  actorName,
+		"ShowAdmin":  showAdmin,
 	})
 }
 
