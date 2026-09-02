@@ -4907,7 +4907,11 @@ html[data-theme="dark"] .ddc-chip.battery-ok { background: rgba(43,182,115,.2); 
 html[data-theme="dark"] .ddc-chip.battery-mid { background: rgba(232,161,58,.22); color: #f0b765; }
 html[data-theme="dark"] .ddc-chip.battery-low { background: rgba(229,72,77,.22); color: #f08a8d; }
 .ddc-chip .k { color: var(--text-faint); font-weight: 600; }
-button.ddc-chip { appearance: none; cursor: pointer; font: inherit; }
+/* font-family/line-height only — "font: inherit" here would also reset the base
+   rule's font-size/font-weight (button.ddc-chip outranks the plain .ddc-chip
+   selector on specificity), which was why the Wi-Fi pill (the only <button>
+   among these otherwise-<span> chips) rendered with different text than the rest. */
+button.ddc-chip { appearance: none; cursor: pointer; font-family: inherit; line-height: inherit; }
 button.ddc-chip:hover { background: var(--surface-2, var(--surface)); }
 .wifi-scan-list { display: flex; flex-direction: column; gap: 2px; max-height: 360px; overflow-y: auto; }
 .wifi-scan-row { display: flex; align-items: center; gap: 10px; padding: 9px 4px; border-bottom: 1px solid var(--border-soft, var(--border)); }
