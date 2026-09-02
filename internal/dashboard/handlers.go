@@ -8561,6 +8561,29 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 				// Every device of the release's product; the template marks devices already
 				// on this build as up to date and ones mid-update as updating.
 				pushDevices, _ := h.db.ListDevices(r.Context(), db.DeviceFilter{Product: rel.Product}, 0, 500, "serial", "asc")
+
+				updating, _ := h.db.SerialsUpdating(r.Context())
+				data["DevicesUpdating"] = updating
+				blockedNewer, _ := h.db.SerialsOnNewerRelease(r.Context(), relID)
+				data["DevicesBlocked"] = blockedNewer
+
+				// Eligible-to-push devices first (same "blocked" test the template applies
+				// per row: up to date / updating / on a newer release / no artifact for
+				// this build), so an operator scanning the list isn't scrolling past a
+				// long run of greyed-out rows before reaching anything they can select.
+				// Stable sort keeps the existing serial-asc order within each group.
+				sort.SliceStable(pushDevices, func(i, j int) bool {
+					blockedFor := func(dv db.Device) bool {
+						if dv.BuildID == rel.Version {
+							return true
+						}
+						if updating[dv.SerialNumber] != "" || blockedNewer[dv.SerialNumber] != "" {
+							return true
+						}
+						return !hasFull && !sourceBuilds[dv.BuildID]
+					}
+					return !blockedFor(pushDevices[i]) && blockedFor(pushDevices[j])
+				})
 				data["PushDevices"] = pushDevices
 
 				// Group/venue → member-serial maps (restricted to this push list) so the
@@ -8600,11 +8623,6 @@ func (h *Handler) NewUpdatePage(w http.ResponseWriter, r *http.Request) {
 				rmJSON, _ := json.Marshal(restMembers)
 				data["PushGroupMembers"] = template.JS(gmJSON)
 				data["PushRestMembers"] = template.JS(rmJSON)
-
-				updating, _ := h.db.SerialsUpdating(r.Context())
-				data["DevicesUpdating"] = updating
-				blocked, _ := h.db.SerialsOnNewerRelease(r.Context(), relID)
-				data["DevicesBlocked"] = blocked
 			}
 		}
 	}
