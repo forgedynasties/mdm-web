@@ -229,6 +229,7 @@
         window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: ovMapStyles()}); });
         var bounds = new google.maps.LatLngBounds();
         var iw = new google.maps.InfoWindow();
+        var markers = [];
         pts.forEach(function(p){
           var pos = {lat:p.lat, lng:p.lon};
           var mk = new google.maps.Marker({
@@ -246,7 +247,14 @@
             iw.open(map, mk);
           });
           bounds.extend(pos);
+          markers.push(mk);
         });
+        // Group markers that are close together into a numbered cluster at low zoom;
+        // clicking a cluster (its default behavior) zooms in until it splits apart —
+        // otherwise devices at ~the same address just stack invisibly on top of each other.
+        if (window.markerClusterer && markers.length > 1) {
+          new markerClusterer.MarkerClusterer({ map: map, markers: markers });
+        }
         if (pts.length === 1) { map.setCenter({lat:pts[0].lat, lng:pts[0].lon}); map.setZoom(12); }
         else if (pts.length > 1) {
           // fitBounds on a near-zero-area box (devices clustered at ~the same spot)
@@ -259,6 +267,9 @@
         }
       }
       </script>
+      {{/* Vendored locally (not CDN'd) — the app's CSP script-src only allows self,
+           maps.googleapis.com and maps.gstatic.com. */}}
+      <script src="/static/vendor/markerclusterer.min.js"></script>
       <script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=ovInitMap"></script>
       {{end}}
 
