@@ -169,6 +169,13 @@ func main() {
 				log.Printf("OnOTAProgress: SetCommandProgress error: %v", err)
 			}
 		}
+		// Live-refresh any open deployment page. Without this, a WS-connected device's
+		// progress frames (the common case — most devices are online) only reached the
+		// deployment detail page via its 30s fallback poll: the checkin-piggybacked and
+		// HTTP-fallback progress paths already call this (see recordCheckinOtaProgress /
+		// Handler.OtaProgress in internal/api/handlers.go), but this WS path — which fires
+		// far more often, every few seconds during an active download — never did.
+		hub.PublishDeploymentUpdate()
 	}
 	// Rehydrate shellMgr's in-memory OTA progress cache from what was last persisted,
 	// so a redeploy doesn't blank every in-progress OTA's percent until the device
