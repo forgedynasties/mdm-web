@@ -5111,6 +5111,24 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		"RestaurantCrashes": crashStats.ByRestaurant,
 		"MemoryCount":       memory,
 	}
+	// Fleet-wide 14-day series backing the report's evidence charts: active
+	// devices, low-battery and hot counts per day, plus crashes per day.
+	if d14, err := h.db.GetFleetDailyStats(r.Context(), 14); err == nil {
+		type pt struct {
+			Day    string   `json:"day"`
+			Active int      `json:"active"`
+			Low    int      `json:"low"`
+			Hot    int      `json:"hot"`
+			Batt   *float32 `json:"batt"`
+		}
+		series := make([]pt, 0, len(d14))
+		for _, ds := range d14 {
+			series = append(series, pt{ds.Day.Format("Jan 2"), ds.Active, ds.LowBattery, ds.Hot, ds.BatteryAvg})
+		}
+		if b, err := json.Marshal(map[string]any{"days": series, "crashes": crashStats.Daily, "total": summary.Total}); err == nil {
+			data["SeriesJSON"] = template.JS(b)
+		}
+	}
 	// Show the same cached fleet report as the main page (latest of hourly or manual).
 	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
 		data["AISummary"] = s.Summary
@@ -6719,7 +6737,7 @@ func (h *Handler) GroupDeviceSearch(w http.ResponseWriter, r *http.Request) {
 
 // DeviceSearch is a generic serial type-ahead (not scoped to a group), used by the
 // command builder's "specific devices" target to look devices up instead of typing serials.
-// CmdkIndex returns the navigable entities (groups, restaurants, releases) as JSON, so
+// CmdkIndex returns the navigable entities (groups, restaurants) as JSON, so
 // the Cmd-K palette can fuzzy-match them alongside pages and devices. Productions are
 // deliberately excluded — they're a manufacturing concern, not a navigation target.
 func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
@@ -6740,15 +6758,9 @@ func (h *Handler) CmdkIndex(w http.ResponseWriter, r *http.Request) {
 			out = append(out, entry{rest.Name, "Restaurant", "/restaurants/" + rest.ID.String(), "Restaurant"})
 		}
 	}
-	if rels, err := h.db.ListReleases(r.Context()); err == nil {
-		for _, rel := range rels {
-			label := rel.Version
-			if rel.Name != "" {
-				label = rel.Version + " · " + rel.Name
-			}
-			out = append(out, entry{label, "Release", fmt.Sprintf("/releases/%d", rel.ID), "Release"})
-		}
-	}
+	// Releases are deliberately not indexed: dozens of version strings drowned
+	// out the devices and sites people actually jump to. The Releases page itself
+	// is still reachable from the palette's page list.
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(out)
 }
