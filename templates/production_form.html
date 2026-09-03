@@ -1,13 +1,17 @@
 {{define "production_form.html"}}
 {{template "header" .}}
 
+<div class="cc-wrap">
 <a href="/productions" class="back-link">← Productions</a>
-<div class="ov-greet">
-  <h1 class="ov-title">New Production Run</h1>
-  <span class="ov-date">define a serial number range for a manufacturing batch</span>
+<div class="cc-top" style="margin-top:10px">
+  <div>
+    <div class="cc-eyebrow">Fleet · Productions</div>
+    <h1 class="cc-h1">New production run</h1>
+    <div class="cc-sub">Define a serial number range for a manufacturing batch.</div>
+  </div>
 </div>
 
-<div class="card dv-rise-1" style="max-width:680px;">
+<div class="cc-card" style="max-width:680px;">
   <form action="/productions" method="POST" id="production-form" style="padding:28px 32px;">
 
     <div class="form-row">
@@ -96,6 +100,7 @@
     </div>
 
   </form>
+</div>
 </div>
 
 <script>

@@ -1,44 +1,41 @@
 {{define "production_detail.html"}}
 {{template "header" .}}
 
+<style>.fl-page{max-width:1280px;margin:0 auto}@media(max-width:480px){.fl-page .cc-kpis{grid-template-columns:repeat(2,1fr)}}</style>
+
+<div class="fl-page">
 <a href="/productions" class="back-link">← Productions</a>
-<div class="ov-greet">
-  <h1 class="ov-title">{{.Production.Name}}</h1>
-  <span class="ov-date"><span class="mono">{{.Production.FirstSerial}}</span> → <span class="mono">{{.Production.LastSerial}}</span></span>
-  <span class="acts">
-    <a href="/productions/{{.Production.ID}}/export.csv" hx-boost="false" class="btn-outline">Export CSV</a>
+
+<div class="cc-top" style="margin-top:10px">
+  <div>
+    <div class="cc-eyebrow">Fleet · Productions</div>
+    <h1 class="cc-h1">{{.Production.Name}}</h1>
+    <div class="cc-sub"><span class="mono">{{.Production.FirstSerial}}</span> → <span class="mono">{{.Production.LastSerial}}</span></div>
+  </div>
+  <div class="cc-actions">
+    <a href="/productions/{{.Production.ID}}/export.csv" hx-boost="false" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export CSV</a>
     {{if canAdmin .Role}}
     <form action="/productions/{{.Production.ID}}/delete" method="POST" hx-confirm="Delete this production? This cannot be undone.">
-      <button type="submit" class="btn-danger">Delete</button>
+      <button type="submit" class="cc-btn danger"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Delete</button>
     </form>
     {{end}}
-  </span>
+  </div>
 </div>
 
 {{/* ── Stats ── */}}
-<div class="stats-row" style="display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px;">
-  <div class="stat-card card">
-    <div class="stat-label">Total Units</div>
-    <div class="stat-value">{{.Production.Total}}</div>
-  </div>
-  <div class="stat-card card">
-    <div class="stat-label">Ever Connected</div>
-    <div class="stat-value {{if gt .Production.EverConnected 0}}text-ok{{end}}">{{.Production.EverConnected}}</div>
-  </div>
-  <div class="stat-card card">
-    <div class="stat-label">Online Now</div>
-    <div class="stat-value {{if gt .Production.Online 0}}text-ok{{end}}">{{.Production.Online}}</div>
-  </div>
-  <div class="stat-card card">
-    <div class="stat-label">Never Connected</div>
+<div class="cc-kpis">
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg>Total units</span><div class="v">{{.Production.Total}}</div></div>
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/></svg>Ever connected</span><div class="v{{if gt .Production.EverConnected 0}} ok{{end}}">{{.Production.EverConnected}}</div></div>
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online now</span><div class="v{{if gt .Production.Online 0}} ok{{end}}">{{.Production.Online}}</div></div>
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M4.9 4.9l14.2 14.2"/></svg>Never connected</span>
     {{$never := sub .Production.Total .Production.EverConnected}}
-    <div class="stat-value {{if gt $never 0}}text-warn{{end}}">{{$never}}</div>
+    <div class="v{{if gt $never 0}} warn{{end}}">{{$never}}</div>
   </div>
 </div>
 
 {{/* ── Metadata ── */}}
-<div class="card" style="margin-bottom:24px;">
-  <div class="card-header"><h3>Production Info</h3></div>
+<div class="cc-card">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h3>Production info</h3></div>
   <table class="table table-compact">
     <tr>
       <td class="muted" style="width:180px;">Product Code</td>
@@ -78,22 +75,18 @@
 </div>
 
 {{/* ── Device List ── */}}
-<div class="card">
-  <div class="card-header">
-    <h3>Connected Devices</h3>
-    <span class="muted small">{{len .Devices}} of {{.Production.Total}} units have connected to AIO MDM</span>
-  </div>
+<div class="cc-card">
+  <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/></svg></span><h3>Connected devices</h3><span class="m">{{len .Devices}} of {{.Production.Total}} units have connected</span></div>
 
   {{if not .Devices}}
-  <div class="empty-state">
-    <div class="empty-state-copy">
-      <div class="empty-state-title">No devices connected yet</div>
-      <div class="empty-state-text">Devices will appear here once they check in to AIO MDM for the first time.</div>
-    </div>
+  <div class="cc-empty tall">
+    <span class="i mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span>
+    <div><b>No devices connected yet</b>Devices will appear here once they check in to AIO MDM for the first time.</div>
   </div>
   {{else}}
   {{template "device-cards" (dict "Devices" .Devices "Online" .Online "ActiveThresholdSecs" .ActiveThresholdSecs)}}
   {{end}}
+</div>
 </div>
 
 {{template "footer" .}}

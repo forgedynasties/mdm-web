@@ -41,10 +41,14 @@
 </style>
 
 {{if not .Embed}}
+<div class="cc-wrap">
 <a href="{{if .Restaurant}}/restaurants/{{.Restaurant.ID}}{{else}}/devices?view=restaurants{{end}}" class="back-link">← Back</a>
-<div class="ov-greet">
-  <h1 class="ov-title">{{.Title}}</h1>
-  <span class="ov-date">{{if .Restaurant}}edit venue details{{else}}add a venue your devices live in{{end}}</span>
+<div class="cc-top" style="margin-top:10px">
+  <div>
+    <div class="cc-eyebrow">Fleet · Restaurants</div>
+    <h1 class="cc-h1">{{.Title}}</h1>
+    <div class="cc-sub">{{if .Restaurant}}Edit venue details{{else}}Add a venue your devices live in{{end}}</div>
+  </div>
 </div>
 {{end}}
 
@@ -279,5 +283,5 @@ function rfPrev() {
 rfPrev();
 </script>
 
-{{if not .Embed}}{{template "footer" .}}{{end}}
+{{if not .Embed}}</div>{{template "footer" .}}{{end}}
 {{end}}

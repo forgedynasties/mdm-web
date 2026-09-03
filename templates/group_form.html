@@ -1,10 +1,14 @@
 {{define "group_form.html"}}
 {{template "header" .}}
 
+<div class="cc-wrap">
 <a href="/devices?view=groups" class="back-link">← Groups</a>
-<div class="ov-greet">
-  <h1 class="ov-title">New group</h1>
-  <span class="ov-date">group devices to target actions, exports and releases together</span>
+<div class="cc-top" style="margin-top:10px">
+  <div>
+    <div class="cc-eyebrow">Fleet · Groups</div>
+    <h1 class="cc-h1">New group</h1>
+    <div class="cc-sub">Group devices to target actions, exports and releases together.</div>
+  </div>
 </div>
 
 <style>
@@ -78,6 +82,7 @@ function gfSync(){
 }
 gfSync();
 </script>
+</div>
 
 {{template "footer" .}}
 {{end}}

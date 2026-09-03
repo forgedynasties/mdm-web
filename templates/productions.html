@@ -1,37 +1,64 @@
 {{define "productions.html"}}
 {{template "header" .}}
 
-<div class="ov-greet">
-  <h1 class="ov-title">Productions</h1>
-  <span class="ov-date">{{len .Productions}} production run{{if ne (len .Productions) 1}}s{{end}}</span>
-  {{if and .Productions (canOperate .Role)}}<span class="acts"><a href="/productions/new" class="btn-outline"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Production</a></span>{{end}}
+<style>
+.fl-page{max-width:1280px;margin:0 auto}
+.fl-page .cc-table{min-width:760px}
+.fl-page .cc-cb-scroll{overflow-x:auto}
+@media(max-width:480px){.fl-page .cc-kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+
+<div class="fl-page">
+{{$total := len .Productions}}
+{{$connected := 0}}{{$online := 0}}{{$never := 0}}
+{{range .Productions}}
+  {{if gt .EverConnected 0}}{{$connected = add $connected 1}}{{end}}
+  {{if gt .Online 0}}{{$online = add $online .Online}}{{end}}
+  {{$never = add $never (sub .Total .EverConnected)}}
+{{end}}
+
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Fleet · Productions <span class="cc-live"><span class="dot"></span>Live</span></div>
+    <h1 class="cc-h1">{{if gt $total 0}}<span class="hl {{if gt $online 0}}ok{{else}}warn{{end}}">{{$online}}</span> unit{{if ne $online 1}}s{{end}} online across {{$total}} run{{if ne $total 1}}s{{end}}{{else}}No production runs yet{{end}}</h1>
+    <div class="cc-sub">{{$total}} run{{if ne $total 1}}s{{end}} · <b>{{$connected}}</b> with connected units{{if gt $never 0}} · <b>{{$never}}</b> unit{{if ne $never 1}}s{{end}} never connected{{end}}</div>
+  </div>
+  {{if and .Productions (canOperate .Role)}}
+  <div class="cc-actions">
+    <a href="/productions/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New production</a>
+  </div>
+  {{end}}
 </div>
 
-<div class="card dv-rise-1">
+{{if .Productions}}
+<div class="cc-kpis">
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>Runs</span><div class="v">{{$total}}</div></div>
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online now</span><div class="v ok">{{$online}}</div></div>
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/></svg>Runs w/ activity</span><div class="v">{{$connected}}</div><div class="d">of {{$total}}</div></div>
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M4.9 4.9l14.2 14.2"/></svg>Never connected</span><div class="v{{if gt $never 0}} warn{{end}}">{{$never}}</div><div class="d">units</div></div>
+</div>
+{{end}}
+
+<div class="cc-card">
   {{if not .Productions}}
-  <div class="empty-state">
-    <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></div>
-    <div class="empty-state-copy">
-      <div class="empty-state-title">No productions yet</div>
-      <div class="empty-state-text">Create a production run to track serial number ranges and monitor which units have connected to AIO MDM.</div>
-    </div>
-    {{if canOperate .Role}}
-    <div class="empty-state-actions">
-      <a href="/productions/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Production</a>
-    </div>
-    {{end}}
+  <div class="cc-empty tall">
+    <span class="i mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg></span>
+    <div><b>No productions yet</b>Create a production run to track serial number ranges and monitor which units have connected to AIO MDM.</div>
+    {{if canOperate .Role}}<a href="/productions/new" class="cc-btn primary" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create production</a>{{end}}
   </div>
   {{else}}
-  <table class="table">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span><h3>Production runs</h3><span class="m">{{$total}} run{{if ne $total 1}}s{{end}}</span></div>
+  <div class="cc-cb-scroll">
+  <table class="cc-table">
     <thead>
       <tr>
         <th>Name</th>
-        <th>Serial Range</th>
+        <th>Serial range</th>
         <th>Batch</th>
-        <th class="text-right">Total</th>
-        <th class="text-right">Connected</th>
-        <th class="text-right">Online</th>
-        <th class="text-right">Never</th>
+        <th class="num">Total</th>
+        <th class="num">Connected</th>
+        <th class="num">Online</th>
+        <th class="num">Never</th>
         <th>Created</th>
         <th></th>
       </tr>
@@ -42,35 +69,23 @@
         <td><a href="/productions/{{.ID}}" class="link-detail">{{.Name}}</a></td>
         <td class="mono small">{{.FirstSerial}} → {{.LastSerial}}</td>
         <td class="mono">{{.Batch}}</td>
-        <td class="text-right">{{.Total}}</td>
-        <td class="text-right">
-          {{if gt .EverConnected 0}}
-            <span class="badge badge-ok">{{.EverConnected}}</span>
-          {{else}}
-            <span class="muted">0</span>
-          {{end}}
+        <td class="num">{{.Total}}</td>
+        <td class="num">
+          {{if gt .EverConnected 0}}<span class="cc-tag ok">{{.EverConnected}}</span>{{else}}<span class="muted">0</span>{{end}}
         </td>
-        <td class="text-right">
-          {{if gt .Online 0}}
-            <span class="badge badge-online">{{.Online}}</span>
-          {{else}}
-            <span class="muted">0</span>
-          {{end}}
+        <td class="num">
+          {{if gt .Online 0}}<span class="cc-tag accent">{{.Online}}</span>{{else}}<span class="muted">0</span>{{end}}
         </td>
-        <td class="text-right">
-          {{$never := sub .Total .EverConnected}}
-          {{if gt $never 0}}
-            <span class="muted">{{$never}}</span>
-          {{else}}
-            <span class="badge badge-ok">0</span>
-          {{end}}
+        <td class="num">
+          {{$rowNever := sub .Total .EverConnected}}
+          {{if gt $rowNever 0}}<span class="muted">{{$rowNever}}</span>{{else}}<span class="cc-tag ok">0</span>{{end}}
         </td>
         <td class="muted small">{{localTime .CreatedAt}}</td>
-        <td style="display:flex;gap:8px;justify-content:flex-end;">
-          <a href="/productions/{{.ID}}/export.csv" hx-boost="false" class="btn-outline-sm">Export CSV</a>
+        <td style="display:flex;gap:8px;justify-content:flex-end;white-space:nowrap;">
+          <a href="/productions/{{.ID}}/export.csv" hx-boost="false" class="cc-btn sm">Export CSV</a>
           {{if canAdmin $.Role}}
           <form action="/productions/{{.ID}}/delete" method="POST" hx-confirm="Delete this production? This cannot be undone.">
-            <button type="submit" class="btn-danger-sm">Delete</button>
+            <button type="submit" class="cc-btn sm danger">Delete</button>
           </form>
           {{end}}
         </td>
@@ -78,7 +93,9 @@
       {{end}}
     </tbody>
   </table>
+  </div>
   {{end}}
+</div>
 </div>
 
 {{template "footer" .}}

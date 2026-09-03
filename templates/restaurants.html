@@ -1,62 +1,103 @@
 {{define "restaurants.html"}}
 {{template "header" .}}
 
+<style>
+/* ── Restaurants — command-center header + KPI strip + heatmap tiles ── */
+.fl-page{max-width:1280px;margin:0 auto}
+.fleet-tabs{margin-bottom:16px}
+.fl-kpis{margin-bottom:16px}
+.fl-sites{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.fl-site{position:relative;display:block;padding:13px 14px 12px;border-radius:12px;border:1px solid var(--border);background:var(--surface);text-decoration:none;color:inherit;overflow:hidden;transition:transform var(--dur-fast),border-color var(--dur);min-height:40px}
+.fl-site .fl-site-hit{position:absolute;inset:0;z-index:1}
+.fl-site::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--ok)}
+.fl-site.warn::before{background:var(--warn)}.fl-site.danger::before{background:var(--danger)}.fl-site.empty::before{background:var(--text-faint)}
+.fl-site.ok{background:linear-gradient(180deg,var(--ok-bg),var(--surface) 70%)}
+.fl-site.warn{background:linear-gradient(180deg,var(--warn-bg),var(--surface) 70%);border-color:var(--warn-edge)}
+.fl-site.danger{background:linear-gradient(180deg,var(--danger-bg),var(--surface) 70%);border-color:var(--danger-edge)}
+.fl-site:hover{transform:translateY(-1px);border-color:var(--rule-2);color:inherit}
+.fl-site .n{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:4px;padding-right:26px}
+.fl-site .row{display:flex;align-items:baseline;justify-content:space-between;margin-top:7px;padding-left:4px}
+.fl-site .s{font-size:24px;font-weight:750;letter-spacing:-.02em;line-height:1;font-variant-numeric:tabular-nums;color:var(--ok)}
+.fl-site.warn .s{color:var(--warn)}.fl-site.danger .s{color:var(--danger)}.fl-site.empty .s{color:var(--text-faint)}
+.fl-site .s small{font-size:10px;font-weight:700;color:var(--text-faint);margin-left:2px;letter-spacing:.03em}
+.fl-site .dv{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.fl-site .addr{font-size:11px;color:var(--muted);margin-top:3px;padding-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fl-site .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;padding-left:4px;min-height:16px}
+.fl-del{position:absolute;top:8px;right:8px;z-index:2;width:24px;height:24px;border-radius:7px;border:1px solid transparent;background:var(--surface);color:var(--text-faint);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;line-height:1;opacity:0;transition:opacity var(--dur)}
+.fl-site:hover .fl-del,.fl-del:focus-visible{opacity:1}
+.fl-del:hover{background:var(--danger-bg);color:var(--danger);border-color:var(--danger-edge)}
+@media(max-width:480px){.fl-sites{grid-template-columns:1fr 1fr}.fl-kpis{grid-template-columns:repeat(2,1fr)}}
+</style>
+
 {{template "fleet-tabs" .}}
-<div class="ov-greet">
-  <span class="ov-date">{{len .Restaurants}} restaurant{{if ne (len .Restaurants) 1}}s{{end}} · venues</span>
+
+<div class="fl-page">
+{{$total := len .Restaurants}}
+{{$needLook := 0}}{{$offlineSum := 0}}{{$critSum := 0}}{{$devSum := 0}}
+{{range .Restaurants}}{{$h := index $.Health .ID}}
+  {{if and (gt $h.DeviceCount 0) (lt $h.Score 80)}}{{$needLook = add $needLook 1}}{{end}}
+  {{$offlineSum = add $offlineSum $h.OfflineCount}}
+  {{$critSum = add $critSum $h.OpenCritical}}
+  {{$devSum = add $devSum .DeviceCount}}
+{{end}}
+
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Fleet · Restaurants <span class="cc-live"><span class="dot"></span>Live</span></div>
+    <h1 class="cc-h1">{{if gt $needLook 0}}<span class="hl {{if ge $needLook 3}}danger{{else}}warn{{end}}">{{$needLook}} of {{$total}}</span> restaurant{{if ne $total 1}}s{{end}} need{{if eq $needLook 1}}s{{end}} a look{{else}}<span class="hl ok">All {{$total}}</span> restaurant{{if ne $total 1}}s{{end}} are healthy{{end}}</h1>
+    <div class="cc-sub">{{$total}} venue{{if ne $total 1}}s{{end}} · <b>{{$devSum}}</b> device{{if ne $devSum 1}}s{{end}} deployed{{if gt $offlineSum 0}} · <b>{{$offlineSum}}</b> offline{{end}}{{if gt $critSum 0}} · <b>{{$critSum}}</b> critical alert{{if ne $critSum 1}}s{{end}}{{end}}</div>
+  </div>
   {{if and .Restaurants (canAdminOrOperator .Role)}}
-  <a href="/restaurants/new" class="btn-outline btn-plus" style="margin-left:auto;" title="New restaurant"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span></a>
+  <div class="cc-actions">
+    <a href="/restaurants/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New restaurant</a>
+  </div>
   {{end}}
 </div>
 
+{{if .Restaurants}}
+<div class="cc-kpis fl-kpis">
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg>Venues</span><div class="v">{{$total}}</div><div class="d">{{$devSum}} device{{if ne $devSum 1}}s{{end}}</div></div>
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span><div class="v{{if gt $offlineSum 0}} warn{{end}}">{{$offlineSum}}</div><div class="d">devices</div></div>
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg>Critical</span><div class="v{{if gt $critSum 0}} bad{{end}}">{{$critSum}}</div><div class="d">open alerts</div></div>
+  <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Need a look</span><div class="v{{if gt $needLook 0}} warn{{end}}">{{$needLook}}</div><div class="d">score under 80</div></div>
+</div>
+{{end}}
+
 {{if not .Restaurants}}
-<div class="card dv-rise-1">
-  <div class="empty-state">
-    <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></div>
-    <div class="empty-state-copy">
-      <div class="empty-state-title">No restaurants yet</div>
-      <div class="empty-state-text">Create a restaurant to track which venue a device lives in, its service hours, and whether it's live.</div>
-    </div>
-    {{if canAdminOrOperator .Role}}
-    <div class="empty-state-actions">
-      <a href="/restaurants/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Restaurant</a>
-    </div>
-    {{end}}
+<div class="cc-card">
+  <div class="cc-empty tall">
+    <span class="i mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 3v7a3 3 0 0 0 6 0V3"/><path d="M7 3v18"/><path d="M17 3c-1.7 0-3 2-3 5s1 4 3 4v9"/></svg></span>
+    <div><b>No restaurants yet</b>Create a restaurant to track which venue a device lives in, its service hours, and whether it's live.</div>
+    {{if canAdminOrOperator .Role}}<a href="/restaurants/new" class="cc-btn primary" style="margin-top:6px"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Create restaurant</a>{{end}}
   </div>
 </div>
 {{else}}
-<div class="gp-grid dv-rise-1">
+<div class="fl-sites dv-rise-1">
   {{range .Restaurants}}
   {{$h := index $.Health .ID}}
-  <div class="gp-card{{if gt $h.OpenCritical 0}} alerty{{end}}">
-    <div class="gp-top">
-      <a href="/restaurants/{{.ID}}" class="gp-name">{{.Name}}</a>
-      {{if gt $h.DeviceCount 0}}
-      <span class="gp-score {{if ge $h.Score 80}}is-ok{{else if ge $h.Score 50}}is-warn{{else}}is-danger{{end}}">{{$h.Score}}</span>
-      {{else}}
-      <span class="gp-score is-empty">—</span>
-      {{end}}
-    </div>
-    <div class="gp-meta">
-      {{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}
-      {{if gt $h.OfflineCount 0}} · <span class="danger">{{$h.OfflineCount}} offline</span>{{end}}
-      {{if gt $h.OpenCritical 0}} · <span class="danger">{{$h.OpenCritical}} critical</span>{{end}}
-      {{if gt $h.OpenWarning 0}} · <span class="warn">{{$h.OpenWarning}} warning{{if ne $h.OpenWarning 1}}s{{end}}</span>{{end}}
-    </div>
-    <div class="gp-foot">
-      <span>{{if .Address}}{{.Address}}{{else}}<span class="muted">no address</span>{{end}}</span>
-      <span class="gp-chip">{{.DeviceCount}} deployed</span>
+  {{$cls := "empty"}}{{if gt $h.DeviceCount 0}}{{if ge $h.Score 80}}{{$cls = "ok"}}{{else if ge $h.Score 50}}{{$cls = "warn"}}{{else}}{{$cls = "danger"}}{{end}}{{end}}
+  <div class="fl-site {{$cls}}" title="{{.Name}} · score {{if gt $h.DeviceCount 0}}{{$h.Score}}{{else}}n/a{{end}}">
+    <a class="fl-site-hit" href="/restaurants/{{.ID}}" aria-label="Open {{.Name}}"></a>
+    <div class="n">{{.Name}}</div>
+    <div class="row"><span class="s">{{if gt $h.DeviceCount 0}}{{$h.Score}}<small>/100</small>{{else}}—{{end}}</span><span class="dv">{{.DeviceCount}} dev{{if ne .DeviceCount 1}}s{{end}}</span></div>
+    <div class="addr">{{if .Address}}{{.Address}}{{else}}no address{{end}}</div>
+    <div class="tags">
+      {{if gt $h.OfflineCount 0}}<span class="cc-tag warn">{{$h.OfflineCount}} offline</span>{{end}}
+      {{if gt $h.OpenCritical 0}}<span class="cc-tag bad">{{$h.OpenCritical}} critical</span>{{end}}
+      {{if gt $h.OpenWarning 0}}<span class="cc-tag warn">{{$h.OpenWarning}} warning{{if ne $h.OpenWarning 1}}s{{end}}</span>{{end}}
+      {{if and (eq $h.OfflineCount 0) (eq $h.OpenCritical 0) (eq $h.OpenWarning 0) (gt $h.DeviceCount 0)}}<span class="cc-tag ok">all clear</span>{{end}}
     </div>
     {{if canAdminOrOperator $.Role}}
-    <form action="/restaurants/{{.ID}}/delete" method="POST" class="gp-del"
+    <form action="/restaurants/{{.ID}}/delete" method="POST" class="fl-del"
           hx-confirm="Delete restaurant {{.Name}}? Its devices become unassigned (lab).">
-      <button type="submit" class="btn-danger-sm" title="Delete restaurant">x</button>
+      <button type="submit" title="Delete restaurant" aria-label="Delete {{.Name}}" style="all:unset;display:flex;width:100%;height:100%;align-items:center;justify-content:center;cursor:pointer">×</button>
     </form>
     {{end}}
   </div>
   {{end}}
 </div>
 {{end}}
+</div>
 
 {{template "footer" .}}
 {{end}}
