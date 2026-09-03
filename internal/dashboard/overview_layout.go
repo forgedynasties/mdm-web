@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 )
 
 // ── Overview widget layout ────────────────────────────────────────────────────
@@ -249,4 +251,82 @@ func (h *Handler) MapPage(w http.ResponseWriter, r *http.Request) {
 		"MapsEmbedKey":    h.mapsEmbedKey,
 		"Summary":         summary,
 	})
+}
+
+// ── Guided tour (first-run walkthrough) ───────────────────────────────────────
+//
+// Shown once per user on their next full page load (new and existing users
+// alike), skippable, replayable from the account menu. Completion is stored in
+// user_layouts under page "tour" and memoised per process so the per-render
+// check is a map lookup, not a query.
+
+var tourSeen sync.Map // username -> true
+
+// showTour reports whether the current user still needs the walkthrough.
+func (h *Handler) showTour(r *http.Request) bool {
+	user := h.currentUsername(r)
+	if user == "" {
+		return false
+	}
+	if _, ok := tourSeen.Load(user); ok {
+		return false
+	}
+	raw, err := h.db.GetUserLayout(r.Context(), user, "tour")
+	if err != nil {
+		return false // don't nag on a DB hiccup
+	}
+	if len(raw) > 0 {
+		tourSeen.Store(user, true)
+		return false
+	}
+	return true
+}
+
+// TourDone records that the user finished or skipped the walkthrough.
+func (h *Handler) TourDone(w http.ResponseWriter, r *http.Request) {
+	user := h.currentUsername(r)
+	if user == "" {
+		writeJSONError(w, http.StatusUnauthorized, "not signed in")
+		return
+	}
+	var body struct {
+		Status string `json:"status"` // completed | skipped
+		Step   int    `json:"step"`
+	}
+	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body)
+	if body.Status != "completed" {
+		body.Status = "skipped"
+	}
+	raw, _ := json.Marshal(map[string]any{"status": body.Status, "step": body.Step, "at": time.Now().UTC().Format(time.RFC3339)})
+	if err := h.db.SetUserLayout(r.Context(), user, "tour", raw); err != nil {
+		log.Printf("tour done (%s): %v", user, err)
+		writeJSONError(w, http.StatusInternalServerError, "could not save")
+		return
+	}
+	tourSeen.Store(user, true)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+}
+
+// TourReset clears the record so the walkthrough shows again (used by "Take the
+// tour" in the account menu, which then starts it client-side immediately).
+func (h *Handler) TourReset(w http.ResponseWriter, r *http.Request) {
+	user := h.currentUsername(r)
+	if user == "" {
+		writeJSONError(w, http.StatusUnauthorized, "not signed in")
+		return
+	}
+	_ = h.db.DeleteUserLayout(r.Context(), user, "tour")
+	tourSeen.Delete(user)
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+}
+
+// ServiceWorker serves static/sw.js from the site root so its scope covers the
+// whole app (a worker served under /static/ could only control /static/).
+func (h *Handler) ServiceWorker(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Service-Worker-Allowed", "/")
+	w.Header().Set("Cache-Control", "no-cache")
+	http.ServeFile(w, r, "static/sw.js")
 }

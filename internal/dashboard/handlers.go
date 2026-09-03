@@ -1509,6 +1509,11 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 	data["Brand"] = h.cfg.CustomBrand()
 	data["Use24Hour"] = h.cfg.Use24Hour()
 	data["Version"] = version.Current()
+	// First-run walkthrough: only on full page loads (the tour lives in the
+	// non-boosted chrome), once per user.
+	if role != "" && r.Header.Get("HX-Boosted") != "true" && r.Header.Get("HX-Request") != "true" {
+		data["ShowTour"] = h.showTour(r)
+	}
 	data["AssetVer"] = h.assetVer
 	if role != "" {
 		if n, err := h.db.CountOpenAlerts(r.Context()); err == nil {
@@ -9106,6 +9111,9 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	if len(targets) > 0 {
 		pct = done * 100 / len(targets)
 	}
+	// Score-ring stroke-dashoffset (cc-ring: r=44, circumference 276.5) for the
+	// deployment-detail hero — precomputed here since templates have no multiply func.
+	ringOffset := 276.5 * float64(100-pct) / 100
 
 	data := map[string]any{
 		"Title":        fmt.Sprintf("Deployment #%d", did),
@@ -9116,6 +9124,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 		"SummaryDone":  done,
 		"SummaryTotal": len(targets),
 		"SummaryPct":   pct,
+		"RingOffset":   ringOffset,
 		"AvgDuration":  avgDuration, // seconds, or -1 if no device finished yet
 		"DoneCount":    durCount,    // devices with a measured duration
 	}
@@ -11373,32 +11382,48 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 	unlockedCount, _ := h.db.CountUnlockedDevices(ctx)
 	totalDevices, _ := h.db.CountDevices(ctx, db.DeviceFilter{})
 
-	views := make([]policyView, 0, len(policies))
+	type resolved struct {
+		p   db.KioskPolicy
+		ids []uuid.UUID
+	}
+	resolvedPolicies := make([]resolved, 0, len(policies))
 	covered := 0
 	groupTargets := map[uuid.UUID]bool{}
 	for _, p := range policies {
 		ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
-		appName := p.KioskPackage
-		if n, ok := pkgNames[p.KioskPackage]; ok {
-			appName = n
-		}
-		pct := 0
-		if totalDevices > 0 {
-			pct = len(ids) * 100 / totalDevices
-			if pct == 0 && len(ids) > 0 {
-				pct = 1
-			}
-		}
-		views = append(views, policyView{
-			KioskPolicy: p, AppName: appName,
-			TargetLabel: manageTargetLabel(p, restaurants, groups),
-			DeviceCount: len(ids),
-			CoveragePct: pct,
-		})
+		resolvedPolicies = append(resolvedPolicies, resolved{p, ids})
 		covered += len(ids)
 		if p.TargetType == "group" && p.TargetID != nil {
 			groupTargets[*p.TargetID] = true
 		}
+	}
+	// Coverage math (for the "X of Y devices" headline and per-policy meters) needs
+	// a denominator at least as large as what's covered: resolvePolicyTargetIDs can
+	// legitimately include devices CountDevices excludes (e.g. hidden/retired units
+	// still sitting in a targeted group), so a raw fleet count can undercount.
+	if covered > totalDevices {
+		totalDevices = covered
+	}
+
+	views := make([]policyView, 0, len(resolvedPolicies))
+	for _, rp := range resolvedPolicies {
+		appName := rp.p.KioskPackage
+		if n, ok := pkgNames[rp.p.KioskPackage]; ok {
+			appName = n
+		}
+		pct := 0
+		if totalDevices > 0 {
+			pct = len(rp.ids) * 100 / totalDevices
+			if pct == 0 && len(rp.ids) > 0 {
+				pct = 1
+			}
+		}
+		views = append(views, policyView{
+			KioskPolicy: rp.p, AppName: appName,
+			TargetLabel: manageTargetLabel(rp.p, restaurants, groups),
+			DeviceCount: len(rp.ids),
+			CoveragePct: pct,
+		})
 	}
 
 	// "Default" — devices with no lock applied. Read live off device_config rather
@@ -14953,6 +14978,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /map", h.requireAuth(h.MapPage))
 	post("POST /overview/layout", h.requireAuth(h.OverviewLayoutSave))
 	post("POST /overview/layout/reset", h.requireAuth(h.OverviewLayoutReset))
+	post("POST /tour/done", h.requireAuth(h.TourDone))
+	post("POST /tour/reset", h.requireAuth(h.TourReset))
+	mux.HandleFunc("GET /sw.js", h.ServiceWorker)
 	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
 	mux.HandleFunc("GET /alerts/newest", h.requireAuth(h.AlertNewest))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))

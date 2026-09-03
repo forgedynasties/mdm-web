@@ -6422,3 +6422,76 @@ a.cc-row:hover,.cc-row.hover:hover{background:var(--surface2);color:inherit}
 .cc-table tr:first-child td{border-top:none}
 .cc-table tbody tr:hover td{background:var(--surface2)}
 .cc-table .num{text-align:right;font-variant-numeric:tabular-nums}
+
+/* ════════════════════════════════════════════════════
+   APP SHELL ON PHONES / TABLETS (PWA) + GUIDED TOUR
+   ════════════════════════════════════════════════════ */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
+a,button,[role=button]{touch-action:manipulation}
+/* Safe areas: notch / home indicator. */
+.appbar{padding-top:max(10px,env(safe-area-inset-top));padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}
+.dock{bottom:max(22px,calc(env(safe-area-inset-bottom) + 10px))}
+@media (max-width:640px){
+  .dock{bottom:max(10px,env(safe-area-inset-bottom));left:8px;right:8px;border-radius:18px;padding:6px}
+  body.has-dock .container{padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+  .appbar{position:sticky;top:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--border-soft)}
+  .topbar-search{flex:1;min-width:0;justify-content:flex-start}
+  .topbar-search kbd,#whatsnew-btn{display:none}
+  .container{padding:12px 12px 0}
+  /* Any page-level top bar stacks on phones. */
+  /* Page-level <style> blocks come later in the cascade, so these carry extra
+     specificity (.container …) to win on phones. */
+  .container .cc-top,.container .ov3-top,.container .fm-top{flex-direction:column;gap:12px}
+  .container .cc-actions,.container .ov3-actions,.container .fm-actions{padding-top:0;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;width:100%;padding-bottom:4px;scrollbar-width:none;max-width:100%}
+  .container .cc-actions::-webkit-scrollbar,.container .ov3-actions::-webkit-scrollbar,.container .fm-actions::-webkit-scrollbar{display:none}
+  .container .cc-actions>*,.container .ov3-actions>*,.container .fm-actions>*{flex:none}
+  .container .ov3-cust{position:static}
+  .cc-btn,.ov3-btn,.fm-btn{min-height:40px}
+  .cc-h1,.ov3-h1{font-size:22px}
+  .cc-kpis,.ov3-kpis{grid-template-columns:repeat(2,1fr)!important;gap:8px}
+  .cc-hero,.ov3-hero{grid-template-columns:1fr!important}
+  .ov3-score,.cc-hero-cell{padding:16px 18px}
+  .ov3-sites{grid-template-columns:repeat(2,1fr);padding:12px}
+  .ov3-pop{position:fixed;left:12px;right:12px;top:auto;bottom:calc(84px + env(safe-area-inset-bottom));width:auto;max-height:60vh;overflow:auto}
+  .cc-table{min-width:560px}
+  .cc-card:has(> .cc-table),.cc-card > .cc-table-wrap{overflow-x:auto}
+  .modal-box{width:100%;max-width:none;border-radius:16px 16px 0 0;position:fixed;left:0;right:0;bottom:0;max-height:88vh}
+  .cc-ch{padding:11px 13px}.cc-cb{padding:12px 13px}.cc-row{padding:11px 13px}
+  input,select,textarea{font-size:16px!important} /* iOS: no zoom-on-focus */
+}
+/* Installed (standalone) app: no browser chrome, slightly denser header. */
+html.is-pwa .appbar{padding-top:max(12px,env(safe-area-inset-top))}
+html.is-pwa body{overscroll-behavior:none}
+
+/* Install nudge */
+.pwa-nudge{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:80;display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-pop);animation:pwa-in .25s var(--ease-out)}
+@keyframes pwa-in{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.pwa-nudge img{width:40px;height:40px;border-radius:11px;flex:none}
+.pwa-nudge .t{flex:1;min-width:0}.pwa-nudge .t b{display:block;font-size:13.5px}.pwa-nudge .t span{font-size:12px;color:var(--muted)}
+.pwa-nudge .ok{font:inherit;font-size:12.5px;font-weight:650;padding:8px 13px;border-radius:9px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+.pwa-nudge .x{font:inherit;font-size:18px;line-height:1;width:32px;height:32px;border-radius:8px;border:0;background:transparent;color:var(--muted);cursor:pointer}
+
+/* Guided tour */
+.tour-ov{position:fixed;inset:0;z-index:120;opacity:0;transition:opacity .2s}
+.tour-ov.in{opacity:1}.tour-ov.out{opacity:0}
+.tour-spot{position:fixed;border-radius:14px;box-shadow:0 0 0 9999px rgba(12,10,9,.62),0 0 0 3px var(--accent);transition:top .25s var(--ease),left .25s var(--ease),width .25s var(--ease),height .25s var(--ease);pointer-events:none}
+html[data-theme="dark"] .tour-spot{box-shadow:0 0 0 9999px rgba(0,0,0,.72),0 0 0 3px var(--accent)}
+.tour-card{position:fixed;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-pop);padding:16px 18px 14px;transition:top .25s var(--ease),left .25s var(--ease)}
+.tour-card::before{content:"";position:absolute;left:var(--ax,50%);top:-7px;width:12px;height:12px;background:var(--surface);border-left:1px solid var(--border);border-top:1px solid var(--border);transform:translateX(-50%) rotate(45deg)}
+.tour-card.above::before{top:auto;bottom:-7px;border:0;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.tour-card.sheet::before{display:none}
+.tour-k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent-text)}
+.tour-t{font-size:16px;font-weight:750;letter-spacing:-.01em;margin-top:4px}
+.tour-b{font-size:13px;color:var(--muted);line-height:1.5;margin-top:6px}
+.tour-f{display:flex;align-items:center;gap:10px;margin-top:14px}
+.tour-f button{font:inherit;font-size:12.5px;font-weight:650;padding:7px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;min-height:36px}
+.tour-f button:hover{border-color:var(--rule-2);color:var(--text)}
+.tour-f .tour-skip{border-color:transparent;color:var(--muted);padding-left:4px}
+.tour-f .tour-next{background:var(--accent);color:#fff;border-color:transparent}.tour-f .tour-next:hover{background:var(--accent-h);color:#fff}
+.tour-f button:disabled{opacity:.4;cursor:default}
+.tour-nav{margin-left:auto;display:inline-flex;gap:6px}
+.tour-dots{display:inline-flex;gap:4px}
+.tour-dots i{width:6px;height:6px;border-radius:50%;background:var(--surface-3);display:inline-block}
+.tour-dots i.done{background:var(--accent-edge)}.tour-dots i.on{background:var(--accent);width:16px;border-radius:3px}
+@media (max-width:719px){.tour-dots{display:none}}
