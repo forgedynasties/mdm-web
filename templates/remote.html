@@ -269,6 +269,9 @@
 .rc-type input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
 </style>
 
+<div class="cc-wrap">
+<a href="/devices/{{.Serial}}" class="back-link">← {{.Serial}}</a>
+<div class="cc-eyebrow" style="margin-bottom:8px;">Fleet · Devices · <span class="mono">{{.Serial}}</span></div>
 <div id="rc">
   <div class="rc-head">
     <h2>Remote control
@@ -701,5 +704,6 @@
   if (online) connect();
 })();
 </script>
+</div><!-- /cc-wrap -->
 
 {{template "footer" .}}

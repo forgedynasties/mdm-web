@@ -1,16 +1,21 @@
 {{define "device_shell.html"}}
 {{template "header" .}}
 
+<div class="cc-wrap">
 <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
-<div class="ov-greet">
-  <h1 class="ov-title">Interactive shell</h1>
-  <span class="ov-date">each line runs as a separate command — state like <span class="mono">cd</span> does not persist between lines</span>
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Fleet · Devices · Shell</div>
+    <h1 class="cc-h1"><span class="sh-statdot {{if .Online}}on{{end}}" style="display:inline-block;margin-right:9px;"></span>Interactive shell</h1>
+    <div class="cc-sub">Runs on <b class="mono">{{.Device.SerialNumber}}</b> — each line is a separate command; state like <span class="mono">cd</span> does not persist between lines.</div>
+  </div>
 </div>
 
 <div class="card sh-card">
-  <div class="card-header">
-    <h3 class="sh-title"><span class="sh-statdot {{if .Online}}on{{end}}"></span>Shell · <span class="mono">{{.Device.SerialNumber}}</span></h3>
-    <button type="button" class="btn-outline btn-sm" onclick="window.shellClear&&window.shellClear()">Clear</button>
+  <div class="card-header cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-6-6-6M12 19h8"/></svg></span>
+    <h3 class="sh-title mono">{{.Device.SerialNumber}}</h3>
+    <button type="button" class="btn-outline btn-sm cc-btn sm right" onclick="window.shellClear&&window.shellClear()">Clear</button>
   </div>
   <div class="sh-body">
     <pre id="sh-output" class="sh-term"></pre>
@@ -121,5 +126,6 @@
   .sh-bar .sh-input:focus { border: 0; outline: 0; box-shadow: none; }
 </style>
 
+</div><!-- /cc-wrap -->
 {{template "footer" .}}
 {{end}}

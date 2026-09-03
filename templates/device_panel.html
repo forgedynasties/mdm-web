@@ -1,17 +1,25 @@
 {{define "device-panel"}}
 {{with .Device}}
-<div class="dvp" data-serial="{{.SerialNumber}}">
+<style>
+/* Inspector panel · compact cc-* alignment ("dvp-cc" scope) */
+.dvp-cc .dvp-serial{font-size:15px;font-weight:750;letter-spacing:-.01em}
+.dvp-cc .cc-pill{margin-top:1px}
+.dvp-cc .cc-tag{margin-top:1px}
+.dvp-cc .dvp-actions .cc-btn{width:100%;justify-content:center}
+.dvp-cc .dvp-actions-row .cc-btn{flex:1;justify-content:center}
+</style>
+<div class="dvp dvp-cc" data-serial="{{.SerialNumber}}">
   <div class="dvp-head">
     <div class="dvp-id">
       <span class="ws-dot {{if $.Online}}online{{end}}" title="{{if $.Online}}WebSocket connected{{else}}offline{{end}}"></span>
       <span class="mono dvp-serial" title="{{.SerialNumber}}">{{.SerialNumber}}</span>
-      {{if .KioskEnabled}}<span class="kiosk-lock" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
+      {{if .KioskEnabled}}<span class="kiosk-lock cc-tag accent" title="Kiosk mode" aria-label="Kiosk mode"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>{{end}}
     </div>
     <button type="button" class="dvp-close" onclick="window.mdmCloseInspector && window.mdmCloseInspector()" aria-label="Close inspector">&times;</button>
   </div>
 
   <div class="dvp-status">
-    <span class="{{if $.Online}}ok{{else}}muted{{end}}">{{if $.Online}}Online{{else}}Offline{{end}}</span>
+    <span class="cc-pill {{if $.Online}}ok{{end}}">{{if $.Online}}Online{{else}}Offline{{end}}</span>
     <span class="muted">· seen {{timeSince .LastSeenAt}}</span>
   </div>
 
@@ -70,18 +78,18 @@
   </div>
 
   <div class="dvp-actions">
-    <a href="/devices/{{.SerialNumber}}" class="btn-primary dvp-open">
+    <a href="/devices/{{.SerialNumber}}" class="btn-primary dvp-open cc-btn primary">
       Open full device
       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
     </a>
     <div class="dvp-actions-row">
-      <a href="/devices/{{.SerialNumber}}/logcat/live" class="btn-outline">Realtime logs</a>
-      <a href="/commands?serials={{.SerialNumber}}" class="btn-outline">Send action</a>
+      <a href="/devices/{{.SerialNumber}}/logcat/live" class="btn-outline cc-btn">Realtime logs</a>
+      <a href="/commands?serials={{.SerialNumber}}" class="btn-outline cc-btn">Send action</a>
     </div>
     {{if canAdmin $.Role}}
     <div class="dvp-actions-row dvp-admin-row">
-      <button type="button" class="btn-outline" data-serial="{{.SerialNumber}}" onclick="window.mdmInspectorReboot && window.mdmInspectorReboot(this.dataset.serial)">Reboot</button>
-      <button type="button" class="btn-danger-sm" data-serial="{{.SerialNumber}}" onclick="window.mdmInspectorHide && window.mdmInspectorHide(this.dataset.serial)">Mark inactive</button>
+      <button type="button" class="btn-outline cc-btn" data-serial="{{.SerialNumber}}" onclick="window.mdmInspectorReboot && window.mdmInspectorReboot(this.dataset.serial)">Reboot</button>
+      <button type="button" class="btn-danger-sm cc-btn danger" data-serial="{{.SerialNumber}}" onclick="window.mdmInspectorHide && window.mdmInspectorHide(this.dataset.serial)">Mark inactive</button>
     </div>
     {{end}}
   </div>

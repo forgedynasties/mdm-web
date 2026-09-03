@@ -1,30 +1,36 @@
 {{define "device_packages.html"}}
 {{template "header" .}}
 
+<div class="cc-wrap">
 <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
-<div class="ov-greet">
-  <h1 class="ov-title">Installed Packages</h1>
-  <span class="ov-date">{{len .Packages}} packages</span>
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Fleet · Devices · <span class="mono">{{.Device.SerialNumber}}</span></div>
+    <h1 class="cc-h1">Installed packages</h1>
+    <div class="cc-sub"><b>{{len .Packages}}</b> package{{if ne (len .Packages) 1}}s{{end}} reported by this device's last checkin.</div>
+  </div>
 </div>
 
-<div class="card dv-rise-1" style="margin-bottom:16px;">
-  <div style="padding:16px 0 0;">
+<div class="cc-card" style="margin-bottom:16px;">
+  <div style="padding:16px 17px;">
     <input type="text" id="pkg-filter" class="form-input" placeholder="Filter packages…" oninput="filterPackages(this.value)" autofocus>
   </div>
 </div>
 
-<div class="card">
-  <table class="table" id="pkg-table">
+<div class="cc-card">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span><h3>Packages</h3><span class="m">{{len .Packages}} total</span></div>
+  {{if .Packages}}
+  <div style="overflow-x:auto;">
+  <table class="cc-table" id="pkg-table">
     <thead>
       <tr>
-        <th>App Name</th>
-        <th>Package Name</th>
+        <th>App name</th>
+        <th>Package name</th>
         <th>Version</th>
-        <th>Last Updated</th>
+        <th>Last updated</th>
       </tr>
     </thead>
     <tbody>
-      {{if .Packages}}
         {{range .Packages}}
         <tr>
           <td class="small">{{if .AppName}}{{.AppName}}{{else}}<span class="muted">—</span>{{end}}</td>
@@ -33,15 +39,19 @@
           <td class="muted small">{{localTime .UpdatedAt}}</td>
         </tr>
         {{end}}
-      {{else}}
-        <tr id="empty-row">
-          <td colspan="4" class="empty">No package data for this device. The device client must include <code>packages</code> in its checkin payload.</td>
-        </tr>
-      {{end}}
     </tbody>
   </table>
-  <div id="no-match" class="empty" style="display:none;padding:16px;">No packages match your filter.</div>
+  </div>
+  {{else}}
+  <div class="cc-empty tall" id="empty-row">
+    <span class="i mut"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span>
+    <b>No package data for this device</b>
+    The device client must include <code>packages</code> in its checkin payload.
+  </div>
+  {{end}}
+  <div id="no-match" class="cc-empty" style="display:none;">No packages match your filter.</div>
 </div>
+</div><!-- /cc-wrap -->
 
 <script>
 function filterPackages(q) {

@@ -1,10 +1,14 @@
 {{define "logcat_live.html"}}
 {{template "header" .}}
 
+<div class="cc-wrap">
 <a href="/devices/{{.Device.SerialNumber}}" class="back-link">← {{.Device.SerialNumber}}</a>
-<div class="ov-greet">
-  <h1 class="ov-title">Realtime logs</h1>
-  <span class="ov-date mono">{{.Device.SerialNumber}}</span>
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Fleet · Devices · <span class="mono">{{.Device.SerialNumber}}</span></div>
+    <h1 class="cc-h1">Realtime logs</h1>
+    <div class="cc-sub">Streaming logcat straight from the device.</div>
+  </div>
 </div>
 
 <style>
@@ -206,5 +210,6 @@ html[data-theme="dark"] .llc-E{color:#e05656;} html[data-theme="dark"] .llc-F{co
 })();
 </script>
 
+</div><!-- /cc-wrap -->
 {{template "footer" .}}
 {{end}}
