@@ -2,48 +2,50 @@
 {{template "header" .}}
 
 <style>
-  .changelog { padding: 4px 4px 8px; }
-  .cl-entry { padding: 16px 18px; border-bottom: 1px solid var(--border); }
-  .cl-entry:last-child { border-bottom: none; }
-  .cl-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
-  .cl-version { font-weight: 700; font-size: 15px; }
-  .cl-current { font-size: 11px; padding: 1px 8px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
-  .cl-changes { margin: 0; padding: 0; list-style: none; }
-  .cl-changes li { position: relative; padding: 11px 0 11px 22px; line-height: 1.65; font-size: 13px; color: var(--text2, var(--muted)); border-top: 1px dashed var(--border-soft); }
-  .cl-changes li:first-child { border-top: none; }
-  .cl-changes li::before { content: ""; position: absolute; left: 4px; top: 18px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
-  .cl-lead { color: var(--text); font-weight: 650; }
+/* ── Changelog · Command center timeline ───────────────── */
+.cl-timeline{position:relative;padding-left:2px}
+.cl-entry{position:relative;padding-left:34px;margin-bottom:16px}
+.cl-entry::before{content:"";position:absolute;left:11px;top:34px;bottom:-16px;width:2px;background:var(--border-soft)}
+.cl-entry:last-child::before{display:none}
+.cl-dot{position:absolute;left:0;top:13px;width:24px;height:24px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center}
+.cl-dot.cur{background:var(--ok-bg);color:var(--ok)}
+.cl-dot svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.cl-changes{margin:0;padding:0;list-style:none}
+.cl-changes li{position:relative;padding:11px 17px 11px 34px;line-height:1.6;font-size:13px;color:var(--text-2,var(--muted));border-top:1px dashed var(--border-soft)}
+.cl-changes li:first-child{border-top:none}
+.cl-changes li::before{content:"";position:absolute;left:17px;top:19px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.cl-lead{color:var(--text);font-weight:650}
 </style>
 
-<div class="ov-greet">
-  <h1 class="ov-title">What's new</h1>
-  <span class="ov-date">MDM server · currently on v{{.Version}}</span>
-</div>
+<div class="cc-wrap">
 
-<div class="card">
-  <div class="changelog">
-    {{if not .Changelog}}
-    <div class="empty-state">
-      <div class="empty-state-copy">
-        <div class="empty-state-title">No changelog entries</div>
-        <div class="empty-state-text">Release notes will appear here as new versions ship.</div>
-      </div>
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Changelog</div>
+      <h1 class="cc-h1">What's new</h1>
+      <div class="cc-sub">MDM server · currently on <b>v{{.Version}}</b></div>
     </div>
-    {{end}}
+  </div>
+
+  {{if not .Changelog}}
+  <div class="cc-card"><div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><div><b>No changelog entries</b>Release notes will appear here as new versions ship.</div></div></div>
+  {{else}}
+  <div class="cl-timeline">
     {{range .Changelog}}
     <div class="cl-entry">
-      <div class="cl-head">
-        <span class="cl-version">v{{.Version}}</span>
-        {{if eq .Version $.Version}}<span class="cl-current">current</span>{{end}}
-        <span class="muted small">{{.Date}}</span>
+      <span class="cl-dot{{if eq .Version $.Version}} cur{{end}}"><svg viewBox="0 0 24 24">{{if eq .Version $.Version}}<path d="M5 13l4 4L19 7"/>{{else}}<path d="M13 2 3 14h7l-1 8 10-12h-7z"/>{{end}}</svg></span>
+      <div class="cc-card">
+        <div class="cc-ch"><h3>v{{.Version}}</h3>{{if eq .Version $.Version}}<span class="cc-pill ok">current</span>{{end}}<span class="m">{{.Date}}</span></div>
+        <div class="cc-cb" style="padding-top:0;padding-bottom:0">{{template "cl-media" .Media}}</div>
+        <ul class="cl-changes">
+          {{range .Changes}}<li>{{clFormat .}}</li>{{end}}
+        </ul>
       </div>
-      {{template "cl-media" .Media}}
-      <ul class="cl-changes">
-        {{range .Changes}}<li>{{clFormat .}}</li>{{end}}
-      </ul>
     </div>
     {{end}}
   </div>
+  {{end}}
+
 </div>
 
 {{template "footer" .}}

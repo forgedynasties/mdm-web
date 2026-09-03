@@ -63,7 +63,7 @@
         <input type="time" name="night_close" value="{{.NightClose}}" class="form-input" style="width:120px;"></label>
       <label class="muted small" style="display:flex;flex-direction:column;gap:3px;">Timezone
         <input type="text" name="timezone" value="{{.TZ}}" placeholder="GMT±h" class="form-input" style="width:90px;"></label>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
       {{if and .GroupID .HasOwn}}
       <button type="submit" name="action" value="reset" class="btn-outline" style="font-size:12px;padding:4px 14px;">Reset</button>
       {{end}}
@@ -75,10 +75,12 @@
 
 <style>
 .settings-wrap{display:flex;gap:22px;align-items:flex-start;}
-.settings-nav{display:flex;flex-direction:column;gap:2px;min-width:184px;flex-shrink:0;position:sticky;top:74px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px;}
-.settings-nav button{display:block;width:100%;text-align:left;padding:9px 12px;border:none;background:transparent;border-radius:9px;cursor:pointer;color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;}
-.settings-nav button:hover{background:var(--hover);color:var(--text);}
-.settings-nav button.active{background:var(--accent-soft);color:var(--accent);font-weight:600;}
+.settings-nav{display:flex;flex-direction:column;gap:2px;min-width:200px;flex-shrink:0;position:sticky;top:74px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:8px;}
+.settings-nav button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;padding:9px 12px;border:none;background:transparent;border-radius:9px;cursor:pointer;color:var(--muted);font-family:inherit;font-size:13px;font-weight:500;min-height:40px;white-space:nowrap;}
+.settings-nav button svg{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--text-faint)}
+.settings-nav button:hover{background:var(--surface2);color:var(--text);}
+.settings-nav button.active{background:var(--accent-soft);color:var(--accent-text);font-weight:650;}
+.settings-nav button.active svg{color:var(--accent-text)}
 .settings-panels{flex:1;min-width:0;}
 .settings-tab{display:none;}
 .settings-tab.active{display:block;}
@@ -86,7 +88,12 @@
 .sw-toggle.on{background:var(--ok);}
 .sw-knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 2px rgba(0,0,0,.25);}
 .sw-toggle.on .sw-knob{left:21px;}
-@media (max-width:1024px){.settings-wrap{flex-direction:column;}.settings-nav{position:static;flex-direction:row;flex-wrap:wrap;min-width:0;}}
+@media (max-width:1024px){
+  .settings-wrap{flex-direction:column;}
+  .settings-nav{position:static;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;min-width:0;width:100%;gap:6px;-webkit-overflow-scrolling:touch;}
+  .settings-nav button{width:auto;flex:none;border:1px solid var(--border);padding:8px 12px;}
+  .settings-nav button.active{border-color:var(--accent-edge);}
+}
 /* Compact alert-rule rows: one line each, expand to edit thresholds. */
 .rule-item{padding:9px 0;border-bottom:1px solid var(--border-soft);}
 .rule-head{display:flex;align-items:center;gap:12px;}
@@ -109,32 +116,36 @@
 .collapsible-header.open .collapse-caret{transform:rotate(90deg);}
 </style>
 
-<div class="ov-greet">
-  <h1 class="ov-title">Settings</h1>
-  <span class="ov-date">server-wide device management settings</span>
+<div class="cc-wrap">
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Settings</div>
+    <h1 class="cc-h1">Settings</h1>
+    <div class="cc-sub">Server-wide device management settings.</div>
+  </div>
 </div>
 
 <div class="settings-wrap">
   <nav class="settings-nav" id="settings-nav">
-    <button type="button" data-tab="general" class="active">General</button>
-    <button type="button" data-tab="devices">Devices &amp; check-in</button>
-    <button type="button" data-tab="commands">Actions</button>
-    <button type="button" data-tab="alerts">Alerts</button>
-    <button type="button" data-tab="testing">Testing</button>
-    <button type="button" data-tab="ai">AI</button>
-    <button type="button" data-tab="google">Google APIs</button>
-    <button type="button" data-tab="security">Security</button>
-    <button type="button" data-tab="applibrary">App library</button>
-    <button type="button" data-tab="productions">Productions</button>
-    <button type="button" data-tab="tools">Tools</button>
+    <button type="button" data-tab="general" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg>General</button>
+    <button type="button" data-tab="devices"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18h2"/></svg>Devices &amp; check-in</button>
+    <button type="button" data-tab="commands"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</button>
+    <button type="button" data-tab="alerts"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts</button>
+    <button type="button" data-tab="testing"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>Testing</button>
+    <button type="button" data-tab="ai"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg>AI</button>
+    <button type="button" data-tab="google"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>Google APIs</button>
+    <button type="button" data-tab="security"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Security</button>
+    <button type="button" data-tab="applibrary"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>App library</button>
+    <button type="button" data-tab="productions"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>Productions</button>
+    <button type="button" data-tab="tools"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-3-3z"/></svg>Tools</button>
   </nav>
 
   <div class="settings-panels">
 
   <!-- ── General ─────────────────────────────────────── -->
   <section class="settings-tab active" data-tab="general">
-<div class="card dv-rise-1" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Dashboard</h3></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg></span><h3>Dashboard</h3></div>
   <form action="/settings/dashboard" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;">
     <div class="form-group">
       <label for="set-page-size">Devices per page</label>
@@ -166,7 +177,7 @@
         <option value="24" {{if .Use24Hour}}selected{{end}}>24-hour</option>
       </select>
     </div>
-    <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
+    <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
   </form>
 </div>
   </section>
@@ -182,19 +193,19 @@
 .kioskfleet-pk{font-size:10.5px;color:var(--muted);}
 .kioskfleet-ct{position:absolute;top:6px;right:8px;font-size:10px;color:var(--muted);}
 </style>
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Kiosk locked-app allowlist</h3><span class="muted small">limits the kiosk app picker</span></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Kiosk locked-app allowlist</h3><span class="muted small m">limits the kiosk app picker</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
       Only apps matching these patterns appear in the kiosk locked-app picker on device pages. One pattern per line; <code>*</code> is a wildcard — e.g. <code>com.aioapp.*</code> allows every AIO app. Leave empty to allow any installed app.
     </div>
     <form action="/settings/kiosk-allowlist" method="POST" style="display:flex;flex-direction:column;gap:10px;max-width:560px;">
       <textarea name="allowlist" id="kiosk-allowlist-ta" rows="5" class="form-input" spellcheck="false" placeholder="com.aioapp.*&#10;com.android.chrome" style="font-family:var(--mono);font-size:12px;line-height:1.5;">{{.KioskAllowlist}}</textarea>
-      <div><button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save allowlist</button></div>
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save allowlist</button></div>
     </form>
     <div style="margin-top:16px;border-top:1px solid var(--border-soft);padding-top:14px;">
       <strong class="small">Available apps across devices</strong>
-      <span class="muted small"> · click to add to the allowlist</span>
+      <span class="muted small m"> · click to add to the allowlist</span>
       {{if .KioskFleetApps}}
       <div class="kioskfleet" id="kioskfleet">
         {{range .KioskFleetApps}}
@@ -220,20 +231,20 @@ function kioskAddPkg(pkg, el){
   ta.focus();
 }
 </script>
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Checkin Interval</h3></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><h3>Checkin Interval</h3></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:8px;">How often devices check in with the server (seconds). Applies to all devices, including ones added later.</div>
     <form action="/settings/checkin-interval" method="POST" style="display:flex;align-items:center;gap:8px;">
       <input type="number" name="interval" value="{{.CheckinInterval}}" min="10" step="1" class="form-input" aria-label="Check-in interval (seconds)" style="width:100px;">
-      <span class="muted small">seconds</span>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      <span class="muted small m">seconds</span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
   </div>
 </div>
 
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Compatibility</h3></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><h3>Compatibility</h3></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
     <div>
       <strong>Legacy Checkin Actions</strong>
@@ -250,18 +261,18 @@ function kioskAddPkg(pkg, el){
       {{range .LegacyBuilds}}
       <span class="legacy-build-chip">{{.}}<form action="/settings/legacy-builds/remove" method="POST" style="display:inline;margin:0;"><input type="hidden" name="build_id" value="{{.}}"><button type="submit" class="legacy-build-x" title="Remove {{.}}" aria-label="Remove {{.}}">&times;</button></form></span>
       {{else}}
-      <span class="muted small">No legacy builds configured.</span>
+      <span class="muted small m">No legacy builds configured.</span>
       {{end}}
     </div>
     <form action="/settings/legacy-builds/add" method="POST" style="display:flex;gap:8px;max-width:420px;">
       <input type="text" name="build_id" class="form-input" placeholder="e.g. A15-v1.62-user" style="flex:1;width:auto;" required>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;white-space:nowrap;">Add build</button>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;white-space:nowrap;">Add build</button>
     </form>
   </div>
 </div>
 
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Data &amp; Maintenance</h3></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg></span><h3>Data &amp; Maintenance</h3></div>
   <form action="/settings/retention" method="POST" style="padding:16px;display:grid;gap:16px;max-width:520px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small">Background housekeeping runs hourly. Leave a field blank to disable that policy (keep forever).</div>
     <div class="form-group">
@@ -272,7 +283,7 @@ function kioskAddPkg(pkg, el){
       <label for="set-logcat-retention">Delete logcat results older than (days)</label>
       <input type="number" name="logcat_retention_days" id="set-logcat-retention" value="{{if .LogcatRetentionDays}}{{.LogcatRetentionDays}}{{end}}" min="0" step="1" placeholder="Off — keep forever" class="form-input">
     </div>
-    <div><button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
+    <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 16px;">Save</button></div>
   </form>
   <div style="padding:16px;">
     <div class="muted small">
@@ -288,8 +299,8 @@ function kioskAddPkg(pkg, el){
 
   <!-- ── Commands ────────────────────────────────────── -->
   <section class="settings-tab" data-tab="commands">
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Action Governance</h3></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h3>Action Governance</h3></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
     <div>
       <strong>Require a reason for destructive actions</strong>
@@ -301,16 +312,16 @@ function kioskAddPkg(pkg, el){
     <div class="muted small" style="margin-bottom:8px;">A pending shell/screenshot/reboot action is shown as <em>expired</em> after this long.</div>
     <form action="/settings/command-expiry" method="POST" style="display:flex;align-items:center;gap:8px;">
       <input type="number" name="expiry" value="{{.CommandExpiry}}" min="30" step="1" class="form-input" aria-label="Pending action expiry (seconds)" style="width:120px;">
-      <span class="muted small">seconds</span>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      <span class="muted small m">seconds</span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
   </div>
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small" style="margin-bottom:8px;">Maximum number of devices a single action may target by explicit serial list (0 = unlimited). Does not affect "all devices".</div>
     <form action="/settings/max-targets" method="POST" style="display:flex;align-items:center;gap:8px;">
       <input type="number" name="max_targets" value="{{.MaxTargets}}" min="0" step="1" class="form-input" aria-label="Maximum devices per action (0 = unlimited)" style="width:120px;">
-      <span class="muted small">devices</span>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      <span class="muted small m">devices</span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
   </div>
 </div>
@@ -332,8 +343,8 @@ function kioskAddPkg(pkg, el){
 .dq-add{border-top:1px solid var(--border-soft);padding-top:14px;margin-top:6px;}
 .form-input.mono{font-family:var(--mono);}
 </style>
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Queries</h3><span class="muted small">admin-curated read-only device property checks</span></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span><h3>Queries</h3><span class="muted small m">admin-curated read-only device property checks</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:12px;">Each query runs a fixed, read-only command. Operators, devs and admins can run them from the Actions page — no raw shell access needed.</div>
     {{if .DeviceQueries}}
@@ -356,7 +367,7 @@ function kioskAddPkg(pkg, el){
             <label class="dq-chk"><input type="checkbox" name="enabled" value="on" {{if .Enabled}}checked{{end}}> Enabled</label>
           </div>
           <div class="dq-actions">
-            <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+            <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
             <button type="submit" formaction="/settings/queries/{{.ID}}/delete" class="btn-outline" style="font-size:12px;padding:4px 14px;color:var(--danger);" onclick="return confirm('Delete this query?')">Delete</button>
           </div>
         </form>
@@ -376,13 +387,13 @@ function kioskAddPkg(pkg, el){
         <label class="dq-wide">Description<input type="text" name="description" class="form-input" placeholder="Full build fingerprint id"></label>
         <label class="dq-chk"><input type="checkbox" name="enabled" value="on" checked> Enabled</label>
       </div>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:6px 16px;margin-top:10px;">Add query</button>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:6px 16px;margin-top:10px;">Add query</button>
     </form>
   </div>
 </div>
 
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Security &amp; Access</h3></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><h3>Security &amp; Access</h3></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-soft);">
     <div>
       <strong>Interactive Shell</strong>
@@ -400,8 +411,8 @@ function kioskAddPkg(pkg, el){
 </div>
 
 {{if canAdmin .Role}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Debug tools</h3><span class="muted small">admin only</span></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic mut"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="12" rx="4"/><path d="M7 10H3M21 10h-4M7 15H3M21 15h-4M9 3l1.5 3M15 3l-1.5 3"/></svg></span><h3>Debug tools</h3><span class="muted small m">admin only</span></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
     <div>
       <strong>Test toasts</strong>
@@ -428,8 +439,8 @@ function kioskAddPkg(pkg, el){
 
   <!-- ── Alerts ──────────────────────────────────────── -->
   <section class="settings-tab" data-tab="alerts">
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Alert rules</h3><span class="muted small">toggle what fires · Edit to tune thresholds</span></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic warn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><h3>Alert rules</h3><span class="muted small m">toggle what fires · Edit to tune thresholds</span></div>
   <div class="alert-cat-tabs" id="alert-cat-tabs">
     {{range $i, $g := .AlertRules}}
     <button type="button" class="alert-cat-tab{{if eq $i 0}} active{{end}}" data-cat="{{$i}}">{{$g.Category}} <span class="pill">{{$g.EnabledCount}}/{{len $g.Rules}}</span></button>
@@ -446,7 +457,7 @@ function kioskAddPkg(pkg, el){
         <strong class="small rule-title">{{.Name}}</strong>
         <span class="rule-summary muted small">{{range .Fields}}{{.Value}}{{.Unit}} {{end}}{{if and .Windowed .ActiveWindow}}· {{.ActiveWindow}}{{end}}</span>
         {{if or .Fields .Windowed}}<button type="button" class="btn-outline" style="font-size:12px;padding:3px 10px;" onclick="this.closest('.rule-item').classList.toggle('open')">Edit</button>{{end}}
-        <button type="submit" class="btn-primary" style="font-size:12px;padding:3px 12px;">Save</button>
+        <button type="submit" class="cc-btn primary" style="font-size:12px;padding:3px 12px;">Save</button>
       </div>
       <div class="rule-body">
         <div class="muted small" style="flex-basis:100%;margin:0;">{{.Desc}}</div>
@@ -476,15 +487,16 @@ function kioskAddPkg(pkg, el){
   </div>
 </div>
 
-<div class="card" style="margin-bottom:16px;" id="channels">
-  <div class="card-header collapsible-header{{if .ChannelTest}} open{{end}}" role="button" tabindex="0" aria-expanded="{{if .ChannelTest}}true{{else}}false{{end}}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
-    <h3><span class="collapse-caret">▸</span> Notifications</h3><span class="muted small">where alerts are sent · {{len .AlertChannels}} channel(s)</span>
+<div class="cc-card" style="margin-bottom:16px;" id="channels">
+  <div class="cc-ch collapsible-header{{if .ChannelTest}} open{{end}}" role="button" tabindex="0" aria-expanded="{{if .ChannelTest}}true{{else}}false{{end}}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
+    <span class="ic warn"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+    <h3><span class="collapse-caret">▸</span> Notifications</h3><span class="muted small m">where alerts are sent · {{len .AlertChannels}} channel(s)</span>
   </div>
   <div style="padding:16px;{{if not .ChannelTest}}display:none;{{end}}">
     <div class="muted small" style="margin-bottom:8px;">Default webhook (Slack / Discord / Mattermost). Used when no channel matches; leave blank to disable.</div>
     <form action="/settings/alert-webhook" method="POST" style="display:flex;align-items:center;gap:8px;max-width:560px;margin-bottom:18px;">
       <input type="url" name="alert_webhook_url" value="" placeholder="{{if .AlertWebhookSet}}•••• configured — leave blank to keep{{else}}https://hooks.slack.com/services/…{{end}}" aria-label="Default alert webhook URL" class="form-input" style="flex:1;" autocomplete="off">
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
     {{if eq .ChannelTest "ok"}}<div class="status-badge ok" style="margin-bottom:10px;">Test alert sent — check the channel.</div>{{end}}
     {{if eq .ChannelTest "fail"}}<div class="status-badge danger" style="margin-bottom:10px;">Test failed — the webhook URL was rejected (see server logs).</div>{{end}}
@@ -494,7 +506,7 @@ function kioskAddPkg(pkg, el){
       <form action="/settings/alert-channels" method="POST" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;flex:1;">
         <input type="hidden" name="id" value="{{.ID}}">
         {{template "chan-fields" .}}
-        <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+        <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
       </form>
       <form action="/settings/alert-channels/{{.ID}}/test" method="POST" style="display:inline;">
         <button type="submit" class="btn-outline" style="font-size:12px;padding:4px 12px;">Test</button>
@@ -506,7 +518,7 @@ function kioskAddPkg(pkg, el){
     {{end}}
     <form action="/settings/alert-channels" method="POST" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 0 0;">
       {{template "chan-fields" (dict "MinSeverity" "warning" "Mode" "realtime" "Enabled" true "NotifyResolve" true)}}
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Add channel</button>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Add channel</button>
     </form>
   </div>
 </div>
@@ -533,9 +545,10 @@ function kioskAddPkg(pkg, el){
   });
 </script>
 
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header collapsible-header" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
-    <h3><span class="collapse-caret">▸</span> Service hours</h3><span class="muted small">when operational alerts fire</span>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch collapsible-header" role="button" tabindex="0" aria-expanded="false" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" onclick="this.classList.toggle('open');this.setAttribute('aria-expanded',this.classList.contains('open'));var b=this.nextElementSibling;b.style.display=b.style.display==='none'?'':'none';" style="cursor:pointer;user-select:none;">
+    <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span>
+    <h3><span class="collapse-caret">▸</span> Service hours</h3><span class="muted small m">when operational alerts fire</span>
   </div>
   <div style="padding:16px;display:none;">
     <div class="muted small" style="margin-bottom:12px;">
@@ -549,10 +562,11 @@ function kioskAddPkg(pkg, el){
 
   <!-- ── Testing ─────────────────────────────────────── -->
   <section class="settings-tab" data-tab="testing">
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
-    <h3>Base test cases <span class="muted small">{{len .BaseCases}}</span></h3>
-    <span class="muted small">Standard cases applied to every release · operators mark them per-release</span>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch">
+    <span class="ic ok"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 1-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 1 5.4-5.4l-3-3z"/></svg></span>
+    <h3>Base test cases <span class="muted small m">{{len .BaseCases}}</span></h3>
+    <span class="muted small m">Standard cases applied to every release · operators mark them per-release</span>
   </div>
   <form action="/test-cases" method="POST" class="basecase-add" style="display:grid;gap:10px;padding:16px 20px;max-width:680px;border-bottom:1px solid var(--border-soft);">
     <input type="hidden" name="redirect" value="/settings#testing">
@@ -560,7 +574,7 @@ function kioskAddPkg(pkg, el){
     <input name="area" class="form-input" placeholder="Area (e.g. Connectivity)">
     <textarea name="steps" class="form-input" rows="2" placeholder="Steps (optional)"></textarea>
     <textarea name="expected" class="form-input" rows="2" placeholder="Expected result (optional)"></textarea>
-    <button type="submit" class="btn-primary" style="justify-self:start;">Add base test case</button>
+    <button type="submit" class="cc-btn primary" style="justify-self:start;">Add base test case</button>
   </form>
   {{if .BaseCases}}
   <table class="table">
@@ -590,7 +604,7 @@ function kioskAddPkg(pkg, el){
             <textarea name="steps" class="form-input" rows="2" placeholder="Steps">{{.Steps}}</textarea>
             <textarea name="expected" class="form-input" rows="2" placeholder="Expected result">{{.Expected}}</textarea>
             <label class="small"><input type="checkbox" name="active" {{if .Active}}checked{{end}}> Active</label>
-            <button type="submit" class="btn-primary btn-sm" style="justify-self:start;">Save</button>
+            <button type="submit" class="cc-btn sm primary" style="justify-self:start;">Save</button>
           </form>
         </td>
       </tr>
@@ -605,8 +619,8 @@ function kioskAddPkg(pkg, el){
 
   <!-- ── AI ──────────────────────────────────────────── -->
   <section class="settings-tab" data-tab="ai">
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>AI Analysis</h3></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/><circle cx="12" cy="12" r="3"/></svg></span><h3>AI Analysis</h3></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:10px;">
       Adds an <strong>Analyze with AI</strong> button to device Trends and Fleet Health that reads the rolled-up metrics and explains what's wrong and what to do — a non-ML shortcut while there isn't enough history for prediction. Works with Anthropic (Claude) or any OpenAI-compatible provider such as DeepSeek.
@@ -622,20 +636,20 @@ function kioskAddPkg(pkg, el){
       </label>
       <label class="small">API key
         <input type="password" name="anthropic_api_key" value="" placeholder="{{if .AIKeySet}}•••• configured — leave blank to keep{{else}}sk-… (key for the selected provider){{end}}" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
-        <span class="muted small">Leave blank to keep the current key; enter <code>-</code> to clear it.</span>
+        <span class="muted small m">Leave blank to keep the current key; enter <code>-</code> to clear it.</span>
       </label>
       <label class="small">Model
         <input type="text" name="anthropic_model" value="{{.AnthropicModel}}" placeholder="claude-opus-4-8 · deepseek-chat · deepseek-reasoner" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
-        <span class="muted small">Anthropic: <code>claude-opus-4-8</code> / <code>claude-sonnet-4-6</code> / <code>claude-haiku-4-5</code>. DeepSeek: <code>deepseek-chat</code> / <code>deepseek-reasoner</code>. Blank uses the provider default.</span>
+        <span class="muted small m">Anthropic: <code>claude-opus-4-8</code> / <code>claude-sonnet-4-6</code> / <code>claude-haiku-4-5</code>. DeepSeek: <code>deepseek-chat</code> / <code>deepseek-reasoner</code>. Blank uses the provider default.</span>
       </label>
       <label class="small">API base URL <span class="muted">(optional)</span>
         <input type="text" name="ai_base_url" value="{{.AIBaseURL}}" placeholder="leave blank for the provider default (DeepSeek: https://api.deepseek.com)" class="form-input" autocomplete="off" style="display:block;margin-top:4px;">
-        <span class="muted small">Overrides the default endpoint. Blank = provider default. Two ways to use DeepSeek: provider <strong>DeepSeek</strong> with blank URL (OpenAI-compatible), or provider <strong>Anthropic</strong> with URL <code>https://api.deepseek.com/anthropic</code> (Claude-compatible; key is sent as a bearer token, set the model to a DeepSeek id).</span>
+        <span class="muted small m">Overrides the default endpoint. Blank = provider default. Two ways to use DeepSeek: provider <strong>DeepSeek</strong> with blank URL (OpenAI-compatible), or provider <strong>Anthropic</strong> with URL <code>https://api.deepseek.com/anthropic</code> (Claude-compatible; key is sent as a bearer token, set the model to a DeepSeek id).</span>
       </label>
       <label class="small" style="display:flex;align-items:center;gap:8px;">
         <input type="checkbox" name="ai_digest"{{if .AIDigestEnabled}} checked{{end}}> Post a daily fleet digest to the alert webhook (sent once a day during housekeeping)
       </label>
-      <div><button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button></div>
+      <div><button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button></div>
     </form>
 
     <div style="margin-top:18px;border-top:1px solid var(--border-soft);padding-top:16px;">
@@ -675,8 +689,8 @@ function kioskAddPkg(pkg, el){
 .gu-tot{display:flex;flex-wrap:wrap;gap:18px 30px;align-items:baseline;}
 .gu-tot .gu-tot-n{font-size:24px;font-weight:700;}
 </style>
-<div class="card" style="margin-bottom:16px;" id="google-usage" data-poll="/settings/google-usage">
-  <div class="card-header"><h3>Google APIs — usage &amp; cost</h3><span class="muted small">counts since <span id="gu-since">{{.GoogleUsage.SinceAgo}}</span> · <span id="gu-updated">live</span></span></div>
+<div class="cc-card" style="margin-bottom:16px;" id="google-usage" data-poll="/settings/google-usage">
+  <div class="cc-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>Google APIs — usage &amp; cost</h3><span class="muted small m">counts since <span id="gu-since">{{.GoogleUsage.SinceAgo}}</span> · <span id="gu-updated">live</span></span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:12px;">
       Live request metering for the three Google Maps Platform APIs the device fleet uses for location. Server-side caches and a global cooldown keep billable calls low; <strong>cache hits</strong> and <strong>cooldown skips</strong> are requests <em>avoided</em>. Costs are list-price estimates — Google Cloud billing is authoritative.
@@ -695,7 +709,7 @@ function kioskAddPkg(pkg, el){
           <div><div class="gu-name">{{.Name}}</div><div class="muted small">{{.Purpose}}</div></div>
           {{if .Enabled}}<span class="status-badge ok">enabled</span>{{else}}<span class="status-badge warn">off</span>{{end}}
         </div>
-        <div class="gu-big"><span class="gu-requests">{{.Requests}}</span> <span class="muted small">{{if .Billable}}requests{{else}}map loads{{end}}</span></div>
+        <div class="gu-big"><span class="gu-requests">{{.Requests}}</span> <span class="muted small m">{{if .Billable}}requests{{else}}map loads{{end}}</span></div>
         <div class="gu-spark" aria-hidden="true">{{range .BarPct}}<span class="gu-bar{{if eq . 0}} zero{{end}}" style="height:{{.}}%"></span>{{end}}</div>
         <div class="muted small">last 24h: <span class="gu-24">{{.Last24h}}</span> requests · peak/hr <span class="gu-peak">{{.PeakHour}}</span></div>
         <div class="gu-grid">
@@ -707,8 +721,8 @@ function kioskAddPkg(pkg, el){
         </div>
         {{if .Billable}}
         <div class="gu-cost">
-          <div><span class="muted small">cost to date</span> <strong class="gu-cost-val">${{printf "%.2f" .CostToDate}}</strong></div>
-          <div><span class="muted small">proj / month</span> <strong class="gu-proj-val">${{printf "%.2f" .ProjMonth}}</strong> <span class="muted small">(${{printf "%.0f" .UnitCostK}}/1k)</span></div>
+          <div><span class="muted small m">cost to date</span> <strong class="gu-cost-val">${{printf "%.2f" .CostToDate}}</strong></div>
+          <div><span class="muted small m">proj / month</span> <strong class="gu-proj-val">${{printf "%.2f" .ProjMonth}}</strong> <span class="muted small m">(${{printf "%.0f" .UnitCostK}}/1k)</span></div>
         </div>
         {{else}}
         <div class="gu-cost"><span class="status-badge ok">free · unlimited</span></div>
@@ -725,8 +739,8 @@ function kioskAddPkg(pkg, el){
 </div>
 
 <!-- Learned WiFi-AP index -->
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Learned WiFi location index</h3><span class="muted small">persisted · avoids Google for known areas</span></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M5 12.5a11 11 0 0 1 14 0M8 16a6.5 6.5 0 0 1 8 0M12 19.5h.01"/></svg></span><h3>Learned WiFi location index</h3><span class="muted small m">persisted · avoids Google for known areas</span></div>
   <div style="padding:16px;">
     <div class="muted small" style="margin-bottom:12px;">
       Every successful Geolocation lookup teaches the server which access points (BSSIDs) live at which point. A later scan that overlaps ≥3 known APs (and ≥50% of the scan) is located <strong>locally</strong> — no Google call. Entries expire after 14 days. This is what drives the <strong>index hits</strong> above.
@@ -831,14 +845,14 @@ function kioskAddPkg(pkg, el){
 
   <!-- ── Security ────────────────────────────────────── -->
   <section class="settings-tab" data-tab="security">
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Sessions</h3></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h3>Sessions</h3></div>
   <div style="padding:16px;border-bottom:1px solid var(--border-soft);">
     <div class="muted small" style="margin-bottom:8px;">How long a dashboard login stays valid before requiring sign-in again.</div>
     <form action="/settings/session-timeout" method="POST" style="display:flex;align-items:center;gap:8px;">
       <input type="number" name="timeout" value="{{.SessionTimeout}}" min="300" step="1" class="form-input" aria-label="Session timeout (seconds)" style="width:120px;">
-      <span class="muted small">seconds</span>
-      <button type="submit" class="btn-primary" style="font-size:12px;padding:4px 14px;">Save</button>
+      <span class="muted small m">seconds</span>
+      <button type="submit" class="cc-btn primary" style="font-size:12px;padding:4px 14px;">Save</button>
     </form>
   </div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
@@ -892,13 +906,14 @@ function kioskAddPkg(pkg, el){
   .cf-x{width:24px;height:24px;flex:none;border-radius:50%;border:1px solid var(--border);background:var(--surface);color:var(--text-faint);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
   .cf-x:hover{color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);}
 </style>
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch">
+    <span class="ic v2"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
     <h3>App library</h3>
-    <div class="card-header-actions">
+    <div class="card-header-actions" style="margin-left:auto">
       <span class="muted small" style="margin-right:6px;">{{len .Apps}} app{{if ne (len .Apps) 1}}s{{end}}</span>
       <input type="file" id="lib-apk-file" accept=".apk,application/vnd.android.package-archive" multiple hidden onchange="libUploadApks(this.files); this.value='';">
-      <button type="button" class="btn-primary btn-sm" onclick="document.getElementById('lib-apk-file').click()"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>Upload APKs</button>
+      <button type="button" class="cc-btn sm primary" onclick="document.getElementById('lib-apk-file').click()"><svg viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></svg>Upload APKs</button>
     </div>
   </div>
   <div class="ul-wrap" id="lib-ul-list" hidden></div>
@@ -944,7 +959,7 @@ function kioskAddPkg(pkg, el){
     </div>
     <div class="modal-footer">
       <form id="li-del-form" method="POST" style="margin:0;margin-right:auto;" onsubmit="return libDelete(this, event);"><button type="submit" class="btn-outline-sm" style="color:var(--danger,#c0392b);border-color:var(--danger,#c0392b);">Delete from library</button></form>
-      <button type="button" class="btn-primary" onclick="libInfoClose()">Close</button>
+      <button type="button" class="cc-btn primary" onclick="libInfoClose()">Close</button>
     </div>
   </div>
 </div>
@@ -954,17 +969,18 @@ function kioskAddPkg(pkg, el){
   <div class="modal-box modal-wide" role="dialog" aria-modal="true" aria-label="Confirm apps to add">
     <div class="modal-header"><span class="modal-title">Add to library</span><button type="button" class="modal-close" onclick="libConfirmClose()" aria-label="Close">&times;</button></div>
     <div class="modal-body"><div class="cf-list" id="lib-confirm-list"></div><div id="lib-confirm-err" class="alert alert-error" style="display:none;margin-top:10px;"></div></div>
-    <div class="modal-footer"><button type="button" class="btn-outline" onclick="libConfirmClose()">Cancel</button><button type="button" class="btn-primary" id="lib-confirm-add" onclick="libConfirmAdd()">Add <span id="lib-confirm-n"></span></button></div>
+    <div class="modal-footer"><button type="button" class="btn-outline" onclick="libConfirmClose()">Cancel</button><button type="button" class="cc-btn primary" id="lib-confirm-add" onclick="libConfirmAdd()">Add <span id="lib-confirm-n"></span></button></div>
   </div>
 </div>
   </section>
 
   <!-- ── Productions ─────────────────────────────────── -->
   <section class="settings-tab" data-tab="productions">
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span>
     <h3>Productions <span class="muted small" style="font-weight:400;">· {{len .Productions}} run{{if ne (len .Productions) 1}}s{{end}}</span></h3>
-    {{if canOperate .Role}}<div class="card-header-actions"><a href="/productions/new" class="btn-primary btn-sm"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>New Production</a></div>{{end}}
+    {{if canOperate .Role}}<div class="card-header-actions" style="margin-left:auto"><a href="/productions/new" class="cc-btn sm primary"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>New Production</a></div>{{end}}
   </div>
   {{if not .Productions}}
   <div class="empty-state" style="padding:28px 18px;">
@@ -972,7 +988,7 @@ function kioskAddPkg(pkg, el){
       <div class="empty-state-title">No productions yet</div>
       <div class="empty-state-text">Create a production run to track serial number ranges and monitor which units have connected to AIO MDM.</div>
     </div>
-    {{if canOperate .Role}}<div class="empty-state-actions"><a href="/productions/new" class="btn-primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Production</a></div>{{end}}
+    {{if canOperate .Role}}<div class="empty-state-actions"><a href="/productions/new" class="cc-btn primary"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>Create Production</a></div>{{end}}
   </div>
   {{else}}
   <div class="scroll-x"><table class="table">
@@ -1004,8 +1020,8 @@ function kioskAddPkg(pkg, el){
 
   <!-- ── Tools ───────────────────────────────────────── -->
   <section class="settings-tab" data-tab="tools">
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>Boot logo</h3></div>
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18"/><circle cx="8" cy="13" r="1.5"/><path d="M21 17l-5-4-4 3"/></svg></span><h3>Boot logo</h3></div>
   <div style="padding:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
     <div>
       <strong>Custom boot logo</strong>
@@ -1018,6 +1034,7 @@ function kioskAddPkg(pkg, el){
 
   </div><!-- /.settings-panels -->
 </div><!-- /.settings-wrap -->
+</div><!-- /.cc-wrap -->
 
 <script>
 // ── App library: upload APK (client-parsed, direct-to-S3) with a progress bar ──

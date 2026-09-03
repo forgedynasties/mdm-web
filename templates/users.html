@@ -2,6 +2,7 @@
 {{template "header" .}}
 
 <style>
+/* ── Team · Command center ─────────────────────────────── */
 .user-pw{position:relative;display:inline-block}
 .user-pw>summary{list-style:none;cursor:pointer}
 .user-pw>summary::-webkit-details-marker{display:none}
@@ -10,77 +11,96 @@
 .user-pw-btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:5px 10px;font-size:12.5px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px}
 .user-pw-btn:hover{border-color:var(--rule-2);color:var(--text)}
 .user-pw-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
-/* .card clips overflow for its rounded corners, which was cutting off the Edit
+/* .cc-card clips overflow for its rounded corners, which was cutting off the Edit
    name / Change password popover — let it escape the card while one is open. */
-.card:has(.user-pw[open]){overflow:visible;}
+.cc-card:has(.user-pw[open]){overflow:visible}
+.uu-row{display:flex;align-items:center;gap:12px;padding:12px 17px;border-top:1px solid var(--border-soft);flex-wrap:wrap}
+.uu-row:first-of-type{border-top:none}
+.uu-av{width:36px;height:36px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;text-transform:uppercase;background:var(--accent-soft);color:var(--accent-text)}
+.uu-av.role-admin{background:var(--danger-bg);color:var(--danger)}
+.uu-av.role-operator{background:var(--info-bg);color:var(--info)}
+.uu-av.role-viewer{background:var(--surface2);color:var(--muted)}
+.uu-id{flex:1;min-width:160px}
+.uu-name{font-size:13.5px;font-weight:650}
+.uu-meta{font-size:11.5px;color:var(--muted);margin-top:2px}
+.uu-act{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.user-role-sel{font-size:12.5px;padding:5px 8px}
+.user-del{border:1px solid var(--border);background:var(--surface);color:var(--muted);width:30px;height:30px;border-radius:8px;font-size:16px;line-height:1;cursor:pointer}
+.user-del:hover{border-color:var(--danger-edge);color:var(--danger);background:var(--danger-bg)}
+@media(max-width:600px){.uu-row{gap:9px}.uu-act{width:100%;justify-content:flex-start}}
 </style>
 
-<div class="ov-greet">
-  <h1 class="ov-title">Users</h1>
-  <span class="ov-date">viewers are read-only; operators can send actions, run queries and record QA; admins manage everything</span>
-</div>
+<div class="cc-wrap">
 
-<div class="users-wrap" style="grid-template-columns:1fr;">
-  <div class="card dv-rise-1">
-    <div class="card-header">
-      <h3>Team</h3>
-      <span class="card-header-actions">
-        <span class="muted small">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}}</span>
-        <button type="button" class="btn-primary btn-sm" onclick="document.getElementById('add-user-modal').classList.add('modal-open')">
-          <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
-          Add user
-        </button>
-      </span>
+  {{/* ── Top bar ── */}}
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Team</div>
+      <h1 class="cc-h1">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}} · {{.Operators}} operator{{if ne .Operators 1}}s{{end}}</h1>
+      <div class="cc-sub">Viewers are read-only; operators can send actions, run queries and record QA; admins manage everything.</div>
     </div>
+    <div class="cc-actions">
+      <button type="button" class="cc-btn primary" onclick="document.getElementById('add-user-modal').classList.add('modal-open')"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add user</button>
+    </div>
+  </div>
+
+  {{/* ── KPI strip ── */}}
+  <div class="cc-kpis">
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Admins</span><div class="v">{{.Admins}}</div><div class="d">full access</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Operators</span><div class="v">{{.Operators}}</div><div class="d">actions + queries</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>Viewers</span><div class="v">{{.Viewers}}</div><div class="d">read-only</div></div>
+  </div>
+
+  <div class="cc-card">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><h3>Team</h3><span class="m">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}}</span></div>
+
     {{if .Users}}
-    <div class="user-list">
-      {{range .Users}}
-      <div class="user-row">
-        <span class="user-av role-av-{{.Role}}">{{if .Username}}{{slice .Username 0 1}}{{end}}</span>
-        <div class="user-id">
-          <div class="user-name">{{.DisplayName}}</div>
-          <div class="user-meta muted small mono">
-            {{.Username}} · Joined {{shortDate .CreatedAt}}
-            {{if .Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
-          </div>
-        </div>
-        <details class="user-pw" style="margin-right:2px;">
-          <summary class="user-pw-btn" title="Edit name"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Name</summary>
-          <form action="/users/{{.ID}}/name" method="POST" class="user-pw-pop">
-            <input type="text" name="first_name" class="form-input" placeholder="First name" value="{{.FirstName}}" style="width:110px;">
-            <input type="text" name="last_name" class="form-input" placeholder="Last name" value="{{.LastName}}" style="width:110px;">
-            <button type="submit" class="btn-primary btn-sm">Save</button>
-          </form>
-        </details>
-        <span class="role-chip role-{{.Role}}">{{.Role}}</span>
-        <div class="user-act">
-          {{if eq .Role "admin"}}
-          <span class="muted small">admin · fixed</span>
-          {{else}}
-          <form action="/users/{{.ID}}/role" method="POST" style="display:inline;">
-            <select name="role" class="form-input user-role-sel" onchange="this.form.submit()" title="Change role">
-              <option value="viewer"{{if eq .Role "viewer"}} selected{{end}}>Viewer</option>
-              <option value="operator"{{if eq .Role "operator"}} selected{{end}}>Operator</option>
-            </select>
-            <noscript><button type="submit" class="btn-outline btn-sm">Save</button></noscript>
-          </form>
-          <details class="user-pw">
-            <summary class="user-pw-btn" title="Change password"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Password</summary>
-            <form action="/users/{{.ID}}/password" method="POST" class="user-pw-pop">
-              <input type="password" name="password" class="form-input" placeholder="New password" aria-label="New password" required autocomplete="new-password" minlength="6">
-              <button type="submit" class="btn-primary btn-sm">Set</button>
-            </form>
-          </details>
-          <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete user {{.Username}}?">
-            <button type="submit" class="user-del" title="Delete user" aria-label="Delete">&times;</button>
-          </form>
-          {{end}}
+    {{range .Users}}
+    <div class="uu-row">
+      <span class="uu-av role-{{.Role}}">{{if .Username}}{{slice .Username 0 1}}{{end}}</span>
+      <div class="uu-id">
+        <div class="uu-name">{{.DisplayName}}</div>
+        <div class="uu-meta mono">
+          {{.Username}} · Joined {{shortDate .CreatedAt}}
+          {{if .Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
         </div>
       </div>
-      {{end}}
+      <details class="user-pw" style="margin-right:2px;">
+        <summary class="user-pw-btn" title="Edit name"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Name</summary>
+        <form action="/users/{{.ID}}/name" method="POST" class="user-pw-pop">
+          <input type="text" name="first_name" class="form-input" placeholder="First name" value="{{.FirstName}}" style="width:110px;">
+          <input type="text" name="last_name" class="form-input" placeholder="Last name" value="{{.LastName}}" style="width:110px;">
+          <button type="submit" class="cc-btn sm primary">Save</button>
+        </form>
+      </details>
+      <span class="cc-pill {{if eq .Role "admin"}}danger{{else if eq .Role "operator"}}info{{else}}{{end}}">{{.Role}}</span>
+      <div class="uu-act">
+        {{if eq .Role "admin"}}
+        <span class="muted small">admin · fixed</span>
+        {{else}}
+        <form action="/users/{{.ID}}/role" method="POST" style="display:inline;">
+          <select name="role" class="form-input user-role-sel" onchange="this.form.submit()" title="Change role">
+            <option value="viewer"{{if eq .Role "viewer"}} selected{{end}}>Viewer</option>
+            <option value="operator"{{if eq .Role "operator"}} selected{{end}}>Operator</option>
+          </select>
+          <noscript><button type="submit" class="cc-btn sm">Save</button></noscript>
+        </form>
+        <details class="user-pw">
+          <summary class="user-pw-btn" title="Change password"><svg viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Password</summary>
+          <form action="/users/{{.ID}}/password" method="POST" class="user-pw-pop">
+            <input type="password" name="password" class="form-input" placeholder="New password" aria-label="New password" required autocomplete="new-password" minlength="6">
+            <button type="submit" class="cc-btn sm primary">Set</button>
+          </form>
+        </details>
+        <form action="/users/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete user {{.Username}}?">
+          <button type="submit" class="user-del" title="Delete user" aria-label="Delete">&times;</button>
+        </form>
+        {{end}}
+      </div>
     </div>
+    {{end}}
     {{else}}
-    <div class="empty-state" style="padding:28px 18px;"><div class="empty-state-copy"><div class="empty-state-title">No users yet</div><div class="empty-state-text">Use "Add user" above to create the first one.</div></div></div>
+    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></span><div><b>No users yet</b>Use "Add user" above to create the first one.</div></div>
     {{end}}
   </div>
 
@@ -118,8 +138,8 @@
           <option value="operator">Operator — viewer + actions + queries + record release QA</option>
         </select>
       </div>
-      <button type="submit" class="btn-primary" style="justify-self:start;">
-        <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></span>
+      <button type="submit" class="cc-btn primary" style="justify-self:start;">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
         Create user
       </button>
     </form>

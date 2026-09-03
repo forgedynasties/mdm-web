@@ -2,245 +2,160 @@
 {{template "header" .}}
 
 <style>
-/* ── Fleet Health · Command ───────────────────────────── */
-/* hero: score + crash-trend card */
-.fh-hero{display:grid;grid-template-columns:auto 1fr auto;gap:30px;align-items:center;background:linear-gradient(118deg,var(--warn-bg),var(--surface) 58%);border:1px solid var(--warn-edge);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:22px 28px;margin-bottom:22px;}
-.fh-hero.is-ok{background:linear-gradient(118deg,var(--ok-bg),var(--surface) 58%);border-color:var(--border);}
-.fh-hero.is-danger{background:linear-gradient(118deg,var(--danger-bg),var(--surface) 58%);border-color:var(--danger-edge);}
-@media(max-width:900px){.fh-hero{grid-template-columns:1fr;gap:20px;}}
-.fh-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);}
+/* ── Fleet Health · Command center ─────────────────────── */
+.fh-wrap .cc-hero{grid-template-columns:auto 1fr minmax(220px,260px)}
+.fh-crashspark{display:inline-flex;align-items:flex-end;gap:6px;height:44px;margin-top:8px}
+.fh-crashspark .b{width:13px;background:var(--surface-3);border-radius:4px 4px 0 0;position:relative;min-height:2px}
+.fh-crashspark .b.hi{background:var(--danger)}.fh-crashspark .b.md{background:var(--warn)}
+.fh-crashspark .b span{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--text-faint);white-space:nowrap}
 
-.fh-score{padding-right:30px;border-right:1px solid var(--warn-edge);}
-.fh-hero.is-ok .fh-score{border-color:var(--border);}
-.fh-hero.is-danger .fh-score{border-color:var(--danger-edge);}
-@media(max-width:900px){.fh-score{border-right:none;border-bottom:1px solid var(--border);padding-right:0;padding-bottom:16px;}}
-.fh-score .big{font-size:54px;font-weight:750;letter-spacing:-.03em;line-height:1;color:var(--warn);font-variant-numeric:tabular-nums;margin-top:7px;}
-.fh-hero.is-ok .fh-score .big{color:var(--ok);}
-.fh-hero.is-danger .fh-score .big{color:var(--danger);}
-.fh-score .big small{font-size:15px;font-weight:600;color:var(--muted);margin-left:5px;letter-spacing:0;}
-.fh-status{margin-top:10px;display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:3px 10px;border-radius:99px;background:var(--warn-bg);color:var(--warn);}
-.fh-hero.is-ok .fh-status{background:var(--ok-bg);color:var(--ok);}
-.fh-hero.is-danger .fh-status{background:var(--danger-bg);color:var(--danger);}
+/* triage rows: score square + name + reason tags */
+.fh-why{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
 
-.fh-msg{min-width:0;}
-.fh-verdict{font-size:22px;font-weight:750;letter-spacing:-.01em;}
-.fh-sentence{font-size:13.5px;color:var(--muted);margin-top:7px;max-width:60ch;line-height:1.5;}
-.fh-sentence b{color:var(--text);font-weight:650;}
-.fh-facts{display:flex;flex-wrap:wrap;gap:7px;margin-top:13px;}
-.fh-fact{font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:4px 11px;}
-.fh-fact b{color:var(--text);font-variant-numeric:tabular-nums;}
-.fh-fact.bad{color:var(--danger);border-color:var(--danger-edge);}.fh-fact.bad b{color:var(--danger);}
+/* crash group rows */
+.fh-cg-top{display:flex;align-items:center;gap:9px}
+.fh-capp{font-family:var(--mono);font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.fh-cx{margin-left:auto;flex:none;font-size:12.5px;font-weight:700;color:var(--danger);font-variant-numeric:tabular-nums}
+.fh-cmeta{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:11.5px;color:var(--muted);margin-top:6px}
+.fh-cmeta .bd{color:var(--text);font-weight:600}
 
-.fh-trend{display:flex;flex-direction:column;align-items:flex-end;gap:15px;}
-@media(max-width:900px){.fh-trend{align-items:flex-start;}}
-.fh-trendbox{text-align:right;}
-@media(max-width:900px){.fh-trendbox{text-align:left;}}
-.fh-spark-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-faint);margin-bottom:12px;}
-.fh-spark{display:inline-flex;align-items:flex-end;gap:6px;height:56px;margin-bottom:17px;}
-.fh-spark .b{width:15px;background:var(--surface-3);border-radius:4px 4px 0 0;position:relative;}
-.fh-spark .b.hi{background:var(--danger);}.fh-spark .b.md{background:var(--warn);}
-.fh-spark .b span{position:absolute;bottom:-17px;left:50%;transform:translateX(-50%);font-size:9px;color:var(--text-faint);white-space:nowrap;}
-
-/* signal strip */
-.fh-sigs{display:grid;grid-template-columns:repeat(6,1fr);gap:11px;margin-bottom:22px;}
-@media(max-width:980px){.fh-sigs{grid-template-columns:repeat(3,1fr);}}
-@media(max-width:560px){.fh-sigs{grid-template-columns:repeat(2,1fr);}}
-.fh-sig{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:14px 15px;text-decoration:none;color:inherit;overflow:hidden;transition:border-color .14s,transform .1s;}
-.fh-sig:hover{border-color:var(--rule-2);transform:translateY(-1px);color:var(--text);}
-.fh-sig .k{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);}
-.fh-sig .k svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;}
-.fh-sig .v{display:block;font-size:26px;font-weight:750;letter-spacing:-.01em;margin-top:9px;line-height:1;font-variant-numeric:tabular-nums;}
-.fh-sig .v.ok{color:var(--ok);}.fh-sig .v.warn{color:var(--warn);}.fh-sig .v.bad{color:var(--danger);}
-.fh-sig .d{font-size:11.5px;margin-top:6px;color:var(--muted);}
-
-/* working grid */
-.fh-cols{display:grid;grid-template-columns:1.5fr 1fr;gap:20px;align-items:start;margin-bottom:22px;}
-@media(max-width:900px){.fh-cols{grid-template-columns:1fr;}}
-.fh-cap{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text-faint);margin:0 2px 12px;}
-.fh-cap .n{margin-left:auto;font-weight:600;letter-spacing:0;text-transform:none;color:var(--muted);font-size:12px;}
-
-/* triage cards */
-.fh-tcard{display:flex;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:15px 17px;margin-bottom:11px;align-items:center;text-decoration:none;color:inherit;transition:border-color .14s,transform .1s;}
-.fh-tcard:hover{border-color:var(--rule-2);transform:translateY(-1px);color:var(--text);}
-.fh-tcard .sc{width:44px;height:44px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:750;font-variant-numeric:tabular-nums;}
-.fh-tcard.danger .sc{background:var(--danger-bg);color:var(--danger);}.fh-tcard.warn .sc{background:var(--warn-bg);color:var(--warn);}
-.fh-tcard .m{flex:1;min-width:0;}
-.fh-tcard .rn{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.fh-why{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;}
-.fh-badge{font-size:11.5px;font-weight:600;padding:3px 9px;border-radius:99px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
-.fh-badge.bad{background:var(--danger-bg);color:var(--danger);}.fh-badge.warn{background:var(--warn-bg);color:var(--warn);}
-.fh-badge.mut{background:var(--surface2);color:var(--muted);}
-.fh-badge svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.2;}
-.fh-open{flex:none;font-size:12.5px;font-weight:650;color:var(--accent);display:inline-flex;align-items:center;gap:5px;}
-.fh-open svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;}
-@media(max-width:560px){.fh-open span{display:none;}}
-
-.fh-clear{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:16px 18px;}
-.fh-clear .i{width:38px;height:38px;flex:none;border-radius:10px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center;}
-.fh-clear .i svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.4;}
-.fh-clear .t{font-size:14px;font-weight:650;}.fh-clear .s{font-size:12.5px;color:var(--muted);}
-.fh-fold{padding:13px 4px 2px;font-size:12.5px;color:var(--muted);}.fh-fold b{color:var(--ok);}
-
-/* what's dragging the score */
-.fh-drag{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);margin-top:16px;overflow:hidden;}
-.fh-drag-h{font-size:13px;font-weight:700;padding:14px 17px;border-bottom:1px solid var(--border-soft);}
-.fh-drag-b{padding:15px 17px;}
-.fh-di+.fh-di{margin-top:14px;}
-.fh-di-top{display:flex;align-items:baseline;justify-content:space-between;font-size:12.5px;}
-.fh-di-top .n{font-weight:600;}
-.fh-di-top .v{font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--muted);}
-.fh-di-bar{height:7px;border-radius:99px;background:var(--surface-3);overflow:hidden;margin-top:7px;}
-.fh-di-bar i{display:block;height:100%;border-radius:99px;min-width:3px;}
-.fh-di-bar i.warn{background:var(--warn);}.fh-di-bar i.bad{background:var(--danger);}.fh-di-bar i.mut{background:var(--rule-2);}
-
-/* crashes panel */
-.fh-crash{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden;}
-.fh-crash-h{display:flex;align-items:center;gap:11px;padding:15px 17px;border-bottom:1px solid var(--border-soft);}
-.fh-crash-h .ci{width:34px;height:34px;flex:none;border-radius:9px;background:var(--danger-bg);color:var(--danger);display:flex;align-items:center;justify-content:center;}
-.fh-crash-h.zero .ci{background:var(--ok-bg);color:var(--ok);}
-.fh-crash-h .ci svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;}
-.fh-crash-h .m{flex:1;min-width:0;}
-.fh-crash-h .t{font-size:14.5px;font-weight:700;}
-.fh-crash-h .s{font-size:12px;color:var(--muted);margin-top:1px;}
-.fh-crash-h .cnt{font-size:22px;font-weight:750;color:var(--danger);font-variant-numeric:tabular-nums;letter-spacing:-.01em;}
-.fh-cg{display:block;padding:13px 17px;border-top:1px solid var(--border-soft);text-decoration:none;color:inherit;}
-.fh-cg:first-of-type{border-top:none;}
-.fh-cg:hover{background:var(--surface2);color:var(--text);}
-.fh-cg-top{display:flex;align-items:center;gap:9px;}
-.fh-kind{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:5px;flex:none;}
-.fh-kind.crash{background:var(--danger-bg);color:var(--danger);}
-.fh-kind.anr{background:var(--warn-bg);color:var(--warn);}
-.fh-kind.tomb{background:var(--accent-2-soft);color:var(--accent-2);}
-.fh-capp{font-family:var(--mono);font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
-.fh-cx{margin-left:auto;flex:none;font-size:12.5px;font-weight:700;color:var(--danger);font-variant-numeric:tabular-nums;}
-.fh-cmeta{display:flex;flex-wrap:wrap;gap:5px 12px;font-size:11.5px;color:var(--muted);margin-top:6px;}
-.fh-cmeta .bd{color:var(--text);font-weight:600;}
-.fh-crash-all{display:block;text-align:center;padding:12px;font-size:12.5px;font-weight:600;color:var(--accent);border-top:1px solid var(--border-soft);text-decoration:none;}
-.fh-crash-empty{display:flex;align-items:center;gap:12px;padding:16px 18px;}
-.fh-crash-empty .t{font-size:13.5px;font-weight:650;}.fh-crash-empty .s{font-size:12px;color:var(--muted);}
+/* "what's dragging the score" meter rows */
+.fh-drow{padding:11px 17px;border-top:1px solid var(--border-soft)}
+.fh-drow:first-child{border-top:none}
+.fh-drow-top{display:flex;align-items:baseline;justify-content:space-between;font-size:12.5px}
+.fh-drow-top .n{font-weight:600}
+.fh-drow-top .v{font-variant-numeric:tabular-nums;font-size:11.5px;color:var(--muted)}
+.fh-drow .cc-meter{margin-top:7px}
 </style>
 
-<div class="ov-greet">
-  <h1 class="ov-title">Fleet Health</h1>
-  <span class="ov-date">triage worst-first, crash-aware — where to send a tech</span>
-  {{if not .AISummary}}
-  <span class="acts">
-    <button type="button" id="ai-sum-refresh" class="btn-primary" style="font-size:12px;padding:6px 14px;" onclick="refreshHourlyReport()" title="Generate the fleet report">Generate report</button>
-  </span>
-  {{end}}
-</div>
+<div class="cc-wrap fh-wrap">
 
-{{/* ── Hero: score + verdict + crash trend ── */}}
-<div class="fh-hero is-{{.ScoreClass}}">
-  <div class="fh-score">
-    <div class="fh-eyebrow">Fleet health · {{if eq .WindowDays 1}}today{{else}}7 days{{end}}</div>
-    <div class="big">{{.Score}}<small>/ 100</small></div>
-    <div class="fh-status">{{.StatusWord}}</div>
-  </div>
-  <div class="fh-msg">
-    <div class="fh-verdict">{{.Verdict}}</div>
-    <div class="fh-sentence">
-      {{if .Crashes24h}}<b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} in the last 24h across <b>{{.CrashDevices24h}}</b> device{{if ne .CrashDevices24h 1}}s{{end}}{{if .CrashWorstBuild}}, most on build <b>{{.CrashWorstBuild}}</b>{{end}}.{{else}}No crashes in the last 24h.{{end}}
-      {{if gt .OfflineDevices 0}} {{.OfflineDevices}} device{{if ne .OfflineDevices 1}}s{{end}} offline.{{end}}
+  {{/* ── Top bar ── */}}
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Fleet health · {{if eq .WindowDays 1}}today{{else}}7-day window{{end}}</div>
+      <h1 class="cc-h1">{{.Verdict}}</h1>
+      <div class="cc-sub">{{if .Crashes24h}}<b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} in the last 24h across <b>{{.CrashDevices24h}}</b> device{{if ne .CrashDevices24h 1}}s{{end}}{{if .CrashWorstBuild}}, most on build <b>{{.CrashWorstBuild}}</b>{{end}}.{{else}}No crashes in the last 24h.{{end}}{{if gt .OfflineDevices 0}} <b>{{.OfflineDevices}}</b> device{{if ne .OfflineDevices 1}}s{{end}} offline.{{end}}</div>
     </div>
-    <div class="fh-facts">
-      <span class="fh-fact"><b>{{.OnlineDevices}}</b> / {{.TotalDevices}} online</span>
-      <span class="fh-fact"><b>{{.OpenAlerts}}</b> open alert{{if ne .OpenAlerts 1}}s{{end}}</span>
-      <span class="fh-fact{{if gt .Crashes24h 0}} bad{{end}}"><b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} · 24h</span>
-      <span class="fh-fact"><b>{{.UniqueBuilds}}</b> build{{if ne .UniqueBuilds 1}}s{{end}}</span>
+    <div class="cc-actions">
+      {{if not .AISummary}}<button type="button" id="ai-sum-refresh" class="cc-btn primary" onclick="refreshHourlyReport()" title="Generate the fleet report"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Generate report</button>{{end}}
+      <div class="cc-seg" title="Aggregation window">
+        <a class="{{if ne .WindowDays 1}}on{{end}}" href="/fleet-health?days=7">7 days</a>
+        <a class="{{if eq .WindowDays 1}}on{{end}}" href="/fleet-health?days=1">Today</a>
+      </div>
     </div>
   </div>
-  <div class="fh-trend">
-    <div class="dur-btns" title="Aggregation window">
-      <a class="dur-btn{{if ne .WindowDays 1}} active{{end}}" href="/fleet-health?days=7">7 days</a>
-      <a class="dur-btn{{if eq .WindowDays 1}} active{{end}}" href="/fleet-health?days=1">Today</a>
+
+  {{/* ── Hero: ring · facts · crash sparkline ── */}}
+  <div class="cc-hero is-{{.ScoreClass}}">
+    <div class="cc-hero-cell" style="display:flex;align-items:center;gap:18px">
+      <div class="cc-ring {{.ScoreClass}}">
+        <svg viewBox="0 0 104 104"><circle class="trk" cx="52" cy="52" r="44"/><circle class="val" cx="52" cy="52" r="44" stroke-dasharray="276.5" stroke-dashoffset="{{.RingOffset}}" transform="rotate(-90 52 52)"/></svg>
+        <b>{{.Score}}<small>score</small></b>
+      </div>
+      <div>
+        <div class="cc-label">Fleet health</div>
+        <span class="cc-pill {{.ScoreClass}}">{{.StatusWord}}</span>
+      </div>
     </div>
-    <div class="fh-trendbox">
-      <div class="fh-spark-lbl">Crashes / day</div>
-      <div class="fh-spark" title="crashes per day, last 7 days">
+
+    <div class="cc-hero-cell">
+      <div class="cc-label">Right now</div>
+      <div class="cc-facts" style="margin-top:10px">
+        <span class="cc-fact"><b>{{.OnlineDevices}}</b> / {{.TotalDevices}} online</span>
+        <span class="cc-fact{{if gt .OpenAlerts 0}} warn{{end}}"><b>{{.OpenAlerts}}</b> open alert{{if ne .OpenAlerts 1}}s{{end}}</span>
+        <span class="cc-fact{{if gt .Crashes24h 0}} bad{{end}}"><b>{{.Crashes24h}}</b> crash{{if ne .Crashes24h 1}}es{{end}} · 24h</span>
+        <span class="cc-fact"><b>{{.UniqueBuilds}}</b> build{{if ne .UniqueBuilds 1}}s{{end}}</span>
+      </div>
+    </div>
+
+    <div class="cc-hero-cell">
+      <div class="cc-label">Crashes / day</div>
+      <div class="fh-crashspark">
         {{range .CrashSpark}}<div class="b {{.Class}}" style="height:{{.Pct}}%"><span>{{.Label}}</span></div>{{end}}
       </div>
     </div>
   </div>
-</div>
 
-{{/* ── Signal strip (crashes is a first-class vital) ── */}}
-<div class="fh-sigs">
-  <a class="fh-sig" href="/devices?status=online"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12h4l2 6 4-14 2 8h6"/></svg>Online</span><span class="v ok">{{.OnlineDevices}}</span><span class="d">of {{.TotalDevices}} devices</span></a>
-  <a class="fh-sig{{if gt .OfflineDevices 0}} warm{{end}}" href="/devices?status=offline"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span><span class="v{{if gt .OfflineDevices 0}} warn{{end}}">{{.OfflineDevices}}</span><span class="d">not checking in</span></a>
-  <a class="fh-sig{{if gt .LowBattery 0}} warm{{end}}" href="/devices?battery=low"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span><span class="v{{if gt .LowBattery 0}} warn{{end}}">{{.LowBattery}}</span><span class="d">under 20%</span></a>
-  <a class="fh-sig{{if gt .HotCount 0}} hot{{end}}" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Overheating</span><span class="v{{if gt .HotCount 0}} bad{{end}}">{{.HotCount}}</span><span class="d">over threshold</span></a>
-  <a class="fh-sig{{if gt .MemoryCount 0}} warm{{end}}" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>Memory</span><span class="v{{if gt .MemoryCount 0}} warn{{end}}">{{.MemoryCount}}</span><span class="d">under pressure</span></a>
-  <a class="fh-sig{{if gt .Crashes24h 0}} hot{{end}}" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes · 24h</span><span class="v{{if gt .Crashes24h 0}} bad{{end}}">{{.Crashes24h}}</span><span class="d">{{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</span></a>
-</div>
-
-{{/* ── Working grid: triage list + crashes panel ── */}}
-<div class="fh-cols">
-  <div>
-    <div class="fh-cap">Needs action — worst first{{if gt .Attention 0}} <span class="n">{{.Attention}} of {{len .Groups}} restaurants</span>{{end}}</div>
-
-    {{if not .Groups}}
-    <div class="fh-clear"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">No restaurants yet</div><div class="s">Create restaurants and the health scorecard ranks them here.</div></div></div>
-    {{else if eq .Attention 0}}
-    <div class="fh-clear"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">Every restaurant is healthy</div><div class="s">All locations scoring 80+ — nothing to send a tech to.</div></div></div>
-    {{else}}
-    {{range .Groups}}{{if and (ne .ScoreClass "ok") (gt .DeviceCount 0)}}
-    {{$crashes := index $.RestaurantCrashes .GroupID}}
-    <a class="fh-tcard {{.ScoreClass}}" href="/restaurants/{{.GroupID}}">
-      <span class="sc">{{.Score}}</span>
-      <div class="m">
-        <div class="rn">{{.Name}}</div>
-        <div class="fh-why">
-          {{if gt .OfflineCount 0}}<span class="fh-badge {{if ge .OfflineCount 3}}bad{{else}}warn{{end}}"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>{{.OfflineCount}} offline</span>{{end}}
-          {{if .TempMax}}<span class="fh-badge warn"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>max {{fnum .TempMax}}°C</span>{{end}}
-          {{if $crashes}}<span class="fh-badge bad"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5"/></svg>{{$crashes}} crash{{if ne $crashes 1}}es{{end}}</span>{{end}}
-          {{if gt .DistinctBuilds 1}}<span class="fh-badge warn"><svg viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>{{.DistinctBuilds}} builds</span>{{end}}
-          <span class="fh-badge mut">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
-        </div>
-      </div>
-      <span class="fh-open"><span>Open</span><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-    </a>
-    {{end}}{{end}}
-    {{if gt .HealthyCount 0}}<div class="fh-fold"><b>✓ {{.HealthyCount}} restaurant{{if ne .HealthyCount 1}}s{{end}}</b> scoring 80+ — nothing to do there.</div>{{end}}
-    {{end}}
-
-    {{if .Groups}}
-    <div class="fh-drag">
-      <div class="fh-drag-h">What's dragging the score</div>
-      <div class="fh-drag-b">
-        <div class="fh-di"><div class="fh-di-top"><span class="n">Connectivity</span><span class="v">{{.OfflineDevices}} offline</span></div><div class="fh-di-bar"><i class="warn" style="width:{{pct .OfflineDevices .TotalDevices}}%"></i></div></div>
-        <div class="fh-di"><div class="fh-di-top"><span class="n">Battery</span><span class="v">{{.LowBattery}} under 20%</span></div><div class="fh-di-bar"><i class="warn" style="width:{{pct .LowBattery .TotalDevices}}%"></i></div></div>
-        <div class="fh-di"><div class="fh-di-top"><span class="n">Overheating</span><span class="v">{{.HotCount}} over threshold</span></div><div class="fh-di-bar"><i class="bad" style="width:{{pct .HotCount .TotalDevices}}%"></i></div></div>
-        <div class="fh-di"><div class="fh-di-top"><span class="n">Crashes · 24h</span><span class="v">{{.Crashes24h}} · {{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</span></div><div class="fh-di-bar"><i class="bad" style="width:{{pct .CrashDevices24h .TotalDevices}}%"></i></div></div>
-        <div class="fh-di"><div class="fh-di-top"><span class="n">Open alerts</span><span class="v">{{.OpenAlerts}} unresolved</span></div><div class="fh-di-bar"><i class="mut" style="width:{{pct .OpenAlerts .TotalDevices}}%"></i></div></div>
-      </div>
-    </div>
-    {{end}}
+  {{/* ── KPI strip ── */}}
+  <div class="cc-kpis">
+    <a class="cc-kpi" href="/devices?status=online"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online</span><div class="v ok">{{.OnlineDevices}}</div><div class="d">of {{.TotalDevices}}</div></a>
+    <a class="cc-kpi" href="/devices?status=offline"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span><div class="v{{if gt .OfflineDevices 0}} warn{{end}}">{{.OfflineDevices}}</div><div class="d">not checking in</div></a>
+    <a class="cc-kpi" href="/devices?battery=low"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span><div class="v{{if gt .LowBattery 0}} warn{{end}}">{{.LowBattery}}</div><div class="d">under 20%</div></a>
+    <a class="cc-kpi" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><path d="M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z"/></svg>Overheating</span><div class="v{{if gt .HotCount 0}} bad{{end}}">{{.HotCount}}</div><div class="d">over threshold</div></a>
+    <a class="cc-kpi" href="/alerts?status=open"><span class="k"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9z"/></svg>Memory</span><div class="v{{if gt .MemoryCount 0}} warn{{end}}">{{.MemoryCount}}</div><div class="d">under pressure</div></a>
+    <a class="cc-kpi" href="/alerts?view=crashes"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes · 24h</span><div class="v{{if gt .Crashes24h 0}} bad{{end}}">{{.Crashes24h}}</div><div class="d">{{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</div></a>
   </div>
 
-  <div class="fh-crash">
-    <div class="fh-crash-h{{if not .Crashes24h}} zero{{end}}">
-      <span class="ci">
-        {{if .Crashes24h}}<svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>{{end}}
-      </span>
-      <div class="m"><div class="t">Crashes · last 24h</div><div class="s">{{if .Crashes24h}}{{.Crashes24h}} event{{if ne .Crashes24h 1}}s{{end}} · {{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}{{if .CrashWorstBuild}} · worst on {{.CrashWorstBuild}}{{end}}{{else}}nothing crashing across the fleet{{end}}</div></div>
-      {{if .Crashes24h}}<span class="cnt">{{.Crashes24h}}</span>{{end}}
-    </div>
-    {{if .CrashList}}
-    {{range .CrashList}}
-    <a class="fh-cg" href="/devices/{{.Serial}}?tab=alerts">
-      <div class="fh-cg-top"><span class="fh-kind {{.KindClass}}">{{.KindLabel}}</span><span class="fh-capp">{{.Serial}}</span><span class="fh-cx">×{{.Count}}</span></div>
-      <div class="fh-cmeta">{{if .Restaurant}}<span>{{.Restaurant}}</span>{{end}}{{if .BuildID}}<span class="bd">build {{.BuildID}}</span>{{end}}<span>latest {{.Ago}}</span></div>
-    </a>
-    {{end}}
-    <a class="fh-crash-all" href="/alerts?view=crashes">View all crashes →</a>
-    {{else}}
-    <div class="fh-crash-empty"><div><div class="t">All clear</div><div class="s">No app crashes, ANRs, or tombstones reported in the last 24 hours.</div></div></div>
-    {{end}}
-  </div>
-</div>
+  {{/* ── Main grid: triage + drag-on-score | crashes ── */}}
+  <div class="cc-grid">
+    <div class="cc-col">
 
-{{template "ai-report-card" .}}
+      <div class="cc-card">
+        <div class="cc-ch"><span class="ic{{if eq .Attention 0}} ok{{else}} warn{{end}}"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><h3>Needs action — worst first</h3>{{if gt .Attention 0}}<span class="m">{{.Attention}} of {{len .Groups}} restaurants</span>{{end}}</div>
+
+        {{if not .Groups}}
+        <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/></svg></span><div><b>No restaurants yet</b>Create restaurants and the health scorecard ranks them here.</div></div>
+        {{else if eq .Attention 0}}
+        <div class="cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><b>Every restaurant is healthy</b>All locations scoring 80+ — nothing to send a tech to.</div></div>
+        {{else}}
+        {{range .Groups}}{{if and (ne .ScoreClass "ok") (gt .DeviceCount 0)}}
+        {{$crashes := index $.RestaurantCrashes .GroupID}}
+        <a class="cc-row" href="/restaurants/{{.GroupID}}">
+          <span class="cc-sq {{.ScoreClass}}">{{.Score}}</span>
+          <div class="main">
+            <div class="t">{{.Name}}</div>
+            <div class="fh-why">
+              {{if gt .OfflineCount 0}}<span class="cc-tag {{if ge .OfflineCount 3}}bad{{else}}warn{{end}}">{{.OfflineCount}} offline</span>{{end}}
+              {{if .TempMax}}<span class="cc-tag warn">max {{fnum .TempMax}}°C</span>{{end}}
+              {{if $crashes}}<span class="cc-tag bad">{{$crashes}} crash{{if ne $crashes 1}}es{{end}}</span>{{end}}
+              {{if gt .DistinctBuilds 1}}<span class="cc-tag warn">{{.DistinctBuilds}} builds</span>{{end}}
+              <span class="cc-tag">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
+            </div>
+          </div>
+          <span class="end"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+        </a>
+        {{end}}{{end}}
+        {{if gt .HealthyCount 0}}<div class="fh-drow" style="border-top:1px solid var(--border-soft);font-size:12.5px;color:var(--muted)"><b style="color:var(--ok)">✓ {{.HealthyCount}} restaurant{{if ne .HealthyCount 1}}s{{end}}</b> scoring 80+ — nothing to do there.</div>{{end}}
+        {{end}}
+      </div>
+
+      {{if .Groups}}
+      <div class="cc-card">
+        <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><h3>What's dragging the score</h3></div>
+        <div class="fh-drow"><div class="fh-drow-top"><span class="n">Connectivity</span><span class="v">{{.OfflineDevices}} offline</span></div><div class="cc-meter"><i class="warn" style="width:{{pct .OfflineDevices .TotalDevices}}%"></i></div></div>
+        <div class="fh-drow"><div class="fh-drow-top"><span class="n">Battery</span><span class="v">{{.LowBattery}} under 20%</span></div><div class="cc-meter"><i class="warn" style="width:{{pct .LowBattery .TotalDevices}}%"></i></div></div>
+        <div class="fh-drow"><div class="fh-drow-top"><span class="n">Overheating</span><span class="v">{{.HotCount}} over threshold</span></div><div class="cc-meter"><i class="bad" style="width:{{pct .HotCount .TotalDevices}}%"></i></div></div>
+        <div class="fh-drow"><div class="fh-drow-top"><span class="n">Crashes · 24h</span><span class="v">{{.Crashes24h}} · {{.CrashDevices24h}} device{{if ne .CrashDevices24h 1}}s{{end}}</span></div><div class="cc-meter"><i class="bad" style="width:{{pct .CrashDevices24h .TotalDevices}}%"></i></div></div>
+        <div class="fh-drow"><div class="fh-drow-top"><span class="n">Open alerts</span><span class="v">{{.OpenAlerts}} unresolved</span></div><div class="cc-meter"><i style="width:{{pct .OpenAlerts .TotalDevices}}%"></i></div></div>
+      </div>
+      {{end}}
+
+    </div>
+
+    <div class="cc-col">
+      <div class="cc-card">
+        <div class="cc-ch"><span class="ic{{if not .Crashes24h}} ok{{else}} danger{{end}}"><svg viewBox="0 0 24 24">{{if .Crashes24h}}<path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/>{{else}}<path d="M5 13l4 4L19 7"/>{{end}}</svg></span><h3>Crashes · last 24h</h3>{{if .Crashes24h}}<span class="m">{{.Crashes24h}} event{{if ne .Crashes24h 1}}s{{end}}</span>{{end}}</div>
+        {{if .CrashList}}
+        {{range .CrashList}}
+        <a class="cc-row" href="/devices/{{.Serial}}?tab=alerts">
+          <div class="main">
+            <div class="fh-cg-top"><span class="cc-tag up {{if eq .KindClass "anr"}}warn{{else if eq .KindClass "tomb"}}v2{{else}}bad{{end}}">{{.KindLabel}}</span><span class="fh-capp">{{.Serial}}</span><span class="fh-cx">×{{.Count}}</span></div>
+            <div class="fh-cmeta">{{if .Restaurant}}<span>{{.Restaurant}}</span>{{end}}{{if .BuildID}}<span class="bd">build {{.BuildID}}</span>{{end}}<span>latest {{.Ago}}</span></div>
+          </div>
+        </a>
+        {{end}}
+        <a class="cc-foot" href="/alerts?view=crashes">View all crashes →</a>
+        {{else}}
+        <div class="cc-empty tall"><span class="i ok"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><b>All clear</b>No app crashes, ANRs, or tombstones reported in the last 24 hours.</div></div>
+        {{end}}
+      </div>
+
+      {{template "ai-report-card" .}}
+    </div>
+  </div>
+
+</div>
 
 {{template "footer" .}}
 {{end}}

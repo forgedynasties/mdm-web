@@ -1,11 +1,15 @@
 {{define "export_visualize.html"}}
 {{template "header" .}}
 
+<div class="cc-wrap">
 <a href="/" class="back-link">&#8592; Back to Overview</a>
 
-<div class="ov-greet">
-  <h1 class="ov-title">Import &amp; Visualize Export</h1>
-  <span class="ov-date">Upload a CSV from Devices &rarr; Export (or matching its columns) to parse it into a table and charts &mdash; entirely in your browser, the file is never sent to the server.</span>
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Export</div>
+    <h1 class="cc-h1">Visualize a CSV</h1>
+    <div class="cc-sub">Upload a CSV from Devices → Export (or matching its columns) to parse it into a table and charts — entirely in your browser, the file is never sent to the server.</div>
+  </div>
 </div>
 
 <style>
@@ -41,8 +45,8 @@ html[data-theme="dark"] .evz-root {
 </style>
 
 <div class="evz-root">
-  <div class="card dv-rise-1">
-    <div class="card-header"><h3>Upload</h3></div>
+  <div class="cc-card">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 21h14"/></svg></span><h3>Upload</h3></div>
     <div class="evz-upload">
       <input type="file" id="evz-file" accept=".csv,text/csv">
       <span class="evz-local-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Parsed locally in your browser — nothing is uploaded</span>
@@ -52,8 +56,8 @@ html[data-theme="dark"] .evz-root {
   </div>
 
   <div id="evz-results" hidden>
-    <div class="card dv-rise-1" style="margin-top:16px;">
-      <div class="card-header"><h3>Summary</h3></div>
+    <div class="cc-card" style="margin-top:16px;">
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg></span><h3>Summary</h3></div>
       <div class="evz-stats">
         <div class="evz-stat"><b id="evz-stat-rows">0</b><span>Rows</span></div>
         <div class="evz-stat"><b id="evz-stat-devices">0</b><span>Devices</span></div>
@@ -66,8 +70,8 @@ html[data-theme="dark"] .evz-root {
 
     <div class="evz-charts" id="evz-charts"></div>
 
-    <div class="card dv-rise-1" style="margin-top:16px;">
-      <div class="card-header"><h3>Table</h3></div>
+    <div class="cc-card" style="margin-top:16px;">
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span><h3>Table</h3></div>
       <div class="evz-table-wrap">
         <table class="evz-table">
           <thead><tr id="evz-thead"></tr></thead>
@@ -76,6 +80,8 @@ html[data-theme="dark"] .evz-root {
       </div>
     </div>
   </div>
+</div>
+
 </div>
 
 <script>

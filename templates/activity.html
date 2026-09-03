@@ -2,80 +2,96 @@
 {{template "header" .}}
 
 <style>
-.act-filter{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
-.act-filter select{min-width:220px}
-.act-table{width:100%;border-collapse:collapse;font-size:13px}
-.act-table th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint);padding:8px 18px;border-bottom:1px solid var(--border)}
-.act-table td{padding:10px 18px;border-bottom:1px solid var(--border-soft,var(--border));vertical-align:top}
-.act-table tr:last-child td{border-bottom:none}
-.act-actor{font-weight:650}
-.act-when{white-space:nowrap;color:var(--text-faint);font-size:12px}
-.act-target{font-family:var(--mono);font-size:12px;color:var(--muted)}
-.act-detail{color:var(--muted);font-size:12.5px}
-.act-detail a{color:var(--accent);text-decoration:none;font-family:var(--mono);}
-.act-detail a:hover{text-decoration:underline;}
+/* ── Activity · Command center ─────────────────────────── */
+.ac-filter{display:flex;align-items:center;gap:12px;padding:12px 17px;flex-wrap:wrap}
+.ac-filter select{min-width:200px}
+.ac-actor{display:flex;align-items:center;gap:9px;min-width:0}
+.ac-av{width:26px;height:26px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--accent-soft);color:var(--accent-text);text-transform:uppercase}
+.ac-when{white-space:nowrap;color:var(--text-faint);font-size:12px}
+.ac-target{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;display:inline-block;vertical-align:middle}
+.ac-detail{color:var(--muted);font-size:12.5px}
+.ac-detail a{color:var(--accent-text);text-decoration:none;font-family:var(--mono)}
+.ac-detail a:hover{text-decoration:underline}
 </style>
 
-<div class="ov-greet">
-  <h1 class="ov-title">Activity</h1>
-  <span class="ov-date">Every tracked admin/account action across the dashboard — filter by user to see just their activity.</span>
-</div>
+<div class="cc-wrap">
 
-<div class="card dv-rise-1">
-  <div class="card-header"><h3>Log</h3><span class="muted small">{{.Total}} entr{{if ne .Total 1}}ies{{else}}y{{end}}{{if .Actor}} for {{.ActorName}}{{end}}</span></div>
-  <form method="GET" action="/activity" class="act-filter">
-    <label class="muted small" for="act-actor">User</label>
-    <select name="actor" id="act-actor" class="form-input" onchange="this.form.submit()">
-      <option value="">All users</option>
-      {{$cur := .Actor}}
-      {{range .Actors}}
-      <option value="{{.Username}}"{{if eq .Username $cur}} selected{{end}}>{{.Name}}</option>
-      {{end}}
-    </select>
-    <label class="muted small" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-      <input type="checkbox" name="admin" value="1"{{if .ShowAdmin}} checked{{end}} onchange="this.form.submit()">
-      Show admin
-    </label>
-    <noscript><button type="submit" class="btn-outline btn-sm">Filter</button></noscript>
-    {{if .Actor}}<a href="/activity{{if .ShowAdmin}}?admin=1{{end}}" class="muted small">Clear filter</a>{{end}}
-  </form>
-  {{if .Entries}}
-  <div style="overflow-x:auto;">
-    <table class="act-table">
-      <thead><tr><th>When</th><th>User</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
-      <tbody>
-        {{range .Entries}}
-        <tr>
-          <td class="act-when">{{timeSince .CreatedAt}}</td>
-          <td class="act-actor">{{.Actor}}</td>
-          <td>{{.Action}}</td>
-          <td class="act-target">{{.Target}}</td>
-          <td class="act-detail">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{.Detail}}{{end}}</td>
-        </tr>
-        {{end}}
-      </tbody>
-    </table>
-  </div>
-  {{else}}
-  <div class="empty-state" style="padding:28px 18px;"><div class="empty-state-copy"><div class="empty-state-title">No activity yet</div><div class="empty-state-text">Actions taken in the dashboard will show up here.</div></div></div>
-  {{end}}
-
-  {{if gt .TotalPages 1}}
-  <div class="pagination">
-    {{if gt .Page 1}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&page={{sub .Page 1}}">&#8592; Prev</a>
-    {{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
-    <div class="page-numbers">
-      {{range pageList .Page .TotalPages}}
-        {{if eq . 0}}<span class="page-num disabled">…</span>
-        {{else if eq . $.Page}}<span class="page-num active">{{.}}</span>
-        {{else}}<a class="page-num" href="?actor={{$.Actor}}&admin={{if $.ShowAdmin}}1{{end}}&page={{.}}">{{.}}</a>{{end}}
-      {{end}}
+  {{/* ── Top bar ── */}}
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Activity</div>
+      <h1 class="cc-h1">{{.Total}} action{{if ne .Total 1}}s{{end}} logged{{if .Actor}} by <span class="hl">{{.ActorName}}</span>{{else}} by {{.DistinctUsers}} user{{if ne .DistinctUsers 1}}s{{end}}{{end}}</h1>
+      <div class="cc-sub">Every tracked admin/account action across the dashboard. Filter by user to see just their activity.</div>
     </div>
-    {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&page={{add .Page 1}}">Next &#8594;</a>
-    {{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
   </div>
-  <div class="table-footer">Page {{.Page}} of {{.TotalPages}} · {{.Total}} entr{{if ne .Total 1}}ies{{else}}y{{end}}</div>
-  {{end}}
+
+  {{/* ── KPI strip ── */}}
+  <div class="cc-kpis">
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Today</span><div class="v">{{.EntriesToday}}</div><div class="d">entries</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>This week</span><div class="v">{{.EntriesWeek}}</div><div class="d">last 7 days</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>Distinct users</span><div class="v">{{.DistinctUsers}}</div><div class="d">active in log</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Most common</span><div class="v" style="font-size:18px">{{.TopAction}}</div><div class="d">{{.TopActionN}} time{{if ne .TopActionN 1}}s{{end}}</div></div>
+  </div>
+
+  <div class="cc-card">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h3>Log</h3><span class="m">{{.Total}} entr{{if ne .Total 1}}ies{{else}}y{{end}}{{if .Actor}} for {{.ActorName}}{{end}}</span></div>
+
+    <form method="GET" action="/activity" class="ac-filter">
+      <label class="muted small" for="act-actor">User</label>
+      <select name="actor" id="act-actor" class="form-input" onchange="this.form.submit()">
+        <option value="">All users</option>
+        {{$cur := .Actor}}
+        {{range .Actors}}
+        <option value="{{.Username}}"{{if eq .Username $cur}} selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+      <label class="muted small" style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+        <input type="checkbox" name="admin" value="1"{{if .ShowAdmin}} checked{{end}} onchange="this.form.submit()">
+        Show admin
+      </label>
+      <noscript><button type="submit" class="cc-btn sm">Filter</button></noscript>
+      {{if .Actor}}<a href="/activity{{if .ShowAdmin}}?admin=1{{end}}" class="muted small">Clear filter</a>{{end}}
+    </form>
+
+    {{if .Entries}}
+    <div style="overflow-x:auto;">
+      <table class="cc-table">
+        <thead><tr><th>When</th><th>User</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+        <tbody>
+          {{range .Entries}}
+          <tr>
+            <td class="ac-when">{{timeSince .CreatedAt}}</td>
+            <td><span class="ac-actor"><span class="ac-av">{{if .Actor}}{{slice .Actor 0 1}}{{end}}</span>{{.Actor}}</span></td>
+            <td><span class="cc-tag">{{.Action}}</span></td>
+            <td class="ac-target" title="{{.Target}}">{{.Target}}</td>
+            <td class="ac-detail">{{if eq .Action "command.send"}}{{auditDetailHTML .Detail}}{{else}}{{.Detail}}{{end}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><div><b>No activity yet</b>Actions taken in the dashboard will show up here.</div></div>
+    {{end}}
+
+    {{if gt .TotalPages 1}}
+    <div class="pagination">
+      {{if gt .Page 1}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&page={{sub .Page 1}}">&#8592; Prev</a>
+      {{else}}<span class="page-btn disabled">&#8592; Prev</span>{{end}}
+      <div class="page-numbers">
+        {{range pageList .Page .TotalPages}}
+          {{if eq . 0}}<span class="page-num disabled">…</span>
+          {{else if eq . $.Page}}<span class="page-num active">{{.}}</span>
+          {{else}}<a class="page-num" href="?actor={{$.Actor}}&admin={{if $.ShowAdmin}}1{{end}}&page={{.}}">{{.}}</a>{{end}}
+        {{end}}
+      </div>
+      {{if lt .Page .TotalPages}}<a class="page-btn page-nav" href="?actor={{.Actor}}&admin={{if .ShowAdmin}}1{{end}}&page={{add .Page 1}}">Next &#8594;</a>
+      {{else}}<span class="page-btn disabled">Next &#8594;</span>{{end}}
+    </div>
+    <div class="table-footer">Page {{.Page}} of {{.TotalPages}} · {{.Total}} entr{{if ne .Total 1}}ies{{else}}y{{end}}</div>
+    {{end}}
+  </div>
+
 </div>
 
 {{template "footer" .}}
