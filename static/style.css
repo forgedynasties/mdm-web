@@ -4616,8 +4616,13 @@ a.fleet-rail-item { gap: 9px; padding: 8px 9px; }
 .dl-card > .dl-cb-spacer { grid-area: cb; width: 0; }
 .dl-card > .dl-bat { grid-area: bat; }
 .dl-card > .dl-id { grid-area: id; }
-.dl-card > .dl-metrics { grid-area: metrics; }
-.dl-card > .dl-status-col { grid-area: status; }
+/* Top-align (not the grid's default center) — .dl-card's align-items:center
+   centers each column on its OWN height, and .dl-metrics (always 2-3 lines)
+   vs .dl-status-col (1 line online, 2 offline with "Last seen") differ, so
+   centering independently put their first lines at different heights: an
+   offline row's RAM/Temp/Cycles rows didn't line up with an online row's. */
+.dl-card > .dl-metrics { grid-area: metrics; align-self: start; }
+.dl-card > .dl-status-col { grid-area: status; align-self: start; }
 .dl-card > .dl-act { grid-area: act; }
 
 /* battery — tinted chip: glyph + % on a level-tinted pill */
