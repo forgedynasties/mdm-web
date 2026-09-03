@@ -299,7 +299,7 @@ a.fleet-rail-item{min-height:40px}
       <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}</div>
     </div>
     <div class="cc-actions fl-actions">
-      {{if .MapsEmbedKey}}<button type="button" class="cc-btn" id="fl-map-btn" aria-pressed="false" onclick="flToggleMap()" title="Show the devices in this view on a map"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="lbl">Map</span></button>{{end}}
+      {{if .MapsEmbedKey}}<button type="button" class="cc-btn" id="fl-map-btn" aria-pressed="false" onclick="flToggleMap()" title="Show the devices in this view on a map"><svg class="i-map" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg><svg class="i-list" viewBox="0 0 24 24" hidden><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="lbl">Map view</span></button>{{end}}
       <button type="button" class="cc-btn" onclick="bulkExport()" title="Export selected devices"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
       <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
     </div>
@@ -1447,7 +1447,9 @@ document.addEventListener('keydown', function(e) {
     pane.hidden = !on;
     var split = document.getElementById('dv-split'); if (split) { split.hidden = on; split.style.display = on ? 'none' : ''; }
     btn.setAttribute('aria-pressed', String(on));
-    btn.querySelector('.lbl').textContent = on ? 'List' : 'Map';
+    btn.querySelector('.lbl').textContent = on ? 'Back to list' : 'Map view';
+    btn.querySelector('.i-map').hidden = on; btn.querySelector('.i-list').hidden = !on;
+    btn.title = on ? 'Show the device list again' : 'Show the devices in this view on a map';
     try { localStorage.setItem('mdm-fleet-view', on ? 'map' : 'list'); } catch (e) {}
     if (on) load();
   };
