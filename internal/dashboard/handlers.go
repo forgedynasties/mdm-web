@@ -3735,6 +3735,7 @@ func (h *Handler) DeviceRemote(w http.ResponseWriter, r *http.Request) {
 		"Title":  "Remote — " + device.SerialNumber,
 		"Serial": device.SerialNumber,
 		"Online": h.hub.IsConnected(device.ID),
+		"Device": device,
 		// Single-use, short-lived token instead of the admin API key (which must
 		// never reach the browser). The control WebSocket redeems it server-side.
 		"Token": h.remote.IssueToken(device.ID, 2*time.Minute),
