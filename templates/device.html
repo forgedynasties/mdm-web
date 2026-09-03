@@ -794,25 +794,55 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   </div>
 </div>
 
-{{/* Location map — a Google Maps Embed iframe. Rendered only when the device has
-     resolved WiFi-geolocation coordinates AND a browser-facing Maps Embed key is
-     configured (MapsEmbedKey, referrer-restricted). The Embed API takes q=lat,lng
-     directly, so the src is built server-side — no client float math needed. */}}
+{{/* Location map — the JS Maps API (not the Embed iframe, which can't be
+     themed) so it can follow the dashboard's dark mode like the Overview
+     fleet map does. Rendered only when the device has resolved WiFi-
+     geolocation coordinates AND a browser-facing Maps key is configured
+     (MapsEmbedKey, referrer-restricted). */}}
 {{$mlat := extraField .Device.LatestExtra "latitude"}}{{$mlon := extraField .Device.LatestExtra "longitude"}}
 {{if and .MapsEmbedKey $mlat $mlon (ne $mlat "—") (ne $mlon "—")}}
 <div class="card dev-map-card" id="dev-map-card">
   <div class="dev-map-head">
     <span class="ddc-card-t" style="padding:0;">Location</span>
   </div>
-  <iframe id="dev-map" class="dev-map" loading="lazy" title="Device location on map"
-          referrerpolicy="strict-origin"
-          src="https://www.google.com/maps/embed/v1/place?key={{.MapsEmbedKey}}&q={{$mlat}},{{$mlon}}&zoom=16"></iframe>
+  <div id="dev-map" class="dev-map"></div>
   <div class="dev-map-foot">
     {{$maddr := extraField .Device.LatestExtra "location_address"}}
     <span class="loc-addr {{if and $maddr (ne $maddr "—")}}muted small{{else}}mono{{end}}">{{if and $maddr (ne $maddr "—")}}{{$maddr}}{{else}}{{$mlat}}, {{$mlon}}{{end}}</span>
     <a class="link-detail" href="https://maps.google.com/?q={{$mlat}},{{$mlon}}" target="_blank" rel="noopener">Open in Google Maps →</a>
   </div>
 </div>
+<script>
+{{/* Same dark palette as the Overview fleet map (templates/overview.html
+     OV_MAP_DARK) — kept in sync there; duplicated here since each page loads
+     the Maps JS API independently. */}}
+var DEV_MAP_DARK = [
+  {elementType:'geometry',stylers:[{color:'#212a37'}]},
+  {elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+  {elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},
+  {featureType:'administrative',elementType:'geometry',stylers:[{color:'#4b5563'}]},
+  {featureType:'poi',stylers:[{visibility:'off'}]},
+  {featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},
+  {featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},
+  {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a4757'}]},
+  {featureType:'transit',stylers:[{visibility:'off'}]},
+  {featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]},
+  {featureType:'water',elementType:'labels.text.fill',stylers:[{color:'#51607a'}]}
+];
+function devMapStyles(){ return (window.mdmTheme && window.mdmTheme()==='dark') ? DEV_MAP_DARK : []; }
+function devInitMap(){
+  var el = document.getElementById('dev-map');
+  if (!el || !window.google || !google.maps) return;
+  var pos = {lat: parseFloat("{{$mlat}}"), lng: parseFloat("{{$mlon}}")};
+  var map = new google.maps.Map(el, {
+    zoom: 16, center: pos, mapTypeControl:false, streetViewControl:false,
+    fullscreenControl:false, keyboardShortcuts:false, styles: devMapStyles()
+  });
+  window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: devMapStyles()}); });
+  new google.maps.Marker({ position: pos, map: map, title: '{{.Device.SerialNumber}}' });
+}
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=devInitMap"></script>
 {{end}}
 
 <script>
