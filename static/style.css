@@ -5300,32 +5300,13 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
 .nbar-wrap { position: relative; }
 .nbar-pop {
   position: absolute; top: calc(100% + 9px); right: 0; z-index: 50; width: 250px;
-  border-radius: 16px; padding: 7px;
-  animation: ov-rise 0.14s var(--ease) both;
-  /* Own stacking context so the ::before glass layer (z-index:-1) stays
-     behind this element's real children regardless of what they do. */
-  isolation: isolate;
-}
-/* The blur lives on a content-free ::before instead of .nbar-pop itself.
-   .nbar-pop's own content (#alerts-pop-body) gets its innerHTML swapped by
-   htmx after open (Loading… -> real rows) — mutating the DOM *inside* an
-   element that itself has backdrop-filter forces Chromium to re-snapshot
-   that filter, which showed as the blur dropping out for a frame. The
-   account dropdown (identical .nbar-pop, but never mutates its content after
-   open) never had this problem — only the alerts one did, which is what
-   pointed at the mutation rather than a generic resize/compositing issue
-   (will-change and a fixed-height content box, tried first, didn't fix it).
-   A pseudo-element's subtree is always empty, so nothing inside IT ever
-   mutates; only .nbar-pop's own geometry could invalidate it, and that's
-   already pinned by #alerts-pop-body's fixed height. */
-.nbar-pop::before {
-  content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit;
   background: rgba(255,255,255,.45); backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%);
-  border: 1px solid rgba(255,255,255,.29);
-  box-shadow: 0 14px 36px rgba(0,0,0,.21), inset 0 1px 0 rgba(255,255,255,.50);
+  border: 1px solid rgba(255,255,255,.29); border-radius: 16px;
+  box-shadow: 0 14px 36px rgba(0,0,0,.21), inset 0 1px 0 rgba(255,255,255,.50); padding: 7px;
+  animation: ov-rise 0.14s var(--ease) both;
   will-change: backdrop-filter;
 }
-html[data-theme="dark"] .nbar-pop::before { background: rgba(20,18,17,.45); border-color: rgba(255,255,255,.12); }
+html[data-theme="dark"] .nbar-pop { background: rgba(20,18,17,.45); border-color: rgba(255,255,255,.12); }
 .nbar-pop[hidden] { display: none; }
 .nbar-mhead { padding: 9px 11px 9px; border-bottom: 1px solid var(--border-soft); margin-bottom: 6px; }
 .nbar-mhead .n { font-weight: var(--fw-semibold); font-size: 13px; color: var(--text); }

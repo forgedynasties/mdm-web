@@ -311,13 +311,41 @@
       pop('alerts-pop', '#alerts-indicator', false);
       pop('acct-pop', '.appbar-acct', willOpen);
     };
+    // Load the alerts list in the background (page load + whenever the count
+    // changes elsewhere), never at the moment of opening — refreshAlertsList
+    // refuses to touch #alerts-pop-body while .nbar-pop is visible. The
+    // account dropdown never flickered because it never mutates its content
+    // after open; fetching-on-open was exactly what made the alerts one
+    // different (and the only one that flickered). Matching that behavior —
+    // the popover's content is always already there before you click — fixes
+    // it at the source instead of fighting the resulting repaint.
+    var alertsListReady = false;
+    window.refreshAlertsList = function () {
+      var p = document.getElementById('alerts-pop');
+      if (!p) return;
+      if (!p.hasAttribute('hidden')) return; // never mutate while visible
+      if (!window.htmx) return;
+      htmx.ajax('GET', '/alerts/recent', { target: '#alerts-pop-body', swap: 'innerHTML' }).then(function () {
+        alertsListReady = true;
+      });
+    };
     window.navAlerts = function (e) {
       if (e) { e.preventDefault(); e.stopPropagation(); }
       var willOpen = document.getElementById('alerts-pop').hasAttribute('hidden');
       pop('acct-pop', '.appbar-acct', false);
       pop('alerts-pop', '#alerts-indicator', willOpen);
-      if (willOpen && window.htmx) htmx.ajax('GET', '/alerts/recent', { target: '#alerts-pop-body', swap: 'innerHTML' });
+      // Fallback only: the background load (below) should have already
+      // populated this before anyone clicks. If it somehow hasn't (fired
+      // before htmx was ready, or the very first paint), fetch now rather
+      // than show a permanently empty list.
+      if (willOpen && !alertsListReady && window.htmx) {
+        htmx.ajax('GET', '/alerts/recent', { target: '#alerts-pop-body', swap: 'innerHTML' }).then(function () {
+          alertsListReady = true;
+        });
+      }
     };
+    // htmx.min.js loads synchronously in <head>, so it's already available here.
+    refreshAlertsList();
     document.addEventListener('click', function (e) {
       // The popup itself now lives outside its trigger's wrap (portaled to <body>
       // on open — see pop() above), so "outside" means outside BOTH the trigger
@@ -1720,6 +1748,10 @@
       if (rose) pulse();
       known = n;
       document.dispatchEvent(new CustomEvent('mdm:alerts-update', { detail: { count: n } }));
+      // Keep the dropdown's content current in the background — refreshAlertsList
+      // itself refuses to touch it while open, so this never causes the
+      // mutate-while-visible flicker (see navAlerts).
+      if (window.refreshAlertsList) window.refreshAlertsList();
     });
   })();
 
