@@ -2594,6 +2594,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"ActiveThresholdSecs":  activeThreshold,
 		"ActiveThresholdLabel": activeThresholdLabel,
 		"Density":              h.cfg.Density(),
+		"MapsEmbedKey":         h.mapsEmbedKey,
 	}
 
 	// A rail collection switch (X-Roster-Meta) re-scopes the roster in place: the
@@ -5362,9 +5363,31 @@ type deviceMapPoint struct {
 // telemetry, as JSON for the overview fleet map, plus the count. Coordinates come
 // from the geolocation pipeline (WiFi scan -> lat/lon merged into the device extra).
 func (h *Handler) deviceLocationsJSON(ctx context.Context) (template.JS, int) {
-	devs, err := h.db.ListDevices(ctx, db.DeviceFilter{}, 0, 5000, "", "")
+	pts := h.devicePoints(ctx, db.DeviceFilter{})
+	b, err := json.Marshal(pts)
 	if err != nil {
 		return template.JS("[]"), 0
+	}
+	return template.JS(b), len(pts)
+}
+
+// DeviceMapData is the Fleet page's map view: the located devices matching the
+// same query string the roster uses (collection, quick view, filters, search),
+// as JSON {points:[…], total:N}.
+func (h *Handler) DeviceMapData(w http.ResponseWriter, r *http.Request) {
+	filter := h.deviceFilterFromRequest(r)
+	pts := h.devicePoints(r.Context(), filter)
+	total, _ := h.db.CountDevices(r.Context(), filter)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	_ = json.NewEncoder(w).Encode(map[string]any{"points": pts, "total": total})
+}
+
+// devicePoints returns every device matching filter that has a resolved lat/lon.
+func (h *Handler) devicePoints(ctx context.Context, filter db.DeviceFilter) []deviceMapPoint {
+	devs, err := h.db.ListDevices(ctx, filter, 0, 5000, "", "")
+	if err != nil {
+		return []deviceMapPoint{}
 	}
 	online := h.hub.ConnectedIDs()
 	pts := make([]deviceMapPoint, 0, 16)
@@ -5396,11 +5419,7 @@ func (h *Handler) deviceLocationsJSON(ctx context.Context) (template.JS, int) {
 		}
 		pts = append(pts, p)
 	}
-	b, err := json.Marshal(pts)
-	if err != nil {
-		return template.JS("[]"), 0
-	}
-	return template.JS(b), len(pts)
+	return pts
 }
 
 // DeviceShellPage renders the interactive shell console for a device. The console
@@ -14983,6 +15002,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
 	mux.HandleFunc("GET /map", h.requireAuth(h.MapPage))
+	mux.HandleFunc("GET /devices/map.json", h.requireAuth(h.DeviceMapData))
 	post("POST /overview/layout", h.requireAuth(h.OverviewLayoutSave))
 	post("POST /overview/layout/reset", h.requireAuth(h.OverviewLayoutReset))
 	post("POST /tour/done", h.requireAuth(h.TourDone))

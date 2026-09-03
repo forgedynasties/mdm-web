@@ -299,6 +299,7 @@ a.fleet-rail-item{min-height:40px}
       <div class="cc-sub">Viewing <b>{{.SelectedCollection}}</b> · {{.SelectedCount}} device{{if ne .SelectedCount 1}}s{{end}}{{if .FilterCount}} · {{.FilterCount}} filter{{if ne .FilterCount 1}}s{{end}} applied{{end}}</div>
     </div>
     <div class="cc-actions fl-actions">
+      {{if .MapsEmbedKey}}<button type="button" class="cc-btn" id="fl-map-btn" aria-pressed="false" onclick="flToggleMap()" title="Show the devices in this view on a map"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg><span class="lbl">Map</span></button>{{end}}
       <button type="button" class="cc-btn" onclick="bulkExport()" title="Export selected devices"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
       <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
     </div>
@@ -1347,6 +1348,117 @@ document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') closeBulkGroupModal();
 });
 </script>
+
+{{if .MapsEmbedKey}}
+{{/* ── Map view: the roster's current scope + filters as markers (toggled by the
+     header's Map button; the roster stays in the DOM, hidden, so the live poll
+     and selection keep working). ── */}}
+<div class="card fl-map-pane" id="fl-map-pane" hidden>
+  <div class="fl-map"><div id="fl-map"></div>
+    <div class="fl-map-count" id="fl-map-count">Loading…</div>
+    <div class="fl-map-legend"><span><i class="ok"></i>Online</span><span><i></i>Offline</span><span><i class="cl"></i>Cluster</span><a href="/map">Full map →</a></div>
+  </div>
+</div>
+<style>
+.fl-map-pane{overflow:hidden}
+.fl-map{position:relative;height:calc(100vh - 420px);min-height:440px}
+#fl-map{position:absolute;inset:0}
+.fl-map-count{position:absolute;right:12px;top:12px;z-index:2;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px 11px;font-size:11.5px;font-weight:650;color:var(--text-2);box-shadow:var(--shadow-md)}
+.fl-map-legend{position:absolute;left:12px;bottom:12px;z-index:2;display:flex;gap:12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:6px 12px;font-size:11.5px;color:var(--muted);box-shadow:var(--shadow-md)}
+.fl-map-legend span{display:inline-flex;align-items:center;gap:6px}
+.fl-map-legend i{width:9px;height:9px;border-radius:50%;background:var(--rule-2);display:inline-block}
+.fl-map-legend i.ok{background:var(--ok)}.fl-map-legend i.cl{background:var(--accent)}
+.fl-map-legend a{color:var(--accent-text);text-decoration:none;font-weight:650;margin-left:4px}
+.fl-map-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px;color:var(--muted);font-size:13px;background:var(--surface);z-index:3;text-align:center;padding:20px}
+.fl-map-empty b{color:var(--text);font-weight:650}
+#fl-map-btn[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent-edge);color:var(--accent-text)}
+@media(max-width:640px){.fl-map{height:60vh;min-height:360px}}
+</style>
+<script>
+(function () {
+  var pane = document.getElementById('fl-map-pane'), btn = document.getElementById('fl-map-btn');
+  if (!pane || !btn) return;
+  var map = null, markers = [], clusterer = null, iw = null, loading = false, pending = false;
+  var DARK = [{elementType:'geometry',stylers:[{color:'#212a37'}]},{elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},{elementType:'labels.text.stroke',stylers:[{color:'#1b2431'}]},{featureType:'poi',stylers:[{visibility:'off'}]},{featureType:'road',elementType:'geometry',stylers:[{color:'#2c3644'}]},{featureType:'road',elementType:'labels.text.fill',stylers:[{color:'#9ca5b3'}]},{featureType:'transit',stylers:[{visibility:'off'}]},{featureType:'water',elementType:'geometry',stylers:[{color:'#17212f'}]}];
+  function styles(){ return (window.mdmTheme && window.mdmTheme()==='dark') ? DARK : []; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function active(){ return !pane.hidden; }
+  function ensureMaps(cb) {
+    if (window.google && google.maps) { cb(); return; }
+    if (window.__flMapsCb) { window.__flMapsCb.push(cb); return; }
+    window.__flMapsCb = [cb];
+    window.flMapsReady = function(){ var q = window.__flMapsCb || []; window.__flMapsCb = null; q.forEach(function(f){ f(); }); };
+    if (!window.markerClusterer) { var c = document.createElement('script'); c.src = '/static/vendor/markerclusterer.min.js'; document.head.appendChild(c); }
+    var s = document.createElement('script'); s.async = true;
+    s.src = 'https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=flMapsReady';
+    document.head.appendChild(s);
+  }
+  function initMap() {
+    if (map) return;
+    map = new google.maps.Map(document.getElementById('fl-map'), { zoom: 2, center: {lat:20,lng:0}, mapTypeControl:false, streetViewControl:false, fullscreenControl:true, keyboardShortcuts:false, gestureHandling:'greedy', styles: styles() });
+    iw = new google.maps.InfoWindow();
+    window.addEventListener('mdm:themechange', function(){ map.setOptions({styles: styles()}); });
+  }
+  function render(pts, total) {
+    if (clusterer) { clusterer.clearMarkers(); clusterer = null; }
+    markers.forEach(function(m){ m.setMap(null); }); markers = [];
+    var old = pane.querySelector('.fl-map-empty'); if (old) old.remove();
+    document.getElementById('fl-map-count').textContent = pts.length + ' of ' + total + ' located';
+    if (!pts.length) {
+      var e = document.createElement('div'); e.className = 'fl-map-empty';
+      e.innerHTML = '<b>No located devices in this view</b>Devices appear once the geolocation pipeline resolves their position.';
+      pane.querySelector('.fl-map').appendChild(e); return;
+    }
+    var bounds = new google.maps.LatLngBounds();
+    pts.forEach(function(p){
+      var mk = new google.maps.Marker({ position:{lat:p.lat,lng:p.lon}, map:map, title:p.serial,
+        icon:{ path:google.maps.SymbolPath.CIRCLE, scale:8, fillColor:p.online?'#22c55e':'#94a3b8', fillOpacity:1, strokeColor:'#fff', strokeWeight:2 } });
+      mk.addListener('click', function(){
+        iw.setContent('<div style="min-width:160px;font-size:13px"><b>'+esc(p.name)+'</b><div style="opacity:.7;font-family:monospace">'+esc(p.serial)+'</div>'+(p.address?'<div>'+esc(p.address)+'</div>':'')+'<div style="margin:4px 0">'+(p.online?'🟢 online':'⚪ offline')+(p.battery?' · 🔋 '+p.battery+'%':'')+'</div><a href="/devices/'+encodeURIComponent(p.serial)+'">Open device →</a></div>');
+        iw.open(map, mk);
+      });
+      markers.push(mk); bounds.extend(mk.getPosition());
+    });
+    if (window.markerClusterer && markers.length > 1) {
+      var accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#f9674e';
+      clusterer = new markerClusterer.MarkerClusterer({ map:map, markers:markers, renderer:{ render:function(c){
+        var size = c.count<10?34:c.count<100?42:50, r=size/2;
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'"><circle cx="'+r+'" cy="'+r+'" r="'+(r-2)+'" fill="'+accent+'" stroke="#fff" stroke-width="2.5"/></svg>';
+        return new google.maps.Marker({ position:c.position, icon:{ url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg), scaledSize:new google.maps.Size(size,size), anchor:new google.maps.Point(r,r) }, label:{ text:String(c.count), color:'#fff', fontSize:'12.5px', fontWeight:'700' }, zIndex:1000+c.count });
+      } } });
+    }
+    if (markers.length === 1) { map.setCenter(markers[0].getPosition()); map.setZoom(13); }
+    else { google.maps.event.addListenerOnce(map, 'bounds_changed', function(){ if (map.getZoom() > 15) map.setZoom(15); }); map.fitBounds(bounds, 40); }
+  }
+  function load() {
+    if (!active()) return;
+    if (loading) { pending = true; return; }
+    loading = true;
+    var vals = (typeof getFilterVals === 'function') ? getFilterVals() : {};
+    var qs = new URLSearchParams(vals); qs.delete('page'); qs.delete('page_size');
+    fetch('/devices/map.json?' + qs.toString(), { credentials:'same-origin', headers:{ 'Accept':'application/json' } })
+      .then(function(r){ return r.json(); })
+      .then(function(d){ ensureMaps(function(){ initMap(); render(d.points || [], d.total || 0); }); })
+      .catch(function(){ document.getElementById('fl-map-count').textContent = 'Could not load map data'; })
+      .then(function(){ loading = false; if (pending) { pending = false; load(); } });
+  }
+  window.flToggleMap = function (force) {
+    var on = (typeof force === 'boolean') ? force : pane.hidden;
+    pane.hidden = !on;
+    var split = document.getElementById('dv-split'); if (split) { split.hidden = on; split.style.display = on ? 'none' : ''; }
+    btn.setAttribute('aria-pressed', String(on));
+    btn.querySelector('.lbl').textContent = on ? 'List' : 'Map';
+    try { localStorage.setItem('mdm-fleet-view', on ? 'map' : 'list'); } catch (e) {}
+    if (on) load();
+  };
+  // Re-fetch when the roster re-renders (filter, quick view, rail scope, live poll).
+  document.body.addEventListener('htmx:afterSwap', function (evt) {
+    if (evt.detail && evt.detail.target && evt.detail.target.id === 'device-table-container') load();
+  });
+  try { if (localStorage.getItem('mdm-fleet-view') === 'map') window.flToggleMap(true); } catch (e) {}
+})();
+</script>
+{{end}}
 
 <div class="dv-split" id="dv-split">
   <div class="card dv-rise-2"
