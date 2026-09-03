@@ -55,7 +55,7 @@
     width:280px;padding:22px;
     background:rgba(255,255,255,var(--g-alpha));
     -webkit-backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
-    backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter:var(--g-filter);
     border:1px solid rgba(255,255,255,var(--g-border));
     border-radius:var(--g-radius);
     box-shadow:0 var(--g-shadow-y) var(--g-shadow-blur) rgba(0,0,0,var(--g-shadow-a)), inset 0 1px 0 rgba(255,255,255,var(--g-highlight));
@@ -69,7 +69,7 @@
   #sample2{width:70px;height:70px;display:flex;align-items:center;justify-content:center;
     background:rgba(255,255,255,var(--g-alpha));
     -webkit-backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
-    backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter:var(--g-filter);
     border:1px solid rgba(255,255,255,var(--g-border));
     border-radius:calc(var(--g-radius) * .6);
     box-shadow:0 var(--g-shadow-y) var(--g-shadow-blur) rgba(0,0,0,var(--g-shadow-a)), inset 0 1px 0 rgba(255,255,255,var(--g-highlight));
@@ -78,7 +78,7 @@
   #sample3{display:flex;align-items:center;gap:10px;padding:10px 16px 10px 10px;
     background:rgba(255,255,255,var(--g-alpha));
     -webkit-backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
-    backdrop-filter:blur(var(--g-blur)) saturate(var(--g-sat));
+    backdrop-filter:var(--g-filter);
     border:1px solid rgba(255,255,255,var(--g-border));
     border-radius:999px;
     box-shadow:0 var(--g-shadow-y) var(--g-shadow-blur) rgba(0,0,0,var(--g-shadow-a)), inset 0 1px 0 rgba(255,255,255,var(--g-highlight));
@@ -92,6 +92,21 @@
   .prop{color:#8fd6ff}.val{color:#ffd479}
 </style></head>
 <body>
+  <!-- Refraction filter: the actual "liquid glass" distortion (feTurbulence
+       generates noise, feDisplacementMap uses it to warp the backdrop like
+       looking through textured glass), layered on top of the plain blur/
+       saturate glass above rather than replacing it. Support is spotty:
+       Chrome/Firefox apply an SVG filter referenced from backdrop-filter;
+       Safari does not (see the note in the panel), it just falls back to
+       flat blur there, same as with the toggle off. -->
+  <svg width="0" height="0" style="position:absolute;overflow:hidden">
+    <filter id="lg-refract" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.01 0.01" numOctaves="2" seed="92" result="noise" />
+      <feGaussianBlur in="noise" stdDeviation="2" result="blurred" />
+      <feDisplacementMap id="lg-displace" in="SourceGraphic" in2="blurred" scale="0" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  </svg>
+
   <div class="bg">
     <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div>
     <div class="bgtext">
@@ -149,6 +164,24 @@
           <label>Shadow lift <b id="v-shadow">50%</b></label>
           <input type="range" id="r-shadow" min="0" max="100" value="50" oninput="update()">
         </div>
+        <div class="row" style="border-top:1px solid rgba(255,255,255,.15);padding-top:14px;">
+          <label>Refraction (SVG distortion) <b id="v-refract-state">Off</b></label>
+          <div class="seg">
+            <button type="button" data-refract="off" class="on" onclick="setRefract(false)">Off</button>
+            <button type="button" data-refract="on" onclick="setRefract(true)">On</button>
+          </div>
+        </div>
+        <div class="row" id="row-strength" style="display:none;">
+          <label>Distortion strength <b id="v-strength">70</b></label>
+          <input type="range" id="r-strength" min="0" max="150" value="70" oninput="update()">
+        </div>
+        <div class="row" id="row-freq" style="display:none;">
+          <label>Distortion frequency <b id="v-freq">0.010</b></label>
+          <input type="range" id="r-freq" min="1" max="40" value="10" oninput="update()">
+        </div>
+        <div class="row" id="row-refract-note" style="display:none;">
+          <span style="font-size:11px;color:rgba(255,255,255,.6);line-height:1.5;">Chrome/Firefox warp the backdrop through this filter. Safari doesn't support an SVG filter in <code>backdrop-filter</code> — it silently falls back to plain blur there.</span>
+        </div>
       </div>
 
       <div class="stage">
@@ -178,9 +211,22 @@ var els = {
   border: document.getElementById('r-border'),
   radius: document.getElementById('r-radius'),
   hl: document.getElementById('r-hl'),
-  shadow: document.getElementById('r-shadow')
+  shadow: document.getElementById('r-shadow'),
+  strength: document.getElementById('r-strength'),
+  freq: document.getElementById('r-freq')
 };
 var tone = 'light';
+var refractOn = false;
+
+function setRefract(on) {
+  refractOn = on;
+  document.querySelectorAll('[data-refract]').forEach(function (b) { b.classList.toggle('on', (b.dataset.refract === 'on') === on); });
+  document.getElementById('v-refract-state').textContent = on ? 'On' : 'Off';
+  document.getElementById('row-strength').style.display = on ? '' : 'none';
+  document.getElementById('row-freq').style.display = on ? '' : 'none';
+  document.getElementById('row-refract-note').style.display = on ? '' : 'none';
+  update();
+}
 
 function setTone(t) {
   tone = t;
@@ -193,7 +239,8 @@ function setTone(t) {
 function update() {
   var blur = +els.blur.value, sat = +els.sat.value, alpha = +els.alpha.value / 100,
       border = +els.border.value / 100, radius = +els.radius.value, hl = +els.hl.value / 100,
-      shadowPct = +els.shadow.value / 100;
+      shadowPct = +els.shadow.value / 100,
+      strength = +els.strength.value, freq = +els.freq.value / 1000;
 
   document.getElementById('v-blur').textContent = blur + 'px';
   document.getElementById('v-sat').textContent = sat + '%';
@@ -202,6 +249,8 @@ function update() {
   document.getElementById('v-radius').textContent = radius + 'px';
   document.getElementById('v-hl').textContent = Math.round(hl * 100) + '%';
   document.getElementById('v-shadow').textContent = Math.round(shadowPct * 100) + '%';
+  document.getElementById('v-strength').textContent = strength;
+  document.getElementById('v-freq').textContent = freq.toFixed(3);
 
   var root = document.documentElement.style;
   root.setProperty('--g-blur', blur + 'px');
@@ -213,18 +262,41 @@ function update() {
   root.setProperty('--g-shadow-y', Math.round(6 + shadowPct * 14) + 'px');
   root.setProperty('--g-shadow-blur', Math.round(16 + shadowPct * 34) + 'px');
   root.setProperty('--g-shadow-a', (.08 + shadowPct * .22).toFixed(2));
+  root.setProperty('--g-filter', refractOn ? 'url(#lg-refract) blur(var(--g-blur)) saturate(var(--g-sat))' : 'blur(var(--g-blur)) saturate(var(--g-sat))');
 
-  renderCode(blur, sat, alpha, border, radius, hl, shadowPct);
+  // Drive the actual SVG primitives — the filter is shared (one <filter> in
+  // the page), so every glass sample using it warps in sync.
+  var turb = document.querySelector('#lg-refract feTurbulence');
+  var displace = document.getElementById('lg-displace');
+  if (turb) turb.setAttribute('baseFrequency', freq + ' ' + freq);
+  if (displace) displace.setAttribute('scale', refractOn ? strength : 0);
+
+  renderCode(blur, sat, alpha, border, radius, hl, shadowPct, strength, freq);
 }
 
-function renderCode(blur, sat, alpha, border, radius, hl, shadowPct) {
+function renderCode(blur, sat, alpha, border, radius, hl, shadowPct, strength, freq) {
   var bg = tone === 'dark' ? '20,18,17' : '255,255,255';
   var shadowY = Math.round(6 + shadowPct * 14), shadowBlur = Math.round(16 + shadowPct * 34), shadowA = (.08 + shadowPct * .22).toFixed(2);
-  var css =
+  var backdrop = refractOn
+    ? 'url(#lg-refract) blur(' + blur + 'px) saturate(' + sat + '%)'
+    : 'blur(' + blur + 'px) saturate(' + sat + '%)';
+  var css = '';
+  if (refractOn) {
+    css +=
+'<!-- Chrome/Firefox only — Safari ignores the url(#...) and falls back to plain blur -->\n' +
+'<svg width="0" height="0" style="position:absolute;overflow:hidden">\n' +
+'  <filter id="lg-refract" x="-20%" y="-20%" width="140%" height="140%">\n' +
+'    <feTurbulence type="fractalNoise" baseFrequency="' + freq.toFixed(3) + ' ' + freq.toFixed(3) + '" numOctaves="2" seed="92" result="noise" />\n' +
+'    <feGaussianBlur in="noise" stdDeviation="2" result="blurred" />\n' +
+'    <feDisplacementMap in="SourceGraphic" in2="blurred" scale="' + strength + '" xChannelSelector="R" yChannelSelector="G" />\n' +
+'  </filter>\n' +
+'</svg>\n\n';
+  }
+  css +=
 '.glass {\n' +
 '  background: rgba(' + bg + ', ' + alpha.toFixed(2) + ');\n' +
-'  backdrop-filter: blur(' + blur + 'px) saturate(' + sat + '%);\n' +
-'  -webkit-backdrop-filter: blur(' + blur + 'px) saturate(' + sat + '%);\n' +
+'  backdrop-filter: ' + backdrop + ';\n' +
+'  -webkit-backdrop-filter: blur(' + blur + 'px) saturate(' + sat + '%); /* Safari: no SVG filter support here */\n' +
 '  border: 1px solid rgba(255, 255, 255, ' + border.toFixed(2) + ');\n' +
 '  border-radius: ' + radius + 'px;\n' +
 '  box-shadow: 0 ' + shadowY + 'px ' + shadowBlur + 'px rgba(0, 0, 0, ' + shadowA + '),\n' +
@@ -257,7 +329,7 @@ function applyPreset(name) {
 // The controls panel is glass too, driven by the same vars — set once at load.
 document.getElementById('ctrl-panel').style.background = 'rgba(255,255,255,var(--g-alpha))';
 document.getElementById('ctrl-panel').style.webkitBackdropFilter = 'blur(var(--g-blur)) saturate(var(--g-sat))';
-document.getElementById('ctrl-panel').style.backdropFilter = 'blur(var(--g-blur)) saturate(var(--g-sat))';
+document.getElementById('ctrl-panel').style.backdropFilter = 'var(--g-filter)';
 document.getElementById('ctrl-panel').style.border = '1px solid rgba(255,255,255,var(--g-border))';
 document.getElementById('ctrl-panel').style.boxShadow = '0 var(--g-shadow-y) var(--g-shadow-blur) rgba(0,0,0,var(--g-shadow-a)), inset 0 1px 0 rgba(255,255,255,var(--g-highlight))';
 document.getElementById('codebox').style.background = 'rgba(0,0,0,.35)';
