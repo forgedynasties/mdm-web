@@ -5012,9 +5012,12 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	// Server-Timing: visible in the browser's Network panel, so a slow page can be
 	// attributed to queries vs. view assembly without log digging.
 	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
+	isDPC, deviceCaps := deviceAgentInfo(device.LatestExtra)
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
+		"IsDPC":               isDPC,
+		"Caps":                deviceCaps,
 		"DeviceCrashCount":    crashCount,
 		"OfflinePeriod":       totp.DefaultPeriod,
 		"OfflineDigits":       totp.DefaultDigits,
@@ -12641,6 +12644,8 @@ var commandRoles = map[string][]string{
 	"ota":           {"admin", "dev"},
 	"update_splash": {"admin", "dev"},
 	"logcat":        {"admin", "dev"},
+	// Full-device factory reset — DPC-agent devices only, admin-only (most destructive action).
+	"wipe":          {"admin"},
 	// Read-only mic capture gain (TX_DEC0..7 Volume) probe. Admin-only for now: the
 	// field it refreshes is only rendered for admins (see device.html Hardware card).
 	"mic_gain_read": {"admin"},
@@ -12944,6 +12949,8 @@ func cmdTypeLabel(cmdType string) string {
 		return "Screenshot"
 	case "reboot":
 		return "Reboot"
+	case "wipe":
+		return "Wipe"
 	case "update_splash":
 		return "Boot logo"
 	case "logcat":
@@ -14279,7 +14286,7 @@ func (h *Handler) ScheduleRunNow(w http.ResponseWriter, r *http.Request) {
 // isDestructiveCmd marks command types that change device state in a way that
 // warrants a reason when the RequireReason setting is on.
 func isDestructiveCmd(t string) bool {
-	return t == "reboot" || t == "ota" || t == "update_splash"
+	return t == "reboot" || t == "ota" || t == "update_splash" || t == "wipe"
 }
 
 func buildPayload(cmdType string, r *http.Request) json.RawMessage {
@@ -14787,6 +14794,29 @@ func agoString(t time.Time) string {
 
 // extraHasCoords reports whether a device's latest extra payload carries a
 // resolved latitude/longitude (so the device page will render the Maps Embed).
+// deviceAgentInfo reports whether a device runs the standalone Device-Owner ("dpc") agent and
+// which capabilities it advertised on checkin (extra.agent_type / extra.capabilities). The device
+// page uses this to gray out actions the DPC agent can't do and to show a Wipe action it can.
+// A legacy system-app client sends no agent_type, so isDPC is false and caps is empty — every
+// existing action stays enabled exactly as before.
+func deviceAgentInfo(raw json.RawMessage) (isDPC bool, caps map[string]bool) {
+	caps = map[string]bool{}
+	if len(raw) == 0 {
+		return false, caps
+	}
+	var m struct {
+		AgentType    string   `json:"agent_type"`
+		Capabilities []string `json:"capabilities"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return false, caps
+	}
+	for _, c := range m.Capabilities {
+		caps[c] = true
+	}
+	return m.AgentType == "dpc", caps
+}
+
 func extraHasCoords(raw json.RawMessage) bool {
 	if len(raw) == 0 {
 		return false
