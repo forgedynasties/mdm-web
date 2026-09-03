@@ -4909,7 +4909,7 @@ html[data-theme="dark"] .ddc-menu { background: rgba(20,18,17,.45); border-color
 .ddc-mi { display: flex; align-items: center; gap: 11px; width: 100%; padding: 8px 10px; border: 0;
   background: none; border-radius: 9px; font: inherit; font-size: 13px; color: var(--text);
   text-align: left; text-decoration: none; cursor: pointer; box-sizing: border-box; }
-.ddc-mi:hover { background: var(--surface2); }
+.ddc-mi:hover { background: var(--hover); }
 .ddc-mi svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
 .ddc-mi.danger, .ddc-mi.danger svg { color: var(--danger); }
 .ddc-mi.danger:hover { background: var(--danger-bg); }
@@ -5316,7 +5316,7 @@ html[data-theme="dark"] .nbar-pop { background: rgba(20,18,17,.45); border-color
   border: 0; background: none; border-radius: 9px; font: inherit; font-size: 13px;
   color: var(--text); cursor: pointer; text-align: left; text-decoration: none;
 }
-.nbar-mi:hover { background: var(--surface2); color: var(--text); }
+.nbar-mi:hover { background: var(--hover); color: var(--text); }
 .nbar-mi .ui-icon, .nbar-mi .ui-icon svg { width: 16px; height: 16px; color: var(--muted); }
 .nbar-mi .nbar-mi-label { flex: 1; }
 .nbar-mi .nbar-mi-rt, .nbar-mi .nbar-theme-state { margin-left: auto; font-size: 11px; color: var(--text-faint); }
@@ -5336,7 +5336,7 @@ html[data-theme="dark"] .nbar-pop { background: rgba(20,18,17,.45); border-color
 .nbar-al-list { height: 320px; overflow-y: auto; }
 .nbar-pop-h { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); padding: 7px 9px 8px; }
 .nbar-al { display: flex; gap: 10px; padding: 9px 9px; border-radius: 9px; text-decoration: none; }
-.nbar-al:hover { background: var(--surface2); }
+.nbar-al:hover { background: var(--hover); }
 .nbar-al-dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 5px; flex: none; background: var(--muted); }
 .nbar-al-dot.sev-critical { background: var(--danger); }
 .nbar-al-dot.sev-warning { background: var(--warn); }
