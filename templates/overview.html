@@ -7,7 +7,15 @@
 .ov3 .tnum{font-variant-numeric:tabular-nums}
 
 /* top bar */
-.ov3-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:18px}
+.ov3-top{display:flex;align-items:flex-start;justify-content:space-between;gap:24px;margin-bottom:18px}
+.ov3-top>div:first-child{flex:1;min-width:0}
+.ov3-actions{flex:none;padding-top:20px}
+@media(max-width:1000px){.ov3-top{flex-direction:column;gap:14px}.ov3-actions{padding-top:0}}
+/* Daily Report header inside the narrow right column */
+.ov3-col .ai-hdr{flex-wrap:wrap;row-gap:8px}
+.ov3-col .ai-hdr-sub{display:none}
+.ov3-col .ai-hdr-r{gap:10px;flex-wrap:wrap}
+.ov3-col .ai-stamp{white-space:nowrap}
 .ov3-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);display:flex;align-items:center;gap:10px}
 .ov3-live{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--ok);text-transform:uppercase}
 .ov3-live .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:ov3pulse 2s infinite}
@@ -16,7 +24,7 @@
 .ov3-h1 .hl.ok{color:var(--ok)}.ov3-h1 .hl.warn{color:var(--warn)}.ov3-h1 .hl.danger{color:var(--danger)}
 .ov3-sub{font-size:13.5px;color:var(--muted);margin-top:6px;max-width:78ch;line-height:1.5}
 .ov3-sub b{color:var(--text);font-weight:650}
-.ov3-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ov3-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
 .ov3-btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:650;padding:8px 13px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);text-decoration:none;box-shadow:var(--shadow-sm);transition:border-color var(--dur),background var(--dur)}
 .ov3-btn:hover{border-color:var(--rule-2);background:var(--surface2);color:var(--text)}
 .ov3-btn.primary{background:var(--accent);color:var(--accent-ink);border-color:transparent}.ov3-btn.primary:hover{background:var(--accent-h);color:#fff}
