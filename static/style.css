@@ -3244,6 +3244,11 @@ html[data-theme="dark"] .logcat-terminal .log-V { color: #8a92a0; }
   background: rgba(255, 255, 255, .45);
   -webkit-backdrop-filter: blur(4px) saturate(180%);
   backdrop-filter: blur(4px) saturate(180%);
+  /* Own compositing layer — without it, a layout change anywhere near another
+     backdrop-filter surface on the page (e.g. a dropdown's content swapping
+     in) can force every glass surface to drop and redraw its blur together,
+     visible as the whole navbar/dock flashing, not just what actually changed. */
+  will-change: backdrop-filter;
   border: 1px solid rgba(255, 255, 255, .29);
   border-radius: 20px;
   box-shadow: 0 14px 36px rgba(0, 0, 0, .21), inset 0 1px 0 rgba(255, 255, 255, .5);
@@ -4894,6 +4899,7 @@ html[data-theme="dark"] .dp-moves { color: #f0b765; }
 .ddc-btn.open { border-color: var(--rule-2); }
 .ddc-menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 30; width: 232px;
   background: rgba(255,255,255,.45); backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%);
+  will-change: backdrop-filter; /* own compositing layer — see .toast for why */
   border: 1px solid rgba(255,255,255,.29); border-radius: 16px;
   box-shadow: 0 14px 36px rgba(0,0,0,.21), inset 0 1px 0 rgba(255,255,255,.50); padding: 7px; animation: ov-rise 0.14s var(--ease) both; }
 html[data-theme="dark"] .ddc-menu { background: rgba(20,18,17,.45); border-color: rgba(255,255,255,.12); }
@@ -5044,6 +5050,7 @@ html[data-theme="dark"] .ddc-gtag .gtag-x { color: #a9adfb; }
 .pl-pop-save { width: 100%; margin-top: 8px; font-size: 13px; padding: 8px; }
 /* "+ group" popover: liquid-glass treatment, matching the hero Actions dropdown. */
 #pl-group-pop { background: rgba(255,255,255,.45); backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%);
+  will-change: backdrop-filter; /* own compositing layer — see .toast for why */
   border-color: rgba(255,255,255,.29); box-shadow: 0 14px 36px rgba(0,0,0,.21), inset 0 1px 0 rgba(255,255,255,.50); }
 html[data-theme="dark"] #pl-group-pop { background: rgba(20,18,17,.45); border-color: rgba(255,255,255,.12); }
 
@@ -5247,6 +5254,10 @@ html[data-theme="dark"] .role-dev { color: #a9adfb; }
   gap: 16px; padding: 12px 24px;
   background: color-mix(in srgb, var(--bg) 82%, transparent);
   backdrop-filter: blur(10px);
+  /* Own compositing layer — without it, this always-visible glass bar was one
+     of the surfaces that flashed whenever another glass popover (e.g. the
+     alerts dropdown) resized its content; see .toast for the full note. */
+  will-change: backdrop-filter;
   border-bottom: 1px solid var(--border-soft);
 }
 .appbar-brand {
@@ -5340,6 +5351,7 @@ html[data-theme="dark"] .nbar-pop { background: rgba(20,18,17,.45); border-color
   background: rgba(255, 255, 255, .45);
   -webkit-backdrop-filter: blur(4px) saturate(180%);
   backdrop-filter: blur(4px) saturate(180%);
+  will-change: backdrop-filter; /* own compositing layer — see .toast for why */
   border: 1px solid rgba(255, 255, 255, .29);
   border-radius: 20px;
   box-shadow: 0 14px 36px rgba(0, 0, 0, .21), inset 0 1px 0 rgba(255, 255, 255, .5);
@@ -5369,6 +5381,7 @@ html[data-theme="dark"] .mtoast { background: rgba(20, 18, 17, .45); border-colo
   background: rgba(255, 255, 255, .45);
   -webkit-backdrop-filter: blur(4px) saturate(180%);
   backdrop-filter: blur(4px) saturate(180%);
+  will-change: backdrop-filter; /* own compositing layer — see .toast for why */
   border: 1.5px solid rgba(255, 255, 255, .29); border-radius: 20px;
   box-shadow: 0 14px 36px rgba(0, 0, 0, .21), inset 0 1px 0 rgba(255, 255, 255, .5), 0 0 0 1.5px var(--accent-edge);
 }
