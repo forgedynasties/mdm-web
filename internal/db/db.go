@@ -6759,6 +6759,33 @@ func (d *DB) GetAISummary(ctx context.Context, scope string) (AISummary, error) 
 	return s, err
 }
 
+// GetUserLayout returns the saved layout JSON for one user + page, or nil when the
+// user has never customised that page (caller falls back to the default layout).
+func (d *DB) GetUserLayout(ctx context.Context, username, page string) ([]byte, error) {
+	var raw []byte
+	err := d.pool.QueryRow(ctx, `SELECT layout FROM user_layouts WHERE username = $1 AND page = $2`,
+		username, page).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	return raw, err
+}
+
+// SetUserLayout upserts a user's layout JSON for a page.
+func (d *DB) SetUserLayout(ctx context.Context, username, page string, layout []byte) error {
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO user_layouts (username, page, layout, updated_at) VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (username, page) DO UPDATE SET layout = EXCLUDED.layout, updated_at = NOW()
+	`, username, page, layout)
+	return err
+}
+
+// DeleteUserLayout removes a user's saved layout so the page returns to its default.
+func (d *DB) DeleteUserLayout(ctx context.Context, username, page string) error {
+	_, err := d.pool.Exec(ctx, `DELETE FROM user_layouts WHERE username = $1 AND page = $2`, username, page)
+	return err
+}
+
 // alertHit is one device flagged by a rule, with display summary + detail payload.
 type alertHit struct {
 	DeviceID uuid.UUID
@@ -9419,6 +9446,18 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name  TEXT NOT NULL DEFAULT '';
 -- (not a user_id FK) so it survives the user account later being renamed or deleted.
 -- Empty for system/scheduler-initiated commands (auto-reboot, redrive).
 ALTER TABLE commands ADD COLUMN IF NOT EXISTS created_by TEXT NOT NULL DEFAULT '';
+
+-- Per-user dashboard layouts (widget order / hidden widgets / chosen preset), keyed
+-- by username + page so a user's Overview arrangement follows them across devices.
+-- Keyed by username rather than users.id because the built-in admin session has no
+-- users row. Absent row = the page's default layout.
+CREATE TABLE IF NOT EXISTS user_layouts (
+    username   TEXT NOT NULL,
+    page       TEXT NOT NULL,
+    layout     JSONB NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (username, page)
+);
 `
 
 // ── OTA Packages ──────────────────────────────────────────────────────────────

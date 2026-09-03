@@ -28,3 +28,50 @@
 </div>
 {{end}}
 {{end}}
+
+{{/* Compact "brief" variant for the Overview widget: headline + top 3 issues,
+     expandable; metrics tiles and the per-restaurant alert breakdown are omitted
+     (the KPI strip and Sites widget already show them). Shares the ids the
+     report JS in layout.html renders into (ai-sum-raw/preview/full/refresh). */}}
+{{define "ai-brief-card"}}
+{{if .AISummary}}
+<div class="ov3-card ov3-brief" id="ai-summary-card">
+  <div class="ov3-ch"><span class="ic ai"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span><h3>Daily report</h3>
+    <span class="m">updated <span class="js-local-time" data-utc="{{.AISummaryAt}}" data-format="short">{{.AISummaryAt}}</span></span>
+    <button type="button" id="ai-sum-refresh" class="ov3-ch-btn" onclick="event.stopPropagation();refreshHourlyReport()" title="Regenerate now">Refresh</button>
+  </div>
+  <div class="ov3-brief-body">
+    <div id="ai-sum-raw" hidden>{{.AISummary}}</div>
+    {{if .DeviceSerials}}<script type="application/json" id="ai-sum-serials">{{.DeviceSerials}}</script>{{end}}
+    {{if .HotSerials}}<script type="application/json" id="ai-sum-hot-serials">{{.HotSerials}}</script>{{end}}
+    {{if .ReportRestaurants}}<script type="application/json" id="ai-sum-restaurants">{{.ReportRestaurants}}</script>{{end}}
+    <div id="ai-sum-preview" class="ov3-brief-lede">{{.AISummaryPreview}}</div>
+    <div id="ai-sum-full" class="ai-text ov3-brief-full"></div>
+    <div class="ov3-brief-more">
+      <button type="button" id="ov3-brief-toggle" hidden>Show all</button>
+      <a href="/fleet-health">Full analysis →</a>
+    </div>
+  </div>
+  <script>
+  // Collapse to the first three call-outs; the toggle appears only when there are more.
+  (function () {
+    var card = document.getElementById('ai-summary-card'), full = document.getElementById('ai-sum-full'), tg = document.getElementById('ov3-brief-toggle');
+    if (!card || !full || !tg) return;
+    function sync() {
+      var n = full.querySelectorAll('.rep-row').length;
+      tg.hidden = n <= 3;
+      tg.textContent = card.classList.contains('open') ? 'Show less' : 'Show ' + (n - 3) + ' more';
+    }
+    tg.addEventListener('click', function () { card.classList.toggle('open'); sync(); });
+    new MutationObserver(sync).observe(full, { childList: true, subtree: true });
+    sync();
+  })();
+  </script>
+</div>
+{{else}}
+<div class="ov3-card">
+  <div class="ov3-ch"><span class="ic ai"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/></svg></span><h3>Daily report</h3><a class="r" href="/fleet-health" style="margin-left:auto">Fleet health →</a></div>
+  <div class="ov3-empty"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></span><div><b>No report yet</b>The hourly AI briefing appears here once it has been generated from Fleet health.</div></div>
+</div>
+{{end}}
+{{end}}

@@ -11,11 +11,7 @@
 .ov3-top>div:first-child{flex:1;min-width:0}
 .ov3-actions{flex:none;padding-top:20px}
 @media(max-width:1000px){.ov3-top{flex-direction:column;gap:14px}.ov3-actions{padding-top:0}}
-/* Daily Report header inside the narrow right column */
-.ov3-col .ai-hdr{flex-wrap:wrap;row-gap:8px}
-.ov3-col .ai-hdr-sub{display:none}
-.ov3-col .ai-hdr-r{gap:10px;flex-wrap:wrap}
-.ov3-col .ai-stamp{white-space:nowrap}
+
 .ov3-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);display:flex;align-items:center;gap:10px}
 .ov3-live{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--ok);text-transform:uppercase}
 .ov3-live .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:ov3pulse 2s infinite}
@@ -205,11 +201,60 @@
 .ov3-chart-legend i.low{border-top-style:dashed;border-color:var(--warn)}
 .ov3-bars-empty{padding:26px;color:var(--muted);font-size:13px;text-align:center}
 
-/* AI card fits the column */
-.ov3-col #ai-summary-card{margin-bottom:0!important}
+
+/* ── Widget system: hide buttons, drag handles, customize popover ── */
+.ov3-w{position:relative;min-width:0}
+.ov3-hide{width:24px;height:24px;flex:none;border-radius:7px;border:1px solid transparent;background:transparent;color:var(--text-faint);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;opacity:0;transition:opacity var(--dur),background var(--dur);padding:0}
+.ov3-hide svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.ov3-w:hover .ov3-hide,.ov3-hide:focus-visible,.ov3-w.dragging .ov3-hide{opacity:1}
+.ov3-hide:hover{background:var(--surface2);color:var(--text);border-color:var(--border)}
+.ov3-ch .ov3-hide{margin-left:auto}
+.ov3-ch .m~.ov3-hide,.ov3-ch .r~.ov3-hide,.ov3-ch .ov3-sfilter~.ov3-hide,.ov3-ch .ov3-ch-btn~.ov3-hide{margin-left:8px}
+.ov3-w-top .ov3-hide{position:absolute;top:8px;right:8px;z-index:2;background:var(--surface);border-color:var(--border)}
+@media(hover:none){.ov3-hide{opacity:1}}
+.ov3-ch.ov3-drag{cursor:grab;user-select:none}.ov3-ch.ov3-drag:active{cursor:grabbing}
+.ov3-w.dragging{opacity:.4}
+.ov3-col.ov3-over{outline:2px dashed var(--accent-edge);outline-offset:6px;border-radius:14px}
+.ov3-col:empty{min-height:120px;border:1px dashed var(--border);border-radius:14px}
+.ov3-drop{height:4px;border-radius:99px;background:var(--accent);margin:-10px 0 -10px;opacity:.9}
+.ov3-grid.single{grid-template-columns:1fr}
+.ov3-grid.single .ov3-col:empty{display:none}
+.ov3-ch .ov3-ch-btn{font:inherit;font-size:11.5px;font-weight:650;padding:4px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;margin-left:8px;white-space:nowrap}
+.ov3-ch .ov3-ch-btn:hover{color:var(--text);border-color:var(--rule-2)}
+.ov3-ch .ov3-ch-btn:disabled{opacity:.6;cursor:wait}
+.ov3-ch .ic.ai{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff}
+/* customize popover */
+.ov3-cust{position:relative}
+.ov3-pop{position:absolute;right:0;top:calc(100% + 8px);width:310px;max-width:calc(100vw - 32px);background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-pop);padding:8px;z-index:60;text-align:left}
+.ov3-pop-sec{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);padding:8px 10px 4px}
+.ov3-pop-item{display:flex;flex-direction:column;align-items:flex-start;gap:1px;width:100%;text-align:left;font:inherit;padding:8px 10px;border-radius:9px;border:1px solid transparent;background:transparent;cursor:pointer;color:var(--text)}
+.ov3-pop-item b{font-size:13px;font-weight:650}.ov3-pop-item span{font-size:11.5px;color:var(--muted)}
+.ov3-pop-item:hover{background:var(--surface2)}
+.ov3-pop-item.on{background:var(--accent-soft);border-color:var(--accent-edge)}
+.ov3-pop-item.on b{color:var(--accent-text)}
+.ov3-pop-item.reset b{color:var(--danger)}
+.ov3-pop-item.static{cursor:default}
+.ov3-pop-none,.ov3-pop-hint{font-size:11.5px;color:var(--muted);padding:6px 10px}
+.ov3-pop-hint{border-top:1px solid var(--border-soft);margin-top:6px;padding-top:10px}
+.ov3-pop-hint kbd{font:inherit;font-weight:650;color:var(--text-2)}
+.ov3-toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:12.5px;font-weight:600;padding:8px 14px;border-radius:99px;box-shadow:var(--shadow-pop);z-index:70;opacity:0;transition:opacity .2s;pointer-events:none}
+.ov3-toast.show{opacity:1}
+/* compact daily report (brief) */
+.ov3-brief-body{padding:14px 17px}
+.ov3-brief-lede{font-size:14px;line-height:1.5;font-weight:500}
+.ov3-brief-full{margin-top:10px}
+.ov3-brief .rep-tiles,.ov3-brief .rep-good{display:none}
+.ov3-brief .rep-rows{margin-top:0;gap:8px}
+.ov3-brief .rep-row .meta{font-size:12.5px;line-height:1.45}
+.ov3-brief:not(.open) .rep-row:nth-child(n+4){display:none}
+.ov3-brief .rab{display:none}
+.ov3-brief-more{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-soft);font-size:12px}
+.ov3-brief-more button{font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);background:none;border:0;cursor:pointer;padding:0}
+.ov3-brief-more a{color:var(--muted);text-decoration:none;font-weight:600;margin-left:auto}
+.ov3-brief-more a:hover{color:var(--text)}
 </style>
 
-<div class="ov3">
+<div class="ov3" id="ov3">
 
   {{/* ── Top bar ── */}}
   <div class="ov3-top">
@@ -223,10 +268,23 @@
       <a class="ov3-btn" href="/alerts?status=open"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Alerts<span class="n{{if gt .AlertsOpenCount 0}} warn{{end}}">{{.AlertsOpenCount}}</span></a>
       {{if canAct .Role}}<a class="ov3-btn" href="/commands"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Send action</a>{{end}}
       {{if canAdminOrOperator .Role}}<a class="ov3-btn" href="/updates"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Deploy update</a>{{end}}
+      <div class="ov3-cust" id="ov3-cust">
+        <button type="button" class="ov3-btn" id="ov3-cust-btn" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3"/><path d="M1 14h6M9 8h6M17 16h6"/></svg>Customize{{if .IsCustomized}}<span class="n">{{if eq .Layout.Preset "custom"}}custom{{else}}{{.Layout.Preset}}{{end}}</span>{{end}}</button>
+        <div class="ov3-pop" id="ov3-pop" hidden>
+          <div class="ov3-pop-sec">Views</div>
+          {{range .Presets}}<button type="button" class="ov3-pop-item{{if eq $.Layout.Preset .ID}} on{{end}}" data-preset="{{.ID}}"><b>{{.Label}}</b><span>{{.Blurb}}</span></button>{{end}}
+          {{if eq .Layout.Preset "custom"}}<div class="ov3-pop-item on static"><b>Custom</b><span>Your own arrangement, saved to your account.</span></div>{{end}}
+          <div class="ov3-pop-sec">Hidden widgets</div>
+          <div id="ov3-hidden-list">{{range .HiddenWidgets}}<button type="button" class="ov3-pop-item" data-show="{{.ID}}"><b>{{.Title}}</b><span>Show again</span></button>{{else}}<div class="ov3-pop-none">Nothing hidden. Use the × on a card to hide it.</div>{{end}}</div>
+          <div class="ov3-pop-hint">Drag a card by its header to move it between columns. Changes save to your account.</div>
+          <button type="button" class="ov3-pop-item reset" id="ov3-reset"><b>Reset to default</b><span>Show every widget in the standard order.</span></button>
+        </div>
+      </div>
       {{if eq .Role "admin"}}<a class="ov3-btn" href="/export/visualize" title="Open a CSV from Devices → Export as a table + charts. Parsed locally in your browser, never uploaded."><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Visualize CSV</a>{{end}}
     </div>
   </div>
 
+  {{if not (index .IsHidden "hero")}}<div class="ov3-w ov3-w-top" data-w="hero">
   {{/* ── Hero: score · verdict · composition ── */}}
   <div class="ov3-hero is-{{.ScoreClass}}">
     <div class="ov3-score">
@@ -270,6 +328,9 @@
     </div>
   </div>
 
+  </div>{{end}}
+
+  {{if not (index .IsHidden "kpis")}}<div class="ov3-w ov3-w-top" data-w="kpis">
   {{/* ── KPI strip ── */}}
   <div class="ov3-kpis">
     <a class="ov3-kpi" href="/devices?status=online"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online</span>
@@ -303,13 +364,207 @@
       <div class="ov3-sp-empty"></div></a>
   </div>
 
-  {{/* ── Main grid ── */}}
-  <div class="ov3-grid">
+  </div>{{end}}
 
-    {{/* ═══ Left column ═══ */}}
-    <div class="ov3-col">
+  {{/* ── Main grid: two columns of user-arranged widgets ── */}}
+  <div class="ov3-grid{{if .SingleColumn}} single{{end}}" id="ov3-grid">
+    <div class="ov3-col" id="ov3-left" data-col="left">{{range .Layout.Left}}{{template "ov3-widget" (dict "ID" . "D" $)}}{{end}}</div>
+    <div class="ov3-col" id="ov3-right" data-col="right">{{range .Layout.Right}}{{template "ov3-widget" (dict "ID" . "D" $)}}{{end}}</div>
+  </div>
 
-      {{/* Sites heatmap */}}
+</div>
+
+<script type="application/json" id="ov3-layout">{{.LayoutJSON}}</script>
+<script type="application/json" id="ov3-widgets">{{.WidgetsJSON}}</script>
+
+<script>
+// Sites heatmap: legend chips toggle a class filter; "Show N more" reveals the overflow.
+(function () {
+  var root = document.getElementById('ov3-sites');
+  if (!root) return;
+  var active = null, expanded = false;
+  var tiles = Array.prototype.slice.call(root.querySelectorAll('.ov3-site'));
+  var btns = Array.prototype.slice.call(root.querySelectorAll('.ov3-sfilter button'));
+  var more = document.getElementById('ov3-sites-more');
+  function apply() {
+    var shown = 0;
+    tiles.forEach(function (t) {
+      var match = !active || t.getAttribute('data-c') === active;
+      var over = !expanded && !active && t.classList.contains('xtra');
+      t.classList.toggle('hide', !match || over);
+      if (match && !over) shown++;
+    });
+    btns.forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-f') === active); });
+    if (more) more.style.display = (active || expanded) ? 'none' : '';
+  }
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      var f = b.getAttribute('data-f');
+      active = (active === f) ? null : f;
+      apply();
+    });
+  });
+  if (more) more.addEventListener('click', function (e) { e.preventDefault(); expanded = true; apply(); });
+})();
+</script>
+
+
+<script>
+// ── Widget system: hide / show / drag between columns / presets / reset ──
+// Layout is rendered server-side from the user's saved arrangement; this script
+// only mutates the DOM for the immediate change and persists the new layout.
+(function () {
+  var root = document.getElementById('ov3');
+  if (!root) return;
+  var layout, widgets;
+  try { layout = JSON.parse(document.getElementById('ov3-layout').textContent); } catch (e) { layout = {hidden: [], left: [], right: []}; }
+  try { widgets = JSON.parse(document.getElementById('ov3-widgets').textContent); } catch (e) { widgets = []; }
+  var titles = {}; widgets.forEach(function (w) { titles[w.id] = w.title; });
+  layout.hidden = layout.hidden || [];
+
+  function toast(msg) {
+    var t = document.getElementById('ov3-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'ov3-toast'; t.className = 'ov3-toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, 1800);
+  }
+  function ids(col) { return Array.prototype.map.call(col.querySelectorAll(':scope > .ov3-w'), function (e) { return e.getAttribute('data-w'); }); }
+  function collect() {
+    return { preset: 'custom', hidden: layout.hidden.slice(),
+      left: ids(document.getElementById('ov3-left')), right: ids(document.getElementById('ov3-right')) };
+  }
+  function save(body) {
+    return fetch('/overview/layout', { method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { if (!r.ok) throw new Error('save failed'); return r.json(); })
+      .catch(function () { toast('Could not save layout'); });
+  }
+  function syncGrid() {
+    var g = document.getElementById('ov3-grid');
+    var l = document.getElementById('ov3-left'), r = document.getElementById('ov3-right');
+    g.classList.toggle('single', !l.children.length || !r.children.length);
+  }
+  function refreshHiddenMenu() {
+    var host = document.getElementById('ov3-hidden-list');
+    if (!host) return;
+    host.innerHTML = '';
+    if (!layout.hidden.length) { host.innerHTML = '<div class="ov3-pop-none">Nothing hidden. Use the × on a card to hide it.</div>'; return; }
+    layout.hidden.forEach(function (id) {
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'ov3-pop-item'; b.setAttribute('data-show', id);
+      b.innerHTML = '<b></b><span>Show again</span>'; b.querySelector('b').textContent = titles[id] || id;
+      host.appendChild(b);
+    });
+  }
+  function markCustom() {
+    var btn = document.getElementById('ov3-cust-btn');
+    if (btn && !btn.querySelector('.n')) { var n = document.createElement('span'); n.className = 'n'; n.textContent = 'custom'; btn.appendChild(n); }
+    else if (btn) btn.querySelector('.n').textContent = 'custom';
+    Array.prototype.forEach.call(document.querySelectorAll('#ov3-pop [data-preset]'), function (b) { b.classList.remove('on'); });
+  }
+
+  // Hide buttons on every widget.
+  Array.prototype.forEach.call(root.querySelectorAll('.ov3-w'), function (w) {
+    var id = w.getAttribute('data-w');
+    var btn = document.createElement('button');
+    btn.type = 'button'; btn.className = 'ov3-hide'; btn.title = 'Hide ' + (titles[id] || 'widget');
+    btn.setAttribute('aria-label', btn.title);
+    btn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    btn.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (layout.hidden.indexOf(id) < 0) layout.hidden.push(id);
+      w.remove(); syncGrid(); markCustom(); refreshHiddenMenu();
+      layout = Object.assign(collect(), { hidden: layout.hidden });
+      save(layout).then(function () { toast((titles[id] || 'Widget') + ' hidden'); });
+    });
+    var head = w.querySelector('.ov3-ch');
+    if (head && !w.classList.contains('ov3-w-top')) { head.appendChild(btn); head.classList.add('ov3-drag'); head.setAttribute('draggable', 'true'); }
+    else w.appendChild(btn);
+  });
+
+  // Drag & drop between / within the two columns (pointer devices).
+  var dragging = null, marker = document.createElement('div'); marker.className = 'ov3-drop';
+  root.addEventListener('dragstart', function (e) {
+    var head = e.target.closest && e.target.closest('.ov3-ch.ov3-drag');
+    if (!head) return;
+    dragging = head.closest('.ov3-w');
+    dragging.classList.add('dragging');
+    try { e.dataTransfer.setData('text/plain', dragging.getAttribute('data-w')); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+  });
+  root.addEventListener('dragend', function () {
+    if (dragging) dragging.classList.remove('dragging');
+    dragging = null; marker.remove();
+    Array.prototype.forEach.call(root.querySelectorAll('.ov3-col'), function (c) { c.classList.remove('ov3-over'); });
+  });
+  Array.prototype.forEach.call(root.querySelectorAll('.ov3-col'), function (col) {
+    col.addEventListener('dragover', function (e) {
+      if (!dragging) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = 'move';
+      col.classList.add('ov3-over');
+      var after = null;
+      Array.prototype.forEach.call(col.querySelectorAll(':scope > .ov3-w'), function (w) {
+        if (w === dragging) return;
+        var r = w.getBoundingClientRect();
+        if (e.clientY > r.top + r.height / 2) after = w;
+      });
+      if (after) after.after(marker); else col.prepend(marker);
+    });
+    col.addEventListener('dragleave', function (e) { if (!col.contains(e.relatedTarget)) col.classList.remove('ov3-over'); });
+    col.addEventListener('drop', function (e) {
+      if (!dragging) return;
+      e.preventDefault();
+      marker.replaceWith(dragging);
+      col.classList.remove('ov3-over');
+      syncGrid(); markCustom();
+      layout = Object.assign(collect(), { hidden: layout.hidden });
+      save(layout).then(function () { toast('Layout saved'); });
+    });
+  });
+
+  // Customize popover.
+  var cust = document.getElementById('ov3-cust'), btn = document.getElementById('ov3-cust-btn'), pop = document.getElementById('ov3-pop');
+  if (btn && pop) {
+    btn.addEventListener('click', function (e) { e.stopPropagation(); pop.hidden = !pop.hidden; btn.setAttribute('aria-expanded', String(!pop.hidden)); });
+    if (!window.__ov3PopBound) {
+      window.__ov3PopBound = true;
+      document.addEventListener('click', function (e) {
+        var p = document.getElementById('ov3-pop'), c = document.getElementById('ov3-cust');
+        if (p && !p.hidden && c && !c.contains(e.target)) { p.hidden = true; document.getElementById('ov3-cust-btn').setAttribute('aria-expanded', 'false'); }
+      });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { var p = document.getElementById('ov3-pop'); if (p) p.hidden = true; } });
+    }
+    pop.addEventListener('click', function (e) {
+      var t = e.target.closest('button'); if (!t) return;
+      if (t.hasAttribute('data-preset')) {
+        t.disabled = true;
+        save({ preset: t.getAttribute('data-preset') }).then(function () { location.reload(); });
+      } else if (t.hasAttribute('data-show')) {
+        var id = t.getAttribute('data-show');
+        layout.hidden = layout.hidden.filter(function (x) { return x !== id; });
+        var body = Object.assign(collect(), { hidden: layout.hidden });
+        // Put the widget back where it belongs: home column, at the end.
+        var w = widgets.filter(function (x) { return x.id === id; })[0];
+        if (w && w.slot === 'left') body.left.push(id); else if (w && w.slot === 'right') body.right.push(id);
+        t.disabled = true;
+        save(body).then(function () { location.reload(); });
+      } else if (t.id === 'ov3-reset') {
+        t.disabled = true;
+        fetch('/overview/layout/reset', { method: 'POST', credentials: 'same-origin' }).then(function () { location.reload(); });
+      }
+    });
+  }
+})();
+</script>
+
+{{template "footer" .}}
+{{end}}
+
+{{/* ── Widget dispatch: renders one column widget by id ── */}}
+{{define "ov3-widget"}}{{$d := .D}}<div class="ov3-w" data-w="{{.ID}}">
+{{if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "report"}}{{template "ov3-w-report" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{end}}
+</div>{{end}}
+
+{{define "ov3-w-sites"}}
+{{/* Sites heatmap */}}
       <div class="ov3-card" id="ov3-sites">
         <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span><h3>Sites</h3>
           {{if .Sites}}<div class="ov3-sfilter">
@@ -342,10 +597,12 @@
         {{end}}
       </div>
 
-      {{/* Fleet map */}}
+      {{end}}
+{{define "ov3-w-map"}}
+{{/* Fleet map */}}
       {{if and .DeviceMapCount .MapsEmbedKey}}
       <div class="ov3-card">
-        <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>Fleet map</h3><span class="m">{{.DeviceMapCount}} located</span></div>
+        <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>Fleet map</h3><span class="m">{{.DeviceMapCount}} located</span><a class="r" href="/map">Full map →</a></div>
         <div id="ov-map" style="height:340px"></div>
       </div>
       <script type="application/json" id="ov-map-data">{{.DeviceLocations}}</script>
@@ -444,9 +701,16 @@
            maps.googleapis.com and maps.gstatic.com. */}}
       <script src="/static/vendor/markerclusterer.min.js"></script>
       <script async src="https://maps.googleapis.com/maps/api/js?key={{.MapsEmbedKey}}&callback=ovInitMap"></script>
+      {{else}}
+      <div class="ov3-card">
+        <div class="ov3-ch"><span class="ic info"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg></span><h3>Fleet map</h3><a class="r" href="/map" style="margin-left:auto">Full map →</a></div>
+        <div class="ov3-empty"><span class="i mut"><svg viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/></svg></span><div><b>{{if .MapsEmbedKey}}No located devices yet{{else}}Maps key not configured{{end}}</b>{{if .MapsEmbedKey}}Devices appear here once the geolocation pipeline resolves their position.{{else}}Add a Google Maps key in Settings → Google APIs to enable the map.{{end}}</div></div>
+      </div>
       {{end}}
 
-      {{/* Fleet activity */}}
+      {{end}}
+{{define "ov3-w-activity"}}
+{{/* Fleet activity */}}
       <div class="ov3-card">
         <div class="ov3-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><h3>Fleet activity</h3><span class="m">7 days · peak {{.ActivityPeak}}</span></div>
         {{if .ActivityBars}}
@@ -510,15 +774,12 @@
       </script>
       {{end}}
 
-    </div>
-
-    {{/* ═══ Right column ═══ */}}
-    <div class="ov3-col">
-
-      {{/* Daily report (cached hourly AI briefing) */}}
-      {{template "ai-report-card" .}}
-
-      {{/* Rollouts in flight */}}
+    {{end}}
+{{define "ov3-w-report"}}
+{{template "ai-brief-card" .}}
+{{end}}
+{{define "ov3-w-rollouts"}}
+{{/* Rollouts in flight */}}
       <div class="ov3-card">
         <div class="ov3-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg></span><h3>Rollouts</h3>{{if .RolloutsCount}}<span class="m">{{.RolloutsCount}} in flight</span>{{end}}{{if canAdminOrOperator .Role}}<a class="r" href="/updates"{{if not .RolloutsCount}} style="margin-left:auto"{{end}}>Updates hub →</a>{{end}}</div>
         {{if .Rollouts}}
@@ -535,7 +796,9 @@
         {{end}}
       </div>
 
-      {{/* Release adoption */}}
+      {{end}}
+{{define "ov3-w-adoption"}}
+{{/* Release adoption */}}
       <div class="ov3-card">
         <div class="ov3-ch"><span class="ic ok"><svg viewBox="0 0 24 24"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L2 12V2h10l8.6 8.6a2 2 0 0 1 0 2.8z"/><circle cx="7" cy="7" r="1.5"/></svg></span><h3>Release adoption</h3>{{if canAdminOrOperator .Role}}<a class="r" href="/releases" style="margin-left:auto">Releases →</a>{{end}}</div>
         {{if .Versions}}
@@ -556,7 +819,9 @@
         {{end}}
       </div>
 
-      {{/* Fleet vitals */}}
+      {{end}}
+{{define "ov3-w-vitals"}}
+{{/* Fleet vitals */}}
       <div class="ov3-card">
         <div class="ov3-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></span><h3>Fleet vitals</h3><span class="m">7-day window</span></div>
         <div class="ov3-vit">
@@ -592,40 +857,4 @@
       </div>
 
     </div>
-  </div>
-
-</div>
-
-<script>
-// Sites heatmap: legend chips toggle a class filter; "Show N more" reveals the overflow.
-(function () {
-  var root = document.getElementById('ov3-sites');
-  if (!root) return;
-  var active = null, expanded = false;
-  var tiles = Array.prototype.slice.call(root.querySelectorAll('.ov3-site'));
-  var btns = Array.prototype.slice.call(root.querySelectorAll('.ov3-sfilter button'));
-  var more = document.getElementById('ov3-sites-more');
-  function apply() {
-    var shown = 0;
-    tiles.forEach(function (t) {
-      var match = !active || t.getAttribute('data-c') === active;
-      var over = !expanded && !active && t.classList.contains('xtra');
-      t.classList.toggle('hide', !match || over);
-      if (match && !over) shown++;
-    });
-    btns.forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-f') === active); });
-    if (more) more.style.display = (active || expanded) ? 'none' : '';
-  }
-  btns.forEach(function (b) {
-    b.addEventListener('click', function () {
-      var f = b.getAttribute('data-f');
-      active = (active === f) ? null : f;
-      apply();
-    });
-  });
-  if (more) more.addEventListener('click', function (e) { e.preventDefault(); expanded = true; apply(); });
-})();
-</script>
-
-{{template "footer" .}}
-{{end}}
+  {{end}}

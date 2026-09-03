@@ -1522,7 +1522,7 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "health"
 	case strings.HasPrefix(path, "/alerts"):
 		data["ActivePage"] = "alerts"
-	case path == "/":
+	case path == "/" || path == "/map":
 		data["ActivePage"] = "overview"
 	case strings.HasPrefix(path, "/devices") || path == "/export" || path == "/packages":
 		data["ActivePage"] = "devices"
@@ -2338,6 +2338,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		railRests   []db.GroupHealth
 		railRels    []db.ReleaseRailItem
 		prodCounts  map[string]int
+		inactiveN   int
 	)
 
 	errCh := make(chan error, 10)
@@ -2419,6 +2420,15 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 	run(func() error {
 		var err error
 		prodCounts, err = h.db.CountDevicesByProduct(r.Context())
+		return err
+	})
+	run(func() error {
+		var err error
+		// Fleet KPI strip: devices marked inactive (hidden), scoped to the same
+		// collection/filters as the roster so the tile matches what's on screen.
+		inactiveFilter := filter
+		inactiveFilter.Hidden = "only"
+		inactiveN, err = h.db.CountDevices(r.Context(), inactiveFilter)
 		return err
 	})
 
@@ -2538,6 +2548,7 @@ func (h *Handler) DeviceList(w http.ResponseWriter, r *http.Request) {
 		"Total":                total,
 		"FleetTotal":           fleetTotal,
 		"FilterCount":          filterCount,
+		"InactiveCount":        inactiveN,
 		"RailGroups":           railGroups,
 		"RailRestaurants":      railRests,
 		"RailReleases":         railRels,
@@ -3128,6 +3139,11 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	data["DeviceLocations"] = locs
 	data["DeviceMapCount"] = locCount
 	data["MapsEmbedKey"] = h.mapsEmbedKey
+
+	// Per-user widget arrangement (hidden / order / preset).
+	for k, v := range h.overviewLayoutData(r) {
+		data[k] = v
+	}
 
 	h.render(w, r, "overview.html", data)
 }
@@ -5327,6 +5343,14 @@ type deviceMapPoint struct {
 	Lon     float64 `json:"lon"`
 	Address string  `json:"address,omitempty"`
 	Online  bool    `json:"online"`
+	// Extra facets for the dedicated /map page's filters and list.
+	Product      string `json:"product"`
+	Battery      int    `json:"battery"`
+	Kiosk        bool   `json:"kiosk"`
+	Build        string `json:"build,omitempty"`
+	RestaurantID string `json:"restaurant_id,omitempty"`
+	Restaurant   string `json:"restaurant,omitempty"`
+	LastSeen     string `json:"last_seen"`
 }
 
 // deviceLocationsJSON returns every device with a resolved lat/lon in its latest
@@ -5357,9 +5381,15 @@ func (h *Handler) deviceLocationsJSON(ctx context.Context) (template.JS, int) {
 			_ = json.Unmarshal(m["location_address"], &addr)
 		}
 		_, isOn := online[dv.ID]
-		pts = append(pts, deviceMapPoint{
+		p := deviceMapPoint{
 			Serial: dv.SerialNumber, Name: name, Lat: lat, Lon: lon, Address: addr, Online: isOn,
-		})
+			Product: dv.ProductLabel(), Battery: dv.BatteryPct, Kiosk: dv.KioskEnabled, Build: dv.BuildID,
+			Restaurant: dv.RestaurantName, LastSeen: dv.LastSeenAt.UTC().Format(time.RFC3339),
+		}
+		if dv.RestaurantID != nil {
+			p.RestaurantID = dv.RestaurantID.String()
+		}
+		pts = append(pts, p)
 	}
 	b, err := json.Marshal(pts)
 	if err != nil {
@@ -7384,13 +7414,40 @@ func (h *Handler) ReleaseList(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// KPI strip counts (releases.html cc-kpis): published / draft / under-test tracked
+	// releases in the current (product-filtered) view, plus the newest published
+	// release's fleet adoption for the page verdict headline.
+	publishedCount, draftCount, underTestCount := 0, 0, 0
+	latestPublishedPct := 0
+	for _, v := range active {
+		if !v.Tracked {
+			continue
+		}
+		switch v.Status {
+		case "published":
+			publishedCount++
+			if latestPublishedPct == 0 && v.ReleasedAt != nil && fleetTotal > 0 {
+				latestPublishedPct = v.DeviceCount * 100 / fleetTotal
+			}
+		case "draft":
+			draftCount++
+		}
+		if !v.TestingDone {
+			underTestCount++
+		}
+	}
+
 	data := map[string]any{
-		"Title":           "Releases",
-		"Versions":        active,
-		"HiddenReleases":  hidden,
-		"UntrackedBuilds": untrackedBuilds,
-		"TrackedCount":    trackedCount,
-		"NotTrackedCount": notTrackedCount,
+		"Title":               "Releases",
+		"Versions":            active,
+		"HiddenReleases":      hidden,
+		"UntrackedBuilds":     untrackedBuilds,
+		"TrackedCount":        trackedCount,
+		"NotTrackedCount":     notTrackedCount,
+		"PublishedCount":      publishedCount,
+		"DraftCount":          draftCount,
+		"UnderTestCount":      underTestCount,
+		"LatestPublishedPct":  latestPublishedPct,
 		"FleetTotal":      fleetTotal,
 		"ActiveRelease":   activeRel,
 		"ActiveQA":        activeQA,
@@ -11308,42 +11365,59 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 
 	type policyView struct {
 		db.KioskPolicy
-		AppName     string
-		TargetLabel string
-		DeviceCount int
+		AppName      string
+		TargetLabel  string
+		DeviceCount  int
+		CoveragePct  int
 	}
+	unlockedCount, _ := h.db.CountUnlockedDevices(ctx)
+	totalDevices, _ := h.db.CountDevices(ctx, db.DeviceFilter{})
+
 	views := make([]policyView, 0, len(policies))
 	covered := 0
+	groupTargets := map[uuid.UUID]bool{}
 	for _, p := range policies {
 		ids, _ := h.resolvePolicyTargetIDs(ctx, p.TargetType, p.TargetID, p.TargetSerial)
 		appName := p.KioskPackage
 		if n, ok := pkgNames[p.KioskPackage]; ok {
 			appName = n
 		}
+		pct := 0
+		if totalDevices > 0 {
+			pct = len(ids) * 100 / totalDevices
+			if pct == 0 && len(ids) > 0 {
+				pct = 1
+			}
+		}
 		views = append(views, policyView{
 			KioskPolicy: p, AppName: appName,
 			TargetLabel: manageTargetLabel(p, restaurants, groups),
 			DeviceCount: len(ids),
+			CoveragePct: pct,
 		})
 		covered += len(ids)
+		if p.TargetType == "group" && p.TargetID != nil {
+			groupTargets[*p.TargetID] = true
+		}
 	}
 
 	// "Default" — devices with no lock applied. Read live off device_config rather
 	// than derived set-subtraction from policy targets: a device can be unlocked
 	// directly (device page) without ever being "released" by a policy, and the
 	// stored device_config row is the actual truth of what's on the device.
-	unlockedCount, _ := h.db.CountUnlockedDevices(ctx)
 
 	role := h.role(r)
 	h.render(w, r, "manage.html", map[string]any{
-		"Title":         "Manage",
-		"Policies":      views,
-		"PolicyCount":   len(views),
-		"CoveredCount":  covered,
-		"UnlockedCount": unlockedCount,
-		"Restaurants":   restaurants,
-		"Groups":        groups,
-		"CanEdit":       role == "admin" || role == "dev" || role == "operator",
+		"Title":          "Manage",
+		"Policies":       views,
+		"PolicyCount":    len(views),
+		"CoveredCount":   covered,
+		"UnlockedCount":  unlockedCount,
+		"TotalDevices":   totalDevices,
+		"GroupsTargeted": len(groupTargets),
+		"Restaurants":    restaurants,
+		"Groups":         groups,
+		"CanEdit":        role == "admin" || role == "dev" || role == "operator",
 	})
 }
 
@@ -14499,8 +14573,25 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	admins, operators, viewers := 0, 0, 0
+	for _, u := range users {
+		switch u.Role {
+		case "admin":
+			admins++
+		case "operator":
+			operators++
+		default:
+			viewers++
+		}
+	}
+	// The env-configured admin account isn't a DB row, but it always exists —
+	// count it so the KPI strip isn't misleadingly "0 admins".
+	admins++
 	h.render(w, r, "users.html", map[string]any{
-		"Users": users,
+		"Users":     users,
+		"Admins":    admins,
+		"Operators": operators,
+		"Viewers":   viewers,
 	})
 }
 
@@ -14573,6 +14664,31 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		entries = kept
 	}
 
+	// KPI strip: today / this-week counts, distinct users, most common action —
+	// computed over the same (already actor-filtered) entry set the table shows.
+	now := time.Now().UTC()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	weekStart := todayStart.AddDate(0, 0, -6)
+	entriesToday, entriesWeek := 0, 0
+	distinctUsers := map[string]bool{}
+	actionCounts := map[string]int{}
+	for _, e := range entries {
+		if !e.CreatedAt.Before(todayStart) {
+			entriesToday++
+		}
+		if !e.CreatedAt.Before(weekStart) {
+			entriesWeek++
+		}
+		distinctUsers[e.Actor] = true
+		actionCounts[e.Action]++
+	}
+	topAction, topActionN := "—", 0
+	for a, n := range actionCounts {
+		if n > topActionN || (n == topActionN && a < topAction) {
+			topAction, topActionN = a, n
+		}
+	}
+
 	const pageSize = 40
 	total := len(entries)
 	totalPages := (total + pageSize - 1) / pageSize
@@ -14597,14 +14713,19 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "activity.html", map[string]any{
-		"Entries":    pageEntries,
-		"Total":      total,
-		"Page":       page,
-		"TotalPages": totalPages,
-		"Actors":     actors,
-		"Actor":      actor,
-		"ActorName":  actorName,
-		"ShowAdmin":  showAdmin,
+		"Entries":       pageEntries,
+		"Total":         total,
+		"Page":          page,
+		"TotalPages":    totalPages,
+		"Actors":        actors,
+		"Actor":         actor,
+		"ActorName":     actorName,
+		"ShowAdmin":     showAdmin,
+		"EntriesToday":  entriesToday,
+		"EntriesWeek":   entriesWeek,
+		"DistinctUsers": len(distinctUsers),
+		"TopAction":     topAction,
+		"TopActionN":    topActionN,
 	})
 }
 
@@ -14829,6 +14950,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /groups/{id}/members", h.requireAuth(h.GroupMembers))
 	mux.HandleFunc("GET /groups/{id}/daily-stats", h.requireAuth(h.GroupDailyStatsJSON))
 	mux.HandleFunc("GET /fleet-health", h.requireAuth(h.FleetHealth))
+	mux.HandleFunc("GET /map", h.requireAuth(h.MapPage))
+	post("POST /overview/layout", h.requireAuth(h.OverviewLayoutSave))
+	post("POST /overview/layout/reset", h.requireAuth(h.OverviewLayoutReset))
 	mux.HandleFunc("GET /reports/alerts-by-restaurant", h.requireAuth(h.ReportAlertsByRestaurant))
 	mux.HandleFunc("GET /alerts/newest", h.requireAuth(h.AlertNewest))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
