@@ -305,13 +305,7 @@ a.fleet-rail-item{min-height:40px}
   </div>
 
   {{/* ── KPI strip: online / offline / low battery / out of kiosk / inactive ── */}}
-  <div class="cc-kpis fl-kpis">
-    <a class="cc-kpi" href="/devices?status=online"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Online</span><div class="v ok">{{$onCount}}</div><div class="d">of {{.Summary.Total}}</div></a>
-    <a class="cc-kpi" href="/devices?status=offline"><span class="k"><svg viewBox="0 0 24 24"><path d="M18.4 18.4A9 9 0 0 0 5.6 5.6M1 1l22 22"/></svg>Offline</span><div class="v{{if gt $offCount 0}} warn{{end}}">{{$offCount}}</div><div class="d">not checking in</div></a>
-    <a class="cc-kpi" href="/devices?battery=low"><span class="k"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2"/></svg>Low battery</span><div class="v{{if gt .Summary.LowBattery 0}} warn{{end}}">{{.Summary.LowBattery}}</div><div class="d">under 20%</div></a>
-    <a class="cc-kpi" href="/devices?kiosk=disabled"><span class="k"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Out of kiosk</span><div class="v{{if gt (sub .Summary.Total .Summary.KioskCount) 0}} warn{{end}}">{{sub .Summary.Total .Summary.KioskCount}}</div><div class="d">{{.Summary.KioskCount}} locked</div></a>
-    {{if canAdmin .Role}}<a class="cc-kpi" href="/devices?hidden=only"><span class="k"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M4.9 4.9l14.2 14.2"/></svg>Inactive</span><div class="v{{if gt .InactiveCount 0}} bad{{end}}">{{.InactiveCount}}</div><div class="d">marked inactive</div></a>{{end}}
-  </div>
+  
 </div>
 
 <div class="fleet-md dv-rise-1">
