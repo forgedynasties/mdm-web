@@ -1,11 +1,43 @@
 {{define "schedules.html"}}
 {{template "header" .}}
 
-<a href="/commands" class="back-link">&#8592; Actions</a>
+<style>
+.sc-wrap{max-width:1280px;margin:0 auto}
+.sc-wrap .card-header.cc-ch{justify-content:flex-start}
+@media(max-width:600px){
+  .sc-wrap{max-width:100%}
+  .cc-top{gap:10px}.cc-h1{font-size:20px}
+  .cc-actions{width:100%}.cc-actions .cc-btn{flex:1 1 auto;justify-content:center}
+}
+/* schedule rows → cc-row */
+.sc-row{display:flex;align-items:center;gap:14px;padding:12px 17px;border-top:1px solid var(--border-soft);flex-wrap:wrap}
+.sc-row:first-of-type{border-top:none}
+.sc-main{flex:1;min-width:180px}
+.sc-name{font-size:13.5px;font-weight:650}
+.sc-sub{font-size:12px;color:var(--muted);margin-top:2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sc-next{font-size:12px;color:var(--muted);min-width:150px}
+.sc-next b{color:var(--text);font-weight:650}
+.sc-acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-left:auto}
+.sc-acts .cc-btn.sm{min-height:32px}
+@media(max-width:480px){
+  .sc-row{padding:12px}
+  .sc-next{min-width:0;order:3;flex-basis:100%}
+  .sc-acts{width:100%;order:4}
+  .sc-acts .cc-btn{flex:1 1 auto;justify-content:center;min-height:38px}
+}
+</style>
 
-<div class="ov-greet">
-  <h1 class="ov-title">Scheduled recipes <span class="beta-pill" style="margin-left:8px;">Beta</span></h1>
-  <span class="ov-date">Run a saved recipe on a schedule — its target is re-resolved each time it fires.</span>
+<div class="sc-wrap">
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Actions · Schedules <span class="beta-pill">Beta</span></div>
+    <h1 class="cc-h1">{{$active := 0}}{{range .Schedules}}{{if .Enabled}}{{$active = add $active 1}}{{end}}{{end}}{{if gt (len .Schedules) 0}}<span class="hl accent">{{$active}}</span> of {{len .Schedules}} schedule{{if ne (len .Schedules) 1}}s{{end}} active{{else}}No schedules yet{{end}}</h1>
+    <div class="cc-sub">Run a saved recipe on a schedule — its target is re-resolved each time it fires.</div>
+  </div>
+  <div class="cc-actions">
+    <a class="cc-btn" href="/commands"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>Actions</a>
+    <a class="cc-btn" href="/commands#recipes-section"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Recipes</a>
+  </div>
 </div>
 
 {{if canOperate .Role}}
@@ -27,8 +59,8 @@
 .sch-tz{color:var(--muted);font-weight:400;font-size:12px;}
 .sch-cronx{display:inline-block;font-family:var(--mono);font-size:11px;color:var(--text-faint);margin-left:8px;background:var(--surface);border:1px solid var(--border-soft);border-radius:6px;padding:1px 7px;}
 </style>
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header"><h3>New schedule</h3></div>
+<div class="card cc-card" style="margin-bottom:16px;">
+  <div class="card-header cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><h3>New schedule</h3></div>
   <form action="/schedules" method="POST" id="sch-form" onsubmit="return schSync()" style="padding:16px 20px;">
     {{if .Recipes}}
     <div class="sch-grid">
@@ -109,42 +141,34 @@
 </div>
 {{end}}
 
-<div class="card">
-  <div class="card-header"><h3>Schedules <span class="muted small">({{len .Schedules}})</span></h3></div>
-  <div style="padding:6px 8px 12px;">
+<div class="card cc-card">
+  <div class="card-header cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h3>Schedules</h3><span class="m">{{len .Schedules}}</span></div>
     {{if not .Schedules}}
-    <div class="empty-state"><div class="empty-state-copy">
-      <div class="empty-state-title">No schedules yet</div>
-      <div class="empty-state-text">Pick a recipe and a schedule above to run an action automatically.</div>
-    </div></div>
+    <div class="cc-empty tall"><span class="i mut"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><b>No schedules yet</b>Pick a recipe and a schedule above to run an action automatically.</div></div>
     {{else}}
-    <table class="data-table" style="width:100%;">
-      <thead><tr>
-        <th>Recipe</th><th>Action</th><th>Cron</th><th>Next run</th><th>Last run</th><th>Status</th><th></th>
-      </tr></thead>
-      <tbody>
-      {{range .Schedules}}
-      <tr>
-        <td><b>{{.RecipeName}}</b>{{if .RunOnce}} <span class="status-badge muted">once</span>{{end}}</td>
-        <td>{{.RecipeType}}</td>
-        <td class="mono small">{{.CronExpr}}</td>
-        <td class="small">{{if and .Enabled .NextRunAt}}{{.NextRunAt.UTC.Format "Jan 2, 15:04"}} UTC{{else}}<span class="muted">—</span>{{end}}</td>
-        <td class="small">{{if .LastRunAt}}{{.LastRunAt.UTC.Format "Jan 2, 15:04"}} UTC{{else}}<span class="muted">never</span>{{end}}</td>
-        <td>{{if .Enabled}}<span class="status-badge ok">Active</span>{{else}}<span class="status-badge muted">Paused</span>{{end}}</td>
-        <td style="text-align:right;white-space:nowrap;">
-          {{if canOperate $.Role}}
-          <form action="/schedules/{{.ID}}/run-now" method="POST" style="display:inline;"><button type="submit" class="btn-outline" style="padding:2px 9px;font-size:12px;">Run now</button></form>
-          <form action="/schedules/{{.ID}}/toggle" method="POST" style="display:inline;"><input type="hidden" name="enable" value="{{if .Enabled}}0{{else}}1{{end}}"><button type="submit" class="btn-outline" style="padding:2px 9px;font-size:12px;">{{if .Enabled}}Pause{{else}}Resume{{end}}</button></form>
-          <form action="/schedules/{{.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete this schedule?"><button type="submit" class="btn-danger-sm" style="padding:2px 9px;font-size:12px;">Delete</button></form>
-          {{end}}
-        </td>
-      </tr>
-      {{end}}
-      </tbody>
-    </table>
+    {{range .Schedules}}
+    <div class="sc-row">
+      <div class="sc-main">
+        <div class="sc-name">{{.RecipeName}}{{if .RunOnce}} <span class="cc-tag">once</span>{{end}}</div>
+        <div class="sc-sub"><span class="cc-tag accent">{{.RecipeType}}</span><span class="mono">{{.CronExpr}}</span>{{if .Enabled}}<span class="cc-pill ok">Active</span>{{else}}<span class="cc-pill">Paused</span>{{end}}</div>
+      </div>
+      <div class="sc-next">
+        Next: {{if and .Enabled .NextRunAt}}<b>{{.NextRunAt.UTC.Format "Jan 2, 15:04"}} UTC</b>{{else}}<span class="muted">—</span>{{end}}<br>
+        Last: {{if .LastRunAt}}{{.LastRunAt.UTC.Format "Jan 2, 15:04"}} UTC{{else}}<span class="muted">never</span>{{end}}
+      </div>
+      <div class="sc-acts">
+        {{if canOperate $.Role}}
+        <form action="/schedules/{{.ID}}/run-now" method="POST"><button type="submit" class="cc-btn sm">Run now</button></form>
+        <form action="/schedules/{{.ID}}/toggle" method="POST"><input type="hidden" name="enable" value="{{if .Enabled}}0{{else}}1{{end}}"><button type="submit" class="cc-btn sm">{{if .Enabled}}Pause{{else}}Resume{{end}}</button></form>
+        <form action="/schedules/{{.ID}}/delete" method="POST" hx-confirm="Delete this schedule?"><button type="submit" class="cc-btn sm danger">Delete</button></form>
+        {{end}}
+      </div>
+    </div>
     {{end}}
-  </div>
+    {{end}}
 </div>
+
+</div><!-- /.sc-wrap -->
 
 <script>
 // Friendly schedule builder: users choose Daily/Weekly/Monthly/etc. and enter

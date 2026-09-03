@@ -5,7 +5,7 @@
   <span class="dp-bchip {{batteryClass .BatteryPct}}"><svg viewBox="0 0 30 15" width="16" height="10" aria-hidden="true"><rect x="1" y="1" width="24" height="13" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="26.5" y="4.5" width="2.5" height="6" rx="1" fill="currentColor"/><rect x="3" y="3" width="{{batteryFillW .BatteryPct}}" height="9" rx="1.5" fill="currentColor"/></svg>{{.BatteryPct}}%</span>
   <div class="dp-rid"><div class="dp-serial mono">{{.SerialNumber}}</div><div class="dp-sub">{{.BuildID}} · {{timeSince .LastSeenAt}}</div></div>
   {{if .RestaurantName}}<span class="dp-where{{if $.Relocate}} elsewhere{{end}}">{{.RestaurantName}}</span>{{else}}<span class="dp-where lab">lab</span>{{end}}
-  <button type="button" class="dp-add" onclick="dpAdd('{{.SerialNumber}}')" aria-label="Add {{.SerialNumber}}">+</button>
+  <button type="button" class="dp-add" style="width:40px;height:40px;min-width:40px" onclick="dpAdd('{{.SerialNumber}}')" aria-label="Add {{.SerialNumber}}">+</button>
 </div>
 {{end}}
 {{else}}

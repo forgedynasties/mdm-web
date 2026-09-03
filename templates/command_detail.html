@@ -67,11 +67,14 @@
 
   {{/* ── INSTALL / UNINSTALL / REBOOT / default: status list ── */}}
   {{else}}
-  <div class="ad-list">
+  <div class="ad-table-wrap">
+  <table class="cc-table ad-table">
+    <thead><tr><th>Device</th><th>Status</th><th></th></tr></thead>
+    <tbody>
     {{range .Deliveries}}
-    <div class="ad-row">
-      <a href="/devices/{{.SerialNumber}}" class="ad-sn mono">{{.SerialNumber}}</a>
-      <div class="ad-st">
+    <tr class="ad-row">
+      <td><a href="/devices/{{.SerialNumber}}" class="ad-sn mono">{{.SerialNumber}}</a></td>
+      <td class="ad-st">
         {{if and (eq .Status "downloading") .Progress}}
           <span class="status-badge active">↓ {{.Progress}}%</span><span class="ad-bar"><i style="width:{{.Progress}}%"></i></span>
         {{else if eq .Status "installing"}}
@@ -82,10 +85,12 @@
           {{else if .Output}}<span class="muted small">{{.Output}}</span>
           {{else}}<span class="when reltime" data-ts="{{.UpdatedAt.Unix}}"></span>{{end}}
         {{end}}
-      </div>
-      <div class="ad-row-act">{{if and $.CanResend (or (eq .Status "failed") (eq .Status "expired") (not .Online))}}<form action="/commands/{{$cmd.ID}}/resend/{{.SerialNumber}}" method="POST"><button type="submit" class="ad-mini">Resend</button></form>{{end}}</div>
-    </div>
+      </td>
+      <td class="ad-row-act">{{if and $.CanResend (or (eq .Status "failed") (eq .Status "expired") (not .Online))}}<form action="/commands/{{$cmd.ID}}/resend/{{.SerialNumber}}" method="POST"><button type="submit" class="ad-mini">Resend</button></form>{{end}}</td>
+    </tr>
     {{end}}
+    </tbody>
+  </table>
   </div>
   {{end}}
 
@@ -123,8 +128,9 @@
   .ad-tally.run{color:var(--accent-2);}.ad-tally.bad{color:var(--danger);}.ad-tally.off{color:var(--warn);}.ad-tally.ok{color:var(--ok);}
   .ad-roll-act .ad-btn{padding:7px 12px;}
 
-  .ad-list .ad-row{display:grid;grid-template-columns:1.1fr 1.6fr auto;align-items:center;gap:14px;padding:13px 22px;border-top:1px solid var(--border-soft);}
-  .ad-list .ad-row:first-child{border-top:0;}
+  .ad-table-wrap{overflow-x:auto}
+  table.cc-table.ad-table{margin:0}
+  .ad-table .ad-st{display:flex;align-items:center;gap:10px;min-width:0}
   .ad-sn{font-size:13px;text-decoration:none;color:var(--text);}.ad-sn:hover{color:var(--accent);}
   .ad-st{display:flex;align-items:center;gap:10px;min-width:0;}
   .ad-bar{flex:1;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;max-width:220px;}
@@ -153,6 +159,18 @@
   .ad-shot-cap a{text-decoration:none;color:var(--text);}.ad-shot-cap a:hover{color:var(--accent);}
   .ad-dl{font-weight:700;color:var(--muted)!important;}.ad-dl:hover{color:var(--accent)!important;}
   .ad-shot-cap .when{color:var(--muted);}
+  /* command-center hero pill + mobile */
+  .ad-status{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:4px 12px;border-radius:99px;background:var(--surface2);color:var(--muted);margin-top:6px}
+  .ad-status.ok{background:var(--ok-bg);color:var(--ok)}
+  .ad-status.run{background:var(--accent-2-soft);color:var(--accent-2)}
+  .ad-status.bad{background:var(--danger-bg);color:var(--danger)}
+  .ad-status .pd{width:6px;height:6px;border-radius:50%;background:currentColor}
+  @media(max-width:600px){
+    .ad-hero{padding:16px}
+    .ad-acts{width:100%}.ad-acts .ad-btn{flex:1 1 auto;justify-content:center;min-height:38px}
+    .ad-list .ad-row,table.cc-table.ad-table td{padding:11px 14px}
+    .ad-table-wrap{overflow-x:auto}
+  }
 </style>
 
 {{if .From}}<a href="{{.From}}" class="back-link">← Back to device</a>{{else}}<a href="/commands" class="back-link">← Actions</a>{{end}}
@@ -170,6 +188,9 @@
     <div class="ad-kick">{{cmdLabel $cmd.Type}}</div>
     <h1>{{cmdLabel $cmd.Type}}{{$h := cmdHint $cmd}}{{if $h}} <span class="sub">{{$h}}</span>{{end}}</h1>
     <div class="ad-meta">Sent <b data-since-ms="{{$cmd.CreatedAt.UnixMilli}}">{{timeSince $cmd.CreatedAt}}</b>{{if $cmd.CreatedBy}} by <b>{{$cmd.CreatedBy}}</b>{{end}} · {{if eq $cmd.TargetType "all"}}all devices{{else if eq $cmd.TargetType "groups"}}group target{{else}}{{len .Deliveries}} device{{if ne (len .Deliveries) 1}}s{{end}}{{end}}</div>
+    {{if gt .Stats.Failed 0}}<span class="ad-status bad"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 9v4"/><path d="M12 17h.01"/></svg>{{.Stats.Failed}} failed</span>
+    {{else if gt .Stats.Pending 0}}<span class="ad-status run"><span class="pd"></span>In progress · {{.Stats.Done}}/{{.Stats.Total}}</span>
+    {{else}}<span class="ad-status ok"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>All devices done</span>{{end}}
   </div>
   <div class="ad-acts">
     {{if .CanResend}}<form action="/commands/{{$cmd.ID}}/resend" method="POST"><button type="submit" class="ad-btn">Resend to all</button></form>{{end}}
