@@ -1372,6 +1372,12 @@ function applyPrefill(pf) {
     cmdSetSerials([]);
     var a = document.querySelector('#scope-rail .sri[data-mode="all"]'); if (a) selectScope('all', '', a);
   }
+  // refreshActionSummary normally only runs when the action-config modal
+  // closes (see closeActionModal) — a prefill sets fields directly without
+  // ever opening that modal, so e.g. #shell-summary stayed stuck on "No
+  // command set" even though shell-cmd-input's value was actually set (only
+  // visible once you opened the modal to look).
+  refreshActionSummary(document.getElementById('cmd-type-input').value);
   updatePreview();
 }
 
