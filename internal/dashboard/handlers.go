@@ -2645,11 +2645,14 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	// activity chart AND the 14-day week-over-week trend, so it's fetched once and
 	// sliced, instead of the old code fetching 7 and then 14 days separately.
 	var (
-		groups     []db.GroupHealth
-		hot        int
-		d14        []db.FleetDailyStat
-		openCount  int
-		crashStats db.FleetCrashStats
+		groups      []db.GroupHealth
+		hot         int
+		d14         []db.FleetDailyStat
+		openCount   int
+		crashStats  db.FleetCrashStats
+		versions    []db.FleetVersion
+		deployments []db.Update
+		prodCounts  map[string]int
 	)
 	var wg sync.WaitGroup
 	run := func(f func()) {
@@ -2661,6 +2664,9 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	run(func() { d14, _ = h.db.GetFleetDailyStats(ctx, 14) })
 	run(func() { openCount, _ = h.db.CountOpenAlerts(ctx) })
 	run(func() { crashStats, _ = h.db.GetFleetCrashStats(ctx, 4) })
+	run(func() { versions, _ = h.db.GetFleetVersions(ctx) })
+	run(func() { deployments, _ = h.db.ListDeployments(ctx) })
+	run(func() { prodCounts, _ = h.db.CountDevicesByProduct(ctx) })
 	wg.Wait()
 
 	daily := d14
@@ -2672,15 +2678,16 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	// groups, fall back to an online-ratio penalty so the ring still means something.
 	score := 100
 	if summary.Total > 0 {
-		if num, den := 0, 0; len(groups) > 0 {
-			for _, g := range groups {
-				num += g.Score * g.DeviceCount
-				den += g.DeviceCount
-			}
-			if den > 0 {
-				score = num / den
-			}
+		num, den := 0, 0
+		for _, g := range groups {
+			num += g.Score * g.DeviceCount
+			den += g.DeviceCount
+		}
+		if den > 0 {
+			score = num / den
 		} else {
+			// No venue has devices yet (or no venues at all): fall back to the
+			// online-ratio proxy so the ring still reflects reality.
 			score -= 40 * (summary.Total - summary.RecentlyActive) / summary.Total
 		}
 	}
@@ -2736,7 +2743,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 	// Same series as a line/area chart for the overview Fleet-activity card.
 	actPts := make([]map[string]any, 0, len(daily))
 	for _, ds := range daily {
-		actPts = append(actPts, map[string]any{"label": ds.Day.Format("Mon"), "val": ds.Active})
+		actPts = append(actPts, map[string]any{"label": ds.Day.Format("Mon"), "val": ds.Active, "low": ds.LowBattery})
 	}
 	activityJSON := template.JS("[]")
 	if b, err := json.Marshal(actPts); err == nil {
@@ -2852,8 +2859,220 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		crToday, crYest = crashStats.Daily[n-1], crashStats.Daily[n-2]
 	}
 
+	// ── Sites heatmap: every venue as a score-coloured tile, worst first ──
+	type siteTile struct {
+		ID           uuid.UUID
+		Name         string
+		Score        int
+		Class        string
+		Devices      int
+		Offline      int
+		Critical     int
+		Warning      int
+		Crashes      int
+		Hot          bool
+		BatteryAvg   int
+		HasBattery   bool
+	}
+	var sites []siteTile
+	sitesOK, sitesWarn, sitesBad, deployedN := 0, 0, 0, 0
+	for _, g := range groups {
+		if g.DeviceCount == 0 {
+			continue
+		}
+		deployedN += g.DeviceCount
+		t := siteTile{
+			ID: g.GroupID, Name: g.Name, Score: g.Score, Class: g.ScoreClass,
+			Devices: g.DeviceCount, Offline: g.OfflineCount,
+			Critical: g.OpenCritical, Warning: g.OpenWarning,
+			Crashes: crashStats.ByRestaurant[g.GroupID],
+			Hot:     g.TempMax != nil && *g.TempMax >= 45,
+		}
+		if g.BatteryAvg != nil {
+			t.BatteryAvg, t.HasBattery = int(math.Round(*g.BatteryAvg)), true
+		}
+		switch g.ScoreClass {
+		case "ok":
+			sitesOK++
+		case "warn":
+			sitesWarn++
+		default:
+			sitesBad++
+		}
+		sites = append(sites, t)
+	}
+
+	// ── Release adoption: top builds by device count + an "other" bucket ──
+	type versionRow struct {
+		Version string
+		Product string
+		Count   int
+		Pct     int
+		Status  string // published | draft | unmanaged
+		Hidden  bool
+	}
+	versionsTotal := 0
+	for _, v := range versions {
+		versionsTotal += v.DeviceCount
+	}
+	var versionRows []versionRow
+	versionOther, versionOtherN := 0, 0
+	for i, v := range versions {
+		if i >= 5 {
+			versionOther += v.DeviceCount
+			versionOtherN++
+			continue
+		}
+		st := "unmanaged"
+		if v.ReleaseID != nil {
+			st = v.ReleaseStatus
+			if st == "" {
+				st = "draft"
+			}
+		}
+		pct := 0
+		if versionsTotal > 0 {
+			pct = v.DeviceCount * 100 / versionsTotal
+		}
+		versionRows = append(versionRows, versionRow{
+			Version: v.Version, Product: product.Label(v.Product), Count: v.DeviceCount,
+			Pct: pct, Status: st, Hidden: v.ReleaseHidden,
+		})
+	}
+	versionOtherPct := 0
+	if versionsTotal > 0 {
+		versionOtherPct = versionOther * 100 / versionsTotal
+	}
+	// Share of the fleet on a published (managed) build.
+	onPublished := 0
+	for _, v := range versions {
+		if v.ReleaseID != nil && v.ReleaseStatus == "published" {
+			onPublished += v.DeviceCount
+		}
+	}
+	onPublishedPct := 0
+	if versionsTotal > 0 {
+		onPublishedPct = onPublished * 100 / versionsTotal
+	}
+
+	// ── Rollouts in flight: pending/active OTA deployments, newest first ──
+	type rolloutRow struct {
+		ID          int
+		Version     string
+		Product     string
+		Status      string
+		Total       int
+		Installed   int
+		Downloading int
+		Failed      int
+		PctDone     int
+		PctDown     int
+		PctFail     int
+		Ago         string
+	}
+	var rollouts []rolloutRow
+	rolloutsN := 0
+	for _, u := range deployments {
+		if u.Status != "pending" && u.Status != "active" {
+			continue
+		}
+		rolloutsN++
+		if len(rollouts) >= 4 {
+			continue
+		}
+		rr := rolloutRow{
+			ID: u.ID, Status: u.Status, Total: u.DeviceTotal, Installed: u.DeviceInstalled,
+			Downloading: u.DeviceDownloading, Failed: u.DeviceFailed, Ago: agoShort(u.CreatedAt),
+			Product: product.Label(u.Product),
+		}
+		if u.Release != nil {
+			rr.Version = u.Release.Version
+		}
+		if rr.Total > 0 {
+			rr.PctDone = rr.Installed * 100 / rr.Total
+			rr.PctDown = rr.Downloading * 100 / rr.Total
+			rr.PctFail = rr.Failed * 100 / rr.Total
+		}
+		rollouts = append(rollouts, rr)
+	}
+
+	// ── Product mix for the hero composition bar ──
+	type productRow struct {
+		Key   string
+		Label string
+		Count int
+		Pct   int
+	}
+	var products []productRow
+	for _, p := range product.All() {
+		if n := prodCounts[p.Key]; n > 0 {
+			pct := 0
+			if summary.Total > 0 {
+				pct = n * 100 / summary.Total
+			}
+			products = append(products, productRow{p.Key, p.Label, n, pct})
+		}
+	}
+	sort.SliceStable(products, func(i, j int) bool { return products[i].Count > products[j].Count })
+
+	// ── Fleet vitals ──
+	batteryAvg, hasBatteryAvg := 0, false
+	if n := len(daily); n > 0 && daily[n-1].BatteryAvg != nil {
+		batteryAvg, hasBatteryAvg = int(math.Round(float64(*daily[n-1].BatteryAvg))), true
+	}
+	chargeNum, chargeDen := 0.0, 0
+	var hottest float64
+	hottestSerial := ""
+	for _, g := range groups {
+		if g.ChargingAvg != nil && g.DeviceCount > 0 {
+			chargeNum += *g.ChargingAvg * float64(g.DeviceCount)
+			chargeDen += g.DeviceCount
+		}
+		if g.TempMax != nil && *g.TempMax > hottest {
+			hottest = *g.TempMax
+			if g.TempMaxSerial != nil {
+				hottestSerial = *g.TempMaxSerial
+			}
+		}
+	}
+	chargePct, hasCharge := 0, false
+	if chargeDen > 0 {
+		chargePct, hasCharge = int(math.Round(chargeNum/float64(chargeDen)*100)), true
+	}
+	pctOf := func(n int) int {
+		if summary.Total == 0 {
+			return 0
+		}
+		return n * 100 / summary.Total
+	}
+
 	data := map[string]any{
 		"Title": "Overview",
+		"NowUTC": time.Now().UTC().Format(time.RFC3339),
+		// New command-center surfaces.
+		"Sites":           sites,
+		"SitesOK":         sitesOK,
+		"SitesWarn":       sitesWarn,
+		"SitesBad":        sitesBad,
+		"DeployedCount":   deployedN,
+		"DeployedPct":     pctOf(deployedN),
+		"KioskPct":        pctOf(summary.KioskCount),
+		"Versions":        versionRows,
+		"VersionsTotal":   versionsTotal,
+		"VersionsCount":   len(versions),
+		"VersionOther":    versionOther,
+		"VersionOtherN":   versionOtherN,
+		"VersionOtherPct": versionOtherPct,
+		"OnPublishedPct":  onPublishedPct,
+		"Rollouts":        rollouts,
+		"RolloutsCount":   rolloutsN,
+		"Products":        products,
+		"BatteryAvg":      batteryAvg,
+		"HasBatteryAvg":   hasBatteryAvg,
+		"ChargePct":       chargePct,
+		"HasCharge":       hasCharge,
+		"Hottest":         int(math.Round(hottest)),
+		"HottestSerial":   hottestSerial,
 		// withRole overwrites this on success; the default keeps the template's
 		// numeric comparison safe if the alerts count query fails.
 		"AlertsOpenCount": 0,
@@ -4772,15 +4991,16 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 	// the overview ring), so the hero number agrees across pages.
 	score := 100
 	if summary.Total > 0 {
-		if num, den := 0, 0; len(groups) > 0 {
-			for _, g := range groups {
-				num += g.Score * g.DeviceCount
-				den += g.DeviceCount
-			}
-			if den > 0 {
-				score = num / den
-			}
+		num, den := 0, 0
+		for _, g := range groups {
+			num += g.Score * g.DeviceCount
+			den += g.DeviceCount
+		}
+		if den > 0 {
+			score = num / den
 		} else {
+			// No venue has devices yet (or no venues at all): fall back to the
+			// online-ratio proxy so the ring still reflects reality.
 			score -= 40 * (summary.Total - summary.RecentlyActive) / summary.Total
 		}
 	}
