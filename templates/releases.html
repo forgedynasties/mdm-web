@@ -103,7 +103,7 @@
     <div class="rlc-id">
       <div class="rlc-top">
         <span class="rlc-stat muted" title="Seen on devices but not a managed release">reported</span>
-        <span class="rlc-ver">{{.Version}}</span>
+        {{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}" class="rlc-ver" title="See the device(s) running {{.Version}}">{{.Version}}</a>{{else}}<span class="rlc-ver">{{.Version}}</span>{{end}}
         {{if .Product}}<span class="rchip muted" title="Reported by {{productLabel .Product}} devices">{{productLabel .Product}}</span>{{end}}
       </div>
       <span class="rlc-sub muted">seen on devices — not a release yet</span>
