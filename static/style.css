@@ -2,6 +2,13 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  /* Tells the browser which native UA chrome to use for form controls it
+     draws itself (select dropdown popups, checkboxes, scrollbars, date
+     pickers) — without this, the dark theme's own CSS colors a <select>'s
+     closed-state text, but the OS still renders its native open dropdown/
+     option list and other native widgets with LIGHT-mode defaults, which is
+     why those looked black-on-dark instead of following the theme. */
+  color-scheme: light;
   /* ════════════════════════════════════════════════════
      LIGHT THEME (default). Dark theme overrides live in
      html[data-theme="dark"] below. Only theme-specific
@@ -122,6 +129,7 @@
    DARK THEME — overrides only the theme-specific tokens.
    ════════════════════════════════════════════════════════ */
 html[data-theme="dark"] {
+  color-scheme: dark;
   /* Surfaces — a near-black bg (#0b0d10, ~4% luminance) paired with near-white
      text (#e7ebf0, ~88%) put contrast well above what's comfortable for a UI
      meant to be read for long stretches (~15:1 — closer to a AAA-max spec-sheet
@@ -5667,7 +5675,7 @@ html[data-theme="dark"] .composer { background: var(--surface2); }
 .tcard.on .dot.i { background: var(--warn); }
 .composer .field { margin-bottom: 11px; }
 .composer .field label { display: block; font-size: 11.5px; font-weight: 650; color: var(--muted); margin-bottom: 5px; }
-.composer .sel { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; font: inherit; font-size: 13px; background: var(--surface); }
+.composer .sel { width: 100%; border: 1px solid var(--border); border-radius: 10px; padding: 9px 11px; font: inherit; font-size: 13px; background: var(--surface); color: var(--text); }
 .composer .form-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
 .urlbox { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); }
 .urlbox input { flex: 1; border: 0; padding: 10px 12px; font: inherit; font-size: 12.5px; font-family: var(--mono); background: transparent; outline: none; min-width: 0; }
