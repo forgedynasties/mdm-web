@@ -86,6 +86,20 @@
   }
   #sample3 .dot{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#ff6a4d,#7a80f6);flex:none}
 
+  /* Glass menu — this is the piece that "turns plain on hover" if the hover
+     wash is opaque instead of translucent. Each row's hover uses the SAME
+     glass fill (var(--g-alpha)) at a separately-tunable opacity, so hovering
+     still reads as "more glass", not a flat color patch breaking the blur. */
+  #sample-menu{width:220px;padding:6px;display:flex;flex-direction:column;gap:2px;
+    background:rgba(255,255,255,var(--g-alpha));
+    -webkit-backdrop-filter:var(--g-filter); backdrop-filter:var(--g-filter);
+    border:1px solid rgba(255,255,255,var(--g-border)); border-radius:var(--g-radius);
+    box-shadow:0 var(--g-shadow-y) var(--g-shadow-blur) rgba(0,0,0,var(--g-shadow-a)), inset 0 1px 0 rgba(255,255,255,var(--g-highlight));
+  }
+  .menu-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:calc(var(--g-radius) * .55);font-size:13px;font-weight:600;cursor:pointer;transition:background .12s;}
+  .menu-item span{opacity:.9}
+  .menu-item:hover, .menu-item.on{background:rgba(var(--g-hover-rgb), var(--g-hover-alpha));}
+
   .codebox{border-radius:14px;padding:16px 18px;font-family:var(--mono);font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word;position:relative}
   .codebox .copy{position:absolute;top:10px;right:10px;font:inherit;font-family:var(--font);font-size:11.5px;font-weight:650;padding:5px 10px;border-radius:7px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);color:#fff;cursor:pointer}
   .codebox .copy:hover{background:rgba(255,255,255,.2)}
@@ -165,6 +179,17 @@
           <input type="range" id="r-shadow" min="0" max="100" value="50" oninput="update()">
         </div>
         <div class="row" style="border-top:1px solid rgba(255,255,255,.15);padding-top:14px;">
+          <label>Hover wash opacity <b id="v-hoverop">6%</b></label>
+          <input type="range" id="r-hoverop" min="0" max="30" value="6" oninput="update()">
+        </div>
+        <div class="row">
+          <label>Hover wash tone</label>
+          <div class="seg">
+            <button type="button" class="on" data-hovertone="neutral" onclick="setHoverTone('neutral')">Neutral</button>
+            <button type="button" data-hovertone="accent" onclick="setHoverTone('accent')">Accent</button>
+          </div>
+        </div>
+        <div class="row" style="border-top:1px solid rgba(255,255,255,.15);padding-top:14px;">
           <label>Refraction (SVG distortion) <b id="v-refract-state">Off</b></label>
           <div class="seg">
             <button type="button" data-refract="off" class="on" onclick="setRefract(false)">Off</button>
@@ -192,6 +217,12 @@
             <p>Cards, modals, toasts — this shape at 280px wide.</p>
           </div>
           <div id="sample2">⚡</div>
+          <div id="sample-menu">
+            <div class="menu-item">✦ <span>Overview</span></div>
+            <div class="menu-item on">◆ <span>Hover me</span></div>
+            <div class="menu-item">▲ <span>Settings</span></div>
+            <div class="menu-item">● <span>Sign out</span></div>
+          </div>
           <div id="sample3"><span class="dot"></span>Pill / chip sample</div>
         </div>
 
@@ -213,10 +244,18 @@ var els = {
   hl: document.getElementById('r-hl'),
   shadow: document.getElementById('r-shadow'),
   strength: document.getElementById('r-strength'),
-  freq: document.getElementById('r-freq')
+  freq: document.getElementById('r-freq'),
+  hoverop: document.getElementById('r-hoverop')
 };
 var tone = 'light';
 var refractOn = false;
+var hoverTone = 'neutral';
+
+function setHoverTone(t) {
+  hoverTone = t;
+  document.querySelectorAll('[data-hovertone]').forEach(function (b) { b.classList.toggle('on', b.dataset.hovertone === t); });
+  update();
+}
 
 function setRefract(on) {
   refractOn = on;
@@ -240,7 +279,8 @@ function update() {
   var blur = +els.blur.value, sat = +els.sat.value, alpha = +els.alpha.value / 100,
       border = +els.border.value / 100, radius = +els.radius.value, hl = +els.hl.value / 100,
       shadowPct = +els.shadow.value / 100,
-      strength = +els.strength.value, freq = +els.freq.value / 1000;
+      strength = +els.strength.value, freq = +els.freq.value / 1000,
+      hoverAlpha = +els.hoverop.value / 100;
 
   document.getElementById('v-blur').textContent = blur + 'px';
   document.getElementById('v-sat').textContent = sat + '%';
@@ -251,6 +291,7 @@ function update() {
   document.getElementById('v-shadow').textContent = Math.round(shadowPct * 100) + '%';
   document.getElementById('v-strength').textContent = strength;
   document.getElementById('v-freq').textContent = freq.toFixed(3);
+  document.getElementById('v-hoverop').textContent = Math.round(hoverAlpha * 100) + '%';
 
   var root = document.documentElement.style;
   root.setProperty('--g-blur', blur + 'px');
@@ -263,6 +304,8 @@ function update() {
   root.setProperty('--g-shadow-blur', Math.round(16 + shadowPct * 34) + 'px');
   root.setProperty('--g-shadow-a', (.08 + shadowPct * .22).toFixed(2));
   root.setProperty('--g-filter', refractOn ? 'url(#lg-refract) blur(var(--g-blur)) saturate(var(--g-sat))' : 'blur(var(--g-blur)) saturate(var(--g-sat))');
+  root.setProperty('--g-hover-rgb', hoverTone === 'accent' ? '249,128,95' : (tone === 'dark' ? '255,255,255' : '0,0,0'));
+  root.setProperty('--g-hover-alpha', hoverAlpha);
 
   // Drive the actual SVG primitives — the filter is shared (one <filter> in
   // the page), so every glass sample using it warps in sync.
@@ -271,11 +314,12 @@ function update() {
   if (turb) turb.setAttribute('baseFrequency', freq + ' ' + freq);
   if (displace) displace.setAttribute('scale', refractOn ? strength : 0);
 
-  renderCode(blur, sat, alpha, border, radius, hl, shadowPct, strength, freq);
+  renderCode(blur, sat, alpha, border, radius, hl, shadowPct, strength, freq, hoverAlpha);
 }
 
-function renderCode(blur, sat, alpha, border, radius, hl, shadowPct, strength, freq) {
+function renderCode(blur, sat, alpha, border, radius, hl, shadowPct, strength, freq, hoverAlpha) {
   var bg = tone === 'dark' ? '20,18,17' : '255,255,255';
+  var hoverRgb = hoverTone === 'accent' ? '249, 128, 95' : (tone === 'dark' ? '255, 255, 255' : '0, 0, 0');
   var shadowY = Math.round(6 + shadowPct * 14), shadowBlur = Math.round(16 + shadowPct * 34), shadowA = (.08 + shadowPct * .22).toFixed(2);
   var backdrop = refractOn
     ? 'url(#lg-refract) blur(' + blur + 'px) saturate(' + sat + '%)'
@@ -301,6 +345,11 @@ function renderCode(blur, sat, alpha, border, radius, hl, shadowPct, strength, f
 '  border-radius: ' + radius + 'px;\n' +
 '  box-shadow: 0 ' + shadowY + 'px ' + shadowBlur + 'px rgba(0, 0, 0, ' + shadowA + '),\n' +
 '              inset 0 1px 0 rgba(255, 255, 255, ' + hl.toFixed(2) + ');\n' +
+'}\n\n' +
+'/* Hover: same glass, not a flat opaque patch — that\'s what makes an\n' +
+'   item on a glass panel "turn plain" when you hover it. */\n' +
+'.glass-item:hover {\n' +
+'  background: rgba(' + hoverRgb + ', ' + hoverAlpha.toFixed(2) + ');\n' +
 '}';
   document.getElementById('code-out').textContent = css;
 }

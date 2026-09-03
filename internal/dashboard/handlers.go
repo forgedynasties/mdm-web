@@ -1532,6 +1532,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "restaurants"
 	case strings.HasPrefix(path, "/productions"):
 		data["ActivePage"] = "productions"
+	case strings.HasPrefix(path, "/manage"):
+		data["ActivePage"] = "manage"
 	case strings.HasPrefix(path, "/commands"):
 		data["ActivePage"] = "commands"
 	case strings.HasPrefix(path, "/releases"):
