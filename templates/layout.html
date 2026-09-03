@@ -720,8 +720,10 @@
         // Conversational one-liner: scope — detail, then the fix as an inline accent.
         var line = '<span class="scope">' + mdmEsc(is.scope) + '</span>' + (is.detail ? ' — ' + mdmEsc(is.detail) : '')
           + (is.action ? ' <span class="rep-act">' + mdmEsc(is.action) + '</span>' : '');
-        h += '<div class="rep-row rep-' + sev + '"><span class="ind"></span><div class="meta">'
-          + mdmLinkify(line, focus) + '</div></div>';
+        // data-area/data-scope let the Fleet health page attach an evidence chart
+        // (.rep-ev) under each call-out; the Overview brief hides that slot.
+        h += '<div class="rep-row rep-' + sev + '" data-area="' + mdmEsc(is.area || '') + '" data-scope="' + mdmEsc(is.scope || '') + '"><span class="ind"></span><div class="meta">'
+          + mdmLinkify(line, focus) + '<div class="rep-ev" hidden></div></div></div>';
       });
       h += '</div>';
     }
