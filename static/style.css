@@ -3733,10 +3733,10 @@ html[data-theme="dark"] .toast { background: rgba(20, 18, 17, .45); border-color
 
 /* ── Daily Report · Assistant treatment (orb header + chat-bubble briefing) ── */
 .ai-hdr { display: flex; align-items: center; gap: 11px; }
-.ai-orb { position: relative; width: 32px; height: 32px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+.ai-orb { position: relative; width: 32px; height: 32px; flex: none; border-radius: 10px; display: flex; align-items: center; justify-content: center;
   color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2, #7a80f6)); box-shadow: 0 4px 13px rgba(249,103,78,.28); }
 .ai-orb svg { width: 16px; height: 16px; }
-.ai-orb::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 1.5px solid var(--accent-soft); animation: ai-orbpulse 2.6s ease-out infinite; }
+.ai-orb::after { content: ""; position: absolute; inset: -4px; border-radius: 13px; border: 1.5px solid var(--accent-soft); animation: ai-orbpulse 2.6s ease-out infinite; }
 @keyframes ai-orbpulse { 0% { transform: scale(.9); opacity: .7; } 70% { transform: scale(1.35); opacity: 0; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .ai-orb::after { animation: none; } }
 .ai-hdr-t { font-size: 15px; font-weight: 650; letter-spacing: -.01em; line-height: 1.2; }
