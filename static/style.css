@@ -5330,6 +5330,14 @@ html[data-theme="dark"] .nbar-pop { background: rgba(20,18,17,.45); border-color
 
 /* alerts dropdown list */
 .nbar-alerts { width: 322px; }
+/* Fixed height, not max-height: the "Loading…" placeholder and the real
+   alert rows must occupy IDENTICAL outer dimensions, or swapping one for the
+   other resizes .nbar-pop (a backdrop-filter surface) while it's visible —
+   that resize, not just the swap itself, is what was triggering the
+   blur-drops-and-reappears flicker (will-change alone didn't stop it because
+   the layer still has to be re-snapshot when its own bounds change, isolated
+   compositing or not). Scrolls internally instead of ever changing height. */
+.nbar-al-list { height: 320px; overflow-y: auto; }
 .nbar-pop-h { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); padding: 7px 9px 8px; }
 .nbar-al { display: flex; gap: 10px; padding: 9px 9px; border-radius: 9px; text-decoration: none; }
 .nbar-al:hover { background: var(--surface2); }
@@ -5371,7 +5379,7 @@ html[data-theme="dark"] .mtoast { background: rgba(20, 18, 17, .45); border-colo
 .mtoast .mt-b { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 7px; border: 1px solid var(--border); color: var(--muted); text-decoration: none; }
 .mtoast .mt-b.p { border-color: transparent; background: var(--accent); color: #fff; }
 .mtoast .mt-x { flex: none; align-self: flex-start; background: none; border: none; color: var(--text-faint); font-size: 17px; line-height: 1; cursor: pointer; }
-.nbar-al-empty { padding: 16px 11px; text-align: center; color: var(--muted); font-size: 12.5px; }
+.nbar-al-empty { height: 100%; display: flex; align-items: center; justify-content: center; padding: 16px 11px; text-align: center; color: var(--muted); font-size: 12.5px; }
 
 /* ── floating bottom-center dock — liquid glass over whatever's scrolled
    beneath it, coral ring kept for brand/visibility ── */
