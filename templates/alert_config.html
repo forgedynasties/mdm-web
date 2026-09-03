@@ -1,28 +1,29 @@
 {{define "alert_config.html"}}
 {{template "header" .}}
 
-<div class="ov-greet">
-  <h1 class="ov-title">Alert configuration</h1>
-  <span class="ov-date">What the fleet watches for, and the thresholds that trigger each alert.</span>
-</div>
-
 <style>
-.ac-banner{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 15px;margin-bottom:16px;}
+/* ── Alert configuration · command center ──────────────────── */
+.acx-wrap{max-width:1280px;margin:0 auto}
+.acx-back{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:650;color:var(--muted);text-decoration:none;margin-bottom:10px}
+.acx-back:hover{color:var(--text)}
+
+.ac-banner{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted)}
 .ac-banner svg{width:17px;height:17px;flex:none;color:var(--accent);}
 .ac-banner b{color:var(--text);}
+
 .ac-list{padding:4px 0;}
-.ac-row{display:grid;grid-template-columns:52px minmax(0,1.3fr) minmax(0,1fr);align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--border-soft);}
-.ac-row:last-child{border-bottom:0;}
+.ac-row{display:grid;grid-template-columns:52px minmax(0,1.3fr) minmax(0,1fr);align-items:center;gap:14px;padding:12px 17px;border-top:1px solid var(--border-soft);}
+.ac-row:first-child{border-top:0;}
 .ac-row.off{opacity:.62;}
 .ac-state{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;text-align:center;padding:3px 0;border-radius:99px;}
-.ac-state.on{background:#e6f6ee;color:#1c7d50;}
+.ac-state.on{background:var(--ok-bg);color:var(--ok);}
 .ac-state.muted{background:var(--surface2);color:var(--text-faint);}
-.ac-name{font-weight:600;font-size:13.5px;color:var(--text);}
+.ac-name{font-weight:650;font-size:13.5px;color:var(--text);}
 .ac-desc{margin-top:2px;line-height:1.45;}
 .ac-params{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
 .ac-chip{font-size:11.5px;color:var(--text-2);background:var(--surface2);border:1px solid var(--border-soft);border-radius:99px;padding:3px 10px;white-space:nowrap;}
 .ac-chip b{color:var(--text);font-weight:700;}
-.ac-chip.ac-win{background:#eef0ff;color:#4a4fbf;border-color:#dcdefb;text-transform:capitalize;}
+.ac-chip.ac-win{background:var(--accent-2-soft);color:var(--accent-2);border-color:transparent;text-transform:capitalize;}
 .ac-peaks{display:flex;flex-wrap:wrap;gap:8px;}
 @media(max-width:640px){
   .ac-row{grid-template-columns:44px 1fr;}
@@ -30,48 +31,61 @@
 }
 </style>
 
-<div class="ac-banner">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-  <span><b>View only.</b> Alert rules are tuned by an admin in Settings — this page shows the configuration currently in effect.</span>
-</div>
+<div class="acx-wrap cc-wrap">
+  <a href="/alerts" class="acx-back">← Alerts</a>
 
-{{range .AlertRules}}
-<div class="card" style="margin-bottom:14px;">
-  <div class="card-header"><h3>{{.Category}}</h3><span class="muted small">{{.EnabledCount}} of {{len .Rules}} enabled</span></div>
-  <div class="ac-list">
-    {{range .Rules}}
-    <div class="ac-row{{if not .Enabled}} off{{end}}">
-      <span class="ac-state {{if .Enabled}}on{{else}}muted{{end}}">{{if .Enabled}}On{{else}}Off{{end}}</span>
-      <div class="ac-main">
-        <div class="ac-name">{{.Name}}</div>
-        <div class="ac-desc muted small">{{.Desc}}</div>
-      </div>
-      <div class="ac-params">
-        {{range .Fields}}<span class="ac-chip">{{.Label}}: <b>{{.Value}}{{.Unit}}</b></span>{{end}}
-        {{if and .Windowed .ActiveWindow}}<span class="ac-chip ac-win">{{.ActiveWindow}}</span>{{end}}
-        {{if not (or .Fields .Windowed)}}<span class="ac-chip">no thresholds</span>{{end}}
-      </div>
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Alerts · configuration</div>
+      <h1 class="cc-h1">What the fleet watches for</h1>
+      <div class="cc-sub">The thresholds that trigger each alert, currently in effect. <b>View only</b> — rules are tuned by an admin in Settings.</div>
     </div>
-    {{end}}
   </div>
-</div>
-{{end}}
 
-<div class="card" style="margin-bottom:14px;">
-  <div class="card-header"><h3>Peak hours</h3><span class="muted small">fleet default</span></div>
-  <div style="padding:14px 16px;">
-    {{if .Peak.Ranges}}
-    <div class="ac-peaks">
-      {{range .Peak.Ranges}}<span class="ac-chip ac-win">{{.Start}} – {{.End}}</span>{{end}}
+  {{range .AlertRules}}
+  <div class="cc-card">
+    <div class="cc-ch"><span class="ic{{if not .EnabledCount}} mut{{end}}"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><h3>{{.Category}}</h3><span class="m">{{.EnabledCount}} of {{len .Rules}} enabled</span></div>
+    <div class="ac-list">
+      {{range .Rules}}
+      <div class="ac-row{{if not .Enabled}} off{{end}}">
+        <span class="ac-state {{if .Enabled}}on{{else}}muted{{end}}">{{if .Enabled}}On{{else}}Off{{end}}</span>
+        <div class="ac-main">
+          <div class="ac-name">{{.Name}}</div>
+          <div class="ac-desc muted small">{{.Desc}}</div>
+        </div>
+        <div class="ac-params">
+          {{range .Fields}}<span class="ac-chip">{{.Label}}: <b>{{.Value}}{{.Unit}}</b></span>{{end}}
+          {{if and .Windowed .ActiveWindow}}<span class="ac-chip ac-win">{{.ActiveWindow}}</span>{{end}}
+          {{if not (or .Fields .Windowed)}}<span class="ac-chip">no thresholds</span>{{end}}
+        </div>
+      </div>
+      {{end}}
     </div>
-    <div class="muted small" style="margin-top:10px;">Times in UTC. Individual restaurants may set their own hours — "during peak" alerts use each venue's window.</div>
-    {{else}}
-    <div class="muted small">No peak windows configured.</div>
-    {{end}}
   </div>
-</div>
+  {{end}}
 
-<div class="muted small" style="margin:0 2px 8px;">Operational (windowed) rules apply to deployed units only. Alerts are evaluated hourly during housekeeping.</div>
+  <div class="cc-card">
+    <div class="cc-ch"><span class="ic v2"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></svg></span><h3>Peak hours</h3><span class="m">fleet default</span></div>
+    <div class="cc-cb">
+      {{if .Peak.Ranges}}
+      <div class="ac-peaks">
+        {{range .Peak.Ranges}}<span class="ac-chip ac-win">{{.Start}} – {{.End}}</span>{{end}}
+      </div>
+      <div class="muted small" style="margin-top:10px;">Times in UTC. Individual restaurants may set their own hours — "during peak" alerts use each venue's window.</div>
+      {{else}}
+      <div class="muted small">No peak windows configured.</div>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="cc-card">
+    <div class="cc-cb ac-banner">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+      <span>Operational (windowed) rules apply to deployed units only. Alerts are evaluated hourly during housekeeping.</span>
+    </div>
+  </div>
+
+</div>
 
 {{template "footer" .}}
 {{end}}

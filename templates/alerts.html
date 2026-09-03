@@ -2,43 +2,23 @@
 {{template "header" .}}
 
 <style>
-/* ── Alerts · Inbox ─────────────────────────────────────── */
-.alx-head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
-.alx-head h1{font-size:24px;font-weight:750;letter-spacing:-.02em;margin:0}
-.alx-head .sum{font-size:14px;color:var(--muted)}
-.alx-head .sum b{color:var(--danger)}
-.alx-head .clear{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--muted)}
-.alx-head .clear:hover{color:var(--danger)}
+/* ── Alerts · command center ────────────────────────────── */
+.al-wrap{max-width:1280px;margin:0 auto}
 
-.alx-controls{display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-.alx-seg{display:inline-flex;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:3px}
-.alx-seg a{font-size:12.5px;font-weight:600;color:var(--muted);padding:6px 14px;border-radius:99px;text-decoration:none}
-.alx-seg a.on{background:var(--surface);color:var(--text);box-shadow:var(--shadow-sm)}
-.alx-seg a .n{font-variant-numeric:tabular-nums;opacity:.7;margin-left:3px}
-.alx-search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 13px}
-.alx-search svg{width:15px;height:15px;fill:none;stroke:var(--text-faint);stroke-width:2}
-.alx-search input{border:none;outline:none;background:none;font:inherit;font-size:13.5px;width:100%;color:var(--text)}
-.alx-filter{display:inline-flex;align-items:center;gap:8px;margin:-6px 0 16px;padding:7px 12px;background:var(--surface);border:1px solid var(--border);border-radius:99px;font-size:12.5px}
-.alx-filter svg{width:14px;height:14px;fill:none;stroke:var(--text-faint);stroke-width:2}
-.alx-filter .lbl{font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:10.5px;color:var(--text-faint)}
-.alx-filter .mono{font-family:var(--mono);color:var(--text)}
-.alx-filter .x{margin-left:4px;font-weight:600;color:var(--muted);text-decoration:none;border-left:1px solid var(--border-soft);padding-left:9px}
-.alx-filter .x:hover{color:var(--danger)}
-
-.alx-sec{display:flex;align-items:center;gap:9px;margin:22px 2px 12px}
-.alx-sec .st{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-faint)}
-.alx-sec.crit .st{color:var(--danger)}
-.alx-sec .sc{font-size:11px;font-weight:700;color:var(--muted);background:var(--surface2);border-radius:99px;padding:2px 9px}
-.alx-sec .line{flex:1;height:1px;background:var(--border-soft)}
+.al-controls{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.al-search{flex:1;min-width:180px;display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 13px;min-height:40px;box-sizing:border-box}
+.al-search svg{width:15px;height:15px;fill:none;stroke:var(--text-faint);stroke-width:2;flex:none}
+.al-search input{border:none;outline:none;background:none;font:inherit;font-size:13.5px;width:100%;color:var(--text)}
+.al-filter{display:inline-flex;align-items:center;gap:8px;margin:-8px 0 16px;padding:7px 12px;background:var(--surface);border:1px solid var(--border);border-radius:99px;font-size:12.5px}
+.al-filter svg{width:14px;height:14px;fill:none;stroke:var(--text-faint);stroke-width:2}
+.al-filter .lbl{font-weight:700;letter-spacing:.03em;text-transform:uppercase;font-size:10.5px;color:var(--text-faint)}
+.al-filter .mono{font-family:var(--mono);color:var(--text)}
+.al-filter .x{margin-left:4px;font-weight:600;color:var(--muted);text-decoration:none;border-left:1px solid var(--border-soft);padding-left:9px}
+.al-filter .x:hover{color:var(--danger)}
 
 .alx-al{display:flex;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:15px 17px;margin-bottom:10px;align-items:flex-start}
-.alx-ico{width:38px;height:38px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;overflow:hidden}
-.alx-ico svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2}
-.alx-ico img{width:100%;height:100%;object-fit:cover;border-radius:11px}
-.alx-al.crit .alx-ico{background:var(--danger-bg);color:var(--danger)}
-.alx-al.warn .alx-ico{background:var(--warn-bg);color:var(--warn)}
-.alx-al.info .alx-ico{background:var(--accent-2-soft);color:var(--accent-2)}
-.alx-al.done .alx-ico{background:var(--ok-bg);color:var(--ok)}
+.alx-al .cc-sq{overflow:hidden}
+.alx-al .cc-sq img{width:100%;height:100%;object-fit:cover;border-radius:10px}
 .alx-al.done{opacity:.72}.alx-al.done .alx-t{font-weight:650}
 .alx-m{flex:1;min-width:0}
 .alx-top{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
@@ -49,58 +29,71 @@
 .alx-kind.anr{background:var(--warn-bg);color:var(--warn)}
 .alx-kind.tomb{background:var(--accent-2-soft);color:var(--accent-2)}
 .alx-when{margin-left:auto;font-size:11.5px;color:var(--text-faint);flex:none}
-.alx-s{font-size:13px;color:var(--text2, var(--muted));margin-top:4px;line-height:1.5}
+.alx-s{font-size:13px;color:var(--muted);margin-top:4px;line-height:1.5}
 .alx-s b{color:var(--text);font-weight:650}
 .alx-foot{display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap}
 .alx-foot form{display:inline}
-.alx-btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600;color:var(--muted);display:inline-flex;align-items:center;gap:6px;text-decoration:none;cursor:pointer}
-.alx-btn:hover{border-color:var(--rule-2);color:var(--text)}
-.alx-btn.primary{border-color:transparent;background:var(--accent);color:#fff}.alx-btn.primary:hover{background:var(--accent-h);color:#fff}
-.alx-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
 .alx-dev{margin-left:auto;font-size:12px;color:var(--muted)}
-.alx-dev a{font-family:var(--mono);color:var(--text2, var(--muted));border-bottom:1px solid var(--rule-2)}
-.alx-fold{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:14px 18px;font-size:13px;color:var(--muted);text-decoration:none;margin-top:6px}
-.alx-fold b{color:var(--ok)}.alx-fold .chev{margin-left:auto;color:var(--text-faint);font-weight:600}
-.alx-clear-state{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);padding:18px}
-.alx-clear-state .i{width:38px;height:38px;flex:none;border-radius:10px;background:var(--ok-bg);color:var(--ok);display:flex;align-items:center;justify-content:center}
-.alx-clear-state .i svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.4}
-.alx-clear-state .t{font-size:14px;font-weight:650}.alx-clear-state .s{font-size:12.5px;color:var(--muted)}
+.alx-dev a{font-family:var(--mono);color:var(--muted);border-bottom:1px solid var(--rule-2)}
 #alx-nomatch{padding:22px;text-align:center;color:var(--muted);font-size:13px;display:none}
 .alx-pager{display:flex;align-items:center;justify-content:center;gap:14px;margin:18px 0 4px}
-.alx-pager .pg{font-size:12.5px;font-weight:600;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 15px;text-decoration:none}
+.alx-pager .pg{font-size:12.5px;font-weight:600;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:8px 15px;text-decoration:none;min-height:40px;display:inline-flex;align-items:center;box-sizing:border-box}
 .alx-pager .pg:hover{border-color:var(--rule-2)}
 .alx-pager .pg.disabled{color:var(--text-faint);pointer-events:none;opacity:.55}
 .alx-pager .pg-info{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .alx-trace{margin:8px 0 2px}
 .alx-trace>summary{cursor:pointer;user-select:none;padding:2px 0;font-size:12px}
 .alx-trace>.logcat-terminal{margin-top:6px;max-height:320px;overflow:auto}
+
+@media(max-width:640px){
+  .alx-al{flex-wrap:wrap}
+  .alx-foot{width:100%}
+  .alx-dev{margin-left:0;width:100%}
+  .cc-btn.sm,.al-search{min-height:40px}
+}
 </style>
+
+<div class="al-wrap cc-wrap">
 
 <div id="alerts-live">
 
-  <div class="alx-head">
-    <h1>Alerts</h1>
-    <span class="sum">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} your attention</b> · {{end}}{{.Summary.Open}} open</span>
-    {{if and (canAdmin .Role) (or .Critical .Watching)}}
-    <form action="/alerts/clear-all" method="POST" class="clear" hx-confirm="Clear ALL alerts? Any whose condition still holds will re-fire.">
-      <button type="submit" class="alx-head clear" style="background:none;border:none;cursor:pointer;font:inherit;">Clear all</button>
-    </form>
-    {{end}}
+  {{$needsColor := "ok"}}{{if gt .NeedsCount 0}}{{$needsColor = "danger"}}{{else if gt .Summary.Open 0}}{{$needsColor = "warn"}}{{end}}
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Alerts</div>
+      <h1 class="cc-h1">{{.Summary.Open}} open <span class="hl {{$needsColor}}">· {{.NeedsCount}} need{{if eq .NeedsCount 1}}s{{end}} action</span></h1>
+      <div class="cc-sub">{{if gt .NeedsCount 0}}<b>{{.NeedsCount}}</b> alert{{if ne .NeedsCount 1}}s{{end}} need a decision now. {{end}}{{if gt .WatchCount 0}}<b>{{.WatchCount}}</b> more worth watching.{{else}}Nothing else is flagged.{{end}}</div>
+    </div>
+    <div class="cc-actions">
+      <a href="/alert-config" class="cc-btn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Alert rules</a>
+      {{if and (canAdmin .Role) (or .Critical .Watching)}}
+      <form action="/alerts/clear-all" method="POST" hx-confirm="Clear ALL alerts? Any whose condition still holds will re-fire.">
+        <button type="submit" class="cc-btn danger"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>Clear all</button>
+      </form>
+      {{end}}
+    </div>
+  </div>
+
+  <div class="cc-kpis">
+    <a class="cc-kpi" href="/alerts?view=needs{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Needs action</span><div class="v {{if gt .NeedsCount 0}}danger{{end}}">{{.NeedsCount}}</div></a>
+    <a class="cc-kpi" href="/alerts?view=watching{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>Watching</span><div class="v {{if gt .WatchCount 0}}warn{{end}}">{{.WatchCount}}</div></a>
+    <a class="cc-kpi" href="/alerts?view=crashes{{if .DeviceFilter}}&device={{.DeviceFilter}}{{end}}"><span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Crashes</span><div class="v {{if gt .CrashCount 0}}danger{{end}}">{{.CrashCount}}</div></a>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolved</span><div class="v ok">{{.Summary.Resolved}}</div></div>
   </div>
 
   {{$dev := ""}}{{if .DeviceFilter}}{{$dev = printf "&device=%s" .DeviceFilter}}{{end}}
-  <div class="alx-controls">
-    <div class="alx-seg">
+  <div class="al-controls">
+    <div class="cc-seg">
       <a href="/alerts{{if .DeviceFilter}}?device={{.DeviceFilter}}{{end}}" class="{{if eq .View ""}}on{{end}}">All{{if .ActiveCount}}<span class="n">{{.ActiveCount}}</span>{{end}}</a>
       <a href="/alerts?view=needs{{$dev}}" class="{{if eq .View "needs"}}on{{end}}">Needs action<span class="n">{{.NeedsCount}}</span></a>
       <a href="/alerts?view=watching{{$dev}}" class="{{if eq .View "watching"}}on{{end}}">Watching<span class="n">{{.WatchCount}}</span></a>
       <a href="/alerts?view=crashes{{$dev}}" class="{{if eq .View "crashes"}}on{{end}}">Crashes{{if .CrashCount}}<span class="n">{{.CrashCount}}</span>{{end}}</a>
     </div>
-    <div class="alx-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" type="search" aria-label="Search alerts" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
+    <div class="al-search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="alx-q" type="search" aria-label="Search alerts" placeholder="Search a device, place, or issue…" oninput="alxFilter()" autocomplete="off"></div>
   </div>
 
   {{if .DeviceFilter}}
-  <div class="alx-filter">
+  <div class="al-filter">
     <svg viewBox="0 0 24 24"><path d="M3 5h18M6 12h12M10 19h4"/></svg>
     <span class="lbl">Device</span><span class="mono">{{.DeviceFilter}}</span>
     <a class="x" href="/alerts{{if ne .View ""}}?view={{.View}}{{end}}" title="Clear device filter" aria-label="Clear device filter">Clear ×</a>
@@ -110,7 +103,7 @@
   {{if eq .View "crashes"}}
 
   {{if .Crashes}}
-  <div class="alx-sec crit"><span class="st">Crashes{{if not .DeviceFilter}} · last 7 days{{end}}</span><span class="sc">{{.CrashCount}}</span><span class="line"></span></div>
+  <div class="cc-sec alx-sec">Crashes{{if not .DeviceFilter}} · last 7 days{{end}}<span class="n">{{.CrashCount}}</span></div>
   {{range .Crashes}}{{template "alx-crash" .}}{{end}}
   {{if gt .CrashPages 1}}
   <div class="alx-pager">
@@ -120,28 +113,30 @@
   </div>
   {{end}}
   {{else}}
-  <div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">No crashes</div><div class="s">No app crashes, ANRs, or tombstones reported {{if .DeviceFilter}}for {{.DeviceFilter}}{{else}}across the fleet in the last 7 days{{end}}.</div></div></div>
+  <div class="cc-card"><div class="cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><b>No crashes</b>No app crashes, ANRs, or tombstones reported {{if .DeviceFilter}}for {{.DeviceFilter}}{{else}}across the fleet in the last 7 days{{end}}.</div></div>
   {{end}}
 
   {{else}}
 
   {{if and (not .Critical) (not .Watching)}}
-  <div class="alx-clear-state"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><div><div class="t">All clear</div><div class="s">Everything is operating normally. Alerts are raised automatically from device telemetry.</div></div></div>
+  <div class="cc-card"><div class="cc-empty tall"><span class="i"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span><b>All clear</b>Everything is operating normally. Alerts are raised automatically from device telemetry.</div></div>
   {{end}}
 
   {{if and .Critical (ne .View "watching")}}
-  <div class="alx-sec crit"><span class="st">Needs attention now</span><span class="sc">{{.NeedsCount}}</span><span class="line"></span></div>
+  <div class="cc-sec alx-sec">Needs attention now<span class="n">{{.NeedsCount}}</span></div>
   {{range .Critical}}{{template "alx-card" .}}{{end}}
   {{end}}
 
   {{if and .Watching (ne .View "needs")}}
-  <div class="alx-sec"><span class="st">Worth watching</span><span class="sc">{{.WatchCount}}</span><span class="line"></span></div>
+  <div class="cc-sec alx-sec">Worth watching<span class="n">{{.WatchCount}}</span></div>
   {{range .Watching}}{{template "alx-card" .}}{{end}}
   {{end}}
 
   {{end}}
 
   <div id="alx-nomatch">No alerts match your search.</div>
+</div>
+
 </div>
 
 <script>
@@ -181,8 +176,9 @@ function alxFilter(){
 {{/* One friendly alert card. Dot is a humanAlert. */}}
 {{define "alx-card"}}
 {{$sev := "info"}}{{if eq .Severity "critical"}}{{$sev = "crit"}}{{else if eq .Severity "warning"}}{{$sev = "warn"}}{{end}}{{if eq .Status "resolved"}}{{$sev = "done"}}{{end}}
+{{$sq := "info"}}{{if eq $sev "crit"}}{{$sq = "danger"}}{{else if eq $sev "warn"}}{{$sq = "warn"}}{{else if eq $sev "done"}}{{$sq = "ok"}}{{end}}
 <div class="alx-al {{$sev}}" data-search="{{.Headline}} {{.Serial}} {{.Restaurant}} {{plainAlert .Sentence}}">
-  <span class="alx-ico">{{if .AppIcon}}<img src="data:image/png;base64,{{.AppIcon}}" alt="">{{else}}{{template "alx-icon" .IconKey}}{{end}}</span>
+  <span class="cc-sq {{$sq}}">{{if .AppIcon}}<img src="data:image/png;base64,{{.AppIcon}}" alt="">{{else}}{{template "alx-icon" .IconKey}}{{end}}</span>
   <div class="alx-m">
     <div class="alx-top">
       <span class="alx-t">{{.Headline}}</span>
@@ -197,13 +193,13 @@ function alxFilter(){
     {{end}}
     <div class="alx-foot">
       {{if ne .Status "resolved"}}
-        {{if .Primary}}<a class="alx-btn primary" href="{{.Primary.Href}}">{{if eq .Primary.Icon "logs"}}<svg viewBox="0 0 24 24"><path d="M4 4h16v13H4z"/><path d="M8 21h8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>{{end}}{{.Primary.Label}}</a>{{end}}
+        {{if .Primary}}<a class="cc-btn sm primary" href="{{.Primary.Href}}">{{if eq .Primary.Icon "logs"}}<svg viewBox="0 0 24 24"><path d="M4 4h16v13H4z"/><path d="M8 21h8"/></svg>{{else}}<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>{{end}}{{.Primary.Label}}</a>{{end}}
         {{if .CanAct}}
-          {{if eq .Status "open"}}<form action="/alerts/{{.ID}}/ack" method="POST"><button type="submit" class="alx-btn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Acknowledge</button></form>{{end}}
-          <form action="/alerts/{{.ID}}/resolve" method="POST"><button type="submit" class="alx-btn"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button></form>
+          {{if eq .Status "open"}}<form action="/alerts/{{.ID}}/ack" method="POST"><button type="submit" class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Acknowledge</button></form>{{end}}
+          <form action="/alerts/{{.ID}}/resolve" method="POST"><button type="submit" class="cc-btn sm"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Resolve</button></form>
         {{end}}
       {{else if .Primary}}
-        <a class="alx-btn" href="{{.Primary.Href}}">{{.Primary.Label}}</a>
+        <a class="cc-btn sm" href="{{.Primary.Href}}">{{.Primary.Label}}</a>
       {{end}}
       {{if .Serial}}<span class="alx-dev">on <a href="/devices/{{.Serial}}" onclick="event.stopPropagation()">{{.Serial}}</a></span>{{end}}
     </div>
@@ -214,7 +210,7 @@ function alxFilter(){
 {{/* One crash/ANR/tombstone event card. Dot is a crashCardView. */}}
 {{define "alx-crash"}}
 <div class="alx-al crit" data-search="{{.KindLabel}} crash {{.Serial}} {{.Restaurant}} {{.Summary}}">
-  <span class="alx-ico">{{if .AppIcon}}<img src="data:image/png;base64,{{.AppIcon}}" alt="">{{else}}{{template "alx-icon" "crash"}}{{end}}</span>
+  <span class="cc-sq danger">{{if .AppIcon}}<img src="data:image/png;base64,{{.AppIcon}}" alt="">{{else}}{{template "alx-icon" "crash"}}{{end}}</span>
   <div class="alx-m">
     <div class="alx-top">
       <span class="alx-kind {{.KindClass}}">{{.KindLabel}}</span>

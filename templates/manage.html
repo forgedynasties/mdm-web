@@ -1,82 +1,117 @@
 {{define "manage.html"}}
 {{template "header" .}}
 
-<div class="ov-greet">
-  <h1 class="ov-title">Policies</h1>
-  <span class="ov-date">named kiosk policies — standing device configuration, not a one-off command</span>
-</div>
-
 <style>
-.mg-types{display:flex;gap:8px;margin-bottom:16px;}
-.mg-type{font:inherit;font-size:12.5px;font-weight:650;padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text-2);cursor:pointer;display:flex;align-items:center;gap:7px;}
-.mg-type.on{border-color:transparent;background:var(--accent);color:var(--accent-ink);}
-.mg-type.soon{color:var(--text-faint);cursor:default;}
-.mg-type.soon span{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;background:var(--surface2);color:var(--text-faint);padding:1px 6px;border-radius:99px;}
+/* ── Policies · command center ─────────────────────────────── */
+.mg-wrap{max-width:1280px;margin:0 auto}
 
-.mg-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
-.mg-count{font-size:12px;color:var(--muted);}
-.mg-bulk{font:inherit;font-size:12.5px;font-weight:650;color:var(--accent-ink);background:var(--accent);border:none;border-radius:9px;padding:8px 15px;cursor:pointer;margin-left:auto;white-space:nowrap;display:flex;align-items:center;gap:7px;text-decoration:none;}
+.mg-seg{margin-bottom:16px}
+.mg-seg .soon{opacity:.55;cursor:default;pointer-events:none}
+.mg-seg .soon .n{background:var(--surface2);color:var(--text-faint)}
 
-.pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4,14px);box-shadow:var(--shadow-sm);padding:16px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px;}
-.pcard .ic{width:38px;height:38px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex:none;color:var(--text-2);}
-.pcard .ic svg{width:19px;height:19px;}
-.pcard .body{flex:1;min-width:0;}
-.pcard .nm{font-size:14.5px;font-weight:700;}
-.pcard .meta{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-.pcard .meta b{color:var(--text-2);font-weight:650;}
-.pcard .sep{color:var(--text-faint);}
-.pcard .targets{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px;}
-.ttag{font-size:11.5px;font-weight:600;background:var(--surface2);color:var(--text-2);padding:3px 9px;border-radius:99px;}
-.pcard .acts{display:flex;gap:6px;flex:none;}
-.pcard .acts button,.pcard .acts a{font:inherit;font-size:12px;font-weight:650;color:var(--muted);background:none;border:1px solid var(--border);border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;}
-.pcard .acts button:hover,.pcard .acts a:hover{border-color:var(--accent-edge,rgba(249,103,78,.34));color:var(--accent);}
-.pcard .acts button.danger:hover{border-color:var(--danger-edge,rgba(209,80,63,.34));color:var(--danger,#d1503f);}
-.pcard.default{background:var(--surface2);box-shadow:none;border-style:dashed;}
-.pcard.default .ic{background:var(--surface);}
-.pc-divider{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-faint);margin:22px 2px 10px;}
-.mg-empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:13.5px;}
+.mg-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.mg-toolbar .cc-sec{flex:1;margin:0}
+
+.mg-row{display:flex;align-items:center;gap:14px;padding:14px 17px;border-top:1px solid var(--border-soft)}
+.mg-row:first-of-type{border-top:none}
+.mg-row .body{flex:1;min-width:0}
+.mg-row .nm{font-size:14px;font-weight:700;letter-spacing:-.005em}
+.mg-row .meta{font-size:12.5px;color:var(--muted);margin-top:2px}
+.mg-row .meta b{color:var(--text-2);font-weight:650}
+.mg-row .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.mg-cov{flex:none;width:120px}
+.mg-cov .n{font-size:11.5px;color:var(--muted);margin-bottom:5px;text-align:right;font-variant-numeric:tabular-nums}
+.mg-cov .n b{color:var(--text)}
+.mg-acts{display:flex;gap:6px;flex:none}
+.mg-acts form{margin:0}
+
+.mg-default{margin-top:16px;border-style:dashed;background:var(--surface2);box-shadow:none}
+.mg-default .cc-row{border-top:none}
+.mg-default .body .nm{font-weight:700}
+.mg-default .body .meta{margin-top:4px;max-width:60ch;line-height:1.5}
+
+@media(max-width:640px){
+  .mg-row{flex-wrap:wrap}
+  .mg-cov{order:3;width:100%}
+  .mg-cov .n{text-align:left}
+  .mg-acts{order:4;width:100%}
+  .mg-acts a,.mg-acts button{flex:1;justify-content:center;min-height:40px}
+}
 </style>
 
-<div class="mg-types">
-  <button class="mg-type on">Kiosk lock</button>
-  <button class="mg-type soon">Charging pad <span>soon</span></button>
-</div>
+<div class="mg-wrap cc-wrap">
 
-<div class="mg-toolbar">
-  <span class="mg-count">{{.PolicyCount}} polic{{if eq .PolicyCount 1}}y{{else}}ies{{end}} · {{.CoveredCount}} device{{if ne .CoveredCount 1}}s{{end}} covered</span>
-  {{if .CanEdit}}<a href="/manage/policies/new" class="mg-bulk"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Create new policy</a>{{end}}
-</div>
-
-<div class="pc-divider">Polic{{if eq .PolicyCount 1}}y{{else}}ies{{end}} ({{.PolicyCount}})</div>
-{{if .Policies}}
-{{range .Policies}}
-<div class="pcard">
-  <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
-  <div class="body">
-    <div class="nm">{{.Name}}</div>
-    <div class="meta">Locked to <b>{{.AppName}}</b> <span class="sep">·</span> {{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</div>
-    <div class="targets"><span class="ttag">{{.TargetLabel}}</span></div>
+  <div class="cc-top">
+    <div>
+      <div class="cc-eyebrow">Policies</div>
+      <h1 class="cc-h1">{{if eq .PolicyCount 0}}No policies cover the fleet yet{{else}}{{.PolicyCount}} polic{{if eq .PolicyCount 1}}y{{else}}ies{{end}} cover{{if eq .PolicyCount 1}}s{{end}} <span class="hl {{if gt .UnlockedCount 0}}warn{{else}}ok{{end}}">{{.CoveredCount}} of {{.TotalDevices}} devices</span>{{if gt .UnlockedCount 0}} · {{.UnlockedCount}} unclaimed{{end}}{{end}}</h1>
+      <div class="cc-sub">Kiosk-lock policies are standing device configuration — apply once, keep enforcing. Unclaimed devices stay on whatever app they last had.</div>
+    </div>
+    <div class="cc-actions">
+      {{if .CanEdit}}<a href="/manage/policies/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Create new policy</a>{{end}}
+    </div>
   </div>
-  {{if $.CanEdit}}
-  <div class="acts">
-    <a href="/manage/policies/{{.ID}}/edit">Edit</a>
-    <form method="POST" action="/manage/policies/{{.ID}}/duplicate" style="margin:0;display:inline;"><button type="submit">Duplicate</button></form>
-    <form method="POST" action="/manage/policies/{{.ID}}/delete" style="margin:0;display:inline;" hx-confirm="Delete {{printf "%q" .Name}}? Its {{.DeviceCount}} device(s) will be unlocked."><button type="submit" class="danger">Delete</button></form>
-  </div>
-  {{end}}
-</div>
-{{end}}
-{{else}}
-<div class="mg-empty">No kiosk policies yet — {{if .CanEdit}}create one to lock devices to an app{{else}}nothing is locked fleet-wide{{end}}.</div>
-{{end}}
 
-<div class="pc-divider">Everything else</div>
-<div class="pcard default">
-  <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>
-  <div class="body">
-    <div class="nm">Default</div>
-    <div class="meta">Unlocked <span class="sep">·</span> {{.UnlockedCount}} device{{if ne .UnlockedCount 1}}s{{end}} <span class="sep">·</span> no policy claims them</div>
+  <div class="cc-seg mg-seg">
+    <a class="on" href="#">Kiosk lock<span class="n">{{.PolicyCount}}</span></a>
+    <a class="soon" href="#">Charging pad<span class="n">soon</span></a>
   </div>
+
+  <div class="cc-kpis">
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Policies</span><div class="v">{{.PolicyCount}}</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M5 12.5 10 17l9-10"/></svg>Devices covered</span><div class="v {{if .CoveredCount}}ok{{end}}">{{.CoveredCount}}</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg>Unclaimed</span><div class="v {{if gt .UnlockedCount 0}}warn{{end}}">{{.UnlockedCount}}</div></div>
+    <div class="cc-kpi"><span class="k"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="7" rx="1"/><rect x="14" y="4" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Groups targeted</span><div class="v">{{.GroupsTargeted}}</div></div>
+  </div>
+
+  <div class="mg-toolbar">
+    <div class="cc-sec">Polic{{if eq .PolicyCount 1}}y{{else}}ies{{end}}<span class="n">{{.PolicyCount}}</span></div>
+  </div>
+
+  <div class="cc-card">
+    {{if .Policies}}
+    {{range .Policies}}
+    <div class="mg-row">
+      <span class="cc-sq accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+      <div class="body">
+        <div class="nm">{{.Name}}</div>
+        <div class="meta">Locked to <b>{{.AppName}}</b> · {{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</div>
+        <div class="tags"><span class="cc-tag accent">{{.TargetLabel}}</span></div>
+      </div>
+      <div class="mg-cov">
+        <div class="n"><b>{{.DeviceCount}}</b>{{if $.TotalDevices}} / {{$.TotalDevices}}{{end}}</div>
+        <div class="cc-meter"><i class="accent" style="width:{{.CoveragePct}}%"></i></div>
+      </div>
+      {{if $.CanEdit}}
+      <div class="mg-acts">
+        <a href="/manage/policies/{{.ID}}/edit" class="cc-btn sm">Edit</a>
+        <form method="POST" action="/manage/policies/{{.ID}}/duplicate"><button type="submit" class="cc-btn sm">Duplicate</button></form>
+        <form method="POST" action="/manage/policies/{{.ID}}/delete" hx-confirm="Delete {{printf "%q" .Name}}? Its {{.DeviceCount}} device(s) will be unlocked."><button type="submit" class="cc-btn sm danger">Delete</button></form>
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+    {{else}}
+    <div class="cc-empty tall">
+      <span class="i accent"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+      <b>No kiosk policies yet</b>
+      {{if .CanEdit}}Create one to lock a restaurant, group, or device to a single app.{{else}}Nothing is locked fleet-wide.{{end}}
+      {{if .CanEdit}}<a href="/manage/policies/new" class="cc-btn primary" style="margin-top:4px"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Create new policy</a>{{end}}
+    </div>
+    {{end}}
+  </div>
+
+  <div class="cc-card mg-default">
+    <div class="mg-row">
+      <span class="cc-sq"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/></svg></span>
+      <div class="body">
+        <div class="nm">Everything else — Default</div>
+        <div class="meta">{{.UnlockedCount}} device{{if ne .UnlockedCount 1}}s{{end}} unlocked, running whatever app they last had. No policy claims them — create one above and target these devices to bring them under management.</div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
+{{template "footer" .}}
 {{end}}
