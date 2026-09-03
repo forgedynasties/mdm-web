@@ -1492,7 +1492,7 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Type == "" {
 		body.Type = "install_apk"
 	}
-	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true, "update_splash": true}
+	validTypes := map[string]bool{"install_apk": true, "shell": true, "screenshot": true, "reboot": true, "ota": true, "update_splash": true, "wipe": true, "uninstall": true}
 	if !validTypes[body.Type] {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid type"})
 		return
@@ -1500,6 +1500,17 @@ func (h *Handler) CreateCommand(w http.ResponseWriter, r *http.Request) {
 	if body.Type == "install_apk" && body.ApkURL == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "apk_url is required for install_apk"})
 		return
+	}
+	if body.Type == "uninstall" {
+		// Package name travels in payload {"package": "..."}.
+		var p struct {
+			Package string `json:"package"`
+		}
+		_ = json.Unmarshal(body.Payload, &p)
+		if strings.TrimSpace(p.Package) == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "payload.package is required for uninstall"})
+			return
+		}
 	}
 	if body.Type == "update_splash" {
 		// URL travels in payload {"url": "...", "partition_size": <opt>}.
