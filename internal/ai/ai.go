@@ -116,17 +116,49 @@ func ParseReport(s string) (Report, bool) {
 	s = strings.TrimPrefix(s, "```")
 	s = strings.TrimSuffix(s, "```")
 	s = strings.TrimSpace(s)
-	if !strings.HasPrefix(s, "{") {
+	if !strings.Contains(s, "{") {
 		return Report{}, false
 	}
+	// Models (and some gateways) occasionally wrap the object in stray text — a
+	// duplicated leading "{", a sentence before it, a trailing note after it. Try
+	// the whole string first, then decode one JSON value starting at each "{" and
+	// keep the first that yields a real report.
+	if r, ok := decodeReport(s); ok {
+		return r, true
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] != '{' {
+			continue
+		}
+		if r, ok := decodeReport(s[i:]); ok {
+			return r, true
+		}
+	}
+	return Report{}, false
+}
+
+// decodeReport decodes exactly one JSON object from the start of s (trailing
+// text is ignored) and accepts it only if it carries a headline or status.
+func decodeReport(s string) (Report, bool) {
 	var r Report
-	if err := json.Unmarshal([]byte(s), &r); err != nil {
+	dec := json.NewDecoder(strings.NewReader(s))
+	if err := dec.Decode(&r); err != nil {
 		return Report{}, false
 	}
 	if r.Headline == "" && r.Status == "" {
 		return Report{}, false
 	}
 	return r, true
+}
+
+// Canonical re-serialises a report as compact JSON so what gets stored and
+// shipped to the browser is always clean, whatever the model wrapped it in.
+func (r Report) Canonical() string {
+	b, err := json.Marshal(r)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // Text flattens a Report to a readable plain-text summary (for the webhook digest).

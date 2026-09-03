@@ -731,7 +731,21 @@
     return h || '<div class="muted small">No further detail.</div>';
   }
   function mdmParseReport(raw) {
-    try { var o = JSON.parse(raw); if (o && (o.headline || o.status)) return o; } catch (e) {}
+    raw = String(raw || '').trim().replace(/^```(?:json)?/, '').replace(/```$/, '').trim();
+    function ok(o) { return o && typeof o === 'object' && (o.headline || o.status) ? o : null; }
+    try { var o = ok(JSON.parse(raw)); if (o) return o; } catch (e) {}
+    // Salvage: the model sometimes wraps the object in stray text (a duplicated
+    // leading "{", a sentence, a trailing note). Try each "{" as a start and each
+    // "}" from the end as the end until one pair parses.
+    var starts = [];
+    for (var i = 0; i < raw.length; i++) if (raw[i] === '{') starts.push(i);
+    for (var a = 0; a < starts.length && a < 8; a++) {
+      var end = raw.lastIndexOf('}');
+      while (end > starts[a]) {
+        try { var p = ok(JSON.parse(raw.slice(starts[a], end + 1))); if (p) return p; } catch (e) {}
+        end = raw.lastIndexOf('}', end - 1);
+      }
+    }
     return null;
   }
   // Render the card from #ai-sum-raw into preview + full.

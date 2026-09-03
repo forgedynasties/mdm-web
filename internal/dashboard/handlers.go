@@ -13160,6 +13160,13 @@ func (h *Handler) generateFleetSummary(ctx context.Context) (db.AISummary, error
 	if err := h.db.RecordAIUsage(ctx, usage.InputTokens, usage.OutputTokens); err != nil {
 		log.Printf("[ai-summary] record usage: %v", err)
 	}
+	// Store the report as canonical JSON: the model sometimes wraps it in stray
+	// characters, which would otherwise render as raw text in the card.
+	if rep, ok := ai.ParseReport(text); ok {
+		if c := rep.Canonical(); c != "" {
+			text = c
+		}
+	}
 	if err := h.db.SetAISummary(ctx, "fleet", text, client.Model()); err != nil {
 		return db.AISummary{}, err
 	}
