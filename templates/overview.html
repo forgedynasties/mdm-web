@@ -252,8 +252,30 @@
         // Group markers that are close together into a numbered cluster at low zoom;
         // clicking a cluster (its default behavior) zooms in until it splits apart —
         // otherwise devices at ~the same address just stack invisibly on top of each other.
+        // Custom renderer: the library's default cluster icon is a plain generic
+        // circle+pin that doesn't match the app's look — draw our own brand-colored
+        // dot with a crisp white count label instead.
         if (window.markerClusterer && markers.length > 1) {
-          new markerClusterer.MarkerClusterer({ map: map, markers: markers });
+          var accent = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#f9674e';
+          new markerClusterer.MarkerClusterer({
+            map: map, markers: markers,
+            renderer: {
+              render: function (cluster) {
+                var count = cluster.count;
+                var size = count < 10 ? 34 : count < 100 ? 42 : 50;
+                var r = size / 2;
+                var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="' + size + '" height="' + size + '">' +
+                  '<circle cx="' + r + '" cy="' + r + '" r="' + (r - 2) + '" fill="' + accent + '" stroke="#fff" stroke-width="2.5"/>' +
+                  '</svg>';
+                return new google.maps.Marker({
+                  position: cluster.position,
+                  icon: { url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg), scaledSize: new google.maps.Size(size, size), anchor: new google.maps.Point(r, r) },
+                  label: { text: String(count), color: '#fff', fontSize: '12.5px', fontWeight: '700' },
+                  zIndex: 1000 + count
+                });
+              }
+            }
+          });
         }
         if (pts.length === 1) { map.setCenter({lat:pts[0].lat, lng:pts[0].lon}); map.setZoom(12); }
         else if (pts.length > 1) {
