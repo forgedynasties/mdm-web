@@ -5651,6 +5651,10 @@ a.rlc-ver:hover { color: var(--accent-h); text-decoration: underline; }
 
 /* package composer */
 .composer { border: 1px dashed var(--accent-edge); border-radius: 13px; padding: 15px; background: var(--accent-soft); }
+/* A low-opacity warm tint over the dark surface reads as muddy brown rather
+   than a highlight — use the plain elevated dark surface instead and let the
+   dashed accent border carry the "highlighted" cue. */
+html[data-theme="dark"] .composer { background: var(--surface2); }
 .composer-h { font-size: 12.5px; font-weight: 700; margin-bottom: 11px; }
 .tcards { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-bottom: 12px; }
 .tcard { border: 1.5px solid var(--border); background: var(--surface); border-radius: 11px; padding: 10px 12px; cursor: pointer; text-align: left; transition: border-color .12s; }
