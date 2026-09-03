@@ -8,21 +8,36 @@
 {{/* Delivery choice only matters when both artifact kinds exist. */}}
 {{$showDelivery := and .HasFull .HasIncremental}}
 
-<div class="upd-wrap" style="max-width:960px;margin:0 auto;">
+<style>
+/* ── New update · phone tap-target fixes ── */
+@media(max-width:600px){
+  .push-dev{flex-wrap:wrap}
+  .push-dev .push-ck{width:20px;height:20px}
+  .seg-control .seg-btn{padding-top:9px;padding-bottom:9px}
+}
+</style>
 
-<a href="/updates" class="back-link">← Updates</a>
-<div class="ov-greet">
-  <h1 class="ov-title">New Update</h1>
-  <span class="ov-date">choose a release, pick the devices, and push</span>
+<div class="cc-wrap" style="max-width:960px;">
+
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Updates · new rollout</div>
+    <h1 class="cc-h1">New update</h1>
+    <div class="cc-sub">Choose a release, pick the devices, and push.</div>
+  </div>
+  <div class="cc-actions">
+    <a href="/updates" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Updates</a>
+  </div>
 </div>
 
 {{/* ── Step 1 · release ── */}}
-<div class="card" style="margin-bottom:16px;">
-  <div class="card-header">
+<div class="cc-card" style="margin-bottom:16px;">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
     <h3>1 · Release</h3>
-    <span class="muted small">only published releases with an active package</span>
+    <span class="m">only published releases with an active package</span>
   </div>
-  <div style="padding:14px 16px;">
+  <div class="cc-cb">
     {{if .Releases}}
     <select class="form-input" style="max-width:420px;" onchange="if(this.value)location.href='/updates/new?release='+this.value;">
       <option value="" {{if not $rel}}selected{{end}} disabled>Choose a release…</option>
@@ -45,11 +60,12 @@
   {{if not $showDelivery}}<input type="hidden" name="delivery" value="smart">{{end}}
 
   {{/* ── Step 2 · devices ── always present; fills once a release is chosen ── */}}
-  <div class="card{{if not $rel}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $rel}}opacity:.55;pointer-events:none;{{end}}">
-    <div class="card-header">
+  <div class="cc-card{{if not $rel}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $rel}}opacity:.55;pointer-events:none;{{end}}">
+    <div class="cc-ch">
+      <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
       <h3>2 · Devices</h3>
-      {{if $rel}}<span class="muted small">{{len .PushDevices}} {{productLabel $rel.Product}} device{{if ne (len .PushDevices) 1}}s{{end}} · this release targets {{productLabel $rel.Product}}</span>
-      {{else}}<span class="muted small">choose a release to load its devices</span>{{end}}
+      {{if $rel}}<span class="m">{{len .PushDevices}} {{productLabel $rel.Product}} device{{if ne (len .PushDevices) 1}}s{{end}} · this release targets {{productLabel $rel.Product}}</span>
+      {{else}}<span class="m">choose a release to load its devices</span>{{end}}
     </div>
     {{/* Target rail — picking All / a restaurant / a group TICKS that collection's
          member devices in the list below and floats them to the top. The push always
@@ -105,9 +121,12 @@
   </div>
 
   {{/* ── Step 3 · options + push — always present ── */}}
-  <div class="card{{if not $rel}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $rel}}opacity:.55;pointer-events:none;{{end}}">
-    <div class="card-header"><h3>3 · Options</h3></div>
-    <div style="padding:14px 16px;display:flex;flex-direction:column;gap:16px;">
+  <div class="cc-card{{if not $rel}} is-disabled{{end}}" style="margin-bottom:16px;{{if not $rel}}opacity:.55;pointer-events:none;{{end}}">
+    <div class="cc-ch">
+      <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg></span>
+      <h3>3 · Options</h3>
+    </div>
+    <div class="cc-cb" style="display:flex;flex-direction:column;gap:16px;">
       <div>
         <div class="form-label" style="margin-bottom:7px;">Reboot</div>
         <input type="hidden" name="reboot_behavior" id="push-reboot" value="immediate">
@@ -131,7 +150,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid var(--border);">
       <span style="flex:1;"></span>
-      <button type="submit" class="btn-primary" id="push-btn" disabled><span id="push-lbl">Push to 0 devices</span></button>
+      <button type="submit" class="cc-btn primary" id="push-btn" disabled><span id="push-lbl">Push to 0 devices</span></button>
     </div>
   </div>
 </form>

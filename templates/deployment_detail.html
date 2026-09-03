@@ -1,27 +1,31 @@
 {{define "deployment-rollup"}}
 {{$dep := .Deployment}}
 {{if $dep.Targets}}
-<div class="dpl-rollup">
-  <div class="dpl-rollup-top">
-    <span class="dpl-pct">{{.SummaryPct}}%</span>
-    <div class="dpl-rollup-mid">
-      <div class="dpl-bar"><i style="width:{{.SummaryPct}}%"></i></div>
-      <div class="dpl-sum">
-        <span class="dpl-done">{{.SummaryDone}}/{{.SummaryTotal}} installed</span>
-        {{range .Summary}}<span class="status-badge {{deployStatusClass .Status}}">{{.Count}} {{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
-        {{if ge .AvgDuration 0}}<span class="muted">avg {{dur .AvgDuration}} ({{.DoneCount}} device{{if ne .DoneCount 1}}s{{end}})</span>{{end}}
-      </div>
+{{$heroState := ""}}{{if ge .SummaryPct 100}}{{$heroState = "is-ok"}}{{end}}{{if eq $dep.Status "failed"}}{{$heroState = "is-danger"}}{{end}}
+<div class="cc-hero {{$heroState}} dpl-hero">
+  <div class="cc-hero-cell">
+    <div class="cc-ring {{if eq $dep.Status "failed"}}danger{{else if ge .SummaryPct 100}}ok{{end}}">
+      <svg viewBox="0 0 104 104"><circle class="trk" cx="52" cy="52" r="44"/><circle class="val" cx="52" cy="52" r="44" stroke-dasharray="276.5" stroke-dashoffset="{{.RingOffset}}" transform="rotate(-90 52 52)"/></svg>
+      <b>{{.SummaryPct}}%<small>installed</small></b>
     </div>
   </div>
-  {{/* Bulk apply: reboot every device that installed and is waiting (manual, or a
-       scheduled deployment not yet due). Only shown when some are awaiting reboot. */}}
-  {{$awaiting := 0}}{{range .Summary}}{{if eq .Status "awaiting_reboot"}}{{$awaiting = .Count}}{{end}}{{end}}
-  {{if and (gt $awaiting 0) (canOperate $.Role)}}
-  <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/reboot-all" method="POST" hx-boost="true" class="dpl-rollup-act"
-        hx-confirm="Reboot all {{$awaiting}} installed device{{if ne $awaiting 1}}s{{end}} now to apply the update?">
-    <button type="submit" class="btn-primary btn-sm" title="Reboot every device that installed and is waiting">Reboot all installed ({{$awaiting}})</button>
-  </form>
-  {{end}}
+  <div class="cc-hero-cell">
+    <div class="cc-label">Rollout</div>
+    <div class="cc-facts" style="margin-top:8px;">
+      <span class="cc-fact"><b>{{.SummaryDone}}</b>&nbsp;/&nbsp;{{.SummaryTotal}} installed</span>
+      {{range .Summary}}<span class="cc-fact {{deployStatusClass .Status}}"><b>{{.Count}}</b>&nbsp;{{if eq .Status "awaiting_reboot"}}awaiting reboot{{else if eq .Status "reboot_sent"}}reboot sent{{else}}{{.Status}}{{end}}</span>{{end}}
+      {{if ge .AvgDuration 0}}<span class="cc-fact">avg {{dur .AvgDuration}} ({{.DoneCount}} device{{if ne .DoneCount 1}}s{{end}})</span>{{end}}
+    </div>
+    {{/* Bulk apply: reboot every device that installed and is waiting (manual, or a
+         scheduled deployment not yet due). Only shown when some are awaiting reboot. */}}
+    {{$awaiting := 0}}{{range .Summary}}{{if eq .Status "awaiting_reboot"}}{{$awaiting = .Count}}{{end}}{{end}}
+    {{if and (gt $awaiting 0) (canOperate $.Role)}}
+    <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/reboot-all" method="POST" hx-boost="true" style="margin-top:12px;"
+          hx-confirm="Reboot all {{$awaiting}} installed device{{if ne $awaiting 1}}s{{end}} now to apply the update?">
+      <button type="submit" class="cc-btn primary sm" title="Reboot every device that installed and is waiting">Reboot all installed ({{$awaiting}})</button>
+    </form>
+    {{end}}
+  </div>
 </div>
 {{end}}
 {{end}}
@@ -30,7 +34,7 @@
 {{define "deployment-list-a"}}
 {{$dep := .Deployment}}
 <div class="dpl-tbl-wrap">
-<table class="table dpl-tbl">
+<table class="cc-table dpl-tbl">
   <thead>
     <tr>
       <th>Device</th>
@@ -260,16 +264,12 @@
   .phase-badge { animation: ota-phase-pulse 1.6s ease-in-out infinite; }
   @media (prefers-reduced-motion: reduce) { .phase-badge { animation: none; } }
 
-  /* ── Deployment detail · leaner pass: one compact fact strip instead of five
-     boxed tiles, admin forms tucked behind <details>, device list is a real
-     table instead of a hand-rolled responsive grid. ── */
+  /* ── Deployment detail · command center ── */
   .dpl-wrap{max-width:1180px;margin:0 auto}
 
-  /* fact strip */
-  .dpl-facts{display:flex;flex-wrap:wrap;align-items:center;gap:7px 10px;margin:2px 0 18px;font-size:12.5px;color:var(--muted)}
-  .dpl-facts b{color:var(--text);font-weight:650}
-  .dpl-facts .sep{color:var(--border)}
-  .dpl-facts .mono{font-family:var(--mono)}
+  /* hero: ring + facts, cc-hero shape */
+  .dpl-hero{display:grid;grid-template-columns:auto 1fr;gap:0}
+  @media(max-width:720px){.dpl-hero{grid-template-columns:1fr}}
 
   /* rollup */
   .dpl-rollup{padding:16px 18px;border-bottom:1px solid var(--border-soft)}
@@ -338,43 +338,40 @@
 {{$dep := .Deployment}}
 {{$rel := .Release}}
 
-<div class="dpl-wrap">
+<div class="cc-wrap dpl-wrap">
 
 {{if .DemoScenario}}
 <div class="alert alert-info" style="margin-bottom:14px;">
   <b>Demo preview</b> — synthetic data, not a real deployment. Forms on this page point at a fake ID and will 404 if submitted. Use the design tabs below the device list to compare layouts. <a href="/demo/updates">← other scenarios</a>
 </div>
-{{else}}
-<a href="/releases/{{$rel.ID}}" class="back-link">← {{$rel.Version}}</a>
 {{end}}
-<div class="ov-greet">
-  <h1 class="ov-title">Deployment #{{$dep.ID}} <span class="status-badge {{deployStatusClass $dep.Status}}" style="vertical-align:middle;">{{$dep.Status}}</span></h1>
-  <span class="acts">
+
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">{{if not .DemoScenario}}<a href="/releases/{{$rel.ID}}" style="color:inherit;text-decoration:none;">{{$rel.Version}}</a>{{else}}{{$rel.Version}}{{end}} · deployment</div>
+    <h1 class="cc-h1">Deployment #{{$dep.ID}} <span class="cc-tag {{deployStatusClass $dep.Status}}" style="font-size:11px;">{{$dep.Status}}</span></h1>
+    <div class="cc-sub">{{productLabel $rel.Product}} · <b style="text-transform:capitalize;">{{$dep.RebootBehavior}}</b> reboot{{if $dep.ScheduledTime}} at {{formatTime (deref $dep.ScheduledTime)}} ({{localTime (deref $dep.ScheduledTime)}}){{end}} · created {{timeSince $dep.CreatedAt}}</div>
+  </div>
+  <div class="cc-actions">
     {{if and (eq $dep.Status "active") (canOperate .Role)}}
     <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/cancel" method="POST" hx-boost="true" style="display:inline;"
           hx-confirm="Cancel this deployment? Devices that have not started yet will be skipped; devices already updating will finish.">
-      <button type="submit" class="btn-outline">Cancel deployment</button>
+      <button type="submit" class="cc-btn">Cancel deployment</button>
     </form>
     {{end}}
     <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/delete" method="POST" hx-boost="true" style="display:inline;"
           hx-confirm="Delete this deployment record? This will not undo any updates already applied.">
-      <button type="submit" class="btn-danger">Delete</button>
+      <button type="submit" class="cc-btn danger">Delete</button>
     </form>
-  </span>
+  </div>
 </div>
 
-<div class="dpl-facts">
-  <span><b class="mono">{{$rel.Version}}</b> <span class="status-badge {{releaseStatusClass $rel.Status}}">{{$rel.Status}}</span></span>
-  <span class="sep">·</span>
-  <span>{{productLabel $rel.Product}}</span>
-  <span class="sep">·</span>
-  <span><b style="text-transform:capitalize;">{{$dep.RebootBehavior}}</b> reboot{{if $dep.ScheduledTime}} at {{formatTime (deref $dep.ScheduledTime)}} ({{localTime (deref $dep.ScheduledTime)}}){{end}}</span>
-  <span class="sep">·</span>
-  <span title="{{localTime $dep.CreatedAt}}">created {{timeSince $dep.CreatedAt}}</span>
-</div>
+{{/* The rollout hero (ring + facts) lives inside the "deployment-rollup" template,
+     rendered as part of "deployment-targets" below — that keeps it inside the live
+     htmx-polled / SSE-refreshed region instead of going stale as a separate block. */}}
 
 {{if canAdmin .Role}}
-<details class="card dpl-panel">
+<details class="cc-card dpl-panel">
   <summary>Edit reboot settings <span class="muted small">— changes apply to this deployment only, no Android push</span></summary>
   <div class="dpl-panel-body">
   <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/settings" method="POST" hx-boost="true" class="command-form">
@@ -392,14 +389,14 @@
       <input type="datetime-local" name="scheduled_time" value="{{if $dep.ScheduledTime}}{{utcDateTimeLocal (deref $dep.ScheduledTime)}}{{end}}" class="form-input" style="max-width:260px;">
       <div class="form-hint">This field is interpreted as UTC. Devices that have not yet received the update will use the updated reboot setting.</div>
     </div>
-    <button type="submit" class="btn-primary">Save Reboot Settings</button>
+    <button type="submit" class="cc-btn primary">Save Reboot Settings</button>
   </form>
   </div>
 </details>
 {{end}}
 
 {{if and (ne $dep.Status "canceled") (canAdmin .Role)}}
-<details class="card dpl-panel">
+<details class="cc-card dpl-panel">
   <summary>Push to more devices <span class="muted small">— only {{productLabel $rel.Product}} devices, inherits this deployment's reboot setting</span></summary>
   <div class="dpl-panel-body">
   <form action="/releases/{{$rel.ID}}/deployments/{{$dep.ID}}/add-targets" method="POST" hx-boost="true" class="command-form">
@@ -464,16 +461,17 @@
       <input type="number" name="limit" class="form-input" min="1" style="max-width:120px;" placeholder="e.g. 10">
       <div class="form-hint">Devices already updating or done are skipped automatically.</div>
     </div>
-    <button type="submit" class="btn-primary">Add to deployment</button>
+    <button type="submit" class="cc-btn primary">Add to deployment</button>
   </form>
   </div>
 </details>
 {{end}}
 
-<div class="card">
-  <div class="card-header">
-    <h3>Device Status</h3>
-    <span class="muted small">{{len $dep.Targets}} device{{if ne (len $dep.Targets) 1}}s{{end}}{{if eq $dep.Status "active"}} · <span class="ok">live</span>{{end}}</span>
+<div class="cc-card">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+    <h3>Device status</h3>
+    <span class="m">{{len $dep.Targets}} device{{if ne (len $dep.Targets) 1}}s{{end}}{{if eq $dep.Status "active"}} · <span style="color:var(--ok);">live</span>{{end}}</span>
   </div>
   {{if .DemoScenario}}
   <div class="dpl-design-tabs">

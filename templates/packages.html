@@ -1,88 +1,94 @@
 {{define "packages.html"}}
 {{template "header" .}}
 
-<div class="ov-greet">
-  <h1 class="ov-title">App classification</h1>
-  <span class="ov-date">{{len .Packages}} packages · flag system apps so uninstall is only offered for user apps</span>
-</div>
-
 <style>
 .pkg-note{font-size:12.5px;color:var(--muted);line-height:1.55;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:13px 16px;margin-bottom:16px;}
 .pkg-note b{color:var(--text);}
-.pk-row{display:grid;grid-template-columns:minmax(0,1.5fr) 70px minmax(0,1fr) 84px 92px;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--border-soft);font-size:13px;}
-.pk-row:last-child{border-bottom:0;}
-.pk-row.head{background:var(--surface2);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);padding:9px 16px;}
-.pk-id{min-width:0;}
-.pk-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.pk-pkg{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .pk-rep{display:flex;gap:5px;flex-wrap:wrap;font-size:10.5px;}
 .pk-tag{padding:2px 7px;border-radius:99px;font-weight:600;white-space:nowrap;}
-.pk-tag.sys{background:#fbe9e9;color:#b42318;}
-.pk-tag.usr{background:#e6f6ee;color:#1c7d50;}
+.pk-tag.sys{background:var(--danger-bg);color:var(--danger);}
+.pk-tag.usr{background:var(--ok-bg);color:var(--ok);}
 .pk-tag.unk{background:var(--surface2);color:var(--text-faint);}
-.pk-eff{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;text-align:center;}
-.pk-eff.sys{background:#fbe9e9;color:#b42318;}
-.pk-eff.usr{background:#e6f6ee;color:#1c7d50;}
+.pk-eff{font-size:11px;font-weight:700;padding:3px 9px;border-radius:99px;text-align:center;display:inline-block;}
+.pk-eff.sys{background:var(--danger-bg);color:var(--danger);}
+.pk-eff.usr{background:var(--ok-bg);color:var(--ok);}
 /* switch */
-.pk-sw{position:relative;display:inline-block;width:42px;height:24px;}
+.pk-sw{position:relative;display:inline-block;width:42px;height:26px;}
 .pk-sw input{opacity:0;width:0;height:0;}
 .pk-sw .tr{position:absolute;inset:0;border-radius:99px;background:var(--surface3,#e6e8ee);transition:background .15s;cursor:pointer;}
-.pk-sw .kn{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:var(--shadow-sm);transition:left .15s;}
+.pk-sw .kn{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:var(--shadow-sm);transition:left .15s;}
 .pk-sw input:checked + .tr{background:var(--accent);}
-.pk-sw input:checked + .tr .kn{left:21px;}
+.pk-sw input:checked + .tr .kn{left:19px;}
 .pk-sw input:disabled + .tr{opacity:.45;cursor:not-allowed;}
-.pk-swwrap{display:flex;align-items:center;justify-content:flex-end;}
-.pk-locked{font-size:10px;color:var(--text-faint);text-align:right;}
 </style>
+
+<div class="cc-wrap">
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Packages</div>
+    <h1 class="cc-h1">{{len .Packages}} packages classified</h1>
+    <div class="cc-sub">Flag system apps so uninstall is only offered for user apps.</div>
+  </div>
+</div>
 
 <div class="pkg-note">
   Uninstall is only offered for <b>user apps</b>. Classification uses the client's <code>is_system</code> flag when the device reports it (newer client) — that always wins. When <b>no</b> client has reported a flag for a package, the admin switch below decides. Toggle it on to mark a package as a system app.
 </div>
 
-<div class="card dv-rise-1" style="margin-bottom:16px;">
-  <form method="GET" action="/packages" style="display:flex;gap:8px;padding:14px 16px;">
+<div class="cc-card" style="margin-bottom:16px;">
+  <form method="GET" action="/packages" class="cc-cb" style="display:flex;gap:8px;">
     <input type="text" name="q" value="{{.Query}}" class="form-input" placeholder="Search app or package name…" style="flex:1;" autofocus>
-    <button type="submit" class="btn-primary">Search</button>
-    {{if .Query}}<a href="/packages" class="btn-outline">Clear</a>{{end}}
+    <button type="submit" class="cc-btn primary">Search</button>
+    {{if .Query}}<a href="/packages" class="cc-btn">Clear</a>{{end}}
   </form>
 </div>
 
-<div class="card" style="overflow:hidden;">
-  <div class="pk-row head">
-    <span>App / package</span><span style="text-align:center;">Devices</span><span>Client-reported</span><span style="text-align:center;">Effective</span><span style="text-align:right;">System</span>
-  </div>
-  {{if .Packages}}
-    {{range .Packages}}
-    <div class="pk-row">
-      <div class="pk-id">
-        <div class="pk-name">{{if .AppName}}{{.AppName}}{{else}}<span class="muted">—</span>{{end}}</div>
-        <div class="pk-pkg mono">{{.PackageName}}</div>
-      </div>
-      <span style="text-align:center;">{{.DeviceCount}}</span>
-      <span class="pk-rep">
-        {{if gt .ReportedSystem 0}}<span class="pk-tag sys">{{.ReportedSystem}} system</span>{{end}}
-        {{if gt .ReportedUser 0}}<span class="pk-tag usr">{{.ReportedUser}} user</span>{{end}}
-        {{if gt .ReportedUnknown 0}}<span class="pk-tag unk">{{.ReportedUnknown}} not reported</span>{{end}}
-      </span>
-      <span style="text-align:center;">
-        {{if .EffectiveSystem}}<span class="pk-eff sys">system</span>{{else}}<span class="pk-eff usr">user</span>{{end}}
-      </span>
-      <div class="pk-swwrap">
-        <label class="pk-sw" title="Force this app to be treated as a system app — overrides what devices report (hides it from Uninstall &amp; Kiosk pickers)">
-          <input type="checkbox" {{if .AdminFlagged}}checked{{end}}
-                 data-pkg="{{.PackageName}}"
-                 data-reported="{{if gt .ReportedSystem 0}}system{{else if gt .ReportedUser 0}}user{{else}}system{{end}}"
-                 onchange="flagPkg(this)">
-          <span class="tr"><span class="kn"></span></span>
-        </label>
-      </div>
-    </div>
+<div class="cc-card">
+  <div style="overflow-x:auto;">
+  <table class="cc-table">
+    <thead><tr><th>App / package</th><th class="num">Devices</th><th>Client-reported</th><th style="text-align:center;">Effective</th><th style="text-align:right;">System</th></tr></thead>
+    <tbody>
+    {{if .Packages}}
+      {{range .Packages}}
+      <tr>
+        <td style="min-width:0;">
+          <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">{{if .AppName}}{{.AppName}}{{else}}<span class="muted">—</span>{{end}}</div>
+          <div class="mono" style="font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:280px;">{{.PackageName}}</div>
+        </td>
+        <td class="num">{{.DeviceCount}}</td>
+        <td>
+          <span class="pk-rep">
+            {{if gt .ReportedSystem 0}}<span class="pk-tag sys">{{.ReportedSystem}} system</span>{{end}}
+            {{if gt .ReportedUser 0}}<span class="pk-tag usr">{{.ReportedUser}} user</span>{{end}}
+            {{if gt .ReportedUnknown 0}}<span class="pk-tag unk">{{.ReportedUnknown}} not reported</span>{{end}}
+          </span>
+        </td>
+        <td style="text-align:center;">
+          {{if .EffectiveSystem}}<span class="pk-eff sys">system</span>{{else}}<span class="pk-eff usr">user</span>{{end}}
+        </td>
+        <td style="text-align:right;">
+          <label class="pk-sw" title="Force this app to be treated as a system app — overrides what devices report (hides it from Uninstall &amp; Kiosk pickers)">
+            <input type="checkbox" {{if .AdminFlagged}}checked{{end}}
+                   data-pkg="{{.PackageName}}"
+                   data-reported="{{if gt .ReportedSystem 0}}system{{else if gt .ReportedUser 0}}user{{else}}system{{end}}"
+                   onchange="flagPkg(this)">
+            <span class="tr"><span class="kn"></span></span>
+          </label>
+        </td>
+      </tr>
+      {{end}}
+    {{else}}
+      <tr><td colspan="5">
+        <div class="cc-empty tall">
+          <div class="i mut"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+          {{if .Query}}<div><b>No packages match &ldquo;{{.Query}}&rdquo;</b></div>{{else}}<div><b>No package data received yet</b><br>Devices report their apps on check-in.</div>{{end}}
+        </div>
+      </td></tr>
     {{end}}
-  {{else}}
-    <div class="empty" style="padding:28px 16px;text-align:center;color:var(--muted);">
-      {{if .Query}}No packages match “{{.Query}}”.{{else}}No package data received yet — devices report their apps on check-in.{{end}}
-    </div>
-  {{end}}
+    </tbody>
+  </table>
+  </div>
+</div>
 </div>
 
 <script>

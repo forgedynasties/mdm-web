@@ -2,13 +2,19 @@
 {{template "header" .}}
 {{$rel := .Release}}{{$role := .Role}}
 
-<a href="/releases/{{$rel.ID}}?tab=problems" class="back-link">← {{$rel.Version}}</a>
-<div class="ov-greet">
-  <h1 class="ov-title">Crashes on {{$rel.Version}}</h1>
-  <span class="ov-date">auto-detected, grouped by signature · {{.Total}} crash type{{if ne .Total 1}}s{{end}}</span>
+<div class="cc-wrap">
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow"><a href="/releases/{{$rel.ID}}" style="color:inherit;text-decoration:none;">{{$rel.Version}}</a> · crashes</div>
+    <h1 class="cc-h1">{{.Total}} crash type{{if ne .Total 1}}s{{end}} on {{$rel.Version}}</h1>
+    <div class="cc-sub">Auto-detected, grouped by signature.</div>
+  </div>
+  <div class="cc-actions">
+    <a href="/releases/{{$rel.ID}}" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>{{$rel.Version}}</a>
+  </div>
 </div>
 
-<div class="card">
+<div class="cc-card">
   <div class="prob-crashes">
     {{if .CrashGroups}}
       {{$back := printf "/releases/%d/crashes?page=%d" $rel.ID .Page}}
@@ -34,6 +40,7 @@
   </div>
   <div class="table-footer">Page {{.Page}} of {{.TotalPages}} · {{.Total}} crash type{{if ne .Total 1}}s{{end}}</div>
   {{end}}
+</div>
 </div>
 
 <script>

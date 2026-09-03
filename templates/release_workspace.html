@@ -7,58 +7,74 @@
 {{$isAdmin := canAdmin $role}}
 {{$canQfil := or (eq $role "admin") (eq $role "dev") (eq $role "operator")}}
 
-<a href="/releases" class="back-link">← Releases</a>
+<style>
+/* ── Release workspace · command center ──────────────────────────── */
+.rw-title{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.qfil-ctl{display:inline-flex;align-items:center;gap:8px}
+@media(max-width:640px){.rw-title{gap:7px}}
+</style>
 
-<div class="ov-greet">
-  <h1 class="ov-title">
-    <span class="status-badge {{releaseStatusClass $rel.Status}}" style="font-size:12px;vertical-align:middle;">{{$rel.Status}}</span>
-    <span class="mono">{{$rel.Version}}</span>
-    <span class="rchip muted" style="vertical-align:middle;" title="Target product — only {{productLabel $rel.Product}} devices are offered this release">{{productLabel $rel.Product}}</span>
-  </h1>
-  {{if $rel.Name}}<span class="ov-date">{{$rel.Name}}</span>{{end}}
-  <span class="acts">
+<div class="cc-wrap">
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow"><a href="/releases" style="color:inherit;text-decoration:none;">Releases</a> · manage</div>
+    <h1 class="cc-h1 rw-title">
+      <span class="cc-tag {{releaseStatusClass $rel.Status}}" style="font-size:11px;padding:3px 8px;">{{$rel.Status}}</span>
+      <span class="mono">{{$rel.Version}}</span>
+      <span class="cc-tag" title="Target product — only {{productLabel $rel.Product}} devices are offered this release">{{productLabel $rel.Product}}</span>
+    </h1>
+    {{if $rel.Name}}<div class="cc-sub">{{$rel.Name}}</div>{{end}}
+  </div>
+  <div class="cc-actions">
     {{if $isAdmin}}
       {{if eq $rel.Status "published"}}
-        {{if .CanPush}}<a href="/updates/new?release={{$rel.ID}}" class="btn-primary btn-sm">Push update →</a>{{end}}
+        {{if .CanPush}}<a href="/updates/new?release={{$rel.ID}}" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Push update</a>{{end}}
       {{else}}
         <form action="/releases/{{$rel.ID}}/publish" method="POST" style="display:inline;">
-          <button type="submit" class="btn-primary btn-sm"{{if not .HasFull}} onclick="return confirm('No full update package added yet — publish anyway?')"{{end}}>Publish</button>
+          <button type="submit" class="cc-btn primary"{{if not .HasFull}} onclick="return confirm('No full update package added yet — publish anyway?')"{{end}}>Publish</button>
         </form>
       {{end}}
     {{end}}
     {{if $canQfil}}
     <span class="qfil-ctl">
-      {{if .QFILPackages}}<a href="{{(index .QFILPackages 0).URL}}" class="btn-outline btn-sm" download hx-boost="false" title="Download flashing bundle" style="display:inline-flex;align-items:center;gap:6px;"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>{{end}}
+      {{if .QFILPackages}}<a href="{{(index .QFILPackages 0).URL}}" class="cc-btn" download hx-boost="false" title="Download flashing bundle"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Download</a>{{end}}
       {{if .CanManageQFIL}}<details class="qfil-edit">
-        <summary class="btn-outline btn-sm qfil-pencil" title="{{if .QFILPackages}}Replace{{else}}Set{{end}} the flashing-bundle download link"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></summary>
+        <summary class="cc-btn qfil-pencil" title="{{if .QFILPackages}}Replace{{else}}Set{{end}} the flashing-bundle download link"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></summary>
         <div class="qfil-edit-pop">
           <form id="add-qfil-form" action="/releases/{{$rel.ID}}/qfil" method="POST" style="display:flex;gap:6px;align-items:center;">
             <input type="url" name="qfil_url" id="qfil-url" class="form-input" placeholder="Download link (https://…)" required{{if .QFILPackages}} value="{{(index .QFILPackages 0).URL}}"{{end}} style="width:280px;">
             <input type="hidden" name="qfil_url_b64" id="qfil-url-b64">
             {{if .QFILPackages}}<input type="hidden" name="label" value="{{(index .QFILPackages 0).Label}}"><input type="hidden" name="notes" value="{{(index .QFILPackages 0).Notes}}">{{end}}
             <input type="hidden" name="redirect" value="/releases/{{$rel.ID}}">
-            <button type="submit" class="btn-primary btn-sm">Save</button>
+            <button type="submit" class="cc-btn primary sm">Save</button>
           </form>
           {{if .QFILPackages}}<form action="/releases/{{$rel.ID}}/qfil/{{(index .QFILPackages 0).ID}}/delete" method="POST" style="margin:0;" hx-confirm="Remove the download link from this release?"><button type="submit" class="qfil-remove">Remove link</button></form>{{end}}
         </div>
       </details>{{end}}
     </span>
     {{end}}
-    {{if and $isAdmin (eq .DevicesCount 0)}}<form action="/releases/{{$rel.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete release {{$rel.Version}}? No devices are running it. This removes the release and its packages & deployments."><button type="submit" class="btn-outline btn-sm">Delete</button></form>{{end}}
-  </span>
+    {{if and $isAdmin (eq .DevicesCount 0)}}<form action="/releases/{{$rel.ID}}/delete" method="POST" style="display:inline;" hx-confirm="Delete release {{$rel.Version}}? No devices are running it. This removes the release and its packages & deployments."><button type="submit" class="cc-btn">Delete</button></form>{{end}}
+  </div>
 </div>
 
 {{if eq $rel.Status "draft"}}
-<div class="alert alert-warn" style="margin-bottom:16px;padding:10px 16px;border-radius:6px;background:var(--warn-bg);border:1px solid var(--warn);color:var(--warn);font-size:13px;">
-  This release is a draft. Add its full update package below, then <strong>Publish</strong> it before pushing over the air.
+<div class="cc-card" style="margin-bottom:16px;border-color:var(--warn-edge);">
+  <div class="cc-empty" style="padding:14px 17px;">
+    <span class="i warn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg></span>
+    <div>This release is a draft. Add its full update package below, then <b>Publish</b> it before pushing over the air.</div>
+  </div>
 </div>
 {{end}}
 
 <!-- Changelog -->
 {{if $isAdmin}}
-<div class="card" style="margin-bottom:18px;">
-  <div class="card-header"><h3>Release details</h3><span class="muted small">editable any time</span></div>
-  <form action="/releases/{{$rel.ID}}/meta" method="POST" style="padding:16px 18px;display:flex;flex-direction:column;gap:12px;">
+<div class="cc-card" style="margin-bottom:18px;">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+    <h3>Release details</h3>
+    <span class="m">editable any time</span>
+  </div>
+  <form action="/releases/{{$rel.ID}}/meta" method="POST" class="cc-cb" style="display:flex;flex-direction:column;gap:12px;">
     <div class="form-row" style="max-width:360px;">
       <label class="form-label" style="display:block;margin-bottom:5px;">Release name</label>
       <input type="text" name="name" class="form-input" value="{{$rel.Name}}" placeholder="e.g. August hotfix" autocomplete="off">
@@ -72,21 +88,28 @@
     <div class="form-row">
       <textarea name="changelog" class="form-textarea" rows="12" style="resize:vertical;min-height:240px;" placeholder="What changed in this release…">{{$rel.Changelog}}</textarea>
     </div>
-    <div><button type="submit" class="btn-primary">Save</button></div>
+    <div><button type="submit" class="cc-btn primary">Save</button></div>
   </form>
 </div>
 {{else if $rel.Changelog}}
-<div class="card" style="margin-bottom:18px;">
-  <div class="card-header"><h3>Changelog</h3></div>
-  <div style="padding:14px 18px;white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$rel.Changelog}}</div>
+<div class="cc-card" style="margin-bottom:18px;">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+    <h3>Changelog</h3>
+  </div>
+  <div class="cc-cb" style="white-space:pre-wrap;font-size:13px;line-height:1.6;">{{$rel.Changelog}}</div>
 </div>
 {{end}}
 
 <!-- update packages (admin-only — operators only see the changelog) -->
 {{if eq $role "admin"}}
-<div class="card" style="margin-bottom:18px;">
-  <div class="card-header"><h3>Update packages</h3><span class="muted small">the server picks the right artifact per device</span></div>
-  <div style="padding:16px 18px;">
+<div class="cc-card" style="margin-bottom:18px;">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/></svg></span>
+    <h3>Update packages</h3>
+    <span class="m">the server picks the right artifact per device</span>
+  </div>
+  <div class="cc-cb">
     {{if .Packages}}
     <div class="pkg-stack">
       {{range .Packages}}
@@ -141,7 +164,7 @@
           <input type="hidden" name="update_url_b64" id="pkg-update-url-b64">
           <div id="pkg-detected" class="detected-line"></div>
         </div>
-        <button type="submit" class="btn-primary">Add package</button>
+        <button type="submit" class="cc-btn primary">Add package</button>
       </form>
     </div>
     {{end}}
@@ -151,6 +174,8 @@
 
 {{/* Push-to-devices panel removed from the release page — pushing happens from
      the dedicated /updates flow instead. */}}
+
+</div>
 
 {{if canAdmin $role}}
 <script>

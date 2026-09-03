@@ -2,162 +2,141 @@
 {{template "header" .}}
 {{/* Updates — every rollout and how it's landing across the fleet. Pushing a build
      happens here (+ New Update) or from a release's own push panel; this page is the
-     operations/history view. Design language matches the overview (.ov2-* tokens). */}}
+     operations/history view. Design language matches the command-center cc-* system. */}}
 
 {{$active := 0}}{{$installing := 0}}{{$failed := 0}}{{$installed := 0}}
 {{range .Deployments}}{{if eq .Status "active"}}{{$active = add $active 1}}{{end}}{{$installing = add $installing .DeviceDownloading}}{{$failed = add $failed .DeviceFailed}}{{$installed = add $installed .DeviceInstalled}}{{end}}
 
 <style>
 /* ── Updates · rollout operations ──────────────────────────── */
-.upd-wrap{max-width:1180px;margin:0 auto}
-
-/* signal strip — stat tiles, same shape as overview's .ov2-sig */
-.upd-sigs{display:grid;grid-template-columns:repeat(4,1fr);gap:11px;margin:6px 0 20px}
-@media(max-width:720px){.upd-sigs{grid-template-columns:repeat(2,1fr)}}
-.upd-sig{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);padding:14px 15px}
-.upd-sig .k{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
-.upd-sig .k svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2}
-.upd-sig .v{font-size:26px;font-weight:750;letter-spacing:-.01em;line-height:1;margin-top:9px;font-variant-numeric:tabular-nums}
-.upd-sig .v.ok{color:var(--ok)}.upd-sig .v.info{color:var(--accent-2)}.upd-sig .v.bad{color:var(--danger)}
-.upd-sig .d{font-size:11.5px;margin-top:7px;color:var(--muted)}
-
-/* deployments card + rows */
-.upd-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-4);box-shadow:var(--shadow-sm);overflow:hidden}
-.upd-ch{display:flex;align-items:center;gap:8px;padding:14px 17px;border-bottom:1px solid var(--border-soft)}
-.upd-ch h3{font-size:14px;font-weight:700;margin:0}
-.upd-ch .m{margin-left:auto;font-size:12px;color:var(--muted)}
-.upd-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(220px,2fr) auto;gap:16px;align-items:center;padding:14px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;transition:background .12s}
-.upd-row:first-of-type{border-top:none}
-.upd-row:hover{background:var(--surface2);color:inherit}
-@media(max-width:720px){.upd-row{grid-template-columns:1fr;gap:9px}}
-.upd-rel{min-width:0}
-.upd-relv{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.upd-ver{font-family:var(--mono);font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.upd-meta{font-size:11.5px;color:var(--muted);margin-top:4px}
-.upd-roll .bar{display:flex;height:7px;border-radius:4px;overflow:hidden;background:var(--surface3,var(--border));margin-bottom:6px}
-.upd-roll .bar i{display:block;height:100%}
-.upd-roll .bar .in{background:var(--ok)}.upd-roll .bar .dl{background:var(--accent-2)}.upd-roll .bar .fa{background:var(--danger)}
-.upd-roll-head{display:flex;align-items:baseline;gap:8px;margin-bottom:5px}
-.upd-pct{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
-.upd-cnt{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
-.upd-cnt b.in{color:var(--ok)}.upd-cnt b.dl{color:var(--accent-2)}.upd-cnt b.fa{color:var(--danger)}
-.upd-right{display:flex;align-items:center;gap:12px;justify-self:end}
-.upd-stat{font-size:11px;font-weight:700;text-transform:capitalize;padding:3px 9px;border-radius:99px}
-.upd-stat.info{color:var(--accent-2);background:var(--accent-2-soft)}
-.upd-stat.ok{color:var(--ok);background:var(--ok-bg)}
-.upd-stat.mut{color:var(--muted);background:var(--surface2)}
-.upd-go{font-size:12.5px;font-weight:650;color:var(--accent);display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
-.upd-go svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
-.upd-prod{font-size:10.5px;font-weight:600;color:var(--muted);background:var(--surface2);padding:2px 8px;border-radius:99px;white-space:nowrap}
-
-/* empty */
-.upd-empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;padding:44px 20px}
-.upd-empty .i{width:46px;height:46px;border-radius:12px;background:var(--accent-2-soft);color:var(--accent-2);display:flex;align-items:center;justify-content:center;margin-bottom:4px}
-.upd-empty .i svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9}
-.upd-empty .t{font-size:15px;font-weight:700}
-.upd-empty .s{font-size:13px;color:var(--muted);max-width:52ch;line-height:1.5}
-.upd-empty .a{display:flex;gap:9px;margin-top:12px;flex-wrap:wrap;justify-content:center}
+.up-row{display:flex;align-items:center;gap:16px;padding:14px 17px;border-top:1px solid var(--border-soft);color:inherit;text-decoration:none;transition:background .12s}
+.up-row:first-of-type{border-top:none}
+.up-row:hover{background:var(--surface2);color:inherit}
+.up-rel{min-width:0;flex:1.2}
+.up-relv{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.up-ver{font-family:var(--mono);font-size:13.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up-meta{font-size:11.5px;color:var(--muted);margin-top:4px}
+.up-roll{flex:2;min-width:0}
+.up-roll-head{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
+.up-pct{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
+.up-right{display:flex;align-items:center;gap:12px;flex:none}
+.up-go{font-size:12.5px;font-weight:650;color:var(--accent-text);display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.up-go svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2}
+@media(max-width:720px){
+  .up-row{flex-wrap:wrap;gap:8px 12px;padding:13px 14px}
+  .up-rel{flex-basis:100%;order:1}
+  .up-roll{flex-basis:100%;order:3}
+  .up-right{order:2;margin-left:auto}
+}
 </style>
 
-<div class="upd-wrap">
+<div class="cc-wrap">
 
-  <div class="ov-greet">
-    <h1 class="ov-title">Updates</h1>
-    <span class="ov-date">every rollout, and how each one is landing across the fleet</span>
-    <span class="acts">
-      <a href="/releases" class="btn-outline">Releases →</a>
-      {{if .CanDeploy}}<a href="/updates/new" class="btn-primary">+ New Update</a>{{end}}
-    </span>
+<div class="cc-top">
+  <div>
+    <div class="cc-eyebrow">Updates {{if .FilterProduct}}· {{productLabel .FilterProduct}}{{end}}</div>
+    <h1 class="cc-h1">{{$active}} rollout{{if ne $active 1}}s{{end}} active <span class="hl {{if gt $failed 0}}danger{{else}}ok{{end}}">· {{$installed}} device{{if ne $installed 1}}s{{end}} installed</span></h1>
+    <div class="cc-sub">Every rollout and how each one is landing across the fleet.{{if gt $failed 0}} <b>{{$failed}}</b> device{{if ne $failed 1}}s{{end}} need a retry.{{end}}</div>
   </div>
+  <div class="cc-actions">
+    <a href="/releases" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.24H4a1 1 0 0 0-1 1v5.59a2 2 0 0 0 .59 1.41l9.58 9.58a2 2 0 0 0 2.83 0l4.59-4.59a2 2 0 0 0 0-2.83Z"/><path d="M7.5 7.5h.01"/></svg>Releases</a>
+    {{if .CanDeploy}}<a href="/updates/new" class="cc-btn primary"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New update</a>{{end}}
+  </div>
+</div>
 
-  {{/* Signal strip */}}
-  <div class="upd-sigs">
-    <div class="upd-sig">
-      <span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Active</span>
-      <div class="v{{if gt $active 0}} info{{end}}">{{$active}}</div>
-      <div class="d">deployment{{if ne $active 1}}s{{end}} rolling out</div>
-    </div>
-    <div class="upd-sig">
-      <span class="k"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Installing</span>
-      <div class="v{{if gt $installing 0}} info{{end}}">{{$installing}}</div>
-      <div class="d">device{{if ne $installing 1}}s{{end}} downloading now</div>
-    </div>
-    <div class="upd-sig">
-      <span class="k"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Installed</span>
-      <div class="v{{if gt $installed 0}} ok{{end}}">{{$installed}}</div>
-      <div class="d">on target across all rollouts</div>
-    </div>
-    <div class="upd-sig">
-      <span class="k"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Failed</span>
-      <div class="v{{if gt $failed 0}} bad{{end}}">{{$failed}}</div>
-      <div class="d">need a retry</div>
-    </div>
+{{/* KPI strip */}}
+<div class="cc-kpis">
+  <div class="cc-kpi">
+    <span class="k"><svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>Active</span>
+    <div class="v{{if gt $active 0}} info{{end}}">{{$active}}</div>
+    <div class="d">deployment{{if ne $active 1}}s{{end}} rolling out</div>
   </div>
+  <div class="cc-kpi">
+    <span class="k"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Installing</span>
+    <div class="v{{if gt $installing 0}} info{{end}}">{{$installing}}</div>
+    <div class="d">device{{if ne $installing 1}}s{{end}} downloading now</div>
+  </div>
+  <div class="cc-kpi">
+    <span class="k"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Installed</span>
+    <div class="v{{if gt $installed 0}} ok{{end}}">{{$installed}}</div>
+    <div class="d">on target across all rollouts</div>
+  </div>
+  <div class="cc-kpi">
+    <span class="k"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></svg>Failed</span>
+    <div class="v{{if gt $failed 0}} bad{{end}}">{{$failed}}</div>
+    <div class="d">need a retry</div>
+  </div>
+</div>
 
-  {{/* Per-product filter — always shown so products stay discoverable; server-side
-       filter via ?product=, "All products" clears it. Scopes both the list and the
-       signal-strip counts above. */}}
-  <div class="rel-tabs rel-prod-tabs" role="group" aria-label="Filter deployments by product" style="margin-bottom:14px;">
-    <a class="rel-tab{{if not .FilterProduct}} on{{end}}" href="/updates">All products</a>
-    {{range .Products}}
-    <a class="rel-tab{{if eq .Key $.FilterProduct}} on{{end}}" href="/updates?product={{.Key}}">{{.Label}}</a>
-    {{end}}
-  </div>
-
-  {{if .Deployments}}
-  <div class="upd-card">
-    <div class="upd-ch">
-      <h3>Deployments</h3>
-      <span class="m">{{len .Deployments}} {{if .FilterProduct}}{{productLabel .FilterProduct}} {{end}}deployment{{if ne (len .Deployments) 1}}s{{end}} · newest first</span>
-    </div>
-    {{range .Deployments}}
-    {{$pending := sub .DeviceTotal (add (add .DeviceInstalled .DeviceDownloading) .DeviceFailed)}}
-    {{if lt $pending 0}}{{$pending = 0}}{{end}}
-    {{$sc := "mut"}}{{if eq .Status "active"}}{{$sc = "info"}}{{else if eq .Status "complete"}}{{$sc = "ok"}}{{end}}
-    <a class="upd-row" href="/releases/{{.ReleaseID}}/deployments/{{.ID}}">
-      <div class="upd-rel">
-        <div class="upd-relv">
-          <span class="upd-ver">{{.Release.Version}}</span>
-          <span class="upd-prod" title="Target product">{{productLabel .Product}}</span>
-        </div>
-        <div class="upd-meta reltime" data-ts="{{.CreatedAt.Unix}}">{{timeSince .CreatedAt}} · {{.RebootBehavior}} reboot</div>
-      </div>
-      <div class="upd-roll">
-        {{if gt .DeviceTotal 0}}
-        <div class="upd-roll-head"><span class="upd-pct">{{pctOf .DeviceInstalled .DeviceTotal}}%</span><span class="muted small">average progress</span></div>
-        <div class="bar">
-          {{if gt .DeviceInstalled 0}}<i class="in" style="width:{{pctOf .DeviceInstalled .DeviceTotal}}%"></i>{{end}}
-          {{if gt .DeviceDownloading 0}}<i class="dl" style="width:{{pctOf .DeviceDownloading .DeviceTotal}}%"></i>{{end}}
-          {{if gt .DeviceFailed 0}}<i class="fa" style="width:{{pctOf .DeviceFailed .DeviceTotal}}%"></i>{{end}}
-        </div>
-        <span class="upd-cnt"><b class="in">{{.DeviceInstalled}}</b> installed{{if gt .DeviceDownloading 0}} · <b class="dl">{{.DeviceDownloading}}</b> installing{{end}}{{if gt .DeviceFailed 0}} · <b class="fa">{{.DeviceFailed}}</b> failed{{end}}{{if gt $pending 0}} · {{$pending}} pending{{end}} of {{.DeviceTotal}}</span>
-        {{else}}<span class="upd-cnt">no targets</span>{{end}}
-      </div>
-      <div class="upd-right">
-        <span class="upd-stat {{$sc}}">{{.Status}}</span>
-        <span class="upd-go">View <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-      </div>
-    </a>
-    {{end}}
-  </div>
-  {{else}}
-  <div class="upd-card">
-    <div class="upd-empty">
-      <span class="i"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
-      {{if .FilterProduct}}
-      <div class="t">No {{productLabel .FilterProduct}} updates yet</div>
-      <div class="s">No deployments for {{productLabel .FilterProduct}}. Push a {{productLabel .FilterProduct}} build, or <a href="/updates">clear the product filter</a>.</div>
-      {{else}}
-      <div class="t">No updates yet</div>
-      <div class="s">Push a build with <b>+ New Update</b>, or open a release and use its <b>Push update to devices</b> panel — rollouts show up here.</div>
-      {{end}}
-      <div class="a">
-        {{if .CanDeploy}}<a href="/updates/new" class="btn-primary">+ New Update</a>{{end}}
-        <a href="/releases" class="btn-outline">Go to releases</a>
-      </div>
-    </div>
-  </div>
+{{/* Per-product filter — always shown so products stay discoverable; server-side
+     filter via ?product=, "All products" clears it. Scopes both the list and the
+     signal-strip counts above. */}}
+<div class="cc-seg" role="group" aria-label="Filter deployments by product" style="margin-bottom:14px;">
+  <a class="{{if not .FilterProduct}}on{{end}}" href="/updates">All products</a>
+  {{range .Products}}
+  <a class="{{if eq .Key $.FilterProduct}}on{{end}}" href="/updates?product={{.Key}}">{{.Label}}</a>
   {{end}}
+</div>
+
+{{if .Deployments}}
+<div class="cc-card">
+  <div class="cc-ch">
+    <span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
+    <h3>Deployments</h3>
+    <span class="m">{{len .Deployments}} {{if .FilterProduct}}{{productLabel .FilterProduct}} {{end}}deployment{{if ne (len .Deployments) 1}}s{{end}} · newest first</span>
+  </div>
+  {{range .Deployments}}
+  {{$pending := sub .DeviceTotal (add (add .DeviceInstalled .DeviceDownloading) .DeviceFailed)}}
+  {{if lt $pending 0}}{{$pending = 0}}{{end}}
+  {{$sc := "mut"}}{{if eq .Status "active"}}{{$sc = "info"}}{{else if eq .Status "complete"}}{{$sc = "ok"}}{{end}}
+  <a class="up-row" href="/releases/{{.ReleaseID}}/deployments/{{.ID}}">
+    <div class="up-rel">
+      <div class="up-relv">
+        <span class="up-ver">{{.Release.Version}}</span>
+        <span class="cc-tag">{{productLabel .Product}}</span>
+      </div>
+      <div class="up-meta reltime" data-ts="{{.CreatedAt.Unix}}">{{timeSince .CreatedAt}} · {{.RebootBehavior}} reboot</div>
+    </div>
+    <div class="up-roll">
+      {{if gt .DeviceTotal 0}}
+      <div class="up-roll-head"><span class="up-pct">{{pctOf .DeviceInstalled .DeviceTotal}}%</span><span class="muted small">average progress</span></div>
+      <div class="cc-stack">
+        {{if gt .DeviceInstalled 0}}<i class="c4" style="width:{{pctOf .DeviceInstalled .DeviceTotal}}%"></i>{{end}}
+        {{if gt .DeviceDownloading 0}}<i class="c2" style="width:{{pctOf .DeviceDownloading .DeviceTotal}}%"></i>{{end}}
+        {{if gt .DeviceFailed 0}}<i class="c5" style="width:{{pctOf .DeviceFailed .DeviceTotal}}%;background:var(--danger)"></i>{{end}}
+      </div>
+      <div class="cc-legend">
+        <span><i style="background:var(--ok)"></i><b>{{.DeviceInstalled}}</b> installed</span>
+        {{if gt .DeviceDownloading 0}}<span><i style="background:var(--accent-2)"></i><b>{{.DeviceDownloading}}</b> installing</span>{{end}}
+        {{if gt .DeviceFailed 0}}<span><i style="background:var(--danger)"></i><b>{{.DeviceFailed}}</b> failed</span>{{end}}
+        {{if gt $pending 0}}<span><b>{{$pending}}</b> pending</span>{{end}}
+        <span>of {{.DeviceTotal}}</span>
+      </div>
+      {{else}}<span class="muted small">no targets</span>{{end}}
+    </div>
+    <div class="up-right">
+      <span class="cc-pill {{$sc}}">{{.Status}}</span>
+      <span class="up-go">View <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+    </div>
+  </a>
+  {{end}}
+</div>
+{{else}}
+<div class="cc-card">
+  <div class="cc-empty tall">
+    <div class="i accent"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></div>
+    {{if .FilterProduct}}
+    <div><b>No {{productLabel .FilterProduct}} updates yet</b><br>No deployments for {{productLabel .FilterProduct}}. Push a {{productLabel .FilterProduct}} build, or <a href="/updates">clear the product filter</a>.</div>
+    {{else}}
+    <div><b>No updates yet</b><br>Push a build with <b>New update</b>, or open a release and use its push panel — rollouts show up here.</div>
+    {{end}}
+    <div style="display:flex;gap:9px;flex-wrap:wrap;justify-content:center;">
+      {{if .CanDeploy}}<a href="/updates/new" class="cc-btn primary">New update</a>{{end}}
+      <a href="/releases" class="cc-btn">Go to releases</a>
+    </div>
+  </div>
+</div>
+{{end}}
 
 </div>
 
