@@ -163,7 +163,7 @@ html[data-theme="dark"] {
   --accent-h:      #ffa088;
   --accent-soft:   rgba(249, 128, 95, 0.14);
   --accent-edge:   rgba(249, 128, 95, 0.36);
-  --accent-ink:    #2a0c05;
+  --accent-ink:    #ffffff;      /* text on brand-coral fills — white throughout, per request */
   --accent-text:   #f9805f;      /* clears AA as text on the new, lighter surfaces */
   --ring:          0 0 0 2px rgba(249, 128, 95, 0.45);
   --accent-2:      #99a1f2;
