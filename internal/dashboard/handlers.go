@@ -3138,6 +3138,7 @@ func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
 		}
 		data["HotSerials"] = serialsJSON(hotSerialsFromHealth(groups, h.alertThresholds(ctx).TempC))
 		data["ReportRestaurants"] = restaurantLinksJSON(groups)
+		data["SeriesJSON"] = fleetSeriesJSON(d14, crashStats.Daily, summary.Total)
 	}
 
 	// Fleet map: every device with a resolved location from the geolocation pipeline.
@@ -5111,23 +5112,9 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		"RestaurantCrashes": crashStats.ByRestaurant,
 		"MemoryCount":       memory,
 	}
-	// Fleet-wide 14-day series backing the report's evidence charts: active
-	// devices, low-battery and hot counts per day, plus crashes per day.
+	// Fleet-wide 14-day series backing the report's evidence charts.
 	if d14, err := h.db.GetFleetDailyStats(r.Context(), 14); err == nil {
-		type pt struct {
-			Day    string   `json:"day"`
-			Active int      `json:"active"`
-			Low    int      `json:"low"`
-			Hot    int      `json:"hot"`
-			Batt   *float32 `json:"batt"`
-		}
-		series := make([]pt, 0, len(d14))
-		for _, ds := range d14 {
-			series = append(series, pt{ds.Day.Format("Jan 2"), ds.Active, ds.LowBattery, ds.Hot, ds.BatteryAvg})
-		}
-		if b, err := json.Marshal(map[string]any{"days": series, "crashes": crashStats.Daily, "total": summary.Total}); err == nil {
-			data["SeriesJSON"] = template.JS(b)
-		}
+		data["SeriesJSON"] = fleetSeriesJSON(d14, crashStats.Daily, summary.Total)
 	}
 	// Show the same cached fleet report as the main page (latest of hourly or manual).
 	if s, err := h.db.GetAISummary(r.Context(), "fleet"); err == nil && s.Summary != "" {
@@ -5137,6 +5124,27 @@ func (h *Handler) FleetHealth(w http.ResponseWriter, r *http.Request) {
 		data["ReportRestaurants"] = restaurantLinksJSON(groups)
 	}
 	h.render(w, r, "health.html", data)
+}
+
+// fleetSeriesJSON packs the 14-day fleet series (active / low battery / hot per
+// day, battery average) plus crashes per day for the report evidence charts.
+func fleetSeriesJSON(d14 []db.FleetDailyStat, crashes []int, total int) template.JS {
+	type pt struct {
+		Day    string   `json:"day"`
+		Active int      `json:"active"`
+		Low    int      `json:"low"`
+		Hot    int      `json:"hot"`
+		Batt   *float32 `json:"batt"`
+	}
+	series := make([]pt, 0, len(d14))
+	for _, ds := range d14 {
+		series = append(series, pt{ds.Day.Format("Jan 2"), ds.Active, ds.LowBattery, ds.Hot, ds.BatteryAvg})
+	}
+	b, err := json.Marshal(map[string]any{"days": series, "crashes": crashes, "total": total})
+	if err != nil {
+		return template.JS("null")
+	}
+	return template.JS(b)
 }
 
 // reportSignals maps the fleet report's four signal categories to the alert types

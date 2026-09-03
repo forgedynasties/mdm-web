@@ -250,7 +250,8 @@
 .ov3-brief .rep-rows{margin-top:0;gap:8px}
 .ov3-brief .rep-row .meta{font-size:12.5px;line-height:1.45}
 .ov3-brief:not(.open) .rep-row:nth-child(n+4){display:none}
-.ov3-brief .rab,.ov3-brief .rep-ev{display:none}
+.ov3-w-top.fh-report{margin-bottom:16px}
+.ov3-w-top.fh-report #ai-summary-card{margin-bottom:16px}
 .ov3-brief-more{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border-soft);font-size:12px}
 .ov3-brief-more button{font:inherit;font-size:12px;font-weight:650;color:var(--accent-text);background:none;border:0;cursor:pointer;padding:0}
 .ov3-brief-more a{color:var(--muted);text-decoration:none;font-weight:600;margin-left:auto}
@@ -367,6 +368,11 @@
       <div class="ov3-sp-empty"></div></a>
   </div>
 
+  </div>{{end}}
+
+  {{if not (index .IsHidden "report")}}<div class="ov3-w ov3-w-top fh-report" data-w="report">
+  {{template "ai-report-card" .}}
+  {{template "ai-report-evidence" .}}
   </div>{{end}}
 
   {{/* ── Main grid: two columns of user-arranged widgets ── */}}
@@ -563,7 +569,7 @@
 
 {{/* ── Widget dispatch: renders one column widget by id ── */}}
 {{define "ov3-widget"}}{{$d := .D}}<div class="ov3-w" data-w="{{.ID}}">
-{{if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "report"}}{{template "ov3-w-report" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{end}}
+{{if eq .ID "sites"}}{{template "ov3-w-sites" $d}}{{else if eq .ID "map"}}{{template "ov3-w-map" $d}}{{else if eq .ID "activity"}}{{template "ov3-w-activity" $d}}{{else if eq .ID "rollouts"}}{{template "ov3-w-rollouts" $d}}{{else if eq .ID "adoption"}}{{template "ov3-w-adoption" $d}}{{else if eq .ID "vitals"}}{{template "ov3-w-vitals" $d}}{{end}}
 </div>{{end}}
 
 {{define "ov3-w-sites"}}
