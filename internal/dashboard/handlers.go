@@ -1799,6 +1799,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "owner_home.html", map[string]any{
 		"Title":    "Home",
 		"Greeting": greeting,
+		"DateLine": time.Now().Format("Monday, 2 January"),
 		"Name":     name,
 		"Venues":   venues,
 		"Total":    len(devices),
@@ -4132,6 +4133,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Online":              h.hub.IsConnectedForDisplay(device.ID),
 		"ChartCheckins":       chartCheckins,
 		"ChartFocus":          focusParam,
+		"IsOwner":             h.role(r) == "owner",
 		"BuildChanges":        buildChanges,
 		"Commands":            commands,
 		"Queue":               queue,

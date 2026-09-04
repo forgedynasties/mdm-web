@@ -215,6 +215,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
       </div>
       <div class="cc-sub"><span class="ddc-build">{{if .Device.BuildID}}{{if .Release}}<a href="/releases/{{.Release.ID}}" class="link-detail">{{.Device.BuildID}}</a>{{else}}{{.Device.BuildID}}{{end}}{{else}}Unknown build{{end}}</span> · Onboarded {{shortDate .Device.CreatedAt}}<span class="ddc-lastseen"{{if .Online}} hidden{{end}}> · Last seen <span class="reltime" data-ts="{{.Device.LastSeenAt.Unix}}">{{timeSince .Device.LastSeenAt}}</span></span>{{if .Device.HasBattery}} · Battery <b>{{.Device.BatteryPct}}%</b>{{end}}</div>
     </div>
+    {{if .IsOwner}}<style>.ddc-actions{display:none!important}</style>{{end}}
     <div class="ddc-actions cc-actions">
       {{if and (canAdminOrOperator .Role) .RemoteEnabled}}<a href="/devices/{{.Device.SerialNumber}}/remote" class="ddc-btn ddc-btn-prim cc-btn primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Remote Control</a>{{end}}
       <button type="button" class="ddc-btn ddc-btn-ai cc-btn" title="Analyze with AI" onclick="aiOpen()"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z"/></svg>Analyze</button>
@@ -494,10 +495,10 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 <div class="ddc-main">
 <div class="dd-tabs" role="tablist" aria-label="Device details">
   <button class="dd-tab active" id="dd-tab-summary" role="tab" type="button" aria-selected="true" aria-controls="dd-panel-summary" data-dd-tab="summary" onclick="setDeviceTab('summary', this)">Overview</button>
-  <button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>
-  <button class="dd-tab" id="dd-tab-queue" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-queue" data-dd-tab="queue" onclick="setDeviceTab('queue', this)">Queue{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n">{{len .Queue}}</span>{{end}}</button>
-  <button class="dd-tab" id="dd-tab-history" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-history" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>
-  <button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-apps" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-apps" data-dd-tab="apps" onclick="setDeviceTab('apps', this)">Applications</button>{{end}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-queue" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-queue" data-dd-tab="queue" onclick="setDeviceTab('queue', this)">Queue{{if .Queue}} <span class="dd-tab-n" id="dd-queue-n">{{len .Queue}}</span>{{end}}</button>{{end}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-history" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-history" data-dd-tab="history" onclick="setDeviceTab('history', this)">History</button>{{end}}
+  {{if not .IsOwner}}<button class="dd-tab" id="dd-tab-alerts" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-alerts" data-dd-tab="alerts" onclick="setDeviceTab('alerts', this)">Alerts{{if .DeviceCrashCount}} <span class="dd-tab-n">{{.DeviceCrashCount}}</span>{{end}}</button>{{end}}
   <button class="dd-tab" id="dd-tab-about" role="tab" type="button" aria-selected="false" aria-controls="dd-panel-about" data-dd-tab="about" onclick="setDeviceTab('about', this)">About</button>
 </div>
 
@@ -2352,6 +2353,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
   </div>
 </section><!-- /about -->
 
+{{if not .IsOwner}}
 <section class="dd-panel" data-dd-panel="apps" id="dd-panel-apps" role="tabpanel" aria-labelledby="dd-tab-apps" tabindex="0" hidden>
   <div class="card">
     <div class="card-header cc-ch">
@@ -2416,6 +2418,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
     </div>
   </div>
 </section>
+{{end}}
 
 {{/* App-info popup — click any app tile (user or system). Shows details; uninstall is
      enabled for user apps and disabled for system apps. Reuses data already on the tile. */}}
@@ -2779,9 +2782,11 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
 </script>
 
 
+{{if not .IsOwner}}
 <section class="dd-panel" data-dd-panel="queue" id="dd-panel-queue" role="tabpanel" aria-labelledby="dd-tab-queue" tabindex="0" hidden>
   {{template "device-queue" .}}
 </section><!-- /queue -->
+{{end}}
 <script>
   // Keep the Queue tab's count badge in sync as the queue drains/morphs live.
   document.body.addEventListener('htmx:afterSwap', function (e) {
@@ -2796,17 +2801,21 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   });
 </script>
 
+{{if not .IsOwner}}
 <section class="dd-panel" data-dd-panel="history" id="dd-panel-history" role="tabpanel" aria-labelledby="dd-tab-history" tabindex="0" hidden>
   {{/* Rendered on first open: the partial returns the "device-commands" root with its own
        live-refresh attributes, so after the outerHTML swap it keeps updating as before. */}}
   <div hx-get="/devices/{{.Device.SerialNumber}}/commands-status" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="outerHTML"
        class="muted small" style="padding:26px;text-align:center;">Loading history…</div>
 </section><!-- /history -->
+{{end}}
 
+{{if not .IsOwner}}
 <section class="dd-panel" data-dd-panel="alerts" id="dd-panel-alerts" role="tabpanel" aria-labelledby="dd-tab-alerts" tabindex="0" hidden
          hx-get="/devices/{{.Device.SerialNumber}}/alerts-panel" hx-trigger="dd-show once" hx-select="unset" hx-target="this" hx-swap="innerHTML">
   <div class="muted small" style="padding:26px;text-align:center;">Loading alerts…</div>
 </section><!-- /alerts -->
+{{end}}
 <script>
 (function () {
   var SERIAL = '{{.Device.SerialNumber}}';
