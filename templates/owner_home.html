@@ -1,0 +1,59 @@
+{{define "owner_home.html"}}
+{{template "header" .}}
+<style>
+.oh-hero{padding:8px 0 18px}
+.oh-greet{font-size:28px;font-weight:750;letter-spacing:-.02em}
+.oh-sub{font-size:14px;color:var(--muted);margin-top:6px}
+.oh-venue{margin-top:18px}
+.oh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;padding:14px 17px 17px}
+.oh-dev{display:block;color:inherit;text-decoration:none;border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface2);transition:border-color var(--dur)}
+.oh-dev:hover{border-color:var(--accent-edge)}
+.oh-top{display:flex;align-items:center;gap:8px}
+.oh-dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+.oh-dot.on{background:var(--ok);box-shadow:0 0 0 3px var(--ok-bg)}
+.oh-sn{font-weight:700;font-size:13.5px;font-family:var(--mono)}
+.oh-state{margin-left:auto;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.oh-state.on{color:var(--ok)}
+.oh-meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--text-2)}
+.oh-meta b{font-weight:650}
+.oh-empty{padding:40px 20px;text-align:center;color:var(--muted)}
+</style>
+<div class="cc-wrap">
+  <div class="oh-hero">
+    <div class="cc-eyebrow">Restaurant owner</div>
+    <div class="oh-greet">{{.Greeting}}, {{.Name}}.</div>
+    <div class="oh-sub">{{if .Total}}{{if eq .Offline 0}}All {{.Total}} of your devices are online.{{else}}{{.Online}} of {{.Total}} device{{if ne .Total 1}}s{{end}} online, {{.Offline}} offline.{{end}}{{if .LowBatt}} {{.LowBatt}} running low on battery.{{end}}{{else}}No devices are assigned to your restaurant yet.{{end}}</div>
+  </div>
+
+  {{if .Total}}
+  <div class="cc-kpis">
+    <div class="cc-kpi"><span class="k">Devices</span><div class="v">{{.Total}}</div><div class="d">at your venue{{if gt (len .Venues) 1}}s{{end}}</div></div>
+    <div class="cc-kpi"><span class="k">Online</span><div class="v">{{.Online}}</div><div class="d">right now</div></div>
+    <div class="cc-kpi"><span class="k">Offline</span><div class="v">{{.Offline}}</div><div class="d">{{if .Offline}}worth a look{{else}}none{{end}}</div></div>
+    <div class="cc-kpi"><span class="k">Low battery</span><div class="v">{{.LowBatt}}</div><div class="d">below 20%</div></div>
+  </div>
+  {{end}}
+
+  {{range .Venues}}
+  <div class="cc-card oh-venue">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span><h3>{{.Name}}</h3><span class="m">{{.Online}} online · {{.Offline}} offline</span></div>
+    <div class="oh-grid">
+      {{range .Devices}}
+      <a class="oh-dev" href="/devices/{{.SerialNumber}}">
+        <div class="oh-top"><span class="oh-dot{{if .Online}} on{{end}}"></span><span class="oh-sn">{{.SerialNumber}}</span><span class="oh-state{{if .Online}} on{{end}}">{{if .Online}}Online{{else}}Offline{{end}}</span></div>
+        <div class="oh-meta">
+          <span>{{productLabel .Product}}</span>
+          {{if .HasBattery}}<span>Battery <b>{{.BatteryPct}}%</b></span>{{end}}
+          <span>Kiosk <b>{{if .KioskEnabled}}on{{else}}off{{end}}</b></span>
+          {{if not .Online}}<span>Last seen <b>{{timeSince .LastSeenAt}}</b></span>{{end}}
+        </div>
+      </a>
+      {{end}}
+    </div>
+  </div>
+  {{else}}
+  <div class="cc-card"><div class="oh-empty">Nothing to show yet. Ask your MDM administrator to assign devices to your restaurant.</div></div>
+  {{end}}
+</div>
+{{template "footer" .}}
+{{end}}

@@ -76,12 +76,12 @@
       </div>
     </div>
 
-    {{if or (eq .User.Role "operator") (eq .User.Role "user_manager") (eq .User.Role "viewer")}}
+    {{if or (eq .User.Role "operator") (eq .User.Role "user_manager") (eq .User.Role "viewer") (eq .User.Role "owner")}}
     <div class="cc-card" id="pf-access">
       <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h3>Access</h3><span class="m">{{if .PolicyEmpty}}full {{.User.Role}} access{{else}}custom{{end}}</span></div>
       <form method="POST" action="/users/{{.User.ID}}/access" hx-boost="true" class="pf-list" id="pf-access-form">
         <div class="muted small" style="padding:6px 0 10px;">
-          {{if or (eq .User.Role "operator") (eq .User.Role "user_manager")}}Rules refine what this user may do on devices and where. A <b>deny</b> always wins over an allow. Actions not covered by any rule fall back to the base.{{else}}For a viewer only <b>See device</b> matters: deny it for a group or venue to hide those devices from them.{{end}}
+          {{if or (eq .User.Role "operator") (eq .User.Role "user_manager")}}Rules refine what this user may do on devices and where. A <b>deny</b> always wins over an allow. Actions not covered by any rule fall back to the base.{{else if eq .User.Role "owner"}}A restaurant owner sees nothing by default: add an <b>allow · See device</b> rule per venue they own.{{else}}For a viewer only <b>See device</b> matters: deny it for a group or venue to hide those devices from them.{{end}}
         </div>
         {{if or (eq .User.Role "operator") (eq .User.Role "user_manager")}}
         <div class="pf-row" style="gap:10px;">

@@ -201,6 +201,7 @@
       </button>
 
       {{/* Alerts bell → dropdown (lazy-loads recent alerts via htmx on open). */}}
+      {{if ne .Role "owner"}}
       <div class="nbar-wrap" id="alerts-wrap">
         <button type="button" id="alerts-indicator" class="appbar-icon js-dest" data-cmdk-label="Alerts" data-cmdk-href="/alerts" onclick="navAlerts(event)" aria-haspopup="true" aria-expanded="false" title="Alerts">
           <span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
@@ -212,6 +213,7 @@
         </div>
       </div>
 
+      {{end}}
       {{/* Account button → dropdown: theme, settings, users, what's new, sign out. */}}
       <div class="nbar-wrap" id="acct-wrap">
         <button type="button" class="appbar-acct" onclick="navAcct(event)" aria-haspopup="true" aria-expanded="false">
@@ -246,10 +248,10 @@
           </a>
           <div class="nbar-sep"></div>
           {{end}}
-          <a class="nbar-mi" data-cmdk-label="Fleet Wrapped" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">
+          {{if ne .Role "owner"}}<a class="nbar-mi" data-cmdk-label="Fleet Wrapped" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.1 5.1L19.5 9l-4 3.6L16.8 18 12 15.3 7.2 18l1.3-5.4-4-3.6 5.4-.8z"/></svg></span>
             <span class="nbar-mi-label">Fleet Wrapped</span><span class="nbar-mi-rt">New</span>
-          </a>
+          </a>{{end}}
           <button type="button" class="nbar-mi" data-cmdk-label="Take the tour" onclick="window.mdmStartTour && window.mdmStartTour(true)">
             <span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5"/><path d="M12 17.5h.01"/></svg></span>
             <span class="nbar-mi-label">Take the tour</span>
@@ -271,13 +273,13 @@
   </header>
 
   <nav class="dock" aria-label="Primary navigation">
-    <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span><span class="dock-lbl">Overview</span></a>
-    <a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>
-    {{if canAct .Role}}<a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span></a>{{end}}
-    {{if eq .Role "admin"}}<a href="/manage" class="nav-link js-dest{{if eq .ActivePage "manage"}} active{{end}}" data-cmdk-label="Policies"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Policies</span></a>{{end}}
-    <a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span></a>
-    {{if canAdminOrOperator .Role}}<a href="/releases" class="nav-link js-dest{{if eq .ActivePage "releases"}} active{{end}}" data-cmdk-label="Releases"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Releases</span></a>{{end}}
-    {{if canManageUsers .Role}}<a href="/users" class="nav-link js-dest{{if eq .ActivePage "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}
+    <a href="/" class="nav-link js-dest{{if eq .ActivePage "overview"}} active{{end}}" data-cmdk-label="Overview"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3z"/><path d="M13 21h8V11h-8z"/><path d="M13 7h8V3h-8z"/><path d="M3 21h8v-4H3z"/></svg></span><span class="dock-lbl">{{if eq .Role "owner"}}Home{{else}}Overview{{end}}</span></a>
+    {{if ne .Role "owner"}}<a href="/devices" class="nav-link js-dest{{if or (eq .ActivePage "devices") (eq .ActivePage "groups") (eq .ActivePage "restaurants")}} active{{end}}" data-cmdk-label="Fleet"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="7" height="6" rx="1"/><rect x="14" y="5" width="7" height="6" rx="1"/><rect x="3" y="14" width="7" height="6" rx="1"/><rect x="14" y="14" width="7" height="6" rx="1"/></svg></span><span class="dock-lbl">Fleet</span></a>{{end}}
+    {{if ne .Role "owner"}}{{if canAct .Role}}<a href="/commands" class="nav-link js-dest{{if eq .ActivePage "commands"}} active{{end}}" data-cmdk-label="Actions"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span><span class="dock-lbl">Actions</span></a>{{end}}{{end}}
+    {{if ne .Role "owner"}}{{if eq .Role "admin"}}<a href="/manage" class="nav-link js-dest{{if eq .ActivePage "manage"}} active{{end}}" data-cmdk-label="Policies"><span class="ui-icon"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><span class="dock-lbl">Policies</span></a>{{end}}{{end}}
+    {{if ne .Role "owner"}}<a href="/alerts" class="nav-link js-dest{{if eq .ActivePage "alerts"}} active{{end}}" data-cmdk-label="Alerts"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="dock-lbl">Alerts</span></a>{{end}}
+    {{if ne .Role "owner"}}{{if canAdminOrOperator .Role}}<a href="/releases" class="nav-link js-dest{{if eq .ActivePage "releases"}} active{{end}}" data-cmdk-label="Releases"><span class="ui-icon"><svg viewBox="0 0 24 24"><path d="M12 4v12"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg></span><span class="dock-lbl">Releases</span></a>{{end}}{{end}}
+    {{if ne .Role "owner"}}{{if canManageUsers .Role}}<a href="/users" class="nav-link js-dest{{if eq .ActivePage "users"}} active{{end}}" data-cmdk-label="Users"><span class="ui-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span><span class="dock-lbl">Users</span></a>{{end}}{{end}}
   </nav>
 
   <script>
@@ -1769,6 +1771,7 @@
       badge.classList.add('nav-badge-pulse');
     }
 
+    if (!document.getElementById('alerts-wrap')) return; // no bell (restaurant owner) → no stream
     var es = new EventSource('/alerts/events');
     es.addEventListener('alert-update', function (e) {
       var n = parseInt(e.data, 10);

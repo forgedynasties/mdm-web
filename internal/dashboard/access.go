@@ -140,6 +140,9 @@ func (a *access) can(action string, dev *uuid.UUID) bool {
 	if a.role == "viewer" && action != "view" && action != "screenshot" {
 		return false
 	}
+	if a.role == "owner" && action != "view" {
+		return false
+	}
 	if a.role == "dev" {
 		return true // devs are not policy-restricted
 		return false
@@ -160,6 +163,9 @@ func (a *access) can(action string, dev *uuid.UUID) bool {
 	}
 	if allow {
 		return true
+	}
+	if a.role == "owner" {
+		return false // an owner sees only what an allow rule grants
 	}
 	if action == "view" && a.role == "viewer" {
 		return true // a viewer's base is always "see everything" unless denied
@@ -190,6 +196,9 @@ func (a *access) filterDevices(action string, ids []uuid.UUID) ([]uuid.UUID, int
 func (a *access) hidesDevices() bool {
 	if a.unrestricted() {
 		return false
+	}
+	if a.role == "owner" {
+		return true
 	}
 	if a.role == "viewer" {
 		return a.hasViewRestriction()
@@ -452,7 +461,7 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 		rows = append(rows, rw)
 	}
 	// Operators first (the ones you actually configure), then viewers, admins last.
-	order := map[string]int{"operator": 0, "user_manager": 1, "viewer": 2, "dev": 3, "admin": 4}
+	order := map[string]int{"operator": 0, "user_manager": 1, "viewer": 2, "owner": 3, "dev": 4, "admin": 5}
 	sort.SliceStable(rows, func(i, j int) bool { return order[rows[i].User.Role] < order[rows[j].User.Role] })
 	h.render(w, r, "users_access.html", map[string]any{
 		"Title":    "Access control",

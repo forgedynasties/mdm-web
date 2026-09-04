@@ -1691,6 +1691,17 @@ func (h *Handler) ChangelogLatest(w http.ResponseWriter, r *http.Request) {
 // mode is on. Returns true when it handled the response. Admins pass; the device API
 // never goes through the dashboard wrappers, so devices are unaffected.
 func (h *Handler) maintenanceGate(w http.ResponseWriter, r *http.Request) bool {
+	// Restaurant owners get a single page: their home plus their own devices'
+	// pages (visibility-filtered) and their profile. Anything else goes home.
+	if h.role(r) == "owner" && !ownerAllowedPath(r.URL.Path) {
+		if hxReq(r) {
+			w.Header().Set("HX-Redirect", "/")
+			w.WriteHeader(http.StatusOK)
+			return true
+		}
+		http.Redirect(w, r, "/", http.StatusFound)
+		return true
+	}
 	if !h.cfg.MaintenanceMode() || h.role(r) == "admin" {
 		return false
 	}
@@ -1701,6 +1712,100 @@ func (h *Handler) maintenanceGate(w http.ResponseWriter, r *http.Request) bool {
 	}
 	http.Redirect(w, r, "/maintenance", http.StatusFound)
 	return true
+}
+
+func ownerAllowedPath(p string) bool {
+	if p == "/" || p == "/profile" || p == "/logout" || p == "/maintenance" || p == "/alerts/events" {
+		return true
+	}
+	for _, pre := range []string{"/devices/", "/icon/", "/tour/", "/overview/layout", "/theme"} {
+		if strings.HasPrefix(p, pre) {
+			return true
+		}
+	}
+	return false
+}
+
+// OwnerHome is the restaurant owner's whole dashboard: a greeting and the
+// devices at their venue(s), read-only. Which devices comes from their access
+// policy (allow "view" per restaurant), set when the account was created.
+func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	acc := h.access(r)
+	ids := acc.visibleIDs()
+	if ids == nil {
+		ids = []uuid.UUID{}
+	}
+	var devices []db.Device
+	if len(ids) > 0 {
+		var err error
+		devices, err = h.db.ListDevices(ctx, db.DeviceFilter{OnlyIDs: ids, Connected: h.connectedSlice()}, 0, 500, "serial", "asc")
+		if err != nil {
+			log.Printf("[owner] list devices: %v", err)
+		}
+	}
+	connected := h.hub.ConnectedIDsForDisplay()
+	type devView struct {
+		db.Device
+		Online bool
+	}
+	type venue struct {
+		Name            string
+		Devices         []devView
+		Online, Offline int
+	}
+	byName := map[string]*venue{}
+	var order []string
+	online, lowBatt := 0, 0
+	for _, d := range devices {
+		name := d.RestaurantName
+		if name == "" {
+			name = "Unassigned"
+		}
+		v, ok := byName[name]
+		if !ok {
+			v = &venue{Name: name}
+			byName[name] = v
+			order = append(order, name)
+		}
+		_, on := connected[d.ID]
+		dv := devView{Device: d, Online: on}
+		v.Devices = append(v.Devices, dv)
+		if on {
+			v.Online++
+			online++
+		} else {
+			v.Offline++
+		}
+		if d.HasBattery() && d.BatteryPct < 20 {
+			lowBatt++
+		}
+	}
+	var venues []*venue
+	for _, n := range order {
+		venues = append(venues, byName[n])
+	}
+	hour := time.Now().Hour()
+	greeting := "Good evening"
+	if hour < 12 {
+		greeting = "Good morning"
+	} else if hour < 17 {
+		greeting = "Good afternoon"
+	}
+	name := h.currentUsername(r)
+	if u, err := h.db.GetUserByUsername(ctx, name); err == nil && u != nil && u.FirstName != "" {
+		name = u.FirstName
+	}
+	h.render(w, r, "owner_home.html", map[string]any{
+		"Title":    "Home",
+		"Greeting": greeting,
+		"Name":     name,
+		"Venues":   venues,
+		"Total":    len(devices),
+		"Online":   online,
+		"Offline":  len(devices) - online,
+		"LowBatt":  lowBatt,
+	})
 }
 
 // MaintenancePage is the notice non-admin users see while maintenance mode is on.
@@ -2990,6 +3095,10 @@ func sparkPoints(vals []float64) string {
 // sparklines, the cached AI fleet report, quick actions, and recent activity.
 // The devices table itself lives on /devices.
 func (h *Handler) Overview(w http.ResponseWriter, r *http.Request) {
+	if h.role(r) == "owner" {
+		h.OwnerHome(w, r)
+		return
+	}
 	ctx := r.Context()
 	activeSecs := h.cfg.CheckinInterval() * 3
 	summary, err := h.db.GetSummary(ctx, h.connectedSlice())
@@ -11480,12 +11589,12 @@ var commandRoles = map[string][]string{
 //   operator      device actions, per access policy
 //   viewer        read-only, per visibility policy
 
-var roleLevels = map[string]int{"viewer": 0, "operator": 1, "user_manager": 2, "dev": 3, "admin": 4}
+var roleLevels = map[string]int{"owner": 0, "viewer": 0, "operator": 1, "user_manager": 2, "dev": 3, "admin": 4}
 
-var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "Access admin", "operator": "Operator", "viewer": "Viewer"}
+var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "Access admin", "operator": "Operator", "viewer": "Viewer", "owner": "Restaurant owner"}
 
 // roleOrder is every assignable role, highest first.
-var roleOrder = []string{"admin", "dev", "user_manager", "operator", "viewer"}
+var roleOrder = []string{"admin", "dev", "user_manager", "operator", "viewer", "owner"}
 
 func roleLevel(role string) int { return roleLevels[role] }
 
@@ -15412,6 +15521,7 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		"Summaries": summaries,
 		"UsersTab":  "people",
 		"Assignable": assignableRoles(h.role(r)),
+		"Restaurants": func() []db.Restaurant { rs, _ := h.db.ListRestaurants(r.Context()); return rs }(),
 		"Admins":    admins,
 		"Operators": operators,
 		"Viewers":   viewers,
@@ -15574,11 +15684,11 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	lastName := strings.TrimSpace(r.FormValue("last_name"))
 
 	if email == "" || password == "" || !validUserRole(role) {
-	if role := r.FormValue("role"); !mayManageUser(h.role(r), "viewer", role) && role != "" {
-		http.Error(w, "You can only create accounts with a role below your own level.", http.StatusForbidden)
+		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
-		http.Error(w, "Invalid form data", http.StatusBadRequest)
+	if !mayManageUser(h.role(r), "viewer", role) {
+		http.Error(w, "You can only create accounts with a role below your own level.", http.StatusForbidden)
 		return
 	}
 
@@ -15588,9 +15698,24 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.db.CreateUserNamed(r.Context(), email, string(hash), role, &email, true, firstName, lastName); err != nil {
+	created, err := h.db.CreateUserNamed(r.Context(), email, string(hash), role, &email, true, firstName, lastName)
+	if err != nil {
 		http.Error(w, "An account with that email already exists, or internal error", http.StatusBadRequest)
 		return
+	}
+	// A restaurant owner sees exactly their venue(s): base deny, allow "view"
+	// per selected restaurant, out-of-scope devices hidden.
+	if role == "owner" {
+		pol := db.AccessPolicy{Base: "deny", HideOutOfScope: true}
+		for _, rid := range r.Form["restaurants"] {
+			if _, err := uuid.Parse(rid); err == nil {
+				pol.Rules = append(pol.Rules, db.AccessRule{Effect: "allow", Actions: []string{"view"}, ScopeType: "restaurant", ScopeID: rid})
+			}
+		}
+		if err := h.db.SetUserAccess(r.Context(), created.ID, pol); err != nil {
+			log.Printf("[users] owner policy for %s: %v", created.Username, err)
+		}
+		h.audit(r, "user.access", created.Username, describePolicy(pol))
 	}
 
 	http.Redirect(w, r, "/users", http.StatusFound)
