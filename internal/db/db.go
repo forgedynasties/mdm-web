@@ -1641,8 +1641,12 @@ type BuildChange struct {
 	To   string    `json:"to"`
 }
 
-// GetBuildChanges returns every build transition in a device's check-in history,
-// oldest first. The first check-in (no predecessor) and empty build ids are skipped.
+// GetBuildChanges returns the build transitions in a device's recent check-in
+// history (last 90 days — the device graph's reachable range), oldest first. The
+// first check-in (no predecessor) and empty build ids are skipped. Bounded by time
+// on purpose: a window over a device's entire history is millions of rows on a
+// long-lived device, too much for the production box on every device-page load.
+// Full history belongs in a change-only build_history table (planned).
 func (d *DB) GetBuildChanges(ctx context.Context, deviceID uuid.UUID) ([]BuildChange, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT created_at, prev, build_id FROM (
@@ -1650,6 +1654,7 @@ func (d *DB) GetBuildChanges(ctx context.Context, deviceID uuid.UUID) ([]BuildCh
 			       LAG(build_id) OVER (ORDER BY created_at) AS prev
 			FROM checkins
 			WHERE device_id = $1 AND build_id <> ''
+			  AND created_at >= NOW() - INTERVAL '90 days'
 		) t
 		WHERE prev IS NOT NULL AND prev <> build_id
 		ORDER BY created_at
