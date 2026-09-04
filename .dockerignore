@@ -1,0 +1,26 @@
+# Only Go sources, templates/ and static/ are needed to build the image (see Dockerfile).
+# Anything else dropped into the project directory (OTA images, APKs, dumps, backups)
+# would otherwise be streamed to the daemon as build context on every build.
+.git
+.gitignore
+.dockerignore
+.env
+.env.*
+docs
+*.md
+tools
+docker-compose*.yml
+Dockerfile*
+data
+uploads
+backups
+tmp
+*.img
+*.zip
+*.apk
+*.tar
+*.tar.gz
+*.tgz
+*.sql
+*.dump
+*.log
