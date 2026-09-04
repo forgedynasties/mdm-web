@@ -16,6 +16,7 @@
 .oh-ring .bg{stroke:var(--surface-3);stroke-width:12;fill:none}
 .oh-ring .fg{stroke-width:12;fill:none;stroke-linecap:round;transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)}
 .oh-ring.ok .fg{stroke:var(--oh-ok)}.oh-ring.warn .fg{stroke:var(--oh-warn)}.oh-ring.bad .fg{stroke:var(--oh-bad)}
+.oh-ring>div,.oh-mini b{position:relative;z-index:1}
 .oh-ring .n{font-size:44px;font-weight:800;letter-spacing:-.04em;line-height:1}
 .oh-ring .l{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--oh-mute);margin-top:4px}
 .oh-sec{margin-top:28px}
@@ -51,6 +52,7 @@
 .oh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
 .oh-st{display:block;color:inherit;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:var(--shadow-sm);position:relative;transition:transform var(--dur),border-color var(--dur)}
 .oh-st:hover{transform:translateY(-2px);border-color:var(--accent-edge)}
+.oh-st.bad .mid{opacity:.72}
 .oh-st .top{display:flex;align-items:center;gap:10px}
 .oh-st .nm{font-size:16px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
 .oh-st .sn{font-size:11px;color:var(--oh-mute);font-family:var(--mono);margin-top:3px}
@@ -144,7 +146,7 @@
           <div class="oh-mini"><svg viewBox="0 0 56 56"><circle class="bg" cx="28" cy="28" r="23"/></svg><b style="font-size:10px;color:var(--oh-mute)">mains</b></div>
           {{end}}
           <div class="oh-facts">
-            <span><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>{{if not .HasBattery}}Plugged in{{else if .Charging}}Charging{{else if eq .Pad "vacant"}}Off the dock{{else if eq .Pad "faulty"}}<span class="oh-tag warn">pad faulty</span>{{else}}Not charging{{end}}</span>
+            {{if .Online}}<span><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>{{if not .HasBattery}}Plugged in{{else if .Charging}}Charging{{else if eq .Pad "vacant"}}Off the dock{{else if eq .Pad "faulty"}}<span class="oh-tag warn">pad faulty</span>{{else}}Not charging{{end}}</span>{{end}}
             <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>{{if .Kiosk}}Locked to the app{{else}}<span class="oh-tag warn">not locked</span>{{end}}</span>
             <span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{if .Online}}Online now{{else}}Seen {{timeSince .LastSeen}}{{end}}</span>
             {{if .Crashes}}<span><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>{{.Crashes}} crash{{if ne .Crashes 1}}es{{end}} this week</span>{{end}}

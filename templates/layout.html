@@ -184,11 +184,11 @@
   <header class="appbar">
     <a href="/" class="appbar-brand" aria-label="{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}}">{{if .Brand}}{{.Brand}}{{else}}<span class="brand-aio">AIO</span> <span class="brand-hub">MDM</span>{{end}}</a>
     <div class="appbar-right">
-      <button type="button" class="ovx-search topbar-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices and pages" aria-keyshortcuts="Meta+K Control+K">
+      {{if ne .Role "owner"}}<button type="button" class="ovx-search topbar-search" onclick="window.mdmOpenPalette && window.mdmOpenPalette()" aria-label="Search devices and pages" aria-keyshortcuts="Meta+K Control+K">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
         <span>Search devices…</span>
         <kbd>⌘K</kbd>
-      </button>
+      </button>{{end}}
 
       <button type="button" class="appbar-icon theme-toggle" onclick="toggleTheme()" aria-label="Toggle light/dark theme" title="Toggle theme">
         <span class="ui-icon theme-icon-light"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg></span>
