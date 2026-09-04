@@ -181,6 +181,24 @@ html,body{margin:0;padding:0;background:#0E0F1C;overflow:hidden;}
   </section>
 
   <!-- 9 · Outro poster -->
+  {{if .TopUsers}}
+  <section class="wr-panel bg-ink2" data-panel>
+    <p class="wr-eye wr-in">The people behind it</p>
+    <p class="wr-lead wr-in d1" style="margin-top:6px;">{{(index .TopUsers 0).Name}} led the year with <b data-count="{{(index .TopUsers 0).Count}}">0</b> actions.</p>
+    <div class="wr-in d2" style="margin:26px auto 0;max-width:520px;text-align:left;">
+      {{range $i, $u := .TopUsers}}
+      <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid rgba(255,255,255,.12);{{if eq $i 0}}border-top:none;{{end}}">
+        <span style="width:26px;font-weight:800;opacity:.7;">#{{add $i 1}}</span>
+        <span style="flex:1;font-weight:650;">{{$u.Name}}</span>
+        <span style="flex:0 0 140px;height:6px;border-radius:3px;background:rgba(255,255,255,.14);overflow:hidden;"><i style="display:block;height:100%;width:{{$u.Pct}}%;background:currentColor;opacity:.85;"></i></span>
+        <span style="width:60px;text-align:right;font-variant-numeric:tabular-nums;">{{$u.Count}}</span>
+      </div>
+      {{end}}
+    </div>
+    <p class="wr-sub wr-in d3" style="margin-top:22px;">Every install, reboot, release and QA pass — done by people, not by magic.</p>
+  </section>
+  {{end}}
+
   {{if and .Me (gt .Me.Actions 0)}}
   <section class="wr-panel bg-heat" data-panel>
     <p class="wr-eye wr-in">And you, {{.Me.Username}}</p>

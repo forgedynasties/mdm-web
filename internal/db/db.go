@@ -726,6 +726,31 @@ func (d *DB) DeviceScopes(ctx context.Context) (map[uuid.UUID]DeviceScope, error
 	return out, rows.Err()
 }
 
+// TopActors ranks people by recorded actions (page views excluded), with
+// display names resolved live from users; former usernames show as-is.
+func (d *DB) TopActors(ctx context.Context, limit int) ([]NamedCount, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT a.actor, COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), a.actor), COUNT(*) AS n
+		FROM audit_log a LEFT JOIN users u ON u.username = a.actor
+		WHERE a.actor <> '' AND a.actor <> 'unknown' AND a.action <> '`+PageViewAction+`'
+		GROUP BY a.actor, u.first_name, u.last_name ORDER BY n DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []NamedCount
+	for rows.Next() {
+		var key string
+		var nc NamedCount
+		if err := rows.Scan(&key, &nc.Name, &nc.Count); err != nil {
+			return nil, err
+		}
+		out = append(out, nc)
+	}
+	fillPct(out)
+	return out, rows.Err()
+}
+
 // ActorSummary is the per-username footprint shown on the Users roster.
 type ActorSummary struct {
 	Actions  int64

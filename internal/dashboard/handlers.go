@@ -14569,6 +14569,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 // the whole fleet (Spotify-Wrapped style). Open to any signed-in role.
 func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
 	me, _ := h.db.UserStats(r.Context(), h.currentUsername(r))
+	topUsers, _ := h.db.TopActors(r.Context(), 5)
 	wr, err := h.db.GetFleetWrapped(r.Context())
 	if err != nil {
 		log.Printf("[wrapped] compute: %v", err)
@@ -14577,6 +14578,7 @@ func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
 		"Title":      "Fleet Wrapped",
 		"W":          wr,
 		"Me":         me,
+		"TopUsers":   topUsers,
 		"OnlineDays": wr.OnlineMinutes / 1440,
 		"WorkerDays": int(wr.HardestWorker.Value) / 1440,
 	})
