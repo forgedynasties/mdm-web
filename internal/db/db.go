@@ -728,12 +728,12 @@ func (d *DB) DeviceScopes(ctx context.Context) (map[uuid.UUID]DeviceScope, error
 
 // TopActors ranks people by recorded actions (page views excluded), with
 // display names resolved live from users; former usernames show as-is.
-func (d *DB) TopActors(ctx context.Context, limit int) ([]NamedCount, error) {
+func (d *DB) TopActors(ctx context.Context, limit int, exclude string) ([]NamedCount, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT a.actor, COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), a.actor), COUNT(*) AS n
 		FROM audit_log a LEFT JOIN users u ON u.username = a.actor
-		WHERE a.actor <> '' AND a.actor <> 'unknown' AND a.action <> '`+PageViewAction+`'
-		GROUP BY a.actor, u.first_name, u.last_name ORDER BY n DESC LIMIT $1`, limit)
+		WHERE a.actor <> '' AND a.actor <> 'unknown' AND a.actor <> $2 AND a.action <> '`+PageViewAction+`'
+		GROUP BY a.actor, u.first_name, u.last_name ORDER BY n DESC LIMIT $1`, limit, exclude)
 	if err != nil {
 		return nil, err
 	}

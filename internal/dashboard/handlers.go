@@ -14569,7 +14569,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 // the whole fleet (Spotify-Wrapped style). Open to any signed-in role.
 func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
 	me, _ := h.db.UserStats(r.Context(), h.currentUsername(r))
-	topUsers, _ := h.db.TopActors(r.Context(), 5)
+	topUsers, _ := h.db.TopActors(r.Context(), 5, h.user) // the env admin login is not a person on the team
 	wr, err := h.db.GetFleetWrapped(r.Context())
 	if err != nil {
 		log.Printf("[wrapped] compute: %v", err)
