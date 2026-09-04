@@ -1247,8 +1247,14 @@ function mdmBootCharts() {
   // day also carries a "Mon D" date line below the time, so a multi-day window
   // isn't an ambiguous wall of times. `this` is the Chart.js scale (min/max in ms).
   function fmtTimeAxis(ms) {
-    const t = fmtTime(ms);
     const d = new Date(ms);
+    // Coarse ticks (a day or more apart) carry no useful clock time: a day step
+    // shows the date only, a month step the month and year. Keeps a zoomed-out
+    // axis to one short line per tick instead of a "12:00 AM" + date pair each.
+    const step = (this && this._tickStep) || 0;
+    if (step >= 28 * 86400e3) return d.toLocaleDateString([], tzArg({month: "short", year: "2-digit"}));
+    if (step >= 86400e3) return d.toLocaleDateString([], tzArg({month: "short", day: "numeric"}));
+    const t = fmtTime(ms);
     // The date label appears only on the midnight (12 AM) tick of each day; every
     // other tick shows just the time. Ticks are midnight-aligned in evenTimeTicks,
     // so a spanned day always gets exactly one dated tick.
@@ -1491,15 +1497,32 @@ function mdmBootCharts() {
   // follow-up). Replace them with ticks at a single fixed time step chosen from the
   // visible span, so the interval between every tick is the same amount of time.
   const TICK_STEPS_MS = [60e3, 5*60e3, 10*60e3, 15*60e3, 30*60e3, 3600e3, 2*3600e3,
-                         3*3600e3, 6*3600e3, 12*3600e3, 86400e3, 2*86400e3, 7*86400e3];
+                         3*3600e3, 6*3600e3, 12*3600e3, 86400e3, 2*86400e3, 7*86400e3, 14*86400e3];
   function evenTimeTicks(axis) {
     const min = axis.min, max = axis.max;
     if (min == null || max == null || max <= min) return;
     const span = max - min, target = 7;
+    // Spans beyond what a 14-day step can cover with ~7 ticks switch to calendar
+    // months (1st of the month, every 1/2/3/6 months), which a fixed millisecond
+    // step can't express. fmtTimeAxis reads axis._tickStep to pick the label form.
+    if (span / (14 * 86400e3) > target) {
+      const months = span / (30.44 * 86400e3);
+      const mStep = months / target <= 1 ? 1 : months / target <= 2 ? 2 : months / target <= 3 ? 3 : 6;
+      const d0 = new Date(min); d0.setDate(1); d0.setHours(0, 0, 0, 0);
+      d0.setMonth(Math.floor(d0.getMonth() / mStep) * mStep);
+      const ticks = [];
+      for (let d = new Date(d0); d.getTime() <= max && ticks.length < 64; d.setMonth(d.getMonth() + mStep)) {
+        if (d.getTime() >= min) ticks.push({ value: d.getTime() });
+      }
+      axis._tickStep = mStep * 30.44 * 86400e3;
+      if (ticks.length) axis.ticks = ticks;
+      return;
+    }
     let step = TICK_STEPS_MS[TICK_STEPS_MS.length - 1];
     for (let i = 0; i < TICK_STEPS_MS.length; i++) {
       if (span / TICK_STEPS_MS[i] <= target) { step = TICK_STEPS_MS[i]; break; }
     }
+    axis._tickStep = step;
     // Anchor the tick grid to local midnight (not the UTC epoch) so a tick lands
     // exactly on 12 AM — every step here divides a day — which is where fmtTimeAxis
     // prints the date. Falls back cleanly for sub-hour steps within a single day.
@@ -1593,6 +1616,8 @@ function mdmBootCharts() {
   }
 
   // ── Build-change markers ──
+  // Some clients report the build id JSON-quoted ("v2.0.7l"); show it bare.
+  function buildName(s) { return String(s == null ? '' : s).replace(/^"+|"+$/g, ''); }
   function getVisibleBuilds(chart) {
     if (!showBuilds || !chart._buildMarkers || !chart._buildMarkers.length || !chart.scales || !chart.scales.x) return [];
     const xScale = chart.scales.x;
@@ -1606,7 +1631,7 @@ function mdmBootCharts() {
     let closest = null, dist = Infinity;
     vis.forEach(function (b) { var d = Math.abs(b.px - chart._crosshairX); if (d < dist) { dist = d; closest = b; } });
     if (!closest || dist > 24) return '';
-    return 'Build ' + closest.from + ' → ' + closest.to;
+    return 'Build ' + buildName(closest.from) + ' → ' + buildName(closest.to);
   }
   function overlayHoverText(chart) {
     return [markerHoverText(chart), buildHoverText(chart)].filter(Boolean).join('  ·  ');
@@ -1632,7 +1657,7 @@ function mdmBootCharts() {
         ctx.fillStyle = BUILD_COLOR;
         ctx.beginPath(); ctx.moveTo(x, ca.bottom - 7); ctx.lineTo(x - 4, ca.bottom); ctx.lineTo(x + 4, ca.bottom); ctx.closePath(); ctx.fill();
         // build pill; stagger rows when neighbours overlap
-        var text = '→ ' + b.to;
+        var text = '→ ' + buildName(b.to);
         var w = ctx.measureText(text).width + 12, h = 16;
         var bx = Math.min(x + 6, ca.right - w);
         if (bx < lastRight + 4) { row = (row + 1) % 2; } else { row = 0; }
