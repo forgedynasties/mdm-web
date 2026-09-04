@@ -181,6 +181,21 @@ html,body{margin:0;padding:0;background:#0E0F1C;overflow:hidden;}
   </section>
 
   <!-- 9 · Outro poster -->
+  {{if and .Me (gt .Me.Actions 0)}}
+  <section class="wr-panel bg-heat" data-panel>
+    <p class="wr-eye wr-in">And you, {{.Me.Username}}</p>
+    <p class="wr-num wr-in d1" data-count="{{.Me.Actions}}">0</p>
+    <p class="wr-lead wr-in d2" style="margin-top:18px;">actions of your own{{if .Me.Rank}} — <b>#{{.Me.Rank}}</b> of {{.Me.Actors}} people{{end}}.</p>
+    <p class="wr-sub wr-in d3">
+      {{if .Me.Commands}}{{.Me.Commands}} command{{if ne .Me.Commands 1}}s{{end}} sent{{if .Me.DevicesTouched}} to {{.Me.DevicesTouched}} device{{if ne .Me.DevicesTouched 1}}s{{end}}{{end}}. {{end}}
+      {{if .Me.TestResults}}{{.Me.TestResults}} QA result{{if ne .Me.TestResults 1}}s{{end}} recorded. {{end}}
+      {{if .Me.ReleasesSignedOff}}{{.Me.ReleasesSignedOff}} release{{if ne .Me.ReleasesSignedOff 1}}s{{end}} signed off. {{end}}
+      Across {{.Me.ActiveDays}} active day{{if ne .Me.ActiveDays 1}}s{{end}}.
+    </p>
+    <p class="wr-sub wr-in d3" style="margin-top:14px;"><a href="/profile" style="color:inherit;text-decoration:underline;">See your full profile →</a></p>
+  </section>
+  {{end}}
+
   <section class="wr-panel bg-intro center" data-panel>
     <div class="wr-poster wr-in">
       <h2 class="wr-poster-h">The fleet,<br>wrapped.</h2>

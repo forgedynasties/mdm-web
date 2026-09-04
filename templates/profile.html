@@ -1,0 +1,105 @@
+{{define "profile.html"}}
+{{template "header" .}}
+
+<style>
+.pf-hero{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.pf-av{width:64px;height:64px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:750;text-transform:uppercase;background:var(--accent-soft);color:var(--accent-text)}
+.pf-name{font-size:22px;font-weight:750;letter-spacing:-.015em}
+.pf-meta{font-size:12.5px;color:var(--muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pf-role{font-size:10.5px;font-weight:750;text-transform:uppercase;letter-spacing:.06em;padding:2px 8px;border-radius:99px;background:var(--surface-3);color:var(--text-2)}
+.pf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:16px}
+.pf-list{padding:6px 17px 12px}
+.pf-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border-soft);font-size:13px}
+.pf-row:first-child{border-top:none}
+.pf-row .k{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pf-row .bar{flex:0 0 120px;height:6px;border-radius:3px;background:var(--surface-3);overflow:hidden}
+.pf-row .bar i{display:block;height:100%;background:var(--accent)}
+.pf-row .n{font-variant-numeric:tabular-nums;font-weight:650;min-width:36px;text-align:right}
+.pf-empty{padding:22px 17px;color:var(--muted);font-size:13px}
+.pf-act{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--border-soft);font-size:12.5px}
+.pf-act:first-child{border-top:none}
+.pf-act .t{color:var(--text-faint);flex:0 0 78px;font-variant-numeric:tabular-nums}
+.pf-act .a{font-weight:650}
+.pf-act .d{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+
+<div class="cc-wrap">
+  <div class="cc-top">
+    <div class="pf-hero">
+      <span class="pf-av">{{slice .Display 0 1}}</span>
+      <div>
+        <div class="cc-eyebrow">My profile</div>
+        <div class="pf-name">{{.Display}}</div>
+        <div class="pf-meta">
+          <span class="pf-role">{{.Role}}</span>
+          <span class="mono">{{.Username}}</span>
+          {{if .User}}{{if .User.Email}}<span>{{.User.Email}}{{if .User.EmailVerifiedAt}} · verified{{end}}</span>{{end}}<span>Joined {{shortDate .User.CreatedAt}}</span>{{end}}
+          {{if .Stats.FirstAt}}<span>First action {{shortDate (deref .Stats.FirstAt)}}</span>{{end}}
+        </div>
+      </div>
+    </div>
+    <div class="cc-actions">
+      <a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>
+      {{if eq .Role "admin"}}<a class="cc-btn" href="/activity?actor={{.Username}}">My activity log</a>{{end}}
+    </div>
+  </div>
+
+  <div class="cc-kpis">
+    <div class="cc-kpi"><span class="k">Actions</span><div class="v">{{.Stats.Actions}}</div><div class="d">{{if .Stats.Rank}}#{{.Stats.Rank}} of {{.Stats.Actors}} people{{else}}nothing recorded yet{{end}}</div></div>
+    <div class="cc-kpi"><span class="k">Commands sent</span><div class="v">{{.Stats.Commands}}</div><div class="d">{{.Stats.Installs}} install{{if ne .Stats.Installs 1}}s{{end}}</div></div>
+    <div class="cc-kpi"><span class="k">Devices touched</span><div class="v">{{.Stats.DevicesTouched}}</div><div class="d">directly targeted</div></div>
+    <div class="cc-kpi"><span class="k">Active days</span><div class="v">{{.Stats.ActiveDays}}</div><div class="d">{{if .Stats.LastAt}}last {{timeSince (deref .Stats.LastAt)}}{{else}}—{{end}}</div></div>
+  </div>
+
+  <div class="pf-grid">
+    <div class="cc-card">
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg></span><h3>What you do most</h3></div>
+      {{if .Stats.TopActions}}
+      <div class="pf-list">
+        {{range .Stats.TopActions}}
+        <div class="pf-row"><span class="k mono">{{.Name}}</span><span class="bar"><i style="width:{{.Pct}}%"></i></span><span class="n">{{.Count}}</span></div>
+        {{end}}
+      </div>
+      {{else}}<div class="pf-empty">No actions recorded under this account yet.</div>{{end}}
+    </div>
+
+    <div class="cc-card">
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg></span><h3>Command mix</h3></div>
+      {{if .Stats.CommandTypes}}
+      <div class="pf-list">
+        {{range .Stats.CommandTypes}}
+        <div class="pf-row"><span class="k">{{cmdLabel .Name}}</span><span class="bar"><i style="width:{{.Pct}}%"></i></span><span class="n">{{.Count}}</span></div>
+        {{end}}
+      </div>
+      {{else}}<div class="pf-empty">No commands sent yet.</div>{{end}}
+    </div>
+
+    <div class="cc-card">
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span><h3>Releases &amp; QA</h3></div>
+      <div class="pf-list">
+        <div class="pf-row"><span class="k">QA results recorded</span><span class="n">{{.Stats.TestResults}}</span></div>
+        <div class="pf-row"><span class="k">&nbsp;&nbsp;passed / failed</span><span class="n">{{.Stats.TestsPassed}} / {{.Stats.TestsFailed}}</span></div>
+        <div class="pf-row"><span class="k">Releases signed off</span><span class="n">{{.Stats.ReleasesSignedOff}}</span></div>
+        <div class="pf-row"><span class="k">Releases testing done</span><span class="n">{{.Stats.ReleasesTested}}</span></div>
+        <div class="pf-row"><span class="k">Releases merged</span><span class="n">{{.Stats.ReleasesMerged}}</span></div>
+        <div class="pf-row"><span class="k">Test cases written</span><span class="n">{{.Stats.TestCasesCreated}}</span></div>
+        <div class="pf-row"><span class="k">Queries defined</span><span class="n">{{.Stats.QueriesCreated}}</span></div>
+        <div class="pf-row"><span class="k">Recipes created</span><span class="n">{{.Stats.RecipesCreated}}</span></div>
+      </div>
+    </div>
+
+    <div class="cc-card">
+      <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h3>Recent activity</h3></div>
+      {{if .Recent}}
+      <div class="pf-list">
+        {{range .Recent}}
+        <div class="pf-act"><span class="t">{{timeSince .CreatedAt}}</span><span class="a mono">{{.Action}}</span><span class="d">{{.Target}}{{if .Detail}} · {{.Detail}}{{end}}</span></div>
+        {{end}}
+      </div>
+      {{else}}<div class="pf-empty">Nothing yet.</div>{{end}}
+    </div>
+  </div>
+</div>
+
+{{template "footer" .}}
+{{end}}

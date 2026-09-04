@@ -581,6 +581,133 @@ func (d *DB) MergeActor(ctx context.Context, from, to string) (int64, error) {
 	return total, tx.Commit(ctx)
 }
 
+// UserStats is one person's footprint in the system, for the profile page and the
+// "your year" slide of Fleet Wrapped. Everything is keyed by the snapshotted
+// username on attribution columns (see actorColumns), so merged/renamed users
+// stay consistent with Activity.
+type UserStats struct {
+	Username string
+
+	Actions    int64 // audit_log rows
+	ActiveDays int   // distinct days with at least one action
+	FirstAt    *time.Time
+	LastAt     *time.Time
+	TopActions []NamedCount // audit actions, most frequent first (max 6)
+	Rank       int          // 1 = most active actor by audit rows; 0 = no actions
+	Actors     int          // number of actors ranked
+
+	Commands       int64
+	CommandTypes   []NamedCount // install_apk, reboot, … most frequent first
+	DevicesTouched int64        // distinct devices directly targeted by their commands
+	Installs       int64
+
+	ReleasesSignedOff int64
+	ReleasesTested    int64
+	ReleasesMerged    int64
+	TestResults       int64
+	TestsPassed       int64
+	TestsFailed       int64
+	QueriesCreated    int64
+	RecipesCreated    int64
+	TestCasesCreated  int64
+}
+
+// NamedCount is a label with a count, for small breakdown lists.
+type NamedCount struct {
+	Name  string
+	Count int64
+	Pct   int // share of the largest entry in its list, 0–100, for bar widths
+}
+
+func fillPct(list []NamedCount) {
+	if len(list) == 0 || list[0].Count == 0 {
+		return
+	}
+	for i := range list {
+		list[i].Pct = int(100 * list[i].Count / list[0].Count)
+	}
+}
+
+func (d *DB) UserStats(ctx context.Context, username string) (*UserStats, error) {
+	st := &UserStats{Username: username}
+	if username == "" {
+		return st, nil
+	}
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*), COUNT(DISTINCT (created_at AT TIME ZONE 'UTC')::date), MIN(created_at), MAX(created_at)
+		FROM audit_log WHERE actor = $1`, username).Scan(&st.Actions, &st.ActiveDays, &st.FirstAt, &st.LastAt)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT action, COUNT(*) FROM audit_log WHERE actor = $1
+		GROUP BY action ORDER BY COUNT(*) DESC, action LIMIT 6`, username)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var nc NamedCount
+		if err := rows.Scan(&nc.Name, &nc.Count); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		st.TopActions = append(st.TopActions, nc)
+	}
+	rows.Close()
+	if st.Actions > 0 {
+		err = d.pool.QueryRow(ctx, `
+			WITH r AS (SELECT actor, RANK() OVER (ORDER BY COUNT(*) DESC) AS rk, COUNT(*) OVER () AS n
+			           FROM audit_log WHERE actor <> '' AND actor <> 'unknown' GROUP BY actor)
+			SELECT rk, n FROM r WHERE actor = $1`, username).Scan(&st.Rank, &st.Actors)
+		if err != nil && err != pgx.ErrNoRows {
+			return nil, err
+		}
+	}
+	err = d.pool.QueryRow(ctx, `
+		SELECT COUNT(*),
+		       COUNT(*) FILTER (WHERE type = 'install_apk'),
+		       (SELECT COUNT(DISTINCT ct.target_id) FROM commands c2 JOIN command_targets ct ON ct.command_id = c2.id
+		        WHERE c2.created_by = $1 AND c2.target_type = 'devices')
+		FROM commands WHERE created_by = $1`, username).Scan(&st.Commands, &st.Installs, &st.DevicesTouched)
+	if err != nil {
+		return nil, err
+	}
+	rows, err = d.pool.Query(ctx, `
+		SELECT type, COUNT(*) FROM commands WHERE created_by = $1
+		GROUP BY type ORDER BY COUNT(*) DESC, type`, username)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var nc NamedCount
+		if err := rows.Scan(&nc.Name, &nc.Count); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		st.CommandTypes = append(st.CommandTypes, nc)
+	}
+	rows.Close()
+	err = d.pool.QueryRow(ctx, `
+		SELECT
+		  (SELECT COUNT(*) FROM releases WHERE signed_off_by = $1),
+		  (SELECT COUNT(*) FROM releases WHERE testing_done_by = $1),
+		  (SELECT COUNT(*) FROM releases WHERE merged_by = $1),
+		  (SELECT COUNT(*) FROM release_test_results WHERE tested_by = $1 AND status <> 'untested'),
+		  (SELECT COUNT(*) FROM release_test_results WHERE tested_by = $1 AND status = 'pass'),
+		  (SELECT COUNT(*) FROM release_test_results WHERE tested_by = $1 AND status = 'fail'),
+		  (SELECT COUNT(*) FROM device_queries WHERE created_by = $1),
+		  (SELECT COUNT(*) FROM command_recipes WHERE created_by = $1),
+		  (SELECT COUNT(*) FROM test_cases WHERE created_by = $1)`, username).Scan(
+		&st.ReleasesSignedOff, &st.ReleasesTested, &st.ReleasesMerged, &st.TestResults, &st.TestsPassed, &st.TestsFailed,
+		&st.QueriesCreated, &st.RecipesCreated, &st.TestCasesCreated)
+	if err != nil {
+		return nil, err
+	}
+	fillPct(st.TopActions)
+	fillPct(st.CommandTypes)
+	return st, nil
+}
+
 func (d *DB) UpdateUserName(ctx context.Context, id uuid.UUID, firstName, lastName string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE users SET first_name = $2, last_name = $3 WHERE id = $1`, id, firstName, lastName)
 	return err

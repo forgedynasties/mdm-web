@@ -1750,6 +1750,32 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ProfilePage shows the signed-in user their own account details and footprint:
+// actions, commands, devices touched, QA and release work, recent activity.
+func (h *Handler) ProfilePage(w http.ResponseWriter, r *http.Request) {
+	username := h.currentUsername(r)
+	ctx := r.Context()
+	stats, err := h.db.UserStats(ctx, username)
+	if err != nil {
+		log.Printf("[profile] stats for %q: %v", username, err)
+		stats = &db.UserStats{Username: username}
+	}
+	user, _ := h.db.GetUserByUsername(ctx, username) // nil for the env dashboard login
+	recent, _ := h.db.ListAuditFiltered(ctx, username, 12)
+	display := username
+	if user != nil {
+		display = user.DisplayName()
+	}
+	h.render(w, r, "profile.html", map[string]any{
+		"Title":    "My profile",
+		"User":     user,
+		"Display":  display,
+		"Username": username,
+		"Stats":    stats,
+		"Recent":   recent,
+	})
+}
+
 // UserMergeActor re-points past activity recorded under a username that no longer
 // has an account (deleted after e.g. a Microsoft sign-in replaced it) to an
 // existing user, so Activity, Actions history and release sign-offs show one
@@ -14214,6 +14240,7 @@ func (h *Handler) buildAlertRuleViews(ctx context.Context) []alertRuleGroup {
 // WrappedPage renders "Fleet Wrapped" — a playful, full-screen year-in-review of
 // the whole fleet (Spotify-Wrapped style). Open to any signed-in role.
 func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
+	me, _ := h.db.UserStats(r.Context(), h.currentUsername(r))
 	wr, err := h.db.GetFleetWrapped(r.Context())
 	if err != nil {
 		log.Printf("[wrapped] compute: %v", err)
@@ -14221,6 +14248,7 @@ func (h *Handler) WrappedPage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "wrapped.html", map[string]any{
 		"Title":      "Fleet Wrapped",
 		"W":          wr,
+		"Me":         me,
 		"OnlineDays": wr.OnlineMinutes / 1440,
 		"WorkerDays": int(wr.HardestWorker.Value) / 1440,
 	})
@@ -15605,6 +15633,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/{id}/password", h.requireStrictAdmin(h.UserSetPassword))
 	post("POST /users/{id}/delete", h.requireStrictAdmin(h.UserDelete))
 	post("POST /users/merge", h.requireStrictAdmin(h.UserMergeActor))
+	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE
