@@ -54,6 +54,13 @@ type Config struct {
 	AutoHideDaysVal         int `json:"auto_hide_days"`
 	CheckinRetentionDaysVal int `json:"checkin_retention_days"`
 	LogcatRetentionDaysVal  int `json:"logcat_retention_days"`
+	// Minimum seconds between two stored check-in rows for one device when nothing
+	// but volatile fields changed (0 -> default 30). Transitions always store a row.
+	CheckinSampleSecVal int `json:"checkin_sample_sec"`
+	// Progress cursor (YYYY-MM-DD) of the one-off legacy check-in cleanup that strips
+	// bulky keys from rows written before insert-time stripping existed. "" = not
+	// started, "done" = finished.
+	LegacyStripCursorVal string `json:"legacy_strip_cursor"`
 
 	// Dashboard preferences & branding.
 	PageSizeVal    int    `json:"page_size"`    // 0 -> default 25
@@ -468,11 +475,38 @@ func (c *Config) LogcatRetentionDays() int {
 	return c.LogcatRetentionDaysVal
 }
 
-func (c *Config) SetDataLifecycle(autoHide, checkinRet, logcatRet int) error {
+// DefaultCheckinSampleSec is the coalescing window used when none is configured.
+const DefaultCheckinSampleSec = 30
+
+func (c *Config) CheckinSampleSec() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.CheckinSampleSecVal <= 0 {
+		return DefaultCheckinSampleSec
+	}
+	return c.CheckinSampleSecVal
+}
+
+func (c *Config) LegacyStripCursor() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.LegacyStripCursorVal
+}
+
+func (c *Config) SetLegacyStripCursor(cur string) error {
+	c.mu.Lock()
+	c.LegacyStripCursorVal = cur
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+func (c *Config) SetDataLifecycle(autoHide, checkinRet, logcatRet, sampleSec int) error {
 	c.mu.Lock()
 	c.AutoHideDaysVal = autoHide
 	c.CheckinRetentionDaysVal = checkinRet
 	c.LogcatRetentionDaysVal = logcatRet
+	c.CheckinSampleSecVal = sampleSec
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -575,6 +576,10 @@ type ProductionDevice struct {
 type DB struct {
 	pool *pgxpool.Pool
 
+	// checkinSampleSec is the coalescing window for UpsertCheckin (see there). Set
+	// from config at startup and whenever the setting is saved.
+	checkinSampleSec atomic.Int32
+
 	// cmdSummaryMu/cmdSummaryCache short-TTL-cache GetCommandDeliverySummaries: it's
 	// a full join+CASE-classify over the commands/command_status window, polled
 	// every 20s by the Actions page from every open tab/browser. Collapsing repeat
@@ -743,15 +748,82 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	// checkins table to >1GB for one device and made the device page's 48h chart pull
 	// hundreds of MB of TOASTed jsonb, timing the page out. Strip it from the historical
 	// row (it stays in devices.latest_extra and device_events).
+	//
+	// wifi_scan is the same story: a multi-KB AP list the geolocation resolver has
+	// already consumed by the time we get here, then carried into every later row by
+	// the snapshot merge until the next scan replaced it (3.5 GB of a 13.7 GB dump).
+	//
+	// Coalescing: WS delta frames arrive sub-second, and each one used to store a full
+	// snapshot row even when nothing but a volatile reading moved. If the device's most
+	// recent row is younger than the sample window and equal on everything except the
+	// volatile keys, skip the history row — the live snapshot on devices was updated
+	// above regardless. Any transition (battery %, build, charging, pad state, kiosk,
+	// boot…) still lands the instant it happens, so charts keep every real event.
+	sample := int(d.checkinSampleSec.Load())
 	_, err = tx.Exec(ctx, `
 		INSERT INTO checkins (device_id, battery_pct, build_id, extra)
-		VALUES ($1, $2, $3, ($4::jsonb) - 'crash_events')
-	`, deviceID, battery, buildID, merged)
+		SELECT $1, $2, $3, ($4::jsonb) - `+checkinStripKeys+`
+		WHERE NOT EXISTS (
+			SELECT 1 FROM (
+				SELECT created_at, battery_pct, build_id, extra
+				FROM checkins WHERE device_id = $1
+				ORDER BY created_at DESC LIMIT 1
+			) last
+			WHERE $5 > 0
+			  AND last.created_at > NOW() - make_interval(secs => $5)
+			  AND last.battery_pct = $2
+			  AND last.build_id = $3
+			  AND (last.extra - `+checkinVolatileKeys+`)
+			    = ((($4::jsonb) - `+checkinStripKeys+`) - `+checkinVolatileKeys+`)
+		)
+	`, deviceID, battery, buildID, merged, sample)
 	if err != nil {
 		return uuid.Nil, 0, false, err
 	}
 
 	return deviceID, pollIntervalMs, isNew, tx.Commit(ctx)
+}
+
+// checkinStripKeys are jsonb keys never persisted in checkins.extra (kept only in
+// devices.latest_extra): bulky, re-sent every frame, and already stored elsewhere
+// (device_events / the learned Wi-Fi index).
+const checkinStripKeys = `'crash_events' - 'wifi_scan'`
+
+// checkinVolatileKeys are readings that drift every frame without meaning a state
+// change; two rows equal on everything else within the sample window are one sample.
+const checkinVolatileKeys = `ARRAY['uptime_seconds','wifi_rssi','ram_usage_mb','battery_temp_c','storage_free_gb','ota_progress','wifi_disconnects_1h','location_accuracy']`
+
+// SetCheckinSampleSec sets the coalescing window used by UpsertCheckin (0 = off).
+func (d *DB) SetCheckinSampleSec(sec int) { d.checkinSampleSec.Store(int32(sec)) }
+
+// StripLegacyCheckinKeys removes checkinStripKeys from the checkins rows of one UTC
+// day — the one-off cleanup for rows written before UpsertCheckin stripped them at
+// insert. One day at a time keeps each statement index-bounded (created_at) and its
+// write set small, so it is safe to run on a small production box between real
+// work; the caller walks the cursor forward across runs. Returns rows rewritten.
+func (d *DB) StripLegacyCheckinKeys(ctx context.Context, day time.Time) (int64, error) {
+	tag, err := d.pool.Exec(ctx, `
+		UPDATE checkins SET extra = extra - `+checkinStripKeys+`
+		WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
+		  AND extra ?| ARRAY['crash_events','wifi_scan']
+	`, day.Format("2006-01-02"))
+	if err != nil {
+		return 0, err
+	}
+	return tag.RowsAffected(), nil
+}
+
+// OldestCheckinDay returns the UTC date of the oldest check-in row, or ok=false when
+// the table is empty. Index-backed (created_at).
+func (d *DB) OldestCheckinDay(ctx context.Context) (time.Time, bool, error) {
+	var t *time.Time
+	if err := d.pool.QueryRow(ctx, `SELECT MIN(created_at) FROM checkins`).Scan(&t); err != nil {
+		return time.Time{}, false, err
+	}
+	if t == nil {
+		return time.Time{}, false, nil
+	}
+	return t.UTC().Truncate(24 * time.Hour), true, nil
 }
 
 // TouchLastSeen stamps a device's last_seen_at without recording a check-in. It is

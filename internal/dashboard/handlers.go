@@ -12672,6 +12672,8 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"AutoHideDays":         h.cfg.AutoHideDays(),
 		"CheckinRetentionDays": h.cfg.CheckinRetentionDays(),
 		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
+		"CheckinSampleSec":     h.cfg.CheckinSampleSec(),
+		"LegacyStripCursor":    h.cfg.LegacyStripCursor(),
 		"DBStats":              dbStats,
 		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
 		"KioskFleetApps":       kioskFleetApps,
@@ -13140,6 +13142,67 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	h.refreshFleetSummary(ctx)
 	h.maybeSendDigest(ctx)
 	h.applyPrunes(ctx)
+	h.stripLegacyCheckins(ctx)
+}
+
+// stripLegacyCheckins walks the check-in history one UTC day at a time, oldest
+// first, rewriting rows that still carry the keys UpsertCheckin now strips at
+// insert (crash_events, wifi_scan). Those two keys were ~80% of the production
+// table. Bounded per run (time budget + day cap) so it never competes with real
+// work for long on a small box; progress persists in config so it resumes across
+// restarts and finishes on its own. Space is reclaimed by autovacuum for reuse;
+// returning it to the OS needs a one-off pg_repack / VACUUM FULL afterwards.
+func (h *Handler) stripLegacyCheckins(ctx context.Context) {
+	cur := h.cfg.LegacyStripCursor()
+	if cur == "done" {
+		return
+	}
+	var day time.Time
+	if cur == "" {
+		oldest, ok, err := h.db.OldestCheckinDay(ctx)
+		if err != nil {
+			log.Printf("[legacy-strip] oldest checkin: %v", err)
+			return
+		}
+		if !ok {
+			_ = h.cfg.SetLegacyStripCursor("done")
+			return
+		}
+		day = oldest
+	} else {
+		var err error
+		if day, err = time.Parse("2006-01-02", cur); err != nil {
+			log.Printf("[legacy-strip] bad cursor %q, restarting", cur)
+			_ = h.cfg.SetLegacyStripCursor("")
+			return
+		}
+	}
+	// Stop at yesterday: today's rows are already written stripped, and yesterday's
+	// may still be in flight across the UTC boundary — they get picked up next run.
+	stop := time.Now().UTC().Truncate(24 * time.Hour)
+	deadline := time.Now().Add(4 * time.Minute)
+	var total int64
+	for days := 0; days < 14 && day.Before(stop) && time.Now().Before(deadline); days++ {
+		n, err := h.db.StripLegacyCheckinKeys(ctx, day)
+		if err != nil {
+			log.Printf("[legacy-strip] %s: %v", day.Format("2006-01-02"), err)
+			return
+		}
+		total += n
+		day = day.AddDate(0, 0, 1)
+		if err := h.cfg.SetLegacyStripCursor(day.Format("2006-01-02")); err != nil {
+			log.Printf("[legacy-strip] save cursor: %v", err)
+			return
+		}
+	}
+	if !day.Before(stop) {
+		_ = h.cfg.SetLegacyStripCursor("done")
+		log.Printf("[legacy-strip] finished (%d row(s) rewritten this run)", total)
+		return
+	}
+	if total > 0 {
+		log.Printf("[legacy-strip] rewrote %d row(s); cursor now %s", total, day.Format("2006-01-02"))
+	}
 }
 
 // applyPrunes deletes check-ins and logcat results past their retention windows
@@ -13313,7 +13376,9 @@ func (h *Handler) SettingsSetRetention(w http.ResponseWriter, r *http.Request) {
 		atoiNonNeg(r.FormValue("auto_hide_days")),
 		atoiNonNeg(r.FormValue("checkin_retention_days")),
 		atoiNonNeg(r.FormValue("logcat_retention_days")),
+		atoiNonNeg(r.FormValue("checkin_sample_sec")),
 	)
+	h.db.SetCheckinSampleSec(h.cfg.CheckinSampleSec())
 	// Prunes can delete many rows, so run them in the background to keep Save snappy.
 	go h.applyPrunes(context.Background())
 	h.hxRedirect(w, r, "/settings") // retention fields may be normalized — re-render them
