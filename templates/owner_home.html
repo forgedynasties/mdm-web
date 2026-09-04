@@ -47,7 +47,11 @@
 .A .empty{padding:40px 0;color:var(--muted);border-top:1px solid var(--text);border-bottom:1px solid var(--border);margin-top:28px}
 @media(max-width:720px){.A .row{grid-template-columns:12px 1fr 1fr;grid-template-areas:"s n w" ". b b" ". d d";gap:8px 12px}.A .st{grid-area:s}.A .nm{grid-area:n}.A .word{grid-area:w;text-align:right}.A .batt{grid-area:b}.A .do{grid-area:d}.A .pulse{grid-template-columns:repeat(2,1fr)}.A .pulse div:nth-child(3){border-left:0;padding-left:0}.A .pulse div:nth-child(n+3){border-top:1px solid var(--border)}}
 </style>
-<div class="A" id="oh-root" hx-get="/" hx-trigger="every 30s" hx-select="#oh-root" hx-target="this" hx-swap="outerHTML">
+{{/* The refresh poller lives OUTSIDE the content: htmx attributes are inherited,
+     so hx-target/hx-select on the container would hijack every boosted link
+     inside it (a device click swapped the device page into this box). */}}
+<div hx-get="/" hx-trigger="every 30s" hx-select="#oh-root" hx-target="#oh-root" hx-swap="outerHTML" hidden></div>
+<div class="A" id="oh-root">
   <div class="eyebrow">{{.DateLine}} · {{.TimeLine}}{{if eq .VenueCount 1}}{{range .Venues}} · {{.Name}}{{end}}{{end}}</div>
   <h1>{{.Greeting}}, {{.Name}}.<br>{{.Headline}}</h1>
   {{if .Lede}}<p class="lede">{{.Lede}}</p>{{end}}
