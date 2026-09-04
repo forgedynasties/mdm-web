@@ -32,6 +32,27 @@ type Media struct {
 // Changelog is newest-first. The top entry is the current server version.
 var Changelog = []Entry{
 	{
+		Version: "1.50.0",
+		Date:    "2026-09-04",
+		Changes: []string{
+			"A new look for the whole dashboard. Every page — Home, Fleet, Actions, Policies, Alerts, Releases, Updates, Settings and the device pages — now shares one “command center” design with consistent cards, tables, buttons and a retuned dark theme with better contrast. Dropdowns, toasts and the bottom dock use a frosted-glass style.",
+			"The Home page is a command center. See every site as a heat-map tile scored by health, active rollouts, which release each device is on, fleet vitals and a live fleet map. Hide widgets, drag them between columns, or pick a preset view — your arrangement is saved to your account and switching views now updates in place with a progress bar instead of a full reload.",
+			"A Daily Report on the Home and Fleet health pages summarises what needs attention today, with the charts behind each finding one click away.",
+			"Install the dashboard as an app on your phone, tablet or desktop, and take a short, skippable guided walkthrough the first time you sign in.",
+			"Sign in with Microsoft, or create your own account and reset a forgotten password by email. Accounts are now keyed by email and carry a first and last name, so every action, command and change shows who did it — including a new “By” column in Actions history and a paginated Activity page with filters. The Tester role is now called Operator.",
+			"Kiosk mode is now a policy. The new Policies page lets you define named kiosk policies (locked app, allowed apps) and apply them to whole groups or venues from a proper device picker, instead of sending a one-off command to each device.",
+			"The Actions page has been rebuilt: pick apps, devices, shell commands and queries in focused dialogs; the target starts empty so nothing goes fleet-wide by accident, and sending to the whole fleet asks first. History updates live, is grouped by day, and rows can be dismissed or deleted without a reload.",
+			"Software updates are faster and clearer. Updates reach connected devices instantly, and the device page shows a live download/install bar that survives a server restart, with a cancel button. The redesigned deployment page shows each device's progress, a plain Retry next to Retry with full image, exactly when the applying reboot was pushed, and which build the device will boot into.",
+			"The device page graph shows when a device switched builds — a marker with the new build name at every change, with a toggle to show or hide them — and a second toggle to overlay when commands were sent. Hover a marker to see the details.",
+			"On the device page: tap the Wi-Fi pill to see nearby networks, see APK versions everywhere apps are listed, and a wireless pad that keeps flapping is called out as “Faulty” with an explanation. A device gets a short grace period before it's shown offline, and the location map matches the dashboard theme.",
+			"Import & Visualize: open a CSV from Export and turn it into a sortable table and charts, entirely in your browser — the file never leaves your computer. Now available to every signed-in user from the Home page. Export also gains a Charging column.",
+			"Fleet page improvements: a Map view toggle, “Select all matching” beyond the current page, inline rename of groups, venues and releases from a small menu, and adding or removing group members in place without reloading.",
+			"Faster everywhere: pages that ran a dozen queries in sequence now run them in parallel, static files are compressed, the main dock pages are prefetched so switching between them feels instant, and the device page loads its default graph window first and fetches the rest in the background.",
+			"Crash and ANR cards show the app's real icon, the Crashes feed no longer lists kiosk-exit events, the remote-control screen has a redesigned cockpit, notifications have a new toast design, and a branded page greets a wrong URL.",
+			"Fixes: a deployment could sit at “pending” forever after a recent failed update; an in-progress OTA was re-pushed every minute; commands could show “in progress” after finishing; a cancelled command on an offline device could still run; the Overview's Customize menu could not be opened; several dark-mode contrast and clipping issues across the app.",
+		},
+	},
+	{
 		Version: "1.41.0",
 		Date:    "2026-08-21",
 		Changes: []string{
