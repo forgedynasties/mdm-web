@@ -1859,7 +1859,7 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		}
 		switch {
 		case !on:
-			st.Word, st.Do = "Offline", template.HTML("<b>Check the power cable</b> and that it is on the Wi-Fi. Last seen "+timeSinceStr(d.LastSeenAt)+".")
+			st.Word, st.Do = "Offline", template.HTML("<b>Check the power cable</b> and that it is on the Wi-Fi.")
 		case st.HasBattery && st.Battery < 20 && !st.Charging:
 			st.Word, st.Do = "Not charging", template.HTML("<b>Put it back on the dock.</b> At "+strconv.Itoa(st.Battery)+"% it will not last the shift.")
 		case st.Pad == "faulty":
@@ -2072,6 +2072,8 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	if total > 0 {
 		if ready == total {
 			headline = "All " + numWord(total) + " station" + map[bool]string{true: "s are", false: " is"}[total != 1] + " ready for " + meal + "."
+		} else if ready == 0 {
+			headline = "None of your " + numWord(total) + " station" + map[bool]string{true: "s are", false: " is"}[total != 1] + " ready for " + meal + "."
 		} else {
 			headline = strings.Title(numWord(ready)) + " of " + numWord(total) + " stations " + map[bool]string{true: "are", false: "is"}[ready != 1] + " ready for " + meal + "."
 		}
