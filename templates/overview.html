@@ -234,6 +234,13 @@
 .ov3-pop-item.on b{color:var(--accent-text)}
 .ov3-pop-item.reset b{color:var(--danger)}
 .ov3-pop-item.static{cursor:default}
+.ov3-pop-item:disabled{cursor:default;opacity:.55}
+.ov3-pop-item.busy{opacity:1}
+.ov3-pop-item.busy b::after{content:'';display:inline-block;width:10px;height:10px;margin-left:8px;vertical-align:-1px;border-radius:50%;border:2px solid var(--accent-edge);border-top-color:var(--accent);animation:ov3spin .7s linear infinite}
+@keyframes ov3spin{to{transform:rotate(360deg)}}
+.ov3-btn.busy{pointer-events:none}
+.ov3-btn.busy svg{animation:ov3spin .9s linear infinite}
+.ov3.ov3-switching .ov3-grid,.ov3.ov3-switching .ov3-hero{opacity:.45;pointer-events:none;transition:opacity .15s}
 .ov3-pop-none,.ov3-pop-hint{font-size:11.5px;color:var(--muted);padding:6px 10px}
 .ov3-pop-hint{border-top:1px solid var(--border-soft);margin-top:6px;padding-top:10px}
 .ov3-pop-hint kbd{font:inherit;font-weight:650;color:var(--text-2)}
@@ -546,11 +553,31 @@
       });
       document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { var p = document.getElementById('ov3-pop'); if (p) p.hidden = true; } });
     }
+    // Re-render the Overview in place (a boosted <main> swap: instant progress
+    // bar + skeleton, no full reload of CSS/vendor scripts) once a layout change
+    // has been saved. Falls back to a hard reload if htmx is unavailable.
+    function switching(t) {
+      Array.prototype.forEach.call(pop.querySelectorAll('button'), function (b) { b.disabled = true; });
+      Array.prototype.forEach.call(pop.querySelectorAll('.ov3-pop-item.on'), function (b) { b.classList.remove('on'); });
+      t.disabled = true; t.classList.add('on', 'busy');
+      btn.classList.add('busy');
+      root.classList.add('ov3-switching');
+    }
+    function reloadOverview() {
+      var url = location.pathname + location.search;
+      if (!window.htmx || !document.querySelector('main')) { location.reload(); return; }
+      pop.hidden = true; btn.setAttribute('aria-expanded', 'false');
+      try {
+        var p = window.htmx.ajax('GET', url, { source: document.body, target: 'main', swap: 'outerHTML', select: 'main' });
+        if (p && p.catch) p.catch(function () { location.reload(); });
+      } catch (e) { location.reload(); }
+    }
     pop.addEventListener('click', function (e) {
-      var t = e.target.closest('button'); if (!t) return;
+      var t = e.target.closest('button'); if (!t || t.disabled) return;
       if (t.hasAttribute('data-preset')) {
-        t.disabled = true;
-        save({ preset: t.getAttribute('data-preset') }).then(function () { location.reload(); });
+        if (t.classList.contains('on')) { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); return; }
+        switching(t);
+        save({ preset: t.getAttribute('data-preset') }).then(reloadOverview);
       } else if (t.hasAttribute('data-show')) {
         var id = t.getAttribute('data-show');
         layout.hidden = layout.hidden.filter(function (x) { return x !== id; });
@@ -558,11 +585,11 @@
         // Put the widget back where it belongs: home column, at the end.
         var w = widgets.filter(function (x) { return x.id === id; })[0];
         if (w && w.slot === 'left') body.left.push(id); else if (w && w.slot === 'right') body.right.push(id);
-        t.disabled = true;
-        save(body).then(function () { location.reload(); });
+        switching(t);
+        save(body).then(reloadOverview);
       } else if (t.id === 'ov3-reset') {
-        t.disabled = true;
-        fetch('/overview/layout/reset', { method: 'POST', credentials: 'same-origin' }).then(function () { location.reload(); });
+        switching(t);
+        fetch('/overview/layout/reset', { method: 'POST', credentials: 'same-origin' }).then(reloadOverview, reloadOverview);
       }
     });
   }

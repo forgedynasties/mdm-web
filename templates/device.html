@@ -511,51 +511,6 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
 })();
 </script>
 
-{{/* Vitals snapshot strip — same fields as the hero's ghost-chip vitals row
-     (device-vitals), just laid out as scannable KPI tiles with state colour.
-     Rendered from the page's initial data; the chip row above stays the
-     live-polled source of truth for battery/charging/RAM/uptime. */}}
-<div class="cc-kpis dd-kpis">
-  {{if .Device.HasBattery}}
-  <div class="cc-kpi">
-    <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 10v4"/></svg>Battery</div>
-    <div class="v {{if lt .Device.BatteryPct 20}}bad{{else if lt .Device.BatteryPct 50}}warn{{else}}ok{{end}}">{{.Device.BatteryPct}}%</div>
-  </div>
-  {{end}}
-  {{$temp := batteryTemp .Device.LatestExtra}}{{if ne $temp ""}}
-  <div class="cc-kpi">
-    <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>Temp</div>
-    <div class="v {{tempClass .Device.LatestExtra}}">{{$temp}}</div>
-  </div>
-  {{end}}
-  {{$ram := ramUsage .Device.LatestExtra}}{{if $ram}}{{$rp := ramPct $ram}}
-  <div class="cc-kpi">
-    <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v4M15 3v4M9 17v4M15 17v4M3 9h4M3 15h4M17 9h4M17 15h4"/></svg>RAM</div>
-    <div class="v {{if ge $rp 85}}bad{{else if ge $rp 70}}warn{{else}}ok{{end}}">{{$rp}}%</div>
-  </div>
-  {{end}}
-  {{$sf := extraField .Device.LatestExtra "storage_free_gb"}}{{if and $sf (ne $sf "—")}}
-  <div class="cc-kpi">
-    <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>Storage free</div>
-    <div class="v">{{$sf}} GB</div>
-  </div>
-  {{end}}
-  {{$up := uptimeShort .Device.LatestExtra}}{{if $up}}
-  <div class="cc-kpi">
-    <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Uptime</div>
-    <div class="v">{{$up}}</div>
-  </div>
-  {{end}}
-  <div class="cc-kpi">
-    <div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3M12 8v3M10 11h4"/></svg>Kiosk</div>
-    <div class="v {{if .KioskConfig.KioskEnabled}}accent{{else}}mut{{end}}">{{if .KioskConfig.KioskEnabled}}On{{else}}Off{{end}}</div>
-  </div>
-</div>
-<style>
-.dd-kpis .v.mut{color:var(--muted)}
-@media(max-width:600px){.dd-kpis{grid-template-columns:repeat(2,1fr)}}
-</style>
-
 <div class="ddc-body">
 <aside class="ddc-side">
   <div class="ddc-card">
@@ -1349,7 +1304,6 @@ function mdmBootCharts() {
     g.addColorStop(1, wlcColor(curW));
     return g;
   }
-
 
   function filterWindow(all) {
     if (customMin !== null && customMax !== null) {
