@@ -244,8 +244,9 @@ type UpdateTarget struct {
 	ErrorCode    string    `json:"error_code"`    // device-reported code when status == "failed"
 	UpdatedAt    time.Time `json:"updated_at"`    // when this row last changed state
 
-	StartedAt   *time.Time `json:"started_at"`   // when the device began downloading (nil if not yet)
-	CompletedAt *time.Time `json:"completed_at"` // when the device reported installed (nil if not yet)
+	StartedAt    *time.Time `json:"started_at"`     // when the device began downloading (nil if not yet)
+	CompletedAt  *time.Time `json:"completed_at"`   // when the device reported installed (nil if not yet)
+	RebootSentAt *time.Time `json:"reboot_sent_at"` // when the applying reboot was pushed to the device (nil if not yet)
 }
 
 // DurationSeconds returns how long this device took to update (download → installed),
@@ -1629,6 +1630,43 @@ func (d *DB) GetCheckins(ctx context.Context, deviceID uuid.UUID, limit int) ([]
 		checkins = append(checkins, c)
 	}
 	return checkins, rows.Err()
+}
+
+// BuildChange is one point in time where a device's reported build_id differed from
+// its previous check-in — i.e. it booted into a different build (OTA applied, rollback,
+// reflash). Drawn as markers on the device vitals chart.
+type BuildChange struct {
+	At   time.Time `json:"at"`
+	From string    `json:"from"`
+	To   string    `json:"to"`
+}
+
+// GetBuildChanges returns every build transition in a device's check-in history,
+// oldest first. The first check-in (no predecessor) and empty build ids are skipped.
+func (d *DB) GetBuildChanges(ctx context.Context, deviceID uuid.UUID) ([]BuildChange, error) {
+	rows, err := d.pool.Query(ctx, `
+		SELECT created_at, prev, build_id FROM (
+			SELECT created_at, build_id,
+			       LAG(build_id) OVER (ORDER BY created_at) AS prev
+			FROM checkins
+			WHERE device_id = $1 AND build_id <> ''
+		) t
+		WHERE prev IS NOT NULL AND prev <> build_id
+		ORDER BY created_at
+	`, deviceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []BuildChange
+	for rows.Next() {
+		var c BuildChange
+		if err := rows.Scan(&c.At, &c.From, &c.To); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
 }
 
 func (d *DB) GetCheckinsForDay(ctx context.Context, deviceID uuid.UUID, day time.Time) ([]Checkin, error) {
@@ -9067,6 +9105,26 @@ ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS force_full BOOLEAN NOT NULL 
 -- non-empty array restricts the channel to those alert type keys.
 ALTER TABLE alert_channels ADD COLUMN IF NOT EXISTS alert_types TEXT[];
 
+-- When the reboot that applies an installed OTA was pushed to the device (manual
+-- "Reboot to apply", bulk reboot-all, or the automatic/scheduled path). Shown on the
+-- deployment page next to each installed device. Backfilled once from the reboot
+-- command that followed the install for rows that predate the column.
+ALTER TABLE update_devices ADD COLUMN IF NOT EXISTS reboot_sent_at TIMESTAMPTZ;
+UPDATE update_devices ud SET reboot_sent_at = sub.at
+FROM (
+	SELECT ud2.update_id, ud2.device_id, MIN(c.created_at) AS at
+	FROM update_devices ud2
+	JOIN command_targets ct ON ct.target_id = ud2.device_id
+	JOIN commands c ON c.id = ct.command_id AND c.type = 'reboot' AND c.target_type = 'devices'
+	WHERE ud2.reboot_sent_at IS NULL
+	  AND ud2.status IN ('reboot_sent', 'installed')
+	  AND ud2.completed_at IS NOT NULL
+	  AND c.created_at >= ud2.completed_at - INTERVAL '2 minutes'
+	  AND c.created_at <= ud2.completed_at + INTERVAL '7 days'
+	GROUP BY ud2.update_id, ud2.device_id
+) sub
+WHERE ud.update_id = sub.update_id AND ud.device_id = sub.device_id AND ud.reboot_sent_at IS NULL;
+
 -- Retired alert types: battery-health (untrusted sysfs proxy), Wi-Fi disconnect
 -- counting, and the app/kiosk behavioural rules. Purge any rows seeded before they
 -- were removed from the code so existing DBs match a fresh seed. Idempotent.
@@ -10744,7 +10802,8 @@ func (d *DB) SetUpdateDeviceStatus(ctx context.Context, updateID int, deviceID u
 	_, err := d.pool.Exec(ctx, `
 		UPDATE update_devices SET status = $3, error_code = '', updated_at = NOW(),
 			started_at   = CASE WHEN $3 = 'downloading' AND started_at   IS NULL THEN NOW() ELSE started_at   END,
-			completed_at = CASE WHEN $3 = 'installed'   AND completed_at IS NULL THEN NOW() ELSE completed_at END
+			completed_at = CASE WHEN $3 = 'installed'   AND completed_at IS NULL THEN NOW() ELSE completed_at END,
+			reboot_sent_at = CASE WHEN $3 = 'reboot_sent' AND reboot_sent_at IS NULL THEN NOW() ELSE reboot_sent_at END
 		WHERE update_id = $1 AND device_id = $2
 	`, updateID, deviceID, status)
 	return err
@@ -10989,7 +11048,7 @@ func (d *DB) CancelDeployment(ctx context.Context, updateID int) error {
 func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget, error) {
 	rows, err := d.pool.Query(ctx, `
 		SELECT ud.update_id, ud.device_id, d.serial_number, d.build_id, ud.status, ud.error_code, ud.updated_at,
-		       ud.started_at, ud.completed_at
+		       ud.started_at, ud.completed_at, ud.reboot_sent_at
 		FROM update_devices ud
 		JOIN devices d ON d.id = ud.device_id
 		WHERE ud.update_id = $1
@@ -11003,7 +11062,7 @@ func (d *DB) GetUpdateTargets(ctx context.Context, updateID int) ([]UpdateTarget
 	var out []UpdateTarget
 	for rows.Next() {
 		var t UpdateTarget
-		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt, &t.StartedAt, &t.CompletedAt); err != nil {
+		if err := rows.Scan(&t.UpdateID, &t.DeviceID, &t.SerialNumber, &t.BuildID, &t.Status, &t.ErrorCode, &t.UpdatedAt, &t.StartedAt, &t.CompletedAt, &t.RebootSentAt); err != nil {
 			return nil, err
 		}
 		out = append(out, t)

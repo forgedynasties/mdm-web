@@ -690,6 +690,12 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
         <button type="button" class="dur-btn" id="chart-shift-prev" title="Shift window earlier" aria-label="Shift window earlier">&lsaquo;</button>
         <button type="button" class="dur-btn" id="chart-shift-next" title="Shift window later" aria-label="Shift window later">&rsaquo;</button>
       </div>
+      {{/* Overlay toggles: command markers (dashed, badge at top) and build-change
+           markers (solid, build pill at the bottom). Each remembers its state per device. */}}
+      <div class="dur-btns gc-overlays" role="group" aria-label="Chart overlays">
+        <button type="button" class="dur-btn" id="toggle-markers-btn" aria-pressed="false" title="Show when commands were sent to this device">Commands</button>
+        <button type="button" class="dur-btn" id="toggle-builds-btn" aria-pressed="false" title="Show when the device switched to a different build">Builds</button>
+      </div>
       <div id="custom-range-inputs" class="cr-pop" hidden>
         <div class="cr-pop-head">
           <span class="cr-pop-title">Custom range</span>
@@ -760,6 +766,7 @@ window.mdmChartReady = window.mdmChartReady || (window.Chart
   .gcontrols .dur-btns{gap:2px;background:var(--surface-3);border:1px solid var(--border);border-radius:10px;padding:2px;}
   .gcontrols .dur-btns .dur-btn{border:1px solid transparent;background:transparent;border-radius:8px;padding:5px 11px;color:var(--text-faint);font-weight:650;}
   .gcontrols .dur-btns .dur-btn:hover{color:var(--text);border-color:transparent;background:var(--surface);}
+  .gcontrols .gc-overlays .dur-btn:disabled{opacity:.4;cursor:default;}
   .gcontrols .dur-btns .dur-btn.active{background:var(--surface);color:var(--accent-text);border-color:transparent;box-shadow:0 1px 2px rgba(20,22,40,.10);}
   #chart-shift-prev,#chart-shift-next{font-size:15px;line-height:1;padding:5px 9px;}
   /* Utility cluster (tz · PNG · Reset · Fullscreen) sits behind a divider. */
@@ -1035,6 +1042,8 @@ function mdmBootCharts() {
   }
   const commandMarkers = [{{range .Commands}}{x: {{.CreatedAt.UnixMilli}}, label: {{printf "%q" (cmdLabel .Type)}}, status: {{printf "%q" .Status}}},{{end}}];
   const markerStorageKey = 'mdm-chart-markers:v2:{{.Device.SerialNumber}}';
+  const buildMarkers = [{{range .BuildChanges}}{x: {{.At.UnixMilli}}, from: {{printf "%q" .From}}, to: {{printf "%q" .To}}},{{end}}];
+  const buildStorageKey = 'mdm-chart-builds:v1:{{.Device.SerialNumber}}';
 
   // A device is silent between check-ins by design: telemetry is change-gated, the
   // HTTP safety net floors the interval at 5 min when unplugged, alarms carry up to
@@ -1211,6 +1220,9 @@ function mdmBootCharts() {
   let batteryChart, tempChart, ramChart, unifiedChart;
   let storedMarkerPref = localStorage.getItem(markerStorageKey);
   let showMarkers = storedMarkerPref === null ? false : storedMarkerPref === 'visible';
+  let storedBuildPref = null;
+  try { storedBuildPref = localStorage.getItem(buildStorageKey); } catch (e) {}
+  let showBuilds = storedBuildPref === null ? true : storedBuildPref === 'visible';
   // Wireless-charging-state colouring is always on: the raw battery line is
   // coloured by WLC state with the legend shown (no per-device toggle).
   // The chart tab is driven by context (a ?focus deep-link), not remembered across
@@ -1451,10 +1463,13 @@ function mdmBootCharts() {
 
   function syncMarkerToggle() {
     var btn = document.getElementById('toggle-markers-btn');
-    if (!btn) return;
-    var label = btn.querySelector('.toggle-markers-label');
-    if (label) label.textContent = showMarkers ? 'Hide Markers' : 'Show Markers';
-    btn.setAttribute('aria-pressed', showMarkers ? 'true' : 'false');
+    if (btn) { btn.classList.toggle('active', showMarkers); btn.setAttribute('aria-pressed', showMarkers ? 'true' : 'false'); }
+    var bb = document.getElementById('toggle-builds-btn');
+    if (bb) {
+      bb.classList.toggle('active', showBuilds);
+      bb.setAttribute('aria-pressed', showBuilds ? 'true' : 'false');
+      if (!buildMarkers.length) { bb.disabled = true; bb.title = 'No build changes recorded for this device'; }
+    }
   }
 
   function makeGradient(color) {
@@ -1577,6 +1592,62 @@ function mdmBootCharts() {
     return prefix + ': ' + markerClusterText(closest);
   }
 
+  // ── Build-change markers ──
+  function getVisibleBuilds(chart) {
+    if (!showBuilds || !chart._buildMarkers || !chart._buildMarkers.length || !chart.scales || !chart.scales.x) return [];
+    const xScale = chart.scales.x;
+    return chart._buildMarkers
+      .filter(function (b) { return b.x >= xScale.min && b.x <= xScale.max; })
+      .map(function (b) { return { x: b.x, px: xScale.getPixelForValue(b.x), from: b.from, to: b.to }; });
+  }
+  function buildHoverText(chart) {
+    if (chart._crosshairX == null) return '';
+    const vis = getVisibleBuilds(chart);
+    let closest = null, dist = Infinity;
+    vis.forEach(function (b) { var d = Math.abs(b.px - chart._crosshairX); if (d < dist) { dist = d; closest = b; } });
+    if (!closest || dist > 24) return '';
+    return 'Build ' + closest.from + ' → ' + closest.to;
+  }
+  function overlayHoverText(chart) {
+    return [markerHoverText(chart), buildHoverText(chart)].filter(Boolean).join('  ·  ');
+  }
+  const BUILD_COLOR = 'rgba(168,85,247,0.9)', BUILD_LINE = 'rgba(168,85,247,0.45)';
+  const buildMarkerPlugin = {
+    id: 'buildMarkers',
+    afterDraw(chart) {
+      const vis = getVisibleBuilds(chart);
+      if (!vis.length || !chart.chartArea) return;
+      const ca = chart.chartArea, ctx = chart.ctx;
+      ctx.save();
+      ctx.font = '600 10.5px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      let lastRight = -Infinity, row = 0;
+      vis.forEach(function (b) {
+        var x = b.px;
+        ctx.setLineDash([]);
+        ctx.strokeStyle = BUILD_LINE; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x, ca.top); ctx.lineTo(x, ca.bottom); ctx.stroke();
+        // small triangle flag at the bottom
+        ctx.fillStyle = BUILD_COLOR;
+        ctx.beginPath(); ctx.moveTo(x, ca.bottom - 7); ctx.lineTo(x - 4, ca.bottom); ctx.lineTo(x + 4, ca.bottom); ctx.closePath(); ctx.fill();
+        // build pill; stagger rows when neighbours overlap
+        var text = '→ ' + b.to;
+        var w = ctx.measureText(text).width + 12, h = 16;
+        var bx = Math.min(x + 6, ca.right - w);
+        if (bx < lastRight + 4) { row = (row + 1) % 2; } else { row = 0; }
+        lastRight = bx + w;
+        var by = ca.bottom - 12 - h - (row * (h + 3));
+        ctx.fillStyle = 'rgba(8,11,16,0.92)';
+        ctx.strokeStyle = BUILD_LINE; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, w, h, 5) : ctx.rect(bx, by, w, h); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#e9d5ff';
+        ctx.fillText(text, bx + 6, by + h / 2);
+      });
+      ctx.restore();
+    },
+  };
+
   // Crosshair plugin — draws vertical line at cursor, no snap
   const crosshairPlugin = {
     id: 'crosshair',
@@ -1627,7 +1698,7 @@ function mdmBootCharts() {
       if (chart._crosshairX == null) { updateFooter(null); return; }
       const xScale = chart.scales.x;
       const ms = xScale.getValueForPixel(chart._crosshairX);
-      updateFooter(ms, markerHoverText(chart));
+      updateFooter(ms, overlayHoverText(chart));
     },
   };
 
@@ -1775,7 +1846,7 @@ function mdmBootCharts() {
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
+    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   batteryChart._labelFn = pt => {
     const line = 'Battery: ' + pt.y + '%';
@@ -1786,6 +1857,7 @@ function mdmBootCharts() {
     return line;
   };
   batteryChart._commandMarkers = commandMarkers;
+  batteryChart._buildMarkers = buildMarkers;
   batteryChart._accent = 'battery';
   {{end}}
 
@@ -1830,10 +1902,11 @@ function mdmBootCharts() {
         y: { ticks: { color: TICK, callback: v => v + "°C", padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
+    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   tempChart._labelFn = pt => 'Temp: ' + pt.y.toFixed(1) + '°C';
   tempChart._commandMarkers = commandMarkers;
+  tempChart._buildMarkers = buildMarkers;
   tempChart._accent = 'temp';
 
   // RAM chart
@@ -1877,10 +1950,11 @@ function mdmBootCharts() {
         y: { min: 0, max: 100, ticks: { color: TICK, callback: v => v + "%", stepSize: 20, padding: 6 }, grid: { color: GRID }, border: { display: false } },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
+    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   ramChart._labelFn = pt => 'RAM: ' + pt.y.toFixed(1) + '%';
   ramChart._commandMarkers = commandMarkers;
+  ramChart._buildMarkers = buildMarkers;
   ramChart._accent = 'ram';
 
   // ── Unified chart ────────────────────────────────────────────────────────
@@ -1947,22 +2021,34 @@ function mdmBootCharts() {
         },
       },
     },
-    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, selectionPlugin],
+    plugins: [bandsPlugin, crosshairPlugin, staticLabelPlugin, commandMarkerPlugin, buildMarkerPlugin, selectionPlugin],
   });
   unifiedChart._isUnified = true;
   unifiedChart._commandMarkers = commandMarkers;
+  unifiedChart._buildMarkers = buildMarkers;
   unifiedChart._accent = 'battery';
 
-  var _markBtn = document.getElementById("toggle-markers-btn");
-  if (_markBtn) _markBtn.addEventListener("click", function () {
-    showMarkers = !showMarkers;
-    localStorage.setItem(markerStorageKey, showMarkers ? 'visible' : 'hidden');
-    syncMarkerToggle();
+  function redrawAllCharts() {
     if (batteryChart) batteryChart.update();
     tempChart.update();
     ramChart.update();
     unifiedChart.update();
+  }
+  var _markBtn = document.getElementById("toggle-markers-btn");
+  if (_markBtn) _markBtn.addEventListener("click", function () {
+    showMarkers = !showMarkers;
+    try { localStorage.setItem(markerStorageKey, showMarkers ? 'visible' : 'hidden'); } catch (e) {}
+    syncMarkerToggle();
+    redrawAllCharts();
   });
+  var _buildBtn = document.getElementById("toggle-builds-btn");
+  if (_buildBtn) _buildBtn.addEventListener("click", function () {
+    showBuilds = !showBuilds;
+    try { localStorage.setItem(buildStorageKey, showBuilds ? 'visible' : 'hidden'); } catch (e) {}
+    syncMarkerToggle();
+    redrawAllCharts();
+  });
+  syncMarkerToggle();
 
   document.querySelectorAll(".dur-btn[data-ms]").forEach(btn => {
     btn.addEventListener("click", () => {

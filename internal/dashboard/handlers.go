@@ -3430,6 +3430,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		otaLabel        string
 		otaClass        string
 		otaPercent      int
+		buildChanges    []db.BuildChange
 	)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -3497,6 +3498,18 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		redactDeviceCommandURLs(role, c)
 		commands = filterShellDeviceCommands(role, c)
+	})
+	run(func() {
+		// Best-effort: build-change markers on the vitals chart. A failure here
+		// only loses the markers, not the page.
+		bc, err := h.db.GetBuildChanges(ctx, device.ID)
+		if err != nil {
+			log.Printf("[device] GetBuildChanges %s: %v", device.SerialNumber, err)
+			return
+		}
+		mu.Lock()
+		buildChanges = bc
+		mu.Unlock()
 	})
 	run(func() {
 		// The per-device command queue (non-terminal commands, FIFO) for the Queue tab.
@@ -3654,6 +3667,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"Online":              h.hub.IsConnectedForDisplay(device.ID),
 		"ChartCheckins":       chartCheckins,
 		"ChartFocus":          focusParam,
+		"BuildChanges":        buildChanges,
 		"Commands":            commands,
 		"Queue":               queue,
 		"ExtraColumns":        h.cfg.Columns(),

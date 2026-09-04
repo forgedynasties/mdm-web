@@ -42,6 +42,7 @@
       <th>Progress</th>
       <th>Duration</th>
       <th>Updated</th>
+      <th title="When the reboot that applies the update was pushed to the device">Reboot pushed</th>
       <th></th>
     </tr>
   </thead>
@@ -74,6 +75,7 @@
     </td>
     <td class="mono muted small" title="time from download start to installed">{{dur .DurationSeconds}}</td>
     <td class="muted small reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></td>
+    <td class="small dpl-reboot-at">{{if .RebootSentAt}}{{localTime (deref .RebootSentAt)}}{{else}}<span class="muted">—</span>{{end}}</td>
     <td class="dpl-act-cell">
       {{if and (eq .Status "failed") (canOperate $.Role)}}
         <form action="/releases/{{$.Release.ID}}/deployments/{{$dep.ID}}/devices/{{.SerialNumber}}/retry" method="POST" hx-boost="true" class="dpl-act">
@@ -106,7 +108,7 @@
   </tr>
   {{end}}
   {{else}}
-  <tr><td colspan="6" class="muted" style="text-align:center;padding:26px;">No devices targeted yet.</td></tr>
+  <tr><td colspan="7" class="muted" style="text-align:center;padding:26px;">No devices targeted yet.</td></tr>
   {{end}}
   </tbody>
 </table>
@@ -214,6 +216,7 @@
         {{else if and (eq .Status "failed") .ErrorCode}}{{otaErrorText .ErrorCode}} <span class="mono">({{.ErrorCode}})</span>
         {{else}}{{.Status}}{{end}}
         <span class="reltime" data-ts="{{.UpdatedAt.Unix}}" title="{{localTime .UpdatedAt}}"></span>
+        {{if .RebootSentAt}}<span class="dpl-reboot-at" title="When the reboot that applies the update was pushed">· reboot pushed {{localTime (deref .RebootSentAt)}}</span>{{end}}
       </div>
     </div>
     {{if canOperate $.Role}}
