@@ -11482,7 +11482,7 @@ var commandRoles = map[string][]string{
 
 var roleLevels = map[string]int{"viewer": 0, "operator": 1, "user_manager": 2, "dev": 3, "admin": 4}
 
-var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "User manager", "operator": "Operator", "viewer": "Viewer"}
+var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "Access admin", "operator": "Operator", "viewer": "Viewer"}
 
 // roleOrder is every assignable role, highest first.
 var roleOrder = []string{"admin", "dev", "user_manager", "operator", "viewer"}

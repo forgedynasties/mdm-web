@@ -215,7 +215,7 @@
       {{/* Account button → dropdown: theme, settings, users, what's new, sign out. */}}
       <div class="nbar-wrap" id="acct-wrap">
         <button type="button" class="appbar-acct" onclick="navAcct(event)" aria-haspopup="true" aria-expanded="false">
-          <span class="who"><span class="n">{{if .CurrentUser}}{{.CurrentUser}}{{else}}Unknown{{end}}</span><span class="r">{{if .Role}}{{.Role}}{{else}}unknown{{end}}</span></span>
+          <span class="who"><span class="n">{{if .CurrentUser}}{{.CurrentUser}}{{else}}Unknown{{end}}</span><span class="r">{{if .Role}}{{roleLabel .Role}}{{else}}unknown{{end}}</span></span>
           <span class="av">{{if .CurrentUser}}{{slice .CurrentUser 0 1}}{{else}}?{{end}}</span>
         </button>
         <div class="nbar-pop nbar-menu" id="acct-pop" hidden>
