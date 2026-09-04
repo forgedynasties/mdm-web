@@ -13210,6 +13210,7 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 	h.maybeSendDigest(ctx)
 	h.applyPrunes(ctx)
 	h.stripLegacyCheckins(ctx)
+	h.backfillBuildHistory(ctx)
 }
 
 // stripLegacyCheckins walks the check-in history one UTC day at a time, oldest
@@ -13219,6 +13220,55 @@ func (h *Handler) RunHousekeeping(ctx context.Context) {
 // work for long on a small box; progress persists in config so it resumes across
 // restarts and finishes on its own. Space is reclaimed by autovacuum for reuse;
 // returning it to the OS needs a one-off pg_repack / VACUUM FULL afterwards.
+// backfillBuildHistory fills device_build_history from check-in history, one UTC
+// day per step, newest first — so the device graph's recent build markers are
+// right after the first run and older history fills in over the following hours.
+// Bounded per run; the cursor persists in config; stops at the oldest check-in.
+func (h *Handler) backfillBuildHistory(ctx context.Context) {
+	cur := h.cfg.BuildHistoryCursor()
+	if cur == "done" {
+		return
+	}
+	oldest, ok, err := h.db.OldestCheckinDay(ctx)
+	if err != nil {
+		log.Printf("[build-history] oldest checkin: %v", err)
+		return
+	}
+	if !ok {
+		_ = h.cfg.SetBuildHistoryCursor("done")
+		return
+	}
+	day := time.Now().UTC().Truncate(24 * time.Hour)
+	if cur != "" {
+		if day, err = time.Parse("2006-01-02", cur); err != nil {
+			log.Printf("[build-history] bad cursor %q, restarting", cur)
+			_ = h.cfg.SetBuildHistoryCursor("")
+			return
+		}
+	}
+	deadline := time.Now().Add(3 * time.Minute)
+	var total int64
+	for steps := 0; steps < 20 && !day.Before(oldest) && time.Now().Before(deadline); steps++ {
+		n, err := h.db.BackfillBuildHistoryDay(ctx, day)
+		if err != nil {
+			log.Printf("[build-history] %s: %v", day.Format("2006-01-02"), err)
+			return
+		}
+		total += n
+		day = day.AddDate(0, 0, -1)
+		if err := h.cfg.SetBuildHistoryCursor(day.Format("2006-01-02")); err != nil {
+			log.Printf("[build-history] save cursor: %v", err)
+			return
+		}
+	}
+	if day.Before(oldest) {
+		_ = h.cfg.SetBuildHistoryCursor("done")
+		log.Printf("[build-history] backfill finished (%d change(s) this run)", total)
+		return
+	}
+	log.Printf("[build-history] %d change(s) this run; next day %s", total, day.Format("2006-01-02"))
+}
+
 func (h *Handler) stripLegacyCheckins(ctx context.Context) {
 	cur := h.cfg.LegacyStripCursor()
 	if cur == "done" {

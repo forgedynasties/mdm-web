@@ -716,6 +716,19 @@ func (d *DB) UpsertCheckin(ctx context.Context, serial, buildID string, batteryP
 	}
 	defer tx.Rollback(ctx)
 
+	// Record a build change before the snapshot below overwrites devices.build_id.
+	// PK lookup by serial; no row for a brand-new device or an unchanged build.
+	if buildID != "" {
+		if _, err = tx.Exec(ctx, `
+			INSERT INTO device_build_history (device_id, at, from_build, to_build)
+			SELECT id, NOW(), build_id, $2 FROM devices
+			WHERE serial_number = $1 AND build_id <> '' AND build_id <> $2
+			ON CONFLICT DO NOTHING
+		`, serial, buildID); err != nil {
+			return uuid.Nil, 0, false, err
+		}
+	}
+
 	extraExpr := "EXCLUDED.latest_extra"
 	if mergeExtra {
 		extraExpr = "COALESCE(devices.latest_extra, '{}'::jsonb) || EXCLUDED.latest_extra"
@@ -1719,94 +1732,74 @@ type BuildChange struct {
 	To   string    `json:"to"`
 }
 
-// GetBuildChanges returns the build transitions in a device's check-in history,
-// oldest first, without scanning that history. device_daily_stats keeps the last
-// build seen per device-day, so a change between two consecutive days pins the
-// transition to a two-day window; only those windows (plus the last two days,
-// whose rollup is still moving) are read from checkins with LAG. A flip that
-// starts and ends inside one older day (A→B→A) is not visible at day granularity
-// and is skipped — acceptable for a chart marker; a change-only build_history
-// table is the eventual home for this.
+// GetBuildChanges returns a device's build transitions, oldest first, from
+// device_build_history — written at check-in and backfilled by housekeeping
+// (BackfillBuildHistoryDay), so this never touches check-in history.
 func (d *DB) GetBuildChanges(ctx context.Context, deviceID uuid.UUID) ([]BuildChange, error) {
 	rows, err := d.pool.Query(ctx, `
-		SELECT day, build_id FROM device_daily_stats
-		WHERE device_id = $1 AND build_id <> ''
-		ORDER BY day
+		SELECT at, from_build, to_build FROM device_build_history
+		WHERE device_id = $1 ORDER BY at
 	`, deviceID)
 	if err != nil {
 		return nil, err
 	}
-	type dayBuild struct {
-		day   time.Time
-		build string
-	}
-	var days []dayBuild
-	for rows.Next() {
-		var db dayBuild
-		if err := rows.Scan(&db.day, &db.build); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		days = append(days, db)
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	// Candidate windows: [prev day, day + 1) wherever the daily build differs, plus
-	// the last two days. Merge overlaps so each raw row is read once.
-	type win struct{ from, to time.Time }
-	var wins []win
-	for i := 1; i < len(days); i++ {
-		if days[i].build != days[i-1].build {
-			wins = append(wins, win{days[i-1].day, days[i].day.AddDate(0, 0, 1)})
-		}
-	}
-	today := time.Now().UTC().Truncate(24 * time.Hour)
-	wins = append(wins, win{today.AddDate(0, 0, -1), today.AddDate(0, 0, 1)})
-	sort.Slice(wins, func(i, j int) bool { return wins[i].from.Before(wins[j].from) })
-	merged := wins[:0]
-	for _, w := range wins {
-		if n := len(merged); n > 0 && !w.from.After(merged[n-1].to) {
-			if w.to.After(merged[n-1].to) {
-				merged[n-1].to = w.to
-			}
-			continue
-		}
-		merged = append(merged, w)
-	}
-
+	defer rows.Close()
 	var out []BuildChange
-	for _, w := range merged {
-		r, err := d.pool.Query(ctx, `
-			SELECT created_at, prev, build_id FROM (
-				SELECT created_at, build_id,
-				       LAG(build_id) OVER (ORDER BY created_at) AS prev
-				FROM checkins
-				WHERE device_id = $1 AND build_id <> ''
-				  AND created_at >= $2 AND created_at < $3
-			) t
-			WHERE prev IS NOT NULL AND prev <> build_id
-			ORDER BY created_at
-		`, deviceID, w.from, w.to)
-		if err != nil {
+	for rows.Next() {
+		var c BuildChange
+		if err := rows.Scan(&c.At, &c.From, &c.To); err != nil {
 			return nil, err
 		}
-		for r.Next() {
-			var c BuildChange
-			if err := r.Scan(&c.At, &c.From, &c.To); err != nil {
-				r.Close()
-				return nil, err
-			}
-			out = append(out, c)
-		}
-		r.Close()
-		if err := r.Err(); err != nil {
-			return nil, err
-		}
+		out = append(out, c)
 	}
-	return out, nil
+	return out, rows.Err()
+}
+
+// BackfillBuildHistoryDay derives build changes for one UTC day of check-ins and
+// stores them in device_build_history (idempotent via the primary key). Two
+// sources: changes between consecutive rows within the day (LAG, index-bounded
+// by created_at), and the change between each device's first row of the day and
+// its last row before the day (one index-backed lookup per device). Returns the
+// rows inserted.
+func (d *DB) BackfillBuildHistoryDay(ctx context.Context, day time.Time) (int64, error) {
+	ds := day.Format("2006-01-02")
+	t1, err := d.pool.Exec(ctx, `
+		INSERT INTO device_build_history (device_id, at, from_build, to_build)
+		SELECT device_id, created_at, prev, build_id FROM (
+			SELECT device_id, created_at, build_id,
+			       LAG(build_id) OVER (PARTITION BY device_id ORDER BY created_at) AS prev
+			FROM checkins
+			WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
+			  AND build_id <> ''
+		) t
+		WHERE prev IS NOT NULL AND prev <> build_id
+		ON CONFLICT DO NOTHING
+	`, ds)
+	if err != nil {
+		return 0, err
+	}
+	t2, err := d.pool.Exec(ctx, `
+		INSERT INTO device_build_history (device_id, at, from_build, to_build)
+		SELECT f.device_id, f.created_at, p.build_id, f.build_id
+		FROM (
+			SELECT DISTINCT ON (device_id) device_id, created_at, build_id
+			FROM checkins
+			WHERE created_at >= $1::date AND created_at < ($1::date + INTERVAL '1 day')
+			  AND build_id <> ''
+			ORDER BY device_id, created_at
+		) f
+		JOIN LATERAL (
+			SELECT build_id FROM checkins c
+			WHERE c.device_id = f.device_id AND c.created_at < f.created_at AND c.build_id <> ''
+			ORDER BY c.created_at DESC LIMIT 1
+		) p ON true
+		WHERE p.build_id <> f.build_id
+		ON CONFLICT DO NOTHING
+	`, ds)
+	if err != nil {
+		return 0, err
+	}
+	return t1.RowsAffected() + t2.RowsAffected(), nil
 }
 
 func (d *DB) GetCheckinsForDay(ctx context.Context, deviceID uuid.UUID, day time.Time) ([]Checkin, error) {
@@ -9264,6 +9257,18 @@ FROM (
 	GROUP BY ud2.update_id, ud2.device_id
 ) sub
 WHERE ud.update_id = sub.update_id AND ud.device_id = sub.device_id AND ud.reboot_sent_at IS NULL;
+
+-- One row per build change per device (from → to, when). Written at check-in when
+-- the reported build differs from the stored one; backfilled from checkins by the
+-- hourly housekeeping (newest day first). The device graph's build markers read
+-- this instead of scanning check-in history.
+CREATE TABLE IF NOT EXISTS device_build_history (
+	device_id  UUID        NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+	at         TIMESTAMPTZ NOT NULL,
+	from_build TEXT        NOT NULL,
+	to_build   TEXT        NOT NULL,
+	PRIMARY KEY (device_id, at)
+);
 
 -- Retired alert types: battery-health (untrusted sysfs proxy), Wi-Fi disconnect
 -- counting, and the app/kiosk behavioural rules. Purge any rows seeded before they

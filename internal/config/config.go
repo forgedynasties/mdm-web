@@ -78,6 +78,9 @@ type Config struct {
 	// First day the cleanup started from (oldest check-in at that time); fixed
 	// denominator for the progress percentage shown in Settings.
 	LegacyStripStartVal string `json:"legacy_strip_start"`
+	// Newest-first cursor (YYYY-MM-DD) of the device_build_history backfill: the
+	// next day to process. "" = not started, "done" = finished.
+	BuildHistoryCursorVal string `json:"build_history_cursor"`
 	// Dashboard shows a maintenance page to non-admin users while set.
 	MaintenanceModeFlag bool `json:"maintenance_mode"`
 
@@ -521,6 +524,20 @@ func (c *Config) LegacyStripStart() string {
 func (c *Config) SetLegacyStripStart(day string) error {
 	c.mu.Lock()
 	c.LegacyStripStartVal = day
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+func (c *Config) BuildHistoryCursor() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.BuildHistoryCursorVal
+}
+
+func (c *Config) SetBuildHistoryCursor(cur string) error {
+	c.mu.Lock()
+	c.BuildHistoryCursorVal = cur
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)
