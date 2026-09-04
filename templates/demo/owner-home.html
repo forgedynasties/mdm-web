@@ -1,0 +1,299 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Harbor & Vine Owner Home</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono:wght@500;600&family=Chivo:wght@500;700;900&family=JetBrains+Mono:wght@500;700&family=Newsreader:opsz,wght@6..72,500;6..72,700&family=Public+Sans:wght@400;600;700&display=swap">
+<style>
+:root{
+  --bg:#f7f5f0;--ink:#1c1a17;--ink2:#4a463f;--mute:#8a847a;--line:#e5e0d6;--card:#ffffff;
+  --ok:#1f7a4d;--ok-soft:#e2f2e8;--warn:#b0620f;--warn-soft:#fbead6;--bad:#b3261e;--bad-soft:#f9e3e1;--accent:#2b5fb0;--accent-soft:#e3ebf8;
+  --dk-bg:#0d1117;--dk-panel:#151b24;--dk-panel2:#1b2330;--dk-ink:#e8edf3;--dk-mute:#8b96a5;--dk-line:#243040;--dk-ok:#3ddc84;--dk-warn:#ffb454;--dk-bad:#ff6b6b;--dk-accent:#7aa2ff;
+  --paper:#fbfaf7;--paper-ink:#1b1b1b;--paper-mute:#6f6a62;--paper-line:#d9d4ca;--paper-accent:#8a2d1c;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#15130f;--ink:#f1ede6;--ink2:#cdc6ba;--mute:#8f887c;--line:#2a2620;--card:#1d1a15;--ok-soft:#173224;--warn-soft:#3a2710;--bad-soft:#3a1c19;--accent-soft:#1a2740;--paper:#181613;--paper-ink:#efeae2;--paper-mute:#9a9286;--paper-line:#2e2a24;--paper-accent:#e07a63}}
+:root[data-theme="dark"]{--bg:#15130f;--ink:#f1ede6;--ink2:#cdc6ba;--mute:#8f887c;--line:#2a2620;--card:#1d1a15;--ok-soft:#173224;--warn-soft:#3a2710;--bad-soft:#3a1c19;--accent-soft:#1a2740;--paper:#181613;--paper-ink:#efeae2;--paper-mute:#9a9286;--paper-line:#2e2a24;--paper-accent:#e07a63}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 "Public Sans",system-ui,sans-serif}
+.pick{position:sticky;top:0;z-index:5;display:flex;gap:6px;align-items:center;padding:10px 16px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.pick b{font:700 12px/1 "Manrope",sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);margin-right:8px}
+.pick button{font:700 13px "Manrope",sans-serif;border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:99px;padding:7px 14px;cursor:pointer}
+.pick button[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pick button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.pick .note{margin-left:auto;font-size:12.5px;color:var(--mute)}
+section.dir{display:none}section.dir.on{display:block}
+.tab{font-variant-numeric:tabular-nums}
+
+/* ───────── A · Floor roster ───────── */
+.A{font-family:"Manrope",system-ui,sans-serif;max-width:980px;margin:0 auto;padding:36px 22px 80px}
+.A .eyebrow{font:700 12px "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+.A h1{font-size:clamp(30px,5vw,46px);font-weight:800;letter-spacing:-.035em;line-height:1.02;margin:8px 0 0;text-wrap:balance}
+.A .lede{font-size:17px;color:var(--ink2);max-width:60ch;margin:14px 0 0}
+.A .lede b{color:var(--ink)}
+.A .pulse{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--ink);border-bottom:1px solid var(--line);margin:28px 0 0}
+.A .pulse div{padding:14px 0 14px;border-left:1px solid var(--line);padding-left:16px}
+.A .pulse div:first-child{border-left:0;padding-left:0}
+.A .pulse .v{font:800 34px/1 "Manrope",sans-serif;letter-spacing:-.04em}
+.A .pulse .v.ok{color:var(--ok)}.A .pulse .v.bad{color:var(--bad)}.A .pulse .v.warn{color:var(--warn)}
+.A .pulse .k{font:600 11px "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-top:6px}
+.A h2{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:34px 0 10px;display:flex;justify-content:space-between;align-items:baseline}
+.A h2 span{font-weight:600;letter-spacing:0;text-transform:none;font-size:12.5px}
+.A .roster{border-top:1px solid var(--ink)}
+.A .row{display:grid;grid-template-columns:14px 1.4fr 1fr 1.2fr 2fr;gap:18px;align-items:center;padding:14px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.A .row:hover{background:color-mix(in srgb,var(--card) 70%,transparent)}
+.A .st{width:14px;height:14px;border-radius:50%}
+.A .st.ok{background:var(--ok)}.A .st.warn{background:var(--warn)}.A .st.bad{background:var(--bad)}
+.A .nm{font-weight:800;font-size:16px;letter-spacing:-.01em}
+.A .nm small{display:block;font:500 11px "IBM Plex Mono",monospace;color:var(--mute);letter-spacing:.02em;margin-top:2px}
+.A .word{font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.A .word.ok{color:var(--ok)}.A .word.warn{color:var(--warn)}.A .word.bad{color:var(--bad)}
+.A .batt{display:flex;align-items:center;gap:8px;font:600 12.5px "IBM Plex Mono",monospace;color:var(--ink2)}
+.A .batt i{flex:1;height:6px;border-radius:3px;background:var(--line);position:relative;overflow:hidden}
+.A .batt i::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--ok);border-radius:3px}
+.A .batt.low i::after{background:var(--bad)}.A .batt.mid i::after{background:var(--warn)}
+.A .batt.mains{color:var(--mute)}
+.A .do{font-size:13.5px;color:var(--ink2)}
+.A .do b{color:var(--ink)}
+.A .day{margin-top:6px;display:grid;grid-template-columns:repeat(24,1fr);gap:2px;height:54px;align-items:end}
+.A .day i{display:block;background:var(--line);height:100%;position:relative;border-radius:2px}
+.A .day i.svc{background:var(--accent-soft)}
+.A .day i::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--p);background:var(--ok);border-radius:2px}
+.A .day i.low::after{background:var(--warn)}
+.A .axis{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:4px;font:500 10px "IBM Plex Mono",monospace;color:var(--mute)}
+.A .axis span:nth-child(3n+2),.A .axis span:nth-child(3n){visibility:hidden}
+.A .week{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--ink)}
+.A .week div{padding:14px 16px 14px 0}
+.A .week .v{font:800 26px/1 "Manrope",sans-serif;letter-spacing:-.03em}
+.A .week .k{font:600 11px "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--mute);margin-top:6px}
+.A .week .d{font-size:12.5px;margin-top:4px}.A .d.up{color:var(--ok)}.A .d.dn{color:var(--bad)}
+@media(max-width:720px){.A .row{grid-template-columns:12px 1fr 1fr;grid-template-areas:"s n w" ". b b" ". d d"}.A .st{grid-area:s}.A .nm{grid-area:n}.A .word{grid-area:w;text-align:right}.A .batt{grid-area:b}.A .do{grid-area:d}.A .pulse{grid-template-columns:repeat(2,1fr)}.A .pulse div:nth-child(3){border-left:0;padding-left:0}}
+
+/* ───────── B · Control room ───────── */
+.B{background:var(--dk-bg);color:var(--dk-ink);font-family:"Chivo",system-ui,sans-serif;padding:28px 22px 80px;min-height:100vh}
+.B .wrap{max-width:1120px;margin:0 auto}
+.B .top{display:grid;grid-template-columns:auto 1fr auto;gap:24px;align-items:center;margin-bottom:22px}
+.B .ring{position:relative;width:132px;height:132px;display:grid;place-items:center}
+.B .ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
+.B .ring .bg{fill:none;stroke:var(--dk-line);stroke-width:10}
+.B .ring .fg{fill:none;stroke:var(--dk-ok);stroke-width:10;stroke-linecap:round}
+.B .ring.warn .fg{stroke:var(--dk-warn)}.B .ring.bad .fg{stroke:var(--dk-bad)}
+.B .ring b{font:900 40px/1 "Chivo",sans-serif;letter-spacing:-.04em;position:relative}
+.B .ring small{font:700 10px "JetBrains Mono",monospace;letter-spacing:.14em;text-transform:uppercase;color:var(--dk-mute);position:relative;margin-top:4px}
+.B h1{font-size:clamp(26px,4vw,38px);font-weight:900;letter-spacing:-.03em;line-height:1;margin:0}
+.B .sub{color:var(--dk-mute);margin-top:8px;font-size:14.5px}
+.B .sub em{font-style:normal;color:var(--dk-ink);font-weight:700}
+.B .clock{text-align:right;font:500 12px "JetBrains Mono",monospace;color:var(--dk-mute);letter-spacing:.06em}
+.B .clock b{display:block;font:700 22px "JetBrains Mono",monospace;color:var(--dk-ink);letter-spacing:-.02em}
+.B .bento{display:grid;grid-template-columns:repeat(12,1fr);gap:12px}
+.B .tile{background:var(--dk-panel);border:1px solid var(--dk-line);border-radius:14px;padding:16px 18px}
+.B .tile h3{margin:0;font:700 11px "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--dk-mute)}
+.B .c4{grid-column:span 4}.B .c6{grid-column:span 6}.B .c8{grid-column:span 8}.B .c12{grid-column:span 12}.B .c3{grid-column:span 3}
+.B .big{font:900 46px/1 "Chivo",sans-serif;letter-spacing:-.05em;margin-top:10px}
+.B .big.ok{color:var(--dk-ok)}.B .big.bad{color:var(--dk-bad)}.B .big.warn{color:var(--dk-warn)}
+.B .big small{font:500 14px "JetBrains Mono",monospace;color:var(--dk-mute);letter-spacing:0;margin-left:6px}
+.B .fix{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.B .fix a{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:10px 12px;border-radius:10px;background:var(--dk-panel2);text-decoration:none;color:inherit;border-left:3px solid var(--dk-warn)}
+.B .fix a.bad{border-left-color:var(--dk-bad)}.B .fix a.info{border-left-color:var(--dk-accent)}
+.B .fix b{font-size:13.5px}.B .fix p{margin:2px 0 0;font-size:12.5px;color:var(--dk-mute)}
+.B .fix .go{font:700 11px "JetBrains Mono",monospace;color:var(--dk-accent);letter-spacing:.08em}
+.B .strip{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;height:70px;align-items:end;margin-top:12px}
+.B .strip i{display:block;height:100%;background:var(--dk-panel2);border-radius:3px;position:relative}
+.B .strip i.svc{background:#1f2a3d}
+.B .strip i::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--p);background:var(--dk-ok);border-radius:3px;box-shadow:0 0 12px color-mix(in srgb,var(--dk-ok) 40%,transparent)}
+.B .strip i.low::after{background:var(--dk-warn);box-shadow:none}
+.B .strip i.now{outline:1px solid var(--dk-accent)}
+.B .axis{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:5px;font:500 9.5px "JetBrains Mono",monospace;color:var(--dk-mute)}
+.B .axis span:nth-child(odd){visibility:hidden}
+.B .stations{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:12px}
+.B .s{background:var(--dk-panel2);border:1px solid var(--dk-line);border-radius:12px;padding:12px 14px;text-decoration:none;color:inherit;display:grid;gap:10px;position:relative;overflow:hidden}
+.B .s::after{content:"";position:absolute;top:0;right:0;width:8px;height:8px;margin:12px;border-radius:50%;background:var(--dk-mute)}
+.B .s.on::after{background:var(--dk-ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--dk-ok) 20%,transparent)}
+.B .s.warn::after{background:var(--dk-warn)}.B .s.bad::after{background:var(--dk-bad)}
+.B .s .nm{font:700 15px "Chivo",sans-serif;letter-spacing:-.01em}
+.B .s .nm small{display:block;font:500 10.5px "JetBrains Mono",monospace;color:var(--dk-mute);margin-top:2px;letter-spacing:.04em}
+.B .gauge{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+.B .gauge i{display:block;height:10px;border-radius:5px;background:var(--dk-bg);position:relative;overflow:hidden}
+.B .gauge i::after{content:"";position:absolute;inset:0;width:var(--p);background:linear-gradient(90deg,color-mix(in srgb,var(--dk-ok) 60%,transparent),var(--dk-ok));border-radius:5px}
+.B .gauge.mid i::after{background:linear-gradient(90deg,color-mix(in srgb,var(--dk-warn) 60%,transparent),var(--dk-warn))}
+.B .gauge.low i::after{background:linear-gradient(90deg,color-mix(in srgb,var(--dk-bad) 60%,transparent),var(--dk-bad))}
+.B .gauge b{font:700 14px "JetBrains Mono",monospace;letter-spacing:-.02em;min-width:42px;text-align:right}
+.B .facts{display:flex;gap:8px;flex-wrap:wrap;font:500 10.5px "JetBrains Mono",monospace;letter-spacing:.04em;text-transform:uppercase;color:var(--dk-mute)}
+.B .facts span{padding:3px 7px;border-radius:6px;background:var(--dk-panel)}
+.B .facts span.warn{color:var(--dk-warn)}.B .facts span.bad{color:var(--dk-bad)}.B .facts span.ok{color:var(--dk-ok)}
+.B .wk{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.B .wk div{background:var(--dk-panel2);border-radius:10px;padding:12px 14px}
+.B .wk .v{font:900 26px/1 "Chivo",sans-serif;letter-spacing:-.04em}
+.B .wk .k{font:700 10px "JetBrains Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--dk-mute);margin-top:6px}
+.B .wk .d{font:500 11.5px "JetBrains Mono",monospace;margin-top:4px}.B .d.up{color:var(--dk-ok)}.B .d.dn{color:var(--dk-bad)}
+@media(max-width:820px){.B .top{grid-template-columns:auto 1fr}.B .clock{display:none}.B .c4,.B .c6,.B .c8,.B .c3{grid-column:span 12}}
+
+/* ───────── C · Morning brief ───────── */
+.C{background:var(--paper);color:var(--paper-ink);font-family:"Public Sans",system-ui,sans-serif;padding:40px 22px 90px}
+.C .wrap{max-width:760px;margin:0 auto}
+.C .kicker{font:700 11px "Public Sans",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--paper-mute);display:flex;justify-content:space-between}
+.C h1{font:500 clamp(34px,6vw,54px)/1.02 "Newsreader",Georgia,serif;letter-spacing:-.02em;margin:10px 0 0;text-wrap:balance}
+.C h1 em{font-style:italic;color:var(--paper-accent)}
+.C .brief{font:500 19px/1.45 "Newsreader",Georgia,serif;margin:20px 0 0;max-width:62ch;color:var(--paper-ink)}
+.C .brief b{font-weight:700}
+.C .rule{height:1px;background:var(--paper-line);margin:28px 0}
+.C h2{font:700 12px "Public Sans",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-mute);margin:0 0 12px}
+.C ol.todo{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.C ol.todo li{display:grid;grid-template-columns:34px 1fr;gap:12px;align-items:start}
+.C ol.todo .n{font:700 26px/1 "Newsreader",Georgia,serif;color:var(--paper-accent)}
+.C ol.todo b{font-size:15.5px}
+.C ol.todo p{margin:2px 0 0;font-size:14px;color:var(--paper-mute);max-width:60ch}
+.C .line{display:flex;align-items:flex-end;gap:2px;height:44px;margin-top:8px}
+.C .line i{flex:1;background:var(--paper-line);position:relative;min-height:2px}
+.C .line i.svc{background:color-mix(in srgb,var(--paper-accent) 14%,var(--paper-line))}
+.C .line i::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--p);background:var(--paper-ink)}
+.C .line i.low::after{background:var(--paper-accent)}
+.C .laxis{display:flex;justify-content:space-between;font:600 10.5px "Public Sans",sans-serif;color:var(--paper-mute);letter-spacing:.06em;margin-top:4px}
+.C .roll{columns:2;column-gap:36px;margin:0;padding:0;list-style:none}
+@media(max-width:600px){.C .roll{columns:1}}
+.C .roll li{break-inside:avoid;display:grid;grid-template-columns:1fr auto;grid-template-areas:"name state" "meta meta";gap:2px 10px;padding:10px 0;border-bottom:1px solid var(--paper-line);text-decoration:none;color:inherit}
+.C .roll .name{grid-area:name;font:700 16px "Newsreader",Georgia,serif}
+.C .roll .name small{font:500 11px "Public Sans",sans-serif;color:var(--paper-mute);margin-left:6px;letter-spacing:.02em}
+.C .roll .state{grid-area:state;font:700 11px "Public Sans",sans-serif;letter-spacing:.1em;text-transform:uppercase;align-self:center}
+.C .state.ok{color:var(--ok)}.C .state.warn{color:var(--warn)}.C .state.bad{color:var(--bad)}
+.C .roll .meta{grid-area:meta;font-size:13px;color:var(--paper-mute);display:flex;gap:10px;align-items:center}
+.C .roll .meta i{display:inline-block;width:64px;height:5px;border-radius:3px;background:var(--paper-line);position:relative;vertical-align:middle}
+.C .roll .meta i::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--paper-ink);border-radius:3px}
+.C .roll .meta i.low::after{background:var(--bad)}.C .roll .meta i.mid::after{background:var(--warn)}
+.C .wk{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.C .wk .v{font:500 34px/1 "Newsreader",Georgia,serif;letter-spacing:-.02em}
+.C .wk .k{font:700 11px "Public Sans",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--paper-mute);margin-top:6px}
+.C .wk .d{font-size:13px;margin-top:4px}.C .d.up{color:var(--ok)}.C .d.dn{color:var(--bad)}
+.C .sig{margin-top:36px;font:italic 500 15px "Newsreader",Georgia,serif;color:var(--paper-mute)}
+</style>
+</head><body>
+<div class="pick" role="tablist" aria-label="Design directions">
+  <b>Direction</b>
+  <button role="tab" aria-pressed="true" data-t="A">A · Floor roster</button>
+  <button role="tab" aria-pressed="false" data-t="B">B · Control room</button>
+  <button role="tab" aria-pressed="false" data-t="C">C · Morning brief</button>
+  <span class="note">Same fictional venue and data in all three. Example figures.</span>
+</div>
+
+<!-- ═══════════ A ═══════════ -->
+<section class="dir A on" data-dir="A">
+  <div class="eyebrow">Friday 5 September · 6:42 pm · Harbor &amp; Vine</div>
+  <h1>Good evening, Nadia.<br>Six of eight stations are ready for dinner.</h1>
+  <p class="lede"><b>Bar</b> has been off its dock since 4:10 pm and is at 14%. <b>Table 6</b> lost Wi-Fi twenty minutes ago. Everything else is charged and locked to the menu.</p>
+  <div class="pulse tab">
+    <div><div class="v ok">6</div><div class="k">online</div></div>
+    <div><div class="v bad">1</div><div class="k">offline</div></div>
+    <div><div class="v warn">1</div><div class="k">low battery</div></div>
+    <div><div class="v">96%</div><div class="k">uptime in service</div></div>
+  </div>
+
+  <h2>Stations <span>worst first · tap a row for details</span></h2>
+  <div class="roster tab">
+    <a class="row" href="#"><span class="st bad"></span><div class="nm">Table 6<small>AT070AABU00122</small></div><div class="word bad">Offline</div><div class="batt mains">— last seen 6:21 pm</div><div class="do"><b>Check the power cable</b> and that it is on the Harbor Wi-Fi.</div></a>
+    <a class="row" href="#"><span class="st warn"></span><div class="nm">Bar<small>AT070AABU00080</small></div><div class="word warn">Not charging</div><div class="batt low" style="--p:14%"><i></i>14%</div><div class="do"><b>Put it back on the dock.</b> At this rate it will die around 8 pm.</div></a>
+    <a class="row" href="#"><span class="st warn"></span><div class="nm">Host stand<small>AT070AABU00077</small></div><div class="word warn">Not locked</div><div class="batt mid" style="--p:48%"><i></i>48%</div><div class="do">Guests can leave the menu. <b>Ask the MDM team</b> to re-lock it.</div></a>
+    <a class="row" href="#"><span class="st ok"></span><div class="nm">Table 1<small>AT070AABU00089</small></div><div class="word ok">Ready</div><div class="batt" style="--p:91%"><i></i>91%</div><div class="do">Docked, locked, online since 10:02 am.</div></a>
+    <a class="row" href="#"><span class="st ok"></span><div class="nm">Table 2<small>AT070AABU00318</small></div><div class="word ok">Ready</div><div class="batt" style="--p:88%"><i></i>88%</div><div class="do">Docked, locked, online since 10:02 am.</div></a>
+    <a class="row" href="#"><span class="st ok"></span><div class="nm">Table 3<small>AT070AABU00673</small></div><div class="word ok">Ready</div><div class="batt" style="--p:100%"><i></i>100%</div><div class="do">Docked, locked. Restarted once this week.</div></a>
+    <a class="row" href="#"><span class="st ok"></span><div class="nm">Table 4<small>AT070AA2600026</small></div><div class="word ok">Ready</div><div class="batt" style="--p:76%"><i></i>76%</div><div class="do">In use since 5:30 pm, charging between orders.</div></a>
+    <a class="row" href="#"><span class="st ok"></span><div class="nm">Table 5<small>AT070AA2600031</small></div><div class="word ok">Ready</div><div class="batt" style="--p:83%"><i></i>83%</div><div class="do">Docked, locked, online since 10:04 am.</div></a>
+  </div>
+
+  <h2>Today <span>stations online each hour · service 11 am – 11 pm shaded</span></h2>
+  <div class="day" id="dayA"></div><div class="axis" id="axA"></div>
+
+  <h2>This week <span>against last week</span></h2>
+  <div class="week tab">
+    <div><div class="v">97%</div><div class="k">uptime in service</div><div class="d up">▲ from 94%</div></div>
+    <div><div class="v">71%</div><div class="k">battery at close</div><div class="d up">▲ from 66%</div></div>
+    <div><div class="v">2</div><div class="k">incidents</div><div class="d up">▼ from 5</div></div>
+  </div>
+</section>
+
+<!-- ═══════════ B ═══════════ -->
+<section class="dir B" data-dir="B"><div class="wrap">
+  <div class="top">
+    <div class="ring warn"><svg viewBox="0 0 132 132"><circle class="bg" cx="66" cy="66" r="56"/><circle class="fg" cx="66" cy="66" r="56" stroke-dasharray="351.9" stroke-dashoffset="88"/></svg><b>75</b><small>health</small></div>
+    <div><h1>Harbor &amp; Vine</h1><div class="sub">Good evening, Nadia. <em>6 of 8</em> stations online · <em>Bar</em> needs its dock · <em>Table 6</em> is offline</div></div>
+    <div class="clock">FRI 5 SEP<b>18:42</b></div>
+  </div>
+  <div class="bento tab">
+    <div class="tile c3"><h3>Online</h3><div class="big ok">6<small>/ 8</small></div></div>
+    <div class="tile c3"><h3>Uptime in service</h3><div class="big">96<small>%</small></div></div>
+    <div class="tile c3"><h3>Low battery</h3><div class="big warn">1</div></div>
+    <div class="tile c3"><h3>Incidents · 7d</h3><div class="big">2</div></div>
+
+    <div class="tile c6"><h3>Fix now</h3>
+      <div class="fix">
+        <a class="bad" href="#"><span>✕</span><div><b>Table 6 is offline</b><p>Last seen 18:21. Check power and Wi-Fi.</p></div><span class="go">OPEN →</span></a>
+        <a href="#"><span>⚠</span><div><b>Bar at 14%, off its dock since 16:10</b><p>Dock it now to last the shift.</p></div><span class="go">OPEN →</span></a>
+        <a class="info" href="#"><span>i</span><div><b>Host stand is not locked to the menu</b><p>Ask the MDM team to re-enable kiosk.</p></div><span class="go">OPEN →</span></a>
+      </div>
+    </div>
+    <div class="tile c6"><h3>Today · online share by hour</h3><div class="strip" id="stripB"></div><div class="axis" id="axB"></div></div>
+
+    <div class="tile c12"><h3>Stations</h3>
+      <div class="stations">
+        <a class="s bad" href="#"><div class="nm">Table 6<small>AT070AABU00122</small></div><div class="gauge"><i style="--p:0%"></i><b>—</b></div><div class="facts"><span class="bad">offline 21m</span><span>locked</span></div></a>
+        <a class="s on warn" href="#"><div class="nm">Bar<small>AT070AABU00080</small></div><div class="gauge low"><i style="--p:14%"></i><b>14%</b></div><div class="facts"><span class="warn">off dock</span><span>locked</span></div></a>
+        <a class="s on warn" href="#"><div class="nm">Host stand<small>AT070AABU00077</small></div><div class="gauge mid"><i style="--p:48%"></i><b>48%</b></div><div class="facts"><span>docked</span><span class="warn">not locked</span></div></a>
+        <a class="s on" href="#"><div class="nm">Table 1<small>AT070AABU00089</small></div><div class="gauge"><i style="--p:91%"></i><b>91%</b></div><div class="facts"><span class="ok">docked</span><span>locked</span></div></a>
+        <a class="s on" href="#"><div class="nm">Table 2<small>AT070AABU00318</small></div><div class="gauge"><i style="--p:88%"></i><b>88%</b></div><div class="facts"><span class="ok">docked</span><span>locked</span></div></a>
+        <a class="s on" href="#"><div class="nm">Table 3<small>AT070AABU00673</small></div><div class="gauge"><i style="--p:100%"></i><b>100%</b></div><div class="facts"><span class="ok">docked</span><span>locked</span><span>1 restart</span></div></a>
+        <a class="s on" href="#"><div class="nm">Table 4<small>AT070AA2600026</small></div><div class="gauge"><i style="--p:76%"></i><b>76%</b></div><div class="facts"><span class="ok">charging</span><span>locked</span></div></a>
+        <a class="s on" href="#"><div class="nm">Table 5<small>AT070AA2600031</small></div><div class="gauge"><i style="--p:83%"></i><b>83%</b></div><div class="facts"><span class="ok">docked</span><span>locked</span></div></a>
+      </div>
+    </div>
+
+    <div class="tile c12"><h3>This week vs last</h3>
+      <div class="wk"><div><div class="v">97%</div><div class="k">uptime in service</div><div class="d up">▲ 94%</div></div><div><div class="v">71%</div><div class="k">battery at close</div><div class="d up">▲ 66%</div></div><div><div class="v">2</div><div class="k">incidents</div><div class="d up">▼ 5</div></div></div>
+    </div>
+  </div>
+</div></section>
+
+<!-- ═══════════ C ═══════════ -->
+<section class="dir C" data-dir="C"><div class="wrap">
+  <div class="kicker"><span>Harbor &amp; Vine · evening brief</span><span>Friday 5 September, 6:42 pm</span></div>
+  <h1>Good evening, Nadia. <em>Two things</em> before the rush.</h1>
+  <p class="brief">Six of your eight stations are charged, locked to the menu and online. <b>The bar tablet</b> came off its dock at ten past four and is down to 14 percent; it will not make it to nine. <b>Table 6</b> dropped off the Wi-Fi at 6:21. During service this week the floor has been up 97 percent of the time, better than last week.</p>
+  <div class="rule"></div>
+  <h2>Before service</h2>
+  <ol class="todo">
+    <li><span class="n">1</span><div><b>Dock the bar tablet.</b><p>It charges in about forty minutes on the pad. At 14% it will switch off around 8 pm otherwise.</p></div></li>
+    <li><span class="n">2</span><div><b>Check Table 6.</b><p>Make sure it is plugged in and on the Harbor Wi-Fi. If the screen is on and it still shows offline, tell the MDM team.</p></div></li>
+    <li><span class="n">3</span><div><b>Host stand is not locked.</b><p>Guests can leave the menu app. The MDM team can re-lock it in a minute; nothing for you to do on the device.</p></div></li>
+  </ol>
+  <div class="rule"></div>
+  <h2>The day so far · stations online, service hours shaded</h2>
+  <div class="line" id="lineC"></div><div class="laxis"><span>7 PM yesterday</span><span>1 AM</span><span>7 AM</span><span>1 PM</span><span>now</span></div>
+  <div class="rule"></div>
+  <h2>Roll call</h2>
+  <ul class="roll tab">
+    <li><span class="name">Table 6<small>AT070AABU00122</small></span><span class="state bad">Offline</span><span class="meta">last seen 6:21 pm</span></li>
+    <li><span class="name">Bar<small>AT070AABU00080</small></span><span class="state warn">Off dock</span><span class="meta"><i class="low" style="--p:14%"></i>14% · locked</span></li>
+    <li><span class="name">Host stand<small>AT070AABU00077</small></span><span class="state warn">Not locked</span><span class="meta"><i class="mid" style="--p:48%"></i>48% · docked</span></li>
+    <li><span class="name">Table 1<small>AT070AABU00089</small></span><span class="state ok">Ready</span><span class="meta"><i style="--p:91%"></i>91% · docked</span></li>
+    <li><span class="name">Table 2<small>AT070AABU00318</small></span><span class="state ok">Ready</span><span class="meta"><i style="--p:88%"></i>88% · docked</span></li>
+    <li><span class="name">Table 3<small>AT070AABU00673</small></span><span class="state ok">Ready</span><span class="meta"><i style="--p:100%"></i>100% · docked</span></li>
+    <li><span class="name">Table 4<small>AT070AA2600026</small></span><span class="state ok">Ready</span><span class="meta"><i style="--p:76%"></i>76% · charging</span></li>
+    <li><span class="name">Table 5<small>AT070AA2600031</small></span><span class="state ok">Ready</span><span class="meta"><i style="--p:83%"></i>83% · docked</span></li>
+  </ul>
+  <div class="rule"></div>
+  <h2>This week</h2>
+  <div class="wk tab"><div><div class="v">97%</div><div class="k">uptime in service</div><div class="d up">up from 94%</div></div><div><div class="v">71%</div><div class="k">battery at close</div><div class="d up">up from 66%</div></div><div><div class="v">2</div><div class="k">incidents</div><div class="d up">down from 5</div></div></div>
+  <p class="sig">Updated every 30 seconds while this page is open.</p>
+</div></section>
+
+<script>
+(function(){
+  var btns=document.querySelectorAll('.pick button');
+  function show(t){btns.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.t===t))});document.querySelectorAll('.dir').forEach(function(s){s.classList.toggle('on',s.dataset.dir===t)});try{localStorage.setItem('oh-dir',t)}catch(e){}}
+  btns.forEach(function(b){b.addEventListener('click',function(){show(b.dataset.t)})});
+  var saved=null;try{saved=localStorage.getItem('oh-dir')}catch(e){}
+  if(saved==='B'||saved==='C')show(saved);
+  // 24 hourly values: 7pm yesterday → 6pm today, 8 stations. Service 11:00–23:00.
+  var vals=[8,8,8,7,6,0,0,0,0,0,0,0,0,0,0,7,8,8,8,8,8,8,7,6];
+  var labels=['7PM','8PM','9PM','10PM','11PM','12AM','1AM','2AM','3AM','4AM','5AM','6AM','7AM','8AM','9AM','10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM'];
+  var svc=labels.map(function(l,i){var h=i+19;h=h%24;return h>=11&&h<23});
+  function bars(id,cls){var el=document.getElementById(id);if(!el)return;el.innerHTML=vals.map(function(v,i){var p=Math.round(100*v/8);return '<i class="'+(svc[i]?'svc ':'')+(p&&p<60?'low ':'')+(i===23?'now':'')+'" style="--p:'+p+'%" title="'+labels[i]+': '+v+' of 8 online"></i>'}).join('')}
+  function axis(id){var el=document.getElementById(id);if(!el)return;el.innerHTML=labels.map(function(l){return '<span>'+l+'</span>'}).join('')}
+  bars('dayA');axis('axA');bars('stripB');axis('axB');bars('lineC');
+})();
+</script>
+</body></html>
