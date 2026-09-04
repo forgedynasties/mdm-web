@@ -628,6 +628,53 @@ func fillPct(list []NamedCount) {
 	}
 }
 
+// ActorSummary is the per-username footprint shown on the Users roster.
+type ActorSummary struct {
+	Actions  int64
+	Commands int64
+	LastAt   *time.Time
+}
+
+// ActorSummaries returns actions/commands/last-active per username in two
+// grouped queries (cheap: audit_log and commands are small tables).
+func (d *DB) ActorSummaries(ctx context.Context) (map[string]ActorSummary, error) {
+	out := map[string]ActorSummary{}
+	rows, err := d.pool.Query(ctx, `SELECT actor, COUNT(*), MAX(created_at) FROM audit_log WHERE actor <> '' GROUP BY actor`)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var u string
+		var a ActorSummary
+		if err := rows.Scan(&u, &a.Actions, &a.LastAt); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		out[u] = a
+	}
+	rows.Close()
+	rows, err = d.pool.Query(ctx, `SELECT created_by, COUNT(*), MAX(created_at) FROM commands WHERE created_by <> '' GROUP BY created_by`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var u string
+		var n int64
+		var t *time.Time
+		if err := rows.Scan(&u, &n, &t); err != nil {
+			return nil, err
+		}
+		a := out[u]
+		a.Commands = n
+		if t != nil && (a.LastAt == nil || t.After(*a.LastAt)) {
+			a.LastAt = t
+		}
+		out[u] = a
+	}
+	return out, rows.Err()
+}
+
 func (d *DB) UserStats(ctx context.Context, username string) (*UserStats, error) {
 	st := &UserStats{Username: username}
 	if username == "" {

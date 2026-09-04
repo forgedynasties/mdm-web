@@ -28,7 +28,7 @@
     <div class="pf-hero">
       <span class="pf-av">{{slice .Display 0 1}}</span>
       <div>
-        <div class="cc-eyebrow">My profile</div>
+        <div class="cc-eyebrow">{{if .ViewingOther}}Users · People{{else}}My profile{{end}}</div>
         <div class="pf-name">{{.Display}}</div>
         <div class="pf-meta">
           <span class="pf-role">{{.Role}}</span>
@@ -39,10 +39,11 @@
       </div>
     </div>
     <div class="cc-actions">
-      <a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>
-      {{if eq .Role "admin"}}<a class="cc-btn" href="/activity?actor={{.Username}}">My activity log</a>{{end}}
+      {{if .ViewingOther}}<a class="cc-btn" href="/users">← All users</a>{{else}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
+      {{if eq .Role "admin"}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
     </div>
   </div>
+  {{if .ViewingOther}}{{template "users-tabs" .}}{{end}}
 
   <div class="cc-kpis">
     <div class="cc-kpi"><span class="k">Actions</span><div class="v">{{.Stats.Actions}}</div><div class="d">{{if .Stats.Rank}}#{{.Stats.Rank}} of {{.Stats.Actors}} people{{else}}nothing recorded yet{{end}}</div></div>

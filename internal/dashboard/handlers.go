@@ -1553,8 +1553,8 @@ func (h *Handler) withRole(r *http.Request, data map[string]any) map[string]any 
 		data["ActivePage"] = "settings"
 	case strings.HasPrefix(path, "/users"):
 		data["ActivePage"] = "users"
-	case strings.HasPrefix(path, "/activity"):
-		data["ActivePage"] = "activity"
+	case strings.HasPrefix(path, "/activity"), strings.HasPrefix(path, "/profile"):
+		data["ActivePage"] = "users"
 	case strings.HasPrefix(path, "/changelog"):
 		data["ActivePage"] = "changelog"
 	}
@@ -1753,7 +1753,25 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 // ProfilePage shows the signed-in user their own account details and footprint:
 // actions, commands, devices touched, QA and release work, recent activity.
 func (h *Handler) ProfilePage(w http.ResponseWriter, r *http.Request) {
-	username := h.currentUsername(r)
+	h.renderProfile(w, r, h.currentUsername(r), false)
+}
+
+// UserProfilePage is an admin's view of another user's profile (Users → Stats).
+func (h *Handler) UserProfilePage(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, "Invalid ID", http.StatusBadRequest)
+		return
+	}
+	u, err := h.db.GetUser(r.Context(), id)
+	if err != nil || u == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+	h.renderProfile(w, r, u.Username, true)
+}
+
+func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username string, viewingOther bool) {
 	ctx := r.Context()
 	stats, err := h.db.UserStats(ctx, username)
 	if err != nil {
@@ -1766,13 +1784,19 @@ func (h *Handler) ProfilePage(w http.ResponseWriter, r *http.Request) {
 	if user != nil {
 		display = user.DisplayName()
 	}
+	title := "My profile"
+	if viewingOther {
+		title = display
+	}
 	h.render(w, r, "profile.html", map[string]any{
-		"Title":    "My profile",
-		"User":     user,
-		"Display":  display,
-		"Username": username,
-		"Stats":    stats,
-		"Recent":   recent,
+		"Title":        title,
+		"User":         user,
+		"Display":      display,
+		"Username":     username,
+		"Stats":        stats,
+		"Recent":       recent,
+		"ViewingOther": viewingOther,
+		"UsersTab":     "people",
 	})
 }
 
@@ -15056,6 +15080,7 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	admins++
 	// The env-configured dashboard login (DASHBOARD_USER) has no users row by
 	// design, so it would otherwise always show up here as "unlinked".
+	summaries, _ := h.db.ActorSummaries(r.Context())
 	orphans, _ := h.db.ListOrphanActors(r.Context())
 	for i := 0; i < len(orphans); i++ {
 		if orphans[i].Username == h.user {
@@ -15066,6 +15091,8 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "users.html", map[string]any{
 		"Users":     users,
 		"Orphans":   orphans,
+		"Summaries": summaries,
+		"UsersTab":  "people",
 		"Admins":    admins,
 		"Operators": operators,
 		"Viewers":   viewers,
@@ -15190,6 +15217,7 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.render(w, r, "activity.html", map[string]any{
+		"UsersTab":      "activity",
 		"Entries":       pageEntries,
 		"Total":         total,
 		"Page":          page,
@@ -15634,6 +15662,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/{id}/delete", h.requireStrictAdmin(h.UserDelete))
 	post("POST /users/merge", h.requireStrictAdmin(h.UserMergeActor))
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
+	mux.HandleFunc("GET /users/{id}/profile", h.requireStrictAdmin(h.UserProfilePage))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE

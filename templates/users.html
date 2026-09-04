@@ -35,7 +35,7 @@
   {{/* ── Top bar ── */}}
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Team</div>
+      <div class="cc-eyebrow">Users · People</div>
       <h1 class="cc-h1">{{len .Users}} user{{if ne (len .Users) 1}}s{{end}} · {{.Operators}} operator{{if ne .Operators 1}}s{{end}}</h1>
       <div class="cc-sub">Viewers are read-only; operators can send actions, run queries and record QA; admins manage everything.</div>
     </div>
@@ -43,6 +43,8 @@
       <button type="button" class="cc-btn primary" onclick="document.getElementById('add-user-modal').classList.add('modal-open')"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add user</button>
     </div>
   </div>
+
+  {{template "users-tabs" .}}
 
   {{/* ── KPI strip ── */}}
   <div class="cc-kpis">
@@ -87,8 +89,10 @@
         <div class="uu-meta mono">
           {{.Username}} · Joined {{shortDate .CreatedAt}}
           {{if .Email}}{{if .EmailVerifiedAt}} <span class="muted">(verified)</span>{{else}} <span class="muted">(unverified)</span>{{end}}{{end}}
+          {{with index $.Summaries .Username}} · {{.Actions}} action{{if ne .Actions 1}}s{{end}} · {{.Commands}} command{{if ne .Commands 1}}s{{end}}{{if .LastAt}} · active {{timeSince (deref .LastAt)}}{{end}}{{end}}
         </div>
       </div>
+      <a class="user-pw-btn js-dest" href="/users/{{.ID}}/profile" title="Stats and recent activity"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg> Stats</a>
       <details class="user-pw" style="margin-right:2px;">
         <summary class="user-pw-btn" title="Edit name"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Name</summary>
         <form action="/users/{{.ID}}/name" method="POST" class="user-pw-pop">

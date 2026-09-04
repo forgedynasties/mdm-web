@@ -19,11 +19,13 @@
   {{/* ── Top bar ── */}}
   <div class="cc-top">
     <div>
-      <div class="cc-eyebrow">Activity</div>
+      <div class="cc-eyebrow">Users · Activity</div>
       <h1 class="cc-h1">{{.Total}} action{{if ne .Total 1}}s{{end}} logged{{if .Actor}} by <span class="hl">{{.ActorName}}</span>{{else}} by {{.DistinctUsers}} user{{if ne .DistinctUsers 1}}s{{end}}{{end}}</h1>
       <div class="cc-sub">Every tracked admin/account action across the dashboard. Filter by user to see just their activity.</div>
     </div>
   </div>
+
+  {{template "users-tabs" .}}
 
   {{/* ── KPI strip ── */}}
   <div class="cc-kpis">
