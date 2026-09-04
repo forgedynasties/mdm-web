@@ -1640,10 +1640,57 @@ func (h *Handler) ChangelogLatest(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// maintenanceGate sends non-admin users to the maintenance page while maintenance
+// mode is on. Returns true when it handled the response. Admins pass; the device API
+// never goes through the dashboard wrappers, so devices are unaffected.
+func (h *Handler) maintenanceGate(w http.ResponseWriter, r *http.Request) bool {
+	if !h.cfg.MaintenanceMode() || h.role(r) == "admin" {
+		return false
+	}
+	if hxReq(r) {
+		w.Header().Set("HX-Redirect", "/maintenance")
+		w.WriteHeader(http.StatusOK)
+		return true
+	}
+	http.Redirect(w, r, "/maintenance", http.StatusFound)
+	return true
+}
+
+// MaintenancePage is the notice non-admin users see while maintenance mode is on.
+// Outside maintenance (or for an admin) it just goes home.
+func (h *Handler) MaintenancePage(w http.ResponseWriter, r *http.Request) {
+	if !h.cfg.MaintenanceMode() || h.role(r) == "admin" {
+		http.Redirect(w, r, "/", http.StatusFound)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Retry-After", "600")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	h.render(w, r, "maintenance.html", map[string]any{"Title": "Under maintenance"})
+}
+
+func (h *Handler) SettingsToggleMaintenance(w http.ResponseWriter, r *http.Request) {
+	h.cfg.SetMaintenanceMode(!h.cfg.MaintenanceMode())
+	h.audit(r, "settings.maintenance", "", fmt.Sprintf("%t", h.cfg.MaintenanceMode()))
+	h.settingsToggleResponse(w, r, "/settings/maintenance", h.cfg.MaintenanceMode())
+}
+
+// SettingsLegacyStripDone marks the background legacy check-in cleanup complete —
+// used after the history was rebuilt in one go (tools/rebuild-checkins.sql), which
+// makes the hourly job redundant.
+func (h *Handler) SettingsLegacyStripDone(w http.ResponseWriter, r *http.Request) {
+	_ = h.cfg.SetLegacyStripCursor("done")
+	h.audit(r, "settings.legacy_strip_done", "", "")
+	h.hxRedirect(w, r, "/settings")
+}
+
 func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.isLoggedIn(r) {
 			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if h.maintenanceGate(w, r) {
 			return
 		}
 		h.touchSession(r)
@@ -1669,6 +1716,9 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+		if h.maintenanceGate(w, r) {
+			return
+		}
 		h.touchSession(r)
 		next(w, r)
 	}
@@ -1686,6 +1736,9 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 		}
 		if s.Role != "admin" && s.Role != "dev" && s.Role != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		if h.maintenanceGate(w, r) {
 			return
 		}
 		h.touchSession(r)
@@ -1706,6 +1759,9 @@ func (h *Handler) requireStrictAdmin(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+		if h.maintenanceGate(w, r) {
+			return
+		}
 		h.touchSession(r)
 		next(w, r)
 	}
@@ -1724,6 +1780,9 @@ func (h *Handler) requireDev(next http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
+		if h.maintenanceGate(w, r) {
+			return
+		}
 		h.touchSession(r)
 		next(w, r)
 	}
@@ -1738,6 +1797,9 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 		}
 		if s.Role != "admin" && s.Role != "dev" && s.Role != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		if h.maintenanceGate(w, r) {
 			return
 		}
 		h.touchSession(r)
@@ -1757,6 +1819,9 @@ func (h *Handler) requireOperatorRole(next http.HandlerFunc) http.HandlerFunc {
 		}
 		if s.Role != "operator" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		if h.maintenanceGate(w, r) {
 			return
 		}
 		h.touchSession(r)
@@ -12675,6 +12740,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"CheckinSampleSec":     h.cfg.CheckinSampleSec(),
 		"LegacyStripCursor":    h.cfg.LegacyStripCursor(),
 		"LegacyStripPct":       h.legacyStripPct(r.Context()),
+		"MaintenanceMode":      h.cfg.MaintenanceMode(),
 		"DBStats":              dbStats,
 		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
 		"KioskFleetApps":       kioskFleetApps,
@@ -15272,6 +15338,9 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /changelog", h.requireAuth(h.Changelog))
 	mux.HandleFunc("GET /changelog/latest", h.requireAuth(h.ChangelogLatest))
 	post("POST /settings/require-reason", h.requireStrictAdmin(h.SettingsToggleRequireReason))
+	post("POST /settings/maintenance", h.requireStrictAdmin(h.SettingsToggleMaintenance))
+	post("POST /settings/legacy-strip-done", h.requireStrictAdmin(h.SettingsLegacyStripDone))
+	mux.HandleFunc("GET /maintenance", h.MaintenancePage)
 	post("POST /settings/dashboard", h.requireStrictAdmin(h.SettingsSetDashboard))
 	post("POST /settings/kiosk-allowlist", h.requireStrictAdmin(h.SettingsSetKioskAllowlist))
 	post("POST /settings/alert-webhook", h.requireStrictAdmin(h.SettingsSetAlertWebhook))

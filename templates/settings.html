@@ -298,10 +298,18 @@ function kioskAddPkg(pkg, el){
       <strong>≈{{.DBStats.LogcatResults}}</strong> logcat results
       <span class="muted" style="opacity:0.7;">(check-in / logcat counts are estimates)</span>
     </div>
-    <div class="muted small" style="margin-top:8px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft);">
+      <div>
+        <strong>Maintenance mode</strong>
+        <div class="muted small">Non-admin users see a “MDM is under maintenance” page. Admins and devices are unaffected. Turn on before heavy database work.</div>
+      </div>
+      {{template "settings-toggle" (dict "Action" "/settings/maintenance" "On" .MaintenanceMode)}}
+    </div>
+    <div class="muted small" style="margin-top:12px;">
       Legacy check-in cleanup (removing bulky crash traces and Wi-Fi scans from old history rows):
       {{if eq .LegacyStripCursor "done"}}<strong>complete</strong>{{else if .LegacyStripCursor}}<strong>{{.LegacyStripPct}}%</strong> — up to {{.LegacyStripCursor}} (runs hourly in the background)
-      <span style="display:inline-block;vertical-align:middle;width:140px;height:6px;border-radius:3px;background:var(--surface-3);margin-left:6px;overflow:hidden;"><i style="display:block;height:100%;width:{{.LegacyStripPct}}%;background:var(--accent);"></i></span>{{else}}<strong>not started</strong> (starts with the next hourly housekeeping run){{end}}
+      <span style="display:inline-block;vertical-align:middle;width:140px;height:6px;border-radius:3px;background:var(--surface-3);margin-left:6px;overflow:hidden;"><i style="display:block;height:100%;width:{{.LegacyStripPct}}%;background:var(--accent);"></i></span>{{else}}{{end}}
+      {{if ne .LegacyStripCursor "done"}}<form method="POST" action="/settings/legacy-strip-done" hx-boost="true" style="display:inline;margin-left:8px;" hx-confirm="Mark the cleanup complete? Only do this after rebuilding the check-in history with tools/rebuild-checkins.sql."><button type="submit" class="cc-btn sm" style="font-size:11px;padding:2px 8px;">Mark complete</button></form>{{end}}{{if false}}<strong>not started</strong> (starts with the next hourly housekeeping run){{end}}
     </div>
   </div>
 </div>

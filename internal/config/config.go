@@ -78,6 +78,8 @@ type Config struct {
 	// First day the cleanup started from (oldest check-in at that time); fixed
 	// denominator for the progress percentage shown in Settings.
 	LegacyStripStartVal string `json:"legacy_strip_start"`
+	// Dashboard shows a maintenance page to non-admin users while set.
+	MaintenanceModeFlag bool `json:"maintenance_mode"`
 
 	// Dashboard preferences & branding.
 	PageSizeVal    int    `json:"page_size"`    // 0 -> default 25
@@ -538,6 +540,23 @@ func (c *Config) SetDataLifecycle(autoHide, checkinRet, logcatRet, sampleSec int
 	c.CheckinRetentionDaysVal = checkinRet
 	c.LogcatRetentionDaysVal = logcatRet
 	c.CheckinSampleSecVal = sampleSec
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
+}
+
+// MaintenanceMode, when on, turns every dashboard page into a maintenance notice for
+// non-admin users. Admins keep full access; the device API and WebSocket are never
+// affected. Used while running heavy one-off database work.
+func (c *Config) MaintenanceMode() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.MaintenanceModeFlag
+}
+
+func (c *Config) SetMaintenanceMode(v bool) error {
+	c.mu.Lock()
+	c.MaintenanceModeFlag = v
 	data, _ := json.MarshalIndent(c, "", "  ")
 	c.mu.Unlock()
 	return writeFileAtomic(c.path, data)

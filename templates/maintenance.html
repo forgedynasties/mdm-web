@@ -1,0 +1,25 @@
+{{define "maintenance.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="300">
+  <title>{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}} — Under maintenance</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/Poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/fonts/fonts.css?v={{.AssetVer}}">
+  <link rel="stylesheet" href="/static/style.css?v={{.AssetVer}}">
+</head>
+<body class="login-body">
+  <div class="login-card" style="text-align:center;">
+    <div style="width:52px;height:52px;margin:0 auto;border-radius:14px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent-text);">
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0 5 5l-9.4 9.4a2 2 0 0 1-2.8-2.8z"/><path d="M9.3 17.7 4 22"/><path d="M14.7 6.3 18 3"/></svg>
+    </div>
+    <h1 class="login-title" style="margin-top:14px;">{{if .Brand}}{{.Brand}}{{else}}AIO MDM{{end}} is under maintenance</h1>
+    <p class="login-subtitle">We're doing some work on the database. Devices keep running normally; the dashboard will be back shortly. This page refreshes on its own.</p>
+    <a href="/" class="btn-outline" style="display:block;padding:11px;margin-top:18px;">Try again</a>
+  </div>
+</body>
+</html>
+{{end}}
