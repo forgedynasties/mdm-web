@@ -1809,7 +1809,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		"Stats":        stats,
 		"Recent":       recent,
 		"ViewingOther": viewingOther,
-		"UsersTab":     "people",
+		"UsersTab":     "access",
 	})
 }
 
@@ -15822,6 +15822,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
 	mux.HandleFunc("GET /users/{id}/profile", h.requireStrictAdmin(h.UserProfilePage))
 	post("POST /users/{id}/access", h.requireStrictAdmin(h.UserSetAccess))
+	mux.HandleFunc("GET /users/access", h.requireStrictAdmin(h.UsersAccessPage))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE

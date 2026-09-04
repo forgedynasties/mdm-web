@@ -385,3 +385,71 @@ func itoa(i int) string {
 	}
 	return string(b)
 }
+
+// UsersAccessPage lists every account with a readable summary of its policy.
+func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	users, err := h.db.ListUsers(ctx)
+	if err != nil {
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+	groups, _ := h.db.ListGroups(ctx)
+	restaurants, _ := h.db.ListRestaurants(ctx)
+	names := map[string]string{}
+	for _, g := range groups {
+		names["group:"+g.ID.String()] = "group " + g.Name
+	}
+	for _, x := range restaurants {
+		names["restaurant:"+x.ID.String()] = "venue " + x.Name
+	}
+	labels := map[string]string{}
+	for _, a := range accessActions {
+		labels[a.Key] = a.Label
+	}
+	type ruleView struct{ Effect, Text string }
+	type row struct {
+		User   db.User
+		Policy db.AccessPolicy
+		Empty  bool
+		Rules  []ruleView
+	}
+	var rows []row
+	custom := 0
+	for _, u := range users {
+		pol, _ := h.db.GetUserAccess(ctx, u.Username)
+		rw := row{User: u, Policy: pol, Empty: pol.IsEmpty() || u.Role == "admin"}
+		if !rw.Empty {
+			custom++
+		}
+		for _, rl := range pol.Rules {
+			var acts []string
+			for _, a := range rl.Actions {
+				if a == "*" {
+					acts = append(acts, "any action")
+				} else if l, ok := labels[a]; ok {
+					acts = append(acts, strings.ToLower(l))
+				}
+			}
+			where := "across the whole fleet"
+			if rl.ScopeType == "group" || rl.ScopeType == "restaurant" {
+				if n, ok := names[rl.ScopeType+":"+rl.ScopeID]; ok {
+					where = "in " + n
+				} else {
+					where = "in a deleted " + rl.ScopeType
+				}
+			}
+			rw.Rules = append(rw.Rules, ruleView{Effect: rl.Effect, Text: strings.Join(acts, ", ") + " " + where})
+		}
+		rows = append(rows, rw)
+	}
+	// Operators first (the ones you actually configure), then viewers, admins last.
+	order := map[string]int{"operator": 0, "viewer": 1, "dev": 2, "admin": 3}
+	sort.SliceStable(rows, func(i, j int) bool { return order[rows[i].User.Role] < order[rows[j].User.Role] })
+	h.render(w, r, "users_access.html", map[string]any{
+		"Title":    "Access control",
+		"Rows":     rows,
+		"Custom":   custom,
+		"UsersTab": "access",
+	})
+}
