@@ -13839,7 +13839,7 @@ func (h *Handler) DemoPage(w http.ResponseWriter, r *http.Request) {
 		"health-command", "health-reliability", "health-stream", "health-icons",
 		"overview-command", "overview-redesign",
 		"alerts-inbox", "alerts-grouped", "notifications", "toasts", "liquid-glass",
-		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy":
+		"release-pipeline", "release-cockpit", "ota-flow", "history-hierarchy", "owner-home":
 	default:
 		http.NotFound(w, r)
 		return
