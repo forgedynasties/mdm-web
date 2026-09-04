@@ -9,13 +9,9 @@
 - Install the dashboard as an app on your phone, tablet or desktop.
 - A short, skippable guided walkthrough greets first-time users.
 
-### Home page is a command center
-- Sites shown as health-scored heat-map tiles, plus active rollouts, release adoption,
-  fleet vitals and a live fleet map (with its own full-page Map view).
-- Hide widgets, drag them between columns, or pick a preset view — saved to your
-  account. Switching views updates in place with a progress bar, no full reload.
-- A Daily Report (also on Fleet health) summarises what needs attention today, with
-  the charts behind each finding one click away.
+### Daily Report
+- A Daily Report on the Home and Fleet health pages summarises what needs attention
+  today, with the charts behind each finding one click away.
 
 ### Accounts and who-did-what
 - Sign in with Microsoft.

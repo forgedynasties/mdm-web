@@ -36,7 +36,6 @@ var Changelog = []Entry{
 		Date:    "2026-09-04",
 		Changes: []string{
 			"A new look for the whole dashboard. Every page — Home, Fleet, Actions, Alerts, Releases, Updates, Settings and the device pages — now shares one “command center” design with consistent cards, tables, buttons and a retuned dark theme with better contrast. Dropdowns, toasts and the bottom dock use a frosted-glass style.",
-			"The Home page is a command center. See every site as a heat-map tile scored by health, active rollouts, which release each device is on, fleet vitals and a live fleet map. Hide widgets, drag them between columns, or pick a preset view — your arrangement is saved to your account and switching views now updates in place with a progress bar instead of a full reload.",
 			"A Daily Report on the Home and Fleet health pages summarises what needs attention today, with the charts behind each finding one click away.",
 			"Install the dashboard as an app on your phone, tablet or desktop, and take a short, skippable guided walkthrough the first time you sign in.",
 			"Sign in with Microsoft, or create your own account and reset a forgotten password by email. Accounts are now keyed by email and carry a first and last name, so every action, command and change shows who did it — including a new “By” column in Actions history and a paginated Activity page with filters. The Tester role is now called Operator.",
