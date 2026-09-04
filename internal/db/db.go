@@ -12248,6 +12248,16 @@ func (d *DB) ListRecentCrashEvents(ctx context.Context, sinceDays, limit int) ([
 // ListDeviceCrashes returns crash/ANR/tombstone events (not reboots) for a single
 // device, newest first — the crash feed for that device's Alerts tab. limit <= 0
 // means 50.
+// CountDeviceCrashes is the badge count for the device page's Alerts tab — same
+// filter as ListDeviceCrashes, without pulling the (large) trace payloads.
+func (d *DB) CountDeviceCrashes(ctx context.Context, deviceID uuid.UUID) (int, error) {
+	var n int
+	err := d.pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM device_events e
+		WHERE e.device_id = $1 AND e.kind NOT IN ('reboot', 'kiosk_exit_offline')`, deviceID).Scan(&n)
+	return n, err
+}
+
 func (d *DB) ListDeviceCrashes(ctx context.Context, deviceID uuid.UUID, limit int) ([]CrashEvent, error) {
 	if limit <= 0 {
 		limit = 50

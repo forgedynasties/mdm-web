@@ -1721,6 +1721,35 @@ func (h *Handler) MaintenancePage(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "maintenance.html", map[string]any{"Title": "Under maintenance"})
 }
 
+// DeviceAlertsPanel renders the device page's Alerts tab body — this device's
+// crash/ANR events (with traces) plus its active alerts — on first open of the
+// tab. Kept out of the page render because a crashy device carries megabytes
+// of traces here that most visits never look at.
+func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	ctx := r.Context()
+	crashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(ctx, device.ID, 50)))
+	raw, _ := h.db.ListDeviceActiveAlerts(ctx, device.ID, 50)
+	role := h.role(r)
+	canAct := role == "admin" || role == "dev" || role == "operator"
+	var alerts []humanAlert
+	for _, a := range raw {
+		ha := humanizeAlert(a)
+		ha.CanAct = canAct
+		alerts = append(alerts, ha)
+	}
+	h.resolveAppIcons(ctx, [][]humanAlert{alerts}, crashes)
+	h.render(w, r, "device-alerts-panel", map[string]any{
+		"Device":        device,
+		"DeviceCrashes": crashes,
+		"DeviceAlerts":  alerts,
+	})
+}
+
 // UserMergeActor re-points past activity recorded under a username that no longer
 // has an account (deleted after e.g. a Microsoft sign-in replaced it) to an
 // existing user, so Activity, Actions history and release sign-offs show one
@@ -3572,8 +3601,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		release         *db.Release
 		notes           string
 		flapRate        int
-		deviceCrashRaw  []db.CrashEvent
-		deviceAlertsRaw []db.Alert
+		crashCount      int
 		otaUpdate       *db.Update
 		otaLabel        string
 		otaClass        string
@@ -3597,6 +3625,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 
 	role := h.role(r)
 	ctx := r.Context()
+	t0 := time.Now()
 	focusParam := r.URL.Query().Get("focus")
 
 	run(func() {
@@ -3636,7 +3665,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		// Safety net in case a device's poll interval is far below normal — thin to
 		// the same maxPoints the on-demand /chart-data endpoint already uses.
-		chartCheckins = downsampleCheckins(cc, 2500)
+		chartCheckins = downsampleCheckins(cc, 600) // the default 6h window; wider ranges come from /chart-data
 	})
 	run(func() {
 		c, err := h.db.GetDeviceCommands(ctx, device.ID, h.cfg.CommandExpiry())
@@ -3744,10 +3773,20 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// charger_flapping alert default).
 		flapRate, _ = h.db.DeviceChargerFlapRate(ctx, device.ID, 5)
 	})
-	run(func() { deviceCrashRaw = mustCrashes(h.db.ListDeviceCrashes(ctx, device.ID, 50)) })
-	run(func() { deviceAlertsRaw, _ = h.db.ListDeviceActiveAlerts(ctx, device.ID, 50) })
+	// The Alerts tab body (crash cards with full traces — megabytes on a crashy
+	// device) is fetched on first open via DeviceAlertsPanel; the page needs only
+	// the count for the tab badge.
+	run(func() {
+		n, err := h.db.CountDeviceCrashes(ctx, device.ID)
+		if err == nil {
+			mu.Lock()
+			crashCount = n
+			mu.Unlock()
+		}
+	})
 
 	wg.Wait()
+	dbDur := time.Since(t0)
 	if firstErr != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -3783,23 +3822,14 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Alerts tab: this device's crash/ANR events plus its active alerts, so a crash
-	// deep-link from the fleet views lands on something that actually shows crashes.
-	deviceCrashes := toCrashCards(deviceCrashRaw)
-	var deviceAlerts []humanAlert
-	canAct := role == "admin" || role == "dev" || role == "operator"
-	for _, a := range deviceAlertsRaw {
-		ha := humanizeAlert(a)
-		ha.CanAct = canAct
-		deviceAlerts = append(deviceAlerts, ha)
-	}
-	h.resolveAppIcons(ctx, [][]humanAlert{deviceAlerts}, deviceCrashes)
 
+	// Server-Timing: visible in the browser's Network panel, so a slow page can be
+	// attributed to queries vs. view assembly without log digging.
+	w.Header().Set("Server-Timing", fmt.Sprintf("db;dur=%d, build;dur=%d", dbDur.Milliseconds(), (time.Since(t0)-dbDur).Milliseconds()))
 	h.render(w, r, "device.html", map[string]any{
 		"Title":               device.SerialNumber,
 		"Device":              device,
-		"DeviceCrashes":       deviceCrashes,
-		"DeviceAlerts":        deviceAlerts,
+		"DeviceCrashCount":    crashCount,
 		"OfflinePeriod":       totp.DefaultPeriod,
 		"OfflineDigits":       totp.DefaultDigits,
 		"OfflineCode":         offlineCode,
@@ -15323,6 +15353,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /devices/{serial}/ai-analyses", h.requireAuth(h.DeviceAIAnalysesList))
 	mux.HandleFunc("GET /devices/{serial}/shell", h.requireAdmin(h.DeviceShellPage))
 	mux.HandleFunc("GET /devices/{serial}/commands-status", h.requireAuth(h.DeviceCommandsPartial))
+	mux.HandleFunc("GET /devices/{serial}/alerts-panel", h.requireAuth(h.DeviceAlertsPanel))
 	mux.HandleFunc("GET /devices/{serial}/queue", h.requireAuth(h.DeviceQueuePartial))
 	post("POST /devices/{serial}/queue/clear", h.requireOperatorOrAdmin(h.DeviceQueueClear))
 	post("POST /devices/{serial}/queue/{id}/remove", h.requireOperatorOrAdmin(h.DeviceQueueRemove))
