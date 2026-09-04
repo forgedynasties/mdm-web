@@ -34,12 +34,12 @@
           <span class="pf-role">{{if .User}}{{roleLabel .User.Role}}{{else}}{{roleLabel .Role}}{{end}}</span>
           <span class="mono">{{.Username}}</span>
           {{if .User}}{{if .User.Email}}<span>{{.User.Email}}{{if .User.EmailVerifiedAt}} · verified{{end}}</span>{{end}}<span>Joined {{shortDate .User.CreatedAt}}</span>{{end}}
-          {{if .Stats.FirstAt}}<span>First action {{shortDate (deref .Stats.FirstAt)}}</span>{{end}}
+          {{if and .Stats.FirstAt (not .OwnerSelf)}}<span>First action {{shortDate (deref .Stats.FirstAt)}}</span>{{end}}
         </div>
       </div>
     </div>
     <div class="cc-actions">
-      {{if .ViewingOther}}<a class="cc-btn" href="/users/access">← Access control</a>{{else}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
+      {{if .ViewingOther}}<a class="cc-btn" href="/users/access">← Access control</a>{{else if not .OwnerSelf}}<a class="cc-btn" href="/wrapped" hx-boost="false" target="_blank" rel="noopener">Fleet Wrapped</a>{{end}}
       {{if eq .Role "admin"}}<a class="cc-btn" href="/activity?actor={{.Username}}">{{if .ViewingOther}}Activity log{{else}}My activity log{{end}}</a>{{end}}
     </div>
   </div>
@@ -118,6 +118,14 @@
   </div>
   {{end}}
 
+  {{if .OwnerSelf}}
+  <div class="cc-card" style="max-width:560px;">
+    <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></span><h3>Your restaurant{{if gt (len .OwnerVenues) 1}}s{{end}}</h3></div>
+    <div class="pf-list">
+      {{range .OwnerVenues}}<div class="pf-row"><span class="k">{{.}}</span><a class="cc-btn sm" href="/">Open</a></div>{{else}}<div class="pf-empty">No restaurant is linked to your account yet. Ask your MDM administrator.</div>{{end}}
+    </div>
+  </div>
+  {{else}}
   <div class="cc-kpis">
     <div class="cc-kpi"><span class="k">Actions</span><div class="v">{{.Stats.Actions}}</div><div class="d">{{if .Stats.Rank}}#{{.Stats.Rank}} of {{.Stats.Actors}} people{{else}}nothing recorded yet{{end}}</div></div>
     <div class="cc-kpi"><span class="k">Commands sent</span><div class="v">{{.Stats.Commands}}</div><div class="d">{{.Stats.Installs}} install{{if ne .Stats.Installs 1}}s{{end}}</div></div>
@@ -159,6 +167,7 @@
       {{else}}<div class="pf-empty">Nothing yet.</div>{{end}}
     </div>
   </div>
+  {{end}}
 </div>
 
 {{template "footer" .}}

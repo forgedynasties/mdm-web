@@ -1864,8 +1864,6 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			st.Word, st.Do = "Not charging", template.HTML("<b>Put it back on the dock.</b> At "+strconv.Itoa(st.Battery)+"% it will not last the shift.")
 		case st.Pad == "faulty":
 			st.Word, st.Do = "Pad faulty", template.HTML("Re-seat it on the pad. If it keeps flapping, <b>tell the MDM team</b>.")
-		case !d.KioskEnabled:
-			st.Word, st.Do = "Not locked", template.HTML("Guests can leave the menu. <b>Ask the MDM team</b> to re-lock it.")
 		default:
 			st.Word = "Ready"
 			do := "Docked, locked, online."
@@ -1876,6 +1874,9 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 				do = "Charging, locked, online."
 			case st.Pad == "vacant":
 				do = "Off the dock but charged. Locked, online."
+			}
+			if !d.KioskEnabled {
+				do = strings.Replace(do, "locked, ", "", 1) + " Not locked to the menu."
 			}
 			if st.Crashes > 0 {
 				do += " Restarted " + strconv.Itoa(st.Crashes) + " time" + map[bool]string{true: "s", false: ""}[st.Crashes != 1] + " this week."
@@ -2040,24 +2041,44 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	// Headline: "Six of eight stations are ready for dinner." Lede: the exceptions
 	// in one breath, then "everything else is fine".
 	ready := 0
-	var exceptions []string
+	groups := map[string][]string{}
 	for _, v := range venues {
 		for _, st := range v.Stations {
 			if st.Word == "Ready" {
 				ready++
 				continue
 			}
-			switch st.Word {
-			case "Offline":
-				exceptions = append(exceptions, "<b>"+st.Name+"</b> went offline "+timeSinceStr(st.LastSeen))
-			case "Not charging":
-				exceptions = append(exceptions, "<b>"+st.Name+"</b> is off its dock at "+strconv.Itoa(st.Battery)+"%")
-			case "Not locked":
-				exceptions = append(exceptions, "<b>"+st.Name+"</b> is not locked to the menu")
-			case "Pad faulty":
-				exceptions = append(exceptions, "<b>"+st.Name+"</b> has a flaky charging pad")
-			}
+			groups[st.Word] = append(groups[st.Word], st.Name)
 		}
+	}
+	// One sentence per kind of problem. Up to two names are spelled out, more
+	// becomes a count — twenty serials in a paragraph is noise, not a brief.
+	names := func(list []string) string {
+		switch len(list) {
+		case 1:
+			return "<b>" + list[0] + "</b>"
+		case 2:
+			return "<b>" + list[0] + "</b> and <b>" + list[1] + "</b>"
+		}
+		return "<b>" + list[0] + "</b>, <b>" + list[1] + "</b> and " + strconv.Itoa(len(list)-2) + " more"
+	}
+	var exceptions []string
+	if l := groups["Offline"]; len(l) > 0 {
+		if len(l) == 1 {
+			exceptions = append(exceptions, names(l)+" is offline")
+		} else {
+			exceptions = append(exceptions, strconv.Itoa(len(l))+" stations are offline: "+names(l))
+		}
+	}
+	if l := groups["Not charging"]; len(l) > 0 {
+		if len(l) == 1 {
+			exceptions = append(exceptions, names(l)+" is off its dock and running low")
+		} else {
+			exceptions = append(exceptions, strconv.Itoa(len(l))+" stations are off their docks and running low: "+names(l))
+		}
+	}
+	if l := groups["Pad faulty"]; len(l) > 0 {
+		exceptions = append(exceptions, names(l)+map[bool]string{true: " have", false: " has"}[len(l) > 1]+" a flaky charging pad")
 	}
 	meal := "service"
 	switch {
@@ -2313,6 +2334,25 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 	if viewingOther {
 		title = display
 	}
+	// A restaurant owner's own profile is just their account and their venues;
+	// none of the operator statistics apply to them.
+	var ownerVenues []string
+	if !viewingOther && h.role(r) == "owner" {
+		if pol, err := h.db.GetUserAccess(ctx, username); err == nil {
+			rs, _ := h.db.ListRestaurants(ctx)
+			byID := map[string]string{}
+			for _, x := range rs {
+				byID[x.ID.String()] = x.Name
+			}
+			for _, rl := range pol.Rules {
+				if rl.Effect == "allow" && rl.ScopeType == "restaurant" {
+					if n, ok := byID[rl.ScopeID]; ok {
+						ownerVenues = append(ownerVenues, n)
+					}
+				}
+			}
+		}
+	}
 	var pol db.AccessPolicy
 	var groups []db.Group
 	var restaurants []db.Restaurant
@@ -2334,6 +2374,8 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		"Stats":        stats,
 		"Recent":       recent,
 		"ViewingOther": viewingOther,
+		"OwnerSelf":    !viewingOther && h.role(r) == "owner",
+		"OwnerVenues":  ownerVenues,
 		"UsersTab":     "access",
 		"Assignable":   assignableRoles(h.role(r)),
 	})
