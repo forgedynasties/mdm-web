@@ -15,18 +15,23 @@
 -- After:  Settings → Data → "Mark complete" on the legacy cleanup line, then
 --         Maintenance mode OFF. Watch `df -h /` drop.
 --
--- Safe to re-run from the top if it fails before the final swap: it drops any
--- half-built checkins_new first. If it failed AFTER the swap, do not re-run —
--- the table is already rebuilt; just DROP TABLE IF EXISTS checkins_old.
+-- Resumable: if it fails before the final swap (e.g. Postgres restarted), just run
+-- it again — it keeps checkins_new and continues from the last fully copied day.
+-- If it failed AFTER the swap, do not re-run — the table is already rebuilt; just
+-- DROP TABLE IF EXISTS checkins_old.
+--
+-- Memory: run with the Postgres container allowed at least 1.5 GB. At 1 GB the OOM
+-- killer took a backend mid-copy on a 60 GB table (device traffic + copy + cache).
+-- Also stop the hourly legacy-strip job first (Settings → Data → Mark complete);
+-- it competes for the same memory and is redundant once this has run.
 
 \timing on
 \echo === 0. sizes before
 SELECT pg_size_pretty(pg_total_relation_size('checkins')) AS checkins_total,
        (SELECT reltuples::bigint FROM pg_class WHERE relname = 'checkins') AS est_rows;
 
-\echo === 1. fresh table (same columns/defaults, indexes added after the copy)
-DROP TABLE IF EXISTS checkins_new;
-CREATE TABLE checkins_new (LIKE checkins INCLUDING DEFAULTS);
+\echo === 1. target table (kept across runs so a failed copy resumes; indexes added after the copy)
+CREATE TABLE IF NOT EXISTS checkins_new (LIKE checkins INCLUDING DEFAULTS);
 
 \echo === 2. copy history day by day, stripping the two keys (each day its own transaction)
 CREATE OR REPLACE PROCEDURE _rebuild_checkins_copy()
@@ -36,8 +41,17 @@ DECLARE
   d_end  date := (now() AT TIME ZONE 'UTC')::date;   -- today (UTC); rows from today+ are copied in the swap step
   n      bigint;
 BEGIN
-  SELECT (MIN(created_at) AT TIME ZONE 'UTC')::date INTO d FROM checkins;
+  -- Resume: the newest day already in checkins_new may be partial (a crash mid-day
+  -- rolled back only that day's transaction, but be safe) — redo it from scratch.
+  SELECT (MAX(created_at) AT TIME ZONE 'UTC')::date INTO d FROM checkins_new;
+  IF d IS NOT NULL THEN
+    DELETE FROM checkins_new WHERE created_at >= d::timestamptz;
+    RAISE NOTICE 'resuming from %', d;
+  ELSE
+    SELECT (MIN(created_at) AT TIME ZONE 'UTC')::date INTO d FROM checkins;
+  END IF;
   IF d IS NULL THEN RETURN; END IF;
+  COMMIT;
   WHILE d < d_end LOOP
     INSERT INTO checkins_new (id, device_id, battery_pct, build_id, extra, created_at)
     SELECT id, device_id, battery_pct, build_id,
@@ -54,12 +68,20 @@ CALL _rebuild_checkins_copy();
 DROP PROCEDURE _rebuild_checkins_copy();
 
 \echo === 3. indexes on the new table (built while the old one still serves traffic)
-ALTER TABLE checkins_new ADD PRIMARY KEY (id);
-CREATE INDEX checkins_new_device_id            ON checkins_new (device_id);
-CREATE INDEX checkins_new_device_created_at    ON checkins_new (device_id, created_at DESC);
-CREATE INDEX checkins_new_created_at           ON checkins_new (created_at DESC);
-ALTER TABLE checkins_new
-  ADD CONSTRAINT checkins_new_device_id_fkey FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'checkins_new_pkey') THEN
+    ALTER TABLE checkins_new ADD PRIMARY KEY (id);
+  END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS checkins_new_device_id          ON checkins_new (device_id);
+CREATE INDEX IF NOT EXISTS checkins_new_device_created_at  ON checkins_new (device_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS checkins_new_created_at         ON checkins_new (created_at DESC);
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'checkins_new_device_id_fkey') THEN
+    ALTER TABLE checkins_new
+      ADD CONSTRAINT checkins_new_device_id_fkey FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+  END IF;
+END $$;
 ANALYZE checkins_new;
 
 \echo === 4. swap: copy rows that arrived today meanwhile, rename (lock held for seconds)
