@@ -751,6 +751,104 @@ func (d *DB) TopActors(ctx context.Context, limit int, exclude string) ([]NamedC
 	return out, rows.Err()
 }
 
+// ── Device nicknames ──────────────────────────────────────────────────────────
+
+func (d *DB) GetNicknames(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]string, error) {
+	out := map[uuid.UUID]string{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	rows, err := d.pool.Query(ctx, `SELECT device_id, name FROM device_nicknames WHERE device_id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var n string
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}
+
+func (d *DB) SetNickname(ctx context.Context, id uuid.UUID, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		_, err := d.pool.Exec(ctx, `DELETE FROM device_nicknames WHERE device_id = $1`, id)
+		return err
+	}
+	_, err := d.pool.Exec(ctx, `
+		INSERT INTO device_nicknames (device_id, name) VALUES ($1, $2)
+		ON CONFLICT (device_id) DO UPDATE SET name = EXCLUDED.name, updated_at = NOW()`, id, name)
+	return err
+}
+
+// HourlyOnline returns, for the last `hours` hours ending now (UTC hour
+// buckets, oldest first), how many of the given devices checked in during
+// each hour. Index-bounded by created_at; small device sets.
+func (d *DB) HourlyOnline(ctx context.Context, ids []uuid.UUID, hours int) ([]int, error) {
+	out := make([]int, hours)
+	if len(ids) == 0 {
+		return out, nil
+	}
+	start := time.Now().UTC().Truncate(time.Hour).Add(-time.Duration(hours-1) * time.Hour)
+	rows, err := d.pool.Query(ctx, `
+		SELECT date_trunc('hour', created_at), COUNT(DISTINCT device_id)
+		FROM checkins WHERE device_id = ANY($1) AND created_at >= $2
+		GROUP BY 1`, ids, start)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var t time.Time
+		var n int
+		if err := rows.Scan(&t, &n); err != nil {
+			return nil, err
+		}
+		i := int(t.UTC().Sub(start) / time.Hour)
+		if i >= 0 && i < hours {
+			out[i] = n
+		}
+	}
+	return out, rows.Err()
+}
+
+// IncidentCounts returns crash/ANR events per device in the last `days` days
+// and the totals for that period and the period before it.
+func (d *DB) IncidentCounts(ctx context.Context, ids []uuid.UUID, days int) (perDevice map[uuid.UUID]int, current, previous int, err error) {
+	perDevice = map[uuid.UUID]int{}
+	if len(ids) == 0 {
+		return perDevice, 0, 0, nil
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT device_id,
+		       COUNT(*) FILTER (WHERE occurred_at >= NOW() - ($2 * INTERVAL '1 day')),
+		       COUNT(*) FILTER (WHERE occurred_at <  NOW() - ($2 * INTERVAL '1 day'))
+		FROM device_events
+		WHERE device_id = ANY($1) AND kind NOT IN ('reboot', 'kiosk_exit_offline')
+		  AND occurred_at >= NOW() - (2 * $2 * INTERVAL '1 day')
+		GROUP BY device_id`, ids, days)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var cur, prev int
+		if err := rows.Scan(&id, &cur, &prev); err != nil {
+			return nil, 0, 0, err
+		}
+		perDevice[id] = cur
+		current += cur
+		previous += prev
+	}
+	return perDevice, current, previous, rows.Err()
+}
+
 // ActorSummary is the per-username footprint shown on the Users roster.
 type ActorSummary struct {
 	Actions  int64
@@ -9686,6 +9784,14 @@ FROM (
 	GROUP BY ud2.update_id, ud2.device_id
 ) sub
 WHERE ud.update_id = sub.update_id AND ud.device_id = sub.device_id AND ud.reboot_sent_at IS NULL;
+
+-- Friendly device names ("Table 4", "Bar", "Host stand") for the restaurant owner
+-- view and anywhere a serial reads badly. Separate table so no device scan changes.
+CREATE TABLE IF NOT EXISTS device_nicknames (
+	device_id UUID PRIMARY KEY REFERENCES devices(id) ON DELETE CASCADE,
+	name      TEXT NOT NULL,
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 -- Per-user access policy (operators: which actions on which device groups /
 -- restaurants; viewers: which devices they see). See db.AccessPolicy.

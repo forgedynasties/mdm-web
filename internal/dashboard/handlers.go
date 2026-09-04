@@ -935,7 +935,8 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return time.Since(t) <= time.Duration(thresholdSecs)*time.Second
 		},
-		"batteryTemp": func(raw json.RawMessage) string {
+		"batteryTemp": batteryTempStr,
+		"batteryTempX": func(raw json.RawMessage) string {
 			temp, ok := extractBatteryTempC(raw)
 			if !ok {
 				return ""
@@ -1151,6 +1152,15 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		},
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
+		// dash: SVG ring stroke-dashoffset for a 0–100 value over a circumference.
+		"dash": func(circ float64, pct int) string {
+			if pct < 0 {
+				pct = 0
+			} else if pct > 100 {
+				pct = 100
+			}
+			return fmt.Sprintf("%.1f", circ*float64(100-pct)/100)
+		},
 		"div": func(a, b int) int {
 			if b == 0 {
 				return 0
@@ -1726,9 +1736,11 @@ func ownerAllowedPath(p string) bool {
 	return false
 }
 
-// OwnerHome is the restaurant owner's whole dashboard: a greeting and the
-// devices at their venue(s), read-only. Which devices comes from their access
-// policy (allow "view" per restaurant), set when the account was created.
+// OwnerHome is the restaurant owner's whole dashboard. Which devices it shows
+// comes from their access policy (allow "view" per restaurant). Everything is
+// phrased for someone who runs a restaurant, not a fleet: a health score with a
+// sentence, a to-do list only when something needs a hand, today's service as
+// an hourly strip, station cards, and a week-over-week report card.
 func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	acc := h.access(r)
@@ -1745,22 +1757,41 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	connected := h.hub.ConnectedIDsForDisplay()
-	type devView struct {
-		db.Device
-		Online bool
+	nick, _ := h.db.GetNicknames(ctx, ids)
+	incidents, incCur, incPrev, _ := h.db.IncidentCounts(ctx, ids, 7)
+
+	type station struct {
+		Serial, Name, Product string
+		Online, HasBattery    bool
+		Battery               int
+		Charging              bool
+		Pad                   string // "docked" | "vacant" | "faulty" | ""
+		Kiosk                 bool
+		LastSeen              time.Time
+		Temp                  string
+		Crashes               int
+		State                 string // ok | warn | bad
+	}
+	type todo struct {
+		Sev, Title, Body, Serial string
 	}
 	type venue struct {
 		Name            string
-		Devices         []devView
+		Stations        []station
 		Online, Offline int
 	}
 	byName := map[string]*venue{}
 	var order []string
-	online, lowBatt := 0, 0
+	var todos []todo
+	total, online, lowBatt := len(devices), 0, 0
+	var restaurantID *uuid.UUID
 	for _, d := range devices {
 		name := d.RestaurantName
 		if name == "" {
 			name = "Unassigned"
+		}
+		if restaurantID == nil && d.RestaurantID != nil {
+			restaurantID = d.RestaurantID
 		}
 		v, ok := byName[name]
 		if !ok {
@@ -1769,23 +1800,198 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			order = append(order, name)
 		}
 		_, on := connected[d.ID]
-		dv := devView{Device: d, Online: on}
-		v.Devices = append(v.Devices, dv)
+		st := station{Serial: d.SerialNumber, Name: nick[d.ID], Product: product.Label(d.Product), Online: on,
+			HasBattery: d.HasBattery(), Battery: d.BatteryPct, Kiosk: d.KioskEnabled, LastSeen: d.LastSeenAt, Crashes: incidents[d.ID]}
+		if st.Name == "" {
+			st.Name = d.SerialNumber
+		}
+		if len(d.LatestExtra) > 0 {
+			var ex map[string]json.RawMessage
+			if json.Unmarshal(d.LatestExtra, &ex) == nil {
+				if v, ok := ex["charging"]; ok {
+					var b bool
+					if json.Unmarshal(v, &b) == nil {
+						st.Charging = b
+					}
+				}
+			}
+			if w := wlcIntFromExtra(d.LatestExtra); w != nil {
+				st.Pad = map[int]string{0: "vacant", 1: "docked", 2: "faulty"}[*w]
+			}
+			st.Temp = strings.TrimSpace(batteryTempStr(d.LatestExtra))
+		}
+		st.State = "ok"
 		if on {
-			v.Online++
 			online++
+			v.Online++
 		} else {
 			v.Offline++
+			st.State = "bad"
+			todos = append(todos, todo{Sev: "bad", Title: st.Name + " is offline", Serial: d.SerialNumber,
+				Body: "Last seen " + timeSinceStr(d.LastSeenAt) + ". Check that it is powered on and connected to Wi-Fi."})
 		}
-		if d.HasBattery() && d.BatteryPct < 20 {
+		if st.HasBattery && st.Battery < 20 {
 			lowBatt++
+			if !st.Charging {
+				if st.State == "ok" {
+					st.State = "warn"
+				}
+				todos = append(todos, todo{Sev: "warn", Title: st.Name + " is at " + strconv.Itoa(st.Battery) + "% and not charging", Serial: d.SerialNumber,
+					Body: "Put it back on its charging dock so it lasts through service."})
+			}
 		}
+		if st.Pad == "faulty" {
+			if st.State == "ok" {
+				st.State = "warn"
+			}
+			todos = append(todos, todo{Sev: "warn", Title: st.Name + "'s charging pad looks faulty", Serial: d.SerialNumber,
+				Body: "The pad keeps connecting and disconnecting. Re-seat the device; if it persists, let the MDM team know."})
+		}
+		if on && !d.KioskEnabled {
+			todos = append(todos, todo{Sev: "info", Title: st.Name + " is not locked to the app", Serial: d.SerialNumber,
+				Body: "Guests can leave the app. Ask the MDM team to turn kiosk mode back on."})
+		}
+		if st.Crashes >= 3 {
+			todos = append(todos, todo{Sev: "warn", Title: st.Name + " crashed " + strconv.Itoa(st.Crashes) + " times this week", Serial: d.SerialNumber,
+				Body: "The MDM team can see the details; a restart usually helps in the meantime."})
+		}
+		v.Stations = append(v.Stations, st)
 	}
 	var venues []*venue
 	for _, n := range order {
 		venues = append(venues, byName[n])
 	}
-	hour := time.Now().Hour()
+
+	// Health score: offline share weighs most, then battery, pad and crashes.
+	score := 100
+	if total > 0 {
+		score -= 60 * (total - online) / total
+		score -= 15 * lowBatt / total
+		if incCur > 0 {
+			score -= min(15, 3*incCur)
+		}
+		for _, t := range todos {
+			if t.Sev == "warn" && strings.Contains(t.Title, "pad") {
+				score -= 5
+				break
+			}
+		}
+	}
+	if score < 0 {
+		score = 0
+	}
+	scoreClass, scoreWord := "ok", "Running smoothly"
+	switch {
+	case score < 50:
+		scoreClass, scoreWord = "bad", "Needs your attention"
+	case score < 80:
+		scoreClass, scoreWord = "warn", "Mostly fine, a few things to fix"
+	}
+
+	// Today's service: hourly online counts for 24h, with the venue's service
+	// window shaded and uptime-during-service computed for today so far.
+	hourly, _ := h.db.HourlyOnline(ctx, ids, 24)
+	type hourCell struct {
+		Label   string
+		Pct     int
+		Service bool
+		Now     bool
+	}
+	var win *db.ServiceWindow
+	if restaurantID != nil {
+		if sw, ok, err := h.db.GetRestaurantServiceWindow(ctx, *restaurantID); err == nil && ok {
+			win = &sw
+		}
+	}
+	loc := time.Local
+	if win != nil && win.TZ != "" {
+		if l, err := time.LoadLocation(win.TZ); err == nil {
+			loc = l
+		}
+	}
+	startHour := time.Now().UTC().Truncate(time.Hour).Add(-23 * time.Hour)
+	var cells []hourCell
+	svcHours, svcOnline := 0, 0
+	for i := 0; i < 24; i++ {
+		t := startHour.Add(time.Duration(i) * time.Hour).In(loc)
+		pct := 0
+		if total > 0 {
+			pct = 100 * hourly[i] / total
+		}
+		inSvc := false
+		if win != nil {
+			m := t.Hour()*60 + t.Minute()
+			inSvc = (win.OpenMin != win.CloseMin && ((win.OpenMin < win.CloseMin && m >= win.OpenMin && m < win.CloseMin) || (win.OpenMin > win.CloseMin && (m >= win.OpenMin || m < win.CloseMin)))) ||
+				(win.NightOpenMin != win.NightCloseMin && ((win.NightOpenMin < win.NightCloseMin && m >= win.NightOpenMin && m < win.NightCloseMin) || (win.NightOpenMin > win.NightCloseMin && (m >= win.NightOpenMin || m < win.NightCloseMin))))
+		}
+		if inSvc && i < 23 {
+			svcHours++
+			svcOnline += pct
+		}
+		cells = append(cells, hourCell{Label: t.Format("3PM"), Pct: pct, Service: inSvc, Now: i == 23})
+	}
+	serviceUptime := -1
+	if svcHours > 0 {
+		serviceUptime = svcOnline / svcHours
+	}
+	serviceLabel := ""
+	if win != nil && win.OpenMin != win.CloseMin {
+		serviceLabel = fmtMin(win.OpenMin) + " – " + fmtMin(win.CloseMin)
+	}
+
+	// Week report card from daily stats: uptime and battery, this week vs last.
+	type delta struct {
+		Label, Value, Prev string
+		Up, Better         bool
+		Has                bool
+	}
+	var report []delta
+	if restaurantID != nil {
+		if stats, err := h.db.GetRestaurantDailyStats(ctx, *restaurantID, 14); err == nil && len(stats) > 0 {
+			var upCur, upPrev, batCur, batPrev float64
+			var nCur, nPrev int
+			cut := time.Now().UTC().AddDate(0, 0, -7)
+			for _, st := range stats {
+				if st.OnlineMinAvg == nil {
+					continue
+				}
+				if st.Day.After(cut) {
+					upCur += float64(*st.OnlineMinAvg) / 14.4
+					if st.BatteryAvg != nil {
+						batCur += float64(*st.BatteryAvg)
+					}
+					nCur++
+				} else {
+					upPrev += float64(*st.OnlineMinAvg) / 14.4
+					if st.BatteryAvg != nil {
+						batPrev += float64(*st.BatteryAvg)
+					}
+					nPrev++
+				}
+			}
+			if nCur > 0 {
+				u := upCur / float64(nCur)
+				d := delta{Label: "Uptime", Value: fmt.Sprintf("%.0f%%", u), Has: true}
+				if nPrev > 0 {
+					pu := upPrev / float64(nPrev)
+					d.Prev = fmt.Sprintf("%.0f%% last week", pu)
+					d.Up, d.Better = u >= pu, u >= pu
+				}
+				report = append(report, d)
+				b := batCur / float64(nCur)
+				d2 := delta{Label: "Avg battery", Value: fmt.Sprintf("%.0f%%", b), Has: true}
+				if nPrev > 0 {
+					pb := batPrev / float64(nPrev)
+					d2.Prev = fmt.Sprintf("%.0f%% last week", pb)
+					d2.Up, d2.Better = b >= pb, b >= pb
+				}
+				report = append(report, d2)
+			}
+		}
+	}
+	report = append(report, delta{Label: "Incidents", Value: strconv.Itoa(incCur), Prev: strconv.Itoa(incPrev) + " last week", Up: incCur > incPrev, Better: incCur <= incPrev, Has: true})
+
+	hour := time.Now().In(loc).Hour()
 	greeting := "Good evening"
 	if hour < 12 {
 		greeting = "Good morning"
@@ -1796,17 +2002,88 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 	if u, err := h.db.GetUserByUsername(ctx, name); err == nil && u != nil && u.FirstName != "" {
 		name = u.FirstName
 	}
-	h.render(w, r, "owner_home.html", map[string]any{
-		"Title":    "Home",
-		"Greeting": greeting,
-		"DateLine": time.Now().Format("Monday, 2 January"),
-		"Name":     name,
-		"Venues":   venues,
-		"Total":    len(devices),
-		"Online":   online,
-		"Offline":  len(devices) - online,
-		"LowBatt":  lowBatt,
+	sort.SliceStable(todos, func(i, j int) bool {
+		rank := map[string]int{"bad": 0, "warn": 1, "info": 2}
+		return rank[todos[i].Sev] < rank[todos[j].Sev]
 	})
+	h.render(w, r, "owner_home.html", map[string]any{
+		"Title":         "Home",
+		"Greeting":      greeting,
+		"Name":          name,
+		"DateLine":      time.Now().In(loc).Format("Monday, 2 January"),
+		"Venues":        venues,
+		"Total":         total,
+		"Online":        online,
+		"Offline":       total - online,
+		"LowBatt":       lowBatt,
+		"Score":         score,
+		"ScoreClass":    scoreClass,
+		"ScoreWord":     scoreWord,
+		"Todos":         todos,
+		"Hours":         cells,
+		"ServiceUptime": serviceUptime,
+		"ServiceLabel":  serviceLabel,
+		"Report":        report,
+		"VenueCount":    len(venues),
+	})
+}
+
+// batteryTempStr renders battery_temp_c from extra as "39.2°C" or "".
+func batteryTempStr(raw json.RawMessage) string {
+	var m map[string]json.RawMessage
+	if json.Unmarshal(raw, &m) != nil {
+		return ""
+	}
+	v, ok := m["battery_temp_c"]
+	if !ok {
+		return ""
+	}
+	var f float64
+	if json.Unmarshal(v, &f) != nil {
+		return ""
+	}
+	return fmt.Sprintf("%.1f°C", f)
+}
+
+func fmtMin(m int) string {
+	t := time.Date(2000, 1, 1, m/60, m%60, 0, 0, time.UTC)
+	return strings.ToLower(t.Format("3:04pm"))
+}
+
+func timeSinceStr(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "moments ago"
+	case d < time.Hour:
+		return fmt.Sprintf("%d min ago", int(d.Minutes()))
+	case d < 48*time.Hour:
+		return fmt.Sprintf("%d h ago", int(d.Hours()))
+	}
+	return fmt.Sprintf("%d days ago", int(d.Hours()/24))
+}
+
+// DeviceSetNickname stores a friendly name for a device ("Table 4"), shown to
+// restaurant owners and next to the serial on the device page.
+func (h *Handler) DeviceSetNickname(w http.ResponseWriter, r *http.Request) {
+	device, err := h.db.GetDevice(r.Context(), r.PathValue("serial"))
+	if err != nil {
+		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if !h.requireDeviceAction(w, r, "notes", device.ID) {
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("nickname"))
+	if len(name) > 40 {
+		name = name[:40]
+	}
+	if err := h.db.SetNickname(r.Context(), device.ID, name); err != nil {
+		http.Error(w, "Could not save", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "device.nickname", device.SerialNumber, name)
+	h.hxRedirect(w, r, "/devices/"+device.SerialNumber)
 }
 
 // MaintenancePage is the notice non-admin users see while maintenance mode is on.
@@ -4134,6 +4411,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		"ChartCheckins":       chartCheckins,
 		"ChartFocus":          focusParam,
 		"IsOwner":             h.role(r) == "owner",
+		"Nickname":            func() string { m, _ := h.db.GetNicknames(ctx, []uuid.UUID{device.ID}); return m[device.ID] }(),
 		"BuildChanges":        buildChanges,
 		"Commands":            commands,
 		"Queue":               queue,
@@ -15907,6 +16185,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/commands", h.requireAuth(h.DeviceCommandCreate))
 	post("POST /devices/{serial}/poll-interval", h.requireAdmin(h.DeviceSetPollInterval))
 	post("POST /devices/{serial}/notes", h.requireOperatorOrAdmin(h.DeviceNotesUpdate))
+	post("POST /devices/{serial}/nickname", h.requireOperatorOrAdmin(h.DeviceSetNickname))
 	post("POST /devices/{serial}/kiosk", h.requireAdminOrOperator(h.DeviceKioskUpdate))
 	post("POST /devices/{serial}/wlc", h.requireAdminOrOperator(h.DeviceWlcUpdate))
 	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.DeviceRotateOfflineCode))
