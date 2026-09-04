@@ -21,8 +21,15 @@ html[data-theme="dark"] .evz-root {
   --evz-s1: #3987e5; --evz-s2: #d95926; --evz-s3: #199e70; --evz-s4: #c98500;
   --evz-s5: #d55181; --evz-s6: #008300; --evz-s7: #9085e9; --evz-s8: #e66767;
 }
-.evz-upload { display: flex; align-items: center; gap: 12px; padding: 18px 20px; flex-wrap: wrap; }
-.evz-upload input[type="file"] { flex: 1; min-width: 220px; font: inherit; font-size: 13px; }
+.evz-upload { padding: 16px 20px 18px; }
+.evz-drop { border: 1.5px dashed var(--border); border-radius: 12px; padding: 26px 20px; text-align: center; cursor: pointer; color: var(--muted); transition: border-color .15s, background .15s; }
+.evz-drop:hover, .evz-drop.over { border-color: var(--accent-edge); background: var(--accent-soft); }
+.evz-drop svg { width: 26px; height: 26px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.evz-drop .evz-dt { font-size: 13.5px; font-weight: 600; color: var(--text); margin-top: 8px; }
+.evz-drop .evz-dt .l { color: var(--accent-text); }
+.evz-drop .evz-ds { font-size: 12px; margin-top: 4px; }
+.evz-upload-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; min-height: 18px; }
+.evz-filename { font-size: 12.5px; color: var(--text-2); font-family: var(--mono); }
 .evz-local-note { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ok); }
 .evz-local-note svg { width: 14px; height: 14px; flex: none; }
 .evz-error { margin: 0 20px 16px; padding: 10px 14px; border-radius: 10px; background: var(--danger-bg); color: var(--danger); font-size: 13px; }
@@ -48,9 +55,16 @@ html[data-theme="dark"] .evz-root {
   <div class="cc-card">
     <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 8l5-5 5 5"/><path d="M5 21h14"/></svg></span><h3>Upload</h3></div>
     <div class="evz-upload">
-      <input type="file" id="evz-file" accept=".csv,text/csv">
-      <span class="evz-local-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Parsed locally in your browser — nothing is uploaded</span>
-      <span class="muted small" id="evz-filename"></span>
+      <div class="evz-drop" id="evz-drop" role="button" tabindex="0" aria-label="Choose a CSV file">
+        <svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+        <div class="evz-dt">Drop a CSV here, or <span class="l">click to choose</span></div>
+        <div class="evz-ds">Export from Devices → Export, or any file with matching columns</div>
+      </div>
+      <input type="file" id="evz-file" accept=".csv,text/csv" hidden>
+      <div class="evz-upload-meta">
+        <span class="evz-filename" id="evz-filename"></span>
+        <span class="evz-local-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Parsed locally in your browser — nothing is uploaded</span>
+      </div>
     </div>
     <div class="evz-error" id="evz-error" hidden></div>
   </div>
@@ -104,9 +118,23 @@ html[data-theme="dark"] .evz-root {
   var errorEl = document.getElementById('evz-error');
   var resultsEl = document.getElementById('evz-results');
 
+  var drop = document.getElementById('evz-drop');
+  drop.addEventListener('click', function () { fileInput.click(); });
+  drop.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); } });
+  drop.addEventListener('dragover', function (e) { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', function () { drop.classList.remove('over'); });
+  drop.addEventListener('drop', function (e) {
+    e.preventDefault(); drop.classList.remove('over');
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) loadFile(f);
+  });
   fileInput.addEventListener('change', function () {
     var file = fileInput.files && fileInput.files[0];
     if (!file) return;
+    loadFile(file);
+    fileInput.value = '';
+  });
+  function loadFile(file) {
     filenameEl.textContent = file.name;
     errorEl.hidden = true;
     resultsEl.hidden = true;
@@ -121,7 +149,7 @@ html[data-theme="dark"] .evz-root {
       }
     };
     reader.readAsText(file);
-  });
+  }
 
   function showError(msg) {
     errorEl.textContent = msg;

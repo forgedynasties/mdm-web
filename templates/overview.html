@@ -13,9 +13,6 @@
 @media(max-width:1000px){.ov3-top{flex-direction:column;gap:14px}.ov3-actions{padding-top:0}}
 
 .ov3-eyebrow{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);display:flex;align-items:center;gap:10px}
-.ov3-live{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.06em;color:var(--ok);text-transform:uppercase}
-.ov3-live .dot{width:6px;height:6px;border-radius:50%;background:var(--ok);animation:ov3pulse 2s infinite}
-@keyframes ov3pulse{0%{box-shadow:0 0 0 0 rgba(21,127,60,.45)}70%{box-shadow:0 0 0 6px rgba(21,127,60,0)}100%{box-shadow:0 0 0 0 rgba(21,127,60,0)}}
 .ov3-h1{font-size:26px;font-weight:750;letter-spacing:-.022em;margin-top:6px;line-height:1.15}
 .ov3-h1 .hl.ok{color:var(--ok)}.ov3-h1 .hl.warn{color:var(--warn)}.ov3-h1 .hl.danger{color:var(--danger)}
 .ov3-sub{font-size:13.5px;color:var(--muted);margin-top:6px;max-width:78ch;line-height:1.5}
@@ -263,7 +260,7 @@
   {{/* ── Top bar ── */}}
   <div class="ov3-top">
     <div>
-      <div class="ov3-eyebrow">{{.Greeting}} · {{.DateLine}} <span class="ov3-live"><span class="dot"></span>Live · <span class="js-local-time" data-utc="{{.NowUTC}}" data-format="short">{{.NowUTC}}</span></span></div>
+      <div class="ov3-eyebrow">{{.Greeting}} · {{.DateLine}}</div>
       <div class="ov3-h1">{{if gt .AttentionRest 0}}<span class="hl {{.ScoreClass}}">{{.AttentionRest}} site{{if ne .AttentionRest 1}}s{{end}}</span> need{{if eq .AttentionRest 1}}s{{end}} a look today{{else}}Your fleet is in <span class="hl ok">good shape</span>{{end}}</div>
       <div class="ov3-sub">{{.HeroSentence}}</div>
     </div>
@@ -426,8 +423,16 @@
   var root = document.getElementById('ov3');
   if (!root) return;
   var layout, widgets;
-  try { layout = JSON.parse(document.getElementById('ov3-layout').textContent); } catch (e) { layout = {hidden: [], left: [], right: []}; }
-  try { widgets = JSON.parse(document.getElementById('ov3-widgets').textContent); } catch (e) { widgets = []; }
+  function readJSON(id, fallback) {
+    try {
+      var v = JSON.parse(document.getElementById(id).textContent);
+      if (typeof v === 'string') v = JSON.parse(v); // tolerate a double-encoded blob
+      return v == null ? fallback : v;
+    } catch (e) { return fallback; }
+  }
+  layout = readJSON('ov3-layout', {hidden: [], left: [], right: []});
+  widgets = readJSON('ov3-widgets', []);
+  if (!Array.isArray(widgets)) widgets = [];
   var titles = {}; widgets.forEach(function (w) { titles[w.id] = w.title; });
   layout.hidden = layout.hidden || [];
 

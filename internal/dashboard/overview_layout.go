@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"encoding/json"
+	"html/template"
 	"log"
 	"net/http"
 	"strings"
@@ -180,8 +181,8 @@ func (h *Handler) overviewLayoutData(r *http.Request) map[string]any {
 	wj, _ := json.Marshal(overviewWidgets)
 	return map[string]any{
 		"Layout":        l,
-		"LayoutJSON":    string(lj),
-		"WidgetsJSON":   string(wj),
+		"LayoutJSON":    template.JS(lj),
+		"WidgetsJSON":   template.JS(wj),
 		"HiddenWidgets": hiddenW,
 		"Presets":       overviewPresets,
 		"IsHidden":      hidden,
