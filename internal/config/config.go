@@ -12,6 +12,20 @@ import (
 // writeFileAtomic writes data to a temp file in the same directory and renames it
 // over path (rename is atomic on the same filesystem), so a crash mid-write can't
 // leave a truncated/corrupt config file — which would fail Load and brick startup.
+// CheckWritable verifies the config file's directory accepts writes, by creating and
+// removing a probe file next to it. Every settings change persists through
+// writeFileAtomic and its error is mostly ignored by callers, so an unwritable
+// directory (e.g. a data volume still owned by root after the image switched to an
+// unprivileged user) would otherwise fail silently: settings apply in memory and
+// vanish on restart, background jobs that persist a cursor redo the same work.
+func (c *Config) CheckWritable() error {
+	probe := c.path + ".probe"
+	if err := os.WriteFile(probe, []byte("ok"), 0o600); err != nil {
+		return err
+	}
+	return os.Remove(probe)
+}
+
 func writeFileAtomic(path string, data []byte) error {
 	tmp := path + ".tmp"
 	// 0600: this file holds secrets (anthropic_api_key, alert webhook URLs), so it must

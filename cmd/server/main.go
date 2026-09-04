@@ -269,6 +269,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
+	if err := cfg.CheckWritable(); err != nil {
+		log.Printf("WARNING: config directory is not writable — settings changes will NOT persist across restarts and background jobs cannot save progress. Fix ownership of the data volume (e.g. `chown -R mdm:mdm /app/data`). Error: %v", err)
+	}
 	// Migrate a legacy single alert webhook into a default channel (one-time, no-op
 	// if channels already exist or no legacy URL is set).
 	if err := database.EnsureDefaultChannelFromWebhook(ctx, cfg.AlertWebhookURL()); err != nil {
