@@ -1,175 +1,94 @@
 {{define "owner_home.html"}}
 {{template "header" .}}
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
-:root{--oh-ok:#15803d;--oh-ok-soft:rgba(21,128,61,.12);--oh-warn:#b45309;--oh-warn-soft:rgba(180,83,9,.12);--oh-bad:#b91c1c;--oh-bad-soft:rgba(185,28,28,.12);--oh-ink:var(--text);--oh-mute:var(--muted)}
-.oh{max-width:1100px;margin:0 auto;padding:26px 20px 70px;position:relative}
-.oh::before{content:"";position:absolute;inset:-40px -20px auto -20px;height:360px;background:radial-gradient(60% 80% at 15% 10%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 70%),radial-gradient(50% 70% at 90% 0%,color-mix(in srgb,var(--ok) 14%,transparent),transparent 70%);pointer-events:none;z-index:-1}
-.oh-hero{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;margin-bottom:26px}
-@media(max-width:720px){.oh-hero{grid-template-columns:1fr}.oh-ring{justify-self:start}}
-.oh-date{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--oh-mute)}
-.oh-greet{font-size:clamp(28px,4.5vw,44px);font-weight:800;letter-spacing:-.03em;line-height:1.05;margin-top:8px}
-.oh-word{margin-top:12px;font-size:17px;font-weight:650}
-.oh-word.ok{color:var(--oh-ok)}.oh-word.warn{color:var(--oh-warn)}.oh-word.bad{color:var(--oh-bad)}
-.oh-sub{font-size:14.5px;color:var(--oh-mute);margin-top:6px;max-width:58ch;line-height:1.5}
-.oh-ring{position:relative;width:168px;height:168px;display:grid;place-items:center}
-.oh-ring svg{position:absolute;inset:0;transform:rotate(-90deg)}
-.oh-ring .bg{stroke:var(--surface-3);stroke-width:12;fill:none}
-.oh-ring .fg{stroke-width:12;fill:none;stroke-linecap:round;transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)}
-.oh-ring.ok .fg{stroke:var(--oh-ok)}.oh-ring.warn .fg{stroke:var(--oh-warn)}.oh-ring.bad .fg{stroke:var(--oh-bad)}
-.oh-ring>div,.oh-mini b{position:relative;z-index:1}
-.oh-ring .n{font-size:44px;font-weight:800;letter-spacing:-.04em;line-height:1}
-.oh-ring .l{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--oh-mute);margin-top:4px}
-.oh-sec{margin-top:28px}
-.oh-h{display:flex;align-items:baseline;gap:12px;margin:0 2px 12px}
-.oh-h h2{font-size:15px;font-weight:750;letter-spacing:-.01em}
-.oh-h span{font-size:12.5px;color:var(--oh-mute)}
-.oh-todos{display:grid;gap:10px}
-.oh-todo{display:flex;gap:14px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow-sm);text-decoration:none;color:inherit;transition:transform var(--dur),border-color var(--dur)}
-.oh-todo:hover{transform:translateY(-1px);border-color:var(--accent-edge)}
-.oh-todo .ic{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;flex:none}
-.oh-todo.bad .ic{background:var(--oh-bad-soft);color:var(--oh-bad)}.oh-todo.warn .ic{background:var(--oh-warn-soft);color:var(--oh-warn)}.oh-todo.info .ic{background:var(--accent-soft);color:var(--accent-text)}
-.oh-todo .ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.oh-todo b{display:block;font-size:14px;font-weight:700}
-.oh-todo p{margin:3px 0 0;font-size:13px;color:var(--oh-mute);line-height:1.45}
-.oh-allgood{display:flex;align-items:center;gap:14px;background:var(--oh-ok-soft);border:1px solid color-mix(in srgb,var(--oh-ok) 30%,transparent);border-radius:16px;padding:16px 18px;color:var(--oh-ok);font-weight:650}
-.oh-allgood svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.oh-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px 20px;box-shadow:var(--shadow-sm)}
-.oh-strip{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;height:96px;align-items:end;margin-top:14px}
-.oh-bar{position:relative;height:100%;border-radius:6px 6px 3px 3px;background:var(--surface-3);overflow:hidden}
-.oh-bar.svc{background:color-mix(in srgb,var(--accent) 12%,var(--surface-3))}
-.oh-bar i{position:absolute;left:0;right:0;bottom:0;background:var(--oh-ok);border-radius:6px 6px 0 0;opacity:.9}
-.oh-bar.low i{background:var(--oh-warn)}.oh-bar.zero i{display:none}
-.oh-bar.now{outline:2px solid var(--accent);outline-offset:1px}
-.oh-axis{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;margin-top:6px;font-size:9.5px;color:var(--oh-mute);text-align:center}
-.oh-axis span:nth-child(odd){visibility:hidden}
-@media(max-width:600px){.oh-axis span{visibility:hidden}.oh-axis span:nth-child(6n+1){visibility:visible}}
-.oh-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--oh-mute)}
-.oh-legend i{display:inline-block;width:12px;height:8px;border-radius:3px;vertical-align:middle;margin-right:5px}
-.oh-kv{display:flex;gap:22px;flex-wrap:wrap;margin-top:6px}
-.oh-kv div{display:flex;flex-direction:column}
-.oh-kv b{font-size:26px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
-.oh-kv span{font-size:11.5px;color:var(--oh-mute);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
-.oh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
-.oh-st{display:block;color:inherit;text-decoration:none;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:16px;box-shadow:var(--shadow-sm);position:relative;transition:transform var(--dur),border-color var(--dur)}
-.oh-st:hover{transform:translateY(-2px);border-color:var(--accent-edge)}
-.oh-st.bad .mid{opacity:.72}
-.oh-st .top{display:flex;align-items:center;gap:10px}
-.oh-st .nm{font-size:16px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
-.oh-st .sn{font-size:11px;color:var(--oh-mute);font-family:var(--mono);margin-top:3px}
-.oh-st .dot{margin-left:auto;width:10px;height:10px;border-radius:50%;background:var(--oh-mute);flex:none}
-.oh-st.on .dot{background:var(--oh-ok);box-shadow:0 0 0 4px var(--oh-ok-soft)}
-.oh-st.warn .dot{background:var(--oh-warn);box-shadow:0 0 0 4px var(--oh-warn-soft)}
-.oh-st.bad .dot{background:var(--oh-bad);box-shadow:0 0 0 4px var(--oh-bad-soft)}
-.oh-st .mid{display:flex;align-items:center;gap:14px;margin-top:14px}
-.oh-mini{position:relative;width:56px;height:56px;flex:none;display:grid;place-items:center}
-.oh-mini svg{position:absolute;inset:0;transform:rotate(-90deg)}
-.oh-mini .bg{stroke:var(--surface-3);stroke-width:6;fill:none}
-.oh-mini .fg{stroke:var(--oh-ok);stroke-width:6;fill:none;stroke-linecap:round}
-.oh-mini.low .fg{stroke:var(--oh-bad)}.oh-mini.mid .fg{stroke:var(--oh-warn)}
-.oh-mini b{font-size:13px;font-weight:800;letter-spacing:-.02em}
-.oh-facts{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--text-2)}
-.oh-facts span{display:flex;align-items:center;gap:6px}
-.oh-facts svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--oh-mute)}
-.oh-tag{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:99px;background:var(--surface-3);color:var(--oh-mute)}
-.oh-tag.ok{background:var(--oh-ok-soft);color:var(--oh-ok)}.oh-tag.warn{background:var(--oh-warn-soft);color:var(--oh-warn)}.oh-tag.bad{background:var(--oh-bad-soft);color:var(--oh-bad)}
-.oh-rep{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
-.oh-rep .c{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;box-shadow:var(--shadow-sm)}
-.oh-rep .k{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--oh-mute)}
-.oh-rep .v{font-size:30px;font-weight:800;letter-spacing:-.03em;margin-top:4px;font-variant-numeric:tabular-nums}
-.oh-rep .d{font-size:12px;color:var(--oh-mute);margin-top:4px;display:flex;align-items:center;gap:5px}
-.oh-rep .d.good{color:var(--oh-ok)}.oh-rep .d.badd{color:var(--oh-bad)}
-.oh-empty{padding:56px 20px;text-align:center;color:var(--oh-mute);background:var(--surface);border:1px dashed var(--border);border-radius:18px}
+.A{font-family:"Manrope",system-ui,sans-serif;max-width:980px;margin:0 auto;padding:32px 22px 80px;color:var(--text)}
+.A .eyebrow{font:700 12px "IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.A h1{font-size:clamp(30px,5vw,46px);font-weight:800;letter-spacing:-.035em;line-height:1.02;margin:8px 0 0;text-wrap:balance}
+.A .lede{font-size:17px;color:var(--text-2);max-width:60ch;margin:14px 0 0;line-height:1.5}
+.A .lede b{color:var(--text)}
+.A .pulse{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--text);border-bottom:1px solid var(--border);margin:28px 0 0}
+.A .pulse div{padding:14px 0 14px 16px;border-left:1px solid var(--border)}
+.A .pulse div:first-child{border-left:0;padding-left:0}
+.A .pulse .v{font:800 34px/1 "Manrope",sans-serif;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.A .pulse .v.ok{color:var(--ok)}.A .pulse .v.bad{color:var(--danger)}.A .pulse .v.warn{color:var(--warn)}
+.A .pulse .k{font:600 11px "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.A h2{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:34px 0 10px;display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.A h2 span{font-weight:600;letter-spacing:0;text-transform:none;font-size:12.5px;text-align:right}
+.A .roster{border-top:1px solid var(--text)}
+.A .row{display:grid;grid-template-columns:14px 1.4fr 1fr 1.2fr 2fr;gap:18px;align-items:center;padding:14px 0;border-bottom:1px solid var(--border);text-decoration:none;color:inherit}
+.A .row:hover{background:color-mix(in srgb,var(--surface) 70%,transparent)}
+.A .st{width:14px;height:14px;border-radius:50%}
+.A .st.ok{background:var(--ok)}.A .st.warn{background:var(--warn)}.A .st.bad{background:var(--danger)}
+.A .nm{font-weight:800;font-size:16px;letter-spacing:-.01em}
+.A .nm small{display:block;font:500 11px "IBM Plex Mono",monospace;color:var(--muted);letter-spacing:.02em;margin-top:2px}
+.A .word{font-weight:800;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+.A .word.ok{color:var(--ok)}.A .word.warn{color:var(--warn)}.A .word.bad{color:var(--danger)}
+.A .batt{display:flex;align-items:center;gap:8px;font:600 12.5px "IBM Plex Mono",monospace;color:var(--text-2);font-variant-numeric:tabular-nums}
+.A .batt i{flex:1;height:6px;border-radius:3px;background:var(--border);position:relative;overflow:hidden}
+.A .batt i::after{content:"";position:absolute;inset:0;width:var(--p);background:var(--ok);border-radius:3px}
+.A .batt.low i::after{background:var(--danger)}.A .batt.mid i::after{background:var(--warn)}
+.A .batt.mains{color:var(--muted)}
+.A .do{font-size:13.5px;color:var(--text-2);line-height:1.45}
+.A .do b{color:var(--text)}
+.A .day{margin-top:6px;display:grid;grid-template-columns:repeat(24,1fr);gap:2px;height:54px;align-items:end}
+.A .day i{display:block;background:var(--border);height:100%;position:relative;border-radius:2px}
+.A .day i.svc{background:var(--accent-soft)}
+.A .day i::after{content:"";position:absolute;left:0;right:0;bottom:0;height:var(--p);background:var(--ok);border-radius:2px}
+.A .day i.low::after{background:var(--warn)}
+.A .day i.now{outline:1px solid var(--accent)}
+.A .axis{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;margin-top:4px;font:500 10px "IBM Plex Mono",monospace;color:var(--muted)}
+.A .axis span:nth-child(3n+2),.A .axis span:nth-child(3n){visibility:hidden}
+.A .week{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--text)}
+.A .week div{padding:14px 16px 14px 0}
+.A .week .v{font:800 26px/1 "Manrope",sans-serif;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.A .week .k{font:600 11px "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:6px}
+.A .week .d{font-size:12.5px;margin-top:4px}.A .d.up{color:var(--ok)}.A .d.dn{color:var(--danger)}
+.A .empty{padding:40px 0;color:var(--muted);border-top:1px solid var(--text);border-bottom:1px solid var(--border);margin-top:28px}
+@media(max-width:720px){.A .row{grid-template-columns:12px 1fr 1fr;grid-template-areas:"s n w" ". b b" ". d d";gap:8px 12px}.A .st{grid-area:s}.A .nm{grid-area:n}.A .word{grid-area:w;text-align:right}.A .batt{grid-area:b}.A .do{grid-area:d}.A .pulse{grid-template-columns:repeat(2,1fr)}.A .pulse div:nth-child(3){border-left:0;padding-left:0}.A .pulse div:nth-child(n+3){border-top:1px solid var(--border)}}
 </style>
-<div class="oh" id="oh-root" hx-get="/" hx-trigger="every 30s" hx-select="#oh-root" hx-target="this" hx-swap="outerHTML">
-
-  <div class="oh-hero">
-    <div>
-      <div class="oh-date">{{.DateLine}}</div>
-      <div class="oh-greet">{{.Greeting}}, {{.Name}}.</div>
-      {{if .Total}}
-      <div class="oh-word {{.ScoreClass}}">{{.ScoreWord}}</div>
-      <div class="oh-sub">{{if eq .Offline 0}}All {{.Total}} station{{if ne .Total 1}}s{{end}} online{{else}}{{.Online}} of {{.Total}} stations online{{end}}{{if .LowBatt}}, {{.LowBatt}} low on battery{{end}}{{if ge .ServiceUptime 0}}. {{.ServiceUptime}}% uptime during service so far today{{end}}.</div>
-      {{else}}<div class="oh-sub">No devices are assigned to your restaurant yet. Your MDM team can set that up in a minute.</div>{{end}}
-    </div>
-    {{if .Total}}
-    <div class="oh-ring {{.ScoreClass}}" title="Health score: offline stations weigh most, then low batteries, charging pads and crashes">
-      <svg viewBox="0 0 168 168"><circle class="bg" cx="84" cy="84" r="72"/><circle class="fg" cx="84" cy="84" r="72" stroke-dasharray="452.4" stroke-dashoffset="{{dash 452.4 .Score}}"/></svg>
-      <div style="text-align:center"><div class="n">{{.Score}}</div><div class="l">health</div></div>
-    </div>
-    {{end}}
-  </div>
+<div class="A" id="oh-root" hx-get="/" hx-trigger="every 30s" hx-select="#oh-root" hx-target="this" hx-swap="outerHTML">
+  <div class="eyebrow">{{.DateLine}} · {{.TimeLine}}{{if eq .VenueCount 1}}{{range .Venues}} · {{.Name}}{{end}}{{end}}</div>
+  <h1>{{.Greeting}}, {{.Name}}.<br>{{.Headline}}</h1>
+  {{if .Lede}}<p class="lede">{{.Lede}}</p>{{end}}
 
   {{if .Total}}
-  <div class="oh-sec">
-    <div class="oh-h"><h2>Needs a hand</h2><span>{{if .Todos}}{{len .Todos}} thing{{if ne (len .Todos) 1}}s{{end}} you can fix yourself{{else}}nothing right now{{end}}</span></div>
-    {{if .Todos}}
-    <div class="oh-todos">
-      {{range .Todos}}
-      <a class="oh-todo {{.Sev}}" href="/devices/{{.Serial}}">
-        <span class="ic">{{if eq .Sev "bad"}}<svg viewBox="0 0 24 24"><path d="M18.4 5.6 5.6 18.4M5.6 5.6l12.8 12.8"/></svg>{{else if eq .Sev "warn"}}<svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>{{else}}<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>{{end}}</span>
-        <div><b>{{.Title}}</b><p>{{.Body}}</p></div>
-      </a>
-      {{end}}
-    </div>
-    {{else}}
-    <div class="oh-allgood"><svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Everything is where it should be. Enjoy the service.</div>
-    {{end}}
-  </div>
-
-  <div class="oh-sec">
-    <div class="oh-h"><h2>Today</h2><span>stations online, hour by hour{{if .ServiceLabel}} · service {{.ServiceLabel}}{{end}}</span></div>
-    <div class="oh-card">
-      <div class="oh-kv">
-        <div><b>{{.Online}}<span style="font-size:14px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--oh-mute);margin-left:4px;">/ {{.Total}}</span></b><span>online now</span></div>
-        {{if ge .ServiceUptime 0}}<div><b>{{.ServiceUptime}}%</b><span>uptime in service</span></div>{{end}}
-        <div><b>{{.LowBatt}}</b><span>low battery</span></div>
-      </div>
-      <div class="oh-strip">
-        {{range .Hours}}<div class="oh-bar{{if .Service}} svc{{end}}{{if .Now}} now{{end}}{{if eq .Pct 0}} zero{{else if lt .Pct 60}} low{{end}}" title="{{.Label}}: {{.Pct}}% online"><i style="height:{{.Pct}}%"></i></div>{{end}}
-      </div>
-      <div class="oh-axis">{{range .Hours}}<span>{{.Label}}</span>{{end}}</div>
-      <div class="oh-legend"><span><i style="background:var(--oh-ok)"></i>online share</span>{{if .ServiceLabel}}<span><i style="background:color-mix(in srgb,var(--accent) 25%,var(--surface-3))"></i>service hours</span>{{end}}<span><i style="background:var(--oh-warn)"></i>under 60%</span></div>
-    </div>
+  <div class="pulse">
+    <div><div class="v{{if eq .Online .Total}} ok{{end}}">{{.Online}}</div><div class="k">online</div></div>
+    <div><div class="v{{if .Offline}} bad{{end}}">{{.Offline}}</div><div class="k">offline</div></div>
+    <div><div class="v{{if .LowBatt}} warn{{end}}">{{.LowBatt}}</div><div class="k">low battery</div></div>
+    {{if ge .ServiceUptime 0}}<div><div class="v">{{.ServiceUptime}}%</div><div class="k">uptime in service</div></div>{{else}}<div><div class="v">{{.Score}}</div><div class="k">health score</div></div>{{end}}
   </div>
 
   {{range .Venues}}
-  <div class="oh-sec">
-    <div class="oh-h"><h2>{{if gt $.VenueCount 1}}{{.Name}}{{else}}Stations{{end}}</h2><span>{{.Online}} online · {{.Offline}} offline</span></div>
-    <div class="oh-grid">
-      {{range .Stations}}
-      <a class="oh-st {{if .Online}}on{{end}} {{.State}}" href="/devices/{{.Serial}}">
-        <div class="top"><div><div class="nm">{{.Name}}</div>{{if ne .Name .Serial}}<div class="sn">{{.Serial}}</div>{{else}}<div class="sn">{{.Product}}</div>{{end}}</div><span class="dot"></span></div>
-        <div class="mid">
-          {{if .HasBattery}}
-          <div class="oh-mini{{if lt .Battery 20}} low{{else if lt .Battery 50}} mid{{end}}"><svg viewBox="0 0 56 56"><circle class="bg" cx="28" cy="28" r="23"/><circle class="fg" cx="28" cy="28" r="23" stroke-dasharray="144.5" stroke-dashoffset="{{dash 144.5 .Battery}}"/></svg><b>{{.Battery}}%</b></div>
-          {{else}}
-          <div class="oh-mini"><svg viewBox="0 0 56 56"><circle class="bg" cx="28" cy="28" r="23"/></svg><b style="font-size:10px;color:var(--oh-mute)">mains</b></div>
-          {{end}}
-          <div class="oh-facts">
-            {{if .Online}}<span><svg viewBox="0 0 24 24"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg>{{if not .HasBattery}}Plugged in{{else if .Charging}}Charging{{else if eq .Pad "vacant"}}Off the dock{{else if eq .Pad "faulty"}}<span class="oh-tag warn">pad faulty</span>{{else}}Not charging{{end}}</span>{{end}}
-            <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8"/></svg>{{if .Kiosk}}Locked to the app{{else}}<span class="oh-tag warn">not locked</span>{{end}}</span>
-            <span><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>{{if .Online}}Online now{{else}}Seen {{timeSince .LastSeen}}{{end}}</span>
-            {{if .Crashes}}<span><svg viewBox="0 0 24 24"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>{{.Crashes}} crash{{if ne .Crashes 1}}es{{end}} this week</span>{{end}}
-          </div>
-        </div>
-      </a>
-      {{end}}
-    </div>
+  <h2>{{if gt $.VenueCount 1}}{{.Name}}{{else}}Stations{{end}} <span>worst first · tap a row for details</span></h2>
+  <div class="roster">
+    {{range .Stations}}
+    <a class="row" href="/devices/{{.Serial}}">
+      <span class="st {{.State}}"></span>
+      <div class="nm">{{.Name}}<small>{{if ne .Name .Serial}}{{.Serial}}{{else}}{{.Product}}{{end}}</small></div>
+      <div class="word {{.State}}">{{.Word}}</div>
+      {{if not .Online}}<div class="batt mains">— last seen {{timeSince .LastSeen}}</div>
+      {{else if .HasBattery}}<div class="batt{{if lt .Battery 20}} low{{else if lt .Battery 50}} mid{{end}}" style="--p:{{.Battery}}%"><i></i>{{.Battery}}%</div>
+      {{else}}<div class="batt mains">— mains powered</div>{{end}}
+      <div class="do">{{.Do}}</div>
+    </a>
+    {{end}}
   </div>
   {{end}}
 
+  <h2>Today <span>stations online each hour{{if .ServiceLabel}} · service {{.ServiceLabel}} shaded{{end}}</span></h2>
+  <div class="day">{{range .Hours}}<i class="{{if .Service}}svc {{end}}{{if and (gt .Pct 0) (lt .Pct 60)}}low {{end}}{{if .Now}}now{{end}}" style="--p:{{.Pct}}%" title="{{.Label}}: {{.Pct}}% online"></i>{{end}}</div>
+  <div class="axis">{{range .Hours}}<span>{{.Label}}</span>{{end}}</div>
+
   {{if .Report}}
-  <div class="oh-sec">
-    <div class="oh-h"><h2>This week</h2><span>compared with last week</span></div>
-    <div class="oh-rep">
-      {{range .Report}}
-      <div class="c"><div class="k">{{.Label}}</div><div class="v">{{.Value}}</div>{{if .Prev}}<div class="d {{if .Better}}good{{else}}badd{{end}}">{{if .Up}}▲{{else}}▼{{end}} {{.Prev}}</div>{{end}}</div>
-      {{end}}
-    </div>
+  <h2>This week <span>against last week</span></h2>
+  <div class="week">
+    {{range .Report}}<div><div class="v">{{.Value}}</div><div class="k">{{.Label}}</div>{{if .Prev}}<div class="d {{if .Better}}up{{else}}dn{{end}}">{{if .Up}}▲{{else}}▼{{end}} from {{.Prev}}</div>{{end}}</div>{{end}}
   </div>
   {{end}}
   {{else}}
-  <div class="oh-empty">Nothing to show yet. Ask your MDM administrator to assign devices to your restaurant.</div>
+  <div class="empty">Nothing to show yet. Ask your MDM administrator to assign devices to your restaurant.</div>
   {{end}}
 </div>
 {{template "footer" .}}

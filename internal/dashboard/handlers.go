@@ -1771,6 +1771,8 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		Temp                  string
 		Crashes               int
 		State                 string // ok | warn | bad
+		Word                  string // roster state word
+		Do                    template.HTML // what to do (may contain <b>)
 	}
 	type todo struct {
 		Sev, Title, Body, Serial string
@@ -1855,7 +1857,36 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			todos = append(todos, todo{Sev: "warn", Title: st.Name + " crashed " + strconv.Itoa(st.Crashes) + " times this week", Serial: d.SerialNumber,
 				Body: "The MDM team can see the details; a restart usually helps in the meantime."})
 		}
+		switch {
+		case !on:
+			st.Word, st.Do = "Offline", template.HTML("<b>Check the power cable</b> and that it is on the Wi-Fi. Last seen "+timeSinceStr(d.LastSeenAt)+".")
+		case st.HasBattery && st.Battery < 20 && !st.Charging:
+			st.Word, st.Do = "Not charging", template.HTML("<b>Put it back on the dock.</b> At "+strconv.Itoa(st.Battery)+"% it will not last the shift.")
+		case st.Pad == "faulty":
+			st.Word, st.Do = "Pad faulty", template.HTML("Re-seat it on the pad. If it keeps flapping, <b>tell the MDM team</b>.")
+		case !d.KioskEnabled:
+			st.Word, st.Do = "Not locked", template.HTML("Guests can leave the menu. <b>Ask the MDM team</b> to re-lock it.")
+		default:
+			st.Word = "Ready"
+			do := "Docked, locked, online."
+			switch {
+			case !st.HasBattery:
+				do = "Plugged in, locked, online."
+			case st.Charging && st.Battery < 100:
+				do = "Charging, locked, online."
+			case st.Pad == "vacant":
+				do = "Off the dock but charged. Locked, online."
+			}
+			if st.Crashes > 0 {
+				do += " Restarted " + strconv.Itoa(st.Crashes) + " time" + map[bool]string{true: "s", false: ""}[st.Crashes != 1] + " this week."
+			}
+			st.Do = template.HTML(do)
+		}
 		v.Stations = append(v.Stations, st)
+	}
+	rankOf := map[string]int{"bad": 0, "warn": 1, "ok": 2}
+	for _, v := range byName {
+		sort.SliceStable(v.Stations, func(i, j int) bool { return rankOf[v.Stations[i].State] < rankOf[v.Stations[j].State] })
 	}
 	var venues []*venue
 	for _, n := range order {
@@ -1971,25 +2002,25 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 			}
 			if nCur > 0 {
 				u := upCur / float64(nCur)
-				d := delta{Label: "Uptime", Value: fmt.Sprintf("%.0f%%", u), Has: true}
+				d := delta{Label: "Uptime in service", Value: fmt.Sprintf("%.0f%%", u), Has: true}
 				if nPrev > 0 {
 					pu := upPrev / float64(nPrev)
-					d.Prev = fmt.Sprintf("%.0f%% last week", pu)
+					d.Prev = fmt.Sprintf("%.0f%%", pu)
 					d.Up, d.Better = u >= pu, u >= pu
 				}
 				report = append(report, d)
 				b := batCur / float64(nCur)
-				d2 := delta{Label: "Avg battery", Value: fmt.Sprintf("%.0f%%", b), Has: true}
+				d2 := delta{Label: "Battery at close", Value: fmt.Sprintf("%.0f%%", b), Has: true}
 				if nPrev > 0 {
 					pb := batPrev / float64(nPrev)
-					d2.Prev = fmt.Sprintf("%.0f%% last week", pb)
+					d2.Prev = fmt.Sprintf("%.0f%%", pb)
 					d2.Up, d2.Better = b >= pb, b >= pb
 				}
 				report = append(report, d2)
 			}
 		}
 	}
-	report = append(report, delta{Label: "Incidents", Value: strconv.Itoa(incCur), Prev: strconv.Itoa(incPrev) + " last week", Up: incCur > incPrev, Better: incCur <= incPrev, Has: true})
+	report = append(report, delta{Label: "Incidents", Value: strconv.Itoa(incCur), Prev: strconv.Itoa(incPrev), Up: incCur > incPrev, Better: incCur <= incPrev, Has: true})
 
 	hour := time.Now().In(loc).Hour()
 	greeting := "Good evening"
@@ -2006,11 +2037,62 @@ func (h *Handler) OwnerHome(w http.ResponseWriter, r *http.Request) {
 		rank := map[string]int{"bad": 0, "warn": 1, "info": 2}
 		return rank[todos[i].Sev] < rank[todos[j].Sev]
 	})
+	// Headline: "Six of eight stations are ready for dinner." Lede: the exceptions
+	// in one breath, then "everything else is fine".
+	ready := 0
+	var exceptions []string
+	for _, v := range venues {
+		for _, st := range v.Stations {
+			if st.Word == "Ready" {
+				ready++
+				continue
+			}
+			switch st.Word {
+			case "Offline":
+				exceptions = append(exceptions, "<b>"+st.Name+"</b> went offline "+timeSinceStr(st.LastSeen))
+			case "Not charging":
+				exceptions = append(exceptions, "<b>"+st.Name+"</b> is off its dock at "+strconv.Itoa(st.Battery)+"%")
+			case "Not locked":
+				exceptions = append(exceptions, "<b>"+st.Name+"</b> is not locked to the menu")
+			case "Pad faulty":
+				exceptions = append(exceptions, "<b>"+st.Name+"</b> has a flaky charging pad")
+			}
+		}
+	}
+	meal := "service"
+	switch {
+	case hour < 11:
+		meal = "the day"
+	case hour < 15:
+		meal = "lunch"
+	case hour < 22:
+		meal = "dinner"
+	}
+	headline := "No stations are set up yet."
+	if total > 0 {
+		if ready == total {
+			headline = "All " + numWord(total) + " station" + map[bool]string{true: "s are", false: " is"}[total != 1] + " ready for " + meal + "."
+		} else {
+			headline = strings.Title(numWord(ready)) + " of " + numWord(total) + " stations " + map[bool]string{true: "are", false: "is"}[ready != 1] + " ready for " + meal + "."
+		}
+	}
+	lede := ""
+	if len(exceptions) > 0 {
+		lede = strings.Join(exceptions, ". ") + "."
+		if ready > 0 {
+			lede += " Everything else is charged and locked to the menu."
+		}
+	} else if total > 0 {
+		lede = "Every station is charged, locked to the menu and online."
+	}
 	h.render(w, r, "owner_home.html", map[string]any{
+		"Headline":      headline,
+		"Lede":          template.HTML(lede),
 		"Title":         "Home",
 		"Greeting":      greeting,
 		"Name":          name,
-		"DateLine":      time.Now().In(loc).Format("Monday, 2 January"),
+		"DateLine":      time.Now().In(loc).Format("Monday 2 January"),
+		"TimeLine":      strings.ToLower(time.Now().In(loc).Format("3:04 pm")),
 		"Venues":        venues,
 		"Total":         total,
 		"Online":        online,
@@ -2043,6 +2125,15 @@ func batteryTempStr(raw json.RawMessage) string {
 		return ""
 	}
 	return fmt.Sprintf("%.1f°C", f)
+}
+
+// numWord spells small counts the way a sentence would ("six of eight").
+func numWord(n int) string {
+	words := []string{"zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve"}
+	if n >= 0 && n < len(words) {
+		return words[n]
+	}
+	return strconv.Itoa(n)
 }
 
 func fmtMin(m int) string {
