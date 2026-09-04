@@ -300,7 +300,8 @@ function kioskAddPkg(pkg, el){
     </div>
     <div class="muted small" style="margin-top:8px;">
       Legacy check-in cleanup (removing bulky crash traces and Wi-Fi scans from old history rows):
-      {{if eq .LegacyStripCursor "done"}}<strong>complete</strong>{{else if .LegacyStripCursor}}in progress, up to <strong>{{.LegacyStripCursor}}</strong> (runs hourly in the background){{else}}<strong>not started</strong> (starts with the next hourly housekeeping run){{end}}
+      {{if eq .LegacyStripCursor "done"}}<strong>complete</strong>{{else if .LegacyStripCursor}}<strong>{{.LegacyStripPct}}%</strong> — up to {{.LegacyStripCursor}} (runs hourly in the background)
+      <span style="display:inline-block;vertical-align:middle;width:140px;height:6px;border-radius:3px;background:var(--surface-3);margin-left:6px;overflow:hidden;"><i style="display:block;height:100%;width:{{.LegacyStripPct}}%;background:var(--accent);"></i></span>{{else}}<strong>not started</strong> (starts with the next hourly housekeeping run){{end}}
     </div>
   </div>
 </div>

@@ -75,6 +75,9 @@ type Config struct {
 	// bulky keys from rows written before insert-time stripping existed. "" = not
 	// started, "done" = finished.
 	LegacyStripCursorVal string `json:"legacy_strip_cursor"`
+	// First day the cleanup started from (oldest check-in at that time); fixed
+	// denominator for the progress percentage shown in Settings.
+	LegacyStripStartVal string `json:"legacy_strip_start"`
 
 	// Dashboard preferences & branding.
 	PageSizeVal    int    `json:"page_size"`    // 0 -> default 25
@@ -505,6 +508,20 @@ func (c *Config) LegacyStripCursor() string {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.LegacyStripCursorVal
+}
+
+func (c *Config) LegacyStripStart() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.LegacyStripStartVal
+}
+
+func (c *Config) SetLegacyStripStart(day string) error {
+	c.mu.Lock()
+	c.LegacyStripStartVal = day
+	data, _ := json.MarshalIndent(c, "", "  ")
+	c.mu.Unlock()
+	return writeFileAtomic(c.path, data)
 }
 
 func (c *Config) SetLegacyStripCursor(cur string) error {

@@ -12674,6 +12674,7 @@ func (h *Handler) SettingsPage(w http.ResponseWriter, r *http.Request) {
 		"LogcatRetentionDays":  h.cfg.LogcatRetentionDays(),
 		"CheckinSampleSec":     h.cfg.CheckinSampleSec(),
 		"LegacyStripCursor":    h.cfg.LegacyStripCursor(),
+		"LegacyStripPct":       h.legacyStripPct(r.Context()),
 		"DBStats":              dbStats,
 		"KioskAllowlist":       strings.Join(h.cfg.KioskAllowlist(), "\n"),
 		"KioskFleetApps":       kioskFleetApps,
@@ -13169,6 +13170,7 @@ func (h *Handler) stripLegacyCheckins(ctx context.Context) {
 			return
 		}
 		day = oldest
+		_ = h.cfg.SetLegacyStripStart(day.Format("2006-01-02"))
 	} else {
 		var err error
 		if day, err = time.Parse("2006-01-02", cur); err != nil {
@@ -13218,6 +13220,48 @@ func (h *Handler) stripLegacyCheckins(ctx context.Context) {
 	if total > 0 {
 		log.Printf("[legacy-strip] rewrote %d row(s); cursor at %s", total, day.Format("2006-01-02"))
 	}
+}
+
+// legacyStripPct is the cleanup's progress, 0–100, for the Settings page: days done
+// between the start day and today. The start day is recorded when the job begins;
+// for a run that started before that field existed it is looked up once (indexed
+// MIN(created_at)) and saved.
+func (h *Handler) legacyStripPct(ctx context.Context) int {
+	cur := h.cfg.LegacyStripCursor()
+	if cur == "done" {
+		return 100
+	}
+	if cur == "" {
+		return 0
+	}
+	curDay, err := time.Parse("2006-01-02", cur)
+	if err != nil {
+		return 0
+	}
+	start := h.cfg.LegacyStripStart()
+	if start == "" {
+		if oldest, ok, err := h.db.OldestCheckinDay(ctx); err == nil && ok {
+			start = oldest.Format("2006-01-02")
+			_ = h.cfg.SetLegacyStripStart(start)
+		}
+	}
+	startDay, err := time.Parse("2006-01-02", start)
+	if err != nil {
+		return 0
+	}
+	today := time.Now().UTC().Truncate(24 * time.Hour)
+	total := today.Sub(startDay).Hours() / 24
+	if total <= 0 {
+		return 100
+	}
+	pct := int(100 * curDay.Sub(startDay).Hours() / 24 / total)
+	if pct < 0 {
+		return 0
+	}
+	if pct > 100 {
+		return 100
+	}
+	return pct
 }
 
 // applyPrunes deletes check-ins and logcat results past their retention windows
