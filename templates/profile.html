@@ -31,7 +31,7 @@
         <div class="cc-eyebrow">{{if .ViewingOther}}Users · Access control{{else}}My profile{{end}}</div>
         <div class="pf-name">{{.Display}}</div>
         <div class="pf-meta">
-          <span class="pf-role">{{.Role}}</span>
+          <span class="pf-role">{{if .User}}{{roleLabel .User.Role}}{{else}}{{roleLabel .Role}}{{end}}</span>
           <span class="mono">{{.Username}}</span>
           {{if .User}}{{if .User.Email}}<span>{{.User.Email}}{{if .User.EmailVerifiedAt}} · verified{{end}}</span>{{end}}<span>Joined {{shortDate .User.CreatedAt}}</span>{{end}}
           {{if .Stats.FirstAt}}<span>First action {{shortDate (deref .Stats.FirstAt)}}</span>{{end}}
@@ -58,14 +58,12 @@
         </form>
         <form action="/users/{{.User.ID}}/role" method="POST" class="pf-row" style="gap:8px;">
           <span class="k" style="flex:0 0 90px;">Role</span>
-          {{if eq .User.Role "admin"}}<span class="cc-pill danger">admin</span><span class="muted small">fixed</span>{{else}}
-          <select name="role" class="form-input" style="width:140px;">
-            <option value="viewer"{{if eq .User.Role "viewer"}} selected{{end}}>Viewer</option>
-            <option value="operator"{{if eq .User.Role "operator"}} selected{{end}}>Operator</option>
+          <select name="role" class="form-input" style="width:160px;">
+            {{$cur := .User.Role}}{{range .Assignable}}<option value="{{.}}"{{if eq . $cur}} selected{{end}}>{{roleLabel .}}</option>{{end}}
+            {{if not (hasStr .Assignable .User.Role)}}<option value="{{.User.Role}}" selected>{{roleLabel .User.Role}}</option>{{end}}
           </select>
-          <button type="submit" class="cc-btn sm">Save</button>{{end}}
+          <button type="submit" class="cc-btn sm">Save</button>
         </form>
-        {{if ne .User.Role "admin"}}
         <form action="/users/{{.User.ID}}/password" method="POST" class="pf-row" style="gap:8px;">
           <span class="k" style="flex:0 0 90px;">Password</span>
           <input type="password" name="password" class="form-input" placeholder="New password" required autocomplete="new-password" minlength="8" style="width:200px;">
@@ -75,18 +73,17 @@
           <span class="k" style="flex:0 0 90px;">Delete</span>
           <button type="submit" class="cc-btn sm" style="color:var(--danger);border-color:var(--danger-edge);">Delete account</button>
         </form>
-        {{end}}
       </div>
     </div>
 
-    {{if ne .User.Role "admin"}}
+    {{if or (eq .User.Role "operator") (eq .User.Role "user_manager") (eq .User.Role "viewer")}}
     <div class="cc-card" id="pf-access">
       <div class="cc-ch"><span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><h3>Access</h3><span class="m">{{if .PolicyEmpty}}full {{.User.Role}} access{{else}}custom{{end}}</span></div>
       <form method="POST" action="/users/{{.User.ID}}/access" hx-boost="true" class="pf-list" id="pf-access-form">
         <div class="muted small" style="padding:6px 0 10px;">
-          {{if eq .User.Role "operator"}}Rules refine what this operator may do and where. A <b>deny</b> always wins over an allow. Actions not covered by any rule fall back to the base.{{else}}For a viewer only <b>See device</b> matters: deny it for a group or venue to hide those devices from them.{{end}}
+          {{if or (eq .User.Role "operator") (eq .User.Role "user_manager")}}Rules refine what this user may do on devices and where. A <b>deny</b> always wins over an allow. Actions not covered by any rule fall back to the base.{{else}}For a viewer only <b>See device</b> matters: deny it for a group or venue to hide those devices from them.{{end}}
         </div>
-        {{if eq .User.Role "operator"}}
+        {{if or (eq .User.Role "operator") (eq .User.Role "user_manager")}}
         <div class="pf-row" style="gap:10px;">
           <span class="k" style="flex:0 0 90px;">Base</span>
           <select name="base" class="form-input" style="width:auto;">

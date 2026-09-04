@@ -3,7 +3,7 @@
 {{/* Lean releases page: a release is just version + product + changelog + update packages.
      Pushing OTA lives on its own page (/updates). QA/sign-off/testing/problems/branches
      were removed. */}}
-{{$canQfil := or (eq .Role "admin") (eq .Role "dev") (eq .Role "operator")}}
+{{$canQfil := canOperate .Role}}
 
 <style>
 /* ── Releases · command center ──────────────────────────── */
@@ -45,7 +45,7 @@ a.rl-ver:hover{color:var(--accent-text)}
   </div>
   <div class="cc-actions">
     <a href="/updates" class="cc-btn"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Updates hub</a>
-    {{if canAdmin .Role}}<button type="button" class="cc-btn primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New release</button>{{end}}
+    {{if canRelease .Role}}<button type="button" class="cc-btn primary" onclick="document.getElementById('create-pkg-modal').classList.add('modal-open')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New release</button>{{end}}
   </div>
 </div>
 
@@ -116,7 +116,7 @@ a.rl-ver:hover{color:var(--accent-text)}
 </script>
 
 {{if .Versions}}
-{{if and (canAdmin $.Role) (gt .NotTrackedCount 0)}}
+{{if and (canRelease $.Role) (gt .NotTrackedCount 0)}}
 <label class="rl-reported-toggle" title="Builds seen on devices that aren't managed releases yet — hidden by default to reduce clutter">
   <input type="checkbox" onchange="document.querySelector('.rl-list').classList.toggle('show-reported', this.checked)">
   Show {{.NotTrackedCount}} reported build{{if ne .NotTrackedCount 1}}s{{end}} not yet added
@@ -166,7 +166,7 @@ a.rl-ver:hover{color:var(--accent-text)}
       <span class="rl-rollf">{{if gt .DeviceCount 0}}<a href="/devices?build={{urlquery .Version}}"><b>{{.DeviceCount}}</b></a>{{else}}<b>0</b>{{end}} of {{$.FleetTotal}}</span>
     </div>
     <div class="rl-act">
-      {{if canAdmin $.Role}}<form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="cc-btn sm primary" title="Create a release for this version (product inferred from the devices on it)">+ Add as release</button></form>{{end}}
+      {{if canRelease $.Role}}<form action="/releases/track" method="POST"><input type="hidden" name="version" value="{{.Version}}"><button type="submit" class="cc-btn sm primary" title="Create a release for this version (product inferred from the devices on it)">+ Add as release</button></form>{{end}}
     </div>
   </div>
   {{end}}
@@ -182,12 +182,12 @@ a.rl-ver:hover{color:var(--accent-text)}
     {{else}}
     <div><b>No releases or device versions yet</b><br>Create a release to manage a changelog and update packages, or versions appear here as devices report them.</div>
     {{end}}
-    {{if canAdmin .Role}}<div class="muted" style="font-size:12px;">Use <b>New release</b> (top right) to create one.</div>{{end}}
+    {{if canRelease .Role}}<div class="muted" style="font-size:12px;">Use <b>New release</b> (top right) to create one.</div>{{end}}
   </div>
 </div>
 {{end}}
 
-{{if canAdmin .Role}}
+{{if canRelease .Role}}
 <!-- New Release modal: version + product + changelog. update packages are attached on the next screen. -->
 <div id="create-pkg-modal" class="modal-backdrop" onclick="if(event.target===this)this.classList.remove('modal-open')">
   <div class="modal-box" style="max-width:540px;">

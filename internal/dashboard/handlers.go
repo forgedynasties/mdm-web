@@ -513,24 +513,28 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 		// canAdmin reports whether a role has operational admin power in the UI:
 		// both "admin" and "dev" do. Used to gate operational buttons/links;
 		// settings and user-management UI stay on a literal `eq .Role "admin"`.
-		"canAdmin": func(role string) bool { return role == "admin" || role == "dev" },
+		"canAdmin": func(role string) bool { return role == "admin" },
+		// canRelease: release / OTA / deployment controls — admin or dev.
+		"canRelease": func(role string) bool { return role == "admin" || role == "dev" },
+		// canManageUsers: the Users pages (roster, activity, access control).
+		"canManageUsers": roleManagesUsers,
+		"roleLabel":      roleLabel,
+		"roleLevel":      roleLevel,
 		// canAdminOrOperator mirrors requireAdminOrOperator: admin/dev plus the test team,
 		// for group/restaurant creation and kiosk mode. Used to show those controls.
-		"canAdminOrOperator": func(role string) bool {
-			return role == "admin" || role == "dev" || role == "operator"
-		},
+		"canAdminOrOperator": func(role string) bool { return roleCanOperate(role) },
 		// canAct gates only the Actions dock link. Every authenticated role may
 		// open the Actions page — viewers see it read-only (the builder, recipes,
 		// resend and delete controls are all separately gated by canOperate /
 		// canAdmin, so a viewer sees history but no way to act).
 		"canAct": func(role string) bool {
-			return role == "admin" || role == "dev" || role == "operator" || role == "viewer"
+			return role != ""
 		},
 		// canOperate reports action-level UI power: the test team plus admin/dev.
 		// Mirrors requireOperatorOrAdmin on the server so the dashboard shows the
 		// same actions those roles can actually perform.
 		"canOperate": func(role string) bool {
-			return role == "admin" || role == "dev" || role == "operator"
+			return roleCanOperate(role)
 		},
 		// plainAlert strips a humanized alert sentence to plain text (for search).
 		"plainAlert": plainSentence,
@@ -1776,7 +1780,7 @@ func (h *Handler) DeviceAlertsPanel(w http.ResponseWriter, r *http.Request) {
 	crashes := toCrashCards(mustCrashes(h.db.ListDeviceCrashes(ctx, device.ID, 50)))
 	raw, _ := h.db.ListDeviceActiveAlerts(ctx, device.ID, 50)
 	role := h.role(r)
-	canAct := role == "admin" || role == "dev" || role == "operator"
+	canAct := roleCanOperate(role)
 	var alerts []humanAlert
 	for _, a := range raw {
 		ha := humanizeAlert(a)
@@ -1807,6 +1811,10 @@ func (h *Handler) UserProfilePage(w http.ResponseWriter, r *http.Request) {
 	u, err := h.db.GetUser(r.Context(), id)
 	if err != nil || u == nil {
 		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+	if !mayManageUser(h.role(r), u.Role, "") {
+		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
 		return
 	}
 	h.renderProfile(w, r, u.Username, true)
@@ -1851,6 +1859,7 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 		"Recent":       recent,
 		"ViewingOther": viewingOther,
 		"UsersTab":     "access",
+		"Assignable":   assignableRoles(h.role(r)),
 	})
 }
 
@@ -1918,6 +1927,28 @@ func (h *Handler) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 // restaurants, devices, commands, …). Both "admin" and "dev" pass: a dev has
 // full operational power and differs from admin only in being barred from
 // settings and user management — those use requireStrictAdmin instead.
+// requireReleaseAdmin guards the release / OTA / deployment / QA-catalog routes:
+// admin or dev. Dev is exactly "operator + releases + OTA"; everything else
+// admin-only stays on requireAdmin.
+func (h *Handler) requireReleaseAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if s.Role != "admin" && s.Role != "dev" {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		if h.maintenanceGate(w, r) {
+			return
+		}
+		h.touchSession(r)
+		next(w, r)
+	}
+}
+
 func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// An anonymous caller is redirected to login like any other protected
@@ -1928,7 +1959,7 @@ func (h *Handler) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "admin" && s.Role != "dev" {
+		if s.Role != "admin" {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -1950,7 +1981,7 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "admin" && s.Role != "dev" && s.Role != "operator" {
+		if !roleCanOperate(s.Role) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -1964,6 +1995,27 @@ func (h *Handler) requireAdminOrOperator(next http.HandlerFunc) http.HandlerFunc
 
 // requireStrictAdmin guards the two areas a dev must never reach: settings and
 // user management. Only the env-configured "admin" passes.
+// requireUserManager guards the Users pages: admin or user_manager. Per-target
+// elevation checks (who may edit whom) live in the handlers via mayManageUser.
+func (h *Handler) requireUserManager(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		s, ok := h.currentSession(r)
+		if !ok {
+			http.Redirect(w, r, "/login", http.StatusFound)
+			return
+		}
+		if !roleManagesUsers(s.Role) {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+		if h.maintenanceGate(w, r) {
+			return
+		}
+		h.touchSession(r)
+		next(w, r)
+	}
+}
+
 func (h *Handler) requireStrictAdmin(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s, ok := h.currentSession(r)
@@ -2011,7 +2063,7 @@ func (h *Handler) requireOperatorOrAdmin(next http.HandlerFunc) http.HandlerFunc
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "admin" && s.Role != "dev" && s.Role != "operator" {
+		if !roleCanOperate(s.Role) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -2033,7 +2085,7 @@ func (h *Handler) requireOperatorRole(next http.HandlerFunc) http.HandlerFunc {
 			http.Redirect(w, r, "/login", http.StatusFound)
 			return
 		}
-		if s.Role != "operator" {
+		if !roleIsOperatorLike(s.Role) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -2533,7 +2585,7 @@ func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 	// active devices. Any other value collapses to active-only (there is no mixed view).
 	role := h.role(r)
 	hiddenParam := ""
-	if r.URL.Query().Get("hidden") == "only" && (role == "admin" || role == "dev") {
+	if r.URL.Query().Get("hidden") == "only" && role == "admin" {
 		hiddenParam = "only"
 	}
 	return db.DeviceFilter{
@@ -3858,7 +3910,7 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 		// endpoint accepts (admin/dev/operator, i.e. canAdminOrOperator); gating this on
 		// admin alone left an operator the button and popover but an empty group list,
 		// so "+ group" did nothing.
-		if role == "admin" || role == "dev" || role == "operator" {
+		if roleCanOperate(role) {
 			inGroup := make(map[uuid.UUID]bool, len(dg))
 			for _, g := range dg {
 				inGroup[g.ID] = true
@@ -5009,7 +5061,7 @@ func (h *Handler) AlertList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role := h.role(r)
-	canAct := role == "admin" || role == "dev" || role == "operator"
+	canAct := roleCanOperate(role)
 
 	// Optional per-device filter (a device's Alerts-tab "Show more" links here so the
 	// full list opens scoped to that unit). Resolve the serial to an ID; an unknown
@@ -9095,8 +9147,8 @@ func (h *Handler) releaseQAData(r *http.Request, rel *db.Release) map[string]any
 		"Problems":       problems,
 		"Carried":        carried,
 		"ProblemSummary": ps,
-		"CanRecord":      role == "operator",
-		"CanReport":      role == "admin" || role == "dev" || role == "operator",
+		"CanRecord":      roleIsOperatorLike(role),
+		"CanReport":      roleCanOperate(role),
 		"CanAct":         role == "admin" || role == "dev", // act on existing problems (fixed/verified/wontfix) — operators file only
 	}
 }
@@ -9568,7 +9620,7 @@ func (h *Handler) DeploymentDetail(w http.ResponseWriter, r *http.Request) {
 	// deployment (see template) — skip the expensive full-fleet load otherwise so
 	// viewers and canceled/finished deployments don't pay for a list they can't use.
 	role := h.role(r)
-	canOp := role == "admin" || role == "dev" || role == "operator"
+	canOp := roleCanOperate(role)
 	if !canOp || upd.Status == "canceled" {
 		data["Devices"] = nil
 		data["Online"] = map[uuid.UUID]bool{}
@@ -10345,7 +10397,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	}
 	saved, _ := h.db.ListRecipes(r.Context())
 	role := h.role(r)
-	canOp := role == "admin" || role == "dev" || role == "operator"
+	canOp := roleCanOperate(role)
 	for _, rec := range saved {
 		// For roles that can act, hide recipes they aren't allowed to issue (so a
 		// click never leads to a rejected send). Viewers see every recipe — the
@@ -10398,7 +10450,7 @@ func (h *Handler) CommandList(w http.ResponseWriter, r *http.Request) {
 	// Diagnostics catalog for the Actions builder (admin/dev/operator run them; the
 	// pill is hidden for viewers and when the catalog is empty).
 	var actionQueries []db.DeviceQuery
-	if role := h.role(r); role == "admin" || role == "dev" || role == "operator" {
+	if role := h.role(r); roleCanOperate(role) {
 		actionQueries, _ = h.db.ListEnabledDeviceQueries(r.Context())
 	}
 
@@ -11403,17 +11455,82 @@ const (
 // Raw shell is limited to admin/dev; operators reach vetted commands via the device
 // queries catalog instead (the "diagnostic" action on the Actions page).
 var commandRoles = map[string][]string{
-	"screenshot":    {"admin", "dev", "operator", "viewer"},
-	"install_apk":   {"admin", "dev", "operator"},
-	"uninstall":     {"admin", "dev", "operator"},
-	"reboot":        {"admin", "dev", "operator"},
+	"screenshot":    {"admin", "dev", "operator", "user_manager", "viewer"},
+	"install_apk":   {"admin", "dev", "operator", "user_manager"},
+	"uninstall":     {"admin", "dev", "operator", "user_manager"},
+	"reboot":        {"admin", "dev", "operator", "user_manager"},
 	"shell":         {"admin", "dev"},
 	// "query" is a read-only diagnostic; its command text is admin-vetted (chosen by
 	// query_id from the catalog, never user-supplied), so operators may issue it.
-	"query":         {"admin", "dev", "operator"},
+	"query":         {"admin", "dev", "operator", "user_manager"},
 	"ota":           {"admin", "dev"},
 	"update_splash": {"admin", "dev"},
 	"logcat":        {"admin", "dev"},
+}
+
+// ── Roles ────────────────────────────────────────────────────────────────────
+//
+// Levels, highest first: admin ("Super admin", 4) → dev (3) → user_manager (2)
+// → operator (1) → viewer (0). A user may only create, edit or delete accounts
+// strictly below their own level, and may only assign roles below their own.
+// The env dashboard login is always an admin.
+//   admin         everything
+//   dev           releases / OTA / deployments / productions + every operator action
+//   user_manager  users, access policies, activity + every operator action
+//   operator      device actions, per access policy
+//   viewer        read-only, per visibility policy
+
+var roleLevels = map[string]int{"viewer": 0, "operator": 1, "user_manager": 2, "dev": 3, "admin": 4}
+
+var roleLabels = map[string]string{"admin": "Super Admin Ali The Goat", "dev": "Dev", "user_manager": "User manager", "operator": "Operator", "viewer": "Viewer"}
+
+// roleOrder is every assignable role, highest first.
+var roleOrder = []string{"admin", "dev", "user_manager", "operator", "viewer"}
+
+func roleLevel(role string) int { return roleLevels[role] }
+
+func roleLabel(role string) string {
+	if l, ok := roleLabels[role]; ok {
+		return l
+	}
+	return role
+}
+
+// roleCanOperate: roles with operator powers (device actions, QA, groups…).
+func roleCanOperate(role string) bool {
+	return role == "admin" || role == "dev" || role == "user_manager" || role == "operator"
+}
+
+// roleIsOperatorLike: the "test team" roles — operator, or user manager acting
+// as one. Used where operators specifically (not admins) get a behaviour.
+func roleIsOperatorLike(role string) bool { return role == "operator" || role == "user_manager" }
+
+// roleManagesUsers: may open the Users pages and edit accounts below their level.
+func roleManagesUsers(role string) bool { return role == "admin" || role == "user_manager" }
+
+// assignableRoles lists the roles an actor may grant: strictly below their level,
+// except an admin who may also make admins.
+func assignableRoles(actorRole string) []string {
+	lvl := roleLevel(actorRole)
+	var out []string
+	for _, r := range roleOrder {
+		if roleLevel(r) < lvl || (actorRole == "admin" && r == "admin") {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// mayManageUser: actor may act on a target of role targetRole (and, for role
+// changes, grant newRole). Admins may manage anyone, including other admins.
+func mayManageUser(actorRole, targetRole, newRole string) bool {
+	if actorRole == "admin" {
+		return true
+	}
+	if roleLevel(targetRole) >= roleLevel(actorRole) {
+		return false
+	}
+	return newRole == "" || roleLevel(newRole) < roleLevel(actorRole)
 }
 
 // policyActionForCommand maps a command type to the access-policy action key.
@@ -11562,7 +11679,7 @@ func cmdTypeLabel(cmdType string) string {
 // viewers must not see them, so the bucket name is not disclosed via command
 // reads (GB-05).
 func canSeeCommandURLs(role string) bool {
-	return role == "admin" || role == "dev" || role == "operator"
+	return roleCanOperate(role)
 }
 
 // redactDeviceCommandURLs blanks the APK/OTA URL on a command-history slice for
@@ -11617,7 +11734,7 @@ func filterShellCommands(role string, cmds []db.Command) []db.Command {
 // hideAdminCommandsForRole reports whether a role must not see commands the
 // (env-configured, single) admin account created — operators shouldn't see
 // admin-issued actions (e.g. an internal test install) in their Actions view.
-func hideAdminCommandsForRole(role string) bool { return role == "operator" }
+func hideAdminCommandsForRole(role string) bool { return roleIsOperatorLike(role) }
 
 // filterAdminCommands drops commands created by the admin account from an
 // Actions/history slice when the viewer must not see them
@@ -11898,7 +12015,7 @@ func (h *Handler) Manage(w http.ResponseWriter, r *http.Request) {
 		"GroupsTargeted": len(groupTargets),
 		"Restaurants":    restaurants,
 		"Groups":         groups,
-		"CanEdit":        role == "admin" || role == "dev" || role == "operator",
+		"CanEdit":        roleCanOperate(role),
 	})
 }
 
@@ -11923,7 +12040,7 @@ func (h *Handler) managePolicyFormData(r *http.Request) map[string]any {
 		"Devices":       devices,
 		"Online":        online,
 		"FleetPackages": fleetPackages,
-		"CanEdit":       role == "admin" || role == "dev" || role == "operator",
+		"CanEdit":       roleCanOperate(role),
 	}
 }
 
@@ -11931,7 +12048,7 @@ func (h *Handler) managePolicyFormData(r *http.Request) map[string]any {
 // than a modal, so the target/app pickers have room to be more than cramped popup
 // widgets.
 func (h *Handler) ManagePolicyNew(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
+	if role := h.role(r); !roleCanOperate(role) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -11942,7 +12059,7 @@ func (h *Handler) ManagePolicyNew(w http.ResponseWriter, r *http.Request) {
 
 // ManagePolicyEditPage renders the same form pre-filled for an existing policy.
 func (h *Handler) ManagePolicyEditPage(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
+	if role := h.role(r); !roleCanOperate(role) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -11966,7 +12083,7 @@ func (h *Handler) ManagePolicyEditPage(w http.ResponseWriter, r *http.Request) {
 // form field selects update), then immediately applies it to its target's current
 // devices — same write path applyKioskForTargets always used.
 func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
+	if role := h.role(r); !roleCanOperate(role) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -12031,7 +12148,7 @@ func (h *Handler) ManagePolicySave(w http.ResponseWriter, r *http.Request) {
 // ManagePolicyDuplicate clones a policy (name suffixed) without re-applying it —
 // the clone starts as its own independent policy the user can retarget before saving.
 func (h *Handler) ManagePolicyDuplicate(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
+	if role := h.role(r); !roleCanOperate(role) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -12059,7 +12176,7 @@ func (h *Handler) ManagePolicyDuplicate(w http.ResponseWriter, r *http.Request) 
 // expects "delete the policy" to mean rather than leaving devices silently locked
 // with nothing left to manage them.
 func (h *Handler) ManagePolicyDelete(w http.ResponseWriter, r *http.Request) {
-	if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
+	if role := h.role(r); !roleCanOperate(role) {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -12147,7 +12264,7 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 	// the old bulk-kiosk action). Gate it directly (admin/dev/operator), not via the
 	// command-role machinery the real commands use.
 	if cmdType == "set_kiosk" {
-		if role := h.role(r); role != "admin" && role != "dev" && role != "operator" {
+		if role := h.role(r); !roleCanOperate(role) {
 			http.Error(w, "Forbidden", http.StatusForbidden)
 			return
 		}
@@ -15292,6 +15409,7 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 		"Orphans":   orphans,
 		"Summaries": summaries,
 		"UsersTab":  "people",
+		"Assignable": assignableRoles(h.role(r)),
 		"Admins":    admins,
 		"Operators": operators,
 		"Viewers":   viewers,
@@ -15438,11 +15556,8 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 // validUserRole reports whether role is a role an admin may assign to a DB user.
 // "admin" is excluded — it is env-configured only, never a DB user.
 func validUserRole(role string) bool {
-	switch role {
-	case "viewer", "operator":
-		return true
-	}
-	return false
+	_, ok := roleLevels[role]
+	return ok
 }
 
 func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
@@ -15457,6 +15572,10 @@ func (h *Handler) UserCreate(w http.ResponseWriter, r *http.Request) {
 	lastName := strings.TrimSpace(r.FormValue("last_name"))
 
 	if email == "" || password == "" || !validUserRole(role) {
+	if role := r.FormValue("role"); !mayManageUser(h.role(r), "viewer", role) && role != "" {
+		http.Error(w, "You can only create accounts with a role below your own level.", http.StatusForbidden)
+		return
+	}
 		http.Error(w, "Invalid form data", http.StatusBadRequest)
 		return
 	}
@@ -15483,6 +15602,15 @@ func (h *Handler) UserSetName(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
+	target, err := h.db.GetUser(r.Context(), id)
+	if err != nil || target == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+	if !mayManageUser(h.role(r), target.Role, "") {
+		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
+		return
+	}
 	r.ParseForm()
 	firstName := strings.TrimSpace(r.FormValue("first_name"))
 	lastName := strings.TrimSpace(r.FormValue("last_name"))
@@ -15497,6 +15625,15 @@ func (h *Handler) UserDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+	target, err := h.db.GetUser(r.Context(), id)
+	if err != nil || target == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+	if !mayManageUser(h.role(r), target.Role, "") {
+		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
 		return
 	}
 	if err := h.db.DeleteUser(r.Context(), id); err != nil {
@@ -15514,9 +15651,22 @@ func (h *Handler) UserSetRole(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
+	target, err := h.db.GetUser(r.Context(), id)
+	if err != nil || target == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+	if !mayManageUser(h.role(r), target.Role, "") {
+		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
+		return
+	}
 	role := r.FormValue("role")
 	if !validUserRole(role) {
 		http.Error(w, "Invalid role", http.StatusBadRequest)
+		return
+	}
+	if !mayManageUser(h.role(r), target.Role, role) {
+		http.Error(w, "You can only assign roles below your own level.", http.StatusForbidden)
 		return
 	}
 	if err := h.db.UpdateUserRole(r.Context(), id, role); err != nil {
@@ -15532,6 +15682,15 @@ func (h *Handler) UserSetPassword(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+	target, err := h.db.GetUser(r.Context(), id)
+	if err != nil || target == nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+	if !mayManageUser(h.role(r), target.Role, "") {
+		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
 		return
 	}
 	password := r.FormValue("password")
@@ -15623,14 +15782,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /devices/{serial}/wlc", h.requireAdminOrOperator(h.DeviceWlcUpdate))
 	post("POST /devices/{serial}/offline-code/rotate", h.requireAdmin(h.DeviceRotateOfflineCode))
 	mux.HandleFunc("GET /devices/{serial}/offline-code", h.requireOperatorOrAdmin(h.DeviceOfflineCode))
-	post("POST /devices/{serial}/hide", h.requireAdmin(h.DeviceHide))
-	post("POST /devices/{serial}/unhide", h.requireAdmin(h.DeviceUnhide))
+	post("POST /devices/{serial}/hide", h.requireStrictAdmin(h.DeviceHide))
+	post("POST /devices/{serial}/unhide", h.requireStrictAdmin(h.DeviceUnhide))
 	post("POST /devices/{serial}/clear-ota", h.requireAdmin(h.DeviceClearOTA))
 	// Remote screen capture + input injection is highly sensitive (full control of the
 	// device), so it is restricted to admins only.
 	mux.HandleFunc("GET /devices/{serial}/remote", h.requireAdminOrOperator(h.DeviceRemote))
-	post("POST /devices/bulk-hide", h.requireAdmin(h.BulkHideDevices))
-	post("POST /devices/bulk-unhide", h.requireAdmin(h.BulkUnhideDevices))
+	post("POST /devices/bulk-hide", h.requireStrictAdmin(h.BulkHideDevices))
+	post("POST /devices/bulk-unhide", h.requireStrictAdmin(h.BulkUnhideDevices))
 	post("POST /devices/bulk-restaurant", h.requireAdmin(h.BulkAssignRestaurant))
 	post("POST /devices/bulk-kiosk", h.requireAdminOrOperator(h.BulkKioskUpdate))
 	post("POST /devices/bulk-kiosk-apps", h.requireAdminOrOperator(h.BulkKioskApps))
@@ -15798,74 +15957,74 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /releases", h.requireAdminOrOperator(h.ReleaseList))
 	mux.HandleFunc("GET /releases/events", h.requireAdminOrOperator(h.ReleaseProblemEvents))
-	post("POST /releases", h.requireAdmin(h.ReleaseCreate))
+	post("POST /releases", h.requireReleaseAdmin(h.ReleaseCreate))
 	mux.HandleFunc("GET /releases/{id}", h.requireAdminOrOperator(h.ReleaseDetail))
 	mux.HandleFunc("GET /releases/{id}/qa", h.requireAdminOrOperator(h.ReleaseQAPage))
-	post("POST /releases/{id}/packages", h.requireAdmin(h.ReleaseAddPackage))
-	post("POST /releases/{id}/packages/inspect", h.requireAdmin(h.PackageInspect))
+	post("POST /releases/{id}/packages", h.requireReleaseAdmin(h.ReleaseAddPackage))
+	post("POST /releases/{id}/packages/inspect", h.requireReleaseAdmin(h.PackageInspect))
 	mux.HandleFunc("GET /releases/{id}/crashes", h.requireAdminOrOperator(h.ReleaseCrashes))
-	post("POST /releases/{id}/crashes/group/delete", h.requireAdmin(h.ReleaseCrashGroupDelete))
-	post("POST /releases/{id}/crashes/{eid}/delete", h.requireAdmin(h.ReleaseCrashDelete))
-	post("POST /releases/{id}/packages/{pid}/delete", h.requireAdmin(h.PackageDelete))
-	post("POST /releases/{id}/qfil", h.requireAdmin(h.ReleaseAddQFIL))
-	post("POST /releases/{id}/qfil/{qid}/delete", h.requireAdmin(h.ReleaseDeleteQFIL))
-	post("POST /releases/track", h.requireAdmin(h.ReleaseTrack))
-	post("POST /releases/order", h.requireAdmin(h.ReorderVersions))
-	post("POST /releases/version/hide", h.requireAdmin(h.VersionHide))
-	post("POST /releases/version/unhide", h.requireAdmin(h.VersionUnhide))
-	post("POST /releases/{id}/meta", h.requireAdmin(h.ReleaseEditMeta))
-	post("POST /releases/{id}/rename", h.requireAdmin(h.ReleaseRename))
-	post("POST /releases/{id}/qa-base", h.requireAdmin(h.ReleaseSetSkipBase))
-	post("POST /releases/{id}/hide", h.requireAdmin(h.ReleaseSetHidden))
-	post("POST /releases/{id}/delete", h.requireAdmin(h.ReleaseDelete))
-	post("POST /releases/{id}/publish", h.requireAdmin(h.ReleasePublish))
+	post("POST /releases/{id}/crashes/group/delete", h.requireReleaseAdmin(h.ReleaseCrashGroupDelete))
+	post("POST /releases/{id}/crashes/{eid}/delete", h.requireReleaseAdmin(h.ReleaseCrashDelete))
+	post("POST /releases/{id}/packages/{pid}/delete", h.requireReleaseAdmin(h.PackageDelete))
+	post("POST /releases/{id}/qfil", h.requireReleaseAdmin(h.ReleaseAddQFIL))
+	post("POST /releases/{id}/qfil/{qid}/delete", h.requireReleaseAdmin(h.ReleaseDeleteQFIL))
+	post("POST /releases/track", h.requireReleaseAdmin(h.ReleaseTrack))
+	post("POST /releases/order", h.requireReleaseAdmin(h.ReorderVersions))
+	post("POST /releases/version/hide", h.requireReleaseAdmin(h.VersionHide))
+	post("POST /releases/version/unhide", h.requireReleaseAdmin(h.VersionUnhide))
+	post("POST /releases/{id}/meta", h.requireReleaseAdmin(h.ReleaseEditMeta))
+	post("POST /releases/{id}/rename", h.requireReleaseAdmin(h.ReleaseRename))
+	post("POST /releases/{id}/qa-base", h.requireReleaseAdmin(h.ReleaseSetSkipBase))
+	post("POST /releases/{id}/hide", h.requireReleaseAdmin(h.ReleaseSetHidden))
+	post("POST /releases/{id}/delete", h.requireReleaseAdmin(h.ReleaseDelete))
+	post("POST /releases/{id}/publish", h.requireReleaseAdmin(h.ReleasePublish))
 	mux.HandleFunc("GET /updates", h.requireAdminOrOperator(h.UpdatesHub))
-	mux.HandleFunc("GET /updates/new", h.requireAdmin(h.NewUpdatePage))
-	post("POST /updates", h.requireAdmin(h.DeployCreate))
-	post("POST /releases/{id}/deploy", h.requireAdmin(h.ReleaseDeploy))
+	mux.HandleFunc("GET /updates/new", h.requireReleaseAdmin(h.NewUpdatePage))
+	post("POST /updates", h.requireReleaseAdmin(h.DeployCreate))
+	post("POST /releases/{id}/deploy", h.requireReleaseAdmin(h.ReleaseDeploy))
 	post("POST /releases/{id}/sign-off", h.requireDev(h.ReleaseSignOff))
 	post("POST /releases/{id}/sign-off/clear", h.requireDev(h.ReleaseClearSignOff))
 	post("POST /releases/{id}/testing-done", h.requireAdminOrOperator(h.ReleaseTestingDone))
 	post("POST /releases/{id}/testing-done/clear", h.requireAdminOrOperator(h.ReleaseReopenTesting))
-	post("POST /releases/{id}/branch", h.requireAdmin(h.ReleaseCreateBranch))
-	post("POST /releases/{id}/merge", h.requireAdmin(h.ReleaseMerge))
+	post("POST /releases/{id}/branch", h.requireReleaseAdmin(h.ReleaseCreateBranch))
+	post("POST /releases/{id}/merge", h.requireReleaseAdmin(h.ReleaseMerge))
 	post("POST /releases/{id}/test-results", h.requireOperatorRole(h.ReleaseSetTestResult))
 	// Problem reports: any operator/operator can file and triage; admins can delete.
 	post("POST /releases/{id}/problems", h.requireOperatorOrAdmin(h.ReleaseProblemCreate))
 	post("POST /releases/{id}/problems/{pid}", h.requireOperatorOrAdmin(h.ReleaseProblemUpdate))
-	post("POST /releases/{id}/problems/{pid}/delete", h.requireAdmin(h.ReleaseProblemDelete))
+	post("POST /releases/{id}/problems/{pid}/delete", h.requireReleaseAdmin(h.ReleaseProblemDelete))
 
 	// Test team / QA — base cases are managed inline on the Releases page (admin),
 	// operators mark results per-release. No standalone Testing/Test-cases pages.
-	post("POST /test-cases", h.requireAdmin(h.TestCaseCreate))
-	post("POST /test-cases/{id}/edit", h.requireAdmin(h.TestCaseUpdate))
-	post("POST /test-cases/{id}/delete", h.requireAdmin(h.TestCaseDelete))
+	post("POST /test-cases", h.requireReleaseAdmin(h.TestCaseCreate))
+	post("POST /test-cases/{id}/edit", h.requireReleaseAdmin(h.TestCaseUpdate))
+	post("POST /test-cases/{id}/delete", h.requireReleaseAdmin(h.TestCaseDelete))
 	mux.HandleFunc("GET /demo/updates", h.requireAdminOrOperator(h.DemoUpdatesIndex))
 	mux.HandleFunc("GET /demo/updates/{scenario}", h.requireAdminOrOperator(h.DemoUpdatesScenario))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}", h.requireAdminOrOperator(h.DeploymentDetail))
 	mux.HandleFunc("GET /releases/{id}/deployments/{did}/events", h.requireAdminOrOperator(h.DeploymentEvents))
-	post("POST /releases/{id}/deployments/{did}/settings", h.requireAdmin(h.DeploymentUpdateSettings))
+	post("POST /releases/{id}/deployments/{did}/settings", h.requireReleaseAdmin(h.DeploymentUpdateSettings))
 	post("POST /releases/{id}/deployments/{did}/cancel", h.requireOperatorOrAdmin(h.DeploymentCancel))
-	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireAdmin(h.DeploymentAddTargets))
+	post("POST /releases/{id}/deployments/{did}/add-targets", h.requireReleaseAdmin(h.DeploymentAddTargets))
 	post("POST /releases/{id}/deployments/{did}/reboot-all", h.requireOperatorOrAdmin(h.DeploymentRebootAll))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/reboot", h.requireOperatorOrAdmin(h.DeploymentRebootDevice))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/retry", h.requireOperatorOrAdmin(h.DeploymentRetryDevice))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/cancel-ota", h.requireOperatorOrAdmin(h.DeploymentCancelDeviceOTA))
 	post("POST /releases/{id}/deployments/{did}/devices/{serial}/remove", h.requireOperatorOrAdmin(h.DeploymentRemoveDevice))
-	post("POST /releases/{id}/deployments/{did}/delete", h.requireAdmin(h.DeploymentDelete))
+	post("POST /releases/{id}/deployments/{did}/delete", h.requireReleaseAdmin(h.DeploymentDelete))
 
-	mux.HandleFunc("GET /activity", h.requireStrictAdmin(h.ActivityPage))
-	mux.HandleFunc("GET /users", h.requireStrictAdmin(h.UserList))
-	post("POST /users", h.requireStrictAdmin(h.UserCreate))
-	post("POST /users/{id}/role", h.requireStrictAdmin(h.UserSetRole))
-	post("POST /users/{id}/name", h.requireStrictAdmin(h.UserSetName))
-	post("POST /users/{id}/password", h.requireStrictAdmin(h.UserSetPassword))
-	post("POST /users/{id}/delete", h.requireStrictAdmin(h.UserDelete))
-	post("POST /users/merge", h.requireStrictAdmin(h.UserMergeActor))
+	mux.HandleFunc("GET /activity", h.requireUserManager(h.ActivityPage))
+	mux.HandleFunc("GET /users", h.requireUserManager(h.UserList))
+	post("POST /users", h.requireUserManager(h.UserCreate))
+	post("POST /users/{id}/role", h.requireUserManager(h.UserSetRole))
+	post("POST /users/{id}/name", h.requireUserManager(h.UserSetName))
+	post("POST /users/{id}/password", h.requireUserManager(h.UserSetPassword))
+	post("POST /users/{id}/delete", h.requireUserManager(h.UserDelete))
+	post("POST /users/merge", h.requireUserManager(h.UserMergeActor))
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
-	mux.HandleFunc("GET /users/{id}/profile", h.requireStrictAdmin(h.UserProfilePage))
-	post("POST /users/{id}/access", h.requireStrictAdmin(h.UserSetAccess))
-	mux.HandleFunc("GET /users/access", h.requireStrictAdmin(h.UsersAccessPage))
+	mux.HandleFunc("GET /users/{id}/profile", h.requireUserManager(h.UserProfilePage))
+	post("POST /users/{id}/access", h.requireUserManager(h.UserSetAccess))
+	mux.HandleFunc("GET /users/access", h.requireUserManager(h.UsersAccessPage))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE

@@ -140,6 +140,10 @@ func (a *access) can(action string, dev *uuid.UUID) bool {
 	if a.role == "viewer" && action != "view" && action != "screenshot" {
 		return false
 	}
+	if a.role == "dev" {
+		return true // devs are not policy-restricted
+		return false
+	}
 	deny, allow := false, false
 	for _, rule := range a.pol.Rules {
 		if !a.ruleCovers(rule, action, dev) {
@@ -307,6 +311,10 @@ func (h *Handler) UserSetAccess(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
+	if !mayManageUser(h.role(r), u.Role, "") {
+		http.Error(w, "You can only manage accounts below your own level.", http.StatusForbidden)
+		return
+	}
 	r.ParseForm()
 	pol := db.AccessPolicy{Base: "allow"}
 	if r.FormValue("base") == "deny" {
@@ -444,7 +452,7 @@ func (h *Handler) UsersAccessPage(w http.ResponseWriter, r *http.Request) {
 		rows = append(rows, rw)
 	}
 	// Operators first (the ones you actually configure), then viewers, admins last.
-	order := map[string]int{"operator": 0, "viewer": 1, "dev": 2, "admin": 3}
+	order := map[string]int{"operator": 0, "user_manager": 1, "viewer": 2, "dev": 3, "admin": 4}
 	sort.SliceStable(rows, func(i, j int) bool { return order[rows[i].User.Role] < order[rows[j].User.Role] })
 	h.render(w, r, "users_access.html", map[string]any{
 		"Title":    "Access control",

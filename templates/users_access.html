@@ -31,13 +31,13 @@
       <span class="ua-av role-{{.User.Role}}">{{slice .User.Username 0 1}}</span>
       <div class="ua-id">
         <div class="ua-name">{{.User.DisplayName}}</div>
-        <div class="ua-meta"><span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if eq .User.Role "operator"}}info{{end}}">{{.User.Role}}</span> <span class="mono">{{.User.Username}}</span></div>
+        <div class="ua-meta"><span class="cc-pill {{if eq .User.Role "admin"}}danger{{else if or (eq .User.Role "dev") (eq .User.Role "user_manager")}}warn{{else if eq .User.Role "operator"}}info{{end}}">{{roleLabel .User.Role}}</span> <span class="mono">{{.User.Username}}</span></div>
       </div>
       <div class="ua-rules">
-        {{if eq .User.Role "admin"}}<span class="ua-base">Full access (admin)</span>
-        {{else if .Empty}}<span class="ua-base">{{if eq .User.Role "operator"}}Full operator access{{else}}Sees the whole fleet, read-only{{end}}</span>
+        {{if or (eq .User.Role "admin") (eq .User.Role "dev")}}<span class="ua-base">Full access ({{roleLabel .User.Role}})</span>
+        {{else if .Empty}}<span class="ua-base">{{if eq .User.Role "viewer"}}Sees the whole fleet, read-only{{else}}Full operator access{{end}}</span>
         {{else}}
-          {{if eq .User.Role "operator"}}<span class="ua-base">Base: {{if eq .Policy.Base "deny"}}allow nothing, then include{{else}}allow everything, then exclude{{end}}{{if .Policy.HideOutOfScope}} · out-of-scope devices hidden{{else}} · out-of-scope devices shown read-only{{end}}</span>{{end}}
+          {{if ne .User.Role "viewer"}}<span class="ua-base">Base: {{if eq .Policy.Base "deny"}}allow nothing, then include{{else}}allow everything, then exclude{{end}}{{if .Policy.HideOutOfScope}} · out-of-scope devices hidden{{else}} · out-of-scope devices shown read-only{{end}}</span>{{end}}
           {{range .Rules}}<div class="ua-rule"><span class="e {{.Effect}}">{{.Effect}}</span><span>{{.Text}}</span></div>{{end}}
         {{end}}
       </div>

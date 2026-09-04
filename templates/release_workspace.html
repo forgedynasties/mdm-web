@@ -378,7 +378,7 @@ function pkgVerify() {
 {{end}}
 
 {{define "rd-prob-list"}}
-{{$relID := .Release.ID}}{{$canReport := .CanReport}}{{$isAdmin := canAdmin .Role}}
+{{$relID := .Release.ID}}{{$canReport := .CanReport}}{{$isAdmin := canRelease .Role}}
 {{if .Problems}}
 <div class="prob-list">
   {{range .Problems}}{{template "prob-card" (dict "P" . "RelID" $relID "CanAct" $.CanAct "IsAdmin" $isAdmin)}}{{end}}
@@ -389,7 +389,7 @@ function pkgVerify() {
 {{end}}
 
 {{define "rd-carried-list"}}
-{{$relID := .Release.ID}}{{$canReport := .CanReport}}{{$isAdmin := canAdmin .Role}}
+{{$relID := .Release.ID}}{{$canReport := .CanReport}}{{$isAdmin := canRelease .Role}}
 {{if .Carried}}
 <div class="carried-sec">
   <div class="carried-h">Carried over from earlier builds <span class="muted small">— {{len .Carried}} unresolved bug{{if ne (len .Carried) 1}}s{{end}} riding the train onto {{.RelVersion}}; mark them <b>fixed here</b> and a QA case is added to verify the fix</span></div>

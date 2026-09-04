@@ -10037,8 +10037,11 @@ CREATE INDEX IF NOT EXISTS user_tokens_user_id_idx ON user_tokens (user_id);
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester'));
 UPDATE users SET role = 'operator' WHERE role = 'tester';
+-- Role ladder: admin (super admin) → dev → user_manager → operator → viewer.
+-- Admins and devs may be real accounts too (e.g. Microsoft sign-in), not only
+-- the env login. This is the effective constraint; keep it last.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','user_manager','dev','admin'));
 
 -- First/last name, settable at sign-up and editable by an admin afterward so the
 -- dashboard and audit trail can show a real name instead of a bare email address.
