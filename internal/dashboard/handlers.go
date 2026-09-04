@@ -1738,7 +1738,7 @@ func (h *Handler) UserMergeActor(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Target user not found", http.StatusNotFound)
 		return
 	}
-	if u, err := h.db.GetUserByUsername(r.Context(), from); err == nil && u != nil {
+	if u, err := h.db.GetUserByUsername(r.Context(), from); (err == nil && u != nil) || from == h.user {
 		http.Error(w, "That username still has an account; delete it first if you really mean to merge it", http.StatusConflict)
 		return
 	}
@@ -14996,7 +14996,15 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	// The env-configured admin account isn't a DB row, but it always exists —
 	// count it so the KPI strip isn't misleadingly "0 admins".
 	admins++
+	// The env-configured dashboard login (DASHBOARD_USER) has no users row by
+	// design, so it would otherwise always show up here as "unlinked".
 	orphans, _ := h.db.ListOrphanActors(r.Context())
+	for i := 0; i < len(orphans); i++ {
+		if orphans[i].Username == h.user {
+			orphans = append(orphans[:i], orphans[i+1:]...)
+			i--
+		}
+	}
 	h.render(w, r, "users.html", map[string]any{
 		"Users":     users,
 		"Orphans":   orphans,
