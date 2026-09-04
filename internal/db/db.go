@@ -592,7 +592,8 @@ func (d *DB) MergeActor(ctx context.Context, from, to string) (int64, error) {
 type UserStats struct {
 	Username string
 
-	Actions    int64 // audit_log rows
+	Actions    int64 // audit_log rows, excluding page views
+	PageViews  int64 // dashboard pages opened
 	ActiveDays int   // distinct days with at least one action
 	FirstAt    *time.Time
 	LastAt     *time.Time
@@ -736,7 +737,7 @@ type ActorSummary struct {
 // grouped queries (cheap: audit_log and commands are small tables).
 func (d *DB) ActorSummaries(ctx context.Context) (map[string]ActorSummary, error) {
 	out := map[string]ActorSummary{}
-	rows, err := d.pool.Query(ctx, `SELECT actor, COUNT(*), MAX(created_at) FROM audit_log WHERE actor <> '' GROUP BY actor`)
+	rows, err := d.pool.Query(ctx, `SELECT actor, COUNT(*) FILTER (WHERE action <> '`+PageViewAction+`'), MAX(created_at) FROM audit_log WHERE actor <> '' GROUP BY actor`)
 	if err != nil {
 		return nil, err
 	}
@@ -778,13 +779,15 @@ func (d *DB) UserStats(ctx context.Context, username string) (*UserStats, error)
 		return st, nil
 	}
 	err := d.pool.QueryRow(ctx, `
-		SELECT COUNT(*), COUNT(DISTINCT (created_at AT TIME ZONE 'UTC')::date), MIN(created_at), MAX(created_at)
-		FROM audit_log WHERE actor = $1`, username).Scan(&st.Actions, &st.ActiveDays, &st.FirstAt, &st.LastAt)
+		SELECT COUNT(*) FILTER (WHERE action <> '`+PageViewAction+`'),
+		       COUNT(*) FILTER (WHERE action = '`+PageViewAction+`'),
+		       COUNT(DISTINCT (created_at AT TIME ZONE 'UTC')::date), MIN(created_at), MAX(created_at)
+		FROM audit_log WHERE actor = $1`, username).Scan(&st.Actions, &st.PageViews, &st.ActiveDays, &st.FirstAt, &st.LastAt)
 	if err != nil {
 		return nil, err
 	}
 	rows, err := d.pool.Query(ctx, `
-		SELECT action, COUNT(*) FROM audit_log WHERE actor = $1
+		SELECT action, COUNT(*) FROM audit_log WHERE actor = $1 AND action <> '`+PageViewAction+`'
 		GROUP BY action ORDER BY COUNT(*) DESC, action LIMIT 6`, username)
 	if err != nil {
 		return nil, err
@@ -801,7 +804,7 @@ func (d *DB) UserStats(ctx context.Context, username string) (*UserStats, error)
 	if st.Actions > 0 {
 		err = d.pool.QueryRow(ctx, `
 			WITH r AS (SELECT actor, RANK() OVER (ORDER BY COUNT(*) DESC) AS rk, COUNT(*) OVER () AS n
-			           FROM audit_log WHERE actor <> '' AND actor <> 'unknown' GROUP BY actor)
+			           FROM audit_log WHERE actor <> '' AND actor <> 'unknown' AND action <> '`+PageViewAction+`' GROUP BY actor)
 			SELECT rk, n FROM r WHERE actor = $1`, username).Scan(&st.Rank, &st.Actors)
 		if err != nil && err != pgx.ErrNoRows {
 			return nil, err
@@ -5942,6 +5945,36 @@ func (d *DB) ListAuditFilteredEx(ctx context.Context, actor, excludeActor string
 		rows, err = d.pool.Query(ctx,
 			`SELECT id, created_at, actor, action, target, detail FROM audit_log ORDER BY created_at DESC LIMIT $1`, limit)
 	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []AuditEntry
+	for rows.Next() {
+		var a AuditEntry
+		if err := rows.Scan(&a.ID, &a.CreatedAt, &a.Actor, &a.Action, &a.Target, &a.Detail); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// PageViewAction is the audit action recorded for a dashboard page navigation.
+// Views are excluded from "actions" counts and hidden in Activity unless asked
+// for; they exist so viewer accounts leave a trace too.
+const PageViewAction = "page.view"
+
+// ListAuditForActivity is the Activity page's feed: newest first, optionally
+// without one actor (the env admin) and optionally including page views.
+func (d *DB) ListAuditForActivity(ctx context.Context, excludeActor string, includeViews bool, limit int) ([]AuditEntry, error) {
+	if limit <= 0 || limit > 1000 {
+		limit = 200
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT id, created_at, actor, action, target, detail FROM audit_log
+		WHERE ($2 = '' OR actor <> $2) AND ($3 OR action <> '`+PageViewAction+`')
+		ORDER BY created_at DESC LIMIT $1`, limit, excludeActor, includeViews)
 	if err != nil {
 		return nil, err
 	}

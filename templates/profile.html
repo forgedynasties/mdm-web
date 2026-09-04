@@ -125,7 +125,7 @@
     <div class="cc-kpi"><span class="k">Actions</span><div class="v">{{.Stats.Actions}}</div><div class="d">{{if .Stats.Rank}}#{{.Stats.Rank}} of {{.Stats.Actors}} people{{else}}nothing recorded yet{{end}}</div></div>
     <div class="cc-kpi"><span class="k">Commands sent</span><div class="v">{{.Stats.Commands}}</div><div class="d">{{.Stats.Installs}} install{{if ne .Stats.Installs 1}}s{{end}}</div></div>
     <div class="cc-kpi"><span class="k">Devices touched</span><div class="v">{{.Stats.DevicesTouched}}</div><div class="d">directly targeted</div></div>
-    <div class="cc-kpi"><span class="k">Active days</span><div class="v">{{.Stats.ActiveDays}}</div><div class="d">{{if .Stats.LastAt}}last {{timeSince (deref .Stats.LastAt)}}{{else}}—{{end}}</div></div>
+    <div class="cc-kpi"><span class="k">Active days</span><div class="v">{{.Stats.ActiveDays}}</div><div class="d">{{.Stats.PageViews}} page view{{if ne .Stats.PageViews 1}}s{{end}}{{if .Stats.LastAt}} · last {{timeSince (deref .Stats.LastAt)}}{{end}}</div></div>
   </div>
 
   <div class="pf-grid">

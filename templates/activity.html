@@ -51,8 +51,12 @@
         <input type="checkbox" name="admin" value="1"{{if .ShowAdmin}} checked{{end}} onchange="this.form.submit()">
         Show admin
       </label>
+      <label class="muted small" style="display:flex;align-items:center;gap:6px;cursor:pointer;" title="Every page a user opened, one entry per page per minute">
+        <input type="checkbox" name="views" value="1"{{if .ShowViews}} checked{{end}} onchange="this.form.submit()">
+        Include page views
+      </label>
       <noscript><button type="submit" class="cc-btn sm">Filter</button></noscript>
-      {{if .Actor}}<a href="/activity{{if .ShowAdmin}}?admin=1{{end}}" class="muted small">Clear filter</a>{{end}}
+      {{if .Actor}}<a href="/activity?{{if .ShowAdmin}}admin=1&{{end}}{{if .ShowViews}}views=1{{end}}" class="muted small">Clear filter</a>{{end}}
     </form>
 
     {{if .Entries}}

@@ -1578,6 +1578,46 @@ var prefetchableTemplates = map[string]bool{
 	"commands.html": true, "releases.html": true,
 }
 
+// pageViewSkip are full-page templates that are not "the user looked at
+// something": auth screens, error pages, and pages that are their own record.
+var pageViewSkip = map[string]bool{"login.html": true, "404.html": true, "maintenance.html": true, "signup.html": true, "forgot_password.html": true, "reset_password.html": true, "verify_email.html": true}
+
+// recentViews dedupes page-view audit rows: one per user+path per minute, so a
+// reload or a live-refresh doesn't multiply entries.
+var recentViews sync.Map // "user|path" -> time.Time
+
+// logPageView records a dashboard page navigation in the audit log as
+// PageViewAction. Only real navigations count: a GET that renders a full page
+// template (a boosted nav or a hard load), not htmx partials or polls. Written
+// asynchronously so the page is never slowed by it.
+func (h *Handler) logPageView(r *http.Request, name string, data map[string]any) {
+	if r.Method != http.MethodGet || !strings.HasSuffix(name, ".html") || pageViewSkip[name] {
+		return
+	}
+	if r.Header.Get("HX-Request") == "true" && r.Header.Get("HX-Boosted") != "true" {
+		return // partial refresh, not a navigation
+	}
+	user := h.currentUsername(r)
+	if user == "" {
+		return
+	}
+	path := r.URL.Path
+	key := user + "|" + path
+	now := time.Now()
+	if v, ok := recentViews.Load(key); ok && now.Sub(v.(time.Time)) < time.Minute {
+		return
+	}
+	recentViews.Store(key, now)
+	title, _ := data["Title"].(string)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := h.db.InsertAudit(ctx, user, db.PageViewAction, path, title); err != nil {
+			log.Printf("[audit] page view: %v", err)
+		}
+	}()
+}
+
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data map[string]any) {
 	// Execute into a buffer first: a template runtime error partway through
 	// otherwise leaves a half-written page (header/dock already flushed, body
@@ -1589,6 +1629,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, da
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
 	}
+	h.logPageView(r, name, data)
 	// Dynamic/authenticated responses default to no-store (SecurityHeaders). Punch a
 	// short, narrow hole in that for the boosted (HX-Request) response of the five
 	// main dock-nav pages only, so the browser's own HTTP cache can serve the
@@ -15286,7 +15327,8 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 	// username" only ever caught the first case, silently dropping the rest of
 	// that person's own history. Matching on the resolved display name instead
 	// catches all three shapes.
-	entries, err := h.db.ListAuditFilteredEx(r.Context(), "", excludeActor, 1000)
+	showViews := r.URL.Query().Get("views") == "1"
+	entries, err := h.db.ListAuditForActivity(r.Context(), excludeActor, showViews, 1000)
 	if err != nil {
 		http.Error(w, "Internal error", http.StatusInternalServerError)
 		return
@@ -15384,6 +15426,7 @@ func (h *Handler) ActivityPage(w http.ResponseWriter, r *http.Request) {
 		"Actor":         actor,
 		"ActorName":     actorName,
 		"ShowAdmin":     showAdmin,
+		"ShowViews":     showViews,
 		"EntriesToday":  entriesToday,
 		"EntriesWeek":   entriesWeek,
 		"DistinctUsers": len(distinctUsers),
