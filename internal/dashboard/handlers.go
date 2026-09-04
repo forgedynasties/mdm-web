@@ -15668,7 +15668,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /alerts/newest", h.requireAuth(h.AlertNewest))
 	post("POST /ai-summary/refresh", h.requireAuth(h.AISummaryRefresh))
 	mux.HandleFunc("GET /alerts", h.requireAuth(h.AlertList))
-	mux.HandleFunc("GET /alert-config", h.requireAdminOrOperator(h.AlertConfigView))
+	mux.HandleFunc("GET /alert-config", h.requireAdmin(h.AlertConfigView))
 	// Requires auth: the page exposes real device serials and restaurant/venue names,
 	// so it must not be anonymous even though it's a standalone "wrapped" page.
 	mux.HandleFunc("GET /wrapped", h.requireAuth(h.WrappedPage))
