@@ -10035,10 +10035,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
 CREATE UNIQUE INDEX IF NOT EXISTS users_email_unique ON users (lower(email)) WHERE email IS NOT NULL;
 
--- Dev role retired: explicitly dropping existing dev accounts rather than folding
--- them into operator (matches how operator was retired above, but this time the
--- accounts themselves go, not just the role label).
-DELETE FROM users WHERE role = 'dev';
+-- (Historical) The dev role was once retired here with "DELETE FROM users WHERE
+-- role = 'dev'". Dev is a real role again (operator + releases + OTA), and this
+-- script runs on every boot, so that statement would have erased every dev
+-- account at each restart. Removed; nothing runs here any more.
 
 -- NOTE: 'operator' is included here (unlike the original historical wording) even
 -- though this statement's own job (dropping dev accounts) has nothing to do with
