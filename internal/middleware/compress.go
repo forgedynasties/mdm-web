@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"bufio"
 	"compress/gzip"
+	"net"
 	"io"
 	"net/http"
 	"strings"
@@ -98,5 +100,90 @@ func DecompressRequest(next http.Handler) http.Handler {
 			r.ContentLength = -1 // length now refers to the compressed bytes; unknown after inflate
 		}
 		next.ServeHTTP(w, r)
+	})
+}
+
+// htmlGzipWriter compresses a response only once the handler reveals a text/html
+// Content-Type; everything else (JSON partials, SSE streams, redirects, WebSocket
+// upgrades) passes through untouched. Flush and Hijack are forwarded so SSE and
+// WS handlers behind the same mux keep working.
+type htmlGzipWriter struct {
+	http.ResponseWriter
+	gz      *gzip.Writer
+	decided bool
+	gzip    bool
+}
+
+func (g *htmlGzipWriter) decide() {
+	if g.decided {
+		return
+	}
+	g.decided = true
+	ct := g.Header().Get("Content-Type")
+	if strings.HasPrefix(ct, "text/html") && g.Header().Get("Content-Encoding") == "" {
+		g.gzip = true
+		g.Header().Del("Content-Length")
+		g.Header().Set("Content-Encoding", "gzip")
+		g.Header().Add("Vary", "Accept-Encoding")
+		g.gz = gzip.NewWriter(g.ResponseWriter)
+	}
+}
+
+func (g *htmlGzipWriter) WriteHeader(code int) {
+	if code == http.StatusNoContent || code == http.StatusNotModified || (code >= 300 && code < 400) {
+		g.decided = true // no body to compress
+	}
+	g.decide()
+	g.ResponseWriter.WriteHeader(code)
+}
+
+func (g *htmlGzipWriter) Write(b []byte) (int, error) {
+	if !g.decided {
+		if g.Header().Get("Content-Type") == "" {
+			g.Header().Set("Content-Type", http.DetectContentType(b))
+		}
+		g.decide()
+	}
+	if g.gzip {
+		return g.gz.Write(b)
+	}
+	return g.ResponseWriter.Write(b)
+}
+
+func (g *htmlGzipWriter) Flush() {
+	if g.gzip {
+		g.gz.Flush()
+	}
+	if f, ok := g.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+func (g *htmlGzipWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := g.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, http.ErrNotSupported
+}
+
+func (g *htmlGzipWriter) close() {
+	if g.gzip && g.gz != nil {
+		g.gz.Close()
+	}
+}
+
+// CompressHTML gzip-encodes text/html page responses for clients that accept it.
+// Dashboard pages are large (a device page is ~0.5–1.2 MB of markup, inline
+// script and chart data) and compress about 3:1, which is most of the transfer
+// time on anything slower than a LAN. Static files have their own middleware.
+func CompressHTML(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") || r.Header.Get("Upgrade") != "" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		g := &htmlGzipWriter{ResponseWriter: w}
+		defer g.close()
+		next.ServeHTTP(g, r)
 	})
 }

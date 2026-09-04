@@ -178,7 +178,7 @@ function alxFilter(){
 {{$sev := "info"}}{{if eq .Severity "critical"}}{{$sev = "crit"}}{{else if eq .Severity "warning"}}{{$sev = "warn"}}{{end}}{{if eq .Status "resolved"}}{{$sev = "done"}}{{end}}
 {{$sq := "info"}}{{if eq $sev "crit"}}{{$sq = "danger"}}{{else if eq $sev "warn"}}{{$sq = "warn"}}{{else if eq $sev "done"}}{{$sq = "ok"}}{{end}}
 <div class="alx-al {{$sev}}" data-search="{{.Headline}} {{.Serial}} {{.Restaurant}} {{plainAlert .Sentence}}">
-  <span class="cc-sq {{$sq}}">{{if .AppIcon}}<img src="data:image/png;base64,{{.AppIcon}}" alt="">{{else}}{{template "alx-icon" .IconKey}}{{end}}</span>
+  <span class="cc-sq {{$sq}}">{{if .AppIcon}}<img src="{{iconSrc .AppIcon}}" alt="">{{else}}{{template "alx-icon" .IconKey}}{{end}}</span>
   <div class="alx-m">
     <div class="alx-top">
       <span class="alx-t">{{.Headline}}</span>
@@ -210,7 +210,7 @@ function alxFilter(){
 {{/* One crash/ANR/tombstone event card. Dot is a crashCardView. */}}
 {{define "alx-crash"}}
 <div class="alx-al crit" data-search="{{.KindLabel}} crash {{.Serial}} {{.Restaurant}} {{.Summary}}">
-  <span class="cc-sq danger">{{if .AppIcon}}<img src="data:image/png;base64,{{.AppIcon}}" alt="">{{else}}{{template "alx-icon" "crash"}}{{end}}</span>
+  <span class="cc-sq danger">{{if .AppIcon}}<img src="{{iconSrc .AppIcon}}" alt="">{{else}}{{template "alx-icon" "crash"}}{{end}}</span>
   <div class="alx-m">
     <div class="alx-top">
       <span class="alx-kind {{.KindClass}}">{{.KindLabel}}</span>

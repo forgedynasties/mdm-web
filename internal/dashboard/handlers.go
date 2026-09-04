@@ -1,6 +1,7 @@
 package dashboard
 
 import (
+	"crypto/sha256"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -569,6 +570,7 @@ func NewHandler(d *db.DB, hub *ws.Hub, shellMgr *shell.Manager, remoteMgr *remot
 			}
 			return w
 		},
+		"iconSrc": iconSrc,
 		"formatTime": func(t time.Time) string {
 			return t.UTC().Format("2006-01-02 15:04:05 UTC")
 		},
@@ -1658,6 +1660,56 @@ func (h *Handler) maintenanceGate(w http.ResponseWriter, r *http.Request) bool {
 
 // MaintenancePage is the notice non-admin users see while maintenance mode is on.
 // Outside maintenance (or for an admin) it just goes home.
+// iconStore holds decoded app icons by content hash for /icon/{sha}.png. Pages
+// used to inline every icon as a base64 data: URI — ~120 KB of uncompressible
+// bytes per device page, re-sent on every load. Registering the bytes at render
+// time and referencing them by hash lets the browser cache each icon once
+// (immutable, keyed by content). The store is in memory: after a restart a
+// browser without a cached copy 404s until the next page render re-registers
+// the icon, which is the same request that shows it. Bounded; icons are few.
+var (
+	iconStore   sync.Map // sha (hex) -> []byte
+	iconStoreN  atomic.Int32
+	iconStoreMx = int32(2000)
+)
+
+func iconSrc(b64 string) string {
+	b64 = strings.TrimSpace(b64)
+	if b64 == "" {
+		return ""
+	}
+	if i := strings.Index(b64, ","); i >= 0 && strings.HasPrefix(b64, "data:") {
+		b64 = b64[i+1:]
+	}
+	raw, err := base64.StdEncoding.DecodeString(b64)
+	if err != nil {
+		return "data:image/png;base64," + b64 // unknown shape: fall back to inline
+	}
+	sum := sha256.Sum256(raw)
+	key := hex.EncodeToString(sum[:16])
+	if _, loaded := iconStore.LoadOrStore(key, raw); !loaded {
+		if iconStoreN.Add(1) > iconStoreMx { // crude bound: start over rather than grow forever
+			iconStore.Range(func(k, _ any) bool { iconStore.Delete(k); return true })
+			iconStoreN.Store(1)
+			iconStore.Store(key, raw)
+		}
+	}
+	return "/icon/" + key
+}
+
+// IconPNG serves an icon registered by iconSrc. Immutable cache: the URL is the
+// content hash, so a changed icon is a different URL.
+func (h *Handler) IconPNG(w http.ResponseWriter, r *http.Request) {
+	v, ok := iconStore.Load(strings.TrimSuffix(r.PathValue("sha"), ".png"))
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=2592000, immutable")
+	w.Write(v.([]byte))
+}
+
 func (h *Handler) MaintenancePage(w http.ResponseWriter, r *http.Request) {
 	if !h.cfg.MaintenanceMode() || h.role(r) == "admin" {
 		http.Redirect(w, r, "/", http.StatusFound)
@@ -1667,6 +1719,37 @@ func (h *Handler) MaintenancePage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Retry-After", "600")
 	w.WriteHeader(http.StatusServiceUnavailable)
 	h.render(w, r, "maintenance.html", map[string]any{"Title": "Under maintenance"})
+}
+
+// UserMergeActor re-points past activity recorded under a username that no longer
+// has an account (deleted after e.g. a Microsoft sign-in replaced it) to an
+// existing user, so Activity, Actions history and release sign-offs show one
+// person. Only orphaned usernames can be merged: merging a live account would
+// silently rewrite history for someone who still signs in.
+func (h *Handler) UserMergeActor(w http.ResponseWriter, r *http.Request) {
+	from := strings.TrimSpace(r.FormValue("from"))
+	toID, err := uuid.Parse(strings.TrimSpace(r.FormValue("to")))
+	if from == "" || err != nil {
+		http.Error(w, "Pick a username and a target user", http.StatusBadRequest)
+		return
+	}
+	target, err := h.db.GetUser(r.Context(), toID)
+	if err != nil {
+		http.Error(w, "Target user not found", http.StatusNotFound)
+		return
+	}
+	if u, err := h.db.GetUserByUsername(r.Context(), from); err == nil && u != nil {
+		http.Error(w, "That username still has an account; delete it first if you really mean to merge it", http.StatusConflict)
+		return
+	}
+	n, err := h.db.MergeActor(r.Context(), from, target.Username)
+	if err != nil {
+		log.Printf("[users] merge %q -> %q: %v", from, target.Username, err)
+		http.Error(w, "Merge failed", http.StatusInternalServerError)
+		return
+	}
+	h.audit(r, "user.merge", target.Username, fmt.Sprintf("%s → %s (%d rows)", from, target.Username, n))
+	h.hxRedirect(w, r, "/users")
 }
 
 func (h *Handler) SettingsToggleMaintenance(w http.ResponseWriter, r *http.Request) {
@@ -14913,8 +14996,10 @@ func (h *Handler) UserList(w http.ResponseWriter, r *http.Request) {
 	// The env-configured admin account isn't a DB row, but it always exists —
 	// count it so the KPI strip isn't misleadingly "0 admins".
 	admins++
+	orphans, _ := h.db.ListOrphanActors(r.Context())
 	h.render(w, r, "users.html", map[string]any{
 		"Users":     users,
+		"Orphans":   orphans,
 		"Admins":    admins,
 		"Operators": operators,
 		"Viewers":   viewers,
@@ -15480,6 +15565,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/{id}/name", h.requireStrictAdmin(h.UserSetName))
 	post("POST /users/{id}/password", h.requireStrictAdmin(h.UserSetPassword))
 	post("POST /users/{id}/delete", h.requireStrictAdmin(h.UserDelete))
+	post("POST /users/merge", h.requireStrictAdmin(h.UserMergeActor))
+	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE
 	mux.HandleFunc("GET /commands/{id}/output/{serial}/stream", h.requireAuth(h.CommandOutputStream))

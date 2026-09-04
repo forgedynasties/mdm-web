@@ -573,7 +573,7 @@
             <div class="appgrid" id="app-grid">
               {{range .Apps}}
               <button type="button" class="appc" data-url="{{.ApkURL}}" data-name="{{.Name}}" data-search="{{.Name}} {{.PackageName}}" onclick="pickApp(this)" title="{{.Name}}{{if .VersionName}} v{{.VersionName}}{{end}}{{if .PackageName}} · {{.PackageName}}{{end}}">
-                <span class="thumb">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
+                <span class="thumb">{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
                 <span class="m"><span class="nm">{{.Name}}</span>{{if .VersionName}}<span class="ver">v{{.VersionName}}</span>{{end}}</span>
                 <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>
               </button>
@@ -1678,7 +1678,7 @@ document.addEventListener('keydown', function (e) { if (e.key === 'Escape') clos
 {{if .FleetPackages}}
 {{range .FleetPackages}}
 <button type="button" class="pkg" data-pkg="{{.PackageName}}" data-name="{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}" data-search="{{.AppName}} {{.PackageName}}" onclick="pickUninstall(this)">
-  <span class="ic">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .AppName}}{{slice .AppName 0 1}}{{else}}{{slice .PackageName 0 1}}{{end}}{{end}}</span>
+  <span class="ic">{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}{{if .AppName}}{{slice .AppName 0 1}}{{else}}{{slice .PackageName 0 1}}{{end}}{{end}}</span>
   <span class="m"><span class="nm">{{if .AppName}}{{.AppName}}{{else}}{{.PackageName}}{{end}}</span><span class="pk">{{.PackageName}}</span></span>
   <span class="cnt">{{.DeviceCount}} device{{if ne .DeviceCount 1}}s{{end}}</span>
   <span class="chk"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>

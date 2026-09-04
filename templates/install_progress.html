@@ -2,7 +2,7 @@
 <div id="ip-rows" data-morph{{if not .AllDone}} hx-get="/devices/{{.Device.SerialNumber}}/installs?ids={{.IDs}}" hx-trigger="every 2s" hx-swap="outerHTML"{{end}}>
   {{range .Rows}}
   <div class="ip-row">
-    <span class="ip-ic">{{if .Icon}}<img src="data:image/png;base64,{{.Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
+    <span class="ip-ic">{{if .Icon}}<img src="{{iconSrc .Icon}}" alt="">{{else}}{{if .Name}}{{slice .Name 0 1}}{{end}}{{end}}</span>
     <div class="ip-m">
       <div class="ip-nm">{{.Name}}</div>
       <div class="ip-bar"><i class="{{if eq .Status "failed"}}bad{{else if eq .Status "installed"}}ok{{end}}" style="width:{{if or (eq .Status "installed") (eq .Status "completed") (eq .Status "installing")}}100{{else if .Progress}}{{.Progress}}{{else}}0{{end}}%"></i></div>

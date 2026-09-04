@@ -493,6 +493,94 @@ func (d *DB) UpdateUserRole(ctx context.Context, id uuid.UUID, role string) erro
 // UpdateUserName sets a user's first/last name — set at sign-up, editable
 // afterward by the user or an admin (e.g. for accounts created before names
 // existed, or to correct a typo).
+// actorColumns lists every (table, column) that snapshots a username as the
+// person who did something. Kept in one place so MergeActor and ListOrphanActors
+// can never drift apart.
+var actorColumns = [][2]string{
+	{"audit_log", "actor"},
+	{"commands", "created_by"},
+	{"test_cases", "created_by"},
+	{"command_recipes", "created_by"},
+	{"scheduled_recipes", "created_by"},
+	{"device_queries", "created_by"},
+	{"release_test_results", "tested_by"},
+	{"qfil_packages", "added_by"},
+	{"dismissed_commands", "dismissed_by"},
+	{"release_problems", "reported_by"},
+	{"releases", "signed_off_by"},
+	{"releases", "testing_done_by"},
+	{"releases", "merged_by"},
+}
+
+// OrphanActor is a username that appears on past actions but no longer matches
+// any account — typically a user deleted after their replacement (e.g. a
+// Microsoft sign-in) was created. Merging re-points those rows to the new user.
+type OrphanActor struct {
+	Username string
+	Rows     int64
+	LastAt   *time.Time
+}
+
+// ListOrphanActors returns usernames present in attribution columns but absent
+// from users, with how many rows carry them and when they were last active.
+// Non-account actors ("unknown", "", "Scheduled recipe: …") are excluded.
+func (d *DB) ListOrphanActors(ctx context.Context) ([]OrphanActor, error) {
+	var parts []string
+	for _, tc := range actorColumns {
+		ts := "NULL::timestamptz"
+		if tc[0] == "audit_log" || tc[0] == "commands" {
+			ts = "created_at"
+		}
+		parts = append(parts, fmt.Sprintf("SELECT %s AS u, %s AS t FROM %s", tc[1], ts, tc[0]))
+	}
+	rows, err := d.pool.Query(ctx, `
+		SELECT u, COUNT(*), MAX(t) FROM (`+strings.Join(parts, " UNION ALL ")+`) a
+		WHERE u <> '' AND u <> 'unknown' AND u NOT LIKE '%: %'
+		  AND NOT EXISTS (SELECT 1 FROM users x WHERE x.username = a.u)
+		GROUP BY u ORDER BY MAX(t) DESC NULLS LAST, u`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []OrphanActor
+	for rows.Next() {
+		var o OrphanActor
+		if err := rows.Scan(&o.Username, &o.Rows, &o.LastAt); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// MergeActor rewrites every attribution row carrying username `from` to `to`
+// (an existing account's username), plus the saved dashboard layout if the
+// target has none. Returns rows rewritten. Runs in one transaction.
+func (d *DB) MergeActor(ctx context.Context, from, to string) (int64, error) {
+	tx, err := d.pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	var total int64
+	for _, tc := range actorColumns {
+		tag, err := tx.Exec(ctx, fmt.Sprintf(`UPDATE %s SET %s = $2 WHERE %s = $1`, tc[0], tc[1], tc[1]), from, to)
+		if err != nil {
+			return 0, fmt.Errorf("%s.%s: %w", tc[0], tc[1], err)
+		}
+		total += tag.RowsAffected()
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE user_layouts SET username = $2 WHERE username = $1
+		  AND NOT EXISTS (SELECT 1 FROM user_layouts x WHERE x.username = $2)`, from, to); err != nil {
+		return 0, err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM user_layouts WHERE username = $1`, from); err != nil {
+		return 0, err
+	}
+	return total, tx.Commit(ctx)
+}
+
 func (d *DB) UpdateUserName(ctx context.Context, id uuid.UUID, firstName, lastName string) error {
 	_, err := d.pool.Exec(ctx, `UPDATE users SET first_name = $2, last_name = $3 WHERE id = $1`, id, firstName, lastName)
 	return err

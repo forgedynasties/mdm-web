@@ -941,7 +941,7 @@ function kioskAddPkg(pkg, el){
     <div class="lib-tile" data-app="{{.Name}} {{.PackageName}}" role="button" tabindex="0" style="cursor:pointer;"
          onclick="libInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();libInfoOpen(this);}"
          data-id="{{.ID}}" data-name="{{.Name}}" data-pkg="{{.PackageName}}" data-version="{{.VersionName}}" data-url="{{.ApkURL}}" data-added="{{localTime .CreatedAt}}">
-      {{if .Icon}}<img class="lib-icon" src="data:image/png;base64,{{.Icon}}" alt="">{{else}}<div class="lib-mono">{{if .Name}}{{slice .Name 0 1}}{{end}}</div>{{end}}
+      {{if .Icon}}<img class="lib-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<div class="lib-mono">{{if .Name}}{{slice .Name 0 1}}{{end}}</div>{{end}}
       <div class="lib-name">{{.Name}}</div>
       {{if .VersionName}}<div class="lib-ver">v{{.VersionName}}</div>{{end}}
       <div class="lib-pkg mono" title="{{.PackageName}}">{{.PackageName}}</div>

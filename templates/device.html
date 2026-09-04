@@ -2605,7 +2605,7 @@ window.mdmChartReady.then(mdmBootCharts).catch(function (err) {
           <div class="app-drawer install-drawer" id="install-drawer">
             {{range .Apps}}
             <button type="button" class="app-row app-tile install-tile{{if index $.InstalledSet .PackageName}} install-installed{{end}}" data-app="{{.Name}}" data-url="{{.ApkURL}}" data-pkg="{{.PackageName}}" title="{{.Name}}{{if .VersionName}} v{{.VersionName}}{{end}}" onclick="installToggle(this)">
-              {{if .Icon}}<img class="app-icon" src="data:image/png;base64,{{.Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
+              {{if .Icon}}<img class="app-icon" src="{{iconSrc .Icon}}" alt="">{{else}}<span class="app-mono" data-seed="{{.ApkURL}}">{{if .Name}}{{slice .Name 0 1}}{{end}}</span>{{end}}
               <span class="app-tname">{{.Name}}</span>{{if .VersionName}}<span class="app-tver">v{{.VersionName}}</span>{{end}}
               <span class="install-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg></span>
             </button>
@@ -3170,7 +3170,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   <div class="da-group" data-da-shown="4">
   {{range $i, $a := .DeviceAlerts}}
   <div class="da-card {{$a.Severity}}{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
-    <span class="da-ico">{{if $a.AppIcon}}<img src="data:image/png;base64,{{$a.AppIcon}}" alt="">{{else}}{{template "alx-icon" $a.IconKey}}{{end}}</span>
+    <span class="da-ico">{{if $a.AppIcon}}<img src="{{iconSrc $a.AppIcon}}" alt="">{{else}}{{template "alx-icon" $a.IconKey}}{{end}}</span>
     <div class="da-body">
       <div class="da-top"><span class="da-t">{{$a.Headline}}</span><span class="da-when">{{timeSince $a.FiredAt}}</span></div>
       <div class="da-s">{{$a.Sentence}}</div>
@@ -3186,7 +3186,7 @@ document.body.addEventListener('htmx:beforeRequest', function (e) {
   <div class="da-group" data-da-shown="4">
   {{range $i, $c := .DeviceCrashes}}
   <div class="da-card crash{{if ge $i 4}} da-extra{{end}}"{{if ge $i 4}} hidden{{end}}>
-    <span class="da-ico">{{if $c.AppIcon}}<img src="data:image/png;base64,{{$c.AppIcon}}" alt="">{{else}}<svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{end}}</span>
+    <span class="da-ico">{{if $c.AppIcon}}<img src="{{iconSrc $c.AppIcon}}" alt="">{{else}}<svg viewBox="0 0 24 24"><path d="M12 2v6M4.2 10.5l5.3 3M7 20l2.5-4.5M17 20l-2.5-4.5M19.8 10.5l-5.3 3"/></svg>{{end}}</span>
     <div class="da-body">
       <div class="da-top"><span class="da-kind {{$c.KindClass}}">{{$c.KindLabel}}</span><span class="da-t da-t-crash">{{if $c.Summary}}{{$c.Summary}}{{else}}{{$c.KindLabel}} event{{end}}</span><span class="da-when">{{timeSince $c.OccurredAt}}</span></div>
       {{if or $c.Restaurant $c.BuildID}}<div class="da-meta">{{if $c.Restaurant}}<span>{{$c.Restaurant}}</span>{{end}}{{if and $c.Restaurant $c.BuildID}}<span class="dot"></span>{{end}}{{if $c.BuildID}}<span class="mono">build {{$c.BuildID}}</span>{{end}}</div>{{end}}
@@ -4060,7 +4060,7 @@ async function saveNewApp() {
        data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="0"
        role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
        title="{{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
-    {{if $p.Icon}}<img class="app-icon" loading="lazy" src="data:image/png;base64,{{$p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
+    {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
     {{if $isUn}}<div class="app-tsub un"><span class="app-spin"></span>Uninstalling…</div>{{end}}
     {{if and (canOperate $.Role) (not $isUn)}}
@@ -4080,7 +4080,7 @@ async function saveNewApp() {
        data-pkg="{{$p.PackageName}}" data-name="{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}" data-ver="{{$p.VersionName}}" data-sys="1"
        role="button" tabindex="0" onclick="appInfoOpen(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();appInfoOpen(this);}"
        title="System app — {{$p.PackageName}}{{if $p.VersionName}} · v{{$p.VersionName}}{{end}}">
-    {{if $p.Icon}}<img class="app-icon" loading="lazy" src="data:image/png;base64,{{$p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
+    {{if $p.Icon}}<img class="app-icon" loading="lazy" src="{{iconSrc $p.Icon}}" alt="">{{else}}<div class="app-mono" data-seed="{{$p.PackageName}}">{{$n := $p.AppName}}{{if not $n}}{{$n = $p.PackageName}}{{end}}{{if $n}}{{slice $n 0 1}}{{end}}</div>{{end}}
     <div class="app-tname">{{if $p.AppName}}{{$p.AppName}}{{else}}{{$p.PackageName}}{{end}}</div>
   </div>
   {{end}}{{end}}
