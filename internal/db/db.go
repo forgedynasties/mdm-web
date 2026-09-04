@@ -9215,7 +9215,7 @@ CREATE TABLE IF NOT EXISTS users (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username      TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
-    role          TEXT NOT NULL CHECK (role IN ('viewer', 'operator')),
+    role          TEXT NOT NULL CHECK (role IN ('viewer','operator','tester','user_manager','dev','admin')),
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -9579,7 +9579,7 @@ CREATE TABLE IF NOT EXISTS version_order (
 -- statements (e.g. 'dev' below). A narrower list here fails validation against a row a
 -- later statement legitimately allows, crashing the migration. Keep this the full set.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','dev'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','dev','admin'));
 
 -- Test cases: a reusable library plus per-release cases. base=true cases are checked on
 -- every release; base=false cases belong to one release (release_id set). active=false
@@ -9618,7 +9618,7 @@ ALTER TABLE releases ADD COLUMN IF NOT EXISTS skip_base_tests BOOLEAN NOT NULL D
 -- 'dev' role: full operational access (releases, OTA, devices, …) but NOT settings
 -- or user management; it is also the only role allowed to sign off a release.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','dev'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','dev','admin'));
 
 -- Dev sign-off on a release ("smoke-tested by dev, OK for QA to pick up").
 ALTER TABLE releases ADD COLUMN IF NOT EXISTS signed_off_by TEXT        NOT NULL DEFAULT '';
@@ -10015,7 +10015,7 @@ DELETE FROM users WHERE role = 'dev';
 -- the table by this point, including 'operator' rows that persist from the
 -- tester->operator rename further down. Omitting it here breaks every redeploy.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','dev','admin'));
 
 CREATE TABLE IF NOT EXISTS user_tokens (
     token      TEXT PRIMARY KEY,
@@ -10035,13 +10035,13 @@ CREATE INDEX IF NOT EXISTS user_tokens_user_id_idx ON user_tokens (user_id);
 -- UPDATE is converting rows — the currently-active constraint at this point in
 -- the script is (viewer,tester), which would reject the UPDATE outright.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','dev','admin'));
 UPDATE users SET role = 'operator' WHERE role = 'tester';
 -- Role ladder: admin (super admin) → dev → user_manager → operator → viewer.
 -- Admins and devs may be real accounts too (e.g. Microsoft sign-in), not only
 -- the env login. This is the effective constraint; keep it last.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','user_manager','dev','admin'));
+ALTER TABLE users ADD  CONSTRAINT users_role_check CHECK (role IN ('viewer','operator','tester','user_manager','dev','admin'));
 
 -- First/last name, settable at sign-up and editable by an admin afterward so the
 -- dashboard and audit trail can show a real name instead of a bare email address.
