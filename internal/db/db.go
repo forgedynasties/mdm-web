@@ -312,6 +312,10 @@ type DeviceFilter struct {
 	// online/offline from real presence rather than check-in recency. Supplied by the
 	// handler from ws.Hub; nil means "nobody connected" (all offline).
 	Connected []uuid.UUID
+	// OnlyIDs, when non-nil, restricts results to these device ids (an empty
+	// non-nil slice matches nothing). Set from the user's access policy when they
+	// may only see part of the fleet.
+	OnlyIDs []uuid.UUID
 }
 
 // ── Productions ───────────────────────────────────────────────────────────────
@@ -626,6 +630,99 @@ func fillPct(list []NamedCount) {
 	for i := range list {
 		list[i].Pct = int(100 * list[i].Count / list[0].Count)
 	}
+}
+
+// ── Per-user access policy ──────────────────────────────────────────────────
+//
+// AccessPolicy refines a role. Admins/devs ignore it. For an operator it decides
+// which actions they may take on which devices; for a viewer only "view" matters
+// (which devices they can see). Evaluation for (action, device):
+//   1. rules whose Actions contain the action (or "*") and whose scope contains
+//      the device are applicable; a "deny" among them wins; else an "allow" allows;
+//   2. otherwise Base applies ("allow" = everything the role permits, "deny" = nothing).
+// Actions that are not about one device (QA, groups) consider fleet-wide rules only.
+type AccessPolicy struct {
+	Base           string       `json:"base,omitempty"`             // "allow" (default) | "deny"
+	HideOutOfScope bool         `json:"hide_out_of_scope,omitempty"` // hide devices the user can't view, vs show with actions disabled
+	Rules          []AccessRule `json:"rules,omitempty"`
+}
+
+type AccessRule struct {
+	Effect    string   `json:"effect"`             // "allow" | "deny"
+	Actions   []string `json:"actions"`            // action keys, or ["*"]
+	ScopeType string   `json:"scope_type"`         // "all" | "group" | "restaurant"
+	ScopeID   string   `json:"scope_id,omitempty"` // group / restaurant id
+}
+
+// IsEmpty reports a policy that changes nothing (base allow, no rules, no hiding).
+func (p AccessPolicy) IsEmpty() bool {
+	return (p.Base == "" || p.Base == "allow") && len(p.Rules) == 0 && !p.HideOutOfScope
+}
+
+func (d *DB) GetUserAccess(ctx context.Context, username string) (AccessPolicy, error) {
+	var raw []byte
+	var pol AccessPolicy
+	err := d.pool.QueryRow(ctx, `SELECT access FROM users WHERE username = $1`, username).Scan(&raw)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return pol, nil
+		}
+		return pol, err
+	}
+	if len(raw) > 0 {
+		_ = json.Unmarshal(raw, &pol)
+	}
+	return pol, nil
+}
+
+func (d *DB) SetUserAccess(ctx context.Context, id uuid.UUID, pol AccessPolicy) error {
+	b, err := json.Marshal(pol)
+	if err != nil {
+		return err
+	}
+	_, err = d.pool.Exec(ctx, `UPDATE users SET access = $2 WHERE id = $1`, id, b)
+	return err
+}
+
+// DeviceScope is what a device belongs to, for policy scope matching.
+type DeviceScope struct {
+	RestaurantID *uuid.UUID
+	Groups       []uuid.UUID
+}
+
+// DeviceScopes loads every device's restaurant and group memberships (two small
+// queries) so a request can evaluate scope rules for any number of devices.
+func (d *DB) DeviceScopes(ctx context.Context) (map[uuid.UUID]DeviceScope, error) {
+	out := map[uuid.UUID]DeviceScope{}
+	rows, err := d.pool.Query(ctx, `SELECT id, restaurant_id FROM devices`)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var id uuid.UUID
+		var rid *uuid.UUID
+		if err := rows.Scan(&id, &rid); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		out[id] = DeviceScope{RestaurantID: rid}
+	}
+	rows.Close()
+	rows, err = d.pool.Query(ctx, `SELECT device_id, group_id FROM device_groups`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var did, gid uuid.UUID
+		if err := rows.Scan(&did, &gid); err != nil {
+			return nil, err
+		}
+		sc := out[did]
+		sc.Groups = append(sc.Groups, gid)
+		out[did] = sc
+	}
+	return out, rows.Err()
 }
 
 // ActorSummary is the per-username footprint shown on the Users roster.
@@ -1353,6 +1450,11 @@ func (d *DB) buildDeviceQuery(f DeviceFilter, sort, dir string, selectRows bool,
 		wheres = append(wheres, "NOT d.hidden")
 	}
 
+	if f.OnlyIDs != nil {
+		wheres = append(wheres, fmt.Sprintf("d.id = ANY($%d)", argN))
+		args = append(args, f.OnlyIDs)
+		argN++
+	}
 	if f.Search != "" {
 		wheres = append(wheres, fmt.Sprintf("d.serial_number ILIKE $%d", argN))
 		args = append(args, "%"+f.Search+"%")
@@ -9519,6 +9621,10 @@ FROM (
 	GROUP BY ud2.update_id, ud2.device_id
 ) sub
 WHERE ud.update_id = sub.update_id AND ud.device_id = sub.device_id AND ud.reboot_sent_at IS NULL;
+
+-- Per-user access policy (operators: which actions on which device groups /
+-- restaurants; viewers: which devices they see). See db.AccessPolicy.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS access JSONB NOT NULL DEFAULT '{}';
 
 -- One row per build change per device (from → to, when). Written at check-in when
 -- the reported build differs from the stored one; backfilled from checkins by the

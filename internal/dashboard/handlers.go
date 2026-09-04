@@ -1788,7 +1788,20 @@ func (h *Handler) renderProfile(w http.ResponseWriter, r *http.Request, username
 	if viewingOther {
 		title = display
 	}
+	var pol db.AccessPolicy
+	var groups []db.Group
+	var restaurants []db.Restaurant
+	if viewingOther && user != nil {
+		pol, _ = h.db.GetUserAccess(ctx, user.Username)
+		groups, _ = h.db.ListGroups(ctx)
+		restaurants, _ = h.db.ListRestaurants(ctx)
+	}
 	h.render(w, r, "profile.html", map[string]any{
+		"Policy":        pol,
+		"PolicyEmpty":   pol.IsEmpty(),
+		"AccessActions": accessActions,
+		"Groups":        groups,
+		"Restaurants":   restaurants,
 		"Title":        title,
 		"User":         user,
 		"Display":      display,
@@ -2430,6 +2443,14 @@ func (h *Handler) connectedSlice() []uuid.UUID {
 // with DeviceSelectAllSerials so "Select all N matching" resolves the exact same
 // set the roster is currently showing.
 func (h *Handler) deviceFilterFromRequest(r *http.Request) db.DeviceFilter {
+	f := h.deviceFilterFromRequestRaw(r)
+	if ids := h.access(r).visibleIDs(); ids != nil {
+		f.OnlyIDs = ids
+	}
+	return f
+}
+
+func (h *Handler) deviceFilterFromRequestRaw(r *http.Request) db.DeviceFilter {
 	var groupID uuid.UUID
 	if gid := r.URL.Query().Get("group"); gid != "" {
 		if parsed, err := uuid.Parse(gid); err == nil {
@@ -3676,6 +3697,20 @@ func (h *Handler) DeviceDetail(w http.ResponseWriter, r *http.Request) {
 	role := h.role(r)
 	ctx := r.Context()
 	t0 := time.Now()
+	// Access policy: a device the user may not view is hidden (404) when their
+	// policy hides out-of-scope devices, else shown read-only; a device they may
+	// view but not act on renders with the viewer's action set.
+	if acc := h.access(r); !acc.unrestricted() {
+		if !acc.canDevice("view", device.ID) {
+			if acc.hidesDevices() {
+				http.NotFound(w, r)
+				return
+			}
+			role = "viewer"
+		} else if !acc.anyDeviceAction(device.ID) {
+			role = "viewer"
+		}
+	}
 	focusParam := r.URL.Query().Get("focus")
 
 	run(func() {
@@ -5145,6 +5180,9 @@ func (h *Handler) AlertsRecent(w http.ResponseWriter, r *http.Request) {
 // AlertBulk applies an action (acknowledge|resolve) to the alert IDs selected via
 // checkboxes on the alerts page.
 func (h *Handler) AlertBulk(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "alerts") {
+		return
+	}
 	r.ParseForm()
 	var status string
 	switch r.FormValue("action") {
@@ -5175,9 +5213,15 @@ func (h *Handler) AlertBulk(w http.ResponseWriter, r *http.Request) {
 
 // AlertAck marks an alert acknowledged. AlertResolve resolves it.
 func (h *Handler) AlertAck(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "alerts") {
+		return
+	}
 	h.setAlertStatus(w, r, "acknowledged")
 }
 func (h *Handler) AlertResolve(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "alerts") {
+		return
+	}
 	h.setAlertStatus(w, r, "resolved")
 }
 
@@ -5199,9 +5243,15 @@ func (h *Handler) setAlertStatus(w http.ResponseWriter, r *http.Request, status 
 // AlertAckAll acknowledges every open alert; AlertResolveAll resolves every
 // non-resolved alert.
 func (h *Handler) AlertAckAll(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "alerts") {
+		return
+	}
 	h.bulkAlertStatus(w, r, "acknowledged")
 }
 func (h *Handler) AlertResolveAll(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "alerts") {
+		return
+	}
 	h.bulkAlertStatus(w, r, "resolved")
 }
 
@@ -6348,6 +6398,9 @@ func parseSerialsField(values []string) []string {
 }
 
 func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	r.ParseForm()
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
@@ -6372,6 +6425,9 @@ func (h *Handler) GroupCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GroupDelete(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
@@ -6399,6 +6455,9 @@ func localRedirect(w http.ResponseWriter, r *http.Request, fallback string) {
 
 // GroupUpdate renames a group. A group has only a name, so this doubles as its full "edit".
 func (h *Handler) GroupUpdate(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
@@ -6531,6 +6590,9 @@ func (h *Handler) RestaurantNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RestaurantCreate(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	r.ParseForm()
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
@@ -6686,6 +6748,9 @@ func (h *Handler) RestaurantEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
@@ -6717,6 +6782,9 @@ func (h *Handler) RestaurantUpdate(w http.ResponseWriter, r *http.Request) {
 // inline rename posts here instead of RestaurantUpdate, which overwrites every
 // field and would blank address/timezone/notes if only "name" were submitted.
 func (h *Handler) RestaurantRename(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
@@ -6737,6 +6805,9 @@ func (h *Handler) RestaurantRename(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
@@ -6752,6 +6823,9 @@ func (h *Handler) RestaurantDelete(w http.ResponseWriter, r *http.Request) {
 
 // RestaurantAssignDevices assigns one or more devices (by serial) to this restaurant.
 func (h *Handler) RestaurantAssignDevices(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
@@ -6802,6 +6876,9 @@ func (h *Handler) RestaurantDevicePicker(w http.ResponseWriter, r *http.Request)
 
 // RestaurantRemoveDevice unassigns a device from this restaurant (back to lab).
 func (h *Handler) RestaurantRemoveDevice(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid restaurant ID", http.StatusBadRequest)
@@ -6930,6 +7007,9 @@ func (h *Handler) DeviceSetRestaurant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GroupAddDevice(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
@@ -7047,6 +7127,9 @@ func (h *Handler) DeviceSearch(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
@@ -7067,6 +7150,9 @@ func (h *Handler) GroupRemoveDevice(w http.ResponseWriter, r *http.Request) {
 // members list can drop a multi-selection at once instead of one device at a time
 // (FW-2026-000024). Serials arrive in the multi-valued "serials" field.
 func (h *Handler) GroupBulkRemoveDevice(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "groups") {
+		return
+	}
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid group ID", http.StatusBadRequest)
@@ -7325,6 +7411,9 @@ func (h *Handler) pushKioskConfigToDevices(ctx context.Context, deviceIDs []uuid
 // each with the count of those devices that have it, so the bulk-kiosk picker can
 // show apps common to every selected device and grey out partially-present ones.
 func (h *Handler) BulkKioskApps(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "kiosk") {
+		return
+	}
 	r.ParseForm()
 	serials := r.Form["serials"]
 	deviceIDs, err := h.db.GetDeviceIDsBySerials(r.Context(), serials)
@@ -7345,6 +7434,9 @@ func (h *Handler) BulkKioskApps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) BulkKioskUpdate(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "kiosk") {
+		return
+	}
 	r.ParseForm()
 	serials := r.Form["serials"]
 	if len(serials) == 0 {
@@ -8669,6 +8761,9 @@ func (h *Handler) ReleaseClearSignOff(w http.ResponseWriter, r *http.Request) {
 // requireAdminOrOperator) — the test team closes out their own testing. Advisory, not gated
 // on QA/sign-off state.
 func (h *Handler) ReleaseTestingDone(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "qa") {
+		return
+	}
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -8685,6 +8780,9 @@ func (h *Handler) ReleaseTestingDone(w http.ResponseWriter, r *http.Request) {
 
 // ReleaseReopenTesting reopens a finished release, making it active again. Admin/dev.
 func (h *Handler) ReleaseReopenTesting(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "qa") {
+		return
+	}
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -8871,6 +8969,9 @@ func (h *Handler) TestCaseDelete(w http.ResponseWriter, r *http.Request) {
 
 // ReleaseSetTestResult records an operator's outcome for one case on a release.
 func (h *Handler) ReleaseSetTestResult(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "qa") {
+		return
+	}
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -9544,6 +9645,9 @@ func (h *Handler) DeploymentDelete(w http.ResponseWriter, r *http.Request) {
 // DeploymentCancel stops an active deployment from reaching devices that
 // haven't started yet (pending → canceled) and flips the update off 'active'.
 func (h *Handler) DeploymentCancel(w http.ResponseWriter, r *http.Request) {
+	if !h.requireFleetAction(w, r, "deploy") {
+		return
+	}
 	relID, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, "Invalid ID", http.StatusBadRequest)
@@ -10810,6 +10914,9 @@ func (h *Handler) DeviceInstallCancel(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	if !h.requireDeviceAction(w, r, "queue", device.ID) {
+		return
+	}
 	r.ParseForm()
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	if apkURL == "" {
@@ -10893,6 +11000,9 @@ func (h *Handler) DeviceQueueRemove(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	if !h.requireDeviceAction(w, r, "queue", device.ID) {
+		return
+	}
 	if err := h.db.CancelDeviceCommand(r.Context(), id, device.ID); err != nil {
 		if err == db.ErrCommandNotTargeted {
 			http.Error(w, "Command does not target device", http.StatusForbidden)
@@ -10921,6 +11031,9 @@ func (h *Handler) DeviceQueueClear(w http.ResponseWriter, r *http.Request) {
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
 		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if !h.requireDeviceAction(w, r, "queue", device.ID) {
 		return
 	}
 	queue, err := h.db.GetDeviceQueue(r.Context(), device.ID)
@@ -11250,6 +11363,16 @@ var commandRoles = map[string][]string{
 	"ota":           {"admin", "dev"},
 	"update_splash": {"admin", "dev"},
 	"logcat":        {"admin", "dev"},
+}
+
+// policyActionForCommand maps a command type to the access-policy action key.
+// Types outside the operator set (shell, ota, …) map to themselves and are never
+// granted to operators by the role allowlist anyway.
+func policyActionForCommand(cmdType string) string {
+	if cmdType == "set_kiosk" {
+		return "kiosk"
+	}
+	return cmdType
 }
 
 // authorizeCommand reports whether role may issue a command of cmdType, per the
@@ -12111,6 +12234,19 @@ func (h *Handler) CommandCreate(w http.ResponseWriter, r *http.Request) {
 		}
 		targetType = "devices"
 		targetIDs = ids
+	}
+	// Per-user access policy: drop the devices this operator may not send this
+	// command to. Nothing left → refuse; some dropped → proceed and say so.
+	if acc := h.access(r); !acc.unrestricted() {
+		kept, dropped := acc.filterDevices(policyActionForCommand(cmdType), targetIDs)
+		if len(kept) == 0 && len(targetIDs) > 0 {
+			http.Error(w, "Your access policy does not allow this command on the selected devices.", http.StatusForbidden)
+			return
+		}
+		if dropped > 0 {
+			log.Printf("[access] %s: %s skipped %d device(s) outside their policy", h.currentUsername(r), cmdType, dropped)
+		}
+		targetIDs = kept
 	}
 
 	// Reject a command that resolves to no devices (e.g. "all" on an empty fleet, or
@@ -14603,6 +14739,9 @@ func (h *Handler) DeviceCommandCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	if !h.requireDeviceAction(w, r, policyActionForCommand(cmdType), device.ID) {
+		return
+	}
 
 	apkURL := strings.TrimSpace(r.FormValue("apk_url"))
 	if cmdType == "install_apk" && apkURL == "" {
@@ -14712,6 +14851,9 @@ func (h *Handler) DeviceNotesUpdate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Device not found", http.StatusNotFound)
 		return
 	}
+	if !h.requireDeviceAction(w, r, "notes", device.ID) {
+		return
+	}
 	r.ParseForm()
 	notes := strings.TrimSpace(r.FormValue("notes"))
 	const maxNotes = 4000
@@ -14742,6 +14884,9 @@ func (h *Handler) DeviceKioskUpdate(w http.ResponseWriter, r *http.Request) {
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
 		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if !h.requireDeviceAction(w, r, "kiosk", device.ID) {
 		return
 	}
 
@@ -14793,6 +14938,9 @@ func (h *Handler) DeviceWlcUpdate(w http.ResponseWriter, r *http.Request) {
 	device, err := h.db.GetDevice(r.Context(), serial)
 	if err != nil {
 		http.Error(w, "Device not found", http.StatusNotFound)
+		return
+	}
+	if !h.requireDeviceAction(w, r, "kiosk", device.ID) {
 		return
 	}
 	enabled := r.FormValue("wlc_charging_enabled") == "1"
@@ -15663,6 +15811,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	post("POST /users/merge", h.requireStrictAdmin(h.UserMergeActor))
 	mux.HandleFunc("GET /profile", h.requireAuth(h.ProfilePage))
 	mux.HandleFunc("GET /users/{id}/profile", h.requireStrictAdmin(h.UserProfilePage))
+	post("POST /users/{id}/access", h.requireStrictAdmin(h.UserSetAccess))
 	mux.HandleFunc("GET /icon/{sha}", h.IconPNG)
 
 	// Command output SSE
