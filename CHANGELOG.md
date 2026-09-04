@@ -24,11 +24,6 @@
   it — a new "By" column in Actions history and a paginated Activity page with filters.
 - The Tester role is now called Operator.
 
-### Kiosk policies
-- Kiosk mode is now a policy: define named policies (locked app, allowed apps) on the
-  new Policies page and apply them to groups or venues from a proper device picker.
-- Enabling kiosk wakes the screen; the kiosk app picker is a compact list.
-
 ### Actions page rebuilt
 - Focused dialogs to pick apps, devices, shell commands and queries.
 - Target starts empty, and sending to the whole fleet asks first.
