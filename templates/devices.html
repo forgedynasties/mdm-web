@@ -175,7 +175,6 @@
     {{if canAdminOrOperator .Role}}
     <button type="button" class="btn-primary" onclick="bulkAction()" style="padding:3px 12px;font-size:12px;"><span class="ui-icon" style="width:12px;height:12px;margin-right:5px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></svg></span>Action</button>
     {{end}}
-    <button type="button" class="btn-outline" onclick="bulkExport()" style="padding:3px 10px;font-size:12px;">Export</button>
   </div>
   <div class="cols-seg" role="group" aria-label="Column layout">
     <button type="button" data-cols="1" onclick="setCols(1)" title="1 column" aria-label="One column"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="1"/></svg></button>
@@ -300,7 +299,7 @@ a.fleet-rail-item{min-height:40px}
     </div>
     <div class="cc-actions fl-actions">
       {{if .MapsEmbedKey}}<button type="button" class="cc-btn" id="fl-map-btn" aria-pressed="false" onclick="flToggleMap()" title="Show the devices in this view on a map"><svg class="i-map" viewBox="0 0 24 24"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg><svg class="i-list" viewBox="0 0 24 24" hidden><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg><span class="lbl">Map view</span></button>{{end}}
-      <button type="button" class="cc-btn" onclick="bulkExport()" title="Export selected devices"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
+      <button type="button" class="cc-btn" id="export-btn" onclick="bulkExport()" disabled title="Select devices to export them"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-4 4 4 5-6"/></svg>Export</button>
       <button type="button" class="cc-btn" onclick="window.mdmRefreshDevices && window.mdmRefreshDevices()" title="Refresh device list"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5"/><path d="M4 4v6h6"/><path d="M20 12a8 8 0 0 1-14 5"/><path d="M20 20v-6h-6"/></svg>Refresh</button>
     </div>
   </div>
@@ -948,6 +947,12 @@ function selectAllMatching() {
 function updateBulkBar() {
   var serials = getSelectedSerials();
   var bar = document.getElementById('bulk-bar');
+  // Export lives in the page header and only makes sense with a selection.
+  var exportBtn = document.getElementById('export-btn');
+  if (exportBtn) {
+    exportBtn.disabled = serials.length === 0;
+    exportBtn.title = serials.length ? 'Export ' + serials.length + ' selected device' + (serials.length === 1 ? '' : 's') : 'Select devices to export them';
+  }
   var count = document.getElementById('bulk-count');
   var allCb = document.getElementById('select-all');
   var allBoxes = document.querySelectorAll('.device-cb');
